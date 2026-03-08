@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from functools import singledispatchmethod
+from functools import singledispatch, singledispatchmethod
 import hashlib
 import json
 import os
@@ -44,6 +44,7 @@ _TRACE_FORMAT_VERSION = 1
 _EQUIVALENCE_FORMAT_VERSION = 1
 _OPPORTUNITY_FORMAT_VERSION = 1
 _STATE_FORMAT_VERSION = 1
+_NONE_TYPE = type(None)
 
 
 @dataclass(frozen=True)
@@ -664,12 +665,72 @@ def _load_trace_payload_for_import(path: Path) -> JSONObject:
     return load_trace_payload(path)
 
 
+@singledispatch
+def _payload_mapping_or_none(value: object) -> Mapping[str, object] | None:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_payload_mapping_or_none.register(dict)
+def _(value: dict[object, object]) -> Mapping[str, object] | None:
+    return value
+
+
+def _mapping_none(value: object) -> Mapping[str, object] | None:
+    _ = value
+    return None
+
+
+for _runtime_type in (list, tuple, set, str, int, float, bool, _NONE_TYPE):
+    _payload_mapping_or_none.register(_runtime_type)(_mapping_none)
+
+
+@singledispatch
+def _parsed_two_cell_witness_or_none(value: object) -> AspfTwoCellWitness | None:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_parsed_two_cell_witness_or_none.register(AspfTwoCellWitness)
+def _(value: AspfTwoCellWitness) -> AspfTwoCellWitness | None:
+    return value
+
+
+@_parsed_two_cell_witness_or_none.register(_NONE_TYPE)
+def _(value: None) -> AspfTwoCellWitness | None:
+    _ = value
+    return None
+
+
+@singledispatch
+def _normalized_two_cell_witnesses_or_empty(value: object) -> list[JSONObject]:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_normalized_two_cell_witnesses_or_empty.register(list)
+def _(value: list[object]) -> list[JSONObject]:
+    return _normalize_two_cell_witness_payloads(value)
+
+
+@_normalized_two_cell_witnesses_or_empty.register(tuple)
+def _(value: tuple[object, ...]) -> list[JSONObject]:
+    return _normalize_two_cell_witness_payloads(value)
+
+
+def _empty_two_cell_witnesses(value: object) -> list[JSONObject]:
+    _ = value
+    return []
+
+
+for _runtime_type in (dict, set, str, int, float, bool, _NONE_TYPE):
+    _normalized_two_cell_witnesses_or_empty.register(_runtime_type)(_empty_two_cell_witnesses)
+
+
 def _normalize_two_cell_witness_payloads(payloads: Sequence[object]) -> list[JSONObject]:
     normalized_witnesses: list[JSONObject] = []
     for payload in payloads:
-        if not isinstance(payload, Mapping):
+        mapping_payload = _payload_mapping_or_none(payload)
+        if mapping_payload is None:
             continue
-        normalized_payload = {str(key): _as_json_value(payload[key]) for key in payload}
+        normalized_payload = {str(key): _as_json_value(mapping_payload[key]) for key in mapping_payload}
         witness_id = str(normalized_payload.get("witness_id", "")).strip()
         left = str(normalized_payload.get("left_representative", "")).strip()
         right = str(normalized_payload.get("right_representative", "")).strip()
@@ -680,8 +741,8 @@ def _normalize_two_cell_witness_payloads(payloads: Sequence[object]) -> list[JSO
             normalized_witnesses.append(normalized_payload)
             continue
 
-        parsed = parse_2cell_witness(cast(Mapping[str, object], normalized_payload))
-        if not isinstance(parsed, AspfTwoCellWitness):
+        parsed = _parsed_two_cell_witness_or_none(parse_2cell_witness(normalized_payload))
+        if parsed is None:
             continue
         normalized_payload["witness_id"] = parsed.witness_id
         normalized_payload["left_representative"] = parsed.left.representative
@@ -695,12 +756,9 @@ def _normalize_legacy_trace_payload(payload: Mapping[str, JSONValue]) -> JSONObj
     normalized_payload.setdefault("surface_representatives", {})
     normalized_payload.setdefault("one_cells", [])
     raw_two_cell_witnesses = normalized_payload.get("two_cell_witnesses", [])
-    if isinstance(raw_two_cell_witnesses, Sequence) and not isinstance(raw_two_cell_witnesses, str):
-        normalized_payload["two_cell_witnesses"] = _normalize_two_cell_witness_payloads(
-            raw_two_cell_witnesses
-        )
-    else:
-        normalized_payload["two_cell_witnesses"] = []
+    normalized_payload["two_cell_witnesses"] = _normalized_two_cell_witnesses_or_empty(
+        raw_two_cell_witnesses
+    )
     normalized_payload.setdefault("cofibration_witnesses", [])
     return normalized_payload
 
@@ -901,15 +959,23 @@ def _register_default_trace_sinks(*, state: AspfExecutionTraceState, root: Path)
     state.event_visitors.append(AspfSinkVisitor(sink=sink))
 
 
+@singledispatch
+def _closed_sink_index(sink: object) -> AspfTraceSinkIndex:
+    never("unregistered runtime type", value_type=type(sink).__name__)
+
+
+@_closed_sink_index.register(AspfJsonlEventSink)
+def _(sink: AspfJsonlEventSink) -> AspfTraceSinkIndex:
+    return sink.build_index()
+
+
 def close_execution_trace_sinks(*, state: AspfExecutionTraceState) -> tuple[AspfTraceSinkIndex, ...]:
     if state.sink_indexes:
         return tuple(state.sink_indexes)
     indexes: list[AspfTraceSinkIndex] = []
     for sink in state.event_sinks:
         sink.close()
-        if not isinstance(sink, AspfJsonlEventSink):
-            never("aspf trace sink must be jsonl", sink_type=type(sink).__name__)
-        indexes.append(sink.build_index())
+        indexes.append(_closed_sink_index(sink))
     state.sink_indexes.extend(indexes)
     return tuple(indexes)
 
@@ -1060,28 +1126,63 @@ def _is_prime(value: int) -> bool:
     return True
 
 
+@singledispatch
 def _as_json_value(value: object) -> JSONValue:
-    if isinstance(value, Mapping):
-        key_pairs = tuple(
-            sort_once(
-                [(str(key), key) for key in value],
-                source="aspf_execution_fibration._as_json_value.mapping_keys",
-                key=lambda pair: pair[0],
-            )
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_as_json_value.register(dict)
+def _(value: dict[object, object]) -> JSONValue:
+    key_pairs = tuple(
+        sort_once(
+            [(str(key), key) for key in value],
+            source="aspf_execution_fibration._as_json_value.mapping_keys",
+            key=lambda pair: pair[0],
         )
-        return {
-            text_key: _as_json_value(value[raw_key])
-            for text_key, raw_key in key_pairs
-        }
-    if isinstance(value, (list, tuple)):
-        return [_as_json_value(item) for item in value]
-    if isinstance(value, set):
-        normalized = [_as_json_value(item) for item in value]
-        return sorted(
-            normalized,
-            key=lambda item: stable_compact_text(item),
-        )
-    return cast(JSONValue, value)
+    )
+    return {text_key: _as_json_value(value[raw_key]) for text_key, raw_key in key_pairs}
+
+
+@_as_json_value.register(list)
+def _(value: list[object]) -> JSONValue:
+    return [_as_json_value(item) for item in value]
+
+
+@_as_json_value.register(tuple)
+def _(value: tuple[object, ...]) -> JSONValue:
+    return [_as_json_value(item) for item in value]
+
+
+@_as_json_value.register(set)
+def _(value: set[object]) -> JSONValue:
+    normalized = [_as_json_value(item) for item in value]
+    return sorted(normalized, key=lambda item: stable_compact_text(item))
+
+
+@_as_json_value.register(str)
+def _(value: str) -> JSONValue:
+    return value
+
+
+@_as_json_value.register(bool)
+def _(value: bool) -> JSONValue:
+    return value
+
+
+@_as_json_value.register(int)
+def _(value: int) -> JSONValue:
+    return value
+
+
+@_as_json_value.register(float)
+def _(value: float) -> JSONValue:
+    return value
+
+
+@_as_json_value.register(_NONE_TYPE)
+def _(value: None) -> JSONValue:
+    _ = value
+    return None
 
 
 def _write_json(path: Path, payload: Mapping[str, object]) -> None:
@@ -1134,6 +1235,37 @@ def _merge_two_cell_payload(
     )
 
 
+@singledispatch
+def _publish_event_to_visitor(event: object, *, visitor: AspfEventVisitor) -> None:
+    _ = visitor
+    never("unregistered runtime type", value_type=type(event).__name__)
+
+
+@_publish_event_to_visitor.register(OneCellRecorded)
+def _(event: OneCellRecorded, *, visitor: AspfEventVisitor) -> None:
+    visitor.visit_one_cell_recorded(event)
+
+
+@_publish_event_to_visitor.register(TwoCellWitnessRecorded)
+def _(event: TwoCellWitnessRecorded, *, visitor: AspfEventVisitor) -> None:
+    visitor.visit_two_cell_witness_recorded(event)
+
+
+@_publish_event_to_visitor.register(CofibrationRecorded)
+def _(event: CofibrationRecorded, *, visitor: AspfEventVisitor) -> None:
+    visitor.visit_cofibration_recorded(event)
+
+
+@_publish_event_to_visitor.register(SemanticSurfaceUpdated)
+def _(event: SemanticSurfaceUpdated, *, visitor: AspfEventVisitor) -> None:
+    visitor.visit_semantic_surface_updated(event)
+
+
+@_publish_event_to_visitor.register(RunFinalized)
+def _(event: RunFinalized, *, visitor: AspfEventVisitor) -> None:
+    visitor.visit_run_finalized(event)
+
+
 def _publish_event(
     state: AspfExecutionTraceState,
     event: (
@@ -1145,16 +1277,7 @@ def _publish_event(
     ),
 ) -> None:
     for visitor in state.event_visitors:
-        if isinstance(event, OneCellRecorded):
-            visitor.visit_one_cell_recorded(event)
-        elif isinstance(event, TwoCellWitnessRecorded):
-            visitor.visit_two_cell_witness_recorded(event)
-        elif isinstance(event, CofibrationRecorded):
-            visitor.visit_cofibration_recorded(event)
-        elif isinstance(event, SemanticSurfaceUpdated):
-            visitor.visit_semantic_surface_updated(event)
-        else:
-            visitor.visit_run_finalized(event)
+        _publish_event_to_visitor(event, visitor=visitor)
 
 
 def _merge_cofibration_payload(
