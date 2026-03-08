@@ -5161,6 +5161,58 @@
         "extract_test_evidence": "pass",
         "test_evidence_drift_check": "pass"
       }
+    },
+    {
+      "cu_id": "CU-D2AB",
+      "summary": "Indexed-scan AST lambda/expression strict dispatch conversion via structural pattern matching.",
+      "timestamp_utc": "2026-03-08T12:58:07Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7109,
+        "defensive_fallback": 132,
+        "fiber_scalar_sentinel_contract": 311,
+        "fiber_type_dispatch_contract": 134,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 14,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7102,
+        "defensive_fallback": 132,
+        "fiber_scalar_sentinel_contract": 311,
+        "fiber_type_dispatch_contract": 126,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 14,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 7724,
+      "total_after": 7709,
+      "notes": [
+        "Removed manual type/type(...) routing from lambda binding and expression evaluation surfaces using structural node-class dispatch patterns.",
+        "Resolved ambiguity-contract fallout by removing sentinel continue control and local union/object annotations.",
+        "Target files reached zero fiber violations: lambda_bindings 5->0 and expression_eval 3->0; global fiber_type_dispatch_contract 134->126 (delta -8)."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_indexed_scan_ast": "pass",
+        "extract_test_evidence": "pass",
+        "test_evidence_drift_check": "pass"
+      }
     }
   ],
   "generated_by": "codex",

@@ -4,7 +4,6 @@ import ast
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import cast
 
 from gabion.analysis.foundation.json_types import JSONValue
 
@@ -52,7 +51,13 @@ def _unknown_value_outcome() -> ValueEvalOutcome:
 
 
 def _is_numeric_value(value: JSONValue) -> bool:
-    return type(value) in {int, float}
+    match value:
+        case bool():
+            return False
+        case int() | float():
+            return True
+        case _:
+            return False
 
 
 def eval_value_expr(
@@ -64,16 +69,23 @@ def eval_value_expr(
     check_deadline_fn()
     match expr:
         case ast.Constant(value=value):
-            if value is None or type(value) in {str, int, float, bool}:
-                return _known_value_outcome(cast(JSONValue, value))
-            return _unknown_value_outcome()
+            match value:
+                case None | str() | int() | float() | bool():
+                    return _known_value_outcome(value)
+                case _:
+                    return _unknown_value_outcome()
         case ast.Name(id=name):
             if name in env:
                 return _known_value_outcome(env[name])
             return _unknown_value_outcome()
         case ast.UnaryOp(op=op, operand=operand):
-            if type(op) not in {ast.USub, ast.UAdd}:
-                return _unknown_value_outcome()
+            match op:
+                case ast.USub():
+                    is_negative = True
+                case ast.UAdd():
+                    is_negative = False
+                case _:
+                    return _unknown_value_outcome()
             value_outcome = eval_value_expr(
                 operand,
                 env,
@@ -81,7 +93,7 @@ def eval_value_expr(
             )
             if value_outcome.is_unknown() or not _is_numeric_value(value_outcome.value):
                 return _unknown_value_outcome()
-            if type(op) is ast.USub:
+            if is_negative:
                 return _known_value_outcome(-value_outcome.value)
             return _known_value_outcome(value_outcome.value)
         case _:
@@ -122,21 +134,21 @@ def _eval_compare(
         return _unknown_bool_outcome()
     left_value = left.value
     right_value = right.value
-    match type(expr.ops[0]):
-        case ast.Eq:
+    match expr.ops[0]:
+        case ast.Eq():
             return _bool_outcome(left_value == right_value)
-        case ast.NotEq:
+        case ast.NotEq():
             return _bool_outcome(left_value != right_value)
-        case ast.Lt:
+        case ast.Lt():
             if _is_numeric_value(left_value) and _is_numeric_value(right_value):
                 return _bool_outcome(left_value < right_value)
-        case ast.LtE:
+        case ast.LtE():
             if _is_numeric_value(left_value) and _is_numeric_value(right_value):
                 return _bool_outcome(left_value <= right_value)
-        case ast.Gt:
+        case ast.Gt():
             if _is_numeric_value(left_value) and _is_numeric_value(right_value):
                 return _bool_outcome(left_value > right_value)
-        case ast.GtE:
+        case ast.GtE():
             if _is_numeric_value(left_value) and _is_numeric_value(right_value):
                 return _bool_outcome(left_value >= right_value)
         case _:
@@ -197,12 +209,14 @@ def branch_reachability_under_env(
     current = parents.get(current_node)
     while current is not None:
         check_deadline_fn()
-        if type(current) is ast.If:
-            if_node = cast(ast.If, current)
-            if node_in_block_fn(current_node, if_node.body):
-                constraints.append((if_node.test, True))
-            elif node_in_block_fn(current_node, if_node.orelse):
-                constraints.append((if_node.test, False))
+        match current:
+            case ast.If() as if_node:
+                if node_in_block_fn(current_node, if_node.body):
+                    constraints.append((if_node.test, True))
+                elif node_in_block_fn(current_node, if_node.orelse):
+                    constraints.append((if_node.test, False))
+            case _:
+                pass
         current_node = current
         current = parents.get(current_node)
 

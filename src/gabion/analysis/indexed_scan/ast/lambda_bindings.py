@@ -51,49 +51,51 @@ def collect_lambda_function_infos(
     lambda_infos: list[object] = []
     for node in ast.walk(tree):
         deps.check_deadline_fn()
-        if type(node) is ast.Lambda:
-            lambda_node = cast(ast.Lambda, node)
-            span = deps.node_span_fn(lambda_node)
-            if span is not None:
-                lexical_scopes = deps.enclosing_function_scopes_fn(lambda_node, parent_map)
-                scopes = deps.enclosing_scopes_fn(lambda_node, parent_map)
-                class_name = deps.enclosing_class_fn(lambda_node, parent_map)
-                synthetic_name = deps.synthetic_lambda_name_fn(
-                    module=module,
-                    lexical_scope=lexical_scopes,
-                    span=span,
-                )
-                qual_parts = [module] if module else []
-                if scopes:
-                    qual_parts.extend(scopes)
-                qual_parts.append(synthetic_name)
-                qual = ".".join(qual_parts)
-                params = [
-                    arg.arg
-                    for arg in (
-                        lambda_node.args.posonlyargs
-                        + lambda_node.args.args
-                        + lambda_node.args.kwonlyargs
+        match node:
+            case ast.Lambda() as lambda_node:
+                span = deps.node_span_fn(lambda_node)
+                if span is not None:
+                    lexical_scopes = deps.enclosing_function_scopes_fn(lambda_node, parent_map)
+                    scopes = deps.enclosing_scopes_fn(lambda_node, parent_map)
+                    class_name = deps.enclosing_class_fn(lambda_node, parent_map)
+                    synthetic_name = deps.synthetic_lambda_name_fn(
+                        module=module,
+                        lexical_scope=lexical_scopes,
+                        span=span,
                     )
-                ]
-                if ignore_params:
-                    params = [name for name in params if name not in ignore_params]
-                lambda_infos.append(
-                    deps.function_info_ctor(
-                        name=synthetic_name,
-                        qual=qual,
-                        path=path,
-                        params=params,
-                        annots={name: None for name in params},
-                        calls=[],
-                        unused_params=set(),
-                        class_name=class_name,
-                        scope=tuple(scopes),
-                        lexical_scope=tuple(lexical_scopes),
-                        positional_params=tuple(params),
-                        function_span=span,
+                    qual_parts = [module] if module else []
+                    if scopes:
+                        qual_parts.extend(scopes)
+                    qual_parts.append(synthetic_name)
+                    qual = ".".join(qual_parts)
+                    params = [
+                        arg.arg
+                        for arg in (
+                            lambda_node.args.posonlyargs
+                            + lambda_node.args.args
+                            + lambda_node.args.kwonlyargs
+                        )
+                    ]
+                    if ignore_params:
+                        params = [name for name in params if name not in ignore_params]
+                    lambda_infos.append(
+                        deps.function_info_ctor(
+                            name=synthetic_name,
+                            qual=qual,
+                            path=path,
+                            params=params,
+                            annots={name: None for name in params},
+                            calls=[],
+                            unused_params=set(),
+                            class_name=class_name,
+                            scope=tuple(scopes),
+                            lexical_scope=tuple(lexical_scopes),
+                            positional_params=tuple(params),
+                            function_span=span,
+                        )
                     )
-                )
+            case _:
+                pass
     return lambda_infos
 
 
@@ -109,38 +111,61 @@ def collect_closure_lambda_factories(
     factories: dict[str, set[str]] = defaultdict(set)
     for node in ast.walk(tree):
         deps.check_deadline_fn()
-        function_node = None
-        node_type = type(node)
-        if node_type is ast.FunctionDef or node_type is ast.AsyncFunctionDef:
-            function_node = cast(ast.FunctionDef | ast.AsyncFunctionDef, node)
-        if function_node is not None:
-            local_bindings: dict[str, set[str]] = {}
-            for statement in function_node.body:
-                deps.check_deadline_fn()
-                statement_type = type(statement)
-                if statement_type is ast.Assign or statement_type is ast.AnnAssign:
-                    assignment = cast(ast.Assign | ast.AnnAssign, statement)
-                    value = assignment.value
-                    if value is not None:
+        match node:
+            case ast.FunctionDef() | ast.AsyncFunctionDef() as function_node:
+                local_bindings: dict[str, set[str]] = {}
+                for statement in function_node.body:
+                    deps.check_deadline_fn()
+                    assignment_targets = []
+                    assignment_value = None
+                    match statement:
+                        case ast.Assign(value=value, targets=targets):
+                            assignment_targets = list(targets)
+                            assignment_value = value
+                        case ast.AnnAssign(value=value, target=target):
+                            assignment_targets = [target]
+                            assignment_value = value
+                        case ast.Return(value=ast.Name(id=return_name)):
+                            returned = local_bindings.get(return_name, set())
+                            if returned:
+                                scopes = deps.enclosing_scopes_fn(function_node, parent_map)
+                                keys = {function_node.name}
+                                if scopes:
+                                    keys.add(deps.function_key_fn(scopes, function_node.name))
+                                qual_parts = [module] if module else []
+                                if scopes:
+                                    qual_parts.extend(scopes)
+                                qual_parts.append(function_node.name)
+                                keys.add(".".join(qual_parts))
+                                for key in keys:
+                                    deps.check_deadline_fn()
+                                    factories[key].update(returned)
+                        case _:
+                            pass
+                    if assignment_value is not None:
                         assigned_quals: set[str] = set()
-                        value_span = deps.node_span_fn(value)
-                        value_type = type(value)
-                        if value_type is ast.Lambda and value_span is not None:
-                            qual = lambda_qual_by_span.get(
-                                cast(tuple[int, int, int, int], value_span)
-                            )
-                            if qual is not None:
-                                assigned_quals.add(qual)
-                        elif value_type is ast.Name:
-                            assigned_quals.update(
-                                local_bindings.get(cast(ast.Name, value).id, set())
-                            )
-                        targets = (
-                            assignment.targets
-                            if type(assignment) is ast.Assign
-                            else [assignment.target]
-                        )
-                        for target in targets:
+                        value_span = deps.node_span_fn(assignment_value)
+                        match assignment_value:
+                            case ast.Lambda():
+                                match value_span:
+                                    case (
+                                        int() as start_line,
+                                        int() as start_column,
+                                        int() as end_line,
+                                        int() as end_column,
+                                    ):
+                                        qual = lambda_qual_by_span.get(
+                                            (start_line, start_column, end_line, end_column)
+                                        )
+                                        if qual is not None:
+                                            assigned_quals.add(qual)
+                                    case _:
+                                        pass
+                            case ast.Name(id=name):
+                                assigned_quals.update(local_bindings.get(name, set()))
+                            case _:
+                                pass
+                        for target in assignment_targets:
                             deps.check_deadline_fn()
                             for name in deps.target_names_fn(target):
                                 deps.check_deadline_fn()
@@ -148,24 +173,8 @@ def collect_closure_lambda_factories(
                                     local_bindings[name] = set(assigned_quals)
                                 else:
                                     local_bindings.pop(name, None)
-                elif statement_type is ast.Return:
-                    return_statement = cast(ast.Return, statement)
-                    return_value = return_statement.value
-                    if type(return_value) is ast.Name:
-                        returned = local_bindings.get(cast(ast.Name, return_value).id, set())
-                        if returned:
-                            scopes = deps.enclosing_scopes_fn(function_node, parent_map)
-                            keys = {function_node.name}
-                            if scopes:
-                                keys.add(deps.function_key_fn(scopes, function_node.name))
-                            qual_parts = [module] if module else []
-                            if scopes:
-                                qual_parts.extend(scopes)
-                            qual_parts.append(function_node.name)
-                            keys.add(".".join(qual_parts))
-                            for key in keys:
-                                deps.check_deadline_fn()
-                                factories[key].update(returned)
+            case _:
+                pass
     return factories
 
 
@@ -200,50 +209,59 @@ def collect_lambda_bindings_by_caller(
     for node in ast.walk(tree):
         deps.check_deadline_fn()
         assignment_node = None
-        node_type = type(node)
-        if node_type is ast.Assign or node_type is ast.AnnAssign:
-            assignment_node = cast(ast.Assign | ast.AnnAssign, node)
-        if assignment_node is not None and assignment_node.value is not None:
+        assignment_targets = []
+        assignment_value = None
+        match node:
+            case ast.Assign(value=value, targets=targets):
+                assignment_node = node
+                assignment_targets = list(targets)
+                assignment_value = value
+            case ast.AnnAssign(value=value, target=target):
+                assignment_node = node
+                assignment_targets = [target]
+                assignment_value = value
+            case _:
+                pass
+        if assignment_node is not None and assignment_value is not None:
             fn_scope = deps.enclosing_scopes_fn(assignment_node, parent_map)
             if fn_scope:
-                targets = (
-                    assignment_node.targets
-                    if type(assignment_node) is ast.Assign
-                    else [assignment_node.target]
-                )
                 qual_parts = [module] if module else []
                 qual_parts.extend(fn_scope)
                 caller_key = ".".join(qual_parts)
-                value = assignment_node.value
 
                 assigned_quals: set[str] = set()
-                value_span = deps.node_span_fn(value)
-                value_type = type(value)
-                if value_type is ast.Lambda and value_span is not None:
-                    qual = lambda_qual_by_span.get(cast(tuple[int, int, int, int], value_span))
-                    if qual is not None:
-                        assigned_quals.add(qual)
-                elif value_type is ast.Name:
-                    assigned_quals.update(
-                        binding_sets.get(caller_key, {}).get(cast(ast.Name, value).id, set())
-                    )
-                elif value_type is ast.Call:
-                    call_value = cast(ast.Call, value)
-                    if type(call_value.func) is ast.Name:
-                        assigned_quals.update(
-                            closure_factories.get(cast(ast.Name, call_value.func).id, set())
-                        )
+                value_span = deps.node_span_fn(assignment_value)
+                match assignment_value:
+                    case ast.Lambda():
+                        match value_span:
+                            case (
+                                int() as start_line,
+                                int() as start_column,
+                                int() as end_line,
+                                int() as end_column,
+                            ):
+                                qual = lambda_qual_by_span.get(
+                                    (start_line, start_column, end_line, end_column)
+                                )
+                                if qual is not None:
+                                    assigned_quals.add(qual)
+                            case _:
+                                pass
+                    case ast.Name(id=name):
+                        assigned_quals.update(binding_sets.get(caller_key, {}).get(name, set()))
+                    case ast.Call(func=ast.Name(id=called_name)):
+                        assigned_quals.update(closure_factories.get(called_name, set()))
+                    case _:
+                        pass
 
-                for target in targets:
+                for target in assignment_targets:
                     deps.check_deadline_fn()
                     target_names = list(deps.target_names_fn(target))
-                    if type(target) is ast.Attribute:
-                        attribute_target = cast(ast.Attribute, target)
-                        target_value = attribute_target.value
-                        if type(target_value) is ast.Name:
-                            target_names.append(
-                                f"{cast(ast.Name, target_value).id}.{attribute_target.attr}"
-                            )
+                    match target:
+                        case ast.Attribute(value=ast.Name(id=target_name), attr=attr):
+                            target_names.append(f"{target_name}.{attr}")
+                        case _:
+                            pass
                     for name in target_names:
                         deps.check_deadline_fn()
                         if assigned_quals:
