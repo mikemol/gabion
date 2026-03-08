@@ -3,7 +3,7 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, cast
+from typing import Callable
 
 from gabion.analysis.foundation.json_types import ParseFailureWitnesses
 from gabion.analysis.indexed_scan.index.analysis_index_stage_cache import (
@@ -52,9 +52,11 @@ def iter_config_fields(
     bundles: dict[str, set[str]] = {}
     for node in ast.walk(module_tree):
         deps.check_deadline_fn()
-        if type(node) is not ast.ClassDef:
-            continue
-        class_node = cast(ast.ClassDef, node)
+        match node:
+            case ast.ClassDef() as class_node:
+                pass
+            case _:
+                continue
         decorators = {getattr(d, "id", None) for d in class_node.decorator_list}
         is_dataclass = "dataclass" in decorators
         is_config = class_node.name.endswith("Config")
@@ -63,19 +65,25 @@ def iter_config_fields(
         fields: set[str] = set()
         for stmt in class_node.body:
             deps.check_deadline_fn()
-            stmt_type = type(stmt)
-            if stmt_type is ast.AnnAssign:
-                ann_stmt = cast(ast.AnnAssign, stmt)
-                raw_name = deps.simple_store_name_fn(ann_stmt.target)
-                if type(raw_name) is str and (is_config or raw_name.endswith("_fn")):
-                    fields.add(raw_name)
-            elif stmt_type is ast.Assign:
-                assign_stmt = cast(ast.Assign, stmt)
-                for target in assign_stmt.targets:
-                    deps.check_deadline_fn()
+            match stmt:
+                case ast.AnnAssign(target=target):
                     raw_name = deps.simple_store_name_fn(target)
-                    if type(raw_name) is str and (is_config or raw_name.endswith("_fn")):
-                        fields.add(raw_name)
+                    match raw_name:
+                        case str() as field_name if is_config or field_name.endswith("_fn"):
+                            fields.add(field_name)
+                        case _:
+                            pass
+                case ast.Assign(targets=targets):
+                    for target in targets:
+                        deps.check_deadline_fn()
+                        raw_name = deps.simple_store_name_fn(target)
+                        match raw_name:
+                            case str() as field_name if is_config or field_name.endswith("_fn"):
+                                fields.add(field_name)
+                            case _:
+                                pass
+                case _:
+                    pass
         if fields:
             bundles[class_node.name] = fields
     return bundles

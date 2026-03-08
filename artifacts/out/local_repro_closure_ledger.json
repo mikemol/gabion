@@ -5317,6 +5317,58 @@
         "extract_test_evidence": "pass",
         "test_evidence_drift_check": "pass"
       }
+    },
+    {
+      "cu_id": "CU-D2AE",
+      "summary": "Strict-dispatch conversion for indexed-scan config/dataclass scanners and obsolescence state parser.",
+      "timestamp_utc": "2026-03-08T13:13:36Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7100,
+        "defensive_fallback": 132,
+        "fiber_scalar_sentinel_contract": 311,
+        "fiber_type_dispatch_contract": 102,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 14,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7098,
+        "defensive_fallback": 131,
+        "fiber_scalar_sentinel_contract": 311,
+        "fiber_type_dispatch_contract": 93,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 14,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 7683,
+      "total_after": 7671,
+      "notes": [
+        "Converted class/assignment/name extraction scanners to structural AST matching instead of type(...) routing.",
+        "Converted test obsolescence state payload parsing mapping/list guards to structural mapping/list matching.",
+        "Target modules reached zero fiber violations: config_fields 3->0, dataclass_registry 3->0, test_obsolescence_state 3->0; global fiber_type_dispatch_contract 102->93 (delta -9)."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_indexed_scan_obsolescence": "pass",
+        "extract_test_evidence": "pass",
+        "test_evidence_drift_check": "pass"
+      }
     }
   ],
   "generated_by": "codex",

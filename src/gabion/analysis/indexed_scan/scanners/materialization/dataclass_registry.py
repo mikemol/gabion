@@ -4,7 +4,6 @@ import ast
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
 
 from gabion.analysis.foundation.json_types import ParseFailureWitnesses
 from gabion.analysis.indexed_scan.index.analysis_index_stage_cache import (
@@ -99,28 +98,36 @@ def dataclass_registry_for_tree(
     module = deps.module_name_fn(path, project_root)
     for node in ast.walk(tree):
         deps.check_deadline_fn()
-        if type(node) is not ast.ClassDef:
-            continue
-        class_node = cast(ast.ClassDef, node)
+        match node:
+            case ast.ClassDef() as class_node:
+                pass
+            case _:
+                continue
         decorators = {deps.decorator_text_fn(dec) for dec in class_node.decorator_list}
         if not any("dataclass" in dec for dec in decorators):
             continue
         fields: list[str] = []
         for stmt in class_node.body:
             deps.check_deadline_fn()
-            stmt_type = type(stmt)
-            if stmt_type is ast.AnnAssign:
-                ann_stmt = cast(ast.AnnAssign, stmt)
-                raw_name = deps.simple_store_name_fn(ann_stmt.target)
-                if type(raw_name) is str:
-                    fields.append(raw_name)
-            elif stmt_type is ast.Assign:
-                assign_stmt = cast(ast.Assign, stmt)
-                for target in assign_stmt.targets:
-                    deps.check_deadline_fn()
+            match stmt:
+                case ast.AnnAssign(target=target):
                     raw_name = deps.simple_store_name_fn(target)
-                    if type(raw_name) is str:
-                        fields.append(raw_name)
+                    match raw_name:
+                        case str() as field_name:
+                            fields.append(field_name)
+                        case _:
+                            pass
+                case ast.Assign(targets=targets):
+                    for target in targets:
+                        deps.check_deadline_fn()
+                        raw_name = deps.simple_store_name_fn(target)
+                        match raw_name:
+                            case str() as field_name:
+                                fields.append(field_name)
+                            case _:
+                                pass
+                case _:
+                    pass
         if not fields:
             continue
         if module:
