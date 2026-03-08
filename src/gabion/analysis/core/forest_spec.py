@@ -413,6 +413,14 @@ def _sorted_strings(values: object) -> list[str]:
     return sort_once(cleaned, source = 'src/gabion/analysis/forest_spec.py:360')
 
 
+def _is_string_value(value: object) -> bool:
+    match value:
+        case str():
+            return True
+        case _:
+            return False
+
+
 def _normalize_value(value: JSONValue) -> JSONValue:
     check_deadline()
     match value:
@@ -422,7 +430,7 @@ def _normalize_value(value: JSONValue) -> JSONValue:
                 for k in sort_once(mapping_value, source = 'src/gabion/analysis/forest_spec.py:366')
             }
         case list() as list_value:
-            all_strings = all(type(entry) is str for entry in list_value)
+            all_strings = all(_is_string_value(entry) for entry in list_value)
             if list_value and all_strings:
                 return _sorted_strings([str(entry) for entry in list_value])
             return [_normalize_value(entry) for entry in list_value]

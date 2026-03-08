@@ -69,13 +69,19 @@ def apply_cli_transport_flags(
     ):
         set_transport_override(None)
         return
-    carrier_text = carrier.strip().lower() if isinstance(carrier, str) and carrier.strip() else None
+    carrier_value = str_or_none(carrier)
+    carrier_text = (
+        carrier_value.strip().lower()
+        if carrier_value is not None and carrier_value.strip()
+        else None
+    )
     carrier_decision = TransportCarrierDecision.from_carrier(carrier_text)
+    override_record_value = str_or_none(override_record_path)
     selection = TransportSelectionDTO(
         carrier=carrier_decision.mode,
         carrier_override_record=(
-            override_record_path.strip()
-            if isinstance(override_record_path, str) and override_record_path.strip()
+            override_record_value.strip()
+            if override_record_value is not None and override_record_value.strip()
             else None
         ),
     )

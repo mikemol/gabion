@@ -90,7 +90,11 @@ class HandoffEventReducer:
         normalized_entries: list[JSONObject] = []
         for raw_entry in entries:
             seq_value = raw_entry.get("sequence")
-            assert isinstance(seq_value, int)
+            match seq_value:
+                case int() as sequence_value:
+                    seq_value = sequence_value
+                case _:
+                    raise AssertionError("manifest sequence must be an int")
             normalized_entry = {str(key): raw_entry[key] for key in raw_entry}
             if seq_value == event.sequence:
                 normalized_entry["status"] = event.status
@@ -249,8 +253,11 @@ def aspf_cli_args(
 def load_manifest(path: Path, *, cache_projection: bool = True) -> JSONObject:
     if path.exists():
         payload = json.loads(path.read_text(encoding="utf-8"))
-        assert isinstance(payload, Mapping)
-        return _project_manifest_payload(payload)
+        match payload:
+            case dict() as payload_mapping:
+                return _project_manifest_payload(payload_mapping)
+            case _:
+                raise AssertionError("manifest payload must decode to a mapping")
     journal_path = _journal_path_for_manifest(path)
     if not journal_path.exists():
         return {}
@@ -332,8 +339,11 @@ def _fold_journal(path: Path) -> JSONObject:
             if not line:
                 continue
             payload = json.loads(line)
-            assert isinstance(payload, Mapping)
-            event = _event_from_payload(payload)
+            match payload:
+                case dict() as payload_mapping:
+                    event = _event_from_payload(payload_mapping)
+                case _:
+                    raise AssertionError("journal line must decode to a mapping")
             if event is None:
                 continue
             state = HandoffEventReducer.apply(state, event)
@@ -360,7 +370,11 @@ def _events_from_manifest_payload(payload: Mapping[str, JSONValue]) -> list[Hand
         if status == "started":
             continue
         sequence = raw_entry.get("sequence")
-        assert isinstance(sequence, int)
+        match sequence:
+            case int() as sequence_value:
+                sequence = sequence_value
+            case _:
+                raise AssertionError("record_step sequence must be an int")
         events.append(
             RecordStepEvent(
                 event="record_step",
@@ -379,13 +393,16 @@ def _event_from_payload(payload: Mapping[str, JSONValue]) -> HandoffEvent | None
     event_name = str(payload.get("event", "")).strip()
     if event_name == "prepare_step":
         raw_entry = payload.get("entry")
-        assert isinstance(raw_entry, Mapping)
-        return PrepareStepEvent(
-            event="prepare_step",
-            session_id=str(payload.get("session_id", "")).strip(),
-            root=str(payload.get("root", "")).strip() or ".",
-            entry={str(key): raw_entry[key] for key in raw_entry},
-        )
+        match raw_entry:
+            case dict() as entry_mapping:
+                return PrepareStepEvent(
+                    event="prepare_step",
+                    session_id=str(payload.get("session_id", "")).strip(),
+                    root=str(payload.get("root", "")).strip() or ".",
+                    entry={str(key): entry_mapping[key] for key in entry_mapping},
+                )
+            case _:
+                raise AssertionError("prepare_step entry must be a mapping")
     if event_name == "record_step":
         return RecordStepEvent(
             event="record_step",
@@ -470,8 +487,20 @@ def _resolve_under_root(*, root: Path, value: Path) -> Path:
 
 def _manifest_entries(payload: Mapping[str, JSONValue]) -> list[JSONObject]:
     entries_raw = payload.get("entries", [])
-    assert isinstance(entries_raw, list)
-    return [{str(key): raw_entry[key] for key in raw_entry} for raw_entry in entries_raw]
+    match entries_raw:
+        case list() as raw_entries:
+            entries: list[JSONObject] = []
+            for raw_entry in raw_entries:
+                match raw_entry:
+                    case dict() as entry_mapping:
+                        entries.append(
+                            {str(key): entry_mapping[key] for key in entry_mapping}
+                        )
+                    case _:
+                        raise AssertionError("manifest entries must be mappings")
+            return entries
+        case _:
+            raise AssertionError("manifest entries must be a list")
 
 
 # gabion:decision_protocol

@@ -59,7 +59,15 @@ def collect_handledness_witnesses(
             raise_node = cast(ast.Raise | ast.Assert, node)
             try_node = find_handling_try_fn(raise_node, context.parents)
             source_kind = "E0"
-            kind = "raise" if type(raise_node) is ast.Raise else "assert"
+            match raise_node:
+                case ast.Raise() as raise_stmt:
+                    kind = "raise"
+                    expr = raise_stmt.exc
+                case ast.Assert() as assert_stmt:
+                    kind = "assert"
+                    expr = assert_stmt.test
+                case _:
+                    raise AssertionError("node must be ast.Raise or ast.Assert")
 
             function, params, param_annotations = enclosing_function_context(
                 raise_node,
@@ -69,12 +77,6 @@ def collect_handledness_witnesses(
                 enclosing_function_node_fn=enclosing_function_node_fn,
                 enclosing_scopes_fn=enclosing_scopes_fn,
                 function_key_fn=function_key_fn,
-            )
-
-            expr = (
-                cast(ast.Raise, raise_node).exc
-                if type(raise_node) is ast.Raise
-                else cast(ast.Assert, raise_node).test
             )
             (
                 exception_name,

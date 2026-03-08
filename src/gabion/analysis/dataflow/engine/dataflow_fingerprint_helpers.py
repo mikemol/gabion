@@ -306,11 +306,13 @@ def _compute_fingerprint_provenance(
                 higher_path_payload = identity_payload.get("witness_carriers", {}).get(
                     "higher_path_witness"
                 )
-                higher_path_witness = (
-                    parse_2cell_witness(higher_path_payload)
-                    if type(higher_path_payload) is dict
-                    else None
-                )
+                match higher_path_payload:
+                    case dict() as higher_path_witness_payload:
+                        higher_path_witness = parse_2cell_witness(
+                            higher_path_witness_payload
+                        )
+                    case _:
+                        higher_path_witness = None
                 drift_classification = classify_drift_by_homotopy(
                     baseline_representative=representative,
                     current_representative=basis_repr,

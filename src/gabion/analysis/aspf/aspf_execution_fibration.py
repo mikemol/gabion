@@ -218,11 +218,12 @@ def record_1cell(
         representative=str(representative),
         basis_path=normalized_basis,
     )
+    metadata_mapping = _payload_mapping_or_none(metadata)
     metadata_payload = (
         _as_json_value(
-            {str(key): metadata[key] for key in metadata}
+            {str(key): metadata_mapping[key] for key in metadata_mapping}
         )
-        if isinstance(metadata, Mapping)
+        if metadata_mapping is not None
         else {}
     )
     _publish_event(
@@ -512,21 +513,30 @@ def finalize_execution_trace(
         state=state,
         equivalence_payload=equivalence_payload,
     )
+    resume_collection_payload = _payload_mapping_or_none(
+        semantic_surface_payloads.get("_resume_collection")
+    )
+    latest_collection_progress_payload = _payload_mapping_or_none(
+        semantic_surface_payloads.get("_latest_collection_progress")
+    )
+    semantic_progress_payload = _payload_mapping_or_none(
+        semantic_surface_payloads.get("_semantic_progress")
+    )
     resume_snapshot: JSONObject = {
         "analysis_state": str(analysis_state) if analysis_state is not None else None,
         "collection_resume": (
-            _as_json_value(semantic_surface_payloads.get("_resume_collection"))
-            if isinstance(semantic_surface_payloads.get("_resume_collection"), Mapping)
+            _as_json_value(resume_collection_payload)
+            if resume_collection_payload is not None
             else {}
         ),
         "latest_collection_progress": (
-            _as_json_value(semantic_surface_payloads.get("_latest_collection_progress"))
-            if isinstance(semantic_surface_payloads.get("_latest_collection_progress"), Mapping)
+            _as_json_value(latest_collection_progress_payload)
+            if latest_collection_progress_payload is not None
             else {}
         ),
         "semantic_progress": (
-            _as_json_value(semantic_surface_payloads.get("_semantic_progress"))
-            if isinstance(semantic_surface_payloads.get("_semantic_progress"), Mapping)
+            _as_json_value(semantic_progress_payload)
+            if semantic_progress_payload is not None
             else {}
         ),
         "semantic_surfaces": {
@@ -765,12 +775,16 @@ def _normalize_legacy_trace_payload(payload: Mapping[str, JSONValue]) -> JSONObj
 
 def _normalize_stream_trace_payload(payload: Mapping[str, JSONValue]) -> JSONObject:
     raw_events = payload.get("events", ())
+    normalized_events = []
+    for event in raw_events:
+        event_mapping = _payload_mapping_or_none(event)
+        if event_mapping is None:
+            continue
+        normalized_events.append(
+            {str(key): _as_json_value(event_mapping[key]) for key in event_mapping}
+        )
     ordered_events = sort_once(
-        [
-            {str(key): _as_json_value(event[key]) for key in event}
-            for event in raw_events
-            if isinstance(event, Mapping)
-        ],
+        normalized_events,
         key=_event_ordering_key,
         source="aspf_execution_fibration._normalize_stream_trace_payload.events",
     )

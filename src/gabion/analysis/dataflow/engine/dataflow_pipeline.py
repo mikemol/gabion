@@ -296,8 +296,8 @@ def _run_forest_phase(
         forest_phase_progress_v2 = _forest_phase_progress_v2()
         raw_primary_done = forest_phase_progress_v2.get("primary_done")
         raw_primary_total = forest_phase_progress_v2.get("primary_total")
-        primary_done = int(raw_primary_done) if type(raw_primary_done) is int else 0
-        primary_total = int(raw_primary_total) if type(raw_primary_total) is int else 0
+        primary_done = int_or_none(raw_primary_done) or 0
+        primary_total = int_or_none(raw_primary_total) or 0
         emit_phase_progress_fn(
             "forest",
             report_carrier=ReportCarrier(

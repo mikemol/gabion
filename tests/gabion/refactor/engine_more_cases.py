@@ -549,7 +549,8 @@ def test_compat_shim_legacy_wrapper_and_callsite_interop(tmp_path: Path) -> None
     assert plan.errors == []
     transformed = plan.edits[0].replacement
     assert "def target(*args, **kwargs):" in transformed
-    assert "if args and isinstance(args[0], Bundle):" in transformed
+    assert "if args:" in transformed
+    assert "case Bundle() as bundle:" in transformed
     assert "bundle = Bundle(*args, **kwargs)" in transformed
     assert "def _target_bundle(bundle: Bundle):" in transformed
     assert "target(Bundle(a = a, b = b))" in transformed

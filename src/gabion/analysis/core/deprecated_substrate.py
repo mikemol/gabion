@@ -146,7 +146,11 @@ def ingest_perf_samples(samples: Sequence[Mapping[str, object]]) -> tuple[PerfSa
         stack = tuple(str(item).strip() for item in stack_sequence if str(item).strip())
         if stack:
             weight_raw = sample.get("weight", 1)
-            weight = int(weight_raw) if type(weight_raw) is int and weight_raw > 0 else 1
+            match weight_raw:
+                case int() as weight_value if weight_value > 0:
+                    weight = int(weight_value)
+                case _:
+                    weight = 1
             parsed.append(PerfSample(stack=stack, weight=weight))
     return tuple(parsed)
 

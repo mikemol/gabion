@@ -11,7 +11,7 @@ from gabion.json_types import JSONObject
 
 from gabion.exceptions import NeverThrown
 from gabion.invariants import never
-from gabion.runtime_shape_dispatch import int_or_none
+from gabion.runtime_shape_dispatch import int_or_none, str_or_none
 
 
 T = TypeVar("T")
@@ -279,7 +279,7 @@ def is_sorted_once_carrier(value: object) -> bool:
 
 def sorted_once_source(value: object) -> str | None:
     raw = getattr(value, "_gabion_sort_source", None)
-    return raw if isinstance(raw, str) else None
+    return str_or_none(raw)
 
 
 def _resolve_policy(
@@ -358,7 +358,7 @@ def order_policy(policy: OrderPolicy | str) -> Iterator[None]:
 @contextmanager
 def canonical_sort_allowlist(*source_prefixes: str) -> Iterator[None]:
     cleaned = frozenset(
-        prefix.strip() for prefix in source_prefixes if isinstance(prefix, str) and prefix.strip()
+        prefix.strip() for prefix in source_prefixes if prefix.strip()
     )
     token = _ORDER_CANONICAL_SOURCE_ALLOWLIST_CONTEXT.set(cleaned)
     try:

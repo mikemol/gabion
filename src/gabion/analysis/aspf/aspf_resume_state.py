@@ -160,8 +160,14 @@ def iter_delta_records_from_jsonl_paths(
                 if not line:
                     continue
                 loaded = json.loads(line)
-                assert isinstance(loaded, Mapping)
-                yield {str(key): _as_json_value(loaded[key]) for key in loaded}
+                match loaded:
+                    case dict() as loaded_mapping:
+                        yield {
+                            str(key): _as_json_value(loaded_mapping[key])
+                            for key in loaded_mapping
+                        }
+                    case _:
+                        raise AssertionError("delta jsonl line must decode to a mapping")
 
 
 def iter_delta_records(
@@ -189,19 +195,38 @@ def load_latest_resume_projection_from_state_files(
     for path in state_paths:
         payload = _load_json(path)
         resume = payload.get("resume_projection")
-        assert isinstance(resume, Mapping)
-        latest_projection = {str(key): _as_json_value(resume[key]) for key in resume}
+        match resume:
+            case dict() as resume_mapping:
+                latest_projection = {
+                    str(key): _as_json_value(resume_mapping[key])
+                    for key in resume_mapping
+                }
+            case _:
+                raise AssertionError("resume_projection must be a mapping")
     return latest_projection
 
 
 def _iter_delta_records_from_state_payload(*, payload: Mapping[str, object]) -> Iterator[JSONObject]:
     ledger = payload.get("delta_ledger")
-    assert isinstance(ledger, Mapping)
-    raw_records = ledger.get("records")
-    assert isinstance(raw_records, list)
-    for raw_record in raw_records:
-        assert isinstance(raw_record, Mapping)
-        yield {str(key): _as_json_value(raw_record[key]) for key in raw_record}
+    match ledger:
+        case dict() as ledger_mapping:
+            raw_records = ledger_mapping.get("records")
+        case _:
+            raise AssertionError("delta_ledger must be a mapping")
+    match raw_records:
+        case list() as raw_record_list:
+            pass
+        case _:
+            raise AssertionError("delta_ledger.records must be a list")
+    for raw_record in raw_record_list:
+        match raw_record:
+            case dict() as raw_record_mapping:
+                yield {
+                    str(key): _as_json_value(raw_record_mapping[key])
+                    for key in raw_record_mapping
+                }
+            case _:
+                raise AssertionError("delta_ledger.records entries must be mappings")
 
 
 def _delta_jsonl_path_for_state_path(path: Path) -> Path:
@@ -212,8 +237,11 @@ def _delta_jsonl_path_for_state_path(path: Path) -> Path:
 
 def _load_json(path: Path) -> JSONObject:
     raw = json.loads(path.read_text(encoding="utf-8"))
-    assert isinstance(raw, Mapping)
-    return {str(key): _as_json_value(raw[key]) for key in raw}
+    match raw:
+        case dict() as mapping:
+            return {str(key): _as_json_value(mapping[key]) for key in mapping}
+        case _:
+            raise AssertionError("state payload must decode to a mapping")
 
 
 def _assign_by_path(

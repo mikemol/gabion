@@ -102,7 +102,11 @@ def load_json(path: Path) -> Mapping[str, object] | None:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return None
-    return payload if isinstance(payload, Mapping) else None
+    match payload:
+        case dict() as mapping_payload:
+            return mapping_payload
+        case _:
+            return None
 
 
 def refresh_test_evidence_index(

@@ -166,8 +166,14 @@ def _select_params_from_map(params_map: Mapping[str, JSONValue]) -> SelectParams
             predicate_values = [value for value in predicate_list]
         case _:
             predicate_values = []
-    names = tuple(name for name in predicate_values if type(name) is str)
-    return SelectParams(predicates=names)
+    names: list[str] = []
+    for name in predicate_values:
+        match name:
+            case str() as predicate_name:
+                names.append(predicate_name)
+            case _:
+                pass
+    return SelectParams(predicates=tuple(names))
 
 
 def _apply_select(

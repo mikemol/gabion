@@ -291,7 +291,11 @@ def _identity_projection_from_json_object(
             for value in atoms_list:
                 check_deadline()
                 match value:
-                    case int() as atom if type(atom) is int and atom > 0:
+                    case bool():
+                        raise CanonicalEventAdaptationError(
+                            "identity basis path atoms must be positive integers."
+                        )
+                    case int() as atom if atom > 0:
                         normalized_atoms.append(atom)
                     case _:
                         raise CanonicalEventAdaptationError(
@@ -349,7 +353,11 @@ def _required_non_negative_int(payload: Mapping[str, JSONValue], key: str) -> in
     check_deadline()
     value = payload.get(key)
     match value:
-        case int() as parsed if type(parsed) is int and parsed >= 0:
+        case bool():
+            raise CanonicalEventAdaptationError(
+                f"canonical event field '{key}' must be a non-negative integer."
+            )
+        case int() as parsed if parsed >= 0:
             return parsed
         case _:
             raise CanonicalEventAdaptationError(
@@ -361,7 +369,11 @@ def _required_positive_int(payload: Mapping[str, JSONValue], key: str) -> int:
     check_deadline()
     value = payload.get(key)
     match value:
-        case int() as parsed if type(parsed) is int and parsed > 0:
+        case bool():
+            raise CanonicalEventAdaptationError(
+                f"canonical event field '{key}' must be a positive integer."
+            )
+        case int() as parsed if parsed > 0:
             return parsed
         case _:
             raise CanonicalEventAdaptationError(

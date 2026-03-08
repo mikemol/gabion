@@ -109,7 +109,11 @@ def emit_dataflow_result_outputs(
         normalized_result = serialize_dataflow_response_fn(normalized_envelope)
         lint_lines = list(canonical.lint_lines)
         lint_entries_raw = normalized_result.get("lint_entries")
-        lint_entries = lint_entries_raw if isinstance(lint_entries_raw, list) else None
+        match lint_entries_raw:
+            case list() as lint_entries_payload:
+                lint_entries = lint_entries_payload
+            case _:
+                lint_entries = None
         emit_lint_outputs_fn(
             lint_lines,
             lint=opts.lint,

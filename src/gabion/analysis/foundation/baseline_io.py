@@ -33,11 +33,11 @@ def parse_version(
     error_context: str = "baseline",
 ) -> int:
     expected_values = sequence_or_none(expected)
-    allowed = (
-        (int(expected),)
-        if type(expected) is int
-        else tuple(int(value) for value in (expected_values or ()))
-    )
+    match expected:
+        case int() as expected_int:
+            allowed = (int(expected_int),)
+        case _:
+            allowed = tuple(int(value) for value in (expected_values or ()))
     if not allowed:
         raise ValueError(
             "parse_version expected requires at least one allowed value"

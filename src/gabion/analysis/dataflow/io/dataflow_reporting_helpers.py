@@ -744,12 +744,18 @@ def runtime_obligation_violation_lines(entries: list[JSONObject]) -> list[str]:
         section_id = entry.get("section_id")
         phase = entry.get("phase")
         detail = str(entry.get("detail", "")).strip()
+        section_text = _str_or_none(section_id)
+        phase_text = _str_or_none(phase)
         section_part = (
-            f" section={section_id}"
-            if type(section_id) is str and section_id
+            f" section={section_text}"
+            if section_text is not None and section_text
             else ""
         )
-        phase_part = f" phase={phase}" if type(phase) is str and phase else ""
+        phase_part = (
+            f" phase={phase_text}"
+            if phase_text is not None and phase_text
+            else ""
+        )
         text = f"{contract} {kind}{section_part}{phase_part}".strip()
         if detail:
             text = f"{text} detail={detail}"

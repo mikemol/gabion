@@ -54,7 +54,11 @@ def _restore_aspf_state_from_github_artifacts(
         typer.echo(f"Unable to query prior artifacts ({exc}); skipping ASPF state restore.")
         return 0
 
-    artifacts = payload.get("artifacts", []) if isinstance(payload, dict) else []
+    match payload:
+        case dict() as payload_mapping:
+            artifacts = payload_mapping.get("artifacts", [])
+        case _:
+            artifacts = []
 
     def _artifact_is_candidate(item: object) -> bool:
         match item:

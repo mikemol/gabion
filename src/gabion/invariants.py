@@ -373,7 +373,11 @@ def deprecated(
 
 def invariant_decorations(target: object) -> tuple[MarkerPayload, ...]:
     raw = getattr(target, _INVARIANT_DECORATIONS_ATTR, ())
-    return raw if isinstance(raw, tuple) else ()
+    match raw:
+        case tuple() as decorations:
+            return decorations
+        case _:
+            return ()
 
 
 def invariant_decorator(

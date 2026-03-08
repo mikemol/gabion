@@ -66,11 +66,13 @@ def accumulate_function_index_for_tree(
         parent_map=parent_map,
         lambda_infos=lambda_infos,
     )
-    lambda_call_nodes = [
-        node
-        for node in ast.walk(tree)
-        if type(node) is ast.Call and type(node.func) is ast.Lambda
-    ]
+    lambda_call_nodes: list[ast.Call] = []
+    for node in ast.walk(tree):
+        match node:
+            case ast.Call(func=ast.Lambda()) as lambda_call:
+                lambda_call_nodes.append(lambda_call)
+            case _:
+                pass
     direct_lambda_callee_by_call_span = deps.direct_lambda_callee_by_call_span_fn(
         lambda_call_nodes,
         lambda_infos=lambda_infos,

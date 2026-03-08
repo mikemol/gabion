@@ -1526,11 +1526,13 @@ def _execute_command_total(
 ) -> DataflowResponseEnvelopeDTO:
     from gabion.server_core.command_orchestrator import execute_command_total
 
-    command_payload = (
-        payload
-        if isinstance(payload, DataflowCommandPayload)
-        else DataflowCommandPayload(payload=_require_payload(payload, command=DATAFLOW_COMMAND))
-    )
+    match payload:
+        case DataflowCommandPayload():
+            command_payload = payload
+        case _:
+            command_payload = DataflowCommandPayload(
+                payload=_require_payload(payload, command=DATAFLOW_COMMAND)
+            )
     return execute_command_total(ls, command_payload.payload, deps=deps)
 
 
@@ -2371,7 +2373,13 @@ def _execute_lsp_parity_gate_total(
         if direct_executor_for_command is None
         else direct_executor_for_command
     )
-    command_payload = payload if isinstance(payload, LspParityGatePayload) else LspParityGatePayload(payload=_require_payload(payload, command=LSP_PARITY_GATE_COMMAND))
+    match payload:
+        case LspParityGatePayload():
+            command_payload = payload
+        case _:
+            command_payload = LspParityGatePayload(
+                payload=_require_payload(payload, command=LSP_PARITY_GATE_COMMAND)
+            )
     root = Path(str(command_payload.payload.get("root") or ls.workspace.root_path or "."))
     selected_commands = list(payload_codec.normalized_command_id_list(command_payload.payload, key="commands"))
     if not selected_commands:
@@ -2477,11 +2485,13 @@ def execute_impact(
 
 
 def _execute_impact_total(ls: LanguageServer, payload: ImpactCommandPayload | Mapping[str, object]) -> dict:
-    command_payload = (
-        payload
-        if isinstance(payload, ImpactCommandPayload)
-        else ImpactCommandPayload(payload=_require_payload(payload, command=IMPACT_COMMAND))
-    )
+    match payload:
+        case ImpactCommandPayload():
+            command_payload = payload
+        case _:
+            command_payload = ImpactCommandPayload(
+                payload=_require_payload(payload, command=IMPACT_COMMAND)
+            )
     with _deadline_scope_from_payload(command_payload):
         try:
             options = _normalize_impact_payload(command_payload.payload, workspace_root=ls.workspace.root_path)

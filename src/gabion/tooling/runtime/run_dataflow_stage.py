@@ -140,11 +140,11 @@ def _metrics_line(deadline_profile_path: Path) -> str:
     checks = payload.get("checks_total", "n/a")
     ticks_per_ns = payload.get("ticks_per_ns", "n/a")
     wall_total_elapsed_ns = payload.get("wall_total_elapsed_ns")
-    wall_s = (
-        f"{wall_total_elapsed_ns / 1_000_000_000:.3f}"
-        if isinstance(wall_total_elapsed_ns, int)
-        else "n/a"
-    )
+    match wall_total_elapsed_ns:
+        case int() as elapsed_ns:
+            wall_s = f"{elapsed_ns / 1_000_000_000:.3f}"
+        case _:
+            wall_s = "n/a"
     return (
         f"ticks={ticks} checks={checks} ticks_per_ns={ticks_per_ns} "
         f"wall_s={wall_s}"
@@ -467,11 +467,13 @@ def _emit_debug_dump(
     monotonic_fn: Callable[[], float] = time.monotonic,
 ) -> None:
     now_wall = monotonic_fn()
-    active_elapsed_s = (
-        f"{max(0.0, now_wall - state.active_stage_started_wall_seconds):.1f}"
-        if isinstance(state.active_stage_started_wall_seconds, float)
-        else "n/a"
-    )
+    match state.active_stage_started_wall_seconds:
+        case float() as active_stage_started_wall_seconds:
+            active_elapsed_s = (
+                f"{max(0.0, now_wall - active_stage_started_wall_seconds):.1f}"
+            )
+        case _:
+            active_elapsed_s = "n/a"
     wall_elapsed_s = max(0.0, now_wall - state.started_wall_seconds)
     stage_id = state.active_stage_id or "none"
     stage_strictness = state.active_stage_strictness or "default"

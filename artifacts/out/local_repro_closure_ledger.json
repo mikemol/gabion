@@ -5525,6 +5525,59 @@
         "extract_test_evidence": "pass",
         "test_evidence_drift_check": "pass"
       }
+    },
+    {
+      "cu_id": "CU-D2AI",
+      "summary": "Batch strictification sweep: replaced residual runtime type guards with structural matching/dispatch helpers across ASPF, projection, runtime, ingest, and CLI helper surfaces.",
+      "timestamp_utc": "2026-03-08T14:25:53Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7099,
+        "defensive_fallback": 134,
+        "fiber_scalar_sentinel_contract": 311,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 14,
+        "runtime_narrowing_boundary": 28,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7123,
+        "defensive_fallback": 134,
+        "fiber_scalar_sentinel_contract": 308,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 15,
+        "runtime_narrowing_boundary": 29,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 7586,
+      "total_after": 7609,
+      "notes": [
+        "Completed ASPF handoff/resume match-pattern stabilization and replay payload normalization without reintroducing fiber_type_dispatch_contract debt.",
+        "Converted remaining direct isinstance/type guards outside policy-rule modules to structural matching or existing runtime-shape dispatch helpers.",
+        "Validated broad targeted suites (597 passed) plus policy/ambiguity/evidence checks; non-target families changed under target-only optimization.",
+        "Updated compat shim guard generation in refactor.engine to match-pattern bundle routing and aligned expectations in refactor engine tests."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_batch": "pass",
+        "extract_test_evidence": "pass",
+        "test_evidence_drift_check": "updated_expected"
+      }
     }
   ],
   "generated_by": "codex",

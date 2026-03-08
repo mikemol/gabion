@@ -180,7 +180,11 @@ def duration_text_from_ticks(*, ticks: int, tick_ns: int) -> str:
 
 
 def apply_cli_timeout_flag(*, timeout: str | None = None) -> None:
-    timeout_text = str(timeout).strip() if isinstance(timeout, str) else ""
+    match timeout:
+        case str() as timeout_value:
+            timeout_text = timeout_value.strip()
+        case _:
+            timeout_text = ""
     if not timeout_text:
         set_lsp_timeout_override(None)
         return
@@ -213,19 +217,31 @@ def apply_cli_timeout_flags(
 
 
 def env_enabled_default_true(name: str, *, value: str | None = None) -> bool:
-    text = value.strip().lower() if isinstance(value, str) else os.getenv(name)
+    match value:
+        case str() as text_value:
+            text = text_value.strip().lower()
+        case _:
+            text = os.getenv(name)
     if text is None:
         return True
     return text.strip().lower() not in _FALSEY_VALUES
 
 
 def env_enabled_truthy_only(name: str, *, value: str | None = None) -> bool:
-    text = value if isinstance(value, str) else os.getenv(name, "")
+    match value:
+        case str() as text_value:
+            text = text_value
+        case _:
+            text = os.getenv(name, "")
     return text.strip().lower() in _TRUTHY_VALUES
 
 
 def env_enabled_flag(name: str, *, value: str | None = None) -> bool:
-    text = value if isinstance(value, str) else os.getenv(name, "")
+    match value:
+        case str() as text_value:
+            text = text_value
+        case _:
+            text = os.getenv(name, "")
     return text.strip().lower() in _TRUTHY_VALUES
 
 

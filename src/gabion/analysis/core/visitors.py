@@ -9,11 +9,19 @@ if TYPE_CHECKING:
 
 
 def _is_ast(node: object, node_type: type[ast.AST]) -> bool:
-    return type(node) is node_type
+    match node:
+        case ast.AST() as ast_node:
+            return ast_node.__class__ is node_type
+        case _:
+            return False
 
 
 def _is_ast_one_of(node: object, node_types: tuple[type[ast.AST], ...]) -> bool:
-    return type(node) in node_types
+    match node:
+        case ast.AST() as ast_node:
+            return ast_node.__class__ in node_types
+        case _:
+            return False
 
 
 class ProjectVisitor(ast.NodeVisitor):

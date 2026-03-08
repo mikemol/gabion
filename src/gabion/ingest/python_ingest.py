@@ -277,7 +277,13 @@ def ingest_python_file(
         fn_calls[caller_key] = resolved_calls
     profile_stage_ns["file_scan.resolve_local_calls"] += time.monotonic_ns() - local_resolve_started_ns
 
-    class_nodes = [node for node in ast.walk(tree) if type(node) is ast.ClassDef]
+    class_nodes: list[ast.ClassDef] = []
+    for node in ast.walk(tree):
+        match node:
+            case ast.ClassDef() as class_node:
+                class_nodes.append(class_node)
+            case _:
+                pass
     class_bases = collect_local_class_bases(class_nodes, parents)
     profile_counters["file_scan.class_bases_count"] = len(class_bases)
     if class_bases:

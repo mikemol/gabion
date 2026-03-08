@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import singledispatch
+from types import MappingProxyType
 from typing import Mapping, cast
 
 from gabion.invariants import never
@@ -163,6 +164,11 @@ def _(value: dict[object, object], *, source: str) -> object:
     return normalized
 
 
+@_canonicalize_value.register(MappingProxyType)
+def _(value: MappingProxyType, *, source: str) -> object:
+    return _canonicalize_value(dict(value), source=source)
+
+
 @_canonicalize_value.register(list)
 def _(value: list[object], *, source: str) -> object:
     if is_sorted_once_carrier(value):
@@ -235,6 +241,11 @@ def _(value: dict[object, object], *, source: str) -> object:
     for key, raw_value in ordered_items:
         normalized[key] = _enforce_ordered_value(raw_value, source=f"{source}.{key}")
     return normalized
+
+
+@_enforce_ordered_value.register(MappingProxyType)
+def _(value: MappingProxyType, *, source: str) -> object:
+    return _enforce_ordered_value(dict(value), source=source)
 
 
 @_enforce_ordered_value.register(list)

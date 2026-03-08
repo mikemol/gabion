@@ -1269,10 +1269,12 @@ class _RefactorTransformer(cst.CSTTransformer):
         impl_call = f"{receiver}.{impl_name}" if receiver else impl_name
         return_prefix = "return await" if is_async else "return"
         guard = (
-            f"if args and isinstance(args[0], {bundle_type}):\n"
-            f"    if len(args) != 1 or kwargs:\n"
-            f"        raise TypeError(\"{public_name}() bundle call expects a single {bundle_type} argument\")\n"
-            f"    {return_prefix} {impl_call}(args[0])\n"
+            "if args:\n"
+            "    match args[0]:\n"
+            f"        case {bundle_type}() as bundle:\n"
+            f"            if len(args) != 1 or kwargs:\n"
+            f"                raise TypeError(\"{public_name}() bundle call expects a single {bundle_type} argument\")\n"
+            f"            {return_prefix} {impl_call}(bundle)\n"
         )
         build = f"bundle = {bundle_type}(*args, **kwargs)"
         tail = f"{return_prefix} {impl_call}(bundle)"

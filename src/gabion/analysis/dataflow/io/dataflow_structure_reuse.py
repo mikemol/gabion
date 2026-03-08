@@ -305,7 +305,11 @@ def compute_structure_reuse(
         hash_value = str(suggestion.get("hash", ""))
         locations = sequence_or_none(suggestion.get("locations")) or ()
         sorted_locations = sort_once(
-            [str(location) for location in locations if type(location) is str],
+            [
+                _string_value(location)
+                for location in locations
+                if _is_string_value(location)
+            ],
             source="dataflow_structure_reuse.compute_structure_reuse.suggested_locations",
         )
         primary_location = sorted_locations[0] if sorted_locations else ""
@@ -428,7 +432,7 @@ def compute_structure_reuse(
                             "witness_ref": str(location),
                         }
                         for location in sequence_or_none(suggestion.get("locations")) or ()
-                        if type(location) is str
+                        if _is_string_value(location)
                     ]
                     suggestion["witness_obligations"].append(
                         {

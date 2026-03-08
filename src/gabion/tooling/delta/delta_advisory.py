@@ -7,7 +7,7 @@ from typing import Callable, Literal, Mapping
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.json_types import JSONValue
 from gabion.order_contract import sort_once
-from gabion.runtime_shape_dispatch import json_list_or_none, json_mapping_or_none
+from gabion.runtime_shape_dispatch import int_or_none, json_list_or_none, json_mapping_or_none
 import json
 
 from gabion.runtime import env_policy, json_io
@@ -65,11 +65,13 @@ def _enabled(env_flag: str) -> bool:
 
 
 def _mapping(value: object) -> Mapping[str, JSONValue]:
-    return value if isinstance(value, Mapping) else {}
+    parsed = json_mapping_or_none(value)
+    return parsed if parsed is not None else {}
 
 
 def _count(value: object) -> int:
-    return int(value) if isinstance(value, int) else 0
+    parsed = int_or_none(value)
+    return parsed if parsed is not None else 0
 
 
 def _metric_entry(
