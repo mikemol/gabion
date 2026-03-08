@@ -9,7 +9,7 @@ from typing import Literal, Mapping
 from gabion.json_types import JSONValue
 from gabion.invariants import never
 from gabion.runtime import path_policy
-from gabion.runtime_shape_dispatch import int_or_none
+from gabion.runtime_shape_dispatch import int_optional
 
 DEFAULT_PHASE_TIMELINE_MD = Path("artifacts/audit_reports/dataflow_phase_timeline.md")
 DEFAULT_PHASE_TIMELINE_JSONL = Path("artifacts/audit_reports/dataflow_phase_timeline.jsonl")
@@ -51,8 +51,8 @@ def is_stdout_target(target: object) -> bool:
 
 
 def deadline_tick_budget_allows_check(clock: object) -> bool:
-    limit = int_or_none(getattr(clock, "limit", None))
-    current = int_or_none(getattr(clock, "current", None))
+    limit = int_optional(getattr(clock, "limit", None))
+    current = int_optional(getattr(clock, "current", None))
     if limit is not None and current is not None:
         return (limit - current) > 1
     return True

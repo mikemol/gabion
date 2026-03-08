@@ -16,6 +16,7 @@ from gabion.order_contract import sort_once
 
 EVIDENCE_TAG = "gabion:evidence"
 _TAG_RE = re.compile(r"#\s*gabion:evidence\s+(?P<ids>.+)")
+_BEHAVIOR_TAG_RE = re.compile(r"#\s*gabion:behavior\b")
 _LEGACY_TEST_ID_RE = re.compile(r"(?P<path>tests/test_[A-Za-z0-9_]+\.py)::")
 _QUALNAME_COMPAT_REWRITE = ("legacy_dataflow_monolith", "dataflow_audit")
 _LEGACY_PATH_ALIAS = {
@@ -299,7 +300,13 @@ def _find_evidence_tags(
             idx -= 1
             continue
         if stripped.startswith("#"):
-            return comment_map.get(idx, [])
+            if _BEHAVIOR_TAG_RE.match(stripped):
+                idx -= 1
+                continue
+            evidence = comment_map.get(idx, [])
+            if evidence:
+                return evidence
+            return []
         break
     return []
 

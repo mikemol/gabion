@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from collections.abc import Mapping
 from typing import Protocol
 
-from gabion.analysis.foundation.resume_codec import mapping_or_none
+from gabion.analysis.foundation.resume_codec import mapping_optional
 
 
 class AspfZeroCell(Protocol):
@@ -166,8 +166,8 @@ def parse_2cell_witness(payload: Mapping[str, object]) -> object:
         ),
     )
     right_outcome = left_outcome
-    left_outcome = _decode_1cell(mapping_or_none(left_payload) or {})
-    right_outcome = _decode_1cell(mapping_or_none(right_payload) or {})
+    left_outcome = _decode_1cell(mapping_optional(left_payload) or {})
+    right_outcome = _decode_1cell(mapping_optional(right_payload) or {})
 
     match (witness_id_raw, reason_raw):
         case (str() as witness_id, str() as reason):

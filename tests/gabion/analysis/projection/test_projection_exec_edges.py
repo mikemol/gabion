@@ -7,6 +7,7 @@ from gabion.analysis.projection.projection_spec import ProjectionOp, ProjectionS
 
 
 # gabion:evidence E:function_site::projection_spec.py::gabion.analysis.projection_spec.spec_from_dict
+# gabion:behavior primary=verboten facets=edge,invalid
 def test_spec_from_dict_handles_invalid_entries() -> None:
     payload = {
         "spec_version": "bad",
@@ -28,6 +29,7 @@ def test_spec_from_dict_handles_invalid_entries() -> None:
 
 
 # gabion:evidence E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize._normalize_fields::value E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize._normalize_limit::value E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize._normalize_sort_by::value E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize._normalize_value::value E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize._normalize_fields::stale_53512762626b
+# gabion:behavior primary=verboten facets=edge,empty
 def test_normalize_pipeline_skips_empty_and_unknown_ops() -> None:
     pipeline = (
         ProjectionOp("select", {"predicates": [" "]}),
@@ -44,6 +46,7 @@ def test_normalize_pipeline_skips_empty_and_unknown_ops() -> None:
 
 
 # gabion:evidence E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize._normalize_fields::value E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize._normalize_limit::value E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize._normalize_sort_by::value E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize._normalize_value::value E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize._normalize_fields::stale_2cb8e760719e_6a522c1d
+# gabion:behavior primary=verboten facets=edge
 def test_normalize_helpers_cover_branches() -> None:
     preds = _extract_predicates({"predicate": "one", "predicates": ["two", " "]})
     assert preds == ["one", "two", ""]
@@ -78,6 +81,7 @@ def test_normalize_helpers_cover_branches() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_projection_exec_edges.py::test_normalize_pipeline_stable_under_shuffled_upstream_order::projection_normalize.py::gabion.analysis.projection_normalize._normalize_pipeline
+# gabion:behavior primary=verboten facets=edge
 def test_normalize_pipeline_stable_under_shuffled_upstream_order() -> None:
     pipeline_a = (
         ProjectionOp("select", {"predicates": ["beta", "alpha", "beta"]}),
@@ -92,6 +96,7 @@ def test_normalize_pipeline_stable_under_shuffled_upstream_order() -> None:
 
 
 # gabion:evidence E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec.apply_spec::params_override E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::value E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::stale_1581b2052cbd
+# gabion:behavior primary=verboten facets=edge,invalid
 def test_apply_spec_with_custom_normalizer_handles_invalid_ops() -> None:
     rows = [
         {"group": ["a"], "value": 1},
@@ -129,6 +134,7 @@ def test_apply_spec_with_custom_normalizer_handles_invalid_ops() -> None:
 
 
 # gabion:evidence E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::value E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::stale_f5d27306e19e
+# gabion:behavior primary=verboten facets=edge
 def test_sort_value_and_hashable_helpers() -> None:
     assert _sort_value(None) == (1, "")
     assert _sort_value(3) == (0, 3)
@@ -138,6 +144,7 @@ def test_sort_value_and_hashable_helpers() -> None:
 
 
 # gabion:evidence E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec.apply_spec::params_override E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::value E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::stale_bab431281bf2
+# gabion:behavior primary=verboten facets=edge
 def test_apply_spec_count_by_and_sort_edges() -> None:
     rows = [{"group": "a"}, {"group": "b"}]
 
@@ -159,6 +166,7 @@ def test_apply_spec_count_by_and_sort_edges() -> None:
 
 
 # gabion:evidence E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec.apply_spec::params_override E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec.apply_spec::stale_e87e1ec18193
+# gabion:behavior primary=verboten facets=edge
 def test_apply_spec_traverse_flattens_sequences() -> None:
     rows = [
         {
@@ -190,6 +198,7 @@ def test_apply_spec_traverse_flattens_sequences() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_projection_exec_edges.py::test_apply_spec_traverse_as_field_and_keep::projection_exec.py::gabion.analysis.projection_exec.apply_spec
+# gabion:behavior primary=verboten facets=edge
 def test_apply_spec_traverse_as_field_and_keep() -> None:
     rows = [
         {
@@ -221,6 +230,7 @@ def test_apply_spec_traverse_as_field_and_keep() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_projection_exec_edges.py::test_apply_spec_traverse_handles_invalid_params::projection_exec.py::gabion.analysis.projection_exec.apply_spec
+# gabion:behavior primary=verboten facets=edge,invalid
 def test_apply_spec_traverse_handles_invalid_params() -> None:
     rows = [
         {"items": [{"a": 1}, {1: "b"}], "other": 3},
@@ -252,6 +262,7 @@ def test_apply_spec_traverse_handles_invalid_params() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_projection_exec_edges.py::test_apply_spec_traverse_skips_when_field_invalid::projection_exec.py::gabion.analysis.projection_exec.apply_spec
+# gabion:behavior primary=verboten facets=edge,invalid
 def test_apply_spec_traverse_skips_when_field_invalid() -> None:
     rows = [{"items": [1, 2, 3]}]
     spec = ProjectionSpec(

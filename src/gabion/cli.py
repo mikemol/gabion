@@ -705,23 +705,23 @@ def _none_optional_int(value: object) -> int | None:
 
 
 @singledispatch
-def _int_or_none(value: object) -> int | None:
+def _int_optional(value: object) -> int | None:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
-@_int_or_none.register
+@_int_optional.register
 def _(value: int) -> int | None:
     return value
 
 
-@_int_or_none.register
+@_int_optional.register
 def _(value: bool) -> int | None:
     _ = value
     return None
 
 
 for _runtime_type in (str, float, complex, bytes, dict, list, tuple, set, frozenset, type(None)):
-    _int_or_none.register(_runtime_type)(_none_optional_int)
+    _int_optional.register(_runtime_type)(_none_optional_int)
 
 
 def _none_optional_str(value: object) -> str | None:
@@ -730,17 +730,17 @@ def _none_optional_str(value: object) -> str | None:
 
 
 @singledispatch
-def _str_or_none(value: object) -> str | None:
+def _str_optional(value: object) -> str | None:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
-@_str_or_none.register
+@_str_optional.register
 def _(value: str) -> str | None:
     return value
 
 
 for _runtime_type in (int, float, bool, complex, bytes, dict, list, tuple, set, frozenset, type(None)):
-    _str_or_none.register(_runtime_type)(_none_optional_str)
+    _str_optional.register(_runtime_type)(_none_optional_str)
 
 
 def _none_optional_mapping(value: object) -> Mapping[str, object] | None:
@@ -749,17 +749,17 @@ def _none_optional_mapping(value: object) -> Mapping[str, object] | None:
 
 
 @singledispatch
-def _mapping_or_none(value: object) -> Mapping[str, object] | None:
+def _mapping_optional(value: object) -> Mapping[str, object] | None:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
-@_mapping_or_none.register
+@_mapping_optional.register
 def _(value: dict) -> Mapping[str, object] | None:
     return value
 
 
 for _runtime_type in (str, int, float, bool, complex, bytes, list, tuple, set, frozenset, type(None)):
-    _mapping_or_none.register(_runtime_type)(_none_optional_mapping)
+    _mapping_optional.register(_runtime_type)(_none_optional_mapping)
 
 
 def _none_optional_json_object(value: object) -> JSONObject | None:
@@ -768,17 +768,17 @@ def _none_optional_json_object(value: object) -> JSONObject | None:
 
 
 @singledispatch
-def _json_object_or_none(value: object) -> JSONObject | None:
+def _json_object_optional(value: object) -> JSONObject | None:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
-@_json_object_or_none.register
+@_json_object_optional.register
 def _(value: dict) -> JSONObject | None:
     return cast(JSONObject, value)
 
 
 for _runtime_type in (str, int, float, bool, complex, bytes, list, tuple, set, frozenset, type(None)):
-    _json_object_or_none.register(_runtime_type)(_none_optional_json_object)
+    _json_object_optional.register(_runtime_type)(_none_optional_json_object)
 
 
 def _emit_resume_state_startup_line(
@@ -789,8 +789,8 @@ def _emit_resume_state_startup_line(
     total_files: int | None,
 ) -> None:
     reused_display = "unknown"
-    reused_value = _int_or_none(reused_files)
-    total_value = _int_or_none(total_files)
+    reused_value = _int_optional(reused_files)
+    total_value = _int_optional(total_files)
     if reused_value is not None and total_value is not None:
         reused_display = f"{reused_value}/{total_value}"
     typer.echo(
@@ -831,7 +831,7 @@ def _phase_progress_from_progress_notification(
     notification: Mapping[str, JSONValue],
 ) -> JSONObject | None:
     payload = progress_timeline.phase_progress_from_progress_notification(notification)
-    payload_mapping = _mapping_or_none(payload)
+    payload_mapping = _mapping_optional(payload)
     if payload_mapping is not None:
         return {str(key): payload_mapping[key] for key in payload_mapping}
     return None
@@ -854,13 +854,13 @@ def _emit_phase_progress_line(phase_progress: Mapping[str, JSONValue]) -> None:
         fragments.append(f"analysis_state={analysis_state}")
     if classification:
         fragments.append(f"classification={classification}")
-    work_done_value = _int_or_none(work_done)
-    work_total_value = _int_or_none(work_total)
+    work_done_value = _int_optional(work_done)
+    work_total_value = _int_optional(work_total)
     if work_done_value is not None and work_total_value is not None:
         fragments.append(f"work={work_done_value}/{work_total_value}")
-    completed_files_value = _int_or_none(completed_files)
-    remaining_files_value = _int_or_none(remaining_files)
-    total_files_value = _int_or_none(total_files)
+    completed_files_value = _int_optional(completed_files)
+    remaining_files_value = _int_optional(remaining_files)
+    total_files_value = _int_optional(total_files)
     if (
         completed_files_value is not None
         and remaining_files_value is not None
@@ -874,7 +874,7 @@ def _emit_phase_progress_line(phase_progress: Mapping[str, JSONValue]) -> None:
 
 
 def _emit_phase_timeline_progress(*, header: str | None, row: str) -> None:
-    header_text = _str_or_none(header)
+    header_text = _str_optional(header)
     if header_text:
         typer.echo(header_text)
     typer.echo(row)
@@ -924,12 +924,12 @@ def _run_dataflow_raw_argv(
         nonlocal timeline_header_emitted
         nonlocal last_phase_progress_signature
         nonlocal last_phase_event_seq
-        phase_progress = _mapping_or_none(
+        phase_progress = _mapping_optional(
             phase_progress_from_progress_notification_fn(notification)
         )
         if phase_progress is None:
             return
-        event_seq = _int_or_none(phase_progress.get("event_seq"))
+        event_seq = _int_optional(phase_progress.get("event_seq"))
         if event_seq is not None:
             if last_phase_event_seq == event_seq:
                 return
@@ -940,7 +940,7 @@ def _run_dataflow_raw_argv(
         last_phase_progress_signature = signature
         timeline_update = phase_timeline_from_phase_progress_fn(phase_progress)
         row = str(timeline_update.get("row") or "")
-        header_value = _str_or_none(timeline_update.get("header"))
+        header_value = _str_optional(timeline_update.get("header"))
         header = (
             header_value if not timeline_header_emitted and header_value else None
         )
@@ -1464,7 +1464,7 @@ def _run_synthesis_plan(
             loaded = json.loads(input_path.read_text())
         except json.JSONDecodeError as exc:
             raise typer.BadParameter(f"Invalid JSON payload: {exc}") from exc
-        loaded_object = _json_object_or_none(loaded)
+        loaded_object = _json_object_optional(loaded)
         if loaded_object is None:
             raise typer.BadParameter("Synthesis payload must be a JSON object.")
         payload = loaded_object

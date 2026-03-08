@@ -8,6 +8,7 @@ from gabion.tooling.governance import governance_rules
 
 
 # gabion:evidence E:function_site::tests/test_governance_rules_policy.py::test_governance_rules_define_required_gates
+# gabion:behavior primary=desired
 def test_governance_rules_define_required_gates() -> None:
     rules = governance_rules.load_governance_rules()
     assert {"obsolescence_opaque", "obsolescence_unmapped", "annotation_orphaned", "ambiguity", "docflow"}.issubset(rules.gates)
@@ -15,6 +16,7 @@ def test_governance_rules_define_required_gates() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_governance_rules_policy.py::test_governance_severity_thresholds_are_monotonic
+# gabion:behavior primary=desired
 def test_governance_severity_thresholds_are_monotonic() -> None:
     rules = governance_rules.load_governance_rules()
     for policy in rules.gates.values():
@@ -24,6 +26,7 @@ def test_governance_severity_thresholds_are_monotonic() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_governance_rules_policy.py::test_governance_rules_validation_failures::governance_rules.py::gabion.tooling.governance_rules._tuple_path::governance_rules.py::gabion.tooling.governance_rules._as_int::governance_rules.py::gabion.tooling.governance_rules._gate_from_mapping::governance_rules.py::gabion.tooling.governance_rules.load_governance_rules
+# gabion:behavior primary=desired
 def test_governance_rules_validation_failures(tmp_path: Path) -> None:
     with pytest.raises(ValueError):
         governance_rules._tuple_path("bad", field_name="field")
@@ -113,6 +116,7 @@ controller_drift:
 
 
 # gabion:evidence E:call_footprint::tests/test_governance_rules_policy.py::test_governance_rules_loader_none_and_gate_filtering::governance_rules.py::gabion.tooling.governance_rules._load_yaml_module::governance_rules.py::gabion.tooling.governance_rules.load_governance_rules
+# gabion:behavior primary=verboten facets=none
 def test_governance_rules_loader_none_and_gate_filtering(
     tmp_path: Path,
 ) -> None:
@@ -203,6 +207,7 @@ command_policies: []
 
 
 # gabion:evidence E:function_site::test_governance_rules_policy.py::tests.test_governance_rules_policy.test_governance_rules_as_bool_branches
+# gabion:behavior primary=desired
 def test_governance_rules_as_bool_branches() -> None:
     assert governance_rules._as_bool(True, field_name="f") is True
     assert governance_rules._as_bool(False, field_name="f") is False

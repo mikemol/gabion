@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from gabion.analysis.foundation.json_types import JSONObject
-from gabion.analysis.foundation.resume_codec import mapping_or_none, sequence_or_none
+from gabion.analysis.foundation.resume_codec import mapping_optional, sequence_optional
 from gabion.order_contract import sort_once
 
 
@@ -105,7 +105,7 @@ def rewrite_plan_kind_sort_key(kind: str) -> int:
 
 
 def _missing_keys(container: object, required: tuple[str, ...]) -> list[str]:
-    container_map = mapping_or_none(container)
+    container_map = mapping_optional(container)
     if container_map is None:
         return list(required)
     missing: list[str] = []
@@ -117,7 +117,7 @@ def _missing_keys(container: object, required: tuple[str, ...]) -> list[str]:
 
 
 def validate_rewrite_plan_payload(plan: JSONObject) -> list[str]:
-    rewrite = mapping_or_none(plan.get("rewrite"))
+    rewrite = mapping_optional(plan.get("rewrite"))
     if rewrite is None:
         return ["missing rewrite payload"]
     kind = str(rewrite.get("kind", ""))
@@ -137,13 +137,13 @@ def validate_rewrite_plan_payload(plan: JSONObject) -> list[str]:
     if missing_evidence:
         issues.append(f"missing evidence refs: {', '.join(missing_evidence)}")
 
-    verification = mapping_or_none(plan.get("verification"))
+    verification = mapping_optional(plan.get("verification"))
     predicates = []
     if verification is not None:
-        predicate_list = sequence_or_none(verification.get("predicates"))
+        predicate_list = sequence_optional(verification.get("predicates"))
         if predicate_list is not None:
             predicates = [
-                str((mapping_or_none(predicate) or {}).get("kind", ""))
+                str((mapping_optional(predicate) or {}).get("kind", ""))
                 for predicate in predicate_list
             ]
     for required in schema.required_predicates:
@@ -167,7 +167,7 @@ def normalize_rewrite_plan_order(plans: list[JSONObject]) -> list[JSONObject]:
 
 
 def attach_plan_schema(plan: JSONObject) -> JSONObject:
-    rewrite = mapping_or_none(plan.get("rewrite"))
+    rewrite = mapping_optional(plan.get("rewrite"))
     if rewrite is None:
         return plan
     schema_lookup = rewrite_plan_schema(str(rewrite.get("kind", "")))

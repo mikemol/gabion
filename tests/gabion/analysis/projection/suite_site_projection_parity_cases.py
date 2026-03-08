@@ -11,6 +11,7 @@ from gabion.analysis.dataflow.engine.dataflow_pipeline import analyze_paths as _
 
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._analyze_decision_surface_indexed
+# gabion:behavior primary=desired
 def test_decision_surface_function_projection_parity_from_suite_sites(tmp_path: Path) -> None:
     path = tmp_path / "mod.py"
     path.write_text(
@@ -52,6 +53,7 @@ def test_decision_surface_function_projection_parity_from_suite_sites(tmp_path: 
 
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_never_invariants
+# gabion:behavior primary=verboten facets=never
 def test_never_invariant_function_projection_parity_from_suite_sites(tmp_path: Path) -> None:
     path = tmp_path / "never_case.py"
     path.write_text(

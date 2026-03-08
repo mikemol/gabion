@@ -139,6 +139,7 @@ def _analysis_context(
 
 
 # gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._emit_annotation_drift_outputs
+# gabion:behavior primary=verboten facets=drift,edge
 def test_emit_annotation_drift_outputs_emit_only_path_skips_delta_block(
     tmp_path: Path,
 ) -> None:
@@ -160,6 +161,7 @@ def test_emit_annotation_drift_outputs_emit_only_path_skips_delta_block(
 
 
 # gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._emit_primary_outputs
+# gabion:behavior primary=verboten facets=edge
 def test_emit_primary_outputs_synthesis_report_without_plan_path(
     tmp_path: Path,
 ) -> None:
@@ -193,6 +195,7 @@ def test_emit_primary_outputs_synthesis_report_without_plan_path(
 
 
 # gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._finalize_report_and_violations E:decision_surface/direct::command_orchestrator.py::gabion.server_core.command_orchestrator._finalize_report_and_violations::stale_f2f5df7d0b69_366adc93
+# gabion:behavior primary=verboten facets=edge
 def test_finalize_report_refactor_enabled_without_payload_keeps_report_stable(
     tmp_path: Path,
 ) -> None:
@@ -232,6 +235,7 @@ def test_finalize_report_refactor_enabled_without_payload_keeps_report_stable(
 
 
 # gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._load_timeout_resume_progress E:decision_surface/direct::command_orchestrator.py::gabion.server_core.command_orchestrator._load_timeout_resume_progress::stale_a34f1f47eb2e
+# gabion:behavior primary=verboten facets=edge,timeout
 def test_load_timeout_resume_progress_uses_manifest_resume_pair(
     tmp_path: Path,
 ) -> None:
@@ -263,6 +267,7 @@ def test_load_timeout_resume_progress_uses_manifest_resume_pair(
 
 
 # gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._load_timeout_resume_progress E:decision_surface/direct::command_orchestrator.py::gabion.server_core.command_orchestrator._load_timeout_resume_progress::stale_c63e5782a009_20498f3c
+# gabion:behavior primary=verboten facets=edge,none,timeout
 def test_load_timeout_resume_progress_manifest_loader_none_keeps_previous_payload(
     tmp_path: Path,
 ) -> None:
@@ -281,6 +286,7 @@ def test_load_timeout_resume_progress_manifest_loader_none_keeps_previous_payloa
 
 
 # gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._finalize_report_and_violations E:decision_surface/direct::command_orchestrator.py::gabion.server_core.command_orchestrator._finalize_report_and_violations::stale_951f0c40d59e
+# gabion:behavior primary=verboten facets=edge
 def test_finalize_report_without_report_path_applies_baseline(tmp_path: Path) -> None:
     orchestrator._bind_server_symbols()
     baseline_path = tmp_path / "baseline.txt"
@@ -322,6 +328,7 @@ def test_finalize_report_without_report_path_applies_baseline(tmp_path: Path) ->
 
 
 # gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._notification_runtime
+# gabion:behavior primary=verboten facets=edge
 def test_notification_runtime_rejects_non_callable_sender() -> None:
     orchestrator._bind_server_symbols()
     with pytest.raises(NeverThrown):
@@ -329,6 +336,7 @@ def test_notification_runtime_rejects_non_callable_sender() -> None:
 
 
 # gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._render_timeout_partial_report
+# gabion:behavior primary=verboten facets=edge,timeout
 def test_render_timeout_partial_report_handles_non_callable_cache_loader(
     tmp_path: Path,
 ) -> None:
@@ -382,6 +390,7 @@ def test_render_timeout_partial_report_handles_non_callable_cache_loader(
 
 
 # gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._prepare_analysis_resume_state
+# gabion:behavior primary=verboten facets=edge
 def test_prepare_analysis_resume_state_skips_intro_timeline_when_disabled(
     tmp_path: Path,
 ) -> None:
@@ -433,6 +442,7 @@ def test_prepare_analysis_resume_state_skips_intro_timeline_when_disabled(
 
 
 # gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._run_analysis_with_progress
+# gabion:behavior primary=verboten facets=edge
 def test_run_analysis_with_progress_skips_checkpoint_serialized_event_when_timeline_disabled(
     tmp_path: Path,
 ) -> None:
@@ -473,6 +483,7 @@ def test_run_analysis_with_progress_skips_checkpoint_serialized_event_when_timel
 
 
 # gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._persist_timeout_resume_state
+# gabion:behavior primary=verboten facets=edge,timeout
 def test_persist_timeout_resume_state_skips_checkpoint_event_when_timeline_disabled(
     tmp_path: Path,
 ) -> None:
@@ -500,6 +511,7 @@ def test_persist_timeout_resume_state_skips_checkpoint_event_when_timeline_disab
 
 
 # gabion:evidence E:function_site::tests/test_server_core_orchestrator_edges.py::test_emit_primary_outputs_writes_synthesis_protocols_to_response_for_stdout
+# gabion:behavior primary=verboten facets=edge
 def test_emit_primary_outputs_writes_synthesis_protocols_to_response_for_stdout(
     tmp_path: Path,
 ) -> None:
@@ -532,6 +544,7 @@ def test_emit_primary_outputs_writes_synthesis_protocols_to_response_for_stdout(
     assert isinstance(response.get("synthesis_protocols"), str)
 
 # gabion:evidence E:function_site::tests/test_server_core_orchestrator_edges.py::test_parse_execution_payload_options_aux_operation_domain_routing
+# gabion:behavior primary=verboten facets=edge
 @pytest.mark.parametrize(
     ("domain", "action", "baseline", "state_in"),
     [
@@ -580,6 +593,7 @@ def test_parse_execution_payload_options_aux_operation_domain_routing(
 
 
 # gabion:evidence E:function_site::tests/test_server_core_orchestrator_edges.py::test_parse_execution_payload_options_aux_operation_invalid_paths_raise
+# gabion:behavior primary=verboten facets=edge,invalid,raises
 def test_parse_execution_payload_options_aux_operation_invalid_paths_raise() -> None:
     orchestrator._bind_server_symbols()
     with pytest.raises(NeverThrown):
@@ -600,6 +614,7 @@ def test_parse_execution_payload_options_aux_operation_invalid_paths_raise() -> 
         )
 
 
+# gabion:behavior primary=verboten facets=edge
 def test_core_orchestrator_entrypoints_use_dict_payload_carriers() -> None:
     execute_payload_ann = inspect.signature(orchestrator.execute_command_total).parameters[
         "payload"
@@ -620,6 +635,7 @@ def test_core_orchestrator_entrypoints_use_dict_payload_carriers() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_server_core_orchestrator_edges.py::test_emit_test_obsolescence_outputs_ignores_non_mapping_active_summary
+# gabion:behavior primary=verboten facets=edge
 def test_emit_test_obsolescence_outputs_ignores_non_mapping_active_summary(
     tmp_path: Path,
 ) -> None:

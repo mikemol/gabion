@@ -6,6 +6,7 @@ from gabion import config
 
 
 # gabion:evidence E:function_site::config.py::gabion.config._load_toml
+# gabion:behavior primary=verboten facets=edge,invalid,missing
 def test_load_toml_missing_and_invalid(tmp_path: Path) -> None:
     missing = tmp_path / "missing.toml"
     assert config._load_toml(missing) == {}
@@ -18,6 +19,7 @@ def test_load_toml_missing_and_invalid(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:decision_surface/direct::config.py::gabion.config.load_config::config_path,root E:decision_surface/direct::config.py::gabion.config.load_config::stale_ecc6ed5f8589
+# gabion:behavior primary=verboten facets=edge
 def test_load_config_default_path(tmp_path: Path) -> None:
     cfg = tmp_path / config.DEFAULT_CONFIG_NAME
     cfg.write_text("[dataflow]\nstrictness = 'low'\n", encoding="utf-8")
@@ -26,6 +28,7 @@ def test_load_config_default_path(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section E:decision_surface/direct::config.py::gabion.config._normalize_name_list::value
+# gabion:behavior primary=verboten facets=edge
 def test_decision_tier_map_normalizes_inputs() -> None:
     assert config.decision_tier_map(None) == {}
     assert config.decision_tier_map("bad") == {}
@@ -40,6 +43,7 @@ def test_decision_tier_map_normalizes_inputs() -> None:
 
 
 # gabion:evidence E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section E:decision_surface/direct::config.py::gabion.config.exception_never_list::section E:decision_surface/direct::config.py::gabion.config._as_bool::value E:decision_surface/direct::config.py::gabion.config._normalize_name_list::value
+# gabion:behavior primary=verboten facets=edge
 def test_config_helpers_cover_bool_and_lists() -> None:
     assert config._normalize_name_list(["a, b", "c"]) == ["a", "b", "c"]
     assert config._as_bool(True) is True
@@ -73,11 +77,13 @@ def test_config_helpers_cover_bool_and_lists() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_config_edges.py::test_normalize_name_list_ignores_non_string_entries::config.py::gabion.config._normalize_name_list
+# gabion:behavior primary=verboten facets=edge
 def test_normalize_name_list_ignores_non_string_entries() -> None:
     assert config._normalize_name_list(["a, b", 1, None, "c"]) == ["a", "b", "c"]
     assert config._normalize_name_list(5) == []
 
 
+# gabion:behavior primary=verboten facets=edge,invalid
 def test_dataflow_adapter_payload_normalizes_invalid_shapes() -> None:
     assert config.dataflow_adapter_payload(None) == {}
     assert config.dataflow_adapter_payload("not-a-table") == {}
@@ -88,6 +94,7 @@ def test_dataflow_adapter_payload_normalizes_invalid_shapes() -> None:
 
 
 # gabion:evidence E:function_site::config.py::gabion.config.taint_profile
+# gabion:behavior primary=verboten facets=edge,exception
 def test_exception_and_taint_config_edge_paths() -> None:
     assert config.exception_marker_families(None) == {}
     assert config.exception_marker_families("bad") == {}

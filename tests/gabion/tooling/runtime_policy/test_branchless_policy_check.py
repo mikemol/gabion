@@ -12,6 +12,7 @@ def _write(path: Path, content: str) -> None:
 
 # gabion:evidence E:call_footprint::tests/test_branchless_policy_check.py::test_branchless_policy_flags_non_protocol_branches::branchless_policy_check.py::scripts.branchless_policy_check.collect_violations
 
+# gabion:behavior primary=desired
 def test_branchless_policy_flags_non_protocol_branches(tmp_path: Path) -> None:
     _write(
         tmp_path / "src" / "gabion" / "sample.py",
@@ -27,6 +28,7 @@ def test_branchless_policy_flags_non_protocol_branches(tmp_path: Path) -> None:
 
 # gabion:evidence E:call_footprint::tests/test_branchless_policy_check.py::test_branchless_policy_allows_marked_decision_protocol::branchless_policy_check.py::scripts.branchless_policy_check.run
 
+# gabion:behavior primary=desired
 def test_branchless_policy_allows_marked_decision_protocol(tmp_path: Path) -> None:
     _write(
         tmp_path / "src" / "gabion" / "sample.py",
@@ -42,6 +44,7 @@ def test_branchless_policy_allows_marked_decision_protocol(tmp_path: Path) -> No
 
 # gabion:evidence E:call_footprint::tests/test_branchless_policy_check.py::test_branchless_policy_baseline_write_and_ratchet::branchless_policy_check.py::scripts.branchless_policy_check.run
 
+# gabion:behavior primary=desired
 def test_branchless_policy_baseline_write_and_ratchet(tmp_path: Path) -> None:
     src_file = tmp_path / "src" / "gabion" / "sample.py"
     baseline = tmp_path / "baseline.json"

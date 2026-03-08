@@ -44,7 +44,7 @@ from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
     _ParseModuleSuccess,
     _forbid_adhoc_bundle_discovery,
     _parse_module_tree,
-    _parse_module_tree_or_none,
+    _parse_module_tree_optional,
 )
 from gabion.analysis.dataflow.engine.dataflow_lint_helpers import (
     _constant_smells_from_details as _constant_smells_from_details_impl,
@@ -72,9 +72,9 @@ from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
 )
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue, ParseFailureWitnesses
 from gabion.analysis.foundation.resume_codec import (
-    int_tuple4_or_none,
-    mapping_or_none,
-    sequence_or_none,
+    int_tuple4_optional,
+    mapping_optional,
+    sequence_optional,
 )
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.analysis.core.visitors import ParentAnnotator
@@ -580,8 +580,8 @@ def _dead_env_map(
     return _dead_env_map_impl(
         deadness_witnesses,
         check_deadline_fn=check_deadline,
-        sequence_or_none_fn=sequence_or_none,
-        mapping_or_none_fn=mapping_or_none,
+        sequence_or_none_fn=sequence_optional,
+        mapping_or_none_fn=mapping_optional,
         literal_eval_error_types=_LITERAL_EVAL_ERROR_TYPES,
     )
 
@@ -1298,7 +1298,7 @@ def _collect_exception_obligations(
             is_never_marker_raise_fn=_is_never_marker_raise,
             exception_param_names_fn=_exception_param_names,
             exception_path_id_fn=_exception_path_id,
-            sequence_or_none_fn=sequence_or_none,
+            sequence_or_none_fn=sequence_optional,
             branch_reachability_under_env_fn=_branch_reachability_under_env,
             is_reachability_false_fn=_is_reachability_false,
             is_reachability_true_fn=_is_reachability_true,
@@ -1306,7 +1306,7 @@ def _collect_exception_obligations(
             sort_once_fn=sort_once,
             order_policy_sort=OrderPolicy.SORT,
             order_policy_enforce=OrderPolicy.ENFORCE,
-            mapping_or_none_fn=mapping_or_none,
+            mapping_or_none_fn=mapping_optional,
             literal_eval_error_types=_LITERAL_EVAL_ERROR_TYPES,
         ),
     )
@@ -1778,7 +1778,7 @@ def _suite_site_label(*, forest: object, suite_id: object) -> str:
     path = str(suite_node.meta.get("path", "") or "")
     qual = str(suite_node.meta.get("qual", "") or "")
     suite_kind = str(suite_node.meta.get("suite_kind", "") or "")
-    span = int_tuple4_or_none(suite_node.meta.get("span"))
+    span = int_tuple4_optional(suite_node.meta.get("span"))
     if not path or not qual or not suite_kind or span is None:
         never(  # pragma: no cover - invariant sink
             "suite site label projection missing identity",
@@ -1999,7 +1999,7 @@ def _iter_config_fields(
             parse_failure_witnesses=parse_failure_witnesses,
             deps=_IterConfigFieldsDeps(
                 check_deadline_fn=check_deadline,
-                parse_module_tree_fn=_parse_module_tree_or_none,
+                parse_module_tree_fn=_parse_module_tree_optional,
                 parse_module_stage_config_fields=_ParseModuleStage.CONFIG_FIELDS,
                 simple_store_name_fn=_simple_store_name,
             ),
@@ -2028,7 +2028,7 @@ def _collect_dataclass_registry(
             parse_stage_cache_key_fn=_parse_stage_cache_key,
             empty_cache_semantic_context=_EMPTY_CACHE_SEMANTIC_CONTEXT,
             dataclass_registry_for_tree_fn=_dataclass_registry_for_tree,
-            parse_module_tree_fn=_parse_module_tree_or_none,
+            parse_module_tree_fn=_parse_module_tree_optional,
         ),
     )
 

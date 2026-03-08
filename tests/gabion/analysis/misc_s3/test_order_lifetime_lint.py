@@ -13,6 +13,7 @@ def _write_module(root: Path, rel_path: str, content: str) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_order_lifetime_lint.py::test_order_lifetime_check_rejects_sort_keys_true_serializer::order_lifetime_check.py::scripts.order_lifetime_check.collect_violations
+# gabion:behavior primary=desired
 def test_order_lifetime_check_rejects_sort_keys_true_serializer(tmp_path: Path) -> None:
     _write_module(
         tmp_path,
@@ -27,6 +28,7 @@ def test_order_lifetime_check_rejects_sort_keys_true_serializer(tmp_path: Path) 
 
 
 # gabion:evidence E:call_footprint::tests/test_order_lifetime_lint.py::test_order_lifetime_check_rejects_sort_keys_true_everywhere::order_lifetime_check.py::scripts.order_lifetime_check.collect_violations
+# gabion:behavior primary=desired
 def test_order_lifetime_check_rejects_sort_keys_true_everywhere(tmp_path: Path) -> None:
     _write_module(
         tmp_path,
@@ -40,6 +42,7 @@ def test_order_lifetime_check_rejects_sort_keys_true_everywhere(tmp_path: Path) 
 
 
 # gabion:evidence E:call_footprint::tests/test_order_lifetime_lint.py::test_order_lifetime_check_rejects_active_ordered_or_sorted_calls::order_lifetime_check.py::scripts.order_lifetime_check.collect_violations
+# gabion:behavior primary=desired
 def test_order_lifetime_check_rejects_active_ordered_or_sorted_calls(tmp_path: Path) -> None:
     _write_module(
         tmp_path,
@@ -53,6 +56,7 @@ def test_order_lifetime_check_rejects_active_ordered_or_sorted_calls(tmp_path: P
 
 
 # gabion:evidence E:call_footprint::tests/test_order_lifetime_lint.py::test_order_lifetime_check_rejects_raw_sorted_in_strict_module::order_lifetime_check.py::scripts.order_lifetime_check.collect_violations
+# gabion:behavior primary=verboten facets=strict
 def test_order_lifetime_check_rejects_raw_sorted_in_strict_module(tmp_path: Path) -> None:
     _write_module(
         tmp_path,
@@ -65,6 +69,7 @@ def test_order_lifetime_check_rejects_raw_sorted_in_strict_module(tmp_path: Path
 
 
 # gabion:evidence E:call_footprint::tests/test_order_lifetime_lint.py::test_order_lifetime_check_requires_sort_once_source::order_lifetime_check.py::scripts.order_lifetime_check.collect_violations
+# gabion:behavior primary=desired
 def test_order_lifetime_check_requires_sort_once_source(tmp_path: Path) -> None:
     _write_module(
         tmp_path,
@@ -78,6 +83,7 @@ def test_order_lifetime_check_requires_sort_once_source(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_order_lifetime_lint.py::test_order_lifetime_check_rejects_dynamic_sort_once_source::order_lifetime_check.py::scripts.order_lifetime_check.collect_violations
+# gabion:behavior primary=desired
 def test_order_lifetime_check_rejects_dynamic_sort_once_source(tmp_path: Path) -> None:
     _write_module(
         tmp_path,
@@ -95,6 +101,7 @@ def test_order_lifetime_check_rejects_dynamic_sort_once_source(tmp_path: Path) -
 
 
 # gabion:evidence E:call_footprint::tests/test_order_lifetime_lint.py::test_order_lifetime_check_emits_inventory::order_lifetime_check.py::scripts.order_lifetime_check.collect_violations_and_inventory
+# gabion:behavior primary=desired
 def test_order_lifetime_check_emits_inventory(tmp_path: Path) -> None:
     _write_module(
         tmp_path,

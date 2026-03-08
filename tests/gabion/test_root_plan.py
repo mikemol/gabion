@@ -10,6 +10,7 @@ from gabion.plan import ExecutionPlan, write_execution_plan_artifact
 
 
 # gabion:evidence E:call_footprint::tests/test_plan.py::test_write_execution_plan_artifact_serializes_boundary_carriers::plan.py::gabion.plan.write_execution_plan_artifact
+# gabion:behavior primary=desired
 def test_write_execution_plan_artifact_serializes_boundary_carriers(
     tmp_path: Path,
 ) -> None:
@@ -40,6 +41,7 @@ def test_write_execution_plan_artifact_serializes_boundary_carriers(
     assert payload["inputs"]["set_value"] == ["alpha", "beta"]
 
 
+# gabion:behavior primary=desired
 def test_write_execution_plan_artifact_rejects_unregistered_runtime_types(
     tmp_path: Path,
 ) -> None:

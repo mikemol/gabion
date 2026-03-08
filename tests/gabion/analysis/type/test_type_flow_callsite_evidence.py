@@ -26,6 +26,7 @@ def _load():
     )
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._format_type_flow_site::call E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._normalize_snapshot_path::root
+# gabion:behavior primary=verboten facets=missing
 def test_format_type_flow_site_handles_missing_span(tmp_path: Path) -> None:
     CallArgs, _, FunctionInfo, _, _format_type_flow_site, _, _ = _load()
     caller = FunctionInfo(
@@ -75,6 +76,7 @@ def test_format_type_flow_site_handles_missing_span(tmp_path: Path) -> None:
     assert rendered.startswith("mod.py:caller:")
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_report::bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._infer_type_flow::strictness
+# gabion:behavior primary=desired
 def test_type_flow_evidence_in_report(tmp_path: Path) -> None:
     (
         _,

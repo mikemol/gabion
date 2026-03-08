@@ -8,6 +8,7 @@ from gabion.analysis.projection.projection_spec import ProjectionOp, ProjectionS
 
 # gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.build_call_clusters_payload
 # gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.render_markdown E:decision_surface/direct::call_clusters.py::gabion.analysis.call_clusters.render_markdown::stale_f2f22f585967_a8050d05
+# gabion:behavior primary=desired
 def test_call_clusters_payload_and_render(
     tmp_path: Path,
     write_test_evidence_payload,
@@ -52,6 +53,7 @@ def test_call_clusters_payload_and_render(
 
 
 # gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.build_call_clusters_payload E:decision_surface/direct::call_clusters.py::gabion.analysis.call_clusters.build_call_clusters_payload::stale_9c9d25e9aa91_268453e6
+# gabion:behavior primary=verboten facets=empty
 def test_call_clusters_payload_handles_empty_targets(
     tmp_path: Path,
     write_test_evidence_payload,
@@ -83,6 +85,7 @@ def test_call_clusters_payload_handles_empty_targets(
 
 
 # gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.build_call_clusters_payload E:decision_surface/direct::call_clusters.py::gabion.analysis.call_clusters.build_call_clusters_payload::stale_22ef4ce04dc7
+# gabion:behavior primary=desired
 def test_call_clusters_payload_projection_skips_unknown_identity(
     tmp_path: Path,
     write_test_evidence_payload,
@@ -127,6 +130,7 @@ def test_call_clusters_payload_projection_skips_unknown_identity(
 
 
 # gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.render_markdown E:decision_surface/direct::call_clusters.py::gabion.analysis.call_clusters.render_markdown::stale_2aeab116568e
+# gabion:behavior primary=verboten facets=empty
 def test_call_clusters_render_empty() -> None:
     payload = {"summary": {"clusters": 0, "tests": 0}, "clusters": []}
     markdown = call_clusters.render_markdown(payload)
@@ -134,6 +138,7 @@ def test_call_clusters_render_empty() -> None:
 
 
 # gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.render_markdown E:decision_surface/direct::call_clusters.py::gabion.analysis.call_clusters.render_markdown::stale_99c8ea44bd19
+# gabion:behavior primary=desired
 def test_call_clusters_render_skips_non_mapping() -> None:
     payload = {
         "summary": {"clusters": 1, "tests": 1},
@@ -144,6 +149,7 @@ def test_call_clusters_render_skips_non_mapping() -> None:
 
 
 # gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.write_call_clusters
+# gabion:behavior primary=desired
 def test_call_clusters_write_creates_file(tmp_path: Path) -> None:
     payload = {"summary": {"clusters": 0, "tests": 0}, "clusters": []}
     output_path = tmp_path / "nested" / "call_clusters.json"
@@ -152,6 +158,7 @@ def test_call_clusters_write_creates_file(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.render_markdown E:decision_surface/direct::call_clusters.py::gabion.analysis.call_clusters.render_markdown::stale_18bb6454e9b7
+# gabion:behavior primary=desired
 def test_call_clusters_render_uses_payload_spec_metadata() -> None:
     payload = {
         "summary": {"clusters": 0, "tests": 0},
@@ -165,6 +172,7 @@ def test_call_clusters_render_uses_payload_spec_metadata() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_call_clusters.py::test_call_clusters_payload_merges_repeated_cluster_identity::call_clusters.py::gabion.analysis.call_clusters.build_call_clusters_payload
+# gabion:behavior primary=desired
 def test_call_clusters_payload_merges_repeated_cluster_identity(
     tmp_path: Path,
     write_test_evidence_payload,
@@ -208,6 +216,7 @@ def test_call_clusters_payload_merges_repeated_cluster_identity(
 
 
 # gabion:evidence E:call_footprint::tests/test_call_clusters.py::test_call_clusters_render_handles_empty_tests_list::call_clusters.py::gabion.analysis.call_clusters.render_markdown
+# gabion:behavior primary=verboten facets=empty
 def test_call_clusters_render_handles_empty_tests_list() -> None:
     markdown = call_clusters.render_markdown(
         {

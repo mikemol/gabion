@@ -12,9 +12,9 @@ from gabion.json_types import JSONValue
 
 from gabion.order_contract import sort_once
 from gabion.runtime_shape_dispatch import (
-    int_or_none as _int_or_none,
-    json_list_or_none as _json_list_or_none,
-    json_mapping_or_none as _json_mapping_or_none,
+    int_optional as _int_optional,
+    json_list_optional as _json_list_optional,
+    json_mapping_optional as _json_mapping_optional,
 )
 from gabion.tooling.impact import diff_evidence_index
 
@@ -62,10 +62,10 @@ def _site_matches_changed_lines(site: Mapping[str, JSONValue], lines_by_path: di
     if not changed_lines:
         return False
     raw_span = site.get("span")
-    span = _json_list_or_none(raw_span)
+    span = _json_list_optional(raw_span)
     if span is not None and len(span) == 4:
-        start = _int_or_none(span[0])
-        end = _int_or_none(span[2])
+        start = _int_optional(span[0])
+        end = _int_optional(span[2])
         if start is None or end is None:
             return True
         upper = max(start, end)
@@ -93,7 +93,7 @@ def _select_tests(
     must_run_tests: set[str],
 ) -> tuple[list[str], list[str], list[str], float]:
     lines_by_path, changed_paths, changed_tests = _collect_changed_sets(changed_lines)
-    tests = _json_list_or_none(payload.get("tests"))
+    tests = _json_list_optional(payload.get("tests"))
     if tests is None:
         return (
             [],
@@ -110,7 +110,7 @@ def _select_tests(
 
     impacted: set[str] = set()
     for raw_entry in tests:
-        entry = _json_mapping_or_none(raw_entry)
+        entry = _json_mapping_optional(raw_entry)
         if entry is None:
             continue
         test_id = str(entry.get("test_id", "") or "").strip()
@@ -120,17 +120,17 @@ def _select_tests(
         if test_file in changed_tests:
             impacted.add(test_id)
             continue
-        evidence = _json_list_or_none(entry.get("evidence"))
+        evidence = _json_list_optional(entry.get("evidence"))
         if evidence is None:
             continue
         for raw_item in evidence:
-            item = _json_mapping_or_none(raw_item)
+            item = _json_mapping_optional(raw_item)
             if item is None:
                 continue
-            key = _json_mapping_or_none(item.get("key"))
+            key = _json_mapping_optional(item.get("key"))
             if key is None:
                 continue
-            site = _json_mapping_or_none(key.get("site"))
+            site = _json_mapping_optional(key.get("site"))
             if site is not None and _site_matches_changed_lines(site, lines_by_path):
                 impacted.add(test_id)
                 break
@@ -142,20 +142,20 @@ def _select_tests(
     }
     mapped_site_paths: set[str] = set()
     for raw_entry in tests:
-        entry = _json_mapping_or_none(raw_entry)
+        entry = _json_mapping_optional(raw_entry)
         if entry is None:
             continue
-        evidence = _json_list_or_none(entry.get("evidence"))
+        evidence = _json_list_optional(entry.get("evidence"))
         if evidence is None:
             continue
         for raw_item in evidence:
-            item = _json_mapping_or_none(raw_item)
+            item = _json_mapping_optional(raw_item)
             if item is None:
                 continue
-            key = _json_mapping_or_none(item.get("key"))
+            key = _json_mapping_optional(item.get("key"))
             if key is None:
                 continue
-            site = _json_mapping_or_none(key.get("site"))
+            site = _json_mapping_optional(key.get("site"))
             if site is None:
                 continue
             mapped_path = str(site.get("path", "") or "")

@@ -50,6 +50,7 @@ def _names_in_expr(expr: ast.AST) -> set[str]:
 
 #
 # gabion:evidence E:function_site::indexed_scan/handledness_decision.py::gabion.analysis.indexed_scan.handledness_decision.decide_handledness
+# gabion:behavior primary=verboten facets=mismatch
 def test_handledness_decision_paths_cover_catch_unknown_mismatch_and_convert() -> None:
     try_tree = ast.parse("try:\n    x()\nexcept ValueError:\n    pass\n").body[0]
     assert isinstance(try_tree, ast.Try)
@@ -109,6 +110,7 @@ def test_handledness_decision_paths_cover_catch_unknown_mismatch_and_convert() -
 
 #
 # gabion:evidence E:function_site::indexed_scan/obligation_decision.py::gabion.analysis.indexed_scan.obligation_decision.decide_exception_obligation
+# gabion:behavior primary=desired
 def test_obligation_decision_paths_cover_unknown_handled_and_dead() -> None:
     tree = ast.parse("if flag:\n    raise ValueError()\n")
     if_node = tree.body[0]

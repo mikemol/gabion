@@ -30,7 +30,7 @@ from gabion.analysis.projection.projection_exec import apply_spec
 from gabion.analysis.projection.projection_registry import LINT_FINDINGS_SPEC
 from gabion.analysis.projection.projection_spec import ProjectionSpec
 from gabion.analysis.foundation.resume_codec import (
-    int_tuple4_or_none, mapping_or_empty, mapping_or_none, sequence_or_none)
+    int_tuple4_optional, mapping_default_empty, mapping_optional, sequence_optional)
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.invariants import never
 from gabion.order_contract import sort_once
@@ -159,7 +159,7 @@ def _deadline_lint_lines(entries: list[JSONObject]) -> list[str]:
     lines: list[str] = []
     for entry in entries:
         check_deadline()
-        site = mapping_or_none(entry.get("site")) or {}
+        site = mapping_optional(entry.get("site")) or {}
         path = str(site.get("path", "") or "")
         line, col = _span_line_col(entry.get("span"))
         if not path:
@@ -368,13 +368,13 @@ def _project_lint_rows_from_forest(
 def _never_sort_key(entry: JSONObject) -> tuple:
     status = str(entry.get("status", "UNKNOWN"))
     order = _NEVER_STATUS_ORDER.get(status, 3)
-    site = mapping_or_empty(entry.get("site"))
+    site = mapping_default_empty(entry.get("site"))
     path = str(site.get("path", ""))
     function = str(site.get("function", ""))
     span = entry.get("span")
     line = -1
     col = -1
-    span_entries = sequence_or_none(span)
+    span_entries = sequence_optional(span)
     if span_entries is not None and len(span_entries) == 4:
         try:
             line = int(span_entries[0])
@@ -395,9 +395,9 @@ def _never_invariant_lint_lines(entries: list[JSONObject]) -> list[str]:
     ):
         check_deadline()
         status = entry.get("status", "UNKNOWN")
-        span_entries = sequence_or_none(entry.get("span"))
+        span_entries = sequence_optional(entry.get("span"))
         if status != "PROVEN_UNREACHABLE" and span_entries is not None and len(span_entries) == 4:
-            site = mapping_or_empty(entry.get("site"))
+            site = mapping_default_empty(entry.get("site"))
             path = str(site.get("path", "?"))
             marker_kind = str(entry.get("marker_kind", "never") or "never")
             reason = entry.get("reason") or ""
@@ -695,7 +695,7 @@ def _is_broad_internal_type(annot) -> bool:
 
 
 def _span_line_col(span):
-    parsed = int_tuple4_or_none(span)
+    parsed = int_tuple4_optional(span)
     if parsed is None:
         return None, None
     return parsed[0] + 1, parsed[1] + 1

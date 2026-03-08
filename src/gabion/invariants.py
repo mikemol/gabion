@@ -131,14 +131,14 @@ _LEGACY_NEVER_STRING_REASON_DEPRECATION_CONTROL: dict[str, object] = {
 
 
 def _normalized_marker_links(raw_links: object) -> tuple[dict[str, str], ...]:
-    from gabion.runtime_shape_dispatch import json_list_or_none, json_mapping_or_none
+    from gabion.runtime_shape_dispatch import json_list_optional, json_mapping_optional
 
-    links = json_list_or_none(raw_links)
+    links = json_list_optional(raw_links)
     if links is None:
         return ()
     normalized: list[dict[str, str]] = []
     for item in links:
-        payload = json_mapping_or_none(item)
+        payload = json_mapping_optional(item)
         if payload is None:
             continue
         kind = str(payload.get("kind", "")).strip().lower()
@@ -244,9 +244,9 @@ def _normalized_invariant_marker_payload(
     if "reason" in env:
         reason = str(env["reason"])
     else:
-        from gabion.runtime_shape_dispatch import str_or_none
+        from gabion.runtime_shape_dispatch import str_optional
 
-        reason = str_or_none(reasoning) or ""
+        reason = str_optional(reasoning) or ""
     normalized_reasoning = normalize_marker_reasoning(raw_reasoning)
     if not normalized_reasoning.summary and reason:
         normalized_reasoning = normalize_marker_reasoning(reason)

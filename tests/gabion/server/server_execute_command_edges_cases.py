@@ -101,6 +101,7 @@ def _assert_invariant_failure(result: dict[str, object]) -> None:
 
 
 # gabion:evidence E:function_site::server.py::gabion.server._invariant_error_message
+# gabion:behavior primary=verboten facets=edge,error
 def test_invariant_error_message_falls_back_to_default() -> None:
     assert server._invariant_error_message(NeverThrown("")) == "invariant violation"
 
@@ -126,6 +127,7 @@ def _with_timeout(payload: dict) -> dict:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_require_payload_coerces_mapping_proxy::server.py::gabion.server._require_payload
+# gabion:behavior primary=verboten facets=edge
 def test_require_payload_coerces_mapping_proxy() -> None:
     proxy_payload = MappingProxyType({"answer": 42})
     normalized = server._require_payload(proxy_payload, command="unit")
@@ -133,6 +135,7 @@ def test_require_payload_coerces_mapping_proxy() -> None:
     assert isinstance(normalized, dict)
 
 
+# gabion:behavior primary=verboten facets=edge
 def test_normalize_dataflow_response_envelope_rejects_malformed_lint_entry_shape() -> None:
     with pytest.raises(ValidationError):
         server._normalize_dataflow_response_envelope(
@@ -146,6 +149,7 @@ def test_normalize_dataflow_response_envelope_rejects_malformed_lint_entry_shape
         )
 
 
+# gabion:behavior primary=verboten facets=edge
 def test_execute_dataflow_boundary_passes_typed_payload_carrier_to_core(tmp_path: Path) -> None:
     captured: dict[str, object] = {}
 
@@ -289,6 +293,7 @@ def _execute_total_with_deps(
 
 
 
+# gabion:behavior primary=verboten facets=edge,invalid,reject
 @pytest.mark.parametrize(
     "payload",
     [
@@ -363,6 +368,7 @@ def _progress_values(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_emits_lsp_progress_success_terminal::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._empty_analysis_result::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._progress_values::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge
 def test_execute_command_emits_lsp_progress_success_terminal(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
@@ -402,6 +408,7 @@ def test_execute_command_emits_lsp_progress_success_terminal(tmp_path: Path) -> 
     )
 
 
+# gabion:behavior primary=verboten facets=edge
 def test_execute_command_identity_shadow_sidecars_are_deterministic_across_identical_runs(
     tmp_path: Path,
 ) -> None:
@@ -480,6 +487,7 @@ def test_execute_command_identity_shadow_sidecars_are_deterministic_across_ident
         )
 
 
+# gabion:behavior primary=verboten facets=edge
 def test_execute_command_mirrors_fingerprint_registry_allocations_into_identity_delta(
     tmp_path: Path,
 ) -> None:
@@ -540,6 +548,7 @@ def test_execute_command_mirrors_fingerprint_registry_allocations_into_identity_
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_terminal_latching_emits_single_active_complete_and_heartbeat_keepalive::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._empty_analysis_result::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._progress_values::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge
 def test_execute_command_terminal_latching_emits_single_active_complete_and_heartbeat_keepalive(
     tmp_path: Path,
 ) -> None:
@@ -632,6 +641,7 @@ def test_execute_command_terminal_latching_emits_single_active_complete_and_hear
 
 
 # gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._reject_removed_legacy_payload_keys
+# gabion:behavior primary=allowed_unwanted facets=legacy
 @pytest.mark.parametrize(
     "removed_payload",
     [
@@ -665,6 +675,7 @@ def test_execute_command_rejects_removed_legacy_resume_flags(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_heartbeat_loop_tolerates_missing_progress_template::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._empty_analysis_result::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._progress_values::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge,missing
 def test_execute_command_heartbeat_loop_tolerates_missing_progress_template(
     tmp_path: Path,
 ) -> None:
@@ -707,6 +718,7 @@ def test_execute_command_heartbeat_loop_tolerates_missing_progress_template(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_emits_aspf_trace_equivalence_and_opportunities_when_enabled::server.py::gabion.server.execute_command
+# gabion:behavior primary=verboten facets=edge
 def test_execute_command_emits_aspf_trace_equivalence_and_opportunities_when_enabled(
     tmp_path: Path,
 ) -> None:
@@ -762,6 +774,7 @@ def test_execute_command_emits_aspf_trace_equivalence_and_opportunities_when_ena
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_emits_heartbeat_progress_with_staleness::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._empty_analysis_result::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._progress_values::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge
 def test_execute_command_emits_heartbeat_progress_with_staleness(
     tmp_path: Path,
 ) -> None:
@@ -810,6 +823,7 @@ def test_execute_command_emits_heartbeat_progress_with_staleness(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_emits_resume_progress_before_completion::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._empty_analysis_result::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._progress_values::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge
 def test_execute_command_emits_resume_progress_before_completion(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
@@ -831,6 +845,7 @@ def test_execute_command_emits_resume_progress_before_completion(tmp_path: Path)
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_preserves_resume_checkpoint_for_next_run::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._empty_analysis_result::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._progress_values::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge
 def test_execute_command_preserves_resume_checkpoint_for_next_run(
     tmp_path: Path,
 ) -> None:
@@ -854,6 +869,7 @@ def test_execute_command_preserves_resume_checkpoint_for_next_run(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_threads_semantic_substantive_progress_into_checkpoint_flush_gate::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._empty_analysis_result::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge
 def test_execute_command_threads_semantic_substantive_progress_into_checkpoint_flush_gate(
     tmp_path: Path,
 ) -> None:
@@ -903,6 +919,7 @@ def test_execute_command_threads_semantic_substantive_progress_into_checkpoint_f
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_writes_checkpoint_intro_timeline_rows_on_seed_and_flush::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._empty_analysis_result::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge
 def test_execute_command_writes_checkpoint_intro_timeline_rows_on_seed_and_flush(
     tmp_path: Path,
 ) -> None:
@@ -927,6 +944,7 @@ def test_execute_command_writes_checkpoint_intro_timeline_rows_on_seed_and_flush
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_emits_lsp_progress_timeout_terminal::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._progress_values::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._timeout_exc::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge,timeout
 def test_execute_command_emits_lsp_progress_timeout_terminal(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
@@ -960,6 +978,7 @@ def test_execute_command_emits_lsp_progress_timeout_terminal(tmp_path: Path) -> 
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_timeout_emits_checkpoint_intro_timeline_progress::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._progress_values::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._timeout_exc::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge,timeout
 def test_execute_command_timeout_emits_checkpoint_intro_timeline_progress(
     tmp_path: Path,
 ) -> None:
@@ -997,6 +1016,7 @@ def test_execute_command_timeout_emits_checkpoint_intro_timeline_progress(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_emits_lsp_progress_failed_terminal::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._progress_values::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge,fail
 def test_execute_command_emits_lsp_progress_failed_terminal(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
@@ -1017,6 +1037,7 @@ def test_execute_command_emits_lsp_progress_failed_terminal(tmp_path: Path) -> N
 
 
 # gabion:evidence E:call_cluster::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge,error
 def test_execute_command_reports_synthesis_error(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
@@ -1036,6 +1057,7 @@ def test_execute_command_reports_synthesis_error(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::server.py::gabion.server.execute_command E:decision_surface/direct::server.py::gabion.server.execute_command::stale_62281be95da3
+# gabion:behavior primary=verboten facets=edge,invalid,timeout
 def test_execute_command_ignores_invalid_timeout(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
@@ -1054,6 +1076,7 @@ def test_execute_command_ignores_invalid_timeout(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_timeout_budget_reserves_default_cleanup_grace::server.py::gabion.server._analysis_timeout_budget_ns
+# gabion:behavior primary=verboten facets=edge,timeout
 def test_analysis_timeout_budget_reserves_default_cleanup_grace() -> None:
     total_ns, analysis_ns, cleanup_ns = server._analysis_timeout_budget_ns(
         {
@@ -1067,6 +1090,7 @@ def test_analysis_timeout_budget_reserves_default_cleanup_grace() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_timeout_budget_caps_configured_cleanup_grace::server.py::gabion.server._analysis_timeout_budget_ns
+# gabion:behavior primary=verboten facets=edge,timeout
 def test_analysis_timeout_budget_caps_configured_cleanup_grace() -> None:
     total_ns, analysis_ns, cleanup_ns = server._analysis_timeout_budget_ns(
         {
@@ -1081,6 +1105,7 @@ def test_analysis_timeout_budget_caps_configured_cleanup_grace() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_collection_checkpoint_flush_due::server.py::gabion.server._collection_checkpoint_flush_due
+# gabion:behavior primary=verboten facets=edge
 def test_collection_checkpoint_flush_due() -> None:
     now_ns = 20_000_000_000
     assert server._collection_checkpoint_flush_due(
@@ -1130,6 +1155,7 @@ def test_collection_checkpoint_flush_due() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_append_checkpoint_intro_timeline_row_writes_table_and_rows::server.py::gabion.server._append_checkpoint_intro_timeline_row
+# gabion:behavior primary=verboten facets=edge
 def test_append_checkpoint_intro_timeline_row_writes_table_and_rows(
     tmp_path: Path,
 ) -> None:
@@ -1138,6 +1164,7 @@ def test_append_checkpoint_intro_timeline_row_writes_table_and_rows(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_collection_report_flush_due::server.py::gabion.server._collection_report_flush_due
+# gabion:behavior primary=verboten facets=edge
 def test_collection_report_flush_due() -> None:
     now_ns = 20_000_000_000
     assert server._collection_report_flush_due(
@@ -1178,6 +1205,7 @@ def test_collection_report_flush_due() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_projection_phase_flush_due::server.py::gabion.server._projection_phase_flush_due
+# gabion:behavior primary=verboten facets=edge
 def test_projection_phase_flush_due() -> None:
     assert server._projection_phase_flush_due(
         phase="post",
@@ -1197,6 +1225,7 @@ def test_projection_phase_flush_due() -> None:
 
 
 # gabion:evidence E:function_site::server.py::gabion.server.execute_command E:decision_surface/direct::server.py::gabion.server.execute_command::stale_715a68e887fd
+# gabion:behavior primary=verboten facets=edge,timeout
 def test_execute_command_reports_timeout(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
@@ -1230,6 +1259,7 @@ def test_execute_command_reports_timeout(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_timeout_supports_in_progress_resume_checkpoint::server.py::gabion.server._analysis_input_witness::server.py::gabion.server._normalize_transparent_decorators::server.py::gabion.server._write_analysis_resume_checkpoint::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_many_functions_module
+# gabion:behavior primary=verboten facets=edge,timeout
 def test_execute_command_timeout_supports_in_progress_resume_checkpoint(
     tmp_path: Path,
 ) -> None:
@@ -1251,6 +1281,7 @@ def test_execute_command_timeout_supports_in_progress_resume_checkpoint(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_timeout_writes_partial_incremental_report::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_many_functions_module
+# gabion:behavior primary=verboten facets=edge,timeout
 def test_execute_command_timeout_writes_partial_incremental_report(
     tmp_path: Path,
 ) -> None:
@@ -1307,6 +1338,7 @@ def test_execute_command_timeout_writes_partial_incremental_report(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_timeout_marks_stale_section_journal::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_many_functions_module
+# gabion:behavior primary=verboten facets=edge,timeout
 def test_execute_command_timeout_marks_stale_section_journal(
     tmp_path: Path,
 ) -> None:
@@ -1365,6 +1397,7 @@ def test_execute_command_timeout_marks_stale_section_journal(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_writes_phase_checkpoint_when_incremental_enabled::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge
 def test_execute_command_writes_phase_checkpoint_when_incremental_enabled(
     tmp_path: Path,
 ) -> None:
@@ -1389,6 +1422,7 @@ def test_execute_command_writes_phase_checkpoint_when_incremental_enabled(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_incremental_obligations_require_restart_on_witness_mismatch::server.py::gabion.server._incremental_progress_obligations
+# gabion:behavior primary=verboten facets=edge,mismatch
 def test_incremental_obligations_require_restart_on_witness_mismatch(
     tmp_path: Path,
 ) -> None:
@@ -1426,6 +1460,7 @@ def test_incremental_obligations_require_restart_on_witness_mismatch(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_incremental_obligations_flag_no_projection_progress::server.py::gabion.server._incremental_progress_obligations
+# gabion:behavior primary=verboten facets=edge
 def test_incremental_obligations_flag_no_projection_progress() -> None:
     obligations = server._incremental_progress_obligations(
         analysis_state="timed_out_progress_resume",
@@ -1453,6 +1488,7 @@ def test_incremental_obligations_flag_no_projection_progress() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_incremental_obligations_require_substantive_progress_for_resume::server.py::gabion.server._incremental_progress_obligations
+# gabion:behavior primary=verboten facets=edge
 def test_incremental_obligations_require_substantive_progress_for_resume() -> None:
     obligations = server._incremental_progress_obligations(
         analysis_state="timed_out_progress_resume",
@@ -1483,6 +1519,7 @@ def test_incremental_obligations_require_substantive_progress_for_resume() -> No
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_incremental_obligations_flag_semantic_progress_regression::server.py::gabion.server._incremental_progress_obligations
+# gabion:behavior primary=verboten facets=edge
 def test_incremental_obligations_flag_semantic_progress_regression() -> None:
     obligations = server._incremental_progress_obligations(
         analysis_state="timed_out_no_progress",
@@ -1511,6 +1548,7 @@ def test_incremental_obligations_flag_semantic_progress_regression() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_collection_progress_intro_lines_include_resume_counts::server.py::gabion.server._collection_progress_intro_lines
+# gabion:behavior primary=verboten facets=edge
 def test_collection_progress_intro_lines_include_resume_counts() -> None:
     lines = server._collection_progress_intro_lines(
         collection_resume={
@@ -1534,6 +1572,7 @@ def test_collection_progress_intro_lines_include_resume_counts() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_collection_semantic_progress_treats_completed_path_as_non_regression::server.py::gabion.server._collection_semantic_progress
+# gabion:behavior primary=verboten facets=edge
 def test_collection_semantic_progress_treats_completed_path_as_non_regression() -> None:
     progress = server._collection_semantic_progress(
         previous_collection_resume={
@@ -1558,6 +1597,7 @@ def test_collection_semantic_progress_treats_completed_path_as_non_regression() 
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_collection_semantic_progress_flags_state_loss_regression::server.py::gabion.server._collection_semantic_progress
+# gabion:behavior primary=verboten facets=edge
 def test_collection_semantic_progress_flags_state_loss_regression() -> None:
     progress = server._collection_semantic_progress(
         previous_collection_resume={
@@ -1582,6 +1622,7 @@ def test_collection_semantic_progress_flags_state_loss_regression() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_collection_semantic_progress_tracks_analysis_index_hydration::server.py::gabion.server._collection_semantic_progress
+# gabion:behavior primary=verboten facets=edge
 def test_collection_semantic_progress_tracks_analysis_index_hydration() -> None:
     progress = server._collection_semantic_progress(
         previous_collection_resume={
@@ -1609,6 +1650,7 @@ def test_collection_semantic_progress_tracks_analysis_index_hydration() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_collection_progress_intro_lines_reject_path_order_regression::server.py::gabion.server._collection_progress_intro_lines
+# gabion:behavior primary=verboten facets=edge,reject
 def test_collection_progress_intro_lines_reject_path_order_regression() -> None:
     with pytest.raises(NeverThrown):
         server._collection_progress_intro_lines(
@@ -1624,18 +1666,21 @@ def test_collection_progress_intro_lines_reject_path_order_regression() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_externalize_resume_states_reject_path_order_regression::server.py::gabion.server._externalize_collection_resume_states
+# gabion:behavior primary=verboten facets=edge,reject
 def test_externalize_resume_states_reject_path_order_regression(tmp_path: Path) -> None:
     _ = tmp_path
     assert not hasattr(server, "_externalize_collection_resume_states")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_inflate_resume_states_reject_path_order_regression::server.py::gabion.server._inflate_collection_resume_states
+# gabion:behavior primary=verboten facets=edge,reject
 def test_inflate_resume_states_reject_path_order_regression(tmp_path: Path) -> None:
     _ = tmp_path
     assert not hasattr(server, "_inflate_collection_resume_states")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_externalize_and_inflate_analysis_index_resume_state_ref::server.py::gabion.server._externalize_collection_resume_states::server.py::gabion.server._inflate_collection_resume_states
+# gabion:behavior primary=verboten facets=edge
 def test_externalize_and_inflate_analysis_index_resume_state_ref(
     tmp_path: Path,
 ) -> None:
@@ -1645,6 +1690,7 @@ def test_externalize_and_inflate_analysis_index_resume_state_ref(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_index_resume_signature_prefers_resume_digest::server.py::gabion.server._analysis_index_resume_signature
+# gabion:behavior primary=verboten facets=edge
 def test_analysis_index_resume_signature_prefers_resume_digest() -> None:
     signature = server._analysis_index_resume_signature(
         {
@@ -1662,12 +1708,14 @@ def test_analysis_index_resume_signature_prefers_resume_digest() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_resolve_analysis_resume_checkpoint_path_variants::server.py::gabion.server._resolve_analysis_resume_checkpoint_path
+# gabion:behavior primary=verboten facets=edge
 def test_resolve_analysis_resume_checkpoint_path_variants(tmp_path: Path) -> None:
     _ = tmp_path
     assert not hasattr(server, "_resolve_analysis_resume_checkpoint_path")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_timeout_grace_ns_validation_and_cap::server.py::gabion.server._analysis_timeout_grace_ns
+# gabion:behavior primary=verboten facets=edge,timeout
 def test_analysis_timeout_grace_ns_validation_and_cap() -> None:
     assert server._analysis_timeout_grace_ns({}, total_ns=1) == 0
     assert server._analysis_timeout_grace_ns({}, total_ns=100) == 20
@@ -1718,6 +1766,7 @@ def test_analysis_timeout_grace_ns_validation_and_cap() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_manifest_digest_from_witness_validation::server.py::gabion.server._analysis_manifest_digest_from_witness
+# gabion:behavior primary=verboten facets=edge
 def test_analysis_manifest_digest_from_witness_validation() -> None:
     witness = {
         "root": "/r",
@@ -1759,6 +1808,7 @@ def test_analysis_manifest_digest_from_witness_validation() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_load_analysis_resume_checkpoint_and_manifest_validation::server.py::gabion.server._load_analysis_resume_checkpoint::server.py::gabion.server._load_analysis_resume_checkpoint_manifest
+# gabion:behavior primary=verboten facets=edge
 def test_load_analysis_resume_checkpoint_and_manifest_validation(tmp_path: Path) -> None:
     _ = tmp_path
     assert not hasattr(server, "_load_analysis_resume_checkpoint")
@@ -1766,6 +1816,7 @@ def test_load_analysis_resume_checkpoint_and_manifest_validation(tmp_path: Path)
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_input_witness_handles_missing_unreadable_and_syntax::server.py::gabion.server._analysis_input_witness
+# gabion:behavior primary=verboten facets=edge,missing
 def test_analysis_input_witness_handles_missing_unreadable_and_syntax(
     tmp_path: Path,
 ) -> None:
@@ -1812,6 +1863,7 @@ def test_analysis_input_witness_handles_missing_unreadable_and_syntax(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_input_witness_normalizes_non_scalar_ast_values::server.py::gabion.server._analysis_input_witness
+# gabion:behavior primary=verboten facets=edge
 def test_analysis_input_witness_normalizes_non_scalar_ast_values(
     tmp_path: Path,
 ) -> None:
@@ -1874,6 +1926,7 @@ def test_analysis_input_witness_normalizes_non_scalar_ast_values(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_resume_progress_uses_observed_file_counts::server.py::gabion.server._analysis_resume_progress
+# gabion:behavior primary=verboten facets=edge
 def test_analysis_resume_progress_uses_observed_file_counts() -> None:
     progress = server._analysis_resume_progress(
         collection_resume={
@@ -1891,6 +1944,7 @@ def test_analysis_resume_progress_uses_observed_file_counts() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_in_progress_scan_states_filters_malformed_entries::server.py::gabion.server._in_progress_scan_states
+# gabion:behavior primary=verboten facets=edge
 def test_in_progress_scan_states_filters_malformed_entries() -> None:
     states = server._in_progress_scan_states(
         {
@@ -1914,6 +1968,7 @@ def test_in_progress_scan_states_filters_malformed_entries() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_index_resume_helpers_fallbacks::server.py::gabion.server._analysis_index_resume_hydrated_count::server.py::gabion.server._analysis_index_resume_hydrated_digest::server.py::gabion.server._analysis_index_resume_signature::server.py::gabion.server._analysis_index_resume_summary
+# gabion:behavior primary=verboten facets=edge
 def test_analysis_index_resume_helpers_fallbacks() -> None:
     resume = {
         "analysis_index_resume": {
@@ -1938,6 +1993,7 @@ def test_analysis_index_resume_helpers_fallbacks() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_index_resume_hydrated_helpers_non_int_fallback::server.py::gabion.server._analysis_index_resume_hydrated_count::server.py::gabion.server._analysis_index_resume_hydrated_digest::server.py::gabion.server._canonical_json_text
+# gabion:behavior primary=allowed_unwanted facets=fallback
 def test_analysis_index_resume_hydrated_helpers_non_int_fallback() -> None:
     resume = {
         "analysis_index_resume": {
@@ -1954,6 +2010,7 @@ def test_analysis_index_resume_hydrated_helpers_non_int_fallback() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_load_report_section_journal_validation_paths::server.py::gabion.server._load_report_section_journal
+# gabion:behavior primary=verboten facets=edge
 def test_load_report_section_journal_validation_paths(tmp_path: Path) -> None:
     journal_path = tmp_path / "sections.json"
     sections, reason = server._load_report_section_journal(
@@ -2006,12 +2063,14 @@ def test_load_report_section_journal_validation_paths(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_load_report_phase_checkpoint_validation_paths::server.py::gabion.server._load_report_phase_checkpoint
+# gabion:behavior primary=verboten facets=edge
 def test_load_report_phase_checkpoint_validation_paths(tmp_path: Path) -> None:
     _ = tmp_path
     assert not hasattr(server, "_load_report_phase_checkpoint")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_render_incremental_report_marks_missing_dep_and_policy::server.py::gabion.server._render_incremental_report
+# gabion:behavior primary=verboten facets=edge,missing
 def test_render_incremental_report_marks_missing_dep_and_policy() -> None:
     report_text, pending = server._render_incremental_report(
         analysis_state="analysis_collection_in_progress",
@@ -2039,6 +2098,7 @@ def test_render_incremental_report_marks_missing_dep_and_policy() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_write_bootstrap_incremental_artifacts_marks_existing_reason_policy::server.py::gabion.server._write_bootstrap_incremental_artifacts
+# gabion:behavior primary=verboten facets=edge
 def test_write_bootstrap_incremental_artifacts_marks_existing_reason_policy(
     tmp_path: Path,
 ) -> None:
@@ -2068,12 +2128,14 @@ def test_write_bootstrap_incremental_artifacts_marks_existing_reason_policy(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_clear_analysis_resume_checkpoint_removes_checkpoint_and_chunks::server.py::gabion.server._analysis_resume_checkpoint_chunks_dir::server.py::gabion.server._clear_analysis_resume_checkpoint
+# gabion:behavior primary=verboten facets=edge
 def test_clear_analysis_resume_checkpoint_removes_checkpoint_and_chunks(tmp_path: Path) -> None:
     _ = tmp_path
     assert not hasattr(server, "_clear_analysis_resume_checkpoint")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_write_analysis_resume_checkpoint_emits_analysis_index_hydration_summary::server.py::gabion.server._write_analysis_resume_checkpoint
+# gabion:behavior primary=verboten facets=edge
 def test_write_analysis_resume_checkpoint_emits_analysis_index_hydration_summary(
     tmp_path: Path,
 ) -> None:
@@ -2082,6 +2144,7 @@ def test_write_analysis_resume_checkpoint_emits_analysis_index_hydration_summary
 
 
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server._analysis_input_witness::config,file_paths,include_invariant_propositions,recursive,root E:decision_surface/direct::server.py::gabion.server._load_analysis_resume_checkpoint::input_witness,path E:decision_surface/direct::server.py::gabion.server._write_analysis_resume_checkpoint::collection_resume,input_witness,path E:decision_surface/direct::server.py::gabion.server._execute_command_total::on_collection_progress
+# gabion:behavior primary=verboten facets=edge
 def test_execute_command_reuses_collection_checkpoint(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
@@ -2103,6 +2166,7 @@ def test_execute_command_reuses_collection_checkpoint(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_input_witness_interns_ast_normal_forms::server.py::gabion.server._analysis_input_witness::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge
 def test_analysis_input_witness_interns_ast_normal_forms(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
@@ -2138,6 +2202,7 @@ def test_analysis_input_witness_interns_ast_normal_forms(tmp_path: Path) -> None
 
 
 # gabion:evidence E:function_site::server.py::gabion.server.execute_command E:decision_surface/direct::server.py::gabion.server.execute_command::stale_74c67c99a930
+# gabion:behavior primary=verboten facets=edge,invalid
 def test_execute_command_ignores_invalid_tick_ns(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
@@ -2155,6 +2220,7 @@ def test_execute_command_ignores_invalid_tick_ns(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::server.py::gabion.server.execute_command E:decision_surface/direct::server.py::gabion.server.execute_command::stale_fe057dcdb723_962154e0
+# gabion:behavior primary=verboten facets=edge,timeout
 @pytest.mark.parametrize(
     ("timeout_field", "timeout_value"),
     [
@@ -2183,6 +2249,7 @@ def test_execute_command_accepts_duration_timeout_fields(
 
 
 # gabion:evidence E:function_site::server.py::gabion.server.execute_command E:decision_surface/direct::server.py::gabion.server.execute_command::stale_d4a96ff743b0
+# gabion:behavior primary=verboten facets=edge,invalid,timeout
 def test_execute_command_ignores_invalid_duration_timeout_fields(
     tmp_path: Path,
 ) -> None:
@@ -2202,30 +2269,35 @@ def test_execute_command_ignores_invalid_duration_timeout_fields(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_structure_reuse_payload_non_dict::server.py::gabion.server.execute_structure_reuse
+# gabion:behavior primary=verboten facets=edge
 def test_execute_structure_reuse_payload_non_dict() -> None:
     with pytest.raises(NeverThrown):
         server.execute_structure_reuse(None, [])  # type: ignore[arg-type]
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_decision_diff_payload_non_dict::server.py::gabion.server.execute_decision_diff
+# gabion:behavior primary=verboten facets=edge
 def test_execute_decision_diff_payload_non_dict() -> None:
     with pytest.raises(NeverThrown):
         server.execute_decision_diff(None, [])  # type: ignore[arg-type]
 
 
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_structure_diff::payload E:decision_surface/direct::server.py::gabion.server.execute_structure_diff::stale_329560178bad
+# gabion:behavior primary=verboten facets=edge,timeout
 def test_execute_structure_diff_requires_timeout_payload() -> None:
     with pytest.raises(NeverThrown):
         server.execute_structure_diff(None, None)
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_structure_diff_rejects_non_dict_payload::server.py::gabion.server.execute_structure_diff
+# gabion:behavior primary=verboten facets=edge
 def test_execute_structure_diff_rejects_non_dict_payload() -> None:
     with pytest.raises(NeverThrown):
         server.execute_structure_diff(None, [])  # type: ignore[arg-type]
 
 
 # gabion:evidence E:function_site::server.py::gabion.server.execute_command E:decision_surface/direct::server.py::gabion.server.execute_command::stale_aa96c68b2fef
+# gabion:behavior primary=verboten facets=edge
 def test_execute_command_emits_obsolescence_delta_from_state(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
@@ -2277,6 +2349,7 @@ def test_execute_command_emits_obsolescence_delta_from_state(tmp_path: Path) -> 
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_emits_empty_obsolescence_active_summary_for_non_mapping_state_active_summary::server.py::gabion.server.execute_command
+# gabion:behavior primary=verboten facets=edge,empty
 def test_execute_command_emits_empty_obsolescence_active_summary_for_non_mapping_state_active_summary(
     tmp_path: Path,
 ) -> None:
@@ -2325,6 +2398,7 @@ def test_execute_command_emits_empty_obsolescence_active_summary_for_non_mapping
 
 
 # gabion:evidence E:function_site::server.py::gabion.server.execute_command E:decision_surface/direct::server.py::gabion.server.execute_command::stale_be3b22325dfc
+# gabion:behavior primary=verboten facets=edge,missing
 def test_execute_command_rejects_missing_obsolescence_state(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
@@ -2344,6 +2418,7 @@ def test_execute_command_rejects_missing_obsolescence_state(tmp_path: Path) -> N
 
 
 # gabion:evidence E:function_site::server.py::gabion.server.execute_command E:decision_surface/direct::server.py::gabion.server.execute_command::stale_067484b38656
+# gabion:behavior primary=verboten facets=edge
 def test_execute_command_emits_obsolescence_state(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
@@ -2380,6 +2455,7 @@ def test_execute_command_emits_obsolescence_state(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::server.py::gabion.server.execute_command E:decision_surface/direct::server.py::gabion.server.execute_command::stale_94b12b8fa825
+# gabion:behavior primary=verboten facets=drift,edge,missing
 def test_execute_command_rejects_missing_annotation_drift_state(
     tmp_path: Path,
 ) -> None:
@@ -2401,6 +2477,7 @@ def test_execute_command_rejects_missing_annotation_drift_state(
 
 
 # gabion:evidence E:function_site::server.py::gabion.server.execute_command E:decision_surface/direct::server.py::gabion.server.execute_command::stale_0f2d2751123d
+# gabion:behavior primary=verboten facets=drift,edge,invalid
 def test_execute_command_rejects_invalid_annotation_drift_state(
     tmp_path: Path,
 ) -> None:
@@ -2423,6 +2500,7 @@ def test_execute_command_rejects_invalid_annotation_drift_state(
 
 
 # gabion:evidence E:function_site::server.py::gabion.server.execute_command E:decision_surface/direct::server.py::gabion.server.execute_command::stale_5ff058e98f9e
+# gabion:behavior primary=verboten facets=drift,edge
 def test_execute_command_emits_annotation_drift_delta_from_state(
     tmp_path: Path,
 ) -> None:
@@ -2470,6 +2548,7 @@ def test_execute_command_emits_annotation_drift_delta_from_state(
 
 
 # gabion:evidence E:function_site::server.py::gabion.server.execute_command E:decision_surface/direct::server.py::gabion.server.execute_command::stale_b1aa467abf1a
+# gabion:behavior primary=verboten facets=edge
 def test_execute_command_emits_ambiguity_delta_from_state(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
@@ -2513,6 +2592,7 @@ def test_execute_command_emits_ambiguity_delta_from_state(tmp_path: Path) -> Non
 
 
 # gabion:evidence E:function_site::server.py::gabion.server.execute_command E:decision_surface/direct::server.py::gabion.server.execute_command::stale_9725732036cc
+# gabion:behavior primary=verboten facets=edge,missing
 def test_execute_command_rejects_missing_ambiguity_state(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
@@ -2530,6 +2610,7 @@ def test_execute_command_rejects_missing_ambiguity_state(tmp_path: Path) -> None
 
 
 # gabion:evidence E:function_site::server.py::gabion.server.execute_command E:decision_surface/direct::server.py::gabion.server.execute_command::stale_3facdb5547c1
+# gabion:behavior primary=verboten facets=edge
 def test_execute_command_emits_ambiguity_state(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
@@ -2547,6 +2628,7 @@ def test_execute_command_emits_ambiguity_state(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::server.py::gabion.server.execute_command E:decision_surface/direct::server.py::gabion.server.execute_command::stale_063975ed42ec
+# gabion:behavior primary=verboten facets=edge
 def test_execute_command_rejects_ambiguity_state_conflict(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
@@ -2563,6 +2645,7 @@ def test_execute_command_rejects_ambiguity_state_conflict(tmp_path: Path) -> Non
     _assert_invariant_failure(result)
 
 # gabion:evidence E:function_site::server.py::gabion.server.execute_command E:decision_surface/direct::server.py::gabion.server.execute_command::stale_59372a4bcc30
+# gabion:behavior primary=verboten facets=edge
 def test_execute_command_rejects_obsolescence_state_conflict(
     tmp_path: Path,
 ) -> None:
@@ -2582,6 +2665,7 @@ def test_execute_command_rejects_obsolescence_state_conflict(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_rejects_non_dict_payload::server.py::gabion.server.execute_command
+# gabion:behavior primary=verboten facets=edge
 def test_execute_command_rejects_non_dict_payload(tmp_path: Path) -> None:
     ls = _DummyServer(str(tmp_path))
     result = server.execute_command(ls, [])  # type: ignore[arg-type]
@@ -2589,6 +2673,7 @@ def test_execute_command_rejects_non_dict_payload(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_rejects_missing_payload_with_structured_failure::server.py::gabion.server.execute_command
+# gabion:behavior primary=verboten facets=edge,missing
 def test_execute_command_rejects_missing_payload_with_structured_failure(
     tmp_path: Path,
 ) -> None:
@@ -2598,6 +2683,7 @@ def test_execute_command_rejects_missing_payload_with_structured_failure(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_with_deps_rejects_missing_payload_with_structured_failure::server.py::gabion.server.execute_command_with_deps
+# gabion:behavior primary=verboten facets=edge,missing
 def test_execute_command_with_deps_rejects_missing_payload_with_structured_failure(
     tmp_path: Path,
 ) -> None:
@@ -2611,6 +2697,7 @@ def test_execute_command_with_deps_rejects_missing_payload_with_structured_failu
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_refactor_payload_non_dict::server.py::gabion.server.execute_refactor
+# gabion:behavior primary=verboten facets=edge
 def test_execute_refactor_payload_non_dict(tmp_path: Path) -> None:
     ls = _DummyServer(str(tmp_path))
     with pytest.raises(NeverThrown):
@@ -2618,6 +2705,7 @@ def test_execute_refactor_payload_non_dict(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_synthesis_payload_non_dict::server.py::gabion.server.execute_synthesis
+# gabion:behavior primary=verboten facets=edge
 def test_execute_synthesis_payload_non_dict(tmp_path: Path) -> None:
     ls = _DummyServer(str(tmp_path))
     with pytest.raises(NeverThrown):
@@ -2625,6 +2713,7 @@ def test_execute_synthesis_payload_non_dict(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_write_text_profiled_writes_with_encoding::server.py::gabion.server._write_text_profiled
+# gabion:behavior primary=verboten facets=edge
 def test_write_text_profiled_writes_with_encoding(tmp_path: Path) -> None:
     output = tmp_path / "encoded.txt"
     server._write_text_profiled(
@@ -2637,6 +2726,7 @@ def test_write_text_profiled_writes_with_encoding(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_input_manifest_marks_missing_files::server.py::gabion.server._analysis_input_manifest
+# gabion:behavior primary=verboten facets=edge,missing
 def test_analysis_input_manifest_marks_missing_files(tmp_path: Path) -> None:
     existing = tmp_path / "exists.py"
     existing.write_text("x = 1\n")
@@ -2658,6 +2748,7 @@ def test_analysis_input_manifest_marks_missing_files(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_input_manifest_digest_ignores_mtime_changes::server.py::gabion.server._analysis_input_manifest::server.py::gabion.server._analysis_input_manifest_digest
+# gabion:behavior primary=verboten facets=edge
 def test_analysis_input_manifest_digest_ignores_mtime_changes(tmp_path: Path) -> None:
     existing = tmp_path / "exists.py"
     existing.write_text("x = 1\n", encoding="utf-8")
@@ -2694,6 +2785,7 @@ def test_analysis_input_manifest_digest_ignores_mtime_changes(tmp_path: Path) ->
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_manifest_digest_from_witness_rejects_invalid_shapes::server.py::gabion.server._analysis_manifest_digest_from_witness
+# gabion:behavior primary=verboten facets=edge,invalid
 def test_analysis_manifest_digest_from_witness_rejects_invalid_shapes() -> None:
     witness = {
         "root": "/repo",
@@ -2732,6 +2824,7 @@ def test_analysis_manifest_digest_from_witness_rejects_invalid_shapes() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_timeout_grace_ns_rejects_invalid_numeric_shapes::server.py::gabion.server._analysis_timeout_grace_ns
+# gabion:behavior primary=verboten facets=edge,invalid,timeout
 def test_analysis_timeout_grace_ns_rejects_invalid_numeric_shapes() -> None:
     with pytest.raises(NeverThrown):
         server._analysis_timeout_grace_ns(
@@ -2756,12 +2849,14 @@ def test_analysis_timeout_grace_ns_rejects_invalid_numeric_shapes() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_externalize_collection_resume_states_handles_mixed_rows::server.py::gabion.server._externalize_collection_resume_states
+# gabion:behavior primary=verboten facets=edge
 def test_externalize_collection_resume_states_handles_mixed_rows(tmp_path: Path) -> None:
     _ = tmp_path
     assert not hasattr(server, "_externalize_collection_resume_states")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_externalize_collection_resume_states_summarizes_processed_function_list::server.py::gabion.server._canonical_json_text::server.py::gabion.server._externalize_collection_resume_states
+# gabion:behavior primary=verboten facets=edge
 def test_externalize_collection_resume_states_summarizes_processed_function_list(
     tmp_path: Path,
 ) -> None:
@@ -2770,12 +2865,14 @@ def test_externalize_collection_resume_states_summarizes_processed_function_list
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_inflate_collection_resume_states_handles_chunk_failures::server.py::gabion.server._inflate_collection_resume_states
+# gabion:behavior primary=verboten facets=edge
 def test_inflate_collection_resume_states_handles_chunk_failures(tmp_path: Path) -> None:
     _ = tmp_path
     assert not hasattr(server, "_inflate_collection_resume_states")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_timeout_cleanup_tracks_truncated_report_steps::server.py::gabion.server._default_execute_command_deps::server.py::gabion.server._execute_command_total::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge,timeout
 def test_timeout_cleanup_tracks_truncated_report_steps(
     tmp_path: Path,
 ) -> None:
@@ -2816,6 +2913,7 @@ def test_timeout_cleanup_tracks_truncated_report_steps(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_apply_journal_pending_reason_only_for_stale_or_policy::server.py::gabion.server._apply_journal_pending_reason
+# gabion:behavior primary=verboten facets=edge
 def test_apply_journal_pending_reason_only_for_stale_or_policy() -> None:
     pending: dict[str, str] = {}
     rows: list[dict[str, object]] = [
@@ -2847,6 +2945,7 @@ def test_apply_journal_pending_reason_only_for_stale_or_policy() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_latest_report_phase_and_truthy_flag_edges::server.py::gabion.server._latest_report_phase::server.py::gabion.server._truthy_flag
+# gabion:behavior primary=verboten facets=edge
 def test_latest_report_phase_and_truthy_flag_edges() -> None:
     assert server._latest_report_phase(None) is None
     assert server._latest_report_phase({"post": {}, "forest": {}}) == "post"
@@ -2859,6 +2958,7 @@ def test_latest_report_phase_and_truthy_flag_edges() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_report_section_journal_load_policy_and_stale_paths::server.py::gabion.server._load_report_section_journal
+# gabion:behavior primary=verboten facets=edge
 def test_report_section_journal_load_policy_and_stale_paths(tmp_path: Path) -> None:
     path = tmp_path / "sections.json"
     assert server._load_report_section_journal(path=None, witness_digest=None) == ({}, None)
@@ -2903,6 +3003,7 @@ def test_report_section_journal_load_policy_and_stale_paths(tmp_path: Path) -> N
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_report_phase_checkpoint_load_and_write_filters_invalid_entries::server.py::gabion.server._load_report_phase_checkpoint::server.py::gabion.server._write_report_phase_checkpoint
+# gabion:behavior primary=verboten facets=edge,invalid
 def test_report_phase_checkpoint_load_and_write_filters_invalid_entries(tmp_path: Path) -> None:
     _ = tmp_path
     assert not hasattr(server, "_load_report_phase_checkpoint")
@@ -2910,6 +3011,7 @@ def test_report_phase_checkpoint_load_and_write_filters_invalid_entries(tmp_path
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_write_report_section_journal_handles_path_none_and_empty_section_id::server.py::gabion.server._write_report_section_journal
+# gabion:behavior primary=verboten facets=edge,empty,none
 def test_write_report_section_journal_handles_path_none_and_empty_section_id(tmp_path: Path) -> None:
     server._write_report_section_journal(
         path=None,
@@ -2930,6 +3032,7 @@ def test_write_report_section_journal_handles_path_none_and_empty_section_id(tmp
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_collection_component_and_group_projection_filters_invalid_shapes::server.py::gabion.server._collection_components_preview_lines::server.py::gabion.server._groups_by_path_from_collection_resume
+# gabion:behavior primary=verboten facets=edge,invalid
 def test_collection_component_and_group_projection_filters_invalid_shapes() -> None:
     assert server._collection_components_preview_lines(collection_resume={})[1] == "- `paths_with_groups`: `0`"
     resume = {
@@ -2955,6 +3058,7 @@ def test_collection_component_and_group_projection_filters_invalid_shapes() -> N
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_collection_progress_intro_lines_counts_processed_and_hydrated::server.py::gabion.server._collection_progress_intro_lines
+# gabion:behavior primary=verboten facets=edge
 def test_collection_progress_intro_lines_counts_processed_and_hydrated() -> None:
     resume = {
         "completed_paths": ["a.py"],
@@ -2977,6 +3081,7 @@ def test_collection_progress_intro_lines_counts_processed_and_hydrated() -> None
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_render_incremental_report_handles_missing_and_invalid_phases::server.py::gabion.server._render_incremental_report
+# gabion:behavior primary=verboten facets=edge,invalid,missing
 def test_render_incremental_report_handles_missing_and_invalid_phases() -> None:
     report, pending = server._render_incremental_report(
         analysis_state="analysis_collection_in_progress",
@@ -3000,6 +3105,7 @@ def test_render_incremental_report_handles_missing_and_invalid_phases() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_externalize_collection_resume_states_passthrough_and_cleanup_oserror::server.py::gabion.server._externalize_collection_resume_states
+# gabion:behavior primary=verboten facets=edge
 def test_externalize_collection_resume_states_passthrough_and_cleanup_oserror(
     tmp_path: Path,
 ) -> None:
@@ -3008,6 +3114,7 @@ def test_externalize_collection_resume_states_passthrough_and_cleanup_oserror(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_inflate_collection_resume_states_passthrough_and_chunk_success::server.py::gabion.server._inflate_collection_resume_states
+# gabion:behavior primary=verboten facets=edge
 def test_inflate_collection_resume_states_passthrough_and_chunk_success(
     tmp_path: Path,
 ) -> None:
@@ -3016,12 +3123,14 @@ def test_inflate_collection_resume_states_passthrough_and_chunk_success(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_load_analysis_resume_checkpoint_manifest_invalid_shapes::server.py::gabion.server._load_analysis_resume_checkpoint_manifest
+# gabion:behavior primary=verboten facets=edge,invalid
 def test_load_analysis_resume_checkpoint_manifest_invalid_shapes(tmp_path: Path) -> None:
     _ = tmp_path
     assert not hasattr(server, "_load_analysis_resume_checkpoint_manifest")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_resume_helpers_default_paths_and_digests::server.py::gabion.server._analysis_index_resume_hydrated_count::server.py::gabion.server._analysis_index_resume_hydrated_digest::server.py::gabion.server._analysis_index_resume_hydrated_paths::server.py::gabion.server._analysis_index_resume_signature::server.py::gabion.server._analysis_index_resume_summary::server.py::gabion.server._completed_path_set::server.py::gabion.server._in_progress_scan_states::server.py::gabion.server._state_processed_count::server.py::gabion.server._state_processed_digest
+# gabion:behavior primary=verboten facets=edge
 def test_resume_helpers_default_paths_and_digests() -> None:
     assert server._completed_path_set(None) == set()
     assert server._completed_path_set({"completed_paths": "bad"}) == set()
@@ -3041,6 +3150,7 @@ def test_resume_helpers_default_paths_and_digests() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_misc_small_helpers_cover_validation_edges::server.py::gabion.server._coerce_section_lines::server.py::gabion.server._groups_by_path_from_collection_resume::server.py::gabion.server._incremental_progress_obligations::server.py::gabion.server._report_witness_digest::server.py::gabion.server._resolve_report_output_path::server.py::gabion.server._split_incremental_obligations
+# gabion:behavior primary=verboten facets=edge
 def test_misc_small_helpers_cover_validation_edges(tmp_path: Path) -> None:
     assert server._resolve_report_output_path(root=tmp_path, report_path="-") is None
     assert (
@@ -3092,6 +3202,7 @@ def test_misc_small_helpers_cover_validation_edges(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_server_deadline_overhead_and_name_set_edges::server.py::gabion.server._normalize_name_set::server.py::gabion.server._server_deadline_overhead_ns
+# gabion:behavior primary=verboten facets=edge
 def test_server_deadline_overhead_and_name_set_edges() -> None:
     assert server._server_deadline_overhead_ns(total_ns=0) == 0
     assert server._server_deadline_overhead_ns(total_ns=1, divisor=1) == 0
@@ -3118,6 +3229,7 @@ def test_server_deadline_overhead_and_name_set_edges() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_structure_reuse_total_edges::server.py::gabion.server._execute_structure_reuse_total::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout
+# gabion:behavior primary=verboten facets=edge
 def test_execute_structure_reuse_total_edges(tmp_path: Path) -> None:
     snapshot = tmp_path / "snap.json"
     snapshot.write_text("{}")
@@ -3141,6 +3253,7 @@ def test_execute_structure_reuse_total_edges(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_inflate_manifest_and_checkpoint_edge_paths::server.py::gabion.server._analysis_manifest_digest_from_witness::server.py::gabion.server._inflate_collection_resume_states::server.py::gabion.server._load_analysis_resume_checkpoint_manifest::server.py::gabion.server._write_analysis_resume_checkpoint
+# gabion:behavior primary=verboten facets=edge
 def test_inflate_manifest_and_checkpoint_edge_paths(tmp_path: Path) -> None:
     _ = tmp_path
     assert not hasattr(server, "_inflate_collection_resume_states")
@@ -3149,6 +3262,7 @@ def test_inflate_manifest_and_checkpoint_edge_paths(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_clear_checkpoint_and_grace_tick_validation_edges::server.py::gabion.server._analysis_timeout_grace_ns::server.py::gabion.server._clear_analysis_resume_checkpoint
+# gabion:behavior primary=verboten facets=edge
 def test_clear_checkpoint_and_grace_tick_validation_edges(tmp_path: Path) -> None:
     _ = tmp_path
     assert not hasattr(server, "_clear_analysis_resume_checkpoint")
@@ -3164,6 +3278,7 @@ def test_clear_checkpoint_and_grace_tick_validation_edges(tmp_path: Path) -> Non
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_collection_semantic_progress_and_journal_phase_edges::server.py::gabion.server._collection_semantic_progress::server.py::gabion.server._load_report_phase_checkpoint::server.py::gabion.server._load_report_section_journal::server.py::gabion.server._write_report_phase_checkpoint
+# gabion:behavior primary=verboten facets=edge
 def test_collection_semantic_progress_and_journal_phase_edges(tmp_path: Path) -> None:
     progress = server._collection_semantic_progress(
         previous_collection_resume={},
@@ -3209,6 +3324,7 @@ def test_collection_semantic_progress_and_journal_phase_edges(tmp_path: Path) ->
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_bootstrap_incremental_artifacts_existing_reason_policy::server.py::gabion.server._write_bootstrap_incremental_artifacts
+# gabion:behavior primary=verboten facets=edge
 def test_bootstrap_incremental_artifacts_existing_reason_policy(tmp_path: Path) -> None:
     report_path = tmp_path / "report.md"
     journal_path = tmp_path / "report_sections.json"
@@ -3244,6 +3360,7 @@ def test_bootstrap_incremental_artifacts_existing_reason_policy(tmp_path: Path) 
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_bootstrap_incremental_artifacts_skips_non_string_deps::server.py::gabion.server._write_bootstrap_incremental_artifacts
+# gabion:behavior primary=verboten facets=edge
 def test_bootstrap_incremental_artifacts_skips_non_string_deps(tmp_path: Path) -> None:
     report_path = tmp_path / "report.md"
     journal_path = tmp_path / "report_sections.json"
@@ -3266,6 +3383,7 @@ def test_bootstrap_incremental_artifacts_skips_non_string_deps(tmp_path: Path) -
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_timeout_context_payload_fallback::server.py::gabion.server._default_execute_command_deps::server.py::gabion.server._execute_command_total::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=allowed_unwanted facets=fallback,timeout
 def test_execute_command_timeout_context_payload_fallback(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
@@ -3297,6 +3415,7 @@ def test_execute_command_timeout_context_payload_fallback(tmp_path: Path) -> Non
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_timeout_context_payload_helper_falls_back_without_payload_api::server.py::gabion.server._timeout_context_payload
+# gabion:behavior primary=verboten facets=edge,timeout
 def test_timeout_context_payload_helper_falls_back_without_payload_api() -> None:
     payload = server._timeout_context_payload(
         server.TimeoutExceeded("boom")  # type: ignore[arg-type]
@@ -3306,6 +3425,7 @@ def test_timeout_context_payload_helper_falls_back_without_payload_api() -> None
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_timeout_context_payload_handles_missing_payload_api::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge,missing,timeout
 def test_execute_command_timeout_context_payload_handles_missing_payload_api(
     tmp_path: Path,
 ) -> None:
@@ -3333,6 +3453,7 @@ def test_execute_command_timeout_context_payload_handles_missing_payload_api(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_timeout_progress_payload_repaired_when_not_mapping::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._timeout_exc::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge,timeout
 def test_execute_command_timeout_progress_payload_repaired_when_not_mapping(
     tmp_path: Path,
 ) -> None:
@@ -3361,6 +3482,7 @@ def test_execute_command_timeout_progress_payload_repaired_when_not_mapping(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_timeout_resume_payload_promotes_progress_with_witness::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._timeout_exc::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge,timeout
 def test_execute_command_timeout_resume_payload_promotes_progress_with_witness(
     tmp_path: Path,
 ) -> None:
@@ -3382,6 +3504,7 @@ def test_execute_command_timeout_resume_payload_promotes_progress_with_witness(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_resume_timeout_paths_cover_manifest_and_witness_fallbacks::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._timeout_exc::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge,timeout
 def test_execute_command_resume_timeout_paths_cover_manifest_and_witness_fallbacks(
     tmp_path: Path,
 ) -> None:
@@ -3404,6 +3527,7 @@ def test_execute_command_resume_timeout_paths_cover_manifest_and_witness_fallbac
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_timeout_manifest_fallback_branch_and_intro_fallback::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._timeout_exc::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=allowed_unwanted facets=fallback,timeout
 def test_execute_command_timeout_manifest_fallback_branch_and_intro_fallback(
     tmp_path: Path,
 ) -> None:
@@ -3425,6 +3549,7 @@ def test_execute_command_timeout_manifest_fallback_branch_and_intro_fallback(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_resolve_manifest_without_checkpoint_and_invalid_retry_payload::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._empty_analysis_result::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge,invalid
 def test_execute_command_resolve_manifest_without_checkpoint_and_invalid_retry_payload(
     tmp_path: Path,
 ) -> None:
@@ -3447,6 +3572,7 @@ def test_execute_command_resolve_manifest_without_checkpoint_and_invalid_retry_p
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_bootstrap_seed_manifest_and_semantic_progress_edges::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._empty_analysis_result::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge
 def test_execute_command_bootstrap_seed_manifest_and_semantic_progress_edges(
     tmp_path: Path,
 ) -> None:
@@ -3503,6 +3629,7 @@ def test_execute_command_bootstrap_seed_manifest_and_semantic_progress_edges(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_resume_checkpoint_seed_written_when_manifest_missing::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._empty_analysis_result::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge,missing
 def test_execute_command_resume_checkpoint_seed_written_when_manifest_missing(
     tmp_path: Path,
 ) -> None:
@@ -3546,6 +3673,7 @@ def test_execute_command_resume_checkpoint_seed_written_when_manifest_missing(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_timeout_phase_preview_projection_edges::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._timeout_exc::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge,timeout
 def test_execute_command_timeout_phase_preview_projection_edges(
     tmp_path: Path,
 ) -> None:
@@ -3573,6 +3701,7 @@ def test_execute_command_timeout_phase_preview_projection_edges(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_timeout_phase_checkpoint_preview_and_classification_edges::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._timeout_exc::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge,timeout
 def test_execute_command_timeout_phase_checkpoint_preview_and_classification_edges(
     tmp_path: Path,
 ) -> None:
@@ -3611,6 +3740,7 @@ def test_execute_command_timeout_phase_checkpoint_preview_and_classification_edg
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_total_timeout_context_payload_timeout_fallback::server.py::gabion.server._default_execute_command_deps::server.py::gabion.server._execute_command_total::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module::timeout_context.py::gabion.analysis.timeout_context.pack_call_stack
+# gabion:behavior primary=allowed_unwanted facets=fallback,timeout
 def test_execute_command_total_timeout_context_payload_timeout_fallback(
     tmp_path: Path,
 ) -> None:
@@ -3647,6 +3777,7 @@ def test_execute_command_total_timeout_context_payload_timeout_fallback(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_total_timeout_uses_non_empty_classification::server.py::gabion.server._default_execute_command_deps::server.py::gabion.server._execute_command_total::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._timeout_exc::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge,empty,timeout
 def test_execute_command_total_timeout_uses_non_empty_classification(
     tmp_path: Path,
 ) -> None:
@@ -3674,6 +3805,7 @@ def test_execute_command_total_timeout_uses_non_empty_classification(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_total_timeout_loads_phase_checkpoint_and_preview_projection::server.py::gabion.server._default_execute_command_deps::server.py::gabion.server._execute_command_total::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._timeout_exc::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge,timeout
 def test_execute_command_total_timeout_loads_phase_checkpoint_and_preview_projection(
     tmp_path: Path,
 ) -> None:
@@ -3713,6 +3845,7 @@ def test_execute_command_total_timeout_loads_phase_checkpoint_and_preview_projec
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_total_timeout_intro_from_resume_collection::server.py::gabion.server._default_execute_command_deps::server.py::gabion.server._execute_command_total::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._timeout_exc::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge,timeout
 def test_execute_command_total_timeout_intro_from_resume_collection(
     tmp_path: Path,
 ) -> None:
@@ -3733,6 +3866,7 @@ def test_execute_command_total_timeout_intro_from_resume_collection(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_total_timeout_intro_fallback_bootstrap::server.py::gabion.server._default_execute_command_deps::server.py::gabion.server._execute_command_total::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._timeout_exc::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=allowed_unwanted facets=fallback,timeout
 def test_execute_command_total_timeout_intro_fallback_bootstrap(
     tmp_path: Path,
 ) -> None:
@@ -3769,6 +3903,7 @@ def test_execute_command_total_timeout_intro_fallback_bootstrap(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_timeout_cleanup_manifest_resume_and_projection_preview::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._timeout_exc::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge,timeout
 def test_execute_command_timeout_cleanup_manifest_resume_and_projection_preview(
     tmp_path: Path,
 ) -> None:
@@ -3792,6 +3927,7 @@ def test_execute_command_timeout_cleanup_manifest_resume_and_projection_preview(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_timeout_cleanup_load_resume_progress_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._timeout_exc::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge,timeout
 def test_execute_command_timeout_cleanup_load_resume_progress_timeout(
     tmp_path: Path,
 ) -> None:
@@ -3814,6 +3950,7 @@ def test_execute_command_timeout_cleanup_load_resume_progress_timeout(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_projection_phase_callback_no_rows::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._empty_analysis_result::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge
 def test_execute_command_projection_phase_callback_no_rows(
     tmp_path: Path,
 ) -> None:
@@ -3848,6 +3985,7 @@ def test_execute_command_projection_phase_callback_no_rows(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_projection_phase_callback_emits_progress_without_report_path::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._empty_analysis_result::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._progress_values::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge
 def test_execute_command_projection_phase_callback_emits_progress_without_report_path(
     tmp_path: Path,
 ) -> None:
@@ -3886,6 +4024,7 @@ def test_execute_command_projection_phase_callback_emits_progress_without_report
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_externalize_collection_resume_state_summary_fallback_branches::server.py::gabion.server._externalize_collection_resume_states
+# gabion:behavior primary=allowed_unwanted facets=fallback
 def test_externalize_collection_resume_state_summary_fallback_branches(
     tmp_path: Path,
 ) -> None:
@@ -3894,6 +4033,7 @@ def test_externalize_collection_resume_state_summary_fallback_branches(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_inflate_collection_resume_chunk_state_non_mapping_falls_back::server.py::gabion.server._analysis_resume_checkpoint_chunks_dir::server.py::gabion.server._analysis_resume_state_chunk_name::server.py::gabion.server._inflate_collection_resume_states
+# gabion:behavior primary=verboten facets=edge
 def test_inflate_collection_resume_chunk_state_non_mapping_falls_back(
     tmp_path: Path,
 ) -> None:
@@ -3904,6 +4044,7 @@ def test_inflate_collection_resume_chunk_state_non_mapping_falls_back(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_inflate_collection_resume_analysis_index_invalid_chunk_falls_back::server.py::gabion.server._analysis_resume_checkpoint_chunks_dir::server.py::gabion.server._analysis_resume_named_chunk_name::server.py::gabion.server._inflate_collection_resume_states
+# gabion:behavior primary=verboten facets=edge,invalid
 def test_inflate_collection_resume_analysis_index_invalid_chunk_falls_back(
     tmp_path: Path,
 ) -> None:
@@ -3914,6 +4055,7 @@ def test_inflate_collection_resume_analysis_index_invalid_chunk_falls_back(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_input_witness_reuses_ast_intern_keys_for_identical_trees::server.py::gabion.server._analysis_input_witness
+# gabion:behavior primary=verboten facets=edge
 def test_analysis_input_witness_reuses_ast_intern_keys_for_identical_trees(
     tmp_path: Path,
 ) -> None:
@@ -3940,24 +4082,28 @@ def test_analysis_input_witness_reuses_ast_intern_keys_for_identical_trees(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_load_analysis_resume_checkpoint_without_expected_digest::server.py::gabion.server._load_analysis_resume_checkpoint
+# gabion:behavior primary=verboten facets=edge
 def test_load_analysis_resume_checkpoint_without_expected_digest(tmp_path: Path) -> None:
     _ = tmp_path
     assert not hasattr(server, "_load_analysis_resume_checkpoint")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_resume_checkpoint_compatibility_manifest_mismatch::server.py::gabion.server._analysis_resume_checkpoint_compatibility
+# gabion:behavior primary=verboten facets=edge,mismatch
 def test_analysis_resume_checkpoint_compatibility_manifest_mismatch(tmp_path: Path) -> None:
     _ = tmp_path
     assert not hasattr(server, "_analysis_resume_checkpoint_compatibility")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_resume_checkpoint_compatibility_compatible::server.py::gabion.server._analysis_resume_checkpoint_compatibility
+# gabion:behavior primary=verboten facets=edge
 def test_analysis_resume_checkpoint_compatibility_compatible(tmp_path: Path) -> None:
     _ = tmp_path
     assert not hasattr(server, "_analysis_resume_checkpoint_compatibility")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_resume_cache_verdict_mapping::server.py::gabion.server._analysis_resume_cache_verdict
+# gabion:behavior primary=verboten facets=edge
 @pytest.mark.parametrize(
     ("status", "reused_files", "compatibility_status", "expected"),
     [
@@ -3983,6 +4129,7 @@ def test_analysis_resume_cache_verdict_mapping(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_resume_progress_allows_negative_total_files::server.py::gabion.server._analysis_resume_progress
+# gabion:behavior primary=verboten facets=edge
 def test_analysis_resume_progress_allows_negative_total_files() -> None:
     progress = server._analysis_resume_progress(
         collection_resume={
@@ -4000,6 +4147,7 @@ def test_analysis_resume_progress_allows_negative_total_files() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_collection_semantic_progress_ignores_non_int_cumulative_values::server.py::gabion.server._collection_semantic_progress
+# gabion:behavior primary=verboten facets=edge
 def test_collection_semantic_progress_ignores_non_int_cumulative_values() -> None:
     progress = server._collection_semantic_progress(
         previous_collection_resume={"completed_paths": []},
@@ -4019,6 +4167,7 @@ def test_collection_semantic_progress_ignores_non_int_cumulative_values() -> Non
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_write_report_section_journal_handles_non_list_deps::server.py::gabion.server._write_report_section_journal
+# gabion:behavior primary=verboten facets=edge
 def test_write_report_section_journal_handles_non_list_deps(tmp_path: Path) -> None:
     journal_path = tmp_path / "sections.json"
     server._write_report_section_journal(
@@ -4033,6 +4182,7 @@ def test_write_report_section_journal_handles_non_list_deps(tmp_path: Path) -> N
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_write_bootstrap_incremental_artifacts_without_journal_path::server.py::gabion.server._write_bootstrap_incremental_artifacts
+# gabion:behavior primary=verboten facets=edge
 def test_write_bootstrap_incremental_artifacts_without_journal_path(
     tmp_path: Path,
 ) -> None:
@@ -4055,6 +4205,7 @@ def test_write_bootstrap_incremental_artifacts_without_journal_path(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_write_bootstrap_incremental_artifacts_existing_digest_variants::server.py::gabion.server._write_bootstrap_incremental_artifacts
+# gabion:behavior primary=verboten facets=edge
 def test_write_bootstrap_incremental_artifacts_existing_digest_variants(
     tmp_path: Path,
 ) -> None:
@@ -4109,6 +4260,7 @@ def test_write_bootstrap_incremental_artifacts_existing_digest_variants(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_render_incremental_report_handles_non_mapping_progress_and_non_list_deps::server.py::gabion.server._render_incremental_report
+# gabion:behavior primary=verboten facets=edge
 def test_render_incremental_report_handles_non_mapping_progress_and_non_list_deps() -> None:
     report_text, pending = server._render_incremental_report(
         analysis_state="timed_out_no_progress",
@@ -4121,6 +4273,7 @@ def test_render_incremental_report_handles_non_mapping_progress_and_non_list_dep
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_collection_progress_intro_lines_skip_non_numeric_optional_metrics::server.py::gabion.server._collection_progress_intro_lines
+# gabion:behavior primary=verboten facets=edge
 def test_collection_progress_intro_lines_skip_non_numeric_optional_metrics() -> None:
     lines = server._collection_progress_intro_lines(
         collection_resume={
@@ -4146,6 +4299,7 @@ def test_collection_progress_intro_lines_skip_non_numeric_optional_metrics() -> 
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_collection_progress_intro_lines_skips_non_string_scan_entries::server.py::gabion.server._collection_progress_intro_lines
+# gabion:behavior primary=verboten facets=edge
 def test_collection_progress_intro_lines_skips_non_string_scan_entries() -> None:
     lines = server._collection_progress_intro_lines(
         collection_resume={
@@ -4165,6 +4319,7 @@ def test_collection_progress_intro_lines_skips_non_string_scan_entries() -> None
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_incremental_progress_obligations_ignore_non_boolean_semantic_flags::server.py::gabion.server._incremental_progress_obligations
+# gabion:behavior primary=verboten facets=edge
 def test_incremental_progress_obligations_ignore_non_boolean_semantic_flags() -> None:
     obligations = server._incremental_progress_obligations(
         analysis_state="timed_out_progress_resume",
@@ -4193,11 +4348,13 @@ def test_incremental_progress_obligations_ignore_non_boolean_semantic_flags() ->
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_normalize_transparent_decorators_returns_none_for_invalid_payload::server.py::gabion.server._normalize_transparent_decorators
+# gabion:behavior primary=verboten facets=edge,invalid,none
 def test_normalize_transparent_decorators_returns_none_for_invalid_payload() -> None:
     assert server._normalize_transparent_decorators(123) is None  # type: ignore[arg-type]
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_timeout_context_payload_falls_back_for_non_mapping_payload::server.py::gabion.server._timeout_context_payload
+# gabion:behavior primary=verboten facets=edge,timeout
 def test_timeout_context_payload_falls_back_for_non_mapping_payload() -> None:
     class _ContextProxy:
         def as_payload(self) -> list[str]:
@@ -4208,6 +4365,7 @@ def test_timeout_context_payload_falls_back_for_non_mapping_payload() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_writes_refactor_plan_json_file::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge
 def test_execute_command_writes_refactor_plan_json_file(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
@@ -4227,6 +4385,7 @@ def test_execute_command_writes_refactor_plan_json_file(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_refactor_plan_without_json_path::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge
 def test_execute_command_refactor_plan_without_json_path(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
@@ -4245,6 +4404,7 @@ def test_execute_command_refactor_plan_without_json_path(tmp_path: Path) -> None
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_with_empty_fingerprint_index::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge,empty
 def test_execute_command_with_empty_fingerprint_index(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
@@ -4264,6 +4424,7 @@ def test_execute_command_with_empty_fingerprint_index(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_skips_markdown_write_when_report_output_is_dash::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge
 def test_execute_command_skips_markdown_write_when_report_output_is_dash(
     tmp_path: Path,
 ) -> None:
@@ -4284,6 +4445,7 @@ def test_execute_command_skips_markdown_write_when_report_output_is_dash(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_skips_report_append_when_report_is_empty_string::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge,empty
 def test_execute_command_skips_report_append_when_report_is_empty_string(
     tmp_path: Path,
 ) -> None:
@@ -4303,6 +4465,7 @@ def test_execute_command_skips_report_append_when_report_is_empty_string(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_timeout_cleanup_manifest_resume_none_branch::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._timeout_exc::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge,none,timeout
 def test_execute_command_timeout_cleanup_manifest_resume_none_branch(
     tmp_path: Path,
 ) -> None:
@@ -4326,6 +4489,7 @@ def test_execute_command_timeout_cleanup_manifest_resume_none_branch(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_timeout_cleanup_non_boolean_semantic_progress::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge,timeout
 def test_execute_command_timeout_cleanup_non_boolean_semantic_progress(
     tmp_path: Path,
 ) -> None:
@@ -4349,6 +4513,7 @@ def test_execute_command_timeout_cleanup_non_boolean_semantic_progress(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_refactor_valid_payload_without_workspace_root::server.py::gabion.server.execute_refactor::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout
+# gabion:behavior primary=verboten facets=edge
 def test_execute_refactor_valid_payload_without_workspace_root(tmp_path: Path) -> None:
     module_path = tmp_path / "target.py"
     module_path.write_text("def f(a, b):\n    return a + b\n")
@@ -4367,6 +4532,7 @@ def test_execute_refactor_valid_payload_without_workspace_root(tmp_path: Path) -
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_refactor_loop_generator_valid_payload::server.py::gabion.server.execute_refactor
+# gabion:behavior primary=verboten facets=edge
 def test_execute_refactor_loop_generator_valid_payload(tmp_path: Path) -> None:
     module_path = tmp_path / "target.py"
     module_path.write_text(
@@ -4391,6 +4557,7 @@ def test_execute_refactor_loop_generator_valid_payload(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_refactor_loop_generator_rejects_protocol_fields::server.py::gabion.server.execute_refactor
+# gabion:behavior primary=verboten facets=edge
 def test_execute_refactor_loop_generator_rejects_protocol_fields(tmp_path: Path) -> None:
     module_path = tmp_path / "target.py"
     module_path.write_text(
@@ -4413,6 +4580,7 @@ def test_execute_refactor_loop_generator_rejects_protocol_fields(tmp_path: Path)
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_structure_reuse_total_success_without_lemma_stubs::server.py::gabion.server._execute_structure_reuse_total::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout
+# gabion:behavior primary=verboten facets=edge
 def test_execute_structure_reuse_total_success_without_lemma_stubs(tmp_path: Path) -> None:
     snapshot = tmp_path / "snapshot.json"
     snapshot.write_text(
@@ -4427,6 +4595,7 @@ def test_execute_structure_reuse_total_success_without_lemma_stubs(tmp_path: Pat
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_impact_query_groups_tests_and_docs::server.py::gabion.server.execute_impact::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout
+# gabion:behavior primary=verboten facets=edge
 def test_execute_impact_query_groups_tests_and_docs(tmp_path: Path) -> None:
     src = tmp_path / "src"
     src.mkdir()
@@ -4468,6 +4637,7 @@ def test_execute_impact_query_groups_tests_and_docs(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_impact_query_accepts_git_diff::server.py::gabion.server.execute_impact::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout
+# gabion:behavior primary=verboten facets=edge
 def test_execute_impact_query_accepts_git_diff(tmp_path: Path) -> None:
     (tmp_path / "module.py").write_text("def f():\n    return 1\n")
     ls = _DummyServer(str(tmp_path))
@@ -4491,6 +4661,7 @@ def test_execute_impact_query_accepts_git_diff(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_server_lint_normalization_helpers_cover_invalid_rows::server.py::gabion.server._normalize_dataflow_response::server.py::gabion.server._parse_lint_line::server.py::gabion.server._parse_lint_line_as_payload
+# gabion:behavior primary=verboten facets=edge,invalid
 def test_server_lint_normalization_helpers_cover_invalid_rows() -> None:
     assert server._parse_lint_line("not a lint row") is None
     assert server._parse_lint_line("pkg/mod.py:1:2:   ") is None
@@ -4526,6 +4697,7 @@ def test_server_lint_normalization_helpers_cover_invalid_rows() -> None:
 
 
 # gabion:evidence E:function_site::server.py::gabion.server._normalize_dataflow_response
+# gabion:behavior primary=verboten facets=edge
 def test_server_normalize_dataflow_response_preserves_aspf_payloads() -> None:
     normalized = server._normalize_dataflow_response(
         {
@@ -4572,6 +4744,7 @@ def test_server_normalize_dataflow_response_preserves_aspf_payloads() -> None:
     }
 
 
+# gabion:behavior primary=verboten facets=edge
 def test_server_normalize_dataflow_response_updates_nested_payload_capabilities() -> None:
     normalized = server._normalize_dataflow_response(
         {
@@ -4589,6 +4762,7 @@ def test_server_normalize_dataflow_response_updates_nested_payload_capabilities(
     assert payload["disabled_surface_reasons"] == {"type_flow": "disabled"}
 
 
+# gabion:behavior primary=allowed_unwanted facets=fallback
 def test_diagnostics_for_path_uses_fallback_range_when_param_span_missing(tmp_path: Path) -> None:
     module_path = tmp_path / "module.py"
     module_path.write_text("def f(a):\n    return a\n", encoding="utf-8")
@@ -4617,6 +4791,7 @@ def test_diagnostics_for_path_uses_fallback_range_when_param_span_missing(tmp_pa
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_rejects_invalid_strictness::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge,invalid
 def test_execute_command_rejects_invalid_strictness(tmp_path: Path) -> None:
     module = tmp_path / "sample.py"
     _write_bundle_module(module)
@@ -4633,6 +4808,7 @@ def test_execute_command_rejects_invalid_strictness(tmp_path: Path) -> None:
     _assert_invariant_failure(result)
 
 
+# gabion:behavior primary=verboten facets=edge,unsupported
 def test_execute_command_rejects_unsupported_dataflow_ingest_profile(tmp_path: Path) -> None:
     module = tmp_path / "sample.py"
     _write_bundle_module(module)
@@ -4651,6 +4827,7 @@ def test_execute_command_rejects_unsupported_dataflow_ingest_profile(tmp_path: P
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_refactor_accepts_structured_compatibility_shim::server.py::gabion.server.execute_refactor::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout
+# gabion:behavior primary=verboten facets=edge
 def test_execute_refactor_accepts_structured_compatibility_shim(tmp_path: Path) -> None:
     module_path = tmp_path / "target.py"
     module_path.write_text("def f(a, b):\n    return a + b\n")
@@ -4675,6 +4852,7 @@ def test_execute_refactor_accepts_structured_compatibility_shim(tmp_path: Path) 
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_impact_change_normalization_and_diff_range_edges::server.py::gabion.server._impact_path_is_test::server.py::gabion.server._normalize_impact_change_entry::server.py::gabion.server._parse_impact_diff_ranges
+# gabion:behavior primary=verboten facets=edge
 def test_impact_change_normalization_and_diff_range_edges() -> None:
     assert server._normalize_impact_change_entry({"path": ""}) is None
     assert server._normalize_impact_change_entry(
@@ -4717,6 +4895,7 @@ def test_impact_change_normalization_and_diff_range_edges() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_impact_function_and_edge_helpers_cover_guard_paths::server.py::gabion.server._impact_collect_edges::server.py::gabion.server._impact_functions_from_tree::server.py::gabion.server._impact_parse_doc_sections
+# gabion:behavior primary=verboten facets=edge
 def test_impact_function_and_edge_helpers_cover_guard_paths(tmp_path: Path) -> None:
     parsed_tree = server.ast.parse(
         "class Box:\n"
@@ -4806,6 +4985,7 @@ def test_impact_function_and_edge_helpers_cover_guard_paths(tmp_path: Path) -> N
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_impact_validation_and_depth_edges::server.py::gabion.server.execute_impact::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout
+# gabion:behavior primary=verboten facets=edge
 def test_execute_impact_validation_and_depth_edges(tmp_path: Path) -> None:
     module = tmp_path / "module.py"
     module.write_text("def f():\n    return 1\n", encoding="utf-8")
@@ -4881,12 +5061,14 @@ def test_execute_impact_validation_and_depth_edges(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_impact_requires_payload::server.py::gabion.server.execute_impact
+# gabion:behavior primary=verboten facets=edge
 def test_execute_impact_requires_payload() -> None:
     with pytest.raises(NeverThrown):
         server.execute_impact(_DummyServer("."), None)
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_impact_duplicate_test_edges_cover_seen_state_and_confidence_guard::server.py::gabion.server.execute_impact::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout
+# gabion:behavior primary=verboten facets=edge
 def test_execute_impact_duplicate_test_edges_cover_seen_state_and_confidence_guard(
     tmp_path: Path,
 ) -> None:
@@ -4923,6 +5105,7 @@ def test_execute_impact_duplicate_test_edges_cover_seen_state_and_confidence_gua
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_impact_handles_change_without_seed_functions::server.py::gabion.server.execute_impact::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout
+# gabion:behavior primary=verboten facets=edge
 def test_execute_impact_handles_change_without_seed_functions(tmp_path: Path) -> None:
     (tmp_path / "module.py").write_text("VALUE = 1\n", encoding="utf-8")
     result = server.execute_impact(
@@ -4941,6 +5124,7 @@ def test_execute_impact_handles_change_without_seed_functions(tmp_path: Path) ->
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_impact_bfs_step_limit_handles_dense_reverse_edges::server.py::gabion.server.execute_impact::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout
+# gabion:behavior primary=verboten facets=edge
 def test_execute_impact_bfs_step_limit_handles_dense_reverse_edges(tmp_path: Path) -> None:
     module = tmp_path / "module.py"
     module.write_text(
@@ -4970,6 +5154,7 @@ def test_execute_impact_bfs_step_limit_handles_dense_reverse_edges(tmp_path: Pat
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_normalize_progress_work_clamps_negative_and_overflow::server.py::gabion.server._normalize_progress_work
+# gabion:behavior primary=verboten facets=edge
 def test_normalize_progress_work_clamps_negative_and_overflow() -> None:
     assert server._normalize_progress_work(work_done=-3, work_total=-1) == (0, 0)
     assert server._normalize_progress_work(work_done=9, work_total=4) == (4, 4)
@@ -5008,6 +5193,7 @@ def _write_minimal_test_evidence_payload(root: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_resume_cache_verdict_invalidated_fallback_status::server.py::gabion.server._analysis_resume_cache_verdict
+# gabion:behavior primary=allowed_unwanted facets=fallback
 def test_analysis_resume_cache_verdict_invalidated_fallback_status() -> None:
     verdict = server._analysis_resume_cache_verdict(
         status=None,
@@ -5018,12 +5204,14 @@ def test_analysis_resume_cache_verdict_invalidated_fallback_status() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_resume_checkpoint_compatibility_additional_variants::server.py::gabion.server._analysis_resume_checkpoint_compatibility
+# gabion:behavior primary=verboten facets=edge
 def test_analysis_resume_checkpoint_compatibility_additional_variants(tmp_path: Path) -> None:
     _ = tmp_path
     assert not hasattr(server, "_analysis_resume_checkpoint_compatibility")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_materialize_execution_plan_fallback_inputs_and_bool_deadline_values::server.py::gabion.server._materialize_execution_plan
+# gabion:behavior primary=allowed_unwanted facets=fallback
 def test_materialize_execution_plan_fallback_inputs_and_bool_deadline_values() -> None:
     payload = {
         "root": "/tmp/project",
@@ -5046,6 +5234,7 @@ def test_materialize_execution_plan_fallback_inputs_and_bool_deadline_values() -
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_server_checkpoint_intro_and_execution_plan_additional_branch_edges::server.py::gabion.server._append_checkpoint_intro_timeline_row::server.py::gabion.server._materialize_execution_plan
+# gabion:behavior primary=verboten facets=edge
 def test_server_checkpoint_intro_and_execution_plan_additional_branch_edges(
     tmp_path: Path,
 ) -> None:
@@ -5098,6 +5287,7 @@ def test_server_checkpoint_intro_and_execution_plan_additional_branch_edges(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_parse_snapshot_and_structure_reuse_options_edges::server.py::gabion.server._parse_snapshot_diff_paths::server.py::gabion.server._parse_structure_reuse_options
+# gabion:behavior primary=verboten facets=edge
 def test_parse_snapshot_and_structure_reuse_options_edges() -> None:
     assert server._parse_snapshot_diff_paths({"baseline": "a.json"}) is None
     assert server._parse_snapshot_diff_paths({"current": "b.json"}) is None
@@ -5112,6 +5302,7 @@ def test_parse_snapshot_and_structure_reuse_options_edges() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_structure_reuse_total_additional_error_paths::server.py::gabion.server._execute_structure_reuse_total::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout
+# gabion:behavior primary=verboten facets=edge,error
 def test_execute_structure_reuse_total_additional_error_paths(tmp_path: Path) -> None:
     invalid_snapshot = tmp_path / "invalid_snapshot.json"
     invalid_snapshot.write_text("{", encoding="utf-8")
@@ -5150,6 +5341,7 @@ def test_execute_structure_reuse_total_additional_error_paths(tmp_path: Path) ->
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_synthesis_total_validation_and_empty_bundle_paths::server.py::gabion.server._execute_synthesis_total::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout
+# gabion:behavior primary=verboten facets=edge,empty
 def test_execute_synthesis_total_validation_and_empty_bundle_paths(tmp_path: Path) -> None:
     invalid = server._execute_synthesis_total(
         _DummyServer(str(tmp_path)),
@@ -5167,6 +5359,7 @@ def test_execute_synthesis_total_validation_and_empty_bundle_paths(tmp_path: Pat
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_feature_output_and_branch_coverage_bundle::server.py::gabion.server.execute_command_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout
+# gabion:behavior primary=verboten facets=edge
 def test_execute_command_feature_output_and_branch_coverage_bundle(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
@@ -5279,6 +5472,7 @@ def test_execute_command_feature_output_and_branch_coverage_bundle(tmp_path: Pat
 
 
 # gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator.execute_command_total
+# gabion:behavior primary=verboten facets=edge
 def test_execute_command_emits_taint_state_delta_and_lifecycle_artifacts(
     tmp_path: Path,
 ) -> None:
@@ -5433,6 +5627,7 @@ def test_execute_command_emits_taint_state_delta_and_lifecycle_artifacts(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_conflicting_delta_flags_raise::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout
+# gabion:behavior primary=verboten facets=edge,raises
 @pytest.mark.parametrize(
     "payload",
     [
@@ -5474,6 +5669,7 @@ def test_execute_command_conflicting_delta_flags_raise(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_delta_requires_existing_baseline_files::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout
+# gabion:behavior primary=verboten facets=edge
 def test_execute_command_delta_requires_existing_baseline_files(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
@@ -5595,6 +5791,7 @@ def test_execute_command_delta_requires_existing_baseline_files(tmp_path: Path) 
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_resume_checkpoint_compatibility_uses_witness_manifest_fallback::server.py::gabion.server._analysis_manifest_digest_from_witness::server.py::gabion.server._analysis_resume_checkpoint_compatibility
+# gabion:behavior primary=allowed_unwanted facets=fallback
 def test_analysis_resume_checkpoint_compatibility_uses_witness_manifest_fallback(
     tmp_path: Path,
 ) -> None:
@@ -5603,6 +5800,7 @@ def test_analysis_resume_checkpoint_compatibility_uses_witness_manifest_fallback
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_honors_dash_outputs_and_baseline_write::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._empty_analysis_result::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+# gabion:behavior primary=verboten facets=edge
 def test_execute_command_honors_dash_outputs_and_baseline_write(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
@@ -5645,6 +5843,7 @@ def test_execute_command_honors_dash_outputs_and_baseline_write(tmp_path: Path) 
 
 
 # gabion:evidence E:function_site::server.py::gabion.server.execute_refactor
+# gabion:behavior primary=verboten facets=edge
 def test_execute_refactor_exposes_rewrite_plan_metadata(tmp_path: Path) -> None:
     module_path = tmp_path / "target.py"
     module_path.write_text(
@@ -5671,6 +5870,7 @@ def test_execute_refactor_exposes_rewrite_plan_metadata(tmp_path: Path) -> None:
     assert rewrite_plans[0].get("kind") == "AMBIENT_REWRITE"
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_normalize_impact_payload_and_edge_buckets::server.py::gabion.server._normalize_impact_payload::server.py::gabion.server._normalize_impact_edge_buckets
+# gabion:behavior primary=verboten facets=edge
 def test_normalize_impact_payload_and_edge_buckets() -> None:
     options = server._normalize_impact_payload(
         {
@@ -5704,6 +5904,7 @@ def test_normalize_impact_payload_and_edge_buckets() -> None:
     )
 
 
+# gabion:behavior primary=verboten facets=edge,exception,never
 def test_probe_direct_executor_wraps_exceptions_and_passthrough_never() -> None:
     ls = _DummyServer(".")
     with pytest.raises(server.DirectProbeExecutionError):
@@ -5722,6 +5923,7 @@ def test_probe_direct_executor_wraps_exceptions_and_passthrough_never() -> None:
         )
 
 
+# gabion:behavior primary=verboten facets=edge,missing
 def test_execute_impact_total_rejects_reverse_edge_with_missing_caller(tmp_path: Path) -> None:
     module_path = tmp_path / "mod.py"
     module_path.write_text("def seed():\n    return 1\n", encoding="utf-8")
@@ -5758,6 +5960,7 @@ def test_execute_impact_total_rejects_reverse_edge_with_missing_caller(tmp_path:
         server._normalize_impact_edge_buckets = original_normalize_edges
 
 
+# gabion:behavior primary=verboten facets=edge
 def test_server_module_entrypoint_executes_start_guard() -> None:
     from pygls.lsp.server import LanguageServer
 

@@ -29,6 +29,7 @@ def test_beta() -> None:
 
 
 # gabion:evidence E:function_site::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map.build_semantic_coverage_payload E:decision_surface/direct::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map.build_semantic_coverage_payload::stale_39604d8ff929_03566325
+# gabion:behavior primary=desired
 def test_semantic_coverage_payload_is_deterministic(tmp_path: Path) -> None:
     test_path = _write_test_module(tmp_path)
     evidence_payload = test_evidence.build_test_evidence_payload(
@@ -73,6 +74,7 @@ def test_semantic_coverage_payload_is_deterministic(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map.build_semantic_coverage_payload E:decision_surface/direct::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map.build_semantic_coverage_payload::stale_fbc33e8075bc
+# gabion:behavior primary=verboten facets=unmapped
 def test_semantic_coverage_reports_unmapped_dead_and_duplicate_entries(tmp_path: Path) -> None:
     test_path = _write_test_module(tmp_path)
     evidence_payload = test_evidence.build_test_evidence_payload(
@@ -112,6 +114,7 @@ def test_semantic_coverage_reports_unmapped_dead_and_duplicate_entries(tmp_path:
 
 
 # gabion:evidence E:function_site::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map.render_markdown E:function_site::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map.write_semantic_coverage
+# gabion:behavior primary=desired
 def test_semantic_coverage_markdown_and_write_emit_sections(tmp_path: Path) -> None:
     payload = {
         "summary": {"mapping_entries": 2},
@@ -133,6 +136,7 @@ def test_semantic_coverage_markdown_and_write_emit_sections(tmp_path: Path) -> N
 
 
 # gabion:evidence E:function_site::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map.load_mapping_entries
+# gabion:behavior primary=verboten facets=edge
 def test_semantic_coverage_load_mapping_entries_edge_shapes(tmp_path: Path) -> None:
     missing_path = tmp_path / "missing.json"
     assert semantic_coverage_map.load_mapping_entries(missing_path) == []
@@ -170,6 +174,7 @@ def test_semantic_coverage_load_mapping_entries_edge_shapes(tmp_path: Path) -> N
 
 
 # gabion:evidence E:function_site::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map._annotation_index E:function_site::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map._artifact_evidence_index
+# gabion:behavior primary=allowed_unwanted facets=fallback
 def test_semantic_coverage_indexes_handle_invalid_and_fallback_records(tmp_path: Path) -> None:
     tags = [
         test_evidence.TestEvidenceTag(
@@ -213,6 +218,7 @@ def test_semantic_coverage_indexes_handle_invalid_and_fallback_records(tmp_path:
 
 
 # gabion:evidence E:call_footprint::tests/test_semantic_coverage_map.py::test_semantic_coverage_falls_back_to_opaque_identity_when_display_not_parseable::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map.SemanticCoverageEntry
+# gabion:behavior primary=desired
 def test_semantic_coverage_falls_back_to_opaque_identity_when_display_not_parseable() -> None:
     entry = semantic_coverage_map.SemanticCoverageEntry(
         obligation="invariant.x",
@@ -223,6 +229,7 @@ def test_semantic_coverage_falls_back_to_opaque_identity_when_display_not_parsea
 
 
 # gabion:evidence E:call_footprint::tests/test_semantic_coverage_map.py::test_semantic_coverage_indexes_fallback_for_unparseable_displays::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map._annotation_index::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map._artifact_evidence_index
+# gabion:behavior primary=allowed_unwanted facets=fallback
 def test_semantic_coverage_indexes_fallback_for_unparseable_displays(tmp_path: Path) -> None:
     tags = [
         test_evidence.TestEvidenceTag(
@@ -246,6 +253,7 @@ def test_semantic_coverage_indexes_fallback_for_unparseable_displays(tmp_path: P
 
 
 # gabion:evidence E:call_footprint::tests/test_semantic_coverage_map.py::test_semantic_coverage_uses_parsed_identity_for_parseable_displays::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map.SemanticCoverageEntry::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map._annotation_index::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map._artifact_evidence_index
+# gabion:behavior primary=desired
 def test_semantic_coverage_uses_parsed_identity_for_parseable_displays(tmp_path: Path) -> None:
     parsed_display = evidence_keys.render_display(
         evidence_keys.make_function_site_key(path="src/app.py", qual="mod.fn")

@@ -12,7 +12,7 @@ from gabion.analysis.semantics.report_doc import ReportDoc
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.json_types import JSONValue
 from gabion.order_contract import sort_once
-from gabion.runtime_shape_dispatch import json_list_or_none, json_mapping_or_none
+from gabion.runtime_shape_dispatch import json_list_optional, json_mapping_optional
 
 SEMANTIC_COVERAGE_MAP_VERSION = 1
 
@@ -133,10 +133,10 @@ def render_markdown(payload: Mapping[str, JSONValue]) -> str:
     doc.section("Summary")
     doc.codeblock(payload.get("summary", {}))
     doc.line()
-    mapped = json_list_or_none(payload.get("mapped_obligations", [])) or []
-    unmapped = json_list_or_none(payload.get("unmapped_obligations", [])) or []
-    dead = json_list_or_none(payload.get("dead_mapping_entries", [])) or []
-    duplicates = json_list_or_none(payload.get("duplicate_mapping_entries", [])) or []
+    mapped = json_list_optional(payload.get("mapped_obligations", [])) or []
+    unmapped = json_list_optional(payload.get("unmapped_obligations", [])) or []
+    dead = json_list_optional(payload.get("dead_mapping_entries", [])) or []
+    duplicates = json_list_optional(payload.get("duplicate_mapping_entries", [])) or []
     if mapped:
         doc.line("Mapped obligations:")
         doc.codeblock(mapped)
@@ -171,13 +171,13 @@ def load_mapping_entries(path: Path) -> list[SemanticCoverageEntry]:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return parsed
-    raw_mapping = json_mapping_or_none(raw)
+    raw_mapping = json_mapping_optional(raw)
     if raw_mapping is not None:
-        entries = json_list_or_none(raw_mapping.get("entries", []))
+        entries = json_list_optional(raw_mapping.get("entries", []))
         if entries is not None:
             for item in entries:
                 check_deadline()
-                item_payload = json_mapping_or_none(item)
+                item_payload = json_mapping_optional(item)
                 if item_payload is not None:
                     obligation = str(item_payload.get("obligation", "")).strip()
                     evidence = str(item_payload.get("evidence", "")).strip()
@@ -220,18 +220,18 @@ def _artifact_evidence_index(path: Path) -> set[str]:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return set()
-    raw_mapping = json_mapping_or_none(raw)
+    raw_mapping = json_mapping_optional(raw)
     if raw_mapping is None:
         return set()
-    records = json_list_or_none(raw_mapping.get("evidence_index", []))
+    records = json_list_optional(raw_mapping.get("evidence_index", []))
     if records is None:
         return set()
     identities: set[str] = set()
     for record in records:
         check_deadline()
-        record_payload = json_mapping_or_none(record)
+        record_payload = json_mapping_optional(record)
         if record_payload is not None:
-            key_payload = json_mapping_or_none(record_payload.get("key"))
+            key_payload = json_mapping_optional(record_payload.get("key"))
             if key_payload is not None:
                 identities.add(
                     evidence_keys.key_identity(

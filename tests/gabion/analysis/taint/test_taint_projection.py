@@ -6,6 +6,7 @@ from gabion.analysis.taint import taint_projection
 
 
 # gabion:evidence E:function_site::taint_projection.py::gabion.analysis.taint_projection.parse_taint_boundary_registry
+# gabion:behavior primary=desired
 def test_parse_taint_boundary_registry_normalizes_rows() -> None:
     payload = {
         "boundaries": [
@@ -34,6 +35,7 @@ def test_parse_taint_boundary_registry_normalizes_rows() -> None:
 
 
 # gabion:evidence E:function_site::taint_projection.py::gabion.analysis.taint_projection.project_taint_ledgers
+# gabion:behavior primary=desired
 def test_project_taint_ledgers_applies_witness_status_and_boundary_rules() -> None:
     marker_rows = [
         {
@@ -98,6 +100,7 @@ def test_project_taint_ledgers_applies_witness_status_and_boundary_rules() -> No
 
 
 # gabion:evidence E:function_site::taint_projection.py::gabion.analysis.taint_projection.project_taint_ledgers
+# gabion:behavior primary=verboten facets=strict
 def test_project_taint_ledgers_unknown_taint_tag_is_strict_blocking() -> None:
     records, _ = taint_projection.project_taint_ledgers(
         marker_rows=[
@@ -130,6 +133,7 @@ def test_project_taint_ledgers_unknown_taint_tag_is_strict_blocking() -> None:
 
 
 # gabion:evidence E:function_site::taint_projection.py::gabion.analysis.taint_projection.project_taint_ledgers
+# gabion:behavior primary=verboten facets=missing
 def test_project_taint_ledgers_missing_witness_fields_are_diagnostic() -> None:
     records, _ = taint_projection.project_taint_ledgers(
         marker_rows=[
@@ -161,6 +165,7 @@ def test_project_taint_ledgers_missing_witness_fields_are_diagnostic() -> None:
 
 
 # gabion:evidence E:function_site::taint_projection.py::gabion.analysis.taint_projection.project_taint_ledgers
+# gabion:behavior primary=desired
 def test_project_taint_ledgers_deterministic_ids_and_order_across_reruns() -> None:
     marker_rows = [
         {
@@ -204,6 +209,7 @@ def test_project_taint_ledgers_deterministic_ids_and_order_across_reruns() -> No
 
 
 # gabion:evidence E:function_site::taint_projection.py::gabion.analysis.taint_projection.normalize_taint_profile
+# gabion:behavior primary=desired
 def test_normalize_taint_profile_aliases_and_boundary_payloads() -> None:
     assert (
         taint_projection.normalize_taint_profile("strict-core")
@@ -238,6 +244,7 @@ def test_normalize_taint_profile_aliases_and_boundary_payloads() -> None:
 
 
 # gabion:evidence E:function_site::taint_projection.py::gabion.analysis.taint_projection._date_from_iso
+# gabion:behavior primary=desired
 def test_taint_projection_helper_branches_for_links_and_dates() -> None:
     assert taint_projection._mapping_payload("not-mapping") == {}
     assert taint_projection._normalize_links(
@@ -285,6 +292,7 @@ def test_taint_projection_helper_branches_for_links_and_dates() -> None:
 
 
 # gabion:evidence E:function_site::taint_projection.py::gabion.analysis.taint_projection.project_taint_ledgers
+# gabion:behavior primary=allowed_unwanted facets=fallback
 def test_project_taint_ledgers_observe_unknown_tag_and_boundary_suite_fallback() -> None:
     records, _ = taint_projection.project_taint_ledgers(
         marker_rows=[
@@ -309,6 +317,7 @@ def test_project_taint_ledgers_observe_unknown_tag_and_boundary_suite_fallback()
 
 
 # gabion:evidence E:function_site::taint_projection.py::gabion.analysis.taint_projection.project_taint_ledgers
+# gabion:behavior primary=verboten facets=strict
 def test_project_taint_ledgers_boundary_strict_paths_and_summary_without_diagnostics() -> None:
     contain_records, _ = taint_projection.project_taint_ledgers(
         marker_rows=[

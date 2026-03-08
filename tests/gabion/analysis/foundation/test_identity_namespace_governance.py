@@ -16,6 +16,7 @@ def _space_with_registry(registry: PrimeRegistry) -> GlobalIdentitySpace:
     return GlobalIdentitySpace(allocator=PrimeIdentityAdapter(registry=registry))
 
 
+# gabion:behavior primary=desired
 def test_normalize_namespaces_strips_dedupes_and_sorts() -> None:
     normalized = normalize_namespaces(
         (" type_ctor ", "", "synth", "type_base", "synth", " type_base"),
@@ -24,6 +25,7 @@ def test_normalize_namespaces_strips_dedupes_and_sorts() -> None:
     assert normalized == ("synth", "type_base", "type_ctor")
 
 
+# gabion:behavior primary=desired
 def test_iter_registry_namespace_records_filters_and_orders_by_raw_key() -> None:
     records = iter_registry_namespace_records(
         primes={
@@ -41,6 +43,7 @@ def test_iter_registry_namespace_records_filters_and_orders_by_raw_key() -> None
     )
 
 
+# gabion:behavior primary=desired
 def test_apply_namespace_records_to_identity_space_controls_ledger_mode() -> None:
     space = _space_with_registry(PrimeRegistry())
     hydrated_records = (

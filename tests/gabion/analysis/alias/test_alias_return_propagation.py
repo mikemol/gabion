@@ -14,6 +14,7 @@ def _load():
     return _analyze_function, _collect_return_aliases, ParentAnnotator
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._normalize_callee::class_name,name E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._param_names::fn,ignore_params
+# gabion:behavior primary=desired
 def test_alias_propagation_via_return() -> None:
     _analyze_function, _collect_return_aliases, ParentAnnotator = _load()
     source = textwrap.dedent(

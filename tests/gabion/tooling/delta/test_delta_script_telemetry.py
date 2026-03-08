@@ -57,6 +57,7 @@ def _canonical_progress_notification(
 
 
 # gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_state_emit_main_emits_progress_telemetry_and_deduplicates::delta_state_emit.py::gabion.tooling.delta_state_emit.main
+# gabion:behavior primary=desired
 def test_delta_state_emit_main_emits_progress_telemetry_and_deduplicates(
     tmp_path: Path,
 ) -> None:
@@ -132,6 +133,7 @@ def test_delta_state_emit_main_emits_progress_telemetry_and_deduplicates(
 
 
 # gabion:evidence E:function_site::test_delta_script_telemetry.py::tests.test_delta_script_telemetry.test_delta_triplets_default_runtime_override_scope_edges
+# gabion:behavior primary=verboten facets=edge
 def test_delta_triplets_default_runtime_override_scope_edges() -> None:
     baseline_timeout_token = env_policy.set_lsp_timeout_override(None)
     baseline_transport_token = transport_policy.set_transport_override(None)
@@ -205,6 +207,7 @@ def test_delta_triplets_default_runtime_override_scope_edges() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_state_emit_main_fails_when_expected_outputs_missing::delta_state_emit.py::gabion.tooling.delta_state_emit.main
+# gabion:behavior primary=verboten facets=fail,missing
 def test_delta_state_emit_main_fails_when_expected_outputs_missing(tmp_path: Path) -> None:
     lines: list[str] = []
 
@@ -227,6 +230,7 @@ def test_delta_state_emit_main_fails_when_expected_outputs_missing(tmp_path: Pat
 
 
 # gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_run_triplet_emits_step_telemetry_and_stops_after_emit_failure::delta_triplets.py::gabion.tooling.delta_triplets._run_triplet
+# gabion:behavior primary=desired
 def test_run_triplet_emits_step_telemetry_and_stops_after_emit_failure() -> None:
     lines: list[str] = []
     steps_seen: list[str] = []
@@ -267,6 +271,7 @@ def test_run_triplet_emits_step_telemetry_and_stops_after_emit_failure() -> None
 
 
 # gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_triplets_main_emits_pending_heartbeat::delta_triplets.py::gabion.tooling.delta_triplets.main
+# gabion:behavior primary=desired
 def test_delta_triplets_main_emits_pending_heartbeat() -> None:
     lines: list[str] = []
     wait_calls = 0
@@ -315,6 +320,7 @@ def test_delta_triplets_main_emits_pending_heartbeat() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_state_emit_helper_branches_and_nonzero_exit::delta_state_emit.py::gabion.tooling.delta_state_emit._emit_phase_progress_line::delta_state_emit.py::gabion.tooling.delta_state_emit.main
+# gabion:behavior primary=verboten facets=nonzero
 def test_delta_state_emit_helper_branches_and_nonzero_exit(
     tmp_path: Path,
 ) -> None:
@@ -400,6 +406,7 @@ def test_delta_state_emit_helper_branches_and_nonzero_exit(
 
 
 # gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_triplets_edge_paths::delta_triplets.py::gabion.tooling.delta_triplets._run_step_callable::delta_triplets.py::gabion.tooling.delta_triplets.main
+# gabion:behavior primary=verboten facets=edge
 def test_delta_triplets_edge_paths() -> None:
     assert delta_triplets._heartbeat_seconds("UNSET_ENV_FOR_TEST", 3.0) == 3.0
     with env_scope({"GABION_TRIPLET_TEST_HEARTBEAT": "bad"}):
@@ -458,6 +465,7 @@ def test_delta_triplets_edge_paths() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_state_emit_notification_and_payload_edge_branches::delta_state_emit.py::gabion.tooling.delta_state_emit._phase_progress_from_notification::delta_state_emit.py::gabion.tooling.delta_state_emit.main
+# gabion:behavior primary=verboten facets=edge
 def test_delta_state_emit_notification_and_payload_edge_branches(
     tmp_path: Path,
 ) -> None:
@@ -563,6 +571,7 @@ def test_delta_state_emit_notification_and_payload_edge_branches(
 
 
 # gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_triplets_timeout_heartbeat_and_nonzero_result_paths::delta_triplets.py::gabion.tooling.delta_triplets._run_step_callable::delta_triplets.py::gabion.tooling.delta_triplets.main
+# gabion:behavior primary=verboten facets=nonzero,timeout
 def test_delta_triplets_timeout_heartbeat_and_nonzero_result_paths() -> None:
     lines: list[str] = []
     monotonic_values = [0.0, 0.2, 0.2, 1.0]
@@ -644,6 +653,7 @@ def test_delta_triplets_timeout_heartbeat_and_nonzero_result_paths() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_triplets_non_emit_failure_continues_and_step_callable_without_heartbeat::delta_triplets.py::gabion.tooling.delta_triplets._run_step_callable::delta_triplets.py::gabion.tooling.delta_triplets._run_triplet
+# gabion:behavior primary=desired
 def test_delta_triplets_non_emit_failure_continues_and_step_callable_without_heartbeat() -> None:
     lines: list[str] = []
     assert (
@@ -688,6 +698,7 @@ def test_delta_triplets_non_emit_failure_continues_and_step_callable_without_hea
 
 
 # gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_triplets_step_callable_timeout_without_heartbeat_branch::delta_triplets.py::gabion.tooling.delta_triplets._run_step_callable
+# gabion:behavior primary=verboten facets=timeout
 def test_delta_triplets_step_callable_timeout_without_heartbeat_branch() -> None:
     lines: list[str] = []
     poll_calls = 0
@@ -728,6 +739,7 @@ def test_delta_triplets_step_callable_timeout_without_heartbeat_branch() -> None
 
 
 # gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_state_emit_main_for_emitter_output_path_branch::delta_state_emit.py::gabion.tooling.delta_state_emit.main_for_emitter
+# gabion:behavior primary=desired
 def test_delta_state_emit_main_for_emitter_output_path_branch(tmp_path: Path) -> None:
     output_path = tmp_path / "custom_delta.json"
 
@@ -750,6 +762,7 @@ def test_delta_state_emit_main_for_emitter_output_path_branch(tmp_path: Path) ->
 
 
 # gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_state_emit_main_for_emitter_without_output_path_branch::delta_state_emit.py::gabion.tooling.delta_state_emit.main_for_emitter
+# gabion:behavior primary=desired
 def test_delta_state_emit_main_for_emitter_without_output_path_branch(
     tmp_path: Path,
 ) -> None:
@@ -773,6 +786,7 @@ def test_delta_state_emit_main_for_emitter_without_output_path_branch(
 
 
 # gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_triplets_emit_wrappers_call_emitters_without_resume_checkpoint::delta_triplets.py::gabion.tooling.delta_triplets._run_ambiguity_emit::delta_triplets.py::gabion.tooling.delta_triplets._run_annotation_drift_emit::delta_triplets.py::gabion.tooling.delta_triplets._run_obsolescence_emit
+# gabion:behavior primary=desired
 def test_delta_triplets_emit_wrappers_call_emitters_without_resume_checkpoint() -> None:
     calls: list[str] = []
 
@@ -787,6 +801,7 @@ def test_delta_triplets_emit_wrappers_call_emitters_without_resume_checkpoint() 
 
 
 # gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_emit_modules_stream_phase_timeline_rows::delta_state_emit.py::gabion.tooling.delta_state_emit.obsolescence_main::delta_state_emit.py::gabion.tooling.delta_state_emit.annotation_drift_main::delta_state_emit.py::gabion.tooling.delta_state_emit.ambiguity_main
+# gabion:behavior primary=desired
 @pytest.mark.parametrize(
     "run_main",
     [
@@ -841,6 +856,7 @@ def test_delta_emit_modules_stream_phase_timeline_rows(
 
 
 # gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_emit_modules_supports_notification_callback_signature_edges::delta_state_emit.py::gabion.tooling.delta_state_emit._supports_notification_callback
+# gabion:behavior primary=verboten facets=edge
 def test_delta_emit_modules_supports_notification_callback_signature_edges() -> None:
     assert delta_state_emit._supports_notification_callback(object()) is True
 
@@ -852,6 +868,7 @@ def test_delta_emit_modules_supports_notification_callback_signature_edges() -> 
 
 
 # gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_emit_modules_ignore_non_mapping_progress_and_dedupe_duplicates::delta_state_emit.py::gabion.tooling.delta_state_emit.obsolescence_main::delta_state_emit.py::gabion.tooling.delta_state_emit.annotation_drift_main::delta_state_emit.py::gabion.tooling.delta_state_emit.ambiguity_main
+# gabion:behavior primary=desired
 @pytest.mark.parametrize(
     "run_main",
     [
@@ -904,6 +921,7 @@ def test_delta_emit_modules_ignore_non_mapping_progress_and_dedupe_duplicates(
 
 
 # gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_shared_progress_timeline_helpers_cover_delta_state_wrappers::delta_state_emit.py::gabion.tooling.delta_state_emit._phase_timeline_header_columns::delta_state_emit.py::gabion.tooling.delta_state_emit._phase_timeline_header_block::progress_contract.py::gabion.commands.progress_contract.is_heartbeat_progress
+# gabion:behavior primary=desired
 def test_shared_progress_timeline_helpers_cover_delta_state_wrappers() -> None:
     assert (
         delta_state_emit._phase_timeline_header_columns()
@@ -918,6 +936,7 @@ def test_shared_progress_timeline_helpers_cover_delta_state_wrappers() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_progress_timeline_phase_progress_emit_due_edges::progress_contract.py::gabion.commands.progress_contract.phase_progress_emit_due
+# gabion:behavior primary=verboten facets=edge
 def test_progress_timeline_phase_progress_emit_due_edges() -> None:
     base = {"phase": "collection", "event_kind": "progress", "done": False}
     assert (
@@ -983,6 +1002,7 @@ def test_progress_timeline_phase_progress_emit_due_edges() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_state_emit_main_throttles_same_phase_rows_but_forces_phase_transitions::delta_state_emit.py::gabion.tooling.delta_state_emit.main
+# gabion:behavior primary=desired
 def test_delta_state_emit_main_throttles_same_phase_rows_but_forces_phase_transitions(
     tmp_path: Path,
 ) -> None:

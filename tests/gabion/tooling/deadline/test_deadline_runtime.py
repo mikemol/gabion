@@ -13,6 +13,7 @@ def _load_deadline_runtime():
     return deadline_runtime
 
 # gabion:evidence E:call_footprint::tests/test_deadline_runtime.py::test_timeout_ticks_from_lsp_env_uses_defaults::test_deadline_runtime.py::tests.test_deadline_runtime._load_deadline_runtime
+# gabion:behavior primary=verboten facets=timeout
 def test_timeout_ticks_from_lsp_env_uses_defaults() -> None:
     dr = _load_deadline_runtime()
     budget = dr.timeout_budget_from_lsp_env(
@@ -22,6 +23,7 @@ def test_timeout_ticks_from_lsp_env_uses_defaults() -> None:
     assert budget.tick_ns == 9
 
 # gabion:evidence E:call_footprint::tests/test_deadline_runtime.py::test_timeout_ticks_from_lsp_env_uses_runtime_override::test_deadline_runtime.py::tests.test_deadline_runtime._load_deadline_runtime
+# gabion:behavior primary=verboten facets=timeout
 def test_timeout_ticks_from_lsp_env_uses_runtime_override() -> None:
     dr = _load_deadline_runtime()
     with env_policy.lsp_timeout_override_scope(
@@ -34,6 +36,7 @@ def test_timeout_ticks_from_lsp_env_uses_runtime_override() -> None:
     assert budget.tick_ns == 13
 
 # gabion:evidence E:call_footprint::tests/test_deadline_runtime.py::test_deadline_budget_rejects_non_positive_fields::test_deadline_runtime.py::tests.test_deadline_runtime._load_deadline_runtime
+# gabion:behavior primary=desired
 def test_deadline_budget_rejects_non_positive_fields() -> None:
     dr = _load_deadline_runtime()
     with pytest.raises(NeverThrown):
@@ -42,6 +45,7 @@ def test_deadline_budget_rejects_non_positive_fields() -> None:
         dr.DeadlineBudget(ticks=1, tick_ns=0)
 
 # gabion:evidence E:call_footprint::tests/test_deadline_runtime.py::test_deadline_scope_from_ticks_supports_deadline_checks::test_deadline_runtime.py::tests.test_deadline_runtime._load_deadline_runtime::timeout_context.py::gabion.analysis.timeout_context.check_deadline::timeout_context.py::gabion.analysis.timeout_context.get_deadline_clock
+# gabion:behavior primary=desired
 def test_deadline_scope_from_ticks_supports_deadline_checks() -> None:
     dr = _load_deadline_runtime()
     with dr.deadline_scope_from_ticks(
@@ -53,6 +57,7 @@ def test_deadline_scope_from_ticks_supports_deadline_checks() -> None:
     assert end_mark >= start_mark
 
 # gabion:evidence E:call_footprint::tests/test_deadline_runtime.py::test_deadline_scope_from_ticks_respects_gas_limit::test_deadline_runtime.py::tests.test_deadline_runtime._load_deadline_runtime::timeout_context.py::gabion.analysis.timeout_context.check_deadline
+# gabion:behavior primary=desired
 def test_deadline_scope_from_ticks_respects_gas_limit() -> None:
     dr = _load_deadline_runtime()
     with dr.deadline_scope_from_ticks(
@@ -63,6 +68,7 @@ def test_deadline_scope_from_ticks_respects_gas_limit() -> None:
             check_deadline()
 
 # gabion:evidence E:call_footprint::tests/test_deadline_runtime.py::test_deadline_scope_from_ticks_rejects_invalid_gas_limit::test_deadline_runtime.py::tests.test_deadline_runtime._load_deadline_runtime::timeout_context.py::gabion.analysis.timeout_context.check_deadline
+# gabion:behavior primary=verboten facets=invalid
 def test_deadline_scope_from_ticks_rejects_invalid_gas_limit() -> None:
     dr = _load_deadline_runtime()
     with pytest.raises(NeverThrown):
@@ -73,6 +79,7 @@ def test_deadline_scope_from_ticks_rejects_invalid_gas_limit() -> None:
             check_deadline()
 
 # gabion:evidence E:call_footprint::tests/test_deadline_runtime.py::test_deadline_scope_from_ticks_unwinds_on_inner_exception::test_deadline_runtime.py::tests.test_deadline_runtime._load_deadline_runtime
+# gabion:behavior primary=verboten facets=exception
 def test_deadline_scope_from_ticks_unwinds_on_inner_exception() -> None:
     dr = _load_deadline_runtime()
     with pytest.raises(RuntimeError):
@@ -82,6 +89,7 @@ def test_deadline_scope_from_ticks_unwinds_on_inner_exception() -> None:
             raise RuntimeError("boom")
 
 # gabion:evidence E:call_footprint::tests/test_deadline_runtime.py::test_deadline_scope_from_lsp_env_uses_default_and_explicit_gas_limit::test_deadline_runtime.py::tests.test_deadline_runtime._load_deadline_runtime::timeout_context.py::gabion.analysis.timeout_context.check_deadline
+# gabion:behavior primary=desired
 def test_deadline_scope_from_lsp_env_uses_default_and_explicit_gas_limit() -> None:
     dr = _load_deadline_runtime()
     with dr.deadline_scope_from_lsp_env(

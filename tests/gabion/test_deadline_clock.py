@@ -7,6 +7,7 @@ from gabion.exceptions import NeverThrown
 
 
 # gabion:evidence E:call_footprint::tests/test_deadline_clock.py::test_monotonic_clock_mark_increases::deadline_clock.py::gabion.deadline_clock.MonotonicClock
+# gabion:behavior primary=desired
 def test_monotonic_clock_mark_increases() -> None:
     clock = MonotonicClock()
     first = clock.get_mark()
@@ -16,6 +17,7 @@ def test_monotonic_clock_mark_increases() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_deadline_clock.py::test_gas_meter_exhausts_at_limit::deadline_clock.py::gabion.deadline_clock.DeadlineClockExhausted::deadline_clock.py::gabion.deadline_clock.GasMeter
+# gabion:behavior primary=desired
 def test_gas_meter_exhausts_at_limit() -> None:
     meter = GasMeter(limit=3)
     meter.consume()
@@ -25,6 +27,7 @@ def test_gas_meter_exhausts_at_limit() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_deadline_clock.py::test_gas_meter_rejects_invalid_inputs::deadline_clock.py::gabion.deadline_clock.GasMeter::exceptions.py::gabion.exceptions.NeverThrown
+# gabion:behavior primary=verboten facets=invalid
 def test_gas_meter_rejects_invalid_inputs() -> None:
     with pytest.raises(NeverThrown):
         GasMeter(limit=0)

@@ -4,7 +4,6 @@ from pathlib import Path
 import io
 import json
 import re
-import subprocess
 import sys
 import urllib.error
 import zipfile
@@ -76,6 +75,7 @@ def _canonical_progress_notification(
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._split_csv_entries::entries E:decision_surface/direct::cli.py::gabion.cli._split_csv::value E:decision_surface/direct::cli.py::gabion.cli._split_csv::stale_22e7d997b440
+# gabion:behavior primary=desired
 def test_split_csv_helpers() -> None:
     assert cli._split_csv_entries(["a, b", " ", "c"]) == ["a", "b", "c"]
     assert cli._split_csv_entries([" ", ""]) == []
@@ -85,6 +85,7 @@ def test_split_csv_helpers() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_phase_timeline_wrappers_delegate_to_shared_progress_module::cli.py::gabion.cli._phase_timeline_header_columns::cli.py::gabion.cli._phase_timeline_header_block::cli.py::gabion.cli._phase_progress_dimensions_summary
+# gabion:behavior primary=desired
 def test_phase_timeline_wrappers_delegate_to_shared_progress_module() -> None:
     assert cli._phase_timeline_header_columns() == progress_timeline.phase_timeline_header_columns()
     assert cli._phase_timeline_header_block() == progress_timeline.phase_timeline_header_block()
@@ -97,6 +98,7 @@ def test_phase_timeline_wrappers_delegate_to_shared_progress_module() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_parse_dataflow_args_or_exit_routes_help_to_parser::cli.py::gabion.cli.parse_dataflow_args_or_exit
+# gabion:behavior primary=desired
 def test_parse_dataflow_args_or_exit_routes_help_to_parser(capsys) -> None:
     with pytest.raises(typer.Exit) as exc:
         cli.parse_dataflow_args_or_exit(["--help"])
@@ -105,6 +107,7 @@ def test_parse_dataflow_args_or_exit_routes_help_to_parser(capsys) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_parse_dataflow_args_or_exit_converts_parse_errors_to_typer_exit::cli.py::gabion.cli.parse_dataflow_args_or_exit
+# gabion:behavior primary=verboten facets=error
 def test_parse_dataflow_args_or_exit_converts_parse_errors_to_typer_exit() -> None:
     with pytest.raises(typer.Exit) as exc:
         cli.parse_dataflow_args_or_exit([])
@@ -112,6 +115,7 @@ def test_parse_dataflow_args_or_exit_converts_parse_errors_to_typer_exit() -> No
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_check_rejects_unknown_args_in_strict_profile::cli.py::gabion.cli.app
+# gabion:behavior primary=verboten facets=strict
 def test_check_rejects_unknown_args_in_strict_profile() -> None:
     runner = CliRunner()
     result = runner.invoke(cli.app, ["check", "run", "sample.py", "--dot", "-"])
@@ -121,6 +125,7 @@ def test_check_rejects_unknown_args_in_strict_profile() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_check_rejects_unknown_profile::cli.py::gabion.cli.app
+# gabion:behavior primary=desired
 def test_check_rejects_unknown_profile() -> None:
     runner = CliRunner()
     result = runner.invoke(
@@ -133,6 +138,7 @@ def test_check_rejects_unknown_profile() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_check_raw_profile_delegates_with_profile_defaults::cli.py::gabion.cli.app
+# gabion:behavior primary=desired
 def test_check_raw_profile_delegates_with_profile_defaults(
 ) -> None:
     captured: dict[str, object] = {}
@@ -151,6 +157,7 @@ def test_check_raw_profile_delegates_with_profile_defaults(
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_check_raw_profile_maps_common_flags_and_passthrough_args::cli.py::gabion.cli.app
+# gabion:behavior primary=desired
 def test_check_raw_profile_maps_common_flags_and_passthrough_args(
     tmp_path: Path,
 ) -> None:
@@ -247,6 +254,7 @@ def test_check_raw_profile_maps_common_flags_and_passthrough_args(
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_check_raw_profile_maps_no_allow_external::cli.py::gabion.cli.app
+# gabion:behavior primary=desired
 def test_check_raw_profile_maps_no_allow_external(
 ) -> None:
     captured: dict[str, object] = {}
@@ -278,6 +286,7 @@ def test_check_raw_profile_maps_no_allow_external(
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_check_raw_profile_rejects_check_only_flags::test_cli_helpers.py::tests.test_cli_helpers._strip_ansi
+# gabion:behavior primary=desired
 def test_check_raw_profile_rejects_check_only_flags() -> None:
     runner = CliRunner()
     result = runner.invoke(
@@ -290,6 +299,7 @@ def test_check_raw_profile_rejects_check_only_flags() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_legacy_dataflow_monolith_nonzero_exit_reports_explicit_causes::cli.py::gabion.cli._run_dataflow_raw_argv
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_legacy_dataflow_monolith_nonzero_exit_reports_explicit_causes(capsys: pytest.CaptureFixture[str]) -> None:
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
@@ -302,6 +312,7 @@ def test_legacy_dataflow_monolith_nonzero_exit_reports_explicit_causes(capsys: p
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_legacy_dataflow_monolith_nonzero_exit_fallback_is_explicit::cli.py::gabion.cli._run_dataflow_raw_argv
+# gabion:behavior primary=allowed_unwanted facets=fallback,legacy
 def test_legacy_dataflow_monolith_nonzero_exit_fallback_is_explicit(capsys: pytest.CaptureFixture[str]) -> None:
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
@@ -316,6 +327,7 @@ def test_legacy_dataflow_monolith_nonzero_exit_fallback_is_explicit(capsys: pyte
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_context_cli_deps_use_defaults_for_non_mapping_context::cli.py::gabion.cli._context_cli_deps
+# gabion:behavior primary=desired
 def test_context_cli_deps_use_defaults_for_non_mapping_context() -> None:
     class _CtxNoMapping:
         obj = None
@@ -328,6 +340,7 @@ def test_context_cli_deps_use_defaults_for_non_mapping_context() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_context_cli_deps_accept_callable_overrides::cli.py::gabion.cli._context_cli_deps
+# gabion:behavior primary=desired
 def test_context_cli_deps_accept_callable_overrides() -> None:
     def _run_dataflow(argv: list[str]) -> None:
         _ = argv
@@ -368,6 +381,7 @@ def test_context_cli_deps_accept_callable_overrides() -> None:
 
 
 # gabion:evidence E:function_site::cli.py::gabion.cli._run_ci_watch_wrapper
+# gabion:behavior primary=desired
 def test_run_ci_watch_wrapper_calls_tooling_runner(
 ) -> None:
     seen: list[cli.tooling_ci_watch.StatusWatchOptions] = []
@@ -400,6 +414,7 @@ def test_run_ci_watch_wrapper_calls_tooling_runner(
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_context_dependency_helpers_reject_noncallables::cli.py::gabion.cli._context_callable_dep
+# gabion:behavior primary=verboten facets=reject
 def test_context_dependency_helpers_reject_noncallables() -> None:
     class DummyCtx:
         obj = {
@@ -411,6 +426,7 @@ def test_context_dependency_helpers_reject_noncallables() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_context_dependency_helpers_reject_noncallables_across_check_helpers::cli.py::gabion.cli._context_run_check::cli.py::gabion.cli._context_run_sppf_sync
+# gabion:behavior primary=verboten facets=reject
 def test_context_dependency_helpers_reject_noncallables_across_check_helpers() -> None:
     class _Ctx:
         obj = {
@@ -428,6 +444,7 @@ def test_context_dependency_helpers_reject_noncallables_across_check_helpers() -
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._write_lint_jsonl::target E:decision_surface/direct::cli.py::gabion.cli._write_lint_sarif::target E:decision_surface/direct::cli.py::gabion.cli._write_lint_jsonl::stale_a0c064f7325b
+# gabion:behavior primary=desired
 def test_lint_parsing_and_writers(tmp_path: Path, capsys) -> None:
     good_line = "mod.py:10:2: GABION_CODE something happened"
     parsed = cli._parse_lint_line(good_line)
@@ -456,6 +473,7 @@ def test_lint_parsing_and_writers(tmp_path: Path, capsys) -> None:
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._write_lint_jsonl::target E:decision_surface/direct::cli.py::gabion.cli._write_lint_jsonl::stale_1061723ef45d
+# gabion:behavior primary=desired
 def test_lint_writers_accept_dev_stdout(capsys) -> None:
     entries = [
         {
@@ -472,6 +490,7 @@ def test_lint_writers_accept_dev_stdout(capsys) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_target_stream_router_reopens_for_encoding_change::cli.py::gabion.cli._TargetStreamRouter._stream_for_target
+# gabion:behavior primary=desired
 def test_target_stream_router_reopens_for_encoding_change(tmp_path: Path) -> None:
     target_path = tmp_path / "enc.txt"
     router = cli._TargetStreamRouter(max_open_streams=2)
@@ -484,6 +503,7 @@ def test_target_stream_router_reopens_for_encoding_change(tmp_path: Path) -> Non
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_target_stream_router_evicts_oldest_stream::cli.py::gabion.cli._TargetStreamRouter._stream_for_target
+# gabion:behavior primary=desired
 def test_target_stream_router_evicts_oldest_stream(tmp_path: Path) -> None:
     first_path = tmp_path / "first.txt"
     second_path = tmp_path / "second.txt"
@@ -497,6 +517,7 @@ def test_target_stream_router_evicts_oldest_stream(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_target_stream_router_close_closes_all_streams::cli.py::gabion.cli._TargetStreamRouter.close
+# gabion:behavior primary=desired
 def test_target_stream_router_close_closes_all_streams(tmp_path: Path) -> None:
     router = cli._TargetStreamRouter(max_open_streams=4)
     router.write(target=str(tmp_path / "a.txt"), payload="a")
@@ -507,6 +528,7 @@ def test_target_stream_router_close_closes_all_streams(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_normalize_optional_output_target_handles_empty::cli.py::gabion.cli._normalize_optional_output_target
+# gabion:behavior primary=verboten facets=empty
 def test_normalize_optional_output_target_handles_empty() -> None:
     assert cli._normalize_optional_output_target(None) is None
     assert cli._normalize_optional_output_target("   ") is None
@@ -517,6 +539,7 @@ def test_normalize_optional_output_target_handles_empty() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_write_text_to_target_reuses_stream_and_preserves_overwrite_semantics::cli.py::gabion.cli._write_text_to_target
+# gabion:behavior primary=desired
 def test_write_text_to_target_reuses_stream_and_preserves_overwrite_semantics(
     tmp_path: Path,
 ) -> None:
@@ -527,6 +550,7 @@ def test_write_text_to_target_reuses_stream_and_preserves_overwrite_semantics(
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_write_lint_sarif_rejects_duplicate_rule_codes::cli.py::gabion.cli._write_lint_sarif
+# gabion:behavior primary=desired
 def test_write_lint_sarif_rejects_duplicate_rule_codes(tmp_path: Path) -> None:
     entries = [
         {"path": "mod.py", "line": 1, "col": 1, "code": "GABION_CODE", "message": "m1"},
@@ -539,6 +563,7 @@ def test_write_lint_sarif_rejects_duplicate_rule_codes(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli._write_lint_jsonl::target E:decision_surface/direct::cli.py::gabion.cli._write_lint_sarif::target
+# gabion:behavior primary=desired
 def test_emit_lint_outputs_writes_artifacts(tmp_path: Path, capsys) -> None:
     lines = ["mod.py:1:1: GABION_CODE message"]
     jsonl_path = tmp_path / "lint.jsonl"
@@ -556,6 +581,7 @@ def test_emit_lint_outputs_writes_artifacts(tmp_path: Path, capsys) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_emit_lint_outputs_jsonl_only::cli.py::gabion.cli._emit_lint_outputs
+# gabion:behavior primary=desired
 def test_emit_lint_outputs_jsonl_only(tmp_path: Path) -> None:
     lines = ["mod.py:1:1: GABION_CODE message"]
     jsonl_path = tmp_path / "lint.jsonl"
@@ -569,6 +595,7 @@ def test_emit_lint_outputs_jsonl_only(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_emit_lint_outputs_sarif_only::cli.py::gabion.cli._emit_lint_outputs
+# gabion:behavior primary=desired
 def test_emit_lint_outputs_sarif_only(tmp_path: Path) -> None:
     lines = ["mod.py:1:1: GABION_CODE message"]
     sarif_path = tmp_path / "lint.sarif"
@@ -582,12 +609,14 @@ def test_emit_lint_outputs_sarif_only(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_cli_deadline_scope_yields::cli.py::gabion.cli._cli_deadline_scope
+# gabion:behavior primary=desired
 def test_cli_deadline_scope_yields() -> None:
     with cli._cli_deadline_scope():
         assert True
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.build_refactor_payload::bundle,input_payload,protocol_name,target_path E:decision_surface/direct::cli.py::gabion.cli.build_refactor_payload::stale_7d8b74e626fe
+# gabion:behavior primary=desired
 def test_build_refactor_payload_input_payload_passthrough() -> None:
     payload = {"protocol_name": "Bundle", "bundle": ["a"]}
     assert cli.build_refactor_payload(
@@ -606,6 +635,7 @@ def test_build_refactor_payload_input_payload_passthrough() -> None:
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.build_refactor_payload::bundle,input_payload,protocol_name,target_path E:decision_surface/direct::cli.py::gabion.cli.build_refactor_payload::stale_e040ac567f92
+# gabion:behavior primary=desired
 def test_build_refactor_payload_requires_fields(tmp_path: Path) -> None:
     with pytest.raises(typer.BadParameter):
         cli.build_refactor_payload(
@@ -657,6 +687,7 @@ def test_build_refactor_payload_requires_fields(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_governance_runner_success_and_exception::cli.py::gabion.cli._run_governance_runner
+# gabion:behavior primary=verboten facets=exception
 def test_run_governance_runner_success_and_exception(capsys: pytest.CaptureFixture[str]) -> None:
     assert (
         cli._run_governance_runner(
@@ -679,6 +710,7 @@ def test_run_governance_runner_success_and_exception(capsys: pytest.CaptureFixtu
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_docflow_audit_passes_flags_to_governance_module::cli.py::gabion.cli._run_docflow_audit
+# gabion:behavior primary=desired
 def test_run_docflow_audit_passes_flags_to_governance_module(tmp_path: Path) -> None:
     calls: list[tuple[str, list[str]]] = []
     orig_docflow = cli.tooling_governance_audit.run_docflow_cli
@@ -714,6 +746,7 @@ def test_run_docflow_audit_passes_flags_to_governance_module(tmp_path: Path) -> 
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_docflow_audit_nonzero_short_circuits_sppf::cli.py::gabion.cli._run_docflow_audit
+# gabion:behavior primary=verboten facets=nonzero
 def test_run_docflow_audit_nonzero_short_circuits_sppf(tmp_path: Path) -> None:
     calls: list[str] = []
     orig_docflow = cli.tooling_governance_audit.run_docflow_cli
@@ -744,6 +777,7 @@ def test_run_docflow_audit_nonzero_short_circuits_sppf(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::stale_5b469ca25d0a
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_legacy_dataflow_monolith_skips_type_audit_output() -> None:
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
@@ -755,6 +789,7 @@ def test_legacy_dataflow_monolith_skips_type_audit_output() -> None:
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::stale_f562194a2932
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_legacy_dataflow_monolith_type_audit_empty_findings() -> None:
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
@@ -769,6 +804,7 @@ def test_legacy_dataflow_monolith_type_audit_empty_findings() -> None:
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::stale_b1d435f0c525
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_legacy_dataflow_monolith_emits_lint_outputs(tmp_path: Path, capsys) -> None:
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
@@ -799,6 +835,7 @@ def test_legacy_dataflow_monolith_emits_lint_outputs(tmp_path: Path, capsys) -> 
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_legacy_dataflow_monolith_timeout_writes_deadline_profile::cli.py::gabion.cli._run_dataflow_raw_argv
+# gabion:behavior primary=allowed_unwanted facets=legacy,timeout
 def test_legacy_dataflow_monolith_timeout_writes_deadline_profile(tmp_path: Path) -> None:
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
@@ -831,6 +868,7 @@ def test_legacy_dataflow_monolith_timeout_writes_deadline_profile(tmp_path: Path
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_emit_timeout_profile_artifacts_no_profile_is_noop::cli.py::gabion.cli._emit_timeout_profile_artifacts
+# gabion:behavior primary=allowed_unwanted facets=noop,timeout
 def test_emit_timeout_profile_artifacts_no_profile_is_noop(tmp_path: Path) -> None:
     cli._emit_timeout_profile_artifacts(
         {"timeout_context": {"deadline_profile": "bad"}},
@@ -840,6 +878,7 @@ def test_emit_timeout_profile_artifacts_no_profile_is_noop(tmp_path: Path) -> No
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_legacy_dataflow_monolith_timeout_exits_without_builtin_retry::cli.py::gabion.cli._run_dataflow_raw_argv
+# gabion:behavior primary=allowed_unwanted facets=legacy,timeout
 def test_legacy_dataflow_monolith_timeout_exits_without_builtin_retry(tmp_path: Path) -> None:
     calls = {"count": 0}
 
@@ -876,6 +915,7 @@ def test_legacy_dataflow_monolith_timeout_exits_without_builtin_retry(tmp_path: 
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_check_timeout_exits_and_emits_profile_artifacts::cli.py::gabion.cli._run_with_timeout_retries
+# gabion:behavior primary=verboten facets=timeout
 def test_check_timeout_exits_and_emits_profile_artifacts(
     tmp_path: Path,
 ) -> None:
@@ -905,6 +945,7 @@ def test_check_timeout_exits_and_emits_profile_artifacts(
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_check_timeout_no_retry_exits_with_timeout_code::cli.py::gabion.cli._run_with_timeout_retries
+# gabion:behavior primary=verboten facets=timeout
 def test_check_timeout_no_retry_exits_with_timeout_code(
     tmp_path: Path,
 ) -> None:
@@ -932,6 +973,7 @@ def test_check_timeout_no_retry_exits_with_timeout_code(
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_render_timeout_progress_markdown_skips_empty_resume_token_fields::cli.py::gabion.cli._render_timeout_progress_markdown
+# gabion:behavior primary=verboten facets=empty,timeout
 def test_render_timeout_progress_markdown_skips_empty_resume_token_fields() -> None:
     rendered = cli._render_timeout_progress_markdown(
         analysis_state="timed_out_progress_resume",
@@ -945,6 +987,7 @@ def test_render_timeout_progress_markdown_skips_empty_resume_token_fields() -> N
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_render_timeout_progress_markdown_skips_non_mapping_obligation_entries::cli.py::gabion.cli._render_timeout_progress_markdown
+# gabion:behavior primary=verboten facets=timeout
 def test_render_timeout_progress_markdown_skips_non_mapping_obligation_entries() -> None:
     rendered = cli._render_timeout_progress_markdown(
         analysis_state="timed_out_progress_resume",
@@ -956,6 +999,7 @@ def test_render_timeout_progress_markdown_skips_non_mapping_obligation_entries()
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_render_timeout_progress_markdown_includes_tick_metrics::cli.py::gabion.cli._render_timeout_progress_markdown
+# gabion:behavior primary=verboten facets=timeout
 def test_render_timeout_progress_markdown_includes_tick_metrics() -> None:
     rendered = cli._render_timeout_progress_markdown(
         analysis_state="timed_out_progress_resume",
@@ -976,6 +1020,7 @@ def test_render_timeout_progress_markdown_includes_tick_metrics() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_render_timeout_progress_markdown_falls_back_to_profile_tick_metric::cli.py::gabion.cli._render_timeout_progress_markdown
+# gabion:behavior primary=verboten facets=timeout
 def test_render_timeout_progress_markdown_falls_back_to_profile_tick_metric() -> None:
     rendered = cli._render_timeout_progress_markdown(
         analysis_state="timed_out_progress_resume",
@@ -991,6 +1036,7 @@ def test_render_timeout_progress_markdown_falls_back_to_profile_tick_metric() ->
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_legacy_dataflow_monolith_timeout_without_retry_raises_exit::cli.py::gabion.cli._run_dataflow_raw_argv
+# gabion:behavior primary=allowed_unwanted facets=legacy,raises,timeout
 def test_legacy_dataflow_monolith_timeout_without_retry_raises_exit(tmp_path: Path) -> None:
     def runner(*_args, **_kwargs):
         return {
@@ -1015,6 +1061,7 @@ def test_legacy_dataflow_monolith_timeout_without_retry_raises_exit(tmp_path: Pa
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_legacy_dataflow_monolith_timeout_progress_resume_is_single_attempt::cli.py::gabion.cli._run_dataflow_raw_argv
+# gabion:behavior primary=allowed_unwanted facets=legacy,timeout
 def test_legacy_dataflow_monolith_timeout_progress_resume_is_single_attempt(
     tmp_path: Path,
 ) -> None:
@@ -1046,6 +1093,7 @@ def test_legacy_dataflow_monolith_timeout_progress_resume_is_single_attempt(
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_legacy_dataflow_monolith_timeout_uses_single_attempt_budget::cli.py::gabion.cli._run_dataflow_raw_argv::timeout_context.py::gabion.analysis.timeout_context.check_deadline
+# gabion:behavior primary=allowed_unwanted facets=legacy,timeout
 def test_legacy_dataflow_monolith_timeout_uses_single_attempt_budget(
     tmp_path: Path,
 ) -> None:
@@ -1077,6 +1125,7 @@ def test_legacy_dataflow_monolith_timeout_uses_single_attempt_budget(
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_check_delta_gates_uses_injected_specs::cli.py::gabion.cli._run_check_delta_gates
+# gabion:behavior primary=desired
 def test_run_check_delta_gates_uses_injected_specs() -> None:
     assert (
         cli._run_check_delta_gates(
@@ -1113,6 +1162,7 @@ def test_run_check_delta_gates_uses_injected_specs() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_phase_progress_from_progress_notification::cli.py::gabion.cli._phase_progress_from_progress_notification
+# gabion:behavior primary=desired
 def test_phase_progress_from_progress_notification() -> None:
     payload = cli._phase_progress_from_progress_notification(
         _canonical_progress_notification(
@@ -1151,6 +1201,7 @@ def test_phase_progress_from_progress_notification() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_phase_progress_from_progress_notification_accepts_canonical_v2_payload::cli.py::gabion.cli._phase_progress_from_progress_notification
+# gabion:behavior primary=desired
 def test_phase_progress_from_progress_notification_accepts_canonical_v2_payload() -> None:
     payload = cli._phase_progress_from_progress_notification(
         _canonical_progress_notification(
@@ -1174,6 +1225,7 @@ def test_phase_progress_from_progress_notification_accepts_canonical_v2_payload(
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_phase_timeline_from_progress_notification_wrapper::cli.py::gabion.cli._phase_timeline_from_progress_notification::progress_contract.py::gabion.commands.progress_contract.phase_timeline_from_progress_notification
+# gabion:behavior primary=desired
 def test_phase_timeline_from_progress_notification_wrapper() -> None:
     timeline = cli._phase_timeline_from_progress_notification(
         _canonical_progress_notification(
@@ -1190,6 +1242,7 @@ def test_phase_timeline_from_progress_notification_wrapper() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_phase_timeline_from_progress_notification_wrapper_invalid_notification::cli.py::gabion.cli._phase_timeline_from_progress_notification::progress_contract.py::gabion.commands.progress_contract.phase_timeline_from_progress_notification
+# gabion:behavior primary=verboten facets=invalid
 def test_phase_timeline_from_progress_notification_wrapper_invalid_notification() -> None:
     assert (
         cli._phase_timeline_from_progress_notification(
@@ -1200,6 +1253,7 @@ def test_phase_timeline_from_progress_notification_wrapper_invalid_notification(
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_phase_progress_from_progress_notification_rejects_invalid_shapes::cli.py::gabion.cli._phase_progress_from_progress_notification
+# gabion:behavior primary=verboten facets=invalid
 def test_phase_progress_from_progress_notification_rejects_invalid_shapes() -> None:
     assert (
         cli._phase_progress_from_progress_notification(
@@ -1237,6 +1291,7 @@ def test_phase_progress_from_progress_notification_rejects_invalid_shapes() -> N
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_phase_timeline_row_from_phase_progress_formats_dimensions_and_staleness::cli.py::gabion.cli._phase_timeline_row_from_phase_progress
+# gabion:behavior primary=desired
 def test_phase_timeline_row_from_phase_progress_formats_dimensions_and_staleness() -> None:
     row = cli._phase_timeline_row_from_phase_progress(
         {
@@ -1294,12 +1349,14 @@ def test_phase_timeline_row_from_phase_progress_formats_dimensions_and_staleness
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_emit_phase_progress_line_ignores_missing_phase::cli.py::gabion.cli._emit_phase_progress_line
+# gabion:behavior primary=verboten facets=missing
 def test_emit_phase_progress_line_ignores_missing_phase(capsys) -> None:
     cli._emit_phase_progress_line({})
     assert capsys.readouterr().out == ""
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_emit_phase_progress_line_formats_payload_fields::cli.py::gabion.cli._emit_phase_progress_line
+# gabion:behavior primary=desired
 def test_emit_phase_progress_line_formats_payload_fields(capsys) -> None:
     cli._emit_phase_progress_line(
         {
@@ -1338,6 +1395,7 @@ def test_emit_phase_progress_line_formats_payload_fields(capsys) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_emit_phase_progress_line_omits_optional_fragments_when_values_missing::cli.py::gabion.cli._emit_phase_progress_line
+# gabion:behavior primary=verboten facets=missing
 def test_emit_phase_progress_line_omits_optional_fragments_when_values_missing(capsys) -> None:
     cli._emit_phase_progress_line({"phase": "collection"})
     line = capsys.readouterr().out.strip()
@@ -1345,6 +1403,7 @@ def test_emit_phase_progress_line_omits_optional_fragments_when_values_missing(c
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_emit_resume_state_startup_line::cli.py::gabion.cli._emit_resume_state_startup_line
+# gabion:behavior primary=desired
 def test_emit_resume_state_startup_line(capsys) -> None:
     cli._emit_resume_state_startup_line(
         checkpoint_path="artifacts/audit_reports/resume.json",
@@ -1359,6 +1418,7 @@ def test_emit_resume_state_startup_line(capsys) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_emit_resume_state_startup_line_unknown_pending::cli.py::gabion.cli._emit_resume_state_startup_line
+# gabion:behavior primary=desired
 def test_emit_resume_state_startup_line_unknown_pending(capsys) -> None:
     cli._emit_resume_state_startup_line(
         checkpoint_path="artifacts/audit_reports/resume.json",
@@ -1373,6 +1433,7 @@ def test_emit_resume_state_startup_line_unknown_pending(capsys) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_dataflow_raw_argv_rejects_removed_resume_checkpoint_flag::cli.py::gabion.cli._run_dataflow_raw_argv
+# gabion:behavior primary=desired
 def test_run_dataflow_raw_argv_rejects_removed_resume_checkpoint_flag(
     tmp_path: Path,
 ) -> None:
@@ -1419,6 +1480,7 @@ def test_run_dataflow_raw_argv_rejects_removed_resume_checkpoint_flag(
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_dataflow_raw_argv_emits_phase_timeline_rows::cli.py::gabion.cli._run_dataflow_raw_argv
+# gabion:behavior primary=desired
 def test_run_dataflow_raw_argv_emits_phase_timeline_rows(
     tmp_path: Path,
     capsys,
@@ -1465,6 +1527,7 @@ def test_run_dataflow_raw_argv_emits_phase_timeline_rows(
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_dataflow_raw_argv_dedupes_duplicate_event_seq::cli.py::gabion.cli._run_dataflow_raw_argv
+# gabion:behavior primary=desired
 def test_run_dataflow_raw_argv_dedupes_duplicate_event_seq(
     tmp_path: Path,
     capsys,
@@ -1514,6 +1577,7 @@ def test_run_dataflow_raw_argv_dedupes_duplicate_event_seq(
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_dataflow_raw_argv_ignores_empty_checkpoint_intro_timeline_row::cli.py::gabion.cli._run_dataflow_raw_argv
+# gabion:behavior primary=verboten facets=empty
 def test_run_dataflow_raw_argv_ignores_empty_checkpoint_intro_timeline_row(
     tmp_path: Path,
     capsys,
@@ -1553,6 +1617,7 @@ def test_run_dataflow_raw_argv_ignores_empty_checkpoint_intro_timeline_row(
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_dataflow_raw_argv_emits_phase_timeline_rows_for_collection_and_non_collection_updates::cli.py::gabion.cli._run_dataflow_raw_argv
+# gabion:behavior primary=desired
 def test_run_dataflow_raw_argv_emits_phase_timeline_rows_for_collection_and_non_collection_updates(
     tmp_path: Path,
     capsys,
@@ -1621,6 +1686,7 @@ def test_run_dataflow_raw_argv_emits_phase_timeline_rows_for_collection_and_non_
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_dataflow_raw_argv_emits_distinct_post_markers_even_when_work_is_unchanged::cli.py::gabion.cli._run_dataflow_raw_argv
+# gabion:behavior primary=desired
 def test_run_dataflow_raw_argv_emits_distinct_post_markers_even_when_work_is_unchanged(
     tmp_path: Path,
     capsys,
@@ -1681,6 +1747,7 @@ def test_run_dataflow_raw_argv_emits_distinct_post_markers_even_when_work_is_unc
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_emit_analysis_resume_summary::cli.py::gabion.cli._emit_analysis_resume_summary
+# gabion:behavior primary=desired
 @pytest.mark.parametrize("cache_verdict", ["hit", "miss", "invalidated", "seeded"])
 def test_emit_analysis_resume_summary(cache_verdict: str, capsys) -> None:
     cli._emit_analysis_resume_summary(
@@ -1703,6 +1770,7 @@ def test_emit_analysis_resume_summary(cache_verdict: str, capsys) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_emit_analysis_resume_summary_skips_missing_payload::cli.py::gabion.cli._emit_analysis_resume_summary
+# gabion:behavior primary=verboten facets=missing
 def test_emit_analysis_resume_summary_skips_missing_payload(capsys) -> None:
     cli._emit_analysis_resume_summary({"exit_code": 0})
     output = capsys.readouterr().out
@@ -1710,6 +1778,7 @@ def test_emit_analysis_resume_summary_skips_missing_payload(capsys) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_render_timeout_progress_markdown_includes_incremental_obligations::cli.py::gabion.cli._render_timeout_progress_markdown
+# gabion:behavior primary=verboten facets=timeout
 def test_render_timeout_progress_markdown_includes_incremental_obligations() -> None:
     progress = {
         "classification": "timed_out_progress_resume",
@@ -1741,6 +1810,7 @@ def test_render_timeout_progress_markdown_includes_incremental_obligations() -> 
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::stale_09ceb3645a45
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_legacy_dataflow_monolith_emits_structure_tree(capsys) -> None:
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
@@ -1760,6 +1830,7 @@ def test_legacy_dataflow_monolith_emits_structure_tree(capsys) -> None:
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::stale_3ee3d4401f7c
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_legacy_dataflow_monolith_emits_structure_tree_dev_stdout(capsys) -> None:
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
@@ -1779,6 +1850,7 @@ def test_legacy_dataflow_monolith_emits_structure_tree_dev_stdout(capsys) -> Non
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::stale_c3f2f0d13aec
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_legacy_dataflow_monolith_emits_structure_metrics(capsys) -> None:
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
@@ -1805,6 +1877,7 @@ def test_legacy_dataflow_monolith_emits_structure_metrics(capsys) -> None:
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::stale_ca75522a5338_2081cc39
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_legacy_dataflow_monolith_emits_decision_snapshot(capsys) -> None:
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
@@ -1830,6 +1903,7 @@ def test_legacy_dataflow_monolith_emits_decision_snapshot(capsys) -> None:
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::stale_f9a3416893cb
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_legacy_dataflow_monolith_emits_fingerprint_outputs(capsys) -> None:
     def runner(*_args: object, **_kwargs: object) -> dict[str, object]:
         # dataflow-bundle: _args, _kwargs
@@ -1900,6 +1974,7 @@ def test_legacy_dataflow_monolith_emits_fingerprint_outputs(capsys) -> None:
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._run_check::aspf_delta_jsonl,aspf_equivalence_against,aspf_import_state,aspf_import_trace,aspf_opportunities_json,aspf_semantic_surface,aspf_state_json,aspf_trace_json,exclude,filter_bundle,paths,root,strictness E:decision_surface/direct::cli.py::gabion.cli._run_synth::aspf_delta_jsonl,aspf_equivalence_against,aspf_import_state,aspf_import_trace,aspf_opportunities_json,aspf_semantic_surface,aspf_state_json,aspf_trace_json,exclude,filter_bundle,paths,root,strictness
+# gabion:behavior primary=desired
 def test_check_and_synth_encode_common_payload_fields_identically(tmp_path: Path) -> None:
     check_payload: dict[str, object] = {}
     synth_payload: dict[str, object] = {}
@@ -2024,6 +2099,7 @@ def test_check_and_synth_encode_common_payload_fields_identically(tmp_path: Path
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._run_synth::config,exclude,filter_bundle,no_timestamp,paths,refactor_plan,strictness,synthesis_protocols_kind
+# gabion:behavior primary=desired
 def test_run_synth_parses_optional_inputs(tmp_path: Path) -> None:
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
@@ -2057,6 +2133,7 @@ def test_run_synth_parses_optional_inputs(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_synth_outputs::paths_out,refactor_plan,timestamp
+# gabion:behavior primary=desired
 def test_emit_synth_outputs_lists_optional_paths(tmp_path: Path, capsys) -> None:
     root = tmp_path / "out"
     root.mkdir()
@@ -2095,6 +2172,7 @@ def test_emit_synth_outputs_lists_optional_paths(tmp_path: Path, capsys) -> None
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._run_synthesis_plan::input_path,output_path E:decision_surface/direct::cli.py::gabion.cli._run_synthesis_plan::stale_71198c0357eb
+# gabion:behavior primary=desired
 def test_run_synthesis_plan_without_input(tmp_path: Path) -> None:
     captured = {}
 
@@ -2114,6 +2192,7 @@ def test_run_synthesis_plan_without_input(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._run_synthesis_plan::input_path,output_path E:decision_surface/direct::cli.py::gabion.cli._run_synthesis_plan::stale_a51a81557205_b963adf2
+# gabion:behavior primary=desired
 def test_run_synthesis_plan_rejects_non_object_payload(tmp_path: Path) -> None:
     payload_path = tmp_path / "payload.json"
     payload_path.write_text("[]\n")
@@ -2127,6 +2206,7 @@ def test_run_synthesis_plan_rejects_non_object_payload(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._run_refactor_protocol::input_path,output_path E:decision_surface/direct::cli.py::gabion.cli._run_refactor_protocol::stale_b51675818f31
+# gabion:behavior primary=desired
 def test_refactor_protocol_rejects_non_object_payload(tmp_path: Path) -> None:
     payload_path = tmp_path / "payload.json"
     payload_path.write_text("[]\n")
@@ -2136,6 +2216,7 @@ def test_refactor_protocol_rejects_non_object_payload(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.build_refactor_payload::bundle,input_payload,protocol_name,target_path E:decision_surface/direct::cli.py::gabion.cli._run_refactor_protocol::input_path,output_path
+# gabion:behavior primary=desired
 def test_run_refactor_protocol_accepts_object_payload(tmp_path: Path) -> None:
     payload_path = tmp_path / "payload.json"
     payload_path.write_text("{\"protocol_name\": \"Bundle\", \"bundle\": [\"a\"]}\n")
@@ -2170,6 +2251,7 @@ def test_run_refactor_protocol_accepts_object_payload(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::cli.py::gabion.cli.run_structure_diff
+# gabion:behavior primary=desired
 def test_run_structure_diff_uses_runner(tmp_path: Path) -> None:
     captured: dict[str, object] = {}
 
@@ -2201,6 +2283,7 @@ def test_run_structure_diff_uses_runner(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::cli.py::gabion.cli.run_decision_diff
+# gabion:behavior primary=desired
 def test_run_decision_diff_uses_runner(tmp_path: Path) -> None:
     captured: dict[str, object] = {}
 
@@ -2273,6 +2356,7 @@ def _extract_rpc_messages(buffer: bytes) -> list[dict]:
 
 
 # gabion:evidence E:function_site::cli.py::gabion.cli.dispatch_command
+# gabion:behavior primary=verboten facets=timeout
 def test_dispatch_command_passes_timeout_ticks(tmp_path: Path) -> None:
     proc_holder: dict[str, _FakeProc] = {}
 
@@ -2305,6 +2389,7 @@ def test_dispatch_command_passes_timeout_ticks(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_dispatch_command_blocks_direct_transport_for_beta_without_override::cli.py::gabion.cli._resolve_command_transport
+# gabion:behavior primary=desired
 def test_dispatch_command_blocks_direct_transport_for_beta_without_override(tmp_path: Path) -> None:
     with transport_policy.transport_override_scope(
         transport_policy.TransportOverrideConfig(direct_requested=True)
@@ -2319,6 +2404,7 @@ def test_dispatch_command_blocks_direct_transport_for_beta_without_override(tmp_
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_dispatch_command_allows_direct_transport_for_debug_maturity::cli.py::gabion.cli._resolve_command_transport
+# gabion:behavior primary=desired
 def test_dispatch_command_allows_direct_transport_for_debug_maturity(tmp_path: Path) -> None:
     with transport_policy.transport_override_scope(
         transport_policy.TransportOverrideConfig(direct_requested=True)
@@ -2333,6 +2419,7 @@ def test_dispatch_command_allows_direct_transport_for_debug_maturity(tmp_path: P
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_dispatch_command_allows_beta_direct_with_override_evidence::cli.py::gabion.cli._resolve_command_transport
+# gabion:behavior primary=verboten facets=missing
 def test_dispatch_command_blocks_beta_direct_with_override_evidence_missing_record(tmp_path: Path) -> None:
     with transport_policy.transport_override_scope(
         transport_policy.TransportOverrideConfig(direct_requested=True, override_record_json=None)
@@ -2347,6 +2434,7 @@ def test_dispatch_command_blocks_beta_direct_with_override_evidence_missing_reco
 
 
 # gabion:evidence E:function_site::test_cli_helpers.py::tests.test_cli_helpers.test_dispatch_command_blocks_beta_direct_with_expired_override_record
+# gabion:behavior primary=desired
 def test_dispatch_command_blocks_beta_direct_with_expired_override_record(tmp_path: Path) -> None:
     with transport_policy.transport_override_scope(
         transport_policy.TransportOverrideConfig(
@@ -2374,6 +2462,7 @@ def test_dispatch_command_blocks_beta_direct_with_expired_override_record(tmp_pa
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_dispatch_command_allows_beta_direct_with_override_evidence_and_valid_record::cli.py::gabion.cli._resolve_command_transport
+# gabion:behavior primary=desired
 def test_dispatch_command_allows_beta_direct_with_override_evidence_and_valid_record(tmp_path: Path) -> None:
     (tmp_path / "x.py").write_text("def x() -> int:\n    return 1\n", encoding="utf-8")
     with transport_policy.transport_override_scope(
@@ -2400,6 +2489,7 @@ def test_dispatch_command_allows_beta_direct_with_override_evidence_and_valid_re
         )
     assert isinstance(result, dict)
 # gabion:evidence E:function_site::test_cli_helpers.py::tests.test_cli_helpers.test_dispatch_command_preserves_existing_timeout_ms
+# gabion:behavior primary=verboten facets=timeout
 def test_dispatch_command_preserves_existing_timeout_ms(tmp_path: Path) -> None:
     captured: dict[str, object] = {}
 
@@ -2427,6 +2517,7 @@ def test_dispatch_command_preserves_existing_timeout_ms(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_dispatch_command_handles_signature_introspection_failure::cli.py::gabion.cli.dispatch_command
+# gabion:behavior primary=desired
 def test_dispatch_command_handles_signature_introspection_failure(tmp_path: Path) -> None:
     class _Runner:
         __signature__ = "bad-signature"
@@ -2451,6 +2542,7 @@ def test_dispatch_command_handles_signature_introspection_failure(tmp_path: Path
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_dispatch_command_rejects_non_mapping_custom_runner_result::cli.py::gabion.cli.dispatch_command
+# gabion:behavior primary=desired
 def test_dispatch_command_rejects_non_mapping_custom_runner_result(tmp_path: Path) -> None:
     def runner(_request, *, root=None):
         _ = root
@@ -2469,6 +2561,7 @@ def test_dispatch_command_rejects_non_mapping_custom_runner_result(tmp_path: Pat
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_dispatch_command_rejects_non_mapping_custom_runner_with_callback::cli.py::gabion.cli.dispatch_command
+# gabion:behavior primary=desired
 def test_dispatch_command_rejects_non_mapping_custom_runner_with_callback(
     tmp_path: Path,
 ) -> None:
@@ -2492,6 +2585,7 @@ def test_dispatch_command_rejects_non_mapping_custom_runner_with_callback(
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_dispatch_command_execution_plan_payload_skips_non_mapping_inputs_and_policy_metadata::cli.py::gabion.cli.dispatch_command
+# gabion:behavior primary=desired
 def test_dispatch_command_execution_plan_payload_skips_non_mapping_inputs_and_policy_metadata(
     tmp_path: Path,
 ) -> None:
@@ -2529,6 +2623,7 @@ def test_dispatch_command_execution_plan_payload_skips_non_mapping_inputs_and_po
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.run_structure_reuse::lemma_stubs E:decision_surface/direct::cli.py::gabion.cli.run_structure_reuse::stale_6424f9623b7c
+# gabion:behavior primary=desired
 def test_run_structure_reuse_uses_runner(tmp_path: Path) -> None:
     captured: dict[str, object] = {}
 
@@ -2555,6 +2650,7 @@ def test_run_structure_reuse_uses_runner(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.run_structure_reuse::lemma_stubs E:decision_surface/direct::cli.py::gabion.cli.run_structure_reuse::stale_9512fb3adc80_4011a505
+# gabion:behavior primary=desired
 def test_cli_diff_and_reuse_commands_use_default_runner(capsys) -> None:
     calls: list[str] = []
 
@@ -2593,6 +2689,7 @@ def test_cli_diff_and_reuse_commands_use_default_runner(capsys) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_impact_query_uses_runner_and_optional_fields::cli.py::gabion.cli.run_impact_query
+# gabion:behavior primary=desired
 def test_run_impact_query_uses_runner_and_optional_fields(tmp_path: Path) -> None:
     captured: dict[str, object] = {}
 
@@ -2623,6 +2720,7 @@ def test_run_impact_query_uses_runner_and_optional_fields(tmp_path: Path) -> Non
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_emit_impact_human_output_and_exit::cli.py::gabion.cli._emit_impact
+# gabion:behavior primary=desired
 def test_emit_impact_human_output_and_exit(capsys) -> None:
     cli._emit_impact(
         {
@@ -2659,6 +2757,7 @@ def test_emit_impact_human_output_and_exit(capsys) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_emit_synth_outputs_skips_absent_optional_paths::cli.py::gabion.cli._emit_synth_outputs
+# gabion:behavior primary=desired
 def test_emit_synth_outputs_skips_absent_optional_paths(tmp_path: Path, capsys) -> None:
     root = tmp_path / "out"
     root.mkdir()
@@ -2689,6 +2788,7 @@ def test_emit_synth_outputs_skips_absent_optional_paths(tmp_path: Path, capsys) 
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_render_timeout_progress_markdown_handles_non_mapping_resume_token::cli.py::gabion.cli._render_timeout_progress_markdown
+# gabion:behavior primary=verboten facets=timeout
 def test_render_timeout_progress_markdown_handles_non_mapping_resume_token() -> None:
     rendered = cli._render_timeout_progress_markdown(
         analysis_state=None,
@@ -2702,6 +2802,7 @@ def test_render_timeout_progress_markdown_handles_non_mapping_resume_token() -> 
 
 
 # gabion:evidence E:function_site::cli.py::gabion.cli._emit_structure_diff E:decision_surface/direct::cli.py::gabion.cli._emit_structure_diff::stale_0d2be4c7ed9c
+# gabion:behavior primary=desired
 def test_emit_structure_diff_success(capsys) -> None:
     result = {"exit_code": 0, "diff": {"summary": {"added": 0}}}
     cli._emit_structure_diff(result)
@@ -2711,6 +2812,7 @@ def test_emit_structure_diff_success(capsys) -> None:
 
 
 # gabion:evidence E:function_site::cli.py::gabion.cli._emit_structure_diff E:decision_surface/direct::cli.py::gabion.cli._emit_structure_diff::stale_98a6bf69ab7f_0440a891
+# gabion:behavior primary=verboten facets=error
 def test_emit_structure_diff_errors_exit(capsys) -> None:
     result = {"exit_code": 2, "errors": ["bad snapshot"], "diff": {}}
     with pytest.raises(typer.Exit) as exc:
@@ -2722,6 +2824,7 @@ def test_emit_structure_diff_errors_exit(capsys) -> None:
 
 
 # gabion:evidence E:function_site::cli.py::gabion.cli._emit_decision_diff E:decision_surface/direct::cli.py::gabion.cli._emit_decision_diff::stale_278718bd685f
+# gabion:behavior primary=desired
 def test_emit_decision_diff_success(capsys) -> None:
     result = {"exit_code": 0, "diff": {"summary": {"added": 0}}}
     cli._emit_decision_diff(result)
@@ -2730,6 +2833,7 @@ def test_emit_decision_diff_success(capsys) -> None:
 
 
 # gabion:evidence E:function_site::cli.py::gabion.cli._emit_decision_diff E:decision_surface/direct::cli.py::gabion.cli._emit_decision_diff::stale_eab18e59dce2_5a66a6e5
+# gabion:behavior primary=verboten facets=error
 def test_emit_decision_diff_errors_exit(capsys) -> None:
     result = {"exit_code": 2, "errors": ["bad decision"], "diff": {}}
     with pytest.raises(typer.Exit) as exc:
@@ -2740,6 +2844,7 @@ def test_emit_decision_diff_errors_exit(capsys) -> None:
 
 
 # gabion:evidence E:function_site::cli.py::gabion.cli._emit_structure_reuse E:decision_surface/direct::cli.py::gabion.cli._emit_structure_reuse::stale_907053caf6e8
+# gabion:behavior primary=desired
 def test_emit_structure_reuse_success(capsys) -> None:
     result = {"exit_code": 0, "reuse": {"summary": {}}}
     cli._emit_structure_reuse(result)
@@ -2748,6 +2853,7 @@ def test_emit_structure_reuse_success(capsys) -> None:
 
 
 # gabion:evidence E:function_site::cli.py::gabion.cli._emit_structure_reuse E:decision_surface/direct::cli.py::gabion.cli._emit_structure_reuse::stale_6e9d6dd3c001_96b57ce7
+# gabion:behavior primary=verboten facets=error
 def test_emit_structure_reuse_errors_exit(capsys) -> None:
     result = {"exit_code": 2, "errors": ["bad reuse"], "reuse": {}}
     with pytest.raises(typer.Exit) as exc:
@@ -2758,6 +2864,7 @@ def test_emit_structure_reuse_errors_exit(capsys) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_restore_aspf_state_from_github_artifacts_restores_files::cli.py::gabion.cli._restore_aspf_state_from_github_artifacts
+# gabion:behavior primary=desired
 def test_restore_aspf_state_from_github_artifacts_restores_files(
     tmp_path: Path,
 ) -> None:
@@ -2821,6 +2928,7 @@ def test_restore_aspf_state_from_github_artifacts_restores_files(
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_restore_dataflow_resume_checkpoint_accepts_workflow_dispatch_artifacts::cli.py::gabion.cli._restore_aspf_state_from_github_artifacts
+# gabion:behavior primary=desired
 def test_restore_dataflow_resume_checkpoint_accepts_workflow_dispatch_artifacts(
     tmp_path: Path,
 ) -> None:
@@ -2879,6 +2987,7 @@ def test_restore_dataflow_resume_checkpoint_accepts_workflow_dispatch_artifacts(
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_restore_dataflow_resume_checkpoint_accepts_artifacts_with_missing_event::cli.py::gabion.cli._restore_aspf_state_from_github_artifacts
+# gabion:behavior primary=verboten facets=missing
 def test_restore_dataflow_resume_checkpoint_accepts_artifacts_with_missing_event(
     tmp_path: Path,
 ) -> None:
@@ -2936,6 +3045,7 @@ def test_restore_dataflow_resume_checkpoint_accepts_artifacts_with_missing_event
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_restore_dataflow_resume_checkpoint_falls_back_from_incomplete_chunks::cli.py::gabion.cli._restore_aspf_state_from_github_artifacts
+# gabion:behavior primary=desired
 def test_restore_dataflow_resume_checkpoint_falls_back_from_incomplete_chunks(
     tmp_path: Path,
 ) -> None:
@@ -3032,6 +3142,7 @@ def test_restore_dataflow_resume_checkpoint_falls_back_from_incomplete_chunks(
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_restore_dataflow_resume_checkpoint_overwrites_existing_output_files::cli.py::gabion.cli._restore_aspf_state_from_github_artifacts
+# gabion:behavior primary=desired
 def test_restore_dataflow_resume_checkpoint_overwrites_existing_output_files(
     tmp_path: Path,
 ) -> None:
@@ -3102,6 +3213,7 @@ def test_restore_dataflow_resume_checkpoint_overwrites_existing_output_files(
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_restore_dataflow_resume_checkpoint_ignores_non_chunk_members_and_preserves_non_file_chunk_entries::cli.py::gabion.cli._restore_aspf_state_from_github_artifacts
+# gabion:behavior primary=desired
 def test_restore_dataflow_resume_checkpoint_ignores_non_chunk_members_and_preserves_non_file_chunk_entries(
     tmp_path: Path,
 ) -> None:
@@ -3170,6 +3282,7 @@ def test_restore_dataflow_resume_checkpoint_ignores_non_chunk_members_and_preser
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_download_artifact_archive_bytes_follows_blob_redirect_without_auth::cli.py::gabion.cli._download_artifact_archive_bytes
+# gabion:behavior primary=desired
 def test_download_artifact_archive_bytes_follows_blob_redirect_without_auth() -> None:
     class _Resp:
         def __init__(self, body: bytes) -> None:
@@ -3223,6 +3336,7 @@ def test_download_artifact_archive_bytes_follows_blob_redirect_without_auth() ->
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_download_artifact_archive_bytes_keeps_auth_for_github_redirect::cli.py::gabion.cli._download_artifact_archive_bytes
+# gabion:behavior primary=desired
 def test_download_artifact_archive_bytes_keeps_auth_for_github_redirect() -> None:
     class _Resp:
         def __init__(self, body: bytes) -> None:
@@ -3271,6 +3385,7 @@ def test_download_artifact_archive_bytes_keeps_auth_for_github_redirect() -> Non
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_download_artifact_archive_bytes_default_no_redirect_path_uses_data_url::cli.py::gabion.cli._download_artifact_archive_bytes
+# gabion:behavior primary=desired
 def test_download_artifact_archive_bytes_default_no_redirect_path_uses_data_url() -> None:
     archive_bytes = cli._download_artifact_archive_bytes(
         download_url="data:text/plain;base64,YXJjaGl2ZS1ieXRlcw==",
@@ -3280,6 +3395,7 @@ def test_download_artifact_archive_bytes_default_no_redirect_path_uses_data_url(
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_no_redirect_handler_redirect_request_returns_none::cli.py::gabion.cli._NoRedirectHandler
+# gabion:behavior primary=verboten facets=none
 def test_no_redirect_handler_redirect_request_returns_none() -> None:
     handler = cli._NoRedirectHandler()
     request = urllib.request.Request("https://example.invalid/archive.zip")
@@ -3297,6 +3413,7 @@ def test_no_redirect_handler_redirect_request_returns_none() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_download_artifact_archive_bytes_raises_when_redirect_location_missing::cli.py::gabion.cli._download_artifact_archive_bytes
+# gabion:behavior primary=verboten facets=missing,raises
 def test_download_artifact_archive_bytes_raises_when_redirect_location_missing() -> None:
     def _no_redirect_open(_req, timeout=0):
         _ = timeout
@@ -3317,6 +3434,7 @@ def test_download_artifact_archive_bytes_raises_when_redirect_location_missing()
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_state_requires_chunk_artifacts_invalid_payload_shapes::cli.py::gabion.cli._state_requires_chunk_artifacts
+# gabion:behavior primary=verboten facets=invalid
 def test_state_requires_chunk_artifacts_invalid_payload_shapes() -> None:
     assert cli._state_requires_chunk_artifacts(checkpoint_bytes=b"{not-json") is False
     assert cli._state_requires_chunk_artifacts(checkpoint_bytes=b"[]") is False
@@ -3329,6 +3447,7 @@ def test_state_requires_chunk_artifacts_invalid_payload_shapes() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_restore_resume_checkpoint_command_removed::cli.py::gabion.cli.app
+# gabion:behavior primary=desired
 def test_restore_resume_checkpoint_command_removed() -> None:
     runner = CliRunner()
     result = runner.invoke(cli.app, ["restore-resume-checkpoint"])
@@ -3337,6 +3456,7 @@ def test_restore_resume_checkpoint_command_removed() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_check_derived_artifacts_includes_all_optional_outputs::cli.py::gabion.cli._check_derived_artifacts
+# gabion:behavior primary=desired
 def test_check_derived_artifacts_includes_all_optional_outputs() -> None:
     derived = cli._check_derived_artifacts(
         report=Path("artifacts/audit_reports/dataflow_report.md"),
@@ -3375,6 +3495,7 @@ def test_check_derived_artifacts_includes_all_optional_outputs() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_nonzero_exit_causes_formats_timeout_ambiguity_and_errors::cli.py::gabion.cli._nonzero_exit_causes
+# gabion:behavior primary=verboten facets=error,nonzero,timeout
 def test_nonzero_exit_causes_formats_timeout_ambiguity_and_errors() -> None:
     causes = cli._nonzero_exit_causes(
         {
@@ -3393,6 +3514,7 @@ def test_nonzero_exit_causes_formats_timeout_ambiguity_and_errors() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_dataflow_raw_argv_rejects_removed_resume_checkpoint_flag_once::cli.py::gabion.cli._run_dataflow_raw_argv
+# gabion:behavior primary=desired
 def test_run_dataflow_raw_argv_rejects_removed_resume_checkpoint_flag_once(
     tmp_path: Path,
 ) -> None:
@@ -3435,6 +3557,7 @@ def test_run_dataflow_raw_argv_rejects_removed_resume_checkpoint_flag_once(
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_check_rejects_removed_resume_checkpoint_flag::cli.py::gabion.cli.app
+# gabion:behavior primary=desired
 def test_check_rejects_removed_resume_checkpoint_flag(
     tmp_path: Path,
 ) -> None:
@@ -3484,6 +3607,7 @@ def test_check_rejects_removed_resume_checkpoint_flag(
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_check_emits_checkpoint_intro_timeline_header_once::cli.py::gabion.cli.app
+# gabion:behavior primary=desired
 def test_check_emits_checkpoint_intro_timeline_header_once(
     tmp_path: Path,
 ) -> None:
@@ -3535,6 +3659,7 @@ def test_check_emits_checkpoint_intro_timeline_header_once(
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_check_dedupes_duplicate_event_seq::cli.py::gabion.cli.app
+# gabion:behavior primary=desired
 def test_check_dedupes_duplicate_event_seq(
     tmp_path: Path,
 ) -> None:
@@ -3588,6 +3713,7 @@ def test_check_dedupes_duplicate_event_seq(
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_check_ignores_empty_checkpoint_intro_timeline_row::cli.py::gabion.cli.app
+# gabion:behavior primary=verboten facets=empty
 def test_check_ignores_empty_checkpoint_intro_timeline_row(
     tmp_path: Path,
 ) -> None:
@@ -3630,6 +3756,7 @@ def test_check_ignores_empty_checkpoint_intro_timeline_row(
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_check_emits_non_collection_phase_progress_lines::cli.py::gabion.cli.app
+# gabion:behavior primary=desired
 def test_check_emits_non_collection_phase_progress_lines(
     tmp_path: Path,
 ) -> None:
@@ -3704,6 +3831,7 @@ def test_check_emits_non_collection_phase_progress_lines(
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_docflow_audit_returns_one_when_sppf_graph_fails::cli.py::gabion.cli._run_docflow_audit
+# gabion:behavior primary=verboten facets=fail
 def test_run_docflow_audit_returns_one_when_sppf_graph_fails(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
@@ -3730,6 +3858,7 @@ def test_run_docflow_audit_returns_one_when_sppf_graph_fails(
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_restore_resume_checkpoint_handles_guard_and_error_branches::cli.py::gabion.cli._restore_aspf_state_from_github_artifacts
+# gabion:behavior primary=verboten facets=error
 def test_restore_resume_checkpoint_handles_guard_and_error_branches(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
@@ -3874,6 +4003,7 @@ def test_restore_resume_checkpoint_handles_guard_and_error_branches(
     )
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_sppf_sync_label_only_branch::cli.py::gabion.cli._run_sppf_sync
+# gabion:behavior primary=desired
 def test_run_sppf_sync_label_only_branch() -> None:
     calls: list[list[str]] = []
     commits = [
@@ -3898,6 +4028,7 @@ def test_run_sppf_sync_label_only_branch() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_sppf_sync_command_handles_runner_errors::cli.py::gabion.cli.app
+# gabion:behavior primary=verboten facets=error
 def test_sppf_sync_command_handles_runner_errors() -> None:
     runner = CliRunner()
     result = runner.invoke(cli.app, ["sppf-sync", "--range", "__not_a_rev_range__"])
@@ -3905,6 +4036,7 @@ def test_sppf_sync_command_handles_runner_errors() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_governance_commands_include_optional_cli_args::cli.py::gabion.cli.app
+# gabion:behavior primary=desired
 def test_governance_commands_include_optional_cli_args(tmp_path: Path) -> None:
     calls: list[tuple[str, list[str]]] = []
     orig_sppf = cli.tooling_governance_audit.run_sppf_graph_cli
@@ -4012,6 +4144,7 @@ def test_governance_commands_include_optional_cli_args(tmp_path: Path) -> None:
     assert any(name == "lint" and "--lint" not in argv and "--json" not in argv for name, argv in calls)
 
 
+# gabion:behavior primary=desired
 def test_run_dataflow_raw_argv_progress_ingress_parses_once_then_feeds_emitters(
     tmp_path: Path,
 ) -> None:

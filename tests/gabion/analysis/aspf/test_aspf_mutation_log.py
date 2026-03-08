@@ -10,6 +10,7 @@ from gabion.analysis.aspf.aspf_mutation_log import (
 
 
 # gabion:evidence E:function_site::tests/test_aspf_mutation_log.py::tests.test_aspf_mutation_log.test_shadow_replay_equivalence_passes_for_matching_live_state
+# gabion:behavior primary=desired
 def test_shadow_replay_equivalence_passes_for_matching_live_state() -> None:
     snapshot = snapshot_state({"a": 1}, seq=1)
     tail = [AspfMutationRecord(op_id="2", op_kind="set", payload={"key": "b", "value": 2})]
@@ -19,6 +20,7 @@ def test_shadow_replay_equivalence_passes_for_matching_live_state() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_aspf_mutation_log.py::tests.test_aspf_mutation_log.test_shadow_replay_equivalence_detects_divergence
+# gabion:behavior primary=desired
 def test_shadow_replay_equivalence_detects_divergence() -> None:
     snapshot = snapshot_state({"a": 1}, seq=1)
     tail = [AspfMutationRecord(op_id="2", op_kind="delete", payload={"key": "a"})]
@@ -27,6 +29,7 @@ def test_shadow_replay_equivalence_detects_divergence() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_aspf_mutation_log.py::tests.test_aspf_mutation_log.test_apply_mutation_unknown_ops_and_empty_keys
+# gabion:behavior primary=verboten facets=empty
 def test_apply_mutation_unknown_ops_and_empty_keys() -> None:
     state = {"a": 1, "_unknown_ops": "legacy"}
 
@@ -72,6 +75,7 @@ def _sample_snapshot_and_events() -> tuple[SnapshotEnvelope, list[EventEnvelope]
 
 
 # gabion:evidence E:function_site::tests/test_aspf_mutation_log.py::tests.test_aspf_mutation_log.test_replay_ignores_uncommitted_tail_and_preserves_json_equivalence
+# gabion:behavior primary=desired
 def test_replay_ignores_uncommitted_tail_and_preserves_json_equivalence() -> None:
     snapshot, events, commit = _sample_snapshot_and_events()
     result = replay_from_snapshot_and_committed_tail(snapshot=snapshot, events=events, commit=commit)
@@ -81,6 +85,7 @@ def test_replay_ignores_uncommitted_tail_and_preserves_json_equivalence() -> Non
 
 
 # gabion:evidence E:function_site::tests/test_aspf_mutation_log.py::tests.test_aspf_mutation_log.test_shadow_write_parity_matches_legacy_json_replay
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_shadow_write_parity_matches_legacy_json_replay() -> None:
     snapshot, events, commit = _sample_snapshot_and_events()
     parity = shadow_write_parity(enabled=True, snapshot=snapshot, events=events, commit=commit)
@@ -90,6 +95,7 @@ def test_shadow_write_parity_matches_legacy_json_replay() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_aspf_mutation_log.py::tests.test_aspf_mutation_log.test_filesystem_projection_and_tar_packaging_are_deterministic
+# gabion:behavior primary=desired
 def test_filesystem_projection_and_tar_packaging_are_deterministic(tmp_path: Path) -> None:
     snapshot, events, commit = _sample_snapshot_and_events()
     manifest = ArchiveManifest(
@@ -128,6 +134,7 @@ def test_filesystem_projection_and_tar_packaging_are_deterministic(tmp_path: Pat
 
 
 # gabion:evidence E:function_site::tests/test_aspf_mutation_log.py::tests.test_aspf_mutation_log.test_replay_state_hash_stable_across_repeated_archive_replays
+# gabion:behavior primary=desired
 def test_replay_state_hash_stable_across_repeated_archive_replays() -> None:
     snapshot, events, commit = _sample_snapshot_and_events()
     first = replay_from_snapshot_and_committed_tail(snapshot=snapshot, events=events, commit=commit)
@@ -136,6 +143,7 @@ def test_replay_state_hash_stable_across_repeated_archive_replays() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_aspf_mutation_log.py::tests.test_aspf_mutation_log.test_snapshot_tail_replay_loader_matches_json_checkpoint_replay
+# gabion:behavior primary=desired
 def test_snapshot_tail_replay_loader_matches_json_checkpoint_replay(tmp_path: Path) -> None:
     snapshot, events, commit = _sample_snapshot_and_events()
     manifest = ArchiveManifest(
@@ -169,6 +177,7 @@ def test_snapshot_tail_replay_loader_matches_json_checkpoint_replay(tmp_path: Pa
 
 
 # gabion:evidence E:function_site::tests/test_aspf_mutation_log.py::tests.test_aspf_mutation_log.test_crash_recovery_detects_corrupted_tail_entry
+# gabion:behavior primary=desired
 def test_crash_recovery_detects_corrupted_tail_entry(tmp_path: Path) -> None:
     snapshot, events, commit = _sample_snapshot_and_events()
     manifest = ArchiveManifest(
@@ -200,6 +209,7 @@ def test_crash_recovery_detects_corrupted_tail_entry(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::tests/test_aspf_mutation_log.py::tests.test_aspf_mutation_log.test_replay_determinism_hash_stable_across_projection_and_tar_runs
+# gabion:behavior primary=desired
 def test_replay_determinism_hash_stable_across_projection_and_tar_runs(tmp_path: Path) -> None:
     snapshot, events, commit = _sample_snapshot_and_events()
     manifest = ArchiveManifest(
@@ -233,6 +243,7 @@ def test_replay_determinism_hash_stable_across_projection_and_tar_runs(tmp_path:
     assert tar_payloads[0] == tar_payloads[1]
 
 
+# gabion:behavior primary=verboten facets=error
 def test_protobuf_varint_and_wire_error_branches() -> None:
     with pytest.raises(ValueError):
         aspf_mutation_log._encode_varint(-1)
@@ -254,6 +265,7 @@ def test_protobuf_varint_and_wire_error_branches() -> None:
         aspf_mutation_log._parse_wire_fields(b"\x09")
 
 
+# gabion:behavior primary=verboten facets=error
 def test_protobuf_json_decode_error_branches() -> None:
     with pytest.raises(ProtobufDecodeError):
         aspf_mutation_log._json_bytes_to_object(b"\xff")
@@ -261,6 +273,7 @@ def test_protobuf_json_decode_error_branches() -> None:
         aspf_mutation_log._json_bytes_to_object(b"[]")
 
 
+# gabion:behavior primary=verboten facets=error
 def test_event_snapshot_manifest_and_commit_decode_error_branches() -> None:
     with pytest.raises(ProtobufDecodeError):
         aspf_mutation_log.decode_event_envelope_proto(
@@ -303,6 +316,7 @@ def test_event_snapshot_manifest_and_commit_decode_error_branches() -> None:
         )
 
 
+# gabion:behavior primary=desired
 def test_package_archive_tar_skips_target_path_when_preexisting(tmp_path: Path) -> None:
     root = tmp_path / "archive"
     root.mkdir()
@@ -314,6 +328,7 @@ def test_package_archive_tar_skips_target_path_when_preexisting(tmp_path: Path) 
     assert tar_path.stat().st_size > 0
 
 
+# gabion:behavior primary=desired
 def test_replay_from_projected_archive_requires_snapshot(tmp_path: Path) -> None:
     archive_root = tmp_path / "archive"
     archive_root.mkdir()

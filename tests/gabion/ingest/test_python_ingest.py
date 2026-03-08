@@ -48,6 +48,7 @@ da = SimpleNamespace(
 )
 
 
+# gabion:behavior primary=desired
 def test_iter_python_paths_expands_and_filters(tmp_path: Path) -> None:
     pkg = tmp_path / "pkg"
     pkg.mkdir()
@@ -64,6 +65,7 @@ def test_iter_python_paths_expands_and_filters(tmp_path: Path) -> None:
     assert all(".venv" not in str(path) for path in paths)
 
 
+# gabion:behavior primary=desired
 def test_iter_python_paths_uses_default_deadline_callable(tmp_path: Path) -> None:
     source = tmp_path / "mod.py"
     source.write_text("def f(x):\n    return x\n", encoding="utf-8")
@@ -73,6 +75,7 @@ def test_iter_python_paths_uses_default_deadline_callable(tmp_path: Path) -> Non
     assert paths == [source]
 
 
+# gabion:behavior primary=desired
 def test_ingest_contract_adapts_to_analysis(tmp_path: Path) -> None:
     source = tmp_path / "mod.py"
     source.write_text(
@@ -122,6 +125,7 @@ def test_ingest_contract_adapts_to_analysis(tmp_path: Path) -> None:
     assert adapted == direct
 
 
+# gabion:behavior primary=verboten facets=exception
 def test_ingest_python_file_emits_profile_on_exception(tmp_path: Path) -> None:
     source = tmp_path / "mod.py"
     source.write_text("def parent(x, y):\n    return x + y\n", encoding="utf-8")

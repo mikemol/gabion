@@ -8,7 +8,7 @@ import re
 from gabion.analysis.semantics import evidence_keys
 from gabion.analysis.foundation.json_types import JSONObject
 from gabion.analysis.projection.pattern_schema import pattern_schema_id
-from gabion.analysis.foundation.resume_codec import sequence_or_none
+from gabion.analysis.foundation.resume_codec import sequence_optional
 from gabion.order_contract import OrderPolicy, sort_once
 
 _DECISION_LINE_RE = re.compile(
@@ -171,7 +171,7 @@ def enforce_decision_protocol_contracts(
 
     for bundle in decision_bundles:
         bundle_id = str(bundle.get("bundle_id", ""))
-        member_ids = sequence_or_none(bundle.get("member_decision_ids"), allow_str=False) or []
+        member_ids = sequence_optional(bundle.get("member_decision_ids"), allow_str=False) or []
         if not member_ids:
             violations.append(
                 {

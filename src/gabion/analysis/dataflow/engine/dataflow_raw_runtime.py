@@ -24,7 +24,7 @@ from gabion.analysis.dataflow.io.dataflow_run_outputs import (
     DataflowRunOutputContext as _RunImplOutputContextCore, finalize_run_outputs as _finalize_run_outputs_impl)
 from gabion.analysis.foundation.json_types import JSONValue
 from gabion.analysis.foundation.marker_protocol import DEFAULT_MARKER_ALIASES
-from gabion.analysis.foundation.resume_codec import mapping_or_none
+from gabion.analysis.foundation.resume_codec import mapping_optional
 from gabion.analysis.foundation.timeout_context import (
     Deadline, GasMeter, TimeoutExceeded, TimeoutTickCarrier, check_deadline, deadline_clock_scope, deadline_scope, forest_scope)
 from gabion.analysis.core.type_fingerprints import (
@@ -446,7 +446,7 @@ def _run_impl(
                         payload = None
                 else:
                     payload = None
-                payload_mapping = mapping_or_none(cast(JSONValue, payload))
+                payload_mapping = mapping_optional(cast(JSONValue, payload))
                 if payload_mapping is not None:
                     synth_registry = build_synth_registry_from_payload(
                         payload_mapping, registry

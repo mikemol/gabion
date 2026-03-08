@@ -9,6 +9,7 @@ from gabion.analysis.dataflow.engine import dataflow_bundle_iteration as bundle_
 from gabion.exceptions import NeverThrown
 
 
+# gabion:behavior primary=desired
 def test_module_identifier_rejects_non_string_and_blank() -> None:
     with pytest.raises(ValueError):
         bundle_iteration._module_identifier(123)
@@ -16,6 +17,7 @@ def test_module_identifier_rejects_non_string_and_blank() -> None:
         bundle_iteration._module_identifier("   ")
 
 
+# gabion:behavior primary=desired
 def test_apply_constructor_plan_rejects_unknown_operation_kind(tmp_path: Path) -> None:
     call = ast.parse("C(1)").body[0].value
     assert isinstance(call, ast.Call)
@@ -33,6 +35,7 @@ def test_apply_constructor_plan_rejects_unknown_operation_kind(tmp_path: Path) -
     assert projection.reason == "unknown_operation"
 
 
+# gabion:behavior primary=desired
 def test_iter_dataclass_call_bundle_effects_rejects_unexpected_projection_type(
     tmp_path: Path,
 ) -> None:

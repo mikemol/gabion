@@ -13,6 +13,7 @@ from gabion.exceptions import NeverThrown
 
 
 # gabion:evidence E:call_footprint::tests/test_aspf.py::test_paramset_packed_reuse::aspf.py::gabion.analysis.aspf.Forest
+# gabion:behavior primary=desired
 def test_paramset_packed_reuse() -> None:
     forest = Forest()
     site_a = forest.add_site("a.py", "mod.fn_a")
@@ -29,6 +30,7 @@ def test_paramset_packed_reuse() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_aspf.py::test_add_site_records_span::aspf.py::gabion.analysis.aspf.Forest
+# gabion:behavior primary=desired
 def test_add_site_records_span() -> None:
     forest = Forest()
     site = forest.add_site("mod.py", "mod.fn", span=(1, 2, 3, 4))
@@ -37,6 +39,7 @@ def test_add_site_records_span() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_aspf.py::test_add_site_records_file_site::aspf.py::gabion.analysis.aspf.Forest
+# gabion:behavior primary=desired
 def test_add_site_records_file_site() -> None:
     forest = Forest()
     site = forest.add_site("mod.py", "mod.fn")
@@ -49,6 +52,7 @@ def test_add_site_records_file_site() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_aspf.py::test_add_suite_site_records_file_site::aspf.py::gabion.analysis.aspf.Forest
+# gabion:behavior primary=desired
 def test_add_suite_site_records_file_site() -> None:
     forest = Forest()
     suite = forest.add_suite_site("mod.py", "mod.fn", "loop", span=(0, 1, 2, 3))
@@ -60,6 +64,7 @@ def test_add_suite_site_records_file_site() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_aspf.py::test_add_suite_site_parent_emits_suite_contains::aspf.py::gabion.analysis.aspf.Forest
+# gabion:behavior primary=desired
 def test_add_suite_site_parent_emits_suite_contains() -> None:
     forest = Forest()
     parent = forest.add_suite_site("mod.py", "mod.fn", "function")
@@ -78,6 +83,7 @@ def test_add_suite_site_parent_emits_suite_contains() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_aspf.py::test_add_alt_consumes_logical_ticks::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ms::timeout_context.py::gabion.analysis.timeout_context.deadline_clock_scope::timeout_context.py::gabion.analysis.timeout_context.deadline_scope::timeout_context.py::gabion.analysis.timeout_context.forest_scope
+# gabion:behavior primary=desired
 def test_add_alt_consumes_logical_ticks() -> None:
     forest = Forest()
     left = forest.add_site("mod.py", "mod.left")
@@ -92,6 +98,7 @@ def test_add_alt_consumes_logical_ticks() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_aspf.py::test_to_json_omits_meta_for_nodes_without_metadata::aspf.py::gabion.analysis.aspf.Forest
+# gabion:behavior primary=desired
 def test_to_json_omits_meta_for_nodes_without_metadata() -> None:
     forest = Forest()
     forest.add_node("Sentinel", ("id",))
@@ -103,6 +110,7 @@ def test_to_json_omits_meta_for_nodes_without_metadata() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_aspf.py::test_add_spec_site_records_optional_spec_fields::aspf.py::gabion.analysis.aspf.Forest
+# gabion:behavior primary=desired
 def test_add_spec_site_records_optional_spec_fields() -> None:
     forest = Forest()
     node_id = forest.add_spec_site(
@@ -117,6 +125,7 @@ def test_add_spec_site_records_optional_spec_fields() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_aspf.py::test_add_spec_site_omits_optional_spec_fields_when_absent::aspf.py::gabion.analysis.aspf.Forest
+# gabion:behavior primary=desired
 def test_add_spec_site_omits_optional_spec_fields_when_absent() -> None:
     forest = Forest()
     node_id = forest.add_spec_site(spec_hash="abc123", spec_name="demo")
@@ -126,6 +135,7 @@ def test_add_spec_site_omits_optional_spec_fields_when_absent() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_aspf.py::test_add_alt_requires_deadline_clock_scope::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ms::timeout_context.py::gabion.analysis.timeout_context.deadline_scope::timeout_context.py::gabion.analysis.timeout_context.forest_scope
+# gabion:behavior primary=desired
 def test_add_alt_requires_deadline_clock_scope() -> None:
     def _run() -> None:
         forest = Forest()
@@ -140,6 +150,7 @@ def test_add_alt_requires_deadline_clock_scope() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_aspf.py::test_node_intern_uses_fingerprint_identity_with_legacy_keys::aspf.py::gabion.analysis.aspf.Forest
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_node_intern_uses_fingerprint_identity_with_legacy_keys() -> None:
     forest = Forest()
 
@@ -152,6 +163,7 @@ def test_node_intern_uses_fingerprint_identity_with_legacy_keys() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_aspf.py::test_node_fingerprint_covers_float_none_and_repr_fallback::aspf.py::gabion.analysis.aspf.NodeId
+# gabion:behavior primary=allowed_unwanted facets=fallback
 def test_node_fingerprint_covers_float_none_and_repr_fallback() -> None:
     class Dummy:
         def __repr__(self) -> str:
@@ -164,6 +176,7 @@ def test_node_fingerprint_covers_float_none_and_repr_fallback() -> None:
         ("float:1.5", "none:null", "repr:dummy-token"),
     )
 # gabion:evidence E:call_footprint::tests/test_aspf.py::test_add_alt_interns_structural_duplicates::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ms::timeout_context.py::gabion.analysis.timeout_context.deadline_clock_scope::timeout_context.py::gabion.analysis.timeout_context.deadline_scope::timeout_context.py::gabion.analysis.timeout_context.forest_scope
+# gabion:behavior primary=desired
 def test_add_alt_interns_structural_duplicates() -> None:
     forest = Forest()
     left = forest.add_site("mod.py", "mod.left")
@@ -178,6 +191,7 @@ def test_add_alt_interns_structural_duplicates() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_aspf.py::test_canonicalize_evidence_rejects_non_mapping_payloads::aspf.py::gabion.analysis.aspf._canonicalize_evidence
+# gabion:behavior primary=desired
 def test_canonicalize_evidence_rejects_non_mapping_payloads() -> None:
     from gabion.analysis.aspf import aspf
 
@@ -185,6 +199,7 @@ def test_canonicalize_evidence_rejects_non_mapping_payloads() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_aspf.py::test_alt_constructor_normalizes_evidence_payload::aspf.py::gabion.analysis.aspf.Alt
+# gabion:behavior primary=desired
 def test_alt_constructor_normalizes_evidence_payload() -> None:
     from gabion.analysis.aspf.aspf import Alt
 
@@ -198,6 +213,7 @@ def test_alt_constructor_normalizes_evidence_payload() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_aspf.py::test_add_alt_interns_equivalent_nested_evidence_payloads::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ms::timeout_context.py::gabion.analysis.timeout_context.deadline_clock_scope::timeout_context.py::gabion.analysis.timeout_context.deadline_scope::timeout_context.py::gabion.analysis.timeout_context.forest_scope
+# gabion:behavior primary=desired
 def test_add_alt_interns_equivalent_nested_evidence_payloads() -> None:
     forest = Forest()
     left = forest.add_site("mod.py", "mod.left")
@@ -221,6 +237,7 @@ def test_add_alt_interns_equivalent_nested_evidence_payloads() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_aspf.py::test_forest_to_json_is_stable_under_evidence_order_permutations::aspf.py::gabion.analysis.aspf.Forest
+# gabion:behavior primary=desired
 def test_forest_to_json_is_stable_under_evidence_order_permutations() -> None:
     def _build(evidence: dict[str, object]) -> dict[str, object]:
         forest = Forest()
@@ -240,6 +257,7 @@ def test_forest_to_json_is_stable_under_evidence_order_permutations() -> None:
     assert edge["evidence"] == {"meta": {"a": 1, "b": 2}, "order": "first"}
 
 # gabion:evidence E:call_footprint::tests/test_aspf.py::test_suite_site_signature_stable_under_suite_order_perturbation::aspf.py::gabion.analysis.aspf.Forest::forest_signature.py::gabion.analysis.forest_signature.build_forest_signature_payload
+# gabion:behavior primary=desired
 def test_suite_site_signature_stable_under_suite_order_perturbation() -> None:
     forest_a = Forest()
     parent_a = forest_a.add_suite_site("mod.py", "mod.fn", "loop", span=(1, 2, 3, 4))
@@ -263,6 +281,7 @@ def test_suite_site_signature_stable_under_suite_order_perturbation() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_aspf.py::test_add_alt_canonicalizes_sequence_evidence_for_rerun_identity::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ms::timeout_context.py::gabion.analysis.timeout_context.deadline_clock_scope::timeout_context.py::gabion.analysis.timeout_context.deadline_scope::timeout_context.py::gabion.analysis.timeout_context.forest_scope
+# gabion:behavior primary=desired
 def test_add_alt_canonicalizes_sequence_evidence_for_rerun_identity() -> None:
     def _build(evidence: dict[str, object]) -> dict[str, object]:
         forest = Forest()

@@ -79,6 +79,7 @@ def _canonical_progress_notification(
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_contract_edges.py::test_phase_progress_dimensions_summary_keeps_zero_total_without_clamp::progress_contract.py::gabion.commands.progress_contract.phase_progress_dimensions_summary
+# gabion:behavior primary=verboten facets=edge
 def test_phase_progress_dimensions_summary_keeps_zero_total_without_clamp() -> None:
     summary = progress_contract.phase_progress_dimensions_summary(
         {
@@ -92,6 +93,7 @@ def test_phase_progress_dimensions_summary_keeps_zero_total_without_clamp() -> N
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_contract_edges.py::test_phase_timeline_row_primary_fallback_and_empty_primary_paths::progress_contract.py::gabion.commands.progress_contract.phase_timeline_row_from_phase_progress
+# gabion:behavior primary=allowed_unwanted facets=fallback
 def test_phase_timeline_row_primary_fallback_and_empty_primary_paths() -> None:
     row_with_zero_total = progress_contract.phase_timeline_row_from_phase_progress(
         {
@@ -112,6 +114,7 @@ def test_phase_timeline_row_primary_fallback_and_empty_primary_paths() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_contract_edges.py::test_phase_timeline_row_prefers_progress_transition_marker_payload::progress_contract.py::gabion.commands.progress_contract.phase_timeline_row_from_phase_progress
+# gabion:behavior primary=verboten facets=edge
 def test_phase_timeline_row_prefers_progress_transition_marker_payload() -> None:
     row = progress_contract.phase_timeline_row_from_phase_progress(
         {
@@ -132,6 +135,7 @@ def test_phase_timeline_row_prefers_progress_transition_marker_payload() -> None
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_contract_edges.py::test_phase_timeline_row_prefers_progress_transition_parent_payload::progress_contract.py::gabion.commands.progress_contract.phase_timeline_row_from_phase_progress
+# gabion:behavior primary=verboten facets=edge
 def test_phase_timeline_row_prefers_progress_transition_parent_payload() -> None:
     row = progress_contract.phase_timeline_row_from_phase_progress(
         {
@@ -157,6 +161,7 @@ def test_phase_timeline_row_prefers_progress_transition_parent_payload() -> None
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_contract_edges.py::test_phase_progress_signature_includes_transition_parent_and_reason::progress_contract.py::gabion.commands.progress_contract.phase_progress_signature
+# gabion:behavior primary=verboten facets=edge
 def test_phase_progress_signature_includes_transition_parent_and_reason() -> None:
     signature = progress_contract.phase_progress_signature(
         {
@@ -180,6 +185,7 @@ def test_phase_progress_signature_includes_transition_parent_and_reason() -> Non
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_contract_edges.py::test_phase_progress_from_notification_prefers_transition_payload_for_marker_and_work::progress_contract.py::gabion.commands.progress_contract.phase_progress_from_progress_notification
+# gabion:behavior primary=verboten facets=edge
 def test_phase_progress_from_notification_prefers_transition_payload_for_marker_and_work() -> None:
     notification = _canonical_progress_notification(
         {
@@ -208,6 +214,7 @@ def test_phase_progress_from_notification_prefers_transition_payload_for_marker_
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_contract_edges.py::test_phase_progress_from_notification_prefers_canonical_v2_payload::progress_contract.py::gabion.commands.progress_contract.phase_progress_from_progress_notification
+# gabion:behavior primary=verboten facets=edge
 def test_phase_progress_from_notification_prefers_canonical_v2_payload() -> None:
     notification = _canonical_progress_notification(
         {
@@ -230,6 +237,7 @@ def test_phase_progress_from_notification_prefers_canonical_v2_payload() -> None
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_contract_edges.py::test_phase_progress_from_notification_uses_v2_rejected_fallback_payload::progress_contract.py::gabion.commands.progress_contract.phase_progress_from_progress_notification
+# gabion:behavior primary=allowed_unwanted facets=fallback
 def test_phase_progress_from_notification_uses_v2_rejected_fallback_payload() -> None:
     fallback_payload = {
         "phase": "post",
@@ -259,6 +267,7 @@ def test_phase_progress_from_notification_uses_v2_rejected_fallback_payload() ->
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_contract_edges.py::test_phase_progress_from_notification_keeps_legacy_values_when_transition_not_normalizable::progress_contract.py::gabion.commands.progress_contract.phase_progress_from_progress_notification
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_phase_progress_from_notification_keeps_legacy_values_when_transition_not_normalizable() -> None:
     notification = _canonical_progress_notification(
         {
@@ -284,6 +293,7 @@ def test_phase_progress_from_notification_keeps_legacy_values_when_transition_no
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_contract_edges.py::test_phase_timeline_row_prefers_progress_transition_v2_payload::progress_contract.py::gabion.commands.progress_contract.phase_timeline_row_from_phase_progress
+# gabion:behavior primary=verboten facets=edge
 def test_phase_timeline_row_prefers_progress_transition_v2_payload() -> None:
     row = progress_contract.phase_timeline_row_from_phase_progress(
         {
@@ -338,6 +348,7 @@ def test_phase_timeline_row_prefers_progress_transition_v2_payload() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_contract_edges.py::test_phase_progress_from_notification_prefers_transition_v2_event_kind::progress_contract.py::gabion.commands.progress_contract.phase_progress_from_progress_notification
+# gabion:behavior primary=verboten facets=edge
 def test_phase_progress_from_notification_prefers_transition_v2_event_kind() -> None:
     notification = _canonical_progress_notification(
         {
@@ -366,6 +377,7 @@ def test_phase_progress_from_notification_prefers_transition_v2_event_kind() -> 
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_contract_edges.py::test_phase_timeline_row_emits_transition_detail_columns::progress_contract.py::gabion.commands.progress_contract.phase_timeline_row_from_phase_progress
+# gabion:behavior primary=verboten facets=edge
 def test_phase_timeline_row_emits_transition_detail_columns() -> None:
     row = progress_contract.phase_timeline_row_from_phase_progress(
         {
@@ -413,6 +425,7 @@ def test_phase_timeline_row_emits_transition_detail_columns() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_contract_edges.py::test_phase_timeline_row_emits_marker_decomposition_without_transition::progress_contract.py::gabion.commands.progress_contract.phase_timeline_row_from_phase_progress
+# gabion:behavior primary=verboten facets=edge
 def test_phase_timeline_row_emits_marker_decomposition_without_transition() -> None:
     row = progress_contract.phase_timeline_row_from_phase_progress(
         {

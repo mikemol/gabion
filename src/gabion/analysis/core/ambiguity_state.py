@@ -8,7 +8,7 @@ from gabion.analysis.foundation.baseline_io import (
     attach_spec_metadata, load_json, parse_spec_metadata, parse_version)
 from gabion.analysis.projection.projection_registry import (
     AMBIGUITY_STATE_SPEC)
-from gabion.analysis.foundation.resume_codec import mapping_or_empty, mapping_or_none, sequence_or_none
+from gabion.analysis.foundation.resume_codec import mapping_default_empty, mapping_optional, sequence_optional
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.json_types import JSONValue
 from gabion.order_contract import sort_once
@@ -62,14 +62,14 @@ def load_state(path: str) -> AmbiguityState:
 def _normalize_witnesses(
     payload: object,
 ) -> list[dict[str, JSONValue]]:
-    entries = sequence_or_none(payload)
+    entries = sequence_optional(payload)
     if entries is None:
         return list()
     check_deadline(allow_frame_fallback=True)
     witnesses: list[dict[str, JSONValue]] = []
     for entry in entries:
         check_deadline()
-        parsed_entry = mapping_or_none(entry)
+        parsed_entry = mapping_optional(entry)
         if parsed_entry is not None:
             witnesses.append({str(key): parsed_entry[key] for key in parsed_entry})
     return sort_once(
@@ -81,10 +81,10 @@ def _normalize_witnesses(
 
 def _witness_sort_key(entry: Mapping[str, JSONValue]) -> tuple[object, ...]:
     kind = str(entry.get("kind", "") or "")
-    site = mapping_or_empty(entry.get("site", {}))
+    site = mapping_default_empty(entry.get("site", {}))
     path = str(site.get("path", "") or "")
     func = str(site.get("function", "") or "")
-    span = sequence_or_none(site.get("span"))
+    span = sequence_optional(site.get("span"))
     span_values: tuple[object, ...] = tuple()
     if span is not None and len(span) == 4:
         span_values = tuple(span)

@@ -44,6 +44,7 @@ def _sample_envelope():
     )
 
 
+# gabion:behavior primary=desired
 def test_json_codec_round_trip_is_deterministic() -> None:
     envelope = _sample_envelope()
     encoded_first = encode_canonical_event_json(envelope)
@@ -53,6 +54,7 @@ def test_json_codec_round_trip_is_deterministic() -> None:
     assert decoded == envelope
 
 
+# gabion:behavior primary=desired
 def test_proto_codec_round_trip_is_deterministic() -> None:
     envelope = _sample_envelope()
     encoded_first = encode_canonical_event_proto(envelope)
@@ -62,6 +64,7 @@ def test_proto_codec_round_trip_is_deterministic() -> None:
     assert decoded == envelope
 
 
+# gabion:behavior primary=desired
 def test_json_and_proto_codecs_have_semantic_parity() -> None:
     envelope = _sample_envelope()
     decoded_json = decode_canonical_event_json(encode_canonical_event_json(envelope))
@@ -69,6 +72,7 @@ def test_json_and_proto_codecs_have_semantic_parity() -> None:
     assert decoded_json == decoded_proto == envelope
 
 
+# gabion:behavior primary=verboten facets=missing
 def test_decode_rejects_missing_required_fields() -> None:
     with pytest.raises(CanonicalEventAdaptationError):
         decode_canonical_event_json('{"schema_version":1}')

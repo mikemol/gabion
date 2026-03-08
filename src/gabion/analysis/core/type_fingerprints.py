@@ -23,7 +23,7 @@ from gabion.analysis.core.identity_namespace import (
 )
 from gabion.analysis.semantics.evidence_keys import fingerprint_identity_layers
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue
-from gabion.analysis.foundation.resume_codec import mapping_or_none, sequence_or_none, str_list_from_sequence
+from gabion.analysis.foundation.resume_codec import mapping_optional, sequence_optional, str_list_from_sequence
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.analysis.foundation.timeout_context import consume_deadline_ticks
 from gabion.order_contract import OrderPolicy, sort_once
@@ -51,8 +51,8 @@ class PrimeAssignmentEvent:
     token: str
 
 
-def _mapping_or_empty(value: object) -> Mapping[str, JSONValue]:
-    mapping = mapping_or_none(value)
+def _mapping_default_empty(value: object) -> Mapping[str, JSONValue]:
+    mapping = mapping_optional(value)
     if mapping is None:
         return {}
     return mapping
@@ -60,11 +60,11 @@ def _mapping_or_empty(value: object) -> Mapping[str, JSONValue]:
 
 def _mapping_sequence(value: object) -> list[object]:
     out: list[object] = []
-    sequence = sequence_or_none(value)
+    sequence = sequence_optional(value)
     if sequence is not None:
         for entry in sequence:
             check_deadline()
-            mapping = mapping_or_none(entry)
+            mapping = mapping_optional(entry)
             if mapping is not None:
                 out.append(dict(mapping))
     return out
@@ -72,7 +72,7 @@ def _mapping_sequence(value: object) -> list[object]:
 
 def _str_int_pairs(value: object) -> list[tuple[str, int]]:
     out: list[tuple[str, int]] = []
-    mapping = mapping_or_none(value)
+    mapping = mapping_optional(value)
     if mapping is not None:
         for key, raw_value in mapping.items():
             check_deadline()
@@ -97,7 +97,7 @@ def _maybe_int(value: object) -> _MaybeInt:
 
 
 def _dimension_from_payload(value: object) -> FingerprintDimension:
-    payload = _mapping_or_empty(value)
+    payload = _mapping_default_empty(value)
     product = _coerce_int(payload.get("product"), default=1)
     mask = _coerce_int(payload.get("mask"), default=0)
     return FingerprintDimension(product=product, mask=mask)
@@ -374,8 +374,8 @@ class PrimeRegistry:
 
     def load_seed_payload(self, payload: object) -> None:
         check_deadline()
-        payload_map = _mapping_or_empty(payload)
-        namespaces = mapping_or_none(payload_map.get("namespaces"))
+        payload_map = _mapping_default_empty(payload)
+        namespaces = mapping_optional(payload_map.get("namespaces"))
         if namespaces is None:
             _apply_registry_payload(payload_map, self)
         else:
@@ -385,7 +385,7 @@ class PrimeRegistry:
                 check_deadline()
                 match namespace:
                     case str() as namespace_text:
-                        section_map = _mapping_or_empty(section)
+                        section_map = _mapping_default_empty(section)
                         for key, value in _str_int_pairs(section_map.get("primes")):
                             check_deadline()
                             flat_primes[_raw_key(namespace_text, key)] = value
@@ -1080,7 +1080,7 @@ def build_synth_registry_from_payload(
     registry: PrimeRegistry,
 ) -> SynthRegistry:
     check_deadline()
-    registry_payload = mapping_or_none(payload.get("registry"))
+    registry_payload = mapping_optional(payload.get("registry"))
     registry_seed = None
     if registry_payload is not None:
         registry_seed = registry_payload.get("seed")
@@ -1091,7 +1091,7 @@ def build_synth_registry_from_payload(
     for entry in entries:
         check_deadline()
         prime = _maybe_int(entry.get("prime"))
-        tail = _mapping_or_empty(entry.get("tail"))
+        tail = _mapping_default_empty(entry.get("tail"))
         fingerprint = Fingerprint(
             base=_dimension_from_payload(tail.get("base")),
             ctor=_dimension_from_payload(tail.get("ctor")),
@@ -1118,7 +1118,7 @@ def _apply_registry_payload(
     stale or non-deterministic basis and must be handled explicitly.
     """
     check_deadline()
-    payload_map = _mapping_or_empty(payload)
+    payload_map = _mapping_default_empty(payload)
     primes_map = dict(_str_int_pairs(payload_map.get("primes")))
     bits_map = dict(_str_int_pairs(payload_map.get("bit_positions")))
 
@@ -1151,7 +1151,7 @@ def _apply_registry_payload(
             )
         registry.bit_positions.setdefault(key, bit)
 
-    assignment_policy = _mapping_or_empty(payload_map.get("assignment_policy"))
+    assignment_policy = _mapping_default_empty(payload_map.get("assignment_policy"))
     for key in str_list_from_sequence(assignment_policy.get("seeded")):
         check_deadline()
         registry.assignment_origin[key] = "seeded"

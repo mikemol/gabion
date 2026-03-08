@@ -15,7 +15,7 @@ from gabion.analysis.dataflow.io.dataflow_snapshot_io import _normalize_snapshot
 from gabion.analysis.semantics.evidence import Site, exception_obligation_summary_for_site
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue
 from gabion.analysis.foundation.resume_codec import (
-    mapping_or_empty, mapping_or_none, sequence_or_none, str_tuple_from_sequence)
+    mapping_default_empty, mapping_optional, sequence_optional, str_tuple_from_sequence)
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.analysis.core.type_fingerprints import (
     Fingerprint, FingerprintDimension, PrimeRegistry, _collect_base_atoms, _collect_constructors, bundle_fingerprint_dimensional, fingerprint_carrier_soundness, fingerprint_identity_payload, format_fingerprint, synth_registry_payload)
@@ -592,15 +592,15 @@ def _evaluate_witness_obligation_non_regression_predicate(
     kind = str(predicate.get("kind", ""))
     evidence = context.plan_evidence
     obligations: list[Mapping[str, JSONValue]] = []
-    raw_obligations = sequence_or_none(evidence.get("witness_obligations"))
+    raw_obligations = sequence_optional(evidence.get("witness_obligations"))
     if raw_obligations is not None:
         for item in raw_obligations:
-            mapped_item = mapping_or_none(item)
+            mapped_item = mapping_optional(item)
             if mapped_item is not None:
                 obligations.append(mapped_item)
     missing_required: list[str] = []
     aspf_identity_mismatches: list[str] = []
-    post_aspf_structure_class = mapping_or_empty(
+    post_aspf_structure_class = mapping_default_empty(
         context.post_entry.get("aspf_structure_class")
     )
     for item in obligations:
@@ -610,13 +610,13 @@ def _evaluate_witness_obligation_non_regression_predicate(
         if required and not witness_ref:
             missing_required.append(f"{witness_kind}:missing")
         if witness_kind == "aspf_structure_class_equivalence":
-            expected_identity = mapping_or_none(item.get("canonical_identity_contract"))
-            post_identity_payload = mapping_or_none(
+            expected_identity = mapping_optional(item.get("canonical_identity_contract"))
+            post_identity_payload = mapping_optional(
                 context.post_entry.get("canonical_identity_contract")
             )
             if expected_identity is not None and expected_identity != post_identity_payload:
                 aspf_identity_mismatches.append("canonical_identity_contract")
-            expected_structure_class = mapping_or_none(item.get("aspf_structure_class"))
+            expected_structure_class = mapping_optional(item.get("aspf_structure_class"))
             if (
                 expected_structure_class is not None
                 and expected_structure_class != post_aspf_structure_class
@@ -664,7 +664,7 @@ def _evaluate_exception_obligation_non_regression_predicate(
 ) -> JSONObject:
     kind = str(predicate.get("kind", ""))
     raw_pre_summary = context.pre.get("exception_obligations_summary")
-    pre_summary = cast(Mapping[str, object] | None, mapping_or_none(raw_pre_summary))
+    pre_summary = cast(Mapping[str, object] | None, mapping_optional(raw_pre_summary))
     if context.post_exception_obligations is None:
         return {
             "kind": kind,
@@ -751,7 +751,7 @@ def verify_rewrite_plan(
     status = str(plan.get("status", "") or "")
     if status == "ABSTAINED":
         issues.append("plan abstained: preconditions not satisfied")
-        abstention = mapping_or_empty(plan.get("abstention"))
+        abstention = mapping_default_empty(plan.get("abstention"))
         if abstention.get("reason"):
             issues.append(f"abstention reason: {abstention.get('reason')}")
         return {
@@ -781,40 +781,40 @@ def verify_rewrite_plan(
             "predicate_results": [],
         }
 
-    pre = mapping_or_empty(plan.get("pre"))
-    evidence = mapping_or_empty(plan.get("evidence"))
+    pre = mapping_default_empty(plan.get("pre"))
+    evidence = mapping_default_empty(plan.get("evidence"))
     raw_pre_remainder = pre.get("remainder")
-    if raw_pre_remainder not in (None, {}) and mapping_or_none(raw_pre_remainder) is None:
+    if raw_pre_remainder not in (None, {}) and mapping_optional(raw_pre_remainder) is None:
         issues.append("invalid pre remainder payload")
     expected_base = list(pre.get("base_keys") or [])
     expected_ctor = list(pre.get("ctor_keys") or [])
-    expected_remainder = mapping_or_empty(pre.get("remainder"))
-    post_expectation = mapping_or_empty(plan.get("post_expectation"))
+    expected_remainder = mapping_default_empty(pre.get("remainder"))
+    post_expectation = mapping_default_empty(plan.get("post_expectation"))
     expected_strata = str(post_expectation.get("match_strata", ""))
 
     post_base = list(post_entry.get("base_keys") or [])
     post_ctor = list(post_entry.get("ctor_keys") or [])
-    post_remainder = mapping_or_empty(post_entry.get("remainder"))
+    post_remainder = mapping_default_empty(post_entry.get("remainder"))
     post_matches = str_tuple_from_sequence(post_entry.get("glossary_matches")) or tuple()
     post_strata = _glossary_match_strata(post_matches)
 
     predicate_results: list[JSONObject] = []
 
     expected_candidates: list[str] = []
-    rewrite = mapping_or_empty(plan.get("rewrite"))
+    rewrite = mapping_default_empty(plan.get("rewrite"))
     rewrite_kind = str(rewrite.get("kind", "") or "")
     raw_params_payload = rewrite.get("parameters")
-    if raw_params_payload not in (None, {}) and mapping_or_none(raw_params_payload) is None:
+    if raw_params_payload not in (None, {}) and mapping_optional(raw_params_payload) is None:
         issues.append("invalid rewrite parameters payload")
-    params = mapping_or_empty(rewrite.get("parameters"))
+    params = mapping_default_empty(rewrite.get("parameters"))
     expected_candidates = [str(v) for v in (params.get("candidates") or []) if v]
 
-    verification = mapping_or_empty(plan.get("verification"))
-    predicates = sequence_or_none(verification.get("predicates")) or ()
+    verification = mapping_default_empty(plan.get("verification"))
+    predicates = sequence_optional(verification.get("predicates")) or ()
     requested_predicates: list[JSONObject] = [
         {str(key): mapped_predicate[key] for key in mapped_predicate}
         for predicate in predicates
-        for mapped_predicate in (mapping_or_none(predicate),)
+        for mapped_predicate in (mapping_optional(predicate),)
         if mapped_predicate is not None and mapped_predicate.get("kind")
     ]
     if not requested_predicates:

@@ -8,6 +8,7 @@ from gabion.analysis.foundation.timeout_context import TimeoutExceeded
 from gabion.server_core import command_orchestrator as orchestrator
 
 
+# gabion:behavior primary=desired
 def test_stage_finalize_success_projects_resume_compatibility() -> None:
     captured: dict[str, object] = {}
 
@@ -64,6 +65,7 @@ def test_stage_finalize_success_projects_resume_compatibility() -> None:
     assert context.analysis_resume_state_compatibility_status == "compatible"
 
 
+# gabion:behavior primary=verboten facets=timeout
 def test_stage_finalize_timeout_delegates_cleanup() -> None:
     sentinel = {"timeout": True}
 
@@ -81,6 +83,7 @@ def test_stage_finalize_timeout_delegates_cleanup() -> None:
 
     assert outcome is sentinel
 
+# gabion:behavior primary=verboten facets=timeout
 def test_stage_execute_analysis_propagates_timeout() -> None:
     def _raise_timeout(*, context: object, state: object, collection_resume_payload: object) -> object:
         raise TimeoutExceeded("timed out")

@@ -21,7 +21,7 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
 )
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue
 from gabion.analysis.dataflow.io.forest_signature_metadata import apply_forest_signature_metadata
-from gabion.analysis.foundation.resume_codec import mapping_or_empty, mapping_or_none, sequence_or_none
+from gabion.analysis.foundation.resume_codec import mapping_default_empty, mapping_optional, sequence_optional
 from gabion.analysis.core.structure_reuse_classes import build_structure_class, structure_class_payload
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.invariants import never
@@ -303,7 +303,7 @@ def compute_structure_reuse(
         kind = str(suggestion.get("kind", ""))
         suggestion_name = str(suggestion.get("suggested_name", ""))
         hash_value = str(suggestion.get("hash", ""))
-        locations = sequence_or_none(suggestion.get("locations")) or ()
+        locations = sequence_optional(suggestion.get("locations")) or ()
         sorted_locations = sort_once(
             [
                 _string_value(location)
@@ -318,9 +318,9 @@ def compute_structure_reuse(
             fallback_value=suggestion.get("value"),
         )
         witness_obligations = list(
-            sequence_or_none(suggestion.get("witness_obligations")) or []
+            sequence_optional(suggestion.get("witness_obligations")) or []
         )
-        aspf_witness_requirements = mapping_or_empty(
+        aspf_witness_requirements = mapping_default_empty(
             suggestion.get("aspf_witness_requirements")
         )
         return {
@@ -431,7 +431,7 @@ def compute_structure_reuse(
                             "required": True,
                             "witness_ref": str(location),
                         }
-                        for location in sequence_or_none(suggestion.get("locations")) or ()
+                        for location in sequence_optional(suggestion.get("locations")) or ()
                         if _is_string_value(location)
                     ]
                     suggestion["witness_obligations"].append(
@@ -494,7 +494,7 @@ def compute_structure_reuse(
                 "aspf_witness_requirements": suggestion.get("aspf_witness_requirements"),
             }
             for suggestion in suggested
-            if mapping_or_none(suggestion.get("aspf_witness_requirements")) is not None
+            if mapping_optional(suggestion.get("aspf_witness_requirements")) is not None
         ],
         "replacement_map": replacement_map,
         "warnings": warnings,

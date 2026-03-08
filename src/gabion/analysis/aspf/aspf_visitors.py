@@ -7,7 +7,7 @@ import hashlib
 from typing import Callable, Iterable, Literal, Mapping, Protocol, TypeAlias, cast
 
 from gabion.analysis.aspf.aspf import Alt, Forest, Node, NodeId
-from gabion.analysis.foundation.resume_codec import mapping_or_empty, sequence_or_none
+from gabion.analysis.foundation.resume_codec import mapping_default_empty, sequence_optional
 from gabion.invariants import never
 from gabion.json_types import JSONObject, JSONValue
 from gabion.order_contract import sort_once
@@ -218,9 +218,9 @@ def _normalize_two_cell_witness_for_replay(
     right = str(normalized.get("right_representative", "")).strip()
 
     if not left:
-        left = str(mapping_or_empty(normalized.get("left", {})).get("representative", "")).strip()
+        left = str(mapping_default_empty(normalized.get("left", {})).get("representative", "")).strip()
     if not right:
-        right = str(mapping_or_empty(normalized.get("right", {})).get("representative", "")).strip()
+        right = str(mapping_default_empty(normalized.get("right", {})).get("representative", "")).strip()
 
     if witness_id and left and right:
         normalized["witness_id"] = witness_id
@@ -847,8 +847,8 @@ class OpportunityPayloadEmitter(NullAspfTraversalVisitor):
         cofibration: Mapping[str, object],
     ) -> None:
         canonical_identity_kind = str(cofibration.get("canonical_identity_kind", "")).strip()
-        normalized_cofibration = mapping_or_empty(cofibration.get("cofibration", {}))
-        normalized_entries = sequence_or_none(normalized_cofibration.get("entries"))
+        normalized_cofibration = mapping_default_empty(cofibration.get("cofibration", {}))
+        normalized_entries = sequence_optional(normalized_cofibration.get("entries"))
         entry_count = len(normalized_entries) if normalized_entries is not None else 0
         self._cofibration_entry_count_total += entry_count
         if canonical_identity_kind:

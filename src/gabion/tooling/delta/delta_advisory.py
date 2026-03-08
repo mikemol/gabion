@@ -7,7 +7,7 @@ from typing import Callable, Literal, Mapping
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.json_types import JSONValue
 from gabion.order_contract import sort_once
-from gabion.runtime_shape_dispatch import int_or_none, json_list_or_none, json_mapping_or_none
+from gabion.runtime_shape_dispatch import int_optional, json_list_optional, json_mapping_optional
 import json
 
 from gabion.runtime import env_policy, json_io
@@ -65,12 +65,12 @@ def _enabled(env_flag: str) -> bool:
 
 
 def _mapping(value: object) -> Mapping[str, JSONValue]:
-    parsed = json_mapping_or_none(value)
+    parsed = json_mapping_optional(value)
     return parsed if parsed is not None else {}
 
 
 def _count(value: object) -> int:
-    parsed = int_or_none(value)
+    parsed = int_optional(value)
     return parsed if parsed is not None else 0
 
 
@@ -214,12 +214,12 @@ def _write_aggregate_with_domain(payload: advisory_evidence.AdvisoryEvidencePayl
     domain_payloads: dict[str, advisory_evidence.AdvisoryEvidencePayload] = {}
     for raw_domain, raw_payload in advisories_raw.items():
         item = _mapping(raw_payload)
-        entries_raw = json_list_or_none(item.get("entries"))
+        entries_raw = json_list_optional(item.get("entries"))
         if entries_raw is None:
             continue
         entries_out: list[advisory_evidence.AdvisoryEvidenceEntry] = []
         for raw_entry in entries_raw:
-            entry_mapping = json_mapping_or_none(raw_entry)
+            entry_mapping = json_mapping_optional(raw_entry)
             if entry_mapping is None:
                 continue
             entries_out.append(

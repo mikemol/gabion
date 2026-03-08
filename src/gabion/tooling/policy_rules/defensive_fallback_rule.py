@@ -9,7 +9,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Iterable
 
-from gabion.runtime_shape_dispatch import json_list_or_none, json_mapping_or_none
+from gabion.runtime_shape_dispatch import json_list_optional, json_mapping_optional
 
 TARGET_GLOB = "src/gabion/**/*.py"
 BASELINE_VERSION = 1
@@ -306,15 +306,15 @@ def collect_violations(*, root: Path) -> list[Violation]:
 def _load_baseline(path: Path) -> set[str]:
     if not path.exists():
         return set()
-    payload = json_mapping_or_none(json.loads(path.read_text(encoding="utf-8")))
+    payload = json_mapping_optional(json.loads(path.read_text(encoding="utf-8")))
     if payload is None:
         return set()
-    raw_items = json_list_or_none(payload.get("violations"))
+    raw_items = json_list_optional(payload.get("violations"))
     if raw_items is None:
         return set()
     keys: set[str] = set()
     for item in raw_items:
-        item_mapping = json_mapping_or_none(item)
+        item_mapping = json_mapping_optional(item)
         if item_mapping is None:
             continue
         path_value = str(item_mapping.get("path", "") or "")

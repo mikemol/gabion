@@ -6,6 +6,7 @@ from gabion.analysis.dataflow.io import dataflow_projection_helpers as helpers
 from gabion.exceptions import NeverThrown
 
 
+# gabion:behavior primary=desired
 def test_topologically_order_report_projection_specs_happy_path() -> None:
     specs = (
         helpers.ReportProjectionSpec("intro", "collection", (), False),
@@ -18,6 +19,7 @@ def test_topologically_order_report_projection_specs_happy_path() -> None:
     assert [spec.section_id for spec in ordered] == ["intro", "components", "violations"]
 
 
+# gabion:behavior primary=desired
 def test_topologically_order_report_projection_specs_rejects_duplicate_section_ids() -> None:
     specs = (
         helpers.ReportProjectionSpec("intro", "collection", (), False),
@@ -28,6 +30,7 @@ def test_topologically_order_report_projection_specs_rejects_duplicate_section_i
         helpers._topologically_order_report_projection_specs(specs)
 
 
+# gabion:behavior primary=verboten facets=missing
 def test_topologically_order_report_projection_specs_rejects_missing_dependency() -> None:
     specs = (
         helpers.ReportProjectionSpec("intro", "collection", (), False),
@@ -38,6 +41,7 @@ def test_topologically_order_report_projection_specs_rejects_missing_dependency(
         helpers._topologically_order_report_projection_specs(specs)
 
 
+# gabion:behavior primary=desired
 def test_topologically_order_report_projection_specs_rejects_self_dependency() -> None:
     specs = (
         helpers.ReportProjectionSpec("intro", "collection", (), False),
@@ -48,6 +52,7 @@ def test_topologically_order_report_projection_specs_rejects_self_dependency() -
         helpers._topologically_order_report_projection_specs(specs)
 
 
+# gabion:behavior primary=desired
 def test_topologically_order_report_projection_specs_rejects_dependency_cycle() -> None:
     specs = (
         helpers.ReportProjectionSpec("a", "forest", ("b",), True),
@@ -58,6 +63,7 @@ def test_topologically_order_report_projection_specs_rejects_dependency_cycle() 
         helpers._topologically_order_report_projection_specs(specs)
 
 
+# gabion:behavior primary=desired
 def test_report_projection_spec_rows_emit_serializable_payload() -> None:
     specs = helpers.report_projection_specs()
     assert specs

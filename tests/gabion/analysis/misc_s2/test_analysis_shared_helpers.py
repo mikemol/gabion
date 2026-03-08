@@ -13,6 +13,7 @@ from gabion.analysis.semantics.report_doc import ReportDoc
 
 
 # gabion:evidence E:function_site::baseline_io.py::gabion.analysis.baseline_io.load_json E:function_site::baseline_io.py::gabion.analysis.baseline_io.write_json E:function_site::baseline_io.py::gabion.analysis.baseline_io.parse_version E:function_site::baseline_io.py::gabion.analysis.baseline_io.parse_spec_metadata E:function_site::baseline_io.py::gabion.analysis.baseline_io.attach_spec_metadata
+# gabion:behavior primary=desired
 def test_baseline_io_helpers_roundtrip(tmp_path: Path) -> None:
     payload = attach_spec_metadata(
         {"version": 1, "value": 2},
@@ -28,6 +29,7 @@ def test_baseline_io_helpers_roundtrip(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::baseline_io.py::gabion.analysis.baseline_io.parse_version E:decision_surface/direct::baseline_io.py::gabion.analysis.baseline_io.parse_version::stale_a3a6380a50d1
+# gabion:behavior primary=desired
 def test_baseline_io_parse_version_rejects_bad_version() -> None:
     with pytest.raises(ValueError):
         parse_version({"version": "bad"}, expected=1, error_context="unit-test")
@@ -40,6 +42,7 @@ def test_baseline_io_parse_version_rejects_bad_version() -> None:
 
 
 # gabion:evidence E:function_site::baseline_io.py::gabion.analysis.baseline_io.load_json E:decision_surface/direct::baseline_io.py::gabion.analysis.baseline_io.load_json::stale_a53b840b0a91
+# gabion:behavior primary=desired
 def test_baseline_io_load_json_rejects_non_object(tmp_path: Path) -> None:
     path = tmp_path / "baseline.json"
     path.write_text("[]\n", encoding="utf-8")
@@ -48,6 +51,7 @@ def test_baseline_io_load_json_rejects_non_object(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::delta_tools.py::gabion.analysis.delta_tools.coerce_int E:function_site::delta_tools.py::gabion.analysis.delta_tools.format_delta E:function_site::delta_tools.py::gabion.analysis.delta_tools.format_transition E:function_site::delta_tools.py::gabion.analysis.delta_tools.count_delta
+# gabion:behavior primary=desired
 def test_delta_tools_helpers() -> None:
     assert coerce_int("nope", 7) == 7
     assert format_delta(3) == "+3"
@@ -61,6 +65,7 @@ def test_delta_tools_helpers() -> None:
 
 
 # gabion:evidence E:function_site::report_doc.py::gabion.analysis.report_doc.ReportDoc.emit
+# gabion:behavior primary=desired
 def test_report_doc_emit_renders_markdown() -> None:
     doc = ReportDoc("unit_report")
     doc.header(2, "Overview")
@@ -79,6 +84,7 @@ def test_report_doc_emit_renders_markdown() -> None:
 
 
 # gabion:evidence E:function_site::report_doc.py::gabion.analysis.report_doc.ReportDoc.header E:function_site::report_doc.py::gabion.analysis.report_doc.ReportDoc.table
+# gabion:behavior primary=verboten facets=invalid
 def test_report_doc_guards_invalid_table_or_header() -> None:
     doc = ReportDoc("unit_report")
     with pytest.raises(RuntimeError):

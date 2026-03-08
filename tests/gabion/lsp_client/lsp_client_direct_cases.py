@@ -36,12 +36,14 @@ class _FilenoRaisesNoRead:
 
 
 # gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client._wait_readable E:decision_surface/direct::lsp_client.py::gabion.lsp_client._wait_readable::stale_42722b60f257_3d7f7a22
+# gabion:behavior primary=verboten facets=missing
 def test_wait_readable_rejects_missing_fileno() -> None:
     with pytest.raises(LspClientError):
         _wait_readable(_NoFileno(), time.monotonic_ns() + 100_000_000)
 
 
 # gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client._wait_readable E:decision_surface/direct::lsp_client.py::gabion.lsp_client._wait_readable::stale_ed770a2c7b86
+# gabion:behavior primary=desired
 def test_wait_readable_times_out() -> None:
     read_fd, write_fd = os.pipe()
     try:
@@ -58,12 +60,14 @@ def test_wait_readable_times_out() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_client_direct.py::test_wait_readable_times_out_when_only_read_method_exists::lsp_client.py::gabion.lsp_client._wait_readable
+# gabion:behavior primary=desired
 def test_wait_readable_times_out_when_only_read_method_exists() -> None:
     with pytest.raises(LspClientError):
         _wait_readable(_ReadOnlyTimedOut(), time.monotonic_ns())
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_client_direct.py::test_wait_readable_handles_fileno_failure_with_and_without_read::lsp_client.py::gabion.lsp_client._wait_readable
+# gabion:behavior primary=desired
 def test_wait_readable_handles_fileno_failure_with_and_without_read() -> None:
     with pytest.raises(LspClientError):
         _wait_readable(_FilenoRaisesNoRead(), time.monotonic_ns() + 100_000_000)
@@ -72,6 +76,7 @@ def test_wait_readable_handles_fileno_failure_with_and_without_read() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_client_direct.py::test_wait_readable_returns_when_stream_is_ready::lsp_client.py::gabion.lsp_client._wait_readable
+# gabion:behavior primary=desired
 def test_wait_readable_returns_when_stream_is_ready() -> None:
     read_fd, write_fd = os.pipe()
     try:
@@ -90,6 +95,7 @@ def test_wait_readable_returns_when_stream_is_ready() -> None:
 
 
 # gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client.run_command_direct E:decision_surface/direct::lsp_client.py::gabion.lsp_client.run_command_direct::stale_05ecd6b0feef
+# gabion:behavior primary=desired
 def test_run_command_direct_structure_reuse_and_decision_diff(tmp_path: Path) -> None:
     reuse_request = CommandRequest(
         server.STRUCTURE_REUSE_COMMAND,
@@ -107,6 +113,7 @@ def test_run_command_direct_structure_reuse_and_decision_diff(tmp_path: Path) ->
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_client_direct.py::test_run_command_direct_forwards_notifications::lsp_client.py::gabion.lsp_client.run_command_direct
+# gabion:behavior primary=desired
 def test_run_command_direct_forwards_notifications(tmp_path: Path) -> None:
     seen: list[dict[str, object]] = []
 
@@ -144,6 +151,7 @@ def test_run_command_direct_forwards_notifications(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_client_direct.py::test_run_command_direct_routes_check_through_dataflow_di_executor::lsp_client.py::gabion.lsp_client.run_command_direct
+# gabion:behavior primary=desired
 def test_run_command_direct_routes_check_through_dataflow_di_executor(
     tmp_path: Path,
 ) -> None:
@@ -167,6 +175,7 @@ def test_run_command_direct_routes_check_through_dataflow_di_executor(
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_client_direct.py::test_run_command_direct_ignores_non_mapping_notifications::lsp_client.py::gabion.lsp_client.run_command_direct
+# gabion:behavior primary=desired
 def test_run_command_direct_ignores_non_mapping_notifications(
     tmp_path: Path,
 ) -> None:
@@ -191,6 +200,7 @@ def test_run_command_direct_ignores_non_mapping_notifications(
 
 
 # gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client.run_command_direct E:decision_surface/direct::lsp_client.py::gabion.lsp_client.run_command_direct::stale_42adaef8388c_24b191b1
+# gabion:behavior primary=desired
 def test_run_command_direct_rejects_unknown_command(tmp_path: Path) -> None:
     with pytest.raises(LspClientError):
         run_command_direct(
@@ -203,6 +213,7 @@ def test_run_command_direct_rejects_unknown_command(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_client_direct.py::test_run_command_direct_rejects_non_mapping_execute_result::lsp_client.py::gabion.lsp_client.run_command_direct
+# gabion:behavior primary=desired
 def test_run_command_direct_rejects_non_mapping_execute_result(tmp_path: Path) -> None:
     request = CommandRequest(
         server.DATAFLOW_COMMAND,
@@ -217,18 +228,21 @@ def test_run_command_direct_rejects_non_mapping_execute_result(tmp_path: Path) -
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_client_direct.py::test_run_command_direct_rejects_non_dict_payload::lsp_client.py::gabion.lsp_client.run_command_direct
+# gabion:behavior primary=desired
 def test_run_command_direct_rejects_non_dict_payload(tmp_path: Path) -> None:
     with pytest.raises(NeverThrown):
         run_command_direct(CommandRequest(server.DATAFLOW_COMMAND, [123]), root=tmp_path)
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_client_direct.py::test_run_command_direct_requires_analysis_timeout::lsp_client.py::gabion.lsp_client.run_command_direct
+# gabion:behavior primary=verboten facets=timeout
 def test_run_command_direct_requires_analysis_timeout(tmp_path: Path) -> None:
     with pytest.raises(NeverThrown):
         run_command_direct(CommandRequest(server.DATAFLOW_COMMAND, [{"paths": ["."]}]), root=tmp_path)
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_client_direct.py::test_analysis_timeout_total_ns_requires_timeout_fields::lsp_client.py::gabion.lsp_client._analysis_timeout_total_ns
+# gabion:behavior primary=verboten facets=timeout
 def test_analysis_timeout_total_ns_requires_timeout_fields() -> None:
     with pytest.raises(NeverThrown):
         _analysis_timeout_total_ns({})

@@ -12,7 +12,7 @@ from collections.abc import Callable, Iterable
 import re
 
 from gabion.analysis.foundation.json_types import JSONObject
-from gabion.analysis.foundation.resume_codec import sequence_or_none
+from gabion.analysis.foundation.resume_codec import sequence_optional
 from gabion.order_contract import sort_once
 from gabion.refactor.rewrite_plan import (
     RewritePlanKind, attach_plan_schema, normalize_rewrite_plan_order)
@@ -37,7 +37,7 @@ def summarize_deadness_witnesses(
         environment = entry.get("environment", {})
         result = entry.get("result", "UNKNOWN")
         core = entry.get("core", [])
-        core_entries = sequence_or_none(core, allow_str=False) or ()
+        core_entries = sequence_optional(core, allow_str=False) or ()
         core_count = len(core_entries)
         lines.append(
             f"{path}:{function} bundle {bundle} result={result} "

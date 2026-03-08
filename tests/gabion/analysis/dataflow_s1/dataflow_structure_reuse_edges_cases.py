@@ -23,6 +23,7 @@ def _parse_stub_payload(stubs: str) -> dict[str, object]:
     return json.loads(stubs[start:])
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_reuse._record::child_count,value E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_reuse::min_count E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_reuse::stale_d2bc5b030089
+# gabion:behavior primary=verboten facets=edge
 def test_compute_structure_reuse_handles_edges(tmp_path: Path) -> None:
     da = _load()
     model_path = tmp_path / "models.py"
@@ -72,6 +73,7 @@ def test_compute_structure_reuse_handles_edges(tmp_path: Path) -> None:
     assert any("name_candidates" in entry for entry in suggestions if isinstance(entry, dict))
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._build_reuse_replacement_map E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._build_reuse_replacement_map::stale_2c76de126b7e
+# gabion:behavior primary=verboten facets=edge
 def test_build_reuse_replacement_map_skips_non_string_locations() -> None:
     da = _load()
     suggested = [
@@ -82,6 +84,7 @@ def test_build_reuse_replacement_map_skips_non_string_locations() -> None:
     assert 123 not in replacement
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._build_reuse_replacement_map E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._build_reuse_replacement_map::stale_b9b430eb529c_2f958628
+# gabion:behavior primary=verboten facets=edge
 def test_build_reuse_replacement_map_skips_non_list_locations() -> None:
     da = _load()
     suggested = [{"kind": "bundle", "hash": "h", "suggested_name": "X", "locations": "bad"}]
@@ -89,12 +92,14 @@ def test_build_reuse_replacement_map_skips_non_list_locations() -> None:
     assert replacement == {}
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_reuse_lemma_stubs E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_reuse_lemma_stubs::stale_062c1f2fcfe2
+# gabion:behavior primary=verboten facets=edge
 def test_render_reuse_lemma_stubs_no_suggestions() -> None:
     da = _load()
     stubs = da.render_reuse_lemma_stubs({"suggested_lemmas": []})
     assert "No lemma suggestions available" in stubs
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_reuse_lemma_stubs E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_reuse_lemma_stubs::stale_a56b44f1320f
+# gabion:behavior primary=verboten facets=edge
 def test_render_reuse_lemma_stubs_with_child_count() -> None:
     da = _load()
     reuse = {
@@ -113,6 +118,7 @@ def test_render_reuse_lemma_stubs_with_child_count() -> None:
     assert payload["plans"] == []
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_reuse_lemma_stubs E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_reuse_lemma_stubs::stale_da5c52227c64
+# gabion:behavior primary=verboten facets=edge,invalid
 def test_render_reuse_lemma_stubs_skips_invalid_names() -> None:
     da = _load()
     reuse = {"suggested_lemmas": [{"suggested_name": None, "kind": "bundle"}]}
@@ -121,6 +127,7 @@ def test_render_reuse_lemma_stubs_skips_invalid_names() -> None:
     assert payload["plans"] == []
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_reuse._record::child_count,value E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_reuse::min_count E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_reuse::stale_65d45635a8c6
+# gabion:behavior primary=verboten facets=edge
 def test_compute_structure_reuse_skips_non_list_bundle() -> None:
     da = _load()
     snapshot = {

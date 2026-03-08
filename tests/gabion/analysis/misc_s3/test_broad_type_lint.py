@@ -53,6 +53,7 @@ def _load():
     )
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._internal_broad_type_lint_lines::annot
+# gabion:behavior primary=desired
 def test_internal_broad_type_str_linted(tmp_path: Path) -> None:
     target = tmp_path / "mod.py"
     target.write_text(
@@ -97,6 +98,7 @@ def test_internal_broad_type_str_linted(tmp_path: Path) -> None:
     assert any("GABION_BROAD_TYPE" in line for line in analysis.lint_lines)
 
 # gabion:evidence E:call_footprint::tests/test_broad_type_lint.py::test_internal_broad_type_int_linted::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::test_broad_type_lint.py::tests.test_broad_type_lint._load::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ticks::timeout_context.py::gabion.analysis.timeout_context.deadline_scope
+# gabion:behavior primary=desired
 def test_internal_broad_type_int_linted(tmp_path: Path) -> None:
     target = tmp_path / "mod.py"
     target.write_text(
@@ -141,6 +143,7 @@ def test_internal_broad_type_int_linted(tmp_path: Path) -> None:
     assert any("broad type 'int'" in line for line in analysis.lint_lines)
 
 # gabion:evidence E:call_footprint::tests/test_broad_type_lint.py::test_internal_node_id_not_linted::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::test_broad_type_lint.py::tests.test_broad_type_lint._load::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ticks::timeout_context.py::gabion.analysis.timeout_context.deadline_scope
+# gabion:behavior primary=desired
 def test_internal_node_id_not_linted(tmp_path: Path) -> None:
     target = tmp_path / "mod.py"
     target.write_text(
@@ -187,6 +190,7 @@ def test_internal_node_id_not_linted(tmp_path: Path) -> None:
     assert not any("GABION_BROAD_TYPE" in line for line in analysis.lint_lines)
 
 # gabion:evidence E:call_footprint::tests/test_broad_type_lint.py::test_broad_type_helpers_cover_edges::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._is_broad_internal_type::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._normalize_type_name::test_broad_type_lint.py::tests.test_broad_type_lint._load
+# gabion:behavior primary=verboten facets=edge
 def test_broad_type_helpers_cover_edges(tmp_path: Path) -> None:
     da = _load()
     assert da._normalize_type_name("typing.Any") == "Any"
@@ -197,6 +201,7 @@ def test_broad_type_helpers_cover_edges(tmp_path: Path) -> None:
     assert da._is_broad_internal_type("CustomType") is False
 
 # gabion:evidence E:call_footprint::tests/test_broad_type_lint.py::test_internal_broad_type_skips_tests::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._internal_broad_type_lint_lines::test_broad_type_lint.py::tests.test_broad_type_lint._load::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ticks::timeout_context.py::gabion.analysis.timeout_context.deadline_scope
+# gabion:behavior primary=desired
 def test_internal_broad_type_skips_tests(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "test_sample.py"

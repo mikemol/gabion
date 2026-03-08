@@ -8,7 +8,7 @@ import typer
 
 from gabion.commands import aux_operation_contract
 from gabion.json_types import JSONObject
-from gabion.runtime_shape_dispatch import json_list_or_none
+from gabion.runtime_shape_dispatch import json_list_optional
 
 SplitCsvEntriesFn = Callable[[list[str]], list[str]]
 SplitCsvFn = Callable[[str], list[str]]
@@ -181,13 +181,13 @@ class LintEntriesDecision:
 
     @classmethod
     def from_response(cls, response: Mapping[str, object]) -> "LintEntriesDecision":
-        lint_lines_raw = json_list_or_none(response.get("lint_lines"))
+        lint_lines_raw = json_list_optional(response.get("lint_lines"))
         lint_lines = (
             tuple(str(line) for line in lint_lines_raw)
             if lint_lines_raw is not None
             else ()
         )
-        lint_entries_raw = json_list_or_none(response.get("lint_entries"))
+        lint_entries_raw = json_list_optional(response.get("lint_entries"))
         if lint_entries_raw is not None:
             return cls(
                 kind="provided_entries",

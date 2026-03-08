@@ -10,6 +10,7 @@ def _load_audit_tools():
 
 
 # gabion:evidence E:call_footprint::tests/test_docflow_governance_control_loops.py::test_docflow_loop_registry_violation_when_domain_missing::governance_audit.py::gabion.tooling.governance_audit._docflow_invariant_rows::test_docflow_governance_control_loops.py::tests.test_docflow_governance_control_loops._load_audit_tools
+# gabion:behavior primary=verboten facets=missing
 def test_docflow_loop_registry_violation_when_domain_missing() -> None:
     audit_tools = _load_audit_tools()
     docs = {
@@ -37,6 +38,7 @@ def test_docflow_loop_registry_violation_when_domain_missing() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_docflow_governance_control_loops.py::test_docflow_loop_registry_satisfied_when_all_domains_declared::governance_audit.py::gabion.tooling.governance_audit._docflow_invariant_rows::test_docflow_governance_control_loops.py::tests.test_docflow_governance_control_loops._load_audit_tools
+# gabion:behavior primary=desired
 def test_docflow_loop_registry_satisfied_when_all_domains_declared() -> None:
     audit_tools = _load_audit_tools()
     docs = {
@@ -64,6 +66,7 @@ def test_docflow_loop_registry_satisfied_when_all_domains_declared() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_docflow_governance_control_loops.py::test_docflow_governance_loop_matrix_drift_detected_when_gate_missing::governance_audit.py::gabion.tooling.governance_audit._docflow_invariant_rows
+# gabion:behavior primary=verboten facets=drift,missing
 def test_docflow_governance_loop_matrix_drift_detected_when_gate_missing() -> None:
     audit_tools = _load_audit_tools()
     docs = {
@@ -99,6 +102,7 @@ def test_docflow_governance_loop_matrix_drift_detected_when_gate_missing() -> No
 
 
 # gabion:evidence E:call_footprint::tests/test_docflow_governance_control_loops.py::test_docflow_governance_loop_matrix_registry_satisfied_for_all_gate_rows::governance_audit.py::gabion.tooling.governance_audit._docflow_invariant_rows
+# gabion:behavior primary=desired
 def test_docflow_governance_loop_matrix_registry_satisfied_for_all_gate_rows() -> None:
     audit_tools = _load_audit_tools()
     gate_rows = "\n".join(

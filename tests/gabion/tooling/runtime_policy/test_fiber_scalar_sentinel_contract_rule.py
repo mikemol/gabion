@@ -12,6 +12,7 @@ def _write(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
+# gabion:behavior primary=verboten facets=none
 def test_collect_violations_detects_none_scalar_compares_and_ifexp_none() -> None:
     source = "\n".join(
         [
@@ -33,6 +34,7 @@ def test_collect_violations_detects_none_scalar_compares_and_ifexp_none() -> Non
     assert "ifexp_none_arm" in kinds
 
 
+# gabion:behavior primary=desired
 def test_run_writes_fiber_payload(tmp_path: Path) -> None:
     root = tmp_path
     _write(

@@ -14,6 +14,7 @@ from gabion.exceptions import NeverThrown
 
 
 # gabion:evidence E:function_site::tests/test_aspf_cofibration_laws.py::tests.test_aspf_cofibration_laws.test_aspf_identity_and_associativity
+# gabion:behavior primary=desired
 def test_aspf_identity_and_associativity() -> None:
     a = BasisZeroCell("A")
     b = BasisZeroCell("B")
@@ -31,6 +32,7 @@ def test_aspf_identity_and_associativity() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_aspf_cofibration_laws.py::tests.test_aspf_cofibration_laws.test_higher_path_equivalence_and_drift_quotienting
+# gabion:behavior primary=verboten facets=drift
 def test_higher_path_equivalence_and_drift_quotienting() -> None:
     a = BasisZeroCell("A")
     b = BasisZeroCell("B")
@@ -52,6 +54,7 @@ def test_higher_path_equivalence_and_drift_quotienting() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_aspf_cofibration_laws.py::tests.test_aspf_cofibration_laws.test_cofibration_injective_and_faithful
+# gabion:behavior primary=desired
 def test_cofibration_injective_and_faithful() -> None:
     cofibration = DomainToAspfCofibration(
         entries=(
@@ -73,6 +76,7 @@ def test_cofibration_injective_and_faithful() -> None:
     assert carrier.as_dict()["cofibration"]["entries"]
 
 # gabion:evidence E:function_site::tests/test_aspf_cofibration_laws.py::tests.test_aspf_cofibration_laws.test_canonical_identity_contract_carries_suite_site_endpoints
+# gabion:behavior primary=desired
 def test_canonical_identity_contract_carries_suite_site_endpoints() -> None:
     contract = AspfCanonicalIdentityContract(
         identity_kind="canonical_aspf_structural_identity",
@@ -91,6 +95,7 @@ def test_canonical_identity_contract_carries_suite_site_endpoints() -> None:
         "target",
     ]
 # gabion:evidence E:function_site::tests/test_aspf_cofibration_laws.py::tests.test_aspf_cofibration_laws.test_deterministic_representative_selection_and_identity_layers
+# gabion:behavior primary=desired
 def test_deterministic_representative_selection_and_identity_layers() -> None:
     witness = select_representative(
         RepresentativeSelectionOptions(
@@ -110,6 +115,7 @@ def test_deterministic_representative_selection_and_identity_layers() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_aspf_cofibration_laws.py::tests.test_aspf_cofibration_laws.test_aspf_edge_guards_and_parse_paths
+# gabion:behavior primary=verboten facets=edge
 def test_aspf_edge_guards_and_parse_paths() -> None:
     a = BasisZeroCell("A")
     b = BasisZeroCell("B")
@@ -158,6 +164,7 @@ def test_aspf_edge_guards_and_parse_paths() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_aspf_cofibration_laws.py::tests.test_aspf_cofibration_laws.test_selection_and_cofibration_failure_edges
+# gabion:behavior primary=verboten facets=edge
 def test_selection_and_cofibration_failure_edges() -> None:
     with pytest.raises(ValueError):
         RepresentativeSelectionOptions(

@@ -6,12 +6,14 @@ from gabion.analysis.foundation.baseline_io import parse_spec_metadata, parse_ve
 
 
 # gabion:evidence E:call_footprint::tests/test_baseline_io_edges.py::test_parse_version_rejects_empty_allowed_versions::baseline_io.py::gabion.analysis.baseline_io.parse_version
+# gabion:behavior primary=verboten facets=edge,empty
 def test_parse_version_rejects_empty_allowed_versions() -> None:
     with pytest.raises(ValueError):
         parse_version({}, expected=())
 
 
 # gabion:evidence E:call_footprint::tests/test_baseline_io_edges.py::test_parse_spec_metadata_ignores_non_mapping_spec_payload::baseline_io.py::gabion.analysis.baseline_io.parse_spec_metadata
+# gabion:behavior primary=verboten facets=edge
 def test_parse_spec_metadata_ignores_non_mapping_spec_payload() -> None:
     spec_id, spec = parse_spec_metadata(
         {

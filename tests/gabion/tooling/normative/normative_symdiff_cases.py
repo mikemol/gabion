@@ -90,6 +90,7 @@ def _seed_minimal_symdiff_root(root: Path) -> None:
 
 
 # gabion:evidence E:function_site::tests/test_normative_symdiff.py::test_collect_scope_inventory_two_layer_classification
+# gabion:behavior primary=desired
 def test_collect_scope_inventory_two_layer_classification(tmp_path: Path) -> None:
     _seed_minimal_symdiff_root(tmp_path)
     inventory = normative_symdiff.collect_scope_inventory(tmp_path)
@@ -102,6 +103,7 @@ def test_collect_scope_inventory_two_layer_classification(tmp_path: Path) -> Non
 
 
 # gabion:evidence E:function_site::tests/test_normative_symdiff.py::test_analyze_clause_enforcement_detects_clause_map_drift
+# gabion:behavior primary=verboten facets=drift
 def test_analyze_clause_enforcement_detects_clause_map_drift(tmp_path: Path) -> None:
     _seed_minimal_symdiff_root(tmp_path)
     clause_ids = normative_symdiff._parse_clause_ids(
@@ -120,6 +122,7 @@ def test_analyze_clause_enforcement_detects_clause_map_drift(tmp_path: Path) -> 
 
 
 # gabion:evidence E:function_site::tests/test_normative_symdiff.py::test_score_gaps_dual_view_behaviors
+# gabion:behavior primary=desired
 def test_score_gaps_dual_view_behaviors() -> None:
     absolute_only = {
         "doc_to_code_gaps": [
@@ -167,6 +170,7 @@ def test_score_gaps_dual_view_behaviors() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_normative_symdiff.py::test_ordered_gap_items_is_stable
+# gabion:behavior primary=desired
 def test_ordered_gap_items_is_stable() -> None:
     gaps = [
         normative_symdiff.GapItem(
@@ -214,6 +218,7 @@ def test_ordered_gap_items_is_stable() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_normative_symdiff.py::test_run_emits_json_and_markdown_shapes
+# gabion:behavior primary=desired
 def test_run_emits_json_and_markdown_shapes(tmp_path: Path) -> None:
     _seed_minimal_symdiff_root(tmp_path)
     json_out = tmp_path / "out" / "normative_symdiff.json"
@@ -240,6 +245,7 @@ def test_run_emits_json_and_markdown_shapes(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::tests/test_normative_symdiff.py::test_cli_normative_symdiff_smoke
+# gabion:behavior primary=desired
 def test_cli_normative_symdiff_smoke(tmp_path: Path) -> None:
     _seed_minimal_symdiff_root(tmp_path)
     json_out = tmp_path / "artifacts" / "out" / "normative_symdiff.json"

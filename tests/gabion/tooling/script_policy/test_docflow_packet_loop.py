@@ -11,6 +11,7 @@ def _write_json(path: Path, payload: dict[str, object]) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+# gabion:behavior primary=desired
 def test_docflow_packetize_classifies_metadata_and_semantic_updates(tmp_path: Path) -> None:
     root = tmp_path / "repo"
     (root / "in").mkdir(parents=True)
@@ -95,6 +96,7 @@ doc_owner: maintainer
     assert packet_46["stale_anchor_hints"]
 
 
+# gabion:behavior primary=verboten facets=drift
 def test_docflow_packet_enforce_ratchets_new_drift_and_scope(tmp_path: Path) -> None:
     root = tmp_path / "repo"
     root.mkdir(parents=True)
@@ -200,6 +202,7 @@ def test_docflow_packet_enforce_ratchets_new_drift_and_scope(tmp_path: Path) -> 
     assert rc_scope == 1
 
 
+# gabion:behavior primary=desired
 def test_docflow_packet_enforce_skips_scope_guard_without_active_packet_debt(
     tmp_path: Path,
 ) -> None:

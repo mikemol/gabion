@@ -9,6 +9,7 @@ from gabion.analysis.core import ambiguity_state
 
 
 # gabion:evidence E:function_site::ambiguity_state.py::gabion.analysis.ambiguity_state.build_state_payload E:function_site::ambiguity_state.py::gabion.analysis.ambiguity_state.load_state
+# gabion:behavior primary=desired
 def test_state_payload_roundtrip(tmp_path: Path) -> None:
     witnesses = [
         {
@@ -41,12 +42,14 @@ def test_state_payload_roundtrip(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::ambiguity_state.py::gabion.analysis.ambiguity_state.parse_state_payload E:decision_surface/direct::ambiguity_state.py::gabion.analysis.ambiguity_state.parse_state_payload::stale_d1aabd327aea
+# gabion:behavior primary=desired
 def test_state_payload_rejects_bad_version() -> None:
     with pytest.raises(ValueError):
         ambiguity_state.parse_state_payload({"version": "nope"})
 
 
 # gabion:evidence E:function_site::ambiguity_state.py::gabion.analysis.ambiguity_state.parse_state_payload E:decision_surface/direct::ambiguity_state.py::gabion.analysis.ambiguity_state.parse_state_payload::stale_ca1caebddff1_37efef4b
+# gabion:behavior primary=verboten facets=invalid
 def test_state_payload_filters_invalid_witness_entries() -> None:
     payload = {
         "version": ambiguity_state.STATE_VERSION,
@@ -67,6 +70,7 @@ def test_state_payload_filters_invalid_witness_entries() -> None:
 
 
 # gabion:evidence E:function_site::ambiguity_state.py::gabion.analysis.ambiguity_state.parse_state_payload E:decision_surface/direct::ambiguity_state.py::gabion.analysis.ambiguity_state.parse_state_payload::stale_c3249b8882e9
+# gabion:behavior primary=desired
 def test_state_payload_handles_non_iterable_witnesses() -> None:
     payload = {
         "version": ambiguity_state.STATE_VERSION,
@@ -79,6 +83,7 @@ def test_state_payload_handles_non_iterable_witnesses() -> None:
 
 
 # gabion:evidence E:function_site::ambiguity_state.py::gabion.analysis.ambiguity_state.load_state E:decision_surface/direct::ambiguity_state.py::gabion.analysis.ambiguity_state.load_state::stale_4a7a0f5b6a2b
+# gabion:behavior primary=desired
 def test_state_payload_rejects_non_object(tmp_path: Path) -> None:
     state_path = tmp_path / "ambiguity_state.json"
     state_path.write_text(json.dumps(["not", "object"]), encoding="utf-8")

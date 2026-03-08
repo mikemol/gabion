@@ -80,6 +80,7 @@ def _contradictions_for(
     ]
 
 
+# gabion:behavior primary=verboten facets=missing
 def test_dfx_mer_001_missing_explicit_reference_minimal() -> None:
     rel = "tmp_docs/in/fx_missing_explicit_reference_minimal.md"
     req = "POLICY_SEED.md#policy_seed"
@@ -112,6 +113,7 @@ def test_dfx_mer_001_missing_explicit_reference_minimal() -> None:
     assert contradictions[0]["source_row_kind"] == "doc_requires_ref"
 
 
+# gabion:behavior primary=verboten facets=missing
 def test_dfx_mer_002_missing_explicit_reference_implicit_only() -> None:
     rel = "tmp_docs/in/fx_missing_explicit_reference_implicit_only.md"
     req = "in/in-54.md#in_in_54"
@@ -145,6 +147,7 @@ def test_dfx_mer_002_missing_explicit_reference_implicit_only() -> None:
     assert contradictions[0]["source_row_kind"] == "doc_requires_ref"
 
 
+# gabion:behavior primary=verboten facets=invalid
 def test_dfx_ift_001_invalid_field_type_doc_reviewed_as_of_null() -> None:
     rel = "tmp_docs/docs/fx_invalid_field_type_reviewed_as_of_null.md"
     fm = _fixture_frontmatter(
@@ -179,6 +182,7 @@ def test_dfx_ift_001_invalid_field_type_doc_reviewed_as_of_null() -> None:
     assert contradictions[0]["source_row_kind"] == "doc_field_type"
 
 
+# gabion:behavior primary=verboten facets=invalid
 def test_dfx_ift_002_invalid_field_type_doc_review_notes_scalar() -> None:
     rel = "tmp_docs/docs/fx_invalid_field_type_review_notes_scalar.md"
     fm = _fixture_frontmatter(
@@ -213,6 +217,7 @@ def test_dfx_ift_002_invalid_field_type_doc_review_notes_scalar() -> None:
     assert contradictions[0]["source_row_kind"] == "doc_field_type"
 
 
+# gabion:behavior primary=verboten facets=missing
 def test_dfx_mgr_001_missing_governance_ref_normative_no_roots() -> None:
     rel = "tmp_docs/in/fx_missing_governance_ref_normative_no_roots.md"
     fm = _fixture_frontmatter(
@@ -245,6 +250,7 @@ def test_dfx_mgr_001_missing_governance_ref_normative_no_roots() -> None:
     assert all(row["source_row_kind"] == "doc_missing_governance_ref" for row in contradictions)
 
 
+# gabion:behavior primary=verboten facets=missing
 def test_dfx_mgr_002_missing_governance_ref_partial_roots() -> None:
     rel = "tmp_docs/in/fx_missing_governance_ref_partial_roots.md"
     fm = _fixture_frontmatter(

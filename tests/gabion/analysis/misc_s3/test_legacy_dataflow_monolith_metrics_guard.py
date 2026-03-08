@@ -13,6 +13,7 @@ _MAX_MONOLITH_TOP_LEVEL_IMPORTS = 53
 _MAX_MONOLITH_IMPORTED_SYMBOLS = 300
 
 
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_legacy_monolith_metrics_stay_within_budget() -> None:
     repo_root = Path(__file__).resolve().parents[4]
     monolith_path = repo_root / _MONOLITH_RELATIVE_PATH

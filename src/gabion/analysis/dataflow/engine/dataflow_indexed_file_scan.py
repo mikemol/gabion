@@ -47,7 +47,7 @@ from gabion.analysis.foundation.timeout_context import (
     Deadline, GasMeter, TimeoutExceeded, TimeoutTickCarrier, build_timeout_context_from_stack, check_deadline, deadline_loop_iter, deadline_clock_scope, deadline_scope, forest_scope, reset_forest, set_forest)
 
 from gabion.analysis.foundation.resume_codec import (
-    allowed_path_lookup, int_str_pairs_from_sequence, int_tuple4_or_none, iter_valid_key_entries, load_resume_map, load_allowed_paths_from_sequence, mapping_payload, mapping_sections, mapping_or_empty, mapping_or_none, payload_with_format, payload_with_phase, sequence_or_none, str_list_from_sequence, str_map_from_mapping, str_pair_set_from_sequence, str_set_from_sequence, str_tuple_from_sequence)
+    allowed_path_lookup, int_str_pairs_from_sequence, int_tuple4_optional, iter_valid_key_entries, load_resume_map, load_allowed_paths_from_sequence, mapping_payload, mapping_sections, mapping_default_empty, mapping_optional, payload_with_format, payload_with_phase, sequence_optional, str_list_from_sequence, str_map_from_mapping, str_pair_set_from_sequence, str_set_from_sequence, str_tuple_from_sequence)
 
 from gabion.analysis.projection.projection_registry import (
     DEADLINE_OBLIGATIONS_SUMMARY_SPEC, LINT_FINDINGS_SPEC, REPORT_SECTION_LINES_SPEC, WL_REFINEMENT_SPEC)
@@ -292,7 +292,7 @@ from gabion.analysis.dataflow.engine.dataflow_deadline_summary import (
     _summarize_deadline_obligations,
 )
 from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
-    _parse_module_tree_or_none as _parse_module_tree,
+    _parse_module_tree_optional as _parse_module_tree,
 )
 from gabion.analysis.dataflow.engine.dataflow_runtime_reporting import (
     _report_section_spec,

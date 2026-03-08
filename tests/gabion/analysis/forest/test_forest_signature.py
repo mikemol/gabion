@@ -9,6 +9,7 @@ from gabion.exceptions import NeverThrown
 
 
 # gabion:evidence E:function_site::forest_signature.py::gabion.analysis.forest_signature.build_forest_signature
+# gabion:behavior primary=desired
 def test_forest_signature_deterministic() -> None:
     forest = Forest()
     site_id = forest.add_site("a.py", "f")
@@ -20,6 +21,7 @@ def test_forest_signature_deterministic() -> None:
 
 
 # gabion:evidence E:function_site::forest_signature.py::gabion.analysis.forest_signature.build_forest_signature_from_groups
+# gabion:behavior primary=desired
 def test_forest_signature_from_groups() -> None:
     groups_by_path = {
         "a.py": {"f": [set(["a", "b"])]},
@@ -31,6 +33,7 @@ def test_forest_signature_from_groups() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_forest_signature.py::test_forest_signature_can_emit_legacy_and_fingerprint_intern_payloads::forest_signature.py::gabion.analysis.forest_signature.build_forest_signature_payload
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_forest_signature_can_emit_legacy_and_fingerprint_intern_payloads() -> None:
     forest = Forest()
     forest.add_site("a.py", "f")
@@ -48,6 +51,7 @@ def test_forest_signature_can_emit_legacy_and_fingerprint_intern_payloads() -> N
 
 
 # gabion:evidence E:call_footprint::tests/test_forest_signature.py::test_forest_signature_can_emit_fingerprint_intern_without_legacy_intern::forest_signature.py::gabion.analysis.forest_signature.build_forest_signature_payload
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_forest_signature_can_emit_fingerprint_intern_without_legacy_intern() -> None:
     forest = Forest()
     forest.add_site("a.py", "f")
@@ -64,6 +68,7 @@ def test_forest_signature_can_emit_fingerprint_intern_without_legacy_intern() ->
 
 
 # gabion:evidence E:call_footprint::tests/test_forest_signature.py::test_forest_signature_from_groups_rejects_path_order_regression::forest_signature.py::gabion.analysis.forest_signature.build_forest_signature_from_groups
+# gabion:behavior primary=desired
 def test_forest_signature_from_groups_rejects_path_order_regression() -> None:
     with pytest.raises(NeverThrown):
         build_forest_signature_from_groups(
@@ -75,6 +80,7 @@ def test_forest_signature_from_groups_rejects_path_order_regression() -> None:
 
 
 # gabion:evidence E:function_site::forest_signature.py::gabion.analysis.forest_signature._normalize_key
+# gabion:behavior primary=desired
 def test_normalize_key_handles_objects() -> None:
     class Dummy:
         def __str__(self) -> str:
@@ -84,6 +90,7 @@ def test_normalize_key_handles_objects() -> None:
 
 
 # gabion:evidence E:function_site::forest_signature.py::gabion.analysis.forest_signature._path_name
+# gabion:behavior primary=desired
 def test_path_name_falls_back_to_str() -> None:
     class Dummy:
         name = 123

@@ -24,7 +24,7 @@ from gabion.invariants import (
     never,
 )
 from gabion.order_contract import OrderPolicy, OrderRuntimeConfig, order_runtime_config_scope
-from gabion.runtime_shape_dispatch import str_or_none
+from gabion.runtime_shape_dispatch import str_optional
 
 
 _STRICT_VALUES = {"1", "true", "yes", "on", "strict"}
@@ -88,7 +88,7 @@ def _env_optional_marker_kind_profile(name: str) -> MarkerKindProfile | None:
     return _MARKER_KIND_PROFILE_BY_VALUE.get(normalized)
 
 def runtime_policy_from_env() -> RuntimePolicyConfig:
-    legacy_profile = str_or_none(os.getenv("GABION_INVARIANT_RUNTIME_BEHAVIOR_PROFILE"))
+    legacy_profile = str_optional(os.getenv("GABION_INVARIANT_RUNTIME_BEHAVIOR_PROFILE"))
     if legacy_profile and legacy_profile.strip():
         with invariant_runtime_behavior_scope(
             InvariantRuntimeBehaviorConfig(profile=InvariantProfile.STRICT)
@@ -99,7 +99,7 @@ def runtime_policy_from_env() -> RuntimePolicyConfig:
                 replacement_env="GABION_INVARIANT_PROFILE",
             )
     direct_requested = _env_flag("GABION_DIRECT_RUN")
-    override_record_json = str_or_none(os.getenv("GABION_OVERRIDE_RECORD_JSON"))
+    override_record_json = str_optional(os.getenv("GABION_OVERRIDE_RECORD_JSON"))
     return RuntimePolicyConfig(
         order_policy=_env_optional_policy("GABION_ORDER_POLICY"),
         order_caller_sorted=os.getenv("GABION_CALLER_SORTED") == "1",

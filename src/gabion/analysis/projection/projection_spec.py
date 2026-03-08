@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from collections.abc import Mapping
 
 from gabion.json_types import JSONValue
-from gabion.analysis.foundation.resume_codec import mapping_or_none, sequence_or_none
+from gabion.analysis.foundation.resume_codec import mapping_optional, sequence_optional
 from gabion.analysis.foundation.timeout_context import check_deadline
 
 
@@ -63,7 +63,7 @@ def spec_from_dict(payload: Mapping[str, JSONValue]) -> ProjectionSpec:
         version = 1
     name = str(payload.get("name", "") or "")
     domain = str(payload.get("domain", "") or "")
-    params = mapping_or_none(payload.get("params"))
+    params = mapping_optional(payload.get("params"))
     params_map: dict[str, JSONValue] = {}
     if params is not None:
         params_map = {str(k): v for k, v in params.items()}
@@ -84,7 +84,7 @@ def _op_payloads_from_pipeline(
     pipeline_payload: object,
 ) -> tuple[ProjectionOpPayload, ...]:
     check_deadline()
-    pipeline = sequence_or_none(pipeline_payload)
+    pipeline = sequence_optional(pipeline_payload)
     if pipeline is None:
         return ()
     payloads: list[ProjectionOpPayload] = []
@@ -98,7 +98,7 @@ def _op_payloads_from_pipeline(
 
 def _op_payload_from_entry(entry: object) -> ProjectionOpParseResult:
     check_deadline()
-    entry_map = mapping_or_none(entry)
+    entry_map = mapping_optional(entry)
     if entry_map is None:
         return ProjectionOpParseResult(
             is_valid=False,
@@ -110,7 +110,7 @@ def _op_payload_from_entry(entry: object) -> ProjectionOpParseResult:
             is_valid=False,
             payload=_EMPTY_PROJECTION_OP_PAYLOAD,
         )
-    op_params = mapping_or_none(entry_map.get("params"))
+    op_params = mapping_optional(entry_map.get("params"))
     params: dict[str, JSONValue] = {}
     if op_params is not None:
         params = {str(key): value for key, value in op_params.items()}

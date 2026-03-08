@@ -3,6 +3,7 @@ from __future__ import annotations
 from gabion.server_core import dataflow_runtime_contract as runtime_contract
 
 
+# gabion:behavior primary=desired
 def test_collection_checkpoint_flush_due_semantic_interval() -> None:
     assert runtime_contract.collection_checkpoint_flush_due(
         intro_changed=False,
@@ -13,6 +14,7 @@ def test_collection_checkpoint_flush_due_semantic_interval() -> None:
     ) is True
 
 
+# gabion:behavior primary=desired
 def test_collection_report_flush_due_terminal_and_stride() -> None:
     assert runtime_contract.collection_report_flush_due(
         completed_files=8,
@@ -30,6 +32,7 @@ def test_collection_report_flush_due_terminal_and_stride() -> None:
     ) is True
 
 
+# gabion:behavior primary=desired
 def test_progress_heartbeat_seconds_bounds() -> None:
     assert runtime_contract.progress_heartbeat_seconds({"progress_heartbeat_seconds": " "}) == (
         runtime_contract.DEFAULT_PROGRESS_HEARTBEAT_SECONDS

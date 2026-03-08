@@ -18,6 +18,7 @@ def _write(path: Path, text: str) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_impact_index.py::test_build_impact_index_emits_expected_node_kinds::impact_index.py::gabion.analysis.impact_index.build_impact_index::test_impact_index.py::tests.test_impact_index._write
+# gabion:behavior primary=desired
 def test_build_impact_index_emits_expected_node_kinds(tmp_path: Path) -> None:
     _write(
         tmp_path / "src/gabion/cli.py",
@@ -57,6 +58,7 @@ def test_build_impact_index_emits_expected_node_kinds(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_impact_index.py::test_emit_impact_index_writes_artifact_and_reverse_adjacency::impact_index.py::gabion.analysis.impact_index.emit_impact_index::test_impact_index.py::tests.test_impact_index._write
+# gabion:behavior primary=desired
 def test_emit_impact_index_writes_artifact_and_reverse_adjacency(tmp_path: Path) -> None:
     _write(
         tmp_path / "src/gabion/cli.py",
@@ -84,6 +86,7 @@ def test_emit_impact_index_writes_artifact_and_reverse_adjacency(tmp_path: Path)
 
 
 # gabion:evidence E:call_footprint::tests/test_impact_index.py::test_test_links_prefer_explicit_metadata::impact_index.py::gabion.analysis.impact_index.build_impact_index::test_impact_index.py::tests.test_impact_index._write
+# gabion:behavior primary=desired
 def test_test_links_prefer_explicit_metadata(tmp_path: Path) -> None:
     _write(
         tmp_path / "tests" / "test_sample.py",
@@ -103,6 +106,7 @@ def test_example():
 
 
 # gabion:evidence E:call_footprint::tests/test_impact_index.py::test_test_links_infer_from_imports_when_metadata_missing::impact_index.py::gabion.analysis.impact_index.build_impact_index::test_impact_index.py::tests.test_impact_index._write
+# gabion:behavior primary=verboten facets=missing
 def test_test_links_infer_from_imports_when_metadata_missing(tmp_path: Path) -> None:
     _write(
         tmp_path / "tests" / "test_sample.py",
@@ -123,6 +127,7 @@ def test_example():
 
 
 # gabion:evidence E:call_footprint::tests/test_impact_index.py::test_doc_links_read_doc_targets_and_fallback_to_mentions::impact_index.py::gabion.analysis.impact_index.build_impact_index::test_impact_index.py::tests.test_impact_index._write
+# gabion:behavior primary=allowed_unwanted facets=fallback
 def test_doc_links_read_doc_targets_and_fallback_to_mentions(tmp_path: Path) -> None:
     _write(tmp_path / "src" / "gabion" / "mod.py", "def fn():\n    return 1\n")
     _write(
@@ -145,6 +150,7 @@ Notes.
 
 
 # gabion:evidence E:call_footprint::tests/test_impact_index.py::test_doc_links_fallback_to_anchors_as_weak::impact_index.py::gabion.analysis.impact_index.build_impact_index::test_impact_index.py::tests.test_impact_index._write
+# gabion:behavior primary=allowed_unwanted facets=fallback
 def test_doc_links_fallback_to_anchors_as_weak(tmp_path: Path) -> None:
     _write(tmp_path / "src" / "gabion" / "mod.py", "def fn_name():\n    return 1\n")
     _write(
@@ -162,6 +168,7 @@ See [details](#fn-name).
 
 
 # gabion:evidence E:call_footprint::tests/test_impact_index.py::test_links_from_test_returns_empty_for_read_and_parse_failures::impact_index.py::gabion.analysis.impact_index._links_from_test::test_impact_index.py::tests.test_impact_index._write
+# gabion:behavior primary=verboten facets=empty
 def test_links_from_test_returns_empty_for_read_and_parse_failures(tmp_path: Path) -> None:
     missing = ii._links_from_test(path=tmp_path / "missing.py", root=tmp_path)
     assert missing == []
@@ -173,6 +180,7 @@ def test_links_from_test_returns_empty_for_read_and_parse_failures(tmp_path: Pat
 
 
 # gabion:evidence E:call_footprint::tests/test_impact_index.py::test_links_from_test_collects_test_class_async_methods::impact_index.py::gabion.analysis.impact_index._links_from_test::test_impact_index.py::tests.test_impact_index._write
+# gabion:behavior primary=desired
 def test_links_from_test_collects_test_class_async_methods(tmp_path: Path) -> None:
     path = tmp_path / "tests" / "test_suite.py"
     _write(
@@ -195,6 +203,7 @@ def test_links_from_test_collects_test_class_async_methods(tmp_path: Path) -> No
 
 
 # gabion:evidence E:call_footprint::tests/test_impact_index.py::test_links_from_doc_returns_empty_when_unreadable::impact_index.py::gabion.analysis.impact_index._links_from_doc
+# gabion:behavior primary=verboten facets=empty
 def test_links_from_doc_returns_empty_when_unreadable(tmp_path: Path) -> None:
     assert ii._links_from_doc(
         path=tmp_path / "docs" / "missing.md",
@@ -204,6 +213,7 @@ def test_links_from_doc_returns_empty_when_unreadable(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_impact_index.py::test_build_graph_payload_handles_async_and_unparseable_files::impact_index.py::gabion.analysis.impact_index._build_graph_payload::test_impact_index.py::tests.test_impact_index._write
+# gabion:behavior primary=desired
 def test_build_graph_payload_handles_async_and_unparseable_files(tmp_path: Path) -> None:
     _write(
         tmp_path / "src" / "gabion" / "cli.py",
@@ -228,6 +238,7 @@ def test_build_graph_payload_handles_async_and_unparseable_files(tmp_path: Path)
 
 
 # gabion:evidence E:call_footprint::tests/test_impact_index.py::test_module_and_parse_helpers_cover_error_edges::impact_index.py::gabion.analysis.impact_index._module_from_path::impact_index.py::gabion.analysis.impact_index._parse_ast::impact_index.py::gabion.analysis.impact_index._parse_python_file::impact_index.py::gabion.analysis.impact_index._read_text::impact_index.py::gabion.analysis.impact_index._relative::test_impact_index.py::tests.test_impact_index._write
+# gabion:behavior primary=verboten facets=edge,error
 def test_module_and_parse_helpers_cover_error_edges(tmp_path: Path) -> None:
     assert ii._module_from_path(Path("src/gabion/sample.py")) == "gabion.sample"
     assert ii._module_from_path(Path("gabion/sample.py")) == "gabion.sample"
@@ -246,6 +257,7 @@ def test_module_and_parse_helpers_cover_error_edges(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_impact_index.py::test_markdown_and_registry_helpers_cover_skip_edges::impact_index.py::gabion.analysis.impact_index._emit_registry_sections::impact_index.py::gabion.analysis.impact_index._iter_markdown_files::test_impact_index.py::tests.test_impact_index._write
+# gabion:behavior primary=verboten facets=edge
 def test_markdown_and_registry_helpers_cover_skip_edges(tmp_path: Path) -> None:
     (tmp_path / "fake.md").mkdir(parents=True)
     _write(tmp_path / "docs" / "ok.md", "# ok\n")
@@ -267,6 +279,7 @@ def test_markdown_and_registry_helpers_cover_skip_edges(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_impact_index.py::test_comment_decorator_frontmatter_and_target_helpers::impact_index.py::gabion.analysis.impact_index._call_name::impact_index.py::gabion.analysis.impact_index._coerce_target_list::impact_index.py::gabion.analysis.impact_index._decorator_targets::impact_index.py::gabion.analysis.impact_index._impact_comments::impact_index.py::gabion.analysis.impact_index._import_aliases::impact_index.py::gabion.analysis.impact_index._nearest_comment_targets::impact_index.py::gabion.analysis.impact_index._parse_frontmatter
+# gabion:behavior primary=desired
 def test_comment_decorator_frontmatter_and_target_helpers(tmp_path: Path) -> None:
     comments = ii._impact_comments(
         "# impact-target: gabion.mod.fn gabion.mod.alt\n"
@@ -335,6 +348,7 @@ def test_comment_decorator_frontmatter_and_target_helpers(tmp_path: Path) -> Non
 
 
 # gabion:evidence E:call_footprint::tests/test_impact_index.py::test_collect_symbol_universe_and_dedupe_edges::impact_index.py::gabion.analysis.impact_index._collect_symbol_universe::impact_index.py::gabion.analysis.impact_index._dedupe_links::test_impact_index.py::tests.test_impact_index._write
+# gabion:behavior primary=verboten facets=edge
 def test_collect_symbol_universe_and_dedupe_edges(tmp_path: Path) -> None:
     assert ii._collect_symbol_universe(tmp_path) == set()
 
@@ -368,6 +382,7 @@ def test_collect_symbol_universe_and_dedupe_edges(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_impact_index.py::test_impact_index_main_entrypoint_writes_artifact::test_impact_index.py::tests.test_impact_index._write
+# gabion:behavior primary=desired
 def test_impact_index_main_entrypoint_writes_artifact(tmp_path: Path) -> None:
     _write(
         tmp_path / "src" / "gabion" / "cli.py",

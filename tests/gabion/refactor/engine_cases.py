@@ -16,6 +16,7 @@ def _normalize(text: str) -> str:
     return re.sub(r"\s+", "", text)
 
 # gabion:evidence E:function_site::test_refactor_engine.py::tests.test_refactor_engine._load E:decision_surface/direct::test_refactor_engine.py::tests.test_refactor_engine._load::stale_7165b720683b
+# gabion:behavior primary=desired
 def test_refactor_engine_emits_protocol_stub(tmp_path: Path) -> None:
     RefactorEngine, FieldSpec, RefactorRequest = _load()
     target = tmp_path / "sample.py"
@@ -42,6 +43,7 @@ def test_refactor_engine_emits_protocol_stub(tmp_path: Path) -> None:
     assert "beta: object" in replacement
 
 # gabion:evidence E:function_site::test_refactor_engine.py::tests.test_refactor_engine._load E:decision_surface/direct::test_refactor_engine.py::tests.test_refactor_engine._load::stale_f747efb69717
+# gabion:behavior primary=desired
 def test_refactor_engine_preserves_type_hints(tmp_path: Path) -> None:
     RefactorEngine, FieldSpec, RefactorRequest = _load()
     target = tmp_path / "sample.py"
@@ -71,6 +73,7 @@ def test_refactor_engine_preserves_type_hints(tmp_path: Path) -> None:
     assert "beta: str" in replacement
 
 # gabion:evidence E:function_site::test_refactor_engine.py::tests.test_refactor_engine._load E:decision_surface/direct::test_refactor_engine.py::tests.test_refactor_engine._load::stale_a1773bba20c4
+# gabion:behavior primary=desired
 def test_refactor_engine_rewrites_signature_and_preamble(tmp_path: Path) -> None:
     RefactorEngine, FieldSpec, RefactorRequest = _load()
     target = tmp_path / "sample.py"
@@ -102,6 +105,7 @@ def test_refactor_engine_rewrites_signature_and_preamble(tmp_path: Path) -> None
     assert "b = bundle.b" in replacement
 
 # gabion:evidence E:function_site::test_refactor_engine.py::tests.test_refactor_engine._load E:function_site::test_refactor_engine.py::tests.test_refactor_engine._normalize E:decision_surface/direct::test_refactor_engine.py::tests.test_refactor_engine._load::stale_71db3042b46c_5eed1578
+# gabion:behavior primary=desired
 def test_refactor_engine_rewrites_call_sites(tmp_path: Path) -> None:
     RefactorEngine, FieldSpec, RefactorRequest = _load()
     target = tmp_path / "sample.py"
@@ -133,6 +137,7 @@ def test_refactor_engine_rewrites_call_sites(tmp_path: Path) -> None:
     assert "returnfoo(BundleProtocol(a=x,b=y))" in replacement
 
 # gabion:evidence E:function_site::test_refactor_engine.py::tests.test_refactor_engine._load E:function_site::test_refactor_engine.py::tests.test_refactor_engine._normalize E:decision_surface/direct::test_refactor_engine.py::tests.test_refactor_engine._load::stale_f5a71b55c836
+# gabion:behavior primary=desired
 def test_refactor_engine_rewrites_imported_call_sites(tmp_path: Path) -> None:
     RefactorEngine, FieldSpec, RefactorRequest = _load()
     src_root = tmp_path / "src" / "pkg"
@@ -178,6 +183,7 @@ def test_refactor_engine_rewrites_imported_call_sites(tmp_path: Path) -> None:
     assert "returnfoo(BundleProtocol(a=x,b=y))" in caller_replacement
 
 # gabion:evidence E:function_site::test_refactor_engine.py::tests.test_refactor_engine._load E:decision_surface/direct::test_refactor_engine.py::tests.test_refactor_engine._load::stale_b919c219b6e6
+# gabion:behavior primary=allowed_unwanted facets=compat
 def test_refactor_engine_emits_compat_shim(tmp_path: Path) -> None:
     RefactorEngine, FieldSpec, RefactorRequest = _load()
     target = tmp_path / "sample.py"
@@ -211,6 +217,7 @@ def test_refactor_engine_emits_compat_shim(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_refactor_engine.py::test_refactor_engine_ambient_rewrite_threaded_parameter::engine.py::gabion.refactor.engine.RefactorEngine.plan_protocol_extraction
+# gabion:behavior primary=desired
 def test_refactor_engine_ambient_rewrite_threaded_parameter(tmp_path: Path) -> None:
     RefactorEngine, FieldSpec, RefactorRequest = _load()
     target = tmp_path / "ambient.py"
@@ -245,6 +252,7 @@ def test_refactor_engine_ambient_rewrite_threaded_parameter(tmp_path: Path) -> N
 
 
 # gabion:evidence E:call_footprint::tests/test_refactor_engine.py::test_refactor_engine_ambient_rewrite_partial_skip_unsafe::engine.py::gabion.refactor.engine.RefactorEngine.plan_protocol_extraction
+# gabion:behavior primary=desired
 def test_refactor_engine_ambient_rewrite_partial_skip_unsafe(tmp_path: Path) -> None:
     RefactorEngine, FieldSpec, RefactorRequest = _load()
     target = tmp_path / "ambient_partial.py"
@@ -280,6 +288,7 @@ def test_refactor_engine_ambient_rewrite_partial_skip_unsafe(tmp_path: Path) -> 
 
 
 # gabion:evidence E:call_footprint::tests/test_refactor_engine.py::test_refactor_engine_ambient_rewrite_noop_when_no_pattern::engine.py::gabion.refactor.engine.RefactorEngine.plan_protocol_extraction
+# gabion:behavior primary=allowed_unwanted facets=noop
 def test_refactor_engine_ambient_rewrite_noop_when_no_pattern(tmp_path: Path) -> None:
     RefactorEngine, FieldSpec, RefactorRequest = _load()
     target = tmp_path / "ambient_noop.py"
@@ -305,6 +314,7 @@ def test_refactor_engine_ambient_rewrite_noop_when_no_pattern(tmp_path: Path) ->
 
 
 # gabion:evidence E:function_site::engine.py::gabion.refactor.engine._ensure_ambient_scaffolding E:function_site::engine.py::gabion.refactor.engine._has_contextvars_import
+# gabion:behavior primary=verboten facets=edge
 def test_ambient_scaffolding_and_contextvars_import_edge_paths() -> None:
     import libcst as cst
     from gabion.refactor import engine as refactor_engine
@@ -341,6 +351,7 @@ def test_ambient_scaffolding_and_contextvars_import_edge_paths() -> None:
 
 
 # gabion:evidence E:function_site::engine.py::gabion.refactor.engine._AmbientArgThreadingRewriter.leave_Call
+# gabion:behavior primary=desired
 def test_ambient_arg_threading_rewriter_branch_matrix() -> None:
     import libcst as cst
     from gabion.refactor import engine as refactor_engine
@@ -382,6 +393,7 @@ def test_ambient_arg_threading_rewriter_branch_matrix() -> None:
 
 
 # gabion:evidence E:function_site::engine.py::gabion.refactor.engine._AmbientRewriteTransformer._rewrite_function E:decision_surface/direct::engine.py::gabion.refactor.engine._AmbientRewriteTransformer._rewrite_function::stale_cea5a5c42eca
+# gabion:behavior primary=desired
 def test_ambient_rewrite_transformer_annotation_docstring_and_warning_paths() -> None:
     import libcst as cst
     from gabion.refactor import engine as refactor_engine
@@ -413,6 +425,7 @@ def test_ambient_rewrite_transformer_annotation_docstring_and_warning_paths() ->
     assert transformer.warnings
 
 
+# gabion:behavior primary=desired
 def test_ambient_rewrite_transformer_preamble_insert_when_first_stmt_is_compound() -> None:
     import libcst as cst
     from gabion.refactor import engine as refactor_engine
@@ -443,6 +456,7 @@ def test_ambient_rewrite_transformer_preamble_insert_when_first_stmt_is_compound
 
 
 # gabion:evidence E:function_site::engine.py::gabion.refactor.engine._AmbientRewriteTransformer.leave_AsyncFunctionDef E:function_site::engine.py::gabion.refactor.engine._AmbientRewriteTransformer._rewrite_function
+# gabion:behavior primary=desired
 def test_ambient_rewrite_transformer_skip_variants_and_async_dispatch() -> None:
     import libcst as cst
     from gabion.refactor import engine as refactor_engine
@@ -498,6 +512,7 @@ def test_ambient_rewrite_transformer_skip_variants_and_async_dispatch() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_refactor_engine.py::test_refactor_engine_additional_branch_edges_for_contextvars_and_rewrite_shapes::engine.py::gabion.refactor.engine._has_contextvars_import::engine.py::gabion.refactor.engine._AmbientArgThreadingRewriter.leave_Call::engine.py::gabion.refactor.engine._AmbientSafetyVisitor.visit_AssignTarget::engine.py::gabion.refactor.engine._AmbientRewriteTransformer._rewrite_function
+# gabion:behavior primary=verboten facets=edge
 def test_refactor_engine_additional_branch_edges_for_contextvars_and_rewrite_shapes() -> None:
     import libcst as cst
     from gabion.refactor import engine as refactor_engine
@@ -550,6 +565,7 @@ def test_refactor_engine_additional_branch_edges_for_contextvars_and_rewrite_sha
 
 
 # gabion:evidence E:call_footprint::tests/test_refactor_engine.py::test_refactor_engine_reports_no_changes_outcome::engine.py::gabion.refactor.engine.RefactorEngine.plan_protocol_extraction
+# gabion:behavior primary=desired
 def test_refactor_engine_reports_no_changes_outcome(tmp_path: Path) -> None:
     from gabion.refactor.model import RefactorPlan, RefactorPlanOutcome
 
@@ -581,6 +597,7 @@ def test_refactor_engine_reports_no_changes_outcome(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_refactor_engine.py::test_refactor_engine_async_refactor_transformer_visit_leave_paths::engine.py::gabion.refactor.engine._RefactorTransformer.visit_AsyncFunctionDef::engine.py::gabion.refactor.engine._RefactorTransformer.leave_AsyncFunctionDef
+# gabion:behavior primary=desired
 def test_refactor_engine_async_refactor_transformer_visit_leave_paths() -> None:
     import libcst as cst
     from gabion.refactor import engine as refactor_engine
@@ -608,6 +625,7 @@ def test_refactor_engine_async_refactor_transformer_visit_leave_paths() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_refactor_engine.py::test_refactor_engine_rejects_unvalidated_module_identifier::engine.py::gabion.refactor.engine._validated_module_identifier
+# gabion:behavior primary=desired
 def test_refactor_engine_rejects_unvalidated_module_identifier(tmp_path: Path) -> None:
     from gabion.refactor.model import RefactorPlanOutcome
 

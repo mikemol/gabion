@@ -22,11 +22,11 @@ def _canonical_json_text(payload: object) -> str:
     return json.dumps(payload, sort_keys=False, separators=(",", ":"), ensure_ascii=True)
 
 @singledispatch
-def _json_mapping_or_none(value: object) -> dict[str, JSONValue] | None:
+def _json_mapping_optional(value: object) -> dict[str, JSONValue] | None:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
-@_json_mapping_or_none.register(dict)
+@_json_mapping_optional.register(dict)
 def _(value: dict[str, JSONValue]) -> dict[str, JSONValue] | None:
     return value
 
@@ -37,20 +37,20 @@ def _json_mapping_none(value: object) -> dict[str, JSONValue] | None:
 
 
 for _runtime_type in (list, tuple, set, str, int, float, bool, _NONE_TYPE):
-    _json_mapping_or_none.register(_runtime_type)(_json_mapping_none)
+    _json_mapping_optional.register(_runtime_type)(_json_mapping_none)
 
-def _json_mapping_or_empty(value: object) -> dict[str, JSONValue]:
-    mapping = _json_mapping_or_none(value)
+def _json_mapping_default_empty(value: object) -> dict[str, JSONValue]:
+    mapping = _json_mapping_optional(value)
     if mapping is not None:
         return mapping
     return {}
 
 @singledispatch
-def _int_or_none(value: object) -> int | None:
+def _int_optional(value: object) -> int | None:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
-@_int_or_none.register
+@_int_optional.register
 def _(value: int) -> int | None:
     return value
 
@@ -61,28 +61,28 @@ def _int_none(value: object) -> int | None:
 
 
 for _runtime_type in (bool, float, str, list, tuple, set, dict, _NONE_TYPE):
-    _int_or_none.register(_runtime_type)(_int_none)
+    _int_optional.register(_runtime_type)(_int_none)
 
-def _non_negative_int_or_none(value: object) -> int | None:
-    int_value = _int_or_none(value)
+def _non_negative_int_optional(value: object) -> int | None:
+    int_value = _int_optional(value)
     return max(int_value, 0) if int_value is not None else None
 
 @singledispatch
-def _non_string_sequence_or_none(value: object) -> Sequence[object] | None:
+def _non_string_sequence_optional(value: object) -> Sequence[object] | None:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
-@_non_string_sequence_or_none.register
+@_non_string_sequence_optional.register
 def _(value: list) -> Sequence[object] | None:
     return value
 
 
-@_non_string_sequence_or_none.register
+@_non_string_sequence_optional.register
 def _(value: tuple) -> Sequence[object] | None:
     return value
 
 
-@_non_string_sequence_or_none.register
+@_non_string_sequence_optional.register
 def _(value: set) -> Sequence[object] | None:
     return value
 
@@ -93,15 +93,15 @@ def _sequence_none(value: object) -> Sequence[object] | None:
 
 
 for _runtime_type in (str, dict, int, float, bool, _NONE_TYPE):
-    _non_string_sequence_or_none.register(_runtime_type)(_sequence_none)
+    _non_string_sequence_optional.register(_runtime_type)(_sequence_none)
 
 
 @singledispatch
-def _str_or_none(value: object) -> str | None:
+def _str_optional(value: object) -> str | None:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
-@_str_or_none.register
+@_str_optional.register
 def _(value: str) -> str | None:
     return value
 
@@ -112,15 +112,15 @@ def _str_none(value: object) -> str | None:
 
 
 for _runtime_type in (int, float, bool, list, tuple, set, dict, _NONE_TYPE):
-    _str_or_none.register(_runtime_type)(_str_none)
+    _str_optional.register(_runtime_type)(_str_none)
 
 
 @singledispatch
-def _bool_or_none(value: object) -> bool | None:
+def _bool_optional(value: object) -> bool | None:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
-@_bool_or_none.register
+@_bool_optional.register
 def _(value: bool) -> bool | None:
     return value
 
@@ -131,15 +131,15 @@ def _bool_none(value: object) -> bool | None:
 
 
 for _runtime_type in (int, float, str, list, tuple, set, dict, _NONE_TYPE):
-    _bool_or_none.register(_runtime_type)(_bool_none)
+    _bool_optional.register(_runtime_type)(_bool_none)
 
 
 @singledispatch
-def _float_or_none(value: object) -> float | None:
+def _float_optional(value: object) -> float | None:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
-@_float_or_none.register
+@_float_optional.register
 def _(value: float) -> float | None:
     return value
 
@@ -150,7 +150,7 @@ def _float_none(value: object) -> float | None:
 
 
 for _runtime_type in (int, bool, str, list, tuple, set, dict, _NONE_TYPE):
-    _float_or_none.register(_runtime_type)(_float_none)
+    _float_optional.register(_runtime_type)(_float_none)
 
 _REPORT_PHASE_RANK_BY_NAME: dict[str, int] = {
     "collection": report_projection_phase_rank("collection"),
@@ -159,8 +159,8 @@ _REPORT_PHASE_RANK_BY_NAME: dict[str, int] = {
     "post": report_projection_phase_rank("post"),
 }
 
-def _report_projection_phase_rank_or_none(phase_name: object) -> int | None:
-    phase_text = _str_or_none(phase_name)
+def _report_projection_phase_rank_optional(phase_name: object) -> int | None:
+    phase_text = _str_optional(phase_name)
     return _REPORT_PHASE_RANK_BY_NAME.get(phase_text or "")
 
 def _analysis_resume_progress(
@@ -168,7 +168,7 @@ def _analysis_resume_progress(
     collection_resume: Mapping[str, JSONValue] | None,
     total_files: int,
 ) -> dict[str, int]:
-    normalized_collection_resume = _json_mapping_or_none(collection_resume)
+    normalized_collection_resume = _json_mapping_optional(collection_resume)
     if normalized_collection_resume is None:
         normalized_total_files = max(total_files, 0)
         return {
@@ -177,7 +177,7 @@ def _analysis_resume_progress(
             "remaining_files": normalized_total_files,
             "total_files": normalized_total_files,
         }
-    completed_paths = _non_string_sequence_or_none(
+    completed_paths = _non_string_sequence_optional(
         normalized_collection_resume.get("completed_paths")
     )
     completed = 0
@@ -185,16 +185,16 @@ def _analysis_resume_progress(
         completed = sum(
             1
             for path in completed_paths
-            if _str_or_none(path) is not None
+            if _str_optional(path) is not None
         )
-    in_progress_scan = _json_mapping_or_none(
+    in_progress_scan = _json_mapping_optional(
         normalized_collection_resume.get("in_progress_scan_by_path")
     )
     in_progress = 0
     if in_progress_scan is not None:
         for path, state in in_progress_scan.items():
-            path_text = _str_or_none(path)
-            state_mapping = _json_mapping_or_none(state)
+            path_text = _str_optional(path)
+            state_mapping = _json_mapping_optional(state)
             if path_text is not None and state_mapping is not None:
                 in_progress += 1
     if total_files >= 0:
@@ -218,8 +218,8 @@ def _normalize_progress_work(
     work_done: object | None,
     work_total: object | None,
 ) -> tuple[int | None, int | None]:
-    normalized_done = _non_negative_int_or_none(work_done)
-    normalized_total = _non_negative_int_or_none(work_total)
+    normalized_done = _non_negative_int_optional(work_done)
+    normalized_total = _non_negative_int_optional(work_total)
     if (
         normalized_done is not None
         and normalized_total is not None
@@ -251,8 +251,8 @@ def _build_phase_progress_v2(
         if phase == "collection":
             raw_completed = collection_progress.get("completed_files")
             raw_total = collection_progress.get("total_files")
-            normalized_completed = _non_negative_int_or_none(raw_completed)
-            normalized_total = _non_negative_int_or_none(raw_total)
+            normalized_completed = _non_negative_int_optional(raw_completed)
+            normalized_total = _non_negative_int_optional(raw_total)
             if normalized_completed is not None and normalized_total is not None:
                 normalized_work_done = normalized_completed
                 normalized_work_total = normalized_total
@@ -278,10 +278,10 @@ def _build_phase_progress_v2(
         },
         "inventory": {},
     }
-    phase_progress_v2_mapping = _json_mapping_or_none(phase_progress_v2)
+    phase_progress_v2_mapping = _json_mapping_optional(phase_progress_v2)
     if phase_progress_v2_mapping is not None:
         for key, value in phase_progress_v2_mapping.items():
-            key_text = _str_or_none(key)
+            key_text = _str_optional(key)
             if key_text is not None:
                 normalized[key_text] = value
     primary_unit = str(normalized.get("primary_unit", "") or "").strip()
@@ -289,8 +289,8 @@ def _build_phase_progress_v2(
         primary_unit = primary_unit_for_phase
     raw_primary_done = normalized.get("primary_done")
     raw_primary_total = normalized.get("primary_total")
-    normalized_primary_done = _non_negative_int_or_none(raw_primary_done)
-    normalized_primary_total = _non_negative_int_or_none(raw_primary_total)
+    normalized_primary_done = _non_negative_int_optional(raw_primary_done)
+    normalized_primary_total = _non_negative_int_optional(raw_primary_total)
     primary_done = (
         normalized_primary_done
         if normalized_primary_done is not None
@@ -308,23 +308,23 @@ def _build_phase_progress_v2(
     normalized["primary_total"] = primary_total
     raw_dimensions = normalized.get("dimensions")
     dimensions: JSONObject = {}
-    dimensions_mapping = _json_mapping_or_none(raw_dimensions)
+    dimensions_mapping = _json_mapping_optional(raw_dimensions)
     if dimensions_mapping is not None:
         for dim_name, dim_payload in dimensions_mapping.items():
-            dim_name_text = _str_or_none(dim_name)
-            dim_payload_mapping = _json_mapping_or_none(dim_payload)
+            dim_name_text = _str_optional(dim_name)
+            dim_payload_mapping = _json_mapping_optional(dim_payload)
             if dim_name_text is not None and dim_payload_mapping is not None:
                 raw_done = dim_payload_mapping.get("done")
                 raw_total = dim_payload_mapping.get("total")
-                dim_done = _non_negative_int_or_none(raw_done)
-                dim_total = _non_negative_int_or_none(raw_total)
+                dim_done = _non_negative_int_optional(raw_done)
+                dim_total = _non_negative_int_optional(raw_total)
                 if dim_done is not None and dim_total is not None:
                     if dim_total:
                         dim_done = min(dim_done, dim_total)
                     dimensions[dim_name_text] = {"done": dim_done, "total": dim_total}
     if primary_unit not in dimensions:
         dimensions[primary_unit] = {"done": primary_done, "total": primary_total}
-    semantic_progress_mapping = _json_mapping_or_none(semantic_progress)
+    semantic_progress_mapping = _json_mapping_optional(semantic_progress)
     if phase == "collection" and semantic_progress_mapping is not None:
         raw_cumulative_new = semantic_progress_mapping.get(
             "cumulative_new_processed_functions"
@@ -338,10 +338,10 @@ def _build_phase_progress_v2(
         raw_cumulative_regressed = semantic_progress_mapping.get(
             "cumulative_regressed_functions"
         )
-        semantic_new = _non_negative_int_or_none(raw_cumulative_new) or 0
-        semantic_completed = _non_negative_int_or_none(raw_cumulative_completed) or 0
-        semantic_hydrated = _non_negative_int_or_none(raw_cumulative_hydrated) or 0
-        semantic_regressed = _non_negative_int_or_none(raw_cumulative_regressed) or 0
+        semantic_new = _non_negative_int_optional(raw_cumulative_new) or 0
+        semantic_completed = _non_negative_int_optional(raw_cumulative_completed) or 0
+        semantic_hydrated = _non_negative_int_optional(raw_cumulative_hydrated) or 0
+        semantic_regressed = _non_negative_int_optional(raw_cumulative_regressed) or 0
         if semantic_hydrated > 0 or semantic_regressed > 0:
             dimensions["hydrated_paths_delta"] = {
                 "done": semantic_hydrated,
@@ -357,10 +357,10 @@ def _build_phase_progress_v2(
     normalized["dimensions"] = dimensions
     raw_inventory = normalized.get("inventory")
     inventory: JSONObject = {}
-    inventory_mapping = _json_mapping_or_none(raw_inventory)
+    inventory_mapping = _json_mapping_optional(raw_inventory)
     if inventory_mapping is not None:
         for inv_key, inv_value in inventory_mapping.items():
-            inv_key_text = _str_or_none(inv_key)
+            inv_key_text = _str_optional(inv_key)
             if inv_key_text is not None:
                 inventory[inv_key_text] = inv_value
     normalized["inventory"] = inventory
@@ -369,16 +369,16 @@ def _build_phase_progress_v2(
 def _completed_path_set(
     collection_resume: Mapping[str, JSONValue] | None,
 ) -> set[str]:
-    normalized_collection_resume = _json_mapping_or_none(collection_resume)
+    normalized_collection_resume = _json_mapping_optional(collection_resume)
     if normalized_collection_resume is None:
         return set()
     raw_completed_paths = normalized_collection_resume.get("completed_paths")
-    completed_paths = _non_string_sequence_or_none(raw_completed_paths)
+    completed_paths = _non_string_sequence_optional(raw_completed_paths)
     if completed_paths is None:
         return set()
     return {
         path_text
-        for path_text in (_str_or_none(path) for path in completed_paths)
+        for path_text in (_str_optional(path) for path in completed_paths)
         if path_text is not None
     }
 
@@ -386,17 +386,17 @@ def _in_progress_scan_states(
     collection_resume: Mapping[str, JSONValue] | None,
 ) -> dict[str, Mapping[str, JSONValue]]:
     states: dict[str, Mapping[str, JSONValue]] = {}
-    normalized_collection_resume = _json_mapping_or_none(collection_resume)
+    normalized_collection_resume = _json_mapping_optional(collection_resume)
     if normalized_collection_resume is None:
         return states
     raw_in_progress = normalized_collection_resume.get("in_progress_scan_by_path")
-    in_progress_mapping = _json_mapping_or_none(raw_in_progress)
+    in_progress_mapping = _json_mapping_optional(raw_in_progress)
     if in_progress_mapping is None:
         return states
     previous_path: str | None = None
     for raw_path, raw_state in in_progress_mapping.items():
         check_deadline()
-        path_text = _str_or_none(raw_path)
+        path_text = _str_optional(raw_path)
         if path_text is not None:
             if previous_path is not None and previous_path > path_text:
                 never(
@@ -405,19 +405,19 @@ def _in_progress_scan_states(
                     current_path=path_text,
                 )
             previous_path = path_text
-            state_mapping = _json_mapping_or_none(raw_state)
+            state_mapping = _json_mapping_optional(raw_state)
             if state_mapping is not None:
                 states[path_text] = state_mapping
     return states
 
 def _state_processed_functions(state: Mapping[str, JSONValue]) -> set[str]:
     raw_processed = state.get("processed_functions")
-    processed_entries = _non_string_sequence_or_none(raw_processed)
+    processed_entries = _non_string_sequence_optional(raw_processed)
     if processed_entries is None:
         return set()
     return {
         entry_text
-        for entry_text in (_str_or_none(entry) for entry in processed_entries)
+        for entry_text in (_str_optional(entry) for entry in processed_entries)
         if entry_text is not None
     }
 
@@ -426,7 +426,7 @@ def _state_processed_count(state: Mapping[str, JSONValue]) -> int:
     if processed_functions:
         return len(processed_functions)
     raw_count = state.get("processed_functions_count")
-    raw_count_value = _int_or_none(raw_count)
+    raw_count_value = _int_optional(raw_count)
     if raw_count_value is not None:
         return max(0, raw_count_value)
     return 0
@@ -438,7 +438,7 @@ def _state_processed_digest(state: Mapping[str, JSONValue]) -> str:
             _canonical_json_text(sort_once(processed_functions, source = 'src/gabion/server.py:1371')).encode("utf-8")
         ).hexdigest()
     raw_digest = state.get("processed_functions_digest")
-    digest_text = _str_or_none(raw_digest)
+    digest_text = _str_optional(raw_digest)
     if digest_text:
         return digest_text
     return hashlib.sha1(
@@ -448,20 +448,20 @@ def _state_processed_digest(state: Mapping[str, JSONValue]) -> str:
 def _analysis_index_resume_hydrated_paths(
     collection_resume: Mapping[str, JSONValue] | None,
 ) -> set[str]:
-    normalized_collection_resume = _json_mapping_or_none(collection_resume)
+    normalized_collection_resume = _json_mapping_optional(collection_resume)
     if normalized_collection_resume is None:
         return set()
     raw_resume = normalized_collection_resume.get("analysis_index_resume")
-    resume_mapping = _json_mapping_or_none(raw_resume)
+    resume_mapping = _json_mapping_optional(raw_resume)
     if resume_mapping is None:
         return set()
     raw_hydrated = resume_mapping.get("hydrated_paths")
-    hydrated_paths = _non_string_sequence_or_none(raw_hydrated)
+    hydrated_paths = _non_string_sequence_optional(raw_hydrated)
     if hydrated_paths is None:
         return set()
     return {
         entry_text
-        for entry_text in (_str_or_none(entry) for entry in hydrated_paths)
+        for entry_text in (_str_optional(entry) for entry in hydrated_paths)
         if entry_text is not None
     }
 
@@ -472,15 +472,15 @@ def _analysis_index_resume_hydrated_count(
     hydrated_count = len(hydrated)
     if hydrated_count:
         return hydrated_count
-    normalized_collection_resume = _json_mapping_or_none(collection_resume)
+    normalized_collection_resume = _json_mapping_optional(collection_resume)
     raw_resume = (
         normalized_collection_resume.get("analysis_index_resume")
         if normalized_collection_resume is not None
         else None
     )
-    resume_mapping = _json_mapping_or_none(raw_resume)
+    resume_mapping = _json_mapping_optional(raw_resume)
     raw_count = resume_mapping.get("hydrated_paths_count") if resume_mapping is not None else None
-    raw_count_value = _int_or_none(raw_count)
+    raw_count_value = _int_optional(raw_count)
     return max(0, raw_count_value) if raw_count_value is not None else 0
 
 def _analysis_index_resume_hydrated_digest(
@@ -491,15 +491,15 @@ def _analysis_index_resume_hydrated_digest(
         return hashlib.sha1(
             _canonical_json_text(sort_once(hydrated, source = 'src/gabion/server.py:1418')).encode("utf-8")
         ).hexdigest()
-    normalized_collection_resume = _json_mapping_or_none(collection_resume)
+    normalized_collection_resume = _json_mapping_optional(collection_resume)
     if normalized_collection_resume is None:
         return hashlib.sha1(b"[]").hexdigest()
     raw_resume = normalized_collection_resume.get("analysis_index_resume")
-    resume_mapping = _json_mapping_or_none(raw_resume)
+    resume_mapping = _json_mapping_optional(raw_resume)
     if resume_mapping is None:
         return hashlib.sha1(b"[]").hexdigest()
     raw_digest = resume_mapping.get("hydrated_paths_digest")
-    digest_text = _str_or_none(raw_digest)
+    digest_text = _str_optional(raw_digest)
     if digest_text:
         return digest_text
     return hashlib.sha1(
@@ -511,17 +511,17 @@ def _analysis_index_resume_signature(
 ) -> tuple[int, str, int, int, str, str]:
     hydrated_count = _analysis_index_resume_hydrated_count(collection_resume)
     hydrated_digest = _analysis_index_resume_hydrated_digest(collection_resume)
-    normalized_collection_resume = _json_mapping_or_none(collection_resume)
+    normalized_collection_resume = _json_mapping_optional(collection_resume)
     if normalized_collection_resume is None:
         return (hydrated_count, hydrated_digest, 0, 0, "", hydrated_digest)
     raw_resume = normalized_collection_resume.get("analysis_index_resume")
-    resume_mapping = _json_mapping_or_none(raw_resume)
+    resume_mapping = _json_mapping_optional(raw_resume)
     if resume_mapping is None:
         return (hydrated_count, hydrated_digest, 0, 0, "", hydrated_digest)
-    function_count = _int_or_none(resume_mapping.get("function_count"))
-    class_count = _int_or_none(resume_mapping.get("class_count"))
-    phase = _str_or_none(resume_mapping.get("phase"))
-    resume_digest = _str_or_none(resume_mapping.get("resume_digest"))
+    function_count = _int_optional(resume_mapping.get("function_count"))
+    class_count = _int_optional(resume_mapping.get("class_count"))
+    phase = _str_optional(resume_mapping.get("phase"))
+    resume_digest = _str_optional(resume_mapping.get("resume_digest"))
     function_count_value = function_count if function_count is not None else 0
     class_count_value = class_count if class_count is not None else 0
     phase_value = phase if phase is not None else ""
@@ -546,7 +546,7 @@ def _collection_semantic_witness(
     for path_key, state in states.items():
         check_deadline()
         phase = state.get("phase")
-        phase_text = _str_or_none(phase) or "unknown"
+        phase_text = _str_optional(phase) or "unknown"
         processed_count = _state_processed_count(state)
         processed_total += processed_count
         state_rows.append(
@@ -690,18 +690,18 @@ def _collection_semantic_progress(
     cumulative_completed_delta = completed_delta
     cumulative_hydrated_delta = hydrated_delta
     cumulative_regressed = regressed_processed + completed_regressed + hydrated_regressed
-    cumulative_mapping = _json_mapping_or_none(cumulative)
+    cumulative_mapping = _json_mapping_optional(cumulative)
     if cumulative_mapping is not None:
-        raw_cumulative_new = _int_or_none(
+        raw_cumulative_new = _int_optional(
             cumulative_mapping.get("cumulative_new_processed_functions")
         )
-        raw_cumulative_completed = _int_or_none(
+        raw_cumulative_completed = _int_optional(
             cumulative_mapping.get("cumulative_completed_files_delta")
         )
-        raw_cumulative_hydrated = _int_or_none(
+        raw_cumulative_hydrated = _int_optional(
             cumulative_mapping.get("cumulative_hydrated_paths_delta")
         )
-        raw_cumulative_regressed = _int_or_none(
+        raw_cumulative_regressed = _int_optional(
             cumulative_mapping.get("cumulative_regressed_functions")
         )
         if raw_cumulative_new is not None:
@@ -713,7 +713,7 @@ def _collection_semantic_progress(
         if raw_cumulative_regressed is not None:
             cumulative_regressed += max(0, raw_cumulative_regressed)
     current_witness = _collection_semantic_witness(collection_resume=collection_resume)
-    previous_resume_mapping = _json_mapping_or_none(previous_collection_resume)
+    previous_resume_mapping = _json_mapping_optional(previous_collection_resume)
     previous_witness = (
         _collection_semantic_witness(collection_resume=previous_resume_mapping)
         if previous_resume_mapping is not None

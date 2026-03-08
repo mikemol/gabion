@@ -8,6 +8,7 @@ from gabion.analysis.surfaces import test_evidence
 
 
 # gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload E:decision_surface/direct::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload::stale_9d3007f51f3a
+# gabion:behavior primary=verboten facets=unmapped
 def test_extracts_evidence_tags_and_unmapped(tmp_path: Path) -> None:
     root = tmp_path
     tests_dir = tmp_path / "tests"
@@ -62,6 +63,7 @@ def test_extracts_evidence_tags_and_unmapped(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence._find_evidence_tags E:function_site::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload
+# gabion:behavior primary=desired
 def test_requires_adjacent_tag_and_skips_bad_files(tmp_path: Path) -> None:
     root = tmp_path
     tests_dir = tmp_path / "tests"
@@ -95,6 +97,7 @@ def test_requires_adjacent_tag_and_skips_bad_files(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload E:decision_surface/direct::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload::stale_77c33f0898a8
+# gabion:behavior primary=desired
 def test_excludes_paths(tmp_path: Path) -> None:
     root = tmp_path
     tests_dir = tmp_path / "tests"
@@ -114,6 +117,7 @@ def test_excludes_paths(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence._extract_file_evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload E:function_site::test_evidence.py::gabion.analysis.test_evidence.write_test_evidence
+# gabion:behavior primary=verboten facets=missing
 def test_handles_missing_and_direct_file_paths(tmp_path: Path) -> None:
     root = tmp_path
     tests_dir = tmp_path / "tests"
@@ -137,6 +141,7 @@ def test_handles_missing_and_direct_file_paths(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence.collect_test_tags
+# gabion:behavior primary=desired
 def test_collect_test_tags_handles_async_and_class(tmp_path: Path) -> None:
     root = tmp_path
     tests_dir = tmp_path / "tests"
@@ -176,7 +181,36 @@ def test_collect_test_tags_handles_async_and_class(tmp_path: Path) -> None:
     assert test_evidence._extract_file_tags(missing, root) == []
 
 
+# gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence._find_evidence_tags
+# gabion:behavior primary=desired
+def test_find_evidence_tags_ignores_behavior_comment(tmp_path: Path) -> None:
+    root = tmp_path
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    source = tests_dir / "test_behavior_transparent.py"
+    source.write_text(
+        "\n".join(
+            [
+                "# gabion:evidence E:function_site::x.py::pkg.fn",
+                "# gabion:behavior primary=desired facets=cli",
+                "def test_transparent():",
+                "    assert True",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    payload = test_evidence.build_test_evidence_payload(
+        [tests_dir], root=root, include=["tests"], exclude=[]
+    )
+    entry = next(
+        test for test in payload["tests"] if test["test_id"].endswith("test_transparent")
+    )
+    assert [item["display"] for item in entry["evidence"]] == ["E:function_site::x.py::pkg.fn"]
+
+
 # gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload E:decision_surface/direct::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload::stale_7334c1075190
+# gabion:behavior primary=desired
 def test_rejects_duplicate_test_ids(tmp_path: Path) -> None:
     root = tmp_path
     tests_dir = tmp_path / "tests"
@@ -201,6 +235,7 @@ def test_rejects_duplicate_test_ids(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_test_evidence.py::test_build_test_evidence_merges_duplicate_evidence_identity::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload
+# gabion:behavior primary=desired
 def test_build_test_evidence_merges_duplicate_evidence_identity(tmp_path: Path) -> None:
     root = tmp_path
     tests_dir = tmp_path / "tests"
@@ -231,6 +266,7 @@ def test_build_test_evidence_merges_duplicate_evidence_identity(tmp_path: Path) 
 
 
 # gabion:evidence E:call_footprint::tests/test_test_evidence.py::test_collect_test_files_ignores_non_python_paths::test_evidence.py::gabion.analysis.test_evidence._collect_test_files
+# gabion:behavior primary=desired
 def test_collect_test_files_ignores_non_python_paths(tmp_path: Path) -> None:
     root = tmp_path
     txt = tmp_path / "notes.txt"
@@ -240,6 +276,7 @@ def test_collect_test_files_ignores_non_python_paths(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_test_evidence.py::test_collect_test_files_includes_cases_modules::test_evidence.py::gabion.analysis.test_evidence._collect_test_files
+# gabion:behavior primary=desired
 def test_collect_test_files_includes_cases_modules(tmp_path: Path) -> None:
     root = tmp_path
     tests_dir = tmp_path / "tests" / "gabion" / "synthesis"
@@ -260,12 +297,14 @@ def test_collect_test_files_includes_cases_modules(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_test_evidence.py::test_evidence_comments_ignores_empty_ids::test_evidence.py::gabion.analysis.test_evidence._evidence_comments
+# gabion:behavior primary=verboten facets=empty
 def test_evidence_comments_ignores_empty_ids() -> None:
     comments = test_evidence._evidence_comments("# gabion:evidence   \n")
     assert comments == {}
 
 
 # gabion:evidence E:call_footprint::tests/test_test_evidence.py::test_extract_file_evidence_uses_legacy_path_alias_and_qualname_compat::test_evidence.py::gabion.analysis.test_evidence._extract_file_evidence
+# gabion:behavior primary=allowed_unwanted facets=compat,legacy
 def test_extract_file_evidence_uses_legacy_path_alias_and_qualname_compat(
     tmp_path: Path,
 ) -> None:
@@ -291,6 +330,7 @@ def test_extract_file_evidence_uses_legacy_path_alias_and_qualname_compat(
 
 
 # gabion:evidence E:call_footprint::tests/test_test_evidence.py::test_extract_file_evidence_uses_path_alias_for_prefixed_module_names::test_evidence.py::gabion.analysis.test_evidence._extract_file_evidence
+# gabion:behavior primary=desired
 def test_extract_file_evidence_uses_path_alias_for_prefixed_module_names(
     tmp_path: Path,
 ) -> None:
@@ -315,6 +355,7 @@ def test_extract_file_evidence_uses_path_alias_for_prefixed_module_names(
 
 
 # gabion:evidence E:call_footprint::tests/test_test_evidence.py::test_duplicate_detection_applies_after_legacy_path_canonicalization::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_duplicate_detection_applies_after_legacy_path_canonicalization(
     tmp_path: Path,
 ) -> None:

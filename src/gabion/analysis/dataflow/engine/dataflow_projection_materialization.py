@@ -44,7 +44,7 @@ from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
     _parse_module_tree,
 )
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue, ParseFailureWitnesses
-from gabion.analysis.foundation.resume_codec import int_tuple4_or_none
+from gabion.analysis.foundation.resume_codec import int_tuple4_optional
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.analysis.semantics import evidence_keys
 from gabion.analysis.indexed_scan.calls.call_ambiguities import (
@@ -185,7 +185,7 @@ def _suite_order_relation(
         deps=_SuiteOrderRelationDeps(
             check_deadline_fn=check_deadline,
             never_fn=never,
-            int_tuple4_or_none_fn=int_tuple4_or_none,
+            int_tuple4_or_none_fn=int_tuple4_optional,
             suite_order_depth_fn=_suite_order_depth,
             sort_once_fn=sort_once,
         ),
@@ -246,7 +246,7 @@ def _ambiguity_suite_relation(
         deps=_AmbiguitySuiteRelationDeps(
             check_deadline_fn=check_deadline,
             never_fn=never,
-            int_tuple4_or_none_fn=int_tuple4_or_none,
+            int_tuple4_or_none_fn=int_tuple4_optional,
         ),
     )
 
@@ -337,7 +337,7 @@ def _suite_site_label(*, forest: Forest, suite_id: NodeId) -> str:
     path = str(suite_node.meta.get("path", "") or "")
     qual = str(suite_node.meta.get("qual", "") or "")
     suite_kind = str(suite_node.meta.get("suite_kind", "") or "")
-    span = int_tuple4_or_none(suite_node.meta.get("span"))
+    span = int_tuple4_optional(suite_node.meta.get("span"))
     if not path or not qual or not suite_kind or span is None:
         never(  # pragma: no cover - invariant sink
             "suite site label projection missing identity",

@@ -16,6 +16,7 @@ def _load():
 
 
 # gabion:evidence E:call_footprint::tests/test_refactor_engine.py::test_loop_generator_rewrite_emits_ops_and_filter::engine.py::gabion.refactor.engine.RefactorEngine.plan_loop_generator_rewrite
+# gabion:behavior primary=desired
 def test_loop_generator_rewrite_emits_ops_and_filter(tmp_path: Path) -> None:
     RefactorEngine, LoopGeneratorRequest, RefactorPlanOutcome = _load()
     target = tmp_path / "sample.py"
@@ -56,6 +57,7 @@ def test_loop_generator_rewrite_emits_ops_and_filter(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_refactor_engine.py::test_loop_generator_rewrite_supports_binary_reducer_form::engine.py::gabion.refactor.engine.RefactorEngine.plan_loop_generator_rewrite
+# gabion:behavior primary=desired
 def test_loop_generator_rewrite_supports_binary_reducer_form(tmp_path: Path) -> None:
     RefactorEngine, LoopGeneratorRequest, RefactorPlanOutcome = _load()
     target = tmp_path / "sample.py"
@@ -84,6 +86,7 @@ def test_loop_generator_rewrite_supports_binary_reducer_form(tmp_path: Path) -> 
 
 
 # gabion:evidence E:call_footprint::tests/test_refactor_engine.py::test_loop_generator_rewrite_rejects_break_without_edits::engine.py::gabion.refactor.engine.RefactorEngine.plan_loop_generator_rewrite
+# gabion:behavior primary=desired
 def test_loop_generator_rewrite_rejects_break_without_edits(tmp_path: Path) -> None:
     RefactorEngine, LoopGeneratorRequest, RefactorPlanOutcome = _load()
     target = tmp_path / "sample.py"
@@ -115,6 +118,7 @@ def test_loop_generator_rewrite_rejects_break_without_edits(tmp_path: Path) -> N
 
 
 # gabion:evidence E:call_footprint::tests/test_refactor_engine.py::test_loop_generator_rewrite_is_idempotent_on_second_pass::engine.py::gabion.refactor.engine.RefactorEngine.plan_loop_generator_rewrite
+# gabion:behavior primary=desired
 def test_loop_generator_rewrite_is_idempotent_on_second_pass(tmp_path: Path) -> None:
     RefactorEngine, LoopGeneratorRequest, RefactorPlanOutcome = _load()
     target = tmp_path / "sample.py"
@@ -142,6 +146,7 @@ def test_loop_generator_rewrite_is_idempotent_on_second_pass(tmp_path: Path) -> 
 
 
 # gabion:evidence E:call_footprint::tests/test_refactor_engine.py::test_loop_generator_reference_equivalence_collection_ops::engine.py::gabion.refactor.engine.RefactorEngine.plan_loop_generator_rewrite
+# gabion:behavior primary=desired
 def test_loop_generator_reference_equivalence_collection_ops(tmp_path: Path) -> None:
     RefactorEngine, LoopGeneratorRequest, RefactorPlanOutcome = _load()
     target = tmp_path / "sample.py"
@@ -202,6 +207,7 @@ def test_loop_generator_reference_equivalence_collection_ops(tmp_path: Path) -> 
     assert mapping_actual == mapping_expected
 
 
+# gabion:behavior primary=desired
 def test_loop_generator_nested_peeling_with_repeated_invocation(tmp_path: Path) -> None:
     RefactorEngine, LoopGeneratorRequest, RefactorPlanOutcome = _load()
     target = tmp_path / "sample.py"
@@ -231,6 +237,7 @@ def test_loop_generator_nested_peeling_with_repeated_invocation(tmp_path: Path) 
     assert any("helper chase from: nested" in entry.summary for entry in second.rewrite_plans)
 
 
+# gabion:behavior primary=desired
 def test_loop_generator_partial_apply_mixed_success_and_failure(tmp_path: Path) -> None:
     RefactorEngine, LoopGeneratorRequest, RefactorPlanOutcome = _load()
     target = tmp_path / "sample.py"
@@ -263,6 +270,7 @@ def test_loop_generator_partial_apply_mixed_success_and_failure(tmp_path: Path) 
     assert any(entry.status == "ABSTAINED" for entry in plan.rewrite_plans)
 
 
+# gabion:behavior primary=desired
 def test_loop_generator_nested_target_loop_line_selection(tmp_path: Path) -> None:
     RefactorEngine, LoopGeneratorRequest, RefactorPlanOutcome = _load()
     target = tmp_path / "sample.py"

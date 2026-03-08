@@ -29,6 +29,7 @@ def _normalized_primitives(payload: dict[str, Any]) -> dict[str, Any]:
 
 # gabion:evidence E:function_site::tests/test_ingest_adapter_contract.py::test_python_ingest_contract_fixture
 
+# gabion:behavior primary=desired
 def test_python_ingest_contract_fixture() -> None:
     raw = _load_fixture("python_raw.json")
     expected = _load_fixture("python_expected.json")
@@ -38,6 +39,7 @@ def test_python_ingest_contract_fixture() -> None:
 
 # gabion:evidence E:function_site::tests/test_ingest_adapter_contract.py::test_synthetic_non_python_ingest_contract_fixture
 
+# gabion:behavior primary=desired
 def test_synthetic_non_python_ingest_contract_fixture() -> None:
     raw = _load_fixture("synthetic_raw.json")
     expected = _load_fixture("synthetic_expected.json")
@@ -47,6 +49,7 @@ def test_synthetic_non_python_ingest_contract_fixture() -> None:
 
 # gabion:evidence E:function_site::tests/test_ingest_adapter_contract.py::test_ingest_normalization_deterministic_ordering
 
+# gabion:behavior primary=desired
 def test_ingest_normalization_deterministic_ordering() -> None:
     raw = _load_fixture("python_raw.json")
     reversed_insertion_payload = {key: raw[key] for key in reversed(list(raw.keys()))}
@@ -61,6 +64,7 @@ def test_ingest_normalization_deterministic_ordering() -> None:
 
 # gabion:evidence E:function_site::tests/test_ingest_adapter_contract.py::test_adapter_parity_on_overlapping_decision_surfaces
 
+# gabion:behavior primary=desired
 def test_adapter_parity_on_overlapping_decision_surfaces() -> None:
     python_primitives = _normalized_primitives(_load_fixture("python_raw.json"))
     synthetic_primitives = _normalized_primitives(_load_fixture("synthetic_raw.json"))

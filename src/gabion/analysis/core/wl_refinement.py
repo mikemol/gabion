@@ -8,7 +8,7 @@ from gabion.analysis.core.determinism_invariants import (
     require_canonical_multiset, require_no_dupes, require_sorted)
 from gabion.analysis.projection.projection_normalize import spec_hash as projection_spec_hash
 from gabion.analysis.projection.projection_spec import ProjectionSpec
-from gabion.analysis.foundation.resume_codec import sequence_or_none
+from gabion.analysis.foundation.resume_codec import sequence_optional
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.json_types import JSONObject, JSONValue
 from gabion.order_contract import sort_once
@@ -317,7 +317,7 @@ def _string_list_param(
     default: tuple[str, ...],
 ) -> tuple[str, ...]:
     raw = params.get(name)
-    values_payload = sequence_or_none(raw)
+    values_payload = sequence_optional(raw)
     if values_payload is not None:
         values = [str(item).strip() for item in values_payload if str(item).strip()]
         if values:

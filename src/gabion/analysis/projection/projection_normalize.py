@@ -7,32 +7,32 @@ from collections.abc import Iterable, Mapping
 from gabion.analysis.projection.projection_spec import (
     ProjectionOp, ProjectionSpec, spec_from_dict)
 from gabion.analysis.foundation.artifact_ordering import canonical_mapping_keys
-from gabion.analysis.foundation.resume_codec import mapping_or_none
+from gabion.analysis.foundation.resume_codec import mapping_optional
 from gabion.json_types import JSONValue
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.invariants import never
 from gabion.order_contract import OrderPolicy, sort_once
-from gabion.runtime_shape_dispatch import json_mapping_or_none, str_or_none
+from gabion.runtime_shape_dispatch import json_mapping_optional, str_optional
 
 _NO_LIMIT = None
 
 
 @singledispatch
-def _string_values_or_empty(value: JSONValue) -> tuple[str, ...]:
+def _string_values_default_empty(value: JSONValue) -> tuple[str, ...]:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
-@_string_values_or_empty.register(str)
+@_string_values_default_empty.register(str)
 def _(value: str) -> tuple[str, ...]:
     return (value,)
 
 
-@_string_values_or_empty.register(list)
+@_string_values_default_empty.register(list)
 def _(value: list[JSONValue]) -> tuple[str, ...]:
     values: list[str] = []
     for entry in value:
         check_deadline()
-        entry_text = str_or_none(entry)
+        entry_text = str_optional(entry)
         if entry_text is not None:
             values.append(entry_text)
     return tuple(values)
@@ -44,20 +44,20 @@ def _none_string_values(value: JSONValue) -> tuple[str, ...]:
 
 
 for _runtime_type in (dict, int, float, bool, tuple, set, type(None)):
-    _string_values_or_empty.register(_runtime_type)(_none_string_values)
+    _string_values_default_empty.register(_runtime_type)(_none_string_values)
 
 
 @singledispatch
-def _sort_by_values_or_empty(value: JSONValue) -> tuple[JSONValue, ...]:
+def _sort_by_values_default_empty(value: JSONValue) -> tuple[JSONValue, ...]:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
-@_sort_by_values_or_empty.register(str)
+@_sort_by_values_default_empty.register(str)
 def _(value: str) -> tuple[JSONValue, ...]:
     return (value,)
 
 
-@_sort_by_values_or_empty.register(list)
+@_sort_by_values_default_empty.register(list)
 def _(value: list[JSONValue]) -> tuple[JSONValue, ...]:
     return tuple(value)
 
@@ -68,7 +68,7 @@ def _none_sort_by_values(value: JSONValue) -> tuple[JSONValue, ...]:
 
 
 for _runtime_type in (dict, int, float, bool, tuple, set, type(None)):
-    _sort_by_values_or_empty.register(_runtime_type)(_none_sort_by_values)
+    _sort_by_values_default_empty.register(_runtime_type)(_none_sort_by_values)
 
 
 def normalize_spec(spec: ProjectionSpec) -> dict[str, JSONValue]:
@@ -92,7 +92,7 @@ def spec_hash(spec) -> str:
             return spec_text
         case ProjectionSpec() as projection_spec:
             return spec_canonical_json(projection_spec)
-    spec_mapping = mapping_or_none(spec) or {}
+    spec_mapping = mapping_optional(spec) or {}
     return spec_canonical_json(spec_from_dict(spec_mapping))
 
 
@@ -210,7 +210,7 @@ def _normalize_predicates(values: Iterable[str]) -> list[str]:
 def _normalize_fields(value: JSONValue) -> list[str]:
     check_deadline()
     fields: list[str] = []
-    for field_text in _string_values_or_empty(value):
+    for field_text in _string_values_default_empty(value):
         check_deadline()
         stripped = field_text.strip()
         if stripped:
@@ -238,25 +238,25 @@ def _normalize_group_fields(value: JSONValue) -> list[str]:
 def _normalize_sort_by(value: JSONValue) -> list[dict[str, JSONValue]]:
     check_deadline()
     items: list[dict[str, JSONValue]] = []
-    for entry in _sort_by_values_or_empty(value):
+    for entry in _sort_by_values_default_empty(value):
         check_deadline()
-        entry_text = str_or_none(entry)
+        entry_text = str_optional(entry)
         if entry_text is not None:
             stripped = entry_text.strip()
             if stripped:
                 items.append({"field": stripped, "order": "asc"})
         else:
-            entry_map = json_mapping_or_none(entry)
+            entry_map = json_mapping_optional(entry)
             if entry_map is not None:
                 field = (
                     entry_map.get("field")
                     or entry_map.get("key")
                     or entry_map.get("name")
                 )
-                field_text = str_or_none(field)
+                field_text = str_optional(field)
                 if field_text is not None and field_text.strip():
                     order = entry_map.get("order", "asc")
-                    order_text = str_or_none(order)
+                    order_text = str_optional(order)
                     order_norm = (order_text or "asc").strip().lower() or "asc"
                     if order_norm not in {"asc", "desc"}:
                         order_norm = "asc"

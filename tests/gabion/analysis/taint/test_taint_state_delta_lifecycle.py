@@ -31,6 +31,7 @@ def _marker_rows() -> list[dict[str, object]]:
 
 
 # gabion:evidence E:function_site::taint_state.py::gabion.analysis.taint_state.parse_state_payload
+# gabion:behavior primary=desired
 def test_taint_state_roundtrip_and_summary() -> None:
     payload = taint_state.build_state_payload(
         marker_rows=_marker_rows(),
@@ -52,6 +53,7 @@ def test_taint_state_roundtrip_and_summary() -> None:
 
 
 # gabion:evidence E:function_site::taint_state.py::gabion.analysis.taint_state.build_state_payload
+# gabion:behavior primary=desired
 def test_taint_baseline_delta_and_markdown() -> None:
     contain_payload = taint_state.build_state_payload(
         marker_rows=_marker_rows(),
@@ -91,6 +93,7 @@ def test_taint_baseline_delta_and_markdown() -> None:
 
 
 # gabion:evidence E:function_site::taint_state.py::gabion.analysis.taint_state.parse_state_payload
+# gabion:behavior primary=desired
 def test_taint_lifecycle_readiness_promotion_and_demotion() -> None:
     state_payload = taint_state.build_state_payload(
         marker_rows=_marker_rows(),
@@ -115,6 +118,7 @@ def test_taint_lifecycle_readiness_promotion_and_demotion() -> None:
 
 
 # gabion:evidence E:function_site::taint_state.py::gabion.analysis.taint_state.parse_state_payload
+# gabion:behavior primary=verboten facets=edge
 def test_taint_state_delta_and_lifecycle_branch_edges(tmp_path) -> None:
     baseline_payload = taint_delta.build_baseline_payload(
         taint_state.parse_state_payload(

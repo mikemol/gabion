@@ -27,6 +27,7 @@ def _minimal_entry(test_id: str, file_path: str) -> test_evidence_suggestions.Te
 
 
 # gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.load_test_evidence E:function_site::test_test_evidence_suggestions_edges.py::tests.test_test_evidence_suggestions_edges._write_json
+# gabion:behavior primary=verboten facets=edge,error
 def test_load_test_evidence_errors_and_defaults(tmp_path: Path) -> None:
     bad_schema = tmp_path / "bad.json"
     _write_json(bad_schema, {"schema_version": 3})
@@ -56,6 +57,7 @@ def test_load_test_evidence_errors_and_defaults(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key::stale_e2f1950f5e6b
+# gabion:behavior primary=verboten facets=edge
 def test_render_markdown_and_payload() -> None:
     key = evidence_keys.make_paramset_key(["x"])
     suggestion = test_evidence_suggestions.Suggestion(
@@ -104,6 +106,7 @@ def test_render_markdown_and_payload() -> None:
 
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._iter_paths::config E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._build_function_index::ignore_params E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._is_test_path::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._build_function_index::stale_c9d342c65475
+# gabion:behavior primary=verboten facets=edge
 def test_graph_suggestions_paths_filtered(tmp_path: Path) -> None:
     forest = Forest()
     entry = _minimal_entry("tests/test_sample.py::test_alpha", "tests/test_sample.py")
@@ -121,6 +124,7 @@ def test_graph_suggestions_paths_filtered(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._graph_suggestions
+# gabion:behavior primary=verboten facets=edge,empty
 def test_graph_suggestions_empty_entries_short_circuits(tmp_path: Path) -> None:
     suggestions, resolved = test_evidence_suggestions._graph_suggestions(
         [],
@@ -135,6 +139,7 @@ def test_graph_suggestions_empty_entries_short_circuits(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._iter_paths::config E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._build_function_index::ignore_params E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._is_test_path::path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._build_function_index::stale_32b0c4fac550_22ff5a7a
+# gabion:behavior primary=verboten facets=edge
 def test_graph_suggestions_cache_and_unresolved(tmp_path: Path) -> None:
     app = tmp_path / "app.py"
     app.write_text("def helper(x):\n    return x\n", encoding="utf-8")
@@ -175,6 +180,7 @@ def test_graph_suggestions_cache_and_unresolved(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._collect_reachable
+# gabion:behavior primary=verboten facets=edge
 def test_collect_reachable_skips_visited() -> None:
     path = Path("sample.py")
     info = FunctionInfo(
@@ -198,11 +204,13 @@ def test_collect_reachable_skips_visited() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_test_evidence_suggestions_edges.py::test_test_qual_passthrough::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._test_qual
+# gabion:behavior primary=verboten facets=edge
 def test_test_qual_passthrough() -> None:
     assert test_evidence_suggestions._test_qual("no_delimiter") == "no_delimiter"
 
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._alt_input::kind E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.make_never_sink_key::reason E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._alt_input::stale_4cb8e03f700b_03483964
+# gabion:behavior primary=verboten facets=edge
 def test_build_indices_and_helper_functions(tmp_path: Path) -> None:
     path = tmp_path / "sample.py"
     info = FunctionInfo(
@@ -275,6 +283,7 @@ def test_build_indices_and_helper_functions(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._alt_input::kind E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.make_never_sink_key::reason E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._alt_input::stale_2e661a6266d4
+# gabion:behavior primary=verboten facets=edge
 def test_evidence_for_alt_variants() -> None:
     forest = Forest()
     site_id = forest.add_site("a.py", "f")
@@ -307,6 +316,7 @@ def test_evidence_for_alt_variants() -> None:
 
 
 # gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._collect_call_footprint_targets
+# gabion:behavior primary=verboten facets=edge
 def test_collect_call_footprint_targets_no_outer(tmp_path: Path) -> None:
     test_dir = tmp_path / "tests"
     test_dir.mkdir()
@@ -339,6 +349,7 @@ def test_collect_call_footprint_targets_no_outer(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._find_module_level_calls E:decision_surface/direct::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._find_module_level_calls::stale_4b23852ce6db_be534f60
+# gabion:behavior primary=verboten facets=edge,empty,missing
 def test_find_module_level_calls_empty_and_missing(tmp_path: Path) -> None:
     info = FunctionInfo(
         name="test_alpha",
@@ -385,6 +396,7 @@ def test_find_module_level_calls_empty_and_missing(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._find_module_level_calls E:decision_surface/direct::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._find_module_level_calls::stale_fc7abccd3cc6
+# gabion:behavior primary=verboten facets=edge,missing
 def test_find_module_level_calls_node_missing(tmp_path: Path) -> None:
     test_dir = tmp_path / "tests"
     test_dir.mkdir()
@@ -418,6 +430,7 @@ def test_find_module_level_calls_node_missing(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._find_module_level_calls E:decision_surface/direct::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._find_module_level_calls::stale_94b65ff6ed2f
+# gabion:behavior primary=verboten facets=edge
 def test_find_module_level_calls_resolves_symbol_and_literal(tmp_path: Path) -> None:
     src_pkg = tmp_path / "src" / "pkg"
     src_pkg.mkdir(parents=True)
@@ -474,6 +487,7 @@ def test_find_module_level_calls_resolves_symbol_and_literal(tmp_path: Path) -> 
 
 
 # gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._iter_outer_calls
+# gabion:behavior primary=verboten facets=edge
 def test_iter_outer_calls_skips_nested() -> None:
     tree = ast.parse(
         "def test_alpha():\n"
@@ -487,6 +501,7 @@ def test_iter_outer_calls_skips_nested() -> None:
 
 
 # gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._call_symbol_refs
+# gabion:behavior primary=verboten facets=edge
 def test_call_symbol_and_literal_helpers() -> None:
     call = ast.Call(
         func=ast.Name(id="f", ctx=ast.Load()),
@@ -522,6 +537,7 @@ def test_call_symbol_and_literal_helpers() -> None:
 
 
 # gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._resolve_symbol_target
+# gabion:behavior primary=verboten facets=edge
 def test_resolve_symbol_and_module_helpers(tmp_path: Path) -> None:
     src_pkg = tmp_path / "src" / "pkg"
     src_pkg.mkdir(parents=True)
@@ -586,6 +602,7 @@ def test_resolve_symbol_and_module_helpers(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._resolve_module_literal
+# gabion:behavior primary=verboten facets=edge,invalid
 def test_resolve_module_literal_invalid(tmp_path: Path) -> None:
     module_cache: dict[str, Path | None] = {}
     assert (
@@ -609,11 +626,13 @@ def test_resolve_module_literal_invalid(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.collect_call_footprints E:decision_surface/direct::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.collect_call_footprints::stale_098851b92767
+# gabion:behavior primary=verboten facets=edge,empty
 def test_collect_call_footprints_empty_entries() -> None:
     assert test_evidence_suggestions.collect_call_footprints([]) == {}
 
 
 # gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.collect_call_footprints E:decision_surface/direct::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.collect_call_footprints::stale_538a74c2fcbd
+# gabion:behavior primary=verboten facets=edge,empty
 def test_collect_call_footprints_empty_paths(tmp_path: Path) -> None:
     entry = _minimal_entry("tests/test_sample.py::test_alpha", "tests/test_sample.py")
     config = AuditConfig(project_root=tmp_path)
@@ -627,6 +646,7 @@ def test_collect_call_footprints_empty_paths(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.collect_call_footprints E:decision_surface/direct::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.collect_call_footprints::stale_c18e05ce1806_bc86387e
+# gabion:behavior primary=verboten facets=edge,missing
 def test_collect_call_footprints_cache_and_missing(tmp_path: Path) -> None:
     src_dir = tmp_path / "src"
     src_dir.mkdir()
@@ -660,6 +680,7 @@ def test_collect_call_footprints_cache_and_missing(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_test_evidence_suggestions_edges.py::test_suggest_evidence_without_heuristics_skips_no_match::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.suggest_evidence::test_test_evidence_suggestions_edges.py::tests.test_test_evidence_suggestions_edges._minimal_entry
+# gabion:behavior primary=verboten facets=edge
 def test_suggest_evidence_without_heuristics_skips_no_match(tmp_path: Path) -> None:
     entry = _minimal_entry("tests/test_alpha.py::test_alpha", "tests/test_alpha.py")
     suggestions, summary = test_evidence_suggestions.suggest_evidence(
@@ -675,6 +696,7 @@ def test_suggest_evidence_without_heuristics_skips_no_match(tmp_path: Path) -> N
 
 
 # gabion:evidence E:call_footprint::tests/test_test_evidence_suggestions_edges.py::test_render_markdown_without_match_details::evidence_keys.py::gabion.analysis.evidence_keys.make_opaque_key::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.render_markdown
+# gabion:behavior primary=verboten facets=edge
 def test_render_markdown_without_match_details() -> None:
     key = evidence_keys.make_opaque_key("opaque")
     suggestion = test_evidence_suggestions.Suggestion(
@@ -701,6 +723,7 @@ def test_render_markdown_without_match_details() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_test_evidence_suggestions_edges.py::test_graph_suggestions_evidence_items_and_no_targets_branches::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._graph_suggestions::test_test_evidence_suggestions_edges.py::tests.test_test_evidence_suggestions_edges._minimal_entry
+# gabion:behavior primary=verboten facets=edge
 def test_graph_suggestions_evidence_items_and_no_targets_branches(tmp_path: Path) -> None:
     (tmp_path / "seed.py").write_text("def seed():\n    return 1\n", encoding="utf-8")
     entry = _minimal_entry("tests/test_alpha.py::test_alpha", "tests/test_alpha.py")
@@ -771,6 +794,7 @@ def test_graph_suggestions_evidence_items_and_no_targets_branches(tmp_path: Path
 
 
 # gabion:evidence E:call_footprint::tests/test_test_evidence_suggestions_edges.py::test_suggest_evidence_include_heuristics_no_match_branch::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.suggest_evidence::test_test_evidence_suggestions_edges.py::tests.test_test_evidence_suggestions_edges._minimal_entry
+# gabion:behavior primary=verboten facets=edge
 def test_suggest_evidence_include_heuristics_no_match_branch(tmp_path: Path) -> None:
     entry = _minimal_entry("tests/test_alpha.py::test_alpha", "tests/test_alpha.py")
     suggestions, summary = test_evidence_suggestions.suggest_evidence(
@@ -786,6 +810,7 @@ def test_suggest_evidence_include_heuristics_no_match_branch(tmp_path: Path) -> 
 
 
 # gabion:evidence E:call_footprint::tests/test_test_evidence_suggestions_edges.py::test_collect_call_footprints_skips_empty_targets::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.collect_call_footprints::test_test_evidence_suggestions_edges.py::tests.test_test_evidence_suggestions_edges._minimal_entry
+# gabion:behavior primary=verboten facets=edge,empty
 def test_collect_call_footprints_skips_empty_targets(tmp_path: Path) -> None:
     seed = tmp_path / "seed.py"
     seed.write_text("def seed():\n    return 1\n", encoding="utf-8")
@@ -818,6 +843,7 @@ def test_collect_call_footprints_skips_empty_targets(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_test_evidence_suggestions_edges.py::test_find_module_level_calls_relative_cache_and_symbol_helpers::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._call_module_literals::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._call_symbol_refs::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._find_module_level_calls::test_test_evidence_suggestions_edges.py::tests.test_test_evidence_suggestions_edges._minimal_entry
+# gabion:behavior primary=verboten facets=edge
 def test_find_module_level_calls_relative_cache_and_symbol_helpers(tmp_path: Path) -> None:
     tests_dir = tmp_path / "tests"
     tests_dir.mkdir()
@@ -888,6 +914,7 @@ def test_find_module_level_calls_relative_cache_and_symbol_helpers(tmp_path: Pat
 
 
 # gabion:evidence E:call_footprint::tests/test_test_evidence_suggestions_edges.py::test_call_symbol_refs_attribute_none_and_suggest_for_entry_parse_fallback::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._call_symbol_refs::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._suggest_for_entry::test_test_evidence_suggestions_edges.py::tests.test_test_evidence_suggestions_edges._minimal_entry
+# gabion:behavior primary=allowed_unwanted facets=fallback
 def test_call_symbol_refs_attribute_none_and_suggest_for_entry_parse_fallback() -> None:
     call = ast.Call(
         func=ast.Attribute(
@@ -926,6 +953,7 @@ def test_call_symbol_refs_attribute_none_and_suggest_for_entry_parse_fallback() 
 
 
 # gabion:evidence E:call_footprint::tests/test_test_evidence_suggestions_edges.py::test_suggest_for_entry_parse_display_and_non_opaque_path::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._suggest_for_entry::test_test_evidence_suggestions_edges.py::tests.test_test_evidence_suggestions_edges._minimal_entry
+# gabion:behavior primary=verboten facets=edge
 def test_suggest_for_entry_parse_display_and_non_opaque_path() -> None:
     entry = _minimal_entry("tests/test_alpha.py::test_alpha", "tests/test_alpha.py")
     rule = test_evidence_suggestions._SuggestionRule(
@@ -947,6 +975,7 @@ def test_suggest_for_entry_parse_display_and_non_opaque_path() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_test_evidence_suggestions_edges.py::test_module_resolution_and_site_parts_edge_branches::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._resolve_module_file::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._site_parts
+# gabion:behavior primary=verboten facets=edge
 def test_module_resolution_and_site_parts_edge_branches(tmp_path: Path) -> None:
     module_dir = tmp_path / "src" / "pkg"
     module_dir.mkdir(parents=True)
@@ -959,6 +988,7 @@ def test_module_resolution_and_site_parts_edge_branches(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_test_evidence_suggestions_edges.py::test_suggest_for_entry_opaque_and_normalize_mapping_edges::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._normalize_evidence_list::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._suggest_for_entry::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._summarize_unmapped::test_test_evidence_suggestions_edges.py::tests.test_test_evidence_suggestions_edges._minimal_entry
+# gabion:behavior primary=verboten facets=edge
 def test_suggest_for_entry_opaque_and_normalize_mapping_edges() -> None:
     entry = _minimal_entry("tests/test_alpha.py::test_alpha", "tests/test_alpha.py")
     rule = test_evidence_suggestions._SuggestionRule(
@@ -989,6 +1019,7 @@ def test_suggest_for_entry_opaque_and_normalize_mapping_edges() -> None:
     assert prefixes
 
 
+# gabion:behavior primary=verboten facets=edge
 def test_facet_site_id_prefers_suite_site_input() -> None:
     forest = Forest()
     suite_id = forest.add_suite_site("mod.py", "f", "call", span=(1, 0, 1, 1))

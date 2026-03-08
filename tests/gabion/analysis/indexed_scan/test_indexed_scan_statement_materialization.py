@@ -36,6 +36,7 @@ def _node_span(node: ast.AST) -> tuple[int, int, int, int] | None:
 
 
 # gabion:evidence E:function_site::indexed_scan/statement_materialization.py::gabion.analysis.indexed_scan.statement_materialization.materialize_statement_suite_contains
+# gabion:behavior primary=desired
 def test_materialize_statement_suite_contains_emits_nested_suites() -> None:
     module = ast.parse(
         "if cond:\n"
@@ -60,6 +61,7 @@ def test_materialize_statement_suite_contains_emits_nested_suites() -> None:
 
 
 # gabion:evidence E:function_site::indexed_scan/statement_materialization.py::gabion.analysis.indexed_scan.statement_materialization.materialize_statement_suite_contains::missing
+# gabion:behavior primary=verboten facets=missing
 def test_materialize_statement_suite_contains_skips_when_span_missing() -> None:
     module = ast.parse("if cond:\n    pass\n")
     forest = _FakeForest(suites=[])
@@ -75,6 +77,7 @@ def test_materialize_statement_suite_contains_skips_when_span_missing() -> None:
 
 
 # gabion:evidence E:function_site::indexed_scan/statement_materialization.py::gabion.analysis.indexed_scan.statement_materialization.materialize_statement_suite_contains::for_else
+# gabion:behavior primary=desired
 def test_materialize_statement_suite_contains_covers_loop_with_try_branches() -> None:
     module = ast.parse(
         "for item in seq:\n"
@@ -109,6 +112,7 @@ def test_materialize_statement_suite_contains_covers_loop_with_try_branches() ->
 
 
 # gabion:evidence E:function_site::indexed_scan/statement_materialization.py::gabion.analysis.indexed_scan.statement_materialization.materialize_statement_suite_contains::async_for
+# gabion:behavior primary=desired
 def test_materialize_statement_suite_contains_covers_async_branches() -> None:
     module = ast.parse(
         "async def _f(xs):\n"

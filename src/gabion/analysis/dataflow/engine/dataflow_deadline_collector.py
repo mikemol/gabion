@@ -5,7 +5,7 @@ from collections.abc import Callable
 from functools import singledispatch, singledispatchmethod
 
 from gabion.invariants import never
-from gabion.runtime_shape_dispatch import str_or_none
+from gabion.runtime_shape_dispatch import str_optional
 
 
 @singledispatch
@@ -153,12 +153,12 @@ def make_deadline_function_collector(
             if func.attr == "deadline_loop_iter":
                 self._mark_ambient_check()
 
-            owner_name = str_or_none(func.value)
+            owner_name = str_optional(func.value)
             if owner_name is not None and func.attr in deadline_check_methods and owner_name in self._params:
                 self._mark_param_check(owner_name)
 
             if func.attr == "check_deadline":
-                first_name = str_or_none(args[0]) if args else None
+                first_name = str_optional(args[0]) if args else None
                 if first_name is not None and first_name in self._params:
                     self._mark_param_check(first_name)
 
@@ -171,7 +171,7 @@ def make_deadline_function_collector(
                 self._mark_ambient_check()
 
             if func.id == "check_deadline":
-                first_name = str_or_none(args[0]) if args else None
+                first_name = str_optional(args[0]) if args else None
                 if first_name is not None and first_name in self._params:
                     self._mark_param_check(first_name)
 

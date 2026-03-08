@@ -3,6 +3,7 @@ from __future__ import annotations
 from gabion.analysis.dataflow.engine import dataflow_lint_helpers as da
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._lint_lines_from_bundle_evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._parse_lint_location
+# gabion:behavior primary=desired
 def test_lint_location_parser_and_bundle_lines() -> None:
     parsed = da._parse_lint_location("mod.py:10:4-10:6: f -> g forwards a,b")
     assert parsed is not None
@@ -19,6 +20,7 @@ def test_lint_location_parser_and_bundle_lines() -> None:
     assert da._parse_lint_location("mod.py:x:y: nope") is None
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._exception_protocol_lint_lines E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._lint_lines_from_type_evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._parse_exception_path_id
+# gabion:behavior primary=verboten facets=exception
 def test_lint_lines_from_type_and_exception_evidence() -> None:
     type_lines = da._lint_lines_from_type_evidence(
         ["mod.py:5:2: f.a -> g.b expects int"]
@@ -40,6 +42,7 @@ def test_lint_lines_from_type_and_exception_evidence() -> None:
     ]
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._lint_lines_from_constant_smells E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._lint_lines_from_unused_arg_smells
+# gabion:behavior primary=desired
 def test_lint_lines_from_constant_and_unused_smells() -> None:
     constant_smell = (
         "mod.py:f.a only observed constant 1 across 2 non-test call(s) "

@@ -37,7 +37,7 @@ from gabion.analysis.dataflow.engine.dataflow_obligations import (
 from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
     _analysis_collection_resume_path_key,
 )
-from gabion.runtime_shape_dispatch import int_or_none, json_mapping_or_none, str_or_none
+from gabion.runtime_shape_dispatch import int_optional, json_mapping_optional, str_optional
 
 AnalysisIndex = object
 
@@ -49,10 +49,10 @@ _SURFACE_REWRITE_PLAN_SUPPORT = "rewrite-plan-support"
 
 
 def _capability_enabled(adapter_contract: object, capability_name: str) -> bool:
-    adapter_contract_payload = json_mapping_or_none(adapter_contract)
+    adapter_contract_payload = json_mapping_optional(adapter_contract)
     if adapter_contract_payload is None:
         return True
-    capabilities_payload = json_mapping_or_none(
+    capabilities_payload = json_mapping_optional(
         adapter_contract_payload.get("capabilities")
     )
     if capabilities_payload is None:
@@ -74,10 +74,10 @@ def _unsupported_surface_diagnostic(
     required = surface in runtime_config.required_analysis_surfaces
     adapter_contract = runtime_config.adapter_contract
     adapter_name = "native"
-    adapter_contract_payload = json_mapping_or_none(adapter_contract)
+    adapter_contract_payload = json_mapping_optional(adapter_contract)
     if adapter_contract_payload is not None:
         adapter_name = str(
-            str_or_none(adapter_contract_payload.get("name")) or "native"
+            str_optional(adapter_contract_payload.get("name")) or "native"
         )
     return {
         "kind": "unsupported_by_adapter",
@@ -135,10 +135,10 @@ def _normalized_dimension_payload(
             case str() as dim_name:
                 match raw_payload:
                     case Mapping() as dimension_payload:
-                        mapping_payload = json_mapping_or_none(dimension_payload)
+                        mapping_payload = json_mapping_optional(dimension_payload)
                         if mapping_payload is not None:
-                            done_value = int_or_none(mapping_payload.get("done"))
-                            total_value = int_or_none(mapping_payload.get("total"))
+                            done_value = int_optional(mapping_payload.get("done"))
+                            total_value = int_optional(mapping_payload.get("total"))
                             if done_value is not None and total_value is not None:
                                 done = max(done_value, 0)
                                 total = max(total_value, 0)
@@ -162,7 +162,7 @@ def _apply_forest_progress_delta(
 ) -> tuple[int, int, str, dict[str, JSONObject], bool]:
     match progress_delta:
         case Mapping() as progress_delta_payload:
-            normalized_delta_payload = json_mapping_or_none(progress_delta_payload)
+            normalized_delta_payload = json_mapping_optional(progress_delta_payload)
             if normalized_delta_payload is None:
                 return (
                     forest_mutable_progress_done,
@@ -171,8 +171,8 @@ def _apply_forest_progress_delta(
                     forest_dimensions,
                     False,
                 )
-            raw_done = int_or_none(normalized_delta_payload.get("primary_done"))
-            raw_total = int_or_none(normalized_delta_payload.get("primary_total"))
+            raw_done = int_optional(normalized_delta_payload.get("primary_done"))
+            raw_total = int_optional(normalized_delta_payload.get("primary_total"))
             if raw_done is not None:
                 forest_mutable_progress_done = max(raw_done, 0)
             if raw_total is not None:
@@ -181,10 +181,10 @@ def _apply_forest_progress_delta(
                 forest_mutable_progress_total,
                 forest_mutable_progress_done,
             )
-            raw_marker = str_or_none(normalized_delta_payload.get("marker"))
+            raw_marker = str_optional(normalized_delta_payload.get("marker"))
             if raw_marker:
                 forest_progress_marker = raw_marker
-            raw_dimensions = json_mapping_or_none(
+            raw_dimensions = json_mapping_optional(
                 normalized_delta_payload.get("dimensions")
             )
             if raw_dimensions is not None:
@@ -296,8 +296,8 @@ def _run_forest_phase(
         forest_phase_progress_v2 = _forest_phase_progress_v2()
         raw_primary_done = forest_phase_progress_v2.get("primary_done")
         raw_primary_total = forest_phase_progress_v2.get("primary_total")
-        primary_done = int_or_none(raw_primary_done) or 0
-        primary_total = int_or_none(raw_primary_total) or 0
+        primary_done = int_optional(raw_primary_done) or 0
+        primary_total = int_optional(raw_primary_total) or 0
         emit_phase_progress_fn(
             "forest",
             report_carrier=ReportCarrier(

@@ -38,6 +38,7 @@ def _opts(**overrides: Any) -> argparse.Namespace:
     return argparse.Namespace(**defaults)
 
 
+# gabion:behavior primary=desired
 def test_emit_dataflow_outputs_uses_canonical_lint_entry_normalization() -> None:
     captured: dict[str, object] = {}
 
@@ -69,6 +70,7 @@ def test_emit_dataflow_outputs_uses_canonical_lint_entry_normalization() -> None
     assert lint_entries[0]["code"] == "DF001"
 
 
+# gabion:behavior primary=desired
 def test_emit_dataflow_outputs_respects_canonical_aspf_presence_rules() -> None:
     emitted: list[object] = []
 
@@ -105,6 +107,7 @@ def test_emit_dataflow_outputs_respects_canonical_aspf_presence_rules() -> None:
     assert all(not (isinstance(payload, dict) and "aspf_state" in payload) for payload in emitted)
 
 
+# gabion:behavior primary=desired
 def test_emit_dataflow_outputs_uses_canonical_capability_field_normalization() -> None:
     captured: dict[str, object] = {}
 
@@ -138,6 +141,7 @@ def test_emit_dataflow_outputs_uses_canonical_capability_field_normalization() -
     assert normalized["disabled_surface_reasons"] == {}
 
 
+# gabion:behavior primary=desired
 def test_write_text_to_target_treats_stdout_alias_and_path_equally(capsys) -> None:
     write_text_to_target("-", "alpha", ensure_trailing_newline=True)
     write_text_to_target("/dev/stdout", "beta", ensure_trailing_newline=True)
@@ -145,6 +149,7 @@ def test_write_text_to_target_treats_stdout_alias_and_path_equally(capsys) -> No
     assert captured.out == "alpha\nbeta\n"
 
 
+# gabion:behavior primary=desired
 def test_emit_sidecar_outputs_stdout_alias_matches_path(capsys) -> None:
     class _Args:
         fingerprint_synth_json = "-"

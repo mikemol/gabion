@@ -69,6 +69,7 @@ def _names_in_expr(expr: ast.AST) -> set[str]:
 
 #
 # gabion:evidence E:function_site::indexed_scan/ast_context.py::gabion.analysis.indexed_scan.ast_context.build_path_ast_context E:function_site::indexed_scan/ast_context.py::gabion.analysis.indexed_scan.ast_context.enclosing_function_context
+# gabion:behavior primary=desired
 def test_build_path_ast_context_and_enclosing_context(tmp_path: Path) -> None:
     module = tmp_path / "mod.py"
     module.write_text("def f(x: int):\n    if x:\n        return x\n")
@@ -121,6 +122,7 @@ def test_build_path_ast_context_and_enclosing_context(tmp_path: Path) -> None:
 
 #
 # gabion:evidence E:function_site::indexed_scan/ast_context.py::gabion.analysis.indexed_scan.ast_context.build_path_ast_context
+# gabion:behavior primary=verboten facets=error,none
 def test_build_path_ast_context_syntax_error_returns_none(tmp_path: Path) -> None:
     module = tmp_path / "bad.py"
     module.write_text("def oops(:\n")
@@ -141,6 +143,7 @@ def test_build_path_ast_context_syntax_error_returns_none(tmp_path: Path) -> Non
 
 #
 # gabion:evidence E:function_site::indexed_scan/ast_context.py::gabion.analysis.indexed_scan.ast_context.ancestor_if_names
+# gabion:behavior primary=desired
 def test_ancestor_if_names_collects_nested_conditions() -> None:
     tree = ast.parse(
         "def f(a, b):\n"

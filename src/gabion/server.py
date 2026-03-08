@@ -588,24 +588,24 @@ class _PhaseProgressPayloadDTO(BaseModel):
     dimensions: dict[str, _PhaseProgressDimensionDTO] = Field(default_factory=dict)
 
 
-def _non_negative_int_or_none(value: object) -> int | None:
+def _non_negative_int_optional(value: object) -> int | None:
     try:
-        return server_payload_dispatch._non_negative_int_or_none(value)
+        return server_payload_dispatch._non_negative_int_optional(value)
     except NeverThrown:
         return None
 
-def _json_mapping_or_none(value: object) -> dict[str, JSONValue] | None:
+def _json_mapping_optional(value: object) -> dict[str, JSONValue] | None:
     try:
-        return server_payload_dispatch._json_mapping_or_none(value)
+        return server_payload_dispatch._json_mapping_optional(value)
     except NeverThrown:
         return None
 
-def _json_mapping_or_empty(value: object) -> dict[str, JSONValue]:
-    return server_payload_dispatch._json_mapping_or_empty(value)
+def _json_mapping_default_empty(value: object) -> dict[str, JSONValue]:
+    return server_payload_dispatch._json_mapping_default_empty(value)
 
-def _non_string_sequence_or_none(value: object) -> Sequence[object] | None:
+def _non_string_sequence_optional(value: object) -> Sequence[object] | None:
     try:
-        return server_payload_dispatch._non_string_sequence_or_none(value)
+        return server_payload_dispatch._non_string_sequence_optional(value)
     except NeverThrown:
         return None
 
@@ -616,9 +616,9 @@ _REPORT_PHASE_RANK_BY_NAME: dict[str, int] = {
     "post": report_projection_phase_rank("post"),
 }
 
-def _report_projection_phase_rank_or_none(phase_name: object) -> int | None:
+def _report_projection_phase_rank_optional(phase_name: object) -> int | None:
     try:
-        return server_payload_dispatch._report_projection_phase_rank_or_none(phase_name)
+        return server_payload_dispatch._report_projection_phase_rank_optional(phase_name)
     except NeverThrown:
         return None
 
@@ -782,7 +782,7 @@ def _analysis_index_resume_signature(
 def _analysis_index_resume_summary(
     collection_resume: Mapping[str, JSONValue] | None,
 ) -> JSONObject | None:
-    normalized_resume = _json_mapping_or_none(collection_resume)
+    normalized_resume = _json_mapping_optional(collection_resume)
     if normalized_resume is None:
         return None
     return _analysis_index_resume_summary_payload(normalized_resume)
@@ -1103,7 +1103,7 @@ def _require_payload(
         payload,
         source=f"server._require_payload.{command}",
     )
-    normalized_mapping = _json_mapping_or_none(normalized_payload)
+    normalized_mapping = _json_mapping_optional(normalized_payload)
     if normalized_mapping is None:
         never(
             "invalid command payload type",
@@ -1906,11 +1906,11 @@ def _payload_mapping(
 ) -> Mapping[str, object]:
     if payload is None:
         return {}
-    payload_mapping = _json_mapping_or_none(payload)
+    payload_mapping = _json_mapping_optional(payload)
     if payload_mapping is not None:
         return payload_mapping
     raw_payload = getattr(payload, "payload", None)
-    raw_payload_mapping = _json_mapping_or_none(raw_payload)
+    raw_payload_mapping = _json_mapping_optional(raw_payload)
     if raw_payload_mapping is not None:
         return raw_payload_mapping
     return {}
@@ -1952,7 +1952,7 @@ def _normalize_impact_payload(
 
     changes: list[ImpactSpan] = []
     raw_changes = payload.get("changes")
-    change_entries = _non_string_sequence_or_none(raw_changes)
+    change_entries = _non_string_sequence_optional(raw_changes)
     if change_entries is not None:
         for entry in deadline_loop_iter(change_entries):
             parsed = _normalize_impact_change_entry(entry)
@@ -1964,7 +1964,7 @@ def _normalize_impact_payload(
                         end_line=parsed.end_line,
                     )
                 )
-    raw_diff_text = server_payload_dispatch._str_or_none(payload.get("git_diff"))
+    raw_diff_text = server_payload_dispatch._str_optional(payload.get("git_diff"))
     if raw_diff_text is not None and raw_diff_text.strip():
         for diff_span in deadline_loop_iter(_parse_impact_diff_ranges(raw_diff_text)):
             changes.append(
@@ -2045,7 +2045,7 @@ def _probe_direct_executor(
 
 def _normalize_impact_change_entry(entry: object) -> ImpactSpan | None:
     check_deadline()
-    entry_mapping = _json_mapping_or_none(entry)
+    entry_mapping = _json_mapping_optional(entry)
     if entry_mapping is not None:
         path = str(entry_mapping.get("path", "") or "").strip()
         if not path:
@@ -2133,8 +2133,8 @@ def _impact_functions_from_tree(path: str, tree: ast.AST) -> list[ImpactFunction
                 _walk(child, [*qual_parts, child.name])
                 continue
             if child_type in {ast.FunctionDef, ast.AsyncFunctionDef}:
-                start_line = _non_negative_int_or_none(getattr(child, "lineno", None))
-                end_line = _non_negative_int_or_none(getattr(child, "end_lineno", None))
+                start_line = _non_negative_int_optional(getattr(child, "lineno", None))
+                end_line = _non_negative_int_optional(getattr(child, "end_lineno", None))
                 if start_line is not None and end_line is not None:
                     qual = ".".join([*qual_parts, child.name])
                     out.append(
@@ -2196,8 +2196,8 @@ def _impact_collect_edges(
                         pass
                     case _:
                         continue
-                line = _non_negative_int_or_none(getattr(call_node, "lineno", None))
-                end_line = _non_negative_int_or_none(getattr(call_node, "end_lineno", line))
+                line = _non_negative_int_optional(getattr(call_node, "lineno", None))
+                end_line = _non_negative_int_optional(getattr(call_node, "end_lineno", line))
                 if line is None or end_line is None:
                     continue
                 if line < caller.start_line or end_line > caller.end_line:

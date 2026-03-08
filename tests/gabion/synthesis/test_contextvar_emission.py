@@ -5,6 +5,7 @@ from gabion.synthesis.emission import render_protocol_stubs
 
 
 # gabion:evidence E:call_footprint::tests/test_synthesis_contextvar_emission.py::test_contextvar_emission_single_ambient_value_snapshot::emission.py::gabion.synthesis.emission.render_protocol_stubs
+# gabion:behavior primary=desired
 def test_contextvar_emission_single_ambient_value_snapshot() -> None:
     plan = {
         "protocols": [
@@ -49,6 +50,7 @@ def test_contextvar_emission_single_ambient_value_snapshot() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_synthesis_contextvar_emission.py::test_contextvar_emission_grouped_bundle_snapshot::emission.py::gabion.synthesis.emission.render_protocol_stubs
+# gabion:behavior primary=desired
 def test_contextvar_emission_grouped_bundle_snapshot() -> None:
     plan = {
         "protocols": [
@@ -75,6 +77,7 @@ def test_contextvar_emission_grouped_bundle_snapshot() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_synthesis_contextvar_emission.py::test_contextvar_emission_unsupported_case_remains_advisory_snapshot::emission.py::gabion.synthesis.emission.render_protocol_stubs
+# gabion:behavior primary=verboten facets=unsupported
 def test_contextvar_emission_unsupported_case_remains_advisory_snapshot() -> None:
     plan = {
         "protocols": [
@@ -96,6 +99,7 @@ def test_contextvar_emission_unsupported_case_remains_advisory_snapshot() -> Non
 
 
 # gabion:evidence E:function_site::emission.py::gabion.synthesis.emission.render_protocol_stubs
+# gabion:behavior primary=verboten facets=empty,invalid
 def test_render_protocol_stubs_covers_invalid_kind_typing_and_empty_fields() -> None:
     output = render_protocol_stubs(
         {
@@ -131,6 +135,7 @@ def test_render_protocol_stubs_covers_invalid_kind_typing_and_empty_fields() -> 
 
 
 # gabion:evidence E:call_footprint::tests/test_synthesis_contextvar_emission.py::test_contextvar_emission_omits_optional_comments_when_metadata_empty::emission.py::gabion.synthesis.emission.render_protocol_stubs
+# gabion:behavior primary=verboten facets=empty
 def test_contextvar_emission_omits_optional_comments_when_metadata_empty() -> None:
     output = render_protocol_stubs(
         {
@@ -154,6 +159,7 @@ def test_contextvar_emission_omits_optional_comments_when_metadata_empty() -> No
 
 
 # gabion:evidence E:function_site::emission.py::gabion.synthesis.emission._sanitize_contextvar_identifier E:function_site::emission.py::gabion.synthesis.emission._sorted_protocols
+# gabion:behavior primary=desired
 def test_emission_helpers_cover_identifier_and_protocol_guardrails() -> None:
     assert emission._sanitize_contextvar_identifier("!!!") == "ambient"
     assert emission._sanitize_contextvar_identifier("9lives") == "ambient_9lives"

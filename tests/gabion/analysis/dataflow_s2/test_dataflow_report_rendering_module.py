@@ -11,6 +11,7 @@ def _check_deadline() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_report_rendering_module.py::test_render_synthesis_section_module_evidence_summary_and_blank_fields::dataflow_report_rendering.py::gabion.analysis.dataflow_report_rendering.render_synthesis_section
+# gabion:behavior primary=desired
 def test_render_synthesis_section_module_evidence_summary_and_blank_fields() -> None:
     plan = {
         "protocols": [
@@ -54,6 +55,7 @@ def test_render_synthesis_section_module_evidence_summary_and_blank_fields() -> 
 
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_report_rendering_module.py::test_render_synthesis_section_is_byte_stable_for_shuffled_inputs::dataflow_report_rendering.py::gabion.analysis.dataflow_report_rendering.render_synthesis_section
+# gabion:behavior primary=desired
 def test_render_synthesis_section_is_byte_stable_for_shuffled_inputs() -> None:
     baseline = None
     base_protocols = [
@@ -87,6 +89,7 @@ def test_render_synthesis_section_is_byte_stable_for_shuffled_inputs() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_report_rendering_module.py::test_render_synthesis_section_renders_error_block::dataflow_report_rendering.py::gabion.analysis.dataflow_report_rendering.render_synthesis_section
+# gabion:behavior primary=verboten facets=error
 def test_render_synthesis_section_renders_error_block() -> None:
     text = render_synthesis_section(
         {"protocols": [], "warnings": [], "errors": ["first", "second"]},
@@ -99,6 +102,7 @@ def test_render_synthesis_section_renders_error_block() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_report_rendering_module.py::test_render_unsupported_by_adapter_section_marks_required::dataflow_report_rendering.py::gabion.analysis.dataflow_report_rendering.render_unsupported_by_adapter_section
+# gabion:behavior primary=verboten facets=unsupported
 def test_render_unsupported_by_adapter_section_marks_required() -> None:
     lines = render_unsupported_by_adapter_section(
         [
@@ -111,6 +115,7 @@ def test_render_unsupported_by_adapter_section_marks_required() -> None:
     assert "decision-surfaces: unsupported_by_adapter (limited) [required]" in lines
 
 
+# gabion:behavior primary=verboten facets=unsupported
 def test_render_unsupported_by_adapter_section_skips_non_mapping_entries() -> None:
     lines = render_unsupported_by_adapter_section(
         [

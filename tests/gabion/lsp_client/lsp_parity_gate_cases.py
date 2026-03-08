@@ -44,6 +44,7 @@ def _rules_for_check_command(
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_parity_gate.py::test_beta_command_fails_gate_when_lsp_validation_missing::server.py::gabion.server._execute_lsp_parity_gate_total
+# gabion:behavior primary=verboten facets=fail,missing
 def test_beta_command_fails_gate_when_lsp_validation_missing() -> None:
     rules = _rules_for_check_command(probe_payload=None)
     ls = SimpleNamespace(workspace=SimpleNamespace(root_path="."))
@@ -57,6 +58,7 @@ def test_beta_command_fails_gate_when_lsp_validation_missing() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_parity_gate.py::test_parity_gate_normalizes_payload_and_is_deterministic::server.py::gabion.server._execute_lsp_parity_gate_total
+# gabion:behavior primary=desired
 def test_parity_gate_normalizes_payload_and_is_deterministic() -> None:
     rules = _rules_for_check_command(probe_payload={"z": 1, "a": 2})
 
@@ -87,6 +89,7 @@ def test_parity_gate_normalizes_payload_and_is_deterministic() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_parity_gate.py::test_command_executor_transport_filtering_is_stable::server.py::gabion.server._lsp_command_executor
+# gabion:behavior primary=desired
 def test_command_executor_transport_filtering_is_stable() -> None:
     assert server._lsp_command_executor(server.CHECK_COMMAND) is server.execute_command
     assert server._lsp_command_executor(server.IMPACT_COMMAND) is server.execute_impact
@@ -100,11 +103,13 @@ def test_command_executor_transport_filtering_is_stable() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_parity_gate.py::test_command_dispatch_registry_covers_semantic_command_ids::server.py::gabion.server._validate_command_dispatch_registry_coverage
+# gabion:behavior primary=desired
 def test_command_dispatch_registry_covers_semantic_command_ids() -> None:
     assert set(server._command_dispatch_registry()) == set(server.command_ids.SEMANTIC_COMMAND_IDS)
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_parity_gate.py::test_strip_parity_ignored_keys_filters_requested_fields::server.py::gabion.server._strip_parity_ignored_keys
+# gabion:behavior primary=desired
 def test_strip_parity_ignored_keys_filters_requested_fields() -> None:
     assert server._strip_parity_ignored_keys(
         {"a": 1, "b": 2},
@@ -113,6 +118,7 @@ def test_strip_parity_ignored_keys_filters_requested_fields() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_parity_gate.py::test_normalize_probe_payload_preserves_existing_root_and_timeout::server.py::gabion.server._normalize_probe_payload
+# gabion:behavior primary=verboten facets=timeout
 def test_normalize_probe_payload_preserves_existing_root_and_timeout() -> None:
     normalized = server._normalize_probe_payload(
         {
@@ -135,6 +141,7 @@ def test_normalize_probe_payload_preserves_existing_root_and_timeout() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_parity_gate.py::test_execute_lsp_parity_gate_reports_missing_command_policy::server.py::gabion.server._execute_lsp_parity_gate_total
+# gabion:behavior primary=verboten facets=missing
 def test_execute_lsp_parity_gate_reports_missing_command_policy() -> None:
     ls = SimpleNamespace(workspace=SimpleNamespace(root_path="."))
     result = server._execute_lsp_parity_gate_total(
@@ -152,6 +159,7 @@ def test_execute_lsp_parity_gate_reports_missing_command_policy() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_parity_gate.py::test_execute_lsp_parity_gate_reports_missing_executors::server.py::gabion.server._execute_lsp_parity_gate_total
+# gabion:behavior primary=verboten facets=missing
 def test_execute_lsp_parity_gate_reports_missing_executors() -> None:
     rules = _rules_for_check_command(probe_payload={"k": "v"})
     ls = SimpleNamespace(workspace=SimpleNamespace(root_path="."))
@@ -174,6 +182,7 @@ def test_execute_lsp_parity_gate_reports_missing_executors() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_parity_gate.py::test_execute_lsp_parity_gate_reports_parity_mismatch::server.py::gabion.server._execute_lsp_parity_gate_total
+# gabion:behavior primary=verboten facets=mismatch
 def test_execute_lsp_parity_gate_reports_parity_mismatch() -> None:
     rules = _rules_for_check_command(probe_payload={"k": "v"})
     ls = SimpleNamespace(workspace=SimpleNamespace(root_path="."))
@@ -188,6 +197,7 @@ def test_execute_lsp_parity_gate_reports_parity_mismatch() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_parity_gate.py::test_execute_lsp_parity_gate_converts_never_thrown_to_error::server.py::gabion.server._execute_lsp_parity_gate_total
+# gabion:behavior primary=verboten facets=error,never
 def test_execute_lsp_parity_gate_converts_never_thrown_to_error() -> None:
     rules = _rules_for_check_command(probe_payload={"k": "v"})
     ls = SimpleNamespace(workspace=SimpleNamespace(root_path="."))
@@ -206,6 +216,7 @@ def test_execute_lsp_parity_gate_converts_never_thrown_to_error() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_parity_gate.py::test_execute_lsp_parity_gate_command_wrapper_returns_ordered_response::server.py::gabion.server.execute_lsp_parity_gate
+# gabion:behavior primary=desired
 def test_execute_lsp_parity_gate_command_wrapper_returns_ordered_response() -> None:
     ls = SimpleNamespace(workspace=SimpleNamespace(root_path="."))
     result = server.execute_lsp_parity_gate(ls, {"commands": ["gabion.unknown"]})
@@ -214,6 +225,7 @@ def test_execute_lsp_parity_gate_command_wrapper_returns_ordered_response() -> N
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_parity_gate.py::test_cli_run_lsp_parity_gate_is_thin_dispatcher::cli.py::gabion.cli.run_lsp_parity_gate
+# gabion:behavior primary=desired
 def test_cli_run_lsp_parity_gate_is_thin_dispatcher() -> None:
     calls: list[tuple[str, list[object], Path]] = []
 
@@ -238,6 +250,7 @@ def test_cli_run_lsp_parity_gate_is_thin_dispatcher() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_parity_gate.py::test_cli_run_lsp_parity_gate_without_commands_uses_root_only_payload::cli.py::gabion.cli.run_lsp_parity_gate
+# gabion:behavior primary=desired
 def test_cli_run_lsp_parity_gate_without_commands_uses_root_only_payload() -> None:
     calls: list[list[object]] = []
 
@@ -258,6 +271,7 @@ def test_cli_run_lsp_parity_gate_without_commands_uses_root_only_payload() -> No
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_parity_gate.py::test_cli_lsp_parity_gate_command_reports_nonzero_exit::cli.py::gabion.cli.lsp_parity_gate
+# gabion:behavior primary=verboten facets=nonzero
 def test_cli_lsp_parity_gate_command_reports_nonzero_exit() -> None:
     runner = CliRunner()
     result = runner.invoke(
@@ -272,6 +286,7 @@ def test_cli_lsp_parity_gate_command_reports_nonzero_exit() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_parity_gate.py::test_cli_lsp_parity_gate_command_allows_zero_exit::cli.py::gabion.cli.lsp_parity_gate
+# gabion:behavior primary=desired
 def test_cli_lsp_parity_gate_command_allows_zero_exit() -> None:
     runner = CliRunner()
     result = runner.invoke(
@@ -284,6 +299,7 @@ def test_cli_lsp_parity_gate_command_allows_zero_exit() -> None:
     assert result.exit_code == 0
 
 # gabion:evidence E:call_footprint::tests/test_lsp_parity_gate.py::test_execute_lsp_parity_gate_uses_typed_probe_error_channel::server.py::gabion.server._execute_lsp_parity_gate_total
+# gabion:behavior primary=verboten facets=error
 def test_execute_lsp_parity_gate_uses_typed_probe_error_channel() -> None:
     rules = _rules_for_check_command(probe_payload={"k": "v"})
     ls = SimpleNamespace(workspace=SimpleNamespace(root_path="."))

@@ -18,30 +18,35 @@ from gabion.exceptions import NeverThrown
 
 
 # gabion:evidence E:function_site::invariants.py::gabion.invariants.never
+# gabion:behavior primary=verboten facets=never,raises
 def test_never_raises_never_thrown() -> None:
     with pytest.raises(NeverThrown):
         invariants.never("boom", flag=True)
 
 
 # gabion:evidence E:call_footprint::tests/test_invariants.py::test_require_not_none_non_strict::invariants.py::gabion.invariants.require_not_none
+# gabion:behavior primary=verboten facets=none,strict
 def test_require_not_none_non_strict() -> None:
     assert invariants.require_not_none(None, strict=False) is None
     assert invariants.require_not_none("ok", strict=False) == "ok"
 
 
 # gabion:evidence E:call_footprint::tests/test_invariants.py::test_require_not_none_strict_raises::invariants.py::gabion.invariants.require_not_none
+# gabion:behavior primary=verboten facets=none,raises,strict
 def test_require_not_none_strict_raises() -> None:
     with pytest.raises(NeverThrown):
         invariants.require_not_none(None, strict=True)
 
 
 # gabion:evidence E:call_footprint::tests/test_invariants.py::test_require_not_none_default_strict::invariants.py::gabion.invariants.require_not_none
+# gabion:behavior primary=verboten facets=none,strict
 def test_require_not_none_default_strict() -> None:
     with pytest.raises(NeverThrown):
         invariants.require_not_none(None)
 
 
 # gabion:evidence E:function_site::invariants.py::gabion.invariants.decision_protocol
+# gabion:behavior primary=desired
 def test_decision_and_boundary_markers_return_original_callable() -> None:
     def _sample() -> str:
         return "ok"
@@ -50,6 +55,7 @@ def test_decision_and_boundary_markers_return_original_callable() -> None:
     assert invariants.boundary_normalization(_sample) is _sample
 
 
+# gabion:behavior primary=desired
 def test_invariant_decorator_attaches_marker_payload_metadata() -> None:
     @invariants.todo_decorator(
         "debt marker",
@@ -80,6 +86,7 @@ def test_invariant_decorator_attaches_marker_payload_metadata() -> None:
     assert _flagged_function() == "ok"
 
 
+# gabion:behavior primary=desired
 def test_invariant_decorator_stacks_and_emits_no_runtime_warning() -> None:
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
@@ -98,6 +105,7 @@ def test_invariant_decorator_stacks_and_emits_no_runtime_warning() -> None:
     assert caught == []
 
 
+# gabion:behavior primary=verboten facets=never
 def test_never_string_only_call_emits_deprecation_marker_before_never(
 ) -> None:
     deprecated_calls: list[tuple[str, dict[str, object]]] = []
@@ -132,6 +140,7 @@ def test_never_string_only_call_emits_deprecation_marker_before_never(
     assert factory_calls[0][0] == "never"
 
 
+# gabion:behavior primary=verboten facets=never
 def test_never_with_structured_reasoning_skips_string_only_deprecation(
 ) -> None:
     deprecated_calls = 0
@@ -150,6 +159,7 @@ def test_never_with_structured_reasoning_skips_string_only_deprecation(
     assert deprecated_calls == 0
 
 
+# gabion:behavior primary=verboten facets=never
 def test_never_with_metadata_only_still_emits_string_only_deprecation_preflight(
 ) -> None:
     deprecated_calls: list[tuple[str, dict[str, object]]] = []
@@ -177,6 +187,7 @@ def test_never_with_metadata_only_still_emits_string_only_deprecation_preflight(
 
 
 # gabion:evidence E:function_site::invariants.py::gabion.invariants.invariant_factory
+# gabion:behavior primary=desired
 def test_helper_functions_delegate_to_invariant_factory(
 ) -> None:
     calls: list[tuple[str, object, dict[str, object]]] = []
@@ -230,6 +241,7 @@ def test_helper_functions_delegate_to_invariant_factory(
     ]
 
 
+# gabion:behavior primary=verboten facets=never
 def test_never_reasoning_boundary_normalizer_sets_summary_and_dependencies() -> None:
     with pytest.raises(NeverThrown) as exc_info:
         invariants.never(
@@ -247,6 +259,7 @@ def test_never_reasoning_boundary_normalizer_sets_summary_and_dependencies() -> 
 
 
 # gabion:evidence E:function_site::invariants.py::gabion.invariants.never
+# gabion:behavior primary=verboten facets=never
 def test_never_normalizes_marker_links_and_marker_payload_dict() -> None:
     with pytest.raises(NeverThrown) as exc_info:
         invariants.never(
@@ -288,6 +301,7 @@ def test_never_normalizes_marker_links_and_marker_payload_dict() -> None:
     ]
 
 
+# gabion:behavior primary=desired
 def test_diagnostic_profile_returns_payload_and_emits_warning() -> None:
     with invariants.invariant_runtime_behavior_scope(
         invariants.InvariantRuntimeBehaviorConfig(profile=invariants.InvariantProfile.DIAGNOSTIC)
@@ -305,6 +319,7 @@ def test_diagnostic_profile_returns_payload_and_emits_warning() -> None:
         assert deprecated_payload.marker_kind is MarkerKind.DEPRECATED
 
 
+# gabion:behavior primary=desired
 def test_diagnostic_profile_dedupes_repeated_warning_keys() -> None:
     with invariants.invariant_runtime_behavior_scope(
         invariants.InvariantRuntimeBehaviorConfig(profile=invariants.InvariantProfile.DIAGNOSTIC)
@@ -335,6 +350,7 @@ def test_diagnostic_profile_dedupes_repeated_warning_keys() -> None:
         assert len(caught) == 2
 
 
+# gabion:behavior primary=desired
 def test_warning_key_changes_with_summary_control_and_dependencies() -> None:
     with invariants.invariant_runtime_behavior_scope(
         invariants.InvariantRuntimeBehaviorConfig(profile=invariants.InvariantProfile.DIAGNOSTIC)
@@ -379,6 +395,7 @@ def test_warning_key_changes_with_summary_control_and_dependencies() -> None:
         assert len(caught) == 4
 
 
+# gabion:behavior primary=desired
 def test_warning_cap_suppresses_new_keys_after_limit() -> None:
     with invariants.invariant_runtime_behavior_scope(
         invariants.InvariantRuntimeBehaviorConfig(profile=invariants.InvariantProfile.SUNSET_GATE)
@@ -391,6 +408,7 @@ def test_warning_cap_suppresses_new_keys_after_limit() -> None:
         assert len(caught) == 50
 
 
+# gabion:behavior primary=desired
 def test_invariant_runtime_behavior_scope_restores_warning_state() -> None:
     profile = invariants.InvariantRuntimeBehaviorConfig(profile=invariants.InvariantProfile.DIAGNOSTIC)
     with warnings.catch_warnings(record=True) as caught:

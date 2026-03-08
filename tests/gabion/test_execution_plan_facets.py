@@ -13,6 +13,7 @@ from gabion.execution_plan import (
 
 
 # gabion:evidence E:call_footprint::tests/test_execution_plan_facets.py::test_execution_plan_decorations_are_deterministic::execution_plan.py::gabion.execution_plan.ExecutionPlan
+# gabion:behavior primary=desired
 def test_execution_plan_decorations_are_deterministic() -> None:
     plan = ExecutionPlan()
     plan.decorate("zeta", {"value": 1})
@@ -23,6 +24,7 @@ def test_execution_plan_decorations_are_deterministic() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_execution_plan_facets.py::test_docflow_facet_propagates_changed_paths::docflow_delta_emit.py::gabion.tooling.docflow_delta_emit._build_execution_plan
+# gabion:behavior primary=desired
 def test_docflow_facet_propagates_changed_paths() -> None:
     plan = docflow_delta_emit._build_execution_plan(
         changed_paths_fn=lambda: ("docs/sppf_checklist.md", "src/gabion/cli.py"),
@@ -33,6 +35,7 @@ def test_docflow_facet_propagates_changed_paths() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_execution_plan_facets.py::test_issue_link_facet_tracks_checklist_impact::sppf_sync.py::scripts.sppf_sync._build_issue_link_facet
+# gabion:behavior primary=desired
 def test_issue_link_facet_tracks_checklist_impact() -> None:
     commits = [
         sppf_sync.CommitInfo(sha="a", subject="GH-12", body="Refs #99"),
@@ -46,6 +49,7 @@ def test_issue_link_facet_tracks_checklist_impact() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_execution_plan_facets.py::test_baseline_refresh_reads_delta_risk_facet::refresh_baselines.py::scripts.refresh_baselines._risk_entries
+# gabion:behavior primary=desired
 def test_baseline_refresh_reads_delta_risk_facet() -> None:
     payload = {
         "summary": {
@@ -62,6 +66,7 @@ def test_baseline_refresh_reads_delta_risk_facet() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_execution_plan_facets.py::test_execution_plan_mutators_and_default_risk::execution_plan.py::gabion.execution_plan.ExecutionPlan
+# gabion:behavior primary=desired
 def test_execution_plan_mutators_and_default_risk() -> None:
     plan = ExecutionPlan()
     issue = IssueLinkFacet(issue_ids=("42",), checklist_impact=(("42", 1),))

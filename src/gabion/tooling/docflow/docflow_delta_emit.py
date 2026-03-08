@@ -12,7 +12,7 @@ from gabion.tooling.runtime.deadline_runtime import DeadlineBudget, deadline_sco
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.execution_plan import DocflowFacet, ExecutionPlan
 from gabion.order_contract import sort_once
-from gabion.runtime_shape_dispatch import json_mapping_or_none
+from gabion.runtime_shape_dispatch import json_mapping_optional
 
 BASELINE_PATH = Path("baselines/docflow_compliance_baseline.json")
 CURRENT_PATH = Path("artifacts/out/docflow_compliance.json")
@@ -95,9 +95,9 @@ def _load_summary(path: Path) -> tuple[dict[str, int], bool]:
     if not path.exists():
         return {"compliant": 0, "contradicts": 0, "excess": 0, "proposed": 0}, True
     payload = json_io.load_json_object_path(path)
-    payload_mapping = json_mapping_or_none(payload)
+    payload_mapping = json_mapping_optional(payload)
     summary = (
-        json_mapping_or_none(payload_mapping.get("summary"))
+        json_mapping_optional(payload_mapping.get("summary"))
         if payload_mapping is not None
         else None
     )

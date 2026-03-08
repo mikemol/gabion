@@ -145,16 +145,16 @@ def _has_marker(source_lines: list[str], line: int, marker: str) -> bool:
 
 
 @singledispatch
-def _name_id_or_none(node: object) -> str | None:
+def _name_id_optional(node: object) -> str | None:
     never("unregistered runtime type", value_type=type(node).__name__)
 
 
-@_name_id_or_none.register(ast.Name)
+@_name_id_optional.register(ast.Name)
 def _(node: ast.Name) -> str | None:
     return node.id
 
 
-@_name_id_or_none.register(ast.AST)
+@_name_id_optional.register(ast.AST)
 def _(node: ast.AST) -> str | None:
     _ = node
     return None
@@ -167,7 +167,7 @@ def _is_isinstance_call(node: object) -> bool:
 
 @_is_isinstance_call.register(ast.Call)
 def _(node: ast.Call) -> bool:
-    return _name_id_or_none(node.func) == "isinstance"
+    return _name_id_optional(node.func) == "isinstance"
 
 
 @_is_isinstance_call.register(ast.AST)
@@ -358,11 +358,11 @@ def _single_sentinel_stmt(body: list[ast.stmt]) -> str | None:
 
 
 @singledispatch
-def _dict_or_none(value: object) -> dict[object, object] | None:
+def _dict_optional(value: object) -> dict[object, object] | None:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
-@_dict_or_none.register(dict)
+@_dict_optional.register(dict)
 def _(value: dict[object, object]) -> dict[object, object] | None:
     return value
 
@@ -373,20 +373,20 @@ def _none_dict(value: object) -> dict[object, object] | None:
 
 
 for _dict_none_type in (list, tuple, set, str, int, float, bool, type(None)):
-    _dict_or_none.register(_dict_none_type)(_none_dict)
+    _dict_optional.register(_dict_none_type)(_none_dict)
 
 
 @singledispatch
-def _list_or_none(value: object) -> list[object] | None:
+def _list_optional(value: object) -> list[object] | None:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
-@_list_or_none.register(list)
+@_list_optional.register(list)
 def _(value: list[object]) -> list[object] | None:
     return value
 
 
-@_list_or_none.register(tuple)
+@_list_optional.register(tuple)
 def _(value: tuple[object, ...]) -> list[object] | None:
     return list(value)
 
@@ -397,15 +397,15 @@ def _none_list(value: object) -> list[object] | None:
 
 
 for _list_none_type in (dict, set, str, int, float, bool, type(None)):
-    _list_or_none.register(_list_none_type)(_none_list)
+    _list_optional.register(_list_none_type)(_none_list)
 
 
 @singledispatch
-def _str_or_none(value: object) -> str | None:
+def _str_optional(value: object) -> str | None:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
-@_str_or_none.register(str)
+@_str_optional.register(str)
 def _(value: str) -> str | None:
     return value
 
@@ -416,19 +416,19 @@ def _none_str(value: object) -> str | None:
 
 
 for _str_none_type in (dict, list, tuple, set, int, float, bool, type(None)):
-    _str_or_none.register(_str_none_type)(_none_str)
+    _str_optional.register(_str_none_type)(_none_str)
 
 
 def _baseline_violation_entries(payload: object) -> list[dict[object, object]]:
-    payload_mapping = _dict_or_none(payload)
+    payload_mapping = _dict_optional(payload)
     if payload_mapping is None:
         return []
-    raw = _list_or_none(payload_mapping.get("violations"))
+    raw = _list_optional(payload_mapping.get("violations"))
     if raw is None:
         return []
     entries: list[dict[object, object]] = []
     for item in raw:
-        mapping = _dict_or_none(item)
+        mapping = _dict_optional(item)
         if mapping is not None:
             entries.append(mapping)
     return entries
@@ -455,9 +455,9 @@ def _load_baseline(path: Path) -> set[str]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     keys: set[str] = set()
     for item in _baseline_violation_entries(payload):
-        rule_id = _str_or_none(item.get("rule_id"))
-        path_value = _str_or_none(item.get("path"))
-        qualname = _str_or_none(item.get("qualname"))
+        rule_id = _str_optional(item.get("rule_id"))
+        path_value = _str_optional(item.get("path"))
+        qualname = _str_optional(item.get("qualname"))
         if rule_id is not None and path_value is not None and qualname is not None:
             keys.add(f"{rule_id}:{path_value}:{qualname}")
     return keys

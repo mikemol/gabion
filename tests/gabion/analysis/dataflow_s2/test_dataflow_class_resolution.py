@@ -28,6 +28,7 @@ def _load():
     )
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_class_candidates::base,class_index,module,symbol_table E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_class_candidates::stale_eef7c3356597
+# gabion:behavior primary=desired
 def test_resolve_class_candidates_variants() -> None:
     da = _load()
     symbol_table = da.SymbolTable()
@@ -57,6 +58,7 @@ def test_resolve_class_candidates_variants() -> None:
     assert "pkg.mod.Base" in bare
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_class_candidates::base,class_index,module,symbol_table E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_method_in_hierarchy::by_qual,class_qual,seen E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_class_candidates::stale_4e585418c45a
+# gabion:behavior primary=desired
 def test_resolve_method_in_hierarchy() -> None:
     da = _load()
     base_info = da.FunctionInfo(
@@ -88,6 +90,7 @@ def test_resolve_method_in_hierarchy() -> None:
     assert resolved is base_info
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._local_class_name::base,class_bases E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_local_method_in_hierarchy::class_name,local_functions,seen E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._base_identifier::node
+# gabion:behavior primary=desired
 def test_local_class_bases_and_method_resolution() -> None:
     da = _load()
     tree = ast.parse(

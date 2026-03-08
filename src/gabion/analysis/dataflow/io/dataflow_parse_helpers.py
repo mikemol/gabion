@@ -77,7 +77,7 @@ def _parse_module_tree(
         return _ParseModuleFailure(kind="parse_failure", witness=witness)
 
 
-def _parse_module_tree_or_none(
+def _parse_module_tree_optional(
     path: Path,
     *,
     stage: _ParseModuleStage,

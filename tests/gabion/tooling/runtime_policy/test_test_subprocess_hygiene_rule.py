@@ -10,6 +10,7 @@ def _write(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
+# gabion:behavior primary=desired
 def test_collect_violations_detects_subprocess_spawn_calls(tmp_path: Path) -> None:
     _write(
         tmp_path / "tests" / "x.py",
@@ -41,6 +42,7 @@ def test_collect_violations_detects_subprocess_spawn_calls(tmp_path: Path) -> No
     assert kinds == {"subprocess_run", "subprocess_check_output"}
 
 
+# gabion:behavior primary=desired
 def test_collect_violations_respects_allowlist_and_non_spawn_calls(tmp_path: Path) -> None:
     _write(
         tmp_path / "tests" / "allowed.py",
@@ -70,6 +72,7 @@ def test_collect_violations_respects_allowlist_and_non_spawn_calls(tmp_path: Pat
     assert violations == []
 
 
+# gabion:behavior primary=desired
 def test_collect_violations_detects_subprocess_spawn_reassignment(tmp_path: Path) -> None:
     _write(
         tmp_path / "tests" / "x.py",

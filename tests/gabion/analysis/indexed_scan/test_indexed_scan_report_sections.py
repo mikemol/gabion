@@ -7,6 +7,7 @@ from gabion.exceptions import NeverThrown
 
 
 # gabion:evidence E:function_site::indexed_scan/report_sections.py::gabion.analysis.indexed_scan.report_sections.parse_report_section_marker E:function_site::indexed_scan/report_sections.py::gabion.analysis.indexed_scan.report_sections.extract_report_sections
+# gabion:behavior primary=desired
 def test_parse_and_extract_report_sections() -> None:
     assert (
         report_sections.parse_report_section_marker("<!-- report-section:alpha -->")
@@ -36,6 +37,7 @@ def test_parse_and_extract_report_sections() -> None:
 
 
 # gabion:evidence E:function_site::indexed_scan/report_sections.py::gabion.analysis.indexed_scan.report_sections.spec_row_span
+# gabion:behavior primary=desired
 def test_spec_row_span_validation() -> None:
     assert report_sections.spec_row_span(
         {

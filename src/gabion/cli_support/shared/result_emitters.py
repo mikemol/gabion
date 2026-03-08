@@ -8,7 +8,7 @@ import typer
 
 from gabion.commands.lint_parser import parse_lint_line
 from gabion.json_types import JSONObject
-from gabion.runtime_shape_dispatch import json_list_or_none, json_mapping_or_none
+from gabion.runtime_shape_dispatch import json_list_optional, json_mapping_optional
 
 CheckDeadlineFn = Callable[[], None]
 WriteTextToTargetFn = Callable[..., None]
@@ -125,10 +125,10 @@ def emit_timeout_profile_artifacts(
     root: Path,
     render_deadline_profile_markdown_fn: RenderDeadlineProfileMarkdownFn,
 ) -> None:
-    timeout_context = json_mapping_or_none(result.get("timeout_context"))
+    timeout_context = json_mapping_optional(result.get("timeout_context"))
     if timeout_context is None:
         return
-    profile = json_mapping_or_none(timeout_context.get("deadline_profile"))
+    profile = json_mapping_optional(timeout_context.get("deadline_profile"))
     if profile is None:
         return
     artifact_dir = root / "artifacts" / "out"
@@ -152,10 +152,10 @@ def nonzero_exit_causes(result: JSONObject) -> list[str]:
     violations = int(result.get("violations", 0) or 0)
     if violations > 0:
         causes.append(f"policy violations={violations}")
-    type_ambiguities_raw = json_list_or_none(result.get("type_ambiguities"))
+    type_ambiguities_raw = json_list_optional(result.get("type_ambiguities"))
     if type_ambiguities_raw is not None and type_ambiguities_raw:
         causes.append(f"type ambiguities={len(type_ambiguities_raw)}")
-    errors_raw = json_list_or_none(result.get("errors"))
+    errors_raw = json_list_optional(result.get("errors"))
     if errors_raw is not None and errors_raw:
         first_error = str(errors_raw[0])
         if len(errors_raw) > 1:
@@ -180,7 +180,7 @@ def emit_nonzero_exit_causes(result: JSONObject) -> None:
 
 
 def emit_analysis_resume_summary(result: JSONObject) -> None:
-    resume = json_mapping_or_none(result.get("analysis_resume"))
+    resume = json_mapping_optional(result.get("analysis_resume"))
     if resume is None:
         return
     path = str(resume.get("state_path", "") or "")

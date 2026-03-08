@@ -61,6 +61,7 @@ def _wl_facet_payload(forest: Forest) -> tuple[list[dict[str, object]], list[dic
 
 
 # gabion:evidence E:call_footprint::tests/test_wl_refinement.py::test_wl_refinement_is_deterministic_across_insertion_order::test_wl_refinement.py::tests.test_wl_refinement._build_suite_forest::test_wl_refinement.py::tests.test_wl_refinement._wl_facet_payload::wl_refinement.py::gabion.analysis.wl_refinement.emit_wl_refinement_facets
+# gabion:behavior primary=desired
 def test_wl_refinement_is_deterministic_across_insertion_order() -> None:
     left = _build_suite_forest(child_kinds=("while_body", "if_body"))
     right = _build_suite_forest(child_kinds=("if_body", "while_body"))
@@ -84,6 +85,7 @@ def test_wl_refinement_is_deterministic_across_insertion_order() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_wl_refinement.py::test_wl_refinement_strict_profile_emits_sink_and_raises::test_wl_refinement.py::tests.test_wl_refinement._build_suite_forest::wl_refinement.py::gabion.analysis.wl_refinement.emit_wl_refinement_facets
+# gabion:behavior primary=verboten facets=raises,strict
 def test_wl_refinement_strict_profile_emits_sink_and_raises() -> None:
     forest = _build_suite_forest(child_kinds=("while_body", "if_body"))
     with pytest.raises(NeverThrown):
@@ -93,6 +95,7 @@ def test_wl_refinement_strict_profile_emits_sink_and_raises() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_wl_refinement.py::test_analyze_paths_emits_structured_suite_contains::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths
+# gabion:behavior primary=desired
 def test_analyze_paths_emits_structured_suite_contains(tmp_path) -> None:
     source = (
         "def fn(x):\n"
@@ -157,6 +160,7 @@ def test_analyze_paths_emits_structured_suite_contains(tmp_path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_wl_refinement.py::test_analyze_paths_emits_wl_facets_when_enabled::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths
+# gabion:behavior primary=desired
 def test_analyze_paths_emits_wl_facets_when_enabled(tmp_path) -> None:
     path = tmp_path / "mod.py"
     path.write_text(
@@ -191,6 +195,7 @@ def test_analyze_paths_emits_wl_facets_when_enabled(tmp_path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_wl_refinement.py::test_emit_wl_refinement_facets_respects_emit_all_and_directed_edges::test_wl_refinement.py::tests.test_wl_refinement._build_suite_forest::wl_refinement.py::gabion.analysis.wl_refinement.emit_wl_refinement_facets
+# gabion:behavior primary=verboten facets=edge
 def test_emit_wl_refinement_facets_respects_emit_all_and_directed_edges() -> None:
     forest = _build_suite_forest(child_kinds=("if_body", "while_body"))
     spec = ProjectionSpec(
@@ -217,6 +222,7 @@ def test_emit_wl_refinement_facets_respects_emit_all_and_directed_edges() -> Non
 
 
 # gabion:evidence E:call_footprint::tests/test_wl_refinement.py::test_emit_wl_refinement_facets_no_targets_is_noop::wl_refinement.py::gabion.analysis.wl_refinement.emit_wl_refinement_facets
+# gabion:behavior primary=allowed_unwanted facets=noop
 def test_emit_wl_refinement_facets_no_targets_is_noop() -> None:
     forest = Forest()
     spec = ProjectionSpec(spec_version=1, name="wl_none", domain="wl_refinement", params={})
@@ -225,6 +231,7 @@ def test_emit_wl_refinement_facets_no_targets_is_noop() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_wl_refinement.py::test_wl_refinement_private_param_helpers_and_seed_struct::wl_refinement.py::gabion.analysis.wl_refinement._bool_param::wl_refinement.py::gabion.analysis.wl_refinement._int_param::wl_refinement.py::gabion.analysis.wl_refinement._seed_struct::wl_refinement.py::gabion.analysis.wl_refinement._string_list_param
+# gabion:behavior primary=desired
 def test_wl_refinement_private_param_helpers_and_seed_struct() -> None:
     params = {"flag_true": "yes", "flag_false": "off", "steps": "bad", "fields": []}
     assert _bool_param(params, "flag_true", False) is True
@@ -263,6 +270,7 @@ def test_wl_refinement_private_param_helpers_and_seed_struct() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_wl_refinement.py::test_emit_wl_refinement_covers_duplicate_neighbor_counts_and_skip_non_targets::wl_refinement.py::gabion.analysis.wl_refinement.emit_wl_refinement_facets
+# gabion:behavior primary=desired
 def test_emit_wl_refinement_covers_duplicate_neighbor_counts_and_skip_non_targets() -> None:
     forest = Forest()
     root = forest.add_suite_site("mod.py", "pkg.mod.fn", "function")
@@ -282,6 +290,7 @@ def test_emit_wl_refinement_covers_duplicate_neighbor_counts_and_skip_non_target
 
 
 # gabion:evidence E:call_footprint::tests/test_wl_refinement.py::test_emit_wl_refinement_stabilize_early_branch::test_wl_refinement.py::tests.test_wl_refinement._build_suite_forest::test_wl_refinement.py::tests.test_wl_refinement._wl_facet_payload::wl_refinement.py::gabion.analysis.wl_refinement.emit_wl_refinement_facets
+# gabion:behavior primary=desired
 def test_emit_wl_refinement_stabilize_early_branch() -> None:
     forest = _build_suite_forest(child_kinds=("if_body",))
     emit_wl_refinement_facets(

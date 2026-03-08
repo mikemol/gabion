@@ -34,6 +34,7 @@ def _run_context(*, run_id: str = "run:aspf") -> CanonicalRunContext:
     )
 
 
+# gabion:behavior primary=desired
 @pytest.mark.parametrize(
     ("event", "expected_kind"),
     [
@@ -85,6 +86,7 @@ def test_aspf_event_adapter_maps_all_replay_event_kinds(
     assert envelope.identity_projection.basis_path.atoms
 
 
+# gabion:behavior primary=desired
 def test_aspf_event_adapter_identity_projection_is_deterministic() -> None:
     event = AspfTwoCellEvent(
         index=3,
@@ -99,6 +101,7 @@ def test_aspf_event_adapter_identity_projection_is_deterministic() -> None:
     assert envelope_a.identity_projection == envelope_b.identity_projection
 
 
+# gabion:behavior primary=verboten facets=fail
 def test_aspf_event_adapter_hard_fails_on_identity_derivation_gap() -> None:
     bad_event = AspfSurfaceUpdateEvent(surface="", representative="rep:a")
     decision = adapt_aspf_replay_event(event=bad_event, run_context=_run_context())

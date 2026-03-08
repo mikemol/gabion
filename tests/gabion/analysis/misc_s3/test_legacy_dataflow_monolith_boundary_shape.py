@@ -4,6 +4,7 @@ import ast
 from pathlib import Path
 
 
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_monolith_has_no_runtime_logic_defs() -> None:
     repo_root = Path(__file__).resolve().parents[4]
     monolith_path = (

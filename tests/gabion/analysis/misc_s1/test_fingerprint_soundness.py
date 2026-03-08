@@ -9,6 +9,7 @@ def _load():
     return da, tf
 
 # gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_carrier_soundness::a,b E:decision_surface/value_encoded::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_carrier_soundness::a,b E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_carrier_soundness::stale_81ea454a69a5
+# gabion:behavior primary=desired
 def test_fingerprint_soundness_issues_detects_overlap() -> None:
     da, tf = _load()
     fingerprint = tf.Fingerprint(
@@ -19,6 +20,7 @@ def test_fingerprint_soundness_issues_detects_overlap() -> None:
     assert "base/ctor" in issues
 
 # gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_carrier_soundness::a,b E:decision_surface/value_encoded::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_carrier_soundness::a,b E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_carrier_soundness::stale_000d23f26126
+# gabion:behavior primary=verboten facets=empty
 def test_fingerprint_soundness_issues_skip_empty() -> None:
     da, tf = _load()
     fingerprint = tf.Fingerprint(
@@ -27,6 +29,7 @@ def test_fingerprint_soundness_issues_skip_empty() -> None:
     assert da._fingerprint_soundness_issues(fingerprint) == []
 
 # gabion:evidence E:function_site::tests/test_fingerprint_soundness.py::tests.test_fingerprint_soundness.test_fingerprint_identity_payload_marks_canonical_vs_derived
+# gabion:behavior primary=desired
 def test_fingerprint_identity_payload_marks_canonical_vs_derived() -> None:
     _, tf = _load()
     fingerprint = tf.Fingerprint(base=tf.FingerprintDimension(product=2, mask=0))
@@ -36,6 +39,7 @@ def test_fingerprint_identity_payload_marks_canonical_vs_derived() -> None:
     assert payload["identity_layers"]["derived"]["digest_alias"]["canonical"] is False
 
 # gabion:evidence E:function_site::tests/test_fingerprint_soundness.py::tests.test_fingerprint_soundness.test_fingerprint_identity_payload_handles_empty_cofibration_basis
+# gabion:behavior primary=verboten facets=empty
 def test_fingerprint_identity_payload_handles_empty_cofibration_basis() -> None:
     _, tf = _load()
     fingerprint = tf.Fingerprint(
@@ -54,6 +58,7 @@ def _normalize_provenance(entries: list[dict[str, object]]) -> list[dict[str, ob
 
 
 # gabion:evidence E:call_footprint::tests/test_fingerprint_soundness.py::test_fingerprint_phase_outputs_are_stable_under_permuted_input_order::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_fingerprint_atom_keys::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._compute_fingerprint_warnings::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._compute_fingerprint_matches::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._compute_fingerprint_provenance::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._compute_fingerprint_synth
+# gabion:behavior primary=desired
 def test_fingerprint_phase_outputs_are_stable_under_permuted_input_order() -> None:
     da, tf = _load()
 

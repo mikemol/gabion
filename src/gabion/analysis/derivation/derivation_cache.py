@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from typing import TypeVar, cast
 
 from gabion.analysis.aspf import aspf
-from gabion.analysis.foundation.resume_codec import mapping_or_none, sequence_or_none
+from gabion.analysis.foundation.resume_codec import mapping_optional, sequence_optional
 from gabion.analysis.derivation.derivation_contract import (
     DerivationCacheStats, DerivationNodeId, DerivationOp, DerivationValue)
 from gabion.analysis.derivation.derivation_graph import DerivationGraph, dependency_token
@@ -60,8 +60,8 @@ class DerivationCacheRuntime:
         cache_event_callback = (
             on_cache_event if callable(on_cache_event) else None
         )
-        dependency_payload = mapping_or_none(dependencies) or {}
-        params_payload = mapping_or_none(params) or {}
+        dependency_payload = mapping_optional(dependencies) or {}
+        params_payload = mapping_optional(params) or {}
         input_nodes = self._intern_inputs(
             structural_inputs,
             source=f"{source}.inputs",
@@ -180,7 +180,7 @@ class DerivationCacheRuntime:
         *,
         source: str,
     ) -> tuple[DerivationNodeId, ...]:
-        mapping_values = mapping_or_none(values)
+        mapping_values = mapping_optional(values)
         if mapping_values is not None:
             labels = sort_once(
                 mapping_values,
@@ -195,7 +195,7 @@ class DerivationCacheRuntime:
                 )
                 for label in labels
             )
-        iterable_values = sequence_or_none(values, allow_str=False) or ()
+        iterable_values = sequence_optional(values, allow_str=False) or ()
         return tuple(
             self.graph.intern_input(
                 input_label=f"arg_{index}",

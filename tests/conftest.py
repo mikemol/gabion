@@ -58,6 +58,7 @@ def write_test_evidence_payload():
     return _write
 
 
+# gabion:behavior primary=desired
 @pytest.fixture
 def test_evidence_path(tmp_path: Path) -> Path:
     out_dir = tmp_path / "out"

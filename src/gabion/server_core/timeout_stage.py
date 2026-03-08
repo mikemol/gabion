@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Mapping, TypeVar
 
-from gabion.runtime_shape_dispatch import str_or_none
+from gabion.runtime_shape_dispatch import str_optional
 from gabion.server_core.stage_contracts import JSONObject, StageTimeoutResult, TimeoutCleanupHandler
 
 _TimeoutCleanupContextT = TypeVar("_TimeoutCleanupContextT")
@@ -11,7 +11,7 @@ _TimeoutCleanupContextT = TypeVar("_TimeoutCleanupContextT")
 # gabion:decision_protocol
 def timeout_classification_decision(*, progress_payload: JSONObject) -> str:
     timeout_classification = progress_payload.get("classification")
-    normalized_timeout_classification = str_or_none(timeout_classification)
+    normalized_timeout_classification = str_optional(timeout_classification)
     if normalized_timeout_classification:
         return normalized_timeout_classification
     return "timed_out_no_progress"

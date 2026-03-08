@@ -6,6 +6,7 @@ from gabion.analysis.core import ambiguity_delta
 
 
 # gabion:evidence E:function_site::ambiguity_delta.py::gabion.analysis.ambiguity_delta.build_delta_payload
+# gabion:behavior primary=desired
 def test_ambiguity_delta_payload_and_render() -> None:
     baseline_payload = ambiguity_delta.build_baseline_payload(
         [
@@ -32,12 +33,14 @@ def test_ambiguity_delta_payload_and_render() -> None:
 
 
 # gabion:evidence E:function_site::ambiguity_delta.py::gabion.analysis.ambiguity_delta.parse_baseline_payload
+# gabion:behavior primary=verboten facets=invalid
 def test_ambiguity_baseline_rejects_invalid_version() -> None:
     with pytest.raises(ValueError):
         ambiguity_delta.parse_baseline_payload({"version": "bad", "summary": {}})
 
 
 # gabion:evidence E:function_site::ambiguity_delta.py::gabion.analysis.ambiguity_delta.load_baseline
+# gabion:behavior primary=desired
 def test_ambiguity_baseline_load_rejects_non_object(tmp_path) -> None:
     baseline_path = tmp_path / "baseline.json"
     baseline_path.write_text("[]\n")
@@ -46,6 +49,7 @@ def test_ambiguity_baseline_load_rejects_non_object(tmp_path) -> None:
 
 
 # gabion:evidence E:function_site::ambiguity_delta.py::gabion.analysis.ambiguity_delta.render_markdown
+# gabion:behavior primary=verboten facets=invalid
 def test_ambiguity_delta_render_handles_invalid_numbers() -> None:
     payload = {
         "summary": {
@@ -62,6 +66,7 @@ def test_ambiguity_delta_render_handles_invalid_numbers() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_ambiguity_delta.py::test_ambiguity_baseline_parse_ignores_non_mapping_summary_shapes::ambiguity_delta.py::gabion.analysis.ambiguity_delta.parse_baseline_payload
+# gabion:behavior primary=desired
 def test_ambiguity_baseline_parse_ignores_non_mapping_summary_shapes() -> None:
     parsed = ambiguity_delta.parse_baseline_payload(
         {
@@ -87,6 +92,7 @@ def test_ambiguity_baseline_parse_ignores_non_mapping_summary_shapes() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_ambiguity_delta.py::test_ambiguity_delta_render_ignores_non_mapping_by_kind_summary::ambiguity_delta.py::gabion.analysis.ambiguity_delta.render_markdown
+# gabion:behavior primary=desired
 def test_ambiguity_delta_render_ignores_non_mapping_by_kind_summary() -> None:
     rendered = ambiguity_delta.render_markdown(
         {

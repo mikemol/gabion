@@ -22,6 +22,7 @@ def _load():
 
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_decision_snapshot::stale_33ce2d4f668a
+# gabion:behavior primary=desired
 def test_render_and_diff_decision_snapshots() -> None:
     da = _load()
     forest = da.Forest()
@@ -63,6 +64,7 @@ def test_render_and_diff_decision_snapshots() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_decision_snapshots.py::test_render_decision_snapshot_includes_pattern_schema_residue::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._pattern_schema_matches::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_decision_snapshot::test_decision_snapshots.py::tests.test_decision_snapshots._load
+# gabion:behavior primary=desired
 def test_render_decision_snapshot_includes_pattern_schema_residue() -> None:
     da = _load()
     forest = da.Forest()

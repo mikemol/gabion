@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 
-from gabion.analysis.foundation.resume_codec import mapping_or_none
+from gabion.analysis.foundation.resume_codec import mapping_optional
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.order_contract import OrderPolicy, sort_once
 
@@ -42,7 +42,7 @@ def canonical_field_display_parts(fields: Iterable[object]) -> list[str]:
     parts: list[str] = []
     for field in fields:
         check_deadline()
-        field_map = mapping_or_none(field)
+        field_map = mapping_optional(field)
         if field_map is not None:
             fname = str(field_map.get("name", "")).strip()
             if fname:

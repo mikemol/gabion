@@ -27,6 +27,7 @@ def _fn(*, name: str, qual: str, path: Path, class_name: str | None = None):
 
 
 # gabion:evidence E:function_site::dataflow_callee_resolution.py::gabion.analysis.dataflow_callee_resolution.plan_callee_resolution
+# gabion:behavior primary=desired
 def test_callee_resolution_plan_and_effect_pipeline_idempotent() -> None:
     resolution = _load()
 
@@ -60,6 +61,7 @@ def test_callee_resolution_plan_and_effect_pipeline_idempotent() -> None:
 
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_callee
+# gabion:behavior primary=desired
 def test_resolve_callee_adapter_dispatches_ambiguity_effects() -> None:
     path = Path("pkg/mod.py")
     caller = _fn(name="caller", qual="pkg.mod.caller", path=path)
@@ -95,6 +97,7 @@ def test_resolve_callee_adapter_dispatches_ambiguity_effects() -> None:
 
 
 # gabion:evidence E:function_site::dataflow_callee_resolution.py::gabion.analysis.dataflow_callee_resolution.apply_callee_resolution_ops
+# gabion:behavior primary=allowed_unwanted facets=noop
 def test_callee_resolution_private_noop_paths_are_structural() -> None:
     resolution = _load()
 

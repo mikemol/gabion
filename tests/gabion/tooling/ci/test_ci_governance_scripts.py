@@ -9,6 +9,7 @@ from scripts.policy import policy_check
 
 
 # gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_policy_check_requires_ci_script_entrypoints
+# gabion:behavior primary=desired
 def test_policy_check_requires_ci_script_entrypoints() -> None:
     errors: list[str] = []
     policy_check._check_ci_script_entrypoints(
@@ -28,7 +29,42 @@ def test_policy_check_requires_ci_script_entrypoints() -> None:
     assert any("scripts/ci/ci_controller_drift_gate.py" in error for error in errors)
 
 
+# gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_policy_check_test_behavior_contract_reports_missing
+# gabion:behavior primary=verboten facets=missing
+def test_policy_check_test_behavior_contract_reports_missing(tmp_path: Path) -> None:
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / "test_missing.py").write_text(
+        "def test_missing_behavior():\n    assert True\n",
+        encoding="utf-8",
+    )
+    with policy_check._policy_deadline_scope():
+        violations = policy_check._test_behavior_contract_violations(tmp_path)
+    assert any("missing gabion:behavior tag" in item for item in violations)
+
+
+# gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_policy_check_test_behavior_contract_accepts_classified
+# gabion:behavior primary=desired
+def test_policy_check_test_behavior_contract_accepts_classified(tmp_path: Path) -> None:
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / "test_tagged.py").write_text(
+        "\n".join(
+            [
+                "# gabion:behavior primary=desired facets=cli",
+                "def test_tagged_behavior():",
+                "    assert True",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    with policy_check._policy_deadline_scope():
+        assert policy_check._test_behavior_contract_violations(tmp_path) == []
+
+
 # gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_controller_drift_gate_override_expiry_behavior
+# gabion:behavior primary=verboten facets=drift
 def test_controller_drift_gate_override_expiry_behavior(tmp_path: Path) -> None:
     drift = tmp_path / "drift.json"
     out = tmp_path / "gate.json"
@@ -80,6 +116,7 @@ def test_controller_drift_gate_override_expiry_behavior(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_controller_drift_gate_streak_progression_and_reset
+# gabion:behavior primary=verboten facets=drift
 def test_controller_drift_gate_streak_progression_and_reset(tmp_path: Path) -> None:
     clean_drift = tmp_path / "clean_drift.json"
     failing_drift = tmp_path / "failing_drift.json"
@@ -121,16 +158,19 @@ def test_controller_drift_gate_streak_progression_and_reset(tmp_path: Path) -> N
 
 
 # gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_controller_audit_requires_clause_anchors_for_enforcement_surfaces
+# gabion:behavior primary=desired
 def test_controller_audit_requires_clause_anchors_for_enforcement_surfaces() -> None:
     assert governance_controller_audit._enforcement_clause_findings() == []
 
 
 # gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_policy_check_normative_enforcement_map_validates_current_repo
+# gabion:behavior primary=desired
 def test_policy_check_normative_enforcement_map_validates_current_repo() -> None:
     policy_check.check_normative_enforcement_map()
 
 
 # gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_policy_check_required_clause_set_matches_index
+# gabion:behavior primary=desired
 def test_policy_check_required_clause_set_matches_index() -> None:
     index_path = Path("docs/normative_clause_index.md")
     canonical = {
@@ -142,6 +182,7 @@ def test_policy_check_required_clause_set_matches_index() -> None:
 
 
 # gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_policy_check_normative_enforcement_map_fails_missing_module
+# gabion:behavior primary=verboten facets=fail,missing
 def test_policy_check_normative_enforcement_map_fails_missing_module(tmp_path: Path) -> None:
     broken = tmp_path / "normative_enforcement_map.yaml"
     broken.write_text(
@@ -223,6 +264,7 @@ clauses:
 
 
 # gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_policy_check_normative_enforcement_map_fails_missing_clause
+# gabion:behavior primary=verboten facets=fail,missing
 def test_policy_check_normative_enforcement_map_fails_missing_clause(tmp_path: Path) -> None:
     broken = tmp_path / "normative_enforcement_map.yaml"
     broken.write_text(
@@ -300,6 +342,7 @@ clauses:
 
 
 # gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_controller_audit_detects_contradictory_anchors_across_declared_normative_docs
+# gabion:behavior primary=desired
 def test_controller_audit_detects_contradictory_anchors_across_declared_normative_docs(
     tmp_path: Path,
 ) -> None:
@@ -335,6 +378,7 @@ def test_controller_audit_detects_contradictory_anchors_across_declared_normativ
 
 
 # gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_controller_audit_reports_missing_declared_normative_docs
+# gabion:behavior primary=verboten facets=missing
 def test_controller_audit_reports_missing_declared_normative_docs(tmp_path: Path) -> None:
     (tmp_path / "docs").mkdir()
     policy = tmp_path / "POLICY_SEED.md"
@@ -365,6 +409,7 @@ def test_controller_audit_reports_missing_declared_normative_docs(tmp_path: Path
 
 # gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_policy_check_payload_branching_allows_boundary_decode
 
+# gabion:behavior primary=desired
 def test_policy_check_payload_branching_allows_boundary_decode(tmp_path: Path) -> None:
     module = tmp_path / "ok.py"
     module.write_text(
@@ -388,6 +433,7 @@ def _decode_payload(value: object) -> object:
 
 # gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_policy_check_payload_branching_flags_non_decode_functions
 
+# gabion:behavior primary=desired
 def test_policy_check_payload_branching_flags_non_decode_functions(tmp_path: Path) -> None:
     module = tmp_path / "bad.py"
     module.write_text(
@@ -409,6 +455,7 @@ def semantic(value: object) -> object:
 
 
 # gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_non_boundary_payload_signature_policy_flags_helper
+# gabion:behavior primary=desired
 def test_non_boundary_payload_signature_policy_flags_helper(tmp_path: Path) -> None:
     module = tmp_path / "helper_bad.py"
     module.write_text(
@@ -424,6 +471,7 @@ def _helper(payload: dict[str, object]) -> None:
 
 
 # gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_non_boundary_payload_signature_policy_ignores_boundary_module
+# gabion:behavior primary=desired
 def test_non_boundary_payload_signature_policy_ignores_boundary_module(tmp_path: Path) -> None:
     module = tmp_path / "helper_ok.py"
     module.write_text(
@@ -439,6 +487,7 @@ def _helper(payload: dict[str, object]) -> None:
 
 
 # gabion:evidence E:function_site::policy_check.py::scripts.policy_check._check_aspf_crosswalk
+# gabion:behavior primary=desired
 def test_policy_check_aspf_crosswalk_validates_repo_map() -> None:
     original_changed = policy_check._changed_repo_paths
     try:
@@ -449,6 +498,7 @@ def test_policy_check_aspf_crosswalk_validates_repo_map() -> None:
 
 
 # gabion:evidence E:function_site::policy_check.py::scripts.policy_check._check_aspf_crosswalk
+# gabion:behavior primary=desired
 def test_policy_check_aspf_crosswalk_requires_ack_file(tmp_path: Path) -> None:
     map_path = tmp_path / "aspf_taint_isomorphism_map.yaml"
     map_path.write_text(
@@ -543,6 +593,7 @@ entries:
 
 
 # gabion:evidence E:function_site::policy_check.py::scripts.policy_check._check_aspf_crosswalk
+# gabion:behavior primary=desired
 def test_policy_check_aspf_crosswalk_accepts_valid_no_change(tmp_path: Path) -> None:
     map_path = tmp_path / "aspf_taint_isomorphism_map.yaml"
     map_path.write_text(

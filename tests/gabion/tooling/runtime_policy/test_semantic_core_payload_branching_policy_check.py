@@ -10,6 +10,7 @@ def _write(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
+# gabion:behavior primary=desired
 def test_raw_payload_branching_flags_semantic_core_isinstance_and_cast(tmp_path: Path) -> None:
     sample = tmp_path / "src" / "gabion" / "analysis" / "sample_semantic_core.py"
     _write(
@@ -27,6 +28,7 @@ def test_raw_payload_branching_flags_semantic_core_isinstance_and_cast(tmp_path:
     assert any("isinstance Mapping/list branch outside boundary decode" in item for item in violations)
 
 
+# gabion:behavior primary=desired
 def test_raw_payload_branching_allows_decode_boundary_adapter(tmp_path: Path) -> None:
     adapter = tmp_path / "src" / "gabion" / "analysis" / "sample_adapter.py"
     _write(

@@ -35,6 +35,7 @@ def _fake_process_factory(stdout_bytes: bytes):
     return _factory
 
 # gabion:evidence E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::request_id E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::stale_37f3b5b94c81_70b19143
+# gabion:behavior primary=verboten facets=error,raises
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_run_command_unknown_command_raises() -> None:
     repo_root = REPO_ROOT

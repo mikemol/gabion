@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 from pathlib import Path
 
 from gabion.tooling.impact import impact_select_tests
@@ -10,6 +9,7 @@ import pytest
 
 
 # gabion:evidence E:call_footprint::tests/test_impact_select_tests.py::test_parse_changed_lines_extracts_hunk_lines::impact_select_tests.py::gabion.tooling.impact_select_tests._parse_changed_lines
+# gabion:behavior primary=desired
 def test_parse_changed_lines_extracts_hunk_lines() -> None:
     diff = """diff --git a/src/gabion/example.py b/src/gabion/example.py
 index 1111111..2222222 100644
@@ -27,6 +27,7 @@ index 1111111..2222222 100644
 
 
 # gabion:evidence E:call_footprint::tests/test_impact_select_tests.py::test_select_tests_matches_evidence_site_and_changed_test::impact_select_tests.py::gabion.tooling.impact_select_tests._select_tests
+# gabion:behavior primary=desired
 def test_select_tests_matches_evidence_site_and_changed_test() -> None:
     payload = {
         "tests": [
@@ -70,6 +71,7 @@ def test_select_tests_matches_evidence_site_and_changed_test() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_impact_select_tests.py::test_main_falls_back_when_index_missing::impact_select_tests.py::gabion.tooling.impact_select_tests.main
+# gabion:behavior primary=verboten facets=missing
 def test_main_falls_back_when_index_missing(tmp_path: Path) -> None:
     root = tmp_path
 
@@ -96,6 +98,7 @@ def test_main_falls_back_when_index_missing(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_impact_select_tests.py::test_main_falls_back_when_diff_unavailable::impact_select_tests.py::gabion.tooling.impact_select_tests.main
+# gabion:behavior primary=desired
 def test_main_falls_back_when_diff_unavailable(tmp_path: Path) -> None:
     root = tmp_path
     index_path = root / "out/test_evidence.json"
@@ -128,6 +131,7 @@ def test_main_falls_back_when_diff_unavailable(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_impact_select_tests.py::test_impact_select_helpers_cover_error_and_stale_paths::impact_select_tests.py::gabion.tooling.impact_select_tests._git_diff_changed_lines::impact_select_tests.py::gabion.tooling.impact_select_tests._select_tests
+# gabion:behavior primary=verboten facets=error
 def test_impact_select_helpers_cover_error_and_stale_paths(tmp_path: Path) -> None:
     with pytest.raises(RuntimeError):
         impact_select_tests._git_diff_changed_lines(
@@ -167,6 +171,7 @@ def test_impact_select_helpers_cover_error_and_stale_paths(tmp_path: Path) -> No
 
 
 # gabion:evidence E:call_footprint::tests/test_impact_select_tests.py::test_main_handles_stale_index_without_refresh::impact_select_tests.py::gabion.tooling.impact_select_tests.main
+# gabion:behavior primary=desired
 def test_main_handles_stale_index_without_refresh(tmp_path: Path) -> None:
     root = tmp_path
     index_path = root / "out/test_evidence.json"
@@ -205,6 +210,7 @@ def test_main_handles_stale_index_without_refresh(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_impact_select_tests.py::test_impact_select_additional_helper_branches::impact_select_tests.py::gabion.tooling.impact_select_tests._read_must_run_tests::impact_select_tests.py::gabion.tooling.impact_select_tests._site_matches_changed_lines
+# gabion:behavior primary=desired
 def test_impact_select_additional_helper_branches(tmp_path: Path) -> None:
     diff = """diff --git a/src/a.py b/src/a.py
 --- a/src/a.py
@@ -283,44 +289,52 @@ diff --git a/src/b.py b/src/b.py
 
 
 # gabion:evidence E:call_footprint::tests/test_impact_select_tests.py::test_git_diff_changed_lines_branches_and_main_default_git_diff::impact_select_tests.py::gabion.tooling.impact_select_tests._git_diff_changed_lines::impact_select_tests.py::gabion.tooling.impact_select_tests.main
+# gabion:behavior primary=desired
 def test_git_diff_changed_lines_branches_and_main_default_git_diff(tmp_path: Path) -> None:
-    root = tmp_path / "repo"
-    root.mkdir(parents=True, exist_ok=True)
-    subprocess.run(["git", "init"], cwd=root, check=True, capture_output=True, text=True)
-    subprocess.run(
-        ["git", "config", "user.email", "test@example.com"],
-        cwd=root,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    subprocess.run(
-        ["git", "config", "user.name", "Test User"],
-        cwd=root,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    app_file = root / "src_app.py"
-    app_file.write_text("a\n", encoding="utf-8")
-    subprocess.run(["git", "add", "src_app.py"], cwd=root, check=True, capture_output=True, text=True)
-    subprocess.run(["git", "commit", "-m", "init"], cwd=root, check=True, capture_output=True, text=True)
-    app_file.write_text("a\nb\n", encoding="utf-8")
-    subprocess.run(["git", "add", "src_app.py"], cwd=root, check=True, capture_output=True, text=True)
-    subprocess.run(["git", "commit", "-m", "update"], cwd=root, check=True, capture_output=True, text=True)
+    root = tmp_path
 
-    head_sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
-    base_sha = subprocess.check_output(["git", "rev-parse", "HEAD~1"], cwd=root, text=True).strip()
+    class _ProcResult:
+        def __init__(self, *, returncode: int, stdout: str = "", stderr: str = "") -> None:
+            self.returncode = returncode
+            self.stdout = stdout
+            self.stderr = stderr
+
+    diff_output_with_refs = """diff --git a/src_app.py b/src_app.py
+--- a/src_app.py
++++ b/src_app.py
+@@ -1,0 +2,1 @@
++b
+"""
+    diff_output_without_refs = """diff --git a/src_app.py b/src_app.py
+--- a/src_app.py
++++ b/src_app.py
+@@ -2,0 +3,1 @@
++c
+"""
+
+    def _run_command(command: list[str], _root: Path) -> _ProcResult:
+        if command[:3] != ["git", "diff", "--unified=0"]:
+            return _ProcResult(returncode=1, stderr="unexpected command")
+        if len(command) == 4 and command[3] == "base...head":
+            return _ProcResult(returncode=0, stdout=diff_output_with_refs)
+        if len(command) == 3:
+            return _ProcResult(returncode=0, stdout=diff_output_without_refs)
+        return _ProcResult(returncode=1, stderr="unexpected args")
 
     with_base_and_head = impact_select_tests._git_diff_changed_lines(
         root,
-        base=base_sha,
-        head=head_sha,
+        base="base",
+        head="head",
+        run_command_fn=_run_command,
     )
     assert with_base_and_head
 
-    app_file.write_text("a\nb\nc\n", encoding="utf-8")
-    without_base = impact_select_tests._git_diff_changed_lines(root, base=None, head=None)
+    without_base = impact_select_tests._git_diff_changed_lines(
+        root,
+        base=None,
+        head=None,
+        run_command_fn=_run_command,
+    )
     assert without_base
 
     index_path = root / "out/test_evidence.json"
@@ -337,7 +351,11 @@ def test_git_diff_changed_lines_branches_and_main_default_git_diff(tmp_path: Pat
                 "--out",
                 "artifacts/audit_reports/impact_selection.json",
                 "--no-refresh",
-            ]
+            ],
+            git_diff_changed_lines_fn=lambda *_args: [
+                impact_select_tests.ChangedLine(path="src_app.py", line=2),
+                impact_select_tests.ChangedLine(path="src_app.py", line=3),
+            ],
         )
         == 0
     )
@@ -346,6 +364,7 @@ def test_git_diff_changed_lines_branches_and_main_default_git_diff(tmp_path: Pat
 
 
 # gabion:evidence E:call_footprint::tests/test_impact_select_tests.py::test_main_attempts_refresh_when_index_missing::impact_select_tests.py::gabion.tooling.impact_select_tests.main
+# gabion:behavior primary=verboten facets=missing
 def test_main_attempts_refresh_when_index_missing(tmp_path: Path) -> None:
     root = tmp_path
     out_path = root / "artifacts/audit_reports/impact_selection.json"
@@ -368,6 +387,7 @@ def test_main_attempts_refresh_when_index_missing(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_impact_select_tests.py::test_impact_select_targets_mode_with_negative_stale_and_unprefixed_paths::impact_select_tests.py::gabion.tooling.impact_select_tests._parse_changed_lines::impact_select_tests.py::gabion.tooling.impact_select_tests._select_tests::impact_select_tests.py::gabion.tooling.impact_select_tests.main
+# gabion:behavior primary=desired
 def test_impact_select_targets_mode_with_negative_stale_and_unprefixed_paths(
     tmp_path: Path,
 ) -> None:
@@ -430,6 +450,7 @@ def test_impact_select_targets_mode_with_negative_stale_and_unprefixed_paths(
 
 
 # gabion:evidence E:call_footprint::tests/test_impact_select_tests.py::test_impact_select_inner_evidence_loop_break_then_continues_outer_entries::impact_select_tests.py::gabion.tooling.impact_select_tests._select_tests
+# gabion:behavior primary=desired
 def test_impact_select_inner_evidence_loop_break_then_continues_outer_entries() -> None:
     payload = {
         "tests": [
@@ -457,6 +478,7 @@ def test_impact_select_inner_evidence_loop_break_then_continues_outer_entries() 
 
 
 # gabion:evidence E:call_footprint::tests/test_impact_select_tests.py::test_main_handles_diff_evidence_builder_runtime_error_without_override::impact_select_tests.py::gabion.tooling.impact_select_tests.main
+# gabion:behavior primary=verboten facets=error
 def test_main_handles_diff_evidence_builder_runtime_error_without_override(
     tmp_path: Path,
 ) -> None:

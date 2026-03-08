@@ -58,6 +58,7 @@ def _with_timeout(payload: dict) -> dict:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command.py::test_deadline_from_payload_rejects_invalid::server.py::gabion.server._deadline_from_payload
+# gabion:behavior primary=verboten facets=invalid
 @pytest.mark.parametrize(
     "payload",
     [
@@ -76,6 +77,7 @@ def test_deadline_from_payload_rejects_invalid(payload: dict) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command.py::test_deadline_scope_requires_payload::server.py::gabion.server._deadline_scope_from_payload
+# gabion:behavior primary=desired
 def test_deadline_scope_requires_payload() -> None:
     with pytest.raises(NeverThrown):
         with server._deadline_scope_from_payload(None):
@@ -83,6 +85,7 @@ def test_deadline_scope_requires_payload() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command.py::test_deadline_scope_rejects_invalid_tick_limit::server.py::gabion.server._deadline_scope_from_payload
+# gabion:behavior primary=verboten facets=invalid
 def test_deadline_scope_rejects_invalid_tick_limit() -> None:
     with pytest.raises(NeverThrown):
         with server._deadline_scope_from_payload(
@@ -96,6 +99,7 @@ def test_deadline_scope_rejects_invalid_tick_limit() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command.py::test_deadline_scope_rejects_non_numeric_tick_limit::server.py::gabion.server._deadline_scope_from_payload
+# gabion:behavior primary=desired
 def test_deadline_scope_rejects_non_numeric_tick_limit() -> None:
     with pytest.raises(NeverThrown):
         with server._deadline_scope_from_payload(
@@ -109,6 +113,7 @@ def test_deadline_scope_rejects_non_numeric_tick_limit() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command.py::test_deadline_scope_applies_analysis_tick_limit::server.py::gabion.server._deadline_scope_from_payload::timeout_context.py::gabion.analysis.timeout_context.check_deadline
+# gabion:behavior primary=desired
 def test_deadline_scope_applies_analysis_tick_limit() -> None:
     with server._deadline_scope_from_payload(
         {
@@ -122,6 +127,7 @@ def test_deadline_scope_applies_analysis_tick_limit() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command.py::test_analysis_timeout_total_ticks_parses_supported_units::server.py::gabion.server._analysis_timeout_total_ticks
+# gabion:behavior primary=verboten facets=timeout
 def test_analysis_timeout_total_ticks_parses_supported_units() -> None:
     assert (
         server._analysis_timeout_total_ticks(
@@ -134,6 +140,7 @@ def test_analysis_timeout_total_ticks_parses_supported_units() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command.py::test_analysis_timeout_total_ticks_rejects_invalid::server.py::gabion.server._analysis_timeout_total_ticks
+# gabion:behavior primary=verboten facets=invalid,timeout
 @pytest.mark.parametrize(
     "payload",
     [
@@ -153,6 +160,7 @@ def test_analysis_timeout_total_ticks_rejects_invalid(payload: dict) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command.py::test_execute_command_rejects_non_positive_analysis_tick_limit::server.py::gabion.server.execute_command::test_server_execute_command.py::tests.test_server_execute_command._with_timeout::test_server_execute_command.py::tests.test_server_execute_command._write_minimal_module
+# gabion:behavior primary=desired
 def test_execute_command_rejects_non_positive_analysis_tick_limit(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_minimal_module(module_path)
@@ -170,6 +178,7 @@ def test_execute_command_rejects_non_positive_analysis_tick_limit(tmp_path: Path
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command.py::test_execute_command_rejects_non_numeric_analysis_tick_limit::server.py::gabion.server.execute_command::test_server_execute_command.py::tests.test_server_execute_command._with_timeout::test_server_execute_command.py::tests.test_server_execute_command._write_minimal_module
+# gabion:behavior primary=desired
 def test_execute_command_rejects_non_numeric_analysis_tick_limit(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_minimal_module(module_path)
@@ -187,6 +196,7 @@ def test_execute_command_rejects_non_numeric_analysis_tick_limit(tmp_path: Path)
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command.py::test_execute_command_applies_analysis_tick_limit::server.py::gabion.server.execute_command::test_server_execute_command.py::tests.test_server_execute_command._with_timeout::test_server_execute_command.py::tests.test_server_execute_command._write_minimal_module
+# gabion:behavior primary=desired
 def test_execute_command_applies_analysis_tick_limit(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_minimal_module(module_path)
@@ -211,6 +221,7 @@ def test_execute_command_applies_analysis_tick_limit(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server._normalize_transparent_decorators::value E:decision_surface/direct::server.py::gabion.server._normalize_transparent_decorators::stale_87c38025dce2
+# gabion:behavior primary=desired
 def test_normalize_transparent_decorators() -> None:
     with deadline_scope(Deadline.from_timeout_ms(100)):
         assert server._normalize_transparent_decorators(None) is None
@@ -220,12 +231,14 @@ def test_normalize_transparent_decorators() -> None:
 
 
 # gabion:evidence E:function_site::server.py::gabion.server._uri_to_path E:decision_surface/direct::server.py::gabion.server._uri_to_path::stale_5f8a0c1780ad_b83059ee
+# gabion:behavior primary=desired
 def test_uri_to_path_file_scheme() -> None:
     path = server._uri_to_path("file:///tmp/example.py")
     assert str(path).endswith("/tmp/example.py")
 
 
 # gabion:evidence E:function_site::server.py::gabion.server._uri_to_path E:decision_surface/direct::server.py::gabion.server._uri_to_path::stale_87121dc01d2c
+# gabion:behavior primary=desired
 def test_uri_to_path_plain_path() -> None:
     path = server._uri_to_path("/tmp/example.py")
     assert str(path).endswith("/tmp/example.py")
@@ -239,6 +252,7 @@ def _write_minimal_module(path: Path) -> None:
 
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_metrics::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_protocol_stubs::kind E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::server.py::gabion.server.execute_command::payload E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section E:decision_surface/direct::config.py::gabion.config.exception_never_list::section E:decision_surface/direct::server.py::gabion.server._normalize_transparent_decorators::value E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::stale_fce481470851_1b7ea9fa
+# gabion:behavior primary=desired
 def test_execute_command_no_violations(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_minimal_module(module_path)
@@ -261,6 +275,7 @@ def test_execute_command_no_violations(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command.py::test_execute_command_defaults_paths::server.py::gabion.server.execute_command::test_server_execute_command.py::tests.test_server_execute_command._with_timeout::test_server_execute_command.py::tests.test_server_execute_command._write_minimal_module
+# gabion:behavior primary=desired
 def test_execute_command_defaults_paths(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_minimal_module(module_path)
@@ -277,6 +292,7 @@ def test_execute_command_defaults_paths(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:decision_surface/direct::ambiguity_delta.py::gabion.analysis.ambiguity_delta.build_delta_payload::baseline_path E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section E:decision_surface/direct::config.py::gabion.config.exception_never_list::section E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::config,include_ambiguities,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_metrics::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_protocol_stubs::kind E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::server.py::gabion.server._normalize_transparent_decorators::value E:decision_surface/direct::server.py::gabion.server.execute_command::payload E:decision_surface/value_encoded::ambiguity_delta.py::gabion.analysis.ambiguity_delta.build_delta_payload::baseline,current
+# gabion:behavior primary=desired
 def test_execute_command_baseline_write(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_minimal_module(module_path)
@@ -300,6 +316,7 @@ def test_execute_command_baseline_write(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_metrics::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_protocol_stubs::kind E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::server.py::gabion.server.execute_command::payload E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section E:decision_surface/direct::config.py::gabion.config.exception_never_list::section E:decision_surface/direct::server.py::gabion.server._normalize_transparent_decorators::value E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::stale_656556c648ee
+# gabion:behavior primary=desired
 def test_execute_command_report_and_dot(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_minimal_module(module_path)
@@ -323,6 +340,7 @@ def test_execute_command_report_and_dot(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_metrics::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_protocol_stubs::kind E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::server.py::gabion.server.execute_command::payload E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section E:decision_surface/direct::config.py::gabion.config.exception_never_list::section E:decision_surface/direct::server.py::gabion.server._normalize_transparent_decorators::value E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::stale_68f8d97094bd
+# gabion:behavior primary=desired
 def test_execute_command_structure_tree(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_minimal_module(module_path)
@@ -343,6 +361,7 @@ def test_execute_command_structure_tree(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_metrics::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_protocol_stubs::kind E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::server.py::gabion.server.execute_command::payload E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section E:decision_surface/direct::config.py::gabion.config.exception_never_list::section E:decision_surface/direct::server.py::gabion.server._normalize_transparent_decorators::value E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::stale_5c037151585c
+# gabion:behavior primary=desired
 def test_execute_command_structure_tree_stdout(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_minimal_module(module_path)
@@ -362,6 +381,7 @@ def test_execute_command_structure_tree_stdout(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command.py::test_execute_command_defaults_tick_ns::server.py::gabion.server.execute_command::test_server_execute_command.py::tests.test_server_execute_command._write_minimal_module
+# gabion:behavior primary=desired
 def test_execute_command_defaults_tick_ns(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_minimal_module(module_path)
@@ -379,6 +399,7 @@ def test_execute_command_defaults_tick_ns(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_structure_diff::payload E:decision_surface/direct::server.py::gabion.server.execute_structure_diff::stale_358bf121761b_447f9e79
+# gabion:behavior primary=desired
 def test_execute_structure_diff(tmp_path: Path) -> None:
     baseline = tmp_path / "baseline.json"
     current = tmp_path / "current.json"
@@ -393,12 +414,14 @@ def test_execute_structure_diff(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_structure_diff::payload E:decision_surface/direct::server.py::gabion.server.execute_structure_diff::stale_1d132ece7b61
+# gabion:behavior primary=verboten facets=missing
 def test_execute_structure_diff_missing_payload() -> None:
     result = server.execute_structure_diff(None, _with_timeout({}))
     assert result["exit_code"] == 2
 
 
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_structure_diff::payload E:decision_surface/direct::server.py::gabion.server.execute_structure_diff::stale_bc74390d36ba
+# gabion:behavior primary=verboten facets=missing
 def test_execute_structure_diff_missing_paths() -> None:
     result = server.execute_structure_diff(None, _with_timeout({}))
     assert result["exit_code"] == 2
@@ -406,6 +429,7 @@ def test_execute_structure_diff_missing_paths() -> None:
 
 
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_structure_diff::payload E:decision_surface/direct::server.py::gabion.server.execute_structure_diff::stale_eee2d889f802
+# gabion:behavior primary=verboten facets=invalid
 def test_execute_structure_diff_invalid_snapshot(tmp_path: Path) -> None:
     baseline = tmp_path / "baseline.json"
     current = tmp_path / "current.json"
@@ -420,6 +444,7 @@ def test_execute_structure_diff_invalid_snapshot(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_metrics::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_protocol_stubs::kind E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::server.py::gabion.server.execute_command::payload E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section E:decision_surface/direct::config.py::gabion.config.exception_never_list::section E:decision_surface/direct::server.py::gabion.server._normalize_transparent_decorators::value E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::stale_0e3a7c9f14a2
+# gabion:behavior primary=desired
 def test_execute_command_structure_metrics(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_minimal_module(module_path)
@@ -440,6 +465,7 @@ def test_execute_command_structure_metrics(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_metrics::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_protocol_stubs::kind E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::server.py::gabion.server.execute_command::payload E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section E:decision_surface/direct::config.py::gabion.config.exception_never_list::section E:decision_surface/direct::server.py::gabion.server._normalize_transparent_decorators::value E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::stale_72154e73355b
+# gabion:behavior primary=desired
 def test_execute_command_structure_metrics_stdout(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_minimal_module(module_path)
@@ -458,6 +484,7 @@ def test_execute_command_structure_metrics_stdout(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_metrics::forest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_protocol_stubs::kind E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::server.py::gabion.server.execute_command::payload E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section E:decision_surface/direct::config.py::gabion.config.exception_never_list::section E:decision_surface/direct::server.py::gabion.server._normalize_transparent_decorators::value E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::stale_8112ebcd619d
+# gabion:behavior primary=desired
 def test_execute_command_synthesis_outputs(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_minimal_module(module_path)
@@ -481,6 +508,7 @@ def test_execute_command_synthesis_outputs(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_synthesis::payload
+# gabion:behavior primary=desired
 def test_execute_synthesis_minimal_payload() -> None:
     result = server.execute_synthesis(None, _with_timeout({"bundles": []}))
     assert result["protocols"] == []
@@ -488,6 +516,7 @@ def test_execute_synthesis_minimal_payload() -> None:
 
 
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_refactor::ls,payload
+# gabion:behavior primary=verboten facets=invalid
 def test_execute_refactor_invalid_payload() -> None:
     result = server.execute_refactor(None, _with_timeout({}))
     assert result["errors"]
@@ -495,6 +524,7 @@ def test_execute_refactor_invalid_payload() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command.py::test_execute_command_emits_typed_handledness_to_lsp_response::server.py::gabion.server.execute_command::test_server_execute_command.py::tests.test_server_execute_command._with_timeout
+# gabion:behavior primary=desired
 def test_execute_command_emits_typed_handledness_to_lsp_response(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     module_path.write_text(

@@ -31,6 +31,7 @@ def _default_controller_drift_policy() -> governance_rules.ControllerDriftPolicy
 
 
 # gabion:evidence E:call_footprint::tests/test_runtime_kernel_contracts.py::test_env_policy_truthy_helpers_explicit_values::env_policy.py::gabion.runtime.env_policy.env_enabled_flag::env_policy.py::gabion.runtime.env_policy.env_enabled_truthy_only
+# gabion:behavior primary=desired
 def test_env_policy_truthy_helpers_explicit_values() -> None:
     assert env_policy.env_enabled_truthy_only("UNUSED", value="yes") is True
     assert env_policy.env_enabled_truthy_only("UNUSED", value="no") is False
@@ -39,6 +40,7 @@ def test_env_policy_truthy_helpers_explicit_values() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_runtime_kernel_contracts.py::test_env_policy_timeout_env_removed::env_policy.py::gabion.runtime.env_policy.timeout_ticks_from_env
+# gabion:behavior primary=verboten facets=timeout
 def test_env_policy_timeout_env_removed() -> None:
     original_has_any_non_empty_env = env_policy.has_any_non_empty_env
     try:
@@ -53,6 +55,7 @@ def test_env_policy_timeout_env_removed() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_runtime_kernel_contracts.py::test_env_policy_helpers_cover_non_env_timeout_paths::env_policy.py::gabion.runtime.env_policy.has_any_non_empty_env::env_policy.py::gabion.runtime.env_policy.parse_positive_int_text
+# gabion:behavior primary=verboten facets=timeout
 def test_env_policy_helpers_cover_non_env_timeout_paths() -> None:
     assert env_policy.has_any_non_empty_env(("UNUSED_TIMEOUT_KEY",)) is False
     assert env_policy.parse_positive_int_text("7", field="ticks") == 7
@@ -63,6 +66,7 @@ def test_env_policy_helpers_cover_non_env_timeout_paths() -> None:
 
 
 # gabion:evidence E:function_site::test_runtime_kernel_contracts.py::tests.test_runtime_kernel_contracts.test_env_policy_cli_timeout_overrides_and_scope_paths
+# gabion:behavior primary=verboten facets=timeout
 def test_env_policy_cli_timeout_overrides_and_scope_paths() -> None:
     with pytest.raises(NeverThrown):
         env_policy.LspTimeoutConfig(ticks=0, tick_ns=1)
@@ -103,6 +107,7 @@ def test_env_policy_cli_timeout_overrides_and_scope_paths() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_runtime_kernel_contracts.py::test_env_policy_duration_parsing_and_duration_text_edges
+# gabion:behavior primary=verboten facets=edge
 def test_env_policy_duration_parsing_and_duration_text_edges() -> None:
     assert env_policy.parse_duration_to_ns("750ms") == 750_000_000
     assert env_policy.parse_duration_to_ns("1m30s") == 90_000_000_000
@@ -125,6 +130,7 @@ def test_env_policy_duration_parsing_and_duration_text_edges() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_runtime_kernel_contracts.py::test_env_policy_duration_parser_covers_unit_and_rounding_guardrails
+# gabion:behavior primary=desired
 def test_env_policy_duration_parser_covers_unit_and_rounding_guardrails() -> None:
     original_units = dict(env_policy._DURATION_UNIT_NS)
     original_rounding = env_policy.ROUND_CEILING
@@ -148,6 +154,7 @@ def test_env_policy_duration_parser_covers_unit_and_rounding_guardrails() -> Non
 
 
 # gabion:evidence E:function_site::tests/test_runtime_kernel_contracts.py::test_env_policy_duration_parser_covers_decimal_parse_error_and_total_ns_guard
+# gabion:behavior primary=verboten facets=error
 def test_env_policy_duration_parser_covers_decimal_parse_error_and_total_ns_guard() -> None:
     original_re = env_policy._DURATION_TOKEN_RE
     had_module_int = hasattr(env_policy, "int")
@@ -173,6 +180,7 @@ def test_env_policy_duration_parser_covers_decimal_parse_error_and_total_ns_guar
 
 
 # gabion:evidence E:call_footprint::tests/test_runtime_kernel_contracts.py::test_deadline_policy_budget_from_override_paths::deadline_policy.py::gabion.runtime.deadline_policy.timeout_budget_from_lsp_env
+# gabion:behavior primary=desired
 def test_deadline_policy_budget_from_override_paths() -> None:
     budget = deadline_policy.timeout_budget_from_lsp_env(
         default_budget=deadline_policy.DeadlineBudget(ticks=7, tick_ns=9),
@@ -191,6 +199,7 @@ def test_deadline_policy_budget_from_override_paths() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_runtime_kernel_contracts.py::test_path_policy_resolve_report_path_branches::path_policy.py::gabion.runtime.path_policy.resolve_report_path
+# gabion:behavior primary=desired
 def test_path_policy_resolve_report_path_branches(tmp_path: Path) -> None:
     explicit = tmp_path / "explicit.md"
     assert path_policy.resolve_report_path(explicit, root=tmp_path) == explicit
@@ -200,11 +209,13 @@ def test_path_policy_resolve_report_path_branches(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_runtime_kernel_contracts.py::test_json_io_load_text_invalid_returns_empty::json_io.py::gabion.runtime.json_io.load_json_object_text
+# gabion:behavior primary=verboten facets=empty,invalid
 def test_json_io_load_text_invalid_returns_empty() -> None:
     assert json_io.load_json_object_text("{bad") == {}
 
 
 # gabion:evidence E:call_footprint::tests/test_runtime_kernel_contracts.py::test_json_io_canonicalizes_nested_mapping_order::json_io.py::gabion.runtime.json_io.load_json_object_text::json_io.py::gabion.runtime.json_io.dump_json_pretty
+# gabion:behavior primary=desired
 def test_json_io_canonicalizes_nested_mapping_order() -> None:
     payload = json_io.load_json_object_text(
         '{"z": {"b": 2, "a": 1}, "a": [{"y": 2, "x": 1}], "m": {"k": null}}'
@@ -218,12 +229,14 @@ def test_json_io_canonicalizes_nested_mapping_order() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_runtime_kernel_contracts.py::test_json_io_dump_rejects_unsorted_mapping_payload::json_io.py::gabion.runtime.json_io.dump_json_pretty
+# gabion:behavior primary=desired
 def test_json_io_dump_rejects_unsorted_mapping_payload() -> None:
     with pytest.raises(NeverThrown):
         json_io.dump_json_pretty({"z": 1, "a": 2})
 
 
 # gabion:evidence E:call_footprint::tests/test_runtime_kernel_contracts.py::test_stable_encode_rejects_unsupported_objects::stable_encode.py::gabion.runtime.stable_encode.stable_compact_bytes::stable_encode.py::gabion.runtime.stable_encode.stable_json_value
+# gabion:behavior primary=verboten facets=unsupported
 def test_stable_encode_rejects_unsupported_objects() -> None:
     class _Custom:
         def __str__(self) -> str:
@@ -241,6 +254,7 @@ def test_stable_encode_rejects_unsupported_objects() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_runtime_kernel_contracts.py::test_delta_gate_load_payload_handles_unicode_error::delta_gate.py::gabion.tooling.delta_gate._load_payload
+# gabion:behavior primary=verboten facets=error
 def test_delta_gate_load_payload_handles_unicode_error(tmp_path: Path) -> None:
     invalid_utf = tmp_path / "invalid_utf.json"
     invalid_utf.write_bytes(b"\xff")
@@ -250,6 +264,7 @@ def test_delta_gate_load_payload_handles_unicode_error(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_runtime_kernel_contracts.py::test_delta_gate_error_and_ok_branches::delta_gate.py::gabion.tooling.delta_gate._policy_spec::delta_gate.py::gabion.tooling.delta_gate._gate_id_for_env_flag::delta_gate.py::gabion.tooling.delta_gate._check_standard_gate
+# gabion:behavior primary=verboten facets=error
 def test_delta_gate_error_and_ok_branches(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     original_loader = delta_gate.load_governance_rules
     try:
@@ -308,6 +323,7 @@ def test_delta_gate_error_and_ok_branches(tmp_path: Path, capsys: pytest.Capture
 
 
 # gabion:evidence E:call_footprint::tests/test_runtime_kernel_contracts.py::test_tool_specs_triplet_map_sorted_and_filtered::tool_specs.py::gabion.tooling.tool_specs.triplet_specs_map::tool_specs.py::gabion.tooling.tool_specs.dataflow_stage_gate_specs
+# gabion:behavior primary=desired
 def test_tool_specs_triplet_map_sorted_and_filtered() -> None:
     triplets = tool_specs.triplet_specs_map()
     assert list(triplets.keys()) == sorted(triplets.keys())

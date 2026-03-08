@@ -5,6 +5,7 @@ import json
 from gabion.tooling.governance import governance_audit as audit_impl
 
 
+# gabion:behavior primary=desired
 def test_matrix_extraction_is_deterministic() -> None:
     doc = audit_impl.Doc(
         frontmatter={"doc_id": "matrix_doc"},
@@ -15,6 +16,7 @@ def test_matrix_extraction_is_deterministic() -> None:
     assert first == second
 
 
+# gabion:behavior primary=desired
 def test_dependency_matrix_composition_inherits_dependency_notions() -> None:
     docs = {
         "docs/base.md": audit_impl.Doc(
@@ -45,6 +47,7 @@ def test_dependency_matrix_composition_inherits_dependency_notions() -> None:
     assert len(child_notions) == 2
 
 
+# gabion:behavior primary=desired
 def test_implication_matrix_violation_emits_for_counterexample_file(tmp_path) -> None:
     counterexample = tmp_path / "counterexample.md"
     counterexample.write_text("must keep matrix parity\nmust not keep matrix parity\n", encoding="utf-8")

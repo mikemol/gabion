@@ -35,6 +35,7 @@ def _trace_payload(
 
 
 # gabion:evidence E:function_site::aspf_execution_fibration.py::gabion.analysis.aspf_execution_fibration.start_execution_trace
+# gabion:behavior primary=desired
 def test_start_execution_trace_is_opt_in(tmp_path: Path) -> None:
     assert (
         aspf_execution_fibration.start_execution_trace(root=tmp_path, payload={})
@@ -43,6 +44,7 @@ def test_start_execution_trace_is_opt_in(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_aspf_execution_fibration.py::test_finalize_execution_trace_emits_non_drift_with_matching_baseline::aspf_execution_fibration.py::gabion.analysis.aspf_execution_fibration.finalize_execution_trace
+# gabion:behavior primary=verboten facets=drift
 def test_finalize_execution_trace_emits_non_drift_with_matching_baseline(
     tmp_path: Path,
 ) -> None:
@@ -95,6 +97,7 @@ def test_finalize_execution_trace_emits_non_drift_with_matching_baseline(
 
 
 # gabion:evidence E:call_footprint::tests/test_aspf_execution_fibration.py::test_finalize_execution_trace_marks_only_mismatched_surface_as_drift::aspf_execution_fibration.py::gabion.analysis.aspf_execution_fibration.finalize_execution_trace
+# gabion:behavior primary=verboten facets=drift
 def test_finalize_execution_trace_marks_only_mismatched_surface_as_drift(
     tmp_path: Path,
 ) -> None:
@@ -147,6 +150,7 @@ def test_finalize_execution_trace_marks_only_mismatched_surface_as_drift(
 
 
 # gabion:evidence E:function_site::aspf_execution_fibration.py::gabion.analysis.aspf_execution_fibration.record_cofibration
+# gabion:behavior primary=desired
 def test_record_cofibration_rejects_non_faithful_embedding(tmp_path: Path) -> None:
     state = aspf_execution_fibration.start_execution_trace(
         root=tmp_path,
@@ -170,6 +174,7 @@ def test_record_cofibration_rejects_non_faithful_embedding(tmp_path: Path) -> No
 
 
 # gabion:evidence E:function_site::aspf_execution_fibration.py::gabion.analysis.aspf_execution_fibration.merge_imported_trace
+# gabion:behavior primary=desired
 def test_merge_imported_trace_preserves_surface_representatives(tmp_path: Path) -> None:
     state = aspf_execution_fibration.start_execution_trace(
         root=tmp_path,
@@ -189,6 +194,7 @@ def test_merge_imported_trace_preserves_surface_representatives(tmp_path: Path) 
 
 
 # gabion:evidence E:function_site::aspf_execution_fibration.py::gabion.analysis.aspf_execution_fibration.build_opportunities_payload
+# gabion:behavior primary=desired
 def test_build_opportunities_payload_emits_materialize_and_fungible_candidates(
     tmp_path: Path,
 ) -> None:
@@ -261,6 +267,7 @@ def test_build_opportunities_payload_emits_materialize_and_fungible_candidates(
 
 
 # gabion:evidence E:call_footprint::tests/test_aspf_execution_fibration.py::test_finalize_execution_trace_allows_state_object_roundtrip_import::aspf_execution_fibration.py::gabion.analysis.aspf_execution_fibration.finalize_execution_trace
+# gabion:behavior primary=desired
 def test_finalize_execution_trace_allows_state_object_roundtrip_import(
     tmp_path: Path,
 ) -> None:
@@ -321,6 +328,7 @@ def test_finalize_execution_trace_allows_state_object_roundtrip_import(
 
 
 # gabion:evidence E:function_site::aspf_execution_fibration.py::gabion.analysis.aspf_execution_fibration._publish_event
+# gabion:behavior primary=desired
 def test_aspf_event_visitor_receives_finalize_hook(tmp_path: Path) -> None:
     class CollectingVisitor:
         def __init__(self) -> None:
@@ -374,6 +382,7 @@ def test_aspf_event_visitor_receives_finalize_hook(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::aspf_execution_fibration.py::gabion.analysis.aspf_execution_fibration.AspfExecutionTraceState.__post_init__
+# gabion:behavior primary=desired
 def test_execution_trace_state_preserves_preconfigured_event_visitors(tmp_path: Path) -> None:
     class _Visitor:
         def visit_one_cell_recorded(self, event) -> None:
@@ -407,6 +416,7 @@ def test_execution_trace_state_preserves_preconfigured_event_visitors(tmp_path: 
     assert state.event_visitors == [visitor]
 
 
+# gabion:behavior primary=desired
 def test_start_execution_trace_registers_streaming_sink(tmp_path: Path) -> None:
     state = aspf_execution_fibration.start_execution_trace(
         root=tmp_path,
@@ -419,6 +429,7 @@ def test_start_execution_trace_registers_streaming_sink(tmp_path: Path) -> None:
     assert state.event_sinks
 
 
+# gabion:behavior primary=desired
 def test_finalize_execution_trace_derives_payload_from_sink_index(tmp_path: Path) -> None:
     state = aspf_execution_fibration.start_execution_trace(
         root=tmp_path,
@@ -461,6 +472,7 @@ def _one_cell_payload(*, representative: str) -> dict[str, object]:
 
 
 # gabion:evidence E:function_site::aspf_execution_fibration.py::gabion.analysis.aspf_execution_fibration._merge_two_cell_payload
+# gabion:behavior primary=desired
 def test_merge_imported_trace_parses_two_cell_witness_payloads(tmp_path: Path) -> None:
     state = aspf_execution_fibration.start_execution_trace(
         root=tmp_path,
@@ -520,6 +532,7 @@ def _write_stream_trace_fixture(path: Path, *, trace_payload: dict[str, object])
 
 
 # gabion:evidence E:function_site::aspf_execution_fibration.py::gabion.analysis.aspf_execution_fibration.load_trace_stream_payload
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_merge_imported_trace_paths_streaming_matches_legacy_payload_merge(tmp_path: Path) -> None:
     controls = _trace_payload(trace_json=tmp_path / "trace.json", surfaces=["groups_by_path"])
 
@@ -581,6 +594,7 @@ def test_merge_imported_trace_paths_streaming_matches_legacy_payload_merge(tmp_p
 
 # gabion:evidence E:function_site::aspf_execution_fibration.py::gabion.analysis.aspf_execution_fibration.build_equivalence_payload
 
+# gabion:behavior primary=desired
 def test_build_equivalence_payload_uses_baseline_two_cell_witness_index(tmp_path: Path) -> None:
     state = aspf_execution_fibration.start_execution_trace(
         root=tmp_path,
@@ -620,6 +634,7 @@ def test_build_equivalence_payload_uses_baseline_two_cell_witness_index(tmp_path
     assert row["witness_id"] == "w:baseline-index"
 
 
+# gabion:behavior primary=verboten facets=none
 def test_finalize_execution_trace_handles_none_state(tmp_path: Path) -> None:
     assert (
         aspf_execution_fibration.finalize_execution_trace(
@@ -631,6 +646,7 @@ def test_finalize_execution_trace_handles_none_state(tmp_path: Path) -> None:
     )
 
 
+# gabion:behavior primary=desired
 def test_finalize_execution_trace_ignores_untracked_semantic_surface(tmp_path: Path) -> None:
     state = aspf_execution_fibration.start_execution_trace(
         root=tmp_path,
@@ -653,6 +669,7 @@ def test_finalize_execution_trace_ignores_untracked_semantic_surface(tmp_path: P
     assert "untracked_surface" not in state.surface_representatives
 
 
+# gabion:behavior primary=desired
 def test_load_trace_stream_payload_skips_blank_lines(tmp_path: Path) -> None:
     path = tmp_path / "trace.jsonl"
     row = {
@@ -668,6 +685,7 @@ def test_load_trace_stream_payload_skips_blank_lines(tmp_path: Path) -> None:
     assert len(one_cells) == 1
 
 
+# gabion:behavior primary=desired
 def test_load_trace_stream_payload_rejects_unknown_event_kind(tmp_path: Path) -> None:
     path = tmp_path / "trace.jsonl"
     path.write_text(
@@ -678,6 +696,7 @@ def test_load_trace_stream_payload_rejects_unknown_event_kind(tmp_path: Path) ->
         aspf_execution_fibration.load_trace_stream_payload(path)
 
 
+# gabion:behavior primary=desired
 def test_close_execution_trace_sinks_is_idempotent(tmp_path: Path) -> None:
     state = aspf_execution_fibration.start_execution_trace(
         root=tmp_path,
@@ -693,6 +712,7 @@ def test_close_execution_trace_sinks_is_idempotent(tmp_path: Path) -> None:
     assert first == second
 
 
+# gabion:behavior primary=desired
 def test_close_execution_trace_sinks_rejects_non_jsonl_sink(tmp_path: Path) -> None:
     class _NonJsonlSink:
         def write_one_cell(self, event) -> None:
@@ -726,6 +746,7 @@ def test_close_execution_trace_sinks_rejects_non_jsonl_sink(tmp_path: Path) -> N
         aspf_execution_fibration.close_execution_trace_sinks(state=state)
 
 
+# gabion:behavior primary=desired
 def test_replay_helpers_cover_sink_and_memory_delta_paths(tmp_path: Path) -> None:
     state = aspf_execution_fibration.start_execution_trace(
         root=tmp_path,
@@ -792,6 +813,7 @@ def test_replay_helpers_cover_sink_and_memory_delta_paths(tmp_path: Path) -> Non
     assert sink_deltas
 
 
+# gabion:behavior primary=allowed_unwanted facets=noop
 def test_imported_trace_merge_visitor_run_boundary_noop(tmp_path: Path) -> None:
     state = aspf_execution_fibration.start_execution_trace(
         root=tmp_path,
@@ -820,6 +842,7 @@ def test_imported_trace_merge_visitor_run_boundary_noop(tmp_path: Path) -> None:
     assert before == after
 
 
+# gabion:behavior primary=desired
 def test_imported_trace_merge_visitor_rejects_unknown_event_type(tmp_path: Path) -> None:
     state = aspf_execution_fibration.start_execution_trace(
         root=tmp_path,
@@ -831,6 +854,7 @@ def test_imported_trace_merge_visitor_rejects_unknown_event_type(tmp_path: Path)
         visitor.on_replay_event(object())  # type: ignore[arg-type]
 
 
+# gabion:behavior primary=verboten facets=empty
 def test_controls_from_payload_defaults_empty_semantic_surface() -> None:
     controls = aspf_execution_fibration.controls_from_payload(
         {
@@ -841,6 +865,7 @@ def test_controls_from_payload_defaults_empty_semantic_surface() -> None:
     assert controls.aspf_semantic_surface == aspf_execution_fibration.DEFAULT_PHASE1_SEMANTIC_SURFACES
 
 
+# gabion:behavior primary=verboten facets=invalid
 def test_normalize_imported_trace_payload_filters_invalid_two_cell_witnesses() -> None:
     payload = aspf_execution_fibration.normalize_imported_trace_payload(
         {
@@ -876,6 +901,7 @@ def test_normalize_imported_trace_payload_filters_invalid_two_cell_witnesses() -
     ]
 
 
+# gabion:behavior primary=desired
 def test_normalize_imported_trace_payload_skips_non_mapping_two_cell_entries() -> None:
     payload = aspf_execution_fibration.normalize_imported_trace_payload(
         {
@@ -901,6 +927,7 @@ def test_normalize_imported_trace_payload_skips_non_mapping_two_cell_entries() -
     ]
 
 
+# gabion:behavior primary=desired
 def test_normalize_imported_trace_payload_replaces_non_sequence_two_cell_payload() -> None:
     payload = aspf_execution_fibration.normalize_imported_trace_payload(
         {
@@ -913,6 +940,7 @@ def test_normalize_imported_trace_payload_replaces_non_sequence_two_cell_payload
     assert payload["two_cell_witnesses"] == []
 
 
+# gabion:behavior primary=desired
 def test_imported_trace_merge_visitor_explicit_run_boundary_case() -> None:
     visitor = aspf_execution_fibration._ImportedTraceMergeVisitor(
         state=aspf_execution_fibration.AspfExecutionTraceState(

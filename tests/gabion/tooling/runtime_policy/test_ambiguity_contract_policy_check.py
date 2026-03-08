@@ -16,6 +16,7 @@ def _write(path: Path, content: str) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_ambiguity_contract_policy_check.py::test_ambiguity_contract_collect_violations_respects_boundaries::ambiguity_contract_policy_check.py::gabion.tooling.ambiguity_contract_policy_check.collect_violations
+# gabion:behavior primary=desired
 def test_ambiguity_contract_collect_violations_respects_boundaries(tmp_path: Path) -> None:
     _write(
         tmp_path / "src" / "gabion" / "analysis" / "bad.py",
@@ -63,6 +64,7 @@ def test_ambiguity_contract_collect_violations_respects_boundaries(tmp_path: Pat
 
 
 # gabion:evidence E:call_footprint::tests/test_ambiguity_contract_policy_check.py::test_ambiguity_contract_helper_predicates_cover_all_sentinels::ambiguity_contract_policy_check.py::gabion.tooling.ambiguity_contract_policy_check._module_boundary::ambiguity_contract_policy_check.py::gabion.tooling.ambiguity_contract_policy_check._has_marker::ambiguity_contract_policy_check.py::gabion.tooling.ambiguity_contract_policy_check._annotation_is_dynamic::ambiguity_contract_policy_check.py::gabion.tooling.ambiguity_contract_policy_check._looks_like_guard::ambiguity_contract_policy_check.py::gabion.tooling.ambiguity_contract_policy_check._single_sentinel_stmt
+# gabion:behavior primary=desired
 def test_ambiguity_contract_helper_predicates_cover_all_sentinels() -> None:
     assert policy._module_boundary(
         [
@@ -121,6 +123,7 @@ def test_ambiguity_contract_helper_predicates_cover_all_sentinels() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_ambiguity_contract_policy_check.py::test_ambiguity_contract_baseline_io_and_run_paths::ambiguity_contract_policy_check.py::gabion.tooling.ambiguity_contract_policy_check._load_baseline::ambiguity_contract_policy_check.py::gabion.tooling.ambiguity_contract_policy_check._write_baseline::ambiguity_contract_policy_check.py::gabion.tooling.ambiguity_contract_policy_check.run
+# gabion:behavior primary=desired
 def test_ambiguity_contract_baseline_io_and_run_paths(tmp_path: Path) -> None:
     root = tmp_path / "repo"
     _write(
@@ -167,6 +170,7 @@ def test_ambiguity_contract_baseline_io_and_run_paths(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_ambiguity_contract_policy_check.py::test_ambiguity_contract_main_and_module_entrypoint::ambiguity_contract_policy_check.py::gabion.tooling.ambiguity_contract_policy_check.main
+# gabion:behavior primary=desired
 def test_ambiguity_contract_main_and_module_entrypoint(tmp_path: Path) -> None:
     root = tmp_path / "repo"
     _write(

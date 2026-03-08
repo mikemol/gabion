@@ -16,6 +16,7 @@ def _evidence_item(display: str) -> dict[str, object]:
 
 
 # gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_opaque_key E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.key_identity::stale_7b725bec393e
+# gabion:behavior primary=desired
 def test_basic_dominance(make_obsolescence_opaque_ref, obsolescence_summary_counts) -> None:
     evidence_by_test = {
         "tests/test_alpha.py::test_a": [make_obsolescence_opaque_ref("E:x")],
@@ -51,6 +52,7 @@ def test_basic_dominance(make_obsolescence_opaque_ref, obsolescence_summary_coun
 
 
 # gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_opaque_key E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.make_opaque_key::stale_0a7b59371188
+# gabion:behavior primary=verboten facets=unmapped
 def test_unmapped_classification(tmp_path: Path, write_test_evidence_payload) -> None:
     out_dir = tmp_path / "out"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -89,6 +91,7 @@ def test_unmapped_classification(tmp_path: Path, write_test_evidence_payload) ->
 
 
 # gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_opaque_key E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.key_identity::stale_b12b1958b067
+# gabion:behavior primary=desired
 def test_equivalent_witness_classification(
     make_obsolescence_opaque_ref,
     obsolescence_summary_counts,
@@ -114,6 +117,7 @@ def test_equivalent_witness_classification(
 
 
 # gabion:evidence E:call_footprint::tests/test_test_obsolescence.py::test_equivalent_witness_pareto_tiebreak_prefers_branch_guard_then_runtime::test_obsolescence.py::gabion.analysis.test_obsolescence.classify_candidates
+# gabion:behavior primary=desired
 def test_equivalent_witness_pareto_tiebreak_prefers_branch_guard_then_runtime(
     make_obsolescence_opaque_ref,
 ) -> None:
@@ -138,6 +142,7 @@ def test_equivalent_witness_pareto_tiebreak_prefers_branch_guard_then_runtime(
 
 
 # gabion:evidence E:call_footprint::tests/test_test_obsolescence.py::test_redundant_branch_guard_retains_active::test_obsolescence.py::gabion.analysis.test_obsolescence.classify_candidates
+# gabion:behavior primary=desired
 def test_redundant_branch_guard_retains_active(make_obsolescence_opaque_ref) -> None:
     evidence_by_test = {
         "t_redundant": [make_obsolescence_opaque_ref("E:x")],
@@ -161,6 +166,7 @@ def test_redundant_branch_guard_retains_active(make_obsolescence_opaque_ref) -> 
 
 
 # gabion:evidence E:call_footprint::tests/test_test_obsolescence.py::test_classify_candidates_marks_requested_unresolved_paths_as_obsolete::test_obsolescence.py::gabion.analysis.test_obsolescence.classify_candidates
+# gabion:behavior primary=desired
 def test_classify_candidates_marks_requested_unresolved_paths_as_obsolete(
     make_obsolescence_opaque_ref,
 ) -> None:
@@ -228,6 +234,7 @@ def test_classify_candidates_marks_requested_unresolved_paths_as_obsolete(
 
 
 # gabion:evidence E:call_footprint::tests/test_test_obsolescence.py::test_equivalent_classification_selects_single_active_peer::test_obsolescence.py::gabion.analysis.test_obsolescence.classify_candidates
+# gabion:behavior primary=desired
 def test_equivalent_classification_selects_single_active_peer(
     make_obsolescence_opaque_ref,
 ) -> None:
@@ -243,6 +250,7 @@ def test_equivalent_classification_selects_single_active_peer(
 
 
 # gabion:evidence E:call_footprint::tests/test_test_obsolescence.py::test_pareto_helpers_cover_runtime_and_objective_fallback_paths::test_obsolescence.py::gabion.analysis.test_obsolescence._pareto_sort_key
+# gabion:behavior primary=allowed_unwanted facets=fallback
 def test_pareto_helpers_cover_runtime_and_objective_fallback_paths() -> None:
     options = test_obsolescence.ClassifierOptions(
         runtime_ms_by_test={"bad": "oops", "neg": -1},  # type: ignore[arg-type]
@@ -260,6 +268,7 @@ def test_pareto_helpers_cover_runtime_and_objective_fallback_paths() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_test_obsolescence.py::test_branch_guard_and_runtime_defaults_cover_missing_option_maps
+# gabion:behavior primary=verboten facets=missing
 def test_branch_guard_and_runtime_defaults_cover_missing_option_maps() -> None:
     options = test_obsolescence.ClassifierOptions(
         branch_guard_by_test=None,
@@ -278,6 +287,7 @@ def test_branch_guard_and_runtime_defaults_cover_missing_option_maps() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_test_obsolescence.py::test_equivalent_classification_handles_empty_pareto_winner
+# gabion:behavior primary=verboten facets=empty
 def test_equivalent_classification_handles_empty_pareto_winner(
     make_obsolescence_opaque_ref,
 ) -> None:
@@ -308,6 +318,7 @@ def test_equivalent_classification_handles_empty_pareto_winner(
 
 
 # gabion:evidence E:call_footprint::tests/test_test_obsolescence.py::test_unresolved_active_candidate_without_opaque_evidence_reason::test_obsolescence.py::gabion.analysis.test_obsolescence.classify_candidates
+# gabion:behavior primary=desired
 def test_unresolved_active_candidate_without_opaque_evidence_reason() -> None:
     key = evidence_keys.make_paramset_key(["plain"])
     identity = evidence_keys.key_identity(key)
@@ -330,6 +341,7 @@ def test_unresolved_active_candidate_without_opaque_evidence_reason() -> None:
 
 
 # gabion:evidence E:function_site::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_lines E:decision_surface/direct::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_lines::stale_26799f525b41
+# gabion:behavior primary=desired
 def test_render_markdown_includes_spec_metadata(obsolescence_summary_counts) -> None:
     candidates = [
         {
@@ -346,6 +358,7 @@ def test_render_markdown_includes_spec_metadata(obsolescence_summary_counts) -> 
 
 
 # gabion:evidence E:function_site::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_payload E:decision_surface/direct::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_payload::stale_e830da863aed
+# gabion:behavior primary=desired
 def test_render_json_payload_includes_spec_metadata(obsolescence_summary_counts) -> None:
     candidates = []
     summary = obsolescence_summary_counts()
@@ -356,6 +369,7 @@ def test_render_json_payload_includes_spec_metadata(obsolescence_summary_counts)
 
 
 # gabion:evidence E:function_site::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_lines E:decision_surface/direct::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_lines::stale_7626b84a7eed
+# gabion:behavior primary=desired
 def test_render_markdown_includes_suffix_details(obsolescence_summary_counts) -> None:
     candidates = [
         {
@@ -377,6 +391,7 @@ def test_render_markdown_includes_suffix_details(obsolescence_summary_counts) ->
 
 
 # gabion:evidence E:function_site::test_obsolescence.py::gabion.analysis.test_obsolescence.RiskInfo.from_payload
+# gabion:behavior primary=desired
 def test_risk_info_from_payload_variants() -> None:
     assert test_obsolescence.RiskInfo.from_payload("nope") is None
     assert test_obsolescence.RiskInfo.from_payload({"risk": ""}) is None
@@ -388,6 +403,7 @@ def test_risk_info_from_payload_variants() -> None:
 
 
 # gabion:evidence E:function_site::test_obsolescence.py::gabion.analysis.test_obsolescence.load_test_evidence E:decision_surface/direct::test_obsolescence.py::gabion.analysis.test_obsolescence.load_test_evidence::stale_129fbdcd5daa_974b980e
+# gabion:behavior primary=verboten facets=error
 def test_load_test_evidence_errors(tmp_path: Path) -> None:
     bad_payload = tmp_path / "bad_payload.json"
     bad_payload.write_text(json.dumps([1, 2, 3]))
@@ -406,6 +422,7 @@ def test_load_test_evidence_errors(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::test_obsolescence.py::gabion.analysis.test_obsolescence.load_test_evidence E:decision_surface/direct::test_obsolescence.py::gabion.analysis.test_obsolescence.load_test_evidence::stale_6427b32d068f
+# gabion:behavior primary=verboten facets=invalid
 def test_load_test_evidence_skips_invalid_entries(tmp_path: Path) -> None:
     payload = {
         "schema_version": 2,
@@ -423,6 +440,7 @@ def test_load_test_evidence_skips_invalid_entries(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::test_obsolescence.py::gabion.analysis.test_obsolescence._parse_risk_registry_payload E:function_site::test_obsolescence.py::gabion.analysis.test_obsolescence.load_risk_registry
+# gabion:behavior primary=desired
 def test_load_risk_registry_variants(tmp_path: Path) -> None:
     missing = tmp_path / "missing.json"
     assert test_obsolescence.load_risk_registry(str(missing)) == {}
@@ -455,12 +473,14 @@ def test_load_risk_registry_variants(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::test_obsolescence.py::gabion.analysis.test_obsolescence.compute_dominators
+# gabion:behavior primary=verboten facets=empty
 def test_compute_dominators_handles_empty_evidence() -> None:
     dominators = test_obsolescence.compute_dominators({"t1": []})
     assert dominators["t1"] == []
 
 
 # gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_opaque_key E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.key_identity::stale_8ca24934dfb5
+# gabion:behavior primary=desired
 def test_guardrail_and_opaque_evidence() -> None:
     key = evidence_keys.make_paramset_key(["x"])
     identity = evidence_keys.key_identity(key)
@@ -497,6 +517,7 @@ def test_guardrail_and_opaque_evidence() -> None:
 
 
 # gabion:evidence E:function_site::test_obsolescence.py::gabion.analysis.test_obsolescence._summarize_candidates
+# gabion:behavior primary=desired
 def test_summarize_candidates_handles_bad_counts() -> None:
     def apply(_spec, _relation):
         return [{"class": "unmapped", "count": "bad"}]
@@ -508,6 +529,7 @@ def test_summarize_candidates_handles_bad_counts() -> None:
 
 
 # gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_opaque_key E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.key_identity::stale_3290faf8acae
+# gabion:behavior primary=desired
 def test_normalize_evidence_refs_variants() -> None:
     ref = test_obsolescence.EvidenceRef(
         key=evidence_keys.make_opaque_key("E:x"),
@@ -533,6 +555,7 @@ def test_normalize_evidence_refs_variants() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_test_obsolescence.py::test_classify_candidates_handles_non_singleton_high_risk_witnesses::test_obsolescence.py::gabion.analysis.test_obsolescence.classify_candidates
+# gabion:behavior primary=desired
 def test_classify_candidates_handles_non_singleton_high_risk_witnesses(
     make_obsolescence_opaque_ref,
 ) -> None:
@@ -548,6 +571,7 @@ def test_classify_candidates_handles_non_singleton_high_risk_witnesses(
 
 
 # gabion:evidence E:call_footprint::tests/test_test_obsolescence.py::test_render_markdown_handles_empty_guardrail_and_suffix_parts::test_obsolescence.py::gabion.analysis.test_obsolescence.render_markdown
+# gabion:behavior primary=verboten facets=empty
 def test_render_markdown_handles_empty_guardrail_and_suffix_parts(
     obsolescence_summary_counts,
 ) -> None:
@@ -566,6 +590,7 @@ def test_render_markdown_handles_empty_guardrail_and_suffix_parts(
 
 
 # gabion:evidence E:call_footprint::tests/test_test_obsolescence.py::test_summarize_candidates_ignores_unknown_rows_and_bad_input_types::test_obsolescence.py::gabion.analysis.test_obsolescence._summarize_candidates
+# gabion:behavior primary=desired
 def test_summarize_candidates_ignores_unknown_rows_and_bad_input_types() -> None:
     def apply(_spec, _relation):
         return [{"class": "custom", "count": 4}, {"class": "obsolete_candidate", "count": "bad"}]
@@ -579,6 +604,7 @@ def test_summarize_candidates_ignores_unknown_rows_and_bad_input_types() -> None
 
 
 # gabion:evidence E:call_footprint::tests/test_test_obsolescence.py::test_normalize_evidence_refs_ignores_non_iterable_and_non_supported_entries::test_obsolescence.py::gabion.analysis.test_obsolescence._normalize_evidence_refs
+# gabion:behavior primary=desired
 def test_normalize_evidence_refs_ignores_non_iterable_and_non_supported_entries() -> None:
     assert test_obsolescence._normalize_evidence_refs(123) == []
     refs = test_obsolescence._normalize_evidence_refs([123, "E:opaque"])
@@ -586,6 +612,7 @@ def test_normalize_evidence_refs_ignores_non_iterable_and_non_supported_entries(
 
 
 # gabion:evidence E:call_footprint::tests/test_test_obsolescence.py::test_render_markdown_emits_entry_without_suffix_when_reason_is_empty::test_obsolescence.py::gabion.analysis.test_obsolescence.render_markdown
+# gabion:behavior primary=verboten facets=empty
 def test_render_markdown_emits_entry_without_suffix_when_reason_is_empty(
     obsolescence_summary_counts,
 ) -> None:

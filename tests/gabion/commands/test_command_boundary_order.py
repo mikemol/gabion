@@ -11,6 +11,7 @@ from gabion.lsp_client import CommandRequest, run_command_direct
 
 
 # gabion:evidence E:call_footprint::tests/test_command_boundary_order.py::test_boundary_order_canonicalizes_nested_mapping_and_sequences::boundary_order.py::gabion.commands.boundary_order.canonicalize_boundary_mapping
+# gabion:behavior primary=desired
 def test_boundary_order_canonicalizes_nested_mapping_and_sequences() -> None:
     payload = {
         "z": [3, 1, 2],
@@ -32,6 +33,7 @@ def test_boundary_order_canonicalizes_nested_mapping_and_sequences() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_command_boundary_order.py::test_boundary_order_rejects_second_active_sort::boundary_order.py::gabion.commands.boundary_order.canonicalize_boundary_mapping
+# gabion:behavior primary=desired
 def test_boundary_order_rejects_second_active_sort() -> None:
     payload = {"b": 2, "a": 1}
     ordered = boundary_order.canonicalize_boundary_mapping(
@@ -46,6 +48,7 @@ def test_boundary_order_rejects_second_active_sort() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_command_boundary_order.py::test_apply_boundary_updates_once_uses_shared_mapping_comparator::boundary_order.py::gabion.commands.boundary_order.apply_boundary_updates_once
+# gabion:behavior primary=desired
 def test_apply_boundary_updates_once_uses_shared_mapping_comparator() -> None:
     base = boundary_order.canonicalize_boundary_mapping(
         {"z": 3, "m": 2},
@@ -68,6 +71,7 @@ def test_apply_boundary_updates_once_uses_shared_mapping_comparator() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_command_boundary_order.py::test_payload_codec_normalizes_ingress_payload_order::payload_codec.py::gabion.commands.payload_codec.normalized_command_payload
+# gabion:behavior primary=desired
 def test_payload_codec_normalizes_ingress_payload_order() -> None:
     raw_payload = {
         "paths": ["b.py", "a.py"],
@@ -87,6 +91,7 @@ def test_payload_codec_normalizes_ingress_payload_order() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_command_boundary_order.py::test_payload_codec_normalized_command_id_list_covers_list_and_default_paths::payload_codec.py::gabion.commands.payload_codec.normalized_command_id_list
+# gabion:behavior primary=desired
 def test_payload_codec_normalized_command_id_list_covers_list_and_default_paths() -> None:
     assert payload_codec.normalized_command_id_list(
         {"commands": ["gabion.z", "gabion.a"]},
@@ -96,6 +101,7 @@ def test_payload_codec_normalized_command_id_list_covers_list_and_default_paths(
 
 
 # gabion:evidence E:call_footprint::tests/test_command_boundary_order.py::test_payload_codec_normalized_command_id_list_rejects_non_list::payload_codec.py::gabion.commands.payload_codec.normalized_command_id_list
+# gabion:behavior primary=desired
 def test_payload_codec_normalized_command_id_list_rejects_non_list() -> None:
     with pytest.raises(NeverThrown):
         payload_codec.normalized_command_id_list(
@@ -105,6 +111,7 @@ def test_payload_codec_normalized_command_id_list_rejects_non_list() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_command_boundary_order.py::test_server_require_payload_normalizes_order::server.py::gabion.server._require_payload
+# gabion:behavior primary=desired
 def test_server_require_payload_normalizes_order() -> None:
     payload = {
         "paths": ["c.py", "a.py", "b.py"],
@@ -121,6 +128,7 @@ def test_server_require_payload_normalizes_order() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_command_boundary_order.py::test_lsp_direct_enforces_ingress_and_egress_order::lsp_client.py::gabion.lsp_client.run_command_direct
+# gabion:behavior primary=desired
 def test_lsp_direct_enforces_ingress_and_egress_order(tmp_path: Path) -> None:
     observed_notifications: list[dict[str, object]] = []
     captured_payload: dict[str, object] = {}
@@ -186,6 +194,7 @@ class _TruthyEmptyUpdates(dict[str, object]):
 
 
 # gabion:evidence E:call_footprint::tests/test_command_boundary_order.py::test_boundary_order_value_wrappers_and_update_shortcuts::boundary_order.py::gabion.commands.boundary_order.canonicalize_boundary_value::boundary_order.py::gabion.commands.boundary_order.normalize_boundary_value_once::boundary_order.py::gabion.commands.boundary_order.apply_boundary_updates_once::boundary_order.py::gabion.commands.boundary_order.enforce_boundary_value_ordered
+# gabion:behavior primary=desired
 def test_boundary_order_value_wrappers_and_update_shortcuts() -> None:
     assert boundary_order.canonicalize_boundary_value(
         {"b": 2, "a": 1},
@@ -237,6 +246,7 @@ def test_boundary_order_value_wrappers_and_update_shortcuts() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_command_boundary_order.py::test_boundary_order_rejects_set_on_enforced_egress::boundary_order.py::gabion.commands.boundary_order.enforce_boundary_value_ordered
+# gabion:behavior primary=desired
 def test_boundary_order_rejects_set_on_enforced_egress() -> None:
     with pytest.raises(NeverThrown):
         boundary_order.enforce_boundary_value_ordered(

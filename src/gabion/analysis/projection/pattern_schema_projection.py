@@ -215,16 +215,16 @@ def _call_node_call(node: ast.Call) -> ast.Call:
 
 
 @singledispatch
-def _source_text_or_none(source: str | None) -> str | None:
+def _source_text_optional(source: str | None) -> str | None:
     never("unregistered runtime type", value_type=type(source).__name__)
 
 
-@_source_text_or_none.register(str)
+@_source_text_optional.register(str)
 def _source_text_or_none_str(source: str) -> str:
     return source
 
 
-@_source_text_or_none.register(type(None))
+@_source_text_optional.register(type(None))
 def _source_text_or_none_none(source: None) -> None:
     return None
 
@@ -707,7 +707,7 @@ def detect_execution_pattern_matches(
     source: object = None,
     source_path: Path | None = None,
 ) -> list[_ExecutionPatternMatch]:
-    source_text = _source_text_or_none(source)
+    source_text = _source_text_optional(source)
     module_path = source_path or _default_execution_source_path()
     if source_text is None and source_path is None:
         source_text, module_path = _default_execution_source_blob()
@@ -752,7 +752,7 @@ def execution_pattern_instances(
     source_path: Path | None = None,
 ) -> list[PatternInstance]:
     instances: list[PatternInstance] = []
-    source_text = _source_text_or_none(source)
+    source_text = _source_text_optional(source)
     module_path = source_path or _default_execution_source_path()
     if source_text is None and source_path is None:
         source_text, module_path = _default_execution_source_blob()

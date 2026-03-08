@@ -17,6 +17,7 @@ def _load():
     )
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._infer_root::groups_by_path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._normalize_snapshot_path::root E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._infer_root::stale_b0d8f0be62be
+# gabion:behavior primary=desired
 def test_structure_snapshot_includes_invariants(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"

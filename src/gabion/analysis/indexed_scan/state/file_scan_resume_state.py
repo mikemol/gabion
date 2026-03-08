@@ -193,7 +193,7 @@ def load_file_scan_resume_state(
         ),
     )
 
-    def _string_or_none(raw_value):
+    def _string_optional(raw_value):
         match raw_value:
             case str() as raw_text:
                 return raw_text
@@ -203,7 +203,7 @@ def load_file_scan_resume_state(
     fn_names = deps.load_resume_map_fn(
         payload=raw_names,
         valid_keys=valid_fn_keys,
-        parser=_string_or_none,
+        parser=_string_optional,
     )
     fn_lexical_scopes = deps.load_resume_map_fn(
         payload=raw_scopes,

@@ -10,6 +10,7 @@ def _write(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
+# gabion:behavior primary=desired
 def test_collect_violations_detects_time_sleep_calls(tmp_path: Path) -> None:
     _write(
         tmp_path / "tests" / "x.py",
@@ -41,6 +42,7 @@ def test_collect_violations_detects_time_sleep_calls(tmp_path: Path) -> None:
     assert kinds == {"time_sleep", "time_sleep_import"}
 
 
+# gabion:behavior primary=desired
 def test_collect_violations_respects_allowlist_and_non_sleep_calls(tmp_path: Path) -> None:
     _write(
         tmp_path / "tests" / "allowed.py",

@@ -7,6 +7,7 @@ from scripts.policy import private_symbol_import_guard as guard
 
 # gabion:evidence E:function_site::test_private_symbol_import_guard.py::tests.test_private_symbol_import_guard.test_private_symbol_import_guard_repo_check
 
+# gabion:behavior primary=desired
 def test_private_symbol_import_guard_repo_check(tmp_path: Path) -> None:
     repo_root = Path(__file__).resolve().parents[4]
     out = tmp_path / "private_symbol_import_report.json"

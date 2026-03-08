@@ -9,6 +9,7 @@ from gabion.exceptions import NeverThrown
 
 
 # gabion:evidence E:call_footprint::tests/test_canonical.py::test_canon_is_idempotent_and_order_invariant::canonical.py::gabion.analysis.canonical.canon
+# gabion:behavior primary=desired
 def test_canon_is_idempotent_and_order_invariant() -> None:
     left = {"b": 2, "a": {"z": 9, "y": [3, {"k": "v"}]}}
     right = {"a": {"y": [3, {"k": "v"}], "z": 9}, "b": 2}
@@ -19,6 +20,7 @@ def test_canon_is_idempotent_and_order_invariant() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_canonical.py::test_canon_normalizes_multiset_encoding::canonical.py::gabion.analysis.canonical.canon
+# gabion:behavior primary=desired
 def test_canon_normalizes_multiset_encoding() -> None:
     value = [
         "ms",
@@ -39,12 +41,14 @@ def test_canon_normalizes_multiset_encoding() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_canonical.py::test_canon_rejects_set_inputs::canonical.py::gabion.analysis.canonical.canon
+# gabion:behavior primary=desired
 def test_canon_rejects_set_inputs() -> None:
     with pytest.raises(NeverThrown):
         canon({"unordered": {1, 2, 3}})
 
 
 # gabion:evidence E:call_footprint::tests/test_canonical.py::test_encode_and_digest_are_stable_for_equivalent_payloads::canonical.py::gabion.analysis.canonical.canon::canonical.py::gabion.analysis.canonical.digest_index::canonical.py::gabion.analysis.canonical.encode_canon
+# gabion:behavior primary=desired
 def test_encode_and_digest_are_stable_for_equivalent_payloads() -> None:
     left = {"beta": [2, 1], "alpha": {"k": "v"}}
     right = {"alpha": {"k": "v"}, "beta": [2, 1]}
@@ -54,17 +58,20 @@ def test_encode_and_digest_are_stable_for_equivalent_payloads() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_canonical.py::test_canon_converts_tuple_to_list::canonical.py::gabion.analysis.canonical.canon
+# gabion:behavior primary=desired
 def test_canon_converts_tuple_to_list() -> None:
     assert canon(("a", 1, {"b": 2})) == ["a", 1, {"b": 2}]
 
 
 # gabion:evidence E:call_footprint::tests/test_canonical.py::test_canon_rejects_non_json_object::canonical.py::gabion.analysis.canonical.canon
+# gabion:behavior primary=desired
 def test_canon_rejects_non_json_object() -> None:
     with pytest.raises(NeverThrown):
         canon(object())
 
 
 # gabion:evidence E:call_footprint::tests/test_canonical.py::test_canon_rejects_invalid_multiset_shapes::canonical.py::gabion.analysis.canonical.canon
+# gabion:behavior primary=verboten facets=invalid
 @pytest.mark.parametrize(
     "value",
     [
@@ -79,6 +86,7 @@ def test_canon_rejects_invalid_multiset_shapes(value: object) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_canonical.py::test_canon_multiset_private_guards::canonical.py::gabion.analysis.canonical._canon_multiset
+# gabion:behavior primary=desired
 def test_canon_multiset_private_guards() -> None:
     with pytest.raises(NeverThrown):
         _canon_multiset(["ms", object()])

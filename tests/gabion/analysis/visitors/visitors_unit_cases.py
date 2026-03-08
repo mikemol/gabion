@@ -89,6 +89,7 @@ def _make_visitor(
     return visitor, use_map, alias_to_param, call_args
 
 # gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor E:decision_surface/direct::test_visitors_unit.py::tests.test_visitors_unit._make_visitor::stale_c9e4658f354c
+# gabion:behavior primary=desired
 def test_usevisitor_star_forwarding_low_strictness() -> None:
     tree = ast.parse(
         "def f(a, b, *args, **kwargs):\n"
@@ -101,6 +102,7 @@ def test_usevisitor_star_forwarding_low_strictness() -> None:
     assert ("kwargs[*]", "kw[*]") in use_map["kwargs"].direct_forward
 
 # gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor E:decision_surface/direct::test_visitors_unit.py::tests.test_visitors_unit._make_visitor::stale_448fffe8c18f
+# gabion:behavior primary=desired
 def test_usevisitor_span_adjusts_zero_width_call() -> None:
     tree = ast.parse("def f(a, b, *args, **kwargs):\n    g(a)\n")
     call = next(node for node in ast.walk(tree) if isinstance(node, ast.Call))
@@ -119,11 +121,13 @@ def test_usevisitor_span_adjusts_zero_width_call() -> None:
     )
 
 # gabion:evidence E:decision_surface/direct::visitors.py::gabion.analysis.visitors.UseVisitor._node_span::node E:decision_surface/value_encoded::visitors.py::gabion.analysis.visitors.UseVisitor._node_span::node
+# gabion:behavior primary=verboten facets=none
 def test_usevisitor_node_span_none_without_locations() -> None:
     *_, UseVisitor = _load()
     assert UseVisitor._node_span(ast.AST()) is None
 
 # gabion:evidence E:call_footprint::tests/test_visitors_unit.py::test_usevisitor_alias_binding_and_non_forward::test_visitors_unit.py::tests.test_visitors_unit._make_visitor
+# gabion:behavior primary=desired
 def test_usevisitor_alias_binding_and_non_forward() -> None:
     tree = ast.parse(
         "def ret(a, b):\n"
@@ -160,6 +164,7 @@ def test_usevisitor_alias_binding_and_non_forward() -> None:
     assert use_map["kwargs"].non_forward is True
 
 # gabion:evidence E:call_footprint::tests/test_visitors_unit.py::test_return_alias_binding_tuple_and_rejects_mismatch::test_visitors_unit.py::tests.test_visitors_unit._make_visitor
+# gabion:behavior primary=verboten facets=mismatch
 def test_return_alias_binding_tuple_and_rejects_mismatch() -> None:
     tree = ast.parse("def f(a, b):\n    return a, b\n")
     visitor, _, alias_to_param, _ = _make_visitor(tree, strictness="high")
@@ -170,6 +175,7 @@ def test_return_alias_binding_tuple_and_rejects_mismatch() -> None:
     assert visitor._bind_return_alias(targets, ["a"]) is False
 
 # gabion:evidence E:call_footprint::tests/test_visitors_unit.py::test_alias_from_call_rejects_starred::test_visitors_unit.py::tests.test_visitors_unit._make_visitor
+# gabion:behavior primary=desired
 def test_alias_from_call_rejects_starred() -> None:
     tree = ast.parse(
         "def ret(a, b):\n"
@@ -186,6 +192,7 @@ def test_alias_from_call_rejects_starred() -> None:
     assert visitor._alias_from_call(call) is None
 
 # gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor E:decision_surface/direct::test_visitors_unit.py::tests.test_visitors_unit._make_visitor::stale_037c74baf336_caa2b59e
+# gabion:behavior primary=desired
 def test_attribute_and_subscript_forwarding() -> None:
     tree = ast.parse(
         "def f(a):\n"
@@ -203,6 +210,7 @@ def test_attribute_and_subscript_forwarding() -> None:
     assert use_map["a"].non_forward is True
 
 # gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor E:decision_surface/direct::test_visitors_unit.py::tests.test_visitors_unit._make_visitor::stale_5817f21a439e
+# gabion:behavior primary=verboten facets=mismatch
 def test_bind_sequence_mismatch_marks_non_forward() -> None:
     tree = ast.parse("def f(a, b):\n    pass\n")
     visitor, use_map, _, _ = _make_visitor(tree, strictness="high")
@@ -216,6 +224,7 @@ def test_bind_sequence_mismatch_marks_non_forward() -> None:
     assert use_map["b"].non_forward is False
 
 # gabion:evidence E:call_footprint::tests/test_visitors_unit.py::test_import_visitor_basic_and_relative::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.SymbolTable::visitors.py::gabion.analysis.visitors.ImportVisitor
+# gabion:behavior primary=desired
 def test_import_visitor_basic_and_relative() -> None:
     repo_root = REPO_ROOT
     from gabion.analysis.dataflow.engine.dataflow_contracts import SymbolTable
@@ -252,6 +261,7 @@ def test_import_visitor_basic_and_relative() -> None:
     assert dict(table.imports) == before
 
 # gabion:evidence E:call_footprint::tests/test_visitors_unit.py::test_project_visitor_node_entry_respects_gas_meter::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ms::timeout_context.py::gabion.analysis.timeout_context.deadline_clock_scope::timeout_context.py::gabion.analysis.timeout_context.deadline_scope::timeout_context.py::gabion.analysis.timeout_context.forest_scope
+# gabion:behavior primary=desired
 def test_project_visitor_node_entry_respects_gas_meter() -> None:
     repo_root = REPO_ROOT
     from gabion.analysis.aspf.aspf import Forest
@@ -270,6 +280,7 @@ def test_project_visitor_node_entry_respects_gas_meter() -> None:
     assert meter.current == 1
 
 # gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor E:decision_surface/direct::test_visitors_unit.py::tests.test_visitors_unit._make_visitor::stale_f5986306529c
+# gabion:behavior primary=desired
 def test_subscript_forwarding_normalizes_const_keys() -> None:
     tree = ast.parse(
         "def f(a, b):\n"
@@ -292,6 +303,7 @@ def test_subscript_forwarding_normalizes_const_keys() -> None:
 
 
 # gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor E:decision_surface/direct::test_visitors_unit.py::tests.test_visitors_unit._make_visitor::stale_ac00f0644af0
+# gabion:behavior primary=desired
 def test_subscript_dynamic_key_marks_uncertainty() -> None:
     tree = ast.parse(
         "def f(a, b, k):\n"
@@ -307,6 +319,7 @@ def test_subscript_dynamic_key_marks_uncertainty() -> None:
 
 
 # gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor E:decision_surface/direct::test_visitors_unit.py::tests.test_visitors_unit._make_visitor::stale_42776346d0b2
+# gabion:behavior primary=verboten facets=none
 def test_normalize_key_returns_none_without_normalizer() -> None:
     tree = ast.parse("def f(a):\n    return a\n")
     visitor, _, _, _ = _make_visitor(tree, strictness="high")

@@ -12,6 +12,7 @@ from gabion.server_core.command_reducers import (
 
 
 # gabion:evidence E:function_site::command_reducers.py::gabion.server_core.command_reducers.normalize_timeout_total_ticks E:decision_surface/direct::command_reducers.py::gabion.server_core.command_reducers.normalize_timeout_total_ticks::stale_c07f84f81743
+# gabion:behavior primary=verboten facets=timeout
 def test_normalize_timeout_total_ticks_uses_default_when_unset() -> None:
     calls: list[tuple[str, object]] = []
 
@@ -28,6 +29,7 @@ def test_normalize_timeout_total_ticks_uses_default_when_unset() -> None:
 
 
 # gabion:evidence E:function_site::command_reducers.py::gabion.server_core.command_reducers.normalize_timeout_total_ticks E:decision_surface/direct::command_reducers.py::gabion.server_core.command_reducers.normalize_timeout_total_ticks::stale_38e1b63ac9c5_0f457f57
+# gabion:behavior primary=verboten facets=timeout
 def test_normalize_timeout_total_ticks_applies_explicit_limit() -> None:
     actual = normalize_timeout_total_ticks(
         {"analysis_tick_limit": "10"},
@@ -38,6 +40,7 @@ def test_normalize_timeout_total_ticks_applies_explicit_limit() -> None:
 
 
 # gabion:evidence E:function_site::command_reducers.py::gabion.server_core.command_reducers.normalize_timeout_total_ticks E:decision_surface/direct::command_reducers.py::gabion.server_core.command_reducers.normalize_timeout_total_ticks::stale_93f0a21e701c
+# gabion:behavior primary=verboten facets=timeout
 @pytest.mark.parametrize("bad_value", ["0", "-1", "abc"])
 def test_normalize_timeout_total_ticks_rejects_bad_limits(bad_value: str) -> None:
     calls: list[object] = []
@@ -55,6 +58,7 @@ def test_normalize_timeout_total_ticks_rejects_bad_limits(bad_value: str) -> Non
 
 
 # gabion:evidence E:function_site::command_reducers.py::gabion.server_core.command_reducers.initial_collection_progress
+# gabion:behavior primary=desired
 def test_initial_collection_progress_shape() -> None:
     assert initial_collection_progress(total_files=7) == {
         "completed_files": 0,
@@ -65,18 +69,21 @@ def test_initial_collection_progress_shape() -> None:
 
 
 # gabion:evidence E:function_site::command_reducers.py::gabion.server_core.command_reducers.initial_paths_count
+# gabion:behavior primary=desired
 def test_initial_paths_count_shape() -> None:
     assert initial_paths_count(["a", "b"]) == 2
     assert initial_paths_count(None) == 1
 
 
 # gabion:evidence E:function_site::command_reducers.py::gabion.server_core.command_reducers.normalize_paths E:decision_surface/direct::command_reducers.py::gabion.server_core.command_reducers.normalize_paths::stale_8d1ddc9e98bb
+# gabion:behavior primary=desired
 def test_normalize_paths_defaults_to_root() -> None:
     root = Path("/tmp/demo")
     assert normalize_paths(None, root=root) == [root]
 
 
 # gabion:evidence E:function_site::command_reducers.py::gabion.server_core.command_reducers.normalize_paths E:decision_surface/direct::command_reducers.py::gabion.server_core.command_reducers.normalize_paths::stale_20e03d310681_9b64d164
+# gabion:behavior primary=desired
 def test_normalize_paths_converts_entries() -> None:
     root = Path("/tmp/demo")
     actual = normalize_paths(["a.py", Path("b.py")], root=root)
@@ -84,6 +91,7 @@ def test_normalize_paths_converts_entries() -> None:
 
 
 # gabion:evidence E:function_site::command_contract.py::gabion.server_core.command_contract.CommandRuntimeInput
+# gabion:behavior primary=desired
 def test_command_contract_dataclasses() -> None:
     runtime_input = CommandRuntimeInput(
         payload={"root": "."},
@@ -100,6 +108,7 @@ def test_command_contract_dataclasses() -> None:
 
 
 # gabion:evidence E:function_site::server.py::gabion.server._default_execute_command_deps
+# gabion:behavior primary=desired
 def test_default_execute_deps_implements_command_effects_protocol() -> None:
     deps = _default_execute_command_deps()
     assert isinstance(deps, CommandEffects)

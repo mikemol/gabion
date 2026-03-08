@@ -8,7 +8,7 @@ from hashlib import sha1
 import json
 from typing import cast
 
-from gabion.analysis.foundation.resume_codec import mapping_or_none, sequence_or_none
+from gabion.analysis.foundation.resume_codec import mapping_optional, sequence_optional
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.json_types import JSONObject, JSONValue
 from gabion.order_contract import sort_once
@@ -338,7 +338,7 @@ def build_taint_summary(
         taint_kind = str(row.get("taint_kind", "") or "")
         by_status[status] = by_status.get(status, 0) + 1
         by_kind[taint_kind] = by_kind.get(taint_kind, 0) + 1
-        diagnostic_codes_payload = sequence_or_none(
+        diagnostic_codes_payload = sequence_optional(
             row.get("diagnostic_codes"),
             allow_str=False,
         ) or ()
@@ -410,11 +410,11 @@ def boundary_payloads(
 
 
 def _boundary_entries_payload(payload: object) -> list[Mapping[str, object]]:
-    payload_mapping = mapping_or_none(payload)
+    payload_mapping = mapping_optional(payload)
     if payload_mapping is not None:
-        entries = sequence_or_none(payload_mapping.get("boundaries"), allow_str=False) or ()
+        entries = sequence_optional(payload_mapping.get("boundaries"), allow_str=False) or ()
         return _mapping_entries(entries)
-    entries = sequence_or_none(payload, allow_str=False) or ()
+    entries = sequence_optional(payload, allow_str=False) or ()
     return _mapping_entries(entries)
 
 
@@ -427,13 +427,13 @@ def _date_from_iso(value: str) -> date:
 
 
 def _sequence_payload(value: object) -> tuple[object, ...]:
-    sequence = sequence_or_none(value, allow_str=False) or ()
+    sequence = sequence_optional(value, allow_str=False) or ()
     return tuple(sequence)
 
 
 # gabion:boundary_normalization
 def _mapping_payload(value: object) -> Mapping[str, object]:
-    mapping = mapping_or_none(value)
+    mapping = mapping_optional(value)
     if mapping is None:
         return {}
     return {str(key): cast(object, mapping[key]) for key in mapping}
@@ -644,7 +644,7 @@ def _mapping_entries(payload: Sequence[object]) -> list[Mapping[str, object]]:
     entries: list[Mapping[str, object]] = []
     for item in payload:
         check_deadline()
-        mapping = mapping_or_none(item)
+        mapping = mapping_optional(item)
         if mapping is not None:
             entries.append({str(key): cast(object, mapping[key]) for key in mapping})
     return entries

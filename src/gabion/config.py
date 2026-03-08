@@ -27,7 +27,7 @@ def _load_toml(path: Path) -> TomlTable:
         data = tomllib.loads(raw)
     except Exception:
         return {}
-    return _toml_table_or_empty(data)
+    return _toml_table_default_empty(data)
 
 
 def load_config(root: Path | None = None, config_path: Path | None = None) -> TomlTable:
@@ -41,42 +41,42 @@ def dataflow_defaults(
     root: Path | None = None, config_path: Path | None = None
 ) -> TomlTable:
     data = load_config(root=root, config_path=config_path)
-    return _toml_table_or_empty(data.get("dataflow", {}))
+    return _toml_table_default_empty(data.get("dataflow", {}))
 
 
 def synthesis_defaults(
     root: Path | None = None, config_path: Path | None = None
 ) -> TomlTable:
     data = load_config(root=root, config_path=config_path)
-    return _toml_table_or_empty(data.get("synthesis", {}))
+    return _toml_table_default_empty(data.get("synthesis", {}))
 
 
 def decision_defaults(
     root: Path | None = None, config_path: Path | None = None
 ) -> TomlTable:
     data = load_config(root=root, config_path=config_path)
-    return _toml_table_or_empty(data.get("decision", {}))
+    return _toml_table_default_empty(data.get("decision", {}))
 
 
 def exception_defaults(
     root: Path | None = None, config_path: Path | None = None
 ) -> TomlTable:
     data = load_config(root=root, config_path=config_path)
-    return _toml_table_or_empty(data.get("exceptions", {}))
+    return _toml_table_default_empty(data.get("exceptions", {}))
 
 
 def fingerprint_defaults(
     root: Path | None = None, config_path: Path | None = None
 ) -> TomlTable:
     data = load_config(root=root, config_path=config_path)
-    return _toml_table_or_empty(data.get("fingerprints", {}))
+    return _toml_table_default_empty(data.get("fingerprints", {}))
 
 
 def taint_defaults(
     root: Path | None = None, config_path: Path | None = None
 ) -> TomlTable:
     data = load_config(root=root, config_path=config_path)
-    return _toml_table_or_empty(data.get("taint", {}))
+    return _toml_table_default_empty(data.get("taint", {}))
 
 
 def _split_name_parts(value: str) -> list[str]:
@@ -180,7 +180,7 @@ for _runtime_type in (dict, list, tuple, set, float, date, datetime, time, _NONE
     _as_bool.register(_runtime_type)(_as_bool_false)
 
 
-def _toml_table_or_empty(value: object) -> TomlTable:
+def _toml_table_default_empty(value: object) -> TomlTable:
     match value:
         case dict() as table:
             return {str(key): table[key] for key in table}
@@ -190,7 +190,7 @@ def _toml_table_or_empty(value: object) -> TomlTable:
 
 def decision_tier_map(section: TomlTable | None) -> dict[str, int]:
     check_deadline()
-    section_table = _toml_table_or_empty(section)
+    section_table = _toml_table_default_empty(section)
     tiers: dict[str, int] = {}
     for tier, key in ((1, "tier1"), (2, "tier2"), (3, "tier3")):
         check_deadline()
@@ -201,17 +201,17 @@ def decision_tier_map(section: TomlTable | None) -> dict[str, int]:
 
 
 def decision_require_tiers(section: TomlTable | None) -> bool:
-    section_table = _toml_table_or_empty(section)
+    section_table = _toml_table_default_empty(section)
     return _as_bool(section_table.get("require_tiers"))
 
 
 def decision_ignore_list(section: TomlTable | None) -> list[str]:
-    section_table = _toml_table_or_empty(section)
+    section_table = _toml_table_default_empty(section)
     return _normalize_name_list(section_table.get("ignore_params"))
 
 
 def exception_never_list(section: TomlTable | None) -> list[str]:
-    section_table = _toml_table_or_empty(section)
+    section_table = _toml_table_default_empty(section)
     markers = exception_marker_families(section_table)
     if "never" in markers and markers["never"]:
         return markers["never"]
@@ -219,8 +219,8 @@ def exception_never_list(section: TomlTable | None) -> list[str]:
 
 
 def exception_marker_families(section: TomlTable | None) -> dict[str, list[str]]:
-    section_table = _toml_table_or_empty(section)
-    markers = _toml_table_or_empty(section_table.get("markers"))
+    section_table = _toml_table_default_empty(section)
+    markers = _toml_table_default_empty(section_table.get("markers"))
     families: dict[str, list[str]] = {}
     for family, payload in markers.items():
         check_deadline()
@@ -243,12 +243,12 @@ def exception_marker_family(section: TomlTable | None, family: str) -> list[str]
 
 
 def taint_profile(section: TomlTable | None) -> str:
-    section_table = _toml_table_or_empty(section)
+    section_table = _toml_table_default_empty(section)
     return str(section_table.get("profile", "observe") or "observe").strip().lower()
 
 
 def taint_boundary_registry(section: TomlTable | None) -> list[dict[str, TomlValue]]:
-    section_table = _toml_table_or_empty(section)
+    section_table = _toml_table_default_empty(section)
     boundaries = section_table.get("boundaries")
     normalized: list[dict[str, TomlValue]] = []
     match boundaries:
@@ -266,13 +266,13 @@ def taint_boundary_registry(section: TomlTable | None) -> list[dict[str, TomlVal
 
 
 def dataflow_deadline_roots(section: TomlTable | None) -> list[str]:
-    section_table = _toml_table_or_empty(section)
+    section_table = _toml_table_default_empty(section)
     return _normalize_name_list(section_table.get("deadline_roots"))
 
 
 def dataflow_adapter_payload(section: TomlTable | None) -> TomlTable:
-    section_table = _toml_table_or_empty(section)
-    return _toml_table_or_empty(section_table.get("adapter"))
+    section_table = _toml_table_default_empty(section)
+    return _toml_table_default_empty(section_table.get("adapter"))
 
 
 def dataflow_required_surfaces(section: TomlTable | None) -> list[str]:

@@ -12,6 +12,7 @@ def _write(path: Path, content: str) -> None:
 
 # gabion:evidence E:call_footprint::tests/test_defensive_fallback_policy_check.py::test_defensive_fallback_policy_flags_sentinel_return_guard::defensive_fallback_policy_check.py::scripts.defensive_fallback_policy_check.collect_violations
 
+# gabion:behavior primary=allowed_unwanted facets=fallback
 def test_defensive_fallback_policy_flags_sentinel_return_guard(tmp_path: Path) -> None:
     _write(
         tmp_path / "src" / "gabion" / "sample.py",
@@ -27,6 +28,7 @@ def test_defensive_fallback_policy_flags_sentinel_return_guard(tmp_path: Path) -
 
 # gabion:evidence E:call_footprint::tests/test_defensive_fallback_policy_check.py::test_defensive_fallback_policy_allows_boundary_marker::defensive_fallback_policy_check.py::scripts.defensive_fallback_policy_check.run
 
+# gabion:behavior primary=allowed_unwanted facets=fallback
 def test_defensive_fallback_policy_allows_boundary_marker(tmp_path: Path) -> None:
     _write(
         tmp_path / "src" / "gabion" / "sample.py",
@@ -41,6 +43,7 @@ def test_defensive_fallback_policy_allows_boundary_marker(tmp_path: Path) -> Non
 
 # gabion:evidence E:call_footprint::tests/test_defensive_fallback_policy_check.py::test_defensive_fallback_policy_baseline_write_and_ratchet::defensive_fallback_policy_check.py::scripts.defensive_fallback_policy_check.run
 
+# gabion:behavior primary=allowed_unwanted facets=fallback
 def test_defensive_fallback_policy_baseline_write_and_ratchet(tmp_path: Path) -> None:
     baseline = tmp_path / "baseline.json"
     _write(

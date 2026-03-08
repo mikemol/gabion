@@ -32,6 +32,7 @@ def _run_context(*, run_id: str = "run:transcript") -> CanonicalRunContext:
     )
 
 
+# gabion:behavior primary=desired
 @pytest.mark.parametrize(
     ("event", "expected_kind"),
     [
@@ -71,6 +72,7 @@ def test_transcript_fixture_adapter_maps_event_types(
     assert envelope.identity_projection.basis_path.atoms
 
 
+# gabion:behavior primary=desired
 def test_transcript_fixture_adapter_enforces_identity_and_sequence() -> None:
     run_context = _run_context(run_id="run:transcript:seq")
     first = adapt_transcript_fixture_event_or_raise(
@@ -88,6 +90,7 @@ def test_transcript_fixture_adapter_enforces_identity_and_sequence() -> None:
     assert first.identity_projection != second.identity_projection
 
 
+# gabion:behavior primary=verboten facets=missing
 def test_transcript_fixture_adapter_rejects_missing_identity_components() -> None:
     bad_event = NameInterned(namespace="symbol", token="", atom_id=0)
     decision = adapt_transcript_fixture_event(event=bad_event, run_context=_run_context())

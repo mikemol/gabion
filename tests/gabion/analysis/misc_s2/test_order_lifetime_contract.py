@@ -9,6 +9,7 @@ from gabion.runtime import stable_encode
 
 
 # gabion:evidence E:call_footprint::tests/test_order_lifetime_contract.py::test_sort_once_rejects_second_sort_on_boundary_carrier::order_contract.py::gabion.order_contract.sort_once::boundary_order.py::gabion.commands.boundary_order.canonicalize_boundary_mapping
+# gabion:behavior primary=desired
 def test_sort_once_rejects_second_sort_on_boundary_carrier() -> None:
     normalized = boundary_order.canonicalize_boundary_mapping(
         {"b": 2, "a": 1},
@@ -22,6 +23,7 @@ def test_sort_once_rejects_second_sort_on_boundary_carrier() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_order_lifetime_contract.py::test_enforce_ordered_rejects_unsorted_without_fallback::order_contract.py::gabion.order_contract.enforce_ordered
+# gabion:behavior primary=allowed_unwanted facets=fallback
 def test_enforce_ordered_rejects_unsorted_without_fallback() -> None:
     with pytest.raises(NeverThrown):
         enforce_ordered(
@@ -31,6 +33,7 @@ def test_enforce_ordered_rejects_unsorted_without_fallback() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_order_lifetime_contract.py::test_stable_encode_is_deterministic_for_mapping_order::stable_encode.py::gabion.runtime.stable_encode.stable_compact_text
+# gabion:behavior primary=desired
 def test_stable_encode_is_deterministic_for_mapping_order() -> None:
     first = {"b": 2, "a": 1, "nested": {"y": 2, "x": 1}}
     second = {"nested": {"x": 1, "y": 2}, "a": 1, "b": 2}

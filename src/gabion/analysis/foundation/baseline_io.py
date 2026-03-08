@@ -6,13 +6,13 @@ from collections.abc import Mapping
 
 from gabion.analysis.projection.projection_registry import spec_metadata_payload
 from gabion.analysis.projection.projection_spec import ProjectionSpec
-from gabion.analysis.foundation.resume_codec import mapping_or_none, sequence_or_none
+from gabion.analysis.foundation.resume_codec import mapping_optional, sequence_optional
 from gabion.json_types import JSONValue
 
 
 def load_json(path: object) -> Mapping[str, JSONValue]:
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
-    payload_map = mapping_or_none(payload)
+    payload_map = mapping_optional(payload)
     if payload_map is None:
         raise ValueError("Baseline payload must be a JSON object.")
     return payload_map
@@ -32,7 +32,7 @@ def parse_version(
     field: str = "version",
     error_context: str = "baseline",
 ) -> int:
-    expected_values = sequence_or_none(expected)
+    expected_values = sequence_optional(expected)
     match expected:
         case int() as expected_int:
             allowed = (int(expected_int),)
@@ -64,7 +64,7 @@ def parse_spec_metadata(
     payload: Mapping[str, JSONValue],
 ) -> tuple[str, dict[str, JSONValue]]:
     spec_id = str(payload.get("generated_by_spec_id", "") or "")
-    spec_payload = mapping_or_none(payload.get("generated_by_spec", {}))
+    spec_payload = mapping_optional(payload.get("generated_by_spec", {}))
     spec: dict[str, JSONValue] = {}
     if spec_payload is not None:
         spec = {str(key): spec_payload[key] for key in spec_payload}

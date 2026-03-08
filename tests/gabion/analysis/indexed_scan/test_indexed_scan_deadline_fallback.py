@@ -38,6 +38,7 @@ def _mk_info(*, kind: str, param: str | None = None, const: str | None = None) -
 
 
 # gabion:evidence E:function_site::indexed_scan/deadline_fallback.py::gabion.analysis.indexed_scan.deadline_fallback.fallback_deadline_arg_info
+# gabion:behavior primary=allowed_unwanted facets=fallback
 def test_fallback_deadline_arg_info_high_strictness() -> None:
     call = _FakeCall(
         pos_map={"0": "deadline_arg"},
@@ -67,6 +68,7 @@ def test_fallback_deadline_arg_info_high_strictness() -> None:
 
 
 # gabion:evidence E:function_site::indexed_scan/deadline_fallback.py::gabion.analysis.indexed_scan.deadline_fallback.fallback_deadline_arg_info::strictness
+# gabion:behavior primary=allowed_unwanted facets=fallback
 def test_fallback_deadline_arg_info_low_strictness_applies_star_sources() -> None:
     call = _FakeCall(
         pos_map={},
@@ -96,6 +98,7 @@ def test_fallback_deadline_arg_info_low_strictness_applies_star_sources() -> Non
 
 
 # gabion:evidence E:function_site::indexed_scan/deadline_fallback.py::gabion.analysis.indexed_scan.deadline_fallback.fallback_deadline_arg_info::varargs
+# gabion:behavior primary=allowed_unwanted facets=fallback
 def test_fallback_deadline_arg_info_covers_vararg_kwarg_and_unknown_paths() -> None:
     call = _FakeCall(
         pos_map={"5": "caller_pos"},

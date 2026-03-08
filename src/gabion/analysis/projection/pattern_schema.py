@@ -7,7 +7,7 @@ from enum import StrEnum
 from typing import Mapping, Sequence
 
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue
-from gabion.analysis.foundation.resume_codec import mapping_or_none, sequence_or_none
+from gabion.analysis.foundation.resume_codec import mapping_optional, sequence_optional
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.order_contract import sort_once
 
@@ -23,7 +23,7 @@ PATTERN_SCHEMA_CONTRACT_VERSION = "pattern_schema.v2"
 
 def _normalize_signature_value(value: JSONValue) -> JSONValue:
     check_deadline()
-    mapping_value = mapping_or_none(value)
+    mapping_value = mapping_optional(value)
     if mapping_value is not None:
         normalized: JSONObject = {}
         for key in sort_once(
@@ -33,7 +33,7 @@ def _normalize_signature_value(value: JSONValue) -> JSONValue:
             check_deadline()
             normalized[str(key)] = _normalize_signature_value(mapping_value[key])
         return normalized
-    sequence_value = sequence_or_none(value, allow_str=False)
+    sequence_value = sequence_optional(value, allow_str=False)
     if sequence_value is not None:
         normalized_items = [_normalize_signature_value(item) for item in sequence_value]
         sortable = True

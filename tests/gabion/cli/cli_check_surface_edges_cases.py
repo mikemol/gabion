@@ -41,6 +41,7 @@ def _check_obj(
 
 
 # gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_configure_runtime_flags_rejects_removed_timeout_and_transport_flags
+# gabion:behavior primary=verboten facets=edge,timeout
 def test_configure_runtime_flags_rejects_removed_timeout_and_transport_flags() -> None:
     with pytest.raises(typer.BadParameter):
         cli.configure_runtime_flags(
@@ -71,6 +72,7 @@ def test_configure_runtime_flags_rejects_removed_timeout_and_transport_flags() -
 
 
 # gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_check_group_and_subgroups_require_explicit_subcommand
+# gabion:behavior primary=verboten facets=edge
 def test_check_group_and_subgroups_require_explicit_subcommand() -> None:
     runner = CliRunner()
     for argv in (
@@ -86,6 +88,7 @@ def test_check_group_and_subgroups_require_explicit_subcommand() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_check_raw_usage_and_passthrough_branches
+# gabion:behavior primary=verboten facets=edge
 def test_check_raw_usage_and_passthrough_branches() -> None:
     runner = CliRunner()
     bad = runner.invoke(cli.app, ["check", "raw"])
@@ -108,6 +111,7 @@ def test_check_raw_usage_and_passthrough_branches() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_check_raw_direct_helper_strips_leading_double_dash
+# gabion:behavior primary=verboten facets=edge
 def test_check_raw_direct_helper_strips_leading_double_dash() -> None:
     captured: list[list[str]] = []
 
@@ -120,6 +124,7 @@ def test_check_raw_direct_helper_strips_leading_double_dash() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_check_option_surface_matrix_promotes_delta_bundle_options
+# gabion:behavior primary=verboten facets=edge
 def test_check_option_surface_matrix_promotes_delta_bundle_options() -> None:
     missing = check_commands._option_surface_holes(
         base=check_commands.CHECK_RUN_OPTION_SURFACE,
@@ -129,6 +134,7 @@ def test_check_option_surface_matrix_promotes_delta_bundle_options() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_check_run_removed_and_invalid_baseline_mode_paths
+# gabion:behavior primary=verboten facets=edge,invalid
 def test_check_run_removed_and_invalid_baseline_mode_paths() -> None:
     runner = CliRunner()
     removed = runner.invoke(
@@ -189,6 +195,7 @@ def test_check_run_removed_and_invalid_baseline_mode_paths() -> None:
 
 
 # gabion:evidence E:function_site::cli.py::gabion.cli.check_run
+# gabion:behavior primary=verboten facets=edge
 def test_check_run_status_watch_requires_status_watch_flag() -> None:
     runner = CliRunner()
     result = runner.invoke(
@@ -209,6 +216,7 @@ def test_check_run_status_watch_requires_status_watch_flag() -> None:
 
 
 # gabion:evidence E:function_site::cli.py::gabion.cli.check_run
+# gabion:behavior primary=verboten facets=edge
 def test_check_run_status_watch_executes_after_local_success(tmp_path: Path) -> None:
     runner = CliRunner()
     captured: list[dict[str, object]] = []
@@ -254,6 +262,7 @@ def test_check_run_status_watch_executes_after_local_success(tmp_path: Path) -> 
 
 
 # gabion:evidence E:function_site::cli.py::gabion.cli.check_run
+# gabion:behavior primary=verboten facets=edge,fail
 def test_check_run_failed_local_check_skips_status_watch() -> None:
     runner = CliRunner()
     status_watch_calls: list[object] = []
@@ -283,6 +292,7 @@ def test_check_run_failed_local_check_skips_status_watch() -> None:
 
 
 # gabion:evidence E:function_site::cli.py::gabion.cli.check_run
+# gabion:behavior primary=verboten facets=edge
 def test_check_run_status_watch_propagates_collection_failure_exit_code() -> None:
     runner = CliRunner()
 
@@ -326,6 +336,7 @@ def test_check_run_status_watch_propagates_collection_failure_exit_code() -> Non
 
 
 # gabion:evidence E:function_site::cli.py::gabion.cli.check_run
+# gabion:behavior primary=verboten facets=edge
 def test_check_run_status_watch_system_exit_string_maps_to_exit_one() -> None:
     runner = CliRunner()
 
@@ -349,6 +360,7 @@ def test_check_run_status_watch_system_exit_string_maps_to_exit_one() -> None:
 
 
 # gabion:evidence E:function_site::cli.py::gabion.cli.check_run
+# gabion:behavior primary=verboten facets=edge
 def test_check_run_status_watch_system_exit_int_propagates() -> None:
     runner = CliRunner()
 
@@ -371,6 +383,7 @@ def test_check_run_status_watch_system_exit_int_propagates() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_check_run_and_delta_bundle_shared_option_parity_and_overrides
+# gabion:behavior primary=verboten facets=edge
 def test_check_run_and_delta_bundle_shared_option_parity_and_overrides() -> None:
     runner = CliRunner()
     run_captured: list[dict[str, object]] = []
@@ -472,6 +485,7 @@ def test_check_run_and_delta_bundle_shared_option_parity_and_overrides() -> None
 
 
 # gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_check_delta_bundle_dispatches_single_pass_delta_options
+# gabion:behavior primary=verboten facets=edge
 def test_check_delta_bundle_dispatches_single_pass_delta_options() -> None:
     runner = CliRunner()
     captured: list[dict[str, object]] = []
@@ -493,6 +507,7 @@ def test_check_delta_bundle_dispatches_single_pass_delta_options() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_check_delta_gates_uses_gate_runner_exit_code
+# gabion:behavior primary=verboten facets=edge
 def test_check_delta_gates_uses_gate_runner_exit_code() -> None:
     runner = CliRunner()
     result = runner.invoke(
@@ -504,6 +519,7 @@ def test_check_delta_gates_uses_gate_runner_exit_code() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_check_lint_mode_validation_errors
+# gabion:behavior primary=verboten facets=edge,error
 def test_check_lint_mode_validation_errors() -> None:
     runner = CliRunner()
     jsonl_missing = runner.invoke(
@@ -556,6 +572,7 @@ def test_check_lint_mode_validation_errors() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_check_gate_policy_all_modes_and_invalid_value
+# gabion:behavior primary=verboten facets=edge,invalid
 def test_check_gate_policy_all_modes_and_invalid_value() -> None:
     assert cli._check_gate_policy(cli.CheckGateMode.all) == (True, True)
     assert cli._check_gate_policy(cli.CheckGateMode.none) == (False, False)
@@ -566,6 +583,7 @@ def test_check_gate_policy_all_modes_and_invalid_value() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_raw_profile_helper_functions_cover_commandline_source_branches
+# gabion:behavior primary=verboten facets=edge
 def test_raw_profile_helper_functions_cover_commandline_source_branches() -> None:
     class _Ctx:
         def __init__(self, *, commandline_params: set[str], args: list[str]) -> None:
@@ -679,6 +697,7 @@ def test_raw_profile_helper_functions_cover_commandline_source_branches() -> Non
     assert captured == [["sample.py", "--type-audit"]]
 
 # gabion:evidence E:function_site::tests/test_cli_check_surface_edges.py::test_check_aux_subcommands_forward_domain_and_action
+# gabion:behavior primary=verboten facets=edge
 @pytest.mark.parametrize(
     ("argv_suffix", "domain", "action"),
     [

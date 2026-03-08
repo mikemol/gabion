@@ -7,17 +7,20 @@ from gabion.analysis.core.determinism_invariants import (
 from gabion.exceptions import NeverThrown
 
 
+# gabion:behavior primary=desired
 def test_require_invariants_accept_valid_inputs() -> None:
     assert require_sorted("sorted", [1, 2]) is None
     assert require_no_dupes("dupes", ["a", "b"]) is None
     assert require_canonical_multiset("ms", [("a", 1)]) is None
 
 
+# gabion:behavior primary=desired
 def test_require_sorted_allows_reverse_sorted_in_reverse_mode() -> None:
     assert require_sorted("descending", [3, 2, 2, 1], reverse=True) is None
     assert require_sorted("empty", []) is None
 
 
+# gabion:behavior primary=verboten facets=raises
 def test_require_sorted_raises_and_reports_payload() -> None:
     observed: list[dict[str, object]] = []
     with pytest.raises(NeverThrown):
@@ -33,6 +36,7 @@ def test_require_sorted_raises_and_reports_payload() -> None:
     assert observed[0]["phase"] == "collection"
 
 
+# gabion:behavior primary=verboten facets=raises
 def test_require_no_dupes_raises_and_reports_payload() -> None:
     observed: list[dict[str, object]] = []
     with pytest.raises(NeverThrown):
@@ -47,6 +51,7 @@ def test_require_no_dupes_raises_and_reports_payload() -> None:
     assert observed[0]["scope"] == "wl"
 
 
+# gabion:behavior primary=verboten facets=invalid
 @pytest.mark.parametrize(
     "pairs",
     [
@@ -62,6 +67,7 @@ def test_require_canonical_multiset_rejects_invalid_inputs(
         require_canonical_multiset("ms", pairs)
 
 
+# gabion:behavior primary=verboten facets=invalid
 def test_require_canonical_multiset_reports_payload_for_invalid_variants(
 ) -> None:
     for pairs in (
@@ -82,6 +88,7 @@ def test_require_canonical_multiset_reports_payload_for_invalid_variants(
         assert observed[0]["phase"] == "wl"
 
 
+# gabion:behavior primary=verboten facets=raises
 def test_require_no_python_hash_always_raises() -> None:
     observed: list[dict[str, object]] = []
     with pytest.raises(NeverThrown):
@@ -95,6 +102,7 @@ def test_require_no_python_hash_always_raises() -> None:
     assert observed[0]["spec"] == "wl"
 
 
+# gabion:behavior primary=verboten facets=raises
 def test_require_invariants_raise_without_callbacks() -> None:
     with pytest.raises(NeverThrown):
         require_sorted("ascending", [2, 1])
@@ -106,6 +114,7 @@ def test_require_invariants_raise_without_callbacks() -> None:
         require_no_python_hash("hash-order")
 
 
+# gabion:behavior primary=verboten facets=empty
 def test_require_invariants_accept_empty_iterables() -> None:
     assert require_no_dupes("dupes", []) is None
     assert require_canonical_multiset("ms", []) is None

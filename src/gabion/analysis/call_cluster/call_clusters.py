@@ -22,7 +22,7 @@ from gabion.analysis.projection.projection_registry import (
 )
 from gabion.analysis.projection.projection_spec import ProjectionSpec
 from gabion.analysis.semantics.report_doc import ReportDoc
-from gabion.analysis.foundation.resume_codec import mapping_or_none, sequence_or_none
+from gabion.analysis.foundation.resume_codec import mapping_optional, sequence_optional
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.json_types import JSONValue
 
@@ -137,8 +137,8 @@ def render_markdown(
     payload: Mapping[str, JSONValue],
 ) -> str:
     check_deadline(allow_frame_fallback=True)
-    summary = mapping_or_none(payload.get("summary", {}))
-    clusters = sequence_or_none(payload.get("clusters", []))
+    summary = mapping_optional(payload.get("summary", {}))
+    clusters = sequence_optional(payload.get("clusters", []))
     doc = ReportDoc("out_call_clusters")
     doc.lines(spec_metadata_lines_from_payload(payload))
     doc.section("Summary")
@@ -150,12 +150,12 @@ def render_markdown(
     doc.section("Call clusters")
     for entry in clusters:
         check_deadline()
-        entry_mapping = mapping_or_none(entry)
+        entry_mapping = mapping_optional(entry)
         if entry_mapping is not None:
             display = str(entry_mapping.get("display", "") or "")
             count = entry_mapping.get("count", 0)
             render_cluster_heading(doc, display=display, count=count)
-            tests = sequence_or_none(entry_mapping.get("tests", []))
+            tests = sequence_optional(entry_mapping.get("tests", []))
             if tests:
                 render_string_codeblock(
                     doc,

@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Mapping
 
-from gabion.runtime_shape_dispatch import json_list_or_none, json_mapping_or_none, str_or_none
+from gabion.runtime_shape_dispatch import json_list_optional, json_mapping_optional, str_optional
 
 REQUIRED_OVERRIDE_FIELDS: tuple[str, ...] = (
     "actor",
@@ -48,7 +48,7 @@ class OverrideValidationResult:
 
 
 def _parse_time(value: object) -> datetime:
-    text_value = str_or_none(value)
+    text_value = str_optional(value)
     if text_value is None:
         raise ValueError("timestamp must be a string")
     return datetime.fromisoformat(text_value.replace("Z", "+00:00")).astimezone(
@@ -57,7 +57,7 @@ def _parse_time(value: object) -> datetime:
 
 
 def _is_non_empty_text(value: object) -> bool:
-    text_value = str_or_none(value)
+    text_value = str_optional(value)
     if text_value is None:
         return False
     return bool(text_value.strip())
@@ -65,7 +65,7 @@ def _is_non_empty_text(value: object) -> bool:
 
 # gabion:boundary_normalization
 def _evidence_links_valid(value: object) -> bool:
-    links = json_list_or_none(value)
+    links = json_list_optional(value)
     if not links:
         return False
     for entry in links:
@@ -81,7 +81,7 @@ def validate_override_record(
 ) -> OverrideValidationResult:
     if raw_record is None:
         return OverrideValidationResult(active=False, valid=False, reason="missing", record=None)
-    record_mapping = json_mapping_or_none(raw_record)
+    record_mapping = json_mapping_optional(raw_record)
     if record_mapping is None:
         return OverrideValidationResult(active=True, valid=False, reason="non_mapping", record=None)
     record = {str(key): value for key, value in record_mapping.items()}

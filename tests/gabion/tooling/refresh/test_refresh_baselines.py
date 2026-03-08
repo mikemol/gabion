@@ -44,6 +44,7 @@ def _guard_bundle(
 
 
 # gabion:evidence E:call_footprint::tests/test_refresh_baselines.py::test_refresh_subprocess_env_preserves_process_env::env_helpers.py::tests.env_helpers.env_scope::test_refresh_baselines.py::tests.test_refresh_baselines._load_refresh_baselines
+# gabion:behavior primary=desired
 def test_refresh_subprocess_env_preserves_process_env(
 ) -> None:
     module = _load_refresh_baselines()
@@ -89,6 +90,7 @@ def test_refresh_subprocess_env_preserves_process_env(
 
 
 # gabion:evidence E:call_footprint::tests/test_refresh_baselines.py::test_refresh_lsp_timeout_env_overrides_defaults::test_refresh_baselines.py::tests.test_refresh_baselines._load_refresh_baselines
+# gabion:behavior primary=verboten facets=timeout
 def test_refresh_lsp_timeout_env_overrides_defaults() -> None:
     module = _load_refresh_baselines()
 
@@ -99,6 +101,7 @@ def test_refresh_lsp_timeout_env_overrides_defaults() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_refresh_baselines.py::test_main_uses_cli_timeout_overrides_for_refresh_operations::test_refresh_baselines.py::tests.test_refresh_baselines._load_refresh_baselines
+# gabion:behavior primary=verboten facets=timeout
 def test_main_uses_cli_timeout_overrides_for_refresh_operations() -> None:
     module = _load_refresh_baselines()
     captured: list[module._RefreshLspTimeoutEnv] = []
@@ -146,6 +149,7 @@ def test_main_uses_cli_timeout_overrides_for_refresh_operations() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_refresh_baselines.py::test_requires_block_is_monotonic_without_override
+# gabion:behavior primary=desired
 def test_requires_block_is_monotonic_without_override() -> None:
     module = _load_refresh_baselines()
     with _env_scope(
@@ -160,6 +164,7 @@ def test_requires_block_is_monotonic_without_override() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_refresh_baselines.py::test_requires_block_allows_override_token_with_rationale
+# gabion:behavior primary=desired
 def test_requires_block_allows_override_token_with_rationale() -> None:
     module = _load_refresh_baselines()
     with _env_scope(
@@ -172,6 +177,7 @@ def test_requires_block_allows_override_token_with_rationale() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_refresh_baselines.py::test_main_enables_default_aspf_handoff_and_writes_manifest::refresh_baselines.py::scripts.refresh_baselines.main
+# gabion:behavior primary=desired
 def test_main_enables_default_aspf_handoff_and_writes_manifest(tmp_path: Path) -> None:
     module = _load_refresh_baselines()
     captured: list[list[str]] = []
@@ -230,6 +236,7 @@ def test_main_enables_default_aspf_handoff_and_writes_manifest(tmp_path: Path) -
 
 
 # gabion:evidence E:call_footprint::tests/test_refresh_baselines.py::test_main_aspf_handoff_imports_prior_successful_state::refresh_baselines.py::scripts.refresh_baselines.main
+# gabion:behavior primary=desired
 def test_main_aspf_handoff_imports_prior_successful_state(tmp_path: Path) -> None:
     module = _load_refresh_baselines()
     captures: list[list[str]] = []

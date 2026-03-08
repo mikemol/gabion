@@ -26,6 +26,7 @@ class _FakeSppfSync:
 
 
 # gabion:evidence E:call_footprint::tests/test_docflow_sppf_gh_refs.py::test_sppf_gh_refs_required_mode_reports_violation::governance_audit.py::gabion.tooling.governance_audit._sppf_sync_check::test_docflow_sppf_gh_refs.py::tests.test_docflow_sppf_gh_refs._load_audit_tools
+# gabion:behavior primary=desired
 def test_sppf_gh_refs_required_mode_reports_violation(tmp_path: Path) -> None:
     audit_tools = _load_audit_tools()
     sppf_sync = _FakeSppfSync(
@@ -47,6 +48,7 @@ def test_sppf_gh_refs_required_mode_reports_violation(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_docflow_sppf_gh_refs.py::test_sppf_gh_refs_advisory_mode_reports_warning::governance_audit.py::gabion.tooling.governance_audit._sppf_sync_check::test_docflow_sppf_gh_refs.py::tests.test_docflow_sppf_gh_refs._load_audit_tools
+# gabion:behavior primary=desired
 def test_sppf_gh_refs_advisory_mode_reports_warning(tmp_path: Path) -> None:
     audit_tools = _load_audit_tools()
     sppf_sync = _FakeSppfSync(
@@ -68,6 +70,7 @@ def test_sppf_gh_refs_advisory_mode_reports_warning(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_docflow_sppf_gh_refs.py::test_sppf_gh_refs_required_mode_ignores_irrelevant_paths::governance_audit.py::gabion.tooling.governance_audit._sppf_sync_check::test_docflow_sppf_gh_refs.py::tests.test_docflow_sppf_gh_refs._load_audit_tools
+# gabion:behavior primary=desired
 def test_sppf_gh_refs_required_mode_ignores_irrelevant_paths(tmp_path: Path) -> None:
     audit_tools = _load_audit_tools()
     sppf_sync = _FakeSppfSync(
@@ -88,6 +91,7 @@ def test_sppf_gh_refs_required_mode_ignores_irrelevant_paths(tmp_path: Path) -> 
 
 
 # gabion:evidence E:call_footprint::tests/test_docflow_sppf_gh_refs.py::test_sppf_gh_refs_required_mode_passes_when_refs_present::governance_audit.py::gabion.tooling.governance_audit._sppf_sync_check::test_docflow_sppf_gh_refs.py::tests.test_docflow_sppf_gh_refs._load_audit_tools
+# gabion:behavior primary=desired
 def test_sppf_gh_refs_required_mode_passes_when_refs_present(tmp_path: Path) -> None:
     audit_tools = _load_audit_tools()
     sppf_sync = _FakeSppfSync(

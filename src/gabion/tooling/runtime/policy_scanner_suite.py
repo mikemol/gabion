@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from collections import deque
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import hashlib
+import itertools
 import json
 from pathlib import Path
 import subprocess
@@ -13,6 +15,8 @@ from gabion.tooling.policy_rules import (
     boundary_core_contract_rule,
     branchless_rule,
     defensive_fallback_rule,
+    fiber_filter_processor_contract_rule,
+    fiber_loop_structure_contract_rule,
     fiber_normalization_contract_rule,
     fiber_scalar_sentinel_contract_rule,
     fiber_type_dispatch_contract_rule,
@@ -47,28 +51,46 @@ _ORCHESTRATOR_PRIMITIVE_BARREL_PATH = Path("src/gabion/server_core/command_orche
 _ORCHESTRATOR_PRIMITIVE_MAX_LINES = 2400
 _ORCHESTRATOR_PRIMITIVE_MAX_ALL_SYMBOLS = 220
 
-_EXTERNAL_POLICY_RESULT_RULE_IDS = (
-    "policy_check",
-    "structural_hash",
-    "deprecated_nonerasability",
+_POLICY_RULE_IDS = (
+    "no_monkeypatch",
+    "branchless",
+    "defensive_fallback",
+    "fiber_loop_structure_contract",
+    "fiber_filter_processor_contract",
+    "fiber_scalar_sentinel_contract",
+    "fiber_type_dispatch_contract",
+    "no_legacy_monolith_import",
+    "orchestrator_primitive_barrel",
+    "typing_surface",
+    "runtime_narrowing_boundary",
+    "aspf_normalization_idempotence",
+    "boundary_core_contract",
+    "fiber_normalization_contract",
+    "test_subprocess_hygiene",
+    "test_sleep_hygiene",
 )
 _BOUNDARY_MARKER = "gabion:boundary_normalization_module"
 
 
 def _normalize_policy_results(raw: object) -> dict[str, dict[str, Any]]:
-    normalized: dict[str, dict[str, Any]] = {}
     match raw:
         case dict() as payload:
-            for key in _EXTERNAL_POLICY_RESULT_RULE_IDS:
-                item = payload.get(key)
-                match item:
-                    case dict() as item_payload:
-                        normalized[key] = dict(item_payload)
-                    case _:
-                        pass
+            return _normalized_external_policy_results(payload)
         case _:
-            pass
-    return normalized
+            return {}
+
+
+def _normalized_external_policy_results(
+    payload: Mapping[str, object],
+) -> dict[str, dict[str, Any]]:
+    candidates = (
+        _policy_result_candidate(("policy_check", payload.get("policy_check"))),
+        _policy_result_candidate(("structural_hash", payload.get("structural_hash"))),
+        _policy_result_candidate(
+            ("deprecated_nonerasability", payload.get("deprecated_nonerasability"))
+        ),
+    )
+    return _policy_result_candidates_to_mapping(candidates)
 
 
 def _scan_orchestrator_primitive_barrel(*, root: Path) -> list[dict[str, Any]]:
@@ -77,7 +99,11 @@ def _scan_orchestrator_primitive_barrel(*, root: Path) -> list[dict[str, Any]]:
         return []
     source = path.read_text(encoding="utf-8")
     lines = source.splitlines()
-    export_count = source.count("'" ) if "__all__" in source else 0
+    export_count = source.count("'") if "__all__" in source else 0
+    export_count = _export_count_from_source(
+        source=source,
+        default_export_count=export_count,
+    )
     violations: list[dict[str, Any]] = []
     if len(lines) > _ORCHESTRATOR_PRIMITIVE_MAX_LINES:
         violations.append({
@@ -88,40 +114,65 @@ def _scan_orchestrator_primitive_barrel(*, root: Path) -> list[dict[str, Any]]:
             "message": f"command_orchestrator_primitives.py exceeds line threshold {_ORCHESTRATOR_PRIMITIVE_MAX_LINES}",
             "render": f"{_ORCHESTRATOR_PRIMITIVE_BARREL_PATH.as_posix()}:1:1: line_threshold: exceeds {_ORCHESTRATOR_PRIMITIVE_MAX_LINES} lines",
         })
-    if "__all__" in source:
-        try:
-            tree = ast.parse(source)
-        except SyntaxError:
-            tree = None
-        if tree is not None:
-            for node in tree.body:
-                match node:
-                    case ast.Assign(targets=targets, value=ast.List(elts=elts)):
-                        has_all_target = any(
-                            _assign_target_name(target) == "__all__"
-                            for target in targets
-                        )
-                        if has_all_target:
-                            export_count = len(elts)
-                    case ast.Assign(targets=targets, value=ast.Tuple(elts=elts)):
-                        has_all_target = any(
-                            _assign_target_name(target) == "__all__"
-                            for target in targets
-                        )
-                        if has_all_target:
-                            export_count = len(elts)
-                    case _:
-                        pass
-        if export_count > _ORCHESTRATOR_PRIMITIVE_MAX_ALL_SYMBOLS:
-            violations.append({
-                "path": _ORCHESTRATOR_PRIMITIVE_BARREL_PATH.as_posix(),
-                "line": 1,
-                "column": 1,
-                "kind": "export_threshold",
-                "message": f"command_orchestrator_primitives.py __all__ exports exceed {_ORCHESTRATOR_PRIMITIVE_MAX_ALL_SYMBOLS}",
-                "render": f"{_ORCHESTRATOR_PRIMITIVE_BARREL_PATH.as_posix()}:1:1: export_threshold: __all__ exceeds {_ORCHESTRATOR_PRIMITIVE_MAX_ALL_SYMBOLS} symbols",
-            })
+    if export_count > _ORCHESTRATOR_PRIMITIVE_MAX_ALL_SYMBOLS:
+        violations.append({
+            "path": _ORCHESTRATOR_PRIMITIVE_BARREL_PATH.as_posix(),
+            "line": 1,
+            "column": 1,
+            "kind": "export_threshold",
+            "message": f"command_orchestrator_primitives.py __all__ exports exceed {_ORCHESTRATOR_PRIMITIVE_MAX_ALL_SYMBOLS}",
+            "render": f"{_ORCHESTRATOR_PRIMITIVE_BARREL_PATH.as_posix()}:1:1: export_threshold: __all__ exceeds {_ORCHESTRATOR_PRIMITIVE_MAX_ALL_SYMBOLS} symbols",
+        })
     return violations
+
+
+def _export_count_from_source(*, source: str, default_export_count: int) -> int:
+    if "__all__" not in source:
+        return default_export_count
+    tree = _parse_optional(source)
+    match tree:
+        case ast.AST() as parsed_tree:
+            return max(
+                _iter_all_assignment_export_counts(parsed_tree.body),
+                default=default_export_count,
+            )
+        case _:
+            return default_export_count
+
+
+def _parse_optional(source: str) -> ast.Module | None:
+    try:
+        return ast.parse(source)
+    except SyntaxError:
+        return None
+
+
+def _iter_all_assignment_export_counts(body: list[ast.stmt]) -> Iterable[int]:
+    for node in body:
+        yield from _assignment_export_counts(node)
+
+
+def _assignment_export_counts(node: ast.stmt) -> tuple[int, ...]:
+    match node:
+        case ast.Assign(targets=targets, value=ast.List(elts=elts)):
+            if _assigns_all_target(targets):
+                return (len(elts),)
+            return ()
+        case ast.Assign(targets=targets, value=ast.Tuple(elts=elts)):
+            if _assigns_all_target(targets):
+                return (len(elts),)
+            return ()
+        case _:
+            return ()
+
+
+def _assigns_all_target(targets: list[ast.expr]) -> bool:
+    return any(_iter_target_is_all(targets))
+
+
+def _iter_target_is_all(targets: list[ast.expr]) -> Iterable[bool]:
+    for target in targets:
+        yield _assign_target_name(target) == "__all__"
 
 
 def _changed_paths_from_git(
@@ -144,7 +195,7 @@ def _changed_paths_from_git(
         )
     except (subprocess.CalledProcessError, OSError):
         return None
-    changed = {line.strip() for line in completed.stdout.splitlines() if line.strip()}
+    changed = set(_iter_nonempty_stripped_lines(completed.stdout))
     if base_sha and head_sha:
         return changed
 
@@ -159,8 +210,20 @@ def _changed_paths_from_git(
         )
     except (subprocess.CalledProcessError, OSError):
         return changed
-    changed.update(line.strip() for line in untracked.stdout.splitlines() if line.strip())
+    changed.update(_iter_nonempty_stripped_lines(untracked.stdout))
     return changed
+
+
+def _iter_nonempty_stripped_lines(payload: str) -> Iterable[str]:
+    for line in payload.splitlines():
+        yield from _strip_default_empty(line)
+
+
+def _strip_default_empty(line: str) -> tuple[str, ...]:
+    stripped = line.strip()
+    if stripped:
+        return (stripped,)
+    return ()
 
 
 def _boundary_scoped_files(
@@ -169,19 +232,48 @@ def _boundary_scoped_files(
     inventory: tuple[Path, ...],
     changed_paths: set[str] | None,
 ) -> tuple[Path, ...]:
-    scoped: list[Path] = []
-    for path in inventory:
-        rel = path.relative_to(root).as_posix()
-        path_in_scope = changed_paths is None or rel in changed_paths
-        path_under_src = rel.startswith("src/gabion/")
-        if path_in_scope and path_under_src:
-            try:
-                source = path.read_text(encoding="utf-8")
-            except OSError:
-                source = None
-            if source is not None and _BOUNDARY_MARKER in source:
-                scoped.append(path)
+    scoped = tuple(
+        _iter_boundary_scoped_candidates(
+            root=root,
+            inventory=inventory,
+            changed_paths=changed_paths,
+        )
+    )
     return tuple(sorted(set(scoped), key=lambda item: str(item)))
+
+
+def _iter_boundary_scoped_candidates(
+    *,
+    root: Path,
+    inventory: tuple[Path, ...],
+    changed_paths: set[str] | None,
+) -> Iterable[Path]:
+    for path in inventory:
+        yield from _boundary_scoped_candidate(
+            path=path,
+            root=root,
+            changed_paths=changed_paths,
+        )
+
+
+def _boundary_scoped_candidate(
+    *,
+    path: Path,
+    root: Path,
+    changed_paths: set[str] | None,
+) -> tuple[Path, ...]:
+    rel = path.relative_to(root).as_posix()
+    path_in_scope = changed_paths is None or rel in changed_paths
+    path_under_src = rel.startswith("src/gabion/")
+    if not (path_in_scope and path_under_src):
+        return ()
+    try:
+        source = path.read_text(encoding="utf-8")
+    except OSError:
+        return ()
+    if _BOUNDARY_MARKER in source:
+        return (path,)
+    return ()
 
 
 @dataclass(frozen=True)
@@ -194,13 +286,10 @@ class PolicySuiteResult:
     cached: bool
 
     def total_violations(self) -> int:
-        return sum(len(items) for items in self.violations_by_rule.values())
+        return sum(_iter_rule_violation_counts(self.violations_by_rule.values()))
 
     def to_payload(self) -> dict[str, object]:
-        counts = {
-            rule: len(items)
-            for rule, items in self.violations_by_rule.items()
-        }
+        counts = dict(map(_rule_count_pair, self.violations_by_rule.items()))
         return {
             "format_version": _FORMAT_VERSION,
             "generated_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -212,6 +301,16 @@ class PolicySuiteResult:
             "violations": self.violations_by_rule,
             "policy_results": self.policy_results,
         }
+
+
+def _iter_rule_violation_counts(values: Iterable[list[dict[str, Any]]]) -> Iterable[int]:
+    for items in values:
+        yield len(items)
+
+
+def _rule_count_pair(item: tuple[str, list[dict[str, Any]]]) -> tuple[str, int]:
+    rule, items = item
+    return (rule, len(items))
 
 
 # gabion:decision_protocol
@@ -334,6 +433,8 @@ def scan_policy_suite(
         "no_monkeypatch": [],
         "branchless": [],
         "defensive_fallback": [],
+        "fiber_loop_structure_contract": [],
+        "fiber_filter_processor_contract": [],
         "fiber_scalar_sentinel_contract": [],
         "fiber_type_dispatch_contract": [],
         "no_legacy_monolith_import": [],
@@ -444,110 +545,21 @@ def scan_policy_suite(
         for item in test_sleep_hygiene_violations
     )
 
-    for path in inventory:
-        rel_path = path.relative_to(resolved_root).as_posix()
-        source = path.read_text(encoding="utf-8")
-        source_lines = source.splitlines()
-        tree = _parse_tree(source, rel_path=rel_path)
-        if tree is not None:
-            if rel_path.startswith("src/") or rel_path.startswith("tests/"):
-                no_legacy_monolith = _NoLegacyMonolithVisitor(rel_path=rel_path)
-                no_legacy_monolith.visit(tree)
-                violations_by_rule["no_legacy_monolith_import"].extend(
-                    _serialize_legacy_monolith(item) for item in no_legacy_monolith.violations
-                )
-
-            if rel_path.startswith("src/") or rel_path.startswith("tests/"):
-                no_mp = no_monkeypatch_rule._NoMonkeypatchVisitor(rel_path=rel_path)
-                no_mp.visit(tree)
-                violations_by_rule["no_monkeypatch"].extend(
-                    _serialize_no_monkeypatch(item) for item in no_mp.violations
-                )
-
-            if rel_path.startswith("src/gabion/"):
-                branchless_visitor = branchless_rule._BranchlessVisitor(
-                    rel_path=rel_path,
-                    source_lines=source_lines,
-                )
-                branchless_visitor.visit(tree)
-                branchless_violations = _filter_baseline_violations(
-                    branchless_visitor.violations,
-                    allowed_keys=branchless_allowed,
-                )
-                violations_by_rule["branchless"].extend(
-                    _serialize_branchless(item) for item in branchless_violations
-                )
-
-                defensive_visitor = defensive_fallback_rule._DefensiveFallbackVisitor(
-                    rel_path=rel_path,
-                    source_lines=source_lines,
-                )
-                defensive_visitor.visit(tree)
-                defensive_violations = _filter_baseline_violations(
-                    defensive_visitor.violations,
-                    allowed_keys=defensive_allowed,
-                )
-                violations_by_rule["defensive_fallback"].extend(
-                    _serialize_defensive(item) for item in defensive_violations
-                )
-                scalar_sentinel_violations = (
-                    fiber_scalar_sentinel_contract_rule.collect_violations(
-                        rel_path=rel_path,
-                        source=source,
-                        tree=tree,
-                    )
-                )
-                violations_by_rule["fiber_scalar_sentinel_contract"].extend(
-                    _serialize_fiber_scalar_sentinel_contract(item)
-                    for item in scalar_sentinel_violations
-                )
-                type_dispatch_violations = (
-                    fiber_type_dispatch_contract_rule.collect_violations(
-                        rel_path=rel_path,
-                        source=source,
-                        tree=tree,
-                    )
-                )
-                violations_by_rule["fiber_type_dispatch_contract"].extend(
-                    _serialize_fiber_type_dispatch_contract(item)
-                    for item in type_dispatch_violations
-                )
-
-                typing_surface_violations = _filter_baseline_violations(
-                    typing_surface_rule.collect_violations(
-                        rel_path=rel_path,
-                        source=source,
-                        tree=tree,
-                    ),
-                    allowed_keys=(typing_surface_allowed | typing_surface_waiver_result.allowed_keys),
-                )
-                violations_by_rule["typing_surface"].extend(
-                    _serialize_typing_surface(item) for item in typing_surface_violations
-                )
-
-                runtime_narrowing_boundary_violations = _filter_baseline_violations(
-                    runtime_narrowing_boundary_rule.collect_violations(
-                        rel_path=rel_path,
-                        source=source,
-                        tree=tree,
-                    ),
-                    allowed_keys=(runtime_narrowing_boundary_allowed | runtime_narrowing_boundary_waiver_result.allowed_keys),
-                )
-                violations_by_rule["runtime_narrowing_boundary"].extend(
-                    _serialize_runtime_narrowing_boundary(item)
-                    for item in runtime_narrowing_boundary_violations
-                )
-
-    for rule, items in list(violations_by_rule.items()):
-        violations_by_rule[rule] = sorted(
-            items,
-            key=lambda item: (
-                str(item.get("path", "")),
-                str(item.get("qualname", "")),
-                int(item.get("line", 0) or 0),
-                str(item.get("kind", "")),
+    _drain(
+        _iter_apply_inventory_scans(
+            inventory=inventory,
+            resolved_root=resolved_root,
+            branchless_allowed=branchless_allowed,
+            defensive_allowed=defensive_allowed,
+            typing_surface_allowed=(typing_surface_allowed | typing_surface_waiver_result.allowed_keys),
+            runtime_narrowing_boundary_allowed=(
+                runtime_narrowing_boundary_allowed
+                | runtime_narrowing_boundary_waiver_result.allowed_keys
             ),
+            violations_by_rule=violations_by_rule,
         )
+    )
+    _drain(_iter_sort_violations_by_rule(violations_by_rule))
     return PolicySuiteResult(
         root=resolved_root,
         inventory_hash=inventory_hash,
@@ -555,6 +567,207 @@ def scan_policy_suite(
         violations_by_rule=violations_by_rule,
         policy_results=_normalized_policy_result_mapping(policy_results or {}),
         cached=False,
+    )
+
+
+def _drain(items: Iterable[object]) -> None:
+    deque(items, maxlen=0)
+
+
+def _iter_apply_inventory_scans(
+    *,
+    inventory: tuple[Path, ...],
+    resolved_root: Path,
+    branchless_allowed: set[str],
+    defensive_allowed: set[str],
+    typing_surface_allowed: set[str],
+    runtime_narrowing_boundary_allowed: set[str],
+    violations_by_rule: dict[str, list[dict[str, Any]]],
+) -> Iterable[None]:
+    for path in inventory:
+        _apply_inventory_scan(
+            path=path,
+            resolved_root=resolved_root,
+            branchless_allowed=branchless_allowed,
+            defensive_allowed=defensive_allowed,
+            typing_surface_allowed=typing_surface_allowed,
+            runtime_narrowing_boundary_allowed=runtime_narrowing_boundary_allowed,
+            violations_by_rule=violations_by_rule,
+        )
+        yield None
+
+
+def _apply_inventory_scan(
+    *,
+    path: Path,
+    resolved_root: Path,
+    branchless_allowed: set[str],
+    defensive_allowed: set[str],
+    typing_surface_allowed: set[str],
+    runtime_narrowing_boundary_allowed: set[str],
+    violations_by_rule: dict[str, list[dict[str, Any]]],
+) -> None:
+    rel_path = path.relative_to(resolved_root).as_posix()
+    source = path.read_text(encoding="utf-8")
+    source_lines = source.splitlines()
+    tree = _parse_tree(source, rel_path=rel_path)
+    match tree:
+        case ast.AST() as parsed_tree:
+            if rel_path.startswith("src/") or rel_path.startswith("tests/"):
+                _apply_test_and_src_visitors(
+                    rel_path=rel_path,
+                    tree=parsed_tree,
+                    violations_by_rule=violations_by_rule,
+                )
+            if rel_path.startswith("src/gabion/"):
+                _apply_src_only_visitors(
+                    rel_path=rel_path,
+                    source=source,
+                    source_lines=source_lines,
+                    tree=parsed_tree,
+                    branchless_allowed=branchless_allowed,
+                    defensive_allowed=defensive_allowed,
+                    typing_surface_allowed=typing_surface_allowed,
+                    runtime_narrowing_boundary_allowed=runtime_narrowing_boundary_allowed,
+                    violations_by_rule=violations_by_rule,
+                )
+        case _:
+            return
+
+
+def _apply_test_and_src_visitors(
+    *,
+    rel_path: str,
+    tree: ast.AST,
+    violations_by_rule: dict[str, list[dict[str, Any]]],
+) -> None:
+    no_legacy_monolith = _NoLegacyMonolithVisitor(rel_path=rel_path)
+    no_legacy_monolith.visit(tree)
+    violations_by_rule["no_legacy_monolith_import"].extend(
+        list(map(_serialize_legacy_monolith, no_legacy_monolith.violations))
+    )
+    no_mp = no_monkeypatch_rule._NoMonkeypatchVisitor(rel_path=rel_path)
+    no_mp.visit(tree)
+    violations_by_rule["no_monkeypatch"].extend(
+        list(map(_serialize_no_monkeypatch, no_mp.violations))
+    )
+
+
+def _apply_src_only_visitors(
+    *,
+    rel_path: str,
+    source: str,
+    source_lines: list[str],
+    tree: ast.AST,
+    branchless_allowed: set[str],
+    defensive_allowed: set[str],
+    typing_surface_allowed: set[str],
+    runtime_narrowing_boundary_allowed: set[str],
+    violations_by_rule: dict[str, list[dict[str, Any]]],
+) -> None:
+    branchless_visitor = branchless_rule._BranchlessVisitor(
+        rel_path=rel_path,
+        source_lines=source_lines,
+    )
+    branchless_visitor.visit(tree)
+    branchless_violations = _filter_baseline_violations(
+        branchless_visitor.violations,
+        allowed_keys=branchless_allowed,
+    )
+    violations_by_rule["branchless"].extend(
+        list(map(_serialize_branchless, branchless_violations))
+    )
+
+    defensive_visitor = defensive_fallback_rule._DefensiveFallbackVisitor(
+        rel_path=rel_path,
+        source_lines=source_lines,
+    )
+    defensive_visitor.visit(tree)
+    defensive_violations = _filter_baseline_violations(
+        defensive_visitor.violations,
+        allowed_keys=defensive_allowed,
+    )
+    violations_by_rule["defensive_fallback"].extend(
+        list(map(_serialize_defensive, defensive_violations))
+    )
+
+    loop_structure_violations = fiber_loop_structure_contract_rule.collect_violations(
+        rel_path=rel_path,
+        source=source,
+        tree=tree,
+    )
+    violations_by_rule["fiber_loop_structure_contract"].extend(
+        list(map(_serialize_fiber_loop_structure_contract, loop_structure_violations))
+    )
+    filter_processor_violations = (
+        fiber_filter_processor_contract_rule.collect_violations(
+            rel_path=rel_path,
+            source=source,
+            tree=tree,
+        )
+    )
+    violations_by_rule["fiber_filter_processor_contract"].extend(
+        list(map(_serialize_fiber_filter_processor_contract, filter_processor_violations))
+    )
+    scalar_sentinel_violations = fiber_scalar_sentinel_contract_rule.collect_violations(
+        rel_path=rel_path,
+        source=source,
+        tree=tree,
+    )
+    violations_by_rule["fiber_scalar_sentinel_contract"].extend(
+        list(map(_serialize_fiber_scalar_sentinel_contract, scalar_sentinel_violations))
+    )
+    type_dispatch_violations = fiber_type_dispatch_contract_rule.collect_violations(
+        rel_path=rel_path,
+        source=source,
+        tree=tree,
+    )
+    violations_by_rule["fiber_type_dispatch_contract"].extend(
+        list(map(_serialize_fiber_type_dispatch_contract, type_dispatch_violations))
+    )
+    typing_surface_violations = _filter_baseline_violations(
+        typing_surface_rule.collect_violations(
+            rel_path=rel_path,
+            source=source,
+            tree=tree,
+        ),
+        allowed_keys=typing_surface_allowed,
+    )
+    violations_by_rule["typing_surface"].extend(
+        list(map(_serialize_typing_surface, typing_surface_violations))
+    )
+    runtime_narrowing_boundary_violations = _filter_baseline_violations(
+        runtime_narrowing_boundary_rule.collect_violations(
+            rel_path=rel_path,
+            source=source,
+            tree=tree,
+        ),
+        allowed_keys=runtime_narrowing_boundary_allowed,
+    )
+    violations_by_rule["runtime_narrowing_boundary"].extend(
+        list(
+            map(
+                _serialize_runtime_narrowing_boundary,
+                runtime_narrowing_boundary_violations,
+            )
+        )
+    )
+
+
+def _iter_sort_violations_by_rule(
+    violations_by_rule: dict[str, list[dict[str, Any]]],
+) -> Iterable[None]:
+    for rule, items in list(violations_by_rule.items()):
+        violations_by_rule[rule] = sorted(items, key=_violation_sort_key)
+        yield None
+
+
+def _violation_sort_key(item: dict[str, Any]) -> tuple[str, str, int, str]:
+    return (
+        str(item.get("path", "")),
+        str(item.get("qualname", "")),
+        int(item.get("line", 0) or 0),
+        str(item.get("kind", "")),
     )
 
 
@@ -582,78 +795,90 @@ def _load_cached_payload(path: Path) -> dict[str, object] | None:
 def _violations_from_payload(payload: Mapping[str, Any]) -> dict[str, list[dict[str, Any]]]:
     violations_raw = payload.get("violations")
     match violations_raw:
-        case dict():
-            pass
+        case dict() as raw_mapping:
+            pairs = map(
+                lambda rule: (
+                    rule,
+                    _normalized_violation_items(raw_mapping.get(rule)),
+                ),
+                _POLICY_RULE_IDS,
+            )
+            return dict(pairs)
         case _:
-            return {
-                "no_monkeypatch": [],
-                "branchless": [],
-                "defensive_fallback": [],
-                "fiber_scalar_sentinel_contract": [],
-                "fiber_type_dispatch_contract": [],
-                "no_legacy_monolith_import": [],
-                "orchestrator_primitive_barrel": [],
-                "typing_surface": [],
-                "runtime_narrowing_boundary": [],
-                "aspf_normalization_idempotence": [],
-                "boundary_core_contract": [],
-                "fiber_normalization_contract": [],
-                "test_subprocess_hygiene": [],
-                "test_sleep_hygiene": [],
-            }
-    normalized: dict[str, list[dict[str, Any]]] = {}
-    for rule in (
-        "no_monkeypatch",
-        "branchless",
-        "defensive_fallback",
-        "fiber_scalar_sentinel_contract",
-        "fiber_type_dispatch_contract",
-        "no_legacy_monolith_import",
-        "orchestrator_primitive_barrel",
-        "typing_surface",
-        "runtime_narrowing_boundary",
-        "aspf_normalization_idempotence",
-        "boundary_core_contract",
-        "fiber_normalization_contract",
-        "test_subprocess_hygiene",
-        "test_sleep_hygiene",
-    ):
-        raw_items = violations_raw.get(rule)
-        match raw_items:
-            case list():
-                items: list[dict[str, Any]] = []
-                for item in raw_items:
-                    match item:
-                        case dict() as violation_item:
-                            items.append(dict(violation_item))
-                        case _:
-                            pass
-                normalized[rule] = items
-            case _:
-                normalized[rule] = []
-    return normalized
+            return _empty_violations_payload()
+
+
+def _empty_violations_payload() -> dict[str, list[dict[str, Any]]]:
+    return {
+        "no_monkeypatch": [],
+        "branchless": [],
+        "defensive_fallback": [],
+        "fiber_loop_structure_contract": [],
+        "fiber_filter_processor_contract": [],
+        "fiber_scalar_sentinel_contract": [],
+        "fiber_type_dispatch_contract": [],
+        "no_legacy_monolith_import": [],
+        "orchestrator_primitive_barrel": [],
+        "typing_surface": [],
+        "runtime_narrowing_boundary": [],
+        "aspf_normalization_idempotence": [],
+        "boundary_core_contract": [],
+        "fiber_normalization_contract": [],
+        "test_subprocess_hygiene": [],
+        "test_sleep_hygiene": [],
+    }
+
+
+def _normalized_violation_items(raw_items: object) -> list[dict[str, Any]]:
+    match raw_items:
+        case list() as items:
+            return list(_iter_normalized_violation_items(items))
+        case _:
+            return []
+
+
+def _iter_normalized_violation_items(items: list[object]) -> Iterable[dict[str, Any]]:
+    for item in items:
+        yield from _normalized_violation_item(item)
+
+
+def _normalized_violation_item(item: object) -> tuple[dict[str, Any], ...]:
+    match item:
+        case dict() as mapping:
+            return (dict(mapping),)
+        case _:
+            return ()
 
 
 def _inventory_files(root: Path) -> tuple[Path, ...]:
-    files: list[Path] = []
-    for pattern in ("src/gabion/**/*.py", "tests/**/*.py"):
-        for path in sorted(root.glob(pattern)):
-            if not path.is_file() or any(part == "__pycache__" for part in path.parts):
-                continue
-            files.append(path.resolve())
+    patterns = ("src/gabion/**/*.py", "tests/**/*.py")
+    per_pattern_paths = map(lambda pattern: sorted(root.glob(pattern)), patterns)
+    flattened_paths = itertools.chain.from_iterable(per_pattern_paths)
+    files = tuple(map(Path.resolve, filter(_is_inventory_file, flattened_paths)))
     deduped = sorted(set(files), key=lambda item: str(item))
     return tuple(deduped)
 
 
+def _is_inventory_file(path: Path) -> bool:
+    if not path.is_file():
+        return False
+    return "__pycache__" not in path.parts
+
+
 def _inventory_hash(files: Iterable[Path], root: Path) -> str:
     digest = hashlib.sha256()
-    for path in files:
-        stat = path.stat()
-        rel = path.relative_to(root).as_posix()
-        digest.update(rel.encode("utf-8"))
-        digest.update(str(int(stat.st_mtime_ns)).encode("utf-8"))
-        digest.update(str(int(stat.st_size)).encode("utf-8"))
+    digest.update(b"".join(map(lambda path: _inventory_hash_chunk(path, root), files)))
     return digest.hexdigest()
+
+
+def _inventory_hash_chunk(path: Path, root: Path) -> bytes:
+    stat = path.stat()
+    rel = path.relative_to(root).as_posix()
+    return (
+        rel.encode("utf-8")
+        + str(int(stat.st_mtime_ns)).encode("utf-8")
+        + str(int(stat.st_size)).encode("utf-8")
+    )
 
 
 def _rule_set_hash() -> str:
@@ -662,6 +887,8 @@ def _rule_set_hash() -> str:
             "no_monkeypatch:v1",
             "branchless:v2",
             "defensive_fallback:v2",
+            "fiber_loop_structure_contract:v1",
+            "fiber_filter_processor_contract:v1",
             "fiber_scalar_sentinel_contract:v1",
             "fiber_type_dispatch_contract:v1",
             "no_legacy_monolith_import:v1",
@@ -708,19 +935,20 @@ class _NoLegacyMonolithVisitor(ast.NodeVisitor):
         self.violations: list[_LegacyMonolithViolation] = []
 
     def visit_Import(self, node: ast.Import) -> None:
-        for alias in node.names:
-            module_name = alias.name
-            if module_name == "gabion.analysis.legacy_dataflow_monolith":
-                self._record(
-                    node,
-                    kind="import",
-                    message="legacy_dataflow_monolith import is retired; use owned modules only",
-                )
+        self.violations.extend(
+            _legacy_monolith_import_violations(
+                path=self._path,
+                node=node,
+            )
+        )
         self.generic_visit(node)
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         module_name = node.module or ""
-        has_direct_legacy_alias = any(alias.name == "legacy_dataflow_monolith" for alias in node.names)
+        has_direct_legacy_alias = _has_alias_named(
+            aliases=node.names,
+            name="legacy_dataflow_monolith",
+        )
         if module_name == "gabion.analysis.legacy_dataflow_monolith":
             self._record(
                 node,
@@ -759,6 +987,42 @@ class _NoLegacyMonolithVisitor(ast.NodeVisitor):
         )
 
 
+def _legacy_monolith_import_violations(
+    *,
+    path: str,
+    node: ast.Import,
+) -> Iterable[_LegacyMonolithViolation]:
+    for alias in node.names:
+        yield from _legacy_monolith_violation_from_alias(
+            path=path,
+            node=node,
+            alias_name=alias.name,
+        )
+
+
+def _legacy_monolith_violation_from_alias(
+    *,
+    path: str,
+    node: ast.Import,
+    alias_name: str,
+) -> tuple[_LegacyMonolithViolation, ...]:
+    if alias_name == "gabion.analysis.legacy_dataflow_monolith":
+        return (
+            _LegacyMonolithViolation(
+                path=path,
+                line=int(getattr(node, "lineno", 1) or 1),
+                column=int(getattr(node, "col_offset", 0) or 0) + 1,
+                kind="import",
+                message="legacy_dataflow_monolith import is retired; use owned modules only",
+            ),
+        )
+    return ()
+
+
+def _has_alias_named(*, aliases: list[ast.alias], name: str) -> bool:
+    return any(map(lambda alias: alias.name == name, aliases))
+
+
 def _load_rule_baseline_keys(*, module: object, baseline_path: Path) -> set[str]:
     loader = getattr(module, "_load_baseline", None)
     if loader is None:
@@ -769,16 +1033,22 @@ def _load_rule_baseline_keys(*, module: object, baseline_path: Path) -> set[str]
         return set()
     match loaded:
         case set() as keys:
-            normalized: set[str] = set()
-            for item in keys:
-                match item:
-                    case str() as text:
-                        normalized.add(text)
-                    case _:
-                        pass
-            return normalized
+            maybe_keys = map(_str_optional, keys)
+            return set(filter(_is_not_none, maybe_keys))
         case _:
             return set()
+
+
+def _str_optional(item: object) -> str | None:
+    match item:
+        case str() as text:
+            return text
+        case _:
+            return None
+
+
+def _is_not_none(value: object) -> bool:
+    return value is not None
 
 
 def _assign_target_name(node: ast.AST) -> str | None:
@@ -792,24 +1062,76 @@ def _assign_target_name(node: ast.AST) -> str | None:
 def _normalized_policy_result_mapping(
     payload: Mapping[str, Mapping[str, Any]] | object,
 ) -> dict[str, dict[str, Any]]:
-    normalized: dict[str, dict[str, Any]] = {}
+    items_outcome = _mapping_items_outcome(payload)
+    if not items_outcome.available:
+        return {}
+    candidates = map(_policy_result_candidate, items_outcome.items)
+    return _policy_result_candidates_to_mapping(candidates)
+
+
+@dataclass(frozen=True)
+class _MappingItemsOutcome:
+    available: bool
+    items: tuple[tuple[object, object], ...]
+
+
+def _mapping_items_outcome(
+    payload: Mapping[str, Mapping[str, Any]] | object,
+) -> _MappingItemsOutcome:
     try:
         items = payload.items()  # type: ignore[attr-defined]
     except AttributeError:
-        return normalized
-    for key, value in items:
-        mapping = _mapping_copy_or_none(value)
-        if mapping is not None:
-            normalized[str(key)] = mapping
-    return normalized
+        return _MappingItemsOutcome(available=False, items=())
+    return _MappingItemsOutcome(available=True, items=tuple(items))
 
 
-def _mapping_copy_or_none(value: object) -> dict[str, Any] | None:
+@dataclass(frozen=True)
+class _PolicyResultCandidate:
+    key: str
+    mapping: dict[str, Any]
+    include: bool
+
+
+def _policy_result_candidate(item: tuple[object, object]) -> _PolicyResultCandidate:
+    key, value = item
+    outcome = _mapping_copy_outcome(value)
+    return _PolicyResultCandidate(
+        key=str(key),
+        mapping=outcome.mapping,
+        include=outcome.accepted,
+    )
+
+
+@dataclass(frozen=True)
+class _MappingCopyOutcome:
+    accepted: bool
+    mapping: dict[str, Any]
+
+
+def _mapping_copy_outcome(value: object) -> _MappingCopyOutcome:
     try:
         mapping = dict(value.items())  # type: ignore[attr-defined]
     except (AttributeError, TypeError, ValueError):
-        return None
-    return mapping
+        return _MappingCopyOutcome(accepted=False, mapping={})
+    return _MappingCopyOutcome(accepted=True, mapping=mapping)
+
+
+def _policy_result_candidates_to_mapping(
+    candidates: Iterable[_PolicyResultCandidate],
+) -> dict[str, dict[str, Any]]:
+    included_candidates = filter(_policy_result_candidate_included, candidates)
+    pairs = map(_policy_result_candidate_pair, included_candidates)
+    return dict(pairs)
+
+
+def _policy_result_candidate_included(candidate: _PolicyResultCandidate) -> bool:
+    return candidate.include
+
+
+def _policy_result_candidate_pair(
+    candidate: _PolicyResultCandidate,
+) -> tuple[str, dict[str, Any]]:
+    return (candidate.key, candidate.mapping)
 
 
 def _filter_baseline_violations(
@@ -819,14 +1141,23 @@ def _filter_baseline_violations(
 ) -> list[object]:
     if not allowed_keys:
         return list(violations)
-    filtered: list[object] = []
-    for violation in violations:
-        key = str(getattr(violation, "key", "") or "")
-        legacy_key = str(getattr(violation, "legacy_key", "") or "")
-        if (key and key in allowed_keys) or (legacy_key and legacy_key in allowed_keys):
-            continue
-        filtered.append(violation)
-    return filtered
+    return list(
+        filter(
+            lambda violation: not _violation_matches_baseline(
+                violation,
+                allowed_keys=allowed_keys,
+            ),
+            violations,
+        )
+    )
+
+
+def _violation_matches_baseline(violation: object, *, allowed_keys: set[str]) -> bool:
+    key = str(getattr(violation, "key", "") or "")
+    legacy_key = str(getattr(violation, "legacy_key", "") or "")
+    return (key and key in allowed_keys) or (
+        legacy_key and legacy_key in allowed_keys
+    )
 
 
 def _serialize_no_monkeypatch(violation: object) -> dict[str, object]:
@@ -879,6 +1210,62 @@ def _serialize_fiber_scalar_sentinel_contract(violation: object) -> dict[str, ob
         "message": getattr(violation, "message"),
         "scalar_literal": getattr(violation, "scalar_literal"),
         "comparison_operator": getattr(violation, "comparison_operator"),
+        "input_slot": getattr(violation, "input_slot"),
+        "flow_identity": getattr(violation, "flow_identity"),
+        "fiber_trace": _fiber_trace_payload(
+            getattr(violation, "fiber_trace", ())
+        ),
+        "applicability_bounds": _fiber_bounds_payload(
+            getattr(violation, "applicability_bounds", None)
+        )
+        if getattr(violation, "applicability_bounds", None) is not None
+        else None,
+        "counterfactual_boundary": _fiber_counterfactual_payload(
+            getattr(violation, "counterfactual_boundary", None)
+        ),
+        "structured_hash": getattr(violation, "structured_hash", ""),
+        "key": getattr(violation, "key"),
+        "render": getattr(violation, "render")(),
+    }
+
+
+def _serialize_fiber_loop_structure_contract(violation: object) -> dict[str, object]:
+    return {
+        "path": getattr(violation, "path"),
+        "line": getattr(violation, "line"),
+        "column": getattr(violation, "column"),
+        "qualname": getattr(violation, "qualname"),
+        "kind": getattr(violation, "kind"),
+        "message": getattr(violation, "message"),
+        "loop_form": getattr(violation, "loop_form"),
+        "input_slot": getattr(violation, "input_slot"),
+        "flow_identity": getattr(violation, "flow_identity"),
+        "fiber_trace": _fiber_trace_payload(
+            getattr(violation, "fiber_trace", ())
+        ),
+        "applicability_bounds": _fiber_bounds_payload(
+            getattr(violation, "applicability_bounds", None)
+        )
+        if getattr(violation, "applicability_bounds", None) is not None
+        else None,
+        "counterfactual_boundary": _fiber_counterfactual_payload(
+            getattr(violation, "counterfactual_boundary", None)
+        ),
+        "structured_hash": getattr(violation, "structured_hash", ""),
+        "key": getattr(violation, "key"),
+        "render": getattr(violation, "render")(),
+    }
+
+
+def _serialize_fiber_filter_processor_contract(violation: object) -> dict[str, object]:
+    return {
+        "path": getattr(violation, "path"),
+        "line": getattr(violation, "line"),
+        "column": getattr(violation, "column"),
+        "qualname": getattr(violation, "qualname"),
+        "kind": getattr(violation, "kind"),
+        "message": getattr(violation, "message"),
+        "branch_form": getattr(violation, "branch_form"),
         "input_slot": getattr(violation, "input_slot"),
         "flow_identity": getattr(violation, "flow_identity"),
         "fiber_trace": _fiber_trace_payload(

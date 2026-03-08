@@ -10,7 +10,7 @@ from gabion.analysis.foundation.delta_tools import coerce_int, count_delta, form
 from gabion.analysis.projection.projection_registry import (
     TEST_ANNOTATION_DRIFT_BASELINE_SPEC, TEST_ANNOTATION_DRIFT_DELTA_SPEC, spec_metadata_lines_from_payload)
 from gabion.analysis.semantics.report_doc import ReportDoc
-from gabion.analysis.foundation.resume_codec import mapping_or_none
+from gabion.analysis.foundation.resume_codec import mapping_optional
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.json_types import JSONValue
 from gabion.order_contract import sort_once
@@ -109,10 +109,10 @@ def render_markdown(payload: Mapping[str, JSONValue]) -> str:
 def _parse_delta_summary(
     payload: Mapping[str, JSONValue],
 ) -> _AnnotationDriftDeltaSummary:
-    summary_payload = mapping_or_none(payload.get("summary")) or {}
-    baseline_payload = mapping_or_none(summary_payload.get("baseline")) or {}
-    current_payload = mapping_or_none(summary_payload.get("current")) or {}
-    delta_payload = mapping_or_none(summary_payload.get("delta")) or {}
+    summary_payload = mapping_optional(payload.get("summary")) or {}
+    baseline_payload = mapping_optional(summary_payload.get("baseline")) or {}
+    current_payload = mapping_optional(summary_payload.get("current")) or {}
+    delta_payload = mapping_optional(summary_payload.get("delta")) or {}
     return _AnnotationDriftDeltaSummary(
         baseline=_normalize_summary(baseline_payload),
         current=_normalize_summary(current_payload),

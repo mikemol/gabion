@@ -6,6 +6,7 @@ from pathlib import Path
 from gabion.analysis.aspf import aspf_stream
 
 
+# gabion:behavior primary=desired
 def test_iter_jsonl_skips_blank_lines() -> None:
     path = Path("artifacts/out/test_aspf_stream_blank.jsonl")
     path.parent.mkdir(parents=True, exist_ok=True)

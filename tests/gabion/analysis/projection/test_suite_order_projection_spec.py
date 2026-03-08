@@ -32,6 +32,7 @@ def _canonical_suite_order_facets(
 
 
 # gabion:evidence E:call_footprint::tests/test_suite_order_projection_spec.py::test_suite_order_spec_materializes_spec_facets::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._materialize_suite_order_spec
+# gabion:behavior primary=desired
 def test_suite_order_spec_materializes_spec_facets() -> None:
     forest = Forest()
     forest.add_suite_site("mod.py", "mod.fn", "loop", span=(2, 0, 3, 1))
@@ -48,6 +49,7 @@ def test_suite_order_spec_materializes_spec_facets() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_suite_order_projection_spec.py::test_suite_order_projection_roundtrip_quotient_and_reinternment::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._materialize_suite_order_spec::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._suite_order_relation
+# gabion:behavior primary=desired
 def test_suite_order_projection_roundtrip_quotient_and_reinternment() -> None:
     forest = Forest()
     for suite_kind, span in _suite_fixture():
@@ -65,6 +67,7 @@ def test_suite_order_projection_roundtrip_quotient_and_reinternment() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_suite_order_projection_spec.py::test_suite_order_projection_gauge_fixing_is_deterministic::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._materialize_suite_order_spec
+# gabion:behavior primary=desired
 def test_suite_order_projection_gauge_fixing_is_deterministic() -> None:
     left = Forest()
     right = Forest()
@@ -88,6 +91,7 @@ def test_suite_order_projection_gauge_fixing_is_deterministic() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_suite_order_projection_spec.py::test_suite_order_noncanonical_representatives_collapse_to_same_relation::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._suite_order_relation
+# gabion:behavior primary=desired
 def test_suite_order_noncanonical_representatives_collapse_to_same_relation() -> None:
     canonical = Forest()
     noncanonical = Forest()
@@ -108,6 +112,7 @@ def test_suite_order_noncanonical_representatives_collapse_to_same_relation() ->
 
 
 # gabion:evidence E:call_footprint::tests/test_suite_order_projection_spec.py::test_suite_order_relation_requires_path_qual_and_span::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._suite_order_relation
+# gabion:behavior primary=desired
 def test_suite_order_relation_requires_path_qual_and_span() -> None:
     missing_path = Forest()
     missing_path.add_node(
@@ -138,6 +143,7 @@ def test_suite_order_relation_requires_path_qual_and_span() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_suite_order_projection_spec.py::test_suite_order_row_to_site_rejects_noncanonical_rows::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._suite_order_row_to_site
+# gabion:behavior primary=desired
 def test_suite_order_row_to_site_rejects_noncanonical_rows() -> None:
     suite_index: dict[tuple[object, ...], NodeId] = {}
     assert _suite_order_row_to_site(

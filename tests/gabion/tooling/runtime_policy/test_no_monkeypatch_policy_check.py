@@ -12,6 +12,7 @@ def _write(path: Path, content: str) -> None:
 
 # gabion:evidence E:call_footprint::tests/test_no_monkeypatch_policy_check.py::test_no_monkeypatch_policy_detects_fixture_and_patch_calls::no_monkeypatch_policy_check.py::scripts.no_monkeypatch_policy_check.collect_violations
 
+# gabion:behavior primary=desired
 def test_no_monkeypatch_policy_detects_fixture_and_patch_calls(tmp_path: Path) -> None:
     _write(
         tmp_path / "tests" / "test_bad.py",
@@ -31,6 +32,7 @@ def test_no_monkeypatch_policy_detects_fixture_and_patch_calls(tmp_path: Path) -
 
 # gabion:evidence E:call_footprint::tests/test_no_monkeypatch_policy_check.py::test_no_monkeypatch_policy_allows_di_style_tests::no_monkeypatch_policy_check.py::scripts.no_monkeypatch_policy_check.run
 
+# gabion:behavior primary=desired
 def test_no_monkeypatch_policy_allows_di_style_tests(tmp_path: Path) -> None:
     _write(
         tmp_path / "tests" / "test_ok.py",
@@ -45,6 +47,7 @@ def test_no_monkeypatch_policy_allows_di_style_tests(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_no_monkeypatch_policy_check.py::test_no_monkeypatch_policy_check_writes_policy_result_output::no_monkeypatch_policy_check.py::scripts.no_monkeypatch_policy_check.run
+# gabion:behavior primary=desired
 def test_no_monkeypatch_policy_check_writes_policy_result_output(tmp_path: Path) -> None:
     _write(tmp_path / "tests" / "test_good.py", "def test_ok():\n    assert True\n")
     out = tmp_path / "out/no_monkeypatch.json"

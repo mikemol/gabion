@@ -33,6 +33,7 @@ def _run_context(*, run_id: str = "run:test") -> CanonicalRunContext:
     )
 
 
+# gabion:behavior primary=desired
 def test_canonical_event_envelope_constructs_with_required_fields() -> None:
     run_context = _run_context()
     projection = derive_identity_projection_from_tokens(
@@ -56,6 +57,7 @@ def test_canonical_event_envelope_constructs_with_required_fields() -> None:
     assert envelope.causal_refs == ("r:1",)
 
 
+# gabion:behavior primary=desired
 def test_global_sequencer_is_monotonic_across_mixed_source_adaptation() -> None:
     run_context = _run_context(run_id="run:mixed")
     transcript_event = adapt_transcript_fixture_event_or_raise(
@@ -75,6 +77,7 @@ def test_global_sequencer_is_monotonic_across_mixed_source_adaptation() -> None:
     assert another_transcript_event.sequence == 3
 
 
+# gabion:behavior primary=verboten facets=missing
 def test_missing_identity_projection_rejects_adaptation() -> None:
     run_context = _run_context()
     with pytest.raises(CanonicalEventAdaptationError):

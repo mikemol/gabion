@@ -4,6 +4,7 @@ from gabion.analysis.aspf.aspf import NodeId
 from gabion.analysis.core.structure_reuse_classes import AspfStructureClass
 
 
+# gabion:behavior primary=desired
 def test_structure_class_key_payload_matches_canonical_identity_payload() -> None:
     structure = AspfStructureClass(
         kind="bundle",

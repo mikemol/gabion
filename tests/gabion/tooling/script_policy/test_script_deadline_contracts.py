@@ -41,6 +41,7 @@ def _deadline_roots(script_paths: list[Path], repo_root: Path) -> set[str]:
 
 
 # gabion:evidence E:call_footprint::tests/test_script_deadline_contracts.py::test_scripts_using_deadlines_require_clock_and_forest_scope::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::order_helpers.py::tests.order_helpers.contract_sorted::test_script_deadline_contracts.py::tests.test_script_deadline_contracts._deadline_roots::test_script_deadline_contracts.py::tests.test_script_deadline_contracts._script_deadline_paths
+# gabion:behavior primary=desired
 def test_scripts_using_deadlines_require_clock_and_forest_scope() -> None:
     repo_root = REPO_ROOT
     script_paths = _script_deadline_paths(repo_root)
@@ -84,6 +85,7 @@ def test_scripts_using_deadlines_require_clock_and_forest_scope() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_script_deadline_contracts.py::test_deadline_runtime_provides_scope_guards
+# gabion:behavior primary=desired
 def test_deadline_runtime_provides_scope_guards() -> None:
     path = REPO_ROOT / "scripts" / "deadline" / "deadline_runtime.py"
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))

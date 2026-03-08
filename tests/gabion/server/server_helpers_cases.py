@@ -14,6 +14,7 @@ def _load():
     return server
 
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server._normalize_transparent_decorators::value E:decision_surface/direct::server.py::gabion.server._normalize_transparent_decorators::stale_d287efc4e500
+# gabion:behavior primary=desired
 def test_normalize_transparent_decorators() -> None:
     server = _load()
     assert server._normalize_transparent_decorators(None) is None
@@ -23,6 +24,7 @@ def test_normalize_transparent_decorators() -> None:
     assert server._normalize_transparent_decorators([]) is None
 
 # gabion:evidence E:function_site::server.py::gabion.server._uri_to_path E:decision_surface/direct::server.py::gabion.server._uri_to_path::stale_eee91afad018
+# gabion:behavior primary=desired
 def test_uri_to_path() -> None:
     server = _load()
     path = Path("/tmp/demo.txt")
@@ -30,6 +32,7 @@ def test_uri_to_path() -> None:
     assert server._uri_to_path("relative/path.py") == Path("relative/path.py")
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::stale_2ea481a8bdfd
+# gabion:behavior primary=desired
 def test_diagnostics_for_path_reports_bundle(tmp_path: Path) -> None:
     server = _load()
     sample = tmp_path / "sample.py"
@@ -47,6 +50,7 @@ def test_diagnostics_for_path_reports_bundle(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::server.py::gabion.server._analysis_witness_config_payload
+# gabion:behavior primary=desired
 def test_analysis_witness_config_payload_is_stable() -> None:
     server = _load()
     config = server.AuditConfig(
@@ -64,6 +68,7 @@ def test_analysis_witness_config_payload_is_stable() -> None:
     assert payload["transparent_decorators"] == ["alpha.wrap", "pkg.wrap"]
 
 # gabion:evidence E:function_site::server.py::gabion.server.start
+# gabion:behavior primary=desired
 def test_start_uses_injected_callable() -> None:
     server = _load()
     called = {"value": False}
@@ -76,6 +81,7 @@ def test_start_uses_injected_callable() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_deadline_tick_budget_allows_check_non_meter_clock::server.py::gabion.server._deadline_tick_budget_allows_check::test_server_helpers.py::tests.test_server_helpers._load
+# gabion:behavior primary=desired
 def test_deadline_tick_budget_allows_check_non_meter_clock() -> None:
     server = _load()
 
@@ -86,6 +92,7 @@ def test_deadline_tick_budget_allows_check_non_meter_clock() -> None:
 
 
 # gabion:evidence E:function_site::server.py::gabion.server._diagnostics_for_path
+# gabion:behavior primary=desired
 def test_diagnostics_for_path_is_stable_for_shuffled_bundle_insertion_order() -> None:
     server = _load()
 
@@ -123,6 +130,7 @@ def test_diagnostics_for_path_is_stable_for_shuffled_bundle_insertion_order() ->
 
 
 # gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_materialize_execution_plan_uses_request_payload::server.py::gabion.server._materialize_execution_plan::test_server_helpers.py::tests.test_server_helpers._load
+# gabion:behavior primary=desired
 def test_materialize_execution_plan_uses_request_payload(tmp_path: Path) -> None:
     server = _load()
     payload = {
@@ -152,6 +160,7 @@ def test_materialize_execution_plan_uses_request_payload(tmp_path: Path) -> None
 
 
 # gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_phase_progress_helpers_normalize_and_clamp_payloads::server.py::gabion.server._build_phase_progress_v2::server.py::gabion.server._phase_primary_unit_for_phase
+# gabion:behavior primary=desired
 def test_phase_progress_helpers_normalize_and_clamp_payloads() -> None:
     server = _load()
 
@@ -196,6 +205,7 @@ def test_phase_progress_helpers_normalize_and_clamp_payloads() -> None:
 
 
 # gabion:evidence E:function_site::server.py::gabion.server._phase_primary_unit_for_phase
+# gabion:behavior primary=desired
 @pytest.mark.parametrize(
     ("phase", "expected"),
     [
@@ -211,6 +221,7 @@ def test_phase_primary_unit_for_phase_known_phases(phase: str, expected: str) ->
 
 
 # gabion:evidence E:function_site::server.py::gabion.server._phase_primary_unit_for_phase
+# gabion:behavior primary=desired
 def test_phase_primary_unit_for_phase_rejects_unknown_phase() -> None:
     server = _load()
 
@@ -219,6 +230,7 @@ def test_phase_primary_unit_for_phase_rejects_unknown_phase() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_progress_heartbeat_seconds_parsing_edges::server.py::gabion.server._progress_heartbeat_seconds
+# gabion:behavior primary=verboten facets=edge
 def test_progress_heartbeat_seconds_parsing_edges() -> None:
     server = _load()
     assert server._progress_heartbeat_seconds({"progress_heartbeat_seconds": True}) == (
@@ -240,6 +252,7 @@ def test_progress_heartbeat_seconds_parsing_edges() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_phase_progress_summary_helpers_cover_invalid_inputs::server.py::gabion.server._phase_progress_dimensions_summary
+# gabion:behavior primary=verboten facets=invalid
 def test_phase_progress_summary_helpers_cover_invalid_inputs() -> None:
     server = _load()
     assert server._phase_progress_dimensions_summary(None) == ""
@@ -259,12 +272,14 @@ def test_phase_progress_summary_helpers_cover_invalid_inputs() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_resume_checkpoint_descriptor_formats_known_and_unknown_counts::server.py::gabion.server._resume_checkpoint_descriptor_from_progress_value
+# gabion:behavior primary=desired
 def test_resume_checkpoint_descriptor_formats_known_and_unknown_counts() -> None:
     server = _load()
     assert not hasattr(server, "_resume_checkpoint_descriptor_from_progress_value")
 
 
 # gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_append_phase_timeline_event_handles_primary_unit_only_and_empty_primary::server.py::gabion.server._append_phase_timeline_event
+# gabion:behavior primary=verboten facets=empty
 def test_append_phase_timeline_event_handles_primary_unit_only_and_empty_primary(
     tmp_path: Path,
 ) -> None:
@@ -295,6 +310,7 @@ def test_append_phase_timeline_event_handles_primary_unit_only_and_empty_primary
 
 
 # gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_render_incremental_report_includes_stale_and_progress_v2_fields::server.py::gabion.server._render_incremental_report
+# gabion:behavior primary=desired
 def test_render_incremental_report_includes_stale_and_progress_v2_fields() -> None:
     server = _load()
     report, pending = server._render_incremental_report(
@@ -326,6 +342,7 @@ def test_render_incremental_report_includes_stale_and_progress_v2_fields() -> No
 
 
 # gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_server_progress_and_incremental_render_additional_branch_edges::server.py::gabion.server._build_phase_progress_v2::server.py::gabion.server._render_incremental_report::server.py::gabion.server._append_phase_timeline_event
+# gabion:behavior primary=verboten facets=edge
 def test_server_progress_and_incremental_render_additional_branch_edges(
     tmp_path: Path,
 ) -> None:
@@ -403,6 +420,7 @@ def test_server_progress_and_incremental_render_additional_branch_edges(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_analysis_timeout_grace_ns_parsing_precedence::server.py::gabion.server._analysis_timeout_grace_ns
+# gabion:behavior primary=verboten facets=timeout
 def test_analysis_timeout_grace_ns_parsing_precedence() -> None:
     server = _load()
     assert (
@@ -430,6 +448,7 @@ def test_analysis_timeout_grace_ns_parsing_precedence() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_analysis_timeout_grace_ns_rejects_invalid_values::server.py::gabion.server._analysis_timeout_grace_ns
+# gabion:behavior primary=verboten facets=invalid,timeout
 def test_analysis_timeout_grace_ns_rejects_invalid_values() -> None:
     server = _load()
     with pytest.raises(NeverThrown):
@@ -450,6 +469,7 @@ def test_analysis_timeout_grace_ns_rejects_invalid_values() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_deadline_profile_sample_interval_normalization_and_validation::server.py::gabion.server._deadline_profile_sample_interval
+# gabion:behavior primary=desired
 def test_deadline_profile_sample_interval_normalization_and_validation() -> None:
     server = _load()
     assert server._deadline_profile_sample_interval({}, default_interval=0) == 1
@@ -470,6 +490,7 @@ def test_deadline_profile_sample_interval_normalization_and_validation() -> None
 
 
 # gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_truthy_flag_coercion_semantics::server.py::gabion.server._truthy_flag
+# gabion:behavior primary=desired
 def test_truthy_flag_coercion_semantics() -> None:
     server = _load()
     assert server._truthy_flag(True) is True
@@ -484,6 +505,7 @@ def test_truthy_flag_coercion_semantics() -> None:
 
 
 # gabion:evidence E:function_site::server.py::gabion.server._load_aspf_resume_state
+# gabion:behavior primary=desired
 def test_load_aspf_resume_state_folds_jsonl_mutations_with_bounded_tail(tmp_path: Path) -> None:
     server = _load()
 

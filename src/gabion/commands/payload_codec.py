@@ -6,7 +6,7 @@ from typing import Mapping
 from gabion.commands import boundary_order
 from gabion.invariants import never
 from gabion.order_contract import sort_once
-from gabion.runtime_shape_dispatch import json_list_or_none, json_mapping_or_none
+from gabion.runtime_shape_dispatch import json_list_optional, json_mapping_optional
 
 
 def normalized_command_payload(
@@ -18,7 +18,7 @@ def normalized_command_payload(
     if not command_args:
         never("missing command payload arguments", command=command)
     payload_arg = command_args[0]
-    payload_mapping = json_mapping_or_none(payload_arg)
+    payload_mapping = json_mapping_optional(payload_arg)
     if payload_mapping is None:
         never(
             "command payload must be a dict",
@@ -138,7 +138,7 @@ def _positive_int(value: object, *, field: str) -> int:
 
 def normalized_command_id_list(payload: Mapping[str, object], *, key: str) -> tuple[str, ...]:
     raw = payload.get(key)
-    normalized_raw = json_list_or_none(raw)
+    normalized_raw = json_list_optional(raw)
     if normalized_raw is None:
         if raw is not None:
             never("invalid command id list", key=key, value_type=type(raw).__name__)

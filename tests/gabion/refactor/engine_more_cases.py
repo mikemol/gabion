@@ -17,6 +17,7 @@ def _target_module(module_name: str):
 
 
 # gabion:evidence E:call_footprint::tests/test_refactor_engine_more.py::test_plan_protocol_extraction_relative_path_and_fields::engine.py::gabion.refactor.engine.RefactorEngine::model.py::gabion.refactor.model.FieldSpec::model.py::gabion.refactor.model.RefactorRequest
+# gabion:behavior primary=desired
 def test_plan_protocol_extraction_relative_path_and_fields(tmp_path: Path) -> None:
     target = tmp_path / "mod.py"
     target.write_text("def f(a, b):\n    return a\n")
@@ -32,6 +33,7 @@ def test_plan_protocol_extraction_relative_path_and_fields(tmp_path: Path) -> No
 
 
 # gabion:evidence E:call_footprint::tests/test_refactor_engine_more.py::test_plan_protocol_extraction_typing_import_variants::engine.py::gabion.refactor.engine.RefactorEngine::model.py::gabion.refactor.model.RefactorRequest
+# gabion:behavior primary=desired
 def test_plan_protocol_extraction_typing_import_variants(tmp_path: Path) -> None:
     engine = RefactorEngine(project_root=tmp_path)
 
@@ -60,6 +62,7 @@ def test_plan_protocol_extraction_typing_import_variants(tmp_path: Path) -> None
     assert "class Proto(Protocol)" in plan_protocol.edits[0].replacement
 
 
+# gabion:behavior primary=desired
 def test_plan_protocol_extraction_without_project_root_skips_project_rewrite(
     tmp_path: Path,
 ) -> None:
@@ -86,11 +89,13 @@ def test_plan_protocol_extraction_without_project_root_skips_project_rewrite(
 
 
 # gabion:evidence E:decision_surface/direct::engine.py::gabion.refactor.engine._module_name::project_root E:decision_surface/direct::engine.py::gabion.refactor.engine._module_name::stale_7287d9dfaf67
+# gabion:behavior primary=verboten facets=error
 def test_module_name_handles_value_error(tmp_path: Path) -> None:
     assert _module_name(Path("mod.py"), tmp_path / "other") == "mod"
 
 
 # gabion:evidence E:decision_surface/direct::engine.py::gabion.refactor.engine._module_expr_to_str::expr E:decision_surface/direct::engine.py::gabion.refactor.engine._module_expr_to_str::stale_9cdf361906ed
+# gabion:behavior primary=desired
 def test_typing_import_helpers_negative_branches() -> None:
     module = cst.parse_module("from typing_extensions import Protocol\n")
     assert _has_typing_protocol_import(list(module.body)) is False
@@ -101,6 +106,7 @@ def test_typing_import_helpers_negative_branches() -> None:
 
 
 # gabion:evidence E:decision_surface/direct::engine.py::gabion.refactor.engine._find_import_insert_index::body E:decision_surface/direct::engine.py::gabion.refactor.engine._collect_import_context::protocol_name,target_module E:decision_surface/direct::engine.py::gabion.refactor.engine._rewrite_call_sites::target_module,targets E:decision_surface/direct::engine.py::gabion.refactor.engine._collect_import_context::stale_89918537e417
+# gabion:behavior primary=desired
 def test_rewrite_call_sites_uses_protocol_alias(tmp_path: Path) -> None:
     source = (
         "from pkg.mod import target, Bundle as PB\n"
@@ -124,6 +130,7 @@ def test_rewrite_call_sites_uses_protocol_alias(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:decision_surface/direct::engine.py::gabion.refactor.engine._module_expr_to_str::expr E:decision_surface/direct::engine.py::gabion.refactor.engine._collect_import_context::protocol_name,target_module E:decision_surface/direct::engine.py::gabion.refactor.engine._collect_import_context::stale_70b6cf24add5
+# gabion:behavior primary=desired
 def test_collect_import_context_skips_nonmatching() -> None:
     module = cst.Module(
         body=[
@@ -157,10 +164,11 @@ def test_collect_import_context_skips_nonmatching() -> None:
     )
     assert module_aliases == {}
     assert imported_targets == {}
-    assert protocol_alias is None
+    assert protocol_alias == ""
 
 
 # gabion:evidence E:decision_surface/direct::engine.py::gabion.refactor.engine._module_expr_to_str::expr E:decision_surface/direct::engine.py::gabion.refactor.engine._collect_import_context::protocol_name,target_module E:decision_surface/direct::engine.py::gabion.refactor.engine._collect_import_context::stale_addb8d790246
+# gabion:behavior primary=desired
 def test_collect_import_context_skips_import_star_matching_module() -> None:
     module = cst.Module(
         body=[
@@ -179,10 +187,11 @@ def test_collect_import_context_skips_import_star_matching_module() -> None:
     )
     assert module_aliases == {}
     assert imported_targets == {}
-    assert protocol_alias is None
+    assert protocol_alias == ""
 
 
 # gabion:evidence E:decision_surface/direct::engine.py::gabion.refactor.engine._find_import_insert_index::body E:decision_surface/direct::engine.py::gabion.refactor.engine._collect_import_context::protocol_name,target_module E:decision_surface/direct::engine.py::gabion.refactor.engine._rewrite_call_sites::target_module,targets E:decision_surface/direct::engine.py::gabion.refactor.engine._collect_import_context::stale_f003341d3700
+# gabion:behavior primary=verboten facets=empty
 def test_rewrite_call_sites_empty_targets(tmp_path: Path) -> None:
     module = cst.parse_module("def f(a):\n    return a\n")
     warnings, updated = _rewrite_call_sites(
@@ -199,6 +208,7 @@ def test_rewrite_call_sites_empty_targets(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:decision_surface/direct::engine.py::gabion.refactor.engine._collect_import_context::protocol_name,target_module E:decision_surface/direct::engine.py::gabion.refactor.engine._find_import_insert_index::body E:decision_surface/direct::engine.py::gabion.refactor.engine._rewrite_call_sites::target_module,targets E:decision_surface/direct::engine.py::gabion.refactor.engine._collect_import_context::stale_64532b829a42
+# gabion:behavior primary=desired
 def test_rewrite_call_sites_module_alias_and_method_target(tmp_path: Path) -> None:
     source = (
         "import pkg.mod as pm\n"
@@ -227,6 +237,7 @@ def test_rewrite_call_sites_module_alias_and_method_target(tmp_path: Path) -> No
 
 
 # gabion:evidence E:decision_surface/direct::engine.py::gabion.refactor.engine._rewrite_call_sites::target_module,targets E:decision_surface/direct::engine.py::gabion.refactor.engine._rewrite_call_sites_in_project::target_path E:decision_surface/direct::engine.py::gabion.refactor.engine._rewrite_call_sites::stale_1922c3368ac0
+# gabion:behavior primary=verboten facets=error
 def test_rewrite_call_sites_in_project_read_errors(tmp_path: Path) -> None:
     root = tmp_path / "src"
     root.mkdir()
@@ -251,6 +262,7 @@ def test_rewrite_call_sites_in_project_read_errors(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_refactor_engine_more.py::test_refactor_transformer_helpers::engine.py::gabion.refactor.engine._RefactorTransformer
+# gabion:behavior primary=desired
 def test_refactor_transformer_helpers() -> None:
     transformer = _RefactorTransformer(
         targets={"f"},
@@ -283,6 +295,7 @@ def test_refactor_transformer_helpers() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_refactor_engine_more.py::test_refactor_transformer_async_and_no_params::engine.py::gabion.refactor.engine.RefactorEngine::model.py::gabion.refactor.model.RefactorRequest
+# gabion:behavior primary=desired
 def test_refactor_transformer_async_and_no_params(tmp_path: Path) -> None:
     target = tmp_path / "mod.py"
     target.write_text(
@@ -310,6 +323,7 @@ def test_refactor_transformer_async_and_no_params(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_refactor_engine_more.py::test_call_site_transformer_helpers::engine.py::gabion.refactor.engine._CallSiteTransformer
+# gabion:behavior primary=desired
 def test_call_site_transformer_helpers() -> None:
     transformer = _CallSiteTransformer(
         file_is_target=True,
@@ -354,6 +368,7 @@ def test_call_site_transformer_helpers() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_refactor_engine_more.py::test_engine_helper_negative_branches::engine.py::gabion.refactor.engine._collect_import_context::engine.py::gabion.refactor.engine._ensure_compat_imports::engine.py::gabion.refactor.engine._has_typing_import::engine.py::gabion.refactor.engine._has_typing_overload_import::engine.py::gabion.refactor.engine._has_typing_protocol_import::engine.py::gabion.refactor.engine._has_warnings_import::engine.py::gabion.refactor.engine._module_expr_to_str
+# gabion:behavior primary=desired
 def test_engine_helper_negative_branches() -> None:
     module = cst.parse_module("import os\nimport pkg.typing\n")
     assert _has_typing_import(list(module.body)) is False
@@ -402,7 +417,7 @@ def test_engine_helper_negative_branches() -> None:
     )
     assert aliases == {}
     assert imported == {}
-    assert proto is None
+    assert proto == ""
     context_module = cst.Module(
         body=[
             cst.SimpleStatementLine(
@@ -422,10 +437,11 @@ def test_engine_helper_negative_branches() -> None:
     )
     assert aliases == {}
     assert imported == {}
-    assert proto is None
+    assert proto == ""
 
 
 # gabion:evidence E:call_footprint::tests/test_refactor_engine_more.py::test_refactor_and_callsite_transformer_stack_and_param_edges::engine.py::gabion.refactor.engine._CallSiteTransformer::engine.py::gabion.refactor.engine._RefactorTransformer
+# gabion:behavior primary=verboten facets=edge
 def test_refactor_and_callsite_transformer_stack_and_param_edges() -> None:
     transformer = _RefactorTransformer(
         targets={"f"},
@@ -490,6 +506,7 @@ def test_refactor_and_callsite_transformer_stack_and_param_edges() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_refactor_engine_more.py::test_compat_shim_config_controls_imports_and_nodes::engine.py::gabion.refactor.engine.RefactorEngine
+# gabion:behavior primary=allowed_unwanted facets=compat
 def test_compat_shim_config_controls_imports_and_nodes(tmp_path: Path) -> None:
     target = tmp_path / "mod.py"
     target.write_text("def target(a, b):\n    return a + b\n")
@@ -517,6 +534,7 @@ def test_compat_shim_config_controls_imports_and_nodes(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:decision_surface/direct::engine.py::gabion.refactor.engine._rewrite_call_sites::target_module,targets E:decision_surface/direct::engine.py::gabion.refactor.engine._rewrite_call_sites::stale_7fcf22f649f0
+# gabion:behavior primary=allowed_unwanted facets=compat,legacy
 def test_compat_shim_legacy_wrapper_and_callsite_interop(tmp_path: Path) -> None:
     target = tmp_path / "target.py"
     target.write_text(
@@ -557,12 +575,14 @@ def test_compat_shim_legacy_wrapper_and_callsite_interop(tmp_path: Path) -> None
     assert "@overload" not in transformed
 
 
+# gabion:behavior primary=verboten facets=empty
 def test_validated_module_identifier_rejects_empty_string() -> None:
     result = _validated_module_identifier("")
     assert result.status.value == "invalid"
     assert result.identifier.value == ""
 
 
+# gabion:behavior primary=desired
 def test_plan_protocol_extraction_applies_protocol_when_targets_do_not_match(
     tmp_path: Path,
 ) -> None:
@@ -588,6 +608,7 @@ def test_plan_protocol_extraction_applies_protocol_when_targets_do_not_match(
     assert "class BundleProtocol(Protocol):" in plan.edits[0].replacement
 
 
+# gabion:behavior primary=verboten facets=error,invalid
 def test_plan_protocol_extraction_invalid_module_identifier_errors(
     tmp_path: Path,
 ) -> None:
@@ -610,6 +631,7 @@ def test_plan_protocol_extraction_invalid_module_identifier_errors(
     assert "Invalid target module identifier" in plan.errors[0]
 
 
+# gabion:behavior primary=verboten facets=edge
 def test_refactor_transformer_async_stack_edges() -> None:
     transformer = _RefactorTransformer(
         targets={"x"},

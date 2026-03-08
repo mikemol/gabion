@@ -29,6 +29,7 @@ def _run_context(*, run_id: str = "run:dataflow") -> CanonicalRunContext:
     )
 
 
+# gabion:behavior primary=desired
 @pytest.mark.parametrize("phase", ["collection", "forest", "edge", "post"])
 def test_dataflow_phase_progress_adapter_maps_phases(phase: str) -> None:
     envelope = adapt_dataflow_phase_progress_event_or_raise(
@@ -47,6 +48,7 @@ def test_dataflow_phase_progress_adapter_maps_phases(phase: str) -> None:
     assert envelope.identity_projection.basis_path.atoms
 
 
+# gabion:behavior primary=desired
 def test_dataflow_phase_progress_adapter_maps_transition_payloads() -> None:
     envelope = adapt_dataflow_phase_progress_event_or_raise(
         phase_progress={
@@ -75,6 +77,7 @@ def test_dataflow_phase_progress_adapter_maps_transition_payloads() -> None:
     assert envelope.phase == "post"
 
 
+# gabion:behavior primary=desired
 def test_dataflow_phase_progress_adapter_accepts_integer_anchor_encoder_hook() -> None:
     run_context = _run_context()
     default_envelope = adapt_dataflow_phase_progress_event_or_raise(
@@ -104,6 +107,7 @@ def test_dataflow_phase_progress_adapter_accepts_integer_anchor_encoder_hook() -
     )
 
 
+# gabion:behavior primary=verboten facets=empty
 def test_dataflow_phase_progress_adapter_rejects_empty_integer_anchor_token() -> None:
     decision = adapt_dataflow_phase_progress_event(
         phase_progress={
@@ -117,6 +121,7 @@ def test_dataflow_phase_progress_adapter_rejects_empty_integer_anchor_token() ->
     assert decision.kind == CanonicalAdaptationKind.REJECTED
 
 
+# gabion:behavior primary=desired
 def test_dataflow_collection_adapter_maps_collection_and_index_payloads() -> None:
     collection_envelope = adapt_dataflow_collection_progress_event_or_raise(
         collection_progress={
@@ -143,6 +148,7 @@ def test_dataflow_collection_adapter_maps_collection_and_index_payloads() -> Non
     assert index_envelope.kind == "analysis_index_progress"
 
 
+# gabion:behavior primary=verboten facets=fail
 def test_dataflow_adapter_hard_fails_on_insufficient_identity_data() -> None:
     phase_decision = adapt_dataflow_phase_progress_event(
         phase_progress={"phase": "post", "event_kind": "progress"},

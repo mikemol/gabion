@@ -137,6 +137,7 @@ class _SyntheticChildProcess:
 # Remaining timing-heavy policy tests use synthetic clock/process injection through enforce_observability.
 
 
+# gabion:behavior primary=verboten facets=fail,timeout
 def test_guard_integration_fails_on_wall_timeout(tmp_path: Path) -> None:
     command = [
         sys.executable,
@@ -157,6 +158,7 @@ def test_guard_integration_fails_on_wall_timeout(tmp_path: Path) -> None:
     assert latest.get("reason") == "max_wall_timeout"
 
 
+# gabion:behavior primary=desired
 def test_guard_integration_passes_with_real_output(tmp_path: Path) -> None:
     command = [
         sys.executable,
@@ -183,6 +185,7 @@ def test_guard_integration_passes_with_real_output(tmp_path: Path) -> None:
     assert not artifact_path.exists()
 
 
+# gabion:behavior primary=verboten facets=fail
 def test_guard_synthetic_fails_before_first_meaningful_line(tmp_path: Path) -> None:
     guard = _load_guard_module()
     clock = _SyntheticClock()
@@ -211,6 +214,7 @@ def test_guard_synthetic_fails_before_first_meaningful_line(tmp_path: Path) -> N
     assert latest.get("reason") == "max_gap_before_first_meaningful_line"
 
 
+# gabion:behavior primary=desired
 def test_guard_synthetic_heartbeat_excluded_from_meaningful_gap(tmp_path: Path) -> None:
     guard = _load_guard_module()
     clock = _SyntheticClock()
@@ -241,6 +245,7 @@ def test_guard_synthetic_heartbeat_excluded_from_meaningful_gap(tmp_path: Path) 
     assert latest.get("reason") == "max_gap_meaningful_line_exceeded"
 
 
+# gabion:behavior primary=desired
 def test_guard_synthetic_terminal_progress_bypasses_gap_enforcement(tmp_path: Path) -> None:
     guard = _load_guard_module()
     clock = _SyntheticClock()
@@ -269,6 +274,7 @@ def test_guard_synthetic_terminal_progress_bypasses_gap_enforcement(tmp_path: Pa
     assert not artifact_path.exists()
 
 
+# gabion:behavior primary=desired
 def test_guard_synthetic_chunk_timing_for_partial_and_multiline_chunks(tmp_path: Path) -> None:
     guard = _load_guard_module()
     clock = _SyntheticClock()

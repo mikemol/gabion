@@ -12,6 +12,7 @@ def _load():
     return _iter_config_fields
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._iter_config_fields E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._iter_config_fields::stale_3662200066f5
+# gabion:behavior primary=desired
 def test_iter_config_fields_expands_config_dataclass(tmp_path: Path) -> None:
     _iter_config_fields = _load()
     config_path = tmp_path / "config.py"

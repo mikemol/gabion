@@ -37,6 +37,7 @@ def _guard_bundle(
 
 
 # gabion:evidence E:call_footprint::tests/test_refresh_baselines_failure_report.py::test_refresh_baselines_writes_failure_artifact_on_check_failure::env_helpers.py::tests.env_helpers.env_scope::refresh_baselines.py::scripts.refresh_baselines._run_docflow_delta_emit::refresh_baselines.py::scripts.refresh_baselines._write_failure_artifact::refresh_baselines.py::scripts.refresh_baselines.main::test_refresh_baselines_failure_report.py::tests.test_refresh_baselines_failure_report._cwd
+# gabion:behavior primary=desired
 def test_refresh_baselines_writes_failure_artifact_on_check_failure(
     tmp_path: Path,
 ) -> None:
@@ -96,6 +97,7 @@ def test_refresh_baselines_writes_failure_artifact_on_check_failure(
 
 
 # gabion:evidence E:call_footprint::tests/test_refresh_baselines_failure_report.py::test_refresh_baselines_clears_stale_failure_artifact::refresh_baselines.py::scripts.refresh_baselines.main::test_refresh_baselines_failure_report.py::tests.test_refresh_baselines_failure_report._cwd
+# gabion:behavior primary=desired
 def test_refresh_baselines_clears_stale_failure_artifact(
     tmp_path: Path,
 ) -> None:

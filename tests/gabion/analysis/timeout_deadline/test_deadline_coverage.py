@@ -132,6 +132,7 @@ def _make_fn_info(
     )
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._classify_deadline_expr
+# gabion:behavior primary=verboten facets=error,timeout
 def test_deadline_helper_classification_and_unparse_error() -> None:
     da = _load()
     bad_call = ast.Call(func=ast.Name(id=None, ctx=ast.Load()), args=[], keywords=[])
@@ -167,6 +168,7 @@ def test_deadline_helper_classification_and_unparse_error() -> None:
     assert info_origin.kind == "origin"
 
 # gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_deadline_collector_handles_missing_span_and_orelse::test_deadline_coverage.py::tests.test_deadline_coverage._load
+# gabion:behavior primary=verboten facets=missing,timeout
 def test_deadline_collector_handles_missing_span_and_orelse() -> None:
     da = _load()
     source = """
@@ -189,6 +191,7 @@ def test_deadline_collector_handles_missing_span_and_orelse() -> None:
     assert not loop_fact.call_spans
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_deadline_local_info
+# gabion:behavior primary=verboten facets=timeout
 def test_deadline_local_info_aliasing() -> None:
     da = _load()
     source = """
@@ -229,6 +232,7 @@ def test_deadline_local_info_aliasing() -> None:
     assert info.alias_to_param.get("alias") == "deadline"
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_deadline_function_facts
+# gabion:behavior primary=verboten facets=error,timeout
 def test_deadline_function_facts_parse_error_and_scopes(tmp_path: Path) -> None:
     da = _load()
     valid = tmp_path / "mod.py"
@@ -262,6 +266,7 @@ def test_deadline_function_facts_parse_error_and_scopes(tmp_path: Path) -> None:
     assert any(entry["stage"] == "call_nodes" for entry in parse_failures)
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_call_nodes_by_path
+# gabion:behavior primary=verboten facets=missing,timeout
 def test_collect_call_nodes_handles_missing_span(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "dummy.py"
@@ -275,6 +280,7 @@ def test_collect_call_nodes_handles_missing_span(tmp_path: Path) -> None:
     assert result[path] == {}
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_call_edges
+# gabion:behavior primary=verboten facets=edge,timeout
 def test_collect_call_edges_and_recursive_helpers() -> None:
     da = _load()
     call = da.CallArgs(
@@ -321,6 +327,7 @@ def test_collect_call_edges_and_recursive_helpers() -> None:
 
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_call_edges
+# gabion:behavior primary=verboten facets=edge,timeout
 def test_collect_call_edges_uses_injected_resolver() -> None:
     da = _load()
     call = da.CallArgs(
@@ -375,6 +382,7 @@ def test_collect_call_edges_uses_injected_resolver() -> None:
     assert edges == {"mod.live": {"mod.callee"}}
 
 # gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_deadline_loop_forwarded_params_branches::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._deadline_loop_forwarded_params::test_deadline_coverage.py::tests.test_deadline_coverage._load::test_deadline_coverage.py::tests.test_deadline_coverage._make_fn_info
+# gabion:behavior primary=verboten facets=timeout
 def test_deadline_loop_forwarded_params_branches() -> None:
     da = _load()
     loop_fact = da._DeadlineLoopFacts(span=(0, 0, 0, 1), kind="for")
@@ -438,6 +446,7 @@ def test_deadline_loop_forwarded_params_branches() -> None:
     assert forwarded == set()
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._deadline_arg_info_map
+# gabion:behavior primary=allowed_unwanted facets=fallback,timeout
 def test_deadline_arg_info_binding_and_fallback() -> None:
     da = _load()
     callee = _make_fn_info(
@@ -539,6 +548,7 @@ def test_deadline_arg_info_binding_and_fallback() -> None:
     assert arg_map
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_deadline_obligations E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_deadline_obligations::stale_7fc515c3d35d
+# gabion:behavior primary=verboten facets=timeout
 def test_collect_deadline_obligations_full_matrix(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"
@@ -820,6 +830,7 @@ def test_collect_deadline_obligations_full_matrix(tmp_path: Path) -> None:
     assert violations
 
 # gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_deadline_obligations_include_call_resolution_requirement::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_deadline_obligations::test_deadline_coverage.py::tests.test_deadline_coverage._load
+# gabion:behavior primary=verboten facets=timeout
 def test_deadline_obligations_include_call_resolution_requirement(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"
@@ -866,6 +877,7 @@ def test_deadline_obligations_include_call_resolution_requirement(tmp_path: Path
     assert "requires resolution" in str(hits[0].get("detail", ""))
 
 # gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_call_resolution_obligation_is_discharged_by_call_candidate::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_deadline_obligations::test_deadline_coverage.py::tests.test_deadline_coverage._load
+# gabion:behavior primary=verboten facets=timeout
 def test_call_resolution_obligation_is_discharged_by_call_candidate(
     tmp_path: Path,
 ) -> None:
@@ -923,6 +935,7 @@ def test_call_resolution_obligation_is_discharged_by_call_candidate(
     )
 
 # gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_call_edges_include_resolution_obligation_candidates::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_call_edges_from_forest::test_deadline_coverage.py::tests.test_deadline_coverage._load::test_deadline_coverage.py::tests.test_deadline_coverage._make_fn_info
+# gabion:behavior primary=verboten facets=edge,timeout
 def test_call_edges_include_resolution_obligation_candidates() -> None:
     da = _load()
     caller = _make_fn_info(da, name="root", qual="mod.root", path=Path("mod.py"))
@@ -953,6 +966,7 @@ def test_call_edges_include_resolution_obligation_candidates() -> None:
     assert edges[caller_id] == {callee_id}
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._materialize_call_candidates
+# gabion:behavior primary=verboten facets=timeout
 def test_materialized_call_candidates_target_function_suites(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"
@@ -999,6 +1013,7 @@ def test_materialized_call_candidates_target_function_suites(tmp_path: Path) -> 
 
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._materialize_call_candidates
+# gabion:behavior primary=verboten facets=timeout
 def test_materialize_call_candidates_uses_injected_resolver() -> None:
     da = _load()
     forest = da.Forest()
@@ -1056,6 +1071,7 @@ def test_materialize_call_candidates_uses_injected_resolver() -> None:
 
 
 # gabion:evidence E:function_site::dataflow_obligations.py::gabion.analysis.dataflow_obligations.collect_deadline_obligations
+# gabion:behavior primary=verboten facets=timeout
 def test_collect_deadline_obligations_uses_injected_materializer(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"
@@ -1106,6 +1122,7 @@ def test_collect_deadline_obligations_uses_injected_materializer(tmp_path: Path)
 
 
 # gabion:evidence E:function_site::dataflow_obligations.py::gabion.analysis.dataflow_obligations.collect_deadline_obligations
+# gabion:behavior primary=allowed_unwanted facets=noop,timeout
 def test_collect_deadline_obligations_default_progress_matches_explicit_noop(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"
@@ -1147,6 +1164,7 @@ def test_collect_deadline_obligations_default_progress_matches_explicit_noop(tmp
     assert explicit_noop == baseline
 
 # gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_deadline_summary_handles_bad_span::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._summarize_deadline_obligations::test_deadline_coverage.py::tests.test_deadline_coverage._load
+# gabion:behavior primary=verboten facets=timeout
 def test_deadline_summary_handles_bad_span() -> None:
     da = _load()
     from gabion.exceptions import NeverThrown
@@ -1167,6 +1185,7 @@ def test_deadline_summary_handles_bad_span() -> None:
         )
 
 # gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_deadline_summary_materializes_spec_facets::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._summarize_deadline_obligations::test_deadline_coverage.py::tests.test_deadline_coverage._load
+# gabion:behavior primary=verboten facets=timeout
 def test_deadline_summary_materializes_spec_facets() -> None:
     da = _load()
     forest = da.Forest()
@@ -1197,6 +1216,7 @@ def test_deadline_summary_materializes_spec_facets() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_spec_row_span_handles_invalid_and_valid::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._spec_row_span::test_deadline_coverage.py::tests.test_deadline_coverage._load
+# gabion:behavior primary=verboten facets=invalid,timeout
 def test_spec_row_span_handles_invalid_and_valid() -> None:
     da = _load()
     from gabion.exceptions import NeverThrown
@@ -1212,6 +1232,7 @@ def test_spec_row_span_handles_invalid_and_valid() -> None:
     ) == (1, 2, 3, 4)
 
 # gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_spec_row_span_raises_on_none::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._spec_row_span::test_deadline_coverage.py::tests.test_deadline_coverage._load
+# gabion:behavior primary=verboten facets=none,raises,timeout
 def test_spec_row_span_raises_on_none() -> None:
     da = _load()
     from gabion.exceptions import NeverThrown
@@ -1220,6 +1241,7 @@ def test_spec_row_span_raises_on_none() -> None:
         da._spec_row_span({"span_line": None})
 
 # gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_materialize_projection_spec_rows_handles_empty_and_missing_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._materialize_projection_spec_rows::test_deadline_coverage.py::tests.test_deadline_coverage._load
+# gabion:behavior primary=verboten facets=empty,missing,timeout
 def test_materialize_projection_spec_rows_handles_empty_and_missing_site() -> None:
     da = _load()
     spec = da.DEADLINE_OBLIGATIONS_SUMMARY_SPEC
@@ -1239,6 +1261,7 @@ def test_materialize_projection_spec_rows_handles_empty_and_missing_site() -> No
     assert not any(alt.kind == "SpecFacet" for alt in forest.alts)
 
 # gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_deadline_summary_row_to_site_handles_missing_path::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._summarize_deadline_obligations::test_deadline_coverage.py::tests.test_deadline_coverage._load
+# gabion:behavior primary=verboten facets=missing,timeout
 def test_deadline_summary_row_to_site_handles_missing_path() -> None:
     da = _load()
     forest = da.Forest()
@@ -1269,6 +1292,7 @@ def test_deadline_summary_row_to_site_handles_missing_path() -> None:
     assert summary
 
 # gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_deadline_obligation_span_fallbacks_param_and_facts::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._build_function_index::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_deadline_obligations::test_deadline_coverage.py::tests.test_deadline_coverage._load::test_deadline_coverage.py::tests.test_deadline_coverage._make_fn_info
+# gabion:behavior primary=verboten facets=timeout
 def test_deadline_obligation_span_fallbacks_param_and_facts(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"
@@ -1359,6 +1383,7 @@ def test_deadline_obligation_span_fallbacks_param_and_facts(tmp_path: Path) -> N
     )
 
 # gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_deadline_obligation_span_fallback_missing_raises::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_deadline_obligations::test_deadline_coverage.py::tests.test_deadline_coverage._load::test_deadline_coverage.py::tests.test_deadline_coverage._make_fn_info
+# gabion:behavior primary=allowed_unwanted facets=fallback,raises,timeout
 def test_deadline_obligation_span_fallback_missing_raises(tmp_path: Path) -> None:
     da = _load()
     from gabion.exceptions import NeverThrown
@@ -1430,6 +1455,7 @@ def test_deadline_obligation_span_fallback_missing_raises(tmp_path: Path) -> Non
         )
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_deadline_obligations E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_deadline_obligations::stale_f4ddeb70ecf1
+# gabion:behavior primary=verboten facets=timeout
 def test_collect_deadline_obligations_strictness_low_star(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"
@@ -1464,6 +1490,7 @@ def test_collect_deadline_obligations_strictness_low_star(tmp_path: Path) -> Non
     assert obligations is not None
 
 # gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_deadline_obligations_emit_suite_sites::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_deadline_obligations::test_deadline_coverage.py::tests.test_deadline_coverage._load
+# gabion:behavior primary=verboten facets=timeout
 def test_deadline_obligations_emit_suite_sites(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"
@@ -1500,6 +1527,7 @@ def test_deadline_obligations_emit_suite_sites(tmp_path: Path) -> None:
     assert any(alt.kind == "SuiteSiteInFunction" for alt in forest.alts)
 
 # gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_deadline_recursion_missing_carrier::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_deadline_obligations::test_deadline_coverage.py::tests.test_deadline_coverage._load
+# gabion:behavior primary=verboten facets=missing,timeout
 def test_deadline_recursion_missing_carrier(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"
@@ -1532,6 +1560,7 @@ def test_deadline_recursion_missing_carrier(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_deadline_loop_missing_carrier_status_is_root_gated::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_deadline_obligations::test_deadline_coverage.py::tests.test_deadline_coverage._load
+# gabion:behavior primary=verboten facets=missing,timeout
 def test_deadline_loop_missing_carrier_status_is_root_gated(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"
@@ -1587,6 +1616,7 @@ def test_deadline_loop_missing_carrier_status_is_root_gated(tmp_path: Path) -> N
 
 
 # gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_deadline_loop_unchecked_status_is_root_gated::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_deadline_obligations::test_deadline_coverage.py::tests.test_deadline_coverage._load
+# gabion:behavior primary=verboten facets=timeout
 def test_deadline_loop_unchecked_status_is_root_gated(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"
@@ -1643,6 +1673,7 @@ def test_deadline_loop_unchecked_status_is_root_gated(tmp_path: Path) -> None:
     assert unreachable_hits[0].get("status") == "OBLIGATION"
 
 # gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_deadline_recursion_unchecked::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_deadline_obligations::test_deadline_coverage.py::tests.test_deadline_coverage._load
+# gabion:behavior primary=verboten facets=timeout
 def test_deadline_recursion_unchecked(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"
@@ -1674,6 +1705,7 @@ def test_deadline_recursion_unchecked(tmp_path: Path) -> None:
     assert any(entry.get("kind") == "unchecked_deadline" for entry in obligations)
 
 # gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_deadline_recursion_loop_ambient_no_carrier::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_deadline_obligations::test_deadline_coverage.py::tests.test_deadline_coverage._load
+# gabion:behavior primary=verboten facets=timeout
 def test_deadline_recursion_loop_ambient_no_carrier(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"
@@ -1707,6 +1739,7 @@ def test_deadline_recursion_loop_ambient_no_carrier(tmp_path: Path) -> None:
     assert not any(entry.get("kind") == "missing_carrier" for entry in obligations)
 
 # gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_deadline_recursion_loop_ambient_with_carrier::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_deadline_obligations::test_deadline_coverage.py::tests.test_deadline_coverage._load
+# gabion:behavior primary=verboten facets=timeout
 def test_deadline_recursion_loop_ambient_with_carrier(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"
@@ -1740,6 +1773,7 @@ def test_deadline_recursion_loop_ambient_with_carrier(tmp_path: Path) -> None:
     assert not any(entry.get("kind") == "unchecked_deadline" for entry in obligations)
 
 # gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_deadline_recursion_skips_missing_facts::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_deadline_obligations::test_deadline_coverage.py::tests.test_deadline_coverage._load
+# gabion:behavior primary=verboten facets=missing,timeout
 def test_deadline_recursion_skips_missing_facts(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"
@@ -1772,6 +1806,7 @@ def test_deadline_recursion_skips_missing_facts(tmp_path: Path) -> None:
     assert obligations is not None
 
 # gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_deadline_exempt_prefix_is_skipped::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_deadline_obligations::test_deadline_coverage.py::tests.test_deadline_coverage._load
+# gabion:behavior primary=verboten facets=timeout
 def test_deadline_exempt_prefix_is_skipped(tmp_path: Path) -> None:
     da = _load()
     dummy = tmp_path / "mod.py"
@@ -1811,6 +1846,7 @@ def test_deadline_exempt_prefix_is_skipped(tmp_path: Path) -> None:
     assert obligations is not None
 
 # gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_deadline_loop_requires_check_in_body::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_deadline_obligations::test_deadline_coverage.py::tests.test_deadline_coverage._load
+# gabion:behavior primary=verboten facets=timeout
 def test_deadline_loop_requires_check_in_body(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"

@@ -12,24 +12,24 @@ from gabion.server_core import command_orchestrator_progress as progress_dispatc
 
 _NONE_TYPE = type(None)
 
-_int_or_none = progress_dispatch._int_or_none
-_non_negative_int_or_none = progress_dispatch._non_negative_int_or_none
-_json_mapping_or_none = progress_dispatch._json_mapping_or_none
-_json_mapping_or_empty = progress_dispatch._json_mapping_or_empty
-_non_string_sequence_or_none = progress_dispatch._non_string_sequence_or_none
-_str_or_none = progress_dispatch._str_or_none
-_bool_or_none = progress_dispatch._bool_or_none
-_float_or_none = progress_dispatch._float_or_none
-_report_projection_phase_rank_or_none = progress_dispatch._report_projection_phase_rank_or_none
+_int_optional = progress_dispatch._int_optional
+_non_negative_int_optional = progress_dispatch._non_negative_int_optional
+_json_mapping_optional = progress_dispatch._json_mapping_optional
+_json_mapping_default_empty = progress_dispatch._json_mapping_default_empty
+_non_string_sequence_optional = progress_dispatch._non_string_sequence_optional
+_str_optional = progress_dispatch._str_optional
+_bool_optional = progress_dispatch._bool_optional
+_float_optional = progress_dispatch._float_optional
+_report_projection_phase_rank_optional = progress_dispatch._report_projection_phase_rank_optional
 _in_progress_scan_states = progress_dispatch._in_progress_scan_states
 
 
 @singledispatch
-def _list_or_none(value: object) -> list[object] | None:
+def _list_optional(value: object) -> list[object] | None:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
-@_list_or_none.register(list)
+@_list_optional.register(list)
 def _(value: list[object]) -> list[object] | None:
     return value
 
@@ -40,16 +40,16 @@ def _list_none(value: object) -> list[object] | None:
 
 
 for _runtime_type in (tuple, set, dict, str, int, float, bool, _NONE_TYPE):
-    _list_or_none.register(_runtime_type)(_list_none)
+    _list_optional.register(_runtime_type)(_list_none)
 
 
 def _string_entries(value: object) -> list[str]:
-    entries = _non_string_sequence_or_none(value)
+    entries = _non_string_sequence_optional(value)
     if entries is None:
         return []
     normalized: list[str] = []
     for item in entries:
-        item_text = _str_or_none(item)
+        item_text = _str_optional(item)
         if item_text is not None:
             normalized.append(item_text)
     return normalized
@@ -58,32 +58,32 @@ def _string_entries(value: object) -> list[str]:
 def _in_progress_scan_state_payload(
     state: Mapping[str, JSONValue] | None,
 ) -> dict[str, object]:
-    state_mapping = _json_mapping_or_none(state)
+    state_mapping = _json_mapping_optional(state)
     if state_mapping is None:
         return {}
     normalized_state: dict[str, object] = {}
-    phase = _str_or_none(state_mapping.get("phase"))
+    phase = _str_optional(state_mapping.get("phase"))
     if phase is not None:
         normalized_state["phase"] = phase
     processed_entries = _string_entries(state_mapping.get("processed_functions"))
     if processed_entries:
         normalized_state["processed_functions"] = processed_entries
-    raw_processed_count = _non_negative_int_or_none(
+    raw_processed_count = _non_negative_int_optional(
         state_mapping.get("processed_functions_count")
     )
     if raw_processed_count is not None:
         normalized_state["processed_functions_count"] = raw_processed_count
-    processed_digest = _str_or_none(state_mapping.get("processed_functions_digest"))
+    processed_digest = _str_optional(state_mapping.get("processed_functions_digest"))
     if processed_digest is not None:
         normalized_state["processed_functions_digest"] = processed_digest
-    function_count = _non_negative_int_or_none(state_mapping.get("function_count"))
+    function_count = _non_negative_int_optional(state_mapping.get("function_count"))
     if function_count is not None:
         normalized_state["function_count"] = function_count
-    raw_fn_names = _json_mapping_or_none(state_mapping.get("fn_names"))
+    raw_fn_names = _json_mapping_optional(state_mapping.get("fn_names"))
     if raw_fn_names is not None:
         normalized_fn_names: dict[str, object] = {}
         for name, value in raw_fn_names.items():
-            name_text = _str_or_none(name)
+            name_text = _str_optional(name)
             if name_text is not None:
                 normalized_fn_names[name_text] = value
         normalized_state["fn_names"] = normalized_fn_names
@@ -93,19 +93,19 @@ def _in_progress_scan_state_payload(
 def _collection_resume_payload(
     collection_resume: Mapping[str, JSONValue] | None,
 ) -> JSONObject:
-    resume_mapping = _json_mapping_or_none(collection_resume)
+    resume_mapping = _json_mapping_optional(collection_resume)
     if resume_mapping is None:
         return {}
 
     completed_paths = _string_entries(resume_mapping.get("completed_paths"))
-    raw_in_progress = _json_mapping_or_none(resume_mapping.get("in_progress_scan_by_path"))
+    raw_in_progress = _json_mapping_optional(resume_mapping.get("in_progress_scan_by_path"))
     in_progress_scan_by_path: dict[str, object] = {}
     previous_path: str | None = None
     if raw_in_progress is not None:
         for raw_path, raw_state in raw_in_progress.items():
             check_deadline()
-            path_text = _str_or_none(raw_path)
-            state_mapping = _json_mapping_or_none(raw_state)
+            path_text = _str_optional(raw_path)
+            state_mapping = _json_mapping_optional(raw_state)
             if path_text is None or state_mapping is None:
                 continue
             if previous_path is not None and previous_path > path_text:
@@ -119,18 +119,18 @@ def _collection_resume_payload(
                 state_mapping
             )
 
-    raw_index_resume = _json_mapping_or_none(resume_mapping.get("analysis_index_resume"))
+    raw_index_resume = _json_mapping_optional(resume_mapping.get("analysis_index_resume"))
     analysis_index_resume: dict[str, object] | None = None
     if raw_index_resume is not None:
         hydrated_paths = _string_entries(raw_index_resume.get("hydrated_paths"))
-        hydrated_paths_count = _non_negative_int_or_none(
+        hydrated_paths_count = _non_negative_int_optional(
             raw_index_resume.get("hydrated_paths_count")
         )
-        function_count = _non_negative_int_or_none(raw_index_resume.get("function_count"))
-        class_count = _non_negative_int_or_none(raw_index_resume.get("class_count"))
-        hydrated_paths_digest = _str_or_none(raw_index_resume.get("hydrated_paths_digest"))
-        phase = _str_or_none(raw_index_resume.get("phase"))
-        resume_digest = _str_or_none(raw_index_resume.get("resume_digest"))
+        function_count = _non_negative_int_optional(raw_index_resume.get("function_count"))
+        class_count = _non_negative_int_optional(raw_index_resume.get("class_count"))
+        hydrated_paths_digest = _str_optional(raw_index_resume.get("hydrated_paths_digest"))
+        phase = _str_optional(raw_index_resume.get("phase"))
+        resume_digest = _str_optional(raw_index_resume.get("resume_digest"))
         analysis_index_resume = {
             "hydrated_paths": hydrated_paths,
             "hydrated_paths_count": hydrated_paths_count if hydrated_paths_count is not None else 0,
@@ -151,25 +151,25 @@ def _collection_resume_payload(
 def _phase_progress_payload(
     phase_progress_v2: Mapping[str, JSONValue] | None,
 ) -> JSONObject | None:
-    phase_payload = _json_mapping_or_none(phase_progress_v2)
+    phase_payload = _json_mapping_optional(phase_progress_v2)
     if phase_payload is None:
         return None
-    raw_dimensions = _json_mapping_or_none(phase_payload.get("dimensions"))
+    raw_dimensions = _json_mapping_optional(phase_payload.get("dimensions"))
     dimensions: dict[str, dict[str, int]] = {}
     if raw_dimensions is not None:
         for dim_name, raw_payload in raw_dimensions.items():
-            dim_name_text = _str_or_none(dim_name)
-            dim_payload = _json_mapping_or_none(raw_payload)
+            dim_name_text = _str_optional(dim_name)
+            dim_payload = _json_mapping_optional(raw_payload)
             if dim_name_text is None or dim_payload is None:
                 continue
-            raw_done = _non_negative_int_or_none(dim_payload.get("done"))
-            raw_total = _non_negative_int_or_none(dim_payload.get("total"))
+            raw_done = _non_negative_int_optional(dim_payload.get("done"))
+            raw_total = _non_negative_int_optional(dim_payload.get("total"))
             if raw_done is not None and raw_total is not None:
                 dimensions[dim_name_text] = {"done": raw_done, "total": raw_total}
-    primary_done = _non_negative_int_or_none(phase_payload.get("primary_done"))
-    primary_total = _non_negative_int_or_none(phase_payload.get("primary_total"))
+    primary_done = _non_negative_int_optional(phase_payload.get("primary_done"))
+    primary_total = _non_negative_int_optional(phase_payload.get("primary_total"))
     return {
-        "primary_unit": _str_or_none(phase_payload.get("primary_unit")) or "",
+        "primary_unit": _str_optional(phase_payload.get("primary_unit")) or "",
         "primary_done": primary_done,
         "primary_total": primary_total,
         "dimensions": dimensions,
@@ -184,7 +184,7 @@ def _normalize_dataflow_boundary_controls(
         raw_value = payload.get(key)
         if raw_value is None:
             continue
-        raw_text = _str_or_none(raw_value)
+        raw_text = _str_optional(raw_value)
         if raw_text is None:
             never(  # pragma: no cover - invariant sink
                 "invalid dataflow boundary control type",
@@ -214,31 +214,31 @@ def _analysis_manifest_digest_from_witness(
     digest_fn: Callable[[JSONObject], str],
 ) -> str | None:
     check_deadline()
-    files = _list_or_none(input_witness.get("files"))
+    files = _list_optional(input_witness.get("files"))
     if files is None:
         return None
     manifest_files: list[JSONObject] = []
     for raw_entry in files:
         check_deadline()
-        entry = _json_mapping_or_none(raw_entry)
+        entry = _json_mapping_optional(raw_entry)
         if entry is None:
             return None
-        path_value = _str_or_none(entry.get("path"))
+        path_value = _str_optional(entry.get("path"))
         if path_value is None:
             return None
         manifest_entry: JSONObject = {"path": path_value}
-        missing_value = _bool_or_none(entry.get("missing"))
+        missing_value = _bool_optional(entry.get("missing"))
         if missing_value is not None:
             manifest_entry["missing"] = missing_value
-        size_value = _int_or_none(entry.get("size"))
+        size_value = _int_optional(entry.get("size"))
         if size_value is not None:
             manifest_entry["size"] = size_value
-        content_sha1_value = _str_or_none(entry.get("content_sha1"))
+        content_sha1_value = _str_optional(entry.get("content_sha1"))
         if content_sha1_value:
             manifest_entry["content_sha1"] = content_sha1_value
         manifest_files.append(manifest_entry)
 
-    config = _json_mapping_or_none(input_witness.get("config"))
+    config = _json_mapping_optional(input_witness.get("config"))
     if config is None:
         return None
     config_payload: JSONObject = {}
@@ -251,30 +251,30 @@ def _analysis_manifest_digest_from_witness(
     ):
         check_deadline()
         value = config.get(key)
-        list_value = _list_or_none(value)
+        list_value = _list_optional(value)
         if list_value is not None:
             config_payload[key] = [str(item) for item in list_value]
             continue
-        bool_value = _bool_or_none(value)
+        bool_value = _bool_optional(value)
         if bool_value is not None:
             config_payload[key] = bool_value
             continue
-        int_value = _int_or_none(value)
+        int_value = _int_optional(value)
         if int_value is not None:
             config_payload[key] = int_value
             continue
-        str_value = _str_or_none(value)
+        str_value = _str_optional(value)
         if str_value is not None:
             config_payload[key] = str_value
             continue
         return None
 
-    root = _str_or_none(input_witness.get("root"))
-    recursive = _bool_or_none(input_witness.get("recursive"))
-    include_invariant_propositions = _bool_or_none(
+    root = _str_optional(input_witness.get("root"))
+    recursive = _bool_optional(input_witness.get("recursive"))
+    include_invariant_propositions = _bool_optional(
         input_witness.get("include_invariant_propositions")
     )
-    include_wl_refinement = _bool_or_none(input_witness.get("include_wl_refinement"))
+    include_wl_refinement = _bool_optional(input_witness.get("include_wl_refinement"))
     if (
         root is None
         or recursive is None

@@ -20,7 +20,7 @@ from gabion.analysis.foundation.event_algebra_adapter_utils import (
     mapping_payload_to_json_object,
     payload_sha1_digest,
 )
-from gabion.analysis.foundation.resume_codec import mapping_or_none
+from gabion.analysis.foundation.resume_codec import mapping_optional
 from gabion.analysis.foundation.timeout_context import check_deadline
 
 DATAFLOW_PHASE_PROGRESS_SOURCE = "dataflow.phase_progress"
@@ -147,7 +147,7 @@ def _required_phase(payload: Mapping[str, JSONValue]) -> str:
 
 def _phase_kind(payload: Mapping[str, JSONValue]) -> str:
     check_deadline()
-    transition_v2 = mapping_or_none(payload.get("progress_transition_v2"))
+    transition_v2 = mapping_optional(payload.get("progress_transition_v2"))
     for candidate in (
         payload.get("event_kind"),
         (transition_v2 or {}).get("event_kind"),
@@ -174,7 +174,7 @@ def _phase_identity_tokens(
     check_deadline()
     components: list[str] = [DATAFLOW_PHASE_PROGRESS_SOURCE, phase, kind]
 
-    event_seq = _positive_int_or_none(payload.get("event_seq"))
+    event_seq = _positive_int_optional(payload.get("event_seq"))
     if event_seq is not None:
         components.extend(
             _integer_anchor_tokens(
@@ -188,20 +188,20 @@ def _phase_identity_tokens(
     if marker:
         components.append(f"progress_marker:{marker}")
 
-    phase_progress_v2 = mapping_or_none(payload.get("phase_progress_v2"))
+    phase_progress_v2 = mapping_optional(payload.get("phase_progress_v2"))
     if phase_progress_v2 is not None:
         primary_unit = str(phase_progress_v2.get("primary_unit", "") or "").strip()
         if primary_unit:
             components.append(f"primary_unit:{primary_unit}")
-        dimensions = mapping_or_none(phase_progress_v2.get("dimensions"))
+        dimensions = mapping_optional(phase_progress_v2.get("dimensions"))
         if dimensions is not None:
             components.append(
                 f"dimensions_digest:{_payload_digest({str(key): dimensions[key] for key in dimensions})}"
             )
 
-    transition_v2 = mapping_or_none(payload.get("progress_transition_v2"))
+    transition_v2 = mapping_optional(payload.get("progress_transition_v2"))
     if transition_v2 is not None:
-        root = mapping_or_none(transition_v2.get("root"))
+        root = mapping_optional(transition_v2.get("root"))
         if root is not None:
             root_identity = str(root.get("identity", "") or "").strip()
             if root_identity:
@@ -232,9 +232,9 @@ def _phase_identity_tokens(
 
 def _collection_kind(payload: Mapping[str, JSONValue]) -> str:
     check_deadline()
-    if mapping_or_none(payload.get("analysis_index_resume")) is not None:
+    if mapping_optional(payload.get("analysis_index_resume")) is not None:
         return "analysis_index_progress"
-    if mapping_or_none(payload.get("in_progress_scan_by_path")) is not None:
+    if mapping_optional(payload.get("in_progress_scan_by_path")) is not None:
         return "collection_progress"
     if payload.get("completed_paths") is not None:
         return "collection_progress"
@@ -253,7 +253,7 @@ def _collection_identity_tokens(
         "collection",
         kind,
     ]
-    event_seq = _positive_int_or_none(payload.get("event_seq"))
+    event_seq = _positive_int_optional(payload.get("event_seq"))
     if event_seq is not None:
         components.extend(
             _integer_anchor_tokens(
@@ -263,7 +263,7 @@ def _collection_identity_tokens(
             )
         )
 
-    analysis_index_resume = mapping_or_none(payload.get("analysis_index_resume"))
+    analysis_index_resume = mapping_optional(payload.get("analysis_index_resume"))
     if analysis_index_resume is not None:
         index_cache_identity = str(
             analysis_index_resume.get("index_cache_identity", "") or ""
@@ -279,7 +279,7 @@ def _collection_identity_tokens(
             f"analysis_index_resume_digest:{_payload_digest({str(key): analysis_index_resume[key] for key in analysis_index_resume})}"
         )
 
-    in_progress = mapping_or_none(payload.get("in_progress_scan_by_path"))
+    in_progress = mapping_optional(payload.get("in_progress_scan_by_path"))
     if in_progress is not None:
         components.append(
             f"in_progress_digest:{_payload_digest({str(key): in_progress[key] for key in in_progress})}"
@@ -311,7 +311,7 @@ def _collection_identity_tokens(
     return tuple(components)
 
 
-def _positive_int_or_none(value: object) -> int | None:
+def _positive_int_optional(value: object) -> int | None:
     check_deadline()
     match value:
         case bool():

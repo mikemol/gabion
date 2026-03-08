@@ -14,7 +14,7 @@ from gabion.analysis.projection.projection_registry import (
     spec_metadata_payload,
 )
 from gabion.analysis.semantics.report_doc import ReportDoc
-from gabion.analysis.foundation.resume_codec import mapping_or_none, sequence_or_none
+from gabion.analysis.foundation.resume_codec import mapping_optional, sequence_optional
 from gabion.json_types import JSONValue
 from gabion.analysis.foundation.timeout_context import check_deadline
 
@@ -79,7 +79,7 @@ def build_annotation_drift_payload(
 def render_markdown(payload: Mapping[str, JSONValue]) -> str:
     check_deadline()
     summary = payload.get("summary", {})
-    entries = sequence_or_none(payload.get("entries", []))
+    entries = sequence_optional(payload.get("entries", []))
     doc = ReportDoc("out_test_annotation_drift")
     doc.lines(spec_metadata_lines_from_payload(payload))
     doc.section("Summary")
@@ -90,7 +90,7 @@ def render_markdown(payload: Mapping[str, JSONValue]) -> str:
     legacy_ambiguous: list[Mapping[str, JSONValue]] = []
     if entries is not None:
         for entry in entries:
-            entry_map = mapping_or_none(entry)
+            entry_map = mapping_optional(entry)
             if entry_map is not None:
                 status = str(entry_map.get("status", ""))
                 if status == "orphaned":

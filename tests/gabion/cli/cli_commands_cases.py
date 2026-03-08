@@ -35,6 +35,7 @@ def _invoke(runner: CliRunner, args: list[str], *, input_text: str | None = None
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_help_lists_tooling_subcommands::cli.py::gabion.cli.app
+# gabion:behavior primary=desired
 def test_cli_help_lists_tooling_subcommands() -> None:
     runner = CliRunner()
     result = _invoke(runner, ["--help"])
@@ -48,6 +49,7 @@ def test_cli_help_lists_tooling_subcommands() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_tooling_subcommand_help_invocations::cli.py::gabion.cli.app
+# gabion:behavior primary=desired
 def test_cli_tooling_subcommand_help_invocations() -> None:
     runner = CliRunner()
     for command_name in (
@@ -63,6 +65,7 @@ def test_cli_tooling_subcommand_help_invocations() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_tooling_wrappers_and_argparse_exit_handling::cli.py::gabion.cli._invoke_argparse_command::cli.py::gabion.cli.docflow_delta_emit::cli.py::gabion.cli.ambiguity_contract_gate::cli.py::gabion.cli.impact_select_tests::cli.py::gabion.cli.run_dataflow_stage
+# gabion:behavior primary=desired
 def test_cli_tooling_wrappers_and_argparse_exit_handling() -> None:
     assert cli._invoke_argparse_command(lambda _argv: 3, []) == 3
     assert (
@@ -157,6 +160,7 @@ def test_cli_tooling_wrappers_and_argparse_exit_handling() -> None:
 # gabion:evidence E:function_site::tests/test_cli_commands.py::test_removed_delta_wrapper_commands_emit_migration_errors
 
 
+# gabion:behavior primary=verboten facets=nonzero
 def test_tooling_passthrough_commands_forward_nonzero_exit_codes() -> None:
     class _Ctx:
         def __init__(self, args: list[str]) -> None:
@@ -187,6 +191,7 @@ def test_tooling_passthrough_commands_forward_nonzero_exit_codes() -> None:
         with pytest.raises(typer.Exit) as exc:
             cli.normative_symdiff(_Ctx(["--root", "."]))  # type: ignore[arg-type]
         assert exc.value.exit_code == 12
+# gabion:behavior primary=verboten facets=error
 def test_removed_delta_wrapper_commands_emit_migration_errors() -> None:
     runner = CliRunner()
     removed_emit = _invoke(runner, ["delta-state-emit"])
@@ -197,6 +202,7 @@ def test_removed_delta_wrapper_commands_emit_migration_errors() -> None:
     assert "delta-gates" in removed_triplets.output
 
 
+# gabion:behavior primary=desired
 def test_delta_advisory_telemetry_command_forwards_exit_code() -> None:
     with cli._tooling_runner_override(
         no_arg={"delta-advisory-telemetry": lambda: 7},
@@ -207,6 +213,7 @@ def test_delta_advisory_telemetry_command_forwards_exit_code() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_tooling_runner_override_ignores_non_mapping_overrides::cli.py::gabion.cli._tooling_runner_override
+# gabion:behavior primary=desired
 def test_tooling_runner_override_ignores_non_mapping_overrides() -> None:
     no_arg_before = dict(cli._TOOLING_NO_ARG_RUNNERS)
     with_argv_before = dict(cli._TOOLING_ARGV_RUNNERS)
@@ -221,6 +228,7 @@ def test_tooling_runner_override_ignores_non_mapping_overrides() -> None:
 
 
 # gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands.test_configure_runtime_flags_maps_transport_mode_to_direct_requested
+# gabion:behavior primary=desired
 def test_configure_runtime_flags_maps_transport_mode_to_direct_requested() -> None:
     timeout_before = env_policy.lsp_timeout_override()
     transport_before = transport_policy.transport_override()
@@ -252,6 +260,7 @@ def test_configure_runtime_flags_maps_transport_mode_to_direct_requested() -> No
 
 
 # gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls E:decision_surface/direct::test_cli_commands.py::tests.test_cli_commands._has_pygls::stale_fe77309ae8a6_eaff81bd
+# gabion:behavior primary=allowed_unwanted facets=legacy
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_cli_check_and_legacy_dataflow_monolith(tmp_path: Path) -> None:
     module = tmp_path / "module.py"
@@ -316,6 +325,7 @@ def test_cli_check_and_legacy_dataflow_monolith(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls E:decision_surface/direct::test_cli_commands.py::tests.test_cli_commands._has_pygls::stale_0f3883f99dda
+# gabion:behavior primary=desired
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_cli_impact_json(tmp_path: Path) -> None:
     src = tmp_path / "src"
@@ -351,6 +361,7 @@ def test_cli_impact_json(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_impact_reads_git_diff_file::test_cli_commands.py::tests.test_cli_commands._has_pygls::test_cli_commands.py::tests.test_cli_commands._invoke
+# gabion:behavior primary=desired
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_cli_impact_reads_git_diff_file(tmp_path: Path) -> None:
     module = tmp_path / "module.py"
@@ -382,6 +393,7 @@ def test_cli_impact_reads_git_diff_file(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_impact_reads_git_diff_stdin::test_cli_commands.py::tests.test_cli_commands._has_pygls::test_cli_commands.py::tests.test_cli_commands._invoke
+# gabion:behavior primary=desired
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_cli_impact_reads_git_diff_stdin(tmp_path: Path) -> None:
     module = tmp_path / "module.py"
@@ -413,6 +425,7 @@ def test_cli_impact_reads_git_diff_stdin(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_docflow_audit::cli.py::gabion.cli.app
+# gabion:behavior primary=desired
 def test_cli_docflow() -> None:
     repo_root = REPO_ROOT
     runner = CliRunner()
@@ -432,6 +445,7 @@ def test_cli_docflow() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_sppf_graph_and_status_consistency::cli.py::gabion.cli.app
+# gabion:behavior primary=desired
 def test_cli_sppf_graph_and_status_consistency(tmp_path: Path) -> None:
     repo_root = REPO_ROOT
     graph_json = tmp_path / "graph.json"
@@ -467,6 +481,7 @@ def test_cli_sppf_graph_and_status_consistency(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_legacy_dataflow_monolith_command_is_removed::test_cli_commands.py::tests.test_cli_commands._invoke
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_cli_legacy_dataflow_monolith_command_is_removed() -> None:
     runner = CliRunner()
     result = _invoke(runner, ["dataflow-audit", "--help"])
@@ -474,6 +489,7 @@ def test_cli_legacy_dataflow_monolith_command_is_removed() -> None:
 
 
 # gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls E:decision_surface/direct::test_cli_commands.py::tests.test_cli_commands._has_pygls::stale_eb2b6007df89
+# gabion:behavior primary=desired
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_cli_synth_and_synthesis_plan(tmp_path: Path) -> None:
     module = tmp_path / "module.py"
@@ -540,6 +556,7 @@ def test_cli_synth_and_synthesis_plan(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls E:decision_surface/direct::test_cli_commands.py::tests.test_cli_commands._has_pygls::stale_daabf20e679c
+# gabion:behavior primary=desired
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_cli_structure_diff(tmp_path: Path) -> None:
     baseline = tmp_path / "baseline.json"
@@ -564,6 +581,7 @@ def test_cli_structure_diff(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls E:decision_surface/direct::test_cli_commands.py::tests.test_cli_commands._has_pygls::stale_71868ab0baee
+# gabion:behavior primary=desired
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_cli_refactor_protocol(tmp_path: Path) -> None:
     module = tmp_path / "module.py"
@@ -587,6 +605,7 @@ def test_cli_refactor_protocol(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_refactor_protocol_loop_generator::cli.py::gabion.cli.app
+# gabion:behavior primary=desired
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_cli_refactor_protocol_loop_generator(tmp_path: Path) -> None:
     module = tmp_path / "module.py"
@@ -615,6 +634,7 @@ def test_cli_refactor_protocol_loop_generator(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_synthesis_plan_invalid_json::cli.py::gabion.cli.app
+# gabion:behavior primary=verboten facets=invalid
 def test_cli_synthesis_plan_invalid_json(tmp_path: Path) -> None:
     payload_path = tmp_path / "bad.json"
     payload_path.write_text("{bad")
@@ -625,6 +645,7 @@ def test_cli_synthesis_plan_invalid_json(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_refactor_protocol_invalid_json::cli.py::gabion.cli.app
+# gabion:behavior primary=verboten facets=invalid
 def test_cli_refactor_protocol_invalid_json(tmp_path: Path) -> None:
     payload_path = tmp_path / "bad.json"
     payload_path.write_text("{bad")
@@ -642,6 +663,7 @@ def test_cli_refactor_protocol_invalid_json(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls E:decision_surface/direct::test_cli_commands.py::tests.test_cli_commands._has_pygls::stale_b8d0dddbecae
+# gabion:behavior primary=desired
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_cli_synthesis_plan_stdout(tmp_path: Path) -> None:
     payload_path = tmp_path / "payload.json"
@@ -660,6 +682,7 @@ def test_cli_synthesis_plan_stdout(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls E:decision_surface/direct::test_cli_commands.py::tests.test_cli_commands._has_pygls::stale_530c5ee02284
+# gabion:behavior primary=desired
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_cli_refactor_protocol_output_file(tmp_path: Path) -> None:
     module = tmp_path / "module.py"
@@ -687,6 +710,7 @@ def test_cli_refactor_protocol_output_file(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_synth_invalid_strictness::cli.py::gabion.cli.app
+# gabion:behavior primary=verboten facets=invalid
 def test_cli_synth_invalid_strictness(tmp_path: Path) -> None:
     module = tmp_path / "module.py"
     module.write_text("def f(a, b):\n    return a\n")
@@ -700,6 +724,7 @@ def test_cli_synth_invalid_strictness(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_synth_invalid_protocols_kind::cli.py::gabion.cli.app
+# gabion:behavior primary=verboten facets=invalid
 def test_cli_synth_invalid_protocols_kind(tmp_path: Path) -> None:
     module = tmp_path / "module.py"
     module.write_text("def f(a, b):\n    return a\n")
@@ -719,6 +744,7 @@ def test_cli_synth_invalid_protocols_kind(tmp_path: Path) -> None:
     assert "synthesis-protocols-kind" in result.output
 
 # gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_refactor_protocol_emits_rewrite_plan_metadata::cli.py::gabion.cli.app
+# gabion:behavior primary=desired
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_cli_refactor_protocol_emits_rewrite_plan_metadata(tmp_path: Path) -> None:
     module = tmp_path / "module.py"
@@ -752,6 +778,7 @@ def test_cli_refactor_protocol_emits_rewrite_plan_metadata(tmp_path: Path) -> No
     assert payload["rewrite_plans"][0]["kind"] == "AMBIENT_REWRITE"
 
 
+# gabion:behavior primary=desired
 def test_check_aux_registration_matrix_matches_expected_identities() -> None:
     expected = {
         "obsolescence:report",
@@ -774,6 +801,7 @@ def test_check_aux_registration_matrix_matches_expected_identities() -> None:
     assert observed == expected
 
 
+# gabion:behavior primary=verboten facets=invalid
 def test_check_aux_command_spec_rejects_invalid_profile_mapping() -> None:
     spec = check_commands.CheckAuxCommandSpec(
         registration=check_commands.CheckAuxCommandRegistration(
@@ -786,6 +814,7 @@ def test_check_aux_command_spec_rejects_invalid_profile_mapping() -> None:
         spec.validate()
 
 
+# gabion:behavior primary=verboten facets=error
 def test_check_aux_profile_validation_errors() -> None:
     runner = CliRunner()
     app = typer.Typer()
@@ -815,6 +844,7 @@ def test_check_aux_profile_validation_errors() -> None:
     assert "--out-md is not allowed for this command profile" in out_md_disallowed.output
 
 
+# gabion:behavior primary=desired
 def test_check_aux_help_snapshot_representative_commands() -> None:
     runner = CliRunner()
     report_help = _invoke(runner, ["check", "obsolescence", "report", "--help"])
@@ -832,6 +862,7 @@ def test_check_aux_help_snapshot_representative_commands() -> None:
     assert "[required]" in delta_help.output
 
 
+# gabion:behavior primary=desired
 def test_register_check_aux_commands_uses_registration_table() -> None:
     observed: list[tuple[str, str]] = []
 
@@ -886,6 +917,7 @@ def test_register_check_aux_commands_uses_registration_table() -> None:
     assert ("annotation-drift", "report") in observed
 
 
+# gabion:behavior primary=desired
 def test_register_check_aux_commands_profile_argument_shaping() -> None:
     captured: list[dict[str, object]] = []
 

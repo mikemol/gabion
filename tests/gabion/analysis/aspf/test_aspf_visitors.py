@@ -22,6 +22,7 @@ class _ForestOrderCaptureVisitor(NullAspfTraversalVisitor):
         self.alt_kinds.append(alt.kind)
 
 
+# gabion:behavior primary=desired
 def test_traverse_forest_to_visitor_uses_deterministic_order() -> None:
     forest = Forest()
     alpha = forest.add_node("KindB", ("b",), {"name": "b"})
@@ -36,6 +37,7 @@ def test_traverse_forest_to_visitor_uses_deterministic_order() -> None:
     assert visitor.alt_kinds == ["AltA", "AltB"]
 
 
+# gabion:behavior primary=desired
 def test_replay_trace_and_equivalence_to_opportunity_visitor() -> None:
     emitter = OpportunityPayloadEmitter()
     adapt_live_event_stream_to_visitor(
@@ -102,6 +104,7 @@ def test_replay_trace_and_equivalence_to_opportunity_visitor() -> None:
     assert plans[0]["opportunity_id"].startswith("opp:")
 
 
+# gabion:behavior primary=desired
 def test_trace_event_iterator_adapter_dispatches_without_json_batching() -> None:
     emitter = OpportunityPayloadEmitter()
     adapt_trace_event_iterator_to_visitor(
@@ -149,6 +152,7 @@ def test_trace_event_iterator_adapter_dispatches_without_json_batching() -> None
     assert "fungible_execution_path_substitution" in kinds
 
 
+# gabion:behavior primary=allowed_unwanted facets=noop
 def test_null_visitor_noop_methods_are_callable() -> None:
     visitor = NullAspfTraversalVisitor()
     forest = Forest()
@@ -164,6 +168,7 @@ def test_null_visitor_noop_methods_are_callable() -> None:
     visitor.on_equivalence_surface_row(index=0, row={})
 
 
+# gabion:behavior primary=desired
 def test_two_cell_witnesses_drive_deterministic_rewrite_plan_priority() -> None:
     emitter = OpportunityPayloadEmitter()
     adapt_live_event_stream_to_visitor(
@@ -216,6 +221,7 @@ def test_two_cell_witnesses_drive_deterministic_rewrite_plan_priority() -> None:
     assert reusable["opportunity_hash"]
 
 
+# gabion:behavior primary=desired
 def test_reusable_boundary_collision_vs_witnessed_isomorphy_golden() -> None:
     collision_only = OpportunityPayloadEmitter()
     adapt_live_event_stream_to_visitor(
@@ -265,12 +271,14 @@ def test_reusable_boundary_collision_vs_witnessed_isomorphy_golden() -> None:
     assert witnessed_row["failed_obligations"] == []
 
 
+# gabion:behavior primary=desired
 def test_replay_event_dispatch_rejects_unknown_event_type() -> None:
     visitor = NullAspfTraversalVisitor()
     with pytest.raises(NeverRaise):
         visitor.on_replay_event(object())  # type: ignore[arg-type]
 
 
+# gabion:behavior primary=desired
 def test_two_cell_replay_normalization_uses_nested_representatives_and_skip_outcome() -> None:
     normalized = _normalize_two_cell_witness_for_replay(
         {
@@ -287,6 +295,7 @@ def test_two_cell_replay_normalization_uses_nested_representatives_and_skip_outc
     assert skipped.kind is TwoCellReplayNormalizationKind.SKIP
 
 
+# gabion:behavior primary=verboten facets=invalid
 def test_adapt_live_event_stream_skips_invalid_two_cell_payloads() -> None:
     emitter = OpportunityPayloadEmitter()
     adapt_live_event_stream_to_visitor(
@@ -299,6 +308,7 @@ def test_adapt_live_event_stream_skips_invalid_two_cell_payloads() -> None:
     assert emitter.build_rows() == []
 
 
+# gabion:behavior primary=desired
 def test_opportunity_predicate_requires_resume_kinds_and_confidence_default() -> None:
     observation = OpportunityAlgebraicObservation(
         structure=OpportunityStructure.ONE_CELL,
@@ -341,6 +351,7 @@ def test_opportunity_predicate_requires_resume_kinds_and_confidence_default() ->
     assert decision.confidence() == 0.0
 
 
+# gabion:behavior primary=desired
 def test_run_boundary_event_path_can_be_replayed() -> None:
     @dataclass
     class _BoundaryCaptureVisitor(NullAspfTraversalVisitor):

@@ -10,7 +10,7 @@ from gabion.analysis.foundation.delta_tools import coerce_int, count_delta, form
 from gabion.analysis.projection.projection_registry import (
     TAINT_BASELINE_SPEC, TAINT_DELTA_SPEC, spec_metadata_lines_from_payload)
 from gabion.analysis.semantics.report_doc import ReportDoc
-from gabion.analysis.foundation.resume_codec import mapping_or_none, sequence_or_none
+from gabion.analysis.foundation.resume_codec import mapping_optional, sequence_optional
 from gabion.analysis.taint.taint_projection import build_taint_summary
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.json_types import JSONObject, JSONValue
@@ -30,12 +30,12 @@ class TaintBaseline:
 
     @property
     def by_status(self) -> Mapping[str, int]:
-        payload = mapping_or_none(self.summary.get("by_status")) or {}
+        payload = mapping_optional(self.summary.get("by_status")) or {}
         return {str(key): coerce_int(payload[key], 0) for key in payload}
 
     @property
     def by_kind(self) -> Mapping[str, int]:
-        payload = mapping_or_none(self.summary.get("by_kind")) or {}
+        payload = mapping_optional(self.summary.get("by_kind")) or {}
         return {str(key): coerce_int(payload[key], 0) for key in payload}
 
 
@@ -56,9 +56,9 @@ def build_baseline_payload(records: Iterable[Mapping[str, object]]) -> JSONObjec
 
 def parse_baseline_payload(payload: Mapping[str, JSONValue]) -> TaintBaseline:
     parse_version(payload, expected=BASELINE_VERSION, error_context="taint baseline")
-    summary_payload = mapping_or_none(payload.get("summary")) or {}
+    summary_payload = mapping_optional(payload.get("summary")) or {}
     summary: JSONObject = {str(key): summary_payload[key] for key in summary_payload}
-    records = _normalize_records(sequence_or_none(payload.get("taint_records"), allow_str=False) or ())
+    records = _normalize_records(sequence_optional(payload.get("taint_records"), allow_str=False) or ())
     if not summary:
         summary = build_taint_summary(records)
     spec_id, spec = parse_spec_metadata(payload)
@@ -114,11 +114,11 @@ def build_delta_payload(
 
 def render_markdown(payload: Mapping[str, JSONValue]) -> str:
     check_deadline()
-    summary_payload = mapping_or_none(payload.get("summary")) or {}
-    total_payload = mapping_or_none(summary_payload.get("total")) or {}
-    strict_payload = mapping_or_none(summary_payload.get("strict_unresolved")) or {}
-    by_status_payload = mapping_or_none(summary_payload.get("by_status")) or {}
-    by_kind_payload = mapping_or_none(summary_payload.get("by_kind")) or {}
+    summary_payload = mapping_optional(payload.get("summary")) or {}
+    total_payload = mapping_optional(summary_payload.get("total")) or {}
+    strict_payload = mapping_optional(summary_payload.get("strict_unresolved")) or {}
+    by_status_payload = mapping_optional(summary_payload.get("by_status")) or {}
+    by_kind_payload = mapping_optional(summary_payload.get("by_kind")) or {}
     doc = ReportDoc("out_taint_delta")
     doc.lines(spec_metadata_lines_from_payload(payload))
     doc.section("Summary")
@@ -149,9 +149,9 @@ def _render_delta_row(*, label: str, payload: Mapping[str, object]) -> str:
 
 
 def _render_bucket_rows(*, name: str, payload: Mapping[str, object]) -> list[str]:
-    baseline = mapping_or_none(payload.get("baseline")) or {}
-    current = mapping_or_none(payload.get("current")) or {}
-    delta = mapping_or_none(payload.get("delta")) or {}
+    baseline = mapping_optional(payload.get("baseline")) or {}
+    current = mapping_optional(payload.get("current")) or {}
+    delta = mapping_optional(payload.get("delta")) or {}
     keys = sort_once(
         {*baseline.keys(), *current.keys(), *delta.keys()},
         source=f"taint_delta._render_bucket_rows.{name}.keys",

@@ -3,6 +3,7 @@ from __future__ import annotations
 from gabion.tooling.governance import governance_audit as audit_impl
 
 
+# gabion:behavior primary=desired
 def test_format_docflow_violation_known_kinds() -> None:
     assert (
         audit_impl._format_docflow_violation(
@@ -37,6 +38,7 @@ def test_format_docflow_violation_known_kinds() -> None:
     )
 
 
+# gabion:behavior primary=desired
 def test_format_docflow_violation_doc_review_pin_branches() -> None:
     assert (
         audit_impl._format_docflow_violation(
@@ -63,6 +65,7 @@ def test_format_docflow_violation_doc_review_pin_branches() -> None:
     )
 
 
+# gabion:behavior primary=desired
 def test_format_docflow_violation_unknown_kind_falls_back_to_generic_message() -> None:
     assert (
         audit_impl._format_docflow_violation({"row_kind": "unknown_row_kind", "path": "docs/foo.md"})

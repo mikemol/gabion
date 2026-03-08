@@ -83,6 +83,7 @@ def _seed_minimal_root(root: Path) -> None:
 
 
 # gabion:evidence E:function_site::tests/test_normative_symdiff_edges.py::test_scalar_helpers_and_distance_bands_cover_edges
+# gabion:behavior primary=verboten facets=edge
 def test_scalar_helpers_and_distance_bands_cover_edges() -> None:
     assert normative_symdiff._coerce_int(True) == 1
     assert normative_symdiff._coerce_int(7) == 7
@@ -114,6 +115,7 @@ def test_scalar_helpers_and_distance_bands_cover_edges() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_normative_symdiff_edges.py::test_workflow_anchor_and_clause_analysis_cover_shape_errors
+# gabion:behavior primary=verboten facets=edge,error
 def test_workflow_anchor_and_clause_analysis_cover_shape_errors(tmp_path: Path) -> None:
     workflow = tmp_path / ".github" / "workflows" / "ci.yml"
     workflow.parent.mkdir(parents=True, exist_ok=True)
@@ -256,6 +258,7 @@ def test_workflow_anchor_and_clause_analysis_cover_shape_errors(tmp_path: Path) 
 
 
 # gabion:evidence E:function_site::tests/test_normative_symdiff_edges.py::test_collect_scope_inventory_skips_non_file_markdown_matches
+# gabion:behavior primary=verboten facets=edge
 def test_collect_scope_inventory_skips_non_file_markdown_matches(tmp_path: Path) -> None:
     _seed_minimal_root(tmp_path)
     (tmp_path / "docs" / "not_a_file.md").mkdir(parents=True, exist_ok=True)
@@ -264,6 +267,7 @@ def test_collect_scope_inventory_skips_non_file_markdown_matches(tmp_path: Path)
 
 
 # gabion:evidence E:function_site::tests/test_normative_symdiff_edges.py::test_policy_and_controller_scope_contexts_restore_globals
+# gabion:behavior primary=verboten facets=edge
 def test_policy_and_controller_scope_contexts_restore_globals(tmp_path: Path) -> None:
     before_repo_root = normative_symdiff.policy_check.REPO_ROOT
     before_workflow_dir = normative_symdiff.policy_check.WORKFLOW_DIR
@@ -298,6 +302,7 @@ def test_policy_and_controller_scope_contexts_restore_globals(tmp_path: Path) ->
 
 
 # gabion:evidence E:function_site::tests/test_normative_symdiff_edges.py::test_capture_policy_check_and_lsp_parity_probe_edges
+# gabion:behavior primary=verboten facets=edge
 def test_capture_policy_check_and_lsp_parity_probe_edges(tmp_path: Path) -> None:
     ok_probe = normative_symdiff._capture_policy_check("ok", lambda: None)
     assert ok_probe["ok"] is True
@@ -326,6 +331,7 @@ def test_capture_policy_check_and_lsp_parity_probe_edges(tmp_path: Path) -> None
 
 
 # gabion:evidence E:function_site::tests/test_normative_symdiff_edges.py::test_policy_probe_collectors_cover_new_and_total_branches
+# gabion:behavior primary=verboten facets=edge
 def test_policy_probe_collectors_cover_new_and_total_branches(tmp_path: Path) -> None:
     ambiguity_items = [
         SimpleNamespace(key="k0", rule_id="ACP-003", path="a.py"),
@@ -386,6 +392,7 @@ def test_policy_probe_collectors_cover_new_and_total_branches(tmp_path: Path) ->
 
 
 # gabion:evidence E:function_site::tests/test_normative_symdiff_edges.py::test_docflow_agent_and_default_probe_collectors_cover_filtering
+# gabion:behavior primary=verboten facets=edge
 def test_docflow_agent_and_default_probe_collectors_cover_filtering(tmp_path: Path) -> None:
     def _fake_docflow_context(**_kwargs: object) -> SimpleNamespace:
         return SimpleNamespace(
@@ -489,6 +496,7 @@ def test_docflow_agent_and_default_probe_collectors_cover_filtering(tmp_path: Pa
 
 
 # gabion:evidence E:function_site::tests/test_normative_symdiff_edges.py::test_gap_synthesis_scoring_and_markdown_edge_paths
+# gabion:behavior primary=verboten facets=edge
 def test_gap_synthesis_scoring_and_markdown_edge_paths() -> None:
     scope = normative_symdiff.ScopeInventory(
         normative_docs=("AGENTS.md",),
@@ -617,6 +625,7 @@ def test_gap_synthesis_scoring_and_markdown_edge_paths() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_normative_symdiff_edges.py::test_run_and_main_cover_probe_mode_and_module_entrypoint
+# gabion:behavior primary=verboten facets=edge
 def test_run_and_main_cover_probe_mode_and_module_entrypoint(tmp_path: Path) -> None:
     _seed_minimal_root(tmp_path)
     json_out = tmp_path / "out" / "symdiff.json"
@@ -656,6 +665,7 @@ def test_run_and_main_cover_probe_mode_and_module_entrypoint(tmp_path: Path) -> 
 
 
 # gabion:evidence E:function_site::tests/test_normative_symdiff_edges.py::test_collect_controller_drift_handles_missing_output_file
+# gabion:behavior primary=verboten facets=drift,edge,missing
 def test_collect_controller_drift_handles_missing_output_file(tmp_path: Path) -> None:
     def _fake_run(*, policy_path: Path, out_path: Path, fail_on_severity: object) -> int:
         _ = policy_path, out_path, fail_on_severity
@@ -669,6 +679,7 @@ def test_collect_controller_drift_handles_missing_output_file(tmp_path: Path) ->
 
 
 # gabion:evidence E:function_site::tests/test_normative_symdiff_edges.py::test_collect_controller_drift_counts_sensor_findings_when_output_written
+# gabion:behavior primary=verboten facets=drift,edge
 def test_collect_controller_drift_counts_sensor_findings_when_output_written(
     tmp_path: Path,
 ) -> None:

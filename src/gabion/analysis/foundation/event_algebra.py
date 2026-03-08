@@ -15,11 +15,11 @@ from gabion.analysis.foundation.identity_space import (
     IdentityProjection,
 )
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue
-from gabion.analysis.foundation.resume_codec import mapping_or_none, sequence_or_none
+from gabion.analysis.foundation.resume_codec import mapping_optional, sequence_optional
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.invariants import never
 from gabion.runtime import stable_encode
-from gabion.runtime_shape_dispatch import int_or_none, str_or_none
+from gabion.runtime_shape_dispatch import int_optional, str_optional
 
 CANONICAL_EVENT_SCHEMA_VERSION = 1
 EVENT_IDENTITY_NAMESPACE = str(IdentityNamespace.PATH)
@@ -224,7 +224,7 @@ def decode_canonical_event_json(raw: str) -> CanonicalEventEnvelope:
         loaded = json.loads(str(raw))
     except json.JSONDecodeError as exc:
         raise CanonicalEventAdaptationError("invalid canonical event json payload.") from exc
-    loaded_map = mapping_or_none(loaded)
+    loaded_map = mapping_optional(loaded)
     if loaded_map is None:
         raise CanonicalEventAdaptationError(
             "canonical event json payload must decode to an object."
@@ -284,7 +284,7 @@ def _identity_projection_from_json_object(
     check_deadline()
     basis_path_payload = _required_mapping(payload, "basis_path")
     namespace = _required_non_empty_text(basis_path_payload, "namespace")
-    atoms_raw = sequence_or_none(basis_path_payload.get("atoms"))
+    atoms_raw = sequence_optional(basis_path_payload.get("atoms"))
     if atoms_raw is None:
         raise CanonicalEventAdaptationError(
             "identity basis path atoms must be a sequence."
@@ -292,7 +292,7 @@ def _identity_projection_from_json_object(
     normalized_atoms: list[int] = []
     for value in atoms_raw:
         check_deadline()
-        atom = int_or_none(value)
+        atom = int_optional(value)
         if atom is None or atom <= 0:
             raise CanonicalEventAdaptationError(
                 "identity basis path atoms must be positive integers."
@@ -315,7 +315,7 @@ def _identity_projection_from_json_object(
 
 def _required_mapping(payload: Mapping[str, JSONValue], key: str) -> JSONObject:
     check_deadline()
-    mapping = mapping_or_none(payload.get(key))
+    mapping = mapping_optional(payload.get(key))
     if mapping is None:
         raise CanonicalEventAdaptationError(
             f"canonical event field '{key}' must be an object."
@@ -327,7 +327,7 @@ def _required_mapping(payload: Mapping[str, JSONValue], key: str) -> JSONObject:
 def _required_non_empty_text(payload: Mapping[str, JSONValue], key: str) -> str:
     check_deadline()
     value = payload.get(key)
-    text = str_or_none(value)
+    text = str_optional(value)
     if text is None:
         raise CanonicalEventAdaptationError(
             f"canonical event field '{key}' must be text."
@@ -343,7 +343,7 @@ def _required_non_empty_text(payload: Mapping[str, JSONValue], key: str) -> str:
 def _required_non_negative_int(payload: Mapping[str, JSONValue], key: str) -> int:
     check_deadline()
     value = payload.get(key)
-    parsed = int_or_none(value)
+    parsed = int_optional(value)
     if parsed is not None and parsed >= 0:
         return parsed
     raise CanonicalEventAdaptationError(
@@ -354,7 +354,7 @@ def _required_non_negative_int(payload: Mapping[str, JSONValue], key: str) -> in
 def _required_positive_int(payload: Mapping[str, JSONValue], key: str) -> int:
     check_deadline()
     value = payload.get(key)
-    parsed = int_or_none(value)
+    parsed = int_optional(value)
     if parsed is not None and parsed > 0:
         return parsed
     raise CanonicalEventAdaptationError(
@@ -364,7 +364,7 @@ def _required_positive_int(payload: Mapping[str, JSONValue], key: str) -> int:
 
 def _required_text_sequence(payload: Mapping[str, JSONValue], key: str) -> tuple[str, ...]:
     check_deadline()
-    raw = sequence_or_none(payload.get(key))
+    raw = sequence_optional(payload.get(key))
     if raw is None:
         raise CanonicalEventAdaptationError(
             f"canonical event field '{key}' must be a sequence."
@@ -372,7 +372,7 @@ def _required_text_sequence(payload: Mapping[str, JSONValue], key: str) -> tuple
     refs: list[str] = []
     for item in raw:
         check_deadline()
-        text = str_or_none(item)
+        text = str_optional(item)
         if text is None:
             raise CanonicalEventAdaptationError(
                 f"canonical event field '{key}' must contain text refs."

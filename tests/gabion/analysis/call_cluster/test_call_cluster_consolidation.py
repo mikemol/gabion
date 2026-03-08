@@ -17,6 +17,7 @@ def _call_footprint_display(*, test_id: str, file: str, targets: list[tuple[str,
 
 # gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.build_call_cluster_consolidation_payload
 # gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.render_markdown E:decision_surface/direct::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.render_markdown::stale_53de2d5d4377_a503856f
+# gabion:behavior primary=desired
 def test_call_cluster_consolidation_payload_and_render(
     tmp_path: Path,
     write_test_evidence_payload,
@@ -88,6 +89,7 @@ def test_call_cluster_consolidation_payload_and_render(
 
 
 # gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.render_markdown E:decision_surface/direct::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.render_markdown::stale_d3f9e19479c9
+# gabion:behavior primary=verboten facets=empty
 def test_call_cluster_consolidation_render_empty() -> None:
     payload = {"summary": {}, "clusters": [], "plan": []}
     markdown = call_cluster_consolidation.render_markdown(payload)
@@ -95,6 +97,7 @@ def test_call_cluster_consolidation_render_empty() -> None:
 
 
 # gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.build_call_cluster_consolidation_payload E:decision_surface/direct::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.build_call_cluster_consolidation_payload::stale_f457d4364b38
+# gabion:behavior primary=verboten facets=empty
 def test_call_cluster_consolidation_skips_unparseable_and_empty_targets(
     tmp_path: Path,
     write_test_evidence_payload,
@@ -134,6 +137,7 @@ def test_call_cluster_consolidation_skips_unparseable_and_empty_targets(
 
 
 # gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.build_call_cluster_consolidation_payload E:decision_surface/direct::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.build_call_cluster_consolidation_payload::stale_0ac9f5d3d039_0e8f5b26
+# gabion:behavior primary=desired
 def test_call_cluster_consolidation_skips_multiple_target_sets(
     tmp_path: Path,
     write_test_evidence_payload,
@@ -170,6 +174,7 @@ def test_call_cluster_consolidation_skips_multiple_target_sets(
 
 
 # gabion:evidence E:call_footprint::tests/test_call_cluster_consolidation.py::test_call_cluster_consolidation_accepts_call_cluster_tokens_in_evidence::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.build_call_cluster_consolidation_payload::evidence_keys.py::gabion.analysis.evidence_keys.make_call_cluster_key::evidence_keys.py::gabion.analysis.evidence_keys.normalize_key::evidence_keys.py::gabion.analysis.evidence_keys.render_display
+# gabion:behavior primary=desired
 def test_call_cluster_consolidation_accepts_call_cluster_tokens_in_evidence(
     tmp_path: Path,
     write_test_evidence_payload,
@@ -200,6 +205,7 @@ def test_call_cluster_consolidation_accepts_call_cluster_tokens_in_evidence(
 
 
 # gabion:evidence E:call_footprint::tests/test_call_cluster_consolidation.py::test_call_cluster_consolidation_ignores_non_cluster_kinds_with_targets::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.build_call_cluster_consolidation_payload::evidence_keys.py::gabion.analysis.evidence_keys.render_display
+# gabion:behavior primary=desired
 def test_call_cluster_consolidation_ignores_non_cluster_kinds_with_targets(
     tmp_path: Path,
     write_test_evidence_payload,
@@ -232,6 +238,7 @@ def test_call_cluster_consolidation_ignores_non_cluster_kinds_with_targets(
 
 
 # gabion:evidence E:call_footprint::tests/test_call_cluster_consolidation.py::test_call_cluster_consolidation_takes_call_cluster_branch_via_payload::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.build_call_cluster_consolidation_payload::evidence_keys.py::gabion.analysis.evidence_keys.make_call_cluster_key::evidence_keys.py::gabion.analysis.evidence_keys.render_display
+# gabion:behavior primary=desired
 def test_call_cluster_consolidation_takes_call_cluster_branch_via_payload(
     write_test_evidence_payload,
     test_evidence_path: Path,
@@ -260,6 +267,7 @@ def test_call_cluster_consolidation_takes_call_cluster_branch_via_payload(
 
 
 # gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.render_markdown E:decision_surface/direct::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.render_markdown::stale_b48fa52912da
+# gabion:behavior primary=verboten facets=invalid
 def test_call_cluster_consolidation_render_handles_invalid_entries() -> None:
     payload = {
         "summary": {"clusters": 1},
@@ -284,6 +292,7 @@ def test_call_cluster_consolidation_render_handles_invalid_entries() -> None:
 
 
 # gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation._targets_signature
+# gabion:behavior primary=verboten facets=invalid
 def test_call_cluster_consolidation_targets_signature_filters_invalid() -> None:
     assert call_cluster_consolidation._targets_signature(None) == ()
     targets = [
@@ -296,6 +305,7 @@ def test_call_cluster_consolidation_targets_signature_filters_invalid() -> None:
 
 
 # gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.write_call_cluster_consolidation
+# gabion:behavior primary=desired
 def test_call_cluster_consolidation_write_creates_file(tmp_path: Path) -> None:
     payload = {"summary": {}, "clusters": [], "plan": []}
     output_path = tmp_path / "nested" / "call_cluster_consolidation.json"
@@ -306,6 +316,7 @@ def test_call_cluster_consolidation_write_creates_file(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_call_cluster_consolidation.py::test_call_cluster_consolidation_render_accepts_non_list_clusters::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.render_markdown
+# gabion:behavior primary=desired
 def test_call_cluster_consolidation_render_accepts_non_list_clusters() -> None:
     markdown = call_cluster_consolidation.render_markdown(
         {
@@ -329,6 +340,7 @@ def test_call_cluster_consolidation_render_accepts_non_list_clusters() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_call_cluster_consolidation.py::test_call_cluster_consolidation_render_skips_empty_cluster_identity::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.render_markdown
+# gabion:behavior primary=verboten facets=empty
 def test_call_cluster_consolidation_render_skips_empty_cluster_identity() -> None:
     markdown = call_cluster_consolidation.render_markdown(
         {

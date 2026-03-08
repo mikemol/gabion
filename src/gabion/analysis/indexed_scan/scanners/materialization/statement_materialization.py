@@ -31,14 +31,14 @@ def _suite_span_from_statements_outcome(
     if not statements:
         return _SuiteSpanOutcome(_SuiteSpanStatus.MISSING, missing_span)
     first_span_raw = node_span_fn(statements[0])
-    first_span = _int_span4_or_none(first_span_raw)
+    first_span = _int_span4_optional(first_span_raw)
     if first_span is None:
         return _SuiteSpanOutcome(_SuiteSpanStatus.MISSING, missing_span)
     last_span = first_span
     for stmt in statements[1:]:
         check_deadline_fn()
         candidate_raw = node_span_fn(stmt)
-        candidate_span = _int_span4_or_none(candidate_raw)
+        candidate_span = _int_span4_optional(candidate_raw)
         if candidate_span is not None:
             last_span = candidate_span
     return _SuiteSpanOutcome(
@@ -47,7 +47,7 @@ def _suite_span_from_statements_outcome(
     )
 
 
-def _int_span4_or_none(value):
+def _int_span4_optional(value):
     match value:
         case tuple() as span_candidate if len(span_candidate) == 4:
             try:

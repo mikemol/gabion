@@ -9,6 +9,7 @@ from gabion.analysis.surfaces import test_obsolescence, test_obsolescence_state
 
 
 # gabion:evidence E:function_site::test_obsolescence_state.py::gabion.analysis.test_obsolescence_state.build_state_payload E:function_site::test_obsolescence_state.py::gabion.analysis.test_obsolescence_state.load_state
+# gabion:behavior primary=desired
 def test_state_payload_roundtrip(
     tmp_path: Path,
     make_obsolescence_paramset_ref,
@@ -44,12 +45,14 @@ def test_state_payload_roundtrip(
 
 
 # gabion:evidence E:function_site::test_obsolescence_state.py::gabion.analysis.test_obsolescence_state.parse_state_payload E:decision_surface/direct::test_obsolescence_state.py::gabion.analysis.test_obsolescence_state.parse_state_payload::stale_d3c07c5ff55b
+# gabion:behavior primary=desired
 def test_state_payload_rejects_bad_version() -> None:
     with pytest.raises(ValueError):
         test_obsolescence_state.parse_state_payload({"version": "nope"})
 
 
 # gabion:evidence E:function_site::test_obsolescence_state.py::gabion.analysis.test_obsolescence_state.parse_state_payload E:decision_surface/direct::test_obsolescence_state.py::gabion.analysis.test_obsolescence_state.parse_state_payload::stale_2866f575ce7c_27ff8884
+# gabion:behavior primary=desired
 def test_state_payload_rejects_bad_baseline() -> None:
     with pytest.raises(ValueError):
         test_obsolescence_state.parse_state_payload(
@@ -58,6 +61,7 @@ def test_state_payload_rejects_bad_baseline() -> None:
 
 
 # gabion:evidence E:function_site::test_obsolescence_state.py::gabion.analysis.test_obsolescence_state.parse_state_payload E:decision_surface/direct::test_obsolescence_state.py::gabion.analysis.test_obsolescence_state.parse_state_payload::stale_953f851794b3
+# gabion:behavior primary=verboten facets=invalid
 def test_state_payload_skips_invalid_candidates(
     make_obsolescence_paramset_ref,
 ) -> None:
@@ -84,6 +88,7 @@ def test_state_payload_skips_invalid_candidates(
 
 
 # gabion:evidence E:call_footprint::tests/test_test_obsolescence_state.py::test_state_payload_ignores_non_list_candidates_payload::test_obsolescence.py::gabion.analysis.test_obsolescence.classify_candidates::test_obsolescence_state.py::gabion.analysis.test_obsolescence_state.build_state_payload::test_obsolescence_state.py::gabion.analysis.test_obsolescence_state.parse_state_payload
+# gabion:behavior primary=desired
 def test_state_payload_ignores_non_list_candidates_payload(
     make_obsolescence_paramset_ref,
 ) -> None:
@@ -110,6 +115,7 @@ def test_state_payload_ignores_non_list_candidates_payload(
 
 
 # gabion:evidence E:function_site::test_obsolescence_state.py::gabion.analysis.test_obsolescence_state.load_state E:decision_surface/direct::test_obsolescence_state.py::gabion.analysis.test_obsolescence_state.load_state::stale_6ccd66180a88
+# gabion:behavior primary=desired
 def test_state_payload_rejects_non_object(tmp_path: Path) -> None:
     state_path = tmp_path / "state.json"
     state_path.write_text(json.dumps(["nope"]), encoding="utf-8")

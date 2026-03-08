@@ -4,6 +4,7 @@ from gabion_governance.compliance_render import render_status_consistency_markdo
 from gabion_governance.sppf_audit.contracts import SppfStatusConsistencyResult
 
 
+# gabion:behavior primary=desired
 def test_render_status_consistency_markdown_includes_sections() -> None:
     rendered = render_status_consistency_markdown(
         SppfStatusConsistencyResult(violations=["v1"], warnings=["w1"])

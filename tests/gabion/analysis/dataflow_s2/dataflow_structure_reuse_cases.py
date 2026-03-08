@@ -19,6 +19,7 @@ def _load():
     )
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_reuse._record::child_count,value E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_reuse::min_count E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_reuse::stale_647c5a38c22b_2e7dfa65
+# gabion:behavior primary=desired
 def test_compute_structure_reuse_detects_repeated_subtrees() -> None:
     da = _load()
     snapshot = {
@@ -65,6 +66,7 @@ def test_compute_structure_reuse_detects_repeated_subtrees() -> None:
     assert any(location.startswith("a.py::f") for location in replacement_map)
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_reuse_lemma_stubs E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_reuse_lemma_stubs::stale_fb5b482d5857_c1880e7c
+# gabion:behavior primary=desired
 def test_render_reuse_lemma_stubs_includes_names() -> None:
     da = _load()
     reuse = {
@@ -87,6 +89,7 @@ def test_render_reuse_lemma_stubs_includes_names() -> None:
     assert payload.get("plans") == []
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_reuse._record::child_count,value E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_reuse::min_count E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_reuse::stale_001c41908b1c
+# gabion:behavior primary=desired
 def test_structure_reuse_prefers_declared_bundle_names(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"
@@ -121,6 +124,7 @@ def test_structure_reuse_prefers_declared_bundle_names(tmp_path: Path) -> None:
     assert reuse.get("warnings") == []
 
 
+# gabion:behavior primary=desired
 def test_compute_structure_reuse_candidate_generation_is_deterministic() -> None:
     da = _load()
     snapshot_a = {
@@ -147,6 +151,7 @@ def test_compute_structure_reuse_candidate_generation_is_deterministic() -> None
     assert sig_a == sig_b
 
 
+# gabion:behavior primary=desired
 def test_render_reuse_lemma_stubs_emits_plan_artifacts_from_reuse_suggestions() -> None:
     da = _load()
     snapshot = {

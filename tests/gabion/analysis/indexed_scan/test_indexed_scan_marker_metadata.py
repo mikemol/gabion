@@ -30,6 +30,7 @@ def _sort_once(values, *, key=None, **_kwargs):
 
 #
 # gabion:evidence E:function_site::indexed_scan/marker_metadata.py::gabion.analysis.indexed_scan.marker_metadata.keyword_string_literal E:function_site::indexed_scan/marker_metadata.py::gabion.analysis.indexed_scan.marker_metadata.never_reason
+# gabion:behavior primary=verboten facets=never
 def test_keyword_literal_and_never_reason_helpers() -> None:
     call = _call("never('boom', owner='team', expiry='2099-01-01')")
     assert marker_metadata.keyword_string_literal(call, "owner", check_deadline_fn=_check_deadline) == "team"
@@ -42,6 +43,7 @@ def test_keyword_literal_and_never_reason_helpers() -> None:
 
 #
 # gabion:evidence E:function_site::indexed_scan/marker_metadata.py::gabion.analysis.indexed_scan.marker_metadata.keyword_links_literal
+# gabion:behavior primary=desired
 def test_keyword_links_literal_filters_non_string_and_sorts() -> None:
     call = _call(
         "never(links=["
@@ -71,6 +73,7 @@ def test_keyword_links_literal_filters_non_string_and_sorts() -> None:
 
 #
 # gabion:evidence E:function_site::indexed_scan/marker_metadata.py::gabion.analysis.indexed_scan.marker_metadata.marker_alias_kind_map E:function_site::indexed_scan/marker_metadata.py::gabion.analysis.indexed_scan.marker_metadata.marker_kind_for_call E:function_site::indexed_scan/marker_metadata.py::gabion.analysis.indexed_scan.marker_metadata.never_marker_metadata
+# gabion:behavior primary=desired
 def test_alias_map_kind_resolution_and_marker_metadata() -> None:
     active_aliases, alias_map = marker_metadata.marker_alias_kind_map(
         ["custom.never"],

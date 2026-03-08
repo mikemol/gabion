@@ -225,7 +225,7 @@ def record_1cell(
         representative=str(representative),
         basis_path=normalized_basis,
     )
-    metadata_mapping = _payload_mapping_or_none(metadata)
+    metadata_mapping = _payload_mapping_optional(metadata)
     metadata_payload = (
         _as_json_value(
             {str(key): metadata_mapping[key] for key in metadata_mapping}
@@ -520,13 +520,13 @@ def finalize_execution_trace(
         state=state,
         equivalence_payload=equivalence_payload,
     )
-    resume_collection_payload = _payload_mapping_or_none(
+    resume_collection_payload = _payload_mapping_optional(
         semantic_surface_payloads.get("_resume_collection")
     )
-    latest_collection_progress_payload = _payload_mapping_or_none(
+    latest_collection_progress_payload = _payload_mapping_optional(
         semantic_surface_payloads.get("_latest_collection_progress")
     )
-    semantic_progress_payload = _payload_mapping_or_none(
+    semantic_progress_payload = _payload_mapping_optional(
         semantic_surface_payloads.get("_semantic_progress")
     )
     resume_snapshot: JSONObject = {
@@ -683,11 +683,11 @@ def _load_trace_payload_for_import(path: Path) -> JSONObject:
 
 
 @singledispatch
-def _payload_mapping_or_none(value: JSONValue) -> JSONObject | None:
+def _payload_mapping_optional(value: JSONValue) -> JSONObject | None:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
-@_payload_mapping_or_none.register(dict)
+@_payload_mapping_optional.register(dict)
 def _(value: dict[str, JSONValue]) -> JSONObject | None:
     return value
 
@@ -698,38 +698,38 @@ def _mapping_none(value: JSONValue) -> JSONObject | None:
 
 
 for _runtime_type in (list, tuple, set, str, int, float, bool, _NONE_TYPE):
-    _payload_mapping_or_none.register(_runtime_type)(_mapping_none)
+    _payload_mapping_optional.register(_runtime_type)(_mapping_none)
 
 
 @singledispatch
-def _parsed_two_cell_witness_or_none(
+def _parsed_two_cell_witness_optional(
     value: AspfTwoCellWitness | None,
 ) -> AspfTwoCellWitness | None:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
-@_parsed_two_cell_witness_or_none.register(AspfTwoCellWitness)
+@_parsed_two_cell_witness_optional.register(AspfTwoCellWitness)
 def _(value: AspfTwoCellWitness) -> AspfTwoCellWitness | None:
     return value
 
 
-@_parsed_two_cell_witness_or_none.register(_NONE_TYPE)
+@_parsed_two_cell_witness_optional.register(_NONE_TYPE)
 def _(value: None) -> AspfTwoCellWitness | None:
     _ = value
     return None
 
 
 @singledispatch
-def _normalized_two_cell_witnesses_or_empty(value: JSONValue) -> list[JSONObject]:
+def _normalized_two_cell_witnesses_default_empty(value: JSONValue) -> list[JSONObject]:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
-@_normalized_two_cell_witnesses_or_empty.register(list)
+@_normalized_two_cell_witnesses_default_empty.register(list)
 def _(value: list[object]) -> list[JSONObject]:
     return _normalize_two_cell_witness_payloads(value)
 
 
-@_normalized_two_cell_witnesses_or_empty.register(tuple)
+@_normalized_two_cell_witnesses_default_empty.register(tuple)
 def _(value: tuple[object, ...]) -> list[JSONObject]:
     return _normalize_two_cell_witness_payloads(value)
 
@@ -740,13 +740,13 @@ def _empty_two_cell_witnesses(value: JSONValue) -> list[JSONObject]:
 
 
 for _runtime_type in (dict, set, str, int, float, bool, _NONE_TYPE):
-    _normalized_two_cell_witnesses_or_empty.register(_runtime_type)(_empty_two_cell_witnesses)
+    _normalized_two_cell_witnesses_default_empty.register(_runtime_type)(_empty_two_cell_witnesses)
 
 
 def _normalize_two_cell_witness_payloads(payloads: Sequence[object]) -> list[JSONObject]:
     normalized_witnesses: list[JSONObject] = []
     for payload in payloads:
-        mapping_payload = _payload_mapping_or_none(payload)
+        mapping_payload = _payload_mapping_optional(payload)
         if mapping_payload is None:
             continue
         normalized_payload = {str(key): _as_json_value(mapping_payload[key]) for key in mapping_payload}
@@ -760,7 +760,7 @@ def _normalize_two_cell_witness_payloads(payloads: Sequence[object]) -> list[JSO
             normalized_witnesses.append(normalized_payload)
             continue
 
-        parsed = _parsed_two_cell_witness_or_none(parse_2cell_witness(normalized_payload))
+        parsed = _parsed_two_cell_witness_optional(parse_2cell_witness(normalized_payload))
         if parsed is None:
             continue
         normalized_payload["witness_id"] = parsed.witness_id
@@ -775,7 +775,7 @@ def _normalize_legacy_trace_payload(payload: Mapping[str, JSONValue]) -> JSONObj
     normalized_payload.setdefault("surface_representatives", {})
     normalized_payload.setdefault("one_cells", [])
     raw_two_cell_witnesses = normalized_payload.get("two_cell_witnesses", [])
-    normalized_payload["two_cell_witnesses"] = _normalized_two_cell_witnesses_or_empty(
+    normalized_payload["two_cell_witnesses"] = _normalized_two_cell_witnesses_default_empty(
         raw_two_cell_witnesses
     )
     normalized_payload.setdefault("cofibration_witnesses", [])
@@ -786,7 +786,7 @@ def _normalize_stream_trace_payload(payload: Mapping[str, JSONValue]) -> JSONObj
     raw_events = payload.get("events", ())
     normalized_events = []
     for event in raw_events:
-        event_mapping = _payload_mapping_or_none(event)
+        event_mapping = _payload_mapping_optional(event)
         if event_mapping is None:
             continue
         normalized_events.append(

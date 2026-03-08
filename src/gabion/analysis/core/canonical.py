@@ -4,7 +4,7 @@ import hashlib
 import json
 from collections.abc import Mapping, Sequence
 
-from gabion.analysis.foundation.resume_codec import sequence_or_none
+from gabion.analysis.foundation.resume_codec import sequence_optional
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.json_types import JSONValue
 from gabion.invariants import never
@@ -59,7 +59,7 @@ def digest_index(value: object) -> str:
 def _looks_multiset(value: list[object]) -> bool:
     match value:
         case [marker, pairs]:
-            return marker == "ms" and sequence_or_none(pairs) is not None
+            return marker == "ms" and sequence_optional(pairs) is not None
         case _:
             return False
 
@@ -69,7 +69,7 @@ def _canon_multiset(value: list[object]) -> JSONValue:
     if marker != "ms":
         never("multiset marker must be 'ms'", marker=marker)
     raw_pairs = value[1] if len(value) > 1 else None
-    pair_sequence = sequence_or_none(raw_pairs)
+    pair_sequence = sequence_optional(raw_pairs)
     if pair_sequence is None:
         never(
             "multiset payload must be a sequence",
@@ -79,7 +79,7 @@ def _canon_multiset(value: list[object]) -> JSONValue:
     counts: dict[str, tuple[JSONValue, int]] = {}
     for raw in pair_sequence:
         check_deadline()
-        pair = sequence_or_none(raw)
+        pair = sequence_optional(raw)
         if pair is None or len(pair) != 2:
             never("multiset pair must contain [value, count]", pair=raw)
         pair_value = canon(pair[0])

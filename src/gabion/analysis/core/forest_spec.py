@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from collections.abc import Iterable, Mapping
 
 from gabion.json_types import JSONValue
-from gabion.analysis.foundation.resume_codec import mapping_or_none
+from gabion.analysis.foundation.resume_codec import mapping_optional
 from gabion.order_contract import sort_once
 from gabion.analysis.foundation.timeout_context import check_deadline
 
@@ -367,7 +367,7 @@ def forest_spec_hash(spec: object) -> str:
             return spec_hash
         case ForestSpec() as spec_model:
             return forest_spec_hash_spec(spec_model)
-    spec_payload = mapping_or_none(spec) or {}
+    spec_payload = mapping_optional(spec) or {}
     return forest_spec_hash_spec(forest_spec_from_dict(spec_payload))
 
 

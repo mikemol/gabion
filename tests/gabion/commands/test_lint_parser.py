@@ -5,6 +5,7 @@ from gabion.commands.lint_parser import parse_lint_line
 
 
 # gabion:evidence E:call_footprint::tests/test_lint_parser.py::test_shared_lint_parser_contract_for_valid_line::lint_parser.py::gabion.commands.lint_parser.parse_lint_line::cli.py::gabion.cli._parse_lint_line::server.py::gabion.server._parse_lint_line_as_payload
+# gabion:behavior primary=desired
 def test_shared_lint_parser_contract_for_valid_line() -> None:
     line = "pkg/mod.py:12:34: DF001 message body"
 
@@ -19,6 +20,7 @@ def test_shared_lint_parser_contract_for_valid_line() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_lint_parser.py::test_shared_lint_parser_contract_for_malformed_lines::lint_parser.py::gabion.commands.lint_parser.parse_lint_line::cli.py::gabion.cli._parse_lint_line::server.py::gabion.server._parse_lint_line_as_payload
+# gabion:behavior primary=desired
 def test_shared_lint_parser_contract_for_malformed_lines() -> None:
     malformed_lines = ["not a lint row", "pkg/mod.py:1:2:", "pkg/mod.py:1:2:   "]
     for line in malformed_lines:

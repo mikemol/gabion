@@ -30,6 +30,7 @@ def _analyze(tmp_path: Path, source: str):
     return analysis
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::stale_8b3fea8f31e8
+# gabion:behavior primary=desired
 def test_invariant_extracts_len_equality(tmp_path: Path) -> None:
     source = textwrap.dedent(
         """
@@ -44,6 +45,7 @@ def test_invariant_extracts_len_equality(tmp_path: Path) -> None:
     )
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::stale_1443f277dde1
+# gabion:behavior primary=desired
 def test_invariant_extracts_param_equality(tmp_path: Path) -> None:
     source = textwrap.dedent(
         """
@@ -58,6 +60,7 @@ def test_invariant_extracts_param_equality(tmp_path: Path) -> None:
     )
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.analyze_paths::stale_a5888fa2ac2f
+# gabion:behavior primary=desired
 def test_invariant_ignores_non_param_asserts(tmp_path: Path) -> None:
     source = textwrap.dedent(
         """

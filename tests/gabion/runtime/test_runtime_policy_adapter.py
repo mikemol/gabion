@@ -18,6 +18,7 @@ from gabion.runtime.policy_runtime import (
 from tests.env_helpers import env_scope
 
 
+# gabion:behavior primary=desired
 def test_runtime_policy_from_env_maps_order_settings() -> None:
     with env_scope({"GABION_ORDER_POLICY": "enforce"}):
         config = runtime_policy_from_env()
@@ -25,11 +26,13 @@ def test_runtime_policy_from_env_maps_order_settings() -> None:
     assert config.order_policy.value == "enforce"
 
 
+# gabion:behavior primary=desired
 def test_ambient_env_does_not_change_order_contract_without_adapter() -> None:
     with env_scope({"GABION_ORDER_POLICY": "enforce"}):
         assert ordered_or_sorted(["b", "a"], source="ambient-env") == ["a", "b"]
 
 
+# gabion:behavior primary=desired
 def test_runtime_policy_scope_applies_order_policy_from_env_config() -> None:
     with env_scope({"GABION_ORDER_POLICY": "enforce"}):
         config = runtime_policy_from_env()
@@ -41,6 +44,7 @@ def test_runtime_policy_scope_applies_order_policy_from_env_config() -> None:
     raise AssertionError("expected enforce policy to reject unsorted input")
 
 
+# gabion:behavior primary=desired
 def test_runtime_policy_optional_order_policy_normalization_branches() -> None:
     with env_scope({"GABION_ORDER_POLICY": ""}):
         assert runtime_policy_from_env().order_policy is None
@@ -55,6 +59,7 @@ def test_runtime_policy_optional_order_policy_normalization_branches() -> None:
         assert runtime_policy_from_env().order_policy is None
 
 
+# gabion:behavior primary=desired
 def test_runtime_policy_from_env_parses_new_profile_fields() -> None:
     with env_scope(
         {
@@ -67,6 +72,7 @@ def test_runtime_policy_from_env_parses_new_profile_fields() -> None:
     assert config.marker_kind_profile is MarkerKindProfile.COLLAPSE_TO_NEVER
 
 
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_runtime_policy_from_env_rejects_legacy_profile_env() -> None:
     with env_scope({"GABION_INVARIANT_RUNTIME_BEHAVIOR_PROFILE": "warn"}):
         with pytest.raises(NeverThrown) as exc_info:
@@ -74,6 +80,7 @@ def test_runtime_policy_from_env_rejects_legacy_profile_env() -> None:
     assert "legacy invariant runtime behavior profile env is unsupported" in str(exc_info.value)
 
 
+# gabion:behavior primary=desired
 def test_apply_runtime_policy_updates_invariant_and_marker_profiles() -> None:
     from gabion.analysis.foundation.marker_protocol import set_runtime_marker_kind_mapping_config
     from gabion.invariants import set_invariant_runtime_behavior_config
@@ -97,6 +104,7 @@ def test_apply_runtime_policy_updates_invariant_and_marker_profiles() -> None:
         set_runtime_marker_kind_mapping_config(base_marker)
 
 
+# gabion:behavior primary=desired
 def test_runtime_policy_scope_restores_nested_profile_state() -> None:
     baseline_invariant = invariants.invariant_runtime_behavior_config()
     baseline_marker = runtime_marker_kind_mapping_config()

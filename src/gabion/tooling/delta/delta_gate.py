@@ -7,7 +7,7 @@ from typing import Mapping
 from gabion.json_types import JSONValue
 
 from gabion.runtime import env_policy, json_io
-from gabion.runtime_shape_dispatch import json_mapping_or_none
+from gabion.runtime_shape_dispatch import json_mapping_optional
 from gabion.tooling.governance.governance_rules import GatePolicy, load_governance_rules
 
 OBSOLESCENCE_OPAQUE_ENV_FLAG = "GABION_GATE_OPAQUE_DELTA"
@@ -98,7 +98,7 @@ def _enabled_truthy_only(env_flag: str, value: str | None = None) -> bool:
 def _nested_int(payload: Mapping[str, JSONValue], keys: tuple[str, ...]) -> int:
     node: object = payload
     for key in keys:
-        mapping_node = json_mapping_or_none(node)
+        mapping_node = json_mapping_optional(node)
         if mapping_node is None:
             return 0
         node = mapping_node.get(key)
@@ -120,7 +120,7 @@ def _load_payload(path: Path) -> tuple[Mapping[str, object] | None, str | None]:
         raw = json.loads(text)
     except json.JSONDecodeError as exc:
         return None, str(exc)
-    mapping_payload = json_mapping_or_none(raw)
+    mapping_payload = json_mapping_optional(raw)
     if mapping_payload is not None:
         return {str(key): mapping_payload[key] for key in mapping_payload}, None
     return None, None

@@ -6,6 +6,7 @@ import pytest
 
 
 # gabion:evidence E:function_site::server.py::gabion.server.code_action
+# gabion:behavior primary=desired
 def test_code_action_refactor_stub(tmp_path: Path) -> None:
     pygls = pytest.importorskip("pygls")
     lsprotocol = pytest.importorskip("lsprotocol")

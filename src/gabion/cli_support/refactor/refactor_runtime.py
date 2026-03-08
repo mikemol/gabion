@@ -8,7 +8,7 @@ import typer
 
 from gabion.json_types import JSONObject
 from gabion.lsp_client import run_command
-from gabion.runtime_shape_dispatch import json_mapping_or_none
+from gabion.runtime_shape_dispatch import json_mapping_optional
 
 Runner = Callable[..., JSONObject]
 
@@ -42,7 +42,7 @@ def run_refactor_protocol(
             loaded = json.loads(input_path.read_text())
         except json.JSONDecodeError as exc:
             raise typer.BadParameter(f"Invalid JSON payload: {exc}") from exc
-        normalized_loaded = json_mapping_or_none(loaded)
+        normalized_loaded = json_mapping_optional(loaded)
         if normalized_loaded is None:
             raise typer.BadParameter("Refactor payload must be a JSON object.")
         input_payload = {str(key): normalized_loaded[key] for key in normalized_loaded}

@@ -23,6 +23,7 @@ class _Prepared:
 
 
 # gabion:evidence E:call_footprint::tests/test_aspf_lifecycle.py::test_resume_import_policy_contract::aspf_lifecycle.py::gabion.tooling.aspf_lifecycle.run_with_aspf_lifecycle
+# gabion:behavior primary=desired
 def test_resume_import_policy_contract() -> None:
     disabled = aspf_lifecycle.AspfLifecycleConfig(
         enabled=False,
@@ -59,6 +60,7 @@ def test_resume_import_policy_contract() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_aspf_lifecycle.py::test_run_with_aspf_lifecycle_disabled_short_circuit::aspf_lifecycle.py::gabion.tooling.aspf_lifecycle.run_with_aspf_lifecycle
+# gabion:behavior primary=desired
 def test_run_with_aspf_lifecycle_disabled_short_circuit() -> None:
     result = aspf_lifecycle.run_with_aspf_lifecycle(
         config=None,
@@ -76,6 +78,7 @@ def test_run_with_aspf_lifecycle_disabled_short_circuit() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_aspf_lifecycle.py::test_run_with_aspf_lifecycle_enabled_records_state::aspf_lifecycle.py::gabion.tooling.aspf_lifecycle.run_with_aspf_lifecycle
+# gabion:behavior primary=desired
 def test_run_with_aspf_lifecycle_enabled_records_state(tmp_path: Path) -> None:
     recorded: dict[str, object] = {}
     state_path = tmp_path / "aspf_state.snapshot.json"
@@ -125,6 +128,7 @@ def test_run_with_aspf_lifecycle_enabled_records_state(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_aspf_lifecycle.py::test_run_with_aspf_lifecycle_enabled_missing_state_defaults_to_exit_status::aspf_lifecycle.py::gabion.tooling.aspf_lifecycle.run_with_aspf_lifecycle
+# gabion:behavior primary=verboten facets=missing
 def test_run_with_aspf_lifecycle_enabled_missing_state_defaults_to_exit_status() -> None:
     state_path = Path("/tmp/nonexistent.snapshot.json")
     prepared = _Prepared(
@@ -160,6 +164,7 @@ def test_run_with_aspf_lifecycle_enabled_missing_state_defaults_to_exit_status()
 
 
 # gabion:evidence E:function_site::tests/test_aspf_lifecycle.py::test_run_with_aspf_lifecycle_missing_state_uses_analysis_state_hint
+# gabion:behavior primary=verboten facets=missing
 def test_run_with_aspf_lifecycle_missing_state_uses_analysis_state_hint() -> None:
     state_path = Path("/tmp/nonexistent.snapshot.json")
     prepared = _Prepared(
@@ -195,6 +200,7 @@ def test_run_with_aspf_lifecycle_missing_state_uses_analysis_state_hint() -> Non
 
 
 # gabion:evidence E:call_footprint::tests/test_aspf_lifecycle.py::test_run_with_aspf_lifecycle_record_failure_raises::aspf_lifecycle.py::gabion.tooling.aspf_lifecycle.run_with_aspf_lifecycle
+# gabion:behavior primary=verboten facets=raises
 def test_run_with_aspf_lifecycle_record_failure_raises() -> None:
     prepared = _Prepared(
         sequence=1,

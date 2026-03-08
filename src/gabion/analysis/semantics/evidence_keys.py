@@ -4,7 +4,7 @@ import hashlib
 import json
 from dataclasses import dataclass
 from typing import Callable, Iterable, Mapping, Sequence, cast
-from gabion.analysis.foundation.resume_codec import mapping_or_none, sequence_or_none
+from gabion.analysis.foundation.resume_codec import mapping_optional, sequence_optional
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.order_contract import sort_once
 
@@ -25,27 +25,27 @@ def normalize_reason(value: str) -> str:
     return " ".join(str(value).strip().split())
 
 
-def _mapping_or_empty(value: object) -> Mapping[str, object]:
-    mapping = mapping_or_none(value)
+def _mapping_default_empty(value: object) -> Mapping[str, object]:
+    mapping = mapping_optional(value)
     if mapping is None:
         return {}
     return cast(Mapping[str, object], mapping)
 
 
-def _sequence_or_empty(value: object) -> Sequence[object]:
-    sequence = sequence_or_none(value)
+def _sequence_default_empty(value: object) -> Sequence[object]:
+    sequence = sequence_optional(value)
     if sequence is None:
         return ()
     return cast(Sequence[object], sequence)
 
 
 def _normalize_target(target: object) -> object:
-    target_mapping = mapping_or_none(target)
+    target_mapping = mapping_optional(target)
     if target_mapping is not None:
         path = str(target_mapping.get("path", "") or "").strip()
         qual = str(target_mapping.get("qual", "") or "").strip()
     else:
-        target_sequence = _sequence_or_empty(target)
+        target_sequence = _sequence_default_empty(target)
         if len(target_sequence) < 2:
             return None
         path = str(target_sequence[0]).strip()
@@ -57,7 +57,7 @@ def _normalize_target(target: object) -> object:
 
 def _normalize_span(value: object) -> list[int]:
     check_deadline()
-    mapping_value = mapping_or_none(value)
+    mapping_value = mapping_optional(value)
     if mapping_value is not None:
         parts = [
             mapping_value.get("line"),
@@ -66,7 +66,7 @@ def _normalize_span(value: object) -> list[int]:
             mapping_value.get("end_col"),
         ]
     else:
-        parts = list(_sequence_or_empty(value))
+        parts = list(_sequence_default_empty(value))
     if len(parts) != 4:
         return []
     normalized: list[int] = []
@@ -83,13 +83,13 @@ def _normalize_span(value: object) -> list[int]:
 
 
 def _normalize_site(site: object) -> dict[str, object]:
-    site_mapping = mapping_or_none(site)
+    site_mapping = mapping_optional(site)
     if site_mapping is not None:
         path = str(site_mapping.get("path", "") or "").strip()
         qual = str(site_mapping.get("qual", "") or "").strip()
         span = _normalize_span(site_mapping.get("span"))
     else:
-        site_sequence = _sequence_or_empty(site)
+        site_sequence = _sequence_default_empty(site)
         if len(site_sequence) < 2:
             return {"path": "", "qual": ""}
         path = str(site_sequence[0]).strip()
@@ -244,14 +244,14 @@ def make_partition_witness_key(
         "site": _normalize_site(site),
         "ambiguity": normalize_key(ambiguity),
     }
-    support_mapping = mapping_or_none(support)
+    support_mapping = mapping_optional(support)
     if support_mapping:
         payload["support"] = {
             str(key): str(value).strip()
             for key, value in support_mapping.items()
             if str(value).strip()
         }
-    collapse_mapping = mapping_or_none(collapse)
+    collapse_mapping = mapping_optional(collapse)
     if collapse_mapping:
         payload["collapse"] = {
             str(key): str(value).strip()
@@ -274,17 +274,17 @@ def normalize_key(key: Mapping[str, object]) -> dict[str, object]:
             case str() as params_text:
                 params_values: Iterable[str] = params_text.split(",")
             case _:
-                params_values = (str(value) for value in _sequence_or_empty(params_payload))
+                params_values = (str(value) for value in _sequence_default_empty(params_payload))
         return make_paramset_key(params_values)
     if kind == "decision_surface":
         mode = str(key.get("m", "direct") or "direct")
-        site = _mapping_or_empty(key.get("site", {}))
+        site = _mapping_default_empty(key.get("site", {}))
         path = str(site.get("path", "") or "")
         qual = str(site.get("qual", "") or "")
         param = str(key.get("param", "") or "")
         return make_decision_surface_key(mode=mode, path=path, qual=qual, param=param)
     if kind == "never_sink":
-        site = _mapping_or_empty(key.get("site", {}))
+        site = _mapping_default_empty(key.get("site", {}))
         path = str(site.get("path", "") or "")
         qual = str(site.get("qual", "") or "")
         param = str(key.get("param", "") or "")
@@ -296,22 +296,22 @@ def normalize_key(key: Mapping[str, object]) -> dict[str, object]:
             reason=str(reason) if reason else None,
         )
     if kind == "function_site":
-        site = _mapping_or_empty(key.get("site", {}))
+        site = _mapping_default_empty(key.get("site", {}))
         path = str(site.get("path", "") or "")
         qual = str(site.get("qual", "") or "")
         return make_function_site_key(path=path, qual=qual)
     if kind == "call_footprint":
-        site = _mapping_or_empty(key.get("site", {}))
+        site = _mapping_default_empty(key.get("site", {}))
         path = str(site.get("path", "") or "")
         qual = str(site.get("qual", "") or "")
-        targets = _sequence_or_empty(key.get("targets", []))
+        targets = _sequence_default_empty(key.get("targets", []))
         return make_call_footprint_key(
             path=path,
             qual=qual,
             targets=targets,
         )
     if kind == "call_cluster":
-        targets = _sequence_or_empty(key.get("targets", []))
+        targets = _sequence_default_empty(key.get("targets", []))
         return make_call_cluster_key(
             targets=targets,
         )
@@ -320,8 +320,8 @@ def normalize_key(key: Mapping[str, object]) -> dict[str, object]:
         normalized_site = _normalize_site(site)
         path = str(normalized_site.get("path", "") or "")
         qual = str(normalized_site.get("qual", "") or "")
-        span = _sequence_or_empty(normalized_site.get("span", []))
-        candidates = _sequence_or_empty(key.get("candidates", []))
+        span = _sequence_default_empty(normalized_site.get("span", []))
+        candidates = _sequence_default_empty(key.get("candidates", []))
         return make_ambiguity_set_key(
             path=path,
             qual=qual,
@@ -336,8 +336,8 @@ def normalize_key(key: Mapping[str, object]) -> dict[str, object]:
         collapse = key.get("collapse")
         return make_partition_witness_key(
             kind=kind_value,
-            site=_mapping_or_empty(site),
-            ambiguity=_mapping_or_empty(ambiguity),
+            site=_mapping_default_empty(site),
+            ambiguity=_mapping_default_empty(ambiguity),
             support=support,
             collapse=collapse,
         )
@@ -380,7 +380,7 @@ def render_display(
         return str(normalized.get("s", "") or "")
     if kind == "paramset":
         params = normalized.get("params", [])
-        joined = ",".join(str(p) for p in _sequence_or_empty(params))
+        joined = ",".join(str(p) for p in _sequence_default_empty(params))
         return f"E:paramset::{joined}" if joined else "E:paramset"
     if kind == "decision_surface":
         mode = str(normalized.get("m", "direct") or "direct")
@@ -405,10 +405,10 @@ def render_display(
         path = str(site.get("path", "") or "")
         qual = str(site.get("qual", "") or "")
         parts = [path, qual]
-        targets = _sequence_or_empty(normalized.get("targets", []))
+        targets = _sequence_default_empty(normalized.get("targets", []))
         for target in targets:
             check_deadline()
-            target_map = mapping_or_none(target)
+            target_map = mapping_optional(target)
             if target_map is not None:
                 target_path = str(target_map.get("path", "") or "")
                 target_qual = str(target_map.get("qual", "") or "")
@@ -416,11 +416,11 @@ def render_display(
                     parts.extend([target_path, target_qual])
         return "E:call_footprint::" + "::".join(parts)
     if kind == "call_cluster":
-        targets = _sequence_or_empty(normalized.get("targets", []))
+        targets = _sequence_default_empty(normalized.get("targets", []))
         parts: list[str] = []
         for target in targets:
             check_deadline()
-            target_map = mapping_or_none(target)
+            target_map = mapping_optional(target)
             if target_map is not None:
                 target_path = str(target_map.get("path", "") or "")
                 target_qual = str(target_map.get("qual", "") or "")
@@ -499,7 +499,7 @@ def parse_display(display: str) -> object:
             payload = json.loads("::".join(rest))
         except json.JSONDecodeError:
             return None
-        payload_mapping = mapping_or_none(payload)
+        payload_mapping = mapping_optional(payload)
         if payload_mapping is not None:
             return normalize_key(cast(Mapping[str, object], payload_mapping))
         return None
@@ -511,7 +511,7 @@ def parse_display(display: str) -> object:
             payload = json.loads("::".join(rest))
         except json.JSONDecodeError:
             return None
-        payload_mapping = mapping_or_none(payload)
+        payload_mapping = mapping_optional(payload)
         if payload_mapping is not None:
             return normalize_key(cast(Mapping[str, object], payload_mapping))
         return None

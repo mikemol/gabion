@@ -91,6 +91,7 @@ def _build_rich_report(*, forest: Forest) -> ReportCarrier:
     )
 
 
+# gabion:behavior primary=desired
 def test_preview_section_lines_rich_report_covers_all_sections() -> None:
     forest = Forest()
     file_node = forest.add_file_site("pkg/a.py")
@@ -134,6 +135,7 @@ def test_preview_section_lines_rich_report_covers_all_sections() -> None:
     assert any("`stage[unknown]`: `1`" in line for line in parse_failures)
 
 
+# gabion:behavior primary=verboten facets=empty
 def test_preview_section_lines_empty_paths_cover_empty_branches() -> None:
     report = ReportCarrier(forest=Forest())
     groups: dict[Path, dict[str, list[set[str]]]] = {}
@@ -170,6 +172,7 @@ def test_preview_section_lines_empty_paths_cover_empty_branches() -> None:
     ]
 
 
+# gabion:behavior primary=desired
 def test_known_violation_lines_merges_sources_and_dedupes() -> None:
     report = ReportCarrier(
         forest=Forest(),
@@ -205,6 +208,7 @@ def test_known_violation_lines_merges_sources_and_dedupes() -> None:
     assert any("parse_failure" in line for line in lines)
 
 
+# gabion:behavior primary=verboten facets=never,raises
 def test_preview_unknown_section_raises_never() -> None:
     with pytest.raises(NeverThrown):
         bridge.preview_section_lines(
@@ -214,6 +218,7 @@ def test_preview_unknown_section_raises_never() -> None:
         )
 
 
+# gabion:behavior primary=desired
 def test_preview_sections_cover_no_sample_and_no_violation_paths() -> None:
     report = ReportCarrier(
         forest=Forest(),

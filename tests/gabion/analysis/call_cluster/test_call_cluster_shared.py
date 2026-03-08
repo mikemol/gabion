@@ -7,6 +7,7 @@ from gabion.analysis.semantics.report_doc import ReportDoc
 
 
 # gabion:evidence E:call_footprint::tests/test_call_cluster_shared.py::test_cluster_identity_from_key_and_sorted_unique_strings::call_cluster_shared.py::gabion.analysis.call_cluster_shared.cluster_identity_from_key::call_cluster_shared.py::gabion.analysis.call_cluster_shared.sorted_unique_strings::evidence_keys.py::gabion.analysis.evidence_keys.make_call_cluster_key
+# gabion:behavior primary=desired
 def test_cluster_identity_from_key_and_sorted_unique_strings() -> None:
     metadata = cluster_identity_from_key(
         evidence_keys.make_call_cluster_key(
@@ -19,6 +20,7 @@ def test_cluster_identity_from_key_and_sorted_unique_strings() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_call_cluster_shared.py::test_render_cluster_heading_and_non_empty_codeblock::call_cluster_shared.py::gabion.analysis.call_cluster_shared.render_cluster_heading::call_cluster_shared.py::gabion.analysis.call_cluster_shared.render_string_codeblock
+# gabion:behavior primary=verboten facets=empty
 def test_render_cluster_heading_and_non_empty_codeblock() -> None:
     doc = ReportDoc("out_call_cluster_shared")
     render_cluster_heading(doc, display="Cluster", count=2)
@@ -29,6 +31,7 @@ def test_render_cluster_heading_and_non_empty_codeblock() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_call_cluster_shared.py::test_render_string_codeblock_skips_empty_values::call_cluster_shared.py::gabion.analysis.call_cluster_shared.render_string_codeblock
+# gabion:behavior primary=verboten facets=empty
 def test_render_string_codeblock_skips_empty_values() -> None:
     doc = ReportDoc("out_call_cluster_shared_empty")
     render_string_codeblock(doc, [])

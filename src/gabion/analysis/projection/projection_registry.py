@@ -10,7 +10,7 @@ from gabion.analysis.projection.projection_normalize import (
     normalize_spec, spec_canonical_json, spec_hash)
 from gabion.analysis.projection.projection_spec import ProjectionOp, ProjectionSpec
 from gabion.analysis.aspf.aspf import Forest
-from gabion.analysis.foundation.resume_codec import mapping_or_none
+from gabion.analysis.foundation.resume_codec import mapping_optional
 from gabion.analysis.foundation.timeout_context import (
     Deadline, deadline_clock_scope, deadline_scope, forest_scope)
 from gabion.deadline_clock import GasMeter
@@ -590,7 +590,7 @@ def spec_metadata_lines(spec: ProjectionSpec) -> list[str]:
 
 def spec_metadata_lines_from_payload(payload: Mapping[str, JSONValue]) -> list[str]:
     spec_id = str(payload.get("generated_by_spec_id", "") or "")
-    spec_payload = mapping_or_none(payload.get("generated_by_spec")) or {}
+    spec_payload = mapping_optional(payload.get("generated_by_spec")) or {}
     spec_json = json.dumps(spec_payload, sort_keys=False, separators=(",", ":"))
     return [
         f"generated_by_spec_id: {spec_id}",

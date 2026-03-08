@@ -94,6 +94,7 @@ def _make_proc_with_cmd_result(returncode: int | None, stderr_bytes: bytes, cmd_
 
 
 # gabion:evidence E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::request_id E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::stale_3eb94cc82057
+# gabion:behavior primary=verboten facets=nonzero,raises
 def test_run_command_raises_on_nonzero_returncode() -> None:
     def factory(*_args, **_kwargs):
         return _make_proc(1, b"boom")
@@ -104,6 +105,7 @@ def test_run_command_raises_on_nonzero_returncode() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_client_run_command_di.py::test_run_command_rejects_missing_payload_arguments::lsp_client.py::gabion.lsp_client.run_command::test_lsp_client_run_command_di.py::tests.test_lsp_client_run_command_di._make_proc
+# gabion:behavior primary=verboten facets=missing
 def test_run_command_rejects_missing_payload_arguments() -> None:
     created = False
 
@@ -122,6 +124,7 @@ def test_run_command_rejects_missing_payload_arguments() -> None:
 
 
 # gabion:evidence E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::request_id E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::stale_6763a4f41f9c
+# gabion:behavior primary=verboten facets=raises
 def test_run_command_raises_on_stderr_output() -> None:
     def factory(*_args, **_kwargs):
         return _make_proc(0, b"warning")
@@ -132,6 +135,7 @@ def test_run_command_raises_on_stderr_output() -> None:
 
 
 # gabion:evidence E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::request_id E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::stale_299037338a45
+# gabion:behavior primary=desired
 def test_run_command_allows_blank_stderr() -> None:
     def factory(*_args, **_kwargs):
         return _make_proc(0, b"\n")
@@ -141,6 +145,7 @@ def test_run_command_allows_blank_stderr() -> None:
 
 
 # gabion:evidence E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::request_id E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::stale_8a892f76e117
+# gabion:behavior primary=desired
 def test_run_command_rejects_non_object_result() -> None:
     def factory(*_args, **_kwargs):
         return _make_proc_with_cmd_result(0, b"", [])
@@ -151,6 +156,7 @@ def test_run_command_rejects_non_object_result() -> None:
 
 
 # gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client.run_command E:decision_surface/direct::lsp_client.py::gabion.lsp_client.run_command::stale_9c0e201410b1
+# gabion:behavior primary=verboten facets=timeout
 def test_run_command_uses_explicit_timeout() -> None:
     proc = _make_proc(0, b"")
 
@@ -171,16 +177,19 @@ def test_run_command_uses_explicit_timeout() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_client_run_command_di.py::test_analysis_timeout_slack_floor::lsp_client.py::gabion.lsp_client._analysis_timeout_slack_ns
+# gabion:behavior primary=verboten facets=timeout
 def test_analysis_timeout_slack_floor() -> None:
     assert _analysis_timeout_slack_ns(10_000_000) == 2_000_000_000
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_client_run_command_di.py::test_analysis_timeout_slack_cap::lsp_client.py::gabion.lsp_client._analysis_timeout_slack_ns
+# gabion:behavior primary=verboten facets=timeout
 def test_analysis_timeout_slack_cap() -> None:
     assert _analysis_timeout_slack_ns(1_000_000_000_000) == 120_000_000_000
 
 
 # gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client.run_command E:decision_surface/direct::lsp_client.py::gabion.lsp_client.run_command::stale_ac0db42135fa
+# gabion:behavior primary=verboten facets=timeout
 def test_run_command_injects_analysis_timeout_ticks() -> None:
     proc = _make_proc(0, b"")
 
@@ -203,6 +212,7 @@ def test_run_command_injects_analysis_timeout_ticks() -> None:
 
 
 # gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client.run_command E:decision_surface/direct::lsp_client.py::gabion.lsp_client.run_command::stale_2fae7f37df36
+# gabion:behavior primary=verboten facets=timeout
 def test_run_command_preserves_lower_analysis_timeout_ticks() -> None:
     proc = _make_proc(0, b"")
 
@@ -227,6 +237,7 @@ def test_run_command_preserves_lower_analysis_timeout_ticks() -> None:
 
 
 # gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client.run_command E:decision_surface/direct::lsp_client.py::gabion.lsp_client.run_command::stale_9225503d98a8
+# gabion:behavior primary=verboten facets=invalid,timeout
 def test_run_command_overrides_invalid_analysis_timeout_ticks() -> None:
     proc = _make_proc(0, b"")
 
@@ -247,6 +258,7 @@ def test_run_command_overrides_invalid_analysis_timeout_ticks() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_client_run_command_di.py::test_run_command_rejects_missing_analysis_timeout_tick_ns::env_helpers.py::tests.env_helpers.restore_env::env_helpers.py::tests.env_helpers.set_env::lsp_client.py::gabion.lsp_client.run_command::test_lsp_client_run_command_di.py::tests.test_lsp_client_run_command_di._make_proc
+# gabion:behavior primary=verboten facets=missing,timeout
 def test_run_command_rejects_missing_analysis_timeout_tick_ns() -> None:
     proc = _make_proc(0, b"")
 
@@ -265,6 +277,7 @@ def test_run_command_rejects_missing_analysis_timeout_tick_ns() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_client_run_command_di.py::test_run_command_rejects_zero_analysis_timeout_tick_ns::env_helpers.py::tests.env_helpers.restore_env::env_helpers.py::tests.env_helpers.set_env::lsp_client.py::gabion.lsp_client.run_command::test_lsp_client_run_command_di.py::tests.test_lsp_client_run_command_di._make_proc
+# gabion:behavior primary=verboten facets=timeout
 def test_run_command_rejects_zero_analysis_timeout_tick_ns() -> None:
     proc = _make_proc(0, b"")
 
@@ -283,6 +296,7 @@ def test_run_command_rejects_zero_analysis_timeout_tick_ns() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_client_run_command_di.py::test_run_command_preserves_lower_analysis_timeout_ms::env_helpers.py::tests.env_helpers.restore_env::env_helpers.py::tests.env_helpers.set_env::lsp_client.py::gabion.lsp_client.run_command::test_lsp_client_run_command_di.py::tests.test_lsp_client_run_command_di._extract_rpc_messages::test_lsp_client_run_command_di.py::tests.test_lsp_client_run_command_di._make_proc
+# gabion:behavior primary=verboten facets=timeout
 def test_run_command_preserves_lower_analysis_timeout_ms() -> None:
     proc = _make_proc(0, b"")
 
@@ -307,6 +321,7 @@ def test_run_command_preserves_lower_analysis_timeout_ms() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_client_run_command_di.py::test_run_command_preserves_lower_analysis_timeout_seconds::env_helpers.py::tests.env_helpers.restore_env::env_helpers.py::tests.env_helpers.set_env::lsp_client.py::gabion.lsp_client.run_command::test_lsp_client_run_command_di.py::tests.test_lsp_client_run_command_di._extract_rpc_messages::test_lsp_client_run_command_di.py::tests.test_lsp_client_run_command_di._make_proc
+# gabion:behavior primary=verboten facets=timeout
 def test_run_command_preserves_lower_analysis_timeout_seconds() -> None:
     proc = _make_proc(0, b"")
 
@@ -331,6 +346,7 @@ def test_run_command_preserves_lower_analysis_timeout_seconds() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_client_run_command_di.py::test_run_command_overrides_invalid_analysis_timeout_seconds::env_helpers.py::tests.env_helpers.restore_env::env_helpers.py::tests.env_helpers.set_env::lsp_client.py::gabion.lsp_client.run_command::test_lsp_client_run_command_di.py::tests.test_lsp_client_run_command_di._make_proc
+# gabion:behavior primary=verboten facets=invalid,timeout
 def test_run_command_overrides_invalid_analysis_timeout_seconds() -> None:
     proc = _make_proc(0, b"")
 
@@ -351,6 +367,7 @@ def test_run_command_overrides_invalid_analysis_timeout_seconds() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_client_run_command_di.py::test_run_command_rejects_zero_analysis_timeout_seconds::env_helpers.py::tests.env_helpers.restore_env::env_helpers.py::tests.env_helpers.set_env::lsp_client.py::gabion.lsp_client.run_command::test_lsp_client_run_command_di.py::tests.test_lsp_client_run_command_di._make_proc
+# gabion:behavior primary=verboten facets=timeout
 def test_run_command_rejects_zero_analysis_timeout_seconds() -> None:
     proc = _make_proc(0, b"")
 
@@ -371,6 +388,7 @@ def test_run_command_rejects_zero_analysis_timeout_seconds() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_client_run_command_di.py::test_run_command_overrides_invalid_analysis_timeout_ms::env_helpers.py::tests.env_helpers.restore_env::env_helpers.py::tests.env_helpers.set_env::lsp_client.py::gabion.lsp_client.run_command::test_lsp_client_run_command_di.py::tests.test_lsp_client_run_command_di._make_proc
+# gabion:behavior primary=verboten facets=invalid,timeout
 def test_run_command_overrides_invalid_analysis_timeout_ms() -> None:
     proc = _make_proc(0, b"")
 
@@ -391,6 +409,7 @@ def test_run_command_overrides_invalid_analysis_timeout_ms() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_client_run_command_di.py::test_run_command_rejects_zero_analysis_timeout_ms::env_helpers.py::tests.env_helpers.restore_env::env_helpers.py::tests.env_helpers.set_env::lsp_client.py::gabion.lsp_client.run_command::test_lsp_client_run_command_di.py::tests.test_lsp_client_run_command_di._make_proc
+# gabion:behavior primary=verboten facets=timeout
 def test_run_command_rejects_zero_analysis_timeout_ms() -> None:
     proc = _make_proc(0, b"")
 
@@ -411,6 +430,7 @@ def test_run_command_rejects_zero_analysis_timeout_ms() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_client_run_command_di.py::test_run_command_tick_ns_clamps_to_remaining::lsp_client.py::gabion.lsp_client.run_command::test_lsp_client_run_command_di.py::tests.test_lsp_client_run_command_di._extract_rpc_messages::test_lsp_client_run_command_di.py::tests.test_lsp_client_run_command_di._make_proc
+# gabion:behavior primary=desired
 def test_run_command_tick_ns_clamps_to_remaining() -> None:
     proc = _make_proc(0, b"")
 
@@ -433,6 +453,7 @@ def test_run_command_tick_ns_clamps_to_remaining() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_client_run_command_di.py::test_run_command_rejects_zero_timeout_ticks::lsp_client.py::gabion.lsp_client.run_command::test_lsp_client_run_command_di.py::tests.test_lsp_client_run_command_di._make_proc
+# gabion:behavior primary=verboten facets=timeout
 def test_run_command_rejects_zero_timeout_ticks() -> None:
     proc = _make_proc(0, b"")
 
@@ -450,6 +471,7 @@ def test_run_command_rejects_zero_timeout_ticks() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_client_run_command_di.py::test_run_command_rejects_zero_tick_ns::lsp_client.py::gabion.lsp_client.run_command::test_lsp_client_run_command_di.py::tests.test_lsp_client_run_command_di._make_proc
+# gabion:behavior primary=desired
 def test_run_command_rejects_zero_tick_ns() -> None:
     proc = _make_proc(0, b"")
 
@@ -467,12 +489,14 @@ def test_run_command_rejects_zero_tick_ns() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_client_run_command_di.py::test_remaining_deadline_ns_raises_when_expired::lsp_client.py::gabion.lsp_client._remaining_deadline_ns
+# gabion:behavior primary=verboten facets=raises
 def test_remaining_deadline_ns_raises_when_expired() -> None:
     with pytest.raises(NeverThrown):
         _remaining_deadline_ns(0)
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_client_run_command_di.py::test_run_command_uses_unbuffered_stdio::lsp_client.py::gabion.lsp_client.run_command::test_lsp_client_run_command_di.py::tests.test_lsp_client_run_command_di._make_proc
+# gabion:behavior primary=desired
 def test_run_command_uses_unbuffered_stdio() -> None:
     proc = _make_proc(0, b"")
     captured: dict[str, object] = {}
@@ -491,6 +515,7 @@ def test_run_command_uses_unbuffered_stdio() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_lsp_client_run_command_di.py::test_run_command_handles_shutdown_timeout::lsp_client.py::gabion.lsp_client.run_command::test_lsp_client_run_command_di.py::tests.test_lsp_client_run_command_di._rpc_message
+# gabion:behavior primary=verboten facets=timeout
 def test_run_command_handles_shutdown_timeout() -> None:
     init = _rpc_message({"jsonrpc": "2.0", "id": 1, "result": {}})
     cmd = _rpc_message({"jsonrpc": "2.0", "id": 2, "result": {}})

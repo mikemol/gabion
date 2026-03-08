@@ -12,6 +12,7 @@ def _write(path: Path, content: str) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_scan_and_cache::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
+# gabion:behavior primary=desired
 def test_policy_scanner_suite_scan_and_cache(tmp_path: Path) -> None:
     root = tmp_path
     _write(
@@ -42,6 +43,8 @@ def test_policy_scanner_suite_scan_and_cache(tmp_path: Path) -> None:
     assert first.total_violations() > 0
     assert policy_scanner_suite.violations_for_rule(first, rule="branchless")
     assert policy_scanner_suite.violations_for_rule(first, rule="defensive_fallback")
+    assert policy_scanner_suite.violations_for_rule(first, rule="fiber_loop_structure_contract") == []
+    assert policy_scanner_suite.violations_for_rule(first, rule="fiber_filter_processor_contract") == []
     assert policy_scanner_suite.violations_for_rule(first, rule="fiber_scalar_sentinel_contract")
     assert policy_scanner_suite.violations_for_rule(first, rule="fiber_type_dispatch_contract") == []
     assert policy_scanner_suite.violations_for_rule(first, rule="no_monkeypatch")
@@ -65,6 +68,7 @@ def test_policy_scanner_suite_scan_and_cache(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_cache_invalidation_and_payload_normalization::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
+# gabion:behavior primary=desired
 def test_policy_scanner_suite_cache_invalidation_and_payload_normalization(
     tmp_path: Path,
 ) -> None:
@@ -88,6 +92,8 @@ def test_policy_scanner_suite_cache_invalidation_and_payload_normalization(
     assert normalized.cached is True
     assert normalized.violations_by_rule["branchless"] == []
     assert normalized.violations_by_rule["defensive_fallback"] == []
+    assert normalized.violations_by_rule["fiber_loop_structure_contract"] == []
+    assert normalized.violations_by_rule["fiber_filter_processor_contract"] == []
     assert normalized.violations_by_rule["fiber_scalar_sentinel_contract"] == []
     assert normalized.violations_by_rule["fiber_type_dispatch_contract"] == []
     assert normalized.violations_by_rule["no_monkeypatch"] == []
@@ -114,6 +120,7 @@ def test_policy_scanner_suite_cache_invalidation_and_payload_normalization(
 
 
 # gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_private_cache_and_payload_branches::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
+# gabion:behavior primary=desired
 def test_policy_scanner_suite_private_cache_and_payload_branches(
     tmp_path: Path,
 ) -> None:
@@ -134,12 +141,16 @@ def test_policy_scanner_suite_private_cache_and_payload_branches(
                 "no_monkeypatch": {"bad": "shape"},
                 "branchless": [],
                 "defensive_fallback": [],
+                "fiber_loop_structure_contract": [],
+                "fiber_filter_processor_contract": [],
                 "fiber_scalar_sentinel_contract": [],
             }
         }
     )
     assert normalized["no_monkeypatch"] == []
     assert normalized["orchestrator_primitive_barrel"] == []
+    assert normalized["fiber_loop_structure_contract"] == []
+    assert normalized["fiber_filter_processor_contract"] == []
     assert normalized["fiber_scalar_sentinel_contract"] == []
     assert normalized["fiber_type_dispatch_contract"] == []
     assert normalized["typing_surface"] == []
@@ -152,6 +163,7 @@ def test_policy_scanner_suite_private_cache_and_payload_branches(
 
 
 # gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_scan_with_explicit_nonstandard_files::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
+# gabion:behavior primary=desired
 def test_policy_scanner_suite_scan_with_explicit_nonstandard_files(tmp_path: Path) -> None:
     root = tmp_path
     external_file = root / "external.py"
@@ -164,6 +176,7 @@ def test_policy_scanner_suite_scan_with_explicit_nonstandard_files(tmp_path: Pat
     assert result.total_violations() == 0
 
 
+# gabion:behavior primary=desired
 def test_policy_scanner_suite_flags_fiber_type_dispatch_contract(
     tmp_path: Path,
 ) -> None:
@@ -189,7 +202,71 @@ def test_policy_scanner_suite_flags_fiber_type_dispatch_contract(
     assert any(item.get("kind") == "manual_type_guard" for item in violations)
 
 
+# gabion:behavior primary=desired
+def test_policy_scanner_suite_flags_fiber_loop_structure_contract(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path
+    _write(
+        root / "src/gabion/loop_structure_sample.py",
+        "\n".join(
+            [
+                "def nested(values):",
+                "    for outer in values:",
+                "        for inner in outer:",
+                "            yield inner",
+                "",
+                "def single(values):",
+                "    for value in values:",
+                "        print(value)",
+            ]
+        )
+        + "\n",
+    )
+    result = policy_scanner_suite.scan_policy_suite(root=root)
+    violations = policy_scanner_suite.violations_for_rule(
+        result,
+        rule="fiber_loop_structure_contract",
+    )
+    assert violations
+    kinds = {str(item.get("kind", "")) for item in violations}
+    assert "nested_loop" in kinds
+    assert "single_loop_non_generator" in kinds
+
+
+# gabion:behavior primary=desired
+def test_policy_scanner_suite_flags_fiber_filter_processor_contract(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path
+    _write(
+        root / "src/gabion/filter_processor_sample.py",
+        "\n".join(
+            [
+                "def process(values):",
+                "    for value in values:",
+                "        if value:",
+                "            yield value",
+                "",
+                "def comp(values):",
+                "    return [value for value in values if value]",
+            ]
+        )
+        + "\n",
+    )
+    result = policy_scanner_suite.scan_policy_suite(root=root)
+    violations = policy_scanner_suite.violations_for_rule(
+        result,
+        rule="fiber_filter_processor_contract",
+    )
+    assert violations
+    kinds = {str(item.get("kind", "")) for item in violations}
+    assert "branch_in_loop_processor" in kinds
+    assert "comprehension_filter_branch" in kinds
+
+
 # gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_flags_retired_monolith_module_file::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
+# gabion:behavior primary=desired
 def test_policy_scanner_suite_flags_retired_monolith_module_file(tmp_path: Path) -> None:
     root = tmp_path
     _write(
@@ -203,6 +280,7 @@ def test_policy_scanner_suite_flags_retired_monolith_module_file(tmp_path: Path)
 
 
 # gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_flags_all_legacy_monolith_import_forms::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_policy_scanner_suite_flags_all_legacy_monolith_import_forms(tmp_path: Path) -> None:
     root = tmp_path
     _write(
@@ -228,6 +306,7 @@ def test_policy_scanner_suite_flags_all_legacy_monolith_import_forms(tmp_path: P
 
 
 # gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_private_baseline_loader_and_filter_branches::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite._load_rule_baseline_keys
+# gabion:behavior primary=desired
 def test_policy_scanner_suite_private_baseline_loader_and_filter_branches(tmp_path: Path) -> None:
     class _ModuleNoLoader:
         pass
@@ -281,6 +360,7 @@ def test_policy_scanner_suite_private_baseline_loader_and_filter_branches(tmp_pa
 
 
 # gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_respects_branch_and_fallback_baselines::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
+# gabion:behavior primary=allowed_unwanted facets=fallback
 def test_policy_scanner_suite_respects_branch_and_fallback_baselines(tmp_path: Path) -> None:
     root = tmp_path
     _write(
@@ -363,6 +443,8 @@ def test_policy_scanner_suite_respects_branch_and_fallback_baselines(tmp_path: P
     result = policy_scanner_suite.scan_policy_suite(root=root)
     assert policy_scanner_suite.violations_for_rule(result, rule="branchless") == []
     assert policy_scanner_suite.violations_for_rule(result, rule="defensive_fallback") == []
+    assert policy_scanner_suite.violations_for_rule(result, rule="fiber_loop_structure_contract") == []
+    assert policy_scanner_suite.violations_for_rule(result, rule="fiber_filter_processor_contract") == []
     assert policy_scanner_suite.violations_for_rule(result, rule="fiber_scalar_sentinel_contract") == []
     assert policy_scanner_suite.violations_for_rule(result, rule="fiber_type_dispatch_contract") == []
     assert policy_scanner_suite.violations_for_rule(result, rule="no_monkeypatch") == []
@@ -377,6 +459,7 @@ def test_policy_scanner_suite_respects_branch_and_fallback_baselines(tmp_path: P
     assert policy_scanner_suite.violations_for_rule(result, rule="test_sleep_hygiene") == []
 
 
+# gabion:behavior primary=desired
 def test_policy_scanner_suite_flags_wide_orchestrator_primitive_barrel(tmp_path: Path) -> None:
     root = tmp_path
     _write(
@@ -390,6 +473,7 @@ def test_policy_scanner_suite_flags_wide_orchestrator_primitive_barrel(tmp_path:
 
 
 # gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_flags_typing_surface_and_respects_baseline_and_waivers::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
+# gabion:behavior primary=desired
 def test_policy_scanner_suite_flags_typing_surface_and_respects_baseline_and_waivers(tmp_path: Path) -> None:
     root = tmp_path
     _write(
@@ -440,6 +524,7 @@ def test_policy_scanner_suite_flags_typing_surface_and_respects_baseline_and_wai
 
 
 # gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_flags_invalid_typing_surface_waiver_metadata::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
+# gabion:behavior primary=verboten facets=invalid
 def test_policy_scanner_suite_flags_invalid_typing_surface_waiver_metadata(tmp_path: Path) -> None:
     root = tmp_path
     _write(root / "src/gabion/analysis/core/sample.py", "from typing import Any\n\nvalue: Any = 'x'\n")
@@ -455,6 +540,7 @@ def test_policy_scanner_suite_flags_invalid_typing_surface_waiver_metadata(tmp_p
     assert any(item.get("kind") == "invalid_waiver" for item in violations)
 
 
+# gabion:behavior primary=desired
 def test_policy_scanner_suite_flags_runtime_narrowing_boundary_and_respects_baseline_and_waivers(tmp_path: Path) -> None:
     root = tmp_path
     _write(
@@ -503,6 +589,7 @@ def test_policy_scanner_suite_flags_runtime_narrowing_boundary_and_respects_base
     assert len(waiver_violations) == 1
 
 
+# gabion:behavior primary=verboten facets=invalid
 def test_policy_scanner_suite_flags_invalid_runtime_narrowing_boundary_waiver_metadata(tmp_path: Path) -> None:
     root = tmp_path
     _write(root / "src/gabion/analysis/core/sample.py", "def normalize(value):\n    return isinstance(value, str)\n")
@@ -518,6 +605,7 @@ def test_policy_scanner_suite_flags_invalid_runtime_narrowing_boundary_waiver_me
     assert any(item.get("kind") == "invalid_waiver" for item in violations)
 
 
+# gabion:behavior primary=desired
 def test_policy_scanner_suite_flags_duplicate_pre_core_normalization_on_same_canonical_flow(
     tmp_path: Path,
 ) -> None:
@@ -571,6 +659,7 @@ def test_policy_scanner_suite_flags_duplicate_pre_core_normalization_on_same_can
     assert violations[0]["counterfactual_boundary"] is not None
 
 
+# gabion:behavior primary=verboten facets=invalid
 def test_policy_scanner_suite_flags_invalid_aspf_baseline_payload(
     tmp_path: Path,
 ) -> None:
@@ -602,6 +691,7 @@ def test_policy_scanner_suite_flags_invalid_aspf_baseline_payload(
     assert violations[0]["kind"] == "invalid_baseline_payload"
 
 
+# gabion:behavior primary=desired
 def test_policy_scanner_suite_serializes_fiber_normalization_diagnostics(
     tmp_path: Path,
 ) -> None:
@@ -635,6 +725,7 @@ def test_policy_scanner_suite_serializes_fiber_normalization_diagnostics(
     assert violations[0]["counterfactual_boundary"] is not None
 
 
+# gabion:behavior primary=desired
 def test_policy_scanner_suite_scopes_boundary_core_rule_to_changed_paths(
     tmp_path: Path,
 ) -> None:
@@ -676,6 +767,7 @@ def test_policy_scanner_suite_scopes_boundary_core_rule_to_changed_paths(
 
 
 # gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_carries_external_policy_results::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
+# gabion:behavior primary=desired
 def test_policy_scanner_suite_carries_external_policy_results(tmp_path: Path) -> None:
     root = tmp_path
     result = policy_scanner_suite.scan_policy_suite(

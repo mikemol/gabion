@@ -37,6 +37,7 @@ def _cwd(path: Path):
 
 
 # gabion:evidence E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_emit_build_payload_handles_state_inputs_and_timeout_defaults::delta_state_emit.py::gabion.tooling.delta_state_emit._build_payload_for_emitter
+# gabion:behavior primary=verboten facets=timeout
 @pytest.mark.parametrize(
     ("emitter_id", "state_path", "state_key"),
     [
@@ -76,6 +77,7 @@ def test_emit_build_payload_handles_state_inputs_and_timeout_defaults(
 
 
 # gabion:evidence E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_emit_main_covers_exit_and_missing_output_branches::delta_state_emit.py::gabion.tooling.delta_state_emit.obsolescence_main::delta_state_emit.py::gabion.tooling.delta_state_emit.annotation_drift_main::delta_state_emit.py::gabion.tooling.delta_state_emit.ambiguity_main
+# gabion:behavior primary=verboten facets=missing
 @pytest.mark.parametrize(
     "run_main",
     [
@@ -122,6 +124,7 @@ def test_emit_main_covers_exit_and_missing_output_branches(
 
 
 # gabion:evidence E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_advisory_main_covers_missing_summary_skip_and_error::delta_advisory.py::gabion.tooling.delta_advisory.main_for_advisory
+# gabion:behavior primary=verboten facets=error,missing
 @pytest.mark.parametrize(
     ("run_main", "default_delta_path", "payload", "env_flag"),
     [
@@ -219,6 +222,7 @@ def test_advisory_main_covers_missing_summary_skip_and_error(
 
 
 # gabion:evidence E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_docflow_delta_emit_main_covers_all_paths::docflow_delta_emit.py::gabion.tooling.docflow_delta_emit.main
+# gabion:behavior primary=desired
 def test_docflow_delta_emit_main_covers_all_paths(tmp_path: Path) -> None:
     baseline_path = tmp_path / "baseline.json"
     current_path = tmp_path / "current.json"
@@ -306,6 +310,7 @@ def test_docflow_delta_emit_main_covers_all_paths(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_docflow_delta_emit_load_summary_handles_non_mapping_summary::docflow_delta_emit.py::gabion.tooling.docflow_delta_emit._load_summary
+# gabion:behavior primary=desired
 def test_docflow_delta_emit_load_summary_handles_non_mapping_summary(tmp_path: Path) -> None:
     summary_path = tmp_path / "summary.json"
     summary_path.write_text(json.dumps({"summary": []}), encoding="utf-8")
@@ -320,6 +325,7 @@ def test_docflow_delta_emit_load_summary_handles_non_mapping_summary(tmp_path: P
 
 
 # gabion:evidence E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_advisory_main_env_gate_without_skip_message::delta_advisory.py::gabion.tooling.delta_advisory.main_for_advisory
+# gabion:behavior primary=desired
 def test_advisory_main_env_gate_without_skip_message() -> None:
     original = delta_advisory._ADVISORY_CONFIGS["docflow"]
     delta_advisory._ADVISORY_CONFIGS["docflow"] = delta_advisory.AdvisoryConfig(
@@ -342,6 +348,7 @@ def test_advisory_main_env_gate_without_skip_message() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_docflow_delta_gate_branches::docflow_delta_gate.py::gabion.tooling.docflow_delta_gate.check_gate
+# gabion:behavior primary=desired
 def test_docflow_delta_gate_branches(tmp_path: Path) -> None:
     path = tmp_path / "docflow_delta.json"
 
@@ -389,6 +396,7 @@ def test_docflow_delta_gate_branches(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_docflow_delta_gate_helper_and_main_branches::docflow_delta_gate.py::gabion.tooling.docflow_delta_gate._delta_value::docflow_delta_gate.py::gabion.tooling.docflow_delta_gate.main
+# gabion:behavior primary=desired
 def test_docflow_delta_gate_helper_and_main_branches(tmp_path: Path) -> None:
     with env_scope({docflow_delta_gate.ENV_FLAG: "true"}):
         assert docflow_delta_gate._enabled() is True
@@ -414,6 +422,7 @@ def test_docflow_delta_gate_helper_and_main_branches(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_other_gate_non_mapping_and_main_paths::obsolescence_delta_gate.py::gabion.tooling.obsolescence_delta_gate.check_gate::ambiguity_delta_gate.py::gabion.tooling.ambiguity_delta_gate.main
+# gabion:behavior primary=desired
 @pytest.mark.parametrize(
     ("module", "default_delta_path"),
     [
@@ -449,6 +458,7 @@ def test_other_gate_non_mapping_and_main_paths(
 
 
 # gabion:evidence E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_deadline_runtime_invalid_budget_and_gas_limit::deadline_runtime.py::gabion.tooling.deadline_runtime.deadline_scope_from_ticks
+# gabion:behavior primary=verboten facets=invalid
 def test_deadline_runtime_invalid_budget_and_gas_limit() -> None:
     with pytest.raises(NeverThrown):
         deadline_runtime.DeadlineBudget(ticks=0, tick_ns=1)
@@ -463,6 +473,7 @@ def test_deadline_runtime_invalid_budget_and_gas_limit() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_docflow_delta_emit_helper_and_default_write_paths::docflow_delta_emit.py::gabion.tooling.docflow_delta_emit._run_docflow_audit::docflow_delta_emit.py::gabion.tooling.docflow_delta_emit._build_execution_plan
+# gabion:behavior primary=desired
 def test_docflow_delta_emit_helper_and_default_write_paths(tmp_path: Path) -> None:
     observed: dict[str, object] = {}
 
@@ -499,34 +510,16 @@ def test_docflow_delta_emit_helper_and_default_write_paths(tmp_path: Path) -> No
     ).docflow.changed_paths
     assert changed_paths == ("docs/a.md", "docs/b.md")
 
-    git_dir = tmp_path / "repo"
-    git_dir.mkdir(parents=True, exist_ok=True)
-    subprocess.run(["git", "init"], cwd=git_dir, check=True, capture_output=True, text=True)
-    subprocess.run(
-        ["git", "config", "user.email", "test@example.com"],
-        cwd=git_dir,
-        check=True,
-        capture_output=True,
-        text=True,
+    changed = docflow_delta_emit._changed_paths_from_git(
+        check_output_fn=lambda _command: "tracked.txt\ntracked.txt\n\n",
     )
-    subprocess.run(
-        ["git", "config", "user.name", "Test User"],
-        cwd=git_dir,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    tracked_file = git_dir / "tracked.txt"
-    tracked_file.write_text("a\n", encoding="utf-8")
-    subprocess.run(["git", "add", "tracked.txt"], cwd=git_dir, check=True, capture_output=True, text=True)
-    subprocess.run(["git", "commit", "-m", "init"], cwd=git_dir, check=True, capture_output=True, text=True)
-    tracked_file.write_text("a\nb\n", encoding="utf-8")
-    subprocess.run(["git", "add", "tracked.txt"], cwd=git_dir, check=True, capture_output=True, text=True)
-    subprocess.run(["git", "commit", "-m", "update"], cwd=git_dir, check=True, capture_output=True, text=True)
-
-    with _cwd(git_dir):
-        changed = docflow_delta_emit._changed_paths_from_git()
     assert changed == ("tracked.txt",)
+    assert (
+        docflow_delta_emit._changed_paths_from_git(
+            check_output_fn=lambda _command: (_ for _ in ()).throw(OSError("git failed"))
+        )
+        == ()
+    )
 
     summary_path = tmp_path / "summary.json"
     summary_path.write_text(
@@ -558,6 +551,7 @@ def test_docflow_delta_emit_helper_and_default_write_paths(tmp_path: Path) -> No
 
 
 # gabion:evidence E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_advisory_writes_domain_and_aggregate_artifacts::delta_advisory.py::gabion.tooling.delta_advisory.main_for_advisory
+# gabion:behavior primary=desired
 def test_advisory_writes_domain_and_aggregate_artifacts(tmp_path: Path) -> None:
     with _cwd(tmp_path):
         delta_path = Path("artifacts/out/test_annotation_drift_delta.json")
@@ -597,6 +591,7 @@ def test_advisory_writes_domain_and_aggregate_artifacts(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_advisory_payload_sort_determinism_and_key_stability::advisory_evidence.py::gabion.tooling.advisory_evidence.write_payload
+# gabion:behavior primary=desired
 def test_advisory_payload_sort_determinism_and_key_stability(tmp_path: Path) -> None:
     payload = advisory_evidence.AdvisoryEvidencePayload(
         domain="ambiguity",
@@ -644,6 +639,7 @@ def test_advisory_payload_sort_determinism_and_key_stability(tmp_path: Path) -> 
 
 
 # gabion:evidence E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_advisory_aggregate_domain_order_is_lexical::advisory_evidence.py::gabion.tooling.advisory_evidence.write_aggregate
+# gabion:behavior primary=desired
 def test_advisory_aggregate_domain_order_is_lexical(tmp_path: Path) -> None:
     advisories = {
         "obsolescence": advisory_evidence.AdvisoryEvidencePayload(
@@ -669,6 +665,7 @@ def test_advisory_aggregate_domain_order_is_lexical(tmp_path: Path) -> None:
     assert tuple(data["advisories"].keys()) == ("ambiguity", "obsolescence")
 
 
+# gabion:behavior primary=desired
 def test_advisory_load_aggregate_reads_written_object(tmp_path: Path) -> None:
     aggregate_path = tmp_path / "aggregate.json"
     advisory_evidence.write_aggregate(
@@ -688,6 +685,7 @@ def test_advisory_load_aggregate_reads_written_object(tmp_path: Path) -> None:
     assert "ambiguity" in dict(loaded.get("advisories", {}))
 
 
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_write_aggregate_with_domain_skips_legacy_entries_without_list_payload() -> None:
     existing = {
         "advisories": {
@@ -734,6 +732,7 @@ def test_write_aggregate_with_domain_skips_legacy_entries_without_list_payload()
 
 
 # gabion:evidence E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_write_aggregate_with_domain_replaces_same_domain_and_keeps_valid_legacy_entries::delta_advisory.py::gabion.tooling.delta_advisory._write_aggregate_with_domain
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_write_aggregate_with_domain_replaces_same_domain_and_keeps_valid_legacy_entries() -> None:
     existing = {
         "advisories": {

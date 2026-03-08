@@ -68,37 +68,37 @@ _AST_LEAF_EXPR_CONTEXT_TYPES = _leaf_ast_subclasses(ast.expr_context)
 
 
 @singledispatch
-def _int_or_none(value: int | None) -> int | None:
+def _int_optional(value: int | None) -> int | None:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
-@_int_or_none.register
+@_int_optional.register
 def _(value: int) -> int | None:
     return value
 
 
-@_int_or_none.register(_NONE_TYPE)
+@_int_optional.register(_NONE_TYPE)
 def _(value: None) -> int | None:
     _ = value
     return None
 
 
 @singledispatch
-def _lexical_scope_name_or_none(node: ast.AST) -> str | None:
+def _lexical_scope_name_optional(node: ast.AST) -> str | None:
     never("unregistered runtime type", value_type=type(node).__name__)
 
 
-@_lexical_scope_name_or_none.register(ast.ClassDef)
+@_lexical_scope_name_optional.register(ast.ClassDef)
 def _(node: ast.ClassDef) -> str | None:
     return node.name
 
 
-@_lexical_scope_name_or_none.register(ast.FunctionDef)
+@_lexical_scope_name_optional.register(ast.FunctionDef)
 def _(node: ast.FunctionDef) -> str | None:
     return node.name
 
 
-@_lexical_scope_name_or_none.register(ast.AsyncFunctionDef)
+@_lexical_scope_name_optional.register(ast.AsyncFunctionDef)
 def _(node: ast.AsyncFunctionDef) -> str | None:
     return node.name
 
@@ -110,20 +110,20 @@ def _scope_name_none(_node: ast.AST) -> str | None:
 for _runtime_type in _AST_LEAF_NODE_TYPES:
     if _runtime_type in {ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef}:
         continue
-    _lexical_scope_name_or_none.register(_runtime_type)(_scope_name_none)
+    _lexical_scope_name_optional.register(_runtime_type)(_scope_name_none)
 
 
 @singledispatch
-def _function_scope_name_or_none(node: ast.AST) -> str | None:
+def _function_scope_name_optional(node: ast.AST) -> str | None:
     never("unregistered runtime type", value_type=type(node).__name__)
 
 
-@_function_scope_name_or_none.register(ast.FunctionDef)
+@_function_scope_name_optional.register(ast.FunctionDef)
 def _(node: ast.FunctionDef) -> str | None:
     return node.name
 
 
-@_function_scope_name_or_none.register(ast.AsyncFunctionDef)
+@_function_scope_name_optional.register(ast.AsyncFunctionDef)
 def _(node: ast.AsyncFunctionDef) -> str | None:
     return node.name
 
@@ -131,15 +131,15 @@ def _(node: ast.AsyncFunctionDef) -> str | None:
 for _runtime_type in _AST_LEAF_NODE_TYPES:
     if _runtime_type in {ast.FunctionDef, ast.AsyncFunctionDef}:
         continue
-    _function_scope_name_or_none.register(_runtime_type)(_scope_name_none)
+    _function_scope_name_optional.register(_runtime_type)(_scope_name_none)
 
 
 @singledispatch
-def _class_scope_name_or_none(node: ast.AST) -> str | None:
+def _class_scope_name_optional(node: ast.AST) -> str | None:
     never("unregistered runtime type", value_type=type(node).__name__)
 
 
-@_class_scope_name_or_none.register(ast.ClassDef)
+@_class_scope_name_optional.register(ast.ClassDef)
 def _(node: ast.ClassDef) -> str | None:
     return node.name
 
@@ -147,7 +147,7 @@ def _(node: ast.ClassDef) -> str | None:
 for _runtime_type in _AST_LEAF_NODE_TYPES:
     if _runtime_type is ast.ClassDef:
         continue
-    _class_scope_name_or_none.register(_runtime_type)(_scope_name_none)
+    _class_scope_name_optional.register(_runtime_type)(_scope_name_none)
 
 
 def _unparse_or_default(node: ast.AST, default: str) -> str:
@@ -183,11 +183,11 @@ for _runtime_type in _AST_LEAF_EXPR_TYPES:
 
 
 @singledispatch
-def _name_id_or_none(node: ast.expr) -> str | None:
+def _name_id_optional(node: ast.expr) -> str | None:
     never("unregistered runtime type", value_type=type(node).__name__)
 
 
-@_name_id_or_none.register(ast.Name)
+@_name_id_optional.register(ast.Name)
 def _(node: ast.Name) -> str | None:
     return node.id
 
@@ -199,7 +199,7 @@ def _name_id_none(_node: ast.expr) -> str | None:
 for _runtime_type in _AST_LEAF_EXPR_TYPES:
     if _runtime_type is ast.Name:
         continue
-    _name_id_or_none.register(_runtime_type)(_name_id_none)
+    _name_id_optional.register(_runtime_type)(_name_id_none)
 
 
 @singledispatch
@@ -264,7 +264,7 @@ def _(
     star_pos: list[tuple[int, str]],
 ) -> None:
     _ = slot, pos_map, const_pos
-    starred_name = _name_id_or_none(arg.value)
+    starred_name = _name_id_optional(arg.value)
     if starred_name is not None:
         star_pos.append((index, starred_name))
         return
@@ -363,10 +363,10 @@ for _runtime_type in _AST_LEAF_EXPR_TYPES:
 
 
 def _node_span(node: ast.AST) -> tuple[int, int, int, int] | None:
-    lineno = _int_or_none(getattr(node, "lineno", None))
-    col = _int_or_none(getattr(node, "col_offset", None))
-    end_lineno = _int_or_none(getattr(node, "end_lineno", None))
-    end_col = _int_or_none(getattr(node, "end_col_offset", None))
+    lineno = _int_optional(getattr(node, "lineno", None))
+    col = _int_optional(getattr(node, "col_offset", None))
+    end_lineno = _int_optional(getattr(node, "end_lineno", None))
+    end_col = _int_optional(getattr(node, "end_col_offset", None))
     if lineno is None or col is None:
         return None
     if end_lineno is None:
@@ -390,7 +390,7 @@ def _enclosing_scopes(node: ast.AST, parents: dict[ast.AST, ast.AST]) -> list[st
     current = parents.get(node)
     while current is not None:
         check_deadline()
-        scope_name = _lexical_scope_name_or_none(current)
+        scope_name = _lexical_scope_name_optional(current)
         if scope_name is not None:
             scopes.append(scope_name)
         current = parents.get(current)
@@ -404,7 +404,7 @@ def _enclosing_function_scopes(
     current = parents.get(node)
     while current is not None:
         check_deadline()
-        scope_name = _function_scope_name_or_none(current)
+        scope_name = _function_scope_name_optional(current)
         if scope_name is not None:
             scopes.append(scope_name)
         current = parents.get(current)
@@ -415,7 +415,7 @@ def _enclosing_class(node: ast.AST, parents: dict[ast.AST, ast.AST]) -> str | No
     current = parents.get(node)
     while current is not None:
         check_deadline()
-        scope_name = _class_scope_name_or_none(current)
+        scope_name = _class_scope_name_optional(current)
         if scope_name is not None:
             return scope_name
         current = parents.get(current)
@@ -588,7 +588,7 @@ def _collect_calls(
             for keyword in node.keywords:
                 check_deadline()
                 if keyword.arg is None:
-                    starred_kw_name = _name_id_or_none(keyword.value)
+                    starred_kw_name = _name_id_optional(keyword.value)
                     if starred_kw_name is not None:
                         star_kw.append(starred_kw_name)
                     continue

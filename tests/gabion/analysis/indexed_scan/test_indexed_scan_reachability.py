@@ -19,6 +19,7 @@ def _sort_once(values, **_kwargs):
 
 #
 # gabion:evidence E:function_site::indexed_scan/reachability.py::gabion.analysis.indexed_scan.reachability.decide_never_reachability
+# gabion:behavior primary=verboten facets=never
 def test_decide_never_reachability_covers_no_env_true_false_and_undecidable() -> None:
     module = ast.parse("if a and b:\n    never('x')\n")
     if_node = module.body[0]

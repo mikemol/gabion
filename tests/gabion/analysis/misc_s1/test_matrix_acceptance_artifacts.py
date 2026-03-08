@@ -113,6 +113,7 @@ def _run_with_artifacts(
     return paths
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.verify_rewrite_plan::post_exception_obligations E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._glossary_match_strata::stale_ea97bcb5a37a_8aa7f2de
+# gabion:behavior primary=desired
 def test_matrix_artifacts_are_deterministic_and_have_required_fields(tmp_path: Path) -> None:
     dataflow_indexed_file_scan, dataflow_runtime = _load()
     module_path = tmp_path / "sample.py"

@@ -58,7 +58,7 @@ from gabion.analysis.dataflow.engine.dataflow_resume_paths import (
 )
 from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
     _ParseModuleStage,
-    _parse_module_tree_or_none,
+    _parse_module_tree_optional,
 )
 from gabion.analysis.core.visitors import ParentAnnotator
 from gabion.analysis.foundation.timeout_context import check_deadline
@@ -245,7 +245,7 @@ _COLLECT_CALL_NODES_BY_PATH_DEPS = _CollectCallNodesByPathDeps(
     parse_stage_cache_key_fn=_parse_stage_cache_key,
     empty_cache_semantic_context=_EMPTY_CACHE_SEMANTIC_CONTEXT,
     call_nodes_for_tree_fn=_call_nodes_for_tree,
-    parse_module_tree_fn=_parse_module_tree_or_none,
+    parse_module_tree_fn=_parse_module_tree_optional,
 )
 
 _collect_call_nodes_by_path = partial(
@@ -299,7 +299,7 @@ _COLLECT_DEADLINE_FUNCTION_FACTS_DEPS = _CollectDeadlineFunctionFactsDeps(
     empty_cache_semantic_context=_EMPTY_CACHE_SEMANTIC_CONTEXT,
     sorted_text_fn=_sorted_text,
     deadline_function_facts_for_tree_fn=_deadline_function_facts_for_tree,
-    parse_module_tree_fn=_parse_module_tree_or_none,
+    parse_module_tree_fn=_parse_module_tree_optional,
 )
 
 _collect_deadline_function_facts = partial(

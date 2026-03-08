@@ -23,17 +23,17 @@ from gabion.analysis.foundation.json_types import JSONObject, JSONValue
 from gabion.analysis.foundation.resume_codec import (
     allowed_path_lookup,
     int_str_pairs_from_sequence,
-    int_tuple4_or_none,
+    int_tuple4_optional,
     iter_valid_key_entries,
     load_allowed_paths_from_sequence,
     load_resume_map,
-    mapping_or_empty,
-    mapping_or_none,
+    mapping_default_empty,
+    mapping_optional,
     mapping_payload,
     mapping_sections,
     payload_with_format,
     payload_with_phase,
-    sequence_or_none,
+    sequence_optional,
     str_list_from_sequence,
     str_map_from_mapping,
     str_pair_set_from_sequence,
@@ -81,7 +81,7 @@ from gabion.analysis.indexed_scan.state.symbol_table_resume import (
 )
 from gabion.invariants import NeverThrown, never
 from gabion.order_contract import sort_once
-from gabion.runtime_shape_dispatch import str_or_none
+from gabion.runtime_shape_dispatch import str_optional
 
 _ANALYSIS_COLLECTION_RESUME_FORMAT_VERSION = 2
 _ANALYSIS_INDEX_RESUME_VARIANTS_KEY = "resume_variants"
@@ -268,26 +268,26 @@ def _deserialize_param_use(payload: Mapping[str, JSONValue]) -> ParamUse:
     direct_forward = str_pair_set_from_sequence(payload.get("direct_forward"))
     current_aliases = str_set_from_sequence(payload.get("current_aliases"))
     forward_sites: dict[tuple[str, str], set[tuple[int, int, int, int]]] = {}
-    for raw_entry in sequence_or_none(payload.get("forward_sites")) or ():
+    for raw_entry in sequence_optional(payload.get("forward_sites")) or ():
         check_deadline()
-        entry = mapping_or_none(raw_entry)
+        entry = mapping_optional(raw_entry)
         if entry is not None:
-            callee = str_or_none(entry.get("callee"))
-            slot = str_or_none(entry.get("slot"))
+            callee = str_optional(entry.get("callee"))
+            slot = str_optional(entry.get("slot"))
             if callee is not None and slot is not None:
                 span_set: set[tuple[int, int, int, int]] = set()
-                for raw_span in sequence_or_none(entry.get("spans")) or ():
+                for raw_span in sequence_optional(entry.get("spans")) or ():
                     check_deadline()
-                    span = int_tuple4_or_none(raw_span)
+                    span = int_tuple4_optional(raw_span)
                     if span is not None:
                         span_set.add(span)
                 forward_sites[(callee, slot)] = span_set
     non_forward = bool(payload.get("non_forward"))
     unknown_key_carrier = bool(payload.get("unknown_key_carrier"))
     unknown_key_sites: set[tuple[int, int, int, int]] = set()
-    for raw_span in sequence_or_none(payload.get("unknown_key_sites")) or ():
+    for raw_span in sequence_optional(payload.get("unknown_key_sites")) or ():
         check_deadline()
-        span = int_tuple4_or_none(raw_span)
+        span = int_tuple4_optional(raw_span)
         if span is not None:
             unknown_key_sites.add(span)
     return ParamUse(
@@ -319,8 +319,8 @@ def _deserialize_param_use_map(
     use_map: dict[str, ParamUse] = {}
     for param_name, raw_value in payload.items():
         check_deadline()
-        raw_mapping = mapping_or_none(raw_value)
-        normalized_param_name = str_or_none(param_name)
+        raw_mapping = mapping_optional(raw_value)
+        normalized_param_name = str_optional(param_name)
         if normalized_param_name is not None and raw_mapping is not None:
             use_map[normalized_param_name] = _deserialize_param_use(raw_mapping)
     return use_map
@@ -384,7 +384,7 @@ def _deserialize_call_args(payload: Mapping[str, JSONValue]):
         case _:
             return None
     star_pos = int_str_pairs_from_sequence(payload.get("star_pos"))
-    span = int_tuple4_or_none(payload.get("span"))
+    span = int_tuple4_optional(payload.get("span"))
     return CallArgs(
         callee=callee_name,
         pos_map=str_map_from_mapping(payload.get("pos_map")),
@@ -413,7 +413,7 @@ def _deserialize_call_args_list(payload: Sequence[JSONValue]) -> list[CallArgs]:
     call_args: list[CallArgs] = []
     for raw_entry in payload:
         check_deadline()
-        entry_mapping = mapping_or_none(raw_entry)
+        entry_mapping = mapping_optional(raw_entry)
         if entry_mapping is not None:
             call = _deserialize_call_args(entry_mapping)
             if call is not None:
@@ -443,15 +443,15 @@ def _deserialize_function_info_for_resume(
         payload,
         allowed_paths=allowed_paths,
         deps=DeserializeFunctionInfoForResumeDeps(
-            sequence_or_none_fn=sequence_or_none,
+            sequence_or_none_fn=sequence_optional,
             str_list_from_sequence_fn=str_list_from_sequence,
-            str_or_none_fn=str_or_none,
-            mapping_or_empty_fn=mapping_or_empty,
+            str_or_none_fn=str_optional,
+            mapping_or_empty_fn=mapping_default_empty,
             check_deadline_fn=check_deadline,
             deserialize_call_args_list_fn=_deserialize_call_args_list,
             str_set_from_sequence_fn=str_set_from_sequence,
             str_tuple_from_sequence_fn=str_tuple_from_sequence,
-            int_tuple4_or_none_fn=int_tuple4_or_none,
+            int_tuple4_or_none_fn=int_tuple4_optional,
             function_info_ctor=FunctionInfo,
         ),
     )
@@ -508,11 +508,11 @@ def _deserialize_symbol_table_for_resume(payload: Mapping[str, JSONValue]) -> Sy
             payload,
             deps=DeserializeSymbolTableForResumeDeps(
                 symbol_table_ctor=SymbolTable,
-                sequence_or_none_fn=sequence_or_none,
+                sequence_or_none_fn=sequence_optional,
                 check_deadline_fn=check_deadline,
                 str_set_from_sequence_fn=str_set_from_sequence,
-                mapping_or_none_fn=mapping_or_none,
-                mapping_or_empty_fn=mapping_or_empty,
+                mapping_or_none_fn=mapping_optional,
+                mapping_or_empty_fn=mapping_default_empty,
             ),
         ),
     )
@@ -539,11 +539,11 @@ def _analysis_index_resume_variants(
     if payload is None:
         return variants
     raw_variants = payload.get(_ANALYSIS_INDEX_RESUME_VARIANTS_KEY)
-    raw_variants_mapping = mapping_or_none(raw_variants)
+    raw_variants_mapping = mapping_optional(raw_variants)
     if raw_variants_mapping is not None:
         for identity, raw_variant in raw_variants_mapping.items():
             check_deadline()
-            raw_variant_mapping = mapping_or_none(raw_variant)
+            raw_variant_mapping = mapping_optional(raw_variant)
             variant_identity = _CacheIdentity.from_boundary(identity)
             if variant_identity is not None and raw_variant_mapping is not None:
                 variant_payload = payload_with_format(raw_variant_mapping, format_version=1)
@@ -618,7 +618,7 @@ def _serialize_analysis_index_resume_payload(
             serialize_function_info_for_resume_fn=_serialize_function_info_for_resume,
             serialize_symbol_table_for_resume_fn=_serialize_symbol_table_for_resume,
             serialize_class_info_for_resume_fn=_serialize_class_info_for_resume,
-            mapping_or_none_fn=mapping_or_none,
+            mapping_or_none_fn=mapping_optional,
             with_analysis_index_resume_variants_fn=_with_analysis_index_resume_variants,
         ),
     )
@@ -646,7 +646,7 @@ def _load_analysis_index_resume_payload(
                 allowed_path_lookup_fn=allowed_path_lookup,
                 analysis_collection_resume_path_key_fn=_analysis_collection_resume_path_key,
                 load_allowed_paths_from_sequence_fn=load_allowed_paths_from_sequence,
-                mapping_or_none_fn=mapping_or_none,
+                mapping_or_none_fn=mapping_optional,
                 check_deadline_fn=check_deadline,
                 deserialize_function_info_for_resume_fn=_deserialize_function_info_for_resume,
                 deserialize_symbol_table_for_resume_fn=_deserialize_symbol_table_for_resume,
@@ -678,7 +678,7 @@ def _deserialize_groups_for_resume(
     return _deserialize_groups_for_resume_impl(
         payload,
         check_deadline_fn=check_deadline,
-        sequence_or_none_fn=sequence_or_none,
+        sequence_or_none_fn=sequence_optional,
     )
 
 
@@ -698,7 +698,7 @@ def _deserialize_param_spans_for_resume(
     return _deserialize_param_spans_for_resume_impl(
         payload,
         check_deadline_fn=check_deadline,
-        sequence_or_none_fn=sequence_or_none,
+        sequence_or_none_fn=sequence_optional,
     )
 
 
@@ -709,8 +709,8 @@ def _serialize_bundle_sites_for_resume(
         bundle_sites,
         check_deadline_fn=check_deadline,
         sort_once_fn=sort_once,
-        sequence_or_none_fn=sequence_or_none,
-        mapping_or_none_fn=mapping_or_none,
+        sequence_or_none_fn=sequence_optional,
+        mapping_or_none_fn=mapping_optional,
     )
 
 
@@ -720,8 +720,8 @@ def _deserialize_bundle_sites_for_resume(
     return _deserialize_bundle_sites_for_resume_impl(
         payload,
         check_deadline_fn=check_deadline,
-        sequence_or_none_fn=sequence_or_none,
-        mapping_or_none_fn=mapping_or_none,
+        sequence_or_none_fn=sequence_optional,
+        mapping_or_none_fn=mapping_optional,
     )
 
 
@@ -742,8 +742,8 @@ def _deserialize_invariants_for_resume(
         payload,
         normalize_invariant_proposition_fn=_normalize_invariant_proposition,
         check_deadline_fn=check_deadline,
-        mapping_or_none_fn=mapping_or_none,
-        sequence_or_none_fn=sequence_or_none,
+        mapping_or_none_fn=mapping_optional,
+        sequence_or_none_fn=sequence_optional,
     )
 
 
@@ -798,9 +798,9 @@ def _load_file_scan_resume_state(
             mapping_sections_fn=mapping_sections,
             load_resume_map_fn=load_resume_map,
             deserialize_param_use_map_fn=_deserialize_param_use_map,
-            mapping_or_none_fn=mapping_or_none,
+            mapping_or_none_fn=mapping_optional,
             deserialize_call_args_list_fn=_deserialize_call_args_list,
-            sequence_or_none_fn=sequence_or_none,
+            sequence_or_none_fn=sequence_optional,
             str_list_from_sequence_fn=str_list_from_sequence,
             deserialize_param_spans_for_resume_fn=_deserialize_param_spans_for_resume,
             str_tuple_from_sequence_fn=str_tuple_from_sequence,
@@ -838,7 +838,7 @@ def _build_analysis_collection_resume_payload(
         serialize_param_spans_for_resume_fn=_serialize_param_spans_for_resume,
         serialize_bundle_sites_for_resume_fn=_serialize_bundle_sites_for_resume,
         serialize_invariants_for_resume_fn=_serialize_invariants_for_resume,
-        mapping_or_none_fn=mapping_or_none,
+        mapping_or_none_fn=mapping_optional,
         never_fn=never,
     )
 
@@ -869,8 +869,8 @@ def _load_analysis_collection_resume_payload(
         mapping_payload_fn=mapping_payload,
         allowed_path_lookup_fn=allowed_path_lookup,
         load_allowed_paths_from_sequence_fn=load_allowed_paths_from_sequence,
-        mapping_or_none_fn=mapping_or_none,
-        sequence_or_none_fn=sequence_or_none,
+        mapping_or_none_fn=mapping_optional,
+        sequence_or_none_fn=sequence_optional,
         check_deadline_fn=check_deadline,
     )
 

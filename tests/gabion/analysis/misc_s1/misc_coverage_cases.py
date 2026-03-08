@@ -13,6 +13,7 @@ from lsprotocol.types import (
     CodeActionParams, CodeActionContext, DidOpenTextDocumentParams, DidSaveTextDocumentParams, Position, Range, TextDocumentIdentifier, TextDocumentItem)
 
 # gabion:evidence E:call_footprint::tests/test_misc_coverage.py::test_main_entrypoint_invokes_app::__main__.py::gabion.__main__
+# gabion:behavior primary=desired
 def test_main_entrypoint_invokes_app() -> None:
     repo_root = REPO_ROOT
     old_argv = sys.argv[:]
@@ -25,12 +26,14 @@ def test_main_entrypoint_invokes_app() -> None:
         sys.argv = old_argv
 
 # gabion:evidence E:call_footprint::tests/test_misc_coverage.py::test_main_module_import::__main__.py::gabion.__main__
+# gabion:behavior primary=desired
 def test_main_module_import() -> None:
     repo_root = REPO_ROOT
     module = __import__("gabion.__main__", fromlist=["main"])
     assert hasattr(module, "main")
 
 # gabion:evidence E:call_footprint::tests/test_misc_coverage.py::test_analysis_engine_and_model_defaults::engine.py::gabion.analysis.engine.GabionEngine::model.py::gabion.analysis.model.CallArgs::model.py::gabion.analysis.model.ClassInfo::model.py::gabion.analysis.model.DispatchTable::model.py::gabion.analysis.model.FunctionInfo::model.py::gabion.analysis.model.ParamUse::model.py::gabion.analysis.model.SymbolTable::schema.py::gabion.schema.AnalysisResponse
+# gabion:behavior primary=desired
 def test_analysis_engine_and_model_defaults() -> None:
     repo_root = REPO_ROOT
     from gabion.analysis.core.engine import GabionEngine
@@ -57,6 +60,7 @@ def test_analysis_engine_and_model_defaults() -> None:
     assert param_use.current_aliases == set()
 
 # gabion:evidence E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::request_id E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::stale_16b588918d64
+# gabion:behavior primary=desired
 def test_lsp_client_rpc_roundtrip() -> None:
     repo_root = REPO_ROOT
     from gabion.lsp_client import LspClientError, _read_response, _read_rpc, _write_rpc
@@ -94,6 +98,7 @@ def test_lsp_client_rpc_roundtrip() -> None:
     assert json.loads(body.decode("utf-8")) == payload
 
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server.did_open::ls E:decision_surface/direct::server.py::gabion.server.did_save::ls
+# gabion:behavior primary=desired
 def test_server_code_actions_and_diagnostics(tmp_path: Path) -> None:
     repo_root = REPO_ROOT
     from gabion import server

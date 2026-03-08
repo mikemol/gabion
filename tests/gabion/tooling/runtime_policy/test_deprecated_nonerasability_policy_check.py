@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import json
-import subprocess
-import sys
 from pathlib import Path
-from tests.path_helpers import REPO_ROOT
+
+from scripts.policy import deprecated_nonerasability_policy_check
 
 
 def _write_payload(path: Path, payload: object) -> None:
@@ -12,6 +11,7 @@ def _write_payload(path: Path, payload: object) -> None:
 
 
 # gabion:evidence E:function_site::tests/test_deprecated_nonerasability_policy_check.py::tests.test_deprecated_nonerasability_policy_check.test_nonerasability_policy_check_blocks_silent_deletion
+# gabion:behavior primary=allowed_unwanted facets=deprecated
 def test_nonerasability_policy_check_blocks_silent_deletion(tmp_path: Path) -> None:
     baseline = tmp_path / "baseline.json"
     current = tmp_path / "current.json"
@@ -32,25 +32,22 @@ def test_nonerasability_policy_check_blocks_silent_deletion(tmp_path: Path) -> N
     )
     _write_payload(current, {"deprecated_fibers": []})
 
-    result = subprocess.run(
+    observed: list[str] = []
+    result = deprecated_nonerasability_policy_check.main(
         [
-            sys.executable,
-            "scripts/policy/deprecated_nonerasability_policy_check.py",
             "--baseline",
             str(baseline),
             "--current",
             str(current),
         ],
-        cwd=REPO_ROOT,
-        check=False,
-        capture_output=True,
-        text=True,
+        print_fn=observed.append,
     )
-    assert result.returncode == 1
-    assert "erased without explicit resolution metadata" in result.stdout
+    assert result == 1
+    assert any("erased without explicit resolution metadata" in line for line in observed)
 
 
 # gabion:evidence E:function_site::tests/test_deprecated_nonerasability_policy_check.py::tests.test_deprecated_nonerasability_policy_check.test_nonerasability_policy_check_allows_resolved_lifecycle
+# gabion:behavior primary=allowed_unwanted facets=deprecated
 def test_nonerasability_policy_check_allows_resolved_lifecycle(tmp_path: Path) -> None:
     baseline = tmp_path / "baseline.json"
     current = tmp_path / "current.json"
@@ -69,41 +66,36 @@ def test_nonerasability_policy_check_allows_resolved_lifecycle(tmp_path: Path) -
     )
     _write_payload(current, {"deprecated_fibers": []})
 
-    result = subprocess.run(
+    result = deprecated_nonerasability_policy_check.main(
         [
-            sys.executable,
-            "scripts/policy/deprecated_nonerasability_policy_check.py",
             "--baseline",
             str(baseline),
             "--current",
             str(current),
-        ],
-        cwd=REPO_ROOT,
-        check=False,
-        capture_output=True,
-        text=True,
+        ]
     )
-    assert result.returncode == 0
+    assert result == 0
 
 
 # gabion:evidence E:function_site::tests/test_deprecated_nonerasability_policy_check.py::tests.test_deprecated_nonerasability_policy_check.test_nonerasability_policy_check_writes_policy_result_output
+# gabion:behavior primary=allowed_unwanted facets=deprecated
 def test_nonerasability_policy_check_writes_policy_result_output(tmp_path: Path) -> None:
     baseline = tmp_path / "baseline.json"
     current = tmp_path / "current.json"
     output = tmp_path / "out/nonerasability.json"
     _write_payload(baseline, {"deprecated_fibers": []})
     _write_payload(current, {"deprecated_fibers": []})
-    result = subprocess.run([
-        sys.executable,
-        "scripts/policy/deprecated_nonerasability_policy_check.py",
-        "--baseline",
-        str(baseline),
-        "--current",
-        str(current),
-        "--output",
-        str(output),
-    ], cwd=REPO_ROOT, check=False, capture_output=True, text=True)
-    assert result.returncode == 0
+    result = deprecated_nonerasability_policy_check.main(
+        [
+            "--baseline",
+            str(baseline),
+            "--current",
+            str(current),
+            "--output",
+            str(output),
+        ]
+    )
+    assert result == 0
     payload = json.loads(output.read_text(encoding="utf-8"))
     assert payload["rule_id"] == "deprecated_nonerasability"
     assert payload["status"] == "pass"

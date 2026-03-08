@@ -6,7 +6,7 @@ from typing import Callable, Mapping, Protocol, TypeAlias, cast
 import typer
 
 from gabion.json_types import JSONObject
-from gabion.runtime_shape_dispatch import json_mapping_or_none
+from gabion.runtime_shape_dispatch import json_mapping_optional
 from gabion.tooling.runtime import ci_watch as tooling_ci_watch
 
 CliRunDataflowRawArgvFn: TypeAlias = Callable[[list[str]], None]
@@ -44,7 +44,7 @@ def context_callable_dep(
     default: Callable[..., object],
     never_fn: Callable[..., object],
 ) -> Callable[..., object]:
-    obj_mapping = json_mapping_or_none(ctx.obj)
+    obj_mapping = json_mapping_optional(ctx.obj)
     if obj_mapping is None:
         return default
     candidate = obj_mapping.get(key)

@@ -5,7 +5,7 @@ from collections.abc import Mapping, Sequence
 from gabion.analysis.foundation.baseline_io import attach_spec_metadata
 from gabion.analysis.projection.projection_registry import (
     QUOTIENT_DEMOTION_INCIDENTS_SPEC, QUOTIENT_PROMOTION_DECISION_SPEC, QUOTIENT_PROTOCOL_READINESS_SPEC)
-from gabion.analysis.foundation.resume_codec import mapping_or_none, sequence_or_none
+from gabion.analysis.foundation.resume_codec import mapping_optional, sequence_optional
 from gabion.analysis.taint.taint_projection import (
     TaintProfile, TaintStatus, normalize_taint_profile)
 from gabion.json_types import JSONObject, JSONValue
@@ -36,8 +36,8 @@ def build_readiness_payload(
     taint_state_payload: Mapping[str, JSONValue],
     current_profile: object = TaintProfile.OBSERVE,
 ) -> JSONObject:
-    state_summary = mapping_or_none(taint_state_payload.get("summary")) or {}
-    by_status = mapping_or_none(state_summary.get("by_status")) or {}
+    state_summary = mapping_optional(taint_state_payload.get("summary")) or {}
+    by_status = mapping_optional(state_summary.get("by_status")) or {}
     current = normalize_taint_profile(current_profile)
     readiness_rows = [
         _profile_readiness_row(
@@ -65,10 +65,10 @@ def build_promotion_decision_payload(
 ) -> JSONObject:
     current = normalize_taint_profile(current_profile)
     target = _NEXT_PROFILE[current]
-    readiness_rows = sequence_or_none(readiness_payload.get("profiles")) or ()
+    readiness_rows = sequence_optional(readiness_payload.get("profiles")) or ()
     readiness_by_profile: dict[str, Mapping[str, JSONValue]] = {}
     for row in readiness_rows:
-        payload = mapping_or_none(row)
+        payload = mapping_optional(row)
         if payload is not None:
             readiness_by_profile[str(payload.get("profile", ""))] = payload
     target_row = readiness_by_profile.get(target.value, {})
@@ -101,8 +101,8 @@ def build_demotion_incidents_payload(
     taint_state_payload: Mapping[str, JSONValue],
     current_profile: object = TaintProfile.ENFORCE,
 ) -> JSONObject:
-    summary = mapping_or_none(taint_state_payload.get("summary")) or {}
-    by_status = mapping_or_none(summary.get("by_status")) or {}
+    summary = mapping_optional(taint_state_payload.get("summary")) or {}
+    by_status = mapping_optional(summary.get("by_status")) or {}
     profile = normalize_taint_profile(current_profile)
     incidents: list[JSONObject] = []
     for status in (

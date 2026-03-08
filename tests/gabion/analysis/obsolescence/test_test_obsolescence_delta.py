@@ -11,6 +11,7 @@ from gabion.analysis.foundation.delta_tools import TransitionPair
 
 
 # gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_opaque_key E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display E:function_site::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_payload
+# gabion:behavior primary=desired
 def test_build_baseline_payload_roundtrip(
     tmp_path: Path,
     make_obsolescence_paramset_ref,
@@ -47,6 +48,7 @@ def test_build_baseline_payload_roundtrip(
 
 
 # gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key::stale_d66185f4e6fa
+# gabion:behavior primary=desired
 def test_delta_payload_detects_changes() -> None:
     key_a = evidence_keys.make_paramset_key(["a"])
     key_b = evidence_keys.make_paramset_key(["b"])
@@ -126,6 +128,7 @@ def test_delta_payload_detects_changes() -> None:
 
 
 # gabion:evidence E:function_site::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_lines E:function_site::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_payload
+# gabion:behavior primary=desired
 def test_render_markdown_includes_spec_metadata() -> None:
     baseline = test_obsolescence_delta.parse_baseline_payload(
         {
@@ -145,12 +148,14 @@ def test_render_markdown_includes_spec_metadata() -> None:
 
 
 # gabion:evidence E:function_site::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.parse_baseline_payload E:decision_surface/direct::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.parse_baseline_payload::stale_c572e23c93c8
+# gabion:behavior primary=desired
 def test_parse_baseline_payload_rejects_bad_version() -> None:
     with pytest.raises(ValueError):
         test_obsolescence_delta.parse_baseline_payload({"version": "bad"})
 
 
 # gabion:evidence E:function_site::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.parse_baseline_payload E:decision_surface/direct::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.parse_baseline_payload::stale_cc8a9fb52fb7_b91548fb
+# gabion:behavior primary=desired
 def test_parse_baseline_payload_accepts_v1_and_v2() -> None:
     payload_v1 = {
         "version": 1,
@@ -181,6 +186,7 @@ def test_parse_baseline_payload_accepts_v1_and_v2() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_test_obsolescence_delta.py::test_build_baseline_payload_omits_empty_active_metadata::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.build_baseline_payload
+# gabion:behavior primary=verboten facets=empty
 def test_build_baseline_payload_omits_empty_active_metadata() -> None:
     payload = test_obsolescence_delta.build_baseline_payload(
         evidence_by_test={"t1": []},
@@ -193,6 +199,7 @@ def test_build_baseline_payload_omits_empty_active_metadata() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_test_obsolescence_delta.py::test_normalize_active_metadata_handles_invalid_inputs::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta._normalize_active_metadata
+# gabion:behavior primary=verboten facets=invalid
 def test_normalize_active_metadata_handles_invalid_inputs() -> None:
     assert test_obsolescence_delta._normalize_active_metadata([]) == {}
     assert (
@@ -211,6 +218,7 @@ def test_normalize_active_metadata_handles_invalid_inputs() -> None:
 
 
 # gabion:evidence E:function_site::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.load_baseline
+# gabion:behavior primary=desired
 def test_load_baseline_rejects_non_object(tmp_path: Path) -> None:
     path = tmp_path / "baseline.json"
     path.write_text("[1,2,3]")
@@ -219,6 +227,7 @@ def test_load_baseline_rejects_non_object(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::delta_tools.py::gabion.analysis.delta_tools.format_transition E:function_site::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta._normalize_summary_counts E:function_site::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta._section_list
+# gabion:behavior primary=verboten facets=edge
 def test_helpers_cover_edge_cases() -> None:
     assert test_obsolescence_delta._normalize_summary_counts("nope") == {
         "redundant_by_evidence": 0,
@@ -236,6 +245,7 @@ def test_helpers_cover_edge_cases() -> None:
 
 
 # gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.key_identity::stale_8098d92df5ab
+# gabion:behavior primary=desired
 def test_build_evidence_index_merges_displays() -> None:
     key = evidence_keys.make_paramset_key(["x"])
     identity = evidence_keys.key_identity(key)
@@ -265,6 +275,7 @@ def test_build_evidence_index_merges_displays() -> None:
 
 
 # gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.key_identity::stale_6d752f1b4bee
+# gabion:behavior primary=desired
 def test_parse_evidence_index_merges_duplicates() -> None:
     key = evidence_keys.make_paramset_key(["y"])
     entry_a = {"key": key, "display": "Z", "witness_count": 1}
@@ -278,6 +289,7 @@ def test_parse_evidence_index_merges_duplicates() -> None:
 
 
 # gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key::stale_a19a5554d0bc
+# gabion:behavior primary=desired
 def test_render_markdown_with_entries() -> None:
     key_a = evidence_keys.make_paramset_key(["a"])
     key_b = evidence_keys.make_paramset_key(["b"])
@@ -339,6 +351,7 @@ def test_render_markdown_with_entries() -> None:
 
 
 # gabion:evidence E:function_site::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.parse_baseline_payload E:decision_surface/direct::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.parse_baseline_payload::stale_368f8bfe951a
+# gabion:behavior primary=verboten facets=invalid
 def test_parse_baseline_payload_filters_invalid_entries() -> None:
     payload = {
         "version": 1,
@@ -354,6 +367,7 @@ def test_parse_baseline_payload_filters_invalid_entries() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_test_obsolescence_delta.py::test_parse_baseline_payload_ignores_non_list_tests_payload::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.parse_baseline_payload
+# gabion:behavior primary=desired
 def test_parse_baseline_payload_ignores_non_list_tests_payload() -> None:
     baseline = test_obsolescence_delta.parse_baseline_payload(
         {
@@ -370,6 +384,7 @@ def test_parse_baseline_payload_ignores_non_list_tests_payload() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_test_obsolescence_delta.py::test_render_markdown_handles_non_mapping_summary_and_meta_sections::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.render_markdown
+# gabion:behavior primary=desired
 def test_render_markdown_handles_non_mapping_summary_and_meta_sections() -> None:
     rendered = test_obsolescence_delta.render_markdown(
         {
@@ -386,6 +401,7 @@ def test_render_markdown_handles_non_mapping_summary_and_meta_sections() -> None
 
 
 # gabion:evidence E:call_footprint::tests/test_test_obsolescence_delta.py::test_parse_evidence_index_prefers_existing_display_when_new_display_missing::evidence_keys.py::gabion.analysis.evidence_keys.key_identity::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta._parse_evidence_index
+# gabion:behavior primary=verboten facets=missing
 def test_parse_evidence_index_prefers_existing_display_when_new_display_missing() -> None:
     key = evidence_keys.make_paramset_key(["z"])
     entry_a = {"key": key, "display": "A", "witness_count": 1}
@@ -397,6 +413,7 @@ def test_parse_evidence_index_prefers_existing_display_when_new_display_missing(
 
 
 # gabion:evidence E:call_footprint::tests/test_test_obsolescence_delta.py::test_render_markdown_skips_empty_baseline_and_current_spec_ids::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.render_markdown
+# gabion:behavior primary=verboten facets=empty
 def test_render_markdown_skips_empty_baseline_and_current_spec_ids() -> None:
     rendered = test_obsolescence_delta.render_markdown(
         {
@@ -414,6 +431,7 @@ def test_render_markdown_skips_empty_baseline_and_current_spec_ids() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_test_obsolescence_delta.py::test_resolve_baseline_path_and_write_baseline::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.load_baseline::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.resolve_baseline_path::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.write_baseline
+# gabion:behavior primary=desired
 def test_resolve_baseline_path_and_write_baseline(tmp_path: Path) -> None:
     baseline_path = test_obsolescence_delta.resolve_baseline_path(tmp_path)
     assert baseline_path == tmp_path / test_obsolescence_delta.BASELINE_RELATIVE_PATH
@@ -433,6 +451,7 @@ def test_resolve_baseline_path_and_write_baseline(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_test_obsolescence_delta.py::test_render_markdown_includes_baseline_path_when_present::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.render_markdown
+# gabion:behavior primary=desired
 def test_render_markdown_includes_baseline_path_when_present() -> None:
     rendered = test_obsolescence_delta.render_markdown(
         {
@@ -449,6 +468,7 @@ def test_render_markdown_includes_baseline_path_when_present() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_test_obsolescence_delta.py::test_build_baseline_payload_from_paths_calls_obsolescence_pipeline::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.build_baseline_payload_from_paths
+# gabion:behavior primary=desired
 def test_build_baseline_payload_from_paths_calls_obsolescence_pipeline() -> None:
     observed: dict[str, object] = {}
     expected_payload = {"version": 2}
@@ -487,6 +507,7 @@ def test_build_baseline_payload_from_paths_calls_obsolescence_pipeline() -> None
 
 
 # gabion:evidence E:call_footprint::tests/test_test_obsolescence_delta.py::test_build_evidence_index_skips_unmapped_and_keeps_existing_display_order::evidence_keys.py::gabion.analysis.evidence_keys.key_identity::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key::evidence_keys.py::gabion.analysis.evidence_keys.render_display::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta._build_evidence_index
+# gabion:behavior primary=verboten facets=unmapped
 def test_build_evidence_index_skips_unmapped_and_keeps_existing_display_order() -> None:
     key = evidence_keys.make_paramset_key(["x"])
     display = evidence_keys.render_display(key)
@@ -525,6 +546,7 @@ def test_build_evidence_index_skips_unmapped_and_keeps_existing_display_order() 
 
 
 # gabion:evidence E:call_footprint::tests/test_test_obsolescence_delta.py::test_build_resolution_worklist_reports_dispositions_and_actions::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.build_resolution_worklist
+# gabion:behavior primary=desired
 def test_build_resolution_worklist_reports_dispositions_and_actions() -> None:
     baseline = test_obsolescence_delta.ObsolescenceBaseline(
         summary={
@@ -579,6 +601,7 @@ def test_build_resolution_worklist_reports_dispositions_and_actions() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_test_obsolescence_delta.py::test_build_resolution_worklist_from_paths_end_to_end::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.build_resolution_worklist_from_paths
+# gabion:behavior primary=desired
 def test_build_resolution_worklist_from_paths_end_to_end(tmp_path: Path) -> None:
     baseline_path = tmp_path / "baseline.json"
     baseline_path.write_text(

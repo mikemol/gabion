@@ -11,6 +11,7 @@ def _write(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
+# gabion:behavior primary=allowed_unwanted facets=noop
 def test_collect_violations_detects_singleton_pass_and_return_none(tmp_path: Path) -> None:
     root = tmp_path
     _write(
@@ -35,6 +36,7 @@ def test_collect_violations_detects_singleton_pass_and_return_none(tmp_path: Pat
     assert all(item.kind == "singleton_noop_block" for item in violations)
 
 
+# gabion:behavior primary=allowed_unwanted facets=noop
 def test_run_writes_fiber_payload(tmp_path: Path) -> None:
     root = tmp_path
     _write(

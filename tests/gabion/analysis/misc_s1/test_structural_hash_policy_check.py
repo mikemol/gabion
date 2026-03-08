@@ -11,6 +11,7 @@ def _write(path: Path, text: str) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_structural_hash_policy_check.py::test_structural_hash_policy_check_accepts_clean_identity_paths::structural_hash_policy_check.py::scripts.structural_hash_policy_check.collect_violations
+# gabion:behavior primary=desired
 def test_structural_hash_policy_check_accepts_clean_identity_paths(tmp_path: Path) -> None:
     _write(
         tmp_path / "src/gabion/analysis/derivation_contract.py",
@@ -35,6 +36,7 @@ def test_structural_hash_policy_check_accepts_clean_identity_paths(tmp_path: Pat
 
 
 # gabion:evidence E:call_footprint::tests/test_structural_hash_policy_check.py::test_structural_hash_policy_check_rejects_digest_identity_calls::structural_hash_policy_check.py::scripts.structural_hash_policy_check.collect_violations
+# gabion:behavior primary=desired
 def test_structural_hash_policy_check_rejects_digest_identity_calls(tmp_path: Path) -> None:
     _write(
         tmp_path / "src/gabion/analysis/derivation_contract.py",
@@ -57,6 +59,7 @@ def test_structural_hash_policy_check_rejects_digest_identity_calls(tmp_path: Pa
 
 
 # gabion:evidence E:call_footprint::tests/test_structural_hash_policy_check.py::test_structural_hash_policy_check_writes_policy_result_output::structural_hash_policy_check.py::scripts.structural_hash_policy_check.run
+# gabion:behavior primary=desired
 def test_structural_hash_policy_check_writes_policy_result_output(tmp_path: Path) -> None:
     _write(tmp_path / "src/gabion/analysis/derivation_contract.py", "VALUE = 1\n")
     _write(tmp_path / "src/gabion/analysis/derivation_graph.py", "def f():\n    return 1\n")

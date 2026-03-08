@@ -22,6 +22,7 @@ def _sample_invariant(*, invariant_id: str, terms: tuple[str, ...], confidence: 
 
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.generate_property_hook_manifest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.generate_property_hook_manifest::stale_5162fc0006de_69a5f368
+# gabion:behavior primary=desired
 def test_property_hook_ids_are_stable_across_runs() -> None:
     invariants = [
         _sample_invariant(invariant_id="inv:001", terms=("a", "b")),
@@ -33,6 +34,7 @@ def test_property_hook_ids_are_stable_across_runs() -> None:
 
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.generate_property_hook_manifest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.generate_property_hook_manifest::stale_66d4eaf6f47a
+# gabion:behavior primary=desired
 def test_property_hook_manifest_skips_low_confidence_invariants() -> None:
     invariants = [
         _sample_invariant(invariant_id="inv:low", terms=("a", "b"), confidence=0.2),
@@ -43,6 +45,7 @@ def test_property_hook_manifest_skips_low_confidence_invariants() -> None:
 
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.generate_property_hook_manifest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.generate_property_hook_manifest::stale_9b678e06e7e2
+# gabion:behavior primary=desired
 def test_property_hook_manifest_maps_multiple_invariants_to_one_callable() -> None:
     invariants = [
         _sample_invariant(invariant_id="inv:001", terms=("a", "b")),
@@ -65,6 +68,7 @@ def test_property_hook_manifest_maps_multiple_invariants_to_one_callable() -> No
 
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.InvariantProposition.as_dict
+# gabion:behavior primary=desired
 def test_invariant_proposition_as_dict_emits_optional_metadata() -> None:
     proposition = InvariantProposition(
         form="Equal",
@@ -80,6 +84,7 @@ def test_invariant_proposition_as_dict_emits_optional_metadata() -> None:
 
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.generate_property_hook_manifest E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.generate_property_hook_manifest::stale_6ffab7161cd4
+# gabion:behavior primary=desired
 def test_property_hook_manifest_hypothesis_templates_and_scope_filtering() -> None:
     invariants = [
         _sample_invariant(invariant_id="inv:good", terms=("a", "b")),
@@ -102,6 +107,7 @@ def test_property_hook_manifest_hypothesis_templates_and_scope_filtering() -> No
 
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._build_property_hook_callable_index
+# gabion:behavior primary=verboten facets=invalid
 def test_property_hook_callable_index_skips_invalid_hook_shapes() -> None:
     callable_index = _build_property_hook_callable_index(
         [
@@ -115,6 +121,7 @@ def test_property_hook_callable_index_skips_invalid_hook_shapes() -> None:
 
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._deserialize_invariants_for_resume
+# gabion:behavior primary=desired
 def test_deserialize_invariants_for_resume_normalizes_evidence_keys() -> None:
     invariants = _deserialize_invariants_for_resume(
         [

@@ -7,6 +7,7 @@ from scripts.misc import aspf_handoff as aspf_handoff_script
 
 
 # gabion:evidence E:call_footprint::tests/test_aspf_handoff_script.py::test_script_prepare_and_record_roundtrip::aspf_handoff.py::scripts.aspf_handoff.main
+# gabion:behavior primary=desired
 def test_script_prepare_and_record_roundtrip(
     tmp_path: Path,
     capsys,
@@ -61,6 +62,7 @@ def test_script_prepare_and_record_roundtrip(
 
 
 # gabion:evidence E:call_footprint::tests/test_aspf_handoff_script.py::test_script_record_returns_nonzero_when_entry_missing::aspf_handoff.py::scripts.aspf_handoff.main
+# gabion:behavior primary=verboten facets=missing,nonzero
 def test_script_record_returns_nonzero_when_entry_missing(
     tmp_path: Path,
     capsys,
@@ -104,6 +106,7 @@ def test_script_record_returns_nonzero_when_entry_missing(
 
 
 # gabion:evidence E:function_site::tests/test_aspf_handoff_script.py::test_analysis_state_from_state_path_reads_top_level_without_canonicalization
+# gabion:behavior primary=desired
 def test_analysis_state_from_state_path_reads_top_level_without_canonicalization(
     tmp_path: Path,
 ) -> None:
@@ -125,6 +128,7 @@ def test_analysis_state_from_state_path_reads_top_level_without_canonicalization
 
 
 # gabion:evidence E:function_site::tests/test_aspf_handoff_script.py::test_analysis_state_from_state_path_uses_resume_projection
+# gabion:behavior primary=desired
 def test_analysis_state_from_state_path_uses_resume_projection(tmp_path: Path) -> None:
     state_path = tmp_path / "state.json"
     state_path.write_text(
@@ -144,6 +148,7 @@ def test_analysis_state_from_state_path_uses_resume_projection(tmp_path: Path) -
 
 
 # gabion:evidence E:function_site::tests/test_aspf_handoff_script.py::test_analysis_state_from_state_path_returns_none_on_invalid_json
+# gabion:behavior primary=verboten facets=invalid,none
 def test_analysis_state_from_state_path_returns_none_on_invalid_json(
     tmp_path: Path,
 ) -> None:
@@ -153,6 +158,7 @@ def test_analysis_state_from_state_path_returns_none_on_invalid_json(
 
 
 # gabion:evidence E:function_site::tests/test_aspf_handoff_script.py::test_command_timeout_text_supports_split_and_equals_forms
+# gabion:behavior primary=verboten facets=timeout
 def test_command_timeout_text_supports_split_and_equals_forms() -> None:
     assert (
         aspf_handoff_script._command_timeout_text(

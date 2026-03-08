@@ -43,6 +43,7 @@ def _progress_notification(*, phase: str, event_seq: int, work_done: int) -> dic
 
 
 # gabion:evidence E:call_footprint::tests/test_delta_emit_runtime.py::test_emit_timeline_row_ignores_empty_phase::delta_emit_runtime.py::gabion.tooling.delta_emit_runtime._emit_timeline_row
+# gabion:behavior primary=verboten facets=empty
 def test_emit_timeline_row_ignores_empty_phase() -> None:
     state = delta_emit_runtime.TimelineEmitState()
     lines: list[str] = []
@@ -59,6 +60,7 @@ def test_emit_timeline_row_ignores_empty_phase() -> None:
 
 
 # gabion:evidence E:function_site::test_delta_emit_runtime.py::tests.test_delta_emit_runtime.test_timeout_helpers_prefer_context_override
+# gabion:behavior primary=verboten facets=timeout
 def test_timeout_helpers_prefer_context_override() -> None:
     with env_policy.lsp_timeout_override_scope(
         env_policy.LspTimeoutConfig(ticks=23, tick_ns=29)
@@ -68,6 +70,7 @@ def test_timeout_helpers_prefer_context_override() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_delta_emit_runtime.py::test_flush_pending_timeline_row_normalizes_signature_and_keys::delta_emit_runtime.py::gabion.tooling.delta_emit_runtime.flush_pending_timeline_row_if_due
+# gabion:behavior primary=desired
 def test_flush_pending_timeline_row_normalizes_signature_and_keys() -> None:
     state = delta_emit_runtime.TimelineEmitState(
         timeline_header_emitted=True,
@@ -98,6 +101,7 @@ def test_flush_pending_timeline_row_normalizes_signature_and_keys() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_delta_emit_runtime.py::test_run_delta_emit_flush_thread_emits_pending_rows::delta_emit_runtime.py::gabion.tooling.delta_emit_runtime.run_delta_emit
+# gabion:behavior primary=desired
 def test_run_delta_emit_flush_thread_emits_pending_rows(tmp_path: Path) -> None:
     output_path = tmp_path / "delta_output.json"
     output_path.write_text("{}", encoding="utf-8")
@@ -134,6 +138,7 @@ def test_run_delta_emit_flush_thread_emits_pending_rows(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::test_delta_emit_runtime.py::tests.test_delta_emit_runtime.test_run_delta_emit_handles_run_command_branch
+# gabion:behavior primary=desired
 def test_run_delta_emit_handles_run_command_branch(tmp_path: Path) -> None:
     output_path = tmp_path / "delta_output.json"
     output_path.write_text("{}", encoding="utf-8")
@@ -183,6 +188,7 @@ def test_run_delta_emit_handles_run_command_branch(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::test_delta_emit_runtime.py::tests.test_delta_emit_runtime.test_run_delta_emit_handles_custom_runner_branch
+# gabion:behavior primary=desired
 def test_run_delta_emit_handles_custom_runner_branch(tmp_path: Path) -> None:
     output_path = tmp_path / "delta_output.json"
     output_path.write_text("{}", encoding="utf-8")

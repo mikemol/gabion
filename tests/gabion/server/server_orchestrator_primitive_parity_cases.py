@@ -6,6 +6,7 @@ from gabion import server
 from gabion.server_core import command_orchestrator_primitives
 
 
+# gabion:behavior primary=desired
 def test_report_path_resolution_parity(tmp_path: Path) -> None:
     inputs = [None, "", "-", "/dev/stdout", "report.md", "/tmp/report.md"]
     for report_path in inputs:
@@ -18,6 +19,7 @@ def test_report_path_resolution_parity(tmp_path: Path) -> None:
         )
 
 
+# gabion:behavior primary=desired
 def test_report_section_journal_path_resolution_parity(tmp_path: Path) -> None:
     for report_path in ("dataflow_report.md", "subdir/custom.md", None):
         assert server._resolve_report_section_journal_path(
@@ -29,6 +31,7 @@ def test_report_section_journal_path_resolution_parity(tmp_path: Path) -> None:
         )
 
 
+# gabion:behavior primary=desired
 def test_normalize_dataflow_response_parity() -> None:
     payload = {
         "lint_lines": ["a.py:1:2: W sample", 1],
@@ -43,6 +46,7 @@ def test_normalize_dataflow_response_parity() -> None:
     )
 
 
+# gabion:behavior primary=verboten facets=timeout
 def test_analysis_timeout_budget_parity() -> None:
     payload = {
         "analysis_timeout_ms": 500,
@@ -53,6 +57,7 @@ def test_analysis_timeout_budget_parity() -> None:
     )
 
 
+# gabion:behavior primary=desired
 def test_flush_decision_helpers_parity() -> None:
     checkpoint_kwargs = {
         "intro_changed": False,
@@ -87,6 +92,7 @@ def test_flush_decision_helpers_parity() -> None:
     )
 
 
+# gabion:behavior primary=desired
 def test_progress_heartbeat_seconds_parity() -> None:
     payload = {"progress_heartbeat_seconds": "4"}
     assert server._progress_heartbeat_seconds(payload) == (

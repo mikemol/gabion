@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import json
-import subprocess
-import sys
 from pathlib import Path
-from tests.path_helpers import REPO_ROOT
+
+from scripts.deadline import deadline_profile_ci_summary
 
 
 def _write_profile(path: Path, *, total_elapsed_ns: int, site_elapsed_ns: int) -> None:
@@ -36,16 +35,14 @@ def _write_profile(path: Path, *, total_elapsed_ns: int, site_elapsed_ns: int) -
 
 
 # gabion:evidence E:call_footprint::tests/test_deadline_profile_ci_summary.py::test_deadline_profile_ci_summary_allows_missing_local::test_deadline_profile_ci_summary.py::tests.test_deadline_profile_ci_summary._write_profile
+# gabion:behavior primary=verboten facets=missing
 def test_deadline_profile_ci_summary_allows_missing_local(tmp_path: Path) -> None:
     ci_profile = tmp_path / "deadline_profile_ci.json"
     _write_profile(ci_profile, total_elapsed_ns=2_000_000_000, site_elapsed_ns=200_000_000)
     summary_json = tmp_path / "summary.json"
     summary_md = tmp_path / "summary.md"
-    result = subprocess.run(
+    result = deadline_profile_ci_summary.main(
         [
-            sys.executable,
-            "-m",
-            "scripts.deadline.deadline_profile_ci_summary",
             "--ci-profile",
             str(ci_profile),
             "--local-profile",
@@ -55,11 +52,9 @@ def test_deadline_profile_ci_summary_allows_missing_local(tmp_path: Path) -> Non
             str(summary_json),
             "--md-out",
             str(summary_md),
-        ],
-        check=False,
-        cwd=REPO_ROOT,
+        ]
     )
-    assert result.returncode == 0
+    assert result == 0
     assert summary_json.exists()
     assert summary_md.exists()
     assert "Local profile not provided" in summary_md.read_text()
@@ -67,6 +62,7 @@ def test_deadline_profile_ci_summary_allows_missing_local(tmp_path: Path) -> Non
 
 
 # gabion:evidence E:call_footprint::tests/test_deadline_profile_ci_summary.py::test_deadline_profile_ci_summary_compares_local_profile::test_deadline_profile_ci_summary.py::tests.test_deadline_profile_ci_summary._write_profile
+# gabion:behavior primary=desired
 def test_deadline_profile_ci_summary_compares_local_profile(tmp_path: Path) -> None:
     ci_profile = tmp_path / "deadline_profile_ci.json"
     local_profile = tmp_path / "deadline_profile_local.json"
@@ -74,11 +70,8 @@ def test_deadline_profile_ci_summary_compares_local_profile(tmp_path: Path) -> N
     _write_profile(local_profile, total_elapsed_ns=1_000_000_000, site_elapsed_ns=100_000_000)
     summary_json = tmp_path / "summary.json"
     summary_md = tmp_path / "summary.md"
-    result = subprocess.run(
+    result = deadline_profile_ci_summary.main(
         [
-            sys.executable,
-            "-m",
-            "scripts.deadline.deadline_profile_ci_summary",
             "--ci-profile",
             str(ci_profile),
             "--local-profile",
@@ -87,11 +80,9 @@ def test_deadline_profile_ci_summary_compares_local_profile(tmp_path: Path) -> N
             str(summary_json),
             "--md-out",
             str(summary_md),
-        ],
-        check=False,
-        cwd=REPO_ROOT,
+        ]
     )
-    assert result.returncode == 0
+    assert result == 0
     summary = json.loads(summary_json.read_text())
     comparison = summary.get("comparison")
     assert isinstance(comparison, dict)

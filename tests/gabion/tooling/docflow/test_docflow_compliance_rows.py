@@ -23,6 +23,7 @@ def _spec(name: str, predicate: str, **params: object):
 
 
 # gabion:evidence E:call_footprint::tests/test_docflow_compliance_rows.py::test_docflow_compliance_rows_dispatches_cover_never_require_active_and_proposed::governance_audit_impl.py::gabion_governance.governance_audit_impl._docflow_compliance_rows
+# gabion:behavior primary=verboten facets=never
 def test_docflow_compliance_rows_dispatches_cover_never_require_active_and_proposed() -> None:
     rows = [
         {

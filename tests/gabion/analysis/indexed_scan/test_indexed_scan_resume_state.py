@@ -9,6 +9,7 @@ from gabion.analysis.indexed_scan.state import resume_state
 
 
 # gabion:evidence E:function_site::indexed_scan/resume_state.py::gabion.analysis.indexed_scan.resume_state.deserialize_param_spans_for_resume
+# gabion:behavior primary=desired
 def test_deserialize_param_spans_skips_non_numeric_values() -> None:
     decoded = resume_state.deserialize_param_spans_for_resume(
         {
@@ -23,6 +24,7 @@ def test_deserialize_param_spans_skips_non_numeric_values() -> None:
 
 
 # gabion:evidence E:function_site::indexed_scan/resume_state.py::gabion.analysis.indexed_scan.resume_state.build_analysis_collection_resume_payload
+# gabion:behavior primary=desired
 def test_build_payload_rejects_descending_in_progress_path_order() -> None:
     path_b = Path("b.py")
     path_a = Path("a.py")
@@ -45,6 +47,7 @@ def test_build_payload_rejects_descending_in_progress_path_order() -> None:
 
 
 # gabion:evidence E:function_site::indexed_scan/resume_state.py::gabion.analysis.indexed_scan.resume_state.load_analysis_collection_resume_payload
+# gabion:behavior primary=verboten facets=empty,missing
 def test_load_payload_handles_missing_sections_and_empty_in_progress_payload() -> None:
     empty = resume_state.load_analysis_collection_resume_payload(
         payload={"format_version": 2},

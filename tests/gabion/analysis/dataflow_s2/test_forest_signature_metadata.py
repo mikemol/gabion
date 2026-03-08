@@ -8,6 +8,7 @@ from gabion.analysis.dataflow.io.forest_signature_metadata import (
 )
 
 
+# gabion:behavior primary=desired
 @pytest.mark.parametrize(
     ("snapshot", "prefix", "expected"),
     [
@@ -63,6 +64,7 @@ def test_apply_forest_signature_metadata_cases(
     assert payload == expected
 
 
+# gabion:behavior primary=desired
 def test_snapshot_and_reuse_modules_share_helper_behavior() -> None:
     snapshot = {"forest_signature_basis": "observed"}
 

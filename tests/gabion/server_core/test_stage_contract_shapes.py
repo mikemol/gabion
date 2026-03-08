@@ -23,11 +23,13 @@ class _TraceState:
     trace_id: str
 
 
+# gabion:behavior primary=desired
 def test_default_mode_selector_returns_stage_mode_enum() -> None:
     mode = default_mode_selector(payload={"aux_operation": {"domain": "x"}}, options=_Options())
     assert mode is IngressStageMode.AUX_OPERATION
 
 
+# gabion:behavior primary=desired
 def test_output_stage_uses_typed_emission_requests() -> None:
     events: list[str] = []
 
@@ -47,6 +49,7 @@ def test_output_stage_uses_typed_emission_requests() -> None:
     assert events == ["primary", "aux"]
 
 
+# gabion:behavior primary=desired
 def test_contract_marker_protocols_accept_dataclass_carriers() -> None:
     options: ExecutionPayloadOptionsContract = _Options()
     assert options.progress_heartbeat_seconds == 1.0

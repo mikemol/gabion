@@ -26,12 +26,14 @@ def _repo_python_files(root: Path):
             yield path
 
 
+# gabion:behavior primary=allowed_unwanted facets=compat,legacy
 def test_legacy_compat_modules_retired() -> None:
     repo_root = Path(__file__).resolve().parents[4]
     existing = [rel for rel in _LEGACY_FILES if (repo_root / rel).exists()]
     assert not existing, f"legacy compatibility modules must be deleted; existing={existing}"
 
 
+# gabion:behavior primary=allowed_unwanted facets=compat,legacy
 def test_no_legacy_compat_imports_remain() -> None:
     repo_root = Path(__file__).resolve().parents[4]
     violations: list[str] = []

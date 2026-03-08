@@ -11,6 +11,7 @@ from gabion.tooling.runtime.execution_envelope import ExecutionEnvelope
 
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_invocation_runner.py::test_dataflow_invocation_runner_delta_bundle_uses_injected_run_check::dataflow_invocation_runner.py::gabion.tooling.dataflow_invocation_runner.DataflowInvocationRunner
+# gabion:behavior primary=desired
 def test_dataflow_invocation_runner_delta_bundle_uses_injected_run_check() -> None:
     captured: dict[str, object] = {}
 
@@ -36,6 +37,7 @@ def test_dataflow_invocation_runner_delta_bundle_uses_injected_run_check() -> No
 
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_invocation_runner.py::test_dataflow_invocation_runner_delta_bundle_rejects_raw_envelope::dataflow_invocation_runner.py::gabion.tooling.dataflow_invocation_runner.DataflowInvocationRunner
+# gabion:behavior primary=desired
 def test_dataflow_invocation_runner_delta_bundle_rejects_raw_envelope() -> None:
     runner = DataflowInvocationRunner(run_check_fn=lambda **_kwargs: {})
     envelope = ExecutionEnvelope.for_raw(
@@ -48,6 +50,7 @@ def test_dataflow_invocation_runner_delta_bundle_rejects_raw_envelope() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_invocation_runner.py::test_dataflow_invocation_runner_raw_uses_injected_helpers_and_dispatch::dataflow_invocation_runner.py::gabion.tooling.dataflow_invocation_runner.DataflowInvocationRunner
+# gabion:behavior primary=desired
 def test_dataflow_invocation_runner_raw_uses_injected_helpers_and_dispatch() -> None:
     dispatched: dict[str, object] = {}
 
@@ -78,6 +81,7 @@ def test_dataflow_invocation_runner_raw_uses_injected_helpers_and_dispatch() -> 
 
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_invocation_runner.py::test_dataflow_invocation_runner_resolve_helpers_cover_fallback_paths::dataflow_invocation_runner.py::gabion.tooling.dataflow_invocation_runner.DataflowInvocationRunner
+# gabion:behavior primary=allowed_unwanted facets=fallback
 def test_dataflow_invocation_runner_resolve_helpers_cover_fallback_paths() -> None:
     run_check_fn = lambda **_kwargs: {"exit_code": 0, "analysis_state": "ok"}
     dispatch_command_fn = lambda **_kwargs: {"exit_code": 0, "analysis_state": "ok"}
@@ -104,6 +108,7 @@ def test_dataflow_invocation_runner_resolve_helpers_cover_fallback_paths() -> No
 
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_invocation_runner.py::test_dataflow_invocation_runner_ensures_repo_root_importable::dataflow_invocation_runner.py::gabion.tooling.dataflow_invocation_runner.DataflowInvocationRunner
+# gabion:behavior primary=desired
 def test_dataflow_invocation_runner_ensures_repo_root_importable(tmp_path: Path) -> None:
     repo_root = (tmp_path / "repo").resolve()
     repo_root.mkdir(parents=True, exist_ok=True)
@@ -121,6 +126,7 @@ def test_dataflow_invocation_runner_ensures_repo_root_importable(tmp_path: Path)
 
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_invocation_runner.py::test_dataflow_invocation_runner_raw_without_aspf_payload_passthrough::dataflow_invocation_runner.py::gabion.tooling.dataflow_invocation_runner.DataflowInvocationRunner
+# gabion:behavior primary=desired
 def test_dataflow_invocation_runner_raw_without_aspf_payload_passthrough() -> None:
     dispatched: dict[str, object] = {}
     runner = DataflowInvocationRunner(
@@ -145,6 +151,7 @@ def test_dataflow_invocation_runner_raw_without_aspf_payload_passthrough() -> No
 
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_invocation_runner.py::test_dataflow_invocation_runner_raw_rejects_delta_envelope::dataflow_invocation_runner.py::gabion.tooling.dataflow_invocation_runner.DataflowInvocationRunner
+# gabion:behavior primary=desired
 def test_dataflow_invocation_runner_raw_rejects_delta_envelope() -> None:
     runner = DataflowInvocationRunner(
         dispatch_command_fn=lambda **_kwargs: {},

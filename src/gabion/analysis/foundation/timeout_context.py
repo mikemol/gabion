@@ -13,10 +13,10 @@ from typing import TypeVar
 from contextvars import ContextVar, Token
 
 from gabion.runtime_shape_dispatch import (
-    float_or_none as _float_or_none,
-    int_or_none as _int_or_none,
-    json_list_or_none as _json_list_or_none,
-    json_mapping_or_none as _json_mapping_or_none,
+    float_optional as _float_optional,
+    int_optional as _int_optional,
+    json_list_optional as _json_list_optional,
+    json_mapping_optional as _json_mapping_optional,
 )
 from gabion.deadline_clock import (
     DeadlineClock, DeadlineClockExhausted, GasMeter, MonotonicClock)
@@ -106,7 +106,7 @@ class _FunctionSiteIdentity:
         if len(self.span) != 4:
             never("invalid function site span", span=self.span)
         for part in self.span:
-            if _int_or_none(part) is None:
+            if _int_optional(part) is None:
                 never("invalid function site span", span=self.span)
 
     def key(self) -> tuple[object, ...]:
@@ -690,7 +690,7 @@ def _timeout_progress_snapshot(
 
 # gabion:ambiguity_boundary
 def _decode_deadline_profile_payload(profile: object) -> _DecodedDeadlineProfile:
-    profile_mapping = _json_mapping_or_none(profile)
+    profile_mapping = _json_mapping_optional(profile)
     if profile_mapping is None:
         return _DecodedDeadlineProfile(
             checks_total=0,
@@ -713,10 +713,10 @@ def _decode_deadline_profile_payload(profile: object) -> _DecodedDeadlineProfile
     edges_raw = profile_mapping.get("edges")
     io_raw = profile_mapping.get("io")
     ticks_per_ns_raw = profile_mapping.get("ticks_per_ns")
-    ticks_per_ns = _float_or_none(ticks_per_ns_raw)
-    sites_rows = _json_list_or_none(sites_raw)
-    edge_rows = _json_list_or_none(edges_raw)
-    io_rows = _json_list_or_none(io_raw)
+    ticks_per_ns = _float_optional(ticks_per_ns_raw)
+    sites_rows = _json_list_optional(sites_raw)
+    edge_rows = _json_list_optional(edges_raw)
+    io_rows = _json_list_optional(io_raw)
     return _DecodedDeadlineProfile(
         checks_total=int(profile_mapping.get("checks_total", 0) or 0),
         total_elapsed_ns=int(profile_mapping.get("total_elapsed_ns", 0) or 0),
@@ -735,11 +735,11 @@ def _decode_deadline_profile_payload(profile: object) -> _DecodedDeadlineProfile
 
 # gabion:ambiguity_boundary
 def _decode_deadline_profile_site_rows(rows: object) -> Iterator[_DeadlineProfileSiteRow]:
-    row_list = _json_list_or_none(rows)
+    row_list = _json_list_optional(rows)
     if row_list is None:
         return
     for row in row_list:
-        row_mapping = _json_mapping_or_none(row)
+        row_mapping = _json_mapping_optional(row)
         if row_mapping is None:
             continue
         yield _DeadlineProfileSiteRow(
@@ -753,11 +753,11 @@ def _decode_deadline_profile_site_rows(rows: object) -> Iterator[_DeadlineProfil
 
 # gabion:ambiguity_boundary
 def _decode_deadline_profile_edge_rows(rows: object) -> Iterator[_DeadlineProfileEdgeRow]:
-    row_list = _json_list_or_none(rows)
+    row_list = _json_list_optional(rows)
     if row_list is None:
         return
     for row in row_list:
-        row_mapping = _json_mapping_or_none(row)
+        row_mapping = _json_mapping_optional(row)
         if row_mapping is None:
             continue
         yield _DeadlineProfileEdgeRow(
@@ -773,11 +773,11 @@ def _decode_deadline_profile_edge_rows(rows: object) -> Iterator[_DeadlineProfil
 
 # gabion:ambiguity_boundary
 def _decode_deadline_profile_io_rows(rows: object) -> Iterator[_DeadlineProfileIoRow]:
-    row_list = _json_list_or_none(rows)
+    row_list = _json_list_optional(rows)
     if row_list is None:
         return
     for row in row_list:
-        row_mapping = _json_mapping_or_none(row)
+        row_mapping = _json_mapping_optional(row)
         if row_mapping is None:
             continue
         yield _DeadlineProfileIoRow(

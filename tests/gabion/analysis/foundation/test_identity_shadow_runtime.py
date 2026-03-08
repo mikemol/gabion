@@ -27,6 +27,7 @@ def _phase_progress_payload(
     }
 
 
+# gabion:behavior primary=desired
 def test_identity_shadow_runtime_accepts_progress_payload_and_emits_seed() -> None:
     runtime = build_identity_shadow_runtime(
         run_id="run:shadow",
@@ -47,6 +48,7 @@ def test_identity_shadow_runtime_accepts_progress_payload_and_emits_seed() -> No
     assert "path" in namespaces
 
 
+# gabion:behavior primary=desired
 def test_identity_shadow_runtime_allocation_delta_cursor_is_monotonic() -> None:
     runtime = build_identity_shadow_runtime(
         run_id="run:delta",
@@ -77,6 +79,7 @@ def test_identity_shadow_runtime_allocation_delta_cursor_is_monotonic() -> None:
     assert len(seqs) == len(set(seqs))
 
 
+# gabion:behavior primary=desired
 def test_identity_shadow_runtime_rejects_progress_without_anchor() -> None:
     runtime = build_identity_shadow_runtime(
         run_id="run:reject",
@@ -93,6 +96,7 @@ def test_identity_shadow_runtime_rejects_progress_without_anchor() -> None:
     assert emission.identity_allocation_delta_v1 == []
 
 
+# gabion:behavior primary=desired
 def test_identity_shadow_runtime_is_deterministic_with_live_shared_registry() -> None:
     shared_registry = PrimeRegistry()
     runtime_first = build_identity_shadow_runtime(
@@ -120,6 +124,7 @@ def test_identity_shadow_runtime_is_deterministic_with_live_shared_registry() ->
     ]
 
 
+# gabion:behavior primary=desired
 def test_bit_prime_integer_carrier_roundtrips_and_sorts_bits() -> None:
     carrier = BitPrimeIntegerCarrier()
     encoded = carrier.encode_anchor_tokens(
@@ -151,6 +156,7 @@ def test_bit_prime_integer_carrier_roundtrips_and_sorts_bits() -> None:
     assert negative_decoded.value == -5
 
 
+# gabion:behavior primary=desired
 def test_identity_shadow_runtime_integer_anchor_tokens_scale_by_bit_width() -> None:
     runtime = build_identity_shadow_runtime(
         run_id="run:cardinality",
@@ -171,5 +177,6 @@ def test_identity_shadow_runtime_integer_anchor_tokens_scale_by_bit_width() -> N
     assert len(event_seq_tokens) <= 16
 
 
+# gabion:behavior primary=desired
 def test_identity_shadow_runtime_uses_governed_integer_anchor_namespace() -> None:
     assert INTEGER_ANCHOR_NAMESPACE == GOVERNED_INTEGER_ANCHOR_NAMESPACE

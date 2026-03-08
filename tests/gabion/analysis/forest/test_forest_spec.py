@@ -5,6 +5,7 @@ from gabion.analysis.core.forest_spec import (
 
 
 # gabion:evidence E:decision_surface/direct::forest_spec.py::gabion.analysis.forest_spec.build_forest_spec::include_bundle_forest,include_decision_surfaces,include_never_invariants,include_value_decision_surfaces E:decision_surface/direct::forest_spec.py::gabion.analysis.forest_spec.normalize_forest_spec::spec E:decision_surface/direct::forest_spec.py::gabion.analysis.forest_spec._normalize_decision_tiers::tiers E:decision_surface/direct::forest_spec.py::gabion.analysis.forest_spec._normalize_value::value E:decision_surface/direct::forest_spec.py::gabion.analysis.forest_spec._sorted_strings::values
+# gabion:behavior primary=desired
 def test_forest_spec_normalization_idempotent() -> None:
     spec = build_forest_spec(
         include_bundle_forest=True,
@@ -27,6 +28,7 @@ def test_forest_spec_normalization_idempotent() -> None:
 
 
 # gabion:evidence E:decision_surface/direct::forest_spec.py::gabion.analysis.forest_spec.build_forest_spec::include_bundle_forest,include_decision_surfaces,include_never_invariants,include_value_decision_surfaces E:decision_surface/direct::forest_spec.py::gabion.analysis.forest_spec.normalize_forest_spec::spec E:decision_surface/direct::forest_spec.py::gabion.analysis.forest_spec._normalize_decision_tiers::tiers E:decision_surface/direct::forest_spec.py::gabion.analysis.forest_spec._sorted_strings::values E:decision_surface/direct::forest_spec.py::gabion.analysis.forest_spec._normalize_decision_tiers::stale_c65429a83622
+# gabion:behavior primary=desired
 def test_forest_spec_metadata_contains_id_and_spec() -> None:
     spec = build_forest_spec(
         include_bundle_forest=True,
@@ -40,6 +42,7 @@ def test_forest_spec_metadata_contains_id_and_spec() -> None:
 
 
 # gabion:evidence E:decision_surface/direct::forest_spec.py::gabion.analysis.forest_spec.build_forest_spec::include_bundle_forest,include_decision_surfaces,include_never_invariants,include_value_decision_surfaces E:decision_surface/direct::forest_spec.py::gabion.analysis.forest_spec._normalize_decision_tiers::tiers E:decision_surface/direct::forest_spec.py::gabion.analysis.forest_spec._sorted_strings::values E:decision_surface/direct::forest_spec.py::gabion.analysis.forest_spec._normalize_decision_tiers::stale_80e5cd11e8c4
+# gabion:behavior primary=verboten facets=invalid
 def test_forest_spec_to_dict_roundtrip_handles_invalid_payload() -> None:
     spec = build_forest_spec(
         include_bundle_forest=True,
@@ -60,6 +63,7 @@ def test_forest_spec_to_dict_roundtrip_handles_invalid_payload() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_forest_spec.py::test_forest_spec_includes_deadline_obligations::forest_spec.py::gabion.analysis.forest_spec.build_forest_spec
+# gabion:behavior primary=desired
 def test_forest_spec_includes_deadline_obligations() -> None:
     spec = build_forest_spec(
         include_bundle_forest=False,
@@ -75,6 +79,7 @@ def test_forest_spec_includes_deadline_obligations() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_forest_spec.py::test_forest_spec_hash_accepts_string_and_mapping::forest_spec.py::gabion.analysis.forest_spec.build_forest_spec::forest_spec.py::gabion.analysis.forest_spec.forest_spec_hash::forest_spec.py::gabion.analysis.forest_spec.forest_spec_to_dict
+# gabion:behavior primary=desired
 def test_forest_spec_hash_accepts_string_and_mapping() -> None:
     spec = build_forest_spec(
         include_bundle_forest=True,
@@ -88,6 +93,7 @@ def test_forest_spec_hash_accepts_string_and_mapping() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_forest_spec.py::test_forest_spec_includes_lint_findings::forest_spec.py::gabion.analysis.forest_spec.build_forest_spec
+# gabion:behavior primary=desired
 def test_forest_spec_includes_lint_findings() -> None:
     spec = build_forest_spec(
         include_bundle_forest=False,
@@ -105,6 +111,7 @@ def test_forest_spec_includes_lint_findings() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_forest_spec.py::test_forest_spec_includes_wl_refinement_collector::forest_spec.py::gabion.analysis.forest_spec.build_forest_spec
+# gabion:behavior primary=desired
 def test_forest_spec_includes_wl_refinement_collector() -> None:
     spec = build_forest_spec(
         include_bundle_forest=True,
@@ -122,6 +129,7 @@ def test_forest_spec_includes_wl_refinement_collector() -> None:
 
 
 # gabion:evidence E:function_site::forest_spec.py::gabion.analysis.forest_spec.default_forest_spec
+# gabion:behavior primary=desired
 def test_forest_spec_includes_taint_projection_collector() -> None:
     spec = build_forest_spec(
         include_bundle_forest=False,
@@ -136,12 +144,14 @@ def test_forest_spec_includes_taint_projection_collector() -> None:
 
 
 # gabion:evidence E:decision_surface/direct::forest_spec.py::gabion.analysis.forest_spec._normalize_decision_tiers::tiers E:decision_surface/direct::forest_spec.py::gabion.analysis.forest_spec._normalize_decision_tiers::stale_b8d498db87b0
+# gabion:behavior primary=verboten facets=invalid
 def test_normalize_decision_tiers_ignores_invalid() -> None:
     tiers = {"": 1, "ok": "bad", "fine": 2}
     assert _normalize_decision_tiers(tiers) == {"fine": 2}
 
 
 # gabion:evidence E:call_footprint::tests/test_forest_spec.py::test_forest_spec_from_dict_ignores_non_list_collectors_and_outputs::forest_spec.py::gabion.analysis.forest_spec.forest_spec_from_dict
+# gabion:behavior primary=desired
 def test_forest_spec_from_dict_ignores_non_list_collectors_and_outputs() -> None:
     spec = forest_spec_from_dict(
         {

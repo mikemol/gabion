@@ -8,6 +8,7 @@ from scripts.sppf import sppf_sync
 
 
 # gabion:evidence E:call_footprint::tests/test_sppf_sync.py::test_is_sppf_relevant_push_detects_relevant_paths::sppf_sync.py::scripts.sppf_sync._is_sppf_relevant_push
+# gabion:behavior primary=desired
 def test_is_sppf_relevant_push_detects_relevant_paths() -> None:
     assert (
         sppf_sync._is_sppf_relevant_push(
@@ -19,6 +20,7 @@ def test_is_sppf_relevant_push_detects_relevant_paths() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_sppf_sync.py::test_validate_issue_lifecycle_reports_missing_labels_and_state::sppf_sync.py::scripts.sppf_sync._validate_issue_lifecycle
+# gabion:behavior primary=verboten facets=missing
 def test_validate_issue_lifecycle_reports_missing_labels_and_state() -> None:
     violations, notices = sppf_sync._validate_issue_lifecycle(
         ["123"],
@@ -38,6 +40,7 @@ def test_validate_issue_lifecycle_reports_missing_labels_and_state() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_sppf_sync.py::test_validate_issue_lifecycle_emits_notice_and_skips_non_issue_states::sppf_sync.py::scripts.sppf_sync._validate_issue_lifecycle
+# gabion:behavior primary=desired
 def test_validate_issue_lifecycle_emits_notice_and_skips_non_issue_states() -> None:
     violations, notices = sppf_sync._validate_issue_lifecycle(
         ["405"],
@@ -57,6 +60,7 @@ def test_validate_issue_lifecycle_emits_notice_and_skips_non_issue_states() -> N
 
 
 # gabion:evidence E:call_footprint::tests/test_sppf_sync.py::test_issue_ids_from_commits_normalizes_known_gh_0000_placeholders::sppf_sync.py::scripts.sppf_sync._issue_ids_from_commits
+# gabion:behavior primary=desired
 def test_issue_ids_from_commits_normalizes_known_gh_0000_placeholders() -> None:
     commits = [
         sppf_sync.CommitInfo(
@@ -74,6 +78,7 @@ def test_issue_ids_from_commits_normalizes_known_gh_0000_placeholders() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_sppf_sync.py::test_build_issue_link_facet_normalizes_known_gh_0000_placeholders::sppf_sync.py::scripts.sppf_sync._build_issue_link_facet
+# gabion:behavior primary=desired
 def test_build_issue_link_facet_normalizes_known_gh_0000_placeholders() -> None:
     commits = [
         sppf_sync.CommitInfo(
@@ -93,6 +98,7 @@ def test_build_issue_link_facet_normalizes_known_gh_0000_placeholders() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_sppf_sync.py::test_main_validate_mode_fails_with_clear_remediation::sppf_sync.py::scripts.sppf_sync.main
+# gabion:behavior primary=verboten facets=fail
 def test_main_validate_mode_fails_with_clear_remediation(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -136,6 +142,7 @@ def test_main_validate_mode_fails_with_clear_remediation(
 
 
 # gabion:evidence E:call_footprint::tests/test_sppf_sync.py::test_fetch_issue_reports_missing_issue::sppf_sync.py::scripts.sppf_sync._fetch_issue
+# gabion:behavior primary=verboten facets=missing
 def test_fetch_issue_reports_missing_issue() -> None:
     def _raise(*_args, **_kwargs):
         raise subprocess.CalledProcessError(returncode=1, cmd=["gh"])

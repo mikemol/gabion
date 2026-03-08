@@ -36,6 +36,7 @@ def _call(source: str) -> ast.Call:
     return node
 
 
+# gabion:behavior primary=desired
 def test_phase_work_progress_and_adapter_capabilities_normalization() -> None:
     clamped = da._phase_work_progress(work_done=9, work_total=3)
     assert clamped.work_done == 3
@@ -62,6 +63,7 @@ def test_phase_work_progress_and_adapter_capabilities_normalization() -> None:
     assert normalized.exception_obligations is True
 
 
+# gabion:behavior primary=desired
 def test_decorator_name_handles_attribute_call_and_non_name_roots() -> None:
     assert da._decorator_name(_expr("simple")) == "simple"
     assert da._decorator_name(_expr("pkg.decorators.trace")) == "pkg.decorators.trace"
@@ -70,6 +72,7 @@ def test_decorator_name_handles_attribute_call_and_non_name_roots() -> None:
     assert da._decorator_name(_expr("1")) is None
 
 
+# gabion:behavior primary=verboten facets=exception
 def test_annotation_exception_candidates_and_refinement_paths() -> None:
     assert da._annotation_exception_candidates(None) == ()
     assert da._annotation_exception_candidates("ValueError[") == ()
@@ -100,6 +103,7 @@ def test_annotation_exception_candidates_and_refinement_paths() -> None:
     assert direct[2] == ()
 
 
+# gabion:behavior primary=desired
 def test_keyword_literal_helpers_filter_and_sort_link_payloads() -> None:
     call = _call(
         "never(owner='team', links=["
@@ -121,6 +125,7 @@ def test_keyword_literal_helpers_filter_and_sort_link_payloads() -> None:
     assert da._keyword_links_literal(malformed_links) == []
 
 
+# gabion:behavior primary=desired
 def test_stage_cache_key_aliases_cover_parse_and_nodeid_forms() -> None:
     digest = "a" * 40
     identity = f"aspf:sha1:{digest}"
@@ -144,6 +149,7 @@ def test_stage_cache_key_aliases_cover_parse_and_nodeid_forms() -> None:
     assert parse_key in node_aliases
 
 
+# gabion:behavior primary=desired
 def test_type_from_const_repr_split_top_level_and_module_exports() -> None:
     expected = {
         "None": "None",

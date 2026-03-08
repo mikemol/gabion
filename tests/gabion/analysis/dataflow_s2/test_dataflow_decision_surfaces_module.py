@@ -17,6 +17,7 @@ def _lint_line(path: str, line: int, col: int, code: str, message: str) -> str:
 
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_decision_surfaces_module.py::test_decision_surface_summaries_and_plans_cover_edges::dataflow_decision_surfaces.py::gabion.analysis.dataflow_decision_surfaces.compute_fingerprint_coherence::dataflow_decision_surfaces.py::gabion.analysis.dataflow_decision_surfaces.compute_fingerprint_rewrite_plans::dataflow_decision_surfaces.py::gabion.analysis.dataflow_decision_surfaces.summarize_coherence_witnesses::dataflow_decision_surfaces.py::gabion.analysis.dataflow_decision_surfaces.summarize_deadness_witnesses::dataflow_decision_surfaces.py::gabion.analysis.dataflow_decision_surfaces.summarize_rewrite_plans
+# gabion:behavior primary=verboten facets=edge
 def test_decision_surface_summaries_and_plans_cover_edges() -> None:
     assert summarize_deadness_witnesses([], check_deadline=_check_deadline) == []
     lines = summarize_deadness_witnesses(
@@ -108,6 +109,7 @@ def test_decision_surface_summaries_and_plans_cover_edges() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_decision_surfaces_module.py::test_decision_surface_lint_parsing_helpers_cover_edges::dataflow_decision_surfaces.py::gabion.analysis.dataflow_decision_surfaces.extract_smell_sample::dataflow_decision_surfaces.py::gabion.analysis.dataflow_decision_surfaces.lint_lines_from_bundle_evidence::dataflow_decision_surfaces.py::gabion.analysis.dataflow_decision_surfaces.lint_lines_from_constant_smells::dataflow_decision_surfaces.py::gabion.analysis.dataflow_decision_surfaces.lint_lines_from_type_evidence::dataflow_decision_surfaces.py::gabion.analysis.dataflow_decision_surfaces.lint_lines_from_unused_arg_smells::dataflow_decision_surfaces.py::gabion.analysis.dataflow_decision_surfaces.parse_lint_location
+# gabion:behavior primary=verboten facets=edge
 def test_decision_surface_lint_parsing_helpers_cover_edges() -> None:
     assert parse_lint_location("bad") is None
     assert parse_lint_location("p:1:2:-3:4: msg") == ("p", 1, 2, "msg")
@@ -123,6 +125,7 @@ def test_decision_surface_lint_parsing_helpers_cover_edges() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_decision_surfaces_module.py::test_rewrite_plan_roundtrip_and_deterministic_ordering::dataflow_decision_surfaces.py::gabion.analysis.dataflow_decision_surfaces.compute_fingerprint_coherence::dataflow_decision_surfaces.py::gabion.analysis.dataflow_decision_surfaces.compute_fingerprint_rewrite_plans
+# gabion:behavior primary=desired
 def test_rewrite_plan_roundtrip_and_deterministic_ordering() -> None:
     coherence = compute_fingerprint_coherence(
         [
@@ -199,6 +202,7 @@ def test_rewrite_plan_roundtrip_and_deterministic_ordering() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_decision_surfaces_module.py::test_rewrite_plan_helpers_cover_skip_and_abstain_paths::dataflow_decision_surfaces.py::gabion.analysis.dataflow_decision_surfaces.compute_fingerprint_rewrite_plans::dataflow_decision_surfaces.py::gabion.analysis.dataflow_decision_surfaces.summarize_coherence_witnesses
+# gabion:behavior primary=desired
 def test_rewrite_plan_helpers_cover_skip_and_abstain_paths() -> None:
     coherence_summary = summarize_coherence_witnesses(
         [

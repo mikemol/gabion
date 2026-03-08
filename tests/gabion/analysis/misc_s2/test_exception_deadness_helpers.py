@@ -24,6 +24,7 @@ def _load():
     )
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._eval_bool_expr::env,expr E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._eval_value_expr::env,expr E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._node_in_block::node
+# gabion:behavior primary=verboten facets=edge,exception
 def test_deadness_helper_evaluators_cover_edges(tmp_path: Path) -> None:
     da = _load()
 
@@ -144,6 +145,7 @@ def test_deadness_helper_evaluators_cover_edges(tmp_path: Path) -> None:
     )
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._decorator_matches::allowlist,name E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._dead_env_map::deadness_witnesses E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._is_never_marker_raise::exception_name,never_exceptions E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._exception_type_name::expr E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._exception_param_names::expr,params E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._param_names::fn,ignore_params E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_exception_obligations::handledness_witnesses E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._normalize_snapshot_path::root E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_exception_obligations::stale_72be7680c751
+# gabion:behavior primary=verboten facets=exception,invalid
 def test_exception_obligation_deadness_parsing_skips_invalid_entries(tmp_path: Path) -> None:
     da = _load()
     obligations = da._collect_exception_obligations(
@@ -161,6 +163,7 @@ def test_exception_obligation_deadness_parsing_skips_invalid_entries(tmp_path: P
     assert obligations == []
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._decorator_matches::allowlist,name E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._dead_env_map::deadness_witnesses E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._is_never_marker_raise::exception_name,never_exceptions E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._exception_type_name::expr E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._exception_param_names::expr,params E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._param_names::fn,ignore_params E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_exception_obligations::handledness_witnesses E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._normalize_snapshot_path::root E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_constant_flow_details::strictness
+# gabion:behavior primary=verboten facets=exception
 def test_exception_obligations_deadness_selection_skips_unknown_names(tmp_path: Path) -> None:
     da = _load()
     module = tmp_path / "mod.py"
@@ -189,6 +192,7 @@ def test_exception_obligations_deadness_selection_skips_unknown_names(tmp_path: 
     assert any(entry.get("status") == "DEAD" for entry in obligations)
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._decorator_matches::allowlist,name E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._dead_env_map::deadness_witnesses E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._is_never_marker_raise::exception_name,never_exceptions E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._exception_type_name::expr E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._exception_param_names::expr,params E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._param_names::fn,ignore_params E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_exception_obligations::handledness_witnesses E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._normalize_snapshot_path::root E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_exception_obligations::stale_5b7a7d4bac9d
+# gabion:behavior primary=verboten facets=exception,never,raises
 def test_exception_obligations_skip_never_marker_raise(tmp_path: Path) -> None:
     da = _load()
     module = tmp_path / "mod.py"

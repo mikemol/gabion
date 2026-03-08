@@ -19,6 +19,7 @@ def _write_jsonl(path: Path, records: list[dict[str, object]]) -> None:
             handle.write("\n")
 
 
+# gabion:behavior primary=desired
 def test_collect_violations_flags_duplicate_pre_core_normalization_class(
     tmp_path: Path,
 ) -> None:
@@ -85,6 +86,7 @@ def test_collect_violations_flags_duplicate_pre_core_normalization_class(
     )
 
 
+# gabion:behavior primary=desired
 def test_collect_violations_ignores_post_core_duplicates(tmp_path: Path) -> None:
     trace_payload = {
         "trace_id": "aspf-trace:test",
@@ -124,6 +126,7 @@ def test_collect_violations_ignores_post_core_duplicates(tmp_path: Path) -> None
     assert violations == []
 
 
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_load_baseline_rejects_mixed_legacy_and_structured_entries(
     tmp_path: Path,
 ) -> None:
@@ -152,6 +155,7 @@ def test_load_baseline_rejects_mixed_legacy_and_structured_entries(
     assert keys == set()
 
 
+# gabion:behavior primary=verboten facets=strict
 def test_load_baseline_accepts_strict_structured_entries(tmp_path: Path) -> None:
     baseline_path = tmp_path / "baselines/aspf_normalization_idempotence_policy_baseline.json"
     _write_json(
@@ -175,6 +179,7 @@ def test_load_baseline_accepts_strict_structured_entries(tmp_path: Path) -> None
     }
 
 
+# gabion:behavior primary=verboten facets=invalid
 def test_collect_ingress_violations_reports_invalid_trace_json(
     tmp_path: Path,
 ) -> None:
@@ -188,6 +193,7 @@ def test_collect_ingress_violations_reports_invalid_trace_json(
     assert violations[0].path == trace_path.as_posix()
 
 
+# gabion:behavior primary=verboten facets=invalid
 def test_collect_ingress_violations_reports_invalid_delta_line_shape(
     tmp_path: Path,
 ) -> None:
@@ -211,6 +217,7 @@ def test_collect_ingress_violations_reports_invalid_delta_line_shape(
     assert violations[0].path == (tmp_path / "artifacts/out/custom.delta.jsonl").as_posix()
 
 
+# gabion:behavior primary=verboten facets=missing
 def test_collect_ingress_violations_ignores_missing_external_controls_delta_path(
     tmp_path: Path,
 ) -> None:
@@ -226,6 +233,7 @@ def test_collect_ingress_violations_ignores_missing_external_controls_delta_path
     assert violations == []
 
 
+# gabion:behavior primary=desired
 def test_collect_ingress_violations_ignores_default_delta_jsonl_event_noise(
     tmp_path: Path,
 ) -> None:
@@ -246,6 +254,7 @@ def test_collect_ingress_violations_ignores_default_delta_jsonl_event_noise(
     assert violations == []
 
 
+# gabion:behavior primary=verboten facets=invalid
 def test_collect_ingress_violations_reports_invalid_baseline_payload(
     tmp_path: Path,
 ) -> None:
@@ -273,6 +282,7 @@ def test_collect_ingress_violations_reports_invalid_baseline_payload(
     assert violations[0].path == baseline_path.as_posix()
 
 
+# gabion:behavior primary=desired
 def test_collect_violations_defaults_to_current_run_trace_only(
     tmp_path: Path,
 ) -> None:
@@ -338,6 +348,7 @@ def test_collect_violations_defaults_to_current_run_trace_only(
     assert archive_violations[0].path == snapshot_path.relative_to(tmp_path).as_posix()
 
 
+# gabion:behavior primary=desired
 def test_collect_ingress_violations_snapshot_archive_is_opt_in(
     tmp_path: Path,
 ) -> None:

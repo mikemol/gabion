@@ -7,6 +7,7 @@ from gabion.analysis.core.deprecated_substrate import (
 
 
 # gabion:evidence E:function_site::tests/test_deprecated_substrate.py::tests.test_deprecated_substrate.test_deprecated_requires_canonical_path_and_blocker_payload
+# gabion:behavior primary=allowed_unwanted facets=deprecated
 def test_deprecated_requires_canonical_path_and_blocker_payload() -> None:
     blocker = DeprecatedBlocker(blocker_id="B1", kind="owner", summary="needs owner")
     fiber = deprecated(canonical_aspf_path=("pkg", "fn"), blockers=(blocker,))
@@ -14,6 +15,7 @@ def test_deprecated_requires_canonical_path_and_blocker_payload() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_deprecated_substrate.py::tests.test_deprecated_substrate.test_extraction_pipeline_is_deterministic
+# gabion:behavior primary=allowed_unwanted facets=deprecated
 def test_extraction_pipeline_is_deterministic() -> None:
     samples = ingest_perf_samples(
         [
@@ -50,6 +52,7 @@ def test_extraction_pipeline_is_deterministic() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_deprecated_substrate.py::tests.test_deprecated_substrate.test_report_section_extinction_detection
+# gabion:behavior primary=allowed_unwanted facets=deprecated
 def test_report_section_extinction_detection() -> None:
     extinctions = detect_report_section_extinction(
         previous_sections=("intro", "violations", "deprecated_substrate"),
@@ -59,6 +62,7 @@ def test_report_section_extinction_detection() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_deprecated_substrate.py::tests.test_deprecated_substrate.test_blocker_and_fiber_payload_edges
+# gabion:behavior primary=allowed_unwanted facets=deprecated
 def test_blocker_and_fiber_payload_edges() -> None:
     blocker = DeprecatedBlocker.from_payload(
         {
@@ -103,6 +107,7 @@ def test_blocker_and_fiber_payload_edges() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_deprecated_substrate.py::tests.test_deprecated_substrate.test_deprecated_constructor_and_gating_edges
+# gabion:behavior primary=allowed_unwanted facets=deprecated
 def test_deprecated_constructor_and_gating_edges() -> None:
     blocker = DeprecatedBlocker(blocker_id="B5", kind="owner", summary="owner needed")
 
@@ -158,6 +163,7 @@ def test_deprecated_constructor_and_gating_edges() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_deprecated_substrate.py::tests.test_deprecated_substrate.test_ingest_rank_and_branch_loss_edges
+# gabion:behavior primary=allowed_unwanted facets=deprecated
 def test_ingest_rank_and_branch_loss_edges() -> None:
     samples = ingest_perf_samples(
         [

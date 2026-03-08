@@ -27,6 +27,7 @@ def _legacy_decode(fingerprint, registry: PrimeRegistry) -> tuple[list[str], int
 
 
 # gabion:evidence E:call_footprint::tests/test_type_fingerprints_sidecar.py::test_dimension_sidecar_decode_matches_legacy_division::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_to_type_keys_with_remainder
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_dimension_sidecar_decode_matches_legacy_division() -> None:
     registry = PrimeRegistry()
     ctor_registry = TypeConstructorRegistry(registry)
@@ -79,6 +80,7 @@ def test_dimension_sidecar_decode_matches_legacy_division() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_type_fingerprints_sidecar.py::test_dimension_sidecar_falls_back_to_product_when_inconsistent::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_to_type_keys_with_remainder
+# gabion:behavior primary=desired
 def test_dimension_sidecar_falls_back_to_product_when_inconsistent() -> None:
     registry = PrimeRegistry()
     ctor_registry = TypeConstructorRegistry(registry)
@@ -98,6 +100,7 @@ def test_dimension_sidecar_falls_back_to_product_when_inconsistent() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_type_fingerprints_sidecar.py::test_dimension_sidecar_skips_non_positive_exponents::type_fingerprints.py::gabion.analysis.type_fingerprints.FingerprintDimension::type_fingerprints.py::gabion.analysis.type_fingerprints.PrimeRegistry
+# gabion:behavior primary=desired
 def test_dimension_sidecar_skips_non_positive_exponents() -> None:
     registry = PrimeRegistry()
     int_prime = registry.get_or_assign("int")
@@ -111,6 +114,7 @@ def test_dimension_sidecar_skips_non_positive_exponents() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_type_fingerprints_sidecar.py::test_dimension_sidecar_falls_back_on_product_mismatch::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_to_type_keys_with_remainder
+# gabion:behavior primary=verboten facets=mismatch
 def test_dimension_sidecar_falls_back_on_product_mismatch() -> None:
     registry = PrimeRegistry()
     int_prime = registry.get_or_assign("int")
@@ -128,6 +132,7 @@ def test_dimension_sidecar_falls_back_on_product_mismatch() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_type_fingerprints_sidecar.py::test_dataflow_fingerprint_reporting_parity_with_legacy_decode::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._compute_fingerprint_matches::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._compute_fingerprint_provenance::test_type_fingerprints_sidecar.py::tests.test_type_fingerprints_sidecar._legacy_decode::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::type_fingerprints.py::gabion.analysis.type_fingerprints.format_fingerprint
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_dataflow_fingerprint_reporting_parity_with_legacy_decode() -> None:
     registry = PrimeRegistry()
     ctor_registry = TypeConstructorRegistry(registry)
@@ -197,6 +202,7 @@ def test_dataflow_fingerprint_reporting_parity_with_legacy_decode() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_type_fingerprints_sidecar.py::tests.test_type_fingerprints_sidecar.test_dataflow_fingerprint_provenance_emits_identity_layer_and_selection_witness
+# gabion:behavior primary=desired
 def test_dataflow_fingerprint_provenance_emits_identity_layer_and_selection_witness() -> None:
     registry = PrimeRegistry()
     ctor_registry = TypeConstructorRegistry(registry)
@@ -224,6 +230,7 @@ def test_dataflow_fingerprint_provenance_emits_identity_layer_and_selection_witn
 
 
 # gabion:evidence E:function_site::tests/test_type_fingerprints_sidecar.py::tests.test_type_fingerprints_sidecar.test_dataflow_fingerprint_provenance_preserves_legacy_adapter_fields
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_dataflow_fingerprint_provenance_preserves_legacy_adapter_fields() -> None:
     registry = PrimeRegistry()
     ctor_registry = TypeConstructorRegistry(registry)
@@ -250,6 +257,7 @@ def test_dataflow_fingerprint_provenance_preserves_legacy_adapter_fields() -> No
 
 
 # gabion:evidence E:call_footprint::tests/test_type_fingerprints_sidecar.py::test_collect_fingerprint_atom_keys_is_order_invariant::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_fingerprint_atom_keys
+# gabion:behavior primary=desired
 def test_collect_fingerprint_atom_keys_is_order_invariant() -> None:
     first = Path("pkg/a.py")
     second = Path("pkg/b.py")

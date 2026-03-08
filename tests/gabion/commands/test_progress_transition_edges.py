@@ -8,6 +8,7 @@ from gabion.commands.progress_transition import (
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_transition_edges.py::test_normalize_progress_transition_from_phase_progress_rejects_invalid_shapes::progress_transition.py::gabion.commands.progress_transition.normalize_progress_transition_from_phase_progress
+# gabion:behavior primary=verboten facets=edge,invalid
 @pytest.mark.parametrize(
     ("phase_progress",),
     [
@@ -46,6 +47,7 @@ def test_normalize_progress_transition_from_phase_progress_rejects_invalid_shape
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_transition_edges.py::test_normalize_progress_transition_from_phase_progress_clamps_done_to_total::progress_transition.py::gabion.commands.progress_transition.normalize_progress_transition_from_phase_progress
+# gabion:behavior primary=verboten facets=edge
 @pytest.mark.parametrize(
     ("phase_progress", "expected_done", "expected_total"),
     [
@@ -128,6 +130,7 @@ def test_normalize_progress_transition_from_phase_progress_clamps_done_to_total(
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_transition_edges.py::test_normalize_progress_transition_from_phase_progress_falls_back_to_progress_marker::progress_transition.py::gabion.commands.progress_transition.normalize_progress_transition_from_phase_progress
+# gabion:behavior primary=verboten facets=edge
 def test_normalize_progress_transition_from_phase_progress_falls_back_to_progress_marker() -> None:
     transition = normalize_progress_transition_from_phase_progress(
         {
@@ -155,6 +158,7 @@ def test_normalize_progress_transition_from_phase_progress_falls_back_to_progres
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_transition_edges.py::test_normalize_progress_transition_from_phase_progress_falls_back_to_progress_marker_when_child_is_not_mapping::progress_transition.py::gabion.commands.progress_transition.normalize_progress_transition_from_phase_progress
+# gabion:behavior primary=verboten facets=edge
 def test_normalize_progress_transition_from_phase_progress_falls_back_to_progress_marker_when_child_is_not_mapping() -> None:
     transition = normalize_progress_transition_from_phase_progress(
         {
@@ -190,6 +194,7 @@ def test_normalize_progress_transition_from_phase_progress_falls_back_to_progres
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_transition_edges.py::test_transition_helper_accessors_return_none_when_transition_missing::progress_transition.py::gabion.commands.progress_transition.transition_event_kind_from_phase_progress
+# gabion:behavior primary=verboten facets=edge,missing,none
 def test_transition_helper_accessors_return_none_when_transition_missing() -> None:
     phase_progress = {"phase": "post", "event_kind": "progress"}
     assert transition_marker_from_phase_progress(phase_progress) is None
@@ -198,6 +203,7 @@ def test_transition_helper_accessors_return_none_when_transition_missing() -> No
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_transition_edges.py::test_transition_helper_accessors_return_transition_fields_when_present::progress_transition.py::gabion.commands.progress_transition.transition_marker_from_phase_progress
+# gabion:behavior primary=verboten facets=edge
 def test_transition_helper_accessors_return_transition_fields_when_present() -> None:
     phase_progress = {
         "phase": "post",
@@ -233,6 +239,7 @@ def test_transition_helper_accessors_return_transition_fields_when_present() -> 
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_transition_edges.py::test_transition_reason_from_phase_progress_rejects_non_string_reason::progress_transition.py::gabion.commands.progress_transition.transition_reason_from_phase_progress
+# gabion:behavior primary=verboten facets=edge
 def test_transition_reason_from_phase_progress_rejects_non_string_reason() -> None:
     reason = transition_reason_from_phase_progress(
         {
@@ -245,11 +252,13 @@ def test_transition_reason_from_phase_progress_rejects_non_string_reason() -> No
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_transition_edges.py::test_transition_reason_from_phase_progress_returns_none_when_transition_missing::progress_transition.py::gabion.commands.progress_transition.normalize_progress_transition_boundary
+# gabion:behavior primary=verboten facets=edge,missing,none
 def test_transition_reason_from_phase_progress_returns_none_when_transition_missing() -> None:
     assert transition_reason_from_phase_progress({}) is None
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_transition_edges.py::test_validate_progress_transition_rejects_mutated_terminal_replay::progress_transition.py::gabion.commands.progress_transition.validate_progress_transition
+# gabion:behavior primary=verboten facets=edge
 def test_validate_progress_transition_rejects_mutated_terminal_replay() -> None:
     previous = normalize_progress_transition_boundary(
         phase="post",
@@ -275,6 +284,7 @@ def test_validate_progress_transition_rejects_mutated_terminal_replay() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_transition_edges.py::test_validate_progress_transition_allows_checkpoint_terminal_replay_as_parent_hold::progress_transition.py::gabion.commands.progress_transition.validate_progress_transition
+# gabion:behavior primary=verboten facets=edge
 def test_validate_progress_transition_allows_checkpoint_terminal_replay_as_parent_hold() -> None:
     previous = normalize_progress_transition_boundary(
         phase="post",
@@ -300,6 +310,7 @@ def test_validate_progress_transition_allows_checkpoint_terminal_replay_as_paren
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_transition_edges.py::test_normalize_progress_transition_from_phase_progress_prefers_recursive_v2_payload::progress_transition.py::gabion.commands.progress_transition.normalize_progress_transition_from_phase_progress
+# gabion:behavior primary=verboten facets=edge
 def test_normalize_progress_transition_from_phase_progress_prefers_recursive_v2_payload() -> None:
     transition = normalize_progress_transition_from_phase_progress(
         {
@@ -359,6 +370,7 @@ def test_normalize_progress_transition_from_phase_progress_prefers_recursive_v2_
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_transition_edges.py::test_validate_progress_transition_rejects_invalid_recursive_structures::progress_transition.py::gabion.commands.progress_transition.validate_progress_transition
+# gabion:behavior primary=verboten facets=edge,invalid
 @pytest.mark.parametrize(
     ("transition", "expected_reason"),
     [
@@ -443,6 +455,7 @@ def test_validate_progress_transition_rejects_invalid_recursive_structures(
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_transition_edges.py::test_validate_progress_transition_rejects_node_regression::progress_transition.py::gabion.commands.progress_transition.validate_progress_transition
+# gabion:behavior primary=verboten facets=edge
 def test_validate_progress_transition_rejects_node_regression() -> None:
     previous = normalize_progress_transition_boundary(
         phase="post",
@@ -468,6 +481,7 @@ def test_validate_progress_transition_rejects_node_regression() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_transition_edges.py::test_progress_transition_payload_projection_includes_recursive_path::progress_transition.py::gabion.commands.progress_transition.progress_transition_v2_payload
+# gabion:behavior primary=verboten facets=edge
 def test_progress_transition_payload_projection_includes_recursive_path() -> None:
     transition = normalize_progress_transition_boundary(
         phase="post",
@@ -493,6 +507,7 @@ def test_progress_transition_payload_projection_includes_recursive_path() -> Non
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_transition_edges.py::test_transition_reason_from_phase_progress_accepts_v2_reason::progress_transition.py::gabion.commands.progress_transition.normalize_progress_transition_boundary
+# gabion:behavior primary=verboten facets=edge
 def test_transition_reason_from_phase_progress_accepts_v2_reason() -> None:
     reason = transition_reason_from_phase_progress(
         {"progress_transition_v2": {"reason": "parent_held"}}
@@ -501,6 +516,7 @@ def test_transition_reason_from_phase_progress_accepts_v2_reason() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_transition_edges.py::test_normalized_progress_transition_active_node_falls_back_to_root::progress_transition.py::gabion.commands.progress_transition.normalize_progress_transition_boundary
+# gabion:behavior primary=verboten facets=edge
 def test_normalized_progress_transition_active_node_falls_back_to_root() -> None:
     root = ProgressNode(
         identity="root",
@@ -535,6 +551,7 @@ def test_normalized_progress_transition_active_node_falls_back_to_root() -> None
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_transition_edges.py::test_normalize_progress_transition_from_phase_progress_v2_rejects_invalid_shapes::progress_transition.py::gabion.commands.progress_transition.normalize_progress_transition_boundary
+# gabion:behavior primary=verboten facets=edge,invalid
 @pytest.mark.parametrize(
     "phase_progress",
     [
@@ -629,6 +646,7 @@ def test_normalize_progress_transition_from_phase_progress_v2_rejects_invalid_sh
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_transition_edges.py::test_normalize_progress_transition_from_phase_progress_v2_falls_back_active_path::progress_transition.py::gabion.commands.progress_transition.normalize_progress_transition_boundary
+# gabion:behavior primary=verboten facets=edge
 @pytest.mark.parametrize(
     "active_path_payload",
     [
@@ -669,6 +687,7 @@ def test_normalize_progress_transition_from_phase_progress_v2_falls_back_active_
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_transition_edges.py::test_normalize_progress_transition_from_phase_progress_v2_applies_identity_fallback::progress_transition.py::gabion.commands.progress_transition.normalize_progress_transition_boundary
+# gabion:behavior primary=allowed_unwanted facets=fallback
 def test_normalize_progress_transition_from_phase_progress_v2_applies_identity_fallback() -> None:
     transition = normalize_progress_transition_from_phase_progress(
         {
@@ -696,6 +715,7 @@ def test_normalize_progress_transition_from_phase_progress_v2_applies_identity_f
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_transition_edges.py::test_normalize_progress_transition_from_phase_progress_v2_accepts_explicit_identities::progress_transition.py::gabion.commands.progress_transition.normalize_progress_transition_boundary
+# gabion:behavior primary=verboten facets=edge
 def test_normalize_progress_transition_from_phase_progress_v2_accepts_explicit_identities() -> None:
     transition = normalize_progress_transition_from_phase_progress(
         {
@@ -732,6 +752,7 @@ def test_normalize_progress_transition_from_phase_progress_v2_accepts_explicit_i
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_transition_edges.py::test_normalize_progress_transition_from_phase_progress_v2_rejects_missing_root_payload::progress_transition.py::gabion.commands.progress_transition.normalize_progress_transition_boundary
+# gabion:behavior primary=verboten facets=edge,missing
 def test_normalize_progress_transition_from_phase_progress_v2_rejects_missing_root_payload() -> None:
     transition = normalize_progress_transition_from_phase_progress(
         {
@@ -751,6 +772,7 @@ def test_normalize_progress_transition_from_phase_progress_v2_rejects_missing_ro
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_transition_edges.py::test_normalize_progress_transition_boundary_clamps_done_to_total::progress_transition.py::gabion.commands.progress_transition.normalize_progress_transition_boundary
+# gabion:behavior primary=verboten facets=edge
 def test_normalize_progress_transition_boundary_clamps_done_to_total() -> None:
     transition = normalize_progress_transition_boundary(
         phase="post",
@@ -766,6 +788,7 @@ def test_normalize_progress_transition_boundary_clamps_done_to_total() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_transition_edges.py::test_private_node_identity_from_marker_uses_marker_text_fallback::progress_transition.py::gabion.commands.progress_transition.normalize_progress_transition_boundary
+# gabion:behavior primary=allowed_unwanted facets=fallback
 def test_private_node_identity_from_marker_uses_marker_text_fallback() -> None:
     marker = ProgressMarkerParts(marker_text="standalone", marker_family="", marker_step="")
     identity = progress_transition_module._node_identity_from_marker(marker)
@@ -773,6 +796,7 @@ def test_private_node_identity_from_marker_uses_marker_text_fallback() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_transition_edges.py::test_private_validate_tree_structure_reports_expected_reason::progress_transition.py::gabion.commands.progress_transition.normalize_progress_transition_boundary
+# gabion:behavior primary=verboten facets=edge
 @pytest.mark.parametrize(
     ("node", "expected_reason"),
     [
@@ -845,6 +869,7 @@ def test_private_validate_tree_structure_reports_expected_reason(
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_transition_edges.py::test_private_validate_tree_progress_transition_reports_expected_reason::progress_transition.py::gabion.commands.progress_transition.normalize_progress_transition_boundary
+# gabion:behavior primary=verboten facets=edge
 @pytest.mark.parametrize(
     ("previous", "current", "expected_reason"),
     [
@@ -935,6 +960,7 @@ def test_private_validate_tree_progress_transition_reports_expected_reason(
 
 
 # gabion:evidence E:call_footprint::tests/test_progress_transition_edges.py::test_validate_progress_transition_rejects_invalid_previous_shapes::progress_transition.py::gabion.commands.progress_transition.normalize_progress_transition_boundary
+# gabion:behavior primary=verboten facets=edge,invalid
 def test_validate_progress_transition_rejects_invalid_previous_shapes() -> None:
     current = normalize_progress_transition_boundary(
         phase="post",

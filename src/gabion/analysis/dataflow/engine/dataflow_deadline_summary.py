@@ -2,7 +2,7 @@ from __future__ import annotations
 
 """Canonical deadline-obligation summary runtime helper."""
 
-from gabion.analysis.foundation.resume_codec import int_tuple4_or_none
+from gabion.analysis.foundation.resume_codec import int_tuple4_optional
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.analysis.indexed_scan.deadline.deadline_obligation_summary import (
     SummarizeDeadlineObligationsDeps,
@@ -28,7 +28,7 @@ def _summarize_deadline_obligations(entries, *, max_entries=20, forest):
             projection_spec_hash_fn=projection_spec_hash,
             deadline_obligations_summary_spec=DEADLINE_OBLIGATIONS_SUMMARY_SPEC,
             require_not_none_fn=require_not_none,
-            int_tuple4_or_none_fn=int_tuple4_or_none,
+            int_tuple4_or_none_fn=int_tuple4_optional,
             format_span_fields_fn=_format_span_fields,
         ),
     )

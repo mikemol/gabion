@@ -12,6 +12,7 @@ from gabion.analysis.semantics.evidence import Site, normalize_bundle_key
 
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._glossary_match_strata::matches E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._glossary_match_strata::stale_199cab83ea28
+# gabion:behavior primary=desired
 def test_glossary_match_strata_classification() -> None:
     assert _glossary_match_strata(None) == "none"
     assert _glossary_match_strata([]) == "none"
@@ -19,6 +20,7 @@ def test_glossary_match_strata_classification() -> None:
     assert _glossary_match_strata(["x", "y"]) == "ambiguous"
 
 # gabion:evidence E:function_site::test_rewrite_plan_verification.py::tests.test_rewrite_plan_verification._load
+# gabion:behavior primary=verboten facets=edge
 def test_normalize_bundle_key_covers_edges() -> None:
     assert normalize_bundle_key("not-a-list") == ""
     assert normalize_bundle_key([]) == ""
@@ -63,6 +65,7 @@ def _post_entry(**overrides: object) -> dict[str, object]:
     return entry
 
 # gabion:evidence E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::stale_f6d9b1f7141a
+# gabion:behavior primary=desired
 def test_find_provenance_entry_for_site_covers_misses_and_hit() -> None:
     provenance = [
         "nope",
@@ -89,12 +92,14 @@ def test_find_provenance_entry_for_site_covers_misses_and_hit() -> None:
     )
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.verify_rewrite_plan::post_exception_obligations E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._glossary_match_strata::stale_c1a7d0f3827c
+# gabion:behavior primary=verboten facets=missing
 def test_verify_rewrite_plan_missing_post_entry() -> None:
     result = verify_rewrite_plan(_plan(), post_provenance=[])
     assert result["accepted"] is False
     assert "missing post provenance entry for site" in result["issues"]
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.verify_rewrite_plan::post_exception_obligations E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._glossary_match_strata::stale_83e265c9a8dc
+# gabion:behavior primary=desired
 def test_verify_rewrite_plan_accepts_happy_path_and_list_helper() -> None:
     plan = _plan()
     post = [_post_entry()]
@@ -105,6 +110,7 @@ def test_verify_rewrite_plan_accepts_happy_path_and_list_helper() -> None:
     assert results[0]["accepted"] is True
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.verify_rewrite_plan::post_exception_obligations E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._glossary_match_strata::stale_f2e19742feac
+# gabion:behavior primary=verboten facets=mismatch
 def test_verify_rewrite_plan_detects_candidate_mismatch() -> None:
     plan = _plan()
     post = [_post_entry(glossary_matches=["not-a-candidate"])]
@@ -112,6 +118,7 @@ def test_verify_rewrite_plan_detects_candidate_mismatch() -> None:
     assert result["accepted"] is False
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.verify_rewrite_plan::post_exception_obligations E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._glossary_match_strata::stale_147ebba24e35
+# gabion:behavior primary=desired
 def test_verify_rewrite_plan_detects_remainder_regression() -> None:
     plan = _plan()
     post = [_post_entry(remainder={"base": 97, "ctor": 1})]
@@ -120,6 +127,7 @@ def test_verify_rewrite_plan_detects_remainder_regression() -> None:
     assert any(r.get("kind") == "remainder_non_regression" and not r.get("passed") for r in result["predicate_results"])
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.verify_rewrite_plan::post_exception_obligations E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._glossary_match_strata::stale_d232064e931c
+# gabion:behavior primary=desired
 def test_verify_rewrite_plan_handles_non_dict_fields() -> None:
     plan = _plan(
         pre="not-a-dict",
@@ -132,12 +140,14 @@ def test_verify_rewrite_plan_handles_non_dict_fields() -> None:
     assert result["accepted"] is False
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.verify_rewrite_plan::post_exception_obligations E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._glossary_match_strata::stale_b1d4c47bc21d
+# gabion:behavior primary=verboten facets=invalid,missing
 def test_verify_rewrite_plan_rejects_missing_or_invalid_site() -> None:
     result = verify_rewrite_plan(_plan(site="nope"), post_provenance=[_post_entry()])
     assert result["accepted"] is False
     assert "missing or invalid plan site" in result["issues"]
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.verify_rewrite_plan::post_exception_obligations E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._glossary_match_strata::stale_a4555fbed9b7
+# gabion:behavior primary=desired
 def test_verify_rewrite_plan_handles_non_dict_remainder_and_params() -> None:
     plan = _plan(
         pre={"base_keys": ["int"], "ctor_keys": [], "remainder": "oops"},
@@ -148,6 +158,7 @@ def test_verify_rewrite_plan_handles_non_dict_remainder_and_params() -> None:
     assert result["accepted"] is False
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.verify_rewrite_plan::post_exception_obligations E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._glossary_match_strata::stale_98a92d766db3
+# gabion:behavior primary=verboten facets=exception
 def test_verify_rewrite_plan_enforces_exception_obligation_non_regression_when_requested() -> None:
     plan = _plan()
     plan["pre"] = {
@@ -218,6 +229,7 @@ def test_verify_rewrite_plan_enforces_exception_obligation_non_regression_when_r
     assert result["accepted"] is False
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.verify_rewrite_plan::post_exception_obligations E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._glossary_match_strata::stale_fd88caf8d141
+# gabion:behavior primary=verboten facets=error,exception,missing
 def test_verify_rewrite_plan_exception_predicate_missing_inputs_and_parse_errors() -> None:
     plan = _plan()
     plan["pre"] = {
@@ -278,6 +290,7 @@ def test_verify_rewrite_plan_exception_predicate_missing_inputs_and_parse_errors
     assert exc.get("expected") == {"UNKNOWN": 0, "DISCHARGED": 0}
 
 # gabion:evidence E:call_footprint::tests/test_rewrite_plan_verification.py::test_verify_rewrite_plan_extended_kinds_have_deterministic_behavior::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._compute_fingerprint_coherence::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._compute_fingerprint_rewrite_plans::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.verify_rewrite_plan::test_rewrite_plan_verification.py::tests.test_rewrite_plan_verification._load
+# gabion:behavior primary=desired
 def test_verify_rewrite_plan_extended_kinds_have_deterministic_behavior() -> None:
     provenance = [
         {
@@ -324,6 +337,7 @@ def test_verify_rewrite_plan_extended_kinds_have_deterministic_behavior() -> Non
 
 
 # gabion:evidence E:decision_surface/direct::dataflow_decision_surfaces.py::gabion.analysis.dataflow_decision_surfaces.compute_fingerprint_rewrite_plans::exception_obligations E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.verify_rewrite_plan::post_exception_obligations
+# gabion:behavior primary=desired
 def test_rewrite_plan_precondition_abstentions_and_kind_predicates() -> None:
     provenance = [
         {
@@ -351,6 +365,7 @@ def test_rewrite_plan_precondition_abstentions_and_kind_predicates() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_rewrite_plan_verification.py::test_verify_rewrite_plan_rejects_missing_kind_payload_fields::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.verify_rewrite_plan::test_rewrite_plan_verification.py::tests.test_rewrite_plan_verification._load::test_rewrite_plan_verification.py::tests.test_rewrite_plan_verification._plan::test_rewrite_plan_verification.py::tests.test_rewrite_plan_verification._post_entry
+# gabion:behavior primary=verboten facets=missing
 def test_verify_rewrite_plan_rejects_missing_kind_payload_fields() -> None:
     plan = _plan(rewrite={"kind": "SURFACE_CANONICALIZE", "parameters": {"candidates": ["ctx_a"]}})
     result = verify_rewrite_plan(plan, post_provenance=[_post_entry()])
@@ -359,6 +374,7 @@ def test_verify_rewrite_plan_rejects_missing_kind_payload_fields() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_rewrite_plan_verification.py::tests.test_rewrite_plan_verification.test_verify_rewrite_plan_enforces_witness_obligations_non_regression
+# gabion:behavior primary=desired
 def test_verify_rewrite_plan_enforces_witness_obligations_non_regression() -> None:
     plan = _plan(
         pre={
@@ -399,6 +415,7 @@ def test_verify_rewrite_plan_enforces_witness_obligations_non_regression() -> No
 
 
 # gabion:evidence E:function_site::tests/test_rewrite_plan_verification.py::tests.test_rewrite_plan_verification.test_verify_rewrite_plan_witness_obligation_shape_edges
+# gabion:behavior primary=verboten facets=edge
 def test_verify_rewrite_plan_witness_obligation_shape_edges() -> None:
     non_list_obligations = verify_rewrite_plan(
         _plan(
@@ -439,6 +456,7 @@ def test_verify_rewrite_plan_witness_obligation_shape_edges() -> None:
     assert mixed_obligation_items["accepted"] is True
 
 
+# gabion:behavior primary=desired
 def test_verify_rewrite_plan_enforces_aspf_structure_class_equivalence() -> None:
     plan = _plan(
         pre={

@@ -60,6 +60,7 @@ def _run_docflow_with_stubbed_findings(
 
 
 # gabion:evidence E:call_footprint::tests/test_docflow_warning_failures.py::test_docflow_warnings_fail_when_fail_on_violations_enabled::governance_audit.py::gabion.tooling.governance_audit.run_docflow_cli
+# gabion:behavior primary=verboten facets=fail
 def test_docflow_warnings_fail_when_fail_on_violations_enabled(tmp_path: Path) -> None:
     code = _run_docflow_with_stubbed_findings(
         root=tmp_path,
@@ -72,6 +73,7 @@ def test_docflow_warnings_fail_when_fail_on_violations_enabled(tmp_path: Path) -
 
 
 # gabion:evidence E:call_footprint::tests/test_docflow_warning_failures.py::test_docflow_warnings_pass_when_fail_on_violations_disabled::governance_audit.py::gabion.tooling.governance_audit.run_docflow_cli
+# gabion:behavior primary=verboten facets=fail
 def test_docflow_warnings_pass_when_fail_on_violations_disabled(tmp_path: Path) -> None:
     code = _run_docflow_with_stubbed_findings(
         root=tmp_path,
@@ -84,6 +86,7 @@ def test_docflow_warnings_pass_when_fail_on_violations_disabled(tmp_path: Path) 
 
 
 # gabion:evidence E:call_footprint::tests/test_docflow_warning_failures.py::test_docflow_violations_fail_when_fail_on_violations_enabled::governance_audit.py::gabion.tooling.governance_audit.run_docflow_cli
+# gabion:behavior primary=verboten facets=fail
 def test_docflow_violations_fail_when_fail_on_violations_enabled(tmp_path: Path) -> None:
     code = _run_docflow_with_stubbed_findings(
         root=tmp_path,
@@ -96,6 +99,7 @@ def test_docflow_violations_fail_when_fail_on_violations_enabled(tmp_path: Path)
 
 
 # gabion:evidence E:call_footprint::tests/test_docflow_warning_failures.py::test_docflow_warnings_and_violations_fail_when_fail_on_violations_enabled::governance_audit.py::gabion.tooling.governance_audit.run_docflow_cli
+# gabion:behavior primary=verboten facets=fail
 def test_docflow_warnings_and_violations_fail_when_fail_on_violations_enabled(tmp_path: Path) -> None:
     code = _run_docflow_with_stubbed_findings(
         root=tmp_path,

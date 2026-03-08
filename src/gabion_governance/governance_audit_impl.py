@@ -11,7 +11,12 @@ import subprocess
 from datetime import datetime, timezone
 from collections import Counter, defaultdict
 from pathlib import Path
-from typing import Callable, Iterable, List, Literal, Mapping, Tuple, TypeAlias
+from typing import Callable, Iterable, List, Literal, Mapping, Tuple, TypeAlias, cast
+
+try:
+    import yaml
+except ImportError:  # pragma: no cover - pyyaml is expected in managed environments
+    yaml = None
 
 from gabion.tooling.runtime.deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
 from gabion.analysis.aspf.aspf import Forest
@@ -45,7 +50,6 @@ from gabion_governance.docflow_audit import (
 )
 from gabion_governance.docflow_audit.contracts import (
     Frontmatter,
-    FrontmatterScalar,
     FrontmatterValue,
     JSONValue,
 )
@@ -122,6 +126,44 @@ NORMATIVE_LOOP_DOMAINS = (
     "dataflow grammar",
     "baseline ratchets",
 )
+
+
+def _iter_in_governance_relpaths(root: Path) -> list[str]:
+    in_root = root / "in"
+    if not in_root.exists():
+        return []
+    relpaths: list[str] = []
+    for path in _sorted(in_root.glob("in-*.md")):
+        check_deadline()
+        if not isinstance(path, Path):
+            continue
+        relpaths.append(path.relative_to(root).as_posix())
+    return relpaths
+
+
+def _iter_out_governance_relpaths(root: Path) -> list[str]:
+    out_root = root / "out"
+    if not out_root.exists():
+        return []
+    relpaths: list[str] = []
+    for path in _sorted(out_root.glob("out-*.md")):
+        check_deadline()
+        if not isinstance(path, Path):
+            continue
+        relpaths.append(path.relative_to(root).as_posix())
+    return relpaths
+
+
+def _iter_default_docflow_relpaths(root: Path) -> list[str]:
+    relpaths: list[str] = []
+    seen: set[str] = set()
+    for rel in [*GOVERNANCE_DOCS, *_iter_in_governance_relpaths(root)]:
+        check_deadline()
+        if rel in seen:
+            continue
+        seen.add(rel)
+        relpaths.append(rel)
+    return relpaths
 
 REQUIRED_FIELDS = [
     "doc_id",
@@ -432,7 +474,16 @@ def _compose_doc_dependency_matrices(
         requires = fm.get("doc_requires", [])
         if not isinstance(requires, list):
             return []
-        return [str(_doc_ref_base(item)) for item in requires if isinstance(item, str)]
+        deps: list[str] = []
+        for item in requires:
+            check_deadline()
+            if not isinstance(item, str):
+                continue
+            base = str(_doc_ref_base(item))
+            if not base.endswith(".md"):
+                continue
+            deps.append(base)
+        return deps
 
     def _notion_identity(notion: dict[str, JSONValue]) -> tuple[object, ...]:
         anchor = notion.get("anchor")
@@ -788,7 +839,7 @@ def _add_suite_node(
 def _iter_docflow_paths(root: Path, extra_paths: list[str] | None) -> list[Path]:
     paths: list[Path] = []
     seen: set[Path] = set()
-    for rel in GOVERNANCE_DOCS:
+    for rel in _iter_default_docflow_relpaths(root):
         check_deadline()
         path = root / rel
         if path.exists():
@@ -906,7 +957,7 @@ def _emit_docflow_suite_artifacts(
         fm_end = None
         if fm_block is not None:
             fm_lines, fm_end = fm_block
-            fm_payload = _parse_yaml_like(list(fm_lines))
+            fm_payload, _yaml_error = _parse_yaml_frontmatter(list(fm_lines))
         if not fm_payload:
             missing_frontmatter.add(rel)
         else:
@@ -1334,7 +1385,12 @@ def _build_sppf_dependency_graph(root: Path, issues_json: Path | None = None) ->
     return graph
 
 
-def _write_sppf_graph_outputs(graph: dict[str, JSONValue], *, json_output: Path | None, dot_output: Path | None) -> None:
+def _write_sppf_graph_outputs(
+    graph: dict[str, JSONValue],
+    *,
+    json_output: Path | None,
+    dot_output: Path | None,
+) -> None:
     if json_output is not None:
         json_output.parent.mkdir(parents=True, exist_ok=True)
         json_output.write_text(json.dumps(graph, indent=2, sort_keys=True), encoding="utf-8")
@@ -1680,13 +1736,13 @@ def _sppf_axis_audit(root: Path, docs: dict[str, Doc]) -> tuple[list[str], list[
     return violations, warnings
 
 
-def _parse_frontmatter(text: str) -> tuple[Frontmatter, str]:
+def _frontmatter_block_from_text(text: str) -> tuple[list[str], str] | None:
     if not text.startswith("---\n"):
-        return {}, text
+        return None
     lines = text.split("\n")
     if lines[0].strip() != "---":
-        return {}, text
-    fm_lines: List[str] = []
+        return None
+    fm_lines: list[str] = []
     idx = 1
     while idx < len(lines):
         check_deadline()
@@ -1697,95 +1753,58 @@ def _parse_frontmatter(text: str) -> tuple[Frontmatter, str]:
         fm_lines.append(line)
         idx += 1
     body = "\n".join(lines[idx:])
-    return _parse_yaml_like(fm_lines), body
+    return fm_lines, body
 
 
-def _parse_yaml_like(lines: List[str]) -> Frontmatter:
-    def _parse_scalar(raw: str) -> FrontmatterScalar:
-        value = raw.strip()
-        if value.startswith("\"") and value.endswith("\""):
-            value = value[1:-1]
-        return int(value) if value.isdigit() else value
-
-    def _next_significant(start: int) -> tuple[int, str] | None:
-        idx = start
-        while idx < len(lines):
-            check_deadline()
-            candidate = lines[idx].rstrip()
-            if not candidate.strip():
-                idx += 1
-                continue
-            if candidate.lstrip().startswith("#"):
-                idx += 1
-                continue
-            return idx, candidate
-        return None
-
-    data: Frontmatter = {}
-    stack: list[tuple[int, object]] = [(0, data)]
-    idx = 0
-    while idx < len(lines):
+def _parse_yaml_frontmatter(lines: list[str]) -> tuple[Frontmatter, str | None]:
+    if yaml is None:
+        return {}, "pyyaml unavailable"
+    raw = "\n".join(lines)
+    try:
+        payload = yaml.safe_load(raw)
+    except Exception as exc:  # pragma: no cover - exercised through callers
+        message = str(exc).strip() or type(exc).__name__
+        return {}, message.splitlines()[0]
+    if payload is None:
+        return {}, None
+    if not isinstance(payload, Mapping):
+        return {}, f"frontmatter root must be a mapping (got {type(payload).__name__})"
+    normalized: Frontmatter = {}
+    for key, value in payload.items():
         check_deadline()
-        raw = lines[idx].rstrip()
-        idx += 1
-        if not raw.strip():
-            continue
-        if raw.lstrip().startswith("#"):
-            continue
-        indent = len(raw) - len(raw.lstrip(" "))
-        line = raw.strip()
-        while stack and indent < stack[-1][0]:
-            check_deadline()
-            stack.pop()
-        if not stack:
-            stack = [(0, data)]
-        container = stack[-1][1]
+        normalized[str(key)] = cast(FrontmatterValue, value)
+    return normalized, None
 
-        if line.startswith("- "):
-            if not isinstance(container, list):
-                continue
-            item = line[2:].strip()
-            if ":" in item:
-                key, value = item.split(":", 1)
-                key = key.strip()
-                value = value.strip()
-                entry: dict[str, FrontmatterScalar | object] = {}
-                if value == "":
-                    lookahead = _next_significant(idx)
-                    nested: object = [] if lookahead and lookahead[1].lstrip().startswith("- ") else {}
-                    entry[key] = nested
-                    container.append(entry)
-                    stack.append((indent + 2, nested))
-                else:
-                    entry[key] = _parse_scalar(value)
-                    container.append(entry)
-                    lookahead = _next_significant(idx)
-                    if lookahead and (len(lookahead[1]) - len(lookahead[1].lstrip(" "))) > indent:
-                        stack.append((indent + 2, entry))
-            else:
-                container.append(_parse_scalar(item))
-            continue
 
-        if ":" not in line:
-            continue
-        key, value = line.split(":", 1)
-        key = key.strip()
-        value = value.strip()
-        if not isinstance(container, dict):
-            continue
-        if value == "":
-            lookahead = _next_significant(idx)
-            nested: object = [] if lookahead and lookahead[1].lstrip().startswith("- ") else {}
-            container[key] = nested
-            stack.append((indent + 2, nested))
-        else:
-            if value in ("[]", "[ ]"):
-                container[key] = []
-            elif value in ("{}", "{ }"):
-                container[key] = {}
-            else:
-                container[key] = _parse_scalar(value)
-    return data
+def _parse_frontmatter_with_mode(text: str) -> tuple[Frontmatter, str, str, str | None]:
+    block = _frontmatter_block_from_text(text)
+    if block is None:
+        return {}, text, "absent", None
+    fm_lines, body = block
+    yaml_payload, yaml_error = _parse_yaml_frontmatter(fm_lines)
+    if yaml_error is None:
+        return yaml_payload, body, "yaml", None
+    return {}, body, "yaml_parse_failed", yaml_error
+
+
+def _frontmatter_parse_warning(
+    *,
+    path: str,
+    mode: str,
+    detail: str | None,
+) -> str | None:
+    if mode == "yaml_parse_failed":
+        suffix = f" ({detail})" if detail else ""
+        return (
+            f"{path}: frontmatter failed strict YAML parsing{suffix}; "
+            "document may be skipped from governance invariants"
+        )
+    return None
+
+
+def _parse_frontmatter(text: str) -> tuple[Frontmatter, str]:
+    payload, body, _mode, _detail = _parse_frontmatter_with_mode(text)
+    return payload, body
 
 
 def _docflow_base_meta(rel: str, doc_id: str | None) -> dict[str, object]:
@@ -1828,6 +1847,7 @@ def _docflow_invariant_rows(
     revisions: dict[str, int],
     core_set: set[str],
     missing_frontmatter: set[str],
+    implication_docs: dict[str, Doc] | None = None,
     base_meta: Callable[[str, str | None], dict[str, object]] = _docflow_base_meta,
 ) -> tuple[list[dict[str, object]], list[str]]:
     rows: list[dict[str, object]] = []
@@ -2037,13 +2057,14 @@ def _docflow_invariant_rows(
             }
         )
 
+    matrix_source_docs = implication_docs if implication_docs is not None else docs
     per_doc_lattices: dict[str, dict[str, JSONValue]] = {}
-    for rel, payload in docs.items():
+    for rel, payload in matrix_source_docs.items():
         check_deadline()
         notions = _extract_doc_body_notions_with_anchors(path=rel, doc=payload)
         per_doc_lattices[rel] = _build_doc_implication_lattice(path=rel, notions=notions)
     _composed_lattices, matrix_warnings, matrix_conflicts = _compose_doc_dependency_matrices(
-        docs=docs,
+        docs=matrix_source_docs,
         per_doc_lattices=per_doc_lattices,
     )
     rows.extend(matrix_conflicts)
@@ -3901,6 +3922,7 @@ def _docflow_audit_context(
 ) -> DocflowAuditContext:
     violations: List[str] = []
     warnings: List[str] = []
+    frontmatter_parse_warnings_seen: set[str] = set()
 
     docs: dict[str, Doc] = {}
     doc_ids: dict[str, str] = {}
@@ -3908,13 +3930,28 @@ def _docflow_audit_context(
     skipped_no_frontmatter: set[str] = set()
     missing_frontmatter: set[str] = set()
 
+    def _record_frontmatter_parse_warning(
+        *,
+        rel: str,
+        mode: str,
+        detail: str | None,
+    ) -> None:
+        message = _frontmatter_parse_warning(path=rel, mode=mode, detail=detail)
+        if not message:
+            return
+        if message in frontmatter_parse_warnings_seen:
+            return
+        frontmatter_parse_warnings_seen.add(message)
+        warnings.append(message)
+
     def _load_doc(path: Path, rel: str, *, strict: bool = False) -> None:
         if rel in docs:
             return
         if not path.exists():
             return
         text = path.read_text(encoding="utf-8")
-        fm, body = _parse_frontmatter(text)
+        fm, body, mode, detail = _parse_frontmatter_with_mode(text)
+        _record_frontmatter_parse_warning(rel=rel, mode=mode, detail=detail)
         if not fm:
             if strict:
                 missing_frontmatter.add(rel)
@@ -3952,7 +3989,8 @@ def _docflow_audit_context(
         if not path.exists():
             return
         text = path.read_text(encoding="utf-8")
-        fm, _ = _parse_frontmatter(text)
+        fm, _, mode, detail = _parse_frontmatter_with_mode(text)
+        _record_frontmatter_parse_warning(rel=rel, mode=mode, detail=detail)
         if not fm:
             skipped_no_frontmatter.add(rel)
             return
@@ -3964,11 +4002,13 @@ def _docflow_audit_context(
         extra_revisions[rel] = revision
         _add_section_revisions(extra_revisions, rel=rel, fm=fm)
 
-    for rel in GOVERNANCE_DOCS:
+    default_relpaths = _iter_default_docflow_relpaths(root)
+    for rel in default_relpaths:
         check_deadline()
         path = root / rel
         if not path.exists():
-            violations.append(f"missing governance doc: {rel}")
+            if rel in GOVERNANCE_DOCS:
+                violations.append(f"missing governance doc: {rel}")
             continue
         _load_doc(path, rel)
 
@@ -3983,6 +4023,21 @@ def _docflow_audit_context(
                 _load_doc(path, rel, strict=True)
             else:
                 _load_extra_revision(path, rel)
+
+    implication_docs: dict[str, Doc] = dict(docs)
+    for rel in [*_iter_in_governance_relpaths(root), *_iter_out_governance_relpaths(root)]:
+        check_deadline()
+        path = root / rel
+        _load_extra_revision(path, rel)
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8")
+        fm, body, mode, detail = _parse_frontmatter_with_mode(text)
+        _record_frontmatter_parse_warning(rel=rel, mode=mode, detail=detail)
+        if not fm:
+            warnings.append(f"{rel}: missing frontmatter; implication matrix skipped")
+            continue
+        implication_docs[rel] = Doc(frontmatter=fm, body=body)
 
     governance_set = set(GOVERNANCE_DOCS)
     core_set = set(CORE_GOVERNANCE_DOCS)
@@ -4001,6 +4056,7 @@ def _docflow_audit_context(
         revisions=revisions,
         core_set=core_set,
         missing_frontmatter=missing_frontmatter,
+        implication_docs=implication_docs,
     )
     evidence_payload = _load_test_evidence(root)
     if evidence_payload is not None:
@@ -4337,7 +4393,9 @@ def _parse_surfaces(lines: Iterable[str], *, value_encoded: bool) -> list[Decisi
     return surfaces
 
 
-def _surfaces_from_forest(forest: dict[str, JSONValue]) -> tuple[list[DecisionSurface], list[DecisionSurface]]:
+def _surfaces_from_forest(
+    forest: dict[str, JSONValue],
+) -> tuple[list[DecisionSurface], list[DecisionSurface]]:
     nodes = forest.get("nodes")
     alts = forest.get("alts")
     if not isinstance(nodes, list) or not isinstance(alts, list):
@@ -4855,9 +4913,13 @@ def _sppf_graph_command(args: argparse.Namespace) -> int:
     return 0
 
 
-def _status_consistency_command(args: argparse.Namespace) -> int:
+def _status_consistency_command(
+    args: argparse.Namespace,
+    *,
+    run_status_consistency_fn: Callable[..., SppfStatusConsistencyResult] = run_status_consistency,
+) -> int:
     root = Path(args.root)
-    status_result = run_status_consistency(
+    status_result = run_status_consistency_fn(
         root=root,
         extra_paths=args.extra_path,
         load_docs=_load_docflow_docs,

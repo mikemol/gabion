@@ -12,6 +12,7 @@ from gabion_governance.docflow_audit import (
 from gabion_governance.governance_audit_impl import _make_invariant_spec
 
 
+# gabion:behavior primary=desired
 def test_run_docflow_domain_combines_context_and_obligation_signals() -> None:
     invariant = DocflowInvariant(
         name="docflow:test",

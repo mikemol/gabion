@@ -8,6 +8,7 @@ from gabion.analysis.surfaces import test_annotation_drift
 
 
 # gabion:evidence E:function_site::test_annotation_drift.py::gabion.analysis.test_annotation_drift.build_annotation_drift_payload E:decision_surface/direct::test_annotation_drift.py::gabion.analysis.test_annotation_drift.build_annotation_drift_payload::stale_6aee05fe5cd3
+# gabion:behavior primary=verboten facets=drift
 def test_annotation_drift_orphaned(tmp_path: Path) -> None:
     test_file = tmp_path / "test_sample.py"
     test_file.write_text(
@@ -78,6 +79,7 @@ def test_annotation_drift_orphaned(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::test_annotation_drift.py::gabion.analysis.test_annotation_drift.build_annotation_drift_payload E:decision_surface/direct::test_annotation_drift.py::gabion.analysis.test_annotation_drift.build_annotation_drift_payload::stale_aadd8423ac2a_f0495429
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_annotation_drift_legacy_ambiguous_and_missing(tmp_path: Path) -> None:
     test_file = tmp_path / "test_legacy.py"
     test_file.write_text(
@@ -135,6 +137,7 @@ def test_annotation_drift_legacy_ambiguous_and_missing(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::test_annotation_drift.py::gabion.analysis.test_annotation_drift.render_markdown
+# gabion:behavior primary=verboten facets=drift
 def test_annotation_drift_render_sections_and_write(tmp_path: Path) -> None:
     payload = {
         "summary": {"ok": 1},
@@ -166,12 +169,14 @@ def test_annotation_drift_render_sections_and_write(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::test_annotation_drift.py::gabion.analysis.test_annotation_drift._summarize
+# gabion:behavior primary=verboten facets=drift
 def test_annotation_drift_summarize_unknown_status() -> None:
     summary = test_annotation_drift._summarize([{"status": "custom"}])
     assert summary["custom"] == 1
 
 
 # gabion:evidence E:call_footprint::tests/test_test_annotation_drift.py::test_annotation_drift_render_handles_non_list_entries_payload::test_annotation_drift.py::gabion.analysis.test_annotation_drift.render_markdown
+# gabion:behavior primary=verboten facets=drift
 def test_annotation_drift_render_handles_non_list_entries_payload() -> None:
     rendered = test_annotation_drift.render_markdown(
         {"summary": {"ok": 1}, "entries": "not-a-list"}

@@ -52,6 +52,7 @@ def _fn(path: Path) -> FunctionInfo:
 
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._serialize_analysis_index_resume_payload E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._load_analysis_index_resume_payload E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._analysis_index_resume_variants
+# gabion:behavior primary=desired
 def test_analysis_index_resume_payload_round_trip_and_variant_selection(tmp_path: Path) -> None:
     path = tmp_path / "pkg" / "mod.py"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -126,6 +127,7 @@ def test_analysis_index_resume_payload_round_trip_and_variant_selection(tmp_path
 
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._deserialize_function_info_for_resume
+# gabion:behavior primary=verboten facets=invalid
 def test_deserialize_function_info_for_resume_filters_invalid_entries(tmp_path: Path) -> None:
     source = tmp_path / "mod.py"
     source.write_text("def f():\n    return 1\n", encoding="utf-8")
@@ -176,6 +178,7 @@ def test_deserialize_function_info_for_resume_filters_invalid_entries(tmp_path: 
 
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._deserialize_symbol_table_for_resume
+# gabion:behavior primary=verboten facets=error
 def test_deserialize_symbol_table_for_resume_filters_shape_errors() -> None:
     payload = {
         "external_filter": False,
@@ -195,6 +198,7 @@ def test_deserialize_symbol_table_for_resume_filters_shape_errors() -> None:
 
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._serialize_file_scan_resume_state E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._load_file_scan_resume_state
+# gabion:behavior primary=verboten facets=invalid
 def test_load_file_scan_resume_state_round_trip_and_invalid_payload() -> None:
     fn_key = "pkg.mod.f"
     fn_use = {
@@ -249,6 +253,7 @@ def test_load_file_scan_resume_state_round_trip_and_invalid_payload() -> None:
 
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._build_analysis_collection_resume_payload E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._load_analysis_collection_resume_payload E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._resolve_synth_registry_path
+# gabion:behavior primary=desired
 def test_analysis_collection_resume_round_trip_and_synth_registry_resolution(tmp_path: Path) -> None:
     complete_path = (tmp_path / "complete.py").resolve()
     pending_path = (tmp_path / "pending.py").resolve()

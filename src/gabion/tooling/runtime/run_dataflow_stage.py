@@ -22,10 +22,10 @@ from gabion.commands import transport_policy
 from gabion.order_contract import sort_once
 from gabion.runtime import env_policy, json_io
 from gabion.runtime_shape_dispatch import (
-    int_or_none as _int_or_none,
-    json_list_or_none as _json_list_or_none,
-    json_mapping_or_none as _json_mapping_or_none,
-    str_or_none as _str_or_none,
+    int_optional as _int_optional,
+    json_list_optional as _json_list_optional,
+    json_mapping_optional as _json_mapping_optional,
+    str_optional as _str_optional,
 )
 from gabion.tooling.runtime import aspf_lifecycle
 from gabion.tooling.runtime import dataflow_invocation_runner
@@ -109,12 +109,12 @@ def _load_json_object(path: Path) -> dict[str, object]:
 
 def _analysis_state_from_aspf_state(path: Path) -> str:
     payload = _load_json_object(path)
-    state = _str_or_none(payload.get("analysis_state"))
+    state = _str_optional(payload.get("analysis_state"))
     if state:
         return state
-    resume_projection = _json_mapping_or_none(payload.get("resume_projection"))
+    resume_projection = _json_mapping_optional(payload.get("resume_projection"))
     if resume_projection is not None:
-        projection_state = _str_or_none(resume_projection.get("analysis_state"))
+        projection_state = _str_optional(resume_projection.get("analysis_state"))
         if projection_state:
             return projection_state
     return "none"
@@ -192,7 +192,7 @@ def _obligation_id(stage_id: str, contract: str, kind: str, section_id: str, pha
 def _obligation_rows_from_timeout_payload(
     *, stage_id: str, analysis_state: str, timeout_payload: dict[str, object]
 ) -> tuple[tuple[dict[str, object], ...], tuple[str, ...]]:
-    incremental = _json_list_or_none(timeout_payload.get("incremental_obligations"))
+    incremental = _json_list_optional(timeout_payload.get("incremental_obligations"))
     if incremental is None:
         markers = (
             ("missing_incremental_obligations",)
@@ -202,7 +202,7 @@ def _obligation_rows_from_timeout_payload(
         return (), markers
     rows: list[dict[str, object]] = []
     for raw_entry in deadline_loop_iter(incremental):
-        entry = _json_mapping_or_none(raw_entry)
+        entry = _json_mapping_optional(raw_entry)
         if entry is None:
             continue
         contract = str(entry.get("contract", "") or "")
@@ -293,10 +293,10 @@ def _write_obligation_trace(path: Path, results: Sequence[StageResult]) -> dict[
 
 
 def _obligation_trace_summary_lines(trace_payload: JSONObject) -> list[str]:
-    summary = _json_mapping_or_none(trace_payload.get("summary"))
+    summary = _json_mapping_optional(trace_payload.get("summary"))
     if summary is None:
         return []
-    markers = _json_list_or_none(trace_payload.get("incompleteness_markers"))
+    markers = _json_list_optional(trace_payload.get("incompleteness_markers"))
     marker_text = (
         ", ".join(str(marker) for marker in markers)
         if markers
@@ -858,7 +858,7 @@ def run_staged(
     strictness_profile = dict(strictness_by_stage or {})
     results: list[StageResult] = []
     started_wall_seconds = monotonic_fn()
-    max_wall_seconds_value = _int_or_none(max_wall_seconds)
+    max_wall_seconds_value = _int_optional(max_wall_seconds)
     for stage_id in deadline_loop_iter(stage_ids):
         if (
             results

@@ -11,6 +11,7 @@ def _load():
     return NamingContext, _normalize_identifier, suggest_name
 
 # gabion:evidence E:function_site::naming.py::gabion.synthesis.naming._normalize_identifier E:function_site::naming.py::gabion.synthesis.naming.suggest_name E:decision_surface/direct::naming.py::gabion.synthesis.naming._normalize_identifier::stale_35b0eb6fe806
+# gabion:behavior primary=desired
 def test_suggest_name_uses_frequency() -> None:
     NamingContext, _normalize_identifier, suggest_name = _load()
     context = NamingContext(frequency={"ctx": 3, "config": 1})
@@ -19,6 +20,7 @@ def test_suggest_name_uses_frequency() -> None:
     assert _normalize_identifier("$$$", "Fallback") == "Fallback"
 
 # gabion:evidence E:function_site::naming.py::gabion.synthesis.naming._normalize_identifier E:function_site::naming.py::gabion.synthesis.naming.suggest_name E:decision_surface/direct::naming.py::gabion.synthesis.naming._normalize_identifier::stale_56301240fc66_2035c37c
+# gabion:behavior primary=desired
 def test_suggest_name_avoids_collisions() -> None:
     NamingContext, _normalize_identifier, suggest_name = _load()
     context = NamingContext(existing_names={"CtxBundle"}, frequency={"ctx": 2})
@@ -27,6 +29,7 @@ def test_suggest_name_avoids_collisions() -> None:
     assert _normalize_identifier("1value", "X") == "X1value"
 
 # gabion:evidence E:function_site::naming.py::gabion.synthesis.naming.suggest_name E:decision_surface/direct::naming.py::gabion.synthesis.naming.suggest_name::stale_0df85d153806
+# gabion:behavior primary=verboten facets=empty
 def test_suggest_name_with_empty_fields() -> None:
     NamingContext, _normalize_identifier, suggest_name = _load()
     context = NamingContext(fallback_prefix="Fallback")

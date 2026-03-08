@@ -92,6 +92,7 @@ def _normalize_typer_inventory() -> Mapping[str, OptionFingerprint]:
 
 # gabion:evidence E:call_footprint::tests/test_cli_option_surface_contract.py::test_raw_and_typer_option_overlap_contract::parser_builder.py::gabion.cli_support.shared.parser_builder.dataflow_cli_parser::synth_commands.py::gabion.cli_support.synth.synth_commands.register_synth_command
 
+# gabion:behavior primary=desired
 def test_raw_and_typer_option_overlap_contract() -> None:
     raw_inventory = _normalize_argparse_inventory()
     typer_inventory = _normalize_typer_inventory()

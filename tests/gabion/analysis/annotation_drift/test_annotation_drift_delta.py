@@ -6,6 +6,7 @@ from gabion.analysis.surfaces import test_annotation_drift_delta
 
 
 # gabion:evidence E:function_site::test_annotation_drift_delta.py::gabion.analysis.test_annotation_drift_delta.build_delta_payload
+# gabion:behavior primary=verboten facets=drift
 def test_annotation_drift_delta_payload_and_render() -> None:
     baseline_payload = test_annotation_drift_delta.build_baseline_payload(
         {"ok": 2, "orphaned": 1}
@@ -24,6 +25,7 @@ def test_annotation_drift_delta_payload_and_render() -> None:
 
 
 # gabion:evidence E:function_site::test_annotation_drift_delta.py::gabion.analysis.test_annotation_drift_delta.parse_baseline_payload
+# gabion:behavior primary=verboten facets=drift
 def test_annotation_drift_delta_rejects_bad_baseline(tmp_path) -> None:
     with pytest.raises(ValueError):
         test_annotation_drift_delta.parse_baseline_payload(
@@ -37,6 +39,7 @@ def test_annotation_drift_delta_rejects_bad_baseline(tmp_path) -> None:
 
 
 # gabion:evidence E:function_site::test_annotation_drift_delta.py::gabion.analysis.test_annotation_drift_delta.render_markdown
+# gabion:behavior primary=verboten facets=drift,invalid
 def test_annotation_drift_delta_handles_invalid_numbers() -> None:
     payload = test_annotation_drift_delta.build_baseline_payload({"ok": "bad"})
     assert payload["summary"]["ok"] == 0

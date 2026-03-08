@@ -11,6 +11,7 @@ from scripts.sppf import sppf_sync
 
 
 # gabion:evidence E:call_footprint::tests/test_sppf_sync_cli.py::test_sppf_sync_cli_maps_flags_to_runner::cli.py::gabion.cli::cli.py::gabion.cli.app
+# gabion:behavior primary=desired
 def test_sppf_sync_cli_maps_flags_to_runner() -> None:
     captured: dict[str, object] = {}
 
@@ -45,6 +46,7 @@ def test_sppf_sync_cli_maps_flags_to_runner() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_sppf_sync_cli.py::test_sppf_sync_dry_run_routes_comment_and_label::cli.py::gabion.cli._run_sppf_sync
+# gabion:behavior primary=desired
 def test_sppf_sync_dry_run_routes_comment_and_label() -> None:
     commits = [
         cli.SppfSyncCommitInfo(
@@ -85,12 +87,14 @@ def test_sppf_sync_dry_run_routes_comment_and_label() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_sppf_sync_cli.py::test_sppf_issue_id_extraction_matches_previous_patterns::cli.py::gabion.cli._extract_sppf_issue_ids
+# gabion:behavior primary=desired
 def test_sppf_issue_id_extraction_matches_previous_patterns() -> None:
     text = "GH-11 closes #12; resolves #13; refs #12 and Fixes #14"
     assert cli._extract_sppf_issue_ids(text) == {"11", "12", "13", "14"}
 
 
 # gabion:evidence E:call_footprint::tests/test_sppf_sync_cli.py::test_issue_ids_from_sppf_commits_normalizes_known_gh_0000_placeholders::cli.py::gabion.cli._issue_ids_from_sppf_commits
+# gabion:behavior primary=desired
 def test_issue_ids_from_sppf_commits_normalizes_known_gh_0000_placeholders() -> None:
     commits = [
         cli.SppfSyncCommitInfo(
@@ -108,6 +112,7 @@ def test_issue_ids_from_sppf_commits_normalizes_known_gh_0000_placeholders() -> 
 
 
 # gabion:evidence E:call_footprint::tests/test_sppf_sync_cli.py::test_script_sppf_sync_delegates_to_cli_compat::sppf_sync.py::scripts.sppf_sync.main
+# gabion:behavior primary=allowed_unwanted facets=compat
 def test_script_sppf_sync_delegates_to_cli_compat() -> None:
     captured: list[str] = []
 
@@ -123,6 +128,7 @@ def test_script_sppf_sync_delegates_to_cli_compat() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_sppf_sync_cli.py::test_sppf_sync_git_helpers_and_commit_collection_edges::cli.py::gabion.cli._default_sppf_rev_range::cli.py::gabion.cli._collect_sppf_commits::cli.py::gabion.cli._run_sppf_git
+# gabion:behavior primary=verboten facets=edge
 def test_sppf_sync_git_helpers_and_commit_collection_edges() -> None:
     assert cli._run_sppf_git(
         ["status"],
@@ -154,6 +160,7 @@ def test_sppf_sync_git_helpers_and_commit_collection_edges() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_sppf_sync_cli.py::test_sppf_sync_gh_runner_and_empty_sync_paths::cli.py::gabion.cli._run_sppf_gh::cli.py::gabion.cli._run_sppf_sync
+# gabion:behavior primary=verboten facets=empty
 def test_sppf_sync_gh_runner_and_empty_sync_paths(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -204,6 +211,7 @@ def test_sppf_sync_gh_runner_and_empty_sync_paths(
 
 
 # gabion:evidence E:call_footprint::tests/test_sppf_sync_cli.py::test_run_sppf_sync_compat_parses_and_forwards_flags::cli.py::gabion.cli.run_sppf_sync_compat
+# gabion:behavior primary=allowed_unwanted facets=compat
 def test_run_sppf_sync_compat_parses_and_forwards_flags() -> None:
     captured: dict[str, object] = {}
 

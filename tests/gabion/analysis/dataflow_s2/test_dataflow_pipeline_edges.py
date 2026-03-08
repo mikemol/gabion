@@ -13,6 +13,7 @@ def _bind() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_pipeline_edges.py::test_normalized_dimension_payload_filters_invalid_entries::dataflow_pipeline.py::gabion.analysis.dataflow_pipeline._normalized_dimension_payload
+# gabion:behavior primary=verboten facets=edge,invalid
 def test_normalized_dimension_payload_filters_invalid_entries() -> None:
     _bind()
     payload = {
@@ -31,6 +32,7 @@ def test_normalized_dimension_payload_filters_invalid_entries() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_pipeline_edges.py::test_apply_forest_progress_delta_non_mapping_is_noop::dataflow_pipeline.py::gabion.analysis.dataflow_pipeline._apply_forest_progress_delta
+# gabion:behavior primary=allowed_unwanted facets=noop
 def test_apply_forest_progress_delta_non_mapping_is_noop() -> None:
     _bind()
     base_dimensions = {"x": {"done": 1, "total": 2}}
@@ -44,6 +46,7 @@ def test_apply_forest_progress_delta_non_mapping_is_noop() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_pipeline_edges.py::test_apply_forest_progress_delta_handles_invalid_scalars_and_dimension_shape::dataflow_pipeline.py::gabion.analysis.dataflow_pipeline._apply_forest_progress_delta
+# gabion:behavior primary=verboten facets=edge,invalid
 def test_apply_forest_progress_delta_handles_invalid_scalars_and_dimension_shape() -> None:
     _bind()
     base_dimensions = {"x": {"done": 1, "total": 2}}
@@ -67,6 +70,7 @@ def test_apply_forest_progress_delta_handles_invalid_scalars_and_dimension_shape
 
 
 # gabion:evidence E:decision_surface/direct::dataflow_pipeline.py::gabion.analysis.dataflow_pipeline.analyze_paths::on_collection_progress
+# gabion:behavior primary=verboten facets=edge,invalid
 def test_analyze_paths_rejects_invalid_collection_progress_callback() -> None:
     _bind()
     with pytest.raises(NeverThrown):
@@ -84,6 +88,7 @@ def test_analyze_paths_rejects_invalid_collection_progress_callback() -> None:
 
 
 # gabion:evidence E:decision_surface/direct::dataflow_pipeline.py::gabion.analysis.dataflow_pipeline.analyze_paths::on_phase_progress
+# gabion:behavior primary=verboten facets=edge,invalid
 def test_analyze_paths_rejects_invalid_phase_progress_callback() -> None:
     _bind()
     with pytest.raises(NeverThrown):
@@ -102,6 +107,7 @@ def test_analyze_paths_rejects_invalid_phase_progress_callback() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_pipeline_edges.py::test_dataflow_pipeline_collect_fingerprint_atoms_order_invariant::dataflow_pipeline.py::gabion.analysis.dataflow_pipeline._collect_fingerprint_atom_keys
+# gabion:behavior primary=verboten facets=edge
 def test_dataflow_pipeline_collect_fingerprint_atoms_order_invariant() -> None:
     _bind()
     first = Path("pkg/a.py")
@@ -130,6 +136,7 @@ def test_dataflow_pipeline_collect_fingerprint_atoms_order_invariant() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_pipeline_edges.py::test_analyze_paths_primes_constructor_registry_from_collected_ctor_keys::dataflow_pipeline.py::gabion.analysis.dataflow_pipeline._collect_fingerprint_atom_keys::dataflow_pipeline.py::gabion.analysis.dataflow_pipeline.analyze_paths
+# gabion:behavior primary=verboten facets=edge
 def test_analyze_paths_primes_constructor_registry_from_collected_ctor_keys(
     tmp_path: Path,
 ) -> None:
@@ -166,6 +173,7 @@ def test_analyze_paths_primes_constructor_registry_from_collected_ctor_keys(
     assert registry.prime_for("ctor:list") is not None
 
 
+# gabion:behavior primary=verboten facets=edge
 def test_capability_enabled_treats_non_mapping_capabilities_as_enabled() -> None:
     _bind()
     assert dataflow_pipeline._capability_enabled(
@@ -174,6 +182,7 @@ def test_capability_enabled_treats_non_mapping_capabilities_as_enabled() -> None
     ) is True
 
 
+# gabion:behavior primary=verboten facets=edge,unsupported
 def test_unsupported_surface_diagnostic_uses_adapter_name_from_contract(tmp_path: Path) -> None:
     _bind()
     diagnostic = dataflow_pipeline._unsupported_surface_diagnostic(
@@ -188,6 +197,7 @@ def test_unsupported_surface_diagnostic_uses_adapter_name_from_contract(tmp_path
     assert diagnostic["required_by_policy"] is False
 
 
+# gabion:behavior primary=verboten facets=edge,unsupported
 def test_unsupported_surface_diagnostic_defaults_native_for_non_mapping_contract(
     tmp_path: Path,
 ) -> None:
@@ -203,6 +213,7 @@ def test_unsupported_surface_diagnostic_defaults_native_for_non_mapping_contract
     assert diagnostic["adapter"] == "native"
 
 
+# gabion:behavior primary=verboten facets=edge,unsupported
 def test_analyze_paths_disables_unsupported_surfaces_by_adapter_contract(tmp_path: Path) -> None:
     _bind()
     result = dataflow_pipeline.analyze_paths(

@@ -60,6 +60,7 @@ def _analyze_for_source(source: str, *, qualname: str = "f") -> lg._FunctionAnal
     )
 
 
+# gabion:behavior primary=desired
 @pytest.mark.parametrize(
     ("expr", "expected"),
     [
@@ -78,6 +79,7 @@ def test_side_effect_safety_expression_matrix(expr: str, expected: str) -> None:
     assert reason == expected
 
 
+# gabion:behavior primary=desired
 def test_side_effect_visitor_mark_only_once() -> None:
     visitor = lg._SideEffectSafetyVisitor()
     visitor.visit_Call(cst.Call(func=cst.Name("fn"), args=[]))
@@ -94,6 +96,7 @@ def test_side_effect_visitor_mark_only_once() -> None:
     assert visitor.reason == "yield from expressions are not side-effect-safe"
 
 
+# gabion:behavior primary=desired
 def test_loop_hazard_visitor_marks_all_hazards() -> None:
     visitor = lg._LoopHazardVisitor()
     visitor.visit_Break(cst.Break())
@@ -140,6 +143,7 @@ def test_loop_hazard_visitor_marks_all_hazards() -> None:
     assert visitor.reason == "yield from is not supported inside targeted loops"
 
 
+# gabion:behavior primary=desired
 def test_is_docstring_statement_variants() -> None:
     assert not lg._is_docstring_statement(cst.Pass())
     assert not lg._is_docstring_statement(cst.SimpleStatementLine(body=[]))
@@ -150,12 +154,14 @@ def test_is_docstring_statement_variants() -> None:
     )
 
 
+# gabion:behavior primary=verboten facets=unsupported
 def test_operator_token_supported_and_unsupported() -> None:
     assert lg._operator_token(cst.AddAssign()) == "+"
     assert lg._operator_token(cst.Multiply()) == "*"
     assert lg._operator_token(cst.MatrixMultiply()) == ""
 
 
+# gabion:behavior primary=desired
 def test_extract_subscript_key_matrix() -> None:
     two_index = cst.parse_expression("d[a, b]")
     assert type(two_index) is cst.Subscript
@@ -169,6 +175,7 @@ def test_extract_subscript_key_matrix() -> None:
     assert type(key) is cst.Name and key.value == "a"
 
 
+# gabion:behavior primary=desired
 def test_contains_loop_hazards_matrix() -> None:
     one_line_module = _parse_module("def f(xs):\n    for x in xs: pass")
     one_line_loop = _first_for_stmt(one_line_module)
@@ -193,6 +200,7 @@ def test_contains_loop_hazards_matrix() -> None:
     assert lg._contains_loop_hazards(safe_loop) == ""
 
 
+# gabion:behavior primary=desired
 def test_parameter_call_args_all_parameter_kinds() -> None:
     module = _parse_module("def f(a, /, b, *args, c, d=1, **kwargs):\n    return 1")
     fn = _first_function(module)
@@ -206,6 +214,7 @@ def test_parameter_call_args_all_parameter_kinds() -> None:
     assert rendered[5] == "**kwargs"
 
 
+# gabion:behavior primary=desired
 def test_is_simple_continue_guard_matrix() -> None:
     assert lg._is_simple_continue_guard(cst.parse_statement("if x:\n    continue\n"))
     assert not lg._is_simple_continue_guard(cst.parse_statement("if x:\n    continue\nelse:\n    continue\n"))
@@ -216,12 +225,14 @@ def test_is_simple_continue_guard_matrix() -> None:
     assert not lg._is_simple_continue_guard(cst.parse_statement("if x:\n    continue; pass\n"))
 
 
+# gabion:behavior primary=desired
 def test_join_guard_expressions_multiple_entries() -> None:
     joined = lg._join_guard_expressions((cst.Name("a"), cst.Name("b"), cst.Name("c")))
     text = cst.Module([]).code_for_node(joined).strip()
     assert text == "a or b or c"
 
 
+# gabion:behavior primary=desired
 def test_find_import_insert_index_paths() -> None:
     mod = _parse_module(
         '''
@@ -238,6 +249,7 @@ def test_find_import_insert_index_paths() -> None:
     assert lg._find_import_insert_index(list(mod.body)) == 1
 
 
+# gabion:behavior primary=desired
 def test_has_import_from_variants() -> None:
     with_alias = _parse_module("from dataclasses import dataclass\n")
     assert lg._has_import_from(list(with_alias.body), module_name="dataclasses", symbol="dataclass")
@@ -277,6 +289,7 @@ def test_has_import_from_variants() -> None:
     assert lg._has_import_from(list(custom.body), module_name="dataclasses", symbol="dataclass")
 
 
+# gabion:behavior primary=desired
 def test_defined_top_level_name_matrix() -> None:
     assert lg._defined_top_level_name(cst.parse_statement("class C:\n    pass\n")) == "C"
     assert lg._defined_top_level_name(cst.parse_statement("def f():\n    pass\n")) == "f"
@@ -286,6 +299,7 @@ def test_defined_top_level_name_matrix() -> None:
     assert lg._defined_top_level_name(cst.parse_statement("if x:\n    pass\n")) == ""
 
 
+# gabion:behavior primary=desired
 def test_ensure_scaffolding_inserts_then_becomes_idempotent() -> None:
     base = _parse_module("x = 1\n")
     with_scaffold = lg._ensure_loop_generator_scaffolding(base)
@@ -297,6 +311,7 @@ def test_ensure_scaffolding_inserts_then_becomes_idempotent() -> None:
     assert roundtrip.code == with_scaffold.code
 
 
+# gabion:behavior primary=desired
 def test_build_helper_function_without_and_with_guards() -> None:
     params = cst.parse_statement("def f(xs, out):\n    pass\n").params  # type: ignore[attr-defined]
     spec_no_filter = lg._LoopRewriteSpec(
@@ -351,6 +366,7 @@ def test_build_helper_function_without_and_with_guards() -> None:
     assert "_filtered_iter = filter(" in code_with_filter
 
 
+# gabion:behavior primary=desired
 def test_target_resolution_helper_chase_paths() -> None:
     one_line = _first_function(_parse_module("def one(): return 1\n"), name="one")
     assert lg._function_non_doc_body(one_line) == ()
@@ -449,6 +465,7 @@ def test_target_resolution_helper_chase_paths() -> None:
     assert resolution.chase_issues
 
 
+# gabion:behavior primary=desired
 def test_recursive_candidate_helpers_cover_statement_variants() -> None:
     module = _parse_module(
         """
@@ -522,6 +539,7 @@ def test_recursive_candidate_helpers_cover_statement_variants() -> None:
     assert len(try_only_transformer._child_statement_blocks(try_only_stmt)) == 2
 
 
+# gabion:behavior primary=desired
 def test_transformer_stack_cleanup_direct_calls() -> None:
     module = _parse_module("x = 1\n")
     transformer = lg._LoopGeneratorTransformer(module=module, targets=set(), target_loop_lines=set())
@@ -533,6 +551,7 @@ def test_transformer_stack_cleanup_direct_calls() -> None:
     assert transformer.leave_FunctionDef(fn_node, fn_node) is fn_node
 
 
+# gabion:behavior primary=desired
 def test_rewrite_target_function_handles_one_line_definition() -> None:
     module = _parse_module("def f(): return 1\n")
     fn = _first_function(module)
@@ -553,6 +572,7 @@ def test_rewrite_target_function_handles_one_line_definition() -> None:
     assert rewritten is fn
 
 
+# gabion:behavior primary=desired
 def test_rewrite_target_function_preserves_docstring() -> None:
     module = _parse_module(
         '''
@@ -584,6 +604,7 @@ def test_rewrite_target_function_preserves_docstring() -> None:
     assert "return _iter_f_loop_2(xs)" in rendered
 
 
+# gabion:behavior primary=allowed_unwanted facets=noop
 def test_analyze_function_matrix_non_loop_and_noop_paths() -> None:
     module = _parse_module("def f(): return 1\n")
     fn = _first_function(module)
@@ -639,6 +660,7 @@ def test_analyze_function_matrix_non_loop_and_noop_paths() -> None:
     assert type(outcome) is lg._FunctionAnalysisNoop
 
 
+# gabion:behavior primary=verboten facets=error
 def test_analyze_for_loop_error_matrix() -> None:
     outcome = _analyze_for_source(
         """
@@ -887,6 +909,7 @@ def test_analyze_for_loop_error_matrix() -> None:
     assert type(first_error_wins) is lg._FunctionAnalysisError
 
 
+# gabion:behavior primary=desired
 def test_is_already_rewritten_matrix() -> None:
     module = _parse_module("def f(xs):\n    return _iter_f_loop_1(xs)\n")
     fn = _first_function(module)
@@ -911,6 +934,7 @@ def test_is_already_rewritten_matrix() -> None:
     )
 
 
+# gabion:behavior primary=allowed_unwanted facets=error,noop
 def test_plan_loop_generator_rewrite_error_and_noop_paths(tmp_path: Path) -> None:
     engine = RefactorEngine(project_root=tmp_path)
 
@@ -997,6 +1021,7 @@ def test_plan_loop_generator_rewrite_error_and_noop_paths(tmp_path: Path) -> Non
     assert not any("target function was not found" in reason for reason in cycle_error.errors)
 
 
+# gabion:behavior primary=verboten facets=error
 def test_plan_loop_generator_target_selection_and_async_errors(tmp_path: Path) -> None:
     engine = RefactorEngine(project_root=tmp_path)
     source = tmp_path / "source.py"
@@ -1190,6 +1215,7 @@ def test_plan_loop_generator_target_selection_and_async_errors(tmp_path: Path) -
     assert skip_ineligible.outcome == RefactorPlanOutcome.APPLIED
 
 
+# gabion:behavior primary=desired
 def test_loop_generator_runs_against_its_own_module() -> None:
     # Running the refactor against this refactor engine source exercises
     # parse/selection/error control flow without mutating repository files.

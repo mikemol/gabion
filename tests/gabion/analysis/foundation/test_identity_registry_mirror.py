@@ -18,6 +18,7 @@ def _space_with_registry(
     return GlobalIdentitySpace(allocator=PrimeIdentityAdapter(registry=registry))
 
 
+# gabion:behavior primary=desired
 def test_identity_registry_mirror_hydrates_existing_allowed_namespaces_without_ledger_growth() -> None:
     registry = PrimeRegistry()
     int_atom = registry.get_or_assign("int")
@@ -39,6 +40,7 @@ def test_identity_registry_mirror_hydrates_existing_allowed_namespaces_without_l
         mirror.stop()
 
 
+# gabion:behavior primary=desired
 def test_identity_registry_mirror_starts_and_stops_observer_lifecycle() -> None:
     registry = PrimeRegistry()
     space = _space_with_registry(registry)
@@ -55,6 +57,7 @@ def test_identity_registry_mirror_starts_and_stops_observer_lifecycle() -> None:
     assert records_after_start == records_after_stop
 
 
+# gabion:behavior primary=desired
 def test_identity_registry_mirror_tracks_allowed_namespaces_and_ignores_disallowed() -> None:
     registry = PrimeRegistry()
     space = _space_with_registry(registry)
@@ -84,6 +87,7 @@ def test_identity_registry_mirror_tracks_allowed_namespaces_and_ignores_disallow
     }
 
 
+# gabion:behavior primary=desired
 def test_identity_registry_mirror_default_namespaces_are_governed() -> None:
     registry = PrimeRegistry()
     space = _space_with_registry(registry)

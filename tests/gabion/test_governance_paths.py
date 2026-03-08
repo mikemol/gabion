@@ -6,6 +6,7 @@ from gabion.governance_paths import GovernancePathConfig
 
 
 # gabion:evidence E:function_site::governance_paths.py::gabion.governance_paths.GovernancePathConfig
+# gabion:behavior primary=desired
 def test_governance_paths_resolve_root_relative_paths(tmp_path: Path) -> None:
     cfg = GovernancePathConfig(
         src_prefix="src/",

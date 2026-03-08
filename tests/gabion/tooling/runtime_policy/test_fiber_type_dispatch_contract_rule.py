@@ -12,6 +12,7 @@ def _write(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
+# gabion:behavior primary=desired
 def test_collect_violations_detects_manual_type_routing_forms() -> None:
     source = "\n".join(
         [
@@ -46,6 +47,7 @@ def test_collect_violations_detects_manual_type_routing_forms() -> None:
     assert violations[0].counterfactual_boundary is not None
 
 
+# gabion:behavior primary=verboten facets=never
 def test_collect_violations_accepts_concrete_singledispatch_with_never_base() -> None:
     source = "\n".join(
         [
@@ -71,6 +73,7 @@ def test_collect_violations_accepts_concrete_singledispatch_with_never_base() ->
     assert violations == []
 
 
+# gabion:behavior primary=verboten facets=missing,never
 def test_collect_violations_flags_missing_never_base_and_abstract_registration() -> None:
     source = "\n".join(
         [
@@ -98,6 +101,7 @@ def test_collect_violations_flags_missing_never_base_and_abstract_registration()
     assert "abstract_register_type" in kinds
 
 
+# gabion:behavior primary=desired
 def test_run_writes_fiber_payload(tmp_path: Path) -> None:
     root = tmp_path
     _write(

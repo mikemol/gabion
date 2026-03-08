@@ -17,6 +17,7 @@ def _function_nodes() -> dict[str, ast.FunctionDef | ast.AsyncFunctionDef]:
 
 
 # gabion:evidence E:function_site::cli.py::gabion.cli._emit_lint_outputs E:function_site::cli.py::gabion.cli._check_gate_policy
+# gabion:behavior primary=desired
 def test_cli_runtime_helpers_are_thin_facades() -> None:
     functions = _function_nodes()
     facade_names = {
@@ -43,6 +44,7 @@ def test_cli_runtime_helpers_are_thin_facades() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_architecture_entrypoint.py::test_cli_runtime_logic_resides_in_support_modules::cli.py::gabion.cli._context_cli_deps
+# gabion:behavior primary=desired
 def test_cli_runtime_logic_resides_in_support_modules() -> None:
     source = CLI_PATH.read_text(encoding="utf-8")
     assert "result_emitters." in source
@@ -51,6 +53,7 @@ def test_cli_runtime_logic_resides_in_support_modules() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_architecture_entrypoint.py::test_cli_composition_root_avoids_regex_business_logic
+# gabion:behavior primary=desired
 def test_cli_composition_root_avoids_regex_business_logic() -> None:
     tree = ast.parse(CLI_PATH.read_text(encoding="utf-8"), filename=str(CLI_PATH))
     assert all(

@@ -27,6 +27,7 @@ def _state_payload(*, projection_value: int, seq: int) -> dict[str, object]:
     }
 
 
+# gabion:behavior primary=desired
 def test_iter_delta_records_streams_state_and_jsonl_inputs(tmp_path: Path) -> None:
     state_path = tmp_path / "state.snapshot.json"
     state_path.write_text(json.dumps(_state_payload(projection_value=3, seq=1)), encoding="utf-8")
@@ -54,6 +55,7 @@ def test_iter_delta_records_streams_state_and_jsonl_inputs(tmp_path: Path) -> No
     assert records[1]["mutation_value"] == {"v": 5}
 
 
+# gabion:behavior primary=desired
 def test_append_delta_jsonl_record_appends_single_line_payload(tmp_path: Path) -> None:
     jsonl_path = tmp_path / "out" / "delta.jsonl"
 
@@ -72,6 +74,7 @@ def test_append_delta_jsonl_record_appends_single_line_payload(tmp_path: Path) -
     assert json.loads(lines[1])["seq"] == 2
 
 
+# gabion:behavior primary=desired
 def test_load_resume_projection_compatibility_wrapper_uses_streaming_internals(
     tmp_path: Path,
 ) -> None:
@@ -88,6 +91,7 @@ def test_load_resume_projection_compatibility_wrapper_uses_streaming_internals(
     assert [record["seq"] for record in records] == [1, 2]
 
 
+# gabion:behavior primary=desired
 def test_iter_delta_records_from_jsonl_paths_skips_blank_lines(tmp_path: Path) -> None:
     jsonl_path = tmp_path / "delta.jsonl"
     jsonl_path.write_text(
@@ -105,6 +109,7 @@ def test_iter_delta_records_from_jsonl_paths_skips_blank_lines(tmp_path: Path) -
     assert [record["seq"] for record in records] == [1, 2]
 
 
+# gabion:behavior primary=desired
 def test_iter_resume_mutations_prefers_jsonl_sidecar_over_snapshot_ledger(tmp_path: Path) -> None:
     state_path = tmp_path / "0001_stage.snapshot.json"
     state_path.write_text(
@@ -122,6 +127,7 @@ def test_iter_resume_mutations_prefers_jsonl_sidecar_over_snapshot_ledger(tmp_pa
     assert [record["seq"] for record in records] == [1]
 
 
+# gabion:behavior primary=desired
 def test_fold_resume_mutations_applies_projection_and_tracks_tail() -> None:
     mutations = (
         {"mutation_target": "collection_resume.a", "mutation_value": 1},
@@ -144,6 +150,7 @@ def test_fold_resume_mutations_applies_projection_and_tracks_tail() -> None:
     ]
 
 
+# gabion:behavior primary=desired
 def test_fold_resume_mutations_without_tail_limit_skips_tail_append() -> None:
     projection, count, tail = aspf_resume_state.fold_resume_mutations(
         snapshot={},

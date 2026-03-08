@@ -7,6 +7,7 @@ from gabion.analysis.dataflow.io.dataflow_refactor_planning import (
     build_refactor_plan, render_refactor_plan, render_reuse_lemma_stubs)
 
 
+# gabion:behavior primary=verboten facets=empty
 def test_build_refactor_plan_handles_empty_file_set(tmp_path: Path) -> None:
     plan = build_refactor_plan(
         groups_by_path={},
@@ -19,6 +20,7 @@ def test_build_refactor_plan_handles_empty_file_set(tmp_path: Path) -> None:
     assert plan["forest_signature_partial"] is True
 
 
+# gabion:behavior primary=desired
 def test_build_refactor_plan_handles_groups_without_matching_function_info(
     tmp_path: Path,
 ) -> None:
@@ -44,6 +46,7 @@ def test_build_refactor_plan_handles_groups_without_matching_function_info(
     assert "No bundle components available for refactor plan." in plan["warnings"]
 
 
+# gabion:behavior primary=desired
 def test_build_refactor_plan_builds_component_schedule_and_cycles(tmp_path: Path) -> None:
     source = tmp_path / "module.py"
     source.write_text(
@@ -87,6 +90,7 @@ def test_build_refactor_plan_builds_component_schedule_and_cycles(tmp_path: Path
     assert bundle["cycles"]
 
 
+# gabion:behavior primary=desired
 def test_render_refactor_plan_renders_bundle_order_cycles_and_warnings() -> None:
     rendered = render_refactor_plan(
         {
@@ -110,12 +114,14 @@ def test_render_refactor_plan_renders_bundle_order_cycles_and_warnings() -> None
     assert "cycle requires manual split" in rendered
 
 
+# gabion:behavior primary=verboten facets=empty
 def test_render_refactor_plan_handles_empty_bundle_list() -> None:
     rendered = render_refactor_plan({"bundles": [], "warnings": []})
     assert "No refactoring plan available." in rendered
     assert "Warnings:" not in rendered
 
 
+# gabion:behavior primary=verboten facets=empty
 def test_render_reuse_lemma_stubs_handles_empty_and_filtered_entries() -> None:
     empty_rendered = render_reuse_lemma_stubs({})
     assert "# No lemma suggestions available." in empty_rendered
@@ -144,6 +150,7 @@ def test_render_reuse_lemma_stubs_handles_empty_and_filtered_entries() -> None:
     assert '"plan_id": "p2"' in rendered
 
 
+# gabion:behavior primary=desired
 def test_render_refactor_plan_renders_cycles_without_order_block() -> None:
     rendered = render_refactor_plan(
         {

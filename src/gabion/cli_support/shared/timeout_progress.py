@@ -7,128 +7,128 @@ from gabion.analysis.foundation.timeout_context import deadline_loop_iter
 from gabion.invariants import never
 
 
-def _none_optional_str(value: object) -> str | None:
+def _empty_str_stream(value: object) -> tuple[str, ...]:
     _ = value
-    return None
+    return ()
 
 
 @singledispatch
-def _str_or_none(value: object) -> str | None:
+def _str_stream(value: object) -> tuple[str, ...]:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
-@_str_or_none.register
-def _(value: str) -> str | None:
-    return value
+@_str_stream.register
+def _(value: str) -> tuple[str, ...]:
+    return (value,)
 
 
 for _runtime_type in (int, float, bool, bytes, dict, list, tuple, set, frozenset, type(None)):
-    _str_or_none.register(_runtime_type)(_none_optional_str)
+    _str_stream.register(_runtime_type)(_empty_str_stream)
 
 
-def _none_optional_bool(value: object) -> bool | None:
+def _empty_bool_stream(value: object) -> tuple[bool, ...]:
     _ = value
-    return None
+    return ()
 
 
 @singledispatch
-def _bool_or_none(value: object) -> bool | None:
+def _bool_stream(value: object) -> tuple[bool, ...]:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
-@_bool_or_none.register
-def _(value: bool) -> bool | None:
-    return value
+@_bool_stream.register
+def _(value: bool) -> tuple[bool, ...]:
+    return (value,)
 
 
 for _runtime_type in (int, float, str, bytes, dict, list, tuple, set, frozenset, type(None)):
-    _bool_or_none.register(_runtime_type)(_none_optional_bool)
+    _bool_stream.register(_runtime_type)(_empty_bool_stream)
 
 
-def _none_optional_int(value: object) -> int | None:
+def _empty_int_stream(value: object) -> tuple[int, ...]:
     _ = value
-    return None
+    return ()
 
 
 @singledispatch
-def _int_or_none(value: object) -> int | None:
+def _int_stream(value: object) -> tuple[int, ...]:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
-@_int_or_none.register
-def _(value: int) -> int | None:
-    return value
+@_int_stream.register
+def _(value: int) -> tuple[int, ...]:
+    return (value,)
 
 
 for _runtime_type in (float, str, bool, bytes, dict, list, tuple, set, frozenset, type(None)):
-    _int_or_none.register(_runtime_type)(_none_optional_int)
+    _int_stream.register(_runtime_type)(_empty_int_stream)
 
 
-def _none_optional_float(value: object) -> float | None:
+def _empty_float_stream(value: object) -> tuple[float, ...]:
     _ = value
-    return None
+    return ()
 
 
 @singledispatch
-def _float_or_none(value: object) -> float | None:
+def _float_stream(value: object) -> tuple[float, ...]:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
-@_float_or_none.register
-def _(value: float) -> float | None:
-    return value
+@_float_stream.register
+def _(value: float) -> tuple[float, ...]:
+    return (value,)
 
 
-@_float_or_none.register
-def _(value: int) -> float | None:
-    return float(value)
+@_float_stream.register
+def _(value: int) -> tuple[float, ...]:
+    return (float(value),)
 
 
-@_float_or_none.register
-def _(value: bool) -> float | None:
-    return float(value)
+@_float_stream.register
+def _(value: bool) -> tuple[float, ...]:
+    return (float(value),)
 
 
 for _runtime_type in (str, bytes, dict, list, tuple, set, frozenset, type(None)):
-    _float_or_none.register(_runtime_type)(_none_optional_float)
+    _float_stream.register(_runtime_type)(_empty_float_stream)
 
 
-def _none_optional_mapping(value: object) -> Mapping[str, object] | None:
+def _empty_mapping_stream(value: object) -> tuple[Mapping[str, object], ...]:
     _ = value
-    return None
+    return ()
 
 
 @singledispatch
-def _mapping_or_none(value: object) -> Mapping[str, object] | None:
+def _mapping_stream(value: object) -> tuple[Mapping[str, object], ...]:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
-@_mapping_or_none.register
-def _(value: dict) -> Mapping[str, object] | None:
-    return value
+@_mapping_stream.register
+def _(value: dict) -> tuple[Mapping[str, object], ...]:
+    return (value,)
 
 
 for _runtime_type in (str, int, float, bool, bytes, list, tuple, set, frozenset, type(None)):
-    _mapping_or_none.register(_runtime_type)(_none_optional_mapping)
+    _mapping_stream.register(_runtime_type)(_empty_mapping_stream)
 
 
-def _none_optional_list(value: object) -> list[object] | None:
+def _empty_list_stream(value: object) -> tuple[list[object], ...]:
     _ = value
-    return None
+    return ()
 
 
 @singledispatch
-def _list_or_none(value: object) -> list[object] | None:
+def _list_stream(value: object) -> tuple[list[object], ...]:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
-@_list_or_none.register
-def _(value: list) -> list[object] | None:
-    return value
+@_list_stream.register
+def _(value: list) -> tuple[list[object], ...]:
+    return (value,)
 
 
 for _runtime_type in (str, int, float, bool, bytes, dict, tuple, set, frozenset, type(None)):
-    _list_or_none.register(_runtime_type)(_none_optional_list)
+    _list_stream.register(_runtime_type)(_empty_list_stream)
 
 
 def render_timeout_progress_markdown(
@@ -140,38 +140,26 @@ def render_timeout_progress_markdown(
     lines = ["# Timeout Progress", ""]
     if analysis_state:
         lines.append(f"- `analysis_state`: `{analysis_state}`")
-    classification = _str_or_none(progress.get("classification"))
-    if classification is not None:
+    for classification in _str_stream(progress.get("classification")):
         lines.append(f"- `classification`: `{classification}`")
-    retry_recommended = _bool_or_none(progress.get("retry_recommended"))
-    if retry_recommended is not None:
+    for retry_recommended in _bool_stream(progress.get("retry_recommended")):
         lines.append(f"- `retry_recommended`: `{retry_recommended}`")
-    resume_supported = _bool_or_none(progress.get("resume_supported"))
-    if resume_supported is not None:
+    for resume_supported in _bool_stream(progress.get("resume_supported")):
         lines.append(f"- `resume_supported`: `{resume_supported}`")
-    ticks_consumed = _int_or_none(progress.get("ticks_consumed"))
-    if ticks_consumed is not None:
+    for ticks_consumed in _int_stream(progress.get("ticks_consumed")):
         lines.append(f"- `ticks_consumed`: `{ticks_consumed}`")
-    tick_limit = _int_or_none(progress.get("tick_limit"))
-    if tick_limit is not None:
+    for tick_limit in _int_stream(progress.get("tick_limit")):
         lines.append(f"- `tick_limit`: `{tick_limit}`")
-    ticks_remaining = _int_or_none(progress.get("ticks_remaining"))
-    if ticks_remaining is not None:
+    for ticks_remaining in _int_stream(progress.get("ticks_remaining")):
         lines.append(f"- `ticks_remaining`: `{ticks_remaining}`")
-    progress_ticks_per_ns = _float_or_none(progress.get("ticks_per_ns"))
-    profile_payload = _mapping_or_none(deadline_profile)
-    profile_ticks_per_ns = (
-        None if profile_payload is None else _float_or_none(profile_payload.get("ticks_per_ns"))
-    )
-    resolved_ticks_per_ns = (
-        progress_ticks_per_ns if progress_ticks_per_ns is not None else profile_ticks_per_ns
-    )
-    if resolved_ticks_per_ns is not None:
-        lines.append(f"- `ticks_per_ns`: `{float(resolved_ticks_per_ns):.9f}`")
-    resume = _mapping_or_none(progress.get("resume"))
-    if resume is not None:
-        token = _mapping_or_none(resume.get("resume_token"))
-        if token is not None:
+    ticks_per_ns_values = list(_float_stream(progress.get("ticks_per_ns")))
+    if not ticks_per_ns_values:
+        for profile_payload in _mapping_stream(deadline_profile):
+            ticks_per_ns_values.extend(_float_stream(profile_payload.get("ticks_per_ns")))
+    if ticks_per_ns_values:
+        lines.append(f"- `ticks_per_ns`: `{ticks_per_ns_values[0]:.9f}`")
+    for resume in _mapping_stream(progress.get("resume")):
+        for token in _mapping_stream(resume.get("resume_token")):
             lines.append("")
             lines.append("## Resume Token")
             lines.append("")
@@ -189,22 +177,22 @@ def render_timeout_progress_markdown(
                 if value is None:
                     continue
                 lines.append(f"- `{key}`: `{value}`")
-    obligations = _list_or_none(progress.get("incremental_obligations"))
+    obligations: list[object] = []
+    for raw_obligations in _list_stream(progress.get("incremental_obligations")):
+        obligations = raw_obligations
     if obligations:
         lines.append("")
         lines.append("## Incremental Obligations")
         lines.append("")
         for raw_entry in deadline_loop_iter(obligations):
-            entry = _mapping_or_none(raw_entry)
-            if entry is None:
-                continue
-            status = str(entry.get("status", "UNKNOWN") or "UNKNOWN")
-            contract = str(entry.get("contract", "") or "")
-            kind = str(entry.get("kind", "") or "")
-            detail = str(entry.get("detail", "") or "")
-            section_id = str(entry.get("section_id", "") or "")
-            section_suffix = f" section={section_id}" if section_id else ""
-            lines.append(
-                f"- `{status}` `{contract}` `{kind}`{section_suffix}: {detail}"
-            )
+            for entry in _mapping_stream(raw_entry):
+                status = str(entry.get("status", "UNKNOWN") or "UNKNOWN")
+                contract = str(entry.get("contract", "") or "")
+                kind = str(entry.get("kind", "") or "")
+                detail = str(entry.get("detail", "") or "")
+                section_id = str(entry.get("section_id", "") or "")
+                section_suffix = f" section={section_id}" if section_id else ""
+                lines.append(
+                    f"- `{status}` `{contract}` `{kind}`{section_suffix}: {detail}"
+                )
     return "\n".join(lines)

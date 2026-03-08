@@ -10,8 +10,8 @@ from typing import Any, Callable
 
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.runtime_shape_dispatch import (
-    json_list_or_none as _json_list_or_none,
-    json_mapping_or_none as _json_mapping_or_none,
+    json_list_optional as _json_list_optional,
+    json_mapping_optional as _json_mapping_optional,
 )
 from gabion.tooling.runtime.deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
 
@@ -259,7 +259,7 @@ def _decode_json_dict(payload: str) -> dict[str, Any]:
         parsed = json.loads(payload)
     except json.JSONDecodeError:
         return {}
-    parsed_mapping = _json_mapping_or_none(parsed)
+    parsed_mapping = _json_mapping_optional(parsed)
     if parsed_mapping is None:
         return {}
     return parsed_mapping
@@ -268,13 +268,13 @@ def _decode_json_dict(payload: str) -> dict[str, Any]:
 # gabion:boundary_normalization
 def _failed_jobs(run_payload: dict[str, Any]) -> list[dict[str, Any]]:
     check_deadline()
-    raw_jobs = _json_list_or_none(run_payload.get("jobs"))
+    raw_jobs = _json_list_optional(run_payload.get("jobs"))
     if raw_jobs is None:
         return []
     failed: list[dict[str, Any]] = []
     for raw_job in raw_jobs:
         check_deadline()
-        job_payload = _json_mapping_or_none(raw_job)
+        job_payload = _json_mapping_optional(raw_job)
         if job_payload is None:
             continue
         conclusion = job_payload.get("conclusion")
@@ -295,22 +295,22 @@ def _failed_jobs(run_payload: dict[str, Any]) -> list[dict[str, Any]]:
 # gabion:boundary_normalization
 def _failed_steps(run_payload: dict[str, Any]) -> list[dict[str, Any]]:
     check_deadline()
-    raw_jobs = _json_list_or_none(run_payload.get("jobs"))
+    raw_jobs = _json_list_optional(run_payload.get("jobs"))
     if raw_jobs is None:
         return []
     failed_steps: list[dict[str, Any]] = []
     for raw_job in raw_jobs:
         check_deadline()
-        job_payload = _json_mapping_or_none(raw_job)
+        job_payload = _json_mapping_optional(raw_job)
         if job_payload is None:
             continue
         job_name = job_payload.get("name")
-        raw_steps = _json_list_or_none(job_payload.get("steps"))
+        raw_steps = _json_list_optional(job_payload.get("steps"))
         if raw_steps is None:
             continue
         for raw_step in raw_steps:
             check_deadline()
-            step_payload = _json_mapping_or_none(raw_step)
+            step_payload = _json_mapping_optional(raw_step)
             if step_payload is None:
                 continue
             if step_payload.get("conclusion") != "failure":

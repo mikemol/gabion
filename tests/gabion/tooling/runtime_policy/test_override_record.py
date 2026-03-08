@@ -22,6 +22,7 @@ def _valid_record() -> dict[str, object]:
 
 
 # gabion:evidence E:function_site::test_override_record.py::tests.test_override_record.test_validate_override_record_reason_codes
+# gabion:behavior primary=desired
 def test_validate_override_record_reason_codes() -> None:
     now = datetime(2025, 1, 1, tzinfo=timezone.utc)
     assert validate_override_record(None, now=now).reason == "missing"
@@ -51,6 +52,7 @@ def test_validate_override_record_reason_codes() -> None:
 
 
 # gabion:evidence E:function_site::test_override_record.py::tests.test_override_record.test_validate_override_record_valid_path
+# gabion:behavior primary=desired
 def test_validate_override_record_valid_path() -> None:
     now = datetime(2025, 1, 1, tzinfo=timezone.utc)
     result = validate_override_record(_valid_record(), now=now)
@@ -62,6 +64,7 @@ def test_validate_override_record_valid_path() -> None:
 
 
 # gabion:evidence E:function_site::test_override_record.py::tests.test_override_record.test_validate_override_record_json_and_file_invalid_json_paths
+# gabion:behavior primary=verboten facets=invalid
 def test_validate_override_record_json_and_file_invalid_json_paths(tmp_path: Path) -> None:
     json_result = validate_override_record_json("{not-json")
     assert json_result.valid is False
@@ -75,6 +78,7 @@ def test_validate_override_record_json_and_file_invalid_json_paths(tmp_path: Pat
 
 
 # gabion:evidence E:function_site::test_override_record.py::tests.test_override_record.test_validate_override_record_additional_validation_edges
+# gabion:behavior primary=verboten facets=edge
 def test_validate_override_record_additional_validation_edges() -> None:
     now = datetime(2025, 1, 1, tzinfo=timezone.utc)
     links_empty = _valid_record()

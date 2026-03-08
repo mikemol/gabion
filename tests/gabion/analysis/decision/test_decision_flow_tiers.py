@@ -17,6 +17,7 @@ da = SimpleNamespace(
 
 
 # gabion:evidence E:function_site::decision_flow.py::gabion.analysis.decision_flow.build_decision_tables E:decision_surface/direct::decision_flow.py::gabion.analysis.decision_flow.build_decision_tables::stale_4aa23e3894e5
+# gabion:behavior primary=desired
 def test_tier3_decision_tables_emit_deterministic_ids_and_links() -> None:
     tables = build_decision_tables(
         decision_surfaces=[
@@ -34,6 +35,7 @@ def test_tier3_decision_tables_emit_deterministic_ids_and_links() -> None:
 
 
 # gabion:evidence E:function_site::decision_flow.py::gabion.analysis.decision_flow.build_decision_tables E:function_site::decision_flow.py::gabion.analysis.decision_flow.detect_repeated_guard_bundles E:decision_surface/direct::decision_flow.py::gabion.analysis.decision_flow.build_decision_tables::stale_a23ae4d1adf0
+# gabion:behavior primary=desired
 def test_tier2_repeated_guard_detection_collects_bundle() -> None:
     tables = build_decision_tables(
         decision_surfaces=[
@@ -52,6 +54,7 @@ def test_tier2_repeated_guard_detection_collects_bundle() -> None:
 
 
 # gabion:evidence E:function_site::decision_flow.py::gabion.analysis.decision_flow.detect_repeated_guard_bundles E:decision_surface/direct::decision_flow.py::gabion.analysis.decision_flow.detect_repeated_guard_bundles::stale_ead0bfccf83d
+# gabion:behavior primary=desired
 def test_detect_repeated_guard_bundles_skips_entries_without_params() -> None:
     bundles = detect_repeated_guard_bundles(
         [
@@ -63,6 +66,7 @@ def test_detect_repeated_guard_bundles_skips_entries_without_params() -> None:
 
 
 # gabion:evidence E:function_site::decision_flow.py::gabion.analysis.decision_flow.build_decision_tables E:function_site::decision_flow.py::gabion.analysis.decision_flow.detect_repeated_guard_bundles E:function_site::decision_flow.py::gabion.analysis.decision_flow.enforce_decision_protocol_contracts
+# gabion:behavior primary=verboten facets=drift
 def test_tier1_schema_enforcement_reports_contract_drift() -> None:
     tables = build_decision_tables(
         decision_surfaces=[
@@ -81,6 +85,7 @@ def test_tier1_schema_enforcement_reports_contract_drift() -> None:
 
 
 # gabion:evidence E:function_site::decision_flow.py::gabion.analysis.decision_flow.enforce_decision_protocol_contracts E:decision_surface/direct::decision_flow.py::gabion.analysis.decision_flow.enforce_decision_protocol_contracts::stale_077cc474e231
+# gabion:behavior primary=verboten facets=empty,missing
 def test_tier1_schema_enforcement_reports_empty_members_missing_table_and_checklist() -> None:
     violations = enforce_decision_protocol_contracts(
         decision_tables=[
@@ -103,6 +108,7 @@ def test_tier1_schema_enforcement_reports_empty_members_missing_table_and_checkl
 
 
 # gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_decision_snapshot
+# gabion:behavior primary=desired
 def test_end_to_end_snapshot_contains_tier3_to_tier1_artifacts() -> None:
     forest = da.Forest()
     site_id = forest.add_site("mod.py", "f")

@@ -15,6 +15,7 @@ def _build_space() -> GlobalIdentitySpace:
     return GlobalIdentitySpace(allocator=PrimeIdentityAdapter(registry=registry))
 
 
+# gabion:behavior primary=desired
 def test_identity_space_interns_same_token_within_namespace() -> None:
     space = _build_space()
     first = space.intern_atom(namespace=IdentityNamespace.SYMBOL, token="MyNode")
@@ -23,6 +24,7 @@ def test_identity_space_interns_same_token_within_namespace() -> None:
     assert len(space.allocation_records()) == 1
 
 
+# gabion:behavior primary=desired
 def test_identity_space_distinguishes_same_token_across_namespaces() -> None:
     space = _build_space()
     symbol_atom = space.intern_atom(namespace=IdentityNamespace.SYMBOL, token="MyNode")
@@ -31,6 +33,7 @@ def test_identity_space_distinguishes_same_token_across_namespaces() -> None:
     assert len(space.allocation_records()) == 2
 
 
+# gabion:behavior primary=desired
 def test_identity_space_path_is_stable_and_order_sensitive() -> None:
     space = _build_space()
     first = space.intern_path(
@@ -50,6 +53,7 @@ def test_identity_space_path_is_stable_and_order_sensitive() -> None:
     assert first != reversed_path
 
 
+# gabion:behavior primary=desired
 def test_identity_projection_tracks_order_vs_commutative_alias() -> None:
     space = _build_space()
     ordered_path = space.intern_path(
@@ -73,6 +77,7 @@ def test_identity_projection_tracks_order_vs_commutative_alias() -> None:
     }
 
 
+# gabion:behavior primary=desired
 def test_identity_space_allocation_ledger_is_deterministic_and_replayable() -> None:
     first = _build_space()
     _ = first.intern_path(
@@ -105,6 +110,7 @@ def test_identity_space_allocation_ledger_is_deterministic_and_replayable() -> N
         assert lookup.token == record.token
 
 
+# gabion:behavior primary=desired
 def test_identity_space_register_atom_is_idempotent() -> None:
     space = _build_space()
     first = space.register_atom(
@@ -121,6 +127,7 @@ def test_identity_space_register_atom_is_idempotent() -> None:
     assert len(space.allocation_records()) == 1
 
 
+# gabion:behavior primary=desired
 def test_identity_space_register_atom_hydration_does_not_append_allocation_ledger() -> None:
     space = _build_space()
     atom_id = space.register_atom(
@@ -136,6 +143,7 @@ def test_identity_space_register_atom_hydration_does_not_append_allocation_ledge
     assert lookup.token == "Hydrated"
 
 
+# gabion:behavior primary=desired
 def test_identity_space_register_atom_rejects_token_atom_conflicts() -> None:
     space = _build_space()
     space.register_atom(

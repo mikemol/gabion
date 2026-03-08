@@ -7,7 +7,7 @@ from gabion.analysis.foundation.baseline_io import (
     attach_spec_metadata, load_json, parse_spec_metadata, parse_version)
 from gabion.analysis.projection.projection_registry import (
     TAINT_STATE_SPEC)
-from gabion.analysis.foundation.resume_codec import mapping_or_none, sequence_or_none
+from gabion.analysis.foundation.resume_codec import mapping_optional, sequence_optional
 from gabion.analysis.taint.taint_projection import (
     TaintBoundaryLocus, TaintProfile, boundary_payloads, build_taint_summary, normalize_taint_profile, parse_taint_boundary_registry, project_taint_ledgers)
 from gabion.json_types import JSONObject, JSONValue
@@ -58,7 +58,7 @@ def parse_state_payload(payload: Mapping[str, JSONValue]) -> TaintState:
     records = _normalized_rows(payload.get("taint_records"))
     witnesses = _normalized_rows(payload.get("taint_witnesses"))
     boundaries = parse_taint_boundary_registry(payload.get("boundary_registry", []))
-    summary_payload = mapping_or_none(payload.get("summary")) or {}
+    summary_payload = mapping_optional(payload.get("summary")) or {}
     summary: JSONObject = {str(key): summary_payload[key] for key in summary_payload}
     if not summary:
         summary = build_taint_summary(records)
@@ -79,10 +79,10 @@ def load_state(path: str) -> TaintState:
 
 
 def _normalized_rows(payload: object) -> list[JSONObject]:
-    rows_payload = sequence_or_none(payload, allow_str=False) or ()
+    rows_payload = sequence_optional(payload, allow_str=False) or ()
     rows: list[JSONObject] = []
     for raw in rows_payload:
-        row = mapping_or_none(raw)
+        row = mapping_optional(raw)
         if row is not None:
             rows.append({str(key): row[key] for key in row})
     return sort_once(

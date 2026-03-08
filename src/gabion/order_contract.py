@@ -11,7 +11,7 @@ from gabion.json_types import JSONObject
 
 from gabion.exceptions import NeverThrown
 from gabion.invariants import never
-from gabion.runtime_shape_dispatch import int_or_none, str_or_none
+from gabion.runtime_shape_dispatch import int_optional, str_optional
 
 
 T = TypeVar("T")
@@ -90,8 +90,8 @@ _ORDER_RUNTIME_CONFIG: ContextVar[OrderRuntimeConfig] = ContextVar(
 def _deadline_tick_budget_allows_check(clock: object) -> bool:
     limit = getattr(clock, "limit", None)
     current = getattr(clock, "current", None)
-    normalized_limit = int_or_none(limit)
-    normalized_current = int_or_none(current)
+    normalized_limit = int_optional(limit)
+    normalized_current = int_optional(current)
     if normalized_limit is not None and normalized_current is not None:
         return (normalized_limit - normalized_current) > 1
     return True
@@ -279,7 +279,7 @@ def is_sorted_once_carrier(value: object) -> bool:
 
 def sorted_once_source(value: object) -> str | None:
     raw = getattr(value, "_gabion_sort_source", None)
-    return str_or_none(raw)
+    return str_optional(raw)
 
 
 def _resolve_policy(

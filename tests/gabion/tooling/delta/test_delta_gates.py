@@ -15,6 +15,7 @@ from tests.env_helpers import env_scope
 
 
 # gabion:evidence E:function_site::tests/test_delta_gates.py::test_gate_detects_positive_delta
+# gabion:behavior primary=desired
 @pytest.mark.parametrize(
     ("gate_fn", "payload"),
     [
@@ -41,6 +42,7 @@ def test_gate_detects_positive_delta(
 
 
 # gabion:evidence E:function_site::tests/test_delta_gates.py::test_gate_fails_when_payload_missing
+# gabion:behavior primary=verboten facets=fail,missing
 @pytest.mark.parametrize(
     "gate_fn",
     [
@@ -56,6 +58,7 @@ def test_gate_fails_when_payload_missing(tmp_path: Path, gate_fn: Callable[..., 
 
 
 # gabion:evidence E:function_site::tests/test_delta_gates.py::test_gate_fails_when_payload_malformed
+# gabion:behavior primary=verboten facets=fail
 @pytest.mark.parametrize(
     "gate_fn",
     [
@@ -72,6 +75,7 @@ def test_gate_fails_when_payload_malformed(tmp_path: Path, gate_fn: Callable[...
 
 
 # gabion:evidence E:function_site::tests/test_delta_gates.py::test_gate_default_is_enabled
+# gabion:behavior primary=desired
 @pytest.mark.parametrize(
     "enabled_fn",
     [
@@ -87,6 +91,7 @@ def test_gate_default_is_enabled(enabled_fn: Callable[[str | None], bool]) -> No
 
 
 # gabion:evidence E:call_footprint::tests/test_delta_gates.py::test_gate_enabled_reads_environment_and_disabled_paths::ambiguity_delta_gate.py::gabion.tooling.ambiguity_delta_gate._enabled::obsolescence_delta_gate.py::gabion.tooling.obsolescence_delta_gate._enabled
+# gabion:behavior primary=desired
 @pytest.mark.parametrize(
     ("module", "env_flag"),
     [
@@ -111,6 +116,7 @@ def test_gate_enabled_reads_environment_and_disabled_paths(
 
 
 # gabion:evidence E:call_footprint::tests/test_delta_gates.py::test_gate_delta_value_handles_invalid_shapes::ambiguity_delta_gate.py::gabion.tooling.ambiguity_delta_gate._delta_value::obsolescence_delta_unmapped_gate.py::gabion.tooling.obsolescence_delta_unmapped_gate._delta_value
+# gabion:behavior primary=verboten facets=invalid
 @pytest.mark.parametrize(
     ("module", "key_path"),
     [
@@ -142,6 +148,7 @@ def test_gate_delta_value_handles_invalid_shapes(
         assert delta_value({"summary": {"delta": {key_path[-1]: "bad"}}}) == 0
 
 
+# gabion:behavior primary=desired
 @pytest.mark.parametrize(
     ("gate_id", "env_flag", "payload", "expected_delta"),
     [
@@ -180,6 +187,7 @@ def test_standard_gate_adapter_resolves_enablement_and_delta_value(
         assert adapter.enabled() is True
 
 
+# gabion:behavior primary=desired
 def test_standard_gate_adapter_resolves_by_env_flag() -> None:
     adapter = delta_gate.make_standard_gate_adapter(
         env_flag=delta_gate.OBSOLESCENCE_UNMAPPED_ENV_FLAG

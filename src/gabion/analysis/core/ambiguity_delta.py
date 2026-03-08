@@ -10,7 +10,7 @@ from gabion.analysis.foundation.delta_tools import coerce_int, count_delta, form
 from gabion.analysis.projection.projection_registry import (
     AMBIGUITY_BASELINE_SPEC, AMBIGUITY_DELTA_SPEC, spec_metadata_lines_from_payload)
 from gabion.analysis.semantics.report_doc import ReportDoc
-from gabion.analysis.foundation.resume_codec import mapping_or_empty
+from gabion.analysis.foundation.resume_codec import mapping_default_empty
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.json_types import JSONValue
 from gabion.order_contract import sort_once
@@ -53,10 +53,10 @@ def parse_baseline_payload(
     parse_version(
         payload, expected=BASELINE_VERSION, error_context="ambiguity baseline"
     )
-    summary = mapping_or_empty(payload.get("summary", {}))
+    summary = mapping_default_empty(payload.get("summary", {}))
     total = coerce_int(summary.get("total"), 0)
     by_kind: dict[str, int] = {}
-    by_kind_payload = mapping_or_empty(summary.get("by_kind", {}))
+    by_kind_payload = mapping_default_empty(summary.get("by_kind", {}))
     for key, raw in by_kind_payload.items():
         check_deadline()
         by_kind[str(key)] = coerce_int(raw, 0)
@@ -105,9 +105,9 @@ def render_markdown(
     payload: Mapping[str, JSONValue],
 ) -> str:
     check_deadline(allow_frame_fallback=True)
-    summary = mapping_or_empty(payload.get("summary", {}))
-    total = mapping_or_empty(summary.get("total", {}))
-    by_kind = mapping_or_empty(summary.get("by_kind", {}))
+    summary = mapping_default_empty(payload.get("summary", {}))
+    total = mapping_default_empty(summary.get("total", {}))
+    by_kind = mapping_default_empty(summary.get("by_kind", {}))
     doc = ReportDoc("out_ambiguity_delta")
     doc.lines(spec_metadata_lines_from_payload(payload))
     doc.section("Summary")
@@ -120,9 +120,9 @@ def render_markdown(
     rows = [
         f"- total: {baseline_total} -> {current_total} ({format_delta(delta_total)})"
     ]
-    baseline = mapping_or_empty(by_kind.get("baseline", {}))
-    current = mapping_or_empty(by_kind.get("current", {}))
-    delta = mapping_or_empty(by_kind.get("delta", {}))
+    baseline = mapping_default_empty(by_kind.get("baseline", {}))
+    current = mapping_default_empty(by_kind.get("current", {}))
+    delta = mapping_default_empty(by_kind.get("delta", {}))
     kinds = sort_once(
         {*baseline.keys(), *current.keys(), *delta.keys()},
         source="render_markdown.by_kind.kinds",

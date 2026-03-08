@@ -9,6 +9,7 @@ from gabion.tooling.runtime import aspf_handoff
 
 
 # gabion:evidence E:call_footprint::tests/test_aspf_handoff.py::test_prepare_step_uses_cumulative_success_chain::aspf_handoff.py::gabion.tooling.aspf_handoff.prepare_step::aspf_handoff.py::gabion.tooling.aspf_handoff.record_step
+# gabion:behavior primary=desired
 def test_prepare_step_uses_cumulative_success_chain(tmp_path: Path) -> None:
     root = tmp_path
     manifest_path = root / "artifacts/out/aspf_handoff_manifest.json"
@@ -73,6 +74,7 @@ def test_prepare_step_uses_cumulative_success_chain(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::tests/test_aspf_handoff.py::test_prepare_step_skips_success_entries_with_missing_state_files
+# gabion:behavior primary=verboten facets=missing
 def test_prepare_step_skips_success_entries_with_missing_state_files(tmp_path: Path) -> None:
     root = tmp_path
     manifest_path = root / "manifest.json"
@@ -108,6 +110,7 @@ def test_prepare_step_skips_success_entries_with_missing_state_files(tmp_path: P
 
 
 # gabion:evidence E:call_footprint::tests/test_aspf_handoff.py::test_prepare_step_resets_manifest_when_session_changes::aspf_handoff.py::gabion.tooling.aspf_handoff.prepare_step
+# gabion:behavior primary=desired
 def test_prepare_step_resets_manifest_when_session_changes(tmp_path: Path) -> None:
     root = tmp_path
     manifest_path = root / "manifest.json"
@@ -148,6 +151,7 @@ def test_prepare_step_resets_manifest_when_session_changes(tmp_path: Path) -> No
 
 
 # gabion:evidence E:function_site::tests/test_aspf_handoff.py::test_prepare_step_manifest_paths_are_relative_and_portable
+# gabion:behavior primary=desired
 def test_prepare_step_manifest_paths_are_relative_and_portable(tmp_path: Path) -> None:
     root_a = tmp_path / "root-a"
     root_b = tmp_path / "root-b"
@@ -204,6 +208,7 @@ def test_prepare_step_manifest_paths_are_relative_and_portable(tmp_path: Path) -
 
 
 # gabion:evidence E:function_site::tests/test_aspf_handoff.py::test_load_manifest_folds_journal_when_index_missing
+# gabion:behavior primary=verboten facets=missing
 def test_load_manifest_folds_journal_when_index_missing(tmp_path: Path) -> None:
     root = tmp_path
     manifest_path = root / "manifest.json"
@@ -241,6 +246,7 @@ def test_load_manifest_folds_journal_when_index_missing(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::tests/test_aspf_handoff.py::test_handoff_fold_journal_is_idempotent
+# gabion:behavior primary=desired
 def test_handoff_fold_journal_is_idempotent(tmp_path: Path) -> None:
     manifest_path = tmp_path / "manifest.json"
     state_root = tmp_path / "state"
@@ -273,6 +279,7 @@ def test_handoff_fold_journal_is_idempotent(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::tests/test_aspf_handoff.py::test_prepare_record_can_skip_manifest_projection_write
+# gabion:behavior primary=desired
 def test_prepare_record_can_skip_manifest_projection_write(tmp_path: Path) -> None:
     manifest_path = tmp_path / "manifest.json"
     state_root = tmp_path / "state"
@@ -306,6 +313,7 @@ def test_prepare_record_can_skip_manifest_projection_write(tmp_path: Path) -> No
     assert entries[0].get("status") == "success"
 
 
+# gabion:behavior primary=desired
 def test_handoff_event_reducer_ignores_record_for_different_session() -> None:
     state = aspf_handoff.HandoffProjectionState(
         manifest={
@@ -334,6 +342,7 @@ def test_handoff_event_reducer_ignores_record_for_different_session() -> None:
     assert reduced.manifest == state.manifest
 
 
+# gabion:behavior primary=verboten facets=missing
 def test_handoff_event_reducer_ignores_missing_sequence_record() -> None:
     state = aspf_handoff.HandoffProjectionState(
         manifest={
@@ -362,6 +371,7 @@ def test_handoff_event_reducer_ignores_missing_sequence_record() -> None:
     assert reduced.manifest == state.manifest
 
 
+# gabion:behavior primary=verboten facets=missing
 def test_record_step_returns_false_when_sequence_is_missing(tmp_path: Path) -> None:
     manifest_path = tmp_path / "manifest.json"
     manifest_path.write_text(
@@ -395,6 +405,7 @@ def test_record_step_returns_false_when_sequence_is_missing(tmp_path: Path) -> N
     )
 
 
+# gabion:behavior primary=desired
 def test_fold_journal_skips_blank_and_unknown_events(tmp_path: Path) -> None:
     journal_path = tmp_path / "manifest.journal.jsonl"
     journal_path.write_text(
@@ -425,15 +436,18 @@ def test_fold_journal_skips_blank_and_unknown_events(tmp_path: Path) -> None:
     assert len(entries) == 1
 
 
+# gabion:behavior primary=desired
 def test_events_from_manifest_payload_requires_session_id() -> None:
     assert aspf_handoff._events_from_manifest_payload({"entries": []}) == []
 
 
+# gabion:behavior primary=verboten facets=none
 def test_event_from_payload_returns_none_for_unknown_kind() -> None:
     assert aspf_handoff._event_from_payload({"event": "legacy"}) is None
 
 
 # gabion:evidence E:call_footprint::tests/test_aspf_handoff.py::test_import_state_paths_policy_edges::aspf_handoff.py::scripts.aspf_handoff.import_state_paths_for_step
+# gabion:behavior primary=verboten facets=edge
 def test_import_state_paths_policy_edges(tmp_path: Path) -> None:
     resume_path = tmp_path / "state" / "resume.json"
     resume_path.parent.mkdir(parents=True, exist_ok=True)

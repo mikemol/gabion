@@ -6,7 +6,7 @@ from typing import Callable, Literal, Mapping, TypeAlias
 import warnings
 
 from gabion.invariants import never
-from gabion.runtime_shape_dispatch import str_or_none
+from gabion.runtime_shape_dispatch import str_optional
 from gabion.commands.transport_override import (
     TransportOverrideConfig,
     reset_transport_override,
@@ -69,14 +69,14 @@ def apply_cli_transport_flags(
     ):
         set_transport_override(None)
         return
-    carrier_value = str_or_none(carrier)
+    carrier_value = str_optional(carrier)
     carrier_text = (
         carrier_value.strip().lower()
         if carrier_value is not None and carrier_value.strip()
         else None
     )
     carrier_decision = TransportCarrierDecision.from_carrier(carrier_text)
-    override_record_value = str_or_none(override_record_path)
+    override_record_value = str_optional(override_record_path)
     selection = TransportSelectionDTO(
         carrier=carrier_decision.mode,
         carrier_override_record=(
@@ -122,12 +122,12 @@ def _resolve_transport_controls() -> tuple[bool, str | None]:
     if override is not None:
         direct_requested = bool(override.direct_requested)
         record_json = override.override_record_json
-        override_record_path = str_or_none(override.override_record_path)
+        override_record_path = str_optional(override.override_record_path)
         if (record_json is None or not record_json.strip()) and override_record_path and override_record_path.strip():
             record_json = _load_override_record_json_from_path(
                 override_record_path.strip()
             )
-        normalized_record_json = str_or_none(record_json)
+        normalized_record_json = str_optional(record_json)
         return (
             direct_requested,
             normalized_record_json.strip() if normalized_record_json else None,

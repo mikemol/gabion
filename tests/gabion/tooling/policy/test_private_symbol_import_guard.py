@@ -12,6 +12,7 @@ def _write(path: Path, content: str) -> None:
 
 
 # gabion:evidence E:function_site::test_private_symbol_import_guard.py::tests.test_private_symbol_import_guard.test_collect_private_import_violations_detects_private_imports
+# gabion:behavior primary=desired
 def test_collect_private_import_violations_detects_private_imports(tmp_path: Path) -> None:
     _write(
         tmp_path / "src" / "pkg" / "a.py",
@@ -37,6 +38,7 @@ def test_collect_private_import_violations_detects_private_imports(tmp_path: Pat
 
 
 # gabion:evidence E:function_site::test_private_symbol_import_guard.py::tests.test_private_symbol_import_guard.test_run_check_fails_on_new_non_exempt_private_imports
+# gabion:behavior primary=verboten facets=fail
 def test_run_check_fails_on_new_non_exempt_private_imports(tmp_path: Path) -> None:
     _write(tmp_path / "src" / "pkg" / "a.py", "from pkg.helpers import _private\n")
 
@@ -62,6 +64,7 @@ def test_run_check_fails_on_new_non_exempt_private_imports(tmp_path: Path) -> No
 
 
 # gabion:evidence E:function_site::test_private_symbol_import_guard.py::tests.test_private_symbol_import_guard.test_run_check_passes_when_allowlisted_or_baselined
+# gabion:behavior primary=desired
 def test_run_check_passes_when_allowlisted_or_baselined(tmp_path: Path) -> None:
     _write(tmp_path / "src" / "pkg" / "a.py", "from pkg.helpers import _private\n")
 

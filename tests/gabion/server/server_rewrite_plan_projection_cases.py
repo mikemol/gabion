@@ -5,6 +5,7 @@ from gabion.server import _normalize_dataflow_response
 
 
 # gabion:evidence E:call_footprint::tests/test_server_rewrite_plan_projection.py::test_server_projection_normalizes_rewrite_plan_order_and_schema_errors::server.py::gabion.server._normalize_dataflow_response
+# gabion:behavior primary=verboten facets=error
 def test_server_projection_normalizes_rewrite_plan_order_and_schema_errors() -> None:
     response = {
         "exit_code": 0,
@@ -40,6 +41,7 @@ def test_server_projection_normalizes_rewrite_plan_order_and_schema_errors() -> 
 
 
 # gabion:evidence E:function_site::rewrite_plan.py::gabion.refactor.rewrite_plan.attach_plan_schema
+# gabion:behavior primary=desired
 def test_rewrite_plan_schema_helpers_cover_non_dict_and_unknown_kind() -> None:
     assert rewrite_plan_mod._missing_keys("nope", ("a", "b")) == ["a", "b"]
     assert rewrite_plan_mod.attach_plan_schema({"rewrite": "bad"}) == {"rewrite": "bad"}
@@ -66,6 +68,7 @@ def test_rewrite_plan_schema_helpers_cover_non_dict_and_unknown_kind() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_server_rewrite_plan_projection.py::test_server_projection_normalizes_lint_entry_trichotomy
+# gabion:behavior primary=desired
 def test_server_projection_normalizes_lint_entry_trichotomy() -> None:
     provided = _normalize_dataflow_response(
         {

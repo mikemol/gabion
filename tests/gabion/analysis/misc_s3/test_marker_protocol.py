@@ -32,6 +32,7 @@ from gabion.invariants import (
 
 
 # gabion:evidence E:function_site::marker_protocol.py::gabion.analysis.marker_protocol.marker_identity
+# gabion:behavior primary=desired
 def test_marker_identity_is_deterministic() -> None:
     payload = normalize_marker_payload(
         reason="boom",
@@ -45,6 +46,7 @@ def test_marker_identity_is_deterministic() -> None:
 
 
 # gabion:evidence E:function_site::marker_protocol.py::gabion.analysis.marker_protocol.marker_identity
+# gabion:behavior primary=desired
 def test_marker_identity_changes_when_reasoning_fields_change() -> None:
     base_payload = normalize_marker_payload(
         reason="boom",
@@ -94,6 +96,7 @@ class _ReasoningInput:
 
 
 # gabion:evidence E:function_site::marker_protocol.py::gabion.analysis.marker_protocol.normalize_marker_reasoning
+# gabion:behavior primary=desired
 def test_normalize_marker_reasoning_supports_dataclass_mapping_and_scalar() -> None:
     dataclass_reasoning = normalize_marker_reasoning(
         _ReasoningInput(
@@ -134,6 +137,7 @@ def test_normalize_marker_reasoning_supports_dataclass_mapping_and_scalar() -> N
 
 
 # gabion:evidence E:function_site::marker_protocol.py::gabion.analysis.marker_protocol.never_marker_payload
+# gabion:behavior primary=verboten facets=never
 def test_never_carries_marker_payload() -> None:
     with pytest.raises(NeverThrown) as exc_info:
         never(
@@ -148,6 +152,7 @@ def test_never_carries_marker_payload() -> None:
 
 
 # gabion:evidence E:function_site::marker_protocol.py::gabion.analysis.marker_protocol.normalize_semantic_links
+# gabion:behavior primary=desired
 def test_normalize_semantic_links_filters_unknown_kinds() -> None:
     links = normalize_semantic_links(
         (
@@ -165,6 +170,7 @@ def test_normalize_semantic_links_filters_unknown_kinds() -> None:
 
 
 # gabion:evidence E:function_site::invariants.py::gabion.invariants.invariant_factory
+# gabion:behavior primary=desired
 def test_invariant_factory_applies_marker_specific_payload_defaults() -> None:
     with pytest.raises(NeverThrown) as never_exc:
         invariant_factory("never", reasoning={"summary": "structured never"})
@@ -182,6 +188,7 @@ def test_invariant_factory_applies_marker_specific_payload_defaults() -> None:
     assert deprecated_exc.value.marker_payload.reason == "deprecated() marker reached"
 
 
+# gabion:behavior primary=allowed_unwanted facets=deprecated
 def test_todo_and_deprecated_markers_carry_kind() -> None:
     with pytest.raises(NeverThrown) as todo_exc:
         todo("later", links=[{"kind": "doc_id", "value": "in-50"}])
@@ -207,6 +214,7 @@ def _sort_once(values, *, key=None, **_kwargs):
 
 
 # gabion:evidence E:function_site::marker_protocol.py::gabion.analysis.marker_protocol.resolve_marker_kind_for_profile
+# gabion:behavior primary=desired
 def test_marker_kind_profile_native_preserves_extracted_kind() -> None:
     profile = marker_kind_mapping_config(MarkerKindProfile.NATIVE)
     assert resolve_marker_kind_for_profile(MarkerKind.TODO, mapping_config=profile) is MarkerKind.TODO
@@ -214,6 +222,7 @@ def test_marker_kind_profile_native_preserves_extracted_kind() -> None:
 
 
 # gabion:evidence E:function_site::marker_protocol.py::gabion.analysis.marker_protocol.resolve_marker_kind_for_profile
+# gabion:behavior primary=verboten facets=never
 def test_marker_kind_profile_collapse_to_never_remaps_non_never_kinds() -> None:
     profile = marker_kind_mapping_config(MarkerKindProfile.COLLAPSE_TO_NEVER)
     assert resolve_marker_kind_for_profile(MarkerKind.NEVER, mapping_config=profile) is MarkerKind.NEVER
@@ -221,6 +230,7 @@ def test_marker_kind_profile_collapse_to_never_remaps_non_never_kinds() -> None:
     assert resolve_marker_kind_for_profile(MarkerKind.DEPRECATED, mapping_config=profile) is MarkerKind.NEVER
 
 
+# gabion:behavior primary=desired
 def test_runtime_marker_behavior_is_independent_from_marker_kind_mapping_profile() -> None:
     collapse_profile = marker_kind_mapping_config(MarkerKindProfile.COLLAPSE_TO_NEVER)
 
@@ -243,6 +253,7 @@ def test_runtime_marker_behavior_is_independent_from_marker_kind_mapping_profile
 
 
 # gabion:evidence E:function_site::indexed_scan/marker_metadata.py::gabion.analysis.indexed_scan.marker_metadata.never_marker_metadata
+# gabion:behavior primary=desired
 def test_marker_metadata_site_identity_fields_stable_across_kind_remaps() -> None:
     call = _call("todo(reason='defer', owner='team')")
     native = marker_metadata.never_marker_metadata(

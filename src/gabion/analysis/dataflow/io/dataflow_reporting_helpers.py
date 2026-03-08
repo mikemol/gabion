@@ -23,9 +23,9 @@ from gabion.analysis.projection.projection_registry import REPORT_SECTION_LINES_
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.order_contract import sort_once
 from gabion.runtime_shape_dispatch import (
-    json_list_or_none as _json_list_or_none,
-    json_mapping_or_none as _json_mapping_or_none,
-    str_or_none as _str_or_none,
+    json_list_optional as _json_list_optional,
+    json_mapping_optional as _json_mapping_optional,
+    str_optional as _str_optional,
 )
 
 _FORBID_RAW_SORTED_ENV = "GABION_FORBID_RAW_SORTED"
@@ -549,11 +549,11 @@ def summarize_runtime_obligations(entries: list[JSONObject]) -> list[str]:
         phase = entry.get("phase")
         detail = str(entry.get("detail", "")).strip()
         section_part = ""
-        section_text = _str_or_none(section_id)
+        section_text = _str_optional(section_id)
         if section_text:
             section_part = f" section={section_id}"
         phase_part = ""
-        phase_text = _str_or_none(phase)
+        phase_text = _str_optional(phase)
         if phase_text:
             phase_part = f" phase={phase}"
         line = f"{status} {contract} {kind}{section_part}{phase_part}".strip()
@@ -596,7 +596,7 @@ def summarize_parse_failure_witnesses(entries: list[JSONObject]) -> list[str]:
 
 
 def _str_tuple_from_sequence(value: object) -> tuple[str, ...]:
-    entries = _json_list_or_none(value)
+    entries = _json_list_optional(value)
     if entries is None:
         return tuple()
     return tuple(str(item) for item in entries)
@@ -744,8 +744,8 @@ def runtime_obligation_violation_lines(entries: list[JSONObject]) -> list[str]:
         section_id = entry.get("section_id")
         phase = entry.get("phase")
         detail = str(entry.get("detail", "")).strip()
-        section_text = _str_or_none(section_id)
-        phase_text = _str_or_none(phase)
+        section_text = _str_optional(section_id)
+        phase_text = _str_optional(phase)
         section_part = (
             f" section={section_text}"
             if section_text is not None and section_text

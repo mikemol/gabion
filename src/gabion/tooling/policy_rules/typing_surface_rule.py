@@ -8,8 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from gabion.runtime_shape_dispatch import (
-    json_list_or_none as _json_list_or_none,
-    json_mapping_or_none as _json_mapping_or_none,
+    json_list_optional as _json_list_optional,
+    json_mapping_optional as _json_mapping_optional,
 )
 
 BASELINE_VERSION = 1
@@ -200,15 +200,15 @@ def _load_baseline(path: Path) -> set[str]:
     if not path.exists():
         return set()
     payload = json.loads(path.read_text(encoding="utf-8"))
-    payload_mapping = _json_mapping_or_none(payload)
+    payload_mapping = _json_mapping_optional(payload)
     if payload_mapping is None:
         return set()
-    raw_items = _json_list_or_none(payload_mapping.get("violations"))
+    raw_items = _json_list_optional(payload_mapping.get("violations"))
     if raw_items is None:
         return set()
     keys: set[str] = set()
     for raw_item in raw_items:
-        item = _json_mapping_or_none(raw_item)
+        item = _json_mapping_optional(raw_item)
         if item is None:
             continue
         path_value = str(item.get("path", "") or "")
@@ -252,10 +252,10 @@ def load_waivers(path: Path) -> WaiverLoadResult:
     if not path.exists():
         return WaiverLoadResult(allowed_keys=set(), invalid_waivers=[])
     payload = json.loads(path.read_text(encoding="utf-8"))
-    payload_mapping = _json_mapping_or_none(payload)
+    payload_mapping = _json_mapping_optional(payload)
     if payload_mapping is None:
         return WaiverLoadResult(allowed_keys=set(), invalid_waivers=[InvalidWaiver(index=0, reason="waiver_file_not_object")])
-    raw_waivers = _json_list_or_none(payload_mapping.get("waivers"))
+    raw_waivers = _json_list_optional(payload_mapping.get("waivers"))
     if raw_waivers is None:
         return WaiverLoadResult(allowed_keys=set(), invalid_waivers=[InvalidWaiver(index=0, reason="waivers_not_list")])
 
@@ -263,7 +263,7 @@ def load_waivers(path: Path) -> WaiverLoadResult:
     invalid: list[InvalidWaiver] = []
     required = ("path", "qualname", "kind", "rationale", "scope", "expiry", "owner")
     for index, raw in enumerate(raw_waivers, start=1):
-        waiver = _json_mapping_or_none(raw)
+        waiver = _json_mapping_optional(raw)
         if waiver is None:
             invalid.append(InvalidWaiver(index=index, reason="waiver_not_object"))
             continue

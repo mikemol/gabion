@@ -10,6 +10,7 @@ def _load():
     return evidence
 
 # gabion:evidence E:decision_surface/direct::evidence.py::gabion.analysis.evidence.normalize_bundle_key::bundle
+# gabion:behavior primary=desired
 def test_normalize_bundle_key_accepts_lists_tuples_and_sets() -> None:
     evidence = _load()
 
@@ -20,6 +21,7 @@ def test_normalize_bundle_key_accepts_lists_tuples_and_sets() -> None:
     assert evidence.normalize_bundle_key({"b", "a"}) == "a,b"
 
 # gabion:evidence E:decision_surface/direct::evidence.py::gabion.analysis.evidence.normalize_string_list::value E:decision_surface/direct::evidence.py::gabion.analysis.evidence.normalize_string_list::stale_e2867cee89d9
+# gabion:behavior primary=desired
 def test_normalize_string_list_handles_multiple_payload_shapes() -> None:
     evidence = _load()
 
@@ -32,6 +34,7 @@ def test_normalize_string_list_handles_multiple_payload_shapes() -> None:
     assert evidence.normalize_string_list(123) == []
 
 # gabion:evidence E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::evidence.py::gabion.analysis.evidence.normalize_string_list::value
+# gabion:behavior primary=desired
 def test_site_from_payload_filters_and_normalizes() -> None:
     evidence = _load()
 
@@ -48,6 +51,7 @@ def test_site_from_payload_filters_and_normalizes() -> None:
 
 
 # gabion:evidence E:decision_surface/direct::evidence.py::gabion.analysis.evidence.exception_obligation_summary_for_site::obligations
+# gabion:behavior primary=verboten facets=exception
 def test_exception_obligation_summary_for_site_skips_non_matching_and_normalizes_status() -> None:
     evidence = _load()
     site = evidence.Site(path="a.py", function="f", bundle=("a",))

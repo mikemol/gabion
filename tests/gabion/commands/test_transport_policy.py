@@ -13,6 +13,7 @@ from gabion.lsp_client import run_command, run_command_direct
 
 
 # gabion:evidence E:function_site::test_transport_policy.py::tests.test_transport_policy.test_transport_policy_denies_direct_for_governed_without_override
+# gabion:behavior primary=desired
 def test_transport_policy_denies_direct_for_governed_without_override() -> None:
     with transport_policy.transport_override_scope(
         transport_policy.TransportOverrideConfig(direct_requested=True)
@@ -27,6 +28,7 @@ def test_transport_policy_denies_direct_for_governed_without_override() -> None:
 
 
 # gabion:evidence E:function_site::test_transport_policy.py::tests.test_transport_policy.test_transport_policy_allows_direct_for_governed_with_valid_override
+# gabion:behavior primary=desired
 def test_transport_policy_allows_direct_for_governed_with_valid_override() -> None:
     with transport_policy.transport_override_scope(
         transport_policy.TransportOverrideConfig(
@@ -55,6 +57,7 @@ def test_transport_policy_allows_direct_for_governed_with_valid_override() -> No
 
 
 # gabion:evidence E:function_site::test_transport_policy.py::tests.test_transport_policy.test_transport_policy_keeps_direct_for_non_governed_command
+# gabion:behavior primary=desired
 def test_transport_policy_keeps_direct_for_non_governed_command() -> None:
     with transport_policy.transport_override_scope(
         transport_policy.TransportOverrideConfig(direct_requested=True)
@@ -69,6 +72,7 @@ def test_transport_policy_keeps_direct_for_non_governed_command() -> None:
 
 
 # gabion:evidence E:function_site::test_transport_policy.py::tests.test_transport_policy.test_transport_policy_unknown_command_without_direct_sets_no_policy
+# gabion:behavior primary=desired
 def test_transport_policy_unknown_command_without_direct_sets_no_policy() -> None:
     with transport_policy.transport_override_scope(None):
         decision = transport_policy.resolve_command_transport(
@@ -82,6 +86,7 @@ def test_transport_policy_unknown_command_without_direct_sets_no_policy() -> Non
 
 
 # gabion:evidence E:function_site::test_transport_policy.py::tests.test_transport_policy.test_transport_override_scope_prefers_context_over_env
+# gabion:behavior primary=desired
 def test_transport_override_scope_prefers_context_config() -> None:
     with transport_policy.transport_override_scope(
         transport_policy.TransportOverrideConfig(
@@ -98,6 +103,7 @@ def test_transport_override_scope_prefers_context_config() -> None:
 
 
 # gabion:evidence E:function_site::test_transport_policy.py::tests.test_transport_policy.test_apply_cli_transport_flags_normalizes_strings_and_clears_override
+# gabion:behavior primary=desired
 def test_apply_cli_transport_flags_normalizes_strings_and_clears_override() -> None:
     transport_policy.apply_cli_transport_flags(
         carrier="lsp",
@@ -113,6 +119,7 @@ def test_apply_cli_transport_flags_normalizes_strings_and_clears_override() -> N
 
 
 # gabion:evidence E:function_site::tests/test_transport_policy.py::test_apply_cli_transport_flags_supports_path_only_and_rejects_invalid_carrier
+# gabion:behavior primary=verboten facets=invalid
 def test_apply_cli_transport_flags_supports_path_only_and_rejects_invalid_carrier() -> None:
     try:
         transport_policy.apply_cli_transport_flags(
@@ -133,6 +140,7 @@ def test_apply_cli_transport_flags_supports_path_only_and_rejects_invalid_carrie
 
 
 # gabion:evidence E:function_site::tests/test_transport_policy.py::test_resolve_transport_controls_reads_override_record_path_and_missing_path_errors
+# gabion:behavior primary=verboten facets=error,missing
 def test_resolve_transport_controls_reads_override_record_path_and_missing_path_errors(
     tmp_path: Path,
 ) -> None:
@@ -156,12 +164,14 @@ def test_resolve_transport_controls_reads_override_record_path_and_missing_path_
 
 
 # gabion:evidence E:function_site::tests/test_transport_policy.py::test_transport_carrier_decision_trichotomy
+# gabion:behavior primary=desired
 def test_transport_carrier_decision_trichotomy() -> None:
     assert transport_policy.TransportCarrierDecision.from_carrier(None).mode == "auto"
     assert transport_policy.TransportCarrierDecision.from_carrier("lsp").to_direct_requested() is False
     assert transport_policy.TransportCarrierDecision.from_carrier("direct").to_direct_requested() is True
 
 
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_warn_legacy_transport_env_usage_is_once() -> None:
     original = transport_policy._LEGACY_TRANSPORT_ENV_WARNED
     try:

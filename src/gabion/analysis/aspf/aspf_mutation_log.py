@@ -9,7 +9,7 @@ import tarfile
 from typing import Mapping
 
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue
-from gabion.analysis.foundation.resume_codec import mapping_or_none, sequence_or_none
+from gabion.analysis.foundation.resume_codec import mapping_optional, sequence_optional
 
 
 @dataclass(frozen=True)
@@ -209,7 +209,7 @@ def decode_event_envelope_proto(payload: bytes) -> EventEnvelope:
             op_kind=str(record_payload.get("op_kind", "") or ""),
             payload=(
                 dict(payload_map)
-                if (payload_map := mapping_or_none(record_payload.get("payload"))) is not None
+                if (payload_map := mapping_optional(record_payload.get("payload"))) is not None
                 else {}
             ),
         ),
@@ -254,7 +254,7 @@ def decode_snapshot_envelope_proto(payload: bytes) -> SnapshotEnvelope:
             seq=int(snapshot_payload.get("seq", 0) or 0),
             state=(
                 dict(state_map)
-                if (state_map := mapping_or_none(snapshot_payload.get("state"))) is not None
+                if (state_map := mapping_optional(snapshot_payload.get("state"))) is not None
                 else {}
             ),
         ),
@@ -491,7 +491,7 @@ def apply_mutation(state: JSONObject, record: AspfMutationRecord) -> JSONObject:
         if key:
             next_state.pop(key, None)
     else:
-        unknown_ops = sequence_or_none(next_state.get("_unknown_ops"), allow_str=False)
+        unknown_ops = sequence_optional(next_state.get("_unknown_ops"), allow_str=False)
         ops = list(unknown_ops) if unknown_ops is not None else []
         ops.append(record.op_kind)
         next_state["_unknown_ops"] = ops

@@ -63,6 +63,7 @@ def _run_output_context(root: Path) -> dataflow_run_outputs.DataflowRunOutputCon
 
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_run_outputs.py::test_apply_run_output_ops_skips_unknown_op_and_reaches_terminal_console_step::dataflow_run_outputs.py::gabion.analysis.dataflow_run_outputs.apply_run_output_ops
+# gabion:behavior primary=desired
 def test_apply_run_output_ops_skips_unknown_op_and_reaches_terminal_console_step(
     tmp_path: Path,
 ) -> None:

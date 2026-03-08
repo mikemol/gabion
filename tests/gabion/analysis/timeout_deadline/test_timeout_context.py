@@ -32,6 +32,7 @@ def _deadline_test_scope(
 
 
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.pack_call_stack E:decision_surface/direct::timeout_context.py::gabion.analysis.timeout_context.pack_call_stack::stale_5f83d4767c39
+# gabion:behavior primary=verboten facets=timeout
 def test_pack_call_stack_orders_and_indexes() -> None:
     sites = [
         {"path": "b.py", "qual": "mod.b"},
@@ -53,6 +54,7 @@ def test_pack_call_stack_orders_and_indexes() -> None:
 
 
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.build_timeout_context_from_stack E:decision_surface/direct::timeout_context.py::gabion.analysis.timeout_context.build_timeout_context_from_stack::stale_dbe32a0500ec
+# gabion:behavior primary=verboten facets=timeout
 def test_build_timeout_context_from_stack_uses_forest() -> None:
     forest = Forest()
     path_name = Path(__file__).name
@@ -77,6 +79,7 @@ def test_build_timeout_context_from_stack_uses_forest() -> None:
 
 
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.TimeoutContext.as_payload
+# gabion:behavior primary=verboten facets=timeout
 def test_timeout_context_payload_includes_metadata() -> None:
     packed = pack_call_stack([{"path": "a.py", "qual": "mod.fn"}])
     context = TimeoutContext(
@@ -90,6 +93,7 @@ def test_timeout_context_payload_includes_metadata() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_timeout_context_payload_includes_deadline_profile::timeout_context.py::gabion.analysis.timeout_context.pack_call_stack
+# gabion:behavior primary=verboten facets=timeout
 def test_timeout_context_payload_includes_deadline_profile() -> None:
     packed = pack_call_stack([{"path": "a.py", "qual": "mod.fn"}])
     context = TimeoutContext(
@@ -101,6 +105,7 @@ def test_timeout_context_payload_includes_deadline_profile() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_timeout_context_payload_includes_progress::timeout_context.py::gabion.analysis.timeout_context.pack_call_stack
+# gabion:behavior primary=verboten facets=timeout
 def test_timeout_context_payload_includes_progress() -> None:
     packed = pack_call_stack([{"path": "a.py", "qual": "mod.fn"}])
     context = TimeoutContext(
@@ -112,6 +117,7 @@ def test_timeout_context_payload_includes_progress() -> None:
 
 
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.TimeoutExceeded.__init__
+# gabion:behavior primary=verboten facets=timeout
 def test_timeout_exceeded_carries_context() -> None:
     packed = pack_call_stack([{"path": "a.py", "qual": "mod.fn"}])
     context = TimeoutContext(call_stack=packed)
@@ -122,6 +128,7 @@ def test_timeout_exceeded_carries_context() -> None:
 
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ms
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.Deadline.check
+# gabion:behavior primary=verboten facets=raises,timeout
 def test_deadline_expired_raises() -> None:
     deadline = Deadline.from_timeout_ms(0)
     assert deadline.expired() is True
@@ -130,6 +137,7 @@ def test_deadline_expired_raises() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_deadline_check_noop_when_not_expired::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ms::timeout_context.py::gabion.analysis.timeout_context.pack_call_stack
+# gabion:behavior primary=allowed_unwanted facets=noop,timeout
 def test_deadline_check_noop_when_not_expired() -> None:
     deadline = Deadline.from_timeout_ms(1_000)
     assert deadline.expired() is False
@@ -139,6 +147,7 @@ def test_deadline_check_noop_when_not_expired() -> None:
 
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ticks
+# gabion:behavior primary=verboten facets=timeout
 def test_deadline_from_timeout_variants() -> None:
     with pytest.raises(NeverThrown):
         Deadline.from_timeout_ticks(TimeoutTickCarrier.from_ingress(ticks=-5, tick_ns=0))
@@ -152,6 +161,7 @@ def test_deadline_from_timeout_variants() -> None:
 
 
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.build_site_index
+# gabion:behavior primary=verboten facets=timeout
 def test_build_site_index_filters_nodes() -> None:
     forest = Forest()
     forest.add_node("Param", ("x",), {"name": "x"})
@@ -162,6 +172,7 @@ def test_build_site_index_filters_nodes() -> None:
 
 
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.pack_call_stack E:decision_surface/direct::timeout_context.py::gabion.analysis.timeout_context.pack_call_stack::stale_1a892a545319_b666ebce
+# gabion:behavior primary=verboten facets=timeout
 def test_pack_call_stack_keeps_span() -> None:
     packed = pack_call_stack(
         [
@@ -181,12 +192,14 @@ def test_pack_call_stack_keeps_span() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_pack_call_stack_rejects_invalid_entries::timeout_context.py::gabion.analysis.timeout_context.pack_call_stack
+# gabion:behavior primary=verboten facets=invalid,timeout
 def test_pack_call_stack_rejects_invalid_entries() -> None:
     with pytest.raises(NeverThrown):
         pack_call_stack([{"path": "", "qual": "missing"}])
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_pack_call_stack_accepts_list_key_part::timeout_context.py::gabion.analysis.timeout_context.pack_call_stack
+# gabion:behavior primary=verboten facets=timeout
 def test_pack_call_stack_accepts_list_key_part() -> None:
     packed = pack_call_stack(
         [{"kind": "FunctionSite", "key": [["file"], "mod.fn"]}]
@@ -196,6 +209,7 @@ def test_pack_call_stack_accepts_list_key_part() -> None:
     ]
 
 
+# gabion:behavior primary=verboten facets=timeout
 def test_function_site_identity_payload_round_trip() -> None:
     packed = pack_call_stack(
         [
@@ -210,12 +224,14 @@ def test_function_site_identity_payload_round_trip() -> None:
     assert restored.as_payload()["site_table"] == payload["site_table"]
 
 
+# gabion:behavior primary=verboten facets=timeout
 def test_function_site_identity_decode_rejects_partial_identity() -> None:
     with pytest.raises(NeverThrown):
         pack_call_stack([{"path": "a.py", "qual": "", "span": [1, 2, 3]}])
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_pack_call_stack_uses_first_seen_site_order::timeout_context.py::gabion.analysis.timeout_context.pack_call_stack
+# gabion:behavior primary=verboten facets=timeout
 def test_pack_call_stack_uses_first_seen_site_order() -> None:
     packed = pack_call_stack(
         [
@@ -238,6 +254,7 @@ def test_pack_call_stack_uses_first_seen_site_order() -> None:
 
 
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context._frame_site_key E:decision_surface/direct::timeout_context.py::gabion.analysis.timeout_context._frame_site_key::stale_973f9f2d7f85_f67ec520
+# gabion:behavior primary=verboten facets=raises,timeout
 def test_frame_site_key_outside_root_raises() -> None:
     frame = inspect.currentframe()
     assert frame is not None
@@ -247,6 +264,7 @@ def test_frame_site_key_outside_root_raises() -> None:
 
 
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context._frame_site_key E:decision_surface/direct::timeout_context.py::gabion.analysis.timeout_context._frame_site_key::stale_88f48c1fe168
+# gabion:behavior primary=verboten facets=timeout
 def test_frame_site_key_without_module_name() -> None:
     frame = type(
         "DummyFrame",
@@ -268,18 +286,21 @@ def test_frame_site_key_without_module_name() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_set_deadline_rejects_none::timeout_context.py::gabion.analysis.timeout_context.set_deadline
+# gabion:behavior primary=verboten facets=none,timeout
 def test_set_deadline_rejects_none() -> None:
     with pytest.raises(NeverThrown):
         set_deadline(None)  # type: ignore[arg-type]
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_set_deadline_clock_rejects_none::timeout_context.py::gabion.analysis.timeout_context.set_deadline_clock
+# gabion:behavior primary=verboten facets=none,timeout
 def test_set_deadline_clock_rejects_none() -> None:
     with pytest.raises(NeverThrown):
         set_deadline_clock(None)  # type: ignore[arg-type]
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_deadline_scope_rejects_none::timeout_context.py::gabion.analysis.timeout_context.deadline_scope
+# gabion:behavior primary=verboten facets=none,timeout
 def test_deadline_scope_rejects_none() -> None:
     with pytest.raises(NeverThrown):
         with deadline_scope(None):  # type: ignore[arg-type]
@@ -287,6 +308,7 @@ def test_deadline_scope_rejects_none() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_get_deadline_requires_carrier::exceptions.py::gabion.exceptions.NeverThrown::timeout_context.py::gabion.analysis.timeout_context.get_deadline
+# gabion:behavior primary=verboten facets=timeout
 def test_get_deadline_requires_carrier() -> None:
     ctx = Context()
     with pytest.raises(NeverThrown):
@@ -294,12 +316,14 @@ def test_get_deadline_requires_carrier() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_get_deadline_clock_requires_carrier::exceptions.py::gabion.exceptions.NeverThrown::timeout_context.py::gabion.analysis.timeout_context.get_deadline_clock
+# gabion:behavior primary=verboten facets=timeout
 def test_get_deadline_clock_requires_carrier() -> None:
     ctx = Context()
     with pytest.raises(NeverThrown):
         ctx.run(get_deadline_clock)
 
 
+# gabion:behavior primary=verboten facets=invalid,timeout
 def test_file_site_and_function_site_decode_invalid_payloads() -> None:
     with pytest.raises(NeverThrown):
         timeout_context._FileSite(path="")
@@ -325,6 +349,7 @@ def test_file_site_and_function_site_decode_invalid_payloads() -> None:
         )
 
 
+# gabion:behavior primary=verboten facets=invalid,timeout
 def test_decode_call_stack_sites_rejects_invalid_payload_type_and_normalize_site_payload() -> None:
     with pytest.raises(NeverThrown):
         timeout_context._decode_call_stack_sites([123])
@@ -335,6 +360,7 @@ def test_decode_call_stack_sites_rejects_invalid_payload_type_and_normalize_site
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_check_deadline_requires_clock_scope::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ms::timeout_context.py::gabion.analysis.timeout_context.check_deadline::timeout_context.py::gabion.analysis.timeout_context.deadline_scope::timeout_context.py::gabion.analysis.timeout_context.forest_scope
+# gabion:behavior primary=verboten facets=timeout
 def test_check_deadline_requires_clock_scope() -> None:
     ctx = Context()
 
@@ -348,6 +374,7 @@ def test_check_deadline_requires_clock_scope() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_get_forest_requires_valid_carrier::timeout_context.py::gabion.analysis.timeout_context.get_forest::timeout_context.py::gabion.analysis.timeout_context.reset_forest::timeout_context.py::gabion.analysis.timeout_context.set_forest
+# gabion:behavior primary=verboten facets=timeout
 def test_get_forest_requires_valid_carrier() -> None:
     ctx = Context()
     with pytest.raises(NeverThrown):
@@ -361,6 +388,7 @@ def test_get_forest_requires_valid_carrier() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_get_forest_returns_active_carrier::timeout_context.py::gabion.analysis.timeout_context.get_forest::timeout_context.py::gabion.analysis.timeout_context.reset_forest::timeout_context.py::gabion.analysis.timeout_context.set_forest
+# gabion:behavior primary=verboten facets=timeout
 def test_get_forest_returns_active_carrier() -> None:
     forest = Forest()
     token = set_forest(forest)
@@ -371,6 +399,7 @@ def test_get_forest_returns_active_carrier() -> None:
 
 
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.build_timeout_context_from_stack E:decision_surface/direct::timeout_context.py::gabion.analysis.timeout_context.build_timeout_context_from_stack::stale_253a380d6acc_563ed243
+# gabion:behavior primary=allowed_unwanted facets=fallback,timeout
 def test_build_timeout_context_frame_fallback() -> None:
     frame = inspect.currentframe()
     assert frame is not None
@@ -384,6 +413,7 @@ def test_build_timeout_context_frame_fallback() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_build_timeout_context_progress_classification_no_progress::timeout_context.py::gabion.analysis.timeout_context.build_timeout_context_from_stack
+# gabion:behavior primary=verboten facets=timeout
 def test_build_timeout_context_progress_classification_no_progress() -> None:
     frame = inspect.currentframe()
     assert frame is not None
@@ -400,6 +430,7 @@ def test_build_timeout_context_progress_classification_no_progress() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_build_timeout_context_progress_classification_with_progress::timeout_context.py::gabion.analysis.timeout_context.build_timeout_context_from_stack
+# gabion:behavior primary=verboten facets=timeout
 def test_build_timeout_context_progress_classification_with_progress() -> None:
     frame = inspect.currentframe()
     assert frame is not None
@@ -418,6 +449,7 @@ def test_build_timeout_context_progress_classification_with_progress() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_deadline_profile_scope_collects_heat::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ms::timeout_context.py::gabion.analysis.timeout_context.build_timeout_context_from_stack::timeout_context.py::gabion.analysis.timeout_context.check_deadline::timeout_context.py::gabion.analysis.timeout_context.deadline_profile_scope::timeout_context.py::gabion.analysis.timeout_context.deadline_scope::timeout_context.py::gabion.analysis.timeout_context.record_deadline_io
+# gabion:behavior primary=verboten facets=timeout
 def test_deadline_profile_scope_collects_heat() -> None:
     root = REPO_ROOT
     with deadline_profile_scope(project_root=root, enabled=True):
@@ -451,6 +483,7 @@ def test_deadline_profile_scope_collects_heat() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_check_deadline_uses_gas_meter_ticks::test_timeout_context.py::tests.test_timeout_context._deadline_test_scope::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ms::timeout_context.py::gabion.analysis.timeout_context.check_deadline
+# gabion:behavior primary=verboten facets=timeout
 def test_check_deadline_uses_gas_meter_ticks() -> None:
     with _deadline_test_scope(
         deadline=Deadline.from_timeout_ms(1_000),
@@ -462,6 +495,7 @@ def test_check_deadline_uses_gas_meter_ticks() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_deadline_profile_uses_logical_ticks_when_clock_injected::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ms::timeout_context.py::gabion.analysis.timeout_context._deadline_profile_snapshot::timeout_context.py::gabion.analysis.timeout_context.check_deadline::timeout_context.py::gabion.analysis.timeout_context.deadline_clock_scope::timeout_context.py::gabion.analysis.timeout_context.deadline_profile_scope::timeout_context.py::gabion.analysis.timeout_context.deadline_scope::timeout_context.py::gabion.analysis.timeout_context.forest_scope
+# gabion:behavior primary=verboten facets=timeout
 def test_deadline_profile_uses_logical_ticks_when_clock_injected() -> None:
     with forest_scope(Forest()):
         with deadline_clock_scope(GasMeter(limit=16)):
@@ -479,6 +513,7 @@ def test_deadline_profile_uses_logical_ticks_when_clock_injected() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_timeout_progress_reports_tick_budget::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ms::timeout_context.py::gabion.analysis.timeout_context.build_timeout_context_from_stack::timeout_context.py::gabion.analysis.timeout_context.check_deadline::timeout_context.py::gabion.analysis.timeout_context.deadline_clock_scope::timeout_context.py::gabion.analysis.timeout_context.deadline_profile_scope::timeout_context.py::gabion.analysis.timeout_context.deadline_scope::timeout_context.py::gabion.analysis.timeout_context.forest_scope
+# gabion:behavior primary=verboten facets=timeout
 def test_timeout_progress_reports_tick_budget() -> None:
     forest = Forest()
     with forest_scope(forest):
@@ -501,6 +536,7 @@ def test_timeout_progress_reports_tick_budget() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_consume_deadline_ticks_propagates_exhaustion_without_forest::timeout_context.py::gabion.analysis.timeout_context.consume_deadline_ticks::timeout_context.py::gabion.analysis.timeout_context.deadline_clock_scope
+# gabion:behavior primary=verboten facets=timeout
 def test_consume_deadline_ticks_propagates_exhaustion_without_forest() -> None:
     def _run() -> None:
         with deadline_clock_scope(GasMeter(limit=1)):
@@ -511,12 +547,14 @@ def test_consume_deadline_ticks_propagates_exhaustion_without_forest() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_consume_deadline_ticks_requires_clock_scope::exceptions.py::gabion.exceptions.NeverThrown::timeout_context.py::gabion.analysis.timeout_context.consume_deadline_ticks
+# gabion:behavior primary=verboten facets=timeout
 def test_consume_deadline_ticks_requires_clock_scope() -> None:
     with pytest.raises(NeverThrown):
         Context().run(consume_deadline_ticks)
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_check_deadline_ignores_wall_deadline_when_gas_clock_present::test_timeout_context.py::tests.test_timeout_context._deadline_test_scope::timeout_context.py::gabion.analysis.timeout_context.check_deadline
+# gabion:behavior primary=verboten facets=timeout
 def test_check_deadline_ignores_wall_deadline_when_gas_clock_present() -> None:
     clock = GasMeter(limit=3)
     with _deadline_test_scope(
@@ -529,6 +567,7 @@ def test_check_deadline_ignores_wall_deadline_when_gas_clock_present() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_render_deadline_profile_markdown::timeout_context.py::gabion.analysis.timeout_context.render_deadline_profile_markdown
+# gabion:behavior primary=verboten facets=timeout
 def test_render_deadline_profile_markdown() -> None:
     profile = {
         "checks_total": 2,
@@ -574,6 +613,7 @@ def test_render_deadline_profile_markdown() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_render_deadline_profile_markdown_skips_invalid_rows_and_truncates::timeout_context.py::gabion.analysis.timeout_context.render_deadline_profile_markdown
+# gabion:behavior primary=verboten facets=invalid,timeout
 def test_render_deadline_profile_markdown_skips_invalid_rows_and_truncates() -> None:
     rendered = render_deadline_profile_markdown(
         {
@@ -591,6 +631,7 @@ def test_render_deadline_profile_markdown_skips_invalid_rows_and_truncates() -> 
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_render_deadline_profile_markdown_skips_non_mapping_rows::timeout_context.py::gabion.analysis.timeout_context.render_deadline_profile_markdown
+# gabion:behavior primary=verboten facets=timeout
 def test_render_deadline_profile_markdown_skips_non_mapping_rows() -> None:
     rendered = render_deadline_profile_markdown(
         {
@@ -606,6 +647,7 @@ def test_render_deadline_profile_markdown_skips_non_mapping_rows() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_render_deadline_profile_markdown_ignores_non_list_sections::timeout_context.py::gabion.analysis.timeout_context.render_deadline_profile_markdown
+# gabion:behavior primary=verboten facets=timeout
 def test_render_deadline_profile_markdown_ignores_non_list_sections() -> None:
     rendered = render_deadline_profile_markdown(
         {
@@ -621,6 +663,7 @@ def test_render_deadline_profile_markdown_ignores_non_list_sections() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_site_part_payload_roundtrip_helpers::timeout_context.py::gabion.analysis.timeout_context._site_key_payload::timeout_context.py::gabion.analysis.timeout_context._site_part_from_payload::timeout_context.py::gabion.analysis.timeout_context._site_part_to_payload
+# gabion:behavior primary=verboten facets=timeout
 def test_site_part_payload_roundtrip_helpers() -> None:
     payload = _site_key_payload(path="mod.py", qual="pkg.mod.fn", span=[1, 2, 3, 4])
     restored = _site_part_from_payload(payload["key"][0])
@@ -628,6 +671,7 @@ def test_site_part_payload_roundtrip_helpers() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_site_part_helpers_reject_invalid_payloads::timeout_context.py::gabion.analysis.timeout_context._freeze_value::timeout_context.py::gabion.analysis.timeout_context._site_part_from_payload::timeout_context.py::gabion.analysis.timeout_context._site_part_to_payload
+# gabion:behavior primary=verboten facets=invalid,reject,timeout
 def test_site_part_helpers_reject_invalid_payloads() -> None:
     with pytest.raises(NeverThrown):
         _site_part_from_payload({"kind": "FileSite", "key": []})
@@ -640,12 +684,14 @@ def test_site_part_helpers_reject_invalid_payloads() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_site_part_from_payload_rejects_non_string_filesite_key::timeout_context.py::gabion.analysis.timeout_context._site_part_from_payload
+# gabion:behavior primary=verboten facets=timeout
 def test_site_part_from_payload_rejects_non_string_filesite_key() -> None:
     with pytest.raises(NeverThrown):
         _site_part_from_payload({"kind": "FileSite", "key": [123]})
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_deadline_profile_private_helpers_cover_fallback_paths::timeout_context.py::gabion.analysis.timeout_context._profile_site_key::timeout_context.py::gabion.analysis.timeout_context._record_deadline_check::timeout_context.py::gabion.analysis.timeout_context.deadline_profile_scope
+# gabion:behavior primary=allowed_unwanted facets=fallback,timeout
 def test_deadline_profile_private_helpers_cover_fallback_paths() -> None:
     frame = inspect.currentframe()
     assert frame is not None
@@ -656,6 +702,7 @@ def test_deadline_profile_private_helpers_cover_fallback_paths() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_record_deadline_check_caches_site_keys_per_code_object::timeout_context.py::gabion.analysis.timeout_context._record_deadline_check
+# gabion:behavior primary=verboten facets=timeout
 def test_record_deadline_check_caches_site_keys_per_code_object() -> None:
     calls = 0
     original = timeout_context._profile_site_key
@@ -684,6 +731,7 @@ def test_record_deadline_check_caches_site_keys_per_code_object() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_record_deadline_check_resolves_project_root_once_and_caches_it::timeout_context.py::gabion.analysis.timeout_context._deadline_profile_snapshot::timeout_context.py::gabion.analysis.timeout_context._record_deadline_check::timeout_context.py::gabion.analysis.timeout_context.deadline_profile_scope
+# gabion:behavior primary=verboten facets=timeout
 def test_record_deadline_check_resolves_project_root_once_and_caches_it(
     tmp_path: Path,
 ) -> None:
@@ -707,6 +755,7 @@ def test_record_deadline_check_resolves_project_root_once_and_caches_it(
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_record_deadline_check_reuses_existing_site_id_without_reallocating::timeout_context.py::gabion.analysis.timeout_context._deadline_profile_snapshot::timeout_context.py::gabion.analysis.timeout_context._record_deadline_check::timeout_context.py::gabion.analysis.timeout_context.deadline_profile_scope
+# gabion:behavior primary=verboten facets=timeout
 def test_record_deadline_check_reuses_existing_site_id_without_reallocating() -> None:
     def _constant_site_key(_frame: object, *, project_root: Path | None) -> tuple[str, str]:
         _ = project_root
@@ -745,6 +794,7 @@ def test_record_deadline_check_reuses_existing_site_id_without_reallocating() ->
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_deadline_profile_sampling_preserves_total_checks_with_pending_tail::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ms::timeout_context.py::gabion.analysis.timeout_context._deadline_profile_snapshot::timeout_context.py::gabion.analysis.timeout_context.check_deadline::timeout_context.py::gabion.analysis.timeout_context.deadline_profile_scope
+# gabion:behavior primary=verboten facets=timeout
 def test_deadline_profile_sampling_preserves_total_checks_with_pending_tail() -> None:
     with _deadline_test_scope(
         deadline=Deadline.from_timeout_ms(1_000),
@@ -769,6 +819,7 @@ def test_deadline_profile_sampling_preserves_total_checks_with_pending_tail() ->
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_profile_site_key_falls_back_to_external_path_when_root_misses::timeout_context.py::gabion.analysis.timeout_context._profile_site_key
+# gabion:behavior primary=verboten facets=timeout
 def test_profile_site_key_falls_back_to_external_path_when_root_misses() -> None:
     frame = inspect.currentframe()
     assert frame is not None
@@ -781,6 +832,7 @@ def test_profile_site_key_falls_back_to_external_path_when_root_misses() -> None
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_record_deadline_check_keeps_edge_max_gap_when_delta_not_greater::test_timeout_context.py::tests.test_timeout_context._deadline_test_scope::test_timeout_context.py::tests.test_timeout_context.test_record_deadline_check_keeps_edge_max_gap_when_delta_not_greater._site_a::test_timeout_context.py::tests.test_timeout_context.test_record_deadline_check_keeps_edge_max_gap_when_delta_not_greater._site_b::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ms::timeout_context.py::gabion.analysis.timeout_context._deadline_profile_snapshot::timeout_context.py::gabion.analysis.timeout_context.check_deadline::timeout_context.py::gabion.analysis.timeout_context.deadline_profile_scope
+# gabion:behavior primary=verboten facets=edge,timeout
 def test_record_deadline_check_keeps_edge_max_gap_when_delta_not_greater() -> None:
     def _site_a() -> None:
         check_deadline()
@@ -814,6 +866,7 @@ def test_record_deadline_check_keeps_edge_max_gap_when_delta_not_greater() -> No
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_record_deadline_io_does_not_lower_max_event_ns::timeout_context.py::gabion.analysis.timeout_context._deadline_profile_snapshot::timeout_context.py::gabion.analysis.timeout_context.deadline_profile_scope::timeout_context.py::gabion.analysis.timeout_context.record_deadline_io
+# gabion:behavior primary=verboten facets=timeout
 def test_record_deadline_io_does_not_lower_max_event_ns() -> None:
     with deadline_profile_scope(enabled=True):
         record_deadline_io(name="io.write", elapsed_ns=5)
@@ -832,6 +885,7 @@ def test_record_deadline_io_does_not_lower_max_event_ns() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_deadline_profile_disabled_scope_noops_profile_recording::timeout_context.py::gabion.analysis.timeout_context._deadline_profile_snapshot::timeout_context.py::gabion.analysis.timeout_context._record_deadline_check::timeout_context.py::gabion.analysis.timeout_context.deadline_profile_scope::timeout_context.py::gabion.analysis.timeout_context.record_deadline_io
+# gabion:behavior primary=verboten facets=timeout
 def test_deadline_profile_disabled_scope_noops_profile_recording() -> None:
     with deadline_profile_scope(enabled=False):
         _record_deadline_check(project_root=None)
@@ -840,6 +894,7 @@ def test_deadline_profile_disabled_scope_noops_profile_recording() -> None:
 
 
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.build_timeout_context_from_stack E:decision_surface/direct::timeout_context.py::gabion.analysis.timeout_context.build_timeout_context_from_stack::stale_6140a2b7922b
+# gabion:behavior primary=verboten facets=timeout
 def test_build_timeout_context_skips_unmatched_frames() -> None:
     frame = inspect.currentframe()
     assert frame is not None
@@ -853,6 +908,7 @@ def test_build_timeout_context_skips_unmatched_frames() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_check_deadline_accepts_explicit_deadline_argument::test_timeout_context.py::tests.test_timeout_context._deadline_test_scope::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ms::timeout_context.py::gabion.analysis.timeout_context.check_deadline
+# gabion:behavior primary=verboten facets=timeout
 def test_check_deadline_accepts_explicit_deadline_argument() -> None:
     clock = GasMeter(limit=5)
     with _deadline_test_scope(
@@ -875,6 +931,7 @@ class _DummyClock:
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_deadline_profile_snapshot_omits_gas_fields_for_non_gasmeter_clock::test_timeout_context.py::tests.test_timeout_context._deadline_test_scope::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ms::timeout_context.py::gabion.analysis.timeout_context._deadline_profile_snapshot::timeout_context.py::gabion.analysis.timeout_context.check_deadline::timeout_context.py::gabion.analysis.timeout_context.deadline_profile_scope
+# gabion:behavior primary=verboten facets=timeout
 def test_deadline_profile_snapshot_omits_gas_fields_for_non_gasmeter_clock() -> None:
     with _deadline_test_scope(
         deadline=Deadline.from_timeout_ms(100),
@@ -889,6 +946,7 @@ def test_deadline_profile_snapshot_omits_gas_fields_for_non_gasmeter_clock() -> 
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_timeout_progress_snapshot_handles_non_list_sites_and_non_gasmeter_clock::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ms::timeout_context.py::gabion.analysis.timeout_context._timeout_progress_snapshot::timeout_context.py::gabion.analysis.timeout_context.deadline_clock_scope::timeout_context.py::gabion.analysis.timeout_context.deadline_scope::timeout_context.py::gabion.analysis.timeout_context.forest_scope
+# gabion:behavior primary=verboten facets=timeout
 def test_timeout_progress_snapshot_handles_non_list_sites_and_non_gasmeter_clock() -> None:
     forest = Forest()
     with forest_scope(forest):

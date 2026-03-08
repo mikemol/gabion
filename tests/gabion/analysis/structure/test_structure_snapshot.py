@@ -15,6 +15,7 @@ def _load():
     )
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._infer_root::groups_by_path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._normalize_snapshot_path::root E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._infer_root::stale_0aac8650094d
+# gabion:behavior primary=desired
 def test_render_structure_snapshot_orders_entries(tmp_path: Path) -> None:
     da = _load()
     path_a = tmp_path / "a.py"
@@ -54,6 +55,7 @@ def test_render_structure_snapshot_orders_entries(tmp_path: Path) -> None:
     assert fn_entry["bundles"][1] == ["c", "d"]
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._infer_root::groups_by_path E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._normalize_snapshot_path::root E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._infer_root::stale_7b78ac9c9e2e
+# gabion:behavior primary=desired
 def test_render_structure_snapshot_handles_outside_root(tmp_path: Path) -> None:
     da = _load()
     root = tmp_path / "root"

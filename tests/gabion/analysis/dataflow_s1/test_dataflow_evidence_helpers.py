@@ -22,6 +22,7 @@ def _fn(*, qual: str, path: Path) -> FunctionInfo:
 
 
 # gabion:evidence E:function_site::dataflow_evidence_helpers.py::gabion.analysis.dataflow_evidence_helpers._is_test_path E:function_site::dataflow_evidence_helpers.py::gabion.analysis.dataflow_evidence_helpers._module_name
+# gabion:behavior primary=verboten facets=edge
 def test_test_path_and_module_name_contract_edges(tmp_path: Path) -> None:
     assert helpers._is_test_path(tmp_path / "tests" / "x.py")
     assert helpers._is_test_path(tmp_path / "pkg" / "test_x.py")
@@ -35,6 +36,7 @@ def test_test_path_and_module_name_contract_edges(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::dataflow_evidence_helpers.py::gabion.analysis.dataflow_evidence_helpers._enclosing_scopes E:function_site::dataflow_evidence_helpers.py::gabion.analysis.dataflow_evidence_helpers._enclosing_class_scopes
+# gabion:behavior primary=desired
 def test_enclosing_scope_helpers_cover_class_and_async_function() -> None:
     tree = ast.parse(
         "class Outer:\n"
@@ -53,6 +55,7 @@ def test_enclosing_scope_helpers_cover_class_and_async_function() -> None:
 
 
 # gabion:evidence E:function_site::dataflow_evidence_helpers.py::gabion.analysis.dataflow_evidence_helpers._string_list E:function_site::dataflow_evidence_helpers.py::gabion.analysis.dataflow_evidence_helpers._target_names
+# gabion:behavior primary=desired
 def test_string_and_target_helpers_cover_non_string_and_nested_targets() -> None:
     ok_list = ast.parse("['a', 'b']").body[0].value
     bad_tuple = ast.parse("('a', 1)").body[0].value
@@ -66,6 +69,7 @@ def test_string_and_target_helpers_cover_non_string_and_nested_targets() -> None
 
 
 # gabion:evidence E:function_site::dataflow_evidence_helpers.py::gabion.analysis.dataflow_evidence_helpers._collect_module_exports
+# gabion:behavior primary=desired
 def test_collect_module_exports_handles_assign_annassign_and_augassign() -> None:
     tree = ast.parse(
         "from pkg import imported as imported_alias\n"
@@ -90,6 +94,7 @@ def test_collect_module_exports_handles_assign_annassign_and_augassign() -> None
 
 
 # gabion:evidence E:function_site::dataflow_evidence_helpers.py::gabion.analysis.dataflow_evidence_helpers._collect_module_exports
+# gabion:behavior primary=desired
 def test_collect_module_exports_without_all_uses_locals_and_imports() -> None:
     tree = ast.parse(
         "imported = 1\n"
@@ -114,6 +119,7 @@ def test_collect_module_exports_without_all_uses_locals_and_imports() -> None:
 
 
 # gabion:evidence E:function_site::dataflow_evidence_helpers.py::gabion.analysis.dataflow_evidence_helpers._base_identifier
+# gabion:behavior primary=desired
 def test_base_identifier_variants_and_unparse_failure() -> None:
     assert helpers._base_identifier(ast.parse("name").body[0].value) == "name"
     assert helpers._base_identifier(ast.parse("pkg.Type").body[0].value) == "pkg.Type"
@@ -126,6 +132,7 @@ def test_base_identifier_variants_and_unparse_failure() -> None:
 
 
 # gabion:evidence E:function_site::dataflow_evidence_helpers.py::gabion.analysis.dataflow_evidence_helpers._build_symbol_table
+# gabion:behavior primary=desired
 def test_build_symbol_table_handles_parse_failures_and_exports(tmp_path: Path) -> None:
     src = tmp_path / "src"
     src.mkdir()
@@ -154,6 +161,7 @@ def test_build_symbol_table_handles_parse_failures_and_exports(tmp_path: Path) -
 
 
 # gabion:evidence E:function_site::dataflow_evidence_helpers.py::gabion.analysis.dataflow_evidence_helpers._collect_class_index
+# gabion:behavior primary=desired
 def test_collect_class_index_collects_nested_classes_and_skips_parse_failures(tmp_path: Path) -> None:
     src = tmp_path / "src"
     src.mkdir()
@@ -187,6 +195,7 @@ def test_collect_class_index_collects_nested_classes_and_skips_parse_failures(tm
 
 
 # gabion:evidence E:function_site::dataflow_evidence_helpers.py::gabion.analysis.dataflow_evidence_helpers._callee_key E:function_site::dataflow_evidence_helpers.py::gabion.analysis.dataflow_evidence_helpers._resolve_class_candidates
+# gabion:behavior primary=verboten facets=empty
 def test_callee_key_and_resolve_class_candidates_cover_empty_and_star_paths() -> None:
     assert helpers._callee_key("") == ""
     assert helpers._callee_key("a.b.C") == "C"
@@ -241,6 +250,7 @@ def test_callee_key_and_resolve_class_candidates_cover_empty_and_star_paths() ->
 
 
 # gabion:evidence E:function_site::dataflow_evidence_helpers.py::gabion.analysis.dataflow_evidence_helpers._resolve_method_in_hierarchy_outcome E:function_site::dataflow_evidence_helpers.py::gabion.analysis.dataflow_evidence_helpers._resolve_method_in_hierarchy
+# gabion:behavior primary=verboten facets=missing
 def test_resolve_method_hierarchy_outcome_found_missing_and_seen_cycle() -> None:
     caller_path = Path("pkg/mod.py")
     found = _fn(qual="pkg.Base.run", path=caller_path)
@@ -288,6 +298,7 @@ def test_resolve_method_hierarchy_outcome_found_missing_and_seen_cycle() -> None
 
 
 # gabion:evidence E:function_site::dataflow_evidence_helpers.py::gabion.analysis.dataflow_evidence_helpers._alt_input E:function_site::dataflow_evidence_helpers.py::gabion.analysis.dataflow_evidence_helpers._paramset_key
+# gabion:behavior primary=desired
 def test_alt_input_and_paramset_key_cover_fallbacks() -> None:
     left = NodeId("Left", ("a",))
     right = NodeId("Right", ("b",))

@@ -26,6 +26,7 @@ def _dummy_info(path: str = "mod.py", qual: str = "mod.fn") -> FunctionInfo:
 
 
 # gabion:evidence E:call_footprint::tests/test_legacy_dataflow_monolith_ambiguity_suite.py::test_ambiguity_suite_relation_skips_missing_function_meta::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._ambiguity_suite_relation
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_ambiguity_suite_relation_skips_missing_function_meta() -> None:
     forest = Forest()
     forest.add_node("FunctionSite", ("", ""), {})
@@ -34,6 +35,7 @@ def test_ambiguity_suite_relation_skips_missing_function_meta() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_legacy_dataflow_monolith_ambiguity_suite.py::test_ambiguity_suite_relation_skips_empty_alt_inputs::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._ambiguity_suite_relation
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_ambiguity_suite_relation_skips_empty_alt_inputs() -> None:
     forest = Forest()
     forest.add_alt("CallCandidate", ())
@@ -42,6 +44,7 @@ def test_ambiguity_suite_relation_skips_empty_alt_inputs() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_legacy_dataflow_monolith_ambiguity_suite.py::test_ambiguity_suite_relation_skips_non_suite_node::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._ambiguity_suite_relation
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_ambiguity_suite_relation_skips_non_suite_node() -> None:
     forest = Forest()
     func_id = forest.add_site("a.py", "mod.fn")
@@ -51,6 +54,7 @@ def test_ambiguity_suite_relation_skips_non_suite_node() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_legacy_dataflow_monolith_ambiguity_suite.py::test_ambiguity_suite_relation_skips_non_call_suite::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._ambiguity_suite_relation
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_ambiguity_suite_relation_skips_non_call_suite() -> None:
     forest = Forest()
     suite_id = forest.add_suite_site("a.py", "mod.fn", "function", span=(0, 0, 0, 1))
@@ -61,6 +65,7 @@ def test_ambiguity_suite_relation_skips_non_call_suite() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_legacy_dataflow_monolith_ambiguity_suite.py::test_ambiguity_suite_relation_requires_path_qual::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._ambiguity_suite_relation
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_ambiguity_suite_relation_requires_path_qual() -> None:
     forest = Forest()
     suite_id = forest.add_node(
@@ -75,6 +80,7 @@ def test_ambiguity_suite_relation_requires_path_qual() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_legacy_dataflow_monolith_ambiguity_suite.py::test_ambiguity_suite_relation_requires_span::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._ambiguity_suite_relation
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_ambiguity_suite_relation_requires_span() -> None:
     forest = Forest()
     suite_id = forest.add_suite_site("a.py", "mod.fn", "call")
@@ -85,6 +91,7 @@ def test_ambiguity_suite_relation_requires_span() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_legacy_dataflow_monolith_ambiguity_suite.py::test_ambiguity_suite_relation_requires_int_span::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._ambiguity_suite_relation
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_ambiguity_suite_relation_requires_int_span() -> None:
     forest = Forest()
     suite_id = forest.add_node(
@@ -104,6 +111,7 @@ def test_ambiguity_suite_relation_requires_int_span() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_legacy_dataflow_monolith_ambiguity_suite.py::test_ambiguity_suite_row_to_suite_requires_identity::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._ambiguity_suite_row_to_suite
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_ambiguity_suite_row_to_suite_requires_identity() -> None:
     forest = Forest()
     with pytest.raises(NeverThrown):
@@ -111,11 +119,13 @@ def test_ambiguity_suite_row_to_suite_requires_identity() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_legacy_dataflow_monolith_ambiguity_suite.py::test_ambiguity_virtual_count_gt_1_handles_invalid_count::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._ambiguity_virtual_count_gt_1
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_ambiguity_virtual_count_gt_1_handles_invalid_count() -> None:
     assert _ambiguity_virtual_count_gt_1({"count": "bad"}, {}) is False
 
 
 # gabion:evidence E:call_footprint::tests/test_legacy_dataflow_monolith_ambiguity_suite.py::test_emit_call_ambiguities_requires_span_when_forest::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_call_ambiguities::test_legacy_dataflow_monolith_ambiguity_suite.py::tests.test_legacy_dataflow_monolith_ambiguity_suite._dummy_info::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ms::timeout_context.py::gabion.analysis.timeout_context.deadline_scope
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_emit_call_ambiguities_requires_span_when_forest() -> None:
     forest = Forest()
     entry = CallAmbiguity(

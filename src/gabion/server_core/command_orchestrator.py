@@ -183,11 +183,11 @@ def _bind_server_symbols() -> None:
 
 
 @singledispatch
-def _object_mapping_or_none(value: object) -> dict[str, object] | None:
+def _object_mapping_optional(value: object) -> dict[str, object] | None:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
-@_object_mapping_or_none.register(dict)
+@_object_mapping_optional.register(dict)
 def _(value: dict[object, object]) -> dict[str, object] | None:
     return {str(key): value[key] for key in value}
 
@@ -198,15 +198,15 @@ def _object_mapping_none(value: object) -> dict[str, object] | None:
 
 
 for _runtime_type in (list, tuple, set, str, int, float, bool, _NONE_TYPE):
-    _object_mapping_or_none.register(_runtime_type)(_object_mapping_none)
+    _object_mapping_optional.register(_runtime_type)(_object_mapping_none)
 
 
 @singledispatch
-def _string_or_none(value: object) -> str | None:
+def _string_optional(value: object) -> str | None:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
-@_string_or_none.register
+@_string_optional.register
 def _(value: str) -> str | None:
     return value
 
@@ -217,22 +217,22 @@ def _string_none(value: object) -> str | None:
 
 
 for _runtime_type in (int, float, bool, list, tuple, set, dict, _NONE_TYPE):
-    _string_or_none.register(_runtime_type)(_string_none)
+    _string_optional.register(_runtime_type)(_string_none)
 
 
-def _non_empty_string_or_none(value: object) -> str | None:
-    text = _string_or_none(value)
+def _non_empty_string_optional(value: object) -> str | None:
+    text = _string_optional(value)
     if text:
         return text
     return None
 
 
 @singledispatch
-def _bool_or_none(value: object) -> bool | None:
+def _bool_optional(value: object) -> bool | None:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
-@_bool_or_none.register
+@_bool_optional.register
 def _(value: bool) -> bool | None:
     return value
 
@@ -243,20 +243,20 @@ def _bool_none(value: object) -> bool | None:
 
 
 for _runtime_type in (int, float, str, list, tuple, set, dict, _NONE_TYPE):
-    _bool_or_none.register(_runtime_type)(_bool_none)
+    _bool_optional.register(_runtime_type)(_bool_none)
 
 
 @singledispatch
-def _non_negative_float_or_none(value: object) -> float | None:
+def _non_negative_float_optional(value: object) -> float | None:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
-@_non_negative_float_or_none.register
+@_non_negative_float_optional.register
 def _(value: float) -> float | None:
     return max(value, 0.0)
 
 
-@_non_negative_float_or_none.register
+@_non_negative_float_optional.register
 def _(value: int) -> float | None:
     return max(float(value), 0.0)
 
@@ -267,7 +267,7 @@ def _float_none(value: object) -> float | None:
 
 
 for _runtime_type in (str, list, tuple, set, dict, _NONE_TYPE):
-    _non_negative_float_or_none.register(_runtime_type)(_float_none)
+    _non_negative_float_optional.register(_runtime_type)(_float_none)
 
 
 @singledispatch
@@ -289,10 +289,10 @@ for _runtime_type in (float, str, list, tuple, set, dict, _NONE_TYPE):
     _int_or_zero.register(_runtime_type)(_zero)
 
 
-def _aux_operation_mapping_or_none(value: object) -> dict[str, object] | None:
+def _aux_operation_mapping_optional(value: object) -> dict[str, object] | None:
     if value is None:
         return None
-    normalized_mapping = _object_mapping_or_none(value)
+    normalized_mapping = _object_mapping_optional(value)
     if normalized_mapping is not None:
         return normalized_mapping
     never("invalid aux operation payload", payload_type=type(value).__name__)
@@ -396,16 +396,16 @@ for _runtime_type in (list, tuple, set, str, int, float, bool, _NONE_TYPE):
 
 
 @singledispatch
-def _join_thread_or_none(value: object, *, timeout: float) -> None:
+def _join_thread_optional(value: object, *, timeout: float) -> None:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
-@_join_thread_or_none.register(threading.Thread)
+@_join_thread_optional.register(threading.Thread)
 def _(value: threading.Thread, *, timeout: float) -> None:
     value.join(timeout=timeout)
 
 
-@_join_thread_or_none.register(_NONE_TYPE)
+@_join_thread_optional.register(_NONE_TYPE)
 def _(value: None, *, timeout: float) -> None:
     _ = value, timeout
 
@@ -602,7 +602,7 @@ def _normalize_command_payload_ingress(
         or normalized_payload.get("analysis_timeout_seconds") not in (None, "")
     )
     aux_operation_raw = normalized_payload.get("aux_operation")
-    aux_operation_payload = _aux_operation_mapping_or_none(aux_operation_raw)
+    aux_operation_payload = _aux_operation_mapping_optional(aux_operation_raw)
     aux_operation: _AuxOperationIngressCarrier | None = None
     if aux_operation_payload is not None:
         aux_domain = str(aux_operation_payload.get("domain", "")).strip().lower()
@@ -823,7 +823,7 @@ def _emit_annotation_drift_outputs(
         if not state_path.exists():
             never("annotation drift state not found", path=str(state_path))
         payload_value = json.loads(state_path.read_text(encoding="utf-8"))
-        drift_payload = _object_mapping_or_none(payload_value)
+        drift_payload = _object_mapping_optional(payload_value)
         if drift_payload is None:
             never("annotation drift state must be a JSON object")
     elif (
@@ -855,7 +855,7 @@ def _emit_annotation_drift_outputs(
             )
         if emit_test_annotation_drift_delta or write_test_annotation_drift_baseline:
             summary = drift_payload.get("summary", {})
-            summary_payload = _object_mapping_or_none(summary)
+            summary_payload = _object_mapping_optional(summary)
             baseline_payload = test_annotation_drift_delta.build_baseline_payload(
                 summary_payload if summary_payload is not None else {}
             )
@@ -923,7 +923,7 @@ def _emit_test_obsolescence_outputs(
         obsolescence_summary = state.baseline.summary
         active_payload = state.baseline.active
         active_summary_value = active_payload.get("summary", {})
-        active_summary_mapping = _object_mapping_or_none(active_summary_value)
+        active_summary_mapping = _object_mapping_optional(active_summary_value)
         if active_summary_mapping is not None:
             obsolescence_active_summary = {
                 key: _int_or_zero(value)
@@ -1271,7 +1271,7 @@ def _emit_taint_outputs(
         if not state_path.exists():
             never("taint state not found", path=str(state_path))
         loaded = json.loads(state_path.read_text(encoding="utf-8"))
-        loaded_mapping = _object_mapping_or_none(loaded)
+        loaded_mapping = _object_mapping_optional(loaded)
         if loaded_mapping is None:
             never("invalid taint state payload", path=str(state_path))
         state_payload = {str(key): loaded_mapping[key] for key in loaded_mapping}
@@ -1819,7 +1819,7 @@ def _prepare_analysis_resume_state(
             imported_manifest_digest_raw = aspf_resume_payload.get(
                 "analysis_manifest_digest"
             )
-            imported_manifest_digest = _string_or_none(imported_manifest_digest_raw)
+            imported_manifest_digest = _string_optional(imported_manifest_digest_raw)
             resume_projection = cast(
                 Mapping[str, object],
                 aspf_resume_payload.get("resume_projection", {}),
@@ -1834,8 +1834,8 @@ def _prepare_analysis_resume_state(
             }
             current_manifest_digest = state.analysis_resume_input_manifest_digest
             resume_available = bool(imported_collection_resume)
-            manifest_available = _string_or_none(imported_manifest_digest) is not None
-            current_manifest_available = _string_or_none(current_manifest_digest) is not None
+            manifest_available = _string_optional(imported_manifest_digest) is not None
+            current_manifest_available = _string_optional(current_manifest_digest) is not None
             manifest_match = (
                 manifest_available
                 and current_manifest_available
@@ -2005,7 +2005,7 @@ def _run_analysis_with_progress(
             collection_progress["remaining_files"],
             _analysis_index_resume_hydrated_count(persisted_progress_payload),
         )
-        semantic_witness_digest = _string_or_none(
+        semantic_witness_digest = _string_optional(
             semantic_progress.get("current_witness_digest")
         )
         analysis_index_signature = _analysis_index_resume_signature(
@@ -2019,7 +2019,7 @@ def _run_analysis_with_progress(
             analysis_index_signature != last_analysis_index_resume_signature
         )
         raw_substantive_progress = semantic_progress.get("substantive_progress")
-        semantic_substantive_progress = _bool_or_none(raw_substantive_progress)
+        semantic_substantive_progress = _bool_optional(raw_substantive_progress)
         if semantic_substantive_progress is None:
             semantic_substantive_progress = False
         now_ns = time.monotonic_ns()
@@ -2285,7 +2285,7 @@ def _run_analysis_with_progress(
     from gabion.runtime import policy_runtime
 
     runtime_policy = policy_runtime.runtime_policy_from_env()
-    payload_order_policy = _string_or_none(context.payload.get("order_policy"))
+    payload_order_policy = _string_optional(context.payload.get("order_policy"))
     if payload_order_policy is not None and payload_order_policy.strip():
         runtime_policy = dataclasses.replace(
             runtime_policy,
@@ -2297,7 +2297,7 @@ def _run_analysis_with_progress(
         ("order_deadline_probe", "order_deadline_probe_enabled"),
     ):
         value = context.payload.get(key)
-        normalized_bool = _bool_or_none(value)
+        normalized_bool = _bool_optional(value)
         if normalized_bool is not None:
             runtime_policy = dataclasses.replace(
                 runtime_policy, **{attr: normalized_bool}
@@ -2534,12 +2534,12 @@ def _create_progress_emitter(
             "schema": _CANONICAL_PROGRESS_EVENT_SCHEMA_V2,
             "format_version": 2,
             "adaptation_kind": str(adaptation_kind),
-            "event": _object_mapping_or_none(canonical_event),
+            "event": _object_mapping_optional(canonical_event),
             "adaptation_error": str(adaptation_error).strip(),
             "identity_allocation_delta_v1": [
                 dict(item) for item in identity_allocation_delta
             ],
-            "rejected_progress_payload_v2": _object_mapping_or_none(
+            "rejected_progress_payload_v2": _object_mapping_optional(
                 rejected_progress_payload_v2
             ),
         }
@@ -2579,7 +2579,7 @@ def _create_progress_emitter(
         semantic_payload: JSONObject = {}
         if semantic_progress is not None:
             for raw_key, raw_value in semantic_progress.items():
-                normalized_key = _string_or_none(raw_key)
+                normalized_key = _string_optional(raw_key)
                 if normalized_key is None:
                     continue
                 if normalized_key == "substantive_progress" or normalized_key.startswith(
@@ -2615,10 +2615,10 @@ def _create_progress_emitter(
         progress_value["ts_utc"] = datetime.now(timezone.utc).isoformat(
             timespec="seconds"
         ).replace("+00:00", "Z")
-        normalized_progress_marker = _non_empty_string_or_none(progress_marker)
+        normalized_progress_marker = _non_empty_string_optional(progress_marker)
         if normalized_progress_marker is not None:
             progress_value["progress_marker"] = normalized_progress_marker
-        normalized_stale_for_s = _non_negative_float_or_none(stale_for_s)
+        normalized_stale_for_s = _non_negative_float_optional(stale_for_s)
         if normalized_stale_for_s is not None:
             progress_value["stale_for_s"] = normalized_stale_for_s
         if include_timing:
@@ -2631,10 +2631,10 @@ def _create_progress_emitter(
             }
         if done:
             progress_value["done"] = True
-        normalized_analysis_state = _non_empty_string_or_none(analysis_state)
+        normalized_analysis_state = _non_empty_string_optional(analysis_state)
         if normalized_analysis_state is not None:
             progress_value["analysis_state"] = normalized_analysis_state
-        normalized_classification = _non_empty_string_or_none(classification)
+        normalized_classification = _non_empty_string_optional(classification)
         if normalized_classification is not None:
             progress_value["classification"] = normalized_classification
         now_ns = monotonic_ns_fn()
@@ -2779,12 +2779,12 @@ def _create_progress_emitter(
             with progress_state_lock:
                 progress_template = (
                     dict(last_progress_template)
-                    if _object_mapping_or_none(last_progress_template) is not None
+                    if _object_mapping_optional(last_progress_template) is not None
                     else {}
                 )
                 terminal_template = (
                     dict(last_terminal_template)
-                    if _object_mapping_or_none(last_terminal_template) is not None
+                    if _object_mapping_optional(last_terminal_template) is not None
                     else {}
                 )
                 notification_ns = int(last_progress_notification_ns)
@@ -2894,7 +2894,7 @@ def _create_progress_emitter(
 
     def stop() -> None:
         heartbeat_stop_event.set()
-        _join_thread_or_none(heartbeat_thread, timeout=1.5)
+        _join_thread_optional(heartbeat_thread, timeout=1.5)
 
     return _ProgressEmitter(
         emit=emit_lsp_progress,
@@ -3304,7 +3304,7 @@ def _persist_timeout_resume_state(
     emit_lsp_progress_fn: object,
 ) -> JSONObject | None:
     _ = (mark_cleanup_timeout_fn, emit_lsp_progress_fn)
-    last_collection_resume_payload = _object_mapping_or_none(
+    last_collection_resume_payload = _object_mapping_optional(
         context.last_collection_resume_payload
     )
     if last_collection_resume_payload is not None:
@@ -3325,7 +3325,7 @@ def _load_timeout_resume_progress(
     _ = mark_cleanup_timeout_fn
     collection_resume: JSONObject | None = timeout_collection_resume_payload
     if collection_resume is None:
-        last_collection_resume_payload = _object_mapping_or_none(
+        last_collection_resume_payload = _object_mapping_optional(
             context.last_collection_resume_payload
         )
         if last_collection_resume_payload is not None:
@@ -3627,13 +3627,13 @@ def _handle_timeout_cleanup(
                 "violation_summary": {"timeout": True, "analysis_state": analysis_state},
                 "_resume_collection": (
                     timeout_collection_resume_payload
-                    if _object_mapping_or_none(timeout_collection_resume_payload) is not None
+                    if _object_mapping_optional(timeout_collection_resume_payload) is not None
                     else {}
                 ),
                 "_latest_collection_progress": context.latest_collection_progress,
                 "_semantic_progress": (
                     context.semantic_progress_cumulative
-                    if _object_mapping_or_none(context.semantic_progress_cumulative) is not None
+                    if _object_mapping_optional(context.semantic_progress_cumulative) is not None
                     else {}
                 ),
                 "_analysis_manifest_digest": context.analysis_resume_input_manifest_digest,
@@ -4291,7 +4291,7 @@ def _build_success_response(
             "counters": context.profiling_counters,
         },
     }
-    analysis_profiling_v1 = _object_mapping_or_none(analysis.profiling_v1)
+    analysis_profiling_v1 = _object_mapping_optional(analysis.profiling_v1)
     if analysis_profiling_v1 is not None:
         profiling_v1["analysis"] = {
             str(key): analysis_profiling_v1[key] for key in analysis_profiling_v1
@@ -4566,13 +4566,13 @@ def _build_success_response(
             },
             "_resume_collection": (
                 context.last_collection_resume_payload
-                if _object_mapping_or_none(context.last_collection_resume_payload) is not None
+                if _object_mapping_optional(context.last_collection_resume_payload) is not None
                 else {}
             ),
             "_latest_collection_progress": context.latest_collection_progress,
             "_semantic_progress": (
                 context.semantic_progress_cumulative
-                if _object_mapping_or_none(context.semantic_progress_cumulative) is not None
+                if _object_mapping_optional(context.semantic_progress_cumulative) is not None
                 else {}
             ),
             "_analysis_manifest_digest": context.analysis_resume_manifest_digest,
@@ -4643,7 +4643,7 @@ def _stage_ingress(
     profile_root_value = payload.get("root") or ls.workspace.root_path or "."
     initial_root = Path(str(profile_root_value))
     initial_report_path = payload.get("report")
-    initial_report_path_text = _string_or_none(initial_report_path)
+    initial_report_path_text = _string_optional(initial_report_path)
     timeout_total_ns, analysis_window_ns, cleanup_grace_ns = _analysis_timeout_budget_ns(
         payload
     )
@@ -4989,7 +4989,7 @@ def execute_command_total(
         raw_paths = payload.get("paths")
         paths = normalize_paths(raw_paths, root=Path(str(root)))
         requested_language_raw = payload.get("language_id", payload.get("language"))
-        requested_language_text = _string_or_none(requested_language_raw)
+        requested_language_text = _string_optional(requested_language_raw)
         requested_language = (
             str(requested_language_text).strip().lower()
             if requested_language_text is not None and requested_language_text.strip()
@@ -4997,7 +4997,7 @@ def execute_command_total(
         )
         root = payload.get("root") or root
         report_path = payload.get("report")
-        report_path_text = _string_or_none(report_path)
+        report_path_text = _string_optional(report_path)
         report_output_path = _resolve_report_output_path(
             root=Path(root),
             report_path=report_path_text,

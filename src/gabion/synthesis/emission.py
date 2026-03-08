@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import re
 from gabion.json_types import JSONValue
 
-from gabion.analysis.foundation.resume_codec import mapping_or_none, sequence_or_none
+from gabion.analysis.foundation.resume_codec import mapping_optional, sequence_optional
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.order_contract import sort_once
 
@@ -50,7 +50,7 @@ def _string_tuple_from_payload(
     key: str,
     source: str,
 ) -> tuple[str, ...]:
-    values = sequence_or_none(payload.get(key))
+    values = sequence_optional(payload.get(key))
     if values is None:
         return tuple()
     normalized = []
@@ -69,11 +69,11 @@ def _field_spec_from_payload(payload: Mapping[str, JSONValue]) -> _ProtocolField
 
 def _protocol_spec_from_payload(payload: Mapping[str, JSONValue]) -> _ProtocolSpec:
     tier_sort_key, tier_label = _tier_parts(payload.get("tier"))
-    raw_fields = sequence_or_none(payload.get("fields")) or ()
+    raw_fields = sequence_optional(payload.get("fields")) or ()
     field_specs = []
     for raw_field in raw_fields:
         check_deadline()
-        parsed_field = mapping_or_none(raw_field) or {}
+        parsed_field = mapping_optional(raw_field) or {}
         field_specs.append(_field_spec_from_payload(parsed_field))
     fields = tuple(
         sort_once(
@@ -106,13 +106,13 @@ def _protocol_sort_key(spec: _ProtocolSpec) -> tuple[int, str, tuple[str, ...]]:
 
 
 def _sorted_protocols(plan: Mapping[str, JSONValue]) -> list[_ProtocolSpec]:
-    protocols = sequence_or_none(plan.get("protocols"))
+    protocols = sequence_optional(plan.get("protocols"))
     if protocols is None:
         return list()
     normalized: list[_ProtocolSpec] = []
     for raw_protocol in protocols:
         check_deadline()
-        parsed_protocol = mapping_or_none(raw_protocol) or {}
+        parsed_protocol = mapping_optional(raw_protocol) or {}
         normalized.append(_protocol_spec_from_payload(parsed_protocol))
     return sort_once(
         normalized,

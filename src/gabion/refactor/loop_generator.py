@@ -244,43 +244,43 @@ class _LoopBodyOutcome:
 
 
 @singledispatch
-def _indented_block_or_none(suite: object):
+def _indented_block_optional(suite: object):
     never("unregistered runtime type", value_type=type(suite).__name__)
 
 
-@_indented_block_or_none.register(cst.IndentedBlock)
+@_indented_block_optional.register(cst.IndentedBlock)
 def _(suite: cst.IndentedBlock):
     return suite
 
 
-@_indented_block_or_none.register(cst.SimpleStatementSuite)
+@_indented_block_optional.register(cst.SimpleStatementSuite)
 def _(suite: cst.SimpleStatementSuite):
     _ = suite
     return None
 
 
 @singledispatch
-def _star_param_or_none(value: object):
+def _star_param_optional(value: object):
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
-@_star_param_or_none.register(cst.Param)
+@_star_param_optional.register(cst.Param)
 def _(value: cst.Param):
     return value
 
 
-@_star_param_or_none.register(cst.MaybeSentinel)
+@_star_param_optional.register(cst.MaybeSentinel)
 def _(value: cst.MaybeSentinel):
     _ = value
     return None
 
 
 @singledispatch
-def _simple_statement_line_or_none(stmt: object):
+def _simple_statement_line_optional(stmt: object):
     never("unregistered runtime type", value_type=type(stmt).__name__)
 
 
-@_simple_statement_line_or_none.register(cst.SimpleStatementLine)
+@_simple_statement_line_optional.register(cst.SimpleStatementLine)
 def _(stmt: cst.SimpleStatementLine):
     return stmt
 
@@ -301,10 +301,10 @@ for _statement_type in (
     cst.FunctionDef,
     cst.ClassDef,
 ):
-    _simple_statement_line_or_none.register(_statement_type)(_simple_statement_line_none)
+    _simple_statement_line_optional.register(_statement_type)(_simple_statement_line_none)
 
 
-def _single_small_statement_or_none(
+def _single_small_statement_optional(
     line: cst.SimpleStatementLine,
 ):
     if len(line.body) != 1:
@@ -349,11 +349,11 @@ for _small_statement_type in (
 
 
 @singledispatch
-def _name_or_none(node: object):
+def _name_optional(node: object):
     never("unregistered runtime type", value_type=type(node).__name__)
 
 
-@_name_or_none.register(cst.Name)
+@_name_optional.register(cst.Name)
 def _(node: cst.Name):
     return node
 
@@ -364,15 +364,15 @@ def _name_none(node: object):
 
 
 for _assign_target_type in (cst.Attribute, cst.List, cst.Subscript, cst.Tuple):
-    _name_or_none.register(_assign_target_type)(_name_none)
+    _name_optional.register(_assign_target_type)(_name_none)
 
 
 @singledispatch
-def _call_or_none(node: object):
+def _call_optional(node: object):
     never("unregistered runtime type", value_type=type(node).__name__)
 
 
-@_call_or_none.register(cst.Call)
+@_call_optional.register(cst.Call)
 def _(node: cst.Call):
     return node
 
@@ -400,15 +400,15 @@ for _call_nonmatch_type in (
     cst.Subscript,
     cst.Tuple,
 ):
-    _call_or_none.register(_call_nonmatch_type)(_call_none)
+    _call_optional.register(_call_nonmatch_type)(_call_none)
 
 
 @singledispatch
-def _attribute_or_none(node: object):
+def _attribute_optional(node: object):
     never("unregistered runtime type", value_type=type(node).__name__)
 
 
-@_attribute_or_none.register(cst.Attribute)
+@_attribute_optional.register(cst.Attribute)
 def _(node: cst.Attribute):
     return node
 
@@ -424,15 +424,15 @@ for _attribute_nonmatch_type in (
     cst.Subscript,
     cst.Tuple,
 ):
-    _attribute_or_none.register(_attribute_nonmatch_type)(_attribute_none)
+    _attribute_optional.register(_attribute_nonmatch_type)(_attribute_none)
 
 
 @singledispatch
-def _return_or_none(stmt: object):
+def _return_optional(stmt: object):
     never("unregistered runtime type", value_type=type(stmt).__name__)
 
 
-@_return_or_none.register(cst.Return)
+@_return_optional.register(cst.Return)
 def _(stmt: cst.Return):
     return stmt
 
@@ -454,29 +454,29 @@ for _small_stmt_type in (
     cst.Raise,
     cst.TypeAlias,
 ):
-    _return_or_none.register(_small_stmt_type)(_name_none)
+    _return_optional.register(_small_stmt_type)(_name_none)
 
 
 @singledispatch
-def _subscript_or_none(node: object):
+def _subscript_optional(node: object):
     never("unregistered runtime type", value_type=type(node).__name__)
 
 
-@_subscript_or_none.register(cst.Subscript)
+@_subscript_optional.register(cst.Subscript)
 def _(node: cst.Subscript):
     return node
 
 
 for _subscript_nonmatch_type in (cst.Attribute, cst.Call, cst.Name, cst.Tuple):
-    _subscript_or_none.register(_subscript_nonmatch_type)(_name_none)
+    _subscript_optional.register(_subscript_nonmatch_type)(_name_none)
 
 
 @singledispatch
-def _binary_operation_or_none(node: object):
+def _binary_operation_optional(node: object):
     never("unregistered runtime type", value_type=type(node).__name__)
 
 
-@_binary_operation_or_none.register(cst.BinaryOperation)
+@_binary_operation_optional.register(cst.BinaryOperation)
 def _(node: cst.BinaryOperation):
     return node
 
@@ -491,47 +491,47 @@ for _binary_nonmatch_type in (
     cst.Subscript,
     cst.Tuple,
 ):
-    _binary_operation_or_none.register(_binary_nonmatch_type)(_name_none)
+    _binary_operation_optional.register(_binary_nonmatch_type)(_name_none)
 
 
 @singledispatch
-def _subscript_index_value_or_none(slice_value: object):
+def _subscript_index_value_optional(slice_value: object):
     never("unregistered runtime type", value_type=type(slice_value).__name__)
 
 
-@_subscript_index_value_or_none.register(cst.Index)
+@_subscript_index_value_optional.register(cst.Index)
 def _(slice_value: cst.Index):
     return slice_value.value
 
 
-@_subscript_index_value_or_none.register(cst.Slice)
+@_subscript_index_value_optional.register(cst.Slice)
 def _(slice_value: cst.Slice):
     _ = slice_value
     return None
 
 
 @singledispatch
-def _for_loop_or_none(node: object):
+def _for_loop_optional(node: object):
     never("unregistered runtime type", value_type=type(node).__name__)
 
 
-@_for_loop_or_none.register(cst.For)
+@_for_loop_optional.register(cst.For)
 def _(node: cst.For):
     return node
 
 
-@_for_loop_or_none.register(cst.While)
+@_for_loop_optional.register(cst.While)
 def _(node: cst.While):
     _ = node
     return None
 
 
 @singledispatch
-def _analysis_success_or_none(analysis: object):
+def _analysis_success_optional(analysis: object):
     never("unregistered runtime type", value_type=type(analysis).__name__)
 
 
-@_analysis_success_or_none.register(_FunctionAnalysisSuccess)
+@_analysis_success_optional.register(_FunctionAnalysisSuccess)
 def _(analysis: _FunctionAnalysisSuccess):
     return analysis
 
@@ -542,15 +542,15 @@ def _analysis_success_none(value: object):
 
 
 for _analysis_type in (_FunctionAnalysisError, _FunctionAnalysisNoop):
-    _analysis_success_or_none.register(_analysis_type)(_analysis_success_none)
+    _analysis_success_optional.register(_analysis_type)(_analysis_success_none)
 
 
 @singledispatch
-def _analysis_error_or_none(analysis: object):
+def _analysis_error_optional(analysis: object):
     never("unregistered runtime type", value_type=type(analysis).__name__)
 
 
-@_analysis_error_or_none.register(_FunctionAnalysisError)
+@_analysis_error_optional.register(_FunctionAnalysisError)
 def _(analysis: _FunctionAnalysisError):
     return analysis
 
@@ -561,7 +561,7 @@ def _analysis_error_none(value: object):
 
 
 for _analysis_type in (_FunctionAnalysisSuccess, _FunctionAnalysisNoop):
-    _analysis_error_or_none.register(_analysis_type)(_analysis_error_none)
+    _analysis_error_optional.register(_analysis_type)(_analysis_error_none)
 
 
 class _SideEffectSafetyVisitor(cst.CSTVisitor):
@@ -656,11 +656,11 @@ def _extract_subscript_key(target: cst.Subscript):
     if len(target.slice) != 1:
         return None
     first_slice = target.slice[0]
-    return _subscript_index_value_or_none(first_slice.slice)
+    return _subscript_index_value_optional(first_slice.slice)
 
 
 def _contains_loop_hazards(loop: cst.For) -> str:
-    loop_body = _indented_block_or_none(loop.body)
+    loop_body = _indented_block_optional(loop.body)
     if loop_body is None:
         return "loop body must be a block"
     visitor = _LoopHazardVisitor()
@@ -680,7 +680,7 @@ def _parameter_call_args(params: cst.Parameters) -> tuple[cst.Arg, ...]:
     for param in params.params:
         check_deadline()
         args.append(cst.Arg(value=cst.Name(param.name.value)))
-    star_param = _star_param_or_none(params.star_arg)
+    star_param = _star_param_optional(params.star_arg)
     if star_param is not None:
         args.append(cst.Arg(star="*", value=cst.Name(star_param.name.value)))
     for param in params.kwonly_params:
@@ -705,16 +705,16 @@ def _parameter_call_args(params: cst.Parameters) -> tuple[cst.Arg, ...]:
 def _is_simple_continue_guard(stmt: cst.If) -> bool:
     if stmt.orelse is not None:
         return False
-    branch_body = _indented_block_or_none(stmt.body)
+    branch_body = _indented_block_optional(stmt.body)
     if branch_body is None:
         return False
     body = branch_body.body
     if len(body) != 1:
         return False
-    line = _simple_statement_line_or_none(body[0])
+    line = _simple_statement_line_optional(body[0])
     if line is None:
         return False
-    only = _single_small_statement_or_none(line)
+    only = _single_small_statement_optional(line)
     if only is None:
         return False
     return _is_continue_statement(only)
@@ -914,15 +914,15 @@ def _has_import_from(body: list[cst.CSTNode], *, module_name: str, symbol: str) 
 
 
 @singledispatch
-def _assigned_target_name_or_none(stmt: object):
+def _assigned_target_name_optional(stmt: object):
     never("unregistered runtime type", value_type=type(stmt).__name__)
 
 
-@_assigned_target_name_or_none.register(cst.Assign)
+@_assigned_target_name_optional.register(cst.Assign)
 def _(stmt: cst.Assign):
     if len(stmt.targets) != 1:
         return ""
-    name_target = _name_or_none(stmt.targets[0].target)
+    name_target = _name_optional(stmt.targets[0].target)
     if not name_target:
         return ""
     return name_target.value
@@ -950,7 +950,7 @@ for _small_statement_type in (
     cst.Return,
     cst.TypeAlias,
 ):
-    _assigned_target_name_or_none.register(_small_statement_type)(_assigned_target_name_none)
+    _assigned_target_name_optional.register(_small_statement_type)(_assigned_target_name_none)
 
 
 @singledispatch
@@ -970,10 +970,10 @@ def _(stmt: cst.FunctionDef) -> str:
 
 @_defined_top_level_name.register(cst.SimpleStatementLine)
 def _(stmt: cst.SimpleStatementLine) -> str:
-    only_stmt = _single_small_statement_or_none(stmt)
+    only_stmt = _single_small_statement_optional(stmt)
     if only_stmt is None:
         return ""
-    return _assigned_target_name_or_none(only_stmt) or ""
+    return _assigned_target_name_optional(only_stmt) or ""
 
 
 def _empty_defined_top_level_name(value: object) -> str:
@@ -1067,7 +1067,7 @@ class _FunctionIndexVisitor(cst.CSTVisitor):
 
 
 def _function_non_doc_body(node: cst.FunctionDef) -> tuple[cst.BaseStatement, ...]:
-    body_block = _indented_block_or_none(node.body)
+    body_block = _indented_block_optional(node.body)
     if body_block is None:
         return ()
     body = list(body_block.body)
@@ -1080,21 +1080,21 @@ def _trampoline_helper_name(node: cst.FunctionDef) -> str:
     body = _function_non_doc_body(node)
     if len(body) != 1:
         return ""
-    line = _simple_statement_line_or_none(body[0])
+    line = _simple_statement_line_optional(body[0])
     if line is None:
         return ""
-    only_stmt = _single_small_statement_or_none(line)
+    only_stmt = _single_small_statement_optional(line)
     if only_stmt is None:
         return ""
     if not cst_matchers.matches(only_stmt, cst_matchers.Return(value=cst_matchers.Call(func=cst_matchers.Name()))):
         return ""
-    ret = _return_or_none(only_stmt)
+    ret = _return_optional(only_stmt)
     if ret is None:
         return ""
-    ret_call = _call_or_none(ret.value)
+    ret_call = _call_optional(ret.value)
     if ret_call is None:
         return ""
-    helper_name_node = _name_or_none(ret_call.func)
+    helper_name_node = _name_optional(ret_call.func)
     if helper_name_node is None:
         return ""
     helper_name = helper_name_node.value
@@ -1370,7 +1370,7 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
         node: cst.FunctionDef,
         spec: _LoopRewriteSpec,
     ) -> cst.FunctionDef:
-        body_block = _indented_block_or_none(node.body)
+        body_block = _indented_block_optional(node.body)
         if body_block is None:
             return node
         existing = list(body_block.body)
@@ -1392,7 +1392,7 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
         return node.with_changes(body=node.body.with_changes(body=new_body))
 
     def _analyze_function(self, node: cst.FunctionDef, qualname: str) -> _FunctionAnalysis:
-        body_block = _indented_block_or_none(node.body)
+        body_block = _indented_block_optional(node.body)
         if body_block is None:
             return _FunctionAnalysisError(
                 target=qualname,
@@ -1451,10 +1451,10 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
             function_name=node.name.value,
             params=node.params,
         )
-        first_success = _analysis_success_or_none(first_outcome)
+        first_success = _analysis_success_optional(first_outcome)
         if first_success is not None:
             return first_success
-        first_error = _analysis_error_or_none(first_outcome)
+        first_error = _analysis_error_optional(first_outcome)
         if first_error is None:
             return first_outcome
         for candidate in loop_candidates[1:]:
@@ -1465,7 +1465,7 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
                 function_name=node.name.value,
                 params=node.params,
             )
-            success = _analysis_success_or_none(outcome)
+            success = _analysis_success_optional(outcome)
             if success is not None:
                 return success
 
@@ -1477,7 +1477,7 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
         return first_error
 
     def _suite_statements(self, suite: cst.BaseSuite) -> tuple[cst.BaseStatement, ...]:
-        block = _indented_block_or_none(suite)
+        block = _indented_block_optional(suite)
         if block is None:
             return ()
         return tuple(block.body)
@@ -1550,56 +1550,56 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
         return ()
 
     @singledispatchmethod
-    def _loop_candidate_statement_or_none(
+    def _loop_candidate_statement_optional(
         self,
         stmt: cst.BaseStatement,
     ):
         never("unregistered runtime type", value_type=type(stmt).__name__)
 
-    @_loop_candidate_statement_or_none.register
+    @_loop_candidate_statement_optional.register
     def _(self, stmt: cst.For):
         return stmt
 
-    @_loop_candidate_statement_or_none.register
+    @_loop_candidate_statement_optional.register
     def _(self, stmt: cst.While):
         return stmt
 
-    @_loop_candidate_statement_or_none.register
+    @_loop_candidate_statement_optional.register
     def _(self, stmt: cst.If):
         _ = stmt
         return None
 
-    @_loop_candidate_statement_or_none.register
+    @_loop_candidate_statement_optional.register
     def _(self, stmt: cst.With):
         _ = stmt
         return None
 
-    @_loop_candidate_statement_or_none.register
+    @_loop_candidate_statement_optional.register
     def _(self, stmt: cst.Try):
         _ = stmt
         return None
 
-    @_loop_candidate_statement_or_none.register
+    @_loop_candidate_statement_optional.register
     def _(self, stmt: cst.TryStar):
         _ = stmt
         return None
 
-    @_loop_candidate_statement_or_none.register
+    @_loop_candidate_statement_optional.register
     def _(self, stmt: cst.Match):
         _ = stmt
         return None
 
-    @_loop_candidate_statement_or_none.register
+    @_loop_candidate_statement_optional.register
     def _(self, stmt: cst.SimpleStatementLine):
         _ = stmt
         return None
 
-    @_loop_candidate_statement_or_none.register
+    @_loop_candidate_statement_optional.register
     def _(self, stmt: cst.FunctionDef):
         _ = stmt
         return None
 
-    @_loop_candidate_statement_or_none.register
+    @_loop_candidate_statement_optional.register
     def _(self, stmt: cst.ClassDef):
         _ = stmt
         return None
@@ -1609,7 +1609,7 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
         stmt: cst.BaseStatement,
         out: list[_LoopCandidate],
     ) -> None:
-        loop_stmt = self._loop_candidate_statement_or_none(stmt)
+        loop_stmt = self._loop_candidate_statement_optional(stmt)
         if loop_stmt is not None:
             pos = self.get_metadata(
                 cst_metadata.PositionProvider,
@@ -1645,7 +1645,7 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
         function_name: str,
         params: cst.Parameters,
     ) -> _FunctionAnalysis:
-        for_loop = _for_loop_or_none(candidate.loop_node)
+        for_loop = _for_loop_optional(candidate.loop_node)
         if for_loop is None:
             return _FunctionAnalysisError(
                 target=qualname,
@@ -1678,7 +1678,7 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
                 target=qualname,
                 reason=f"{qualname}: async-for loops are not supported",
             )
-        loop_target = _name_or_none(loop.target)
+        loop_target = _name_optional(loop.target)
         if loop_target is None:
             return _FunctionAnalysisError(
                 target=qualname,
@@ -1694,7 +1694,7 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
         loop_var = loop_target.value
         guard_exprs: list[cst.BaseExpression] = []
         operations: list[_LoopOperation] = []
-        loop_body = _indented_block_or_none(loop.body)
+        loop_body = _indented_block_optional(loop.body)
         if loop_body is None:
             return _FunctionAnalysisError(
                 target=qualname,
@@ -1767,7 +1767,7 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
 
     @_analyze_for_body_statement.register
     def _(self, stmt: cst.SimpleStatementLine, *, qualname: str) -> _LoopBodyOutcome:
-        only = _single_small_statement_or_none(stmt)
+        only = _single_small_statement_optional(stmt)
         if only is None:
             return _LoopBodyOutcome(
                 kind="error",
@@ -1834,19 +1834,19 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
                 kind="error",
                 reason=f"{qualname}: statement `{type(stmt).__name__}` is unsupported",
             )
-        call = _call_or_none(stmt.value)
+        call = _call_optional(stmt.value)
         if call is None:
             return _LoopBodyOutcome(
                 kind="error",
                 reason=f"{qualname}: statement `{type(stmt).__name__}` is unsupported",
             )
-        call_func = _attribute_or_none(call.func)
+        call_func = _attribute_optional(call.func)
         if call_func is None:
             return _LoopBodyOutcome(
                 kind="error",
                 reason=f"{qualname}: only list.append/set.add calls are supported",
             )
-        target_name_node = _name_or_none(call_func.value)
+        target_name_node = _name_optional(call_func.value)
         if target_name_node is None:
             return _LoopBodyOutcome(
                 kind="error",
@@ -1897,7 +1897,7 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
             target_expr,
             cst_matchers.Subscript(value=cst_matchers.Name()),
         ):
-            target_subscript = _subscript_or_none(target_expr)
+            target_subscript = _subscript_optional(target_expr)
             if target_subscript is None:
                 return _LoopBodyOutcome(
                     kind="error",
@@ -1922,7 +1922,7 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
                     kind="error",
                     reason=f"{qualname}: dict value expression is unsafe ({value_reason})",
                 )
-            target_name_node = _name_or_none(target_subscript.value)
+            target_name_node = _name_optional(target_subscript.value)
             if target_name_node is None:
                 return _LoopBodyOutcome(
                     kind="error",
@@ -1938,7 +1938,7 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
                     value_expr=stmt.value,
                 ),
             )
-        target_name_node = _name_or_none(target_expr)
+        target_name_node = _name_optional(target_expr)
         if target_name_node is None:
             return _LoopBodyOutcome(
                 kind="error",
@@ -1952,13 +1952,13 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
                 kind="error",
                 reason=f"{qualname}: assignment form is unsupported",
             )
-        binary = _binary_operation_or_none(stmt.value)
+        binary = _binary_operation_optional(stmt.value)
         if binary is None:
             return _LoopBodyOutcome(
                 kind="error",
                 reason=f"{qualname}: assignment form is unsupported",
             )
-        left_name = _name_or_none(binary.left)
+        left_name = _name_optional(binary.left)
         op_token = _operator_token(binary.operator)
         if not op_token or left_name is None or left_name.value != target_name_node.value:
             return _LoopBodyOutcome(
@@ -1983,7 +1983,7 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
 
     @_analyze_for_small_statement.register
     def _(self, stmt: cst.AugAssign, *, qualname: str) -> _LoopBodyOutcome:
-        target_name = _name_or_none(stmt.target)
+        target_name = _name_optional(stmt.target)
         if target_name is None:
             return _LoopBodyOutcome(
                 kind="error",
@@ -2082,21 +2082,21 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
     ) -> bool:
         if len(non_doc_body) != 1:
             return False
-        line = _simple_statement_line_or_none(non_doc_body[0])
+        line = _simple_statement_line_optional(non_doc_body[0])
         if line is None:
             return False
-        only_stmt = _single_small_statement_or_none(line)
+        only_stmt = _single_small_statement_optional(line)
         if only_stmt is None:
             return False
         if not cst_matchers.matches(only_stmt, cst_matchers.Return(value=cst_matchers.Call(func=cst_matchers.Name()))):
             return False
-        ret = _return_or_none(only_stmt)
+        ret = _return_optional(only_stmt)
         if ret is None:
             return False
-        ret_call = _call_or_none(ret.value)
+        ret_call = _call_optional(ret.value)
         if ret_call is None:
             return False
-        helper_name_node = _name_or_none(ret_call.func)
+        helper_name_node = _name_optional(ret_call.func)
         if helper_name_node is None:
             return False
         helper_name = helper_name_node.value

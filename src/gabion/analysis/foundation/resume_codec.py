@@ -11,7 +11,7 @@ from gabion.analysis.foundation.timeout_context import check_deadline
 _NO_VALUE = None
 
 
-def mapping_or_none(value: object):
+def mapping_optional(value: object):
     match value:
         case Mapping() as value_map:
             return cast(Mapping[str, JSONValue], value_map)
@@ -22,7 +22,7 @@ def mapping_or_none(value: object):
 def mapping_payload(
     payload: object,
 ):
-    return mapping_or_none(payload)
+    return mapping_optional(payload)
 
 
 def payload_with_phase(
@@ -60,21 +60,21 @@ def mapping_sections(
     sections: list[Mapping[str, JSONValue]] = []
     for key in section_keys:
         check_deadline()
-        section = mapping_or_none(payload.get(key))
+        section = mapping_optional(payload.get(key))
         if section is None:
             return _NO_VALUE
         sections.append(section)
     return tuple(sections)
 
 
-def mapping_or_empty(value: object) -> Mapping[str, JSONValue]:
-    mapping = mapping_or_none(value)
+def mapping_default_empty(value: object) -> Mapping[str, JSONValue]:
+    mapping = mapping_optional(value)
     if mapping is None:
         return {}
     return mapping
 
 
-def sequence_or_none(value: object, *, allow_str: bool = False):
+def sequence_optional(value: object, *, allow_str: bool = False):
     match value:
         case str() | bytes() | bytearray():
             if allow_str:
@@ -87,7 +87,7 @@ def sequence_or_none(value: object, *, allow_str: bool = False):
 
 
 def str_list_from_sequence(value: object) -> list[str]:
-    sequence = sequence_or_none(value)
+    sequence = sequence_optional(value)
     if sequence is None:
         return list()
     out: list[str] = []
@@ -110,7 +110,7 @@ def str_set_from_sequence(value: object) -> set[str]:
 
 
 def str_map_from_mapping(value: object) -> dict[str, str]:
-    mapping = mapping_or_none(value)
+    mapping = mapping_optional(value)
     if mapping is None:
         return {}
     out: dict[str, str] = {}
@@ -124,8 +124,8 @@ def str_map_from_mapping(value: object) -> dict[str, str]:
     return out
 
 
-def int_tuple4_or_none(value: object):
-    sequence = sequence_or_none(value)
+def int_tuple4_optional(value: object):
+    sequence = sequence_optional(value)
     if sequence is None or len(sequence) != 4:
         return _NO_VALUE
     try:
@@ -136,13 +136,13 @@ def int_tuple4_or_none(value: object):
 
 
 def int_str_pairs_from_sequence(value: object) -> list[tuple[int, str]]:
-    sequence = sequence_or_none(value)
+    sequence = sequence_optional(value)
     if sequence is None:
         return list()
     out: list[tuple[int, str]] = []
     for entry in sequence:
         check_deadline()
-        pair = sequence_or_none(entry)
+        pair = sequence_optional(entry)
         if pair is not None and len(pair) == 2:
             idx, name = pair
             match name:
@@ -159,13 +159,13 @@ def int_str_pairs_from_sequence(value: object) -> list[tuple[int, str]]:
 
 
 def str_pair_set_from_sequence(value: object) -> set[tuple[str, str]]:
-    sequence = sequence_or_none(value)
+    sequence = sequence_optional(value)
     if sequence is None:
         return set()
     out: set[tuple[str, str]] = set()
     for entry in sequence:
         check_deadline()
-        pair = sequence_or_none(entry)
+        pair = sequence_optional(entry)
         if pair is not None and len(pair) == 2:
             left, right = pair
             match (left, right):
@@ -206,7 +206,7 @@ def load_allowed_paths_from_sequence(
     *,
     allowed_paths: Mapping[str, Path],
 ) -> list[Path]:
-    sequence = sequence_or_none(value)
+    sequence = sequence_optional(value)
     if sequence is None:
         return list()
     out: list[Path] = []

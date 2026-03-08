@@ -8,10 +8,10 @@ from gabion.analysis.dataflow.engine.dataflow_contracts import InvariantProposit
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue
 from gabion.invariants import never
 from gabion.order_contract import sort_once
-from gabion.runtime_shape_dispatch import str_or_none
+from gabion.runtime_shape_dispatch import str_optional
 
 from gabion.analysis.foundation.resume_codec import (
-    allowed_path_lookup, load_allowed_paths_from_sequence, mapping_or_none, mapping_payload, mapping_sections, payload_with_format, sequence_or_none)
+    allowed_path_lookup, load_allowed_paths_from_sequence, mapping_optional, mapping_payload, mapping_sections, payload_with_format, sequence_optional)
 from gabion.analysis.foundation.timeout_context import check_deadline
 
 
@@ -51,12 +51,12 @@ def deserialize_groups_for_resume(
     payload: Mapping[str, JSONValue],
     *,
     check_deadline_fn: Callable[[], None] = check_deadline,
-    sequence_or_none_fn: Callable[[JSONValue], object] = sequence_or_none,
+    sequence_or_none_fn: Callable[[JSONValue], object] = sequence_optional,
 ) -> dict[str, list[set[str]]]:
     groups: dict[str, list[set[str]]] = {}
     for fn_name, raw_groups in payload.items():
         check_deadline_fn()
-        normalized_fn_name = str_or_none(fn_name)
+        normalized_fn_name = str_optional(fn_name)
         if normalized_fn_name is not None:
             groups_payload = sequence_or_none_fn(raw_groups)
             if groups_payload is not None:
@@ -98,19 +98,19 @@ def deserialize_param_spans_for_resume(
     payload: Mapping[str, JSONValue],
     *,
     check_deadline_fn: Callable[[], None] = check_deadline,
-    sequence_or_none_fn: Callable[[JSONValue], object] = sequence_or_none,
+    sequence_or_none_fn: Callable[[JSONValue], object] = sequence_optional,
 ) -> dict[str, dict[str, tuple[int, int, int, int]]]:
     spans: dict[str, dict[str, tuple[int, int, int, int]]] = {}
     for fn_name, raw_map in payload.items():
         check_deadline_fn()
-        param_map = mapping_or_none(raw_map)
-        normalized_fn_name = str_or_none(fn_name)
+        param_map = mapping_optional(raw_map)
+        normalized_fn_name = str_optional(fn_name)
         if normalized_fn_name is not None and param_map is not None:
             fn_spans: dict[str, tuple[int, int, int, int]] = {}
             for param_name, raw_span in param_map.items():
                 check_deadline_fn()
                 span_parts = sequence_or_none_fn(raw_span)
-                normalized_param_name = str_or_none(param_name)
+                normalized_param_name = str_optional(param_name)
                 if normalized_param_name is not None and span_parts is not None and len(span_parts) == 4:
                     try:
                         start_line, start_column, end_line, end_column = (
@@ -133,8 +133,8 @@ def serialize_bundle_sites_for_resume(
     *,
     check_deadline_fn: Callable[[], None] = check_deadline,
     sort_once_fn: Callable[..., object] = sort_once,
-    sequence_or_none_fn: Callable[[JSONValue], object] = sequence_or_none,
-    mapping_or_none_fn: Callable[[JSONValue], object] = mapping_or_none,
+    sequence_or_none_fn: Callable[[JSONValue], object] = sequence_optional,
+    mapping_or_none_fn: Callable[[JSONValue], object] = mapping_optional,
 ) -> dict[str, list[list[JSONObject]]]:
     payload: dict[str, list[list[JSONObject]]] = {}
     for fn_name in sort_once_fn(
@@ -165,14 +165,14 @@ def deserialize_bundle_sites_for_resume(
     payload: Mapping[str, JSONValue],
     *,
     check_deadline_fn: Callable[[], None] = check_deadline,
-    sequence_or_none_fn: Callable[[JSONValue], object] = sequence_or_none,
-    mapping_or_none_fn: Callable[[JSONValue], object] = mapping_or_none,
+    sequence_or_none_fn: Callable[[JSONValue], object] = sequence_optional,
+    mapping_or_none_fn: Callable[[JSONValue], object] = mapping_optional,
 ) -> dict[str, list[list[JSONObject]]]:
     bundle_sites: dict[str, list[list[JSONObject]]] = {}
     for fn_name, raw_sites in payload.items():
         check_deadline_fn()
         site_groups = sequence_or_none_fn(raw_sites)
-        normalized_fn_name = str_or_none(fn_name)
+        normalized_fn_name = str_optional(fn_name)
         if normalized_fn_name is not None and site_groups is not None:
             fn_sites: list[list[JSONObject]] = []
             for raw_bundle in site_groups:
@@ -217,26 +217,26 @@ def deserialize_invariants_for_resume(
     *,
     normalize_invariant_proposition_fn: Callable[..., InvariantProposition],
     check_deadline_fn: Callable[[], None] = check_deadline,
-    mapping_or_none_fn: Callable[[JSONValue], object] = mapping_or_none,
-    sequence_or_none_fn: Callable[[JSONValue], object] = sequence_or_none,
+    mapping_or_none_fn: Callable[[JSONValue], object] = mapping_optional,
+    sequence_or_none_fn: Callable[[JSONValue], object] = sequence_optional,
 ) -> list[InvariantProposition]:
     invariants: list[InvariantProposition] = []
     for entry in payload:
         check_deadline_fn()
         entry_mapping = mapping_or_none_fn(entry)
         if entry_mapping is not None:
-            form = str_or_none(entry_mapping.get("form"))
+            form = str_optional(entry_mapping.get("form"))
             terms = sequence_or_none_fn(entry_mapping.get("terms"))
             if form is not None and terms is not None:
                 normalized_terms: list[str] = []
                 for term in terms:
                     check_deadline_fn()
-                    normalized_term = str_or_none(term)
+                    normalized_term = str_optional(term)
                     if normalized_term is not None:
                         normalized_terms.append(normalized_term)
-                scope = str_or_none(entry_mapping.get("scope"))
-                source = str_or_none(entry_mapping.get("source"))
-                invariant_id = str_or_none(entry_mapping.get("invariant_id"))
+                scope = str_optional(entry_mapping.get("scope"))
+                source = str_optional(entry_mapping.get("source"))
+                invariant_id = str_optional(entry_mapping.get("invariant_id"))
                 confidence_raw = entry_mapping.get("confidence")
                 confidence = (
                     float(confidence_raw)
@@ -285,7 +285,7 @@ def build_analysis_collection_resume_payload(
     serialize_param_spans_for_resume_fn: Callable[..., object] = serialize_param_spans_for_resume,
     serialize_bundle_sites_for_resume_fn: Callable[..., object] = serialize_bundle_sites_for_resume,
     serialize_invariants_for_resume_fn: Callable[..., object] = serialize_invariants_for_resume,
-    mapping_or_none_fn: Callable[[JSONValue], object] = mapping_or_none,
+    mapping_or_none_fn: Callable[[JSONValue], object] = mapping_optional,
     never_fn: Callable[..., None] = never,
 ) -> JSONObject:
     check_deadline_fn()
@@ -377,8 +377,8 @@ def load_analysis_collection_resume_payload(
     mapping_payload_fn: Callable[[JSONValue], object] = mapping_payload,
     allowed_path_lookup_fn: Callable[..., dict[str, Path]] = allowed_path_lookup,
     load_allowed_paths_from_sequence_fn: Callable[..., list[Path]] = load_allowed_paths_from_sequence,
-    mapping_or_none_fn: Callable[[JSONValue], object] = mapping_or_none,
-    sequence_or_none_fn: Callable[[JSONValue], object] = sequence_or_none,
+    mapping_or_none_fn: Callable[[JSONValue], object] = mapping_optional,
+    sequence_or_none_fn: Callable[[JSONValue], object] = sequence_optional,
     check_deadline_fn: Callable[[], None] = check_deadline,
 ):
     (

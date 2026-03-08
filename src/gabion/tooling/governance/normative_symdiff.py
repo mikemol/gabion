@@ -136,11 +136,11 @@ def _message_path_prefix(message: str) -> str | None:
 
 
 @singledispatch
-def _mapping_or_none(value: object):
+def _mapping_optional(value: object):
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
-@_mapping_or_none.register(dict)
+@_mapping_optional.register(dict)
 def _(value: dict[object, object]):
     return value
 
@@ -160,20 +160,20 @@ for _mapping_none_type in (
     bool,
     type(None),
 ):
-    _mapping_or_none.register(_mapping_none_type)(_none_mapping)
+    _mapping_optional.register(_mapping_none_type)(_none_mapping)
 
 
 @singledispatch
-def _list_or_none(value: object):
+def _list_optional(value: object):
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
-@_list_or_none.register(list)
+@_list_optional.register(list)
 def _(value: list[object]):
     return value
 
 
-@_list_or_none.register(tuple)
+@_list_optional.register(tuple)
 def _(value: tuple[object, ...]):
     return list(value)
 
@@ -192,15 +192,15 @@ for _list_none_type in (
     bool,
     type(None),
 ):
-    _list_or_none.register(_list_none_type)(_none_list)
+    _list_optional.register(_list_none_type)(_none_list)
 
 
 @singledispatch
-def _str_or_none(value: object):
+def _str_optional(value: object):
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
-@_str_or_none.register(str)
+@_str_optional.register(str)
 def _(value: str):
     return value
 
@@ -220,16 +220,16 @@ for _str_none_type in (
     bool,
     type(None),
 ):
-    _str_or_none.register(_str_none_type)(_none_str)
+    _str_optional.register(_str_none_type)(_none_str)
 
 
 def _mapping_entries(values: object) -> list[Mapping[object, object]]:
     entries: list[Mapping[object, object]] = []
-    items = _list_or_none(values)
+    items = _list_optional(values)
     if items is None:
         return entries
     for item in items:
-        mapping = _mapping_or_none(item)
+        mapping = _mapping_optional(item)
         if mapping is not None:
             entries.append(mapping)
     return entries
@@ -237,11 +237,11 @@ def _mapping_entries(values: object) -> list[Mapping[object, object]]:
 
 def _string_entries(values: object) -> list[str]:
     entries: list[str] = []
-    items = _list_or_none(values)
+    items = _list_optional(values)
     if items is None:
         return entries
     for item in items:
-        text = _str_or_none(item)
+        text = _str_optional(item)
         if text is not None:
             entries.append(text)
     return entries
@@ -278,7 +278,7 @@ def _ordered_gap_items(items: Iterable[GapItem], *, source: str) -> list[GapItem
 def _parse_frontmatter(path: Path) -> tuple[dict[str, object], str]:
     text = path.read_text(encoding="utf-8")
     frontmatter, body = governance_audit._parse_frontmatter(text)
-    mapping = _mapping_or_none(frontmatter)
+    mapping = _mapping_optional(frontmatter)
     normalized = dict(mapping) if mapping is not None else {}
     return normalized, body
 
@@ -345,16 +345,16 @@ def _workflow_anchor_errors(
     errors: list[str] = []
     workflow_cache: dict[str, Mapping[str, object]] = {}
     for clause_id, raw in clauses_payload.items():
-        clause_key = _str_or_none(clause_id)
-        clause_payload = _mapping_or_none(raw)
+        clause_key = _str_optional(clause_id)
+        clause_payload = _mapping_optional(raw)
         if clause_key is None or clause_payload is None:
             continue
-        ci_anchor_entries = _list_or_none(clause_payload.get("ci_anchors"))
+        ci_anchor_entries = _list_optional(clause_payload.get("ci_anchors"))
         if ci_anchor_entries is None:
             errors.append(f"{clause_key}: ci_anchors must be a list")
             continue
         for anchor in ci_anchor_entries:
-            anchor_mapping = _mapping_or_none(anchor)
+            anchor_mapping = _mapping_optional(anchor)
             if anchor_mapping is None:
                 errors.append(f"{clause_key}: ci anchor must be mapping")
                 continue
@@ -369,23 +369,23 @@ def _workflow_anchor_errors(
             workflow_doc = workflow_cache.get(cache_key)
             if workflow_doc is None:
                 loaded = policy_check._load_yaml(workflow_path)
-                loaded_mapping = _mapping_or_none(loaded)
+                loaded_mapping = _mapping_optional(loaded)
                 workflow_doc = dict(loaded_mapping) if loaded_mapping is not None else {}
                 workflow_cache[cache_key] = workflow_doc
             jobs = workflow_doc.get("jobs")
-            jobs_mapping = _mapping_or_none(jobs)
+            jobs_mapping = _mapping_optional(jobs)
             if jobs_mapping is None or job not in jobs_mapping:
                 errors.append(f"{clause_key}: missing workflow job anchor {workflow_ref}:{job}")
                 continue
             if not step:
                 continue
             job_payload = jobs_mapping.get(job)
-            job_mapping = _mapping_or_none(job_payload)
-            steps = _list_or_none(job_mapping.get("steps")) if job_mapping is not None else None
+            job_mapping = _mapping_optional(job_payload)
+            steps = _list_optional(job_mapping.get("steps")) if job_mapping is not None else None
             step_names: list[str] = []
             if steps is not None:
                 for item in steps:
-                    step_mapping = _mapping_or_none(item)
+                    step_mapping = _mapping_optional(item)
                     if step_mapping is not None:
                         step_names.append(str(step_mapping.get("name", "")))
             if step not in step_names:
@@ -402,11 +402,11 @@ def analyze_clause_enforcement(
     enforcement_map_path: Path,
 ) -> dict[str, object]:
     payload = policy_check._load_yaml(enforcement_map_path)
-    payload_mapping = _mapping_or_none(payload)
+    payload_mapping = _mapping_optional(payload)
     clauses_payload = payload_mapping.get("clauses") if payload_mapping is not None else None
     normalized_clauses = (
         dict(clauses_payload)
-        if _mapping_or_none(clauses_payload) is not None
+        if _mapping_optional(clauses_payload) is not None
         else {}
     )
     clause_set = set(clause_ids)
@@ -428,14 +428,14 @@ def analyze_clause_enforcement(
     missing_modules: list[str] = []
     for clause_id in map_ids:
         raw = normalized_clauses.get(clause_id)
-        raw_mapping = _mapping_or_none(raw)
+        raw_mapping = _mapping_optional(raw)
         if raw_mapping is None:
             continue
         status = str(raw_mapping.get("status", "")).strip()
         status_by_clause[clause_id] = status
         if status == "partial":
             partial_clauses.append(clause_id)
-        enforcing_modules = _list_or_none(raw_mapping.get("enforcing_modules"))
+        enforcing_modules = _list_optional(raw_mapping.get("enforcing_modules"))
         if enforcing_modules is None:
             continue
         for module_path in enforcing_modules:
@@ -554,10 +554,10 @@ def _collect_lsp_parity(root: Path) -> dict[str, object]:
     payload: dict[str, object] = {"root": str(root)}
     result = server._execute_lsp_parity_gate_total(ls, payload)
     checked_commands = result.get("checked_commands", [])
-    checked_list = _list_or_none(checked_commands)
+    checked_list = _list_optional(checked_commands)
     checked_count = len(checked_list) if checked_list is not None else 0
     errors = result.get("errors", [])
-    error_list = _list_or_none(errors)
+    error_list = _list_optional(errors)
     error_count = len(error_list) if error_list is not None else 0
     exit_code = _coerce_int(result.get("exit_code"))
     return {
@@ -680,11 +680,11 @@ def _collect_agent_instruction_probe(root: Path) -> dict[str, object]:
             if json_path.exists()
             else {}
         )
-    payload_mapping = _mapping_or_none(payload)
+    payload_mapping = _mapping_optional(payload)
     summary = payload_mapping.get("summary", {}) if payload_mapping is not None else {}
     hidden = payload.get("hidden_operational_toggles", [])
-    summary_mapping = _mapping_or_none(summary)
-    hidden_entries = _list_or_none(hidden)
+    summary_mapping = _mapping_optional(summary)
+    hidden_entries = _list_optional(hidden)
     return {
         "warnings": list(warnings),
         "violations": list(violations),
@@ -849,7 +849,7 @@ def synthesize_gaps(
         evidence=[*map(str, missing_modules), *map(str, ci_anchor_errors)],
     )
 
-    workflow_policy = _mapping_or_none(probes.get("workflow_policy", {}))
+    workflow_policy = _mapping_optional(probes.get("workflow_policy", {}))
     if workflow_policy is not None:
         _add_gap(
             doc_to_code,
@@ -863,7 +863,7 @@ def synthesize_gaps(
             evidence=[str(workflow_policy.get("stderr", ""))],
         )
 
-    lsp_parity = _mapping_or_none(probes.get("lsp_parity_gate", {}))
+    lsp_parity = _mapping_optional(probes.get("lsp_parity_gate", {}))
     if lsp_parity is not None:
         error_count = _coerce_int(lsp_parity.get("error_count"))
         _add_gap(
@@ -878,9 +878,9 @@ def synthesize_gaps(
             evidence=_string_entries(lsp_parity.get("errors", [])),
         )
 
-    controller_drift = _mapping_or_none(probes.get("controller_drift", {}))
+    controller_drift = _mapping_optional(probes.get("controller_drift", {}))
     if controller_drift is not None:
-        summary = _mapping_or_none(controller_drift.get("summary", {}))
+        summary = _mapping_optional(controller_drift.get("summary", {}))
         high_findings = _coerce_int(summary.get("high_severity_findings")) if summary is not None else 0
         _add_gap(
             doc_to_code,
@@ -897,7 +897,7 @@ def synthesize_gaps(
             ],
         )
 
-    ambiguity_probe = _mapping_or_none(probes.get("ambiguity_contract", {}))
+    ambiguity_probe = _mapping_optional(probes.get("ambiguity_contract", {}))
     if ambiguity_probe is not None:
         _add_gap(
             doc_to_code,
@@ -911,7 +911,7 @@ def synthesize_gaps(
             evidence=[f"by_rule={ambiguity_probe.get('by_rule', {})}"],
         )
 
-    branchless_probe = _mapping_or_none(probes.get("branchless_policy", {}))
+    branchless_probe = _mapping_optional(probes.get("branchless_policy", {}))
     if branchless_probe is not None:
         _add_gap(
             doc_to_code,
@@ -936,7 +936,7 @@ def synthesize_gaps(
             evidence=[f"baseline_keys={branchless_probe.get('baseline_keys', 0)}"],
         )
 
-    defensive_probe = _mapping_or_none(probes.get("defensive_fallback_policy", {}))
+    defensive_probe = _mapping_optional(probes.get("defensive_fallback_policy", {}))
     if defensive_probe is not None:
         _add_gap(
             doc_to_code,
@@ -961,7 +961,7 @@ def synthesize_gaps(
             evidence=[f"baseline_keys={defensive_probe.get('baseline_keys', 0)}"],
         )
 
-    no_monkeypatch_probe = _mapping_or_none(probes.get("no_monkeypatch_policy", {}))
+    no_monkeypatch_probe = _mapping_optional(probes.get("no_monkeypatch_policy", {}))
     if no_monkeypatch_probe is not None:
         _add_gap(
             doc_to_code,
@@ -978,7 +978,7 @@ def synthesize_gaps(
             ],
         )
 
-    order_lifetime_probe = _mapping_or_none(probes.get("order_lifetime_policy", {}))
+    order_lifetime_probe = _mapping_optional(probes.get("order_lifetime_policy", {}))
     if order_lifetime_probe is not None:
         _add_gap(
             doc_to_code,
@@ -995,7 +995,7 @@ def synthesize_gaps(
             ],
         )
 
-    structural_hash_probe = _mapping_or_none(probes.get("structural_hash_policy", {}))
+    structural_hash_probe = _mapping_optional(probes.get("structural_hash_policy", {}))
     if structural_hash_probe is not None:
         _add_gap(
             doc_to_code,
@@ -1012,7 +1012,7 @@ def synthesize_gaps(
             ],
         )
 
-    core_docflow = _mapping_or_none(probes.get("docflow_core", {}))
+    core_docflow = _mapping_optional(probes.get("docflow_core", {}))
     if core_docflow is not None:
         _add_gap(
             doc_to_code,
@@ -1037,7 +1037,7 @@ def synthesize_gaps(
             evidence=_string_entries(core_docflow.get("warnings", [])),
         )
 
-    extended_docflow = _mapping_or_none(probes.get("docflow_extended_strict", {}))
+    extended_docflow = _mapping_optional(probes.get("docflow_extended_strict", {}))
     if extended_docflow is not None:
         _add_gap(
             doc_to_code,
@@ -1098,7 +1098,7 @@ def synthesize_gaps(
         evidence=[str(item.get("detail", "")) for item in unindexed],
     )
 
-    agent_instruction = _mapping_or_none(probes.get("agent_instruction_graph", {}))
+    agent_instruction = _mapping_optional(probes.get("agent_instruction_graph", {}))
     if agent_instruction is not None:
         hidden_toggles = agent_instruction.get("hidden_operational_toggles", [])
         hidden_toggle_entries = _mapping_entries(hidden_toggles)
@@ -1109,7 +1109,7 @@ def synthesize_gaps(
             direction="code_to_doc",
             model="absolute",
             severity="medium",
-            count=len(_list_or_none(hidden_toggles) or []),
+            count=len(_list_optional(hidden_toggles) or []),
             message="Operational toggles are present in governance docs but hidden from AGENTS surfaces.",
             evidence=[
                 f"{item.get('source')}::{item.get('token')}"
@@ -1243,17 +1243,17 @@ def _render_gap_lines(gaps: list[Mapping[str, object]]) -> list[str]:
 
 
 def render_markdown(report: Mapping[str, object]) -> str:
-    summary = _mapping_or_none(report.get("summary", {})) or {}
-    inventory = _mapping_or_none(report.get("inventory", {})) or {}
-    clauses = _mapping_or_none(report.get("clauses", {})) or {}
-    gaps = _mapping_or_none(report.get("gaps", {})) or {}
-    scoring = _mapping_or_none(report.get("scoring", {}))
-    inventory_counts = _mapping_or_none(inventory.get("counts", {})) or {}
-    clause_ids = _list_or_none(clauses.get("clause_ids", [])) or []
-    partial_clauses = _list_or_none(clauses.get("partial_clauses", [])) or []
+    summary = _mapping_optional(report.get("summary", {})) or {}
+    inventory = _mapping_optional(report.get("inventory", {})) or {}
+    clauses = _mapping_optional(report.get("clauses", {})) or {}
+    gaps = _mapping_optional(report.get("gaps", {})) or {}
+    scoring = _mapping_optional(report.get("scoring", {}))
+    inventory_counts = _mapping_optional(inventory.get("counts", {})) or {}
+    clause_ids = _list_optional(clauses.get("clause_ids", [])) or []
+    partial_clauses = _list_optional(clauses.get("partial_clauses", [])) or []
 
-    doc_to_code_gaps = _list_or_none(gaps.get("doc_to_code_gaps", [])) or []
-    code_to_doc_gaps = _list_or_none(gaps.get("code_to_doc_gaps", [])) or []
+    doc_to_code_gaps = _list_optional(gaps.get("doc_to_code_gaps", [])) or []
+    code_to_doc_gaps = _list_optional(gaps.get("code_to_doc_gaps", [])) or []
 
     lines = [
         "# Normative Symmetric Diff",
@@ -1291,13 +1291,13 @@ def render_markdown(report: Mapping[str, object]) -> str:
     if scoring is not None:
         lines.extend(["", "## How Close/Far", ""])
         for model in ("ratchet", "absolute"):
-            model_block = _mapping_or_none(scoring.get(model, {}))
+            model_block = _mapping_optional(scoring.get(model, {}))
             if model_block is None:
                 continue
             lines.append(f"### {model.title()} View")
             lines.append("")
             for layer in ("core", "extended", "overall"):
-                layer_block = _mapping_or_none(model_block.get(layer, {}))
+                layer_block = _mapping_optional(model_block.get(layer, {}))
                 if layer_block is None:
                     continue
                 lines.append(

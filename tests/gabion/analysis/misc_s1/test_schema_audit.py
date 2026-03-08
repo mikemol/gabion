@@ -10,6 +10,7 @@ from tests.order_helpers import contract_sorted
 
 
 # gabion:evidence E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._normalize_path::root E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._normalize_path::stale_61d46fdd5826_893041a7
+# gabion:behavior primary=desired
 def test_find_anonymous_schema_surfaces_finds_common_sites(tmp_path: Path) -> None:
     path = tmp_path / "mod.py"
     path.write_text(
@@ -54,6 +55,7 @@ def test_find_anonymous_schema_surfaces_finds_common_sites(tmp_path: Path) -> No
 
 
 # gabion:evidence E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._normalize_path::root E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._normalize_path::stale_f53f10163686
+# gabion:behavior primary=desired
 def test_find_anonymous_schema_surfaces_ignores_test_roles(tmp_path: Path) -> None:
     test_prefixed = tmp_path / "test_mod.py"
     test_prefixed.write_text("def f(x: dict[str, object]) -> None:\n    return None\n")
@@ -78,6 +80,7 @@ def test_find_anonymous_schema_surfaces_ignores_test_roles(tmp_path: Path) -> No
 
 
 # gabion:evidence E:call_footprint::tests/test_schema_audit.py::test_find_anonymous_schema_surfaces_rejects_path_order_regression::schema_audit.py::gabion.analysis.schema_audit.find_anonymous_schema_surfaces
+# gabion:behavior primary=desired
 def test_find_anonymous_schema_surfaces_rejects_path_order_regression(
     tmp_path: Path,
 ) -> None:
@@ -93,6 +96,7 @@ def test_find_anonymous_schema_surfaces_rejects_path_order_regression(
 
 
 # gabion:evidence E:call_footprint::tests/test_schema_audit.py::test_find_anonymous_schema_surfaces_rejects_duplicate_paths::schema_audit.py::gabion.analysis.schema_audit.find_anonymous_schema_surfaces
+# gabion:behavior primary=desired
 def test_find_anonymous_schema_surfaces_rejects_duplicate_paths(tmp_path: Path) -> None:
     path = tmp_path / "a.py"
     path.write_text("def a(payload: dict[str, object]) -> None:\n    return None\n")
@@ -104,6 +108,7 @@ def test_find_anonymous_schema_surfaces_rejects_duplicate_paths(tmp_path: Path) 
 
 
 # gabion:evidence E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._suggest_type_name::name E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._singularize_token::token
+# gabion:behavior primary=desired
 def test_suggest_type_name_singularizes_and_handles_provenance() -> None:
     assert sa._suggest_type_name("deadness_witnesses") == "DeadnessWitness"
     assert sa._suggest_type_name("entries") == "Entry"
@@ -114,6 +119,7 @@ def test_suggest_type_name_singularizes_and_handles_provenance() -> None:
 
 
 # gabion:evidence E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._normalize_path::root E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._normalize_path::stale_d892380c8e73
+# gabion:behavior primary=desired
 def test_normalize_path_outside_root_returns_absolute(tmp_path: Path) -> None:
     root = tmp_path / "root"
     root.mkdir()
@@ -122,6 +128,7 @@ def test_normalize_path_outside_root_returns_absolute(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_schema_audit.py::test_normalize_path_inside_root_returns_relative::schema_audit.py::gabion.analysis.schema_audit._normalize_path
+# gabion:behavior primary=desired
 def test_normalize_path_inside_root_returns_relative(tmp_path: Path) -> None:
     root = tmp_path / "root"
     pkg = root / "pkg"
@@ -131,12 +138,14 @@ def test_normalize_path_inside_root_returns_relative(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_schema_audit.py::test_normalize_path_without_root_returns_original_path::schema_audit.py::gabion.analysis.schema_audit._normalize_path
+# gabion:behavior primary=desired
 def test_normalize_path_without_root_returns_original_path(tmp_path: Path) -> None:
     path = tmp_path / "mod.py"
     assert sa._normalize_path(path, None) == str(path)
 
 
 # gabion:evidence E:call_footprint::tests/test_schema_audit.py::test_find_anonymous_schema_surfaces_covers_async_without_returns::schema_audit.py::gabion.analysis.schema_audit.find_anonymous_schema_surfaces
+# gabion:behavior primary=desired
 def test_find_anonymous_schema_surfaces_covers_async_without_returns(tmp_path: Path) -> None:
     path = tmp_path / "mod_async.py"
     path.write_text(
@@ -150,6 +159,7 @@ def test_find_anonymous_schema_surfaces_covers_async_without_returns(tmp_path: P
 
 
 # gabion:evidence E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._name::node E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._name::stale_b811d8662f87
+# gabion:behavior primary=desired
 def test_subscript_helpers_cover_non_tuple_slices() -> None:
     tree = sa.ast.parse("x: list[int]\n")
     ann = tree.body[0].annotation
@@ -164,6 +174,7 @@ def test_subscript_helpers_cover_non_tuple_slices() -> None:
 
 
 # gabion:evidence E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._name::node E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._name::stale_300359ce4f55_34db5c79
+# gabion:behavior primary=desired
 def test_name_handles_attribute_and_unknown_nodes() -> None:
     attr = sa.ast.Attribute(value=sa.ast.Name(id="typing", ctx=sa.ast.Load()), attr="Dict")
     assert sa._name(attr) == "Dict"
@@ -171,6 +182,7 @@ def test_name_handles_attribute_and_unknown_nodes() -> None:
 
 
 # gabion:evidence E:function_site::schema_audit.py::gabion.analysis.schema_audit._unparse
+# gabion:behavior primary=allowed_unwanted facets=fallback
 def test_unparse_fallback_for_invalid_ast() -> None:
     # ast.unparse expects well-formed nodes; this intentionally violates that.
     bad = sa.ast.Name(id=None, ctx=sa.ast.Load())
@@ -178,6 +190,7 @@ def test_unparse_fallback_for_invalid_ast() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_schema_audit.py::test_anonymous_schema_surface_format_handles_optional_suggestion::schema_audit.py::gabion.analysis.schema_audit.AnonymousSchemaSurface
+# gabion:behavior primary=desired
 def test_anonymous_schema_surface_format_handles_optional_suggestion() -> None:
     surface = sa.AnonymousSchemaSurface(
         path="mod.py",
@@ -201,6 +214,7 @@ def test_anonymous_schema_surface_format_handles_optional_suggestion() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_schema_audit.py::test_surface_visitor_covers_class_only_prefix_and_non_anonymous_annassign::schema_audit.py::gabion.analysis.schema_audit.find_anonymous_schema_surfaces
+# gabion:behavior primary=desired
 def test_surface_visitor_covers_class_only_prefix_and_non_anonymous_annassign(
     tmp_path: Path,
 ) -> None:

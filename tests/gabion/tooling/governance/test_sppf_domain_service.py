@@ -6,6 +6,7 @@ from gabion_governance.sppf_audit import build_sppf_graph, run_status_consistenc
 from gabion_governance.docflow_audit import Doc
 
 
+# gabion:behavior primary=desired
 def test_build_sppf_graph_returns_typed_result() -> None:
     result = build_sppf_graph(
         root=Path("."),
@@ -15,6 +16,7 @@ def test_build_sppf_graph_returns_typed_result() -> None:
     assert result.graph["format_version"] == 1
 
 
+# gabion:behavior primary=desired
 def test_run_status_consistency_merges_axis_and_sync_findings() -> None:
     result = run_status_consistency(
         root=Path("."),

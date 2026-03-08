@@ -21,6 +21,7 @@ class _Outcome:
         self.last_collection_resume_payload = {"cursor": "next"}
 
 
+# gabion:behavior primary=desired
 def test_ingress_stage_normalizes_options_and_mode() -> None:
     stage = run_ingress_stage(
         payload={"raw": True, "aux_operation": {"domain": "x"}},
@@ -35,6 +36,7 @@ def test_ingress_stage_normalizes_options_and_mode() -> None:
     assert stage.options["root"] == "."
 
 
+# gabion:behavior primary=desired
 def test_analysis_stage_returns_structured_contract() -> None:
     stage = run_analysis_stage(
         context=object(),
@@ -47,6 +49,7 @@ def test_analysis_stage_returns_structured_contract() -> None:
     assert stage.latest_collection_progress["total"] == 1
 
 
+# gabion:behavior primary=desired
 def test_output_stage_calls_primary_and_auxiliary_emitters() -> None:
     called: list[str] = []
 
@@ -66,6 +69,7 @@ def test_output_stage_calls_primary_and_auxiliary_emitters() -> None:
     assert stage.phase_checkpoint_state == {"phase": "emit"}
 
 
+# gabion:behavior primary=verboten facets=timeout
 def test_timeout_stage_contracts() -> None:
     classification = timeout_classification_decision(progress_payload={})
     assert classification == "timed_out_no_progress"

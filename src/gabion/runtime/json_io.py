@@ -5,13 +5,13 @@ from pathlib import Path
 
 from gabion.order_contract import enforce_ordered, sort_once
 from gabion.runtime_shape_dispatch import (
-    json_list_or_none as _json_list_or_none,
-    json_mapping_or_none as _json_mapping_or_none,
+    json_list_optional as _json_list_optional,
+    json_mapping_optional as _json_mapping_optional,
 )
 
 
 def canonicalize_json(value: object) -> object:
-    mapping_value = _json_mapping_or_none(value)
+    mapping_value = _json_mapping_optional(value)
     if mapping_value is not None:
         normalized_items = [
             (str(key), canonicalize_json(item_value))
@@ -27,7 +27,7 @@ def canonicalize_json(value: object) -> object:
             key: item_value
             for key, item_value in ordered_items
         }
-    list_value = _json_list_or_none(value)
+    list_value = _json_list_optional(value)
     if list_value is not None:
         return [canonicalize_json(item) for item in list_value]
     return value
@@ -44,11 +44,11 @@ def load_json_object_path(
         payload = json.loads(path.read_text(encoding=encoding))
     except (OSError, UnicodeError, json.JSONDecodeError):
         return {}
-    payload_mapping = _json_mapping_or_none(payload)
+    payload_mapping = _json_mapping_optional(payload)
     if payload_mapping is None:
         return {}
     canonical = canonicalize_json(payload_mapping)
-    canonical_mapping = _json_mapping_or_none(canonical)
+    canonical_mapping = _json_mapping_optional(canonical)
     return canonical_mapping if canonical_mapping is not None else {}
 
 
@@ -57,11 +57,11 @@ def load_json_object_text(text: str) -> dict[str, object]:
         payload = json.loads(text)
     except (TypeError, ValueError, json.JSONDecodeError):
         return {}
-    payload_mapping = _json_mapping_or_none(payload)
+    payload_mapping = _json_mapping_optional(payload)
     if payload_mapping is None:
         return {}
     canonical = canonicalize_json(payload_mapping)
-    canonical_mapping = _json_mapping_or_none(canonical)
+    canonical_mapping = _json_mapping_optional(canonical)
     return canonical_mapping if canonical_mapping is not None else {}
 
 
@@ -71,7 +71,7 @@ def dump_json_pretty(payload: object) -> str:
 
 
 def enforce_json_ordered(value: object, *, source: str) -> object:
-    mapping_value = _json_mapping_or_none(value)
+    mapping_value = _json_mapping_optional(value)
     if mapping_value is not None:
         normalized_items = [(str(key), mapping_value[key]) for key in mapping_value]
         ordered_items = enforce_ordered(
@@ -84,7 +84,7 @@ def enforce_json_ordered(value: object, *, source: str) -> object:
             key: enforce_json_ordered(item_value, source=f"{source}.{key}")
             for key, item_value in ordered_items
         }
-    list_value = _json_list_or_none(value)
+    list_value = _json_list_optional(value)
     if list_value is not None:
         return [enforce_json_ordered(item, source=f"{source}.list_item") for item in list_value]
     return value

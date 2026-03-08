@@ -39,6 +39,7 @@ def _make_deps(
 
 
 # gabion:evidence E:call_footprint::tests/test_ci_watch.py::test_ci_watch_collects_failure_artifacts_and_logs::ci_watch.py::main
+# gabion:behavior primary=desired
 def test_ci_watch_collects_failure_artifacts_and_logs(tmp_path: Path) -> None:
     run_id = "12345"
     commands: list[tuple[list[str], bool, bool, bool]] = []
@@ -172,6 +173,7 @@ def test_ci_watch_collects_failure_artifacts_and_logs(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_ci_watch.py::test_ci_watch_failure_can_skip_artifact_collection::ci_watch.py::main
+# gabion:behavior primary=desired
 def test_ci_watch_failure_can_skip_artifact_collection(tmp_path: Path) -> None:
     commands: list[list[str]] = []
     stderr_messages: list[str] = []
@@ -209,6 +211,7 @@ def test_ci_watch_failure_can_skip_artifact_collection(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_ci_watch.py::test_ci_watch_success_does_not_collect_failure_artifacts::ci_watch.py::main
+# gabion:behavior primary=desired
 def test_ci_watch_success_does_not_collect_failure_artifacts(tmp_path: Path) -> None:
     commands: list[list[str]] = []
     stderr_messages: list[str] = []
@@ -245,6 +248,7 @@ def test_ci_watch_success_does_not_collect_failure_artifacts(tmp_path: Path) -> 
 
 
 # gabion:evidence E:call_footprint::tests/test_ci_watch.py::test_ci_watch_collection_failures_return_strict_nonzero::ci_watch.py::main
+# gabion:behavior primary=verboten facets=nonzero,strict
 def test_ci_watch_collection_failures_return_strict_nonzero(tmp_path: Path) -> None:
     run_id = "90000"
     stderr_messages: list[str] = []
@@ -295,6 +299,7 @@ def test_ci_watch_collection_failures_return_strict_nonzero(tmp_path: Path) -> N
 
 
 # gabion:evidence E:function_site::ci_watch.py::gabion.tooling.ci_watch._collect_failure_artifacts
+# gabion:behavior primary=desired
 def test_collection_status_mandatory_failures_respects_log_toggle() -> None:
     status = tooling_ci_watch.CollectionStatus(
         run_view_json_rc=1,
@@ -316,6 +321,7 @@ def test_collection_status_mandatory_failures_respects_log_toggle() -> None:
 
 
 # gabion:evidence E:function_site::ci_watch.py::gabion.tooling.ci_watch.StatusWatchOptions.to_argv
+# gabion:behavior primary=desired
 def test_status_watch_options_to_argv_and_summary_without_collection(
     tmp_path: Path,
 ) -> None:
@@ -370,6 +376,7 @@ def test_status_watch_options_to_argv_and_summary_without_collection(
 
 
 # gabion:evidence E:function_site::ci_watch.py::gabion.tooling.ci_watch._decode_json_dict
+# gabion:behavior primary=verboten facets=invalid
 def test_decode_and_failure_extractors_handle_invalid_payload_shapes() -> None:
     assert tooling_ci_watch._decode_json_dict("{not-json") == {}
     assert tooling_ci_watch._decode_json_dict("[]") == {}
@@ -424,6 +431,7 @@ def test_decode_and_failure_extractors_handle_invalid_payload_shapes() -> None:
 
 
 # gabion:evidence E:function_site::ci_watch.py::gabion.tooling.ci_watch._find_run_id
+# gabion:behavior primary=desired
 def test_find_run_id_and_no_result_path() -> None:
     stderr_messages: list[str] = []
     commands: list[list[str]] = []
@@ -455,6 +463,7 @@ def test_find_run_id_and_no_result_path() -> None:
 
 
 # gabion:evidence E:function_site::ci_watch.py::gabion.tooling.ci_watch.run_watch
+# gabion:behavior primary=allowed_unwanted facets=fallback
 def test_run_watch_uses_prefer_active_then_fallback_lookup() -> None:
     stderr_messages: list[str] = []
     statuses_queried: list[str] = []
@@ -505,6 +514,7 @@ def test_run_watch_uses_prefer_active_then_fallback_lookup() -> None:
 
 
 # gabion:evidence E:function_site::ci_watch.py::gabion.tooling.ci_watch.run_watch
+# gabion:behavior primary=verboten facets=raises
 def test_run_watch_raises_when_no_runs_found() -> None:
     stderr_messages: list[str] = []
 
@@ -532,6 +542,7 @@ def test_run_watch_raises_when_no_runs_found() -> None:
 
 
 # gabion:evidence E:function_site::ci_watch.py::gabion.tooling.ci_watch.run_watch
+# gabion:behavior primary=allowed_unwanted facets=fallback
 def test_run_watch_can_skip_prefer_active_and_use_fallback_status() -> None:
     stderr_messages: list[str] = []
     statuses_queried: list[str] = []
@@ -573,6 +584,7 @@ def test_run_watch_can_skip_prefer_active_and_use_fallback_status() -> None:
 
 
 # gabion:evidence E:function_site::ci_watch.py::gabion.tooling.ci_watch._collect_failure_artifacts
+# gabion:behavior primary=verboten facets=fail
 def test_collect_failure_artifacts_can_skip_failed_logs(tmp_path: Path) -> None:
     run_id = "1001"
     stderr_messages: list[str] = []
@@ -604,6 +616,7 @@ def test_collect_failure_artifacts_can_skip_failed_logs(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::ci_watch.py::gabion.tooling.ci_watch._default_deps
+# gabion:behavior primary=desired
 def test_run_watch_uses_default_deps() -> None:
     deps = tooling_ci_watch._default_deps()
     assert callable(deps.run)
@@ -611,6 +624,7 @@ def test_run_watch_uses_default_deps() -> None:
 
 
 # gabion:evidence E:function_site::ci_watch.py::gabion.tooling.ci_watch._default_print_err
+# gabion:behavior primary=desired
 def test_default_print_err_writes_stderr(capsys: Any) -> None:
     tooling_ci_watch._default_print_err("error-line")
     captured = capsys.readouterr()
@@ -618,6 +632,7 @@ def test_default_print_err_writes_stderr(capsys: Any) -> None:
 
 
 # gabion:evidence E:function_site::ci_watch.py::gabion.tooling.ci_watch.main
+# gabion:behavior primary=desired
 def test_ci_watch_module_entrypoint_executes() -> None:
     original_argv = list(sys.argv)
     try:

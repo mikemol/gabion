@@ -10,6 +10,7 @@ def _write(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
+# gabion:behavior primary=desired
 def test_fiber_rule_flags_duplicate_pre_core_narrowing(tmp_path: Path) -> None:
     _write(
         tmp_path / "src/gabion/example_boundary.py",
@@ -45,6 +46,7 @@ def test_fiber_rule_flags_duplicate_pre_core_narrowing(tmp_path: Path) -> None:
     )
 
 
+# gabion:behavior primary=desired
 def test_fiber_rule_ignores_post_core_reapplication(tmp_path: Path) -> None:
     _write(
         tmp_path / "src/gabion/example_boundary.py",
@@ -69,6 +71,7 @@ def test_fiber_rule_ignores_post_core_reapplication(tmp_path: Path) -> None:
     assert violations == []
 
 
+# gabion:behavior primary=desired
 def test_fiber_rule_reads_annotation_contract(tmp_path: Path) -> None:
     _write(
         tmp_path / "src/gabion/example_boundary.py",

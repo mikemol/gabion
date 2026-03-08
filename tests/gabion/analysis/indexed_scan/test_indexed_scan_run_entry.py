@@ -88,6 +88,7 @@ def _deps(overrides: dict[str, object] | None = None) -> run_entry.RunImplDeps:
 
 
 # gabion:evidence E:function_site::indexed_scan/run_entry.py::gabion.analysis.indexed_scan.run_entry.resolve_baseline_path E:function_site::indexed_scan/run_entry.py::gabion.analysis.indexed_scan.run_entry.resolve_synth_registry_path E:function_site::indexed_scan/run_entry.py::gabion.analysis.indexed_scan.run_entry.normalize_transparent_decorators
+# gabion:behavior primary=desired
 def test_path_and_transparent_decorator_helpers(tmp_path: Path) -> None:
     rel = run_entry.resolve_baseline_path("baseline.json", tmp_path)
     assert rel == tmp_path / "baseline.json"
@@ -111,6 +112,7 @@ def test_path_and_transparent_decorator_helpers(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::indexed_scan/run_entry.py::gabion.analysis.indexed_scan.run_entry.analysis_deadline_scope
+# gabion:behavior primary=verboten facets=invalid
 def test_analysis_deadline_scope_rejects_invalid_ingress() -> None:
     with pytest.raises(NeverThrown):
         with run_entry.analysis_deadline_scope(
@@ -126,6 +128,7 @@ def test_analysis_deadline_scope_rejects_invalid_ingress() -> None:
 
 
 # gabion:evidence E:function_site::indexed_scan/run_entry.py::gabion.analysis.indexed_scan.run_entry.run_impl
+# gabion:behavior primary=desired
 def test_run_impl_requires_baseline_path_for_writes(capsys: pytest.CaptureFixture[str]) -> None:
     args = _args(baseline_write=True)
     deps = _deps(
@@ -147,6 +150,7 @@ def test_run_impl_requires_baseline_path_for_writes(capsys: pytest.CaptureFixtur
 
 
 # gabion:evidence E:function_site::indexed_scan/run_entry.py::gabion.analysis.indexed_scan.run_entry.run_impl
+# gabion:behavior primary=desired
 def test_run_impl_hydrates_fingerprint_registry_and_executes_analysis(tmp_path: Path) -> None:
     capture: dict[str, object] = {}
     seed_path = tmp_path / "seed.json"
@@ -226,6 +230,7 @@ def test_run_impl_hydrates_fingerprint_registry_and_executes_analysis(tmp_path: 
 
 
 # gabion:evidence E:function_site::indexed_scan/run_entry.py::gabion.analysis.indexed_scan.run_entry.run_impl
+# gabion:behavior primary=verboten facets=empty,error
 def test_run_impl_handles_fingerprint_io_errors_and_empty_index() -> None:
     args = _args(strictness="low")
     capture: dict[str, object] = {}

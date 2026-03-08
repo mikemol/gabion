@@ -14,10 +14,10 @@ from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.invariants import never
 from gabion.order_contract import OrderPolicy, sort_once
 from gabion.runtime_shape_dispatch import (
-    int_or_none,
-    json_list_or_none,
-    json_mapping_or_none,
-    str_or_none,
+    int_optional,
+    json_list_optional,
+    json_mapping_optional,
+    str_optional,
 )
 
 Relation = list[dict[str, JSONValue]]
@@ -113,7 +113,7 @@ def _(value: list[JSONValue]) -> tuple[Mapping[str, JSONValue], ...]:
     entries: list[Mapping[str, JSONValue]] = []
     for entry in value:
         check_deadline()
-        entry_map = json_mapping_or_none(entry)
+        entry_map = json_mapping_optional(entry)
         if entry_map is not None:
             entries.append(entry_map)
     return tuple(entries)
@@ -141,7 +141,7 @@ def apply_spec(
     normalized = normalize_fn(spec)
     params: dict[str, JSONValue] = {}
     spec_params = normalized.get("params")
-    spec_params_map = json_mapping_or_none(spec_params)
+    spec_params_map = json_mapping_optional(spec_params)
     if spec_params_map is not None:
         params.update(spec_params_map)
     if params_override:
@@ -155,11 +155,11 @@ def apply_spec(
 
     for op in normalized.get("pipeline") or []:
         check_deadline()
-        op_map = json_mapping_or_none(op)
+        op_map = json_mapping_optional(op)
         if op_map is not None:
             op_name = op_map.get("op")
             params_payload = op_map.get("params")
-            params_map = json_mapping_or_none(params_payload) or {}
+            params_map = json_mapping_optional(params_payload) or {}
 
             if op_name == "select":
                 select_params = _select_params_from_map(params_map)
@@ -194,7 +194,7 @@ def apply_spec(
                     )
             elif op_name == "limit":
                 limit_params = _limit_params_from_map(params_map)
-                limit_count = int_or_none(limit_params.count)
+                limit_count = int_optional(limit_params.count)
                 if limit_count is not None and limit_count >= 0:
                     current = current[:limit_count]
 
@@ -224,7 +224,7 @@ def _select_params_from_map(params_map: Mapping[str, JSONValue]) -> SelectParams
     predicate_values = _string_sequence_payload(predicates)
     names: list[str] = []
     for name in predicate_values:
-        predicate_name = str_or_none(name)
+        predicate_name = str_optional(name)
         if predicate_name is not None:
             names.append(predicate_name)
     return SelectParams(predicates=tuple(names))
@@ -296,7 +296,7 @@ def _apply_count_by(rows: Relation, params: CountByParams) -> Relation:
 
 def _traverse_params_from_map(params_map: Mapping[str, JSONValue]) -> TraverseParams:
     field = params_map.get("field")
-    field_name = str_or_none(field)
+    field_name = str_optional(field)
     if field_name is None or not field_name.strip():
         return TraverseParams(field="")
     field = field_name.strip()
@@ -313,12 +313,12 @@ def _traverse_params_from_map(params_map: Mapping[str, JSONValue]) -> TraversePa
         case _:
             keep = False
     prefix = params_map.get("prefix", "")
-    prefix = str_or_none(prefix) or ""
+    prefix = str_optional(prefix) or ""
     as_field = params_map.get("as", field)
-    as_field_text = str_or_none(as_field)
+    as_field_text = str_optional(as_field)
     as_field = as_field_text if as_field_text and as_field_text.strip() else field
     index_field = params_map.get("index")
-    index_field_text = str_or_none(index_field)
+    index_field_text = str_optional(index_field)
     index_field = (
         index_field_text
         if index_field_text and index_field_text.strip()
@@ -339,7 +339,7 @@ def _apply_traverse(rows: Relation, params: TraverseParams) -> Relation:
     for row in rows:
         check_deadline()
         seq = row.get(params.field)
-        items = json_list_or_none(seq)
+        items = json_list_optional(seq)
         if items is not None:
             base = dict(row)
             if not params.keep:
@@ -349,7 +349,7 @@ def _apply_traverse(rows: Relation, params: TraverseParams) -> Relation:
                 out = dict(base)
                 if params.index_field:
                     out[params.index_field] = idx
-                element_map = json_mapping_or_none(element)
+                element_map = json_mapping_optional(element)
                 if element_map is not None and params.merge:
                     for key, value in element_map.items():
                         check_deadline()
@@ -367,9 +367,9 @@ def _sort_params_from_map(params_map: Mapping[str, JSONValue]) -> SortParams:
     keys: list[SortKey] = []
     for entry in by_entries:
         check_deadline()
-        field_text = str_or_none(entry.get("field"))
+        field_text = str_optional(entry.get("field"))
         if field_text is not None:
-            order_raw = str_or_none(entry.get("order", "asc"))
+            order_raw = str_optional(entry.get("order", "asc"))
             normalized_order = (order_raw or "asc").strip().lower() or "asc"
             keys.append(
                 SortKey(

@@ -41,6 +41,7 @@ def _empty_analysis_result() -> AnalysisResult:
     )
 
 
+# gabion:behavior primary=desired
 def test_execute_command_total_starts_and_stops_identity_shadow_session(
     tmp_path: Path,
 ) -> None:
@@ -192,6 +193,7 @@ def _analysis_context(
     )
 
 
+# gabion:behavior primary=verboten facets=timeout
 def test_normalize_duration_timeout_clock_ticks_without_duration_returns_total() -> None:
     _bind()
     total = orchestrator._normalize_duration_timeout_clock_ticks(
@@ -204,6 +206,7 @@ def test_normalize_duration_timeout_clock_ticks_without_duration_returns_total()
     assert total == 9
 
 
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_auxiliary_mode_from_payload_legacy_baseline_write_branch() -> None:
     _bind()
     mode = orchestrator._auxiliary_mode_from_payload(
@@ -220,6 +223,7 @@ def test_auxiliary_mode_from_payload_legacy_baseline_write_branch() -> None:
     assert mode.kind == "baseline-write"
 
 
+# gabion:behavior primary=allowed_unwanted facets=legacy
 @pytest.mark.parametrize(
     ("payload", "expected_kind"),
     [
@@ -249,6 +253,7 @@ def test_auxiliary_mode_from_payload_legacy_kind_resolution_order(
     assert mode.kind == expected_kind
 
 
+# gabion:behavior primary=allowed_unwanted facets=legacy
 def test_auxiliary_mode_from_payload_legacy_kind_resolution_conflict_still_rejected() -> None:
     _bind()
     with pytest.raises(NeverThrown):
@@ -268,6 +273,7 @@ def test_auxiliary_mode_from_payload_legacy_kind_resolution_conflict_still_rejec
         )
 
 
+# gabion:behavior primary=verboten facets=invalid
 def test_auxiliary_mode_from_payload_rejects_invalid_mode_kind() -> None:
     _bind()
     with pytest.raises(NeverThrown):
@@ -284,6 +290,7 @@ def test_auxiliary_mode_from_payload_rejects_invalid_mode_kind() -> None:
         )
 
 
+# gabion:behavior primary=verboten facets=invalid
 def test_select_auxiliary_mode_selection_rejects_invalid_aux_operation() -> None:
     _bind()
     with pytest.raises(NeverThrown):
@@ -308,6 +315,7 @@ def test_select_auxiliary_mode_selection_rejects_invalid_aux_operation() -> None
         )
 
 
+# gabion:behavior primary=desired
 def test_select_auxiliary_mode_selection_ambiguity_domain_branch() -> None:
     _bind()
     selection = orchestrator._select_auxiliary_mode_selection(
@@ -325,6 +333,7 @@ def test_select_auxiliary_mode_selection_ambiguity_domain_branch() -> None:
 
 
 # gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._select_auxiliary_mode_selection
+# gabion:behavior primary=desired
 def test_select_auxiliary_mode_selection_taint_lifecycle_domain_branch() -> None:
     _bind()
     selection = orchestrator._select_auxiliary_mode_selection(
@@ -342,6 +351,7 @@ def test_select_auxiliary_mode_selection_taint_lifecycle_domain_branch() -> None
 
 
 # gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._taint_marker_row_from_ambiguity_witness
+# gabion:behavior primary=verboten facets=edge
 def test_taint_marker_row_from_ambiguity_witness_edge_inputs() -> None:
     _bind()
     with pytest.raises(NeverThrown):
@@ -365,6 +375,7 @@ def test_taint_marker_row_from_ambiguity_witness_edge_inputs() -> None:
 
 
 # gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._taint_marker_row_from_type_ambiguity
+# gabion:behavior primary=verboten facets=edge
 def test_taint_marker_row_from_type_ambiguity_edge_inputs() -> None:
     _bind()
     with pytest.raises(NeverThrown):
@@ -395,6 +406,7 @@ def _progress_transition_state(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_core_orchestrator_coverage.py::test_progress_transition_validator_allows_table_driven_valid_sequences::command_orchestrator.py::gabion.server_core.command_orchestrator.validate_progress_transition_contract
+# gabion:behavior primary=desired
 @pytest.mark.parametrize(
     ("previous_kwargs", "current_kwargs", "expected_reason", "expected_event_kind"),
     [
@@ -437,6 +449,7 @@ def test_progress_transition_validator_allows_table_driven_valid_sequences(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_core_orchestrator_coverage.py::test_progress_transition_validator_rejects_table_driven_invalid_sequences::command_orchestrator.py::gabion.server_core.command_orchestrator.validate_progress_transition_contract
+# gabion:behavior primary=verboten facets=invalid
 @pytest.mark.parametrize(
     ("previous_kwargs", "current_kwargs"),
     [
@@ -476,6 +489,7 @@ def test_progress_transition_validator_rejects_table_driven_invalid_sequences(
 
 
 # gabion:evidence E:call_footprint::tests/test_server_core_orchestrator_coverage.py::test_progress_transition_validator_rejects_complete_marker_before_parent_completion::command_orchestrator.py::gabion.server_core.command_orchestrator.validate_progress_transition_contract
+# gabion:behavior primary=desired
 def test_progress_transition_validator_rejects_complete_marker_before_parent_completion() -> None:
     with pytest.raises(NeverThrown):
         orchestrator._validate_progress_transition_or_never(
@@ -485,6 +499,7 @@ def test_progress_transition_validator_rejects_complete_marker_before_parent_com
 
 
 # gabion:evidence E:call_footprint::tests/test_server_core_orchestrator_coverage.py::test_progress_transition_validator_normalizes_terminal_and_suppresses_replay::command_orchestrator.py::gabion.server_core.command_orchestrator.validate_progress_transition_contract
+# gabion:behavior primary=desired
 def test_progress_transition_validator_normalizes_terminal_and_suppresses_replay() -> None:
     previous = _progress_transition_state(done=6, marker="fingerprint:done")
     terminal = _progress_transition_state(done=6, marker="complete")
@@ -515,6 +530,7 @@ def test_progress_transition_validator_normalizes_terminal_and_suppresses_replay
 
 
 # gabion:evidence E:call_footprint::tests/test_server_core_orchestrator_coverage.py::test_create_progress_emitter_emits_non_complete_terminal_without_terminal_latch::command_orchestrator.py::gabion.server_core.command_orchestrator._create_progress_emitter
+# gabion:behavior primary=desired
 def test_create_progress_emitter_emits_non_complete_terminal_without_terminal_latch(
     tmp_path: Path,
 ) -> None:
@@ -596,6 +612,7 @@ def test_create_progress_emitter_emits_non_complete_terminal_without_terminal_la
     assert isinstance(v2_value.get("identity_allocation_delta_v1"), list)
 
 
+# gabion:behavior primary=allowed_unwanted facets=fallback
 def test_create_progress_emitter_emits_rejected_canonical_v2_with_v1_fallback(
     tmp_path: Path,
 ) -> None:
@@ -682,6 +699,7 @@ def test_create_progress_emitter_emits_rejected_canonical_v2_with_v1_fallback(
     assert fallback_payload.get("schema") == "gabion/dataflow_progress_v1"
 
 
+# gabion:behavior primary=desired
 def test_execute_analysis_phase_applies_runtime_payload_overrides_without_analysis(
     tmp_path: Path,
 ) -> None:
@@ -710,6 +728,7 @@ def test_execute_analysis_phase_applies_runtime_payload_overrides_without_analys
 
 
 # gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._emit_taint_outputs
+# gabion:behavior primary=verboten facets=invalid,missing
 def test_emit_taint_outputs_rejects_missing_or_invalid_state_payload(
     tmp_path: Path,
 ) -> None:
@@ -745,6 +764,7 @@ def test_emit_taint_outputs_rejects_missing_or_invalid_state_payload(
         )
 
 
+# gabion:behavior primary=desired
 def test_run_analysis_with_progress_skips_resume_seed_when_resume_payload_present(
     tmp_path: Path,
 ) -> None:
@@ -776,6 +796,7 @@ def test_run_analysis_with_progress_skips_resume_seed_when_resume_payload_presen
     assert isinstance(outcome.analysis, AnalysisResult)
 
 
+# gabion:behavior primary=desired
 def test_build_success_response_emits_analysis_resume_block_when_resume_source_present(
     tmp_path: Path,
 ) -> None:
@@ -836,6 +857,7 @@ def test_build_success_response_emits_analysis_resume_block_when_resume_source_p
     assert resume_payload["cache_verdict"] in {"seeded", "warm"}
 
 
+# gabion:behavior primary=desired
 def test_execute_command_total_uses_analysis_stage_module(
     tmp_path: Path,
 ) -> None:

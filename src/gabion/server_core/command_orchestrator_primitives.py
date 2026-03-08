@@ -52,19 +52,19 @@ from gabion.server_core.command_orchestrator_progress import (
     _analysis_index_resume_hydrated_count,
     _analysis_index_resume_signature,
     _analysis_resume_progress,
-    _bool_or_none,
+    _bool_optional,
     _build_phase_progress_v2,
     _collection_semantic_progress,
-    _float_or_none,
+    _float_optional,
     _in_progress_scan_states,
-    _int_or_none,
-    _json_mapping_or_empty,
-    _json_mapping_or_none,
-    _non_negative_int_or_none,
-    _non_string_sequence_or_none,
+    _int_optional,
+    _json_mapping_default_empty,
+    _json_mapping_optional,
+    _non_negative_int_optional,
+    _non_string_sequence_optional,
     _normalize_progress_work,
-    _report_projection_phase_rank_or_none,
-    _str_or_none,
+    _report_projection_phase_rank_optional,
+    _str_optional,
 )
 
 DATAFLOW_COMMAND = command_ids.DATAFLOW_COMMAND
@@ -355,22 +355,22 @@ def _report_witness_digest(
     manifest_digest: str | None,
 ) -> str | None:
     digest = input_witness.get("witness_digest") if input_witness is not None else None
-    digest_text = _str_or_none(digest)
+    digest_text = _str_optional(digest)
     if digest_text == "":
         digest_text = None
-    manifest_text = _str_or_none(manifest_digest)
+    manifest_text = _str_optional(manifest_digest)
     if manifest_text == "":
         manifest_text = None
     return digest_text or manifest_text
 
 def _coerce_section_lines(value: object) -> list[str]:
-    entries = _non_string_sequence_or_none(value)
+    entries = _non_string_sequence_optional(value)
     if entries is None:
         return []
     lines: list[str] = []
     for item in entries:
         check_deadline()
-        item_text = _str_or_none(item)
+        item_text = _str_optional(item)
         if item_text is not None:
             lines.append(item_text)
     return lines
@@ -388,24 +388,24 @@ def _load_report_section_journal(
         )
     except (OSError, UnicodeError, json.JSONDecodeError):
         return {}, "policy"
-    payload_mapping = _json_mapping_or_none(payload)
+    payload_mapping = _json_mapping_optional(payload)
     if payload_mapping is None:
         return {}, "policy"
     if payload_mapping.get("format_version") != _REPORT_SECTION_JOURNAL_FORMAT_VERSION:
         return {}, "policy"
-    expected_digest_text = _str_or_none(payload_mapping.get("witness_digest"))
-    witness_digest_text = _str_or_none(witness_digest)
+    expected_digest_text = _str_optional(payload_mapping.get("witness_digest"))
+    witness_digest_text = _str_optional(witness_digest)
     if expected_digest_text is not None:
         if witness_digest_text is None or expected_digest_text != witness_digest_text:
             return {}, "stale_input"
-    sections_payload = _json_mapping_or_none(payload_mapping.get("sections"))
+    sections_payload = _json_mapping_optional(payload_mapping.get("sections"))
     if sections_payload is None:
         return {}, "policy"
     sections: dict[str, list[str]] = {}
     for key, entry in sections_payload.items():
         check_deadline()
-        key_text = _str_or_none(key)
-        entry_mapping = _json_mapping_or_none(entry)
+        key_text = _str_optional(key)
+        entry_mapping = _json_mapping_optional(entry)
         if key_text is None or entry_mapping is None:
             continue
         lines = _coerce_section_lines(entry_mapping.get("lines"))
@@ -434,11 +434,11 @@ def _write_report_section_journal(
             phase = str(row.get("phase", "") or "")
             deps_raw = row.get("deps")
             deps: list[str] = []
-            normalized_deps = _non_string_sequence_or_none(deps_raw)
+            normalized_deps = _non_string_sequence_optional(deps_raw)
             if normalized_deps is not None:
                 deps = [
                     dep_text
-                    for dep_text in (_str_or_none(dep) for dep in normalized_deps)
+                    for dep_text in (_str_optional(dep) for dep in normalized_deps)
                     if dep_text is not None
                 ]
             status = "resolved" if section_id in sections else "pending"
@@ -500,7 +500,7 @@ def _write_bootstrap_incremental_artifacts(
             except (OSError, UnicodeError, json.JSONDecodeError):
                 existing_reason = "policy"
             else:
-                existing_payload_mapping = _json_mapping_or_none(existing_payload)
+                existing_payload_mapping = _json_mapping_optional(existing_payload)
                 if existing_payload_mapping is None:
                     existing_reason = "policy"
                 elif (
@@ -509,10 +509,10 @@ def _write_bootstrap_incremental_artifacts(
                 ):
                     existing_reason = "policy"
                 else:
-                    expected_digest = _str_or_none(
+                    expected_digest = _str_optional(
                         existing_payload_mapping.get("witness_digest")
                     )
-                    witness_digest_text = _str_or_none(witness_digest)
+                    witness_digest_text = _str_optional(witness_digest)
                     if expected_digest:
                         if witness_digest_text is None or expected_digest != witness_digest_text:
                             existing_reason = "stale_input"
@@ -562,14 +562,14 @@ def _write_bootstrap_incremental_artifacts(
             phase = str(row.get("phase", "") or "")
             deps_raw = row.get("deps")
             deps: list[str] = []
-            normalized_deps = _non_string_sequence_or_none(deps_raw)
+            normalized_deps = _non_string_sequence_optional(deps_raw)
             if normalized_deps is not None:
                 for dep in normalized_deps:
                     if _deadline_tick_budget_allows_check(get_deadline_clock()):
                         check_deadline(allow_frame_fallback=False)
                     else:
                         get_deadline()
-                    dep_text = _str_or_none(dep)
+                    dep_text = _str_optional(dep)
                     if dep_text is not None:
                         deps.append(dep_text)
             dep_text = ", ".join(deps) if deps else "none"
@@ -642,16 +642,16 @@ def _render_incremental_report(
         "",
         f"- `analysis_state`: `{analysis_state}`",
     ]
-    progress_payload_mapping = _json_mapping_or_none(progress_payload)
+    progress_payload_mapping = _json_mapping_optional(progress_payload)
     if progress_payload_mapping is not None:
-        phase = _str_or_none(progress_payload_mapping.get("phase"))
+        phase = _str_optional(progress_payload_mapping.get("phase"))
         if phase:
             lines.append(f"- `phase`: `{phase}`")
-        event_kind = _str_or_none(progress_payload_mapping.get("event_kind"))
+        event_kind = _str_optional(progress_payload_mapping.get("event_kind"))
         if event_kind:
             lines.append(f"- `event_kind`: `{event_kind}`")
-        work_done_raw = _int_or_none(progress_payload_mapping.get("work_done"))
-        work_total_raw = _int_or_none(progress_payload_mapping.get("work_total"))
+        work_done_raw = _int_optional(progress_payload_mapping.get("work_done"))
+        work_total_raw = _int_optional(progress_payload_mapping.get("work_total"))
         if work_done_raw is not None and work_total_raw is not None:
             work_done = max(work_done_raw, 0)
             work_total = max(work_total_raw, 0)
@@ -663,15 +663,15 @@ def _render_incremental_report(
                 lines.append(
                     f"- `work_percent`: `{(100.0 * work_done / work_total):.2f}`"
                 )
-        phase_progress_v2 = _json_mapping_or_none(
+        phase_progress_v2 = _json_mapping_optional(
             progress_payload_mapping.get("phase_progress_v2")
         )
         if phase_progress_v2 is not None:
             primary_unit = str(phase_progress_v2.get("primary_unit", "") or "")
             raw_primary_done = phase_progress_v2.get("primary_done")
             raw_primary_total = phase_progress_v2.get("primary_total")
-            primary_done = _non_negative_int_or_none(raw_primary_done)
-            primary_total = _non_negative_int_or_none(raw_primary_total)
+            primary_done = _non_negative_int_optional(raw_primary_done)
+            primary_total = _non_negative_int_optional(raw_primary_total)
             if primary_done is not None and primary_total is not None:
                 if primary_total:
                     primary_done = min(primary_done, primary_total)
@@ -684,21 +684,21 @@ def _render_incremental_report(
             if dimensions_summary:
                 lines.append(f"- `dimensions`: `{dimensions_summary}`")
         stale_for_s_raw = progress_payload_mapping.get("stale_for_s")
-        stale_for_s_float = _float_or_none(stale_for_s_raw)
-        stale_for_s_int = _int_or_none(stale_for_s_raw)
+        stale_for_s_float = _float_optional(stale_for_s_raw)
+        stale_for_s_int = _int_optional(stale_for_s_raw)
         if stale_for_s_float is not None:
             lines.append(f"- `stale_for_s`: `{float(stale_for_s_float):.1f}`")
         elif stale_for_s_int is not None:
             lines.append(f"- `stale_for_s`: `{float(stale_for_s_int):.1f}`")
-        classification = _str_or_none(progress_payload_mapping.get("classification"))
+        classification = _str_optional(progress_payload_mapping.get("classification"))
         if classification is not None:
             lines.append(f"- `classification`: `{classification}`")
-        retry_recommended = _bool_or_none(
+        retry_recommended = _bool_optional(
             progress_payload_mapping.get("retry_recommended")
         )
         if retry_recommended is not None:
             lines.append(f"- `retry_recommended`: `{retry_recommended}`")
-        resume_supported = _bool_or_none(
+        resume_supported = _bool_optional(
             progress_payload_mapping.get("resume_supported")
         )
         if resume_supported is not None:
@@ -714,11 +714,11 @@ def _render_incremental_report(
         phase = str(row.get("phase", "") or "")
         deps_raw = row.get("deps")
         deps: list[str] = []
-        normalized_deps = _non_string_sequence_or_none(deps_raw)
+        normalized_deps = _non_string_sequence_optional(deps_raw)
         if normalized_deps is not None:
             deps = [
                 dep_text
-                for dep_text in (_str_or_none(dep) for dep in normalized_deps)
+                for dep_text in (_str_optional(dep) for dep in normalized_deps)
                 if dep_text is not None
             ]
         section_lines = sections.get(section_id)
@@ -760,30 +760,30 @@ def _markdown_table_cell(value: object) -> str:
 def _phase_progress_dimensions_summary(
     phase_progress_v2: Mapping[str, JSONValue] | None,
 ) -> str:
-    phase_progress_v2_mapping = _json_mapping_or_none(phase_progress_v2)
+    phase_progress_v2_mapping = _json_mapping_optional(phase_progress_v2)
     if phase_progress_v2_mapping is None:
         return ""
-    raw_dimensions = _json_mapping_or_none(phase_progress_v2_mapping.get("dimensions"))
+    raw_dimensions = _json_mapping_optional(phase_progress_v2_mapping.get("dimensions"))
     if raw_dimensions is None:
         return ""
     fragments: list[str] = []
     dim_names = sort_once(
         (
             name_text
-            for name_text in (_str_or_none(name) for name in raw_dimensions)
+            for name_text in (_str_optional(name) for name in raw_dimensions)
             if name_text is not None
         ),
         source="src/gabion/server.py:2253",
     )
     for dim_name in dim_names:
         raw_payload = raw_dimensions.get(dim_name)
-        payload_mapping = _json_mapping_or_none(raw_payload)
+        payload_mapping = _json_mapping_optional(raw_payload)
         if payload_mapping is None:
             continue
         raw_done = payload_mapping.get("done")
         raw_total = payload_mapping.get("total")
-        done = _non_negative_int_or_none(raw_done)
-        total = _non_negative_int_or_none(raw_total)
+        done = _non_negative_int_optional(raw_done)
+        total = _non_negative_int_optional(raw_total)
         if done is not None and total is not None:
             if total:
                 done = min(done, total)
@@ -839,7 +839,7 @@ def _collection_progress_intro_lines(
         f"- `remaining_files`: `{progress['remaining_files']}`",
         f"- `total_files`: `{progress['total_files']}`",
     ]
-    resume_state = _json_mapping_or_empty(resume_state_intro)
+    resume_state = _json_mapping_default_empty(resume_state_intro)
     state_path = str(resume_state.get("state_path", "") or "")
     status = str(resume_state.get("status", "") or "")
     reused_files = int(resume_state.get("reused_files", 0) or 0)
@@ -852,19 +852,19 @@ def _collection_progress_intro_lines(
         f"status={status or 'unknown'} "
         f"reused_files={reused_files}/{total_resume_files}`"
     )
-    semantic_progress = _json_mapping_or_none(collection_resume.get("semantic_progress"))
+    semantic_progress = _json_mapping_optional(collection_resume.get("semantic_progress"))
     if semantic_progress is not None:
-        semantic_witness_digest = _str_or_none(
+        semantic_witness_digest = _str_optional(
             semantic_progress.get("current_witness_digest")
         )
         if semantic_witness_digest:
             lines.append(f"- `semantic_witness_digest`: `{semantic_witness_digest}`")
-        new_processed_functions = _int_or_none(
+        new_processed_functions = _int_optional(
             semantic_progress.get("new_processed_functions_count")
         )
         if new_processed_functions is not None:
             lines.append(f"- `new_processed_functions`: `{new_processed_functions}`")
-        regressed_processed_functions = _int_or_none(
+        regressed_processed_functions = _int_optional(
             semantic_progress.get(
             "regressed_processed_functions_count"
             )
@@ -873,10 +873,10 @@ def _collection_progress_intro_lines(
             lines.append(
                 f"- `regressed_processed_functions`: `{regressed_processed_functions}`"
             )
-        completed_delta = _int_or_none(semantic_progress.get("completed_files_delta"))
+        completed_delta = _int_optional(semantic_progress.get("completed_files_delta"))
         if completed_delta is not None:
             lines.append(f"- `completed_files_delta`: `{completed_delta}`")
-        substantive_progress = _bool_or_none(
+        substantive_progress = _bool_optional(
             semantic_progress.get("substantive_progress")
         )
         if substantive_progress is not None:
@@ -892,33 +892,33 @@ def _collection_progress_intro_lines(
         detail_entries: list[str] = []
         for raw_path, state_mapping in in_progress_states.items():
             check_deadline()
-            phase = _str_or_none(state_mapping.get("phase"))
+            phase = _str_optional(state_mapping.get("phase"))
             phase_text = phase if phase else "unknown"
             processed_count = state_mapping.get("processed_functions_count")
-            processed_count_value = _int_or_none(processed_count)
+            processed_count_value = _int_optional(processed_count)
             if processed_count_value is None:
                 raw_processed = state_mapping.get("processed_functions")
-                processed_entries = _non_string_sequence_or_none(raw_processed)
+                processed_entries = _non_string_sequence_optional(raw_processed)
                 if processed_entries is not None:
                     processed_count = 0
                     for entry in processed_entries:
                         check_deadline()
-                        if _str_or_none(entry) is not None:
+                        if _str_optional(entry) is not None:
                             processed_count += 1
                 else:
                     processed_count = 0
             else:
                 processed_count = processed_count_value
             function_count = state_mapping.get("function_count")
-            function_count_value = _int_or_none(function_count)
+            function_count_value = _int_optional(function_count)
             if function_count_value is None:
                 raw_fn_names = state_mapping.get("fn_names")
-                fn_name_mapping = _json_mapping_or_none(raw_fn_names)
+                fn_name_mapping = _json_mapping_optional(raw_fn_names)
                 if fn_name_mapping is not None:
                     function_count = 0
                     for key in fn_name_mapping:
                         check_deadline()
-                        if _str_or_none(key) is not None:
+                        if _str_optional(key) is not None:
                             function_count += 1
                 else:
                     function_count = 0
@@ -936,22 +936,22 @@ def _collection_progress_intro_lines(
         for detail in detail_entries:
             check_deadline()
             lines.append(f"- `in_progress_detail`: `{detail}`")
-    raw_analysis_index_resume = _json_mapping_or_none(
+    raw_analysis_index_resume = _json_mapping_optional(
         collection_resume.get("analysis_index_resume")
     )
     if raw_analysis_index_resume is not None:
-        hydrated_paths_count = _int_or_none(
+        hydrated_paths_count = _int_optional(
             raw_analysis_index_resume.get("hydrated_paths_count")
         )
         if hydrated_paths_count is None:
             hydrated_paths_count = _analysis_index_resume_hydrated_count(collection_resume)
         lines.append(f"- `hydrated_paths_count`: `{hydrated_paths_count}`")
-        function_count = _non_negative_int_or_none(
+        function_count = _non_negative_int_optional(
             raw_analysis_index_resume.get("function_count")
         )
         if function_count is not None:
             lines.append(f"- `hydrated_function_count`: `{function_count}`")
-        class_count = _non_negative_int_or_none(
+        class_count = _non_negative_int_optional(
             raw_analysis_index_resume.get("class_count")
         )
         if class_count is not None:
@@ -963,7 +963,7 @@ def _collection_components_preview_lines(
     collection_resume: Mapping[str, JSONValue],
 ) -> list[str]:
     check_deadline()
-    raw_groups = _json_mapping_or_none(collection_resume.get("groups_by_path"))
+    raw_groups = _json_mapping_optional(collection_resume.get("groups_by_path"))
     if raw_groups is None:
         return [
             "Component preview (provisional).",
@@ -976,24 +976,24 @@ def _collection_components_preview_lines(
     bundle_alternatives = 0
     for raw_path, raw_path_groups in raw_groups.items():
         check_deadline()
-        raw_path_text = _str_or_none(raw_path)
-        path_groups_mapping = _json_mapping_or_none(raw_path_groups)
+        raw_path_text = _str_optional(raw_path)
+        path_groups_mapping = _json_mapping_optional(raw_path_groups)
         if raw_path_text is None or path_groups_mapping is None:
             continue
         path_count += 1
         for raw_qual, raw_bundles in path_groups_mapping.items():
             check_deadline()
-            raw_qual_text = _str_or_none(raw_qual)
+            raw_qual_text = _str_optional(raw_qual)
             if raw_qual_text is None:
                 continue
-            bundle_list = _non_string_sequence_or_none(raw_bundles)
+            bundle_list = _non_string_sequence_optional(raw_bundles)
             if bundle_list is None:
                 continue
             function_count += 1
             bundle_alternatives += sum(
                 1
                 for bundle in bundle_list
-                if _non_string_sequence_or_none(bundle) is not None
+                if _non_string_sequence_optional(bundle) is not None
             )
     return [
         "Component preview (provisional).",
@@ -1007,35 +1007,35 @@ def _groups_by_path_from_collection_resume(
 ) -> dict[Path, dict[str, list[set[str]]]]:
     check_deadline()
     groups_by_path: dict[Path, dict[str, list[set[str]]]] = {}
-    raw_groups = _json_mapping_or_none(collection_resume.get("groups_by_path"))
+    raw_groups = _json_mapping_optional(collection_resume.get("groups_by_path"))
     if raw_groups is None:
         return groups_by_path
     for raw_path, raw_path_groups in raw_groups.items():
         check_deadline()
-        raw_path_text = _str_or_none(raw_path)
-        path_groups_mapping = _json_mapping_or_none(raw_path_groups)
+        raw_path_text = _str_optional(raw_path)
+        path_groups_mapping = _json_mapping_optional(raw_path_groups)
         if raw_path_text is None or path_groups_mapping is None:
             continue
         path_groups: dict[str, list[set[str]]] = {}
         for raw_qual, raw_bundles in path_groups_mapping.items():
             check_deadline()
-            raw_qual_text = _str_or_none(raw_qual)
+            raw_qual_text = _str_optional(raw_qual)
             if raw_qual_text is None:
                 continue
-            bundle_list = _non_string_sequence_or_none(raw_bundles)
+            bundle_list = _non_string_sequence_optional(raw_bundles)
             if bundle_list is None:
                 continue
             bundles: list[set[str]] = []
             for raw_bundle in bundle_list:
                 check_deadline()
-                bundle_items = _non_string_sequence_or_none(raw_bundle)
+                bundle_items = _non_string_sequence_optional(raw_bundle)
                 if bundle_items is None:
                     continue
                 bundles.append(
                     {
                         entry_text
                         for entry_text in (
-                            _str_or_none(entry) for entry in bundle_items
+                            _str_optional(entry) for entry in bundle_items
                         )
                         if entry_text is not None
                     }
@@ -1057,7 +1057,7 @@ def _incremental_progress_obligations(
 ) -> list[JSONObject]:
     check_deadline()
     obligations: list[JSONObject] = []
-    normalized_progress_payload = _json_mapping_or_none(progress_payload)
+    normalized_progress_payload = _json_mapping_optional(progress_payload)
     if normalized_progress_payload is None:
         classification = ""
         resume_supported = False
@@ -1065,7 +1065,7 @@ def _incremental_progress_obligations(
     else:
         classification = str(normalized_progress_payload.get("classification", "") or "")
         resume_supported = bool(normalized_progress_payload.get("resume_supported"))
-        semantic_progress = _json_mapping_or_none(
+        semantic_progress = _json_mapping_optional(
             normalized_progress_payload.get("semantic_progress")
         )
     semantic_monotonic_progress: bool | None = None
@@ -1073,8 +1073,8 @@ def _incremental_progress_obligations(
     if semantic_progress is not None:
         raw_monotonic = semantic_progress.get("monotonic_progress")
         raw_substantive = semantic_progress.get("substantive_progress")
-        monotonic_value = _bool_or_none(raw_monotonic)
-        substantive_value = _bool_or_none(raw_substantive)
+        monotonic_value = _bool_optional(raw_monotonic)
+        substantive_value = _bool_optional(raw_substantive)
         if monotonic_value is not None:
             semantic_monotonic_progress = monotonic_value
         if substantive_value is not None:
@@ -1166,8 +1166,8 @@ def _incremental_progress_obligations(
         projection_count = sum(
             1
             for row in projection_rows
-            if _json_mapping_or_none(row) is not None
-            and _str_or_none(row.get("section_id")) not in {None, ""}
+            if _json_mapping_optional(row) is not None
+            and _str_optional(row.get("section_id")) not in {None, ""}
         )
         resolved_count = len(sections)
         obligations.append(
@@ -1233,7 +1233,7 @@ def _split_incremental_obligations(
     incremental: list[JSONObject] = []
     for raw_entry in obligations:
         check_deadline()
-        entry_mapping = _json_mapping_or_none(raw_entry)
+        entry_mapping = _json_mapping_optional(raw_entry)
         if entry_mapping is None:
             continue
         entry: JSONObject = {str(key): entry_mapping[key] for key in entry_mapping}
@@ -1264,11 +1264,11 @@ def _latest_report_phase(phases: Mapping[str, JSONValue] | None) -> str | None:
     check_deadline()
     best_phase: str | None = None
     best_rank = -1
-    phase_mapping = _json_mapping_or_none(phases)
+    phase_mapping = _json_mapping_optional(phases)
     phase_names: Mapping[str, JSONValue] = phase_mapping if phase_mapping is not None else {}
     for phase_name in phase_names:
         check_deadline()
-        rank = _report_projection_phase_rank_or_none(phase_name)
+        rank = _report_projection_phase_rank_optional(phase_name)
         if rank is None:
             continue
         if rank > best_rank:
@@ -1298,7 +1298,7 @@ def _normalize_dataflow_response(
     aspf_state_raw = response.get("aspf_state")
     supported_analysis_surfaces_raw = response.get("supported_analysis_surfaces")
     disabled_surface_reasons_raw = response.get("disabled_surface_reasons")
-    supported_surfaces_entries = _non_string_sequence_or_none(
+    supported_surfaces_entries = _non_string_sequence_optional(
         supported_analysis_surfaces_raw
     )
     supported_analysis_surfaces = (
@@ -1309,7 +1309,7 @@ def _normalize_dataflow_response(
             source="server._normalize_dataflow_response.supported_analysis_surfaces",
         )
     )
-    disabled_surface_reasons_mapping = _json_mapping_or_none(
+    disabled_surface_reasons_mapping = _json_mapping_optional(
         disabled_surface_reasons_raw
     )
     disabled_surface_reasons = (
@@ -1320,7 +1320,7 @@ def _normalize_dataflow_response(
         if disabled_surface_reasons_mapping is not None
         else {}
     )
-    error_entries = _non_string_sequence_or_none(response.get("errors"))
+    error_entries = _non_string_sequence_optional(response.get("errors"))
     canonical = DataflowCanonicalResponseDTO(
         exit_code=int(response.get("exit_code", 0) or 0),
         timeout=bool(response.get("timeout", False)),
@@ -1335,27 +1335,27 @@ def _normalize_dataflow_response(
         ),
         supported_analysis_surfaces=supported_analysis_surfaces,
         disabled_surface_reasons=disabled_surface_reasons,
-        aspf_trace=_json_mapping_or_none(aspf_trace_raw),
+        aspf_trace=_json_mapping_optional(aspf_trace_raw),
         aspf_equivalence=(
-            _json_mapping_or_none(aspf_equivalence_raw)
+            _json_mapping_optional(aspf_equivalence_raw)
         ),
         aspf_opportunities=(
-            _json_mapping_or_none(aspf_opportunities_raw)
+            _json_mapping_optional(aspf_opportunities_raw)
         ),
         aspf_delta_ledger=(
-            _json_mapping_or_none(aspf_delta_ledger_raw)
+            _json_mapping_optional(aspf_delta_ledger_raw)
         ),
-        aspf_state=_json_mapping_or_none(aspf_state_raw),
+        aspf_state=_json_mapping_optional(aspf_state_raw),
     )
     normalized = {str(key): response[key] for key in response}
     rewrite_plans = normalized.get("fingerprint_rewrite_plans")
-    rewrite_plan_entries = _non_string_sequence_or_none(rewrite_plans)
+    rewrite_plan_entries = _non_string_sequence_optional(rewrite_plans)
     if rewrite_plan_entries is not None:
         ordered_plans = normalize_rewrite_plan_order(
             [
                 entry_mapping
                 for entry_mapping in (
-                    _json_mapping_or_none(entry) for entry in rewrite_plan_entries
+                    _json_mapping_optional(entry) for entry in rewrite_plan_entries
                 )
                 if entry_mapping is not None
             ]
@@ -1383,7 +1383,7 @@ def _normalize_dataflow_response(
     normalized["disabled_surface_reasons"] = dict(canonical.disabled_surface_reasons)
     normalized["lint_entries"] = [entry.model_dump() for entry in canonical.lint_entries]
     payload = normalized.get("payload")
-    payload_mapping = _json_mapping_or_none(payload)
+    payload_mapping = _json_mapping_optional(payload)
     if payload_mapping is not None:
         payload_updates: dict[str, object] = {
             "selected_adapter": canonical.selected_adapter,
@@ -1430,15 +1430,15 @@ def _serialize_dataflow_response(
     )
 
 def _truthy_flag(value: object) -> bool:
-    bool_value = _bool_or_none(value)
+    bool_value = _bool_optional(value)
     if bool_value is not None:
         return bool_value
     if value is None:
         return False
-    int_value = _int_or_none(value)
+    int_value = _int_optional(value)
     if int_value is not None:
         return int_value != 0
-    float_value = _float_or_none(value)
+    float_value = _float_optional(value)
     if float_value is not None:
         return float_value != 0
     text = str(value).strip().lower()
@@ -1578,10 +1578,10 @@ def _normalize_csv_or_iterable_names(value: object, *, strict: bool) -> list[str
     check_deadline()
     if value is None:
         return []
-    value_text = _str_or_none(value)
+    value_text = _str_optional(value)
     if value_text is not None:
         return [part.strip() for part in value_text.split(",") if part.strip()]
-    entries = _non_string_sequence_or_none(value)
+    entries = _non_string_sequence_optional(value)
     if entries is None:
         if strict:
             never("invalid name set payload", value_type=type(value).__name__)
@@ -1589,7 +1589,7 @@ def _normalize_csv_or_iterable_names(value: object, *, strict: bool) -> list[str
     items: list[str] = []
     for item in entries:
         check_deadline()
-        item_text = _str_or_none(item)
+        item_text = _str_optional(item)
         if item_text is not None:
             items.extend([part.strip() for part in item_text.split(",") if part.strip()])
         elif strict:
@@ -1650,7 +1650,7 @@ def _timeout_context_payload(exc: TimeoutExceeded) -> JSONObject:
     context_obj = getattr(exc, "context", None)
     if hasattr(context_obj, "as_payload"):
         payload = context_obj.as_payload()
-        payload_mapping = _json_mapping_or_none(payload)
+        payload_mapping = _json_mapping_optional(payload)
         if payload_mapping is not None:
             return {str(key): payload_mapping[key] for key in payload_mapping}
     return {
@@ -1660,20 +1660,20 @@ def _timeout_context_payload(exc: TimeoutExceeded) -> JSONObject:
 
 def _materialize_execution_plan(payload: Mapping[str, JSONValue]) -> ExecutionPlan:
     request_value = payload.get("execution_plan_request")
-    request_mapping = _json_mapping_or_none(request_value)
+    request_mapping = _json_mapping_optional(request_value)
     if request_mapping is not None:
-        req_ops = _non_string_sequence_or_none(
+        req_ops = _non_string_sequence_optional(
             request_mapping.get("requested_operations")
         )
         requested_operations = (
             [str(op) for op in req_ops] if req_ops is not None else [DATAFLOW_COMMAND]
         )
-        inputs_value = _json_mapping_or_none(request_mapping.get("inputs"))
+        inputs_value = _json_mapping_optional(request_mapping.get("inputs"))
         if inputs_value is not None:
             inputs = {str(key): inputs_value[key] for key in inputs_value}
         else:
             inputs = {str(key): payload[key] for key in payload if key != "execution_plan_request"}
-        artifacts_value = _non_string_sequence_or_none(
+        artifacts_value = _non_string_sequence_optional(
             request_mapping.get("derived_artifacts")
         )
         derived_artifacts = (
@@ -1681,36 +1681,36 @@ def _materialize_execution_plan(payload: Mapping[str, JSONValue]) -> ExecutionPl
             if artifacts_value is not None
             else ["artifacts/out/execution_plan.json"]
         )
-        obligations_value = _json_mapping_or_none(request_mapping.get("obligations"))
+        obligations_value = _json_mapping_optional(request_mapping.get("obligations"))
         preconditions: list[str] = []
         postconditions: list[str] = []
         if obligations_value is not None:
-            pre_raw = _non_string_sequence_or_none(obligations_value.get("preconditions"))
-            post_raw = _non_string_sequence_or_none(
+            pre_raw = _non_string_sequence_optional(obligations_value.get("preconditions"))
+            post_raw = _non_string_sequence_optional(
                 obligations_value.get("postconditions")
             )
             if pre_raw is not None:
                 preconditions = [str(item) for item in pre_raw]
             if post_raw is not None:
                 postconditions = [str(item) for item in post_raw]
-        policy_value = _json_mapping_or_none(request_mapping.get("policy_metadata"))
+        policy_value = _json_mapping_optional(request_mapping.get("policy_metadata"))
         policy_deadline: dict[str, int] = {}
         policy_baseline_mode = "none"
         policy_docflow_mode = "disabled"
         if policy_value is not None:
             deadline_value = policy_value.get("deadline")
-            deadline_mapping = _json_mapping_or_none(deadline_value)
+            deadline_mapping = _json_mapping_optional(deadline_value)
             if deadline_mapping is not None:
                 for key, value in deadline_mapping.items():
-                    int_value = _int_or_none(value)
+                    int_value = _int_optional(value)
                     if int_value is not None:
                         policy_deadline[str(key)] = int_value
             baseline_mode = policy_value.get("baseline_mode")
-            baseline_mode_text = _str_or_none(baseline_mode)
+            baseline_mode_text = _str_optional(baseline_mode)
             if baseline_mode_text is not None:
                 policy_baseline_mode = baseline_mode_text
             docflow_mode = policy_value.get("docflow_mode")
-            docflow_mode_text = _str_or_none(docflow_mode)
+            docflow_mode_text = _str_optional(docflow_mode)
             if docflow_mode_text is not None:
                 policy_docflow_mode = docflow_mode_text
         return ExecutionPlan(

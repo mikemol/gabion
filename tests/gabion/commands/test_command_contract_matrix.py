@@ -7,6 +7,7 @@ from gabion.exceptions import NeverThrown
 
 
 # gabion:evidence E:call_footprint::tests/test_command_contract_matrix.py::test_command_envelope_normalization_matrix_includes_check::command_envelope.py::gabion.commands.command_envelope.command_payload_envelope
+# gabion:behavior primary=desired
 def test_command_envelope_normalization_matrix_includes_check() -> None:
     for command in command_ids.SEMANTIC_COMMAND_IDS:
         envelope = command_envelope.command_payload_envelope(
@@ -27,6 +28,7 @@ def test_command_envelope_normalization_matrix_includes_check() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_command_contract_matrix.py::test_command_envelope_rejects_missing_or_non_mapping_payload::command_envelope.py::gabion.commands.command_envelope.command_payload_envelope
+# gabion:behavior primary=verboten facets=missing
 def test_command_envelope_rejects_missing_or_non_mapping_payload() -> None:
     with pytest.raises(NeverThrown):
         command_envelope.command_payload_envelope(
@@ -41,6 +43,7 @@ def test_command_envelope_rejects_missing_or_non_mapping_payload() -> None:
 
 
 # gabion:evidence E:function_site::payload_codec.py::gabion.commands.payload_codec.analysis_timeout_total_ns
+# gabion:behavior primary=verboten facets=timeout
 @pytest.mark.parametrize(
     ("payload", "expected_ns"),
     [
@@ -65,6 +68,7 @@ def test_timeout_codec_matrix(payload: dict[str, object], expected_ns: int) -> N
 
 
 # gabion:evidence E:call_footprint::tests/test_command_contract_matrix.py::test_timeout_codec_preserves_explicit_tick_pair_requirement::payload_codec.py::gabion.commands.payload_codec.analysis_timeout_total_ns
+# gabion:behavior primary=verboten facets=timeout
 def test_timeout_codec_preserves_explicit_tick_pair_requirement() -> None:
     with pytest.raises(NeverThrown):
         payload_codec.analysis_timeout_total_ns(

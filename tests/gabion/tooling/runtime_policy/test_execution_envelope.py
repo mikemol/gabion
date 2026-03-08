@@ -9,6 +9,7 @@ from gabion.tooling.runtime.execution_envelope import ExecutionEnvelope
 
 
 # gabion:evidence E:call_footprint::tests/test_execution_envelope.py::test_execution_envelope_for_delta_bundle_and_raw::execution_envelope.py::gabion.tooling.execution_envelope.ExecutionEnvelope.validate
+# gabion:behavior primary=desired
 def test_execution_envelope_for_delta_bundle_and_raw() -> None:
     delta = ExecutionEnvelope.for_delta_bundle(
         root=Path("."),
@@ -33,6 +34,7 @@ def test_execution_envelope_for_delta_bundle_and_raw() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_execution_envelope.py::test_execution_envelope_validate_rejects_invalid_shapes::execution_envelope.py::gabion.tooling.execution_envelope.ExecutionEnvelope.validate
+# gabion:behavior primary=verboten facets=invalid
 def test_execution_envelope_validate_rejects_invalid_shapes() -> None:
     with pytest.raises(NeverThrown):
         ExecutionEnvelope(

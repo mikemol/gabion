@@ -7,6 +7,7 @@ from pathlib import Path
 from gabion_governance import governance_audit_impl
 
 
+# gabion:behavior primary=desired
 def test_status_consistency_command_preserves_markdown_json_shape(tmp_path: Path) -> None:
     json_output = tmp_path / "status.json"
     md_output = tmp_path / "status.md"

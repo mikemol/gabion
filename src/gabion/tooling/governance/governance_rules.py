@@ -92,11 +92,11 @@ def _yaml_loader():
 
 
 @singledispatch
-def _str_or_none(raw: object) -> str | None:
+def _str_optional(raw: object) -> str | None:
     never("unregistered runtime type", value_type=type(raw).__name__)
 
 
-@_str_or_none.register(str)
+@_str_optional.register(str)
 def _(raw: str) -> str | None:
     return raw
 
@@ -107,15 +107,15 @@ def _none_str(raw: object) -> str | None:
 
 
 for _str_none_type in (dict, list, tuple, set, int, float, bool, type(None)):
-    _str_or_none.register(_str_none_type)(_none_str)
+    _str_optional.register(_str_none_type)(_none_str)
 
 
 @singledispatch
-def _dict_or_none(raw: object) -> dict[object, object] | None:
+def _dict_optional(raw: object) -> dict[object, object] | None:
     never("unregistered runtime type", value_type=type(raw).__name__)
 
 
-@_dict_or_none.register(dict)
+@_dict_optional.register(dict)
 def _(raw: dict[object, object]) -> dict[object, object] | None:
     return raw
 
@@ -126,15 +126,15 @@ def _none_dict(raw: object) -> dict[object, object] | None:
 
 
 for _dict_none_type in (list, tuple, set, str, int, float, bool, type(None)):
-    _dict_or_none.register(_dict_none_type)(_none_dict)
+    _dict_optional.register(_dict_none_type)(_none_dict)
 
 
 @singledispatch
-def _list_or_none(raw: object) -> list[object] | None:
+def _list_optional(raw: object) -> list[object] | None:
     never("unregistered runtime type", value_type=type(raw).__name__)
 
 
-@_list_or_none.register(list)
+@_list_optional.register(list)
 def _(raw: list[object]) -> list[object] | None:
     return raw
 
@@ -145,30 +145,30 @@ def _none_list(raw: object) -> list[object] | None:
 
 
 for _list_none_type in (dict, tuple, set, str, int, float, bool, type(None)):
-    _list_or_none.register(_list_none_type)(_none_list)
+    _list_optional.register(_list_none_type)(_none_list)
 
 
 def _required_mapping(raw: object, *, error_message: str) -> dict[object, object]:
-    mapping = _dict_or_none(raw)
+    mapping = _dict_optional(raw)
     if mapping is None:
         raise ValueError(error_message)
     return mapping
 
 
 def _required_str(raw: object, *, error_message: str) -> str:
-    value = _str_or_none(raw)
+    value = _str_optional(raw)
     if value is None:
         raise ValueError(error_message)
     return value
 
 
 def _tuple_path(raw: object, *, field_name: str) -> tuple[str, ...]:
-    values = _list_or_none(raw)
+    values = _list_optional(raw)
     if values is None:
         raise ValueError(f"governance_rules invalid {field_name}: expected list[str]")
     typed: list[str] = []
     for item in values:
-        text = _str_or_none(item)
+        text = _str_optional(item)
         if text is None:
             raise ValueError(f"governance_rules invalid {field_name}: expected list[str]")
         typed.append(text)
@@ -240,18 +240,18 @@ def _string_key_mapping(raw: object) -> dict[str, object]:
 def _(raw: dict[object, object]) -> dict[str, object]:
     mapped: dict[str, object] = {}
     for key, value in raw.items():
-        key_text = _str_or_none(key)
+        key_text = _str_optional(key)
         if key_text is not None:
             mapped[key_text] = value
     return mapped
 
 
 @singledispatch
-def _string_tuple_or_empty(raw: object) -> tuple[str, ...]:
+def _string_tuple_default_empty(raw: object) -> tuple[str, ...]:
     never("unregistered runtime type", value_type=type(raw).__name__)
 
 
-@_string_tuple_or_empty.register(list)
+@_string_tuple_default_empty.register(list)
 def _(raw: list[object]) -> tuple[str, ...]:
     return tuple(str(item) for item in raw)
 
@@ -262,7 +262,7 @@ def _empty_string_tuple(raw: object) -> tuple[str, ...]:
 
 
 for _string_tuple_empty_type in (dict, tuple, set, str, int, float, bool, type(None)):
-    _string_tuple_or_empty.register(_string_tuple_empty_type)(_empty_string_tuple)
+    _string_tuple_default_empty.register(_string_tuple_empty_type)(_empty_string_tuple)
 
 
 def _gate_from_mapping(gate_id: str, payload: Mapping[str, object]) -> GatePolicy:
@@ -333,27 +333,27 @@ def load_governance_rules(path: Path | None = None) -> GovernanceRules:
     loader = _yaml_loader()
     with rule_path.open("r", encoding="utf-8") as handle:
         raw = yaml.load(handle, Loader=loader) or {}
-    raw_mapping = _dict_or_none(raw)
+    raw_mapping = _dict_optional(raw)
     if raw_mapping is None:
         raise ValueError("governance_rules root must be a mapping")
 
-    gates_raw = _dict_or_none(raw_mapping.get("gates"))
+    gates_raw = _dict_optional(raw_mapping.get("gates"))
     if gates_raw is None:
         raise ValueError("governance_rules must define gates")
 
     gates: dict[str, GatePolicy] = {}
     for gate_id, gate_payload in gates_raw.items():
-        gate_name = _str_or_none(gate_id)
-        gate_mapping = _dict_or_none(gate_payload)
+        gate_name = _str_optional(gate_id)
+        gate_mapping = _dict_optional(gate_payload)
         if gate_name is not None and gate_mapping is not None:
             gates[gate_name] = _gate_from_mapping(gate_name, gate_mapping)
 
-    command_policies_raw = _dict_or_none(raw_mapping.get("command_policies"))
+    command_policies_raw = _dict_optional(raw_mapping.get("command_policies"))
     command_policies: dict[str, CommandPolicy] = {}
     if command_policies_raw is not None:
         for command_id, command_payload in command_policies_raw.items():
-            command_name = _str_or_none(command_id)
-            command_mapping = _dict_or_none(command_payload)
+            command_name = _str_optional(command_id)
+            command_mapping = _dict_optional(command_payload)
             if command_name is not None and command_mapping is not None:
                 maturity = str(command_mapping.get("maturity", "experimental"))
                 require_lsp_carrier = _as_bool(
@@ -364,8 +364,8 @@ def load_governance_rules(path: Path | None = None) -> GovernanceRules:
                     command_mapping.get("parity_required", False),
                     field_name=f"command_policies.{command_name}.parity_required",
                 )
-                probe_payload = _dict_or_none(command_mapping.get("probe_payload"))
-                parity_ignore_keys = _string_tuple_or_empty(
+                probe_payload = _dict_optional(command_mapping.get("probe_payload"))
+                parity_ignore_keys = _string_tuple_default_empty(
                     command_mapping.get("parity_ignore_keys")
                 )
                 command_policies[command_name] = CommandPolicy(
@@ -377,14 +377,14 @@ def load_governance_rules(path: Path | None = None) -> GovernanceRules:
                     parity_ignore_keys=parity_ignore_keys,
                 )
 
-    controller_drift_raw = _dict_or_none(raw_mapping.get("controller_drift"))
+    controller_drift_raw = _dict_optional(raw_mapping.get("controller_drift"))
     if controller_drift_raw is None:
         raise ValueError("governance_rules must define controller_drift")
     severity_classes = _tuple_path(
         controller_drift_raw.get("severity_classes"),
         field_name="controller_drift.severity_classes",
     )
-    remediation_raw = _dict_or_none(controller_drift_raw.get("remediation_by_severity"))
+    remediation_raw = _dict_optional(controller_drift_raw.get("remediation_by_severity"))
     if remediation_raw is None:
         raise ValueError("governance_rules invalid controller_drift.remediation_by_severity")
     remediation_by_severity = _string_key_mapping(remediation_raw)
