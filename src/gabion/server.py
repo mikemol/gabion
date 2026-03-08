@@ -68,6 +68,8 @@ from gabion.refactor.rewrite_plan import normalize_rewrite_plan_order, validate_
 from gabion.schema import (
     DataflowResponseEnvelopeDTO, LegacyDataflowMonolithResponseDTO, DecisionDiffResponseDTO, LspParityGateResponseDTO, LintEntryDTO, RefactorProtocolResponseDTO, RefactorRequest, RefactorResponse, RewritePlanEntryDTO, StructureDiffResponseDTO, StructureReuseResponseDTO, SynthesisPlanResponseDTO, SynthesisResponse, SynthesisRequest, TextEditDTO)
 from gabion.server_core import command_orchestrator_primitives as orchestrator_primitives
+from gabion.server_core import server_incremental_dispatch
+from gabion.server_core import server_payload_dispatch
 from gabion.server_core import dataflow_runtime_contract as runtime_contract
 from gabion.synthesis import NamingContext, SynthesisConfig, Synthesizer
 from gabion.tooling.governance.governance_rules import GovernanceRules, load_governance_rules
@@ -249,71 +251,14 @@ def _analysis_witness_config_payload(config: AuditConfig) -> JSONObject:
 
 
 def _analysis_manifest_digest_from_witness(input_witness: JSONObject) -> str | None:
-    check_deadline()
-    files = input_witness.get("files")
-    if not isinstance(files, list):
+    try:
+        return server_payload_dispatch._analysis_manifest_digest_from_witness(
+            input_witness,
+            manifest_format_version=_ANALYSIS_INPUT_MANIFEST_FORMAT_VERSION,
+            digest_fn=_analysis_input_manifest_digest,
+        )
+    except NeverThrown:
         return None
-    manifest_files: list[JSONObject] = []
-    for raw_entry in files:
-        check_deadline()
-        if not isinstance(raw_entry, Mapping):
-            return None
-        path_value = raw_entry.get("path")
-        if not isinstance(path_value, str):
-            return None
-        manifest_entry: JSONObject = {"path": path_value}
-        missing_value = raw_entry.get("missing")
-        if isinstance(missing_value, bool):
-            manifest_entry["missing"] = missing_value
-        size_value = raw_entry.get("size")
-        if isinstance(size_value, int):
-            manifest_entry["size"] = size_value
-        content_sha1_value = raw_entry.get("content_sha1")
-        if isinstance(content_sha1_value, str) and content_sha1_value:
-            manifest_entry["content_sha1"] = content_sha1_value
-        manifest_files.append(manifest_entry)
-    config = input_witness.get("config")
-    if not isinstance(config, Mapping):
-        return None
-    config_payload: JSONObject = {}
-    for key in (
-        "exclude_dirs",
-        "ignore_params",
-        "strictness",
-        "external_filter",
-        "transparent_decorators",
-    ):
-        check_deadline()
-        value = config.get(key)
-        if type(value) is list:
-            config_payload[key] = [str(item) for item in value]
-            continue
-        if type(value) in {bool, int, str}:
-            config_payload[key] = value
-            continue
-        return None
-    root = input_witness.get("root")
-    recursive = input_witness.get("recursive")
-    include_invariant_propositions = input_witness.get("include_invariant_propositions")
-    include_wl_refinement = input_witness.get("include_wl_refinement")
-    if not isinstance(root, str):
-        return None
-    if not isinstance(recursive, bool):
-        return None
-    if not isinstance(include_invariant_propositions, bool):
-        return None
-    if not isinstance(include_wl_refinement, bool):
-        return None
-    manifest: JSONObject = {
-        "format_version": _ANALYSIS_INPUT_MANIFEST_FORMAT_VERSION,
-        "root": root,
-        "recursive": recursive,
-        "include_invariant_propositions": include_invariant_propositions,
-        "include_wl_refinement": include_wl_refinement,
-        "config": config_payload,
-        "files": manifest_files,
-    }
-    return _analysis_input_manifest_digest(manifest)
 
 
 def _analysis_input_witness(
@@ -364,23 +309,26 @@ def _analysis_input_witness(
 
     def _normalize_ast_value(value: _ASTWitnessValue) -> JSONValue:
         check_deadline()
-        if isinstance(value, ast.AST):
-            fields: JSONObject = {}
-            for name, raw_field in ast.iter_fields(value):
-                check_deadline()
-                fields[name] = _normalize_ast_value(raw_field)
-            attrs: JSONObject = {}
-            for name in getattr(value, "_attributes", ()):
-                check_deadline()
-                attrs[name] = _normalize_scalar(getattr(value, name, None))
-            payload: JSONObject = {
-                "_py": "ast",
-                "node": type(value).__name__,
-                "fields": fields,
-            }
-            if attrs:
-                payload["attrs"] = attrs
-            return payload
+        match value:
+            case ast.AST() as ast_value:
+                fields: JSONObject = {}
+                for name, raw_field in ast.iter_fields(ast_value):
+                    check_deadline()
+                    fields[name] = _normalize_ast_value(raw_field)
+                attrs: JSONObject = {}
+                for name in getattr(ast_value, "_attributes", ()):
+                    check_deadline()
+                    attrs[name] = _normalize_scalar(getattr(ast_value, name, None))
+                payload: JSONObject = {
+                    "_py": "ast",
+                    "node": type(ast_value).__name__,
+                    "fields": fields,
+                }
+                if attrs:
+                    payload["attrs"] = attrs
+                return payload
+            case _:
+                pass
         value_type = type(value)
         if value_type is list:
             return [_normalize_ast_value(item) for item in value]
@@ -641,25 +589,25 @@ class _PhaseProgressPayloadDTO(BaseModel):
 
 
 def _non_negative_int_or_none(value: object) -> int | None:
-    if type(value) is int:
-        return max(value, 0)
-    return None
+    try:
+        return server_payload_dispatch._non_negative_int_or_none(value)
+    except NeverThrown:
+        return None
 
 def _json_mapping_or_none(value: object) -> dict[str, JSONValue] | None:
-    if type(value) is dict:
-        return value
-    return None
+    try:
+        return server_payload_dispatch._json_mapping_or_none(value)
+    except NeverThrown:
+        return None
 
 def _json_mapping_or_empty(value: object) -> dict[str, JSONValue]:
-    mapping = _json_mapping_or_none(value)
-    if mapping is not None:
-        return mapping
-    return {}
+    return server_payload_dispatch._json_mapping_or_empty(value)
 
 def _non_string_sequence_or_none(value: object) -> Sequence[object] | None:
-    if type(value) in {list, tuple, set}:
-        return value
-    return None
+    try:
+        return server_payload_dispatch._non_string_sequence_or_none(value)
+    except NeverThrown:
+        return None
 
 _REPORT_PHASE_RANK_BY_NAME: dict[str, int] = {
     "collection": report_projection_phase_rank("collection"),
@@ -669,96 +617,27 @@ _REPORT_PHASE_RANK_BY_NAME: dict[str, int] = {
 }
 
 def _report_projection_phase_rank_or_none(phase_name: object) -> int | None:
-    if type(phase_name) is not str:
+    try:
+        return server_payload_dispatch._report_projection_phase_rank_or_none(phase_name)
+    except NeverThrown:
         return None
-    return _REPORT_PHASE_RANK_BY_NAME.get(phase_name)
 
 
 def _string_entries(value: object) -> list[str]:
-    entries = _non_string_sequence_or_none(value)
-    if entries is not None:
-        return [item for item in entries if type(item) is str]
-    return []
+    try:
+        return server_payload_dispatch._string_entries(value)
+    except NeverThrown:
+        return []
 
 
 def _collection_resume_carrier(
     collection_resume: Mapping[str, JSONValue] | None,
 ) -> _CollectionResumeDTO:
-    if not isinstance(collection_resume, Mapping):
-        return _CollectionResumeDTO.model_validate({})
-    completed_paths = _string_entries(collection_resume.get("completed_paths"))
-    raw_in_progress = collection_resume.get("in_progress_scan_by_path")
-    in_progress_scan_by_path: dict[str, object] = {}
-    previous_path: str | None = None
-    if isinstance(raw_in_progress, Mapping):
-        for raw_path, raw_state in raw_in_progress.items():
-            check_deadline()
-            if not isinstance(raw_path, str) or not isinstance(raw_state, Mapping):
-                continue
-            if previous_path is not None and previous_path > raw_path:
-                never(
-                    "in_progress_scan_by_path path order regression",
-                    previous_path=previous_path,
-                    current_path=raw_path,
-                )
-            previous_path = raw_path
-            normalized_state: dict[str, object] = {}
-            raw_phase = raw_state.get("phase")
-            if isinstance(raw_phase, str):
-                normalized_state["phase"] = raw_phase
-            processed_entries = _string_entries(raw_state.get("processed_functions"))
-            if processed_entries:
-                normalized_state["processed_functions"] = processed_entries
-            raw_processed_count = _non_negative_int_or_none(
-                raw_state.get("processed_functions_count")
-            )
-            if raw_processed_count is not None:
-                normalized_state["processed_functions_count"] = raw_processed_count
-            raw_processed_digest = raw_state.get("processed_functions_digest")
-            if isinstance(raw_processed_digest, str):
-                normalized_state["processed_functions_digest"] = raw_processed_digest
-            raw_function_count = _non_negative_int_or_none(raw_state.get("function_count"))
-            if raw_function_count is not None:
-                normalized_state["function_count"] = raw_function_count
-            raw_fn_names = raw_state.get("fn_names")
-            if isinstance(raw_fn_names, Mapping):
-                normalized_state["fn_names"] = {
-                    str(name): raw_fn_names[name]
-                    for name in raw_fn_names
-                    if isinstance(name, str)
-                }
-            in_progress_scan_by_path[raw_path] = normalized_state
-    raw_index_resume = collection_resume.get("analysis_index_resume")
-    analysis_index_resume: dict[str, object] | None = None
-    if isinstance(raw_index_resume, Mapping):
-        hydrated_paths = _string_entries(raw_index_resume.get("hydrated_paths"))
-        hydrated_paths_count = _non_negative_int_or_none(
-            raw_index_resume.get("hydrated_paths_count")
-        )
-        function_count = _non_negative_int_or_none(raw_index_resume.get("function_count"))
-        class_count = _non_negative_int_or_none(raw_index_resume.get("class_count"))
-        analysis_index_resume = {
-            "hydrated_paths": hydrated_paths,
-            "hydrated_paths_count": hydrated_paths_count if hydrated_paths_count is not None else 0,
-            "hydrated_paths_digest": raw_index_resume.get("hydrated_paths_digest", "")
-            if isinstance(raw_index_resume.get("hydrated_paths_digest"), str)
-            else "",
-            "function_count": function_count if function_count is not None else 0,
-            "class_count": class_count if class_count is not None else 0,
-            "phase": raw_index_resume.get("phase", "")
-            if isinstance(raw_index_resume.get("phase"), str)
-            else "",
-            "resume_digest": raw_index_resume.get("resume_digest", "")
-            if isinstance(raw_index_resume.get("resume_digest"), str)
-            else "",
-        }
-    return _CollectionResumeDTO.model_validate(
-        {
-            "completed_paths": completed_paths,
-            "in_progress_scan_by_path": in_progress_scan_by_path,
-            "analysis_index_resume": analysis_index_resume,
-        }
-    )
+    try:
+        payload = server_payload_dispatch._collection_resume_payload(collection_resume)
+    except NeverThrown:
+        payload = {}
+    return _CollectionResumeDTO.model_validate(payload)
 
 
 def _analysis_index_resume_carrier(
@@ -770,30 +649,13 @@ def _analysis_index_resume_carrier(
 def _phase_progress_payload_carrier(
     phase_progress_v2: Mapping[str, JSONValue] | None,
 ) -> _PhaseProgressPayloadDTO | None:
-    if not isinstance(phase_progress_v2, Mapping):
+    try:
+        payload = server_payload_dispatch._phase_progress_payload(phase_progress_v2)
+    except NeverThrown:
         return None
-    raw_dimensions = phase_progress_v2.get("dimensions")
-    dimensions: dict[str, dict[str, int]] = {}
-    if isinstance(raw_dimensions, Mapping):
-        for dim_name, raw_payload in raw_dimensions.items():
-            if not isinstance(dim_name, str) or not isinstance(raw_payload, Mapping):
-                continue
-            raw_done = _non_negative_int_or_none(raw_payload.get("done"))
-            raw_total = _non_negative_int_or_none(raw_payload.get("total"))
-            if raw_done is not None and raw_total is not None:
-                dimensions[dim_name] = {"done": raw_done, "total": raw_total}
-    primary_done = _non_negative_int_or_none(phase_progress_v2.get("primary_done"))
-    primary_total = _non_negative_int_or_none(phase_progress_v2.get("primary_total"))
-    return _PhaseProgressPayloadDTO.model_validate(
-        {
-            "primary_unit": phase_progress_v2.get("primary_unit", "")
-            if isinstance(phase_progress_v2.get("primary_unit"), str)
-            else "",
-            "primary_done": primary_done,
-            "primary_total": primary_total,
-            "dimensions": dimensions,
-        }
-    )
+    if payload is None:
+        return None
+    return _PhaseProgressPayloadDTO.model_validate(payload)
 
 
 def _completed_path_set(
@@ -806,65 +668,21 @@ def _completed_path_set(
 def _in_progress_scan_states(
     collection_resume: Mapping[str, JSONValue] | None,
 )-> dict[str, Mapping[str, JSONValue]]:
-    if not isinstance(collection_resume, Mapping):
-        return {}
-    raw_in_progress = collection_resume.get("in_progress_scan_by_path")
-    if not isinstance(raw_in_progress, Mapping):
-        return {}
-    states: dict[str, Mapping[str, JSONValue]] = {}
-    previous_path: str | None = None
-    for raw_path, raw_state in raw_in_progress.items():
-        check_deadline()
-        if not isinstance(raw_path, str):
-            continue
-        state_mapping = _json_mapping_or_none(raw_state)
-        if state_mapping is None:
-            continue
-        if previous_path is not None and previous_path > raw_path:
-            never(
-                "in_progress_scan_by_path path order regression",
-                previous_path=previous_path,
-                current_path=raw_path,
-            )
-        previous_path = raw_path
-        states[raw_path] = state_mapping
-    return states
+    return server_payload_dispatch._in_progress_scan_states(collection_resume)
 
 
 def _in_progress_scan_state_carrier(
     state: Mapping[str, JSONValue] | _InProgressScanStateDTO,
 ) -> _InProgressScanStateDTO:
-    if isinstance(state, _InProgressScanStateDTO):
-        return state
-    state_mapping = _json_mapping_or_none(state)
-    if state_mapping is None:
-        return _InProgressScanStateDTO.model_validate({})
-    normalized_state: dict[str, object] = {}
-    raw_phase = state_mapping.get("phase")
-    if isinstance(raw_phase, str):
-        normalized_state["phase"] = raw_phase
-    processed_entries = _string_entries(state_mapping.get("processed_functions"))
-    if processed_entries:
-        normalized_state["processed_functions"] = processed_entries
-    raw_processed_count = _non_negative_int_or_none(
-        state_mapping.get("processed_functions_count")
-    )
-    if raw_processed_count is not None:
-        normalized_state["processed_functions_count"] = raw_processed_count
-    raw_processed_digest = state_mapping.get("processed_functions_digest")
-    if isinstance(raw_processed_digest, str):
-        normalized_state["processed_functions_digest"] = raw_processed_digest
-    raw_function_count = _non_negative_int_or_none(state_mapping.get("function_count"))
-    if raw_function_count is not None:
-        normalized_state["function_count"] = raw_function_count
-    raw_fn_names = state_mapping.get("fn_names")
-    if isinstance(raw_fn_names, Mapping):
-        normalized_state["fn_names"] = {
-            str(name): raw_fn_names[name]
-            for name in raw_fn_names
-            if isinstance(name, str)
-        }
-    return _InProgressScanStateDTO.model_validate(normalized_state)
+    match state:
+        case _InProgressScanStateDTO() as carrier:
+            return carrier
+        case _:
+            try:
+                payload = server_payload_dispatch._in_progress_scan_state_payload(state)
+            except NeverThrown:
+                payload = {}
+            return _InProgressScanStateDTO.model_validate(payload)
 
 
 def _state_processed_functions(
@@ -964,11 +782,9 @@ def _analysis_index_resume_signature(
 def _analysis_index_resume_summary(
     collection_resume: Mapping[str, JSONValue] | None,
 ) -> JSONObject | None:
-    if not isinstance(collection_resume, Mapping):
+    normalized_resume = _json_mapping_or_none(collection_resume)
+    if normalized_resume is None:
         return None
-    normalized_resume: JSONObject = {
-        str(key): collection_resume[key] for key in collection_resume
-    }
     return _analysis_index_resume_summary_payload(normalized_resume)
 
 
@@ -1116,144 +932,16 @@ def _write_bootstrap_incremental_artifacts(
     projection_rows: Sequence[Mapping[str, JSONValue]],
     phase_checkpoint_state: JSONObject,
 ) -> None:
-    _ = report_phase_checkpoint_path
-    get_deadline()
-    if _deadline_tick_budget_allows_check(get_deadline_clock()):
-        check_deadline(allow_frame_fallback=False)
-    if report_output_path is None or not projection_rows:
-        return
-    existing_reason: str | None = None
-    if report_section_journal_path is not None and report_section_journal_path.exists():
-        try:
-            existing_payload = json.loads(
-                _read_text_profiled(
-                    report_section_journal_path,
-                    io_name="report_section_journal.read",
-                )
-            )
-        except (OSError, UnicodeError, json.JSONDecodeError):
-            existing_reason = "policy"
-        else:
-            if not isinstance(existing_payload, dict):
-                existing_reason = "policy"
-            elif (
-                existing_payload.get("format_version")
-                != _REPORT_SECTION_JOURNAL_FORMAT_VERSION
-            ):
-                existing_reason = "policy"
-            else:
-                expected_digest = existing_payload.get("witness_digest")
-                if isinstance(expected_digest, str) and expected_digest:
-                    if not isinstance(witness_digest, str) or expected_digest != witness_digest:
-                        existing_reason = "stale_input"
-    intro_lines = [
-        "Collection bootstrap checkpoint (provisional).",
-        f"- `root`: `{root}`",
-        f"- `paths_requested`: `{paths_requested}`",
-    ]
-    sections: dict[str, list[str]] = {"intro": intro_lines}
-    report_lines = [
-        "<!-- dataflow-grammar -->",
-        "Dataflow grammar audit (observed forwarding bundles).",
-        "",
-        "## Incremental Status",
-        "",
-        "- `analysis_state`: `analysis_bootstrap_in_progress`",
-        "",
-        "## Section `intro`",
-        *intro_lines,
-        "",
-    ]
-    rows_payload: list[JSONObject] = []
-    sections_payload: JSONObject = {
-        "intro": {
-            "phase": "collection",
-            "deps": [],
-            "status": "resolved",
-            "lines": intro_lines,
-        }
-    }
-    rows_payload.append(
-        {
-            "section_id": "intro",
-            "phase": "collection",
-            "deps": [],
-            "status": "resolved",
-        }
+    server_incremental_dispatch._write_bootstrap_incremental_artifacts(
+        report_output_path=report_output_path,
+        report_section_journal_path=report_section_journal_path,
+        report_phase_checkpoint_path=report_phase_checkpoint_path,
+        witness_digest=witness_digest,
+        root=root,
+        paths_requested=paths_requested,
+        projection_rows=projection_rows,
+        phase_checkpoint_state=phase_checkpoint_state,
     )
-    for row in projection_rows:
-        if _deadline_tick_budget_allows_check(get_deadline_clock()):
-            check_deadline(allow_frame_fallback=False)
-        else:
-            get_deadline()
-        section_id = str(row.get("section_id", "") or "")
-        if not section_id or section_id == "intro":
-            continue
-        phase = str(row.get("phase", "") or "")
-        deps_raw = row.get("deps")
-        deps: list[str] = []
-        if isinstance(deps_raw, list):
-            for dep in deps_raw:
-                if _deadline_tick_budget_allows_check(get_deadline_clock()):
-                    check_deadline(allow_frame_fallback=False)
-                else:
-                    get_deadline()
-                if isinstance(dep, str):
-                    deps.append(str(dep))
-        dep_text = ", ".join(deps) if deps else "none"
-        reason = existing_reason or (
-            "missing_dep" if any(dep not in sections for dep in deps) else "policy"
-        )
-        report_lines.append(f"## Section `{section_id}`")
-        report_lines.append(f"PENDING (phase: {phase}; deps: {dep_text})")
-        report_lines.append("")
-        sections_payload[section_id] = {
-            "phase": phase,
-            "deps": deps,
-            "status": "pending",
-            "lines": [],
-            "reason": reason,
-        }
-        rows_payload.append(
-            {
-                "section_id": section_id,
-                "phase": phase,
-                "deps": deps,
-                "status": "pending",
-            }
-        )
-    report_output_path.parent.mkdir(parents=True, exist_ok=True)
-    _write_text_profiled(
-        report_output_path,
-        "\n".join(report_lines).rstrip() + "\n",
-        io_name="report_markdown.write",
-    )
-    if report_section_journal_path is not None:
-        report_section_journal_path.parent.mkdir(parents=True, exist_ok=True)
-        _write_text_profiled(
-            report_section_journal_path,
-            json.dumps(
-                {
-                    "format_version": _REPORT_SECTION_JOURNAL_FORMAT_VERSION,
-                    "witness_digest": witness_digest,
-                    "sections": sections_payload,
-                    "projection_rows": rows_payload,
-                },
-                indent=2,
-                sort_keys=False,
-            )
-            + "\n",
-            io_name="report_section_journal.write",
-        )
-    phase_checkpoint_state["collection"] = {
-        "status": "bootstrap",
-        "work_done": 0,
-        "work_total": 0,
-        "completed_files": 0,
-        "in_progress_files": 0,
-        "remaining_files": 0,
-        "section_ids": sort_once(sections, source = 'src/gabion/server.py:2075'),
-    }
 
 
 def _render_incremental_report(
@@ -1263,104 +951,12 @@ def _render_incremental_report(
     projection_rows: Sequence[Mapping[str, JSONValue]],
     sections: Mapping[str, list[str]],
 ) -> tuple[str, dict[str, str]]:
-    lines = [
-        "<!-- dataflow-grammar -->",
-        "Dataflow grammar audit (observed forwarding bundles).",
-        "",
-        "## Incremental Status",
-        "",
-        f"- `analysis_state`: `{analysis_state}`",
-    ]
-    if isinstance(progress_payload, Mapping):
-        phase = progress_payload.get("phase")
-        if isinstance(phase, str) and phase:
-            lines.append(f"- `phase`: `{phase}`")
-        event_kind = progress_payload.get("event_kind")
-        if isinstance(event_kind, str) and event_kind:
-            lines.append(f"- `event_kind`: `{event_kind}`")
-        work_done_raw = progress_payload.get("work_done")
-        work_total_raw = progress_payload.get("work_total")
-        if isinstance(work_done_raw, int) and isinstance(work_total_raw, int):
-            work_done = max(work_done_raw, 0)
-            work_total = max(work_total_raw, 0)
-            if work_total > 0:
-                work_done = min(work_done, work_total)
-            lines.append(f"- `work_done`: `{work_done}`")
-            lines.append(f"- `work_total`: `{work_total}`")
-            if work_total > 0:
-                lines.append(
-                    f"- `work_percent`: `{(100.0 * work_done / work_total):.2f}`"
-                )
-        phase_progress_carrier = _phase_progress_payload_carrier(
-            cast(Mapping[str, JSONValue] | None, progress_payload.get("phase_progress_v2"))
-        )
-        if phase_progress_carrier is not None:
-            if (
-                phase_progress_carrier.primary_done is not None
-                and phase_progress_carrier.primary_total is not None
-            ):
-                primary_done = max(phase_progress_carrier.primary_done, 0)
-                primary_total = max(phase_progress_carrier.primary_total, 0)
-                if primary_total:
-                    primary_done = min(primary_done, primary_total)
-                lines.append(
-                    f"- `primary_progress`: `{primary_done}/{primary_total}`"
-                )
-            if phase_progress_carrier.primary_unit:
-                lines.append(f"- `primary_unit`: `{phase_progress_carrier.primary_unit}`")
-            dimensions_summary = _phase_progress_dimensions_summary(
-                cast(Mapping[str, JSONValue], progress_payload.get("phase_progress_v2"))
-            )
-            if dimensions_summary:
-                lines.append(f"- `dimensions`: `{dimensions_summary}`")
-        stale_for_s = progress_payload.get("stale_for_s")
-        if isinstance(stale_for_s, (int, float)):
-            lines.append(f"- `stale_for_s`: `{float(stale_for_s):.1f}`")
-        classification = progress_payload.get("classification")
-        if isinstance(classification, str):
-            lines.append(f"- `classification`: `{classification}`")
-        retry_recommended = progress_payload.get("retry_recommended")
-        if isinstance(retry_recommended, bool):
-            lines.append(f"- `retry_recommended`: `{retry_recommended}`")
-        resume_supported = progress_payload.get("resume_supported")
-        if isinstance(resume_supported, bool):
-            lines.append(f"- `resume_supported`: `{resume_supported}`")
-    lines.append("")
-
-    pending_reasons: dict[str, str] = {}
-    for row in projection_rows:
-        check_deadline()
-        section_id = str(row.get("section_id", "") or "")
-        if not section_id:
-            continue
-        phase = str(row.get("phase", "") or "")
-        deps_raw = row.get("deps")
-        deps: list[str] = []
-        if isinstance(deps_raw, list):
-            deps = [str(dep) for dep in deps_raw if isinstance(dep, str)]
-        section_lines = sections.get(section_id)
-        if section_lines:
-            lines.append(f"## Section `{section_id}`")
-            lines.extend(section_lines)
-            lines.append("")
-            continue
-        dep_text = ", ".join(deps) if deps else "none"
-        if any(dep not in sections for dep in deps):
-            reason = "missing_dep"
-        else:
-            reason = "policy"
-            section_phase = str(row.get("phase", "") or "")
-            try:
-                report_projection_phase_rank(
-                    cast(Literal["collection", "forest", "edge", "post"], section_phase)
-                )
-            except KeyError:
-                reason = "policy"
-        pending_reasons[section_id] = reason
-        lines.append(f"## Section `{section_id}`")
-        lines.append(f"PENDING (phase: {phase}; deps: {dep_text})")
-        lines.append("")
-    return "\n".join(lines).rstrip() + "\n", pending_reasons
+    return server_incremental_dispatch._render_incremental_report(
+        analysis_state=analysis_state,
+        progress_payload=progress_payload,
+        projection_rows=projection_rows,
+        sections=sections,
+    )
 
 
 def _phase_timeline_md_path(*, root: Path) -> Path:
@@ -1382,22 +978,7 @@ def _markdown_table_cell(value: object) -> str:
 def _phase_progress_dimensions_summary(
     phase_progress_v2: Mapping[str, JSONValue] | None,
 ) -> str:
-    carrier = _phase_progress_payload_carrier(phase_progress_v2)
-    if carrier is None:
-        return ""
-    fragments: list[str] = []
-    dim_names = sort_once(
-        carrier.dimensions,
-        source="src/gabion/server.py:2253",
-    )
-    for dim_name in dim_names:
-        dimension = carrier.dimensions[dim_name]
-        done = max(dimension.done, 0)
-        total = max(dimension.total, 0)
-        if total:
-            done = min(done, total)
-        fragments.append(f"{dim_name}={done}/{total}")
-    return "; ".join(fragments)
+    return server_incremental_dispatch._phase_progress_dimensions_summary(phase_progress_v2)
 
 
 def _append_phase_timeline_event(
@@ -1440,181 +1021,28 @@ def _collection_progress_intro_lines(
     total_files: int,
     resume_state_intro: Mapping[str, JSONValue] | None = None,
 ) -> list[str]:
-    check_deadline()
-    progress = _analysis_resume_progress(
+    return server_incremental_dispatch._collection_progress_intro_lines(
         collection_resume=collection_resume,
         total_files=total_files,
+        resume_state_intro=resume_state_intro,
     )
-    lines = [
-        "Collection progress checkpoint (provisional).",
-        f"- `completed_files`: `{progress['completed_files']}`",
-        f"- `in_progress_files`: `{progress['in_progress_files']}`",
-        f"- `remaining_files`: `{progress['remaining_files']}`",
-        f"- `total_files`: `{progress['total_files']}`",
-    ]
-    resume_state = _json_mapping_or_empty(resume_state_intro)
-    state_path = str(resume_state.get("state_path", "") or "")
-    status = str(resume_state.get("status", "") or "")
-    reused_files = int(resume_state.get("reused_files", 0) or 0)
-    total_resume_files = int(
-        resume_state.get("total_files", progress["total_files"]) or 0
-    )
-    lines.append(
-        "- `resume_state`: "
-        f"`path={state_path or '<none>'} "
-        f"status={status or 'unknown'} "
-        f"reused_files={reused_files}/{total_resume_files}`"
-    )
-    semantic_progress = collection_resume.get("semantic_progress")
-    if isinstance(semantic_progress, Mapping):
-        semantic_witness_digest = semantic_progress.get("current_witness_digest")
-        if isinstance(semantic_witness_digest, str) and semantic_witness_digest:
-            lines.append(f"- `semantic_witness_digest`: `{semantic_witness_digest}`")
-        new_processed_functions = semantic_progress.get("new_processed_functions_count")
-        if isinstance(new_processed_functions, int):
-            lines.append(f"- `new_processed_functions`: `{new_processed_functions}`")
-        regressed_processed_functions = semantic_progress.get(
-            "regressed_processed_functions_count"
-        )
-        if isinstance(regressed_processed_functions, int):
-            lines.append(
-                f"- `regressed_processed_functions`: `{regressed_processed_functions}`"
-            )
-        completed_delta = semantic_progress.get("completed_files_delta")
-        if isinstance(completed_delta, int):
-            lines.append(f"- `completed_files_delta`: `{completed_delta}`")
-        substantive_progress = semantic_progress.get("substantive_progress")
-        if isinstance(substantive_progress, bool):
-            lines.append(f"- `substantive_progress`: `{substantive_progress}`")
-    in_progress_states = _in_progress_scan_states(collection_resume)
-    if in_progress_states:
-        in_progress_paths: list[str] = []
-        for in_progress_path in in_progress_states:
-            check_deadline()
-            in_progress_paths.append(in_progress_path)
-        sample = ", ".join(in_progress_paths[:3])
-        lines.append(f"- `in_progress_path_sample`: `{sample}`")
-        detail_entries: list[str] = []
-        for raw_path, state_mapping in in_progress_states.items():
-            check_deadline()
-            state = _in_progress_scan_state_carrier(state_mapping)
-            phase_text = state.phase or "unknown"
-            processed_count = _state_processed_count(state)
-            function_count = state.function_count
-            if function_count <= 0:
-                function_count = len(state.fn_names)
-            detail_entries.append(
-                (
-                    f"{raw_path} "
-                    f"(phase={phase_text}, processed_functions={processed_count}, "
-                    f"function_count={function_count})"
-                )
-            )
-            if len(detail_entries) >= 3:
-                break
-        for detail in detail_entries:
-            check_deadline()
-            lines.append(f"- `in_progress_detail`: `{detail}`")
-    analysis_index_resume = _analysis_index_resume_carrier(collection_resume)
-    if analysis_index_resume is not None:
-        hydrated_paths_count = _analysis_index_resume_hydrated_count(collection_resume)
-        lines.append(f"- `hydrated_paths_count`: `{hydrated_paths_count}`")
-        raw_index_resume = _json_mapping_or_none(
-            collection_resume.get("analysis_index_resume")
-        )
-        function_count = (
-            _non_negative_int_or_none(raw_index_resume.get("function_count"))
-            if raw_index_resume is not None
-            else None
-        )
-        if function_count is not None:
-            lines.append(
-                f"- `hydrated_function_count`: `{analysis_index_resume.function_count}`"
-            )
-        class_count = (
-            _non_negative_int_or_none(raw_index_resume.get("class_count"))
-            if raw_index_resume is not None
-            else None
-        )
-        if class_count is not None:
-            lines.append(
-                f"- `hydrated_class_count`: `{analysis_index_resume.class_count}`"
-            )
-    return lines
 
 
 def _collection_components_preview_lines(
     *,
     collection_resume: Mapping[str, JSONValue],
 ) -> list[str]:
-    check_deadline()
-    raw_groups = collection_resume.get("groups_by_path")
-    if not isinstance(raw_groups, Mapping):
-        return [
-            "Component preview (provisional).",
-            "- `paths_with_groups`: `0`",
-            "- `functions_with_groups`: `0`",
-            "- `bundle_alternatives`: `0`",
-        ]
-    path_count = 0
-    function_count = 0
-    bundle_alternatives = 0
-    for raw_path, raw_path_groups in raw_groups.items():
-        check_deadline()
-        if not isinstance(raw_path, str) or not isinstance(raw_path_groups, Mapping):
-            continue
-        path_count += 1
-        for raw_qual, raw_bundles in raw_path_groups.items():
-            check_deadline()
-            if not isinstance(raw_qual, str):
-                continue
-            bundle_list = _non_string_sequence_or_none(raw_bundles)
-            if bundle_list is None:
-                continue
-            function_count += 1
-            bundle_alternatives += sum(
-                1
-                for bundle in bundle_list
-                if _non_string_sequence_or_none(bundle) is not None
-            )
-    return [
-        "Component preview (provisional).",
-        f"- `paths_with_groups`: `{path_count}`",
-        f"- `functions_with_groups`: `{function_count}`",
-        f"- `bundle_alternatives`: `{bundle_alternatives}`",
-    ]
+    return server_incremental_dispatch._collection_components_preview_lines(
+        collection_resume=collection_resume,
+    )
 
 
 def _groups_by_path_from_collection_resume(
     collection_resume: Mapping[str, JSONValue],
 ) -> dict[Path, dict[str, list[set[str]]]]:
-    check_deadline()
-    groups_by_path: dict[Path, dict[str, list[set[str]]]] = {}
-    raw_groups = collection_resume.get("groups_by_path")
-    if not isinstance(raw_groups, Mapping):
-        return groups_by_path
-    for raw_path, raw_path_groups in raw_groups.items():
-        check_deadline()
-        if not isinstance(raw_path, str) or not isinstance(raw_path_groups, Mapping):
-            continue
-        path_groups: dict[str, list[set[str]]] = {}
-        for raw_qual, raw_bundles in raw_path_groups.items():
-            check_deadline()
-            if not isinstance(raw_qual, str):
-                continue
-            bundle_list = _non_string_sequence_or_none(raw_bundles)
-            if bundle_list is None:
-                continue
-            bundles: list[set[str]] = []
-            for raw_bundle in bundle_list:
-                check_deadline()
-                bundle_items = _non_string_sequence_or_none(raw_bundle)
-                if bundle_items is None:
-                    continue
-                bundles.append({entry for entry in bundle_items if type(entry) is str})
-            path_groups[raw_qual] = bundles
-        groups_by_path[Path(raw_path)] = path_groups
-    return groups_by_path
+    return server_incremental_dispatch._groups_by_path_from_collection_resume(
+        collection_resume
+    )
 
 
 def _incremental_progress_obligations(
@@ -1642,21 +1070,7 @@ def _incremental_progress_obligations(
 def _split_incremental_obligations(
     obligations: Sequence[Mapping[str, JSONValue]],
 ) -> tuple[list[JSONObject], list[JSONObject]]:
-    check_deadline()
-    resumability: list[JSONObject] = []
-    incremental: list[JSONObject] = []
-    for raw_entry in obligations:
-        check_deadline()
-        if not isinstance(raw_entry, Mapping):
-            continue
-        entry: JSONObject = {str(key): raw_entry[key] for key in raw_entry}
-        contract = str(entry.get("contract", "") or "")
-        if contract == "resume_contract":
-            resumability.append(entry)
-            continue
-        if contract in {"progress_report_contract", "incremental_projection_contract"}:
-            incremental.append(entry)
-    return resumability, incremental
+    return server_incremental_dispatch._split_incremental_obligations(obligations)
 
 
 def _apply_journal_pending_reason(
@@ -1677,20 +1091,7 @@ def _apply_journal_pending_reason(
 
 
 def _latest_report_phase(phases: Mapping[str, JSONValue] | None) -> str | None:
-    check_deadline()
-    if not isinstance(phases, Mapping):
-        return None
-    best_phase: str | None = None
-    best_rank = -1
-    for phase_name in phases:
-        check_deadline()
-        rank = _report_projection_phase_rank_or_none(phase_name)
-        if rank is None:
-            continue
-        if rank > best_rank:
-            best_rank = rank
-            best_phase = phase_name
-    return best_phase
+    return server_incremental_dispatch._latest_report_phase(phases)
 
 
 def _require_payload(
@@ -1698,16 +1099,18 @@ def _require_payload(
     *,
     command: str,
 ) -> dict[str, object]:
-    if not isinstance(payload, Mapping):
+    normalized_payload = boundary_order.normalize_boundary_mapping_once(
+        payload,
+        source=f"server._require_payload.{command}",
+    )
+    normalized_mapping = _json_mapping_or_none(normalized_payload)
+    if normalized_mapping is None:
         never(
             "invalid command payload type",
             command=command,
             payload_type=type(payload).__name__,
         )
-    return boundary_order.normalize_boundary_mapping_once(
-        payload,
-        source=f"server._require_payload.{command}",
-    )
+    return normalized_mapping
 
 
 def _require_optional_payload(
@@ -1771,31 +1174,7 @@ def _parse_lint_line_as_payload(line: str) -> dict[str, object] | None:
 def _normalize_dataflow_boundary_controls(
     payload: dict[str, JSONValue],
 ) -> dict[str, JSONValue]:
-    normalized_updates: dict[str, JSONValue] = {}
-    for key in ("language", "ingest_profile"):
-        raw_value = payload.get(key)
-        if raw_value is None:
-            continue
-        if not isinstance(raw_value, str):
-            never(  # pragma: no cover - invariant sink
-                "invalid dataflow boundary control type",
-                control=key,
-                value_type=type(raw_value).__name__,
-            )
-        normalized_value = raw_value.strip().lower()
-        if not normalized_value:
-            never(  # pragma: no cover - invariant sink
-                "empty dataflow boundary control",
-                control=key,
-            )
-        normalized_updates[key] = normalized_value
-    if not normalized_updates:
-        return payload
-    return boundary_order.apply_boundary_updates_once(
-        payload,
-        normalized_updates,
-        source="server._normalize_dataflow_boundary_controls",
-    )
+    return server_payload_dispatch._normalize_dataflow_boundary_controls(payload)
 
 
 def _normalize_dataflow_response_envelope(response: Mapping[str, JSONValue]) -> DataflowResponseEnvelopeDTO:
@@ -1921,24 +1300,7 @@ def _uri_to_path(uri: str) -> Path:
 
 
 def _normalize_csv_or_iterable_names(value: object, *, strict: bool) -> list[str]:
-    check_deadline()
-    if value is None:
-        return []
-    if type(value) is str:
-        return [part.strip() for part in value.split(",") if part.strip()]
-    entries = _non_string_sequence_or_none(value)
-    if entries is None:
-        if strict:
-            never("invalid name set payload", value_type=type(value).__name__)
-        return []
-    items: list[str] = []
-    for item in entries:
-        check_deadline()
-        if type(item) is str:
-            items.extend([part.strip() for part in item.split(",") if part.strip()])
-        elif strict:
-            never("name set contains non-string entry", value_type=type(item).__name__)
-    return items
+    return orchestrator_primitives._normalize_csv_or_iterable_names(value, strict=strict)
 
 
 def _normalize_transparent_decorators(value: object) -> set[str] | None:
@@ -2083,15 +1445,7 @@ def _diagnostics_for_path(
 
 
 def _timeout_context_payload(exc: TimeoutExceeded) -> JSONObject:
-    context_obj = getattr(exc, "context", None)
-    if hasattr(context_obj, "as_payload"):
-        payload = context_obj.as_payload()
-        if isinstance(payload, Mapping):
-            return {str(key): payload[key] for key in payload}
-    return {
-        "summary": "Analysis timed out.",
-        "progress": {"classification": "timed_out_no_progress"},
-    }
+    return orchestrator_primitives._timeout_context_payload(exc)
 
 
 def _invariant_error_message(error: NeverThrown) -> str:
@@ -2289,14 +1643,17 @@ def _execute_refactor_total(ls: LanguageServer, payload: dict[str, object]) -> d
         else:
             normalized_bundle = request.bundle or [field.name for field in request.fields or []]
             compatibility_shim = request.compatibility_shim
-            if isinstance(compatibility_shim, bool):
-                normalized_shim: bool | RefactorCompatibilityShimConfig = compatibility_shim
-            else:
-                normalized_shim = RefactorCompatibilityShimConfig(
-                    enabled=compatibility_shim.enabled,
-                    emit_deprecation_warning=compatibility_shim.emit_deprecation_warning,
-                    emit_overload_stubs=compatibility_shim.emit_overload_stubs,
-                )
+            match compatibility_shim:
+                case bool() as compatibility_shim_bool:
+                    normalized_shim: bool | RefactorCompatibilityShimConfig = (
+                        compatibility_shim_bool
+                    )
+                case _:
+                    normalized_shim = RefactorCompatibilityShimConfig(
+                        enabled=compatibility_shim.enabled,
+                        emit_deprecation_warning=compatibility_shim.emit_deprecation_warning,
+                        emit_overload_stubs=compatibility_shim.emit_overload_stubs,
+                    )
             plan = engine.plan_protocol_extraction(
                 RefactorRequestModel(
                     protocol_name=request.protocol_name or "",
@@ -2545,13 +1902,15 @@ class MappingPayloadCarrier(Protocol):
 def _payload_mapping(
     payload: Mapping[str, object] | MappingPayloadCarrier | None,
 ) -> Mapping[str, object]:
-    if isinstance(payload, Mapping):
-        return payload
     if payload is None:
         return {}
+    payload_mapping = _json_mapping_or_none(payload)
+    if payload_mapping is not None:
+        return payload_mapping
     raw_payload = getattr(payload, "payload", None)
-    if isinstance(raw_payload, Mapping):
-        return raw_payload
+    raw_payload_mapping = _json_mapping_or_none(raw_payload)
+    if raw_payload_mapping is not None:
+        return raw_payload_mapping
     return {}
 
 
@@ -2603,9 +1962,9 @@ def _normalize_impact_payload(
                         end_line=parsed.end_line,
                     )
                 )
-    raw_diff = payload.get("git_diff")
-    if isinstance(raw_diff, str) and raw_diff.strip():
-        for diff_span in deadline_loop_iter(_parse_impact_diff_ranges(raw_diff)):
+    raw_diff_text = server_payload_dispatch._str_or_none(payload.get("git_diff"))
+    if raw_diff_text is not None and raw_diff_text.strip():
+        for diff_span in deadline_loop_iter(_parse_impact_diff_ranges(raw_diff_text)):
             changes.append(
                 ImpactSpan(
                     path=diff_span.path.replace("\\", "/"),
@@ -2684,13 +2043,14 @@ def _probe_direct_executor(
 
 def _normalize_impact_change_entry(entry: object) -> ImpactSpan | None:
     check_deadline()
-    if isinstance(entry, Mapping):
-        path = str(entry.get("path", "") or "").strip()
+    entry_mapping = _json_mapping_or_none(entry)
+    if entry_mapping is not None:
+        path = str(entry_mapping.get("path", "") or "").strip()
         if not path:
             return None
         try:
-            start_line = int(entry.get("start_line", 1) or 1)
-            end_line = int(entry.get("end_line", start_line) or start_line)
+            start_line = int(entry_mapping.get("start_line", 1) or 1)
+            end_line = int(entry_mapping.get("end_line", start_line) or start_line)
         except (TypeError, ValueError):
             return None
         if start_line <= 0 or end_line <= 0:
@@ -2771,9 +2131,9 @@ def _impact_functions_from_tree(path: str, tree: ast.AST) -> list[ImpactFunction
                 _walk(child, [*qual_parts, child.name])
                 continue
             if child_type in {ast.FunctionDef, ast.AsyncFunctionDef}:
-                start_line = getattr(child, "lineno", None)
-                end_line = getattr(child, "end_lineno", None)
-                if isinstance(start_line, int) and isinstance(end_line, int):
+                start_line = _non_negative_int_or_none(getattr(child, "lineno", None))
+                end_line = _non_negative_int_or_none(getattr(child, "end_lineno", None))
+                if start_line is not None and end_line is not None:
                     qual = ".".join([*qual_parts, child.name])
                     out.append(
                         ImpactFunction(
@@ -2822,18 +2182,21 @@ def _impact_collect_edges(
                 continue
             for node in deadline_loop_iter(ast.walk(tree)):
                 check_deadline()
-                if not isinstance(node, ast.Call):
-                    continue
-                func_node = node.func
-                if type(func_node) is ast.Name:
-                    callee_name = func_node.id
-                elif type(func_node) is ast.Attribute:
-                    callee_name = func_node.attr
-                else:
-                    continue
-                line = getattr(node, "lineno", None)
-                end_line = getattr(node, "end_lineno", line)
-                if not isinstance(line, int) or not isinstance(end_line, int):
+                match node:
+                    case ast.Call() as call_node:
+                        pass
+                    case _:
+                        continue
+                match call_node.func:
+                    case ast.Name(id=callee_name):
+                        pass
+                    case ast.Attribute(attr=callee_name):
+                        pass
+                    case _:
+                        continue
+                line = _non_negative_int_or_none(getattr(call_node, "lineno", None))
+                end_line = _non_negative_int_or_none(getattr(call_node, "end_lineno", line))
+                if line is None or end_line is None:
                     continue
                 if line < caller.start_line or end_line > caller.end_line:
                     continue

@@ -3378,6 +3378,56 @@
         "policy_scanner_suite": "fail_expected_nonzero",
         "targeted_pytest_policy_scanner_suite": "pass"
       }
+    },
+    {
+      "cu_id": "CU-B2",
+      "summary": "Server strict-dispatch extraction: move server type-routing surfaces to server_payload_dispatch/server_incremental_dispatch and eliminate server.py fiber-type-dispatch findings.",
+      "timestamp_utc": "2026-03-08T02:25:08Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 6994,
+        "defensive_fallback": 108,
+        "fiber_scalar_sentinel_contract": 269,
+        "fiber_type_dispatch_contract": 758,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7005,
+        "defensive_fallback": 115,
+        "fiber_scalar_sentinel_contract": 269,
+        "fiber_type_dispatch_contract": 674,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 8129,
+      "total_after": 8063,
+      "notes": [
+        "Added src/gabion/server_core/server_payload_dispatch.py and src/gabion/server_core/server_incremental_dispatch.py; rewired server.py hotspot helpers to extracted dispatch entrypoints and existing strict primitives.",
+        "Converted remaining server.py fiber hotspots (_analysis_manifest_digest_from_witness, _normalize_dataflow_boundary_controls, impact AST/callee routing, payload mapping paths) away from in-body isinstance/type routing while preserving behavior.",
+        "Acceptance met: src/gabion/server.py fiber_type_dispatch_contract 84->0 and global fiber_type_dispatch_contract 758->674 (delta -84)."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_server_execute_command_cases_edges_parity_progress_contract_edges": "pass"
+      }
     }
   ],
   "generated_by": "codex",
