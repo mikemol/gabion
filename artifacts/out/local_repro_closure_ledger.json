@@ -4637,6 +4637,58 @@
         "extract_test_evidence": "pass",
         "test_evidence_drift_check": "pass"
       }
+    },
+    {
+      "cu_id": "CU-D2R",
+      "summary": "Long-tail strict-dispatch conversion: indexed-scan key alias routing moved from in-body type checks to singledispatch entrypoints with strict never(...) bases.",
+      "timestamp_utc": "2026-03-08T11:45:52Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7098,
+        "defensive_fallback": 128,
+        "fiber_scalar_sentinel_contract": 289,
+        "fiber_type_dispatch_contract": 275,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 14,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7105,
+        "defensive_fallback": 128,
+        "fiber_scalar_sentinel_contract": 289,
+        "fiber_type_dispatch_contract": 267,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 14,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 7828,
+      "total_after": 7827,
+      "notes": [
+        "Replaced manual tuple/string/node-id type guards in stage_cache_key_aliases with singledispatch routing, including runtime registration for the concrete node_id_type ingress class.",
+        "Converted unary literal integer narrowing in normalize_key_expr to singledispatch-based exact-int detection to remove in-body type comparisons.",
+        "Acceptance met: src/gabion/analysis/indexed_scan/scanners/key_aliases.py fiber_type_dispatch_contract 8->0 and global fiber_type_dispatch_contract 275->267 (delta -8)."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_dataflow_indexed_helper_branches": "pass",
+        "extract_test_evidence": "pass",
+        "test_evidence_drift_check": "pass"
+      }
     }
   ],
   "generated_by": "codex",

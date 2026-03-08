@@ -1,14 +1,113 @@
 from __future__ import annotations
 
 import ast
+from functools import singledispatch
 from re import Pattern
 from typing import Callable, Hashable, Mapping
+
+from gabion.invariants import never
 
 CacheIdentityAliasesFn = Callable[[str], tuple[str, ...]]
 CheckDeadlineFn = Callable[[], None]
 
 
-def stage_cache_key_aliases(
+@singledispatch
+def _is_tuple_key(value) -> bool:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_is_tuple_key.register(tuple)
+def _is_tuple_key_tuple(value: tuple[Hashable, ...]) -> bool:
+    return True
+
+
+def _is_not_tuple_key(value) -> bool:
+    return False
+
+
+for _runtime_type in (str, int, float, bool, complex, bytes, frozenset, type(None)):
+    _is_tuple_key.register(_runtime_type)(_is_not_tuple_key)
+
+
+@singledispatch
+def _tuple_key(value) -> tuple[Hashable, ...]:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_tuple_key.register(tuple)
+def _tuple_key_tuple(value: tuple[Hashable, ...]) -> tuple[Hashable, ...]:
+    return value
+
+
+@singledispatch
+def _is_string_key(value) -> bool:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_is_string_key.register(str)
+def _is_string_key_str(value: str) -> bool:
+    return True
+
+
+def _is_not_string_key(value) -> bool:
+    return False
+
+
+for _runtime_type in (
+    tuple,
+    int,
+    float,
+    bool,
+    complex,
+    bytes,
+    frozenset,
+    type(None),
+):
+    _is_string_key.register(_runtime_type)(_is_not_string_key)
+
+
+@singledispatch
+def _string_key(value) -> str:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_string_key.register(str)
+def _string_key_str(value: str) -> str:
+    return value
+
+
+@singledispatch
+def _is_exact_int(value) -> bool:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_is_exact_int.register(int)
+def _is_exact_int_int(value: int) -> bool:
+    return True
+
+
+def _is_not_exact_int(value) -> bool:
+    return False
+
+
+for _runtime_type in (
+    bool,
+    float,
+    complex,
+    str,
+    bytes,
+    tuple,
+    list,
+    dict,
+    set,
+    frozenset,
+    type(None),
+):
+    _is_exact_int.register(_runtime_type)(_is_not_exact_int)
+
+
+@singledispatch
+def _stage_cache_key_aliases_dispatch(
     key: Hashable,
     *,
     cache_identity_aliases_fn: CacheIdentityAliasesFn,
@@ -16,9 +115,21 @@ def stage_cache_key_aliases(
     cache_identity_digest_hex: Pattern[str],
     node_id_type: type,
 ) -> tuple[Hashable, ...]:
-    if type(key) is tuple and len(key) == 2 and type(key[1]) is tuple:
+    never("unregistered runtime type", value_type=type(key).__name__)
+
+
+@_stage_cache_key_aliases_dispatch.register(tuple)
+def _stage_cache_key_aliases_dispatch_tuple(
+    key: tuple[Hashable, ...],
+    *,
+    cache_identity_aliases_fn: CacheIdentityAliasesFn,
+    cache_identity_prefix: str,
+    cache_identity_digest_hex: Pattern[str],
+    node_id_type: type,
+) -> tuple[Hashable, ...]:
+    if len(key) == 2 and _is_tuple_key(key[1]):
         scoped_identity = key[0]
-        parse_key = key[1]
+        parse_key = _tuple_key(key[1])
         parse_aliases = stage_cache_key_aliases(
             parse_key,
             cache_identity_aliases_fn=cache_identity_aliases_fn,
@@ -29,24 +140,62 @@ def stage_cache_key_aliases(
         if len(parse_aliases) > 1:
             return tuple((scoped_identity, alias) for alias in parse_aliases)
         return (key,)
-    if type(key) is tuple and len(key) == 4 and key[0] == "parse" and type(key[2]) is str:
-        identity = key[2]
+    if len(key) == 4 and key[0] == "parse" and _is_string_key(key[2]):
+        identity = _string_key(key[2])
         aliases = cache_identity_aliases_fn(identity)
-        identity_text = str(identity)
-        if len(aliases) == 1 and identity_text.startswith(cache_identity_prefix):
-            digest = identity_text[len(cache_identity_prefix) :]
+        if len(aliases) == 1 and identity.startswith(cache_identity_prefix):
+            digest = identity[len(cache_identity_prefix) :]
             if cache_identity_digest_hex.fullmatch(digest):
                 aliases = (aliases[0], digest)
         if len(aliases) > 1:
             return tuple((key[0], key[1], alias, key[3]) for alias in aliases)
-    if (
-        type(key) is node_id_type
-        and getattr(key, "kind", None) == "ParseStageCacheIdentity"
-        and len(getattr(key, "key", ())) == 3
-    ):
-        stage_value, identity, detail = key.key
-        if type(stage_value) is str and type(identity) is str:
-            legacy_key = ("parse", stage_value, identity, detail)
+    return (key,)
+
+
+def _stage_cache_key_aliases_passthrough(
+    key: Hashable,
+    *,
+    cache_identity_aliases_fn: CacheIdentityAliasesFn,
+    cache_identity_prefix: str,
+    cache_identity_digest_hex: Pattern[str],
+    node_id_type: type,
+) -> tuple[Hashable, ...]:
+    return (key,)
+
+
+for _runtime_type in (str, int, float, bool, complex, bytes, frozenset, type(None)):
+    _stage_cache_key_aliases_dispatch.register(_runtime_type)(
+        _stage_cache_key_aliases_passthrough
+    )
+
+
+_NODE_STAGE_ALIAS_TYPES: set[type] = set()
+
+
+def _register_node_stage_alias_dispatch(node_id_type: type) -> None:
+    if node_id_type in _NODE_STAGE_ALIAS_TYPES:
+        return
+
+    @_stage_cache_key_aliases_dispatch.register(node_id_type)
+    def _stage_cache_key_aliases_dispatch_node(
+        key: Hashable,
+        *,
+        cache_identity_aliases_fn: CacheIdentityAliasesFn,
+        cache_identity_prefix: str,
+        cache_identity_digest_hex: Pattern[str],
+        node_id_type: type,
+    ) -> tuple[Hashable, ...]:
+        if getattr(key, "kind", None) != "ParseStageCacheIdentity":
+            return (key,)
+        raw_node_key = getattr(key, "key", None)
+        if not _is_tuple_key(raw_node_key):
+            return (key,)
+        node_key = _tuple_key(raw_node_key)
+        if len(node_key) != 3:
+            return (key,)
+        stage_value, identity, detail = node_key
+        if _is_string_key(stage_value) and _is_string_key(identity):
+            legacy_key = ("parse", _string_key(stage_value), _string_key(identity), detail)
             aliases = stage_cache_key_aliases(
                 legacy_key,
                 cache_identity_aliases_fn=cache_identity_aliases_fn,
@@ -55,7 +204,27 @@ def stage_cache_key_aliases(
                 node_id_type=node_id_type,
             )
             return (key, *aliases)
-    return (key,)
+        return (key,)
+
+    _NODE_STAGE_ALIAS_TYPES.add(node_id_type)
+
+
+def stage_cache_key_aliases(
+    key: Hashable,
+    *,
+    cache_identity_aliases_fn: CacheIdentityAliasesFn,
+    cache_identity_prefix: str,
+    cache_identity_digest_hex: Pattern[str],
+    node_id_type: type,
+) -> tuple[Hashable, ...]:
+    _register_node_stage_alias_dispatch(node_id_type)
+    return _stage_cache_key_aliases_dispatch(
+        key,
+        cache_identity_aliases_fn=cache_identity_aliases_fn,
+        cache_identity_prefix=cache_identity_prefix,
+        cache_identity_digest_hex=cache_identity_digest_hex,
+        node_id_type=node_id_type,
+    )
 
 
 def normalize_key_expr(
@@ -80,7 +249,7 @@ def normalize_key_expr(
             evaluated_value = ast.literal_eval(node)
         except literal_eval_error_types:
             pass
-        if type(evaluated_value) is int:
+        if _is_exact_int(evaluated_value):
             normalized_key = ("literal", "int", evaluated_value)
     elif node_type is ast.Name:
         bound = const_bindings.get(node.id)
