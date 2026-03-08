@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from contextlib import contextmanager
 from enum import Enum
-from functools import partial
+from functools import partial, singledispatch
 from typing import Callable, Generator, List, Literal, Mapping, MutableMapping, Optional, TypeAlias, cast
 import argparse
 import json
@@ -699,6 +699,88 @@ def _emit_nonzero_exit_causes(result: JSONObject) -> None:
     result_emitters.emit_nonzero_exit_causes(result)
 
 
+def _none_optional_int(value: object) -> int | None:
+    _ = value
+    return None
+
+
+@singledispatch
+def _int_or_none(value: object) -> int | None:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_int_or_none.register
+def _(value: int) -> int | None:
+    return value
+
+
+@_int_or_none.register
+def _(value: bool) -> int | None:
+    _ = value
+    return None
+
+
+for _runtime_type in (str, float, complex, bytes, dict, list, tuple, set, frozenset, type(None)):
+    _int_or_none.register(_runtime_type)(_none_optional_int)
+
+
+def _none_optional_str(value: object) -> str | None:
+    _ = value
+    return None
+
+
+@singledispatch
+def _str_or_none(value: object) -> str | None:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_str_or_none.register
+def _(value: str) -> str | None:
+    return value
+
+
+for _runtime_type in (int, float, bool, complex, bytes, dict, list, tuple, set, frozenset, type(None)):
+    _str_or_none.register(_runtime_type)(_none_optional_str)
+
+
+def _none_optional_mapping(value: object) -> Mapping[str, object] | None:
+    _ = value
+    return None
+
+
+@singledispatch
+def _mapping_or_none(value: object) -> Mapping[str, object] | None:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_mapping_or_none.register
+def _(value: dict) -> Mapping[str, object] | None:
+    return value
+
+
+for _runtime_type in (str, int, float, bool, complex, bytes, list, tuple, set, frozenset, type(None)):
+    _mapping_or_none.register(_runtime_type)(_none_optional_mapping)
+
+
+def _none_optional_json_object(value: object) -> JSONObject | None:
+    _ = value
+    return None
+
+
+@singledispatch
+def _json_object_or_none(value: object) -> JSONObject | None:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_json_object_or_none.register
+def _(value: dict) -> JSONObject | None:
+    return cast(JSONObject, value)
+
+
+for _runtime_type in (str, int, float, bool, complex, bytes, list, tuple, set, frozenset, type(None)):
+    _json_object_or_none.register(_runtime_type)(_none_optional_json_object)
+
+
 def _emit_resume_state_startup_line(
     *,
     checkpoint_path: str,
@@ -707,8 +789,10 @@ def _emit_resume_state_startup_line(
     total_files: int | None,
 ) -> None:
     reused_display = "unknown"
-    if isinstance(reused_files, int) and isinstance(total_files, int):
-        reused_display = f"{int(reused_files)}/{int(total_files)}"
+    reused_value = _int_or_none(reused_files)
+    total_value = _int_or_none(total_files)
+    if reused_value is not None and total_value is not None:
+        reused_display = f"{reused_value}/{total_value}"
     typer.echo(
         "resume state detected... "
         f"path={checkpoint_path or '<none>'} "
@@ -747,8 +831,9 @@ def _phase_progress_from_progress_notification(
     notification: Mapping[str, JSONValue],
 ) -> JSONObject | None:
     payload = progress_timeline.phase_progress_from_progress_notification(notification)
-    if isinstance(payload, Mapping):
-        return {str(key): payload[key] for key in payload}
+    payload_mapping = _mapping_or_none(payload)
+    if payload_mapping is not None:
+        return {str(key): payload_mapping[key] for key in payload_mapping}
     return None
 
 
@@ -769,23 +854,29 @@ def _emit_phase_progress_line(phase_progress: Mapping[str, JSONValue]) -> None:
         fragments.append(f"analysis_state={analysis_state}")
     if classification:
         fragments.append(f"classification={classification}")
-    if isinstance(work_done, int) and isinstance(work_total, int):
-        fragments.append(f"work={work_done}/{work_total}")
+    work_done_value = _int_or_none(work_done)
+    work_total_value = _int_or_none(work_total)
+    if work_done_value is not None and work_total_value is not None:
+        fragments.append(f"work={work_done_value}/{work_total_value}")
+    completed_files_value = _int_or_none(completed_files)
+    remaining_files_value = _int_or_none(remaining_files)
+    total_files_value = _int_or_none(total_files)
     if (
-        isinstance(completed_files, int)
-        and isinstance(remaining_files, int)
-        and isinstance(total_files, int)
+        completed_files_value is not None
+        and remaining_files_value is not None
+        and total_files_value is not None
     ):
         fragments.append(
-            f"files={completed_files}/{total_files} remaining={remaining_files}"
+            f"files={completed_files_value}/{total_files_value} remaining={remaining_files_value}"
         )
     prefix = "progress done" if done else "progress"
     typer.echo(f"{prefix} {' '.join(fragments)}")
 
 
 def _emit_phase_timeline_progress(*, header: str | None, row: str) -> None:
-    if isinstance(header, str) and header:
-        typer.echo(header)
+    header_text = _str_or_none(header)
+    if header_text:
+        typer.echo(header_text)
     typer.echo(row)
 
 
@@ -833,11 +924,13 @@ def _run_dataflow_raw_argv(
         nonlocal timeline_header_emitted
         nonlocal last_phase_progress_signature
         nonlocal last_phase_event_seq
-        phase_progress = phase_progress_from_progress_notification_fn(notification)
-        if not isinstance(phase_progress, Mapping):
+        phase_progress = _mapping_or_none(
+            phase_progress_from_progress_notification_fn(notification)
+        )
+        if phase_progress is None:
             return
-        event_seq = phase_progress.get("event_seq")
-        if isinstance(event_seq, int):
+        event_seq = _int_or_none(phase_progress.get("event_seq"))
+        if event_seq is not None:
             if last_phase_event_seq == event_seq:
                 return
             last_phase_event_seq = event_seq
@@ -847,11 +940,9 @@ def _run_dataflow_raw_argv(
         last_phase_progress_signature = signature
         timeline_update = phase_timeline_from_phase_progress_fn(phase_progress)
         row = str(timeline_update.get("row") or "")
-        header_value = timeline_update.get("header")
+        header_value = _str_or_none(timeline_update.get("header"))
         header = (
-            header_value
-            if not timeline_header_emitted and isinstance(header_value, str) and header_value
-            else None
+            header_value if not timeline_header_emitted and header_value else None
         )
         emit_phase_timeline_progress_fn(header=header, row=row)
         if header is not None:
@@ -1373,9 +1464,10 @@ def _run_synthesis_plan(
             loaded = json.loads(input_path.read_text())
         except json.JSONDecodeError as exc:
             raise typer.BadParameter(f"Invalid JSON payload: {exc}") from exc
-        if not isinstance(loaded, dict):
+        loaded_object = _json_object_or_none(loaded)
+        if loaded_object is None:
             raise typer.BadParameter("Synthesis payload must be a JSON object.")
-        payload = loaded
+        payload = loaded_object
     result = dispatch_command(
         command=SYNTHESIS_COMMAND,
         payload=payload,
