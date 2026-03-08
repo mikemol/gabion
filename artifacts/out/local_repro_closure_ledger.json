@@ -5473,6 +5473,58 @@
         "extract_test_evidence": "pass",
         "test_evidence_drift_check": "pass"
       }
+    },
+    {
+      "cu_id": "CU-D2AH",
+      "summary": "Audit-lift batch: replaced remaining in-body type routing in command orchestrator/config/deadline summary with dispatch-normalized helpers and structural matching.",
+      "timestamp_utc": "2026-03-08T14:06:58Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7108,
+        "defensive_fallback": 134,
+        "fiber_scalar_sentinel_contract": 317,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 14,
+        "runtime_narrowing_boundary": 28,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7099,
+        "defensive_fallback": 134,
+        "fiber_scalar_sentinel_contract": 311,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 14,
+        "runtime_narrowing_boundary": 28,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 7601,
+      "total_after": 7586,
+      "notes": [
+        "Converted high-frequency isinstance/type checks in server_core.command_orchestrator to existing singledispatch carriers (_string_or_none, _object_mapping_or_none).",
+        "Removed config section extraction isinstance guards by reusing _toml_table_or_empty normalization.",
+        "Rewrote indexed_scan deadline_obligation_summary entry/site decoding from type(...) ternaries to structural matching; fiber_type_dispatch_contract remains 0."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_server_core_config_indexed_scan": "pass",
+        "extract_test_evidence": "pass",
+        "test_evidence_drift_check": "pass"
+      }
     }
   ],
   "generated_by": "codex",

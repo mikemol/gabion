@@ -27,7 +27,7 @@ def _load_toml(path: Path) -> TomlTable:
         data = tomllib.loads(raw)
     except Exception:
         return {}
-    return data if isinstance(data, dict) else {}
+    return _toml_table_or_empty(data)
 
 
 def load_config(root: Path | None = None, config_path: Path | None = None) -> TomlTable:
@@ -41,48 +41,42 @@ def dataflow_defaults(
     root: Path | None = None, config_path: Path | None = None
 ) -> TomlTable:
     data = load_config(root=root, config_path=config_path)
-    section = data.get("dataflow", {})
-    return section if isinstance(section, dict) else {}
+    return _toml_table_or_empty(data.get("dataflow", {}))
 
 
 def synthesis_defaults(
     root: Path | None = None, config_path: Path | None = None
 ) -> TomlTable:
     data = load_config(root=root, config_path=config_path)
-    section = data.get("synthesis", {})
-    return section if isinstance(section, dict) else {}
+    return _toml_table_or_empty(data.get("synthesis", {}))
 
 
 def decision_defaults(
     root: Path | None = None, config_path: Path | None = None
 ) -> TomlTable:
     data = load_config(root=root, config_path=config_path)
-    section = data.get("decision", {})
-    return section if isinstance(section, dict) else {}
+    return _toml_table_or_empty(data.get("decision", {}))
 
 
 def exception_defaults(
     root: Path | None = None, config_path: Path | None = None
 ) -> TomlTable:
     data = load_config(root=root, config_path=config_path)
-    section = data.get("exceptions", {})
-    return section if isinstance(section, dict) else {}
+    return _toml_table_or_empty(data.get("exceptions", {}))
 
 
 def fingerprint_defaults(
     root: Path | None = None, config_path: Path | None = None
 ) -> TomlTable:
     data = load_config(root=root, config_path=config_path)
-    section = data.get("fingerprints", {})
-    return section if isinstance(section, dict) else {}
+    return _toml_table_or_empty(data.get("fingerprints", {}))
 
 
 def taint_defaults(
     root: Path | None = None, config_path: Path | None = None
 ) -> TomlTable:
     data = load_config(root=root, config_path=config_path)
-    section = data.get("taint", {})
-    return section if isinstance(section, dict) else {}
+    return _toml_table_or_empty(data.get("taint", {}))
 
 
 def _split_name_parts(value: str) -> list[str]:

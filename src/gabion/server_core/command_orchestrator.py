@@ -1819,11 +1819,7 @@ def _prepare_analysis_resume_state(
             imported_manifest_digest_raw = aspf_resume_payload.get(
                 "analysis_manifest_digest"
             )
-            imported_manifest_digest = (
-                str(imported_manifest_digest_raw)
-                if isinstance(imported_manifest_digest_raw, str)
-                else None
-            )
+            imported_manifest_digest = _string_or_none(imported_manifest_digest_raw)
             resume_projection = cast(
                 Mapping[str, object],
                 aspf_resume_payload.get("resume_projection", {}),
@@ -1838,8 +1834,8 @@ def _prepare_analysis_resume_state(
             }
             current_manifest_digest = state.analysis_resume_input_manifest_digest
             resume_available = bool(imported_collection_resume)
-            manifest_available = isinstance(imported_manifest_digest, str)
-            current_manifest_available = isinstance(current_manifest_digest, str)
+            manifest_available = _string_or_none(imported_manifest_digest) is not None
+            current_manifest_available = _string_or_none(current_manifest_digest) is not None
             manifest_match = (
                 manifest_available
                 and current_manifest_available
@@ -2538,18 +2534,13 @@ def _create_progress_emitter(
             "schema": _CANONICAL_PROGRESS_EVENT_SCHEMA_V2,
             "format_version": 2,
             "adaptation_kind": str(adaptation_kind),
-            "event": dict(canonical_event) if isinstance(canonical_event, Mapping) else None,
+            "event": _object_mapping_or_none(canonical_event),
             "adaptation_error": str(adaptation_error).strip(),
             "identity_allocation_delta_v1": [
                 dict(item) for item in identity_allocation_delta
             ],
-            "rejected_progress_payload_v2": (
-                {
-                    str(key): rejected_progress_payload_v2[key]
-                    for key in rejected_progress_payload_v2
-                }
-                if isinstance(rejected_progress_payload_v2, Mapping)
-                else None
+            "rejected_progress_payload_v2": _object_mapping_or_none(
+                rejected_progress_payload_v2
             ),
         }
         if str(adaptation_kind) != "rejected":
@@ -2788,12 +2779,12 @@ def _create_progress_emitter(
             with progress_state_lock:
                 progress_template = (
                     dict(last_progress_template)
-                    if isinstance(last_progress_template, dict)
+                    if _object_mapping_or_none(last_progress_template) is not None
                     else {}
                 )
                 terminal_template = (
                     dict(last_terminal_template)
-                    if isinstance(last_terminal_template, dict)
+                    if _object_mapping_or_none(last_terminal_template) is not None
                     else {}
                 )
                 notification_ns = int(last_progress_notification_ns)
@@ -3636,13 +3627,13 @@ def _handle_timeout_cleanup(
                 "violation_summary": {"timeout": True, "analysis_state": analysis_state},
                 "_resume_collection": (
                     timeout_collection_resume_payload
-                    if isinstance(timeout_collection_resume_payload, Mapping)
+                    if _object_mapping_or_none(timeout_collection_resume_payload) is not None
                     else {}
                 ),
                 "_latest_collection_progress": context.latest_collection_progress,
                 "_semantic_progress": (
                     context.semantic_progress_cumulative
-                    if isinstance(context.semantic_progress_cumulative, Mapping)
+                    if _object_mapping_or_none(context.semantic_progress_cumulative) is not None
                     else {}
                 ),
                 "_analysis_manifest_digest": context.analysis_resume_input_manifest_digest,
@@ -4575,13 +4566,13 @@ def _build_success_response(
             },
             "_resume_collection": (
                 context.last_collection_resume_payload
-                if isinstance(context.last_collection_resume_payload, Mapping)
+                if _object_mapping_or_none(context.last_collection_resume_payload) is not None
                 else {}
             ),
             "_latest_collection_progress": context.latest_collection_progress,
             "_semantic_progress": (
                 context.semantic_progress_cumulative
-                if isinstance(context.semantic_progress_cumulative, Mapping)
+                if _object_mapping_or_none(context.semantic_progress_cumulative) is not None
                 else {}
             ),
             "_analysis_manifest_digest": context.analysis_resume_manifest_digest,
@@ -4652,9 +4643,7 @@ def _stage_ingress(
     profile_root_value = payload.get("root") or ls.workspace.root_path or "."
     initial_root = Path(str(profile_root_value))
     initial_report_path = payload.get("report")
-    initial_report_path_text = (
-        str(initial_report_path) if isinstance(initial_report_path, str) else None
-    )
+    initial_report_path_text = _string_or_none(initial_report_path)
     timeout_total_ns, analysis_window_ns, cleanup_grace_ns = _analysis_timeout_budget_ns(
         payload
     )
@@ -5000,14 +4989,15 @@ def execute_command_total(
         raw_paths = payload.get("paths")
         paths = normalize_paths(raw_paths, root=Path(str(root)))
         requested_language_raw = payload.get("language_id", payload.get("language"))
+        requested_language_text = _string_or_none(requested_language_raw)
         requested_language = (
-            str(requested_language_raw).strip().lower()
-            if isinstance(requested_language_raw, str) and requested_language_raw.strip()
+            str(requested_language_text).strip().lower()
+            if requested_language_text is not None and requested_language_text.strip()
             else None
         )
         root = payload.get("root") or root
         report_path = payload.get("report")
-        report_path_text = str(report_path) if isinstance(report_path, str) else None
+        report_path_text = _string_or_none(report_path)
         report_output_path = _resolve_report_output_path(
             root=Path(root),
             report_path=report_path_text,

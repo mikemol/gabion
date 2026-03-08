@@ -36,19 +36,28 @@ def summarize_deadline_obligations(
     lines: list[str] = []
     for entry in entries[:max_entries]:
         deps.check_deadline_fn()
-        site_payload = entry.get("site", {}) if type(entry) is dict else {}
-        site = cast(Mapping[str, object], site_payload if type(site_payload) is dict else {})
+        match entry:
+            case dict() as entry_payload:
+                site_payload = entry_payload.get("site", {})
+            case _:
+                site_payload = {}
+                entry_payload = {}
+        match site_payload:
+            case dict() as site:
+                pass
+            case _:
+                site = {}
         path = str(site.get("path", "?") or "?")
         function = str(site.get("function", "?") or "?")
         parsed_span = deps.require_not_none_fn(
-            deps.int_tuple4_or_none_fn(entry.get("span") if type(entry) is dict else None),
+            deps.int_tuple4_or_none_fn(entry_payload.get("span")),
             reason="deadline summary requires valid span",
             strict=True,
         )
         suite_kind = str(site.get("suite_kind", "function") or "function")
-        status = entry.get("status", "UNKNOWN") if type(entry) is dict else "UNKNOWN"
-        kind = entry.get("kind", "?") if type(entry) is dict else "?"
-        detail = entry.get("detail", "") if type(entry) is dict else ""
+        status = entry_payload.get("status", "UNKNOWN")
+        kind = entry_payload.get("kind", "?")
+        detail = entry_payload.get("detail", "")
         suite_site = forest.add_suite_site(path, function, "spec", span=parsed_span)
         forest.add_alt(
             "SpecFacet",
