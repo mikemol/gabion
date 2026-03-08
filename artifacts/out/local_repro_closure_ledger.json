@@ -4953,6 +4953,58 @@
         "extract_test_evidence": "pass",
         "test_evidence_drift_check": "pass"
       }
+    },
+    {
+      "cu_id": "CU-D2X",
+      "summary": "Dispatch-backed payload loader strictification in CLI result emitters and defensive-fallback policy baseline parsing.",
+      "timestamp_utc": "2026-03-08T12:38:09Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7108,
+        "defensive_fallback": 132,
+        "fiber_scalar_sentinel_contract": 306,
+        "fiber_type_dispatch_contract": 161,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 14,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7107,
+        "defensive_fallback": 132,
+        "fiber_scalar_sentinel_contract": 310,
+        "fiber_type_dispatch_contract": 151,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 14,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 7745,
+      "total_after": 7738,
+      "notes": [
+        "Replaced result-emitter mapping/list runtime guards with json_mapping_or_none/json_list_or_none dispatch helpers for timeout-profile, resume-summary, and nonzero-cause surfaces.",
+        "Reworked defensive_fallback_rule decorator/exception type checks via structural matching and moved baseline payload/list/object parsing to dispatch helpers.",
+        "Target files reached zero fiber violations: result_emitters 5->0 and defensive_fallback_rule 5->0; global fiber_type_dispatch_contract 161->151 (delta -10)."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_cli_and_policy_scanner": "pass",
+        "extract_test_evidence": "pass",
+        "test_evidence_drift_check": "pass"
+      }
     }
   ],
   "generated_by": "codex",

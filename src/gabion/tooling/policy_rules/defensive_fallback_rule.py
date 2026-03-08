@@ -9,6 +9,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Iterable
 
+from gabion.runtime_shape_dispatch import json_list_or_none, json_mapping_or_none
+
 TARGET_GLOB = "src/gabion/**/*.py"
 BASELINE_VERSION = 1
 MODULE_MARKER = "gabion:boundary_normalization_module"
@@ -113,10 +115,13 @@ class _DefensiveFallbackVisitor(ast.NodeVisitor):
             dotted = _dotted_name(decorator)
             if dotted in DECORATOR_NAMES:
                 return True
-            if isinstance(decorator, ast.Call):
-                call_name = _dotted_name(decorator.func)
-                if call_name in DECORATOR_NAMES:
-                    return True
+            match decorator:
+                case ast.Call(func=func):
+                    call_name = _dotted_name(func)
+                    if call_name in DECORATOR_NAMES:
+                        return True
+                case _:
+                    pass
         return False
 
     def _report(self, node: ast.AST, *, kind: str, message: str) -> None:
@@ -179,11 +184,13 @@ def _is_guard_condition(node: ast.AST) -> bool:
 
 
 def _is_broad_exception_handler(node: ast.ExceptHandler) -> bool:
-    if node.type is None:
-        return True
-    if isinstance(node.type, ast.Name) and node.type.id in {"Exception", "BaseException"}:
-        return True
-    return False
+    match node.type:
+        case None:
+            return True
+        case ast.Name(id=identifier):
+            return identifier in {"Exception", "BaseException"}
+        case _:
+            return False
 
 
 def _single_sentinel_stmt(body: list[ast.stmt]) -> tuple[str, str] | None:
@@ -299,23 +306,24 @@ def collect_violations(*, root: Path) -> list[Violation]:
 def _load_baseline(path: Path) -> set[str]:
     if not path.exists():
         return set()
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(payload, dict):
+    payload = json_mapping_or_none(json.loads(path.read_text(encoding="utf-8")))
+    if payload is None:
         return set()
-    raw_items = payload.get("violations")
-    if not isinstance(raw_items, list):
+    raw_items = json_list_or_none(payload.get("violations"))
+    if raw_items is None:
         return set()
     keys: set[str] = set()
     for item in raw_items:
-        if not isinstance(item, dict):
+        item_mapping = json_mapping_or_none(item)
+        if item_mapping is None:
             continue
-        path_value = str(item.get("path", "") or "")
-        qualname = str(item.get("qualname", "") or "")
-        kind = str(item.get("kind", "") or "")
-        structured_hash = item.get("structured_hash")
-        column = item.get("column")
-        message = str(item.get("message", "") or "")
-        line = item.get("line")
+        path_value = str(item_mapping.get("path", "") or "")
+        qualname = str(item_mapping.get("qualname", "") or "")
+        kind = str(item_mapping.get("kind", "") or "")
+        structured_hash = item_mapping.get("structured_hash")
+        column = item_mapping.get("column")
+        message = str(item_mapping.get("message", "") or "")
+        line = item_mapping.get("line")
         if not path_value or not qualname or not kind:
             continue
         match structured_hash:
