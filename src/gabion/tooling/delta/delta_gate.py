@@ -7,6 +7,7 @@ from typing import Mapping
 from gabion.json_types import JSONValue
 
 from gabion.runtime import env_policy, json_io
+from gabion.runtime_shape_dispatch import json_mapping_or_none
 from gabion.tooling.governance.governance_rules import GatePolicy, load_governance_rules
 
 OBSOLESCENCE_OPAQUE_ENV_FLAG = "GABION_GATE_OPAQUE_DELTA"
@@ -97,9 +98,10 @@ def _enabled_truthy_only(env_flag: str, value: str | None = None) -> bool:
 def _nested_int(payload: Mapping[str, JSONValue], keys: tuple[str, ...]) -> int:
     node: object = payload
     for key in keys:
-        if not isinstance(node, Mapping):
+        mapping_node = json_mapping_or_none(node)
+        if mapping_node is None:
             return 0
-        node = node.get(key)
+        node = mapping_node.get(key)
     try:
         return int(node if node is not None else 0)
     except (TypeError, ValueError):
@@ -118,8 +120,9 @@ def _load_payload(path: Path) -> tuple[Mapping[str, object] | None, str | None]:
         raw = json.loads(text)
     except json.JSONDecodeError as exc:
         return None, str(exc)
-    if isinstance(raw, Mapping):
-        return {str(key): raw[key] for key in raw}, None
+    mapping_payload = json_mapping_or_none(raw)
+    if mapping_payload is not None:
+        return {str(key): mapping_payload[key] for key in mapping_payload}, None
     return None, None
 
 
@@ -171,10 +174,11 @@ def _check_standard_gate(
         return 2
     payload, decode_error = _load_payload(path)
     if payload is None:
-        if isinstance(decode_error, str) and decode_error:
-            print(f"{spec.unreadable_message}: {decode_error}")
-        else:
-            print(spec.unreadable_message)
+        match decode_error:
+            case str() as decode_error_text if decode_error_text:
+                print(f"{spec.unreadable_message}: {decode_error_text}")
+            case _:
+                print(spec.unreadable_message)
         return 2
     gate_policy = load_governance_rules().gates[_gate_id_for_env_flag(spec.env_flag)]
     delta_value = _nested_int(payload, spec.delta_keys)
@@ -259,10 +263,11 @@ def check_docflow_gate(path: Path, *, enabled: bool | None = None) -> int:
         return 0
     payload, decode_error = _load_payload(path)
     if payload is None:
-        if isinstance(decode_error, str) and decode_error:
-            print(f"{policy.unreadable_message}: {decode_error}")
-        else:
-            print(policy.unreadable_message)
+        match decode_error:
+            case str() as decode_error_text if decode_error_text:
+                print(f"{policy.unreadable_message}: {decode_error_text}")
+            case _:
+                print(policy.unreadable_message)
         return 0
     baseline_missing = bool(payload.get("baseline_missing"))
     if baseline_missing:

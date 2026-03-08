@@ -5057,6 +5057,58 @@
         "extract_test_evidence": "pass",
         "test_evidence_drift_check": "pass"
       }
+    },
+    {
+      "cu_id": "CU-D2Z",
+      "summary": "Dispatch-backed payload strictification for branchless policy baseline parsing and delta gate payload/decode routing.",
+      "timestamp_utc": "2026-03-08T12:43:59Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7109,
+        "defensive_fallback": 132,
+        "fiber_scalar_sentinel_contract": 310,
+        "fiber_type_dispatch_contract": 146,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 14,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7109,
+        "defensive_fallback": 132,
+        "fiber_scalar_sentinel_contract": 311,
+        "fiber_type_dispatch_contract": 138,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 14,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 7735,
+      "total_after": 7728,
+      "notes": [
+        "Converted branchless_rule decorator call-shape checks to structural matching and moved baseline payload/list/object parsing to dispatch helpers.",
+        "Converted delta_gate nested payload traversal and raw JSON object checks to dispatch-backed mapping helpers; replaced decode-error type checks with structural matching.",
+        "Target files reached zero fiber violations: branchless_rule 4->0 and delta_gate 4->0; global fiber_type_dispatch_contract 146->138 (delta -8)."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_delta_and_policy": "pass",
+        "extract_test_evidence": "pass",
+        "test_evidence_drift_check": "pass"
+      }
     }
   ],
   "generated_by": "codex",
