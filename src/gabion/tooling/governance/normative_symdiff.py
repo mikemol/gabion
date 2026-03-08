@@ -9,6 +9,7 @@ import re
 from contextlib import contextmanager, redirect_stderr
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from functools import singledispatch
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -16,6 +17,7 @@ from typing import Callable, Iterable, Mapping
 
 from gabion.order_contract import sort_once
 from gabion.tooling.governance import governance_audit
+from gabion.invariants import never
 
 from gabion import server
 from gabion.tooling.governance import ambiguity_contract_policy_check
@@ -84,18 +86,43 @@ def _now_utc() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
+@singledispatch
 def _coerce_int(value: object) -> int:
-    if isinstance(value, bool):
-        return int(value)
-    if isinstance(value, int):
-        return value
-    if isinstance(value, float):
-        return int(value)
-    if isinstance(value, str):
-        try:
-            return int(value.strip())
-        except ValueError:
-            return 0
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_coerce_int.register(bool)
+def _(value: bool) -> int:
+    return int(value)
+
+
+@_coerce_int.register(int)
+def _(value: int) -> int:
+    return value
+
+
+@_coerce_int.register(float)
+def _(value: float) -> int:
+    return int(value)
+
+
+@_coerce_int.register(str)
+def _(value: str) -> int:
+    try:
+        return int(value.strip())
+    except ValueError:
+        return 0
+
+
+@_coerce_int.register(type(None))
+def _(value: None) -> int:
+    _ = value
+    return 0
+
+
+@_coerce_int.register(object)
+def _(value: object) -> int:
+    _ = value
     return 0
 
 
@@ -106,6 +133,118 @@ def _message_path_prefix(message: str) -> str | None:
     if not prefix:
         return None
     return prefix
+
+
+@singledispatch
+def _mapping_or_none(value: object):
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_mapping_or_none.register(dict)
+def _(value: dict[object, object]):
+    return value
+
+
+def _none_mapping(value: object):
+    _ = value
+    return None
+
+
+for _mapping_none_type in (
+    list,
+    tuple,
+    set,
+    str,
+    int,
+    float,
+    bool,
+    type(None),
+):
+    _mapping_or_none.register(_mapping_none_type)(_none_mapping)
+
+
+@singledispatch
+def _list_or_none(value: object):
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_list_or_none.register(list)
+def _(value: list[object]):
+    return value
+
+
+@_list_or_none.register(tuple)
+def _(value: tuple[object, ...]):
+    return list(value)
+
+
+def _none_list(value: object):
+    _ = value
+    return None
+
+
+for _list_none_type in (
+    dict,
+    set,
+    str,
+    int,
+    float,
+    bool,
+    type(None),
+):
+    _list_or_none.register(_list_none_type)(_none_list)
+
+
+@singledispatch
+def _str_or_none(value: object):
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_str_or_none.register(str)
+def _(value: str):
+    return value
+
+
+def _none_str(value: object):
+    _ = value
+    return None
+
+
+for _str_none_type in (
+    dict,
+    list,
+    tuple,
+    set,
+    int,
+    float,
+    bool,
+    type(None),
+):
+    _str_or_none.register(_str_none_type)(_none_str)
+
+
+def _mapping_entries(values: object) -> list[Mapping[object, object]]:
+    entries: list[Mapping[object, object]] = []
+    items = _list_or_none(values)
+    if items is None:
+        return entries
+    for item in items:
+        mapping = _mapping_or_none(item)
+        if mapping is not None:
+            entries.append(mapping)
+    return entries
+
+
+def _string_entries(values: object) -> list[str]:
+    entries: list[str] = []
+    items = _list_or_none(values)
+    if items is None:
+        return entries
+    for item in items:
+        text = _str_or_none(item)
+        if text is not None:
+            entries.append(text)
+    return entries
 
 
 def _ordered_strings(values: Iterable[object], *, source: str) -> list[str]:
@@ -139,11 +278,8 @@ def _ordered_gap_items(items: Iterable[GapItem], *, source: str) -> list[GapItem
 def _parse_frontmatter(path: Path) -> tuple[dict[str, object], str]:
     text = path.read_text(encoding="utf-8")
     frontmatter, body = governance_audit._parse_frontmatter(text)
-    normalized = (
-        dict(frontmatter)
-        if isinstance(frontmatter, Mapping)
-        else {}
-    )
+    mapping = _mapping_or_none(frontmatter)
+    normalized = dict(mapping) if mapping is not None else {}
     return normalized, body
 
 
@@ -209,45 +345,52 @@ def _workflow_anchor_errors(
     errors: list[str] = []
     workflow_cache: dict[str, Mapping[str, object]] = {}
     for clause_id, raw in clauses_payload.items():
-        if not isinstance(clause_id, str) or not isinstance(raw, Mapping):
+        clause_key = _str_or_none(clause_id)
+        clause_payload = _mapping_or_none(raw)
+        if clause_key is None or clause_payload is None:
             continue
-        ci_anchors = raw.get("ci_anchors")
-        if not isinstance(ci_anchors, list):
-            errors.append(f"{clause_id}: ci_anchors must be a list")
+        ci_anchor_entries = _list_or_none(clause_payload.get("ci_anchors"))
+        if ci_anchor_entries is None:
+            errors.append(f"{clause_key}: ci_anchors must be a list")
             continue
-        for anchor in ci_anchors:
-            if not isinstance(anchor, Mapping):
-                errors.append(f"{clause_id}: ci anchor must be mapping")
+        for anchor in ci_anchor_entries:
+            anchor_mapping = _mapping_or_none(anchor)
+            if anchor_mapping is None:
+                errors.append(f"{clause_key}: ci anchor must be mapping")
                 continue
-            workflow_ref = str(anchor.get("workflow", "")).strip()
-            job = str(anchor.get("job", "")).strip()
-            step = str(anchor.get("step", "")).strip()
+            workflow_ref = str(anchor_mapping.get("workflow", "")).strip()
+            job = str(anchor_mapping.get("job", "")).strip()
+            step = str(anchor_mapping.get("step", "")).strip()
             workflow_path = root / workflow_ref
             if not workflow_path.exists():
-                errors.append(f"{clause_id}: missing workflow {workflow_ref}")
+                errors.append(f"{clause_key}: missing workflow {workflow_ref}")
                 continue
             cache_key = workflow_path.as_posix()
             workflow_doc = workflow_cache.get(cache_key)
             if workflow_doc is None:
                 loaded = policy_check._load_yaml(workflow_path)
-                workflow_doc = dict(loaded) if isinstance(loaded, Mapping) else {}
+                loaded_mapping = _mapping_or_none(loaded)
+                workflow_doc = dict(loaded_mapping) if loaded_mapping is not None else {}
                 workflow_cache[cache_key] = workflow_doc
             jobs = workflow_doc.get("jobs")
-            if not isinstance(jobs, Mapping) or job not in jobs:
-                errors.append(f"{clause_id}: missing workflow job anchor {workflow_ref}:{job}")
+            jobs_mapping = _mapping_or_none(jobs)
+            if jobs_mapping is None or job not in jobs_mapping:
+                errors.append(f"{clause_key}: missing workflow job anchor {workflow_ref}:{job}")
                 continue
             if not step:
                 continue
-            job_payload = jobs.get(job)
-            steps = job_payload.get("steps") if isinstance(job_payload, Mapping) else []
+            job_payload = jobs_mapping.get(job)
+            job_mapping = _mapping_or_none(job_payload)
+            steps = _list_or_none(job_mapping.get("steps")) if job_mapping is not None else None
             step_names: list[str] = []
-            if isinstance(steps, list):
+            if steps is not None:
                 for item in steps:
-                    if isinstance(item, Mapping):
-                        step_names.append(str(item.get("name", "")))
+                    step_mapping = _mapping_or_none(item)
+                    if step_mapping is not None:
+                        step_names.append(str(step_mapping.get("name", "")))
             if step not in step_names:
                 errors.append(
-                    f"{clause_id}: missing workflow step anchor {workflow_ref}:{job}:{step}"
+                    f"{clause_key}: missing workflow step anchor {workflow_ref}:{job}:{step}"
                 )
     return _ordered_strings(errors, source="normative_symdiff.workflow_anchor_errors")
 
@@ -259,10 +402,11 @@ def analyze_clause_enforcement(
     enforcement_map_path: Path,
 ) -> dict[str, object]:
     payload = policy_check._load_yaml(enforcement_map_path)
-    clauses_payload = payload.get("clauses") if isinstance(payload, Mapping) else None
+    payload_mapping = _mapping_or_none(payload)
+    clauses_payload = payload_mapping.get("clauses") if payload_mapping is not None else None
     normalized_clauses = (
         dict(clauses_payload)
-        if isinstance(clauses_payload, Mapping)
+        if _mapping_or_none(clauses_payload) is not None
         else {}
     )
     clause_set = set(clause_ids)
@@ -284,14 +428,15 @@ def analyze_clause_enforcement(
     missing_modules: list[str] = []
     for clause_id in map_ids:
         raw = normalized_clauses.get(clause_id)
-        if not isinstance(raw, Mapping):
+        raw_mapping = _mapping_or_none(raw)
+        if raw_mapping is None:
             continue
-        status = str(raw.get("status", "")).strip()
+        status = str(raw_mapping.get("status", "")).strip()
         status_by_clause[clause_id] = status
         if status == "partial":
             partial_clauses.append(clause_id)
-        enforcing_modules = raw.get("enforcing_modules")
-        if not isinstance(enforcing_modules, list):
+        enforcing_modules = _list_or_none(raw_mapping.get("enforcing_modules"))
+        if enforcing_modules is None:
             continue
         for module_path in enforcing_modules:
             module_ref = root / str(module_path)
@@ -363,7 +508,8 @@ def _capture_policy_check(name: str, fn: Callable[[], object]) -> dict[str, obje
             exit_code = 0
         except SystemExit as exc:
             code = exc.code
-            exit_code = int(code) if isinstance(code, int) else 1
+            code_int = _coerce_int(code)
+            exit_code = code_int if code_int != 0 else 1
     stderr_text = stream.getvalue().strip()
     return {
         "name": name,
@@ -387,7 +533,7 @@ def _collect_controller_drift(root: Path) -> dict[str, object]:
         else:
             payload = {}
     findings = payload.get("findings", [])
-    findings_list = [entry for entry in findings if isinstance(entry, Mapping)]
+    findings_list = _mapping_entries(findings)
     findings_by_sensor: dict[str, int] = {}
     for item in findings_list:
         sensor = str(item.get("sensor", "")).strip()
@@ -408,20 +554,18 @@ def _collect_lsp_parity(root: Path) -> dict[str, object]:
     payload: dict[str, object] = {"root": str(root)}
     result = server._execute_lsp_parity_gate_total(ls, payload)
     checked_commands = result.get("checked_commands", [])
-    checked_count = (
-        len(checked_commands)
-        if isinstance(checked_commands, list)
-        else 0
-    )
+    checked_list = _list_or_none(checked_commands)
+    checked_count = len(checked_list) if checked_list is not None else 0
     errors = result.get("errors", [])
-    error_count = len(errors) if isinstance(errors, list) else 0
+    error_list = _list_or_none(errors)
+    error_count = len(error_list) if error_list is not None else 0
     exit_code = _coerce_int(result.get("exit_code"))
     return {
         "ok": exit_code == 0,
         "exit_code": exit_code,
         "checked_command_count": checked_count,
         "error_count": error_count,
-        "errors": list(errors) if isinstance(errors, list) else [],
+        "errors": list(error_list) if error_list is not None else [],
     }
 
 
@@ -536,13 +680,16 @@ def _collect_agent_instruction_probe(root: Path) -> dict[str, object]:
             if json_path.exists()
             else {}
         )
-    summary = payload.get("summary", {}) if isinstance(payload, Mapping) else {}
+    payload_mapping = _mapping_or_none(payload)
+    summary = payload_mapping.get("summary", {}) if payload_mapping is not None else {}
     hidden = payload.get("hidden_operational_toggles", [])
+    summary_mapping = _mapping_or_none(summary)
+    hidden_entries = _list_or_none(hidden)
     return {
         "warnings": list(warnings),
         "violations": list(violations),
-        "summary": dict(summary) if isinstance(summary, Mapping) else {},
-        "hidden_operational_toggles": list(hidden) if isinstance(hidden, list) else [],
+        "summary": dict(summary_mapping) if summary_mapping is not None else {},
+        "hidden_operational_toggles": list(hidden_entries) if hidden_entries is not None else [],
     }
 
 
@@ -702,8 +849,8 @@ def synthesize_gaps(
         evidence=[*map(str, missing_modules), *map(str, ci_anchor_errors)],
     )
 
-    workflow_policy = probes.get("workflow_policy", {})
-    if isinstance(workflow_policy, Mapping):
+    workflow_policy = _mapping_or_none(probes.get("workflow_policy", {}))
+    if workflow_policy is not None:
         _add_gap(
             doc_to_code,
             gap_id="DOC-CODE-WORKFLOW-POLICY",
@@ -716,8 +863,8 @@ def synthesize_gaps(
             evidence=[str(workflow_policy.get("stderr", ""))],
         )
 
-    lsp_parity = probes.get("lsp_parity_gate", {})
-    if isinstance(lsp_parity, Mapping):
+    lsp_parity = _mapping_or_none(probes.get("lsp_parity_gate", {}))
+    if lsp_parity is not None:
         error_count = _coerce_int(lsp_parity.get("error_count"))
         _add_gap(
             doc_to_code,
@@ -728,13 +875,13 @@ def synthesize_gaps(
             severity="high",
             count=error_count,
             message="LSP parity gate reports command maturity/carrier/parity drift.",
-            evidence=[str(item) for item in lsp_parity.get("errors", []) if isinstance(item, str)],
+            evidence=_string_entries(lsp_parity.get("errors", [])),
         )
 
-    controller_drift = probes.get("controller_drift", {})
-    if isinstance(controller_drift, Mapping):
-        summary = controller_drift.get("summary", {})
-        high_findings = _coerce_int(summary.get("high_severity_findings")) if isinstance(summary, Mapping) else 0
+    controller_drift = _mapping_or_none(probes.get("controller_drift", {}))
+    if controller_drift is not None:
+        summary = _mapping_or_none(controller_drift.get("summary", {}))
+        high_findings = _coerce_int(summary.get("high_severity_findings")) if summary is not None else 0
         _add_gap(
             doc_to_code,
             gap_id="DOC-CODE-CONTROLLER-DRIFT",
@@ -746,13 +893,12 @@ def synthesize_gaps(
             message="Controller drift audit reports unresolved high-severity findings.",
             evidence=[
                 f"{item.get('sensor')}::{item.get('detail')}"
-                for item in controller_drift.get("findings", [])
-                if isinstance(item, Mapping)
+                for item in _mapping_entries(controller_drift.get("findings", []))
             ],
         )
 
-    ambiguity_probe = probes.get("ambiguity_contract", {})
-    if isinstance(ambiguity_probe, Mapping):
+    ambiguity_probe = _mapping_or_none(probes.get("ambiguity_contract", {}))
+    if ambiguity_probe is not None:
         _add_gap(
             doc_to_code,
             gap_id="DOC-CODE-AMBIGUITY-TOTAL",
@@ -765,8 +911,8 @@ def synthesize_gaps(
             evidence=[f"by_rule={ambiguity_probe.get('by_rule', {})}"],
         )
 
-    branchless_probe = probes.get("branchless_policy", {})
-    if isinstance(branchless_probe, Mapping):
+    branchless_probe = _mapping_or_none(probes.get("branchless_policy", {}))
+    if branchless_probe is not None:
         _add_gap(
             doc_to_code,
             gap_id="DOC-CODE-BRANCHLESS-NEW",
@@ -790,8 +936,8 @@ def synthesize_gaps(
             evidence=[f"baseline_keys={branchless_probe.get('baseline_keys', 0)}"],
         )
 
-    defensive_probe = probes.get("defensive_fallback_policy", {})
-    if isinstance(defensive_probe, Mapping):
+    defensive_probe = _mapping_or_none(probes.get("defensive_fallback_policy", {}))
+    if defensive_probe is not None:
         _add_gap(
             doc_to_code,
             gap_id="DOC-CODE-DEFENSIVE-NEW",
@@ -815,8 +961,8 @@ def synthesize_gaps(
             evidence=[f"baseline_keys={defensive_probe.get('baseline_keys', 0)}"],
         )
 
-    no_monkeypatch_probe = probes.get("no_monkeypatch_policy", {})
-    if isinstance(no_monkeypatch_probe, Mapping):
+    no_monkeypatch_probe = _mapping_or_none(probes.get("no_monkeypatch_policy", {}))
+    if no_monkeypatch_probe is not None:
         _add_gap(
             doc_to_code,
             gap_id="DOC-CODE-NO-MONKEYPATCH",
@@ -832,8 +978,8 @@ def synthesize_gaps(
             ],
         )
 
-    order_lifetime_probe = probes.get("order_lifetime_policy", {})
-    if isinstance(order_lifetime_probe, Mapping):
+    order_lifetime_probe = _mapping_or_none(probes.get("order_lifetime_policy", {}))
+    if order_lifetime_probe is not None:
         _add_gap(
             doc_to_code,
             gap_id="DOC-CODE-ORDER-LIFETIME",
@@ -849,8 +995,8 @@ def synthesize_gaps(
             ],
         )
 
-    structural_hash_probe = probes.get("structural_hash_policy", {})
-    if isinstance(structural_hash_probe, Mapping):
+    structural_hash_probe = _mapping_or_none(probes.get("structural_hash_policy", {}))
+    if structural_hash_probe is not None:
         _add_gap(
             doc_to_code,
             gap_id="DOC-CODE-STRUCTURAL-HASH",
@@ -866,8 +1012,8 @@ def synthesize_gaps(
             ],
         )
 
-    core_docflow = probes.get("docflow_core", {})
-    if isinstance(core_docflow, Mapping):
+    core_docflow = _mapping_or_none(probes.get("docflow_core", {}))
+    if core_docflow is not None:
         _add_gap(
             doc_to_code,
             gap_id="DOC-CODE-DOCFLOW-CORE-VIOLATIONS",
@@ -877,7 +1023,7 @@ def synthesize_gaps(
             severity="high",
             count=_coerce_int(core_docflow.get("violation_count")),
             message="Core docflow invariants report violations.",
-            evidence=[str(item) for item in core_docflow.get("violations", []) if isinstance(item, str)],
+            evidence=_string_entries(core_docflow.get("violations", [])),
         )
         _add_gap(
             doc_to_code,
@@ -888,11 +1034,11 @@ def synthesize_gaps(
             severity="low",
             count=_coerce_int(core_docflow.get("warning_count")),
             message="Core docflow invariants report warnings.",
-            evidence=[str(item) for item in core_docflow.get("warnings", []) if isinstance(item, str)],
+            evidence=_string_entries(core_docflow.get("warnings", [])),
         )
 
-    extended_docflow = probes.get("docflow_extended_strict", {})
-    if isinstance(extended_docflow, Mapping):
+    extended_docflow = _mapping_or_none(probes.get("docflow_extended_strict", {}))
+    if extended_docflow is not None:
         _add_gap(
             doc_to_code,
             gap_id="DOC-CODE-DOCFLOW-EXTENDED-VIOLATIONS",
@@ -902,7 +1048,7 @@ def synthesize_gaps(
             severity="medium",
             count=_coerce_int(extended_docflow.get("extended_violation_count")),
             message="Extended normative docs fail strict docflow invariants.",
-            evidence=[str(item) for item in extended_docflow.get("extended_violations", []) if isinstance(item, str)],
+            evidence=_string_entries(extended_docflow.get("extended_violations", [])),
         )
         _add_gap(
             doc_to_code,
@@ -913,14 +1059,13 @@ def synthesize_gaps(
             severity="low",
             count=_coerce_int(extended_docflow.get("extended_warning_count")),
             message="Extended normative docs report strict docflow warnings.",
-            evidence=[str(item) for item in extended_docflow.get("extended_warnings", []) if isinstance(item, str)],
+            evidence=_string_entries(extended_docflow.get("extended_warnings", [])),
         )
 
     controller_findings = []
-    if isinstance(controller_drift, Mapping):
+    if controller_drift is not None:
         controller_findings = [
-            item for item in controller_drift.get("findings", [])
-            if isinstance(item, Mapping)
+            item for item in _mapping_entries(controller_drift.get("findings", []))
         ]
     unanchored = [
         item for item in controller_findings
@@ -953,9 +1098,10 @@ def synthesize_gaps(
         evidence=[str(item.get("detail", "")) for item in unindexed],
     )
 
-    agent_instruction = probes.get("agent_instruction_graph", {})
-    if isinstance(agent_instruction, Mapping):
+    agent_instruction = _mapping_or_none(probes.get("agent_instruction_graph", {}))
+    if agent_instruction is not None:
         hidden_toggles = agent_instruction.get("hidden_operational_toggles", [])
+        hidden_toggle_entries = _mapping_entries(hidden_toggles)
         _add_gap(
             code_to_doc,
             gap_id="CODE-DOC-HIDDEN-TOGGLES",
@@ -963,12 +1109,11 @@ def synthesize_gaps(
             direction="code_to_doc",
             model="absolute",
             severity="medium",
-            count=len(hidden_toggles) if isinstance(hidden_toggles, list) else 0,
+            count=len(_list_or_none(hidden_toggles) or []),
             message="Operational toggles are present in governance docs but hidden from AGENTS surfaces.",
             evidence=[
                 f"{item.get('source')}::{item.get('token')}"
-                for item in hidden_toggles
-                if isinstance(item, Mapping)
+                for item in hidden_toggle_entries
             ],
         )
 
@@ -1059,10 +1204,7 @@ def score_gaps(gap_payload: Mapping[str, object]) -> dict[str, object]:
     all_gaps: list[Mapping[str, object]] = []
     for key in ("doc_to_code_gaps", "code_to_doc_gaps"):
         values = gap_payload.get(key, [])
-        if isinstance(values, list):
-            all_gaps.extend(
-                item for item in values if isinstance(item, Mapping)
-            )
+        all_gaps.extend(_mapping_entries(values))
     models = ("ratchet", "absolute")
     layers = ("core", "extended", "overall")
     matrix: dict[str, dict[str, object]] = {}
@@ -1101,14 +1243,17 @@ def _render_gap_lines(gaps: list[Mapping[str, object]]) -> list[str]:
 
 
 def render_markdown(report: Mapping[str, object]) -> str:
-    summary = report.get("summary", {})
-    inventory = report.get("inventory", {})
-    clauses = report.get("clauses", {})
-    gaps = report.get("gaps", {})
-    scoring = report.get("scoring", {})
+    summary = _mapping_or_none(report.get("summary", {})) or {}
+    inventory = _mapping_or_none(report.get("inventory", {})) or {}
+    clauses = _mapping_or_none(report.get("clauses", {})) or {}
+    gaps = _mapping_or_none(report.get("gaps", {})) or {}
+    scoring = _mapping_or_none(report.get("scoring", {}))
+    inventory_counts = _mapping_or_none(inventory.get("counts", {})) or {}
+    clause_ids = _list_or_none(clauses.get("clause_ids", [])) or []
+    partial_clauses = _list_or_none(clauses.get("partial_clauses", [])) or []
 
-    doc_to_code_gaps = gaps.get("doc_to_code_gaps", []) if isinstance(gaps, Mapping) else []
-    code_to_doc_gaps = gaps.get("code_to_doc_gaps", []) if isinstance(gaps, Mapping) else []
+    doc_to_code_gaps = _list_or_none(gaps.get("doc_to_code_gaps", [])) or []
+    code_to_doc_gaps = _list_or_none(gaps.get("code_to_doc_gaps", [])) or []
 
     lines = [
         "# Normative Symmetric Diff",
@@ -1127,33 +1272,33 @@ def render_markdown(report: Mapping[str, object]) -> str:
         "",
         "## Core Layer Matrix",
         "",
-        f"- canonical_core_docs: `{inventory.get('counts', {}).get('core_layer_docs', 0) if isinstance(inventory, Mapping) else 0}`",
-        f"- canonical_clause_count: `{len(clauses.get('clause_ids', [])) if isinstance(clauses, Mapping) and isinstance(clauses.get('clause_ids'), list) else 0}`",
-        f"- partial_clause_count: `{len(clauses.get('partial_clauses', [])) if isinstance(clauses, Mapping) and isinstance(clauses.get('partial_clauses'), list) else 0}`",
+        f"- canonical_core_docs: `{inventory_counts.get('core_layer_docs', 0)}`",
+        f"- canonical_clause_count: `{len(clause_ids)}`",
+        f"- partial_clause_count: `{len(partial_clauses)}`",
         "",
         "## Extended Layer Matrix",
         "",
-        f"- extended_normative_docs: `{inventory.get('counts', {}).get('extended_layer_docs', 0) if isinstance(inventory, Mapping) else 0}`",
-        f"- outside_default_strict_docs: `{inventory.get('counts', {}).get('outside_default_strict_docs', 0) if isinstance(inventory, Mapping) else 0}`",
+        f"- extended_normative_docs: `{inventory_counts.get('extended_layer_docs', 0)}`",
+        f"- outside_default_strict_docs: `{inventory_counts.get('outside_default_strict_docs', 0)}`",
         "",
         "## Doc to Code Gaps",
         "",
     ]
-    lines.extend(_render_gap_lines(doc_to_code_gaps if isinstance(doc_to_code_gaps, list) else []))
+    lines.extend(_render_gap_lines(doc_to_code_gaps))
     lines.extend(["", "## Code to Doc Gaps", ""])
-    lines.extend(_render_gap_lines(code_to_doc_gaps if isinstance(code_to_doc_gaps, list) else []))
+    lines.extend(_render_gap_lines(code_to_doc_gaps))
 
-    if isinstance(scoring, Mapping):
+    if scoring is not None:
         lines.extend(["", "## How Close/Far", ""])
         for model in ("ratchet", "absolute"):
-            model_block = scoring.get(model, {})
-            if not isinstance(model_block, Mapping):
+            model_block = _mapping_or_none(scoring.get(model, {}))
+            if model_block is None:
                 continue
             lines.append(f"### {model.title()} View")
             lines.append("")
             for layer in ("core", "extended", "overall"):
-                layer_block = model_block.get(layer, {})
-                if not isinstance(layer_block, Mapping):
+                layer_block = _mapping_or_none(model_block.get(layer, {}))
+                if layer_block is None:
                     continue
                 lines.append(
                     "- "

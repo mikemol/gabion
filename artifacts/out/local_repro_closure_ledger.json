@@ -3578,6 +3578,56 @@
         "policy_scanner_suite": "fail_expected_nonzero",
         "targeted_pytest_refactor_engine_loop_generator_coverage_idempotency": "pass"
       }
+    },
+    {
+      "cu_id": "CU-D1A",
+      "summary": "Governance strict-dispatch conversion: refactor normative_symdiff type-routing surfaces to singledispatch ingress helpers and eliminate module fiber-type-dispatch findings.",
+      "timestamp_utc": "2026-03-08T03:12:19Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7012,
+        "defensive_fallback": 129,
+        "fiber_scalar_sentinel_contract": 270,
+        "fiber_type_dispatch_contract": 549,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7006,
+        "defensive_fallback": 129,
+        "fiber_scalar_sentinel_contract": 275,
+        "fiber_type_dispatch_contract": 519,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 7984,
+      "total_after": 7953,
+      "notes": [
+        "Converted governance/normative symdiff scalar and shape normalizers to singledispatch helpers and removed in-body isinstance/type-driven control branches from workflow-anchor, clause-analysis, scoring, and markdown rendering paths.",
+        "Reworked probe payload normalization to dispatch helpers (_mapping_or_none, _list_or_none, _str_or_none, _mapping_entries, _string_entries) to preserve output contracts while routing by concrete runtime classes.",
+        "Acceptance met: src/gabion/tooling/governance/normative_symdiff.py fiber_type_dispatch_contract 30->0 and global fiber_type_dispatch_contract 549->519 (delta -30); non-target family movement recorded per target-only mode."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_normative_symdiff": "pass"
+      }
     }
   ],
   "generated_by": "codex",
