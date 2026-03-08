@@ -3528,6 +3528,56 @@
         "policy_scanner_suite": "fail_expected_nonzero",
         "targeted_pytest_refactor_engine_loop_generator_coverage_idempotency": "pass"
       }
+    },
+    {
+      "cu_id": "CU-C2",
+      "summary": "Engine strict-dispatch conversion: remove manual type-driven routing from refactor engine helpers and callsite rewriters, and eliminate engine fiber-type-dispatch findings.",
+      "timestamp_utc": "2026-03-08T03:06:02Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7003,
+        "defensive_fallback": 129,
+        "fiber_scalar_sentinel_contract": 269,
+        "fiber_type_dispatch_contract": 594,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 21,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7012,
+        "defensive_fallback": 129,
+        "fiber_scalar_sentinel_contract": 270,
+        "fiber_type_dispatch_contract": 549,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 8016,
+      "total_after": 7984,
+      "notes": [
+        "Refactored src/gabion/refactor/engine.py import/context/callsite helpers away from in-body type checks to singledispatch ingress helpers and matcher-based structural checks.",
+        "Removed engine type-routing hotspots in _is_import, typing/contextvars import detectors, _collect_import_context, ambient call/threading rewrite, and callsite wrapper detection while preserving behavior under targeted suites.",
+        "Acceptance met: src/gabion/refactor/engine.py fiber_type_dispatch_contract 45->0 and global fiber_type_dispatch_contract 594->549 (delta -45); target-only mode recorded non-target family movement in ledger."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_refactor_engine_loop_generator_coverage_idempotency": "pass"
+      }
     }
   ],
   "generated_by": "codex",
