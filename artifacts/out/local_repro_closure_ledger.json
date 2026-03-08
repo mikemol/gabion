@@ -4425,6 +4425,60 @@
         "extract_test_evidence": "pass",
         "test_evidence_drift_check": "pass"
       }
+    },
+    {
+      "cu_id": "CU-D2N",
+      "summary": "Long-tail strict-dispatch conversion: post-phase analysis helper type-routing moved from in-body type checks to singledispatch entrypoints and parse-outcome pattern dispatch.",
+      "timestamp_utc": "2026-03-08T05:23:34Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7066,
+        "defensive_fallback": 128,
+        "fiber_scalar_sentinel_contract": 289,
+        "fiber_type_dispatch_contract": 311,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 14,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7076,
+        "defensive_fallback": 128,
+        "fiber_scalar_sentinel_contract": 289,
+        "fiber_type_dispatch_contract": 302,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 14,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 7832,
+      "total_after": 7833,
+      "notes": [
+        "Replaced remaining manual type guards in dataflow_post_phase_analyses helper surfaces with concrete-class singledispatch predicates/accessors and strict never(...) bases.",
+        "Converted parse-outcome type check in _param_annotations_by_path to explicit _ParseModuleSuccess/_ParseModuleFailure pattern matching to satisfy ambiguity policy.",
+        "Acceptance met: src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py fiber_type_dispatch_contract 9->0 and global fiber_type_dispatch_contract 311->302 (delta -9)."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_dataflow_indexed_helper_branches": "pass",
+        "targeted_pytest_exception_deadness_helpers": "pass",
+        "targeted_pytest_decision_surfaces": "pass",
+        "extract_test_evidence": "pass",
+        "test_evidence_drift_check": "pass"
+      }
     }
   ],
   "generated_by": "codex",

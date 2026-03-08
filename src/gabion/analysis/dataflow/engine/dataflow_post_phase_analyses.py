@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 from collections import defaultdict
 from dataclasses import dataclass, field
+from functools import singledispatch
 from pathlib import Path
 from typing import Callable, Iterable, Sequence, cast
 
@@ -38,6 +39,7 @@ from gabion.analysis.dataflow.engine.dataflow_function_index_helpers import (
     _param_annotations,
 )
 from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
+    _ParseModuleFailure,
     _ParseModuleStage,
     _ParseModuleSuccess,
     _forbid_adhoc_bundle_discovery,
@@ -186,13 +188,174 @@ _LITERAL_EVAL_ERROR_TYPES = (
 _NONE_TYPES = {"None", "NoneType", "type(None)"}
 
 
+def _leaf_ast_subclasses(base_type: type[ast.AST]) -> tuple[type[ast.AST], ...]:
+    node_types: list[type[ast.AST]] = []
+    for candidate in vars(ast).values():
+        try:
+            if issubclass(candidate, base_type) and candidate is not base_type:
+                node_types.append(candidate)
+        except TypeError:
+            continue
+    node_types_tuple = tuple(node_types)
+    return tuple(
+        node_type
+        for node_type in node_types_tuple
+        if not any(
+            candidate is not node_type and issubclass(candidate, node_type)
+            for candidate in node_types_tuple
+        )
+    )
+
+
+_AST_LEAF_NODE_TYPES = _leaf_ast_subclasses(ast.AST)
+_AST_LEAF_CMPOP_TYPES = _leaf_ast_subclasses(ast.cmpop)
+
+
+@singledispatch
+def _is_ast_name(value: ast.AST) -> bool:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_is_ast_name.register(ast.Name)
+def _(value: ast.Name) -> bool:
+    _ = value
+    return True
+
+
+def _is_not_ast_name(value: ast.AST) -> bool:
+    _ = value
+    return False
+
+
+for _runtime_type in _AST_LEAF_NODE_TYPES:
+    if _runtime_type is ast.Name:
+        continue
+    _is_ast_name.register(_runtime_type)(_is_not_ast_name)
+
+
+@singledispatch
+def _ast_name_id(value: ast.AST) -> str:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_ast_name_id.register(ast.Name)
+def _(value: ast.Name) -> str:
+    return value.id
+
+
+@singledispatch
+def _is_ast_compare(value: ast.AST) -> bool:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_is_ast_compare.register(ast.Compare)
+def _(value: ast.Compare) -> bool:
+    _ = value
+    return True
+
+
+def _is_not_ast_compare(value: ast.AST) -> bool:
+    _ = value
+    return False
+
+
+for _runtime_type in _AST_LEAF_NODE_TYPES:
+    if _runtime_type is ast.Compare:
+        continue
+    _is_ast_compare.register(_runtime_type)(_is_not_ast_compare)
+
+
+@singledispatch
+def _compare_left(value: ast.AST) -> ast.AST:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_compare_left.register(ast.Compare)
+def _(value: ast.Compare) -> ast.AST:
+    return value.left
+
+
+@singledispatch
+def _compare_ops(value: ast.AST) -> tuple[ast.cmpop, ...]:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_compare_ops.register(ast.Compare)
+def _(value: ast.Compare) -> tuple[ast.cmpop, ...]:
+    return tuple(value.ops)
+
+
+@singledispatch
+def _compare_comparators(value: ast.AST) -> tuple[ast.AST, ...]:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_compare_comparators.register(ast.Compare)
+def _(value: ast.Compare) -> tuple[ast.AST, ...]:
+    return tuple(value.comparators)
+
+
+@singledispatch
+def _is_eq_compare_operator(value: ast.cmpop) -> bool:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_is_eq_compare_operator.register(ast.Eq)
+def _(value: ast.Eq) -> bool:
+    _ = value
+    return True
+
+
+def _is_not_eq_compare_operator(value: ast.cmpop) -> bool:
+    _ = value
+    return False
+
+
+for _runtime_type in _AST_LEAF_CMPOP_TYPES:
+    if _runtime_type is ast.Eq:
+        continue
+    _is_eq_compare_operator.register(_runtime_type)(_is_not_eq_compare_operator)
+
+
+@singledispatch
+def _is_ast_try(value: ast.AST) -> bool:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_is_ast_try.register(ast.Try)
+def _(value: ast.Try) -> bool:
+    _ = value
+    return True
+
+
+def _is_not_ast_try(value: ast.AST) -> bool:
+    _ = value
+    return False
+
+
+for _runtime_type in _AST_LEAF_NODE_TYPES:
+    if _runtime_type is ast.Try:
+        continue
+    _is_ast_try.register(_runtime_type)(_is_not_ast_try)
+
+
+@singledispatch
+def _ast_try_node(value: ast.AST) -> ast.Try:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_ast_try_node.register(ast.Try)
+def _(value: ast.Try) -> ast.Try:
+    return value
+
+
 def _parse_module_source(path: Path) -> ast.Module:
     return ast.parse(path.read_text())
 
 
 def _simple_store_name(target: ast.AST):
-    if type(target) is ast.Name:
-        return cast(ast.Name, target).id
+    if _is_ast_name(target):
+        return _ast_name_id(target)
     return None
 
 
@@ -233,21 +396,35 @@ def _function_key(scope, name: str) -> str:
     return ".".join(parts)
 
 
+@singledispatch
 def _invariant_term(expr: ast.AST, params: set[str]):
-    expr_type = type(expr)
-    if expr_type is ast.Name:
-        name_expr = cast(ast.Name, expr)
-        return next(iter(params.intersection({name_expr.id})), None)
-    if expr_type is ast.Call:
-        call_expr = cast(ast.Call, expr)
-        if type(call_expr.func) is ast.Name:
-            func_name = cast(ast.Name, call_expr.func)
-            if func_name.id == "len" and len(call_expr.args) == 1:
-                arg = call_expr.args[0]
-                if type(arg) is ast.Name:
-                    arg_id = cast(ast.Name, arg).id
-                    return next((f"{entry}.length" for entry in params.intersection({arg_id})), None)
+    never("unregistered runtime type", value_type=type(expr).__name__)
+
+
+@_invariant_term.register(ast.Name)
+def _(expr: ast.Name, params: set[str]):
+    return next(iter(params.intersection({expr.id})), None)
+
+
+@_invariant_term.register(ast.Call)
+def _(expr: ast.Call, params: set[str]):
+    if _is_ast_name(expr.func) and _ast_name_id(expr.func) == "len" and len(expr.args) == 1:
+        arg = expr.args[0]
+        if _is_ast_name(arg):
+            arg_id = _ast_name_id(arg)
+            return next((f"{entry}.length" for entry in params.intersection({arg_id})), None)
     return None
+
+
+def _invariant_term_unhandled(expr: ast.AST, params: set[str]):
+    _ = (expr, params)
+    return None
+
+
+for _runtime_type in _AST_LEAF_NODE_TYPES:
+    if _runtime_type in {ast.Name, ast.Call}:
+        continue
+    _invariant_term.register(_runtime_type)(_invariant_term_unhandled)
 
 
 def _extract_invariant_from_expr(
@@ -257,15 +434,16 @@ def _extract_invariant_from_expr(
     scope: str,
     source: str = "assert",
 ) -> object:
-    if type(expr) is not ast.Compare:
+    if not _is_ast_compare(expr):
         return None
-    compare_expr = cast(ast.Compare, expr)
-    if len(compare_expr.ops) != 1 or len(compare_expr.comparators) != 1:
+    compare_ops = _compare_ops(expr)
+    compare_comparators = _compare_comparators(expr)
+    if len(compare_ops) != 1 or len(compare_comparators) != 1:
         return None
-    if type(compare_expr.ops[0]) is not ast.Eq:
+    if not _is_eq_compare_operator(compare_ops[0]):
         return None
-    left = _invariant_term(compare_expr.left, params)
-    right = _invariant_term(compare_expr.comparators[0], params)
+    left = _invariant_term(_compare_left(expr), params)
+    right = _invariant_term(compare_comparators[0], params)
     if left is not None and right is not None:
         return InvariantProposition(
             form="Equal",
@@ -353,8 +531,8 @@ def _names_in_expr(expr: ast.AST) -> set[str]:
     names: set[str] = set()
     for node in ast.walk(expr):
         check_deadline()
-        if type(node) is ast.Name:
-            names.add(cast(ast.Name, node).id)
+        if _is_ast_name(node):
+            names.add(_ast_name_id(node))
     return names
 
 
@@ -454,10 +632,10 @@ def _refine_exception_name_from_annotations(
 ):
     check_deadline()
     direct_name = _exception_type_name(expr)
-    if type(expr) is not ast.Name:
+    if not _is_ast_name(expr):
         return direct_name, None, ()
     annotations = cast(dict[str, str | None], param_annotations)
-    annotation = annotations.get(cast(ast.Name, expr).id)
+    annotation = annotations.get(_ast_name_id(expr))
     candidates = _annotation_exception_candidates(annotation)
     if not candidates:
         return direct_name, None, ()
@@ -514,8 +692,8 @@ def _find_handling_try(
     try_ancestors: list[ast.Try] = []
     while current is not None:
         check_deadline()
-        if type(current) is ast.Try:
-            try_ancestors.append(cast(ast.Try, current))
+        if _is_ast_try(current):
+            try_ancestors.append(_ast_try_node(current))
         current = parents.get(current)
     return next(
         (try_node for try_node in try_ancestors if _node_in_try_body(node, try_node)),
@@ -1237,14 +1415,35 @@ def _collect_invariant_propositions(
     )
 
 
+@singledispatch
+def _param_annotations_json(
+    fn: ast.AST,
+    ignore_params: set[str],
+) -> dict[str, JSONValue]:
+    _ = ignore_params
+    never("unregistered runtime type", value_type=type(fn).__name__)
+
+
+@_param_annotations_json.register(ast.FunctionDef)
+def _(fn: ast.FunctionDef, ignore_params: set[str]) -> dict[str, JSONValue]:
+    param_annotations = _param_annotations(fn, ignore_params)
+    return {name: annotation for name, annotation in param_annotations.items()}
+
+
+@_param_annotations_json.register(ast.AsyncFunctionDef)
+def _(fn: ast.AsyncFunctionDef, ignore_params: set[str]) -> dict[str, JSONValue]:
+    param_annotations = _param_annotations(fn, ignore_params)
+    return {name: annotation for name, annotation in param_annotations.items()}
+
+
 def _param_annotations_by_path(
     paths: list[Path],
     *,
     ignore_params: set[str],
     parse_failure_witnesses: ParseFailureWitnesses,
-) -> dict[Path, dict[str, object]]:
+) -> dict[Path, dict[str, dict[str, JSONValue]]]:
     check_deadline()
-    annotations: dict[Path, dict[str, object]] = {}
+    annotations: dict[Path, dict[str, dict[str, JSONValue]]] = {}
     for path in paths:
         check_deadline()
         parse_outcome = _parse_module_tree(
@@ -1252,19 +1451,20 @@ def _param_annotations_by_path(
             stage=_ParseModuleStage.PARAM_ANNOTATIONS,
             parse_failure_witnesses=parse_failure_witnesses,
         )
-        if type(parse_outcome) is not _ParseModuleSuccess:
-            continue
-        tree = parse_outcome.tree
-        parent = ParentAnnotator()
-        parent.visit(tree)
-        parents = parent.parents
-        by_fn: dict[str, object] = {}
-        for fn in _collect_functions(tree):
-            check_deadline()
-            scopes = _enclosing_scopes(fn, parents)
-            fn_key = _function_key(scopes, fn.name)
-            by_fn[fn_key] = _param_annotations(fn, ignore_params)
-        annotations[path] = by_fn
+        match parse_outcome:
+            case _ParseModuleSuccess(kind="parsed", tree=tree):
+                parent = ParentAnnotator()
+                parent.visit(tree)
+                parents = parent.parents
+                by_fn: dict[str, dict[str, JSONValue]] = {}
+                for fn in _collect_functions(tree):
+                    check_deadline()
+                    scopes = _enclosing_scopes(fn, parents)
+                    fn_key = _function_key(scopes, fn.name)
+                    by_fn[fn_key] = _param_annotations_json(fn, ignore_params)
+                annotations[path] = by_fn
+            case _ParseModuleFailure(kind="parse_failure"):
+                pass
     return annotations
 
 
