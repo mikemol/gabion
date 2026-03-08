@@ -5,7 +5,10 @@ import argparse
 import ast
 import json
 from dataclasses import dataclass
+from functools import singledispatch
 from pathlib import Path
+
+from gabion.invariants import never
 
 TARGETS = (
     "src/gabion/analysis/**/*.py",
@@ -60,7 +63,7 @@ class _Visitor(ast.NodeVisitor):
         if self._scope_boundary:
             self.generic_visit(node)
             return
-        if isinstance(node.func, ast.Name) and node.func.id == "isinstance":
+        if _is_isinstance_call(node):
             self._report(node, rule_id="ACP-003", message="runtime type narrowing in deterministic core")
         self.generic_visit(node)
 
@@ -141,15 +144,139 @@ def _has_marker(source_lines: list[str], line: int, marker: str) -> bool:
     return False
 
 
-def _annotation_is_dynamic(node: ast.AST) -> bool:
-    if isinstance(node, ast.Name):
-        return node.id in {"Any", "Optional", "Union"}
-    if isinstance(node, ast.Subscript):
-        if isinstance(node.value, ast.Name) and node.value.id in {"Optional", "Union"}:
+@singledispatch
+def _name_id_or_none(node: object) -> str | None:
+    never("unregistered runtime type", value_type=type(node).__name__)
+
+
+@_name_id_or_none.register(ast.Name)
+def _(node: ast.Name) -> str | None:
+    return node.id
+
+
+@_name_id_or_none.register(ast.AST)
+def _(node: ast.AST) -> str | None:
+    _ = node
+    return None
+
+
+@singledispatch
+def _is_isinstance_call(node: object) -> bool:
+    never("unregistered runtime type", value_type=type(node).__name__)
+
+
+@_is_isinstance_call.register(ast.Call)
+def _(node: ast.Call) -> bool:
+    return _name_id_or_none(node.func) == "isinstance"
+
+
+@_is_isinstance_call.register(ast.AST)
+def _(node: ast.AST) -> bool:
+    _ = node
+    return False
+
+
+@singledispatch
+def _is_none_constant(node: object) -> bool:
+    never("unregistered runtime type", value_type=type(node).__name__)
+
+
+@_is_none_constant.register(type(None))
+def _(node: None) -> bool:
+    _ = node
+    return True
+
+
+@_is_none_constant.register(ast.Constant)
+def _(node: ast.Constant) -> bool:
+    return node.value is None
+
+
+@_is_none_constant.register(ast.AST)
+def _(node: ast.AST) -> bool:
+    _ = node
+    return False
+
+
+@singledispatch
+def _compare_contains_none_constant(node: object) -> bool:
+    never("unregistered runtime type", value_type=type(node).__name__)
+
+
+@_compare_contains_none_constant.register(ast.Compare)
+def _(node: ast.Compare) -> bool:
+    values = [node.left, *node.comparators]
+    for value in values:
+        if _is_none_constant(value):
             return True
-        return _annotation_is_dynamic(node.value) or _annotation_is_dynamic(node.slice)
-    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
+    return False
+
+
+@_compare_contains_none_constant.register(ast.AST)
+def _(node: ast.AST) -> bool:
+    _ = node
+    return False
+
+
+@singledispatch
+def _subscript_value_is_dynamic_alias(node: object) -> bool:
+    never("unregistered runtime type", value_type=type(node).__name__)
+
+
+@_subscript_value_is_dynamic_alias.register(ast.Name)
+def _(node: ast.Name) -> bool:
+    return node.id in {"Optional", "Union"}
+
+
+@_subscript_value_is_dynamic_alias.register(ast.AST)
+def _(node: ast.AST) -> bool:
+    _ = node
+    return False
+
+
+@singledispatch
+def _is_bit_or_operator(node: object) -> bool:
+    never("unregistered runtime type", value_type=type(node).__name__)
+
+
+@_is_bit_or_operator.register(ast.BitOr)
+def _(node: ast.BitOr) -> bool:
+    _ = node
+    return True
+
+
+@_is_bit_or_operator.register(ast.operator)
+def _(node: ast.operator) -> bool:
+    _ = node
+    return False
+
+
+@singledispatch
+def _annotation_is_dynamic(node: object) -> bool:
+    never("unregistered runtime type", value_type=type(node).__name__)
+
+
+@_annotation_is_dynamic.register(ast.Name)
+def _(node: ast.Name) -> bool:
+    return node.id in {"Any", "Optional", "Union"}
+
+
+@_annotation_is_dynamic.register(ast.Subscript)
+def _(node: ast.Subscript) -> bool:
+    if _subscript_value_is_dynamic_alias(node.value):
         return True
+    return _annotation_is_dynamic(node.value) or _annotation_is_dynamic(node.slice)
+
+
+@_annotation_is_dynamic.register(ast.BinOp)
+def _(node: ast.BinOp) -> bool:
+    if _is_bit_or_operator(node.op):
+        return True
+    return _annotation_is_dynamic(node.left) or _annotation_is_dynamic(node.right)
+
+
+@_annotation_is_dynamic.register(ast.AST)
+def _(node: ast.AST) -> bool:
     for child in ast.iter_child_nodes(node):
         if _annotation_is_dynamic(child):
             return True
@@ -158,32 +285,153 @@ def _annotation_is_dynamic(node: ast.AST) -> bool:
 
 def _looks_like_guard(node: ast.AST) -> bool:
     for child in ast.walk(node):
-        if isinstance(child, ast.Call) and isinstance(child.func, ast.Name) and child.func.id == "isinstance":
+        if _is_isinstance_call(child):
             return True
-        if isinstance(child, ast.Compare):
-            values = [child.left, *child.comparators]
-            for value in values:
-                if isinstance(value, ast.Constant) and value.value is None:
-                    return True
+        if _compare_contains_none_constant(child):
+            return True
     return False
+
+
+@singledispatch
+def _sentinel_return_value(value: object) -> str | None:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_sentinel_return_value.register(type(None))
+def _(value: None) -> str | None:
+    _ = value
+    return "return None"
+
+
+@_sentinel_return_value.register(ast.Constant)
+def _(value: ast.Constant) -> str | None:
+    if value.value is None:
+        return "return None"
+    return None
+
+
+@_sentinel_return_value.register(ast.List)
+def _(value: ast.List) -> str | None:
+    if len(value.elts) == 0:
+        return "return []"
+    return None
+
+
+@_sentinel_return_value.register(ast.AST)
+def _(value: ast.AST) -> str | None:
+    _ = value
+    return None
+
+
+@singledispatch
+def _sentinel_stmt_value(stmt: object) -> str | None:
+    never("unregistered runtime type", value_type=type(stmt).__name__)
+
+
+@_sentinel_stmt_value.register(ast.Return)
+def _(stmt: ast.Return) -> str | None:
+    return _sentinel_return_value(stmt.value)
+
+
+@_sentinel_stmt_value.register(ast.Continue)
+def _(stmt: ast.Continue) -> str | None:
+    _ = stmt
+    return "continue"
+
+
+@_sentinel_stmt_value.register(ast.Pass)
+def _(stmt: ast.Pass) -> str | None:
+    _ = stmt
+    return "pass"
+
+
+@_sentinel_stmt_value.register(ast.stmt)
+def _(stmt: ast.stmt) -> str | None:
+    _ = stmt
+    return None
 
 
 def _single_sentinel_stmt(body: list[ast.stmt]) -> str | None:
     if len(body) != 1:
         return None
-    stmt = body[0]
-    if isinstance(stmt, ast.Return):
-        if stmt.value is None:
-            return "return None"
-        if isinstance(stmt.value, ast.Constant) and stmt.value.value is None:
-            return "return None"
-        if isinstance(stmt.value, ast.List) and len(stmt.value.elts) == 0:
-            return "return []"
-    if isinstance(stmt, ast.Continue):
-        return "continue"
-    if isinstance(stmt, ast.Pass):
-        return "pass"
+    return _sentinel_stmt_value(body[0])
+
+
+@singledispatch
+def _dict_or_none(value: object) -> dict[object, object] | None:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_dict_or_none.register(dict)
+def _(value: dict[object, object]) -> dict[object, object] | None:
+    return value
+
+
+def _none_dict(value: object) -> dict[object, object] | None:
+    _ = value
     return None
+
+
+for _dict_none_type in (list, tuple, set, str, int, float, bool, type(None)):
+    _dict_or_none.register(_dict_none_type)(_none_dict)
+
+
+@singledispatch
+def _list_or_none(value: object) -> list[object] | None:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_list_or_none.register(list)
+def _(value: list[object]) -> list[object] | None:
+    return value
+
+
+@_list_or_none.register(tuple)
+def _(value: tuple[object, ...]) -> list[object] | None:
+    return list(value)
+
+
+def _none_list(value: object) -> list[object] | None:
+    _ = value
+    return None
+
+
+for _list_none_type in (dict, set, str, int, float, bool, type(None)):
+    _list_or_none.register(_list_none_type)(_none_list)
+
+
+@singledispatch
+def _str_or_none(value: object) -> str | None:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_str_or_none.register(str)
+def _(value: str) -> str | None:
+    return value
+
+
+def _none_str(value: object) -> str | None:
+    _ = value
+    return None
+
+
+for _str_none_type in (dict, list, tuple, set, int, float, bool, type(None)):
+    _str_or_none.register(_str_none_type)(_none_str)
+
+
+def _baseline_violation_entries(payload: object) -> list[dict[object, object]]:
+    payload_mapping = _dict_or_none(payload)
+    if payload_mapping is None:
+        return []
+    raw = _list_or_none(payload_mapping.get("violations"))
+    if raw is None:
+        return []
+    entries: list[dict[object, object]] = []
+    for item in raw:
+        mapping = _dict_or_none(item)
+        if mapping is not None:
+            entries.append(mapping)
+    return entries
 
 
 def collect_violations(root: Path) -> list[Violation]:
@@ -205,22 +453,13 @@ def _load_baseline(path: Path) -> set[str]:
     if not path.exists():
         return set()
     payload = json.loads(path.read_text(encoding="utf-8"))
-    raw = payload.get("violations", []) if isinstance(payload, dict) else []
     keys: set[str] = set()
-    if isinstance(raw, list):
-        for item in raw:
-            if isinstance(item, dict):
-                rule_id = item.get("rule_id")
-                path_value = item.get("path")
-                qualname = item.get("qualname")
-                line = item.get("line")
-                if (
-                    isinstance(rule_id, str)
-                    and isinstance(path_value, str)
-                    and isinstance(qualname, str)
-                ):
-                    _ = line
-                    keys.add(f"{rule_id}:{path_value}:{qualname}")
+    for item in _baseline_violation_entries(payload):
+        rule_id = _str_or_none(item.get("rule_id"))
+        path_value = _str_or_none(item.get("path"))
+        qualname = _str_or_none(item.get("qualname"))
+        if rule_id is not None and path_value is not None and qualname is not None:
+            keys.add(f"{rule_id}:{path_value}:{qualname}")
     return keys
 
 
