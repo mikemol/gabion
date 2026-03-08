@@ -45,6 +45,13 @@ _EQUIVALENCE_FORMAT_VERSION = 1
 _OPPORTUNITY_FORMAT_VERSION = 1
 _STATE_FORMAT_VERSION = 1
 _NONE_TYPE = type(None)
+_AspfVisitorEvent = (
+    OneCellRecorded
+    | TwoCellWitnessRecorded
+    | CofibrationRecorded
+    | SemanticSurfaceUpdated
+    | RunFinalized
+)
 
 
 @dataclass(frozen=True)
@@ -676,16 +683,16 @@ def _load_trace_payload_for_import(path: Path) -> JSONObject:
 
 
 @singledispatch
-def _payload_mapping_or_none(value: object) -> Mapping[str, object] | None:
+def _payload_mapping_or_none(value: JSONValue) -> JSONObject | None:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
 @_payload_mapping_or_none.register(dict)
-def _(value: dict[object, object]) -> Mapping[str, object] | None:
+def _(value: dict[str, JSONValue]) -> JSONObject | None:
     return value
 
 
-def _mapping_none(value: object) -> Mapping[str, object] | None:
+def _mapping_none(value: JSONValue) -> JSONObject | None:
     _ = value
     return None
 
@@ -695,7 +702,9 @@ for _runtime_type in (list, tuple, set, str, int, float, bool, _NONE_TYPE):
 
 
 @singledispatch
-def _parsed_two_cell_witness_or_none(value: object) -> AspfTwoCellWitness | None:
+def _parsed_two_cell_witness_or_none(
+    value: AspfTwoCellWitness | None,
+) -> AspfTwoCellWitness | None:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
@@ -711,7 +720,7 @@ def _(value: None) -> AspfTwoCellWitness | None:
 
 
 @singledispatch
-def _normalized_two_cell_witnesses_or_empty(value: object) -> list[JSONObject]:
+def _normalized_two_cell_witnesses_or_empty(value: JSONValue) -> list[JSONObject]:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
@@ -725,7 +734,7 @@ def _(value: tuple[object, ...]) -> list[JSONObject]:
     return _normalize_two_cell_witness_payloads(value)
 
 
-def _empty_two_cell_witnesses(value: object) -> list[JSONObject]:
+def _empty_two_cell_witnesses(value: JSONValue) -> list[JSONObject]:
     _ = value
     return []
 
@@ -974,7 +983,7 @@ def _register_default_trace_sinks(*, state: AspfExecutionTraceState, root: Path)
 
 
 @singledispatch
-def _closed_sink_index(sink: object) -> AspfTraceSinkIndex:
+def _closed_sink_index(sink: AspfEventSink) -> AspfTraceSinkIndex:
     never("unregistered runtime type", value_type=type(sink).__name__)
 
 
@@ -1250,7 +1259,7 @@ def _merge_two_cell_payload(
 
 
 @singledispatch
-def _publish_event_to_visitor(event: object, *, visitor: AspfEventVisitor) -> None:
+def _publish_event_to_visitor(event: _AspfVisitorEvent, *, visitor: AspfEventVisitor) -> None:
     _ = visitor
     never("unregistered runtime type", value_type=type(event).__name__)
 

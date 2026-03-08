@@ -5,7 +5,6 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import cast
-
 from gabion.analysis.aspf.aspf import Forest, NodeId
 from gabion.analysis.foundation.timeout_context import check_deadline
 
@@ -32,22 +31,36 @@ def _suite_span_from_statements_outcome(
     if not statements:
         return _SuiteSpanOutcome(_SuiteSpanStatus.MISSING, missing_span)
     first_span_raw = node_span_fn(statements[0])
-    match first_span_raw:
-        case tuple() as first_span_candidate if len(first_span_candidate) == 4:
-            first_span = cast(tuple[int, int, int, int], first_span_candidate)
-        case _:
-            return _SuiteSpanOutcome(_SuiteSpanStatus.MISSING, missing_span)
+    first_span = _int_span4_or_none(first_span_raw)
+    if first_span is None:
+        return _SuiteSpanOutcome(_SuiteSpanStatus.MISSING, missing_span)
     last_span = first_span
     for stmt in statements[1:]:
         check_deadline_fn()
         candidate_raw = node_span_fn(stmt)
-        match candidate_raw:
-            case tuple() as candidate_span if len(candidate_span) == 4:
-                last_span = cast(tuple[int, int, int, int], candidate_span)
+        candidate_span = _int_span4_or_none(candidate_raw)
+        if candidate_span is not None:
+            last_span = candidate_span
     return _SuiteSpanOutcome(
         _SuiteSpanStatus.PRESENT,
         (first_span[0], first_span[1], last_span[2], last_span[3]),
     )
+
+
+def _int_span4_or_none(value):
+    match value:
+        case tuple() as span_candidate if len(span_candidate) == 4:
+            try:
+                return (
+                    int(span_candidate[0]),
+                    int(span_candidate[1]),
+                    int(span_candidate[2]),
+                    int(span_candidate[3]),
+                )
+            except (TypeError, ValueError):
+                return None
+        case _:
+            return None
 
 
 def materialize_statement_suite_contains(

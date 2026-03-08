@@ -368,6 +368,133 @@ for _assign_target_type in (cst.Attribute, cst.List, cst.Subscript, cst.Tuple):
 
 
 @singledispatch
+def _call_or_none(node: object):
+    never("unregistered runtime type", value_type=type(node).__name__)
+
+
+@_call_or_none.register(cst.Call)
+def _(node: cst.Call):
+    return node
+
+
+def _call_none(node: object):
+    _ = node
+    return None
+
+
+for _call_nonmatch_type in (
+    cst.Attribute,
+    cst.Await,
+    cst.BinaryOperation,
+    cst.BooleanOperation,
+    cst.Comparison,
+    cst.Dict,
+    cst.FormattedString,
+    cst.GeneratorExp,
+    cst.IfExp,
+    cst.Integer,
+    cst.List,
+    cst.Name,
+    cst.Set,
+    cst.SimpleString,
+    cst.Subscript,
+    cst.Tuple,
+):
+    _call_or_none.register(_call_nonmatch_type)(_call_none)
+
+
+@singledispatch
+def _attribute_or_none(node: object):
+    never("unregistered runtime type", value_type=type(node).__name__)
+
+
+@_attribute_or_none.register(cst.Attribute)
+def _(node: cst.Attribute):
+    return node
+
+
+def _attribute_none(node: object):
+    _ = node
+    return None
+
+
+for _attribute_nonmatch_type in (
+    cst.Call,
+    cst.Name,
+    cst.Subscript,
+    cst.Tuple,
+):
+    _attribute_or_none.register(_attribute_nonmatch_type)(_attribute_none)
+
+
+@singledispatch
+def _return_or_none(stmt: object):
+    never("unregistered runtime type", value_type=type(stmt).__name__)
+
+
+@_return_or_none.register(cst.Return)
+def _(stmt: cst.Return):
+    return stmt
+
+
+for _small_stmt_type in (
+    cst.AnnAssign,
+    cst.Assert,
+    cst.Assign,
+    cst.AugAssign,
+    cst.Break,
+    cst.Continue,
+    cst.Del,
+    cst.Expr,
+    cst.Global,
+    cst.Import,
+    cst.ImportFrom,
+    cst.Nonlocal,
+    cst.Pass,
+    cst.Raise,
+    cst.TypeAlias,
+):
+    _return_or_none.register(_small_stmt_type)(_name_none)
+
+
+@singledispatch
+def _subscript_or_none(node: object):
+    never("unregistered runtime type", value_type=type(node).__name__)
+
+
+@_subscript_or_none.register(cst.Subscript)
+def _(node: cst.Subscript):
+    return node
+
+
+for _subscript_nonmatch_type in (cst.Attribute, cst.Call, cst.Name, cst.Tuple):
+    _subscript_or_none.register(_subscript_nonmatch_type)(_name_none)
+
+
+@singledispatch
+def _binary_operation_or_none(node: object):
+    never("unregistered runtime type", value_type=type(node).__name__)
+
+
+@_binary_operation_or_none.register(cst.BinaryOperation)
+def _(node: cst.BinaryOperation):
+    return node
+
+
+for _binary_nonmatch_type in (
+    cst.Attribute,
+    cst.Call,
+    cst.Comparison,
+    cst.Dict,
+    cst.GeneratorExp,
+    cst.Name,
+    cst.Subscript,
+    cst.Tuple,
+):
+    _binary_operation_or_none.register(_binary_nonmatch_type)(_name_none)
+
+
+@singledispatch
 def _subscript_index_value_or_none(slice_value: object):
     never("unregistered runtime type", value_type=type(slice_value).__name__)
 
@@ -525,7 +652,7 @@ def _is_side_effect_safe_expression(
     return not visitor.reason, visitor.reason
 
 
-def _extract_subscript_key(target: cst.Subscript) -> object:
+def _extract_subscript_key(target: cst.Subscript):
     if len(target.slice) != 1:
         return None
     first_slice = target.slice[0]
@@ -961,9 +1088,16 @@ def _trampoline_helper_name(node: cst.FunctionDef) -> str:
         return ""
     if not cst_matchers.matches(only_stmt, cst_matchers.Return(value=cst_matchers.Call(func=cst_matchers.Name()))):
         return ""
-    ret = cast(cst.Return, only_stmt)
-    ret_call = cast(cst.Call, ret.value)
-    helper_name = cast(cst.Name, ret_call.func).value
+    ret = _return_or_none(only_stmt)
+    if ret is None:
+        return ""
+    ret_call = _call_or_none(ret.value)
+    if ret_call is None:
+        return ""
+    helper_name_node = _name_or_none(ret_call.func)
+    if helper_name_node is None:
+        return ""
+    helper_name = helper_name_node.value
     match = _LOOP_HELPER_PATTERN.match(helper_name)
     if not match:
         return ""
@@ -1479,11 +1613,11 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
         if loop_stmt is not None:
             pos = self.get_metadata(
                 cst_metadata.PositionProvider,
-                cast(cst.CSTNode, loop_stmt),
+                loop_stmt,
             )
             out.append(
                 _LoopCandidate(
-                    loop_node=cast(cst.CSTNode, loop_stmt),
+                    loop_node=loop_stmt,
                     line=pos.start.line,
                 )
             )
@@ -1628,7 +1762,7 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
             )
         return _LoopBodyOutcome(
             kind="guard",
-            guard_expr=cast(cst.BaseExpression, stmt.test.deep_clone()),
+            guard_expr=stmt.test,
         )
 
     @_analyze_for_body_statement.register
@@ -1700,17 +1834,25 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
                 kind="error",
                 reason=f"{qualname}: statement `{type(stmt).__name__}` is unsupported",
             )
-        call = cast(cst.Call, stmt.value)
-        if not cst_matchers.matches(
-            call.func,
-            cst_matchers.Attribute(value=cst_matchers.Name(), attr=cst_matchers.Name()),
-        ):
+        call = _call_or_none(stmt.value)
+        if call is None:
+            return _LoopBodyOutcome(
+                kind="error",
+                reason=f"{qualname}: statement `{type(stmt).__name__}` is unsupported",
+            )
+        call_func = _attribute_or_none(call.func)
+        if call_func is None:
             return _LoopBodyOutcome(
                 kind="error",
                 reason=f"{qualname}: only list.append/set.add calls are supported",
             )
-        call_func = cast(cst.Attribute, call.func)
-        target_name = cast(cst.Name, call_func.value).value
+        target_name_node = _name_or_none(call_func.value)
+        if target_name_node is None:
+            return _LoopBodyOutcome(
+                kind="error",
+                reason=f"{qualname}: only simple-name receivers are supported",
+            )
+        target_name = target_name_node.value
         method = call_func.attr.value
         if method not in {"append", "add"}:
             return _LoopBodyOutcome(
@@ -1739,7 +1881,7 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
             operation=_LoopOperation(
                 kind="LIST_APPEND" if method == "append" else "SET_ADD",
                 target=target_name,
-                value_expr=cast(cst.BaseExpression, argument.value.deep_clone()),
+                value_expr=argument.value,
             ),
         )
 
@@ -1755,14 +1897,19 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
             target_expr,
             cst_matchers.Subscript(value=cst_matchers.Name()),
         ):
-            target_subscript = cast(cst.Subscript, target_expr)
+            target_subscript = _subscript_or_none(target_expr)
+            if target_subscript is None:
+                return _LoopBodyOutcome(
+                    kind="error",
+                    reason=f"{qualname}: dict assignment form is unsupported",
+                )
             key_expr_obj = _extract_subscript_key(target_subscript)
             if key_expr_obj is None:
                 return _LoopBodyOutcome(
                     kind="error",
                     reason=f"{qualname}: dict assignment must use a single index key",
                 )
-            key_expr = cast(cst.BaseExpression, key_expr_obj)
+            key_expr = key_expr_obj
             safe_key, key_reason = _is_side_effect_safe_expression(key_expr)
             if not safe_key:
                 return _LoopBodyOutcome(
@@ -1775,14 +1922,20 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
                     kind="error",
                     reason=f"{qualname}: dict value expression is unsafe ({value_reason})",
                 )
-            target_name = cast(cst.Name, target_subscript.value).value
+            target_name_node = _name_or_none(target_subscript.value)
+            if target_name_node is None:
+                return _LoopBodyOutcome(
+                    kind="error",
+                    reason=f"{qualname}: dict target must be a simple name",
+                )
+            target_name = target_name_node.value
             return _LoopBodyOutcome(
                 kind="operation",
                 operation=_LoopOperation(
                     kind="DICT_SET",
                     target=target_name,
-                    key_expr=cast(cst.BaseExpression, key_expr.deep_clone()),
-                    value_expr=cast(cst.BaseExpression, stmt.value.deep_clone()),
+                    key_expr=key_expr,
+                    value_expr=stmt.value,
                 ),
             )
         target_name_node = _name_or_none(target_expr)
@@ -1799,7 +1952,12 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
                 kind="error",
                 reason=f"{qualname}: assignment form is unsupported",
             )
-        binary = cast(cst.BinaryOperation, stmt.value)
+        binary = _binary_operation_or_none(stmt.value)
+        if binary is None:
+            return _LoopBodyOutcome(
+                kind="error",
+                reason=f"{qualname}: assignment form is unsupported",
+            )
         left_name = _name_or_none(binary.left)
         op_token = _operator_token(binary.operator)
         if not op_token or left_name is None or left_name.value != target_name_node.value:
@@ -1819,7 +1977,7 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
                 kind="REDUCE",
                 target=target_name_node.value,
                 operator=op_token,
-                value_expr=cast(cst.BaseExpression, binary.right.deep_clone()),
+                value_expr=binary.right,
             ),
         )
 
@@ -1849,7 +2007,7 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
                 kind="REDUCE",
                 target=target_name.value,
                 operator=op_token,
-                value_expr=cast(cst.BaseExpression, stmt.value.deep_clone()),
+                value_expr=stmt.value,
             ),
         )
 
@@ -1932,9 +2090,16 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
             return False
         if not cst_matchers.matches(only_stmt, cst_matchers.Return(value=cst_matchers.Call(func=cst_matchers.Name()))):
             return False
-        ret = cast(cst.Return, only_stmt)
-        ret_call = cast(cst.Call, ret.value)
-        helper_name = cast(cst.Name, ret_call.func).value
+        ret = _return_or_none(only_stmt)
+        if ret is None:
+            return False
+        ret_call = _call_or_none(ret.value)
+        if ret_call is None:
+            return False
+        helper_name_node = _name_or_none(ret_call.func)
+        if helper_name_node is None:
+            return False
+        helper_name = helper_name_node.value
         match = _LOOP_HELPER_PATTERN.match(helper_name)
         return bool(match and match.group("name") == function_name)
 

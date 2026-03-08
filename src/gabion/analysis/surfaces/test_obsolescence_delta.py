@@ -35,7 +35,7 @@ BASELINE_RELATIVE_PATH = Path("baselines/test_obsolescence_baseline.json")
 
 @dataclass(frozen=True)
 class EvidenceIndexEntry:
-    key: dict[str, object]
+    key: dict[str, JSONValue]
     identity: str
     display: str
     witness_count: int
@@ -54,18 +54,18 @@ class ObsolescenceBaseline:
 
 @singledispatch
 # gabion:ambiguity_boundary
-def _mapping_or_none(value: object) -> dict[object, object] | None:
+def _mapping_or_none(value: JSONValue) -> dict[str, JSONValue] | None:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
 @_mapping_or_none.register(dict)
 # gabion:ambiguity_boundary
-def _(value: dict[object, object]) -> dict[object, object] | None:
+def _(value: dict[str, JSONValue]) -> dict[str, JSONValue] | None:
     return value
 
 
 # gabion:ambiguity_boundary
-def _none_mapping(value: object) -> dict[object, object] | None:
+def _none_mapping(value: JSONValue) -> dict[str, JSONValue] | None:
     _ = value
     return None
 
@@ -76,18 +76,18 @@ for _mapping_none_type in (list, tuple, set, str, int, float, bool, type(None)):
 
 @singledispatch
 # gabion:ambiguity_boundary
-def _list_or_none(value: object) -> list[object] | None:
+def _list_or_none(value: JSONValue) -> list[JSONValue] | None:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
 @_list_or_none.register(list)
 # gabion:ambiguity_boundary
-def _(value: list[object]) -> list[object] | None:
+def _(value: list[JSONValue]) -> list[JSONValue] | None:
     return value
 
 
 # gabion:ambiguity_boundary
-def _none_list(value: object) -> list[object] | None:
+def _none_list(value: JSONValue) -> list[JSONValue] | None:
     _ = value
     return None
 
@@ -98,7 +98,7 @@ for _list_none_type in (dict, tuple, set, str, int, float, bool, type(None)):
 
 @singledispatch
 # gabion:ambiguity_boundary
-def _str_or_none(value: object) -> str | None:
+def _str_or_none(value: JSONValue) -> str | None:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
@@ -109,7 +109,7 @@ def _(value: str) -> str | None:
 
 
 # gabion:ambiguity_boundary
-def _none_str(value: object) -> str | None:
+def _none_str(value: JSONValue) -> str | None:
     _ = value
     return None
 
@@ -118,8 +118,8 @@ for _str_none_type in (dict, list, tuple, set, int, float, bool, type(None)):
     _str_or_none.register(_str_none_type)(_none_str)
 
 
-def _mapping_entries(value: object) -> list[dict[object, object]]:
-    entries: list[dict[object, object]] = []
+def _mapping_entries(value: JSONValue) -> list[dict[str, JSONValue]]:
+    entries: list[dict[str, JSONValue]] = []
     items = _list_or_none(value)
     if items is None:
         return entries

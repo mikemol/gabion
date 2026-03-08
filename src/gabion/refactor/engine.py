@@ -484,6 +484,12 @@ def _module_expr_to_str(expr):
     return cst_shared.module_expr_to_str(expr, check_deadline_fn=check_deadline)
 
 
+def _name_value_or_none(expr: object):
+    if cst_matchers.matches(expr, cst_matchers.Name()):
+        return _module_expr_to_str(expr)
+    return None
+
+
 def _has_typing_import(body: list[cst.CSTNode]) -> bool:
     check_deadline()
     for stmt in body:
@@ -645,14 +651,14 @@ def _collect_import_context(
                                 if import_alias is not None and cst_matchers.matches(
                                     import_alias.name, cst_matchers.Name()
                                 ):
-                                    alias_name = cast(cst.Name, import_alias.name)
+                                    alias_name = _module_expr_to_str(import_alias.name)
                                     local = (
                                         import_alias.asname.name.value
                                         if import_alias.asname
-                                        else alias_name.value
+                                        else alias_name
                                     )
-                                    imported_targets[local] = alias_name.value
-                                    if alias_name.value == protocol_name:
+                                    imported_targets[local] = alias_name
+                                    if alias_name == protocol_name:
                                         protocol_alias = local
     return module_aliases, imported_targets, protocol_alias
 
@@ -921,11 +927,7 @@ class _AmbientArgThreadingRewriter(cst.CSTTransformer):
         removed = False
         for arg in updated_node.args:
             check_deadline()
-            arg_name = (
-                cast(cst.Name, arg.value).value
-                if cst_matchers.matches(arg.value, cst_matchers.Name())
-                else None
-            )
+            arg_name = _name_value_or_none(arg.value)
             is_name = arg_name == self.context_name
             if arg.keyword is not None and arg.keyword.value == self.context_name and is_name:
                 removed = True
@@ -952,7 +954,7 @@ class _AmbientSafetyVisitor(cst.CSTVisitor):
     def visit_AssignTarget(self, node: cst.AssignTarget) -> None:
         if not cst_matchers.matches(node.target, cst_matchers.Name()):
             return
-        target_name = cast(cst.Name, node.target).value
+        target_name = _module_expr_to_str(node.target)
         if target_name == self.context_name:
             self.reasons.append(
                 f"writes to parameter '{self.context_name}' prevent a safe ambient rewrite"

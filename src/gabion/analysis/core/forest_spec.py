@@ -413,7 +413,7 @@ def _sorted_strings(values: object) -> list[str]:
     return sort_once(cleaned, source = 'src/gabion/analysis/forest_spec.py:360')
 
 
-def _is_string_value(value: object) -> bool:
+def _is_string_value(value: JSONValue) -> bool:
     match value:
         case str():
             return True

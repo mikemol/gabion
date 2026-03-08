@@ -3,7 +3,7 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, cast
+from typing import Callable
 
 from gabion.analysis.foundation.json_types import ParseFailureWitnesses
 
@@ -11,7 +11,7 @@ from gabion.analysis.foundation.json_types import ParseFailureWitnesses
 @dataclass(frozen=True)
 class BuildModuleArtifactsDeps:
     check_deadline_fn: Callable[[], None]
-    parse_module_error_types: tuple[type[BaseException], ...]
+    parse_module_error_types: tuple[type[Exception], ...]
     record_parse_failure_witness_fn: Callable[..., None]
 
 
@@ -40,15 +40,14 @@ def build_module_artifacts(
         match parsed:
             case ast.Module() as parsed_module:
                 pass
-            case _:
-                parsed_error = cast(BaseException, parsed)
+            case Exception() as parsed_error:
                 for spec in specs:
                     deps.check_deadline_fn()
                     deps.record_parse_failure_witness_fn(
                         sink=parse_failure_witnesses,
                         path=path,
                         stage=spec.stage,
-                        error=cast(Exception, parsed_error),
+                        error=parsed_error,
                     )
                 continue
         for idx, spec in enumerate(specs):

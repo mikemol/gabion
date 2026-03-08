@@ -265,5 +265,7 @@ def _as_json_value(value: object) -> JSONValue:
             return {str(key): _as_json_value(mapping[key]) for key in mapping}
         case list() | tuple() | set() as sequence:
             return [_as_json_value(item) for item in sequence]
+        case str() | int() | float() | bool() | None:
+            return value
         case _:
-            return cast(JSONValue, value)
+            raise AssertionError("resume state payload values must be JSON-compatible")

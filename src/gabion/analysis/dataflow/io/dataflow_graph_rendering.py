@@ -4,8 +4,6 @@ import os
 from collections import defaultdict, deque
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
-
 from gabion.analysis.aspf.aspf import Alt, Forest, NodeId
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue
 from gabion.analysis.foundation.timeout_context import check_deadline
@@ -39,7 +37,7 @@ def _paramset_key(forest: Forest, paramset_id: NodeId) -> tuple[str, ...]:
         params = node.meta.get("params")
         match params:
             case list() as param_values:
-                return tuple(str(p) for p in cast(list[JSONValue], param_values))
+                return tuple(str(p) for p in param_values)
     return tuple(str(p) for p in paramset_id.key)
 
 
