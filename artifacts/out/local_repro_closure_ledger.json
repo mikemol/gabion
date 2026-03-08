@@ -5369,6 +5369,58 @@
         "extract_test_evidence": "pass",
         "test_evidence_drift_check": "pass"
       }
+    },
+    {
+      "cu_id": "CU-D2AF",
+      "summary": "Strict-dispatch conversion for CLI command runtime/dispatch/tooling mapping guards.",
+      "timestamp_utc": "2026-03-08T13:17:18Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7098,
+        "defensive_fallback": 131,
+        "fiber_scalar_sentinel_contract": 311,
+        "fiber_type_dispatch_contract": 93,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 14,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7098,
+        "defensive_fallback": 130,
+        "fiber_scalar_sentinel_contract": 310,
+        "fiber_type_dispatch_contract": 84,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 14,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 7671,
+      "total_after": 7660,
+      "notes": [
+        "Replaced manual isinstance mapping/int/string guards in CLI check notification handling, dispatch runtime execution-plan normalization, and tooling command wrappers with structural mapping/scalar matching.",
+        "Preserved existing non-mapping fail-fast behavior through never(...) in dispatch runtime result handling.",
+        "Target modules reached zero fiber violations: check_command_runtime 3->0, dispatch_runtime 3->0, tooling_commands 3->0; global fiber_type_dispatch_contract 93->84 (delta -9)."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_cli_dispatch_cluster": "pass",
+        "extract_test_evidence": "pass",
+        "test_evidence_drift_check": "pass"
+      }
     }
   ],
   "generated_by": "codex",

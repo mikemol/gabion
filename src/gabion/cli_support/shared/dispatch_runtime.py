@@ -66,32 +66,42 @@ def dispatch_command(
     if execution_plan_request is not None:
         execution_plan_payload = execution_plan_request.to_payload()
         execution_plan_inputs = execution_plan_payload.get("inputs")
-        if isinstance(execution_plan_inputs, Mapping):
-            merged_inputs = apply_boundary_updates_once_fn(
-                execution_plan_inputs,
-                payload,
-                source=f"cli.dispatch_command.{command}.execution_plan_inputs",
-            )
-            execution_plan_payload["inputs"] = merged_inputs
+        match execution_plan_inputs:
+            case {**execution_inputs_payload}:
+                merged_inputs = apply_boundary_updates_once_fn(
+                    execution_inputs_payload,
+                    payload,
+                    source=f"cli.dispatch_command.{command}.execution_plan_inputs",
+                )
+                execution_plan_payload["inputs"] = merged_inputs
+            case _:
+                pass
         deadline_metadata = execution_plan_payload.get("policy_metadata")
-        if isinstance(deadline_metadata, Mapping):
-            policy_metadata = dict(deadline_metadata)
-            deadline = policy_metadata.get("deadline")
-            deadline_payload = dict(deadline) if isinstance(deadline, Mapping) else {}
-            deadline_payload = apply_boundary_updates_once_fn(
-                deadline_payload,
-                {
-                    "analysis_timeout_ticks": int(
-                        payload.get("analysis_timeout_ticks") or 0
-                    ),
-                    "analysis_timeout_tick_ns": int(
-                        payload.get("analysis_timeout_tick_ns") or 0
-                    ),
-                },
-                source=f"cli.dispatch_command.{command}.execution_plan_deadline",
-            )
-            policy_metadata["deadline"] = deadline_payload
-            execution_plan_payload["policy_metadata"] = policy_metadata
+        match deadline_metadata:
+            case {**policy_metadata_payload}:
+                policy_metadata = dict(policy_metadata_payload)
+                deadline = policy_metadata.get("deadline")
+                match deadline:
+                    case {**deadline_mapping}:
+                        deadline_payload = dict(deadline_mapping)
+                    case _:
+                        deadline_payload = {}
+                deadline_payload = apply_boundary_updates_once_fn(
+                    deadline_payload,
+                    {
+                        "analysis_timeout_ticks": int(
+                            payload.get("analysis_timeout_ticks") or 0
+                        ),
+                        "analysis_timeout_tick_ns": int(
+                            payload.get("analysis_timeout_tick_ns") or 0
+                        ),
+                    },
+                    source=f"cli.dispatch_command.{command}.execution_plan_deadline",
+                )
+                policy_metadata["deadline"] = deadline_payload
+                execution_plan_payload["policy_metadata"] = policy_metadata
+            case _:
+                pass
         execution_plan_payload = normalize_boundary_mapping_once_fn(
             execution_plan_payload,
             source=f"cli.dispatch_command.{command}.execution_plan_payload",
@@ -148,10 +158,12 @@ def dispatch_command(
                 raw = resolved(request, root=root)
         else:
             raw = resolved(request, root=root)
-    if not isinstance(raw, Mapping):
-        never_fn(
-            "command returned non-mapping payload",
-            command=command,
-            result_type=type(raw).__name__,
-        )
-    return _ordered_result(raw)
+    match raw:
+        case {**raw_payload}:
+            return _ordered_result(raw_payload)
+        case _:
+            never_fn(
+                "command returned non-mapping payload",
+                command=command,
+                result_type=type(raw).__name__,
+            )

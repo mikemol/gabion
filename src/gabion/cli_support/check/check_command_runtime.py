@@ -178,30 +178,35 @@ def run_check_command(
         nonlocal last_phase_progress_signature
         nonlocal last_phase_event_seq
         phase_progress = phase_progress_from_progress_notification_fn(notification)
-        if not isinstance(phase_progress, Mapping):
-            return
-        event_seq = phase_progress.get("event_seq")
-        if isinstance(event_seq, int):
-            if last_phase_event_seq == event_seq:
+        match phase_progress:
+            case {**phase_progress_payload}:
+                event_seq = phase_progress_payload.get("event_seq")
+                match event_seq:
+                    case int() as event_sequence:
+                        if last_phase_event_seq == event_sequence:
+                            return
+                        last_phase_event_seq = event_sequence
+                    case _:
+                        pass
+                signature = phase_progress_signature_fn(phase_progress_payload)
+                if signature == last_phase_progress_signature:
+                    return
+                last_phase_progress_signature = signature
+                timeline_update = phase_timeline_from_phase_progress_fn(
+                    phase_progress_payload
+                )
+                row = str(timeline_update.get("row") or "")
+                header_value = timeline_update.get("header")
+                match header_value:
+                    case str() as header_text if not timeline_header_emitted and header_text:
+                        header = header_text
+                    case _:
+                        header = None
+                emit_phase_timeline_progress_fn(header=header, row=row)
+                if header is not None:
+                    timeline_header_emitted = True
+            case _:
                 return
-            last_phase_event_seq = event_seq
-        signature = phase_progress_signature_fn(phase_progress)
-        if signature == last_phase_progress_signature:
-            return
-        last_phase_progress_signature = signature
-        timeline_update = phase_timeline_from_phase_progress_fn(phase_progress)
-        row = str(timeline_update.get("row") or "")
-        header_value = timeline_update.get("header")
-        header = (
-            header_value
-            if not timeline_header_emitted
-            and isinstance(header_value, str)
-            and header_value
-            else None
-        )
-        emit_phase_timeline_progress_fn(header=header, row=row)
-        if header is not None:
-            timeline_header_emitted = True
 
     result = run_with_timeout_retries_fn(
         run_once=lambda: deps.run_check_fn(
@@ -255,9 +260,16 @@ def run_check_command(
     try:
         watch_result = deps.run_ci_watch_fn(status_watch_options)
     except SystemExit as exc:
-        if isinstance(exc.code, str) and exc.code:
-            typer.secho(str(exc.code), err=True, fg=typer.colors.RED)
-        raise typer.Exit(code=int(exc.code) if isinstance(exc.code, int) else 1) from None
+        match exc.code:
+            case str() as message if message:
+                typer.secho(message, err=True, fg=typer.colors.RED)
+            case _:
+                pass
+        match exc.code:
+            case int() as exit_code:
+                raise typer.Exit(code=exit_code) from None
+            case _:
+                raise typer.Exit(code=1) from None
     emit_status_watch_outcome_fn(result=watch_result, options=status_watch_options)
     raise typer.Exit(code=watch_result.exit_code)
 

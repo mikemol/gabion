@@ -23,9 +23,11 @@ def invoke_argparse_command(
         return int(main_fn(argv))
     except SystemExit as exc:
         code = exc.code
-        if isinstance(code, int):
-            return int(code)
-        return 1
+        match code:
+            case int() as exit_code:
+                return exit_code
+            case _:
+                return 1
 
 
 @contextmanager
@@ -38,14 +40,24 @@ def tooling_runner_override(
 ) -> Generator[None, None, None]:
     previous_no_arg = dict(no_arg_runners)
     previous_with_argv = dict(with_argv_runners)
-    if isinstance(no_arg, Mapping):
-        no_arg_runners.update(
-            {str(key): value for key, value in no_arg.items() if callable(value)}
-        )
-    if isinstance(with_argv, Mapping):
-        with_argv_runners.update(
-            {str(key): value for key, value in with_argv.items() if callable(value)}
-        )
+    match no_arg:
+        case {**no_arg_mapping}:
+            no_arg_runners.update(
+                {str(key): value for key, value in no_arg_mapping.items() if callable(value)}
+            )
+        case _:
+            pass
+    match with_argv:
+        case {**with_argv_mapping}:
+            with_argv_runners.update(
+                {
+                    str(key): value
+                    for key, value in with_argv_mapping.items()
+                    if callable(value)
+                }
+            )
+        case _:
+            pass
     try:
         yield
     finally:
