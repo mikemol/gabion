@@ -32,15 +32,18 @@ def _suite_span_from_statements_outcome(
     if not statements:
         return _SuiteSpanOutcome(_SuiteSpanStatus.MISSING, missing_span)
     first_span_raw = node_span_fn(statements[0])
-    if type(first_span_raw) is not tuple or len(first_span_raw) != 4:
-        return _SuiteSpanOutcome(_SuiteSpanStatus.MISSING, missing_span)
-    first_span = cast(tuple[int, int, int, int], first_span_raw)
+    match first_span_raw:
+        case tuple() as first_span_candidate if len(first_span_candidate) == 4:
+            first_span = cast(tuple[int, int, int, int], first_span_candidate)
+        case _:
+            return _SuiteSpanOutcome(_SuiteSpanStatus.MISSING, missing_span)
     last_span = first_span
     for stmt in statements[1:]:
         check_deadline_fn()
         candidate_raw = node_span_fn(stmt)
-        if type(candidate_raw) is tuple and len(candidate_raw) == 4:
-            last_span = cast(tuple[int, int, int, int], candidate_raw)
+        match candidate_raw:
+            case tuple() as candidate_span if len(candidate_span) == 4:
+                last_span = cast(tuple[int, int, int, int], candidate_span)
     return _SuiteSpanOutcome(
         _SuiteSpanStatus.PRESENT,
         (first_span[0], first_span[1], last_span[2], last_span[3]),

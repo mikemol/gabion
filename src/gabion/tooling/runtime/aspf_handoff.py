@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 from typing import Literal, Mapping
 
+from gabion.invariants import never
 from gabion.json_types import JSONObject, JSONValue
 
 _HANDOFF_FORMAT_VERSION = 1
@@ -67,16 +68,19 @@ class HandoffEventReducer:
     @staticmethod
     def apply(state: HandoffProjectionState, event: HandoffEvent) -> HandoffProjectionState:
         manifest = {str(key): state.manifest[key] for key in state.manifest}
-        if isinstance(event, PrepareStepEvent):
-            normalized = _normalize_manifest_for_session(
-                manifest,
-                session_id=event.session_id,
-                root=Path(event.root).resolve(),
-            )
-            entries = _manifest_entries(normalized)
-            entries.append({str(key): event.entry[key] for key in event.entry})
-            normalized["entries"] = entries
-            return HandoffProjectionState(manifest=normalized)
+        match event:
+            case PrepareStepEvent():
+                normalized = _normalize_manifest_for_session(
+                    manifest,
+                    session_id=event.session_id,
+                    root=Path(event.root).resolve(),
+                )
+                entries = _manifest_entries(normalized)
+                entries.append({str(key): event.entry[key] for key in event.entry})
+                normalized["entries"] = entries
+                return HandoffProjectionState(manifest=normalized)
+            case _:
+                pass
 
         if str(manifest.get("session_id")) != event.session_id:
             return HandoffProjectionState(manifest=manifest)
@@ -396,22 +400,27 @@ def _event_from_payload(payload: Mapping[str, JSONValue]) -> HandoffEvent | None
 
 
 def _event_to_payload(event: HandoffEvent) -> JSONObject:
-    if isinstance(event, PrepareStepEvent):
-        return {
-            "event": event.event,
-            "session_id": event.session_id,
-            "root": event.root,
-            "entry": event.entry,
-        }
-    return {
-        "event": event.event,
-        "session_id": event.session_id,
-        "sequence": event.sequence,
-        "status": event.status,
-        "exit_code": event.exit_code,
-        "analysis_state": event.analysis_state,
-        "completed_at_utc": event.completed_at_utc,
-    }
+    match event:
+        case PrepareStepEvent():
+            return {
+                "event": event.event,
+                "session_id": event.session_id,
+                "root": event.root,
+                "entry": event.entry,
+            }
+        case RecordStepEvent():
+            return {
+                "event": event.event,
+                "session_id": event.session_id,
+                "sequence": event.sequence,
+                "status": event.status,
+                "exit_code": event.exit_code,
+                "analysis_state": event.analysis_state,
+                "completed_at_utc": event.completed_at_utc,
+            }
+        case _:
+            never("unknown handoff event payload shape", value_type=type(event).__name__)
+            return {}
 
 
 def _optional_int(value: object) -> int | None:

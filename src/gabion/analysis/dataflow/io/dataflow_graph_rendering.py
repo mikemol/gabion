@@ -37,8 +37,9 @@ def _paramset_key(forest: Forest, paramset_id: NodeId) -> tuple[str, ...]:
     node = forest.nodes.get(paramset_id)
     if node is not None:
         params = node.meta.get("params")
-        if type(params) is list:
-            return tuple(str(p) for p in cast(list[JSONValue], params))
+        match params:
+            case list() as param_values:
+                return tuple(str(p) for p in cast(list[JSONValue], param_values))
     return tuple(str(p) for p in paramset_id.key)
 
 
@@ -159,8 +160,11 @@ def bundle_site_index(
 
 def emit_dot(forest: Forest) -> str:
     check_deadline()
-    if type(forest) is not Forest:
-        raise RuntimeError("forest required for dataflow dot output")
+    match forest:
+        case Forest():
+            pass
+        case _:
+            raise RuntimeError("forest required for dataflow dot output")
     projection = bundle_projection_from_forest(forest, file_paths=[])
     lines = [
         "digraph dataflow_grammar {",

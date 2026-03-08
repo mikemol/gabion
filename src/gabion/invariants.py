@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import TYPE_CHECKING, Callable, TypeVar, cast
+from typing import TYPE_CHECKING, Callable, TypeVar
 import warnings
 
 from gabion.exceptions import NeverThrown
@@ -131,14 +131,16 @@ _LEGACY_NEVER_STRING_REASON_DEPRECATION_CONTROL: dict[str, object] = {
 
 
 def _normalized_marker_links(raw_links: object) -> tuple[dict[str, str], ...]:
-    if type(raw_links) is not list:
+    from gabion.runtime_shape_dispatch import json_list_or_none, json_mapping_or_none
+
+    links = json_list_or_none(raw_links)
+    if links is None:
         return ()
-    links = cast(list[object], raw_links)
     normalized: list[dict[str, str]] = []
     for item in links:
-        if type(item) is not dict:
+        payload = json_mapping_or_none(item)
+        if payload is None:
             continue
-        payload = cast(dict[object, object], item)
         kind = str(payload.get("kind", "")).strip().lower()
         value = str(payload.get("value", "")).strip()
         if kind and value:
@@ -241,10 +243,10 @@ def _normalized_invariant_marker_payload(
     raw_reasoning = env.get("reasoning", reasoning)
     if "reason" in env:
         reason = str(env["reason"])
-    elif isinstance(reasoning, str):
-        reason = reasoning
     else:
-        reason = ""
+        from gabion.runtime_shape_dispatch import str_or_none
+
+        reason = str_or_none(reasoning) or ""
     normalized_reasoning = normalize_marker_reasoning(raw_reasoning)
     if not normalized_reasoning.summary and reason:
         normalized_reasoning = normalize_marker_reasoning(reason)

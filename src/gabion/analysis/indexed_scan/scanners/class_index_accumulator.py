@@ -30,9 +30,11 @@ def accumulate_class_index_for_tree(
     module = deps.module_name_fn(path, project_root)
     for node in ast.walk(tree):
         deps.check_deadline_fn()
-        if type(node) is not ast.ClassDef:
-            continue
-        class_node = cast(ast.ClassDef, node)
+        match node:
+            case ast.ClassDef() as class_node:
+                pass
+            case _:
+                continue
         scopes = deps.enclosing_class_scopes_fn(class_node, parents.parents)
         qual_parts = [module] if module else []
         qual_parts.extend(scopes)

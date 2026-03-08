@@ -29,26 +29,31 @@ def summarize_call_ambiguities(
     relation: list[dict[str, JSONValue]] = []
     for entry in entries:
         deps.check_deadline_fn()
-        if type(entry) is not dict:
-            continue
-        entry_payload = cast(Mapping[str, JSONValue], entry)
+        match entry:
+            case dict() as entry_payload:
+                pass
+            case _:
+                continue
         kind = str(entry_payload.get("kind", "") or "unknown")
         site_payload = entry_payload.get("site", {})
-        site = site_payload if type(site_payload) is dict else {}
-        site_mapping = cast(Mapping[str, JSONValue], site)
+        match site_payload:
+            case dict() as site_mapping:
+                pass
+            case _:
+                site_mapping = {}
         path = str(site_mapping.get("path", "") or "")
         function = str(site_mapping.get("function", "") or "")
         span = site_mapping.get("span")
         line = col = end_line = end_col = -1
-        if type(span) is list and len(cast(list[JSONValue], span)) == 4:
-            span_values = cast(list[JSONValue], span)
-            try:
-                line = int(span_values[0])
-                col = int(span_values[1])
-                end_line = int(span_values[2])
-                end_col = int(span_values[3])
-            except (TypeError, ValueError):
-                line = col = end_line = end_col = -1
+        match span:
+            case list() as span_values if len(span_values) == 4:
+                try:
+                    line = int(span_values[0])
+                    col = int(span_values[1])
+                    end_line = int(span_values[2])
+                    end_col = int(span_values[3])
+                except (TypeError, ValueError):
+                    line = col = end_line = end_col = -1
         candidate_count = entry_payload.get("candidate_count")
         try:
             candidate_count = int(candidate_count) if candidate_count is not None else 0

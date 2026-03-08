@@ -337,8 +337,11 @@ def _append_report_tail_sections(
         )
         for diagnostic in unsupported_by_adapter:
             check_deadline()
-            if type(diagnostic) is not dict:
-                continue
+            match diagnostic:
+                case dict():
+                    pass
+                case _:
+                    continue
             if bool(dict(diagnostic).get("required_by_policy", False)):
                 surface = str(dict(diagnostic).get("surface", ""))
                 adapter = str(dict(diagnostic).get("adapter", "native"))

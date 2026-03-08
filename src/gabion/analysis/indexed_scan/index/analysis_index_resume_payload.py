@@ -172,13 +172,14 @@ def load_analysis_index_resume_payload(
         for qual, raw_info in raw_functions_mapping.items():
             deps.check_deadline_fn()
             raw_info_mapping = deps.mapping_or_none_fn(raw_info)
-            if type(qual) is str and raw_info_mapping is not None:
-                info = deps.deserialize_function_info_for_resume_fn(
-                    raw_info_mapping,
-                    allowed_paths=allowed_paths,
-                )
-                if info is not None:
-                    by_qual[qual] = info
+            match qual, raw_info_mapping:
+                case str() as qual_name, dict() as info_mapping:
+                    info = deps.deserialize_function_info_for_resume_fn(
+                        info_mapping,
+                        allowed_paths=allowed_paths,
+                    )
+                    if info is not None:
+                        by_qual[qual_name] = info
     raw_symbol_table_mapping = deps.mapping_or_none_fn(selected_payload.get("symbol_table"))
     if raw_symbol_table_mapping is not None:
         symbol_table = deps.deserialize_symbol_table_for_resume_fn(raw_symbol_table_mapping)
@@ -187,8 +188,9 @@ def load_analysis_index_resume_payload(
         for qual, raw_class in raw_class_index_mapping.items():
             deps.check_deadline_fn()
             raw_class_mapping = deps.mapping_or_none_fn(raw_class)
-            if type(qual) is str and raw_class_mapping is not None:
-                class_info = deps.deserialize_class_info_for_resume_fn(raw_class_mapping)
-                if class_info is not None:
-                    class_index[qual] = class_info
+            match qual, raw_class_mapping:
+                case str() as qual_name, dict() as class_mapping:
+                    class_info = deps.deserialize_class_info_for_resume_fn(class_mapping)
+                    if class_info is not None:
+                        class_index[qual_name] = class_info
     return hydrated_paths, by_qual, symbol_table, class_index

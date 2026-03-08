@@ -129,8 +129,11 @@ def _normalize_key(parts: Iterable[object]) -> list[JSONValue]:
 
 def _path_name(path: object) -> str:
     name = getattr(path, "name", None)
-    if type(name) is str:
-        return name
+    match name:
+        case str() as path_name:
+            return path_name
+        case _:
+            pass
     return str(path)
 
 

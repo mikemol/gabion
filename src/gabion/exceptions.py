@@ -30,16 +30,23 @@ class NeverRaise(RuntimeError):
         payload = asdict(self.marker_payload)
         payload["marker_kind"] = str(self.marker_payload.marker_kind.value)
         payload["lifecycle_state"] = str(self.marker_payload.lifecycle_state.value)
-        links = payload.get("links")
-        if isinstance(links, list):
-            payload["links"] = [
-                {
-                    "kind": str(link.get("kind", "")),
-                    "value": str(link.get("value", "")),
-                }
-                for link in links
-                if isinstance(link, dict)
-            ]
+        match payload.get("links"):
+            case list() as links:
+                normalized_links: list[dict[str, str]] = []
+                for raw_link in links:
+                    match raw_link:
+                        case dict() as link:
+                            normalized_links.append(
+                                {
+                                    "kind": str(link.get("kind", "")),
+                                    "value": str(link.get("value", "")),
+                                }
+                            )
+                        case _:
+                            pass
+                payload["links"] = normalized_links
+            case _:
+                pass
         return payload
 
 

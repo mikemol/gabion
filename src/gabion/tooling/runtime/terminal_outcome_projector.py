@@ -8,6 +8,7 @@ from typing import Literal, Mapping
 from gabion.analysis.foundation.timeout_context import check_deadline, deadline_loop_iter
 from gabion.invariants import never
 from gabion.json_types import JSONObject
+from gabion.runtime_shape_dispatch import json_mapping_or_none, str_or_none
 
 TerminalStatus = Literal["success", "timeout_resume", "hard_failure"]
 
@@ -46,8 +47,9 @@ class TerminalOutcome:
             f"exit_code={self.terminal_exit}",
             f"analysis_state={self.terminal_state}",
         ]
-        if isinstance(stage_metrics, str) and stage_metrics:
-            lines.append(f"stage_metrics={stage_metrics}")
+        normalized_stage_metrics = str_or_none(stage_metrics)
+        if normalized_stage_metrics:
+            lines.append(f"stage_metrics={normalized_stage_metrics}")
         return lines
 
 
@@ -95,15 +97,16 @@ def read_terminal_outcome_artifact(path: Path) -> TerminalOutcome | None:
     if not path.exists():
         return None
     payload = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(payload, Mapping):
+    payload_mapping = json_mapping_or_none(payload)
+    if payload_mapping is None:
         return None
     return project_terminal_outcome(
         TerminalOutcomeInput(
-            terminal_exit=int(payload.get("terminal_exit", 0) or 0),
-            terminal_state=str(payload.get("terminal_state", "") or "none"),
-            terminal_stage=str(payload.get("terminal_stage", "") or "none"),
-            terminal_status=str(payload.get("terminal_status", "") or "unknown"),
-            attempts_run=int(payload.get("attempts_run", 0) or 0),
+            terminal_exit=int(payload_mapping.get("terminal_exit", 0) or 0),
+            terminal_state=str(payload_mapping.get("terminal_state", "") or "none"),
+            terminal_stage=str(payload_mapping.get("terminal_stage", "") or "none"),
+            terminal_status=str(payload_mapping.get("terminal_status", "") or "unknown"),
+            attempts_run=int(payload_mapping.get("attempts_run", 0) or 0),
         )
     )
 

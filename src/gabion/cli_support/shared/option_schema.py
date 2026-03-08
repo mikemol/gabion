@@ -296,7 +296,7 @@ def add_argparse_option(
         kwargs["action"] = argparse.BooleanOptionalAction
 
     default = _resolved_default(spec, override)
-    if spec.option_type is OptionType.PATH and isinstance(default, Path):
+    if spec.option_type is OptionType.PATH and default is not None:
         default = str(default)
     kwargs["default"] = default
     parser.add_argument(spec.flag, **kwargs)

@@ -31,9 +31,11 @@ class CompatibilityShimConfig:
 def normalize_compatibility_shim(
     compatibility_shim: object,
 ) -> CompatibilityShimConfig:
-    if type(compatibility_shim) is CompatibilityShimConfig:
-        return compatibility_shim
-    return CompatibilityShimConfig(enabled=bool(compatibility_shim))
+    match compatibility_shim:
+        case CompatibilityShimConfig():
+            return compatibility_shim
+        case _:
+            return CompatibilityShimConfig(enabled=bool(compatibility_shim))
 
 
 @dataclass(frozen=True)

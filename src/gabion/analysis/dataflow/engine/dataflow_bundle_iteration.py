@@ -104,9 +104,11 @@ def _collect_local_dataclasses(tree: ast.AST) -> dict[str, tuple[str, ...]]:
 
 
 def _module_identifier(module_name: object) -> ModuleIdentifier:
-    if type(module_name) is not str:
-        raise ValueError("_module_name must return str")
-    normalized = module_name.strip()
+    match module_name:
+        case str() as module_name_text:
+            normalized = module_name_text.strip()
+        case _:
+            raise ValueError("_module_name must return str")
     if not normalized:
         raise ValueError("module identifier must be non-empty")
     return ModuleIdentifier(value=normalized)

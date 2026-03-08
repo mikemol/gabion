@@ -463,8 +463,11 @@ class Forest:
         }
         if spec_domain:
             meta["spec_domain"] = str(spec_domain)
-        if type(spec_version) is int:
-            meta["spec_version"] = int(spec_version)
+        match spec_version:
+            case int() as normalized_spec_version:
+                meta["spec_version"] = int(normalized_spec_version)
+            case _:
+                pass
         return self._intern_node(node_id, meta)
 
     def add_alt(

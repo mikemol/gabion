@@ -37,11 +37,12 @@ def dead_env_map(
             if environment is not None:
                 value_str = environment.get(param)
                 literal_value = None
-                if type(value_str) is str:
-                    try:
-                        literal_value = ast.literal_eval(value_str)
-                    except literal_eval_error_types:
-                        literal_value = None
+                match value_str:
+                    case str() as text_value:
+                        try:
+                            literal_value = ast.literal_eval(text_value)
+                        except literal_eval_error_types:
+                            literal_value = None
                 if literal_value is not None:
                     out.setdefault((path_value, function_value), {})[param] = (
                         literal_value,
@@ -121,7 +122,11 @@ def collect_exception_obligations(
         ):
             raise_node = cast(ast.Raise | ast.Assert, node)
             source_kind = "E0"
-            kind = "raise" if type(raise_node) is ast.Raise else "assert"
+            match raise_node:
+                case ast.Raise():
+                    kind = "raise"
+                case ast.Assert():
+                    kind = "assert"
 
             function, params, _ = enclosing_function_context(
                 raise_node,
@@ -133,11 +138,11 @@ def collect_exception_obligations(
                 function_key_fn=function_key_fn,
             )
 
-            expr = (
-                cast(ast.Raise, raise_node).exc
-                if type(raise_node) is ast.Raise
-                else cast(ast.Assert, raise_node).test
-            )
+            match raise_node:
+                case ast.Raise(exc=exc):
+                    expr = exc
+                case ast.Assert(test=test):
+                    expr = test
             exception_name = exception_type_name_fn(expr)
             protocol = None
             if (

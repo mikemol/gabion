@@ -22,9 +22,11 @@ class PrimeIdentityAdapter:
     def token_for_id(self, *, namespace: str, atom_id: int) -> IdentityTokenLookup:
         check_deadline()
         raw = self.registry.key_for_prime(int(atom_id))
-        if type(raw) is not str:
-            return IdentityTokenLookup(is_present=False)
-        decoded_namespace, decoded_token = namespace_key(raw)
+        match raw:
+            case str() as raw_token:
+                decoded_namespace, decoded_token = namespace_key(raw_token)
+            case _:
+                return IdentityTokenLookup(is_present=False)
         if decoded_namespace != str(namespace):
             return IdentityTokenLookup(is_present=False)
         return IdentityTokenLookup(is_present=True, token=decoded_token)

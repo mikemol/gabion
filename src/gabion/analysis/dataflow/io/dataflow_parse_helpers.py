@@ -88,9 +88,11 @@ def _parse_module_tree_or_none(
         stage=stage,
         parse_failure_witnesses=parse_failure_witnesses,
     )
-    if type(outcome) is _ParseModuleSuccess:
-        return outcome.tree
-    return None
+    match outcome:
+        case _ParseModuleSuccess(tree=tree):
+            return tree
+        case _:
+            return None
 
 
 def _forbid_adhoc_bundle_discovery(reason: str) -> None:

@@ -36,54 +36,56 @@ def decide_handledness(
     handledness_reason = "no enclosing handler discharges this exception path"
     type_refinement_opportunity = ""
 
-    if type(try_node) is ast.Try:
-        typed_try_node = cast(ast.Try, try_node)
-        unknown_handler = None
-        first_incompatible_handler = None
-        for handler in typed_try_node.handlers:
-            check_deadline_fn()
-            compatibility = exception_handler_compatibility_fn(exception_name, handler.type)
-            if compatibility == "compatible":
-                handler_kind = "catch"
-                chosen_handler = handler
-                handler_boundary = handler_label_fn(handler)
-                if handler.type is None:
-                    handledness_reason_code = "BROAD_EXCEPT"
-                    handledness_reason = "handled by broad except: without a typed match proof"
-                else:
-                    handledness_reason_code = "TYPED_MATCH"
-                    handledness_reason = "raised exception type matches an explicit except clause"
-                break
-            if compatibility == "unknown" and unknown_handler is None:
-                unknown_handler = handler
-            if compatibility == "incompatible" and first_incompatible_handler is None:
-                first_incompatible_handler = handler
+    match try_node:
+        case ast.Try() as typed_try_node:
+            unknown_handler = None
+            first_incompatible_handler = None
+            for handler in typed_try_node.handlers:
+                check_deadline_fn()
+                compatibility = exception_handler_compatibility_fn(exception_name, handler.type)
+                if compatibility == "compatible":
+                    handler_kind = "catch"
+                    chosen_handler = handler
+                    handler_boundary = handler_label_fn(handler)
+                    if handler.type is None:
+                        handledness_reason_code = "BROAD_EXCEPT"
+                        handledness_reason = "handled by broad except: without a typed match proof"
+                    else:
+                        handledness_reason_code = "TYPED_MATCH"
+                        handledness_reason = "raised exception type matches an explicit except clause"
+                    break
+                if compatibility == "unknown" and unknown_handler is None:
+                    unknown_handler = handler
+                if compatibility == "incompatible" and first_incompatible_handler is None:
+                    first_incompatible_handler = handler
 
-        if handler_kind is None and unknown_handler is not None:
-            handler_kind = "catch"
-            chosen_handler = unknown_handler
-            handler_boundary = handler_label_fn(unknown_handler)
-            compatibility = "unknown"
-            handledness_reason_code = "TYPE_UNRESOLVED"
-            handledness_reason = (
-                "exception or handler types are dynamic/unresolved; handledness is unknown"
-            )
-            if exception_type_candidates:
-                type_refinement_opportunity = (
-                    "narrow raised exception type to a single concrete exception"
+            if handler_kind is None and unknown_handler is not None:
+                handler_kind = "catch"
+                chosen_handler = unknown_handler
+                handler_boundary = handler_label_fn(unknown_handler)
+                compatibility = "unknown"
+                handledness_reason_code = "TYPE_UNRESOLVED"
+                handledness_reason = (
+                    "exception or handler types are dynamic/unresolved; handledness is unknown"
                 )
-        elif handler_kind is None and first_incompatible_handler is not None:
-            handler_kind = "catch"
-            chosen_handler = first_incompatible_handler
-            handler_boundary = handler_label_fn(first_incompatible_handler)
-            compatibility = "incompatible"
-            handledness_reason_code = "TYPED_MISMATCH"
-            handledness_reason = "explicit except clauses do not match the raised exception type"
-            type_refinement_opportunity = (
-                f"consider except {exception_name} (or a supertype) to dominate this raise path"
-                if exception_name
-                else "consider a typed except clause to dominate this raise path"
-            )
+                if exception_type_candidates:
+                    type_refinement_opportunity = (
+                        "narrow raised exception type to a single concrete exception"
+                    )
+            elif handler_kind is None and first_incompatible_handler is not None:
+                handler_kind = "catch"
+                chosen_handler = first_incompatible_handler
+                handler_boundary = handler_label_fn(first_incompatible_handler)
+                compatibility = "incompatible"
+                handledness_reason_code = "TYPED_MISMATCH"
+                handledness_reason = "explicit except clauses do not match the raised exception type"
+                type_refinement_opportunity = (
+                    f"consider except {exception_name} (or a supertype) to dominate this raise path"
+                    if exception_name
+                    else "consider a typed except clause to dominate this raise path"
+                )
+        case _:
+            pass
 
     if handler_kind is None and exception_name == "SystemExit":
         handler_kind = "convert"

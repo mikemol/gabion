@@ -81,13 +81,16 @@ class _NoMonkeypatchVisitor(ast.NodeVisitor):
         dotted = _dotted_name(node.func)
         if dotted is not None and self._is_patch_call_name(dotted):
             self._report(node, "patch-style runtime mutation is forbidden; use dependency injection")
-        if isinstance(node.func, ast.Attribute):
-            owner = _dotted_name(node.func.value)
-            if owner == "monkeypatch":
-                self._report(
-                    node,
-                    "pytest monkeypatch usage is forbidden; use dependency injection seams",
-                )
+        match node.func:
+            case ast.Attribute():
+                owner = _dotted_name(node.func.value)
+                if owner == "monkeypatch":
+                    self._report(
+                        node,
+                        "pytest monkeypatch usage is forbidden; use dependency injection seams",
+                    )
+            case _:
+                pass
         self.generic_visit(node)
 
     def _check_monkeypatch_fixture(
@@ -122,13 +125,16 @@ class _NoMonkeypatchVisitor(ast.NodeVisitor):
                     "patch decorator is forbidden; inject collaborators explicitly",
                 )
                 continue
-            if isinstance(decorator, ast.Call):
-                dotted_call = _dotted_name(decorator.func)
-                if dotted_call is not None and self._is_patch_call_name(dotted_call):
-                    self._report(
-                        decorator,
-                        "patch decorator call is forbidden; inject collaborators explicitly",
-                    )
+            match decorator:
+                case ast.Call():
+                    dotted_call = _dotted_name(decorator.func)
+                    if dotted_call is not None and self._is_patch_call_name(dotted_call):
+                        self._report(
+                            decorator,
+                            "patch decorator call is forbidden; inject collaborators explicitly",
+                        )
+                case _:
+                    pass
 
     def _is_patch_call_name(self, dotted: str) -> bool:
         if dotted in _PATCH_CALL_NAMES:

@@ -5,11 +5,13 @@ from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from dataclasses import dataclass
 from enum import Enum
+from functools import singledispatch
 from typing import Any, Callable, Iterable, Iterator, TypeVar
 from gabion.json_types import JSONObject
 
 from gabion.exceptions import NeverThrown
 from gabion.invariants import never
+from gabion.runtime_shape_dispatch import int_or_none
 
 
 T = TypeVar("T")
@@ -88,8 +90,10 @@ _ORDER_RUNTIME_CONFIG: ContextVar[OrderRuntimeConfig] = ContextVar(
 def _deadline_tick_budget_allows_check(clock: object) -> bool:
     limit = getattr(clock, "limit", None)
     current = getattr(clock, "current", None)
-    if isinstance(limit, int) and isinstance(current, int):
-        return (limit - current) > 1
+    normalized_limit = int_or_none(limit)
+    normalized_current = int_or_none(current)
+    if normalized_limit is not None and normalized_current is not None:
+        return (normalized_limit - normalized_current) > 1
     return True
 
 
@@ -445,12 +449,26 @@ def _explicit_sort_requested(
     return _normalize_policy(policy) is OrderPolicy.SORT
 
 
-def _normalize_policy(policy: OrderPolicy | str) -> OrderPolicy:
+@singledispatch
+def _normalize_policy(policy: object) -> OrderPolicy:
+    never(
+        "unknown order policy",
+        policy=policy,
+        allowed=[candidate.value for candidate in OrderPolicy],
+    )
+    return OrderPolicy.SORT  # pragma: no cover - never() raises
+
+
+@_normalize_policy.register
+def _(policy: OrderPolicy) -> OrderPolicy:
+    return policy
+
+
+@_normalize_policy.register
+def _(policy: str) -> OrderPolicy:
     # Lazy import avoids import cycle with timeout_context -> order_contract.
     from gabion.analysis.foundation.timeout_context import check_deadline
 
-    if isinstance(policy, OrderPolicy):
-        return policy
     deadline_clock = _deadline_clock_if_available()
     normalized = policy.strip().lower()
     for candidate in OrderPolicy:
@@ -580,4 +598,3 @@ def order_runtime_config_scope(config: OrderRuntimeConfig) -> Iterator[None]:
         yield
     finally:
         reset_order_runtime_config(token)
-

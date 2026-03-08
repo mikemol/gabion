@@ -64,9 +64,11 @@ def infer_type_flow(
 
     def _get_annot(info, param: str):
         value = inferred.get(info.qual, {}).get(param)
-        if type(value) is str:
-            return value
-        return None
+        match value:
+            case str() as text:
+                return text
+            case _:
+                return None
 
     def _downstream_for(info) -> tuple[dict[str, set[str]], dict[str, dict[str, set[str]]]]:
         deps.check_deadline_fn()

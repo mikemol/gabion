@@ -165,9 +165,9 @@ def _phase_progress_from_notification(
     phase_progress = progress_timeline.phase_progress_from_progress_notification(
         notification
     )
-    if isinstance(phase_progress, Mapping):
-        return {str(key): phase_progress[key] for key in phase_progress}
-    return None
+    if phase_progress is None:
+        return None
+    return {str(key): phase_progress[key] for key in phase_progress}
 
 
 def _emit_phase_progress_line(
@@ -197,9 +197,9 @@ def main_for_emitter(
 ) -> int:
     config = _EMITTER_CONFIGS[emitter_id]
     run_spec = config.run_spec
-    if isinstance(expected_outputs, tuple):
+    if expected_outputs is not None:
         run_spec = replace(run_spec, expected_outputs=expected_outputs)
-    elif isinstance(output_path, Path):
+    elif output_path is not None:
         run_spec = replace(run_spec, expected_outputs=(output_path,))
     payload = _build_payload_for_emitter(emitter_id)
     return delta_emit_runtime.run_delta_emit(

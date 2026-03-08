@@ -7,6 +7,7 @@ from typing import Callable, Literal, Mapping
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.json_types import JSONValue
 from gabion.order_contract import sort_once
+from gabion.runtime_shape_dispatch import json_list_or_none, json_mapping_or_none
 import json
 
 from gabion.runtime import env_policy, json_io
@@ -211,23 +212,33 @@ def _write_aggregate_with_domain(payload: advisory_evidence.AdvisoryEvidencePayl
     domain_payloads: dict[str, advisory_evidence.AdvisoryEvidencePayload] = {}
     for raw_domain, raw_payload in advisories_raw.items():
         item = _mapping(raw_payload)
-        entries_raw = item.get("entries")
-        if not isinstance(entries_raw, list):
+        entries_raw = json_list_or_none(item.get("entries"))
+        if entries_raw is None:
             continue
-        entries = tuple(
-            advisory_evidence.AdvisoryEvidenceEntry(
-                domain=str(raw_domain),
-                key=str(_mapping(raw_entry).get("key", "")),
-                baseline=_count(_mapping(raw_entry).get("baseline")),
-                current=_count(_mapping(raw_entry).get("current")),
-                delta=_count(_mapping(raw_entry).get("delta")),
-                threshold_class=str(_mapping(raw_entry).get("threshold_class", "telemetry_non_blocking")),
-                message=str(_mapping(raw_entry).get("message", "")),
-                timestamp=str(_mapping(raw_entry).get("timestamp", payload.generated_at)),
+        entries_out: list[advisory_evidence.AdvisoryEvidenceEntry] = []
+        for raw_entry in entries_raw:
+            entry_mapping = json_mapping_or_none(raw_entry)
+            if entry_mapping is None:
+                continue
+            entries_out.append(
+                advisory_evidence.AdvisoryEvidenceEntry(
+                    domain=str(raw_domain),
+                    key=str(_mapping(entry_mapping).get("key", "")),
+                    baseline=_count(_mapping(entry_mapping).get("baseline")),
+                    current=_count(_mapping(entry_mapping).get("current")),
+                    delta=_count(_mapping(entry_mapping).get("delta")),
+                    threshold_class=str(
+                        _mapping(entry_mapping).get(
+                            "threshold_class", "telemetry_non_blocking"
+                        )
+                    ),
+                    message=str(_mapping(entry_mapping).get("message", "")),
+                    timestamp=str(
+                        _mapping(entry_mapping).get("timestamp", payload.generated_at)
+                    ),
+                )
             )
-            for raw_entry in entries_raw
-            if isinstance(raw_entry, Mapping)
-        )
+        entries = tuple(entries_out)
         domain_payloads[str(raw_domain)] = advisory_evidence.AdvisoryEvidencePayload(
             domain=str(raw_domain),
             source_delta_path=str(item.get("source_delta_path", "")),
@@ -302,12 +313,12 @@ def main_for_advisory(
     config = _ADVISORY_CONFIGS[advisory_id]
     with _deadline_scope():
         try:
-            if isinstance(config.env_flag, str) and config.env_flag:
+            if config.env_flag:
                 if _enabled(config.env_flag):
-                    if isinstance(config.skip_message, str) and config.skip_message:
+                    if config.skip_message:
                         print_fn(config.skip_message)
                     return 0
-            target_path = delta_path if isinstance(delta_path, Path) else config.delta_path
+            target_path = delta_path if delta_path is not None else config.delta_path
             if not target_path.exists():
                 print_fn(config.missing_message)
                 return 0

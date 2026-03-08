@@ -170,8 +170,9 @@ def collect_never_invariants(
             evidence["marker_id"] = str(marker_metadata.get("marker_id", never_id))
             evidence["marker_site_id"] = str(marker_metadata.get("marker_site_id", never_id))
             marker_links = marker_metadata.get("links")
-            if type(marker_links) is list and marker_links:
-                evidence["links"] = marker_links
+            match marker_links:
+                case list() as links if links:
+                    evidence["links"] = links
             marker_owner = str(marker_metadata.get("owner", "")).strip()
             if marker_owner:
                 evidence["owner"] = marker_owner

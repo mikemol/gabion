@@ -30,15 +30,17 @@ def extract_report_sections(
     check_deadline_fn: Callable[[], None] = check_deadline,
 ) -> dict[str, list[str]]:
     sections: dict[str, list[str]] = {}
-    active_section_id: object = None
+    active_section_id = ""
     for raw_line in markdown.splitlines():
         check_deadline_fn()
         section_id = parse_report_section_marker(raw_line)
-        if type(section_id) is str:
-            active_section_id = section_id
-            sections.setdefault(section_id, [])
-        elif type(active_section_id) is str:
-            sections[active_section_id].append(raw_line)
+        match section_id:
+            case str() as active_marker:
+                active_section_id = active_marker
+                sections.setdefault(active_marker, [])
+            case _:
+                if active_section_id:
+                    sections[active_section_id].append(raw_line)
     return sections
 
 

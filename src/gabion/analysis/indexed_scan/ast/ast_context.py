@@ -107,8 +107,9 @@ def ancestor_if_names(
     current = parents.get(node)
     while current is not None:
         check_deadline_fn()
-        if type(current) is ast.If:
-            names.update(names_in_expr_fn(current.test))
+        match current:
+            case ast.If(test=test):
+                names.update(names_in_expr_fn(test))
         current = parents.get(current)
     return names
 

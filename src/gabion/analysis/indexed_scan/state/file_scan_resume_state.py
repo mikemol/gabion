@@ -192,10 +192,18 @@ def load_file_scan_resume_state(
             else None
         ),
     )
+
+    def _string_or_none(raw_value):
+        match raw_value:
+            case str() as raw_text:
+                return raw_text
+            case _:
+                return None
+
     fn_names = deps.load_resume_map_fn(
         payload=raw_names,
         valid_keys=valid_fn_keys,
-        parser=lambda raw_value: raw_value if type(raw_value) is str else None,
+        parser=_string_or_none,
     )
     fn_lexical_scopes = deps.load_resume_map_fn(
         payload=raw_scopes,
@@ -213,14 +221,18 @@ def load_file_scan_resume_state(
             valid_keys=valid_fn_keys,
         )
     ):
-        if raw_value is None or type(raw_value) is str:
-            fn_class_names[fn_key] = cast(str | None, raw_value)
+        match raw_value:
+            case None:
+                fn_class_names[fn_key] = None
+            case str() as class_name:
+                fn_class_names[fn_key] = class_name
     raw_opaque = payload.get("opaque_callees")
     raw_opaque_entries = deps.sequence_or_none_fn(raw_opaque)
     if raw_opaque_entries is not None:
         for entry in deps.deadline_loop_iter_fn(raw_opaque_entries):
-            if type(entry) is str and entry in valid_fn_keys:
-                opaque_callees.add(entry)
+            match entry:
+                case str() as opaque_callee if opaque_callee in valid_fn_keys:
+                    opaque_callees.add(opaque_callee)
     return (
         fn_use,
         fn_calls,

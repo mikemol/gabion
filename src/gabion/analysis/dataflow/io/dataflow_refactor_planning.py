@@ -198,9 +198,14 @@ def render_reuse_lemma_stubs(reuse: JSONObject) -> str:
         lines.append("")
         return "\n".join(lines)
 
-    suggested_entries = [
-        entry for entry in suggested if type(entry) is dict
-    ]
+    suggested_entries: list[dict[object, object]] = []
+    for entry in suggested:
+        check_deadline()
+        match entry:
+            case dict() as suggested_entry:
+                suggested_entries.append(suggested_entry)
+            case _:
+                continue
     plan_artifacts: list[JSONObject] = []
     for entry in sort_once(
         suggested_entries,
@@ -212,10 +217,12 @@ def render_reuse_lemma_stubs(reuse: JSONObject) -> str:
     ):
         check_deadline()
         name = entry.get("suggested_name")
-        if type(name) is str and name:
-            raw_plan = entry.get("rewrite_plan_artifact")
-            if type(raw_plan) is dict:
-                plan_artifacts.append({str(key): raw_plan[key] for key in raw_plan})
+        match name:
+            case str() as suggested_name if suggested_name:
+                raw_plan = entry.get("rewrite_plan_artifact")
+                match raw_plan:
+                    case dict() as plan:
+                        plan_artifacts.append({str(key): plan[key] for key in plan})
 
     payload: JSONObject = {
         "format_version": 1,

@@ -39,11 +39,14 @@ def call_nodes_for_tree(
     span_map: dict[tuple[int, int, int, int], list[ast.Call]] = defaultdict(list)
     for node in ast.walk(tree):
         deps.check_deadline_fn()
-        if type(node) is ast.Call:
-            call_node = cast(ast.Call, node)
-            span = deps.node_span_fn(call_node)
-            if span is not None:
-                span_map[span].append(call_node)
+        match node:
+            case ast.Call() as call_node:
+                pass
+            case _:
+                continue
+        span = deps.node_span_fn(call_node)
+        if span is not None:
+            span_map[span].append(call_node)
     return span_map
 
 

@@ -10,24 +10,27 @@ def decorator_name(
     check_deadline_fn: Callable[[], None],
 ):
     check_deadline_fn()
-    node_type = type(node)
-    if node_type is ast.Name:
-        return node.id
-    if node_type is ast.Attribute:
-        parts: list[str] = []
-        current: ast.AST = node
-        while type(current) is ast.Attribute:
-            check_deadline_fn()
-            attribute_node = current
-            parts.append(attribute_node.attr)
-            current = attribute_node.value
-        if type(current) is ast.Name:
-            parts.append(current.id)
-            return ".".join(reversed(parts))
-        return None
-    if node_type is ast.Call:
-        return decorator_name(node.func, check_deadline_fn=check_deadline_fn)
-    return None
+    match node:
+        case ast.Name(id=name):
+            return name
+        case ast.Attribute():
+            parts: list[str] = []
+            current: ast.AST = node
+            while True:
+                check_deadline_fn()
+                match current:
+                    case ast.Attribute(attr=attr, value=value):
+                        parts.append(attr)
+                        current = value
+                    case ast.Name(id=name):
+                        parts.append(name)
+                        return ".".join(reversed(parts))
+                    case _:
+                        return None
+        case ast.Call(func=func):
+            return decorator_name(func, check_deadline_fn=check_deadline_fn)
+        case _:
+            return None
 
 
 def resolve_local_method_in_hierarchy(

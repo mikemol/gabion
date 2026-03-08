@@ -722,13 +722,17 @@ def _lint_lines_from_call_ambiguities(entries: Iterable[JSONObject]) -> list[str
     lines: list[str] = []
     for entry in entries:
         check_deadline()
-        if type(entry) is not dict:
-            continue
-        entry_payload = cast(Mapping[str, Any], entry)
+        match entry:
+            case dict() as entry_payload:
+                pass
+            case _:
+                continue
         site = entry_payload.get("site", {})
-        if type(site) is not dict:
-            continue
-        site_mapping = cast(Mapping[str, Any], site)
+        match site:
+            case dict() as site_mapping:
+                pass
+            case _:
+                continue
         path = str(site_mapping.get("path", "") or "")
         if not path:
             continue

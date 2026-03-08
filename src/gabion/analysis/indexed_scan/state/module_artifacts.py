@@ -37,18 +37,20 @@ def build_module_artifacts(
             except deps.parse_module_error_types as exc:
                 parsed = exc
             parse_cache[path] = parsed
-        if type(parsed) is not ast.Module:
-            parsed_error = cast(BaseException, parsed)
-            for spec in specs:
-                deps.check_deadline_fn()
-                deps.record_parse_failure_witness_fn(
-                    sink=parse_failure_witnesses,
-                    path=path,
-                    stage=spec.stage,
-                    error=cast(Exception, parsed_error),
-                )
-            continue
-        parsed_module = cast(ast.Module, parsed)
+        match parsed:
+            case ast.Module() as parsed_module:
+                pass
+            case _:
+                parsed_error = cast(BaseException, parsed)
+                for spec in specs:
+                    deps.check_deadline_fn()
+                    deps.record_parse_failure_witness_fn(
+                        sink=parse_failure_witnesses,
+                        path=path,
+                        stage=spec.stage,
+                        error=cast(Exception, parsed_error),
+                    )
+                continue
         for idx, spec in enumerate(specs):
             deps.check_deadline_fn()
             spec.fold(accumulators[idx], path, parsed_module)

@@ -63,9 +63,11 @@ def _decision_root_name(node: ast.AST):
             current = cast(ast.Subscript, current).value
         else:
             break
-    if type(current) is ast.Name:
-        return cast(ast.Name, current).id
-    return None
+    match current:
+        case ast.Name(id=name):
+            return name
+        case _:
+            return None
 
 
 def is_decision_surface(node: ast.AST) -> bool:
@@ -143,8 +145,10 @@ def _contains_boolish(expr: ast.AST) -> bool:
         node_type = type(node)
         if node_type is ast.Compare or node_type is ast.BoolOp:
             return True
-        if node_type is ast.UnaryOp and type(cast(ast.UnaryOp, node).op) is ast.Not:
-            return True
+        if node_type is ast.UnaryOp:
+            match node:
+                case ast.UnaryOp(op=ast.Not()):
+                    return True
     return False
 
 

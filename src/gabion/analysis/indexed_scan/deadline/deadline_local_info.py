@@ -46,12 +46,12 @@ def collect_deadline_local_info(
         elif not deps.is_deadline_origin_call_fn(value):
             alias_source = None
             propagate_origin_alias = False
-            if type(value) is ast.Name:
-                value_name = cast(ast.Name, value)
-                if value_name.id in params:
-                    alias_source = value_name.id
-                elif value_name.id in origin_assign:
-                    propagate_origin_alias = True
+            match value:
+                case ast.Name(id=value_id):
+                    if value_id in params:
+                        alias_source = value_id
+                    elif value_id in origin_assign:
+                        propagate_origin_alias = True
             for target in targets:
                 deps.check_deadline_fn()
                 for name in deps.target_names_fn(target):

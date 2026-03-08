@@ -138,7 +138,7 @@ def maybe_emit_timeline_row(
     phase_progress = progress_timeline.phase_progress_from_progress_notification(
         notification
     )
-    if not isinstance(phase_progress, Mapping):
+    if phase_progress is None:
         return
     normalized_phase_progress = {str(key): phase_progress[key] for key in phase_progress}
     signature = progress_timeline.phase_progress_signature(phase_progress)
@@ -176,7 +176,7 @@ def flush_pending_timeline_row_if_due(
     force: bool = False,
 ) -> None:
     pending_phase_progress = state.pending_phase_progress
-    if not isinstance(pending_phase_progress, Mapping):
+    if pending_phase_progress is None:
         return
     pending_signature = state.pending_signature or progress_timeline.phase_progress_signature(
         pending_phase_progress

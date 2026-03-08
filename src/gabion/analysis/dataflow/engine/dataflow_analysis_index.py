@@ -672,16 +672,17 @@ def _sorted_text(values=None) -> tuple[str, ...]:
 
 
 def _normalize_cache_config(value):
-    if type(value) is dict:
-        mapping = cast(dict[object, object], value)
-        normalized = {
-            str(key): _normalize_cache_config(mapping[key])
-            for key in sort_once(mapping, source="_normalize_cache_config.mapping")
-        }
-        return normalized
-    if type(value) is list:
-        return [_normalize_cache_config(item) for item in value]
-    return value
+    match value:
+        case dict() as mapping:
+            normalized = {
+                str(key): _normalize_cache_config(mapping[key])
+                for key in sort_once(mapping, source="_normalize_cache_config.mapping")
+            }
+            return normalized
+        case list() as items:
+            return [_normalize_cache_config(item) for item in items]
+        case _:
+            return value
 
 
 def _canonical_stage_cache_detail(detail) -> str:

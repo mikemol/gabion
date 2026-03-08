@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable, Mapping
 
+from gabion.runtime_shape_dispatch import json_list_or_none
+
 
 def normalize_timeout_total_ticks(
     payload: Mapping[str, object],
@@ -34,10 +36,12 @@ def initial_collection_progress(*, total_files: int) -> dict[str, int]:
 
 
 def initial_paths_count(paths_value: object) -> int:
-    return len(paths_value) if isinstance(paths_value, list) else 1
+    paths = json_list_or_none(paths_value)
+    return len(paths) if paths is not None else 1
 
 
 def normalize_paths(raw_paths: object, *, root: Path) -> list[Path]:
-    if isinstance(raw_paths, list) and raw_paths:
-        return [Path(str(path_value)) for path_value in raw_paths]
+    paths = json_list_or_none(raw_paths)
+    if paths:
+        return [Path(str(path_value)) for path_value in paths]
     return [root]

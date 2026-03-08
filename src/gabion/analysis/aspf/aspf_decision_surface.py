@@ -65,12 +65,15 @@ def classify_drift_by_homotopy(
 ) -> str:
     if baseline_representative == current_representative:
         return "non_drift"
-    if type(equivalence_witness) is AspfTwoCellWitness:
-        if equivalence_witness.is_compatible() and equivalence_witness.links(
-            baseline_representative=baseline_representative,
-            current_representative=current_representative,
-        ):
-            return "non_drift"
+    match equivalence_witness:
+        case AspfTwoCellWitness() as witness:
+            if witness.is_compatible() and witness.links(
+                baseline_representative=baseline_representative,
+                current_representative=current_representative,
+            ):
+                return "non_drift"
+        case _:
+            pass
     if bool(has_equivalence_witness):
         return "non_drift"
     return "drift"

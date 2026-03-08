@@ -86,14 +86,15 @@ def normalize_transparent_decorators(
     check_deadline_fn()
     if value is not None:
         items: list[str] = []
-        value_type = type(value)
-        if value_type is str:
-            items = [part.strip() for part in str(value).split(",") if part.strip()]
-        elif value_type in {list, tuple, set}:
-            for item in value:
-                check_deadline_fn()
-                if type(item) is str:
-                    items.extend([part.strip() for part in str(item).split(",") if part.strip()])
+        match value:
+            case str() as text_value:
+                items = [part.strip() for part in text_value.split(",") if part.strip()]
+            case list() | tuple() | set() as sequence_value:
+                for item in sequence_value:
+                    check_deadline_fn()
+                    match item:
+                        case str() as item_text:
+                            items.extend([part.strip() for part in item_text.split(",") if part.strip()])
         if items:
             return set(items)
     return None
@@ -246,8 +247,12 @@ def run_impl(
                         payload = None
                 else:
                     payload = None
-                if type(payload) is dict:
-                    synth_registry = deps.build_synth_registry_from_payload_fn(payload, registry)
+                match payload:
+                    case dict() as payload_mapping:
+                        synth_registry = deps.build_synth_registry_from_payload_fn(
+                            payload_mapping,
+                            registry,
+                        )
 
     merged = deps.merge_payload_fn(
         {
@@ -277,11 +282,11 @@ def run_impl(
     )
     deadline_roots = set(deps.dataflow_deadline_roots_fn(merged))
     adapter_payload = deps.dataflow_adapter_payload_fn(merged)
-    required_analysis_surfaces = {
-        str(item)
-        for item in deps.dataflow_required_surfaces_fn(merged)
-        if type(item) is str and str(item)
-    }
+    required_analysis_surfaces: set[str] = set()
+    for item in deps.dataflow_required_surfaces_fn(merged):
+        match item:
+            case str() as surface if surface:
+                required_analysis_surfaces.add(surface)
 
     config = deps.audit_config_cls(
         project_root=root_path,

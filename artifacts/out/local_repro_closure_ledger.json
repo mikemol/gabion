@@ -5421,6 +5421,58 @@
         "extract_test_evidence": "pass",
         "test_evidence_drift_check": "pass"
       }
+    },
+    {
+      "cu_id": "CU-D2AG",
+      "summary": "Batched strict-dispatch cleanup for remaining analysis/indexed-scan/refactor manual type routing.",
+      "timestamp_utc": "2026-03-08T13:58:32Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7098,
+        "defensive_fallback": 130,
+        "fiber_scalar_sentinel_contract": 310,
+        "fiber_type_dispatch_contract": 84,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 14,
+        "runtime_narrowing_boundary": 24,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7108,
+        "defensive_fallback": 134,
+        "fiber_scalar_sentinel_contract": 317,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 14,
+        "runtime_narrowing_boundary": 28,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 7660,
+      "total_after": 7601,
+      "notes": [
+        "Eliminated remaining fiber_type_dispatch_contract sites across dataflow IO/engine helpers, indexed-scan scanners/state/obligations, report rendering helpers, and refactor model normalization.",
+        "Replaced direct type(...) / isinstance-style routing with structural match dispatch at ingress/control boundaries; preserved existing output contracts.",
+        "Global fiber_type_dispatch_contract reached 0 (84->0, delta -84) while non-target families remained expected nonzero during this track."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_analysis_indexed_scan_dataflow_refactor": "pass",
+        "extract_test_evidence": "pass",
+        "test_evidence_drift_check": "pass"
+      }
     }
   ],
   "generated_by": "codex",

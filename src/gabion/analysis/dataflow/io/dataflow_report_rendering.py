@@ -69,8 +69,11 @@ def render_unsupported_by_adapter_section(
     lines: list[str] = []
     for diagnostic in diagnostics:
         check_deadline()
-        if type(diagnostic) is not dict:
-            continue
+        match diagnostic:
+            case dict():
+                pass
+            case _:
+                continue
         surface = str(diagnostic.get("surface", ""))
         adapter = str(diagnostic.get("adapter", "native"))
         required = bool(diagnostic.get("required_by_policy", False))

@@ -39,10 +39,11 @@ class ReportDoc:
             self._lines.append(f"- {item}")
 
     def codeblock(self, content: object, *, language: str = "") -> None:
-        if type(content) is str:
-            rendered = content
-        else:
-            rendered = json.dumps(content, indent=2, sort_keys=False)
+        match content:
+            case str() as rendered_text:
+                rendered = rendered_text
+            case _:
+                rendered = json.dumps(content, indent=2, sort_keys=False)
         fence = f"```{language}" if language else "```"
         self._lines.append(fence)
         self._lines.extend(rendered.splitlines() or [""])

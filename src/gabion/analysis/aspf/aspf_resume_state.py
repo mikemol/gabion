@@ -232,8 +232,10 @@ def _assign_by_path(
 
 
 def _as_json_value(value: object) -> JSONValue:
-    if isinstance(value, Mapping):
-        return {str(key): _as_json_value(value[key]) for key in value}
-    if isinstance(value, (list, tuple, set)):
-        return [_as_json_value(item) for item in value]
-    return cast(JSONValue, value)
+    match value:
+        case dict() as mapping:
+            return {str(key): _as_json_value(mapping[key]) for key in mapping}
+        case list() | tuple() | set() as sequence:
+            return [_as_json_value(item) for item in sequence]
+        case _:
+            return cast(JSONValue, value)

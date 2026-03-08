@@ -128,13 +128,17 @@ def build_property_hook_callable_index(
     callables: dict[str, list[str]] = defaultdict(list)
     for hook in hooks:
         deps.check_deadline_fn()
-        if type(hook) is not dict:
-            continue
-        hook_payload = cast(Mapping[str, JSONValue], hook)
+        match hook:
+            case dict() as hook_payload:
+                pass
+            case _:
+                continue
         callable_payload = hook_payload.get("callable")
-        if type(callable_payload) is not dict:
-            continue
-        callable_mapping = cast(Mapping[str, JSONValue], callable_payload)
+        match callable_payload:
+            case dict() as callable_mapping:
+                pass
+            case _:
+                continue
         path = str(callable_mapping.get("path", "") or "")
         qual = str(callable_mapping.get("qual", "") or "")
         if not path or not qual:

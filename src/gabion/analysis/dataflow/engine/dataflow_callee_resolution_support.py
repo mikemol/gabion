@@ -109,8 +109,9 @@ def _resolve_method_in_hierarchy_outcome(
                     symbol_table=symbol_table,
                     seen=seen,
                 )
-                if type(resolution) is _MethodHierarchyResolutionFound:
-                    return resolution
+                match resolution:
+                    case _MethodHierarchyResolutionFound():
+                        return resolution
     return _MethodHierarchyResolutionMissing(kind="not_found")
 
 

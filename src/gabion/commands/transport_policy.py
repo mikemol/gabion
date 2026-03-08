@@ -6,6 +6,7 @@ from typing import Callable, Literal, Mapping, TypeAlias
 import warnings
 
 from gabion.invariants import never
+from gabion.runtime_shape_dispatch import str_or_none
 from gabion.commands.transport_override import (
     TransportOverrideConfig,
     reset_transport_override,
@@ -115,17 +116,15 @@ def _resolve_transport_controls() -> tuple[bool, str | None]:
     if override is not None:
         direct_requested = bool(override.direct_requested)
         record_json = override.override_record_json
-        if (
-            (record_json is None or not record_json.strip())
-            and isinstance(override.override_record_path, str)
-            and override.override_record_path.strip()
-        ):
+        override_record_path = str_or_none(override.override_record_path)
+        if (record_json is None or not record_json.strip()) and override_record_path and override_record_path.strip():
             record_json = _load_override_record_json_from_path(
-                override.override_record_path.strip()
+                override_record_path.strip()
             )
+        normalized_record_json = str_or_none(record_json)
         return (
             direct_requested,
-            record_json.strip() if isinstance(record_json, str) else None,
+            normalized_record_json.strip() if normalized_record_json else None,
         )
     return (False, None)
 

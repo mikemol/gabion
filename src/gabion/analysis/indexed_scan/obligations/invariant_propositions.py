@@ -44,15 +44,16 @@ def collect_invariant_propositions(
             emitted = emitter(fn)
             for prop in emitted:
                 deps.check_deadline_fn()
-                if type(prop) is not deps.invariant_proposition_type:
+                try:
+                    propositions.append(
+                        deps.normalize_invariant_proposition_fn(
+                            prop,
+                            default_scope=scope,
+                            default_source="emitter",
+                        )
+                    )
+                except TypeError as exc:
                     raise TypeError(
                         "Invariant emitters must yield InvariantProposition instances."
-                    )
-                propositions.append(
-                    deps.normalize_invariant_proposition_fn(
-                        prop,
-                        default_scope=scope,
-                        default_source="emitter",
-                    )
-                )
+                    ) from exc
     return propositions

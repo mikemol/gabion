@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 from typing import Mapping
 
+from gabion.runtime_shape_dispatch import json_list_or_none, json_mapping_or_none, str_or_none
+
 REQUIRED_OVERRIDE_FIELDS: tuple[str, ...] = (
     "actor",
     "rationale",
@@ -46,20 +48,30 @@ class OverrideValidationResult:
 
 
 def _parse_time(value: object) -> datetime:
-    if not isinstance(value, str):
+    text_value = str_or_none(value)
+    if text_value is None:
         raise ValueError("timestamp must be a string")
-    return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(timezone.utc)
+    return datetime.fromisoformat(text_value.replace("Z", "+00:00")).astimezone(
+        timezone.utc
+    )
 
 
 def _is_non_empty_text(value: object) -> bool:
-    return isinstance(value, str) and bool(value.strip())
+    text_value = str_or_none(value)
+    if text_value is None:
+        return False
+    return bool(text_value.strip())
 
 
 # gabion:boundary_normalization
 def _evidence_links_valid(value: object) -> bool:
-    if not isinstance(value, list) or not value:
+    links = json_list_or_none(value)
+    if not links:
         return False
-    return all(isinstance(entry, str) and bool(entry.strip()) for entry in value)
+    for entry in links:
+        if not _is_non_empty_text(entry):
+            return False
+    return True
 
 
 def validate_override_record(
@@ -69,9 +81,10 @@ def validate_override_record(
 ) -> OverrideValidationResult:
     if raw_record is None:
         return OverrideValidationResult(active=False, valid=False, reason="missing", record=None)
-    if not isinstance(raw_record, Mapping):
+    record_mapping = json_mapping_or_none(raw_record)
+    if record_mapping is None:
         return OverrideValidationResult(active=True, valid=False, reason="non_mapping", record=None)
-    record = dict(raw_record)
+    record = {str(key): value for key, value in record_mapping.items()}
     missing = [field for field in REQUIRED_OVERRIDE_FIELDS if field not in record]
     if missing:
         return OverrideValidationResult(active=True, valid=False, reason="missing_fields", record=record)

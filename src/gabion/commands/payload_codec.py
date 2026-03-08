@@ -6,6 +6,7 @@ from typing import Mapping
 from gabion.commands import boundary_order
 from gabion.invariants import never
 from gabion.order_contract import sort_once
+from gabion.runtime_shape_dispatch import json_list_or_none, json_mapping_or_none
 
 
 def normalized_command_payload(
@@ -17,14 +18,15 @@ def normalized_command_payload(
     if not command_args:
         never("missing command payload arguments", command=command)
     payload_arg = command_args[0]
-    if not isinstance(payload_arg, Mapping):
+    payload_mapping = json_mapping_or_none(payload_arg)
+    if payload_mapping is None:
         never(
             "command payload must be a dict",
             command=command,
             payload_type=type(payload_arg).__name__,
         )
     payload = boundary_order.normalize_boundary_mapping_once(
-        payload_arg,
+        payload_mapping,
         source=f"payload_codec.normalized_command_payload.{command}",
     )
     command_args[0] = payload
@@ -136,10 +138,11 @@ def _positive_int(value: object, *, field: str) -> int:
 
 def normalized_command_id_list(payload: Mapping[str, object], *, key: str) -> tuple[str, ...]:
     raw = payload.get(key)
-    if raw is None:
+    normalized_raw = json_list_or_none(raw)
+    if normalized_raw is None:
+        if raw is not None:
+            never("invalid command id list", key=key, value_type=type(raw).__name__)
         normalized: list[str] = []
     else:
-        if not isinstance(raw, list):
-            never("invalid command id list", key=key, value_type=type(raw).__name__)
-        normalized = [str(item) for item in raw]
+        normalized = [str(item) for item in normalized_raw]
     return tuple(sort_once(normalized, source=f"payload_codec.normalized_command_id_list.{key}"))
