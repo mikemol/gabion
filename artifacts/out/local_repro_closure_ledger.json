@@ -3478,6 +3478,56 @@
         "policy_scanner_suite": "fail_expected_nonzero",
         "targeted_pytest_server_execute_command_cases_edges_parity_progress_contract_edges": "pass"
       }
+    },
+    {
+      "cu_id": "CU-C1",
+      "summary": "Loop-generator strict-dispatch conversion: replace manual node/operator type routing with singledispatch entrypoints and eliminate loop_generator fiber-type-dispatch findings.",
+      "timestamp_utc": "2026-03-08T02:54:22Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7002,
+        "defensive_fallback": 119,
+        "fiber_scalar_sentinel_contract": 269,
+        "fiber_type_dispatch_contract": 644,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7003,
+        "defensive_fallback": 129,
+        "fiber_scalar_sentinel_contract": 269,
+        "fiber_type_dispatch_contract": 594,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 21,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 8034,
+      "total_after": 8016,
+      "notes": [
+        "Replaced manual type-keyed routing in src/gabion/refactor/loop_generator.py with singledispatch/singledispatchmethod entrypoints for function-analysis outcomes, statement-family handling, and operator token classification.",
+        "Removed fiber-type hotspots in loop analysis/rewrite paths (_apply_function_analysis, _child_statement_blocks, loop candidate handling, for-body small-statement analysis) while preserving rewrite semantics and idempotency behavior.",
+        "Acceptance met: src/gabion/refactor/loop_generator.py fiber_type_dispatch_contract 50->0 and global fiber_type_dispatch_contract 644->594 (delta -50); target-only mode recorded non-target runtime_narrowing_boundary increase (0->21)."
+      ],
+      "validation": {
+        "policy_workflows": "pass",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_refactor_engine_loop_generator_coverage_idempotency": "pass"
+      }
     }
   ],
   "generated_by": "codex",

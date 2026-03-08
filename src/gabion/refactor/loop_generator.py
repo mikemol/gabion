@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from functools import singledispatch, singledispatchmethod
 from pathlib import Path
 import re
 from typing import cast
 
 import libcst as cst
 from libcst import metadata as cst_metadata
+from libcst import matchers as cst_matchers
 
 from gabion.analysis.foundation.timeout_context import check_deadline
+from gabion.invariants import never
 import gabion.refactor.cst_shared as cst_shared
 from gabion.refactor.model import (
     LoopGeneratorRequest,
@@ -20,34 +23,41 @@ from gabion.refactor.model import (
 
 _LOOP_HELPER_PATTERN = re.compile(r"^_iter_(?P<name>[A-Za-z_]\w*)_loop_(?P<line>\d+)$")
 _MAX_HELPER_CHASE_DEPTH = 128
-_ALLOWED_ASSIGN_OPERATORS: dict[type[object], str] = {
-    cst.AddAssign: "+",
-    cst.SubtractAssign: "-",
-    cst.MultiplyAssign: "*",
-    cst.DivideAssign: "/",
-    cst.FloorDivideAssign: "//",
-    cst.ModuloAssign: "%",
-    cst.PowerAssign: "**",
-    cst.BitOrAssign: "|",
-    cst.BitAndAssign: "&",
-    cst.BitXorAssign: "^",
-    cst.LeftShiftAssign: "<<",
-    cst.RightShiftAssign: ">>",
-}
-_ALLOWED_BINARY_OPERATORS: dict[type[object], str] = {
-    cst.Add: "+",
-    cst.Subtract: "-",
-    cst.Multiply: "*",
-    cst.Divide: "/",
-    cst.FloorDivide: "//",
-    cst.Modulo: "%",
-    cst.Power: "**",
-    cst.BitOr: "|",
-    cst.BitAnd: "&",
-    cst.BitXor: "^",
-    cst.LeftShift: "<<",
-    cst.RightShift: ">>",
-}
+
+
+@singledispatch
+def _operator_token(operator: object) -> str:
+    never("unregistered runtime type", value_type=type(operator).__name__)
+
+
+def _register_operator_tokens(operator_types: tuple[type[object], ...], token: str) -> None:
+    for operator_type in operator_types:
+        @_operator_token.register(operator_type)
+        def _(_: object, _token: str = token) -> str:
+            return _token
+
+
+_register_operator_tokens((cst.AddAssign, cst.Add), "+")
+_register_operator_tokens((cst.SubtractAssign, cst.Subtract), "-")
+_register_operator_tokens((cst.MultiplyAssign, cst.Multiply), "*")
+_register_operator_tokens((cst.DivideAssign, cst.Divide), "/")
+_register_operator_tokens((cst.FloorDivideAssign, cst.FloorDivide), "//")
+_register_operator_tokens((cst.ModuloAssign, cst.Modulo), "%")
+_register_operator_tokens((cst.PowerAssign, cst.Power), "**")
+_register_operator_tokens((cst.BitOrAssign, cst.BitOr), "|")
+_register_operator_tokens((cst.BitAndAssign, cst.BitAnd), "&")
+_register_operator_tokens((cst.BitXorAssign, cst.BitXor), "^")
+_register_operator_tokens((cst.LeftShiftAssign, cst.LeftShift), "<<")
+_register_operator_tokens((cst.RightShiftAssign, cst.RightShift), ">>")
+
+
+def _empty_operator_token(value: object) -> str:
+    _ = value
+    return ""
+
+
+for _operator_type in (cst.MatrixMultiplyAssign, cst.MatrixMultiply):
+    _operator_token.register(_operator_type)(_empty_operator_token)
 
 def _loop_dataclass_decorator() -> cst.Decorator:
     return cst.Decorator(
@@ -225,6 +235,208 @@ class _FunctionAnalysisSuccess(_FunctionAnalysis):
     spec: _LoopRewriteSpec
 
 
+@dataclass(frozen=True)
+class _LoopBodyOutcome:
+    kind: str
+    guard_expr: object = None
+    operation: object = None
+    reason: str = ""
+
+
+@singledispatch
+def _indented_block_or_none(suite: object):
+    never("unregistered runtime type", value_type=type(suite).__name__)
+
+
+@_indented_block_or_none.register(cst.IndentedBlock)
+def _(suite: cst.IndentedBlock):
+    return suite
+
+
+@_indented_block_or_none.register(cst.SimpleStatementSuite)
+def _(suite: cst.SimpleStatementSuite):
+    _ = suite
+    return None
+
+
+@singledispatch
+def _star_param_or_none(value: object):
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_star_param_or_none.register(cst.Param)
+def _(value: cst.Param):
+    return value
+
+
+@_star_param_or_none.register(cst.MaybeSentinel)
+def _(value: cst.MaybeSentinel):
+    _ = value
+    return None
+
+
+@singledispatch
+def _simple_statement_line_or_none(stmt: object):
+    never("unregistered runtime type", value_type=type(stmt).__name__)
+
+
+@_simple_statement_line_or_none.register(cst.SimpleStatementLine)
+def _(stmt: cst.SimpleStatementLine):
+    return stmt
+
+
+def _simple_statement_line_none(value: object):
+    _ = value
+    return None
+
+
+for _statement_type in (
+    cst.For,
+    cst.While,
+    cst.If,
+    cst.With,
+    cst.Try,
+    cst.TryStar,
+    cst.Match,
+    cst.FunctionDef,
+    cst.ClassDef,
+):
+    _simple_statement_line_or_none.register(_statement_type)(_simple_statement_line_none)
+
+
+def _single_small_statement_or_none(
+    line: cst.SimpleStatementLine,
+):
+    if len(line.body) != 1:
+        return None
+    return line.body[0]
+
+
+@singledispatch
+def _is_continue_statement(stmt: object) -> bool:
+    never("unregistered runtime type", value_type=type(stmt).__name__)
+
+
+@_is_continue_statement.register(cst.Continue)
+def _(stmt: cst.Continue) -> bool:
+    _ = stmt
+    return True
+
+
+def _never_continue_statement(value: object) -> bool:
+    _ = value
+    return False
+
+
+for _small_statement_type in (
+    cst.AnnAssign,
+    cst.Assert,
+    cst.Assign,
+    cst.AugAssign,
+    cst.Break,
+    cst.Del,
+    cst.Expr,
+    cst.Global,
+    cst.Import,
+    cst.ImportFrom,
+    cst.Nonlocal,
+    cst.Pass,
+    cst.Raise,
+    cst.Return,
+    cst.TypeAlias,
+):
+    _is_continue_statement.register(_small_statement_type)(_never_continue_statement)
+
+
+@singledispatch
+def _name_or_none(node: object):
+    never("unregistered runtime type", value_type=type(node).__name__)
+
+
+@_name_or_none.register(cst.Name)
+def _(node: cst.Name):
+    return node
+
+
+def _name_none(node: object):
+    _ = node
+    return None
+
+
+for _assign_target_type in (cst.Attribute, cst.List, cst.Subscript, cst.Tuple):
+    _name_or_none.register(_assign_target_type)(_name_none)
+
+
+@singledispatch
+def _subscript_index_value_or_none(slice_value: object):
+    never("unregistered runtime type", value_type=type(slice_value).__name__)
+
+
+@_subscript_index_value_or_none.register(cst.Index)
+def _(slice_value: cst.Index):
+    return slice_value.value
+
+
+@_subscript_index_value_or_none.register(cst.Slice)
+def _(slice_value: cst.Slice):
+    _ = slice_value
+    return None
+
+
+@singledispatch
+def _for_loop_or_none(node: object):
+    never("unregistered runtime type", value_type=type(node).__name__)
+
+
+@_for_loop_or_none.register(cst.For)
+def _(node: cst.For):
+    return node
+
+
+@_for_loop_or_none.register(cst.While)
+def _(node: cst.While):
+    _ = node
+    return None
+
+
+@singledispatch
+def _analysis_success_or_none(analysis: object):
+    never("unregistered runtime type", value_type=type(analysis).__name__)
+
+
+@_analysis_success_or_none.register(_FunctionAnalysisSuccess)
+def _(analysis: _FunctionAnalysisSuccess):
+    return analysis
+
+
+def _analysis_success_none(value: object):
+    _ = value
+    return None
+
+
+for _analysis_type in (_FunctionAnalysisError, _FunctionAnalysisNoop):
+    _analysis_success_or_none.register(_analysis_type)(_analysis_success_none)
+
+
+@singledispatch
+def _analysis_error_or_none(analysis: object):
+    never("unregistered runtime type", value_type=type(analysis).__name__)
+
+
+@_analysis_error_or_none.register(_FunctionAnalysisError)
+def _(analysis: _FunctionAnalysisError):
+    return analysis
+
+
+def _analysis_error_none(value: object):
+    _ = value
+    return None
+
+
+for _analysis_type in (_FunctionAnalysisSuccess, _FunctionAnalysisNoop):
+    _analysis_error_or_none.register(_analysis_type)(_analysis_error_none)
+
+
 class _SideEffectSafetyVisitor(cst.CSTVisitor):
     def __init__(self) -> None:
         self.reason = ""
@@ -313,27 +525,19 @@ def _is_side_effect_safe_expression(
     return not visitor.reason, visitor.reason
 
 
-def _operator_token(operator: object) -> str:
-    token = _ALLOWED_ASSIGN_OPERATORS.get(type(operator))
-    if token:
-        return token
-    return _ALLOWED_BINARY_OPERATORS.get(type(operator), "")
-
-
 def _extract_subscript_key(target: cst.Subscript) -> object:
     if len(target.slice) != 1:
         return None
     first_slice = target.slice[0]
-    if type(first_slice.slice) is not cst.Index:
-        return None
-    return cast(cst.Index, first_slice.slice).value
+    return _subscript_index_value_or_none(first_slice.slice)
 
 
 def _contains_loop_hazards(loop: cst.For) -> str:
-    if type(loop.body) is not cst.IndentedBlock:
+    loop_body = _indented_block_or_none(loop.body)
+    if loop_body is None:
         return "loop body must be a block"
     visitor = _LoopHazardVisitor()
-    for stmt in cast(cst.IndentedBlock, loop.body).body:
+    for stmt in loop_body.body:
         check_deadline()
         stmt.visit(visitor)
         if visitor.reason:
@@ -349,8 +553,9 @@ def _parameter_call_args(params: cst.Parameters) -> tuple[cst.Arg, ...]:
     for param in params.params:
         check_deadline()
         args.append(cst.Arg(value=cst.Name(param.name.value)))
-    if type(params.star_arg) is cst.Param:
-        args.append(cst.Arg(star="*", value=cst.Name(params.star_arg.name.value)))
+    star_param = _star_param_or_none(params.star_arg)
+    if star_param is not None:
+        args.append(cst.Arg(star="*", value=cst.Name(star_param.name.value)))
     for param in params.kwonly_params:
         check_deadline()
         name = param.name.value
@@ -373,18 +578,19 @@ def _parameter_call_args(params: cst.Parameters) -> tuple[cst.Arg, ...]:
 def _is_simple_continue_guard(stmt: cst.If) -> bool:
     if stmt.orelse is not None:
         return False
-    if type(stmt.body) is not cst.IndentedBlock:
+    branch_body = _indented_block_or_none(stmt.body)
+    if branch_body is None:
         return False
-    body = cast(cst.IndentedBlock, stmt.body).body
+    body = branch_body.body
     if len(body) != 1:
         return False
-    only = body[0]
-    if type(only) is not cst.SimpleStatementLine:
+    line = _simple_statement_line_or_none(body[0])
+    if line is None:
         return False
-    line = cast(cst.SimpleStatementLine, only)
-    if len(line.body) != 1:
+    only = _single_small_statement_or_none(line)
+    if only is None:
         return False
-    return type(line.body[0]) is cst.Continue
+    return _is_continue_statement(only)
 
 
 def _clone_expression(expr: cst.BaseExpression) -> cst.BaseExpression:
@@ -580,21 +786,85 @@ def _has_import_from(body: list[cst.CSTNode], *, module_name: str, symbol: str) 
     )
 
 
-def _defined_top_level_name(stmt: cst.CSTNode) -> str:
-    if type(stmt) is cst.ClassDef:
-        return cast(cst.ClassDef, stmt).name.value
-    if type(stmt) is cst.FunctionDef:
-        return cast(cst.FunctionDef, stmt).name.value
-    if type(stmt) is cst.SimpleStatementLine:
-        line = cast(cst.SimpleStatementLine, stmt)
-        if len(line.body) != 1:
-            return ""
-        only = line.body[0]
-        if type(only) is cst.Assign and len(cast(cst.Assign, only).targets) == 1:
-            target = cast(cst.Assign, only).targets[0].target
-            if type(target) is cst.Name:
-                return target.value
+@singledispatch
+def _assigned_target_name_or_none(stmt: object):
+    never("unregistered runtime type", value_type=type(stmt).__name__)
+
+
+@_assigned_target_name_or_none.register(cst.Assign)
+def _(stmt: cst.Assign):
+    if len(stmt.targets) != 1:
+        return ""
+    name_target = _name_or_none(stmt.targets[0].target)
+    if not name_target:
+        return ""
+    return name_target.value
+
+
+def _assigned_target_name_none(value: object):
+    _ = value
     return ""
+
+
+for _small_statement_type in (
+    cst.AnnAssign,
+    cst.Assert,
+    cst.AugAssign,
+    cst.Break,
+    cst.Continue,
+    cst.Del,
+    cst.Expr,
+    cst.Global,
+    cst.Import,
+    cst.ImportFrom,
+    cst.Nonlocal,
+    cst.Pass,
+    cst.Raise,
+    cst.Return,
+    cst.TypeAlias,
+):
+    _assigned_target_name_or_none.register(_small_statement_type)(_assigned_target_name_none)
+
+
+@singledispatch
+def _defined_top_level_name(stmt: object) -> str:
+    never("unregistered runtime type", value_type=type(stmt).__name__)
+
+
+@_defined_top_level_name.register(cst.ClassDef)
+def _(stmt: cst.ClassDef) -> str:
+    return stmt.name.value
+
+
+@_defined_top_level_name.register(cst.FunctionDef)
+def _(stmt: cst.FunctionDef) -> str:
+    return stmt.name.value
+
+
+@_defined_top_level_name.register(cst.SimpleStatementLine)
+def _(stmt: cst.SimpleStatementLine) -> str:
+    only_stmt = _single_small_statement_or_none(stmt)
+    if only_stmt is None:
+        return ""
+    return _assigned_target_name_or_none(only_stmt) or ""
+
+
+def _empty_defined_top_level_name(value: object) -> str:
+    _ = value
+    return ""
+
+
+for _statement_type in (
+    cst.For,
+    cst.While,
+    cst.If,
+    cst.With,
+    cst.Try,
+    cst.TryStar,
+    cst.Match,
+    cst.EmptyLine,
+):
+    _defined_top_level_name.register(_statement_type)(_empty_defined_top_level_name)
 
 
 def _ensure_loop_generator_scaffolding(module: cst.Module) -> cst.Module:
@@ -670,9 +940,10 @@ class _FunctionIndexVisitor(cst.CSTVisitor):
 
 
 def _function_non_doc_body(node: cst.FunctionDef) -> tuple[cst.BaseStatement, ...]:
-    if type(node.body) is not cst.IndentedBlock:
+    body_block = _indented_block_or_none(node.body)
+    if body_block is None:
         return ()
-    body = list(cast(cst.IndentedBlock, node.body).body)
+    body = list(body_block.body)
     if body and _is_docstring_statement(body[0]):
         return tuple(body[1:])
     return tuple(body)
@@ -682,16 +953,17 @@ def _trampoline_helper_name(node: cst.FunctionDef) -> str:
     body = _function_non_doc_body(node)
     if len(body) != 1:
         return ""
-    stmt = body[0]
-    if type(stmt) is not cst.SimpleStatementLine:
+    line = _simple_statement_line_or_none(body[0])
+    if line is None:
         return ""
-    line = cast(cst.SimpleStatementLine, stmt)
-    if len(line.body) != 1 or type(line.body[0]) is not cst.Return:
+    only_stmt = _single_small_statement_or_none(line)
+    if only_stmt is None:
         return ""
-    ret = cast(cst.Return, line.body[0])
-    if type(ret.value) is not cst.Call or type(ret.value.func) is not cst.Name:
+    if not cst_matchers.matches(only_stmt, cst_matchers.Return(value=cst_matchers.Call(func=cst_matchers.Name()))):
         return ""
-    helper_name = cast(cst.Name, ret.value.func).value
+    ret = cast(cst.Return, only_stmt)
+    ret_call = cast(cst.Call, ret.value)
+    helper_name = cast(cst.Name, ret_call.func).value
     match = _LOOP_HELPER_PATTERN.match(helper_name)
     if not match:
         return ""
@@ -873,48 +1145,86 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
                 )
             else:
                 analysis = self._analyze_function(original_node, qualname)
-                if type(analysis) is _FunctionAnalysisError:
-                    reason = analysis.reason
-                    self.errors.append(reason)
-                    self.rewrite_plans.append(
-                        RewritePlanEntry(
-                            kind="LOOP_GENERATOR",
-                            status="ABSTAINED",
-                            target=analysis.target,
-                            summary="Loop generator rewrite was not applied.",
-                            non_rewrite_reasons=[reason],
-                        )
-                    )
-                elif type(analysis) is _FunctionAnalysisNoop:
-                    self.rewrite_plans.append(
-                        RewritePlanEntry(
-                            kind="LOOP_GENERATOR",
-                            status="noop",
-                            target=analysis.target,
-                            summary=analysis.reason,
-                        )
-                    )
-                else:
-                    spec = analysis.spec
-                    helper_node = _build_helper_function(spec)
-                    replacement = self._rewrite_target_function(updated_node, spec)
-                    output = cst.FlattenSentinel([helper_node, replacement])
-                    self.changed = True
-                    self.rewrite_plans.append(
-                        RewritePlanEntry(
-                            kind="LOOP_GENERATOR",
-                            status="applied",
-                            target=spec.qualname,
-                            summary=(
-                                f"Rewrote loop at line {spec.loop_line} into "
-                                f"{spec.helper_name}."
-                            ),
-                        )
-                    )
+                output = self._apply_function_analysis(
+                    analysis,
+                    updated_node=updated_node,
+                )
 
         if self._stack:
             self._stack.pop()
         return output
+
+    @singledispatchmethod
+    def _apply_function_analysis(
+        self,
+        analysis: _FunctionAnalysis,
+        *,
+        updated_node: cst.FunctionDef,
+    ) -> cst.CSTNode:
+        never("unregistered runtime type", value_type=type(analysis).__name__)
+
+    @_apply_function_analysis.register
+    def _(
+        self,
+        analysis: _FunctionAnalysisError,
+        *,
+        updated_node: cst.FunctionDef,
+    ) -> cst.CSTNode:
+        _ = updated_node
+        reason = analysis.reason
+        self.errors.append(reason)
+        self.rewrite_plans.append(
+            RewritePlanEntry(
+                kind="LOOP_GENERATOR",
+                status="ABSTAINED",
+                target=analysis.target,
+                summary="Loop generator rewrite was not applied.",
+                non_rewrite_reasons=[reason],
+            )
+        )
+        return updated_node
+
+    @_apply_function_analysis.register
+    def _(
+        self,
+        analysis: _FunctionAnalysisNoop,
+        *,
+        updated_node: cst.FunctionDef,
+    ) -> cst.CSTNode:
+        _ = updated_node
+        self.rewrite_plans.append(
+            RewritePlanEntry(
+                kind="LOOP_GENERATOR",
+                status="noop",
+                target=analysis.target,
+                summary=analysis.reason,
+            )
+        )
+        return updated_node
+
+    @_apply_function_analysis.register
+    def _(
+        self,
+        analysis: _FunctionAnalysisSuccess,
+        *,
+        updated_node: cst.FunctionDef,
+    ) -> cst.CSTNode:
+        spec = analysis.spec
+        helper_node = _build_helper_function(spec)
+        replacement = self._rewrite_target_function(updated_node, spec)
+        self.changed = True
+        self.rewrite_plans.append(
+            RewritePlanEntry(
+                kind="LOOP_GENERATOR",
+                status="applied",
+                target=spec.qualname,
+                summary=(
+                    f"Rewrote loop at line {spec.loop_line} into "
+                    f"{spec.helper_name}."
+                ),
+            )
+        )
+        return cst.FlattenSentinel([helper_node, replacement])
 
     def leave_Module(self, original_node: cst.Module, updated_node: cst.Module) -> cst.CSTNode:
         if not self.changed:
@@ -926,9 +1236,10 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
         node: cst.FunctionDef,
         spec: _LoopRewriteSpec,
     ) -> cst.FunctionDef:
-        if type(node.body) is not cst.IndentedBlock:
+        body_block = _indented_block_or_none(node.body)
+        if body_block is None:
             return node
-        existing = list(cast(cst.IndentedBlock, node.body).body)
+        existing = list(body_block.body)
         new_body: list[cst.BaseStatement] = []
         if existing and _is_docstring_statement(existing[0]):
             new_body.append(existing[0])
@@ -947,12 +1258,13 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
         return node.with_changes(body=node.body.with_changes(body=new_body))
 
     def _analyze_function(self, node: cst.FunctionDef, qualname: str) -> _FunctionAnalysis:
-        if type(node.body) is not cst.IndentedBlock:
+        body_block = _indented_block_or_none(node.body)
+        if body_block is None:
             return _FunctionAnalysisError(
                 target=qualname,
                 reason=f"{qualname}: function body must be a block",
             )
-        body = list(cast(cst.IndentedBlock, node.body).body)
+        body = list(body_block.body)
         non_doc_body = body[1:] if body and _is_docstring_statement(body[0]) else body
         if not non_doc_body:
             return _FunctionAnalysisError(
@@ -1005,9 +1317,12 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
             function_name=node.name.value,
             params=node.params,
         )
-        if type(first_outcome) is _FunctionAnalysisSuccess:
+        first_success = _analysis_success_or_none(first_outcome)
+        if first_success is not None:
+            return first_success
+        first_error = _analysis_error_or_none(first_outcome)
+        if first_error is None:
             return first_outcome
-        first_error = cast(_FunctionAnalysisError, first_outcome)
         for candidate in loop_candidates[1:]:
             check_deadline()
             outcome = self._analyze_loop_candidate(
@@ -1016,8 +1331,9 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
                 function_name=node.name.value,
                 params=node.params,
             )
-            if type(outcome) is _FunctionAnalysisSuccess:
-                return outcome
+            success = _analysis_success_or_none(outcome)
+            if success is not None:
+                return success
 
         if _LOOP_HELPER_PATTERN.match(node.name.value):
             return _FunctionAnalysisNoop(
@@ -1027,65 +1343,147 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
         return first_error
 
     def _suite_statements(self, suite: cst.BaseSuite) -> tuple[cst.BaseStatement, ...]:
-        if type(suite) is cst.IndentedBlock:
-            return tuple(cast(cst.IndentedBlock, suite).body)
-        return ()
+        block = _indented_block_or_none(suite)
+        if block is None:
+            return ()
+        return tuple(block.body)
 
+    @singledispatchmethod
     def _child_statement_blocks(
         self,
         stmt: cst.BaseStatement,
     ) -> tuple[tuple[cst.BaseStatement, ...], ...]:
-        if type(stmt) is cst.For:
-            loop = cast(cst.For, stmt)
-            blocks = [self._suite_statements(loop.body)]
-            if loop.orelse is not None:
-                blocks.append(self._suite_statements(loop.orelse.body))
-            return tuple(blocks)
-        if type(stmt) is cst.While:
-            loop = cast(cst.While, stmt)
-            blocks = [self._suite_statements(loop.body)]
-            if loop.orelse is not None:
-                blocks.append(self._suite_statements(loop.orelse.body))
-            return tuple(blocks)
-        if type(stmt) is cst.If:
-            branch = cast(cst.If, stmt)
-            blocks = [self._suite_statements(branch.body)]
-            if branch.orelse is not None:
-                blocks.append(self._suite_statements(branch.orelse.body))
-            return tuple(blocks)
-        if type(stmt) is cst.With:
-            return (self._suite_statements(cast(cst.With, stmt).body),)
-        if type(stmt) is cst.Try:
-            trial = cast(cst.Try, stmt)
-            blocks = [self._suite_statements(trial.body)]
-            for handler in trial.handlers:
-                check_deadline()
-                blocks.append(self._suite_statements(handler.body))
-            if trial.orelse is not None:
-                blocks.append(self._suite_statements(trial.orelse.body))
-            if trial.finalbody is not None:
-                blocks.append(self._suite_statements(trial.finalbody.body))
-            return tuple(blocks)
-        if type(stmt) is cst.Match:
-            return tuple(
-                self._suite_statements(case.body)
-                for case in cast(cst.Match, stmt).cases
-            )
+        never("unregistered runtime type", value_type=type(stmt).__name__)
+
+    @_child_statement_blocks.register
+    def _(self, stmt: cst.For) -> tuple[tuple[cst.BaseStatement, ...], ...]:
+        blocks = [self._suite_statements(stmt.body)]
+        if stmt.orelse is not None:
+            blocks.append(self._suite_statements(stmt.orelse.body))
+        return tuple(blocks)
+
+    @_child_statement_blocks.register
+    def _(self, stmt: cst.While) -> tuple[tuple[cst.BaseStatement, ...], ...]:
+        blocks = [self._suite_statements(stmt.body)]
+        if stmt.orelse is not None:
+            blocks.append(self._suite_statements(stmt.orelse.body))
+        return tuple(blocks)
+
+    @_child_statement_blocks.register
+    def _(self, stmt: cst.If) -> tuple[tuple[cst.BaseStatement, ...], ...]:
+        blocks = [self._suite_statements(stmt.body)]
+        if stmt.orelse is not None:
+            blocks.append(self._suite_statements(stmt.orelse.body))
+        return tuple(blocks)
+
+    @_child_statement_blocks.register
+    def _(self, stmt: cst.With) -> tuple[tuple[cst.BaseStatement, ...], ...]:
+        return (self._suite_statements(stmt.body),)
+
+    @_child_statement_blocks.register
+    def _(self, stmt: cst.Try) -> tuple[tuple[cst.BaseStatement, ...], ...]:
+        blocks = [self._suite_statements(stmt.body)]
+        for handler in stmt.handlers:
+            check_deadline()
+            blocks.append(self._suite_statements(handler.body))
+        if stmt.orelse is not None:
+            blocks.append(self._suite_statements(stmt.orelse.body))
+        if stmt.finalbody is not None:
+            blocks.append(self._suite_statements(stmt.finalbody.body))
+        return tuple(blocks)
+
+    @_child_statement_blocks.register
+    def _(self, stmt: cst.Match) -> tuple[tuple[cst.BaseStatement, ...], ...]:
+        return tuple(self._suite_statements(case.body) for case in stmt.cases)
+
+    @_child_statement_blocks.register
+    def _(self, stmt: cst.TryStar) -> tuple[tuple[cst.BaseStatement, ...], ...]:
+        _ = stmt
         return ()
+
+    @_child_statement_blocks.register
+    def _(self, stmt: cst.SimpleStatementLine) -> tuple[tuple[cst.BaseStatement, ...], ...]:
+        _ = stmt
+        return ()
+
+    @_child_statement_blocks.register
+    def _(self, stmt: cst.FunctionDef) -> tuple[tuple[cst.BaseStatement, ...], ...]:
+        _ = stmt
+        return ()
+
+    @_child_statement_blocks.register
+    def _(self, stmt: cst.ClassDef) -> tuple[tuple[cst.BaseStatement, ...], ...]:
+        return ()
+
+    @singledispatchmethod
+    def _loop_candidate_statement_or_none(
+        self,
+        stmt: cst.BaseStatement,
+    ):
+        never("unregistered runtime type", value_type=type(stmt).__name__)
+
+    @_loop_candidate_statement_or_none.register
+    def _(self, stmt: cst.For):
+        return stmt
+
+    @_loop_candidate_statement_or_none.register
+    def _(self, stmt: cst.While):
+        return stmt
+
+    @_loop_candidate_statement_or_none.register
+    def _(self, stmt: cst.If):
+        _ = stmt
+        return None
+
+    @_loop_candidate_statement_or_none.register
+    def _(self, stmt: cst.With):
+        _ = stmt
+        return None
+
+    @_loop_candidate_statement_or_none.register
+    def _(self, stmt: cst.Try):
+        _ = stmt
+        return None
+
+    @_loop_candidate_statement_or_none.register
+    def _(self, stmt: cst.TryStar):
+        _ = stmt
+        return None
+
+    @_loop_candidate_statement_or_none.register
+    def _(self, stmt: cst.Match):
+        _ = stmt
+        return None
+
+    @_loop_candidate_statement_or_none.register
+    def _(self, stmt: cst.SimpleStatementLine):
+        _ = stmt
+        return None
+
+    @_loop_candidate_statement_or_none.register
+    def _(self, stmt: cst.FunctionDef):
+        _ = stmt
+        return None
+
+    @_loop_candidate_statement_or_none.register
+    def _(self, stmt: cst.ClassDef):
+        _ = stmt
+        return None
 
     def _collect_loop_candidates_from_statement(
         self,
         stmt: cst.BaseStatement,
         out: list[_LoopCandidate],
     ) -> None:
-        if type(stmt) in {cst.For, cst.While}:
+        loop_stmt = self._loop_candidate_statement_or_none(stmt)
+        if loop_stmt is not None:
             pos = self.get_metadata(
                 cst_metadata.PositionProvider,
-                cast(cst.CSTNode, stmt),
+                cast(cst.CSTNode, loop_stmt),
             )
             out.append(
                 _LoopCandidate(
-                    loop_node=cast(cst.CSTNode, stmt),
+                    loop_node=cast(cst.CSTNode, loop_stmt),
                     line=pos.start.line,
                 )
             )
@@ -1113,13 +1511,14 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
         function_name: str,
         params: cst.Parameters,
     ) -> _FunctionAnalysis:
-        if type(candidate.loop_node) is not cst.For:
+        for_loop = _for_loop_or_none(candidate.loop_node)
+        if for_loop is None:
             return _FunctionAnalysisError(
                 target=qualname,
                 reason=f"{qualname}: only for-loops are supported",
             )
         return self._analyze_for_loop(
-            cast(cst.For, candidate.loop_node),
+            for_loop,
             qualname=qualname,
             function_name=function_name,
             loop_line=candidate.line,
@@ -1145,7 +1544,8 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
                 target=qualname,
                 reason=f"{qualname}: async-for loops are not supported",
             )
-        if type(loop.target) is not cst.Name:
+        loop_target = _name_or_none(loop.target)
+        if loop_target is None:
             return _FunctionAnalysisError(
                 target=qualname,
                 reason=f"{qualname}: loop target must be a simple name",
@@ -1157,182 +1557,31 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
                 reason=f"{qualname}: {hazard}",
             )
 
-        loop_var = cast(cst.Name, loop.target).value
+        loop_var = loop_target.value
         guard_exprs: list[cst.BaseExpression] = []
         operations: list[_LoopOperation] = []
-        for stmt in cast(cst.IndentedBlock, loop.body).body:
-            check_deadline()
-            if type(stmt) is cst.If:
-                guard_stmt = cast(cst.If, stmt)
-                if not _is_simple_continue_guard(guard_stmt):
-                    return _FunctionAnalysisError(
-                        target=qualname,
-                        reason=f"{qualname}: only `if <predicate>: continue` guards are allowed",
-                    )
-                safe, reason = _is_side_effect_safe_expression(guard_stmt.test)
-                if not safe:
-                    return _FunctionAnalysisError(
-                        target=qualname,
-                        reason=f"{qualname}: guard predicate is unsafe ({reason})",
-                    )
-                guard_exprs.append(
-                    cast(cst.BaseExpression, guard_stmt.test.deep_clone())
-                )
-                continue
-            if type(stmt) is not cst.SimpleStatementLine:
-                return _FunctionAnalysisError(
-                    target=qualname,
-                    reason=f"{qualname}: unsupported statement type {type(stmt).__name__}",
-                )
-            line = cast(cst.SimpleStatementLine, stmt)
-            if len(line.body) != 1:
-                return _FunctionAnalysisError(
-                    target=qualname,
-                    reason=f"{qualname}: compound simple statements are not supported",
-                )
-            only = line.body[0]
-            if type(only) is cst.Expr and type(cast(cst.Expr, only).value) is cst.Call:
-                call = cast(cst.Call, cast(cst.Expr, only).value)
-                if type(call.func) is not cst.Attribute or type(call.func.value) is not cst.Name:
-                    return _FunctionAnalysisError(
-                        target=qualname,
-                        reason=f"{qualname}: only list.append/set.add calls are supported",
-                    )
-                target_name = cast(cst.Name, call.func.value).value
-                method = call.func.attr.value
-                if method not in {"append", "add"}:
-                    return _FunctionAnalysisError(
-                        target=qualname,
-                        reason=f"{qualname}: unsupported mutation method `{method}`",
-                    )
-                if len(call.args) != 1:
-                    return _FunctionAnalysisError(
-                        target=qualname,
-                        reason=f"{qualname}: mutation calls must have exactly one argument",
-                    )
-                argument = call.args[0]
-                if argument.keyword is not None or argument.star:
-                    return _FunctionAnalysisError(
-                        target=qualname,
-                        reason=f"{qualname}: mutation calls may not use keyword/star arguments",
-                    )
-                safe, reason = _is_side_effect_safe_expression(argument.value)
-                if not safe:
-                    return _FunctionAnalysisError(
-                        target=qualname,
-                        reason=f"{qualname}: mutation operand is unsafe ({reason})",
-                    )
-                operations.append(
-                    _LoopOperation(
-                        kind="LIST_APPEND" if method == "append" else "SET_ADD",
-                        target=target_name,
-                        value_expr=cast(
-                            cst.BaseExpression,
-                            argument.value.deep_clone(),
-                        ),
-                    )
-                )
-                continue
-            if type(only) is cst.Assign:
-                assign = cast(cst.Assign, only)
-                if len(assign.targets) != 1:
-                    return _FunctionAnalysisError(
-                        target=qualname,
-                        reason=f"{qualname}: only single-target assignment is supported",
-                    )
-                target_expr = assign.targets[0].target
-                if type(target_expr) is cst.Subscript and type(target_expr.value) is cst.Name:
-                    key_expr_obj = _extract_subscript_key(target_expr)
-                    if key_expr_obj is None:
-                        return _FunctionAnalysisError(
-                            target=qualname,
-                            reason=f"{qualname}: dict assignment must use a single index key",
-                        )
-                    key_expr = cast(cst.BaseExpression, key_expr_obj)
-                    safe_key, key_reason = _is_side_effect_safe_expression(key_expr)
-                    if not safe_key:
-                        return _FunctionAnalysisError(
-                            target=qualname,
-                            reason=f"{qualname}: dict key expression is unsafe ({key_reason})",
-                        )
-                    safe_value, value_reason = _is_side_effect_safe_expression(assign.value)
-                    if not safe_value:
-                        return _FunctionAnalysisError(
-                            target=qualname,
-                            reason=f"{qualname}: dict value expression is unsafe ({value_reason})",
-                        )
-                    operations.append(
-                        _LoopOperation(
-                            kind="DICT_SET",
-                            target=cast(cst.Name, target_expr.value).value,
-                            key_expr=cast(cst.BaseExpression, key_expr.deep_clone()),
-                            value_expr=cast(cst.BaseExpression, assign.value.deep_clone()),
-                        )
-                    )
-                    continue
-                if type(target_expr) is cst.Name and type(assign.value) is cst.BinaryOperation:
-                    binary = cast(cst.BinaryOperation, assign.value)
-                    op_token = _operator_token(binary.operator)
-                    if (
-                        not op_token
-                        or type(binary.left) is not cst.Name
-                        or cast(cst.Name, binary.left).value != target_expr.value
-                    ):
-                        return _FunctionAnalysisError(
-                            target=qualname,
-                            reason=f"{qualname}: unsupported reducer assignment form",
-                        )
-                    safe_operand, operand_reason = _is_side_effect_safe_expression(binary.right)
-                    if not safe_operand:
-                        return _FunctionAnalysisError(
-                            target=qualname,
-                            reason=f"{qualname}: reducer operand is unsafe ({operand_reason})",
-                        )
-                    operations.append(
-                        _LoopOperation(
-                            kind="REDUCE",
-                            target=target_expr.value,
-                            operator=op_token,
-                            value_expr=cast(cst.BaseExpression, binary.right.deep_clone()),
-                        )
-                    )
-                    continue
-                return _FunctionAnalysisError(
-                    target=qualname,
-                    reason=f"{qualname}: assignment form is unsupported",
-                )
-            if type(only) is cst.AugAssign:
-                aug = cast(cst.AugAssign, only)
-                if type(aug.target) is not cst.Name:
-                    return _FunctionAnalysisError(
-                        target=qualname,
-                        reason=f"{qualname}: reducer target must be a simple name",
-                    )
-                op_token = _operator_token(aug.operator)
-                if not op_token:
-                    return _FunctionAnalysisError(
-                        target=qualname,
-                        reason=f"{qualname}: reducer operator is not in the safe subset",
-                    )
-                safe_operand, operand_reason = _is_side_effect_safe_expression(aug.value)
-                if not safe_operand:
-                    return _FunctionAnalysisError(
-                        target=qualname,
-                        reason=f"{qualname}: reducer operand is unsafe ({operand_reason})",
-                    )
-                operations.append(
-                    _LoopOperation(
-                        kind="REDUCE",
-                        target=cast(cst.Name, aug.target).value,
-                        operator=op_token,
-                        value_expr=cast(cst.BaseExpression, aug.value.deep_clone()),
-                    )
-                )
-                continue
+        loop_body = _indented_block_or_none(loop.body)
+        if loop_body is None:
             return _FunctionAnalysisError(
                 target=qualname,
-                reason=f"{qualname}: statement `{type(only).__name__}` is unsupported",
+                reason=f"{qualname}: loop body must be a block",
             )
+        for stmt in loop_body.body:
+            check_deadline()
+            outcome = self._analyze_for_body_statement(stmt, qualname=qualname)
+            if outcome.kind == "error":
+                return _FunctionAnalysisError(
+                    target=qualname,
+                    reason=outcome.reason,
+                )
+            if outcome.kind == "guard":
+                if outcome.guard_expr is not None:
+                    guard_exprs.append(outcome.guard_expr)
+                continue
+            if outcome.kind == "operation":
+                if outcome.operation is not None:
+                    operations.append(outcome.operation)
+                continue
 
         if not operations:
             return _FunctionAnalysisError(
@@ -1355,6 +1604,318 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
             )
         )
 
+    @singledispatchmethod
+    def _analyze_for_body_statement(
+        self,
+        stmt: cst.BaseStatement,
+        *,
+        qualname: str,
+    ) -> _LoopBodyOutcome:
+        never("unregistered runtime type", value_type=type(stmt).__name__)
+
+    @_analyze_for_body_statement.register
+    def _(self, stmt: cst.If, *, qualname: str) -> _LoopBodyOutcome:
+        if not _is_simple_continue_guard(stmt):
+            return _LoopBodyOutcome(
+                kind="error",
+                reason=f"{qualname}: only `if <predicate>: continue` guards are allowed",
+            )
+        safe, reason = _is_side_effect_safe_expression(stmt.test)
+        if not safe:
+            return _LoopBodyOutcome(
+                kind="error",
+                reason=f"{qualname}: guard predicate is unsafe ({reason})",
+            )
+        return _LoopBodyOutcome(
+            kind="guard",
+            guard_expr=cast(cst.BaseExpression, stmt.test.deep_clone()),
+        )
+
+    @_analyze_for_body_statement.register
+    def _(self, stmt: cst.SimpleStatementLine, *, qualname: str) -> _LoopBodyOutcome:
+        only = _single_small_statement_or_none(stmt)
+        if only is None:
+            return _LoopBodyOutcome(
+                kind="error",
+                reason=f"{qualname}: compound simple statements are not supported",
+            )
+        return self._analyze_for_small_statement(only, qualname=qualname)
+
+    def _unsupported_for_body_statement(
+        self,
+        stmt: cst.BaseStatement,
+        *,
+        qualname: str,
+    ) -> _LoopBodyOutcome:
+        return _LoopBodyOutcome(
+            kind="error",
+            reason=f"{qualname}: unsupported statement type {type(stmt).__name__}",
+        )
+
+    @_analyze_for_body_statement.register
+    def _(self, stmt: cst.For, *, qualname: str) -> _LoopBodyOutcome:
+        return self._unsupported_for_body_statement(stmt, qualname=qualname)
+
+    @_analyze_for_body_statement.register
+    def _(self, stmt: cst.While, *, qualname: str) -> _LoopBodyOutcome:
+        return self._unsupported_for_body_statement(stmt, qualname=qualname)
+
+    @_analyze_for_body_statement.register
+    def _(self, stmt: cst.With, *, qualname: str) -> _LoopBodyOutcome:
+        return self._unsupported_for_body_statement(stmt, qualname=qualname)
+
+    @_analyze_for_body_statement.register
+    def _(self, stmt: cst.Try, *, qualname: str) -> _LoopBodyOutcome:
+        return self._unsupported_for_body_statement(stmt, qualname=qualname)
+
+    @_analyze_for_body_statement.register
+    def _(self, stmt: cst.TryStar, *, qualname: str) -> _LoopBodyOutcome:
+        return self._unsupported_for_body_statement(stmt, qualname=qualname)
+
+    @_analyze_for_body_statement.register
+    def _(self, stmt: cst.Match, *, qualname: str) -> _LoopBodyOutcome:
+        return self._unsupported_for_body_statement(stmt, qualname=qualname)
+
+    @_analyze_for_body_statement.register
+    def _(self, stmt: cst.FunctionDef, *, qualname: str) -> _LoopBodyOutcome:
+        return self._unsupported_for_body_statement(stmt, qualname=qualname)
+
+    @_analyze_for_body_statement.register
+    def _(self, stmt: cst.ClassDef, *, qualname: str) -> _LoopBodyOutcome:
+        return self._unsupported_for_body_statement(stmt, qualname=qualname)
+
+    @singledispatchmethod
+    def _analyze_for_small_statement(
+        self,
+        stmt: cst.BaseSmallStatement,
+        *,
+        qualname: str,
+    ) -> _LoopBodyOutcome:
+        never("unregistered runtime type", value_type=type(stmt).__name__)
+
+    @_analyze_for_small_statement.register
+    def _(self, stmt: cst.Expr, *, qualname: str) -> _LoopBodyOutcome:
+        if not cst_matchers.matches(stmt.value, cst_matchers.Call()):
+            return _LoopBodyOutcome(
+                kind="error",
+                reason=f"{qualname}: statement `{type(stmt).__name__}` is unsupported",
+            )
+        call = cast(cst.Call, stmt.value)
+        if not cst_matchers.matches(
+            call.func,
+            cst_matchers.Attribute(value=cst_matchers.Name(), attr=cst_matchers.Name()),
+        ):
+            return _LoopBodyOutcome(
+                kind="error",
+                reason=f"{qualname}: only list.append/set.add calls are supported",
+            )
+        call_func = cast(cst.Attribute, call.func)
+        target_name = cast(cst.Name, call_func.value).value
+        method = call_func.attr.value
+        if method not in {"append", "add"}:
+            return _LoopBodyOutcome(
+                kind="error",
+                reason=f"{qualname}: unsupported mutation method `{method}`",
+            )
+        if len(call.args) != 1:
+            return _LoopBodyOutcome(
+                kind="error",
+                reason=f"{qualname}: mutation calls must have exactly one argument",
+            )
+        argument = call.args[0]
+        if argument.keyword is not None or argument.star:
+            return _LoopBodyOutcome(
+                kind="error",
+                reason=f"{qualname}: mutation calls may not use keyword/star arguments",
+            )
+        safe, reason = _is_side_effect_safe_expression(argument.value)
+        if not safe:
+            return _LoopBodyOutcome(
+                kind="error",
+                reason=f"{qualname}: mutation operand is unsafe ({reason})",
+            )
+        return _LoopBodyOutcome(
+            kind="operation",
+            operation=_LoopOperation(
+                kind="LIST_APPEND" if method == "append" else "SET_ADD",
+                target=target_name,
+                value_expr=cast(cst.BaseExpression, argument.value.deep_clone()),
+            ),
+        )
+
+    @_analyze_for_small_statement.register
+    def _(self, stmt: cst.Assign, *, qualname: str) -> _LoopBodyOutcome:
+        if len(stmt.targets) != 1:
+            return _LoopBodyOutcome(
+                kind="error",
+                reason=f"{qualname}: only single-target assignment is supported",
+            )
+        target_expr = stmt.targets[0].target
+        if cst_matchers.matches(
+            target_expr,
+            cst_matchers.Subscript(value=cst_matchers.Name()),
+        ):
+            target_subscript = cast(cst.Subscript, target_expr)
+            key_expr_obj = _extract_subscript_key(target_subscript)
+            if key_expr_obj is None:
+                return _LoopBodyOutcome(
+                    kind="error",
+                    reason=f"{qualname}: dict assignment must use a single index key",
+                )
+            key_expr = cast(cst.BaseExpression, key_expr_obj)
+            safe_key, key_reason = _is_side_effect_safe_expression(key_expr)
+            if not safe_key:
+                return _LoopBodyOutcome(
+                    kind="error",
+                    reason=f"{qualname}: dict key expression is unsafe ({key_reason})",
+                )
+            safe_value, value_reason = _is_side_effect_safe_expression(stmt.value)
+            if not safe_value:
+                return _LoopBodyOutcome(
+                    kind="error",
+                    reason=f"{qualname}: dict value expression is unsafe ({value_reason})",
+                )
+            target_name = cast(cst.Name, target_subscript.value).value
+            return _LoopBodyOutcome(
+                kind="operation",
+                operation=_LoopOperation(
+                    kind="DICT_SET",
+                    target=target_name,
+                    key_expr=cast(cst.BaseExpression, key_expr.deep_clone()),
+                    value_expr=cast(cst.BaseExpression, stmt.value.deep_clone()),
+                ),
+            )
+        target_name_node = _name_or_none(target_expr)
+        if target_name_node is None:
+            return _LoopBodyOutcome(
+                kind="error",
+                reason=f"{qualname}: assignment form is unsupported",
+            )
+        if not cst_matchers.matches(
+            stmt.value,
+            cst_matchers.BinaryOperation(left=cst_matchers.Name()),
+        ):
+            return _LoopBodyOutcome(
+                kind="error",
+                reason=f"{qualname}: assignment form is unsupported",
+            )
+        binary = cast(cst.BinaryOperation, stmt.value)
+        left_name = _name_or_none(binary.left)
+        op_token = _operator_token(binary.operator)
+        if not op_token or left_name is None or left_name.value != target_name_node.value:
+            return _LoopBodyOutcome(
+                kind="error",
+                reason=f"{qualname}: unsupported reducer assignment form",
+            )
+        safe_operand, operand_reason = _is_side_effect_safe_expression(binary.right)
+        if not safe_operand:
+            return _LoopBodyOutcome(
+                kind="error",
+                reason=f"{qualname}: reducer operand is unsafe ({operand_reason})",
+            )
+        return _LoopBodyOutcome(
+            kind="operation",
+            operation=_LoopOperation(
+                kind="REDUCE",
+                target=target_name_node.value,
+                operator=op_token,
+                value_expr=cast(cst.BaseExpression, binary.right.deep_clone()),
+            ),
+        )
+
+    @_analyze_for_small_statement.register
+    def _(self, stmt: cst.AugAssign, *, qualname: str) -> _LoopBodyOutcome:
+        target_name = _name_or_none(stmt.target)
+        if target_name is None:
+            return _LoopBodyOutcome(
+                kind="error",
+                reason=f"{qualname}: reducer target must be a simple name",
+            )
+        op_token = _operator_token(stmt.operator)
+        if not op_token:
+            return _LoopBodyOutcome(
+                kind="error",
+                reason=f"{qualname}: reducer operator is not in the safe subset",
+            )
+        safe_operand, operand_reason = _is_side_effect_safe_expression(stmt.value)
+        if not safe_operand:
+            return _LoopBodyOutcome(
+                kind="error",
+                reason=f"{qualname}: reducer operand is unsafe ({operand_reason})",
+            )
+        return _LoopBodyOutcome(
+            kind="operation",
+            operation=_LoopOperation(
+                kind="REDUCE",
+                target=target_name.value,
+                operator=op_token,
+                value_expr=cast(cst.BaseExpression, stmt.value.deep_clone()),
+            ),
+        )
+
+    def _unsupported_for_small_statement(
+        self,
+        stmt: cst.BaseSmallStatement,
+        *,
+        qualname: str,
+    ) -> _LoopBodyOutcome:
+        return _LoopBodyOutcome(
+            kind="error",
+            reason=f"{qualname}: statement `{type(stmt).__name__}` is unsupported",
+        )
+
+    @_analyze_for_small_statement.register
+    def _(self, stmt: cst.AnnAssign, *, qualname: str) -> _LoopBodyOutcome:
+        return self._unsupported_for_small_statement(stmt, qualname=qualname)
+
+    @_analyze_for_small_statement.register
+    def _(self, stmt: cst.Assert, *, qualname: str) -> _LoopBodyOutcome:
+        return self._unsupported_for_small_statement(stmt, qualname=qualname)
+
+    @_analyze_for_small_statement.register
+    def _(self, stmt: cst.Break, *, qualname: str) -> _LoopBodyOutcome:
+        return self._unsupported_for_small_statement(stmt, qualname=qualname)
+
+    @_analyze_for_small_statement.register
+    def _(self, stmt: cst.Continue, *, qualname: str) -> _LoopBodyOutcome:
+        return self._unsupported_for_small_statement(stmt, qualname=qualname)
+
+    @_analyze_for_small_statement.register
+    def _(self, stmt: cst.Del, *, qualname: str) -> _LoopBodyOutcome:
+        return self._unsupported_for_small_statement(stmt, qualname=qualname)
+
+    @_analyze_for_small_statement.register
+    def _(self, stmt: cst.Global, *, qualname: str) -> _LoopBodyOutcome:
+        return self._unsupported_for_small_statement(stmt, qualname=qualname)
+
+    @_analyze_for_small_statement.register
+    def _(self, stmt: cst.Import, *, qualname: str) -> _LoopBodyOutcome:
+        return self._unsupported_for_small_statement(stmt, qualname=qualname)
+
+    @_analyze_for_small_statement.register
+    def _(self, stmt: cst.ImportFrom, *, qualname: str) -> _LoopBodyOutcome:
+        return self._unsupported_for_small_statement(stmt, qualname=qualname)
+
+    @_analyze_for_small_statement.register
+    def _(self, stmt: cst.Nonlocal, *, qualname: str) -> _LoopBodyOutcome:
+        return self._unsupported_for_small_statement(stmt, qualname=qualname)
+
+    @_analyze_for_small_statement.register
+    def _(self, stmt: cst.Pass, *, qualname: str) -> _LoopBodyOutcome:
+        return self._unsupported_for_small_statement(stmt, qualname=qualname)
+
+    @_analyze_for_small_statement.register
+    def _(self, stmt: cst.Raise, *, qualname: str) -> _LoopBodyOutcome:
+        return self._unsupported_for_small_statement(stmt, qualname=qualname)
+
+    @_analyze_for_small_statement.register
+    def _(self, stmt: cst.Return, *, qualname: str) -> _LoopBodyOutcome:
+        return self._unsupported_for_small_statement(stmt, qualname=qualname)
+
+    @_analyze_for_small_statement.register
+    def _(self, stmt: cst.TypeAlias, *, qualname: str) -> _LoopBodyOutcome:
+        return self._unsupported_for_small_statement(stmt, qualname=qualname)
+
     def _is_already_rewritten(
         self,
         non_doc_body: list[cst.BaseStatement],
@@ -1363,16 +1924,17 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
     ) -> bool:
         if len(non_doc_body) != 1:
             return False
-        stmt = non_doc_body[0]
-        if type(stmt) is not cst.SimpleStatementLine:
+        line = _simple_statement_line_or_none(non_doc_body[0])
+        if line is None:
             return False
-        line = cast(cst.SimpleStatementLine, stmt)
-        if len(line.body) != 1 or type(line.body[0]) is not cst.Return:
+        only_stmt = _single_small_statement_or_none(line)
+        if only_stmt is None:
             return False
-        ret = cast(cst.Return, line.body[0])
-        if type(ret.value) is not cst.Call or type(ret.value.func) is not cst.Name:
+        if not cst_matchers.matches(only_stmt, cst_matchers.Return(value=cst_matchers.Call(func=cst_matchers.Name()))):
             return False
-        helper_name = cast(cst.Name, ret.value.func).value
+        ret = cast(cst.Return, only_stmt)
+        ret_call = cast(cst.Call, ret.value)
+        helper_name = cast(cst.Name, ret_call.func).value
         match = _LOOP_HELPER_PATTERN.match(helper_name)
         return bool(match and match.group("name") == function_name)
 
