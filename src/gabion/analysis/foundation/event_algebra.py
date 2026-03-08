@@ -1,4 +1,3 @@
-# gabion:decision_protocol_module
 # gabion:ambiguity_boundary_module
 from __future__ import annotations
 
