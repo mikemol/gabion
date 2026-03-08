@@ -2226,6 +2226,43 @@ def _default_execute_command_deps() -> ExecuteCommandDeps:
         ),
     )
 
+
+# Public API layer grouped by server concern.
+# Ingress
+ingress_analysis_resume_cache_verdict = _analysis_resume_cache_verdict
+ingress_analysis_input_manifest = _analysis_input_manifest
+ingress_analysis_input_manifest_digest = _analysis_input_manifest_digest
+ingress_normalize_dataflow_response_envelope = _normalize_dataflow_response
+ingress_truthy_flag = _truthy_flag
+
+# Timeout
+timeout_server_deadline_overhead_ns = _server_deadline_overhead_ns
+timeout_analysis_total_ns = _analysis_timeout_total_ns
+timeout_analysis_total_ticks = _analysis_timeout_total_ticks
+timeout_analysis_grace_ns = _analysis_timeout_grace_ns
+timeout_analysis_budget_ns = _analysis_timeout_budget_ns
+timeout_deadline_profile_sample_interval = _deadline_profile_sample_interval
+
+# Progress
+progress_collection_semantic_progress = _collection_semantic_progress
+progress_analysis_resume_progress = _analysis_resume_progress
+progress_normalize_work = _normalize_progress_work
+progress_build_phase_progress_v2 = _build_phase_progress_v2
+progress_incremental_progress_obligations = _incremental_progress_obligations
+
+# Report serialization
+report_serialize_dataflow_response = _serialize_dataflow_response
+report_resolve_output_path = _resolve_report_output_path
+report_resolve_section_journal_path = _resolve_report_section_journal_path
+report_witness_digest = _report_witness_digest
+report_coerce_section_lines = _coerce_section_lines
+report_load_section_journal = _load_report_section_journal
+report_write_section_journal = _write_report_section_journal
+
+# Command orchestration
+plan_materialize_execution_plan = _materialize_execution_plan
+deps_default_execute_command = _default_execute_command_deps
+
 __all__ = [
     'AnalysisResult',
     'AuditConfig',
@@ -2286,6 +2323,31 @@ __all__ = [
     '_truthy_flag',
     '_write_report_section_journal',
     '_write_text_profiled',
+    'deps_default_execute_command',
+    'ingress_analysis_input_manifest',
+    'ingress_analysis_input_manifest_digest',
+    'ingress_analysis_resume_cache_verdict',
+    'ingress_normalize_dataflow_response_envelope',
+    'ingress_truthy_flag',
+    'plan_materialize_execution_plan',
+    'progress_analysis_resume_progress',
+    'progress_build_phase_progress_v2',
+    'progress_collection_semantic_progress',
+    'progress_incremental_progress_obligations',
+    'progress_normalize_work',
+    'report_coerce_section_lines',
+    'report_load_section_journal',
+    'report_resolve_output_path',
+    'report_resolve_section_journal_path',
+    'report_serialize_dataflow_response',
+    'report_witness_digest',
+    'report_write_section_journal',
+    'timeout_analysis_budget_ns',
+    'timeout_analysis_grace_ns',
+    'timeout_analysis_total_ns',
+    'timeout_analysis_total_ticks',
+    'timeout_deadline_profile_sample_interval',
+    'timeout_server_deadline_overhead_ns',
     'ambiguity_delta',
     'ambiguity_state',
     'apply_baseline',

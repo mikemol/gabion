@@ -56,17 +56,42 @@ def _iter_python_files(root: Path):
             yield path
 
 
+def _module_owner_relpath(module_path: str) -> str | None:
+    if not module_path.startswith("gabion."):
+        return None
+    relative = module_path.replace(".", "/")
+    return f"src/{relative}.py"
+
+
+def _is_owned_server_core_private_usage(*, importer: str, module_path: str) -> bool:
+    owner_relpath = _module_owner_relpath(module_path)
+    if owner_relpath is None:
+        return False
+    return importer == owner_relpath
+
+
 def _collect_private_import_violations(*, root: Path) -> list[ImportViolation]:
     violations: list[ImportViolation] = []
     for path in _iter_python_files(root):
         rel = path.relative_to(root).as_posix()
         tree = ast.parse(path.read_text(encoding="utf-8"))
+
+        server_core_import_aliases: dict[str, str] = {}
+
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom):
                 module_path = node.module or ""
                 for alias in node.names:
                     symbol = alias.name
+                    local_name = alias.asname or symbol
+                    if module_path.startswith("gabion.server_core") and symbol != "*":
+                        server_core_import_aliases[local_name] = f"{module_path}.{symbol}"
                     if symbol == "*" or not _is_private_symbol(symbol):
+                        continue
+                    if _is_owned_server_core_private_usage(
+                        importer=rel,
+                        module_path=module_path,
+                    ):
                         continue
                     violations.append(
                         ImportViolation(
@@ -83,7 +108,15 @@ def _collect_private_import_violations(*, root: Path) -> list[ImportViolation]:
                     if not symbol:
                         symbol = module_path
                         module_path = ""
+                    local_name = alias.asname or full_name.split(".")[-1]
+                    if full_name.startswith("gabion.server_core"):
+                        server_core_import_aliases[local_name] = full_name
                     if not _is_private_symbol(symbol):
+                        continue
+                    if _is_owned_server_core_private_usage(
+                        importer=rel,
+                        module_path=module_path,
+                    ):
                         continue
                     violations.append(
                         ImportViolation(
@@ -93,6 +126,33 @@ def _collect_private_import_violations(*, root: Path) -> list[ImportViolation]:
                             lineno=int(node.lineno),
                         )
                     )
+
+        for node in ast.walk(tree):
+            if not rel.startswith("src/") or rel.startswith("src/gabion/server_core/"):
+                continue
+            if not isinstance(node, ast.Attribute):
+                continue
+            if not _is_private_symbol(node.attr):
+                continue
+            if not isinstance(node.value, ast.Name):
+                continue
+            module_path = server_core_import_aliases.get(node.value.id)
+            if module_path is None:
+                continue
+            if _is_owned_server_core_private_usage(
+                importer=rel,
+                module_path=module_path,
+            ):
+                continue
+            violations.append(
+                ImportViolation(
+                    importer=rel,
+                    module_path=module_path,
+                    symbol=node.attr,
+                    lineno=int(node.lineno),
+                )
+            )
+
     return sorted(
         violations,
         key=lambda item: (item.importer, item.module_path, item.symbol, item.lineno),

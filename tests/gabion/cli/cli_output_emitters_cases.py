@@ -60,8 +60,8 @@ def test_emit_dataflow_outputs_uses_canonical_lint_entry_normalization() -> None
         emit_result_json_to_stdout_fn=lambda **_kwargs: None,
         stdout_path="-",
         check_deadline_fn=lambda: None,
-        normalize_dataflow_response_fn=command_orchestrator_primitives._normalize_dataflow_response,
-        serialize_dataflow_response_fn=command_orchestrator_primitives._serialize_dataflow_response,
+        normalize_dataflow_response_fn=command_orchestrator_primitives.ingress_normalize_dataflow_response_envelope,
+        serialize_dataflow_response_fn=command_orchestrator_primitives.report_serialize_dataflow_response,
     )
 
     lint_entries = captured["lint_entries"]
@@ -96,8 +96,8 @@ def test_emit_dataflow_outputs_respects_canonical_aspf_presence_rules() -> None:
         emit_result_json_to_stdout_fn=lambda *, payload: emitted.append(payload),
         stdout_path="-",
         check_deadline_fn=lambda: None,
-        normalize_dataflow_response_fn=command_orchestrator_primitives._normalize_dataflow_response,
-        serialize_dataflow_response_fn=command_orchestrator_primitives._serialize_dataflow_response,
+        normalize_dataflow_response_fn=command_orchestrator_primitives.ingress_normalize_dataflow_response_envelope,
+        serialize_dataflow_response_fn=command_orchestrator_primitives.report_serialize_dataflow_response,
     )
 
     assert any(isinstance(payload, dict) and payload.get("trace_id") == "aspf-trace:abc123" for payload in emitted)
@@ -109,8 +109,8 @@ def test_emit_dataflow_outputs_uses_canonical_capability_field_normalization() -
     captured: dict[str, object] = {}
 
     def _normalize(response: dict[str, object]):
-        normalized = command_orchestrator_primitives._normalize_dataflow_response(response)
-        captured["normalized"] = command_orchestrator_primitives._serialize_dataflow_response(normalized)
+        normalized = command_orchestrator_primitives.ingress_normalize_dataflow_response_envelope(response)
+        captured["normalized"] = command_orchestrator_primitives.report_serialize_dataflow_response(normalized)
         return normalized
 
     emit_dataflow_result_outputs(
@@ -129,7 +129,7 @@ def test_emit_dataflow_outputs_uses_canonical_capability_field_normalization() -
         stdout_path="-",
         check_deadline_fn=lambda: None,
         normalize_dataflow_response_fn=_normalize,
-        serialize_dataflow_response_fn=command_orchestrator_primitives._serialize_dataflow_response,
+        serialize_dataflow_response_fn=command_orchestrator_primitives.report_serialize_dataflow_response,
     )
 
     normalized = captured["normalized"]

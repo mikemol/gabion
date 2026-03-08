@@ -633,8 +633,8 @@ def _emit_dataflow_result_outputs(result: JSONObject, opts: argparse.Namespace) 
         emit_result_json_to_stdout_fn=_emit_result_json_to_stdout,
         stdout_path=_STDOUT_PATH,
         check_deadline_fn=check_deadline,
-        normalize_dataflow_response_fn=command_orchestrator_primitives._normalize_dataflow_response,
-        serialize_dataflow_response_fn=command_orchestrator_primitives._serialize_dataflow_response,
+        normalize_dataflow_response_fn=command_orchestrator_primitives.ingress_normalize_dataflow_response_envelope,
+        serialize_dataflow_response_fn=command_orchestrator_primitives.report_serialize_dataflow_response,
     )
 
 
