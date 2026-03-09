@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import singledispatch
+from itertools import chain
 from pathlib import Path
 from typing import Callable, Iterable, Mapping
 
@@ -60,7 +61,7 @@ def _mapping_optional(value: JSONValue) -> dict[str, JSONValue] | None:
 
 @_mapping_optional.register(dict)
 # gabion:ambiguity_boundary
-def _(value: dict[str, JSONValue]) -> dict[str, JSONValue] | None:
+def _sd_reg_1(value: dict[str, JSONValue]) -> dict[str, JSONValue] | None:
     return value
 
 
@@ -82,7 +83,7 @@ def _list_optional(value: JSONValue) -> list[JSONValue] | None:
 
 @_list_optional.register(list)
 # gabion:ambiguity_boundary
-def _(value: list[JSONValue]) -> list[JSONValue] | None:
+def _sd_reg_2(value: list[JSONValue]) -> list[JSONValue] | None:
     return value
 
 
@@ -104,7 +105,7 @@ def _str_optional(value: JSONValue) -> str | None:
 
 @_str_optional.register(str)
 # gabion:ambiguity_boundary
-def _(value: str) -> str | None:
+def _sd_reg_3(value: str) -> str | None:
     return value
 
 
@@ -119,15 +120,9 @@ for _str_none_type in (dict, list, tuple, set, int, float, bool, type(None)):
 
 
 def _mapping_entries(value: JSONValue) -> list[dict[str, JSONValue]]:
-    entries: list[dict[str, JSONValue]] = []
     items = _list_optional(value)
-    if items is None:
-        return entries
-    for item in items:
-        mapping = _mapping_optional(item)
-        if mapping is not None:
-            entries.append(mapping)
-    return entries
+    values = items if items is not None else ()
+    return list(filter(lambda mapping: mapping is not None, map(_mapping_optional, values)))
 
 
 def resolve_baseline_path(root: Path) -> Path:
@@ -445,31 +440,12 @@ def _normalize_active_metadata(active: Mapping[str, object] | object) -> dict[st
     active_mapping = _mapping_optional(active)
     if active_mapping is None:
         return {}
-    tests_payload = _list_optional(active_mapping.get("tests", []))
-    tests: list[str] = []
-    if tests_payload is not None:
-        seen: set[str] = set()
-        for entry in tests_payload:
-            test_id_raw = _str_optional(entry)
-            if test_id_raw is None:
-                continue
-            test_id = test_id_raw.strip()
-            if not test_id or test_id in seen:
-                continue
-            seen.add(test_id)
-            tests.append(test_id)
     tests = sort_once(
-        tests,
+        _normalized_test_ids(active_mapping.get("tests", [])),
         source="_normalize_active_metadata.tests",
     )
     summary_payload = _mapping_optional(active_mapping.get("summary", {}))
-    summary: dict[str, int] = {}
-    if summary_payload is not None:
-        for key, value in summary_payload.items():
-            key_text = _str_optional(key)
-            if key_text is None:
-                continue
-            summary[key_text] = coerce_int(value, 0)
+    summary = _normalized_summary_mapping(summary_payload)
     result: dict[str, JSONValue] = {}
     if tests:
         result["tests"] = tests
@@ -484,15 +460,9 @@ def _tests_from_candidates(
 ) -> list[dict[str, JSONValue]]:
     check_deadline()
     tests: dict[str, str] = {}
-    for entry_raw in candidates:
-        entry = _mapping_optional(entry_raw)
-        if entry is None:
-            continue
-        test_id = str(entry.get("test_id", "") or "").strip()
-        class_name = str(entry.get("class", "") or "").strip()
-        if not test_id or not class_name:
-            continue
-        tests[test_id] = class_name
+    for test_id, class_name in map(_candidate_test_pair, candidates):
+        if test_id and class_name:
+            tests[test_id] = class_name
     return [
         {"test_id": test_id, "class": tests[test_id]}
         for test_id in sort_once(
@@ -508,33 +478,24 @@ def _build_evidence_index(
 ) -> list[dict[str, JSONValue]]:
     check_deadline()
     entries: dict[str, EvidenceIndexEntry] = {}
-    for test_id, evidence in evidence_by_test.items():
-        if status_by_test.get(test_id) != "mapped":
-            continue
-        refs = test_obsolescence._normalize_evidence_refs(evidence)
-        if not refs:
-            continue
-        for ref in refs:
-            identity = ref.identity
-            existing = entries.get(identity)
-            if existing is None:
-                entries[identity] = EvidenceIndexEntry(
-                    key=evidence_keys.normalize_key(ref.key),
-                    identity=identity,
-                    display=ref.display,
-                    witness_count=1,
-                )
-                continue
-            witness_count = existing.witness_count + 1
-            display = existing.display
-            if ref.display and (not display or ref.display < display):
-                display = ref.display
-            entries[identity] = EvidenceIndexEntry(
-                key=existing.key,
+    refs = _mapped_evidence_refs(evidence_by_test, status_by_test)
+    for ref in refs:
+        identity = ref.identity
+        existing = entries.get(
+            identity,
+            EvidenceIndexEntry(
+                key=evidence_keys.normalize_key(ref.key),
                 identity=identity,
-                display=display,
-                witness_count=witness_count,
-            )
+                display=ref.display,
+                witness_count=0,
+            ),
+        )
+        entries[identity] = EvidenceIndexEntry(
+            key=existing.key,
+            identity=existing.identity,
+            display=_preferred_display(existing.display, ref.display),
+            witness_count=existing.witness_count + 1,
+        )
     return [
         _evidence_entry_payload(entries[identity])
         for identity in sort_once(
@@ -548,46 +509,30 @@ def _build_evidence_index(
 def _parse_evidence_index(value: object) -> dict[str, EvidenceIndexEntry]:
     check_deadline()
     entries: dict[str, EvidenceIndexEntry] = {}
-    for entry in _mapping_entries(value):
-        raw_key = _mapping_optional(entry.get("key"))
-        if raw_key is None:
-            continue
-        key = evidence_keys.normalize_key(raw_key)
-        identity = evidence_keys.key_identity(key)
-        display_value = _str_optional(entry.get("display")) or evidence_keys.render_display(
-            key
-        )
-        witness_count = coerce_int(entry.get("witness_count"), 0)
-        existing = entries.get(identity)
-        if existing is None:
-            entries[identity] = EvidenceIndexEntry(
+    for key, identity, display_value, witness_count in _parsed_evidence_index_entries(
+        value
+    ):
+        existing = entries.get(
+            identity,
+            EvidenceIndexEntry(
                 key=key,
                 identity=identity,
                 display=display_value,
-                witness_count=witness_count,
-            )
-            continue
-        combined_count = max(existing.witness_count, witness_count)
-        combined_display = existing.display
-        if display_value and (not combined_display or display_value < combined_display):
-            combined_display = display_value
+                witness_count=0,
+            ),
+        )
         entries[identity] = EvidenceIndexEntry(
-            key=existing.key,
+            key=key,
             identity=identity,
-            display=combined_display,
-            witness_count=combined_count,
+            display=_preferred_display(existing.display, display_value),
+            witness_count=max(existing.witness_count, witness_count),
         )
     return entries
 
 
 def _count_opaque_evidence(evidence_by_test: Mapping[str, Iterable[object]]) -> int:
     check_deadline()
-    total = 0
-    for evidence in evidence_by_test.values():
-        refs = test_obsolescence._normalize_evidence_refs(evidence)
-        if any(ref.opaque for ref in refs):
-            total += 1
-    return total
+    return sum(map(_opaque_evidence_count_for_test, evidence_by_test.values()))
 
 
 def _evidence_entry_payload(entry: EvidenceIndexEntry) -> dict[str, JSONValue]:
@@ -641,12 +586,125 @@ def _section_list(container: Mapping[str, JSONValue] | object, key: str) -> list
     values = _list_optional(container_mapping.get(key, []))
     if values is None:
         return []
-    entries: list[dict[str, object]] = []
-    for value in values:
-        entry = _mapping_optional(value)
-        if entry is not None:
-            entries.append(entry)
-    return entries
+    return list(filter(lambda entry: entry is not None, map(_mapping_optional, values)))
+
+
+def _normalized_test_ids(value: JSONValue) -> list[str]:
+    tests_payload = _list_optional(value)
+    values = tests_payload if tests_payload is not None else ()
+    return list(dict.fromkeys(filter(bool, map(_normalized_test_id, values))))
+
+
+def _normalized_test_id(entry: JSONValue) -> str:
+    test_id_raw = _str_optional(entry)
+    if test_id_raw is None:
+        return ""
+    return test_id_raw.strip()
+
+
+def _normalized_summary_mapping(summary_payload: JSONValue) -> dict[str, int]:
+    summary_mapping = _mapping_optional(summary_payload)
+    summary_items = summary_mapping.items() if summary_mapping is not None else ()
+    return dict(
+        map(
+            _summary_pair,
+            filter(_summary_item_has_key, summary_items),
+        )
+    )
+
+
+def _summary_item_has_key(item: tuple[str, JSONValue]) -> bool:
+    key, _ = item
+    return _str_optional(key) is not None
+
+
+def _summary_pair(item: tuple[str, JSONValue]) -> tuple[str, int]:
+    key, value = item
+    key_text = _str_optional(key)
+    if key_text is None:
+        never("unregistered runtime type", value_type=type(key).__name__)
+    return (key_text, coerce_int(value, 0))
+
+
+def _candidate_test_pair(entry_raw: JSONValue) -> tuple[str, str]:
+    entry = _mapping_optional(entry_raw)
+    if entry is None:
+        return ("", "")
+    test_id = str(entry.get("test_id", "") or "").strip()
+    class_name = str(entry.get("class", "") or "").strip()
+    return (test_id, class_name)
+
+
+def _mapped_evidence_refs(
+    evidence_by_test: Mapping[str, Iterable[object]],
+    status_by_test: Mapping[str, str],
+) -> tuple[test_obsolescence.EvidenceRef, ...]:
+    return tuple(
+        chain.from_iterable(
+            map(
+                lambda pair: _mapped_refs_for_test(
+                    pair[0],
+                    pair[1],
+                    status_by_test,
+                ),
+                evidence_by_test.items(),
+            )
+        )
+    )
+
+
+def _mapped_refs_for_test(
+    test_id: str,
+    evidence: Iterable[object],
+    status_by_test: Mapping[str, str],
+) -> tuple[test_obsolescence.EvidenceRef, ...]:
+    if status_by_test.get(test_id) != "mapped":
+        return ()
+    refs = test_obsolescence._normalize_evidence_refs(evidence)
+    if not refs:
+        return ()
+    return tuple(refs)
+
+
+def _preferred_display(existing: str, candidate: str) -> str:
+    if candidate and (not existing or candidate < existing):
+        return candidate
+    return existing
+
+
+def _parsed_evidence_index_entries(
+    value: JSONValue,
+) -> tuple[tuple[dict[str, JSONValue], str, str, int], ...]:
+    return tuple(
+        map(
+            _parse_evidence_index_entry,
+            filter(_evidence_index_entry_has_key, _mapping_entries(value)),
+        )
+    )
+
+
+def _evidence_index_entry_has_key(entry: dict[str, JSONValue]) -> bool:
+    return _mapping_optional(entry.get("key")) is not None
+
+
+def _parse_evidence_index_entry(
+    entry: dict[str, JSONValue],
+) -> tuple[dict[str, JSONValue], str, str, int]:
+    raw_key = _mapping_optional(entry.get("key"))
+    if raw_key is None:
+        never("unregistered runtime type", value_type=type(entry.get("key")).__name__)
+    key = evidence_keys.normalize_key(raw_key)
+    identity = evidence_keys.key_identity(key)
+    display_value = _str_optional(entry.get("display")) or evidence_keys.render_display(
+        key
+    )
+    witness_count = coerce_int(entry.get("witness_count"), 0)
+    return (key, identity, display_value, witness_count)
+
+
+def _opaque_evidence_count_for_test(evidence: Iterable[object]) -> int:
+    refs = test_obsolescence._normalize_evidence_refs(evidence)
+    return int(any(map(lambda ref: bool(ref.opaque), refs)))
 
 
 def _render_test_section(

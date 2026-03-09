@@ -1211,6 +1211,75 @@
         "targeted_pytest": "pass (56 passed)",
         "policy_scanner_suite": "expected_nonzero total=11669"
       }
+    },
+    {
+      "cu_id": "CU-GEO11",
+      "timestamp_utc": "2026-03-09T18:47:28Z",
+      "migrated_families": [
+        "branchless",
+        "defensive_fallback",
+        "fiber_filter_processor_contract",
+        "fiber_loop_structure_contract",
+        "fiber_scalar_sentinel_contract",
+        "fiber_return_shape_contract"
+      ],
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7217,
+        "defensive_fallback": 113,
+        "fiber_loop_structure_contract": 923,
+        "fiber_filter_processor_contract": 2026,
+        "fiber_return_shape_contract": 1152,
+        "fiber_scalar_sentinel_contract": 238,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7204,
+        "defensive_fallback": 112,
+        "fiber_loop_structure_contract": 919,
+        "fiber_filter_processor_contract": 2012,
+        "fiber_return_shape_contract": 1163,
+        "fiber_scalar_sentinel_contract": 234,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 11669,
+      "total_after": 11644,
+      "drift_notes": [
+        "Net total changed by -25.",
+        "Global decreases: branchless -13, fiber_filter_processor_contract -14, fiber_loop_structure_contract -4, defensive_fallback -1, fiber_scalar_sentinel_contract -4.",
+        "Global increase: fiber_return_shape_contract +11.",
+        "analysis/surfaces ring active-five reduced under single-file strictification (derived delta -36).",
+        "Guard families stayed zero (fiber_type_dispatch_contract/runtime_narrowing_boundary/boundary_core_contract/typing_surface)."
+      ],
+      "libcst_recovery": {
+        "cst_parse_failure_events": 0,
+        "recovered_modules": "all parseable targets processed"
+      },
+      "validation": {
+        "policy_check_workflows": "fail_expected_symbol_activity_audit (unsuppressed=1539)",
+        "policy_check_ambiguity_contract": "pass",
+        "targeted_pytest": "pass (97 passed)",
+        "policy_scanner_suite": "expected_nonzero total=11644"
+      }
     }
   ]
 }
