@@ -5,19 +5,19 @@ import ast
 import hashlib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Sequence
+from typing import Iterable, Iterator, Sequence
 
 from gabion.analysis.foundation.event_algebra import CanonicalRunContext
+from gabion.tooling.policy_rules.fiber_diagnostics import (
+    FiberApplicabilityBounds,
+    FiberCounterfactualBoundary,
+    FiberTraceEvent,
+)
 from gabion.tooling.policy_substrate import (
     build_aspf_union_view,
     cst_failure_seeds,
     decorate_site,
     new_run_context,
-)
-from gabion.tooling.policy_rules.fiber_diagnostics import (
-    FiberApplicabilityBounds,
-    FiberCounterfactualBoundary,
-    FiberTraceEvent,
 )
 from gabion.tooling.runtime.policy_scan_batch import (
     PolicyScanBatch,
@@ -73,159 +73,162 @@ def collect_violations(
     context = run_context if run_context is not None else new_run_context(rule_name=RULE_NAME)
     union_view = build_aspf_union_view(batch=batch)
     root = batch.root
-    violations: list[Violation] = []
-    for seed in (*iter_failure_seeds(batch=batch), *cst_failure_seeds(union_view=union_view)):
-        message = (
-            "unable to read boundary module for boundary/core contract checks"
-            if seed.kind == "read_error"
-            else "unable to parse boundary module for boundary/core contract checks"
+    violations = list(
+        _iter_failure_violations(
+            batch=batch,
+            union_view=union_view,
+            run_context=context,
         )
-        violations.append(
-            _violation(
-                rel_path=seed.path,
-                line=seed.line,
-                column=seed.column,
-                qualname="<module>",
-                kind=seed.kind,
-                message=message,
-                run_context=context,
-            )
-        )
+    )
     for module in union_view.modules:
-        source_lines = module.source.splitlines()
-        if _module_has_boundary_marker(source_lines):
-            core_imports = _collect_core_imports(
-                tree=module.pyast_tree, rel_path=module.rel_path
+        if not _module_has_boundary_marker(module.source.splitlines()):
+            continue
+        core_imports = _collect_core_imports(tree=module.pyast_tree, rel_path=module.rel_path)
+        if not core_imports:
+            violations.append(
+                _violation(
+                    rel_path=module.rel_path,
+                    line=1,
+                    column=1,
+                    qualname="<module>",
+                    kind="missing_paired_core_module",
+                    message="boundary normalization module must import at least one paired *_core module",
+                    run_context=context,
+                )
             )
-            if not core_imports:
+            continue
+        if not _has_explicit_single_hop_core_call(tree=module.pyast_tree, core_imports=core_imports):
+            violations.append(
+                _violation(
+                    rel_path=module.rel_path,
+                    line=1,
+                    column=1,
+                    qualname="<module>",
+                    kind="missing_single_hop_core_call",
+                    message=(
+                        "boundary module must call paired core via "
+                        "explicit single-hop boundary->core call"
+                    ),
+                    run_context=context,
+                )
+            )
+        for module_dotted, core_path in _iter_resolved_core_paths(root=root, core_imports=core_imports):
+            if core_path is None:
                 violations.append(
                     _violation(
                         rel_path=module.rel_path,
                         line=1,
                         column=1,
                         qualname="<module>",
-                            kind="missing_paired_core_module",
-                            message="boundary normalization module must import at least one paired *_core module",
-                            run_context=context,
-                        )
+                        kind="missing_core_module_file",
+                        message=(
+                            "paired core module "
+                            f"'{module_dotted}' must resolve "
+                            "to an on-disk module"
+                        ),
+                        run_context=context,
                     )
-            else:
-                if not _has_explicit_single_hop_core_call(
-                    tree=module.pyast_tree,
-                    core_imports=core_imports,
-                ):
-                    violations.append(
-                        _violation(
-                            rel_path=module.rel_path,
-                            line=1,
-                            column=1,
-                            qualname="<module>",
-                                kind="missing_single_hop_core_call",
-                                message=(
-                                    "boundary module must call paired core via "
-                                    "explicit single-hop boundary->core call"
-                                ),
-                                run_context=context,
-                            )
-                        )
+                )
+                continue
+            violations.extend(
+                _iter_core_module_contract_violations(
+                    root=root,
+                    boundary_rel_path=module.rel_path,
+                    core_path=core_path,
+                    run_context=context,
+                )
+            )
+    return _dedupe_exact_violations(violations)
 
-                for core_import in core_imports:
-                    for core_path in _iter_module_path_from_dotted(
-                        root=root,
-                        dotted=core_import.module_dotted,
-                    ):
-                        break
-                    else:
-                        violations.append(
-                            _violation(
-                                rel_path=module.rel_path,
-                                line=1,
-                                column=1,
-                                qualname="<module>",
-                                kind="missing_core_module_file",
-                                message=(
-                                    "paired core module "
-                                    f"'{core_import.module_dotted}' must resolve "
-                                    "to an on-disk module"
-                                ),
-                                run_context=context,
-                            )
-                        )
-                        continue
 
-                    for core_source in _iter_read_source(core_path):
-                        core_rel = core_path.relative_to(root).as_posix()
-                        core_lines = core_source.splitlines()
-                        for core_tree in _iter_parsed_tree(core_source):
-                            if _module_has_boundary_marker(core_lines):
-                                violations.append(
-                                    _violation(
-                                        rel_path=core_rel,
-                                        line=1,
-                                        column=1,
-                                        qualname="<module>",
-                                        kind="core_marked_as_boundary",
-                                        message=(
-                                            "paired core module must not be marked as "
-                                            "boundary_normalization_module"
-                                        ),
-                                        run_context=context,
-                                    )
-                                )
+def _iter_failure_violations(
+    *,
+    batch: PolicyScanBatch,
+    union_view,
+    run_context: CanonicalRunContext,
+) -> Iterable[Violation]:
+    for seed in (*iter_failure_seeds(batch=batch), *cst_failure_seeds(union_view=union_view)):
+        yield _violation(
+            rel_path=seed.path,
+            line=seed.line,
+            column=seed.column,
+            qualname="<module>",
+            kind=seed.kind,
+            message=_failure_message(seed.kind),
+            run_context=run_context,
+        )
 
-                            violations.extend(
-                                _core_annotation_violations(
-                                    rel_path=core_rel,
-                                    tree=core_tree,
-                                    run_context=context,
-                                )
-                            )
-                            violations.extend(
-                                _core_narrowing_violations(
-                                    rel_path=core_rel,
-                                    tree=core_tree,
-                                    run_context=context,
-                                )
-                            )
-                            violations.extend(
-                                _core_branch_violations(
-                                    rel_path=core_rel,
-                                    tree=core_tree,
-                                    run_context=context,
-                                )
-                            )
-                            break
-                        else:
-                            violations.append(
-                                _violation(
-                                    rel_path=core_rel,
-                                    line=1,
-                                    column=1,
-                                    qualname="<module>",
-                                    kind="core_syntax_error",
-                                    message=(
-                                        "paired core module must parse cleanly "
-                                        "for contract checks"
-                                    ),
-                                    run_context=context,
-                                )
-                            )
-                        break
-                    else:
-                        violations.append(
-                            _violation(
-                                rel_path=module.rel_path,
-                                line=1,
-                                column=1,
-                                qualname="<module>",
-                                kind="core_read_error",
-                                message="unable to read paired core module for contract checks",
-                                run_context=context,
-                            )
-                        )
 
-    deduped = _dedupe_exact_violations(violations)
-    return deduped
+def _failure_message(kind: str) -> str:
+    return {
+        "read_error": "unable to read boundary module for boundary/core contract checks",
+        "syntax_error": "unable to parse boundary module for boundary/core contract checks",
+        "cst_parse_failure": "unable to parse boundary module for boundary/core contract checks",
+    }.get(kind, "unable to parse boundary module for boundary/core contract checks")
+
+
+def _iter_resolved_core_paths(
+    *,
+    root: Path,
+    core_imports: Sequence[_CoreImport],
+) -> Iterable[tuple[str, Path | None]]:
+    for core_import in core_imports:
+        yield (
+            core_import.module_dotted,
+            next(
+                _iter_module_path_from_dotted(root=root, dotted=core_import.module_dotted),
+                None,
+            ),
+        )
+
+
+def _iter_core_module_contract_violations(
+    *,
+    root: Path,
+    boundary_rel_path: str,
+    core_path: Path,
+    run_context: CanonicalRunContext,
+) -> Iterable[Violation]:
+    core_source = next(_iter_read_source(core_path), None)
+    if core_source is None:
+        yield _violation(
+            rel_path=boundary_rel_path,
+            line=1,
+            column=1,
+            qualname="<module>",
+            kind="core_read_error",
+            message="unable to read paired core module for contract checks",
+            run_context=run_context,
+        )
+        return
+
+    core_rel = core_path.relative_to(root).as_posix()
+    core_tree = next(_iter_parsed_tree(core_source), None)
+    if core_tree is None:
+        yield _violation(
+            rel_path=core_rel,
+            line=1,
+            column=1,
+            qualname="<module>",
+            kind="core_syntax_error",
+            message="paired core module must parse cleanly for contract checks",
+            run_context=run_context,
+        )
+        return
+
+    if _module_has_boundary_marker(core_source.splitlines()):
+        yield _violation(
+            rel_path=core_rel,
+            line=1,
+            column=1,
+            qualname="<module>",
+            kind="core_marked_as_boundary",
+            message="paired core module must not be marked as boundary_normalization_module",
+            run_context=run_context,
+        )
+    yield from _core_annotation_violations(rel_path=core_rel, tree=core_tree, run_context=run_context)
+    yield from _core_narrowing_violations(rel_path=core_rel, tree=core_tree, run_context=run_context)
+    yield from _core_branch_violations(rel_path=core_rel, tree=core_tree, run_context=run_context)
 
 
 def _iter_read_source(path: Path) -> Iterable[str]:
@@ -242,69 +245,104 @@ def _iter_parsed_tree(source: str) -> Iterable[ast.AST]:
         return
 
 
-def _module_has_boundary_marker(source_lines: list[str]) -> bool:
-    for raw in source_lines[:100]:
-        stripped = raw.strip()
-        if not stripped:
-            continue
-        if stripped.startswith("#") and BOUNDARY_MARKER in stripped:
-            return True
-    return False
+def _module_has_boundary_marker(source_lines: Sequence[str]) -> bool:
+    return any(
+        _is_boundary_marker_comment(stripped_line)
+        for stripped_line in filter(None, map(str.strip, source_lines[:100]))
+    )
+
+
+def _is_boundary_marker_comment(stripped_line: str) -> bool:
+    return stripped_line.startswith("#") and BOUNDARY_MARKER in stripped_line
 
 
 def _collect_core_imports(*, tree: ast.AST, rel_path: str) -> tuple[_CoreImport, ...]:
-    imports: list[_CoreImport] = []
-    package_parts = _package_parts_from_rel_path(rel_path)
-    for node in ast.walk(tree):
-        match node:
-            case ast.Import(names=import_names):
-                for alias in import_names:
-                    dotted = alias.name.strip()
-                    if dotted.endswith("_core"):
-                        alias_name = (alias.asname or dotted.rsplit(".", 1)[-1]).strip()
-                        imports.append(
-                            _CoreImport(module_dotted=dotted, alias_names=(alias_name,))
-                        )
-            case ast.ImportFrom(module=module, level=level, names=import_names):
-                module_name = (module or "").strip()
-                for resolved_module in _iter_resolved_import_from_module(
-                    module=module_name,
-                    level=int(level or 0),
-                    package_parts=package_parts,
-                ):
-                    if resolved_module.endswith("_core"):
-                        alias_names = tuple(
-                            (alias.asname or alias.name).strip()
-                            for alias in import_names
-                            if alias.name != "*"
-                        )
-                        if alias_names:
-                            imports.append(
-                                _CoreImport(
-                                    module_dotted=resolved_module,
-                                    alias_names=alias_names,
-                                )
-                            )
-                    else:
-                        for alias in import_names:
-                            imported_name = alias.name.strip()
-                            if imported_name != "*" and imported_name.endswith("_core"):
-                                imports.append(
-                                    _CoreImport(
-                                        module_dotted=f"{resolved_module}.{imported_name}",
-                                        alias_names=((alias.asname or imported_name).strip(),),
-                                    )
-                                )
-            case _:
-                pass
     deduped: dict[str, set[str]] = {}
-    for item in imports:
-        entry = deduped.setdefault(item.module_dotted, set())
-        entry.update(name for name in item.alias_names if name)
-    return tuple(
-        _CoreImport(module_dotted=module, alias_names=tuple(sorted(names)))
-        for module, names in sorted(deduped.items())
-    )
+    for item in _iter_core_imports(tree=tree, package_parts=_package_parts_from_rel_path(rel_path)):
+        deduped.setdefault(item.module_dotted, set()).update(item.alias_names)
+    return tuple(_iter_deduped_core_imports(deduped))
+
+
+def _iter_core_imports(
+    *,
+    tree: ast.AST,
+    package_parts: tuple[str, ...],
+) -> Iterable[_CoreImport]:
+    for node in ast.walk(tree):
+        yield from _iter_core_imports_from_node(node, package_parts)
+
+
+def _iter_core_imports_from_node(
+    node: ast.AST,
+    package_parts: tuple[str, ...],
+) -> Iterable[_CoreImport]:
+    match node:
+        case ast.Import():
+            yield from _iter_core_imports_from_import(node, package_parts)
+        case ast.ImportFrom():
+            yield from _iter_core_imports_from_import_from(node, package_parts)
+        case _:
+            return ()
+
+
+def _iter_core_imports_from_import(
+    node: ast.Import,
+    package_parts: tuple[str, ...],
+) -> Iterable[_CoreImport]:
+    del package_parts
+    for alias in node.names:
+        dotted = alias.name.strip()
+        if dotted.endswith("_core"):
+            alias_name = (alias.asname or dotted.rsplit(".", 1)[-1]).strip()
+            if alias_name:
+                yield _CoreImport(module_dotted=dotted, alias_names=(alias_name,))
+
+
+def _iter_core_imports_from_import_from(
+    node: ast.ImportFrom,
+    package_parts: tuple[str, ...],
+) -> Iterable[_CoreImport]:
+    module_name = (node.module or "").strip()
+    for resolved_module in _iter_resolved_import_from_module(
+        module=module_name,
+        level=int(node.level or 0),
+        package_parts=package_parts,
+    ):
+        if resolved_module.endswith("_core"):
+            alias_names = tuple(
+                (alias.asname or alias.name).strip()
+                for alias in node.names
+                if alias.name != "*"
+            )
+            if alias_names:
+                yield _CoreImport(module_dotted=resolved_module, alias_names=alias_names)
+            continue
+        yield from _iter_nested_core_imports_from_aliases(
+            resolved_module=resolved_module,
+            import_names=node.names,
+        )
+    return ()
+
+
+def _iter_nested_core_imports_from_aliases(
+    *,
+    resolved_module: str,
+    import_names: Sequence[ast.alias],
+) -> Iterable[_CoreImport]:
+    for alias in import_names:
+        imported_name = alias.name.strip()
+        if imported_name != "*" and imported_name.endswith("_core"):
+            yield _CoreImport(
+                module_dotted=f"{resolved_module}.{imported_name}",
+                alias_names=((alias.asname or imported_name).strip(),),
+            )
+
+
+def _iter_deduped_core_imports(deduped: dict[str, set[str]]) -> Iterable[_CoreImport]:
+    for module, names in sorted(deduped.items()):
+        alias_names = tuple(sorted(name for name in names if name))
+        if alias_names:
+            yield _CoreImport(module_dotted=module, alias_names=alias_names)
 
 
 def _package_parts_from_rel_path(rel_path: str) -> tuple[str, ...]:
@@ -364,17 +402,26 @@ def _iter_module_path_from_dotted(*, root: Path, dotted: str) -> Iterable[Path]:
 
 def _has_explicit_single_hop_core_call(*, tree: ast.AST, core_imports: Sequence[_CoreImport]) -> bool:
     module_aliases = {name for item in core_imports for name in item.alias_names}
+    return any(_call_targets_core_alias(call, module_aliases) for call in _iter_call_nodes(tree))
+
+
+def _iter_call_nodes(tree: ast.AST) -> Iterable[ast.Call]:
     for node in ast.walk(tree):
         match node:
-            case ast.Call(func=ast.Attribute(value=ast.Name(id=module_alias_id))):
-                if module_alias_id in module_aliases:
-                    return True
-            case ast.Call(func=ast.Name(id=callable_name)):
-                if callable_name in module_aliases:
-                    return True
+            case ast.Call() as call:
+                yield call
             case _:
                 pass
-    return False
+
+
+def _call_targets_core_alias(call: ast.Call, module_aliases: set[str]) -> bool:
+    match call.func:
+        case ast.Attribute(value=ast.Name(id=module_alias_id)):
+            return module_alias_id in module_aliases
+        case ast.Name(id=callable_name):
+            return callable_name in module_aliases
+        case _:
+            return False
 
 
 def _core_annotation_violations(
@@ -384,70 +431,71 @@ def _core_annotation_violations(
     run_context: CanonicalRunContext,
 ) -> list[Violation]:
     violations: list[Violation] = []
+    for node in _iter_function_nodes(tree):
+        for line, col, text in filter(
+            lambda site: _is_raw_ingress_annotation(site[2]),
+            _iter_function_annotation_sites(node),
+        ):
+            violations.append(
+                _violation(
+                    rel_path=rel_path,
+                    line=line,
+                    column=col,
+                    qualname=node.name,
+                    kind="raw_ingress_type_in_core",
+                    message=(
+                        "core signature must not expose raw ingress types "
+                        "(Any/object/dict[str, object])"
+                    ),
+                    run_context=run_context,
+                )
+            )
+    return violations
+
+
+def _iter_function_nodes(tree: ast.AST) -> Iterator[ast.FunctionDef | ast.AsyncFunctionDef]:
     for node in ast.walk(tree):
         match node:
-            case ast.FunctionDef() | ast.AsyncFunctionDef():
-                annotations: list[tuple[int, int, str]] = []
-                for arg in [*node.args.args, *node.args.kwonlyargs]:
-                    if arg.annotation is not None:
-                        annotations.append(
-                            (
-                                int(arg.lineno or node.lineno),
-                                int(arg.col_offset or node.col_offset) + 1,
-                                ast.unparse(arg.annotation),
-                            )
-                        )
-                if node.args.vararg and node.args.vararg.annotation is not None:
-                    arg = node.args.vararg
-                    annotations.append(
-                        (
-                            int(arg.lineno or node.lineno),
-                            int(arg.col_offset or node.col_offset) + 1,
-                            ast.unparse(arg.annotation),
-                        )
-                    )
-                if node.args.kwarg and node.args.kwarg.annotation is not None:
-                    arg = node.args.kwarg
-                    annotations.append(
-                        (
-                            int(arg.lineno or node.lineno),
-                            int(arg.col_offset or node.col_offset) + 1,
-                            ast.unparse(arg.annotation),
-                        )
-                    )
-                if node.returns is not None:
-                    annotations.append(
-                        (
-                            int(node.returns.lineno or node.lineno),
-                            int(node.returns.col_offset or node.col_offset) + 1,
-                            ast.unparse(node.returns),
-                        )
-                    )
-
-                for line, col, text in annotations:
-                    compact = text.replace(" ", "")
-                    if (
-                        text == "Any"
-                        or text == "object"
-                        or compact == "dict[str,object]"
-                    ):
-                        violations.append(
-                            _violation(
-                                rel_path=rel_path,
-                                line=line,
-                                column=col,
-                                qualname=node.name,
-                                kind="raw_ingress_type_in_core",
-                                message=(
-                                    "core signature must not expose raw ingress types "
-                                    "(Any/object/dict[str, object])"
-                                ),
-                                run_context=run_context,
-                            )
-                        )
+            case ast.FunctionDef() | ast.AsyncFunctionDef() as function_node:
+                yield function_node
             case _:
                 pass
-    return violations
+
+
+def _iter_function_annotation_sites(
+    node: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> Iterable[tuple[int, int, str]]:
+    args = tuple(node.args.args) + tuple(node.args.kwonlyargs)
+    for arg in args:
+        yield from _iter_annotation_site_from_arg(arg=arg, fallback=node)
+    if node.args.vararg is not None:
+        yield from _iter_annotation_site_from_arg(arg=node.args.vararg, fallback=node)
+    if node.args.kwarg is not None:
+        yield from _iter_annotation_site_from_arg(arg=node.args.kwarg, fallback=node)
+    if node.returns is not None:
+        yield (
+            int(node.returns.lineno or node.lineno),
+            int(node.returns.col_offset or node.col_offset) + 1,
+            ast.unparse(node.returns),
+        )
+
+
+def _iter_annotation_site_from_arg(
+    *,
+    arg: ast.arg,
+    fallback: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> Iterable[tuple[int, int, str]]:
+    if arg.annotation is not None:
+        yield (
+            int(arg.lineno or fallback.lineno),
+            int(arg.col_offset or fallback.col_offset) + 1,
+            ast.unparse(arg.annotation),
+        )
+
+
+def _is_raw_ingress_annotation(annotation_text: str) -> bool:
+    compact = annotation_text.replace(" ", "")
+    return annotation_text in {"Any", "object"} or compact == "dict[str,object]"
 
 
 def _core_narrowing_violations(
@@ -456,26 +504,28 @@ def _core_narrowing_violations(
     tree: ast.AST,
     run_context: CanonicalRunContext,
 ) -> list[Violation]:
-    violations: list[Violation] = []
-    for node in ast.walk(tree):
-        match node:
-            case ast.Call(func=ast.Name(id="isinstance")) | ast.Call(
-                func=ast.Name(id="cast")
-            ):
-                violations.append(
-                    _violation(
-                        rel_path=rel_path,
-                        line=int(getattr(node, "lineno", 1) or 1),
-                        column=int(getattr(node, "col_offset", 0) or 0) + 1,
-                        qualname="<module>",
-                        kind="ingress_narrowing_in_core",
-                        message="core module must not perform runtime ingress narrowing",
-                        run_context=run_context,
-                    )
-                )
-            case _:
-                pass
-    return violations
+    return [
+        _violation(
+            rel_path=rel_path,
+            line=int(getattr(node, "lineno", 1) or 1),
+            column=int(getattr(node, "col_offset", 0) or 0) + 1,
+            qualname="<module>",
+            kind="ingress_narrowing_in_core",
+            message="core module must not perform runtime ingress narrowing",
+            run_context=run_context,
+        )
+        for node in filter(_is_runtime_narrowing_node, ast.walk(tree))
+    ]
+
+
+def _is_runtime_narrowing_node(node: ast.AST) -> bool:
+    match node:
+        case ast.Call(func=ast.Name(id="isinstance")) | ast.Call(
+            func=ast.Name(id="cast")
+        ):
+            return True
+        case _:
+            return False
 
 
 def _core_branch_violations(
@@ -484,33 +534,35 @@ def _core_branch_violations(
     tree: ast.AST,
     run_context: CanonicalRunContext,
 ) -> list[Violation]:
-    violations: list[Violation] = []
-    for node in ast.walk(tree):
-        match node:
-            case (
-                ast.If()
-                | ast.IfExp()
-                | ast.Match()
-                | ast.For()
-                | ast.AsyncFor()
-                | ast.While()
-                | ast.Try()
-                | ast.TryStar()
-            ):
-                violations.append(
-                    _violation(
-                        rel_path=rel_path,
-                        line=int(getattr(node, "lineno", 1) or 1),
-                        column=int(getattr(node, "col_offset", 0) or 0) + 1,
-                        qualname="<module>",
-                        kind="branch_in_core_module",
-                        message="paired core module must remain branchless",
-                        run_context=run_context,
-                    )
-                )
-            case _:
-                pass
-    return violations
+    return [
+        _violation(
+            rel_path=rel_path,
+            line=int(getattr(node, "lineno", 1) or 1),
+            column=int(getattr(node, "col_offset", 0) or 0) + 1,
+            qualname="<module>",
+            kind="branch_in_core_module",
+            message="paired core module must remain branchless",
+            run_context=run_context,
+        )
+        for node in filter(_is_core_branch_node, ast.walk(tree))
+    ]
+
+
+def _is_core_branch_node(node: ast.AST) -> bool:
+    match node:
+        case (
+            ast.If()
+            | ast.IfExp()
+            | ast.Match()
+            | ast.For()
+            | ast.AsyncFor()
+            | ast.While()
+            | ast.Try()
+            | ast.TryStar()
+        ):
+            return True
+        case _:
+            return False
 
 
 def _violation(
@@ -563,30 +615,30 @@ def _violation(
 
 
 def _dedupe_exact_violations(violations: Sequence[Violation]) -> list[Violation]:
-    deduped: list[Violation] = []
-    seen: set[tuple[str, int, int, str, str, str]] = set()
+    return list(_iter_deduped_violations(violations))
+
+
+def _iter_deduped_violations(violations: Sequence[Violation]) -> Iterable[Violation]:
+    deduped_by_signature: dict[tuple[str, int, int, str, str, str], Violation] = {}
     for violation in violations:
-        signature = (
-            violation.path,
-            violation.line,
-            violation.column,
-            violation.qualname,
-            violation.kind,
-            violation.message,
+        deduped_by_signature.setdefault(
+            (
+                violation.path,
+                violation.line,
+                violation.column,
+                violation.qualname,
+                violation.kind,
+                violation.message,
+            ),
+            violation,
         )
-        if signature in seen:
-            continue
-        seen.add(signature)
-        deduped.append(violation)
-    return deduped
+    for violation in deduped_by_signature.values():
+        yield violation
 
 
 def _structured_hash(*parts: str) -> str:
-    digest = hashlib.sha256()
-    for part in parts:
-        digest.update(part.encode("utf-8"))
-        digest.update(b"\x00")
-    return digest.hexdigest()
+    payload = "\x00".join(parts) + "\x00"
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 __all__ = [
