@@ -9,8 +9,28 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Iterable
 
-from gabion.runtime_shape_dispatch import json_list_optional, json_mapping_optional
+from gabion.analysis.foundation.event_algebra import CanonicalRunContext
+from gabion.tooling.policy_substrate import (
+    build_aspf_union_view,
+    cst_failure_seeds,
+    decorate_failure,
+    decorate_site,
+    new_run_context,
+)
+from gabion.tooling.policy_rules.fiber_diagnostics import (
+    FiberApplicabilityBounds,
+    FiberCounterfactualBoundary,
+    FiberTraceEvent,
+)
+from gabion.tooling.runtime.policy_scan_batch import (
+    PolicyScanBatch,
+    ScanFailureSeed,
+    build_policy_scan_batch,
+    iter_failure_seeds,
+    load_structured_violation_baseline_keys,
+)
 
+RULE_NAME = "branchless"
 TARGET_GLOB = "src/gabion/**/*.py"
 BASELINE_VERSION = 1
 MODULE_MARKER = "gabion:decision_protocol_module"
@@ -20,16 +40,6 @@ DECORATOR_NAMES = {
     "invariants.decision_protocol",
     "gabion.invariants.decision_protocol",
 }
-BRANCH_NODE_TYPES = (
-    ast.If,
-    ast.IfExp,
-    ast.Match,
-    ast.For,
-    ast.AsyncFor,
-    ast.While,
-    ast.Try,
-    ast.TryStar,
-)
 
 
 @dataclass(frozen=True)
@@ -40,6 +50,14 @@ class Violation:
     qualname: str
     kind: str
     message: str
+    input_slot: str
+    flow_identity: str
+    fiber_trace: tuple[FiberTraceEvent, ...]
+    applicability_bounds: FiberApplicabilityBounds
+    counterfactual_boundary: FiberCounterfactualBoundary
+    fiber_id: str
+    taint_interval_id: str
+    condition_overlap_id: str
     structured_hash: str
 
     @property
@@ -61,9 +79,16 @@ class _Scope:
 
 
 class _BranchlessVisitor(ast.NodeVisitor):
-    def __init__(self, *, rel_path: str, source_lines: list[str]) -> None:
+    def __init__(
+        self,
+        *,
+        rel_path: str,
+        source_lines: list[str],
+        run_context: CanonicalRunContext,
+    ) -> None:
         self.rel_path = rel_path
         self.source_lines = source_lines
+        self.run_context = run_context
         self.violations: list[Violation] = []
         self.module_decision_protocol = _module_is_decision_protocol(source_lines)
         self.scope_stack: list[_Scope] = []
@@ -140,12 +165,31 @@ class _BranchlessVisitor(ast.NodeVisitor):
         scope = self.scope_stack[-1] if self.scope_stack else _Scope("<module>", self.module_decision_protocol)
         if scope.is_decision_protocol:
             return
+        input_slot = f"branch:{kind}"
         structural_identity = _structured_hash(
             self.rel_path,
             scope.qualname,
             kind,
             str(int(getattr(node, "col_offset", 0)) + 1),
             "branch construct outside decision protocol",
+        )
+        decoration = decorate_site(
+            run_context=self.run_context,
+            rule_name=RULE_NAME,
+            rel_path=self.rel_path,
+            qualname=scope.qualname,
+            line=int(getattr(node, "lineno", 1)),
+            column=int(getattr(node, "col_offset", 0)) + 1,
+            node_kind=f"branch:{kind}",
+            input_slot=input_slot,
+            taint_class="branch_control",
+            intro_kind=f"syntax:branch_taint:{kind}",
+            condition_kind=f"syntax:branch_condition:{kind}",
+            erase_kind=f"syntax:decision_boundary:{kind}",
+            rationale=(
+                "Move branch decisions into explicit decision protocol surfaces so "
+                "core fibers remain branchless."
+            ),
         )
         self.violations.append(
             Violation(
@@ -155,6 +199,14 @@ class _BranchlessVisitor(ast.NodeVisitor):
                 qualname=scope.qualname,
                 kind=kind,
                 message="branch construct outside decision protocol",
+                input_slot=input_slot,
+                flow_identity=decoration.flow_identity,
+                fiber_trace=decoration.fiber_trace,
+                applicability_bounds=decoration.applicability_bounds,
+                counterfactual_boundary=decoration.counterfactual_boundary,
+                fiber_id=decoration.fiber_id,
+                taint_interval_id=decoration.taint_interval_id,
+                condition_overlap_id=decoration.condition_overlap_id,
                 structured_hash=structural_identity,
             )
         )
@@ -183,17 +235,18 @@ def _has_preceding_marker(*, source_lines: list[str], line: int, marker: str) ->
     return False
 
 
-def _dotted_name(node: ast.AST) -> str | None:
+def _dotted_name(node: ast.AST) -> str:
+    return ".".join(_dotted_name_parts(node))
+
+
+def _dotted_name_parts(node: ast.AST) -> tuple[str, ...]:
     match node:
         case ast.Name(id=identifier):
-            return identifier
+            return (identifier,)
         case ast.Attribute(value=value, attr=attr):
-            parent = _dotted_name(value)
-            if parent is None:
-                return None
-            return f"{parent}.{attr}"
+            return (*_dotted_name_parts(value), attr)
         case _:
-            return None
+            return ()
 
 
 def _structured_hash(*parts: str) -> str:
@@ -204,105 +257,80 @@ def _structured_hash(*parts: str) -> str:
     return digest.hexdigest()
 
 
-def collect_violations(*, root: Path) -> list[Violation]:
+def collect_violations(
+    *,
+    batch: PolicyScanBatch,
+    run_context: CanonicalRunContext | None = None,
+) -> list[Violation]:
+    context = run_context if run_context is not None else new_run_context(rule_name=RULE_NAME)
+    return _collect_with_context(batch=batch, run_context=context)
+
+
+def _collect_with_context(
+    *,
+    batch: PolicyScanBatch,
+    run_context: CanonicalRunContext,
+) -> list[Violation]:
+    union_view = build_aspf_union_view(batch=batch)
     violations: list[Violation] = []
-    for path in sorted(root.glob(TARGET_GLOB)):
-        if not path.is_file() or any(part == "__pycache__" for part in path.parts):
-            continue
-        rel_path = path.relative_to(root).as_posix()
-        try:
-            source = path.read_text(encoding="utf-8")
-        except OSError:
-            violations.append(
-                Violation(
-                    path=rel_path,
-                    line=1,
-                    column=1,
-                    qualname="<module>",
-                    kind="read_error",
-                    message="unable to read file while checking branchless policy",
-                    structured_hash=_structured_hash(
-                        rel_path,
-                        "<module>",
-                        "read_error",
-                        "read_error",
-                    ),
-                )
-            )
-            continue
-        try:
-            tree = ast.parse(source)
-        except SyntaxError as exc:
-            violations.append(
-                Violation(
-                    path=rel_path,
-                    line=int(exc.lineno or 1),
-                    column=int(exc.offset or 1),
-                    qualname="<module>",
-                    kind="syntax_error",
-                    message="syntax error while checking branchless policy",
-                    structured_hash=_structured_hash(
-                        rel_path,
-                        "<module>",
-                        "syntax_error",
-                        str(getattr(exc, "msg", "") or ""),
-                    ),
-                )
-            )
-            continue
-        visitor = _BranchlessVisitor(rel_path=rel_path, source_lines=source.splitlines())
-        visitor.visit(tree)
+    for seed in (*iter_failure_seeds(batch=batch), *cst_failure_seeds(union_view=union_view)):
+        violations.append(_failure_violation(run_context=run_context, seed=seed))
+
+    for module in union_view.modules:
+        visitor = _BranchlessVisitor(
+            rel_path=module.rel_path,
+            source_lines=module.source.splitlines(),
+            run_context=run_context,
+        )
+        visitor.visit(module.pyast_tree)
         violations.extend(visitor.violations)
     return violations
 
 
+def _failure_violation(*, run_context: CanonicalRunContext, seed: ScanFailureSeed) -> Violation:
+    decoration = decorate_failure(
+        run_context=run_context,
+        rule_name=RULE_NAME,
+        seed=seed,
+        rationale="Ensure module parse/read validity before branchless substrate evaluation.",
+    )
+    structured_hash = _structured_hash(
+        seed.path,
+        "<module>",
+        seed.kind,
+        "module_failure",
+        seed.detail,
+    )
+    return Violation(
+        path=seed.path,
+        line=seed.line,
+        column=seed.column,
+        qualname="<module>",
+        kind=seed.kind,
+        message="unable to read/parse file while checking branchless policy",
+        input_slot="module_failure",
+        flow_identity=decoration.flow_identity,
+        fiber_trace=decoration.fiber_trace,
+        applicability_bounds=decoration.applicability_bounds,
+        counterfactual_boundary=decoration.counterfactual_boundary,
+        fiber_id=decoration.fiber_id,
+        taint_interval_id=decoration.taint_interval_id,
+        condition_overlap_id=decoration.condition_overlap_id,
+        structured_hash=structured_hash,
+    )
+
+
 def _load_baseline(path: Path) -> set[str]:
-    if not path.exists():
-        return set()
-    payload = json_mapping_optional(json.loads(path.read_text(encoding="utf-8")))
-    if payload is None:
-        return set()
-    raw_items = json_list_optional(payload.get("violations"))
-    if raw_items is None:
-        return set()
-    keys: set[str] = set()
-    for item in raw_items:
-        item_mapping = json_mapping_optional(item)
-        if item_mapping is None:
-            continue
-        path_value = str(item_mapping.get("path", "") or "")
-        qualname = str(item_mapping.get("qualname", "") or "")
-        kind = str(item_mapping.get("kind", "") or "")
-        structured_hash = item_mapping.get("structured_hash")
-        column = item_mapping.get("column")
-        message = str(item_mapping.get("message", "") or "")
-        line = item_mapping.get("line")
-        if not path_value or not qualname or not kind:
-            continue
-        match structured_hash:
-            case str() as structured_hash_value if structured_hash_value:
-                keys.add(f"{path_value}:{qualname}:{kind}:{structured_hash_value}")
-                continue
-            case _:
-                pass
-        match column:
-            case int() as column_value if message:
-                migrated_hash = _structured_hash(
-                    path_value,
-                    qualname,
-                    kind,
-                    str(column_value),
-                    message,
-                )
-                keys.add(f"{path_value}:{qualname}:{kind}:{migrated_hash}")
-            case _:
-                pass
-        match line:
-            case int() as line_value:
-                keys.add(f"{path_value}:{qualname}:{line_value}:{kind}")
-            case _:
-                pass
-    return keys
+    return load_structured_violation_baseline_keys(
+        path=path,
+        migrate_hash=lambda path_value, qualname, kind, column, message: _structured_hash(
+            path_value,
+            qualname,
+            kind,
+            str(column),
+            message,
+        ),
+    )
 
 
 def _write_baseline(*, path: Path, violations: list[Violation]) -> None:
@@ -321,7 +349,8 @@ def _write_baseline(*, path: Path, violations: list[Violation]) -> None:
 
 
 def run(*, root: Path, baseline: Path | None = None, baseline_write: bool = False) -> int:
-    violations = collect_violations(root=root)
+    batch = build_policy_scan_batch(root=root, target_globs=(TARGET_GLOB,))
+    violations = collect_violations(batch=batch)
     if baseline_write:
         if baseline is None:
             raise SystemExit("--baseline is required with --baseline-write")
@@ -347,18 +376,23 @@ def run(*, root: Path, baseline: Path | None = None, baseline_write: bool = Fals
     return 1
 
 
-def main(argv: Iterable[str] | None = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", default=".")
     parser.add_argument("--baseline", default=None)
     parser.add_argument("--baseline-write", action="store_true")
-    args = parser.parse_args(list(argv) if argv is not None else None)
-    baseline = Path(args.baseline).resolve() if args.baseline else None
+    args = parser.parse_args(argv)
+    baseline = next(_iter_resolved_baseline_paths(args.baseline), None)
     return run(
         root=Path(args.root).resolve(),
         baseline=baseline,
         baseline_write=bool(args.baseline_write),
     )
+
+
+def _iter_resolved_baseline_paths(raw_baseline: str | None) -> Iterable[Path]:
+    if raw_baseline:
+        yield Path(raw_baseline).resolve()
 
 
 if __name__ == "__main__":

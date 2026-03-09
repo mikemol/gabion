@@ -311,12 +311,17 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--output", type=Path)
     args = parser.parse_args(argv)
-    output = args.output.resolve() if args.output is not None else None
+    output = next(_iter_resolved_output_paths(args.output), None)
     return run(
         root=Path(args.root).resolve(),
         allowlist_path=Path(args.allowlist).resolve(),
         output=output,
     )
+
+
+def _iter_resolved_output_paths(raw_output: Path | None) -> Iterable[Path]:
+    if raw_output:
+        yield raw_output.resolve()
 
 
 if __name__ == "__main__":

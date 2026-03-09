@@ -27,6 +27,12 @@ from gabion.tooling.policy_rules.fiber_diagnostics import (
     to_payload_trace,
 )
 from gabion.tooling.runtime.deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
+from gabion.tooling.runtime.policy_scan_batch import (
+    PolicyScanBatch,
+    ScanFailureSeed,
+    build_policy_scan_batch,
+    iter_failure_seeds,
+)
 
 RULE_NAME = "fiber_filter_processor_contract"
 TARGET_GLOB = "src/gabion/**/*.py"
@@ -125,33 +131,32 @@ class _FilterProcessorVisitor(ast.NodeVisitor):
             branch_form = _branch_form(current)
             if branch_form == "branch":
                 continue
-            nearest_loop = _nearest_covered_loop(
+            for nearest_loop in _iter_nearest_covered_loops(
                 node=current,
                 function_node=function_node,
                 parent_map=parent_map,
-            )
-            if nearest_loop is None:
-                continue
-            nearest_occurrence = loop_by_node.get(nearest_loop)
-            if nearest_occurrence is None:
-                continue
-            if nearest_occurrence.loop_form not in {"for", "async_for"}:
-                continue
-            self._record_violation(
-                node=current,
-                kind="branch_in_loop_processor",
-                message=(
-                    "loop processor body must be branchless; "
-                    "split filter and processor into separate functions"
-                ),
-                branch_form=branch_form,
-                input_slot=f"{nearest_occurrence.input_slot}:{branch_form}",
-                event_kind=f"syntax:loop_branch:{branch_form}",
-                rationale=(
-                    "Move filtering to a dedicated upstream function so processor "
-                    "functions operate on already-selected values."
-                ),
-            )
+            ):
+                for nearest_occurrence in _iter_occurrences_for_node(
+                    loop_by_node=loop_by_node,
+                    node=nearest_loop,
+                ):
+                    if nearest_occurrence.loop_form not in {"for", "async_for"}:
+                        continue
+                    self._record_violation(
+                        node=current,
+                        kind="branch_in_loop_processor",
+                        message=(
+                            "loop processor body must be branchless; "
+                            "split filter and processor into separate functions"
+                        ),
+                        branch_form=branch_form,
+                        input_slot=f"{nearest_occurrence.input_slot}:{branch_form}",
+                        event_kind=f"syntax:loop_branch:{branch_form}",
+                        rationale=(
+                            "Move filtering to a dedicated upstream function so processor "
+                            "functions operate on already-selected values."
+                        ),
+                    )
 
     def _record_comprehension_branches(
         self,
@@ -165,51 +170,53 @@ class _FilterProcessorVisitor(ast.NodeVisitor):
             generators = tuple(node.generators)
             if not generators:
                 continue
-            root_occurrence = loop_by_node.get(generators[0])
-            if root_occurrence is None:
-                continue
+            for root_occurrence in _iter_occurrences_for_node(
+                loop_by_node=loop_by_node,
+                node=generators[0],
+            ):
 
-            for generator_index, generator in enumerate(generators, start=1):
-                for guard_index, guard in enumerate(generator.ifs, start=1):
-                    self._record_violation(
-                        node=guard,
-                        kind="comprehension_filter_branch",
-                        message=(
-                            "comprehension-local filtering is prohibited; "
-                            "split filter into a separate upstream function"
-                        ),
-                        branch_form="comprehension_if",
-                        input_slot=(
-                            f"{root_occurrence.input_slot}:gen_{generator_index}:if_{guard_index}"
-                        ),
-                        event_kind="syntax:comprehension_if",
-                        rationale=(
-                            "Hoist filtering out of comprehension clauses to preserve "
-                            "a commute-friendly filter layer."
-                        ),
-                    )
+                for generator_index, generator in enumerate(generators, start=1):
+                    for guard_index, guard in enumerate(generator.ifs, start=1):
+                        self._record_violation(
+                            node=guard,
+                            kind="comprehension_filter_branch",
+                            message=(
+                                "comprehension-local filtering is prohibited; "
+                                "split filter into a separate upstream function"
+                            ),
+                            branch_form="comprehension_if",
+                            input_slot=(
+                                f"{root_occurrence.input_slot}:gen_{generator_index}:if_{guard_index}"
+                            ),
+                            event_kind="syntax:comprehension_if",
+                            rationale=(
+                                "Hoist filtering out of comprehension clauses to preserve "
+                                "a commute-friendly filter layer."
+                            ),
+                        )
 
-            expression_index = 0
-            for expression in _comprehension_value_expressions(node):
-                for child in _iter_expression_nodes(expression):
-                    if not _is_ifexp(child):
-                        continue
-                    expression_index += 1
-                    self._record_violation(
-                        node=child,
-                        kind="comprehension_ifexp_branch",
-                        message=(
-                            "comprehension ternary branching is prohibited; "
-                            "split transform paths into explicit processors"
-                        ),
-                        branch_form="comprehension_ifexp",
-                        input_slot=f"{root_occurrence.input_slot}:ifexp_{expression_index}",
-                        event_kind="syntax:comprehension_ifexp",
-                        rationale=(
-                            "Keep processor transformations structurally explicit by "
-                            "removing ternary branching from comprehension bodies."
-                        ),
-                    )
+                expression_index = 0
+                for expression in _comprehension_value_expressions(node):
+                    for child in _iter_expression_nodes(expression):
+                        if not _is_ifexp(child):
+                            continue
+                        expression_index += 1
+                        self._record_violation(
+                            node=child,
+                            kind="comprehension_ifexp_branch",
+                            message=(
+                                "comprehension ternary branching is prohibited; "
+                                "split transform paths into explicit processors"
+                            ),
+                            branch_form="comprehension_ifexp",
+                            input_slot=f"{root_occurrence.input_slot}:ifexp_{expression_index}",
+                            event_kind="syntax:comprehension_ifexp",
+                            rationale=(
+                                "Keep processor transformations structurally explicit by "
+                                "removing ternary branching from comprehension bodies."
+                            ),
+                        )
+                break
 
     def _record_violation(
         self,
@@ -299,64 +306,142 @@ class _FilterProcessorVisitor(ast.NodeVisitor):
 
 def collect_violations(
     *,
-    rel_path: str,
-    source: str,
-    tree: ast.AST,
+    batch: PolicyScanBatch,
     run_context: CanonicalRunContext | None = None,
 ) -> list[Violation]:
-    with deadline_scope_from_ticks(_DEFAULT_POLICY_TIMEOUT_BUDGET):
-        runtime_context = (
-            run_context
-            if run_context is not None
-            else CanonicalRunContext(
-                run_id=f"policy:{RULE_NAME}",
-                sequencer=GlobalEventSequencer(),
-                identity_space=GlobalIdentitySpace(
-                    allocator=PrimeIdentityAdapter(registry=PrimeRegistry())
-                ),
-            )
-        )
-        visitor = _FilterProcessorVisitor(
-            rel_path=rel_path,
-            run_context=runtime_context,
-        )
-        visitor.visit(tree)
-        _ = source
-        return visitor.violations
+    if run_context is not None:
+        return _collect_with_context(batch=batch, run_context=run_context)
 
-
-def collect_root_violations(*, root: Path, files: Sequence[Path] | None = None) -> list[Violation]:
-    with deadline_scope_from_ticks(_DEFAULT_POLICY_TIMEOUT_BUDGET):
-        candidates = files if files is not None else tuple(sorted(root.glob(TARGET_GLOB)))
-        run_context = CanonicalRunContext(
-            run_id=f"policy:{RULE_NAME}",
-            sequencer=GlobalEventSequencer(),
-            identity_space=GlobalIdentitySpace(
-                allocator=PrimeIdentityAdapter(registry=PrimeRegistry())
-            ),
-        )
-        violations: list[Violation] = []
-        for path in candidates:
-            if not path.is_file() or any(part == "__pycache__" for part in path.parts):
-                continue
-            rel_path = path.relative_to(root).as_posix()
-            try:
-                source = path.read_text(encoding="utf-8")
-            except OSError:
-                continue
-            try:
-                tree = ast.parse(source)
-            except SyntaxError:
-                continue
-            violations.extend(
-                collect_violations(
-                    rel_path=rel_path,
-                    source=source,
-                    tree=tree,
-                    run_context=run_context,
+    violations: list[Violation] = []
+    for seed in iter_failure_seeds(batch=batch):
+        with deadline_scope_from_ticks(_DEFAULT_POLICY_TIMEOUT_BUDGET):
+            violations.append(
+                _failure_violation(
+                    run_context=_new_run_context(),
+                    seed=seed,
                 )
             )
-        return violations
+    for module in batch.modules:
+        with deadline_scope_from_ticks(_DEFAULT_POLICY_TIMEOUT_BUDGET):
+            module_violations = _collect_with_context(
+                batch=PolicyScanBatch(
+                    root=batch.root,
+                    modules=(module,),
+                    read_failures=(),
+                    parse_failures=(),
+                ),
+                run_context=_new_run_context(),
+            )
+            violations.extend(module_violations)
+    return violations
+
+
+def _new_run_context() -> CanonicalRunContext:
+    return CanonicalRunContext(
+        run_id=f"policy:{RULE_NAME}",
+        sequencer=GlobalEventSequencer(),
+        identity_space=GlobalIdentitySpace(
+            allocator=PrimeIdentityAdapter(registry=PrimeRegistry())
+        ),
+    )
+
+
+def _collect_with_context(
+    *,
+    batch: PolicyScanBatch,
+    run_context: CanonicalRunContext,
+) -> list[Violation]:
+    violations: list[Violation] = []
+    for seed in iter_failure_seeds(batch=batch):
+        violations.append(
+            _failure_violation(
+                run_context=run_context,
+                seed=seed,
+            )
+        )
+    for module in batch.modules:
+        visitor = _FilterProcessorVisitor(
+            rel_path=module.rel_path,
+            run_context=run_context,
+        )
+        visitor.visit(module.tree)
+        violations.extend(visitor.violations)
+    return violations
+
+
+def _failure_violation(
+    *,
+    run_context: CanonicalRunContext,
+    seed: ScanFailureSeed,
+) -> Violation:
+    flow_identity = _derive_flow_identity(
+        run_context=run_context,
+        rel_path=seed.path,
+        qualname="<module>",
+        kind=seed.kind,
+        line=seed.line,
+        input_slot="module_failure",
+        branch_form="module_failure",
+    )
+    structured_hash = _structured_hash(
+        seed.path,
+        "<module>",
+        seed.kind,
+        "module_failure",
+        "module_failure",
+        str(seed.line),
+        str(seed.column),
+    )
+    return Violation(
+        path=seed.path,
+        line=seed.line,
+        column=seed.column,
+        qualname="<module>",
+        kind=seed.kind,
+        message=seed.detail,
+        branch_form="module_failure",
+        input_slot="module_failure",
+        flow_identity=flow_identity,
+        structured_hash=structured_hash,
+        fiber_trace=(
+            FiberTraceEvent(
+                ordinal=1,
+                line=seed.line,
+                column=seed.column,
+                event_kind=f"syntax:block_enter:{seed.kind}",
+                normalization_class="narrow",
+                input_slot="module_failure",
+                phase_hint="syntax",
+                pre_core=True,
+            ),
+            FiberTraceEvent(
+                ordinal=2,
+                line=seed.line,
+                column=seed.column,
+                event_kind=f"syntax:{seed.kind}",
+                normalization_class="narrow",
+                input_slot="module_failure",
+                phase_hint="syntax",
+                pre_core=True,
+            ),
+        ),
+        applicability_bounds=FiberApplicabilityBounds(
+            current_boundary_before_ordinal=2,
+            violation_applies_when_boundary_before_ordinal_gt=1,
+            violation_clears_when_boundary_before_ordinal_lte=1,
+            boundary_domain_max_before_ordinal=2,
+            core_entry_before_ordinal=None,
+        ),
+        counterfactual_boundary=FiberCounterfactualBoundary(
+            suggested_boundary_before_ordinal=1,
+            boundary_event_kind=f"syntax:block_enter:{seed.kind}",
+            boundary_line=seed.line,
+            boundary_column=seed.column,
+            eliminates_violation_without_other_changes=True,
+            preserves_prior_normalization=True,
+            rationale="Ensure module parse/read validity before filter/processor analysis.",
+        ),
+    )
 
 
 def _iter_scope_nodes(
@@ -396,12 +481,10 @@ def _loop_occurrences(
 ) -> tuple[_LoopOccurrence, ...]:
     raw: list[tuple[ast.AST, str, int, int]] = []
     for node in scope_nodes:
-        loop_form = _covered_loop_form(node)
-        if loop_form is None:
-            continue
-        line = _node_line(node, parent_map=parent_map)
-        column = _node_column(node, parent_map=parent_map)
-        raw.append((node, loop_form, line, column))
+        for loop_form in _covered_loop_forms(node):
+            line = _node_line(node, parent_map=parent_map)
+            column = _node_column(node, parent_map=parent_map)
+            raw.append((node, loop_form, line, column))
     ordered = sorted(raw, key=lambda item: (item[2], item[3], item[1]))
     return tuple(
         _LoopOccurrence(
@@ -415,16 +498,16 @@ def _loop_occurrences(
     )
 
 
-def _covered_loop_form(node: ast.AST) -> str | None:
+def _covered_loop_forms(node: ast.AST) -> tuple[str, ...]:
     match node:
         case ast.For():
-            return "for"
+            return ("for",)
         case ast.AsyncFor():
-            return "async_for"
+            return ("async_for",)
         case ast.comprehension(is_async=is_async):
-            return "comprehension_async" if bool(is_async) else "comprehension"
+            return ("comprehension_async" if bool(is_async) else "comprehension",)
         case _:
-            return None
+            return ()
 
 
 def _is_scope_break_node(node: ast.AST) -> bool:
@@ -451,18 +534,29 @@ def _is_ifexp(node: ast.AST) -> bool:
             return False
 
 
-def _nearest_covered_loop(
+def _iter_nearest_covered_loops(
     *,
     node: ast.AST,
     function_node: ast.FunctionDef | ast.AsyncFunctionDef,
     parent_map: dict[ast.AST, ast.AST],
-) -> ast.AST | None:
+) -> tuple[ast.AST, ...]:
     parent = parent_map.get(node)
     while parent is not None and parent is not function_node:
-        if _covered_loop_form(parent) is not None:
-            return parent
+        if _covered_loop_forms(parent):
+            return (parent,)
         parent = parent_map.get(parent)
-    return None
+    return ()
+
+
+def _iter_occurrences_for_node(
+    *,
+    loop_by_node: dict[ast.AST, _LoopOccurrence],
+    node: ast.AST,
+) -> tuple[_LoopOccurrence, ...]:
+    occurrence = loop_by_node.get(node)
+    if occurrence is not None:
+        return (occurrence,)
+    return ()
 
 
 def _comprehension_value_expressions(node: ast.AST) -> tuple[ast.AST, ...]:
@@ -566,7 +660,8 @@ def _serialize(violation: Violation) -> dict[str, object]:
 
 
 def run(*, root: Path, out: Path | None = None) -> int:
-    violations = collect_root_violations(root=root)
+    batch = build_policy_scan_batch(root=root, target_globs=(TARGET_GLOB,))
+    violations = collect_violations(batch=batch)
     payload = {
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "root": str(root),

@@ -5841,6 +5841,60 @@
         "targeted_pytest": "pass (26 passed)",
         "policy_scanner_suite": "expected_nonzero total=10869"
       }
+    },
+    {
+      "cu_id": "CU-FS8",
+      "summary": "Eliminate remaining sentinel-style main-path ifexp patterns and remove direct None-guard hotspots in fiber loop/filter/type-dispatch rule internals using iterator-first helper flows.",
+      "timestamp_utc": "2026-03-09T02:03:49Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7286,
+        "defensive_fallback": 142,
+        "fiber_loop_structure_contract": 981,
+        "fiber_filter_processor_contract": 2194,
+        "fiber_scalar_sentinel_contract": 265,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 1,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7288,
+        "defensive_fallback": 137,
+        "fiber_loop_structure_contract": 983,
+        "fiber_filter_processor_contract": 2188,
+        "fiber_scalar_sentinel_contract": 254,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 1,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 10869,
+      "total_after": 10851,
+      "notes": [
+        "Replaced main-path ifexp optional path resolution in branchless/defensive/no_monkeypatch/sleep/subprocess rules with iterator-based resolution helpers.",
+        "Refactored fiber_filter_processor and fiber_loop_structure loop occurrence extraction to avoid direct None-guard/continue sentinel style.",
+        "Refactored fiber_type_dispatch decorator register-type extraction to iterator-based register-type streams."
+      ],
+      "validation": {
+        "policy_check_workflows": "fail_expected_symbol_activity_audit",
+        "policy_check_ambiguity_contract": "pass",
+        "targeted_pytest": "pass (45 passed)",
+        "policy_scanner_suite": "expected_nonzero total=10851"
+      }
     }
   ],
   "generated_by": "codex",

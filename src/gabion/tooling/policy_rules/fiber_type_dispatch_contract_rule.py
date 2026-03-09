@@ -27,6 +27,12 @@ from gabion.tooling.policy_rules.fiber_diagnostics import (
     to_payload_trace,
 )
 from gabion.tooling.runtime.deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
+from gabion.tooling.runtime.policy_scan_batch import (
+    PolicyScanBatch,
+    ScanFailureSeed,
+    build_policy_scan_batch,
+    iter_failure_seeds,
+)
 
 RULE_NAME = "fiber_type_dispatch_contract"
 TARGET_GLOB = "src/gabion/**/*.py"
@@ -203,24 +209,22 @@ class _TypeDispatchVisitor(ast.NodeVisitor):
                 )
 
         for decorator in node.decorator_list:
-            register_type = _dispatch_register_type_expr(
+            for register_type in _iter_dispatch_register_type_expr(
                 decorator=decorator,
                 function_node=node,
-            )
-            if register_type is None:
-                continue
-            if _is_abstract_register_type(register_type):
-                self._record_violation(
-                    node=register_type,
-                    kind="abstract_register_type",
-                    message=(
-                        "dispatch register type must be concrete; "
-                        "ABCs are prohibited by dispatch contract"
-                    ),
-                    guard_form="abstract_register_type",
-                    input_slot="register_type",
-                    event_kind="syntax:abstract_register_type",
-                )
+            ):
+                if _is_abstract_register_type(register_type):
+                    self._record_violation(
+                        node=register_type,
+                        kind="abstract_register_type",
+                        message=(
+                            "dispatch register type must be concrete; "
+                            "ABCs are prohibited by dispatch contract"
+                        ),
+                        guard_form="abstract_register_type",
+                        input_slot="register_type",
+                        event_kind="syntax:abstract_register_type",
+                    )
 
         self.generic_visit(node)
         self._scope_stack.pop()
@@ -315,64 +319,142 @@ class _TypeDispatchVisitor(ast.NodeVisitor):
 
 def collect_violations(
     *,
-    rel_path: str,
-    source: str,
-    tree: ast.AST,
+    batch: PolicyScanBatch,
     run_context: CanonicalRunContext | None = None,
 ) -> list[Violation]:
-    with deadline_scope_from_ticks(_DEFAULT_POLICY_TIMEOUT_BUDGET):
-        runtime_context = (
-            run_context
-            if run_context is not None
-            else CanonicalRunContext(
-                run_id=f"policy:{RULE_NAME}",
-                sequencer=GlobalEventSequencer(),
-                identity_space=GlobalIdentitySpace(
-                    allocator=PrimeIdentityAdapter(registry=PrimeRegistry())
-                ),
-            )
-        )
-        visitor = _TypeDispatchVisitor(
-            rel_path=rel_path,
-            run_context=runtime_context,
-        )
-        visitor.visit(tree)
-        _ = source
-        return visitor.violations
+    if run_context is not None:
+        return _collect_with_context(batch=batch, run_context=run_context)
 
-
-def collect_root_violations(*, root: Path, files: Sequence[Path] | None = None) -> list[Violation]:
-    with deadline_scope_from_ticks(_DEFAULT_POLICY_TIMEOUT_BUDGET):
-        candidates = files if files is not None else tuple(sorted(root.glob(TARGET_GLOB)))
-        run_context = CanonicalRunContext(
-            run_id=f"policy:{RULE_NAME}",
-            sequencer=GlobalEventSequencer(),
-            identity_space=GlobalIdentitySpace(
-                allocator=PrimeIdentityAdapter(registry=PrimeRegistry())
-            ),
-        )
-        violations: list[Violation] = []
-        for path in candidates:
-            if not path.is_file() or any(part == "__pycache__" for part in path.parts):
-                continue
-            rel_path = path.relative_to(root).as_posix()
-            try:
-                source = path.read_text(encoding="utf-8")
-            except OSError:
-                continue
-            try:
-                tree = ast.parse(source)
-            except SyntaxError:
-                continue
-            violations.extend(
-                collect_violations(
-                    rel_path=rel_path,
-                    source=source,
-                    tree=tree,
-                    run_context=run_context,
+    violations: list[Violation] = []
+    for seed in iter_failure_seeds(batch=batch):
+        with deadline_scope_from_ticks(_DEFAULT_POLICY_TIMEOUT_BUDGET):
+            violations.append(
+                _failure_violation(
+                    run_context=_new_run_context(),
+                    seed=seed,
                 )
             )
-        return violations
+    for module in batch.modules:
+        with deadline_scope_from_ticks(_DEFAULT_POLICY_TIMEOUT_BUDGET):
+            module_violations = _collect_with_context(
+                batch=PolicyScanBatch(
+                    root=batch.root,
+                    modules=(module,),
+                    read_failures=(),
+                    parse_failures=(),
+                ),
+                run_context=_new_run_context(),
+            )
+            violations.extend(module_violations)
+    return violations
+
+
+def _new_run_context() -> CanonicalRunContext:
+    return CanonicalRunContext(
+        run_id=f"policy:{RULE_NAME}",
+        sequencer=GlobalEventSequencer(),
+        identity_space=GlobalIdentitySpace(
+            allocator=PrimeIdentityAdapter(registry=PrimeRegistry())
+        ),
+    )
+
+
+def _collect_with_context(
+    *,
+    batch: PolicyScanBatch,
+    run_context: CanonicalRunContext,
+) -> list[Violation]:
+    violations: list[Violation] = []
+    for seed in iter_failure_seeds(batch=batch):
+        violations.append(
+            _failure_violation(
+                run_context=run_context,
+                seed=seed,
+            )
+        )
+    for module in batch.modules:
+        visitor = _TypeDispatchVisitor(
+            rel_path=module.rel_path,
+            run_context=run_context,
+        )
+        visitor.visit(module.tree)
+        violations.extend(visitor.violations)
+    return violations
+
+
+def _failure_violation(
+    *,
+    run_context: CanonicalRunContext,
+    seed: ScanFailureSeed,
+) -> Violation:
+    flow_identity = _derive_flow_identity(
+        run_context=run_context,
+        rel_path=seed.path,
+        qualname="<module>",
+        kind=seed.kind,
+        line=seed.line,
+        input_slot="module_failure",
+        guard_form="module_failure",
+    )
+    structured_hash = _structured_hash(
+        seed.path,
+        "<module>",
+        seed.kind,
+        "module_failure",
+        "module_failure",
+        str(seed.line),
+        str(seed.column),
+    )
+    return Violation(
+        path=seed.path,
+        line=seed.line,
+        column=seed.column,
+        qualname="<module>",
+        kind=seed.kind,
+        message=seed.detail,
+        guard_form="module_failure",
+        input_slot="module_failure",
+        flow_identity=flow_identity,
+        structured_hash=structured_hash,
+        fiber_trace=(
+            FiberTraceEvent(
+                ordinal=1,
+                line=seed.line,
+                column=seed.column,
+                event_kind=f"syntax:block_enter:{seed.kind}",
+                normalization_class="narrow",
+                input_slot="module_failure",
+                phase_hint="syntax",
+                pre_core=True,
+            ),
+            FiberTraceEvent(
+                ordinal=2,
+                line=seed.line,
+                column=seed.column,
+                event_kind=f"syntax:{seed.kind}",
+                normalization_class="narrow",
+                input_slot="module_failure",
+                phase_hint="syntax",
+                pre_core=True,
+            ),
+        ),
+        applicability_bounds=FiberApplicabilityBounds(
+            current_boundary_before_ordinal=2,
+            violation_applies_when_boundary_before_ordinal_gt=1,
+            violation_clears_when_boundary_before_ordinal_lte=1,
+            boundary_domain_max_before_ordinal=2,
+            core_entry_before_ordinal=None,
+        ),
+        counterfactual_boundary=FiberCounterfactualBoundary(
+            suggested_boundary_before_ordinal=1,
+            boundary_event_kind=f"syntax:block_enter:{seed.kind}",
+            boundary_line=seed.line,
+            boundary_column=seed.column,
+            eliminates_violation_without_other_changes=True,
+            preserves_prior_normalization=True,
+            rationale="Ensure module parse/read validity before type-dispatch analysis.",
+        ),
+    )
 
 
 def _guard_forms(expr: ast.AST) -> tuple[str, ...]:
@@ -479,33 +561,36 @@ def _has_never_call(body: Sequence[ast.stmt]) -> bool:
     return False
 
 
-def _dispatch_register_type_expr(
+def _iter_dispatch_register_type_expr(
     *,
     decorator: ast.AST,
     function_node: ast.FunctionDef | ast.AsyncFunctionDef,
-) -> ast.AST | None:
+) -> tuple[ast.AST, ...]:
     match decorator:
         case ast.Attribute(attr="register"):
-            return _dispatch_parameter_annotation(function_node)
+            return _iter_dispatch_parameter_annotation(function_node)
         case ast.Call(func=ast.Attribute(attr="register"), args=args):
             if args:
-                return args[0]
-            return _dispatch_parameter_annotation(function_node)
+                return (args[0],)
+            return _iter_dispatch_parameter_annotation(function_node)
         case _:
-            return None
+            return ()
 
 
-def _dispatch_parameter_annotation(
+def _iter_dispatch_parameter_annotation(
     function_node: ast.FunctionDef | ast.AsyncFunctionDef,
-) -> ast.AST | None:
+) -> tuple[ast.AST, ...]:
     args = function_node.args.args
     if not args:
-        return None
+        return ()
     first_arg = args[0].arg
     dispatch_index = 1 if first_arg in {"self", "cls"} else 0
     if dispatch_index >= len(args):
-        return None
-    return args[dispatch_index].annotation
+        return ()
+    annotation = args[dispatch_index].annotation
+    if annotation is None:
+        return ()
+    return (annotation,)
 
 
 def _is_abstract_register_type(type_expr: ast.AST) -> bool:
@@ -602,7 +687,8 @@ def _serialize(violation: Violation) -> dict[str, object]:
 
 
 def run(*, root: Path, out: Path | None = None) -> int:
-    violations = collect_root_violations(root=root)
+    batch = build_policy_scan_batch(root=root, target_globs=(TARGET_GLOB,))
+    violations = collect_violations(batch=batch)
     payload = {
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "root": str(root),
