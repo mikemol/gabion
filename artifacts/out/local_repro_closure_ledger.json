@@ -6276,6 +6276,61 @@
         "targeted_pytest": "pass (281 passed server/progress + 26 passed policy-script queue tests)",
         "policy_scanner_suite": "expected_nonzero total=10744"
       }
+    },
+    {
+      "cu_id": "CU-GEO2",
+      "summary": "Geometric hotspot server_core follow-on: strictify command_orchestrator_progress loop/filter surfaces via iterator pipelines and eliminate remaining loop-structure debt in the file.",
+      "timestamp_utc": "2026-03-09T16:36:42Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7272,
+        "defensive_fallback": 123,
+        "fiber_loop_structure_contract": 968,
+        "fiber_filter_processor_contract": 2144,
+        "fiber_scalar_sentinel_contract": 237,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7257,
+        "defensive_fallback": 130,
+        "fiber_loop_structure_contract": 963,
+        "fiber_filter_processor_contract": 2130,
+        "fiber_scalar_sentinel_contract": 236,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 10744,
+      "total_after": 10716,
+      "notes": [
+        "Replaced module-level singledispatch registration loops with explicit concrete-class registrations.",
+        "Refactored _analysis_resume_progress, _completed_path_set, _in_progress_scan_states, _state_processed_functions, and _analysis_index_resume_hydrated_paths to iterator/filter pipelines (upstream filtering, no in-loop branch guards).",
+        "Removed command_orchestrator_progress loop-structure and filter/processor findings to zero for this file while preserving server behavior under targeted suites.",
+        "Server_core ring (active five families) reduced 646 -> 618 (-28)."
+      ],
+      "validation": {
+        "policy_check_workflows": "fail_expected_symbol_activity_audit (unsuppressed=1470)",
+        "policy_check_ambiguity_contract": "pass",
+        "targeted_pytest": "pass (302 passed)",
+        "policy_scanner_suite": "expected_nonzero total=10716"
+      }
     }
   ],
   "generated_by": "codex",
