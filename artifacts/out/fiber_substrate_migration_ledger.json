@@ -1349,6 +1349,143 @@
         "targeted_pytest": "pass (67 passed)",
         "policy_scanner_suite": "expected_nonzero total=11611"
       }
+    },
+    {
+      "cu_id": "CU-GEO13",
+      "timestamp_utc": "2026-03-09T19:38:54Z",
+      "migrated_families": [
+        "branchless",
+        "defensive_fallback",
+        "fiber_filter_processor_contract",
+        "fiber_loop_structure_contract",
+        "fiber_scalar_sentinel_contract",
+        "fiber_return_shape_contract"
+      ],
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7195,
+        "defensive_fallback": 106,
+        "fiber_loop_structure_contract": 918,
+        "fiber_filter_processor_contract": 2002,
+        "fiber_return_shape_contract": 1163,
+        "fiber_scalar_sentinel_contract": 227,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7179,
+        "defensive_fallback": 106,
+        "fiber_loop_structure_contract": 918,
+        "fiber_filter_processor_contract": 1992,
+        "fiber_return_shape_contract": 1165,
+        "fiber_scalar_sentinel_contract": 227,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 1,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 11611,
+      "total_after": 11588,
+      "drift_notes": [
+        "Net total changed by -23.",
+        "Global decreases: branchless -16, fiber_filter_processor_contract -10.",
+        "Global increase: fiber_return_shape_contract +2 and typing_surface +1.",
+        "resume_codec recursive seed pass removed 10 loop-processor branch violations while preserving scanner guard-family zeros."
+      ],
+      "libcst_recovery": {
+        "cst_parse_failure_events": 0,
+        "recovered_modules": "all parseable targets processed"
+      },
+      "validation": {
+        "policy_check_workflows": "fail_expected_symbol_activity_audit (unsuppressed=1546)",
+        "policy_check_ambiguity_contract": "pass",
+        "targeted_pytest": "pass (27 passed)",
+        "policy_scanner_suite": "expected_nonzero total=11588"
+      }
+    },
+    {
+      "cu_id": "CU-GEO14",
+      "timestamp_utc": "2026-03-09T20:31:44Z",
+      "migrated_families": [
+        "branchless",
+        "defensive_fallback",
+        "fiber_filter_processor_contract",
+        "fiber_loop_structure_contract",
+        "fiber_scalar_sentinel_contract",
+        "fiber_return_shape_contract",
+        "typing_surface"
+      ],
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7179,
+        "defensive_fallback": 106,
+        "fiber_loop_structure_contract": 918,
+        "fiber_filter_processor_contract": 1992,
+        "fiber_return_shape_contract": 1165,
+        "fiber_scalar_sentinel_contract": 227,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 1,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7156,
+        "defensive_fallback": 107,
+        "fiber_loop_structure_contract": 918,
+        "fiber_filter_processor_contract": 1987,
+        "fiber_return_shape_contract": 1169,
+        "fiber_scalar_sentinel_contract": 227,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 11588,
+      "total_after": 11564,
+      "drift_notes": [
+        "Net total changed by -24.",
+        "Global decreases: branchless -23, fiber_filter_processor_contract -5, typing_surface -1.",
+        "Global increases: defensive_fallback +1, fiber_return_shape_contract +4.",
+        "Seed cleanup removed all six active-family findings from resume_codec while preserving guard-family zeros."
+      ],
+      "libcst_recovery": {
+        "cst_parse_failure_events": 0,
+        "recovered_modules": "all parseable targets processed"
+      },
+      "validation": {
+        "policy_check_workflows": "fail_expected_symbol_activity_audit (unsuppressed=1559)",
+        "policy_check_ambiguity_contract": "pass",
+        "targeted_pytest": "pass (20 passed)",
+        "policy_scanner_suite": "expected_nonzero total=11564"
+      }
     }
   ]
 }

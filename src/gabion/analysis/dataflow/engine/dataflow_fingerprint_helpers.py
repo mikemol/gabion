@@ -387,12 +387,12 @@ def _summarize_fingerprint_provenance(
     grouped: dict[tuple[object, ...], list[JSONObject]] = {}
     for entry in entries:
         check_deadline()
-        matches = str_tuple_from_sequence(entry.get("glossary_matches")) or tuple()
+        matches = tuple(str_tuple_from_sequence(entry.get("glossary_matches")))
         if matches:
             key = ("glossary", matches)
         else:
-            base_keys = str_tuple_from_sequence(entry.get("base_keys")) or tuple()
-            ctor_keys = str_tuple_from_sequence(entry.get("ctor_keys")) or tuple()
+            base_keys = tuple(str_tuple_from_sequence(entry.get("base_keys")))
+            ctor_keys = tuple(str_tuple_from_sequence(entry.get("ctor_keys")))
             key = ("types", base_keys, ctor_keys)
         grouped.setdefault(key, []).append(entry)
     lines: list[str] = []
@@ -664,7 +664,7 @@ def _evaluate_exception_obligation_non_regression_predicate(
 ) -> JSONObject:
     kind = str(predicate.get("kind", ""))
     raw_pre_summary = context.pre.get("exception_obligations_summary")
-    pre_summary = cast(Mapping[str, object] | None, mapping_optional(raw_pre_summary))
+    pre_summary = mapping_optional(raw_pre_summary)
     if context.post_exception_obligations is None:
         return {
             "kind": kind,
@@ -795,7 +795,7 @@ def verify_rewrite_plan(
     post_base = list(post_entry.get("base_keys") or [])
     post_ctor = list(post_entry.get("ctor_keys") or [])
     post_remainder = mapping_default_empty(post_entry.get("remainder"))
-    post_matches = str_tuple_from_sequence(post_entry.get("glossary_matches")) or tuple()
+    post_matches = tuple(str_tuple_from_sequence(post_entry.get("glossary_matches")))
     post_strata = _glossary_match_strata(post_matches)
 
     predicate_results: list[JSONObject] = []

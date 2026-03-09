@@ -23,7 +23,10 @@ from gabion.analysis.foundation.json_types import JSONObject, JSONValue
 from gabion.analysis.foundation.resume_codec import (
     allowed_path_lookup,
     int_str_pairs_from_sequence,
-    int_tuple4_optional,
+    iter_int_tuple4_from_sequence,
+    iter_mapping_values,
+    iter_str_key_mappings,
+    iter_sequence_items,
     iter_valid_key_entries,
     load_allowed_paths_from_sequence,
     load_resume_map,
@@ -265,31 +268,21 @@ def _serialize_param_use(value: ParamUse) -> JSONObject:
 
 
 def _deserialize_param_use(payload: Mapping[str, JSONValue]) -> ParamUse:
-    direct_forward = str_pair_set_from_sequence(payload.get("direct_forward"))
-    current_aliases = str_set_from_sequence(payload.get("current_aliases"))
+    direct_forward = set(str_pair_set_from_sequence(payload.get("direct_forward")))
+    current_aliases = set(str_set_from_sequence(payload.get("current_aliases")))
     forward_sites: dict[tuple[str, str], set[tuple[int, int, int, int]]] = {}
-    for raw_entry in sequence_optional(payload.get("forward_sites")) or ():
+    for entry in iter_mapping_values(payload.get("forward_sites")):
         check_deadline()
-        entry = mapping_optional(raw_entry)
-        if entry is not None:
-            callee = str_optional(entry.get("callee"))
-            slot = str_optional(entry.get("slot"))
-            if callee is not None and slot is not None:
-                span_set: set[tuple[int, int, int, int]] = set()
-                for raw_span in sequence_optional(entry.get("spans")) or ():
-                    check_deadline()
-                    span = int_tuple4_optional(raw_span)
-                    if span is not None:
-                        span_set.add(span)
-                forward_sites[(callee, slot)] = span_set
+        callee = str_optional(entry.get("callee"))
+        slot = str_optional(entry.get("slot"))
+        if callee is not None and slot is not None:
+            span_set: set[tuple[int, int, int, int]] = set()
+            for span in iter_int_tuple4_from_sequence(entry.get("spans")):
+                span_set.add(span)
+            forward_sites[(callee, slot)] = span_set
     non_forward = bool(payload.get("non_forward"))
     unknown_key_carrier = bool(payload.get("unknown_key_carrier"))
-    unknown_key_sites: set[tuple[int, int, int, int]] = set()
-    for raw_span in sequence_optional(payload.get("unknown_key_sites")) or ():
-        check_deadline()
-        span = int_tuple4_optional(raw_span)
-        if span is not None:
-            unknown_key_sites.add(span)
+    unknown_key_sites = set(iter_int_tuple4_from_sequence(payload.get("unknown_key_sites")))
     return ParamUse(
         direct_forward=direct_forward,
         non_forward=non_forward,
@@ -317,12 +310,9 @@ def _deserialize_param_use_map(
     payload: Mapping[str, JSONValue],
 ) -> dict[str, ParamUse]:
     use_map: dict[str, ParamUse] = {}
-    for param_name, raw_value in payload.items():
+    for param_name, raw_mapping in iter_str_key_mappings(payload):
         check_deadline()
-        raw_mapping = mapping_optional(raw_value)
-        normalized_param_name = str_optional(param_name)
-        if normalized_param_name is not None and raw_mapping is not None:
-            use_map[normalized_param_name] = _deserialize_param_use(raw_mapping)
+        use_map[param_name] = _deserialize_param_use(raw_mapping)
     return use_map
 
 
@@ -383,19 +373,19 @@ def _deserialize_call_args(payload: Mapping[str, JSONValue]):
             pass
         case _:
             return None
-    star_pos = int_str_pairs_from_sequence(payload.get("star_pos"))
-    span = int_tuple4_optional(payload.get("span"))
+    star_pos = list(int_str_pairs_from_sequence(payload.get("star_pos")))
+    span = _first_int_tuple4(payload.get("span"))
     return CallArgs(
         callee=callee_name,
-        pos_map=str_map_from_mapping(payload.get("pos_map")),
-        kw_map=str_map_from_mapping(payload.get("kw_map")),
-        const_pos=str_map_from_mapping(payload.get("const_pos")),
-        const_kw=str_map_from_mapping(payload.get("const_kw")),
-        non_const_pos=str_set_from_sequence(payload.get("non_const_pos")),
-        non_const_kw=str_set_from_sequence(payload.get("non_const_kw")),
+        pos_map=dict(str_map_from_mapping(payload.get("pos_map"))),
+        kw_map=dict(str_map_from_mapping(payload.get("kw_map"))),
+        const_pos=dict(str_map_from_mapping(payload.get("const_pos"))),
+        const_kw=dict(str_map_from_mapping(payload.get("const_kw"))),
+        non_const_pos=set(str_set_from_sequence(payload.get("non_const_pos"))),
+        non_const_kw=set(str_set_from_sequence(payload.get("non_const_kw"))),
         star_pos=star_pos,
         star_kw=sort_once(
-            str_set_from_sequence(payload.get("star_kw")),
+            set(str_set_from_sequence(payload.get("star_kw"))),
             source="gabion.analysis.dataflow_indexed_file_scan._deserialize_call_args.site_1",
         ),
         is_test=bool(payload.get("is_test")),
@@ -411,14 +401,16 @@ def _serialize_call_args_list(call_args: Sequence[CallArgs]) -> list[JSONObject]
 
 def _deserialize_call_args_list(payload: Sequence[JSONValue]) -> list[CallArgs]:
     call_args: list[CallArgs] = []
-    for raw_entry in payload:
+    for entry_mapping in iter_mapping_values(payload):
         check_deadline()
-        entry_mapping = mapping_optional(raw_entry)
-        if entry_mapping is not None:
-            call = _deserialize_call_args(entry_mapping)
-            if call is not None:
-                call_args.append(call)
+        call = _deserialize_call_args(entry_mapping)
+        if call is not None:
+            call_args.append(call)
     return call_args
+
+
+def _first_int_tuple4(value):
+    return next(iter_int_tuple4_from_sequence((value,)), None)
 
 
 def _serialize_function_info_for_resume(info: FunctionInfo) -> JSONObject:
@@ -444,14 +436,14 @@ def _deserialize_function_info_for_resume(
         allowed_paths=allowed_paths,
         deps=DeserializeFunctionInfoForResumeDeps(
             sequence_or_none_fn=sequence_optional,
-            str_list_from_sequence_fn=str_list_from_sequence,
+            str_list_from_sequence_fn=lambda value: list(str_list_from_sequence(value)),
             str_or_none_fn=str_optional,
             mapping_or_empty_fn=mapping_default_empty,
             check_deadline_fn=check_deadline,
             deserialize_call_args_list_fn=_deserialize_call_args_list,
-            str_set_from_sequence_fn=str_set_from_sequence,
-            str_tuple_from_sequence_fn=str_tuple_from_sequence,
-            int_tuple4_or_none_fn=int_tuple4_optional,
+            str_set_from_sequence_fn=lambda value: set(str_set_from_sequence(value)),
+            str_tuple_from_sequence_fn=lambda value: tuple(str_tuple_from_sequence(value)),
+            int_tuple4_or_none_fn=_first_int_tuple4,
             function_info_ctor=FunctionInfo,
         ),
     )
@@ -479,8 +471,8 @@ def _deserialize_class_info_for_resume(
             pass
         case _:
             return None
-    bases = str_list_from_sequence(payload.get("bases"))
-    methods = str_set_from_sequence(payload.get("methods"))
+    bases = list(str_list_from_sequence(payload.get("bases")))
+    methods = set(str_set_from_sequence(payload.get("methods")))
     return ClassInfo(
         qual=qual_name,
         module=module_name,
@@ -502,18 +494,15 @@ def _serialize_symbol_table_for_resume(table: SymbolTable) -> JSONObject:
 
 
 def _deserialize_symbol_table_for_resume(payload: Mapping[str, JSONValue]) -> SymbolTable:
-    return cast(
-        SymbolTable,
-        _deserialize_symbol_table_for_resume_impl(
-            payload,
-            deps=DeserializeSymbolTableForResumeDeps(
-                symbol_table_ctor=SymbolTable,
-                sequence_or_none_fn=sequence_optional,
-                check_deadline_fn=check_deadline,
-                str_set_from_sequence_fn=str_set_from_sequence,
-                mapping_or_none_fn=mapping_optional,
-                mapping_or_empty_fn=mapping_default_empty,
-            ),
+    return _deserialize_symbol_table_for_resume_impl(
+        payload,
+        deps=DeserializeSymbolTableForResumeDeps(
+            symbol_table_ctor=SymbolTable,
+            sequence_or_none_fn=sequence_optional,
+            check_deadline_fn=check_deadline,
+            str_set_from_sequence_fn=lambda value: set(str_set_from_sequence(value)),
+            mapping_or_none_fn=mapping_optional,
+            mapping_or_empty_fn=mapping_default_empty,
         ),
     )
 
@@ -539,18 +528,15 @@ def _analysis_index_resume_variants(
     if payload is None:
         return variants
     raw_variants = payload.get(_ANALYSIS_INDEX_RESUME_VARIANTS_KEY)
-    raw_variants_mapping = mapping_optional(raw_variants)
-    if raw_variants_mapping is not None:
-        for identity, raw_variant in raw_variants_mapping.items():
-            check_deadline()
-            raw_variant_mapping = mapping_optional(raw_variant)
-            variant_identity = _CacheIdentity.from_boundary(identity)
-            if variant_identity is not None and raw_variant_mapping is not None:
-                variant_payload = payload_with_format(raw_variant_mapping, format_version=1)
-                if variant_payload is not None:
-                    variants[variant_identity.value] = _analysis_index_resume_variant_payload(
-                        variant_payload
-                    )
+    for identity, raw_variant_mapping in iter_str_key_mappings(raw_variants):
+        check_deadline()
+        variant_identity = _CacheIdentity.from_boundary(identity)
+        if variant_identity is not None:
+            variant_payload = payload_with_format(raw_variant_mapping, format_version=1)
+            if variant_payload is not None:
+                variants[variant_identity.value] = _analysis_index_resume_variant_payload(
+                    variant_payload
+                )
     return variants
 
 
@@ -643,9 +629,16 @@ def _load_analysis_index_resume_payload(
                 cache_identity_from_boundary_fn=_CacheIdentity.from_boundary,
                 analysis_index_resume_variants_fn=_analysis_index_resume_variants,
                 resume_variant_for_identity_fn=_resume_variant_for_identity,
-                allowed_path_lookup_fn=allowed_path_lookup,
+                allowed_path_lookup_fn=lambda paths, *, key_fn: dict(
+                    allowed_path_lookup(paths, key_fn=key_fn)
+                ),
                 analysis_collection_resume_path_key_fn=_analysis_collection_resume_path_key,
-                load_allowed_paths_from_sequence_fn=load_allowed_paths_from_sequence,
+                load_allowed_paths_from_sequence_fn=lambda value, *, allowed_paths: list(
+                    load_allowed_paths_from_sequence(
+                        value,
+                        allowed_paths=allowed_paths,
+                    )
+                ),
                 mapping_or_none_fn=mapping_optional,
                 check_deadline_fn=check_deadline,
                 deserialize_function_info_for_resume_fn=_deserialize_function_info_for_resume,
@@ -796,14 +789,20 @@ def _load_file_scan_resume_state(
             empty_state_fn=_empty_file_scan_resume_state,
             payload_with_phase_fn=payload_with_phase,
             mapping_sections_fn=mapping_sections,
-            load_resume_map_fn=load_resume_map,
+            load_resume_map_fn=lambda *, payload, valid_keys, parser: dict(
+                load_resume_map(
+                    payload=payload,
+                    valid_keys=valid_keys,
+                    parser=parser,
+                )
+            ),
             deserialize_param_use_map_fn=_deserialize_param_use_map,
             mapping_or_none_fn=mapping_optional,
             deserialize_call_args_list_fn=_deserialize_call_args_list,
             sequence_or_none_fn=sequence_optional,
-            str_list_from_sequence_fn=str_list_from_sequence,
+            str_list_from_sequence_fn=lambda value: list(str_list_from_sequence(value)),
             deserialize_param_spans_for_resume_fn=_deserialize_param_spans_for_resume,
-            str_tuple_from_sequence_fn=str_tuple_from_sequence,
+            str_tuple_from_sequence_fn=lambda value: tuple(str_tuple_from_sequence(value)),
             deadline_loop_iter_fn=deadline_loop_iter,
             iter_valid_key_entries_fn=iter_valid_key_entries,
         ),
@@ -867,8 +866,15 @@ def _load_analysis_collection_resume_payload(
         payload_with_format_fn=payload_with_format,
         mapping_sections_fn=mapping_sections,
         mapping_payload_fn=mapping_payload,
-        allowed_path_lookup_fn=allowed_path_lookup,
-        load_allowed_paths_from_sequence_fn=load_allowed_paths_from_sequence,
+        allowed_path_lookup_fn=lambda paths, *, key_fn: dict(
+            allowed_path_lookup(paths, key_fn=key_fn)
+        ),
+        load_allowed_paths_from_sequence_fn=lambda value, *, allowed_paths: list(
+            load_allowed_paths_from_sequence(
+                value,
+                allowed_paths=allowed_paths,
+            )
+        ),
         mapping_or_none_fn=mapping_optional,
         sequence_or_none_fn=sequence_optional,
         check_deadline_fn=check_deadline,

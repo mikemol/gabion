@@ -375,8 +375,15 @@ def load_analysis_collection_resume_payload(
     payload_with_format_fn: Callable[..., object] = payload_with_format,
     mapping_sections_fn: Callable[..., object] = mapping_sections,
     mapping_payload_fn: Callable[[JSONValue], object] = mapping_payload,
-    allowed_path_lookup_fn: Callable[..., dict[str, Path]] = allowed_path_lookup,
-    load_allowed_paths_from_sequence_fn: Callable[..., list[Path]] = load_allowed_paths_from_sequence,
+    allowed_path_lookup_fn: Callable[..., dict[str, Path]] = lambda paths, *, key_fn: dict(
+        allowed_path_lookup(paths, key_fn=key_fn)
+    ),
+    load_allowed_paths_from_sequence_fn: Callable[..., list[Path]] = lambda value, *, allowed_paths: list(
+        load_allowed_paths_from_sequence(
+            value,
+            allowed_paths=allowed_paths,
+        )
+    ),
     mapping_or_none_fn: Callable[[JSONValue], object] = mapping_optional,
     sequence_or_none_fn: Callable[[JSONValue], object] = sequence_optional,
     check_deadline_fn: Callable[[], None] = check_deadline,

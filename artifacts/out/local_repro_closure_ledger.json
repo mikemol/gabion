@@ -6837,6 +6837,122 @@
         "targeted_pytest": "pass (67 passed)",
         "policy_scanner_suite": "expected_nonzero total=11611"
       }
+    },
+    {
+      "cu_id": "CU-GEO13",
+      "summary": "Recursive strictification on analysis/foundation/resume_codec seed: moved loop-local branch gates into selector pipelines and replaced branchy accumulator loops with stream/filter composition while preserving importer contracts.",
+      "timestamp_utc": "2026-03-09T19:38:54Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7195,
+        "defensive_fallback": 106,
+        "fiber_loop_structure_contract": 918,
+        "fiber_filter_processor_contract": 2002,
+        "fiber_return_shape_contract": 1163,
+        "fiber_scalar_sentinel_contract": 227,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7179,
+        "defensive_fallback": 106,
+        "fiber_loop_structure_contract": 918,
+        "fiber_filter_processor_contract": 1992,
+        "fiber_return_shape_contract": 1165,
+        "fiber_scalar_sentinel_contract": 227,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 1,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 11611,
+      "total_after": 11588,
+      "notes": [
+        "resume_codec seed delta: branchless 41->25 (-16), fiber_filter_processor_contract 15->5 (-10), fiber_return_shape_contract 11->13 (+2).",
+        "analysis/foundation ring active-six delta: branchless 260->244 (-16), fiber_filter_processor_contract 44->34 (-10), fiber_loop_structure_contract 39->39 (0), defensive_fallback 2->2 (0), fiber_scalar_sentinel_contract 6->6 (0), fiber_return_shape_contract 55->57 (+2).",
+        "Global active-family delta: branchless -16, fiber_filter_processor_contract -10, fiber_loop_structure_contract +0, defensive_fallback +0, fiber_scalar_sentinel_contract +0, fiber_return_shape_contract +2 (net active-five -26; active-six -24).",
+        "Guard families remained zero for fiber_type_dispatch_contract/runtime_narrowing_boundary/boundary_core_contract."
+      ],
+      "validation": {
+        "policy_check_workflows": "fail_expected_symbol_activity_audit (unsuppressed=1546)",
+        "policy_check_ambiguity_contract": "pass",
+        "targeted_pytest": "pass (test_resume_codec: 12 passed; resume/index/aspf cluster: 15 passed)",
+        "policy_scanner_suite": "expected_nonzero total=11588"
+      }
+    },
+    {
+      "cu_id": "CU-GEO14",
+      "summary": "Recursive strictification of resume_codec seed with iterator-first codec surfaces and force-major importer updates for resume-state/dataflow loaders.",
+      "timestamp_utc": "2026-03-09T20:31:44Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7179,
+        "defensive_fallback": 106,
+        "fiber_loop_structure_contract": 918,
+        "fiber_filter_processor_contract": 1992,
+        "fiber_return_shape_contract": 1165,
+        "fiber_scalar_sentinel_contract": 227,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 1,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7156,
+        "defensive_fallback": 107,
+        "fiber_loop_structure_contract": 918,
+        "fiber_filter_processor_contract": 1987,
+        "fiber_return_shape_contract": 1169,
+        "fiber_scalar_sentinel_contract": 227,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 11588,
+      "total_after": 11564,
+      "notes": [
+        "resume_codec now resolves to zero for branchless/fiber_filter_processor_contract/fiber_loop_structure_contract/fiber_return_shape_contract/defensive_fallback/fiber_scalar_sentinel_contract.",
+        "Replaced container-return wrappers with iterator-first carriers and moved materialization to importer boundaries (resume_state + dataflow_resume_serialization).",
+        "resume_codec file delta: branchless -25, filter -5, return-shape -13 (net -43 on active-six).",
+        "analysis/foundation ring delta: branchless 244->219 (-25), filter 34->29 (-5), loop 39->39 (0), defensive 2->2 (0), scalar 6->6 (0), return-shape 57->44 (-13).",
+        "Global deltas: branchless -23, fiber_filter_processor_contract -5, defensive_fallback +1, fiber_return_shape_contract +4, typing_surface -1 (net total -24).",
+        "Guard families stayed zero (fiber_type_dispatch_contract/runtime_narrowing_boundary/boundary_core_contract)."
+      ],
+      "validation": {
+        "policy_check_workflows": "fail_expected_symbol_activity_audit (unsuppressed=1559)",
+        "policy_check_ambiguity_contract": "pass",
+        "targeted_pytest": "pass (20 passed)",
+        "policy_scanner_suite": "expected_nonzero total=11564"
+      }
     }
   ],
   "generated_by": "codex",
