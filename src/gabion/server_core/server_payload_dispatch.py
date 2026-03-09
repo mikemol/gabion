@@ -160,12 +160,171 @@ def _iter_manifest_config_items(
         yield key, _analysis_manifest_config_value(config_payload.get(key))
 
 
+def _text_key_item(item: tuple[object, JSONValue]) -> tuple[str | None, JSONValue]:
+    raw_key, value = item
+    return _str_optional(raw_key), value
+
+
+def _text_key_item_is_present(item: tuple[str | None, JSONValue]) -> bool:
+    key, _value = item
+    return key is not None
+
+
+def _coerce_text_key_item(item: tuple[str | None, JSONValue]) -> tuple[str, JSONValue]:
+    key, value = item
+    if key is None:
+        never("missing key after present-key filtering")
+    return key, value
+
+
+def _iter_text_key_items(mapping: Mapping[str, JSONValue]) -> Iterator[tuple[str, JSONValue]]:
+    yield from map(
+        _coerce_text_key_item,
+        filter(_text_key_item_is_present, map(_text_key_item, mapping.items())),
+    )
+
+
+def _path_state_item(
+    item: tuple[object, object],
+) -> tuple[str | None, Mapping[str, JSONValue] | None]:
+    raw_path, raw_state = item
+    return _str_optional(raw_path), _json_mapping_optional(raw_state)
+
+
+def _path_state_item_is_present(
+    item: tuple[str | None, Mapping[str, JSONValue] | None],
+) -> bool:
+    path_value, state_value = item
+    return path_value is not None and state_value is not None
+
+
+def _coerce_path_state_item(
+    item: tuple[str | None, Mapping[str, JSONValue] | None],
+) -> tuple[str, Mapping[str, JSONValue]]:
+    path_value, state_value = item
+    if path_value is None or state_value is None:
+        never("missing path/state after present-item filtering")
+    return path_value, state_value
+
+
+def _iter_present_path_state_items(
+    mapping: Mapping[str, JSONValue],
+) -> Iterator[tuple[str, Mapping[str, JSONValue]]]:
+    yield from map(
+        _coerce_path_state_item,
+        filter(_path_state_item_is_present, map(_path_state_item, mapping.items())),
+    )
+
+
+def _next_ordered_path(previous_path: str | None, current_path: str) -> str:
+    if previous_path is not None and previous_path > current_path:
+        never(
+            "in_progress_scan_by_path path order regression",
+            previous_path=previous_path,
+            current_path=current_path,
+        )
+    return current_path
+
+
+def _in_progress_resume_payload_row(
+    item: tuple[str, Mapping[str, JSONValue]],
+) -> tuple[str, object]:
+    path_value, state_mapping = item
+    return path_value, _in_progress_scan_state_payload(state_mapping)
+
+
+def _iter_ordered_in_progress_resume_payload_rows(
+    mapping: Mapping[str, JSONValue],
+) -> Iterator[tuple[str, object]]:
+    previous_path: str | None = None
+    for item in _iter_present_path_state_items(mapping):
+        check_deadline()
+        path_value, _state_mapping = item
+        previous_path = _next_ordered_path(previous_path, path_value)
+        yield _in_progress_resume_payload_row(item)
+
+
+def _dimension_row_optional(item: tuple[str, JSONValue]) -> tuple[str, dict[str, int]] | None:
+    dim_name_text, raw_payload = item
+    dim_payload = _json_mapping_optional(raw_payload)
+    if dim_payload is None:
+        return None
+    raw_done = _non_negative_int_optional(dim_payload.get("done"))
+    raw_total = _non_negative_int_optional(dim_payload.get("total"))
+    if raw_done is None or raw_total is None:
+        return None
+    return dim_name_text, {"done": raw_done, "total": raw_total}
+
+
+def _dimension_row_is_present(item: tuple[str, dict[str, int]] | None) -> bool:
+    return item is not None
+
+
+def _coerce_dimension_row(item: tuple[str, dict[str, int]] | None) -> tuple[str, dict[str, int]]:
+    if item is None:
+        never("missing dimension row after present-row filtering")
+    return item
+
+
+def _iter_dimension_rows(mapping: Mapping[str, JSONValue]) -> Iterator[tuple[str, dict[str, int]]]:
+    yield from map(
+        _coerce_dimension_row,
+        filter(_dimension_row_is_present, map(_dimension_row_optional, _iter_text_key_items(mapping))),
+    )
+
+
+def _boundary_control_source_items(
+    payload: Mapping[str, JSONValue],
+) -> Iterator[tuple[str, JSONValue | None]]:
+    for key in ("language", "ingest_profile"):
+        yield key, payload.get(key)
+
+
+def _boundary_control_optional(
+    item: tuple[str, JSONValue | None],
+) -> tuple[str, str] | None:
+    key, raw_value = item
+    if raw_value is None:
+        return None
+    raw_text = _str_optional(raw_value)
+    if raw_text is None:
+        never(  # pragma: no cover - invariant sink
+            "invalid dataflow boundary control type",
+            control=key,
+            value_type=type(raw_value).__name__,
+        )
+    normalized_value = raw_text.strip().lower()
+    if not normalized_value:
+        never(  # pragma: no cover - invariant sink
+            "empty dataflow boundary control",
+            control=key,
+        )
+    return key, normalized_value
+
+
+def _boundary_control_is_present(item: tuple[str, str] | None) -> bool:
+    return item is not None
+
+
+def _coerce_boundary_control(item: tuple[str, str] | None) -> tuple[str, str]:
+    if item is None:
+        never("missing boundary control item after present-item filtering")
+    return item
+
+
+def _iter_boundary_control_updates(
+    payload: Mapping[str, JSONValue],
+) -> Iterator[tuple[str, str]]:
+    yield from map(
+        _coerce_boundary_control,
+        filter(_boundary_control_is_present, map(_boundary_control_optional, _boundary_control_source_items(payload))),
+    )
+
+
 def _in_progress_scan_state_payload(
     state: Mapping[str, JSONValue] | None,
 ) -> dict[str, object]:
-    state_mapping = _json_mapping_optional(state)
-    if state_mapping is None:
-        return {}
+    state_mapping = _json_mapping_default_empty(state)
     normalized_state: dict[str, object] = {}
     phase = _str_optional(state_mapping.get("phase"))
     if phase is not None:
@@ -184,13 +343,9 @@ def _in_progress_scan_state_payload(
     function_count = _non_negative_int_optional(state_mapping.get("function_count"))
     if function_count is not None:
         normalized_state["function_count"] = function_count
-    raw_fn_names = _json_mapping_optional(state_mapping.get("fn_names"))
-    if raw_fn_names is not None:
-        normalized_fn_names: dict[str, object] = {}
-        for name, value in raw_fn_names.items():
-            name_text = _str_optional(name)
-            if name_text is not None:
-                normalized_fn_names[name_text] = value
+    raw_fn_names = _json_mapping_default_empty(state_mapping.get("fn_names"))
+    normalized_fn_names = dict(_iter_text_key_items(raw_fn_names))
+    if normalized_fn_names:
         normalized_state["fn_names"] = normalized_fn_names
     return normalized_state
 
@@ -198,31 +353,15 @@ def _in_progress_scan_state_payload(
 def _collection_resume_payload(
     collection_resume: Mapping[str, JSONValue] | None,
 ) -> JSONObject:
-    resume_mapping = _json_mapping_optional(collection_resume)
-    if resume_mapping is None:
-        return {}
+    resume_mapping = _json_mapping_default_empty(collection_resume)
 
     completed_paths = _string_entries(resume_mapping.get("completed_paths"))
-    raw_in_progress = _json_mapping_optional(resume_mapping.get("in_progress_scan_by_path"))
-    in_progress_scan_by_path: dict[str, object] = {}
-    previous_path: str | None = None
-    if raw_in_progress is not None:
-        for raw_path, raw_state in raw_in_progress.items():
-            check_deadline()
-            path_text = _str_optional(raw_path)
-            state_mapping = _json_mapping_optional(raw_state)
-            if path_text is None or state_mapping is None:
-                continue
-            if previous_path is not None and previous_path > path_text:
-                never(
-                    "in_progress_scan_by_path path order regression",
-                    previous_path=previous_path,
-                    current_path=path_text,
-                )
-            previous_path = path_text
-            in_progress_scan_by_path[path_text] = _in_progress_scan_state_payload(
-                state_mapping
-            )
+    raw_in_progress = _json_mapping_default_empty(
+        resume_mapping.get("in_progress_scan_by_path")
+    )
+    in_progress_scan_by_path = dict(
+        _iter_ordered_in_progress_resume_payload_rows(raw_in_progress)
+    )
 
     raw_index_resume = _json_mapping_optional(resume_mapping.get("analysis_index_resume"))
     analysis_index_resume: dict[str, object] | None = None
@@ -259,18 +398,8 @@ def _phase_progress_payload(
     phase_payload = _json_mapping_optional(phase_progress_v2)
     if phase_payload is None:
         return None
-    raw_dimensions = _json_mapping_optional(phase_payload.get("dimensions"))
-    dimensions: dict[str, dict[str, int]] = {}
-    if raw_dimensions is not None:
-        for dim_name, raw_payload in raw_dimensions.items():
-            dim_name_text = _str_optional(dim_name)
-            dim_payload = _json_mapping_optional(raw_payload)
-            if dim_name_text is None or dim_payload is None:
-                continue
-            raw_done = _non_negative_int_optional(dim_payload.get("done"))
-            raw_total = _non_negative_int_optional(dim_payload.get("total"))
-            if raw_done is not None and raw_total is not None:
-                dimensions[dim_name_text] = {"done": raw_done, "total": raw_total}
+    raw_dimensions = _json_mapping_default_empty(phase_payload.get("dimensions"))
+    dimensions = dict(_iter_dimension_rows(raw_dimensions))
     primary_done = _non_negative_int_optional(phase_payload.get("primary_done"))
     primary_total = _non_negative_int_optional(phase_payload.get("primary_total"))
     return {
@@ -284,25 +413,7 @@ def _phase_progress_payload(
 def _normalize_dataflow_boundary_controls(
     payload: dict[str, JSONValue],
 ) -> dict[str, JSONValue]:
-    normalized_updates: dict[str, JSONValue] = {}
-    for key in ("language", "ingest_profile"):
-        raw_value = payload.get(key)
-        if raw_value is None:
-            continue
-        raw_text = _str_optional(raw_value)
-        if raw_text is None:
-            never(  # pragma: no cover - invariant sink
-                "invalid dataflow boundary control type",
-                control=key,
-                value_type=type(raw_value).__name__,
-            )
-        normalized_value = raw_text.strip().lower()
-        if not normalized_value:
-            never(  # pragma: no cover - invariant sink
-                "empty dataflow boundary control",
-                control=key,
-            )
-        normalized_updates[key] = normalized_value
+    normalized_updates = dict(_iter_boundary_control_updates(payload))
     if not normalized_updates:
         return payload
     return boundary_order.apply_boundary_updates_once(

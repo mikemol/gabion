@@ -6331,6 +6331,60 @@
         "targeted_pytest": "pass (302 passed)",
         "policy_scanner_suite": "expected_nonzero total=10716"
       }
+    },
+    {
+      "cu_id": "CU-GEO3",
+      "summary": "Geometric hotspot server_core follow-on: strictify server_payload_dispatch loop/filter surfaces into iterator pipelines and remove remaining loop-structure debt in that file.",
+      "timestamp_utc": "2026-03-09T16:43:10Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7257,
+        "defensive_fallback": 130,
+        "fiber_loop_structure_contract": 963,
+        "fiber_filter_processor_contract": 2130,
+        "fiber_scalar_sentinel_contract": 236,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7253,
+        "defensive_fallback": 129,
+        "fiber_loop_structure_contract": 959,
+        "fiber_filter_processor_contract": 2122,
+        "fiber_scalar_sentinel_contract": 237,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 10716,
+      "total_after": 10700,
+      "notes": [
+        "Replaced in-loop guards in server_payload_dispatch with upstream iterator/filter pipelines for in-progress state rows, dimension rows, and boundary-control updates.",
+        "Eliminated server_payload_dispatch fiber_filter_processor_contract and fiber_loop_structure_contract findings to zero (file total 56 -> 40 across active five families from prior baseline).",
+        "Server_core ring (active five families) reduced 618 -> 602 (-16)."
+      ],
+      "validation": {
+        "policy_check_workflows": "fail_expected_symbol_activity_audit (unsuppressed=1482)",
+        "policy_check_ambiguity_contract": "pass",
+        "targeted_pytest": "pass (302 passed)",
+        "policy_scanner_suite": "expected_nonzero total=10700"
+      }
     }
   ],
   "generated_by": "codex",
