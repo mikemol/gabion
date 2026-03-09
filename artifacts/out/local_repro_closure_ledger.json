@@ -6385,6 +6385,61 @@
         "targeted_pytest": "pass (302 passed)",
         "policy_scanner_suite": "expected_nonzero total=10700"
       }
+    },
+    {
+      "cu_id": "CU-GEO5",
+      "summary": "Geometric hotspot server_core seed continuation: strictify command_orchestrator ingress/report pipelines to reduce loop/filter/sentinel guard surfaces.",
+      "timestamp_utc": "2026-03-09T17:04:29Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7247,
+        "defensive_fallback": 129,
+        "fiber_loop_structure_contract": 959,
+        "fiber_filter_processor_contract": 2122,
+        "fiber_scalar_sentinel_contract": 237,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7244,
+        "defensive_fallback": 128,
+        "fiber_loop_structure_contract": 952,
+        "fiber_filter_processor_contract": 2116,
+        "fiber_scalar_sentinel_contract": 236,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 10694,
+      "total_after": 10676,
+      "notes": [
+        "Replaced aux_operation optional normalizer with strict ingress mapping (_aux_operation_mapping_or_never) and moved none-check to caller boundary.",
+        "Refactored _auxiliary_mode_kind_state_from_flags, _removed_legacy_payload_key_details, _aspf_import_state_paths, and _finalize_report_and_violations to upstream map/filter pipelines.",
+        "Removed single-loop container buffering in _copy_json_mapping/_persist_timeout_resume_state and replaced fingerprint spec comprehension filter in execute_command_total with predicate filter pipeline.",
+        "Server_core ring (active five families) reduced 596 -> 578 (-18); command_orchestrator file reduced 119 -> 101 (-18)."
+      ],
+      "validation": {
+        "policy_check_workflows": "fail_expected_symbol_activity_audit (unsuppressed=1486)",
+        "policy_check_ambiguity_contract": "pass",
+        "targeted_pytest": "pass (302 passed)",
+        "policy_scanner_suite": "expected_nonzero total=10676"
+      }
     }
   ],
   "generated_by": "codex",

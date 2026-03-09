@@ -8590,28 +8590,28 @@
     {
       "test_id": "tests/test_hotspot_neighborhood_queue.py::test_analyze_builds_deterministic_ranked_neighborhoods",
       "file": "tests/test_hotspot_neighborhood_queue.py",
-      "line": 86,
+      "line": 87,
       "primary": "desired",
       "facets": []
     },
     {
       "test_id": "tests/test_hotspot_neighborhood_queue.py::test_analyze_moves_large_scope_to_backlog",
       "file": "tests/test_hotspot_neighborhood_queue.py",
-      "line": 165,
+      "line": 189,
       "primary": "desired",
       "facets": []
     },
     {
       "test_id": "tests/test_hotspot_neighborhood_queue.py::test_analyze_uses_single_representative_seed_per_ring1_scope",
       "file": "tests/test_hotspot_neighborhood_queue.py",
-      "line": 113,
+      "line": 137,
       "primary": "desired",
       "facets": []
     },
     {
       "test_id": "tests/test_hotspot_neighborhood_queue.py::test_run_writes_json_and_markdown_outputs",
       "file": "tests/test_hotspot_neighborhood_queue.py",
-      "line": 132,
+      "line": 156,
       "primary": "desired",
       "facets": []
     },

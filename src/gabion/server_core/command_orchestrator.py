@@ -6,7 +6,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from functools import singledispatch
 from hashlib import sha1
-from itertools import zip_longest
+from itertools import repeat, zip_longest
+from operator import itemgetter
 from pathlib import Path
 import threading
 import time
@@ -188,7 +189,7 @@ def _object_mapping_optional(value: object) -> dict[str, object] | None:
 
 
 @_object_mapping_optional.register(dict)
-def _(value: dict[object, object]) -> dict[str, object] | None:
+def _sd_reg_1(value: dict[object, object]) -> dict[str, object] | None:
     return {str(key): value[key] for key in value}
 
 
@@ -197,8 +198,14 @@ def _object_mapping_none(value: object) -> dict[str, object] | None:
     return None
 
 
-for _runtime_type in (list, tuple, set, str, int, float, bool, _NONE_TYPE):
-    _object_mapping_optional.register(_runtime_type)(_object_mapping_none)
+_object_mapping_optional.register(list)(_object_mapping_none)
+_object_mapping_optional.register(tuple)(_object_mapping_none)
+_object_mapping_optional.register(set)(_object_mapping_none)
+_object_mapping_optional.register(str)(_object_mapping_none)
+_object_mapping_optional.register(int)(_object_mapping_none)
+_object_mapping_optional.register(float)(_object_mapping_none)
+_object_mapping_optional.register(bool)(_object_mapping_none)
+_object_mapping_optional.register(_NONE_TYPE)(_object_mapping_none)
 
 
 @singledispatch
@@ -207,7 +214,7 @@ def _string_optional(value: object) -> str | None:
 
 
 @_string_optional.register
-def _(value: str) -> str | None:
+def _sd_reg_2(value: str) -> str | None:
     return value
 
 
@@ -216,8 +223,14 @@ def _string_none(value: object) -> str | None:
     return None
 
 
-for _runtime_type in (int, float, bool, list, tuple, set, dict, _NONE_TYPE):
-    _string_optional.register(_runtime_type)(_string_none)
+_string_optional.register(int)(_string_none)
+_string_optional.register(float)(_string_none)
+_string_optional.register(bool)(_string_none)
+_string_optional.register(list)(_string_none)
+_string_optional.register(tuple)(_string_none)
+_string_optional.register(set)(_string_none)
+_string_optional.register(dict)(_string_none)
+_string_optional.register(_NONE_TYPE)(_string_none)
 
 
 def _non_empty_string_optional(value: object) -> str | None:
@@ -233,7 +246,7 @@ def _bool_optional(value: object) -> bool | None:
 
 
 @_bool_optional.register
-def _(value: bool) -> bool | None:
+def _sd_reg_3(value: bool) -> bool | None:
     return value
 
 
@@ -242,8 +255,14 @@ def _bool_none(value: object) -> bool | None:
     return None
 
 
-for _runtime_type in (int, float, str, list, tuple, set, dict, _NONE_TYPE):
-    _bool_optional.register(_runtime_type)(_bool_none)
+_bool_optional.register(int)(_bool_none)
+_bool_optional.register(float)(_bool_none)
+_bool_optional.register(str)(_bool_none)
+_bool_optional.register(list)(_bool_none)
+_bool_optional.register(tuple)(_bool_none)
+_bool_optional.register(set)(_bool_none)
+_bool_optional.register(dict)(_bool_none)
+_bool_optional.register(_NONE_TYPE)(_bool_none)
 
 
 @singledispatch
@@ -252,12 +271,12 @@ def _non_negative_float_optional(value: object) -> float | None:
 
 
 @_non_negative_float_optional.register
-def _(value: float) -> float | None:
+def _sd_reg_4(value: float) -> float | None:
     return max(value, 0.0)
 
 
 @_non_negative_float_optional.register
-def _(value: int) -> float | None:
+def _sd_reg_5(value: int) -> float | None:
     return max(float(value), 0.0)
 
 
@@ -266,8 +285,12 @@ def _float_none(value: object) -> float | None:
     return None
 
 
-for _runtime_type in (str, list, tuple, set, dict, _NONE_TYPE):
-    _non_negative_float_optional.register(_runtime_type)(_float_none)
+_non_negative_float_optional.register(str)(_float_none)
+_non_negative_float_optional.register(list)(_float_none)
+_non_negative_float_optional.register(tuple)(_float_none)
+_non_negative_float_optional.register(set)(_float_none)
+_non_negative_float_optional.register(dict)(_float_none)
+_non_negative_float_optional.register(_NONE_TYPE)(_float_none)
 
 
 @singledispatch
@@ -276,7 +299,7 @@ def _int_or_zero(value: object) -> int:
 
 
 @_int_or_zero.register
-def _(value: int) -> int:
+def _sd_reg_6(value: int) -> int:
     return int(value)
 
 
@@ -285,17 +308,25 @@ def _zero(value: object) -> int:
     return 0
 
 
-for _runtime_type in (float, str, list, tuple, set, dict, _NONE_TYPE):
-    _int_or_zero.register(_runtime_type)(_zero)
+_int_or_zero.register(float)(_zero)
+_int_or_zero.register(str)(_zero)
+_int_or_zero.register(list)(_zero)
+_int_or_zero.register(tuple)(_zero)
+_int_or_zero.register(set)(_zero)
+_int_or_zero.register(dict)(_zero)
+_int_or_zero.register(_NONE_TYPE)(_zero)
 
 
-def _aux_operation_mapping_optional(value: object) -> dict[str, object] | None:
-    if value is None:
-        return None
+def _aux_operation_mapping_or_never(value: object) -> dict[str, object]:
     normalized_mapping = _object_mapping_optional(value)
     if normalized_mapping is not None:
         return normalized_mapping
     never("invalid aux operation payload", payload_type=type(value).__name__)
+
+
+def _mode_kind_or_empty(mode: tuple[bool, str]) -> str:
+    enabled, mode_kind = mode
+    return mode_kind if enabled else ""
 
 
 def _auxiliary_mode_kind_state_from_flags(
@@ -308,14 +339,12 @@ def _auxiliary_mode_kind_state_from_flags(
     emit_report_key: str | None,
     domain: str,
 ) -> tuple[str, object]:
-    emit_report = (
-        bool(payload.get(emit_report_key, False)) if emit_report_key is not None else False
-    )
+    emit_report = bool(payload.get(emit_report_key, False)) if emit_report_key is not None else False
     emit_state = bool(payload.get(emit_state_key, False))
     emit_delta = bool(payload.get(emit_delta_key, False))
     write_baseline = bool(payload.get(write_baseline_key, False))
     state_path = payload.get(state_key)
-    enabled = sum(1 for flag in (emit_report, emit_state, emit_delta, write_baseline) if flag)
+    enabled = sum(map(int, (emit_report, emit_state, emit_delta, write_baseline)))
     if enabled > 1:
         never(
             "conflicting auxiliary mode flags",
@@ -331,7 +360,7 @@ def _auxiliary_mode_kind_state_from_flags(
         (emit_delta, "delta"),
         (write_baseline, "baseline-write"),
     )
-    kind = next((candidate_kind for flag, candidate_kind in ordered_modes if flag), "off")
+    kind = next(filter(None, map(_mode_kind_or_empty, ordered_modes)), "off")
     return kind, state_path
 
 
@@ -351,7 +380,7 @@ def _auxiliary_mode_kind_state(
 
 
 @_auxiliary_mode_kind_state.register(dict)
-def _(
+def _sd_reg_7(
     raw_mode: dict[str, JSONValue],
     *,
     payload: Mapping[str, object],
@@ -391,8 +420,14 @@ def _auxiliary_mode_kind_state_legacy(
     )
 
 
-for _runtime_type in (list, tuple, set, str, int, float, bool, _NONE_TYPE):
-    _auxiliary_mode_kind_state.register(_runtime_type)(_auxiliary_mode_kind_state_legacy)
+_auxiliary_mode_kind_state.register(list)(_auxiliary_mode_kind_state_legacy)
+_auxiliary_mode_kind_state.register(tuple)(_auxiliary_mode_kind_state_legacy)
+_auxiliary_mode_kind_state.register(set)(_auxiliary_mode_kind_state_legacy)
+_auxiliary_mode_kind_state.register(str)(_auxiliary_mode_kind_state_legacy)
+_auxiliary_mode_kind_state.register(int)(_auxiliary_mode_kind_state_legacy)
+_auxiliary_mode_kind_state.register(float)(_auxiliary_mode_kind_state_legacy)
+_auxiliary_mode_kind_state.register(bool)(_auxiliary_mode_kind_state_legacy)
+_auxiliary_mode_kind_state.register(_NONE_TYPE)(_auxiliary_mode_kind_state_legacy)
 
 
 @singledispatch
@@ -401,12 +436,12 @@ def _join_thread_optional(value: object, *, timeout: float) -> None:
 
 
 @_join_thread_optional.register(threading.Thread)
-def _(value: threading.Thread, *, timeout: float) -> None:
+def _sd_reg_8(value: threading.Thread, *, timeout: float) -> None:
     value.join(timeout=timeout)
 
 
 @_join_thread_optional.register(_NONE_TYPE)
-def _(value: None, *, timeout: float) -> None:
+def _sd_reg_9(value: None, *, timeout: float) -> None:
     _ = value, timeout
 
 
@@ -434,23 +469,36 @@ def _record_trace_1cell(
     )
 
 
+def _removed_legacy_payload_key_items() -> tuple[tuple[str, str], ...]:
+    return (
+        ("resume_checkpoint", "--resume-checkpoint"),
+        ("resume_on_timeout", "--resume-on-timeout"),
+        ("emit_timeout_progress_report", "--emit-timeout-progress-report"),
+        ("emit_checkpoint_intro_timeline", "--emit-checkpoint-intro-timeline"),
+    )
+
+
+def _legacy_removed_flag_payload_pair(item: tuple[str, str]) -> tuple[str, str]:
+    payload_key, cli_flag = item
+    return cli_flag, payload_key
+
+
 def _removed_legacy_payload_key_details(
     payload: JSONObject,
 ) -> tuple[tuple[str, ...], tuple[str, ...]]:
-    removed_keys = {
-        "resume_checkpoint": "--resume-checkpoint",
-        "resume_on_timeout": "--resume-on-timeout",
-        "emit_timeout_progress_report": "--emit-timeout-progress-report",
-        "emit_checkpoint_intro_timeline": "--emit-checkpoint-intro-timeline",
-    }
-    present_flags: list[str] = []
-    present_payload_keys: list[str] = []
-    for payload_key, cli_flag in removed_keys.items():
-        if payload_key not in payload:
-            continue
-        present_flags.append(cli_flag)
-        present_payload_keys.append(payload_key)
-    return tuple(present_flags), tuple(present_payload_keys)
+    present_pairs = tuple(
+        map(
+            _legacy_removed_flag_payload_pair,
+            filter(
+                lambda item: item[0] in payload,
+                _removed_legacy_payload_key_items(),
+            ),
+        )
+    )
+    return (
+        tuple(map(itemgetter(0), present_pairs)),
+        tuple(map(itemgetter(1), present_pairs)),
+    )
 
 
 def _reject_removed_legacy_payload_keys(
@@ -602,9 +650,9 @@ def _normalize_command_payload_ingress(
         or normalized_payload.get("analysis_timeout_seconds") not in (None, "")
     )
     aux_operation_raw = normalized_payload.get("aux_operation")
-    aux_operation_payload = _aux_operation_mapping_optional(aux_operation_raw)
     aux_operation: _AuxOperationIngressCarrier | None = None
-    if aux_operation_payload is not None:
+    if aux_operation_raw is not None:
+        aux_operation_payload = _aux_operation_mapping_or_never(aux_operation_raw)
         aux_domain = str(aux_operation_payload.get("domain", "")).strip().lower()
         aux_action = str(aux_operation_payload.get("action", "")).strip().lower()
         aux_state_in = aux_operation_payload.get("state_in")
@@ -1607,6 +1655,35 @@ class _ReportFinalizationOutcome:
     phase_checkpoint_state: JSONObject
 
 
+def _projection_row_section_id(row: JSONObject) -> str:
+    check_deadline()
+    return str(row.get("section_id", "") or "")
+
+
+def _section_id_missing_from_resolved(
+    section_id: str,
+    *,
+    resolved_sections: Mapping[str, list[str]],
+) -> bool:
+    return bool(section_id) and section_id not in resolved_sections
+
+
+def _pending_projection_reasons(
+    *,
+    projection_rows: list[JSONObject],
+    resolved_sections: Mapping[str, list[str]],
+) -> dict[str, str]:
+    section_ids = map(_projection_row_section_id, projection_rows)
+    missing_section_ids = filter(
+        lambda section_id: _section_id_missing_from_resolved(
+            section_id,
+            resolved_sections=resolved_sections,
+        ),
+        section_ids,
+    )
+    return dict(zip(missing_section_ids, repeat("missing_dep")))
+
+
 @dataclass(frozen=True)
 class _TimeoutCleanupContext:
     timeout_hard_deadline_ns: int
@@ -1755,16 +1832,22 @@ class _AnalysisResumePreparationState:
     analysis_resume_source: str = "cold_start"
 
 
+def _resolve_aspf_import_state_path(*, root: Path, text: str) -> Path:
+    candidate = Path(text)
+    return candidate if candidate.is_absolute() else (root / candidate)
+
+
 def _aspf_import_state_paths(
     payload_value: list[str],
     *,
     root: Path,
 ) -> tuple[Path, ...]:
-    resolved: list[Path] = []
-    for text in payload_value:
-        candidate = Path(text)
-        resolved.append(candidate if candidate.is_absolute() else (root / candidate))
-    return tuple(resolved)
+    return tuple(
+        map(
+            lambda text: _resolve_aspf_import_state_path(root=root, text=text),
+            payload_value,
+        )
+    )
 
 
 def _prepare_analysis_resume_state(
@@ -3089,13 +3172,10 @@ def _finalize_report_and_violations(
             report=report_carrier,
         )
         resolved_sections_for_obligations = extract_report_sections(report_markdown)
-        pending_projection_reasons: dict[str, str] = {}
-        for row in context.projection_rows:
-            check_deadline()
-            section_id = str(row.get("section_id", "") or "")
-            if not section_id or section_id in resolved_sections_for_obligations:
-                continue
-            pending_projection_reasons[section_id] = "missing_dep"
+        pending_projection_reasons = _pending_projection_reasons(
+            projection_rows=context.projection_rows,
+            resolved_sections=resolved_sections_for_obligations,
+        )
         success_progress_payload: JSONObject = {
             "classification": "succeeded",
             "resume_supported": context.analysis_resume_reused_files > 0,
@@ -3277,7 +3357,11 @@ def _initialize_timeout_payload(
 
 
 def _copy_json_mapping(payload: Mapping[str, JSONValue]) -> JSONObject:
-    return {str(key): payload[key] for key in payload}
+    return dict(payload)
+
+
+def _fingerprint_spec_item_selected(item: tuple[object, object]) -> bool:
+    return not str(item[0]).startswith("synth_")
 
 
 def _emit_trace_artifacts_payloads(
@@ -3308,10 +3392,7 @@ def _persist_timeout_resume_state(
         context.last_collection_resume_payload
     )
     if last_collection_resume_payload is not None:
-        return {
-            str(key): last_collection_resume_payload[key]
-            for key in last_collection_resume_payload
-        }
+        return _copy_json_mapping(last_collection_resume_payload)
     return timeout_collection_resume_payload
 
 
@@ -3441,9 +3522,7 @@ def _render_timeout_partial_report(
                     include_previews=True,
                     preview_only=True,
                 )
-                for section_id, section_lines in preview_sections.items():
-                    check_deadline()
-                    resolved_sections.setdefault(section_id, section_lines)
+                resolved_sections = {**preview_sections, **resolved_sections}
             intro_lines = (
                 _collection_progress_intro_lines(
                     collection_resume=timeout_collection_resume_payload,
@@ -4967,11 +5046,12 @@ def execute_command_total(
         fingerprint_registry: PrimeRegistry | None = None
         fingerprint_index: dict[Fingerprint, set[str]] = {}
         constructor_registry: TypeConstructorRegistry | None = None
-        fingerprint_spec: dict[str, JSONValue] = {
-            key: value
-            for key, value in fingerprint_section.items()
-            if not str(key).startswith("synth_")
-        }
+        fingerprint_spec: dict[str, JSONValue] = dict(
+            filter(
+                _fingerprint_spec_item_selected,
+                fingerprint_section.items(),
+            )
+        )
         if fingerprint_spec:
             registry, index = build_fingerprint_registry(fingerprint_spec)
             if index:
