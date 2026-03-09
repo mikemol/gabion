@@ -84,12 +84,12 @@ def _normalize_non_negative_int(value: object) -> int | None:
 
 
 @_normalize_non_negative_int.register
-def _(value: int) -> int | None:
+def _sd_reg_1(value: int) -> int | None:
     return max(value, 0)
 
 
 @_normalize_non_negative_int.register
-def _(value: bool) -> int | None:
+def _sd_reg_2(value: bool) -> int | None:
     _ = value
     return None
 
@@ -109,7 +109,7 @@ def _mapping_payload_optional(value: object) -> Mapping[str, object] | None:
 
 
 @_mapping_payload_optional.register
-def _(value: dict) -> Mapping[str, object] | None:
+def _sd_reg_3(value: dict) -> Mapping[str, object] | None:
     return value
 
 
@@ -128,7 +128,7 @@ def _list_payload_optional(value: object) -> list[object] | None:
 
 
 @_list_payload_optional.register
-def _(value: list) -> list[object] | None:
+def _sd_reg_4(value: list) -> list[object] | None:
     return value
 
 
@@ -147,7 +147,7 @@ def _string_payload_optional(value: object) -> str | None:
 
 
 @_string_payload_optional.register
-def _(value: str) -> str | None:
+def _sd_reg_5(value: str) -> str | None:
     return value
 
 
@@ -258,31 +258,28 @@ def _normalize_node_from_mapping(
         )
     identity = str(payload.get("identity", "") or fallback_identity).strip() or fallback_identity
     unit = str(payload.get("unit", "") or fallback_unit).strip()
-    children: list[ProgressNode] = []
     raw_children = _list_payload_optional(payload.get("children"))
-    if raw_children is not None:
-        for idx, raw_child in enumerate(raw_children):
-            child_payload = _mapping_payload_optional(raw_child)
-            if child_payload is None:
-                return None
-            child = _normalize_node_from_mapping(
-                child_payload,
-                fallback_identity=f"{identity}:{idx}",
-                fallback_unit=unit,
-                fallback_done=done,
-                fallback_total=total,
-                fallback_marker=marker,
-            )
-            if child is None:
-                return None
-            children.append(child)
+    child_payloads = _normalized_child_payloads(raw_children)
+    if child_payloads is None:
+        return None
+    children = _normalized_children(
+        child_payloads,
+        identity=identity,
+        unit=unit,
+        done=done,
+        total=total,
+        marker=marker,
+        offset=0,
+    )
+    if children is None:
+        return None
     return ProgressNode(
         identity=identity,
         unit=unit,
         done=done,
         total=total,
         marker=marker,
-        children=tuple(children),
+        children=children,
     )
 
 
@@ -295,14 +292,31 @@ def _resolve_node_by_path(
         return None
     if active_path[0] != root.identity:
         return None
-    cursor = root
-    for node_identity in active_path[1:]:
-        child_index = {child.identity: child for child in cursor.children}
-        child = child_index.get(node_identity)
-        if child is None:
-            return None
-        cursor = child
-    return cursor
+    return _resolve_child_path(root, active_path[1:])
+
+
+def _resolve_child_path(
+    node: ProgressNode,
+    active_path: tuple[str, ...],
+) -> ProgressNode | None:
+    if not active_path:
+        return node
+    child = _child_by_identity(node.children, active_path[0])
+    if child is None:
+        return None
+    return _resolve_child_path(child, active_path[1:])
+
+
+def _child_by_identity(
+    children: tuple[ProgressNode, ...],
+    identity: str,
+) -> ProgressNode | None:
+    if not children:
+        return None
+    head = children[0]
+    if head.identity == identity:
+        return head
+    return _child_by_identity(children[1:], identity)
 
 
 @singledispatch
@@ -311,16 +325,11 @@ def _normalize_active_path(value: object) -> tuple[str, ...] | None:
 
 
 @_normalize_active_path.register
-def _(value: list) -> tuple[str, ...] | None:
-    nodes: list[str] = []
-    for item in value:
-        node = _string_payload_optional(item)
-        if node is None:
-            return None
-        nodes.append(node.strip())
+def _sd_reg_6(value: list) -> tuple[str, ...] | None:
+    nodes = _normalized_active_path_nodes(tuple(value))
     if not nodes:
         return None
-    return tuple(nodes)
+    return nodes
 
 
 def _none_active_path(value: object) -> tuple[str, ...] | None:
@@ -330,6 +339,78 @@ def _none_active_path(value: object) -> tuple[str, ...] | None:
 
 for _runtime_type in (str, int, float, bool, bytes, dict, tuple, set, frozenset, type(None)):
     _normalize_active_path.register(_runtime_type)(_none_active_path)
+
+
+def _normalized_active_path_nodes(
+    value: tuple[object, ...],
+) -> tuple[str, ...] | None:
+    if not value:
+        return ()
+    node = _string_payload_optional(value[0])
+    if node is None:
+        return None
+    tail_nodes = _normalized_active_path_nodes(value[1:])
+    if tail_nodes is None:
+        return None
+    return (node.strip(), *tail_nodes)
+
+
+def _normalized_child_payloads(
+    raw_children: list[object] | None,
+) -> tuple[Mapping[str, object], ...] | None:
+    if raw_children is None:
+        return ()
+    return _normalized_child_payload_sequence(tuple(raw_children))
+
+
+def _normalized_child_payload_sequence(
+    raw_children: tuple[object, ...],
+) -> tuple[Mapping[str, object], ...] | None:
+    if not raw_children:
+        return ()
+    child_payload = _mapping_payload_optional(raw_children[0])
+    if child_payload is None:
+        return None
+    tail_payloads = _normalized_child_payload_sequence(raw_children[1:])
+    if tail_payloads is None:
+        return None
+    return (child_payload, *tail_payloads)
+
+
+def _normalized_children(
+    child_payloads: tuple[Mapping[str, object], ...],
+    *,
+    identity: str,
+    unit: str,
+    done: int,
+    total: int,
+    marker: ProgressMarkerParts,
+    offset: int,
+) -> tuple[ProgressNode, ...] | None:
+    if not child_payloads:
+        return ()
+    child = _normalize_node_from_mapping(
+        child_payloads[0],
+        fallback_identity=f"{identity}:{offset}",
+        fallback_unit=unit,
+        fallback_done=done,
+        fallback_total=total,
+        fallback_marker=marker,
+    )
+    if child is None:
+        return None
+    tail_children = _normalized_children(
+        child_payloads[1:],
+        identity=identity,
+        unit=unit,
+        done=done,
+        total=total,
+        marker=marker,
+        offset=offset + 1,
+    )
+    if tail_children is None:
+        return None
+    return (child, *tail_children)
 
 
 def _transition_payload_mapping(
@@ -541,15 +622,26 @@ def _validate_tree_structure(node: ProgressNode) -> str | None:
         return "invalid_empty_node_identity"
     if node.total > 0 and node.done > node.total:
         return "invalid_node_done_exceeds_total"
-    sibling_ids: set[str] = set()
-    for child in node.children:
-        if child.identity in sibling_ids:
-            return "invalid_duplicate_sibling_identity"
-        sibling_ids.add(child.identity)
-        child_reason = _validate_tree_structure(child)
-        if child_reason is not None:
-            return child_reason
-    return None
+    return _validate_child_structures(node.children, seen=frozenset())
+
+
+def _validate_child_structures(
+    children: tuple[ProgressNode, ...],
+    *,
+    seen: frozenset[str],
+) -> str | None:
+    if not children:
+        return None
+    head = children[0]
+    if head.identity in seen:
+        return "invalid_duplicate_sibling_identity"
+    child_reason = _validate_tree_structure(head)
+    if child_reason is not None:
+        return child_reason
+    return _validate_child_structures(
+        children[1:],
+        seen=(seen | frozenset((head.identity,))),
+    )
 
 
 def _validate_tree_progress_transition(
@@ -562,17 +654,23 @@ def _validate_tree_progress_transition(
         return "invalid_node_total_regressed"
     if current.done < previous.done:
         return "invalid_node_done_regressed"
-    previous_children = {child.identity: child for child in previous.children}
-    current_children = {child.identity: child for child in current.children}
-    shared_children = previous_children.keys() & current_children.keys()
-    for child_identity in shared_children:
-        child_reason = _validate_tree_progress_transition(
-            previous_children[child_identity],
-            current_children[child_identity],
-        )
-        if child_reason is not None:
-            return child_reason
-    return None
+    return _validate_shared_child_progress(previous.children, current.children)
+
+
+def _validate_shared_child_progress(
+    previous_children: tuple[ProgressNode, ...],
+    current_children: tuple[ProgressNode, ...],
+) -> str | None:
+    if not previous_children:
+        return None
+    previous_child = previous_children[0]
+    current_child = _child_by_identity(current_children, previous_child.identity)
+    if current_child is None:
+        return _validate_shared_child_progress(previous_children[1:], current_children)
+    child_reason = _validate_tree_progress_transition(previous_child, current_child)
+    if child_reason is not None:
+        return child_reason
+    return _validate_shared_child_progress(previous_children[1:], current_children)
 
 
 def validate_progress_transition(
@@ -730,8 +828,14 @@ def _node_payload(node: ProgressNode) -> dict[str, object]:
         "marker_text": node.marker.marker_text,
         "marker_family": node.marker.marker_family,
         "marker_step": node.marker.marker_step,
-        "children": [_node_payload(child) for child in node.children],
+        "children": list(_node_payload_children(node.children)),
     }
+
+
+def _node_payload_children(children: tuple[ProgressNode, ...]) -> tuple[dict[str, object], ...]:
+    if not children:
+        return ()
+    return (_node_payload(children[0]), *_node_payload_children(children[1:]))
 
 
 def progress_transition_v2_payload(
