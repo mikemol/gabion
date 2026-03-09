@@ -2,34 +2,61 @@ from __future__ import annotations
 
 from pathlib import Path
 from collections.abc import Callable, Iterator, Mapping, Sequence
-from typing import TypeVar, cast
+from typing import TypeVar
 
 from gabion.analysis.foundation.json_types import JSONValue
 from gabion.analysis.foundation.timeout_context import check_deadline
+from gabion.runtime_shape_dispatch import str_optional
 
 
+_TParsed = TypeVar("_TParsed")
 _NO_VALUE = None
 
 
-def mapping_optional(value: object):
+def iter_mapping_items(value):
     match value:
         case Mapping() as value_map:
-            return cast(Mapping[str, JSONValue], value_map)
+            for key in value_map:
+                yield key, value_map[key]
         case _:
-            return _NO_VALUE
+            return
+
+
+def iter_mapping_values(value) -> Iterator[Mapping[str, JSONValue]]:
+    for entry in iter_sequence_items(value):
+        mapped = mapping_optional(entry)
+        if mapped is not None:
+            yield mapped
+
+
+def iter_str_key_mappings(value) -> Iterator[tuple[str, Mapping[str, JSONValue]]]:
+    for key, entry in iter_mapping_items(value):
+        key_text = str_optional(key)
+        if key_text is not None:
+            mapped = mapping_optional(entry)
+            if mapped is not None:
+                yield key_text, mapped
+
+
+def mapping_optional(value):
+    match value:
+        case Mapping():
+            return {key: entry for key, entry in iter_mapping_items(value)}
+        case _:
+            return None
 
 
 def mapping_payload(
-    payload: object,
+    payload,
 ):
     return mapping_optional(payload)
 
 
 def payload_with_phase(
-    payload: object,
+    payload,
     *,
     phase: str,
-) -> object:
+):
     mapping = mapping_payload(payload)
     if mapping is None:
         return _NO_VALUE
@@ -39,10 +66,10 @@ def payload_with_phase(
 
 
 def payload_with_format(
-    payload: object,
+    payload,
     *,
     format_version: int,
-) -> object:
+):
     mapping = mapping_payload(payload)
     if mapping is None:
         return _NO_VALUE
@@ -55,7 +82,7 @@ def mapping_sections(
     payload: Mapping[str, JSONValue],
     *,
     section_keys: Sequence[str],
-) -> object:
+):
     check_deadline()
     sections: list[Mapping[str, JSONValue]] = []
     for key in section_keys:
@@ -67,81 +94,77 @@ def mapping_sections(
     return tuple(sections)
 
 
-def mapping_default_empty(value: object) -> Mapping[str, JSONValue]:
-    mapping = mapping_optional(value)
-    if mapping is None:
-        return {}
-    return mapping
+def mapping_default_empty(value) -> Mapping[str, JSONValue]:
+    return {key: entry for key, entry in iter_mapping_items(value)}
 
 
-def sequence_optional(value: object, *, allow_str: bool = False):
+def sequence_optional(value, *, allow_str: bool = False):
     match value:
         case str() | bytes() | bytearray():
             if allow_str:
-                return cast(Sequence[JSONValue], value)
-            return _NO_VALUE
+                return value
+            return None
         case Sequence() as sequence_value:
-            return cast(Sequence[JSONValue], sequence_value)
+            return sequence_value
         case _:
-            return _NO_VALUE
+            return None
 
 
-def str_list_from_sequence(value: object) -> list[str]:
-    sequence = sequence_optional(value)
-    if sequence is None:
-        return list()
-    out: list[str] = []
-    for entry in sequence:
+def iter_sequence_items(value, *, allow_str: bool = False):
+    for entry in sequence_optional(value, allow_str=allow_str) or ():
         check_deadline()
+        yield entry
+
+
+def iter_str_from_sequence(value) -> Iterator[str]:
+    for entry in iter_sequence_items(value):
         match entry:
             case str() as entry_text:
-                out.append(entry_text)
+                yield entry_text
             case _:
                 pass
-    return out
 
 
-def str_tuple_from_sequence(value: object) -> tuple[str, ...]:
-    return tuple(str_list_from_sequence(value))
+def str_list_from_sequence(value) -> list[str]:
+    return list(iter_str_from_sequence(value))
 
 
-def str_set_from_sequence(value: object) -> set[str]:
-    return set(str_list_from_sequence(value))
+def str_tuple_from_sequence(value) -> tuple[str, ...]:
+    return tuple(iter_str_from_sequence(value))
 
 
-def str_map_from_mapping(value: object) -> dict[str, str]:
-    mapping = mapping_optional(value)
-    if mapping is None:
-        return {}
-    out: dict[str, str] = {}
-    for key, entry in mapping.items():
+def str_set_from_sequence(value) -> set[str]:
+    return set(iter_str_from_sequence(value))
+
+
+def str_map_from_mapping(value) -> dict[str, str]:
+    return {key_text: entry_text for key_text, entry_text in iter_str_mapping_items(value)}
+
+
+def iter_str_mapping_items(value) -> Iterator[tuple[str, str]]:
+    for key, entry in iter_mapping_items(value):
         check_deadline()
         match (key, entry):
             case (str() as key_text, str() as entry_text):
-                out[key_text] = entry_text
+                yield key_text, entry_text
             case _:
                 pass
-    return out
 
 
-def int_tuple4_optional(value: object):
-    sequence = sequence_optional(value)
-    if sequence is None or len(sequence) != 4:
-        return _NO_VALUE
-    try:
-        parsed = tuple(int(part) for part in sequence)
-    except (TypeError, ValueError):
-        return _NO_VALUE
-    return cast(tuple[int, int, int, int], parsed)
+def iter_int_tuple4_from_sequence(value) -> Iterator[tuple[int, int, int, int]]:
+    for entry in iter_sequence_items(value):
+        parts = tuple(iter_sequence_items(entry))
+        if len(parts) != 4:
+            continue
+        try:
+            line, col, end_line, end_col = (int(part) for part in parts)
+        except (TypeError, ValueError):
+            continue
+        yield line, col, end_line, end_col
 
 
-def int_str_pairs_from_sequence(value: object) -> list[tuple[int, str]]:
-    sequence = sequence_optional(value)
-    if sequence is None:
-        return list()
-    out: list[tuple[int, str]] = []
-    for entry in sequence:
-        check_deadline()
+def iter_int_str_pairs_from_sequence(value) -> Iterator[tuple[int, str]]:
+    for entry in iter_sequence_items(value):
         pair = sequence_optional(entry)
         if pair is not None and len(pair) == 2:
             idx, name = pair
@@ -152,28 +175,29 @@ def int_str_pairs_from_sequence(value: object) -> list[tuple[int, str]]:
                     except (TypeError, ValueError):
                         pass
                     else:
-                        out.append((idx_value, name_text))
+                        yield idx_value, name_text
                 case _:
                     pass
-    return out
 
 
-def str_pair_set_from_sequence(value: object) -> set[tuple[str, str]]:
-    sequence = sequence_optional(value)
-    if sequence is None:
-        return set()
-    out: set[tuple[str, str]] = set()
-    for entry in sequence:
-        check_deadline()
+def int_str_pairs_from_sequence(value) -> list[tuple[int, str]]:
+    return list(iter_int_str_pairs_from_sequence(value))
+
+
+def iter_str_pairs_from_sequence(value) -> Iterator[tuple[str, str]]:
+    for entry in iter_sequence_items(value):
         pair = sequence_optional(entry)
         if pair is not None and len(pair) == 2:
             left, right = pair
             match (left, right):
                 case (str() as left_text, str() as right_text):
-                    out.add((left_text, right_text))
+                    yield left_text, right_text
                 case _:
                     pass
-    return out
+
+
+def str_pair_set_from_sequence(value) -> set[tuple[str, str]]:
+    return set(iter_str_pairs_from_sequence(value))
 
 
 def iter_valid_key_entries(
@@ -190,9 +214,6 @@ def iter_valid_key_entries(
                 pass
 
 
-_ParsedValue = TypeVar("_ParsedValue")
-
-
 def allowed_path_lookup(
     paths: Sequence[Path],
     *,
@@ -202,43 +223,57 @@ def allowed_path_lookup(
 
 
 def load_allowed_paths_from_sequence(
-    value: object,
+    value,
     *,
     allowed_paths: Mapping[str, Path],
 ) -> list[Path]:
-    sequence = sequence_optional(value)
-    if sequence is None:
-        return list()
-    out: list[Path] = []
+    return list(iter_allowed_paths_from_sequence(value, allowed_paths=allowed_paths))
+
+
+def iter_allowed_paths_from_sequence(
+    value,
+    *,
+    allowed_paths: Mapping[str, Path],
+) -> Iterator[Path]:
     seen: set[str] = set()
-    for raw_path in sequence:
-        check_deadline()
+    for raw_path in iter_sequence_items(value):
         match raw_path:
             case str() as raw_path_text:
                 if raw_path_text not in seen:
                     path = allowed_paths.get(raw_path_text)
                     if path is not None:
                         seen.add(raw_path_text)
-                        out.append(path)
+                        yield path
             case _:
                 pass
-    return out
 
 
 def load_resume_map(
     *,
     payload: Mapping[str, JSONValue],
     valid_keys: set[str],
-    parser: Callable[[JSONValue], object],
-) -> dict[str, _ParsedValue]:
+    parser: Callable[[JSONValue], Iterator[_TParsed]],
+) -> dict[str, _TParsed]:
+    return dict(
+        iter_resume_map_entries(
+            payload=payload,
+            valid_keys=valid_keys,
+            parser=parser,
+        )
+    )
+
+
+def iter_resume_map_entries(
+    *,
+    payload: Mapping[str, JSONValue],
+    valid_keys: set[str],
+    parser: Callable[[JSONValue], Iterator[_TParsed]],
+) -> Iterator[tuple[str, _TParsed]]:
     check_deadline()
-    out: dict[str, _ParsedValue] = {}
     for key, raw_value in iter_valid_key_entries(
         payload=payload,
         valid_keys=valid_keys,
     ):
         check_deadline()
-        parsed = parser(raw_value)
-        if parsed is not None:
-            out[key] = cast(_ParsedValue, parsed)
-    return out
+        for parsed in parser(raw_value):
+            yield key, parsed

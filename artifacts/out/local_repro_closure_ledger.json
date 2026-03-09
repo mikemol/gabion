@@ -5949,6 +5949,61 @@
         "targeted_pytest": "pass (32 passed)",
         "policy_scanner_suite": "expected_nonzero total=10833"
       }
+    },
+    {
+      "cu_id": "CU-FS10",
+      "summary": "Stream-first resume codec strictification: typed parser stream contract for load_resume_map, sentinel-guard reduction in mapping helpers, and file-scan callsite migration.",
+      "timestamp_utc": "2026-03-09T02:22:54Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7290,
+        "defensive_fallback": 131,
+        "fiber_loop_structure_contract": 984,
+        "fiber_filter_processor_contract": 2181,
+        "fiber_scalar_sentinel_contract": 246,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 1,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7288,
+        "defensive_fallback": 129,
+        "fiber_loop_structure_contract": 986,
+        "fiber_filter_processor_contract": 2180,
+        "fiber_scalar_sentinel_contract": 241,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 10833,
+      "total_after": 10824,
+      "notes": [
+        "Replaced load_resume_map parser protocol with iterator-first parser stream and removed parsed-is-None gate in iter_resume_map_entries.",
+        "Eliminated local defensive fallback guards in mapping_default_empty/str_map_from_mapping by routing through iterator emitters.",
+        "Updated load_file_scan_resume_state parser callsites to stream emitters and refreshed resume codec tests for new parser contract.",
+        "Cleared remaining typing_surface finding in resume_codec while reducing defensive_fallback/fiber_scalar_sentinel debt."
+      ],
+      "validation": {
+        "policy_check_workflows": "fail_expected_symbol_activity_audit",
+        "policy_check_ambiguity_contract": "pass",
+        "targeted_pytest": "pass (20 passed)",
+        "policy_scanner_suite": "expected_nonzero total=10824"
+      }
     }
   ],
   "generated_by": "codex",

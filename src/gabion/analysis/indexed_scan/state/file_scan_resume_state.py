@@ -156,63 +156,67 @@ def load_file_scan_resume_state(
         raw_scopes,
         raw_class_names,
     ) = sections
+
+    def _iter_deserialized_param_use(raw_value):
+        raw_mapping = deps.mapping_or_none_fn(raw_value)
+        if raw_mapping is not None:
+            yield deps.deserialize_param_use_map_fn(raw_mapping)
+
+    def _iter_deserialized_call_args(raw_value):
+        raw_sequence = deps.sequence_or_none_fn(raw_value)
+        if raw_sequence is not None:
+            yield deps.deserialize_call_args_list_fn(raw_sequence)
+
+    def _iter_param_order_list(raw_value):
+        raw_sequence = deps.sequence_or_none_fn(raw_value)
+        if raw_sequence is not None:
+            yield deps.str_list_from_sequence_fn(raw_value)
+
+    def _iter_param_spans(raw_value):
+        raw_mapping = deps.mapping_or_none_fn(raw_value)
+        if raw_mapping is not None:
+            yield deps.deserialize_param_spans_for_resume_fn({"_": raw_mapping}).get("_", {})
+
+    def _iter_string(raw_value):
+        match raw_value:
+            case str() as raw_text:
+                yield raw_text
+
+    def _iter_scope_tuple(raw_value):
+        raw_sequence = deps.sequence_or_none_fn(raw_value)
+        if raw_sequence is not None:
+            yield deps.str_tuple_from_sequence_fn(raw_value)
+
     fn_use = deps.load_resume_map_fn(
         payload=raw_use,
         valid_keys=valid_fn_keys,
-        parser=lambda raw_value: (
-            deps.deserialize_param_use_map_fn(raw_mapping)
-            if (raw_mapping := deps.mapping_or_none_fn(raw_value)) is not None
-            else None
-        ),
+        parser=_iter_deserialized_param_use,
     )
     fn_calls = deps.load_resume_map_fn(
         payload=raw_calls,
         valid_keys=valid_fn_keys,
-        parser=lambda raw_value: (
-            deps.deserialize_call_args_list_fn(raw_sequence)
-            if (raw_sequence := deps.sequence_or_none_fn(raw_value)) is not None
-            else None
-        ),
+        parser=_iter_deserialized_call_args,
     )
     fn_param_orders = deps.load_resume_map_fn(
         payload=raw_param_orders,
         valid_keys=valid_fn_keys,
-        parser=lambda raw_value: (
-            deps.str_list_from_sequence_fn(raw_value)
-            if deps.sequence_or_none_fn(raw_value) is not None
-            else None
-        ),
+        parser=_iter_param_order_list,
     )
     fn_param_spans = deps.load_resume_map_fn(
         payload=raw_param_spans,
         valid_keys=valid_fn_keys,
-        parser=lambda raw_value: (
-            deps.deserialize_param_spans_for_resume_fn({"_": raw_mapping}).get("_", {})
-            if (raw_mapping := deps.mapping_or_none_fn(raw_value)) is not None
-            else None
-        ),
+        parser=_iter_param_spans,
     )
-
-    def _string_optional(raw_value):
-        match raw_value:
-            case str() as raw_text:
-                return raw_text
-            case _:
-                return None
 
     fn_names = deps.load_resume_map_fn(
         payload=raw_names,
         valid_keys=valid_fn_keys,
-        parser=_string_optional,
+        parser=_iter_string,
     )
     fn_lexical_scopes = deps.load_resume_map_fn(
         payload=raw_scopes,
         valid_keys=valid_fn_keys,
-        parser=lambda raw_value: (
-            deps.str_tuple_from_sequence_fn(raw_value)
-            if deps.sequence_or_none_fn(raw_value) is not None
-            else None
-        ),
+        parser=_iter_scope_tuple,
     )
     fn_class_names = {}
     for fn_key, raw_value in deps.deadline_loop_iter_fn(

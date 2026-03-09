@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from gabion.analysis.foundation.resume_codec import (
-    allowed_path_lookup, int_str_pairs_from_sequence, int_tuple4_optional, iter_valid_key_entries, load_allowed_paths_from_sequence, load_resume_map, mapping_payload, mapping_sections, mapping_default_empty, mapping_optional, payload_with_format, payload_with_phase, sequence_optional, str_list_from_sequence, str_map_from_mapping, str_pair_set_from_sequence, str_set_from_sequence, str_tuple_from_sequence)
+    allowed_path_lookup, int_str_pairs_from_sequence, iter_int_tuple4_from_sequence, iter_valid_key_entries, load_allowed_paths_from_sequence, load_resume_map, mapping_payload, mapping_sections, mapping_default_empty, mapping_optional, payload_with_format, payload_with_phase, sequence_optional, str_list_from_sequence, str_map_from_mapping, str_pair_set_from_sequence, str_set_from_sequence, str_tuple_from_sequence)
 
 
 # gabion:evidence E:call_footprint::tests/test_resume_codec.py::test_mapping_helpers::resume_codec.py::gabion.analysis.resume_codec.mapping_default_empty::resume_codec.py::gabion.analysis.resume_codec.mapping_optional::resume_codec.py::gabion.analysis.resume_codec.mapping_payload
@@ -67,13 +67,13 @@ def test_str_map_from_mapping_filters_invalid_entries() -> None:
     assert str_map_from_mapping([("a", "x")]) == {}
 
 
-# gabion:evidence E:call_footprint::tests/test_resume_codec.py::test_int_tuple4_optional::resume_codec.py::gabion.analysis.resume_codec.int_tuple4_optional
+# gabion:evidence E:call_footprint::tests/test_resume_codec.py::test_iter_int_tuple4_from_sequence_filters_invalid_entries::resume_codec.py::gabion.analysis.resume_codec.iter_int_tuple4_from_sequence
 # gabion:behavior primary=verboten facets=none
-def test_int_tuple4_optional() -> None:
-    assert int_tuple4_optional("abcd") is None
-    assert int_tuple4_optional([1, 2, 3]) is None
-    assert int_tuple4_optional([1, 2, "x", 4]) is None
-    assert int_tuple4_optional([1, 2, 3, 4]) == (1, 2, 3, 4)
+def test_iter_int_tuple4_from_sequence_filters_invalid_entries() -> None:
+    assert list(iter_int_tuple4_from_sequence("abcd")) == []
+    assert list(iter_int_tuple4_from_sequence([[1, 2, 3]])) == []
+    assert list(iter_int_tuple4_from_sequence([[1, 2, "x", 4]])) == []
+    assert list(iter_int_tuple4_from_sequence([[1, 2, 3, 4]])) == [(1, 2, 3, 4)]
 
 
 # gabion:evidence E:call_footprint::tests/test_resume_codec.py::test_int_str_pairs_from_sequence_filters_invalid_entries::resume_codec.py::gabion.analysis.resume_codec.int_str_pairs_from_sequence
@@ -121,10 +121,15 @@ def test_iter_valid_key_entries_filters_keys() -> None:
 # gabion:behavior primary=verboten facets=invalid,none
 def test_load_resume_map_filters_invalid_and_none_parses() -> None:
     payload = {"keep": "1", "drop": "2", 3: "3"}  # type: ignore[dict-item]
+
+    def _parse_int_one(value: object):
+        if value == "1":
+            yield int(value)
+
     result = load_resume_map(
         payload=payload,  # type: ignore[arg-type]
         valid_keys={"keep", "drop"},
-        parser=lambda value: int(value) if value == "1" else None,
+        parser=_parse_int_one,
     )
     assert result == {"keep": 1}
 
