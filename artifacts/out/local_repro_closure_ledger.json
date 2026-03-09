@@ -5895,6 +5895,60 @@
         "targeted_pytest": "pass (45 passed)",
         "policy_scanner_suite": "expected_nonzero total=10851"
       }
+    },
+    {
+      "cu_id": "CU-FS9",
+      "summary": "Stream-first strictification of ASPF normalization idempotence collector: remove None-guard funnels in trace discovery/payload extraction/normalization-class routing and delta-path controls.",
+      "timestamp_utc": "2026-03-09T02:11:51Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7288,
+        "defensive_fallback": 137,
+        "fiber_loop_structure_contract": 983,
+        "fiber_filter_processor_contract": 2188,
+        "fiber_scalar_sentinel_contract": 254,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 1,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7290,
+        "defensive_fallback": 131,
+        "fiber_loop_structure_contract": 984,
+        "fiber_filter_processor_contract": 2181,
+        "fiber_scalar_sentinel_contract": 246,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 1,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 10851,
+      "total_after": 10833,
+      "notes": [
+        "Refactored _discover_trace_sources to iterator composition (_iter_loaded_json_objects, _iter_trace_documents, _iter_trace_payloads_from_document).",
+        "Converted normalization-class derivation to iterator-first (_iter_normalization_classes, _iter_normalized_class_labels) and removed direct None-guard control flow in _collect_source_violations.",
+        "Converted strict delta path extraction to iterator form (_iter_strict_delta_jsonl_paths_from_controls) and replaced ifexp None sentinel in applicability bounds with helper dispatch."
+      ],
+      "validation": {
+        "policy_check_workflows": "fail_expected_symbol_activity_audit",
+        "policy_check_ambiguity_contract": "pass",
+        "targeted_pytest": "pass (32 passed)",
+        "policy_scanner_suite": "expected_nonzero total=10833"
+      }
     }
   ],
   "generated_by": "codex",

@@ -6,7 +6,7 @@ import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence
+from typing import Iterable, Sequence
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
@@ -23,6 +23,7 @@ from gabion.tooling.policy_rules.fiber_diagnostics import (
     FiberCounterfactualBoundary,
     FiberTraceEvent,
 )
+from gabion.tooling.runtime.policy_scan_batch import PolicyScanBatch
 
 
 BASELINE_VERSION = 1
@@ -176,9 +177,10 @@ class _BaselinePayloadDTO(BaseModel):
 
 def collect_violations(
     *,
-    root: Path,
+    batch: PolicyScanBatch,
     include_snapshot_archive: bool = _DEFAULT_INCLUDE_SNAPSHOT_ARCHIVE,
 ) -> list[Violation]:
+    root = batch.root
     violations: list[Violation] = []
     for source in _discover_trace_sources(
         root=root,
@@ -200,7 +202,41 @@ def collect_ingress_violations(
         include_snapshot_archive=include_snapshot_archive,
     ):
         payload, load_error, load_line = _load_json_object_with_diagnostic(path)
-        if payload is None:
+        for loaded_payload in _iter_optional_payloads(payload):
+            for trace_document in _iter_trace_documents(loaded_payload):
+                for trace_payload in _iter_trace_payloads_from_document(trace_document):
+                    _load_delta_records(
+                        path=path,
+                        controls=trace_payload.controls,
+                        root=root,
+                        source_document=trace_document,
+                        diagnostics=violations,
+                    )
+                    break
+                else:
+                    violations.append(
+                        _ingress_violation(
+                            path=path,
+                            line=1,
+                            kind="invalid_trace_payload_shape",
+                            message=(
+                                "ASPF trace payload must provide either trace.one_cells "
+                                "or top-level one_cells"
+                            ),
+                        )
+                    )
+                break
+            else:
+                violations.append(
+                    _ingress_violation(
+                        path=path,
+                        line=1,
+                        kind="invalid_trace_document_shape",
+                        message="ASPF trace payload does not match strict trace document schema",
+                    )
+                )
+            break
+        else:
             violations.append(
                 _ingress_violation(
                     path=path,
@@ -209,39 +245,6 @@ def collect_ingress_violations(
                     message=load_error or "unable to parse ASPF trace payload JSON",
                 )
             )
-            continue
-
-        trace_document = _extract_trace_document(payload)
-        if trace_document is None:
-            violations.append(
-                _ingress_violation(
-                    path=path,
-                    line=1,
-                    kind="invalid_trace_document_shape",
-                    message="ASPF trace payload does not match strict trace document schema",
-                )
-            )
-            continue
-
-        trace_payload = _trace_payload_from_document(trace_document)
-        if trace_payload is None:
-            violations.append(
-                _ingress_violation(
-                    path=path,
-                    line=1,
-                    kind="invalid_trace_payload_shape",
-                    message="ASPF trace payload must provide either trace.one_cells or top-level one_cells",
-                )
-            )
-            continue
-
-        _load_delta_records(
-            path=path,
-            controls=trace_payload.controls,
-            root=root,
-            source_document=trace_document,
-            diagnostics=violations,
-        )
 
     if baseline_path is not None:
         violations.extend(_collect_baseline_ingress_violations(path=baseline_path))
@@ -278,56 +281,51 @@ def _discover_trace_sources(
         if resolved in seen_paths:
             continue
         seen_paths.add(resolved)
-
-        loaded_payload = _load_json_object(path)
-        if loaded_payload is None:
-            continue
-        trace_document = _extract_trace_document(loaded_payload)
-        if trace_document is None:
-            continue
-        trace_payload = _trace_payload_from_document(trace_document)
-        if trace_payload is None:
-            continue
-
-        delta_records = tuple(
-            _load_delta_records(
-                path=path,
-                controls=trace_payload.controls,
-                root=root,
-                source_document=trace_document,
-                diagnostics=None,
-            )
-        )
-        sources.append(
-            _TraceSource(
-                path=path,
-                one_cells=tuple(trace_payload.one_cells),
-                controls=trace_payload.controls,
-                delta_records=delta_records,
-            )
-        )
+        for loaded_payload in _iter_loaded_json_objects(path):
+            for trace_document in _iter_trace_documents(loaded_payload):
+                for trace_payload in _iter_trace_payloads_from_document(trace_document):
+                    delta_records = tuple(
+                        _load_delta_records(
+                            path=path,
+                            controls=trace_payload.controls,
+                            root=root,
+                            source_document=trace_document,
+                            diagnostics=None,
+                        )
+                    )
+                    sources.append(
+                        _TraceSource(
+                            path=path,
+                            one_cells=tuple(trace_payload.one_cells),
+                            controls=trace_payload.controls,
+                            delta_records=delta_records,
+                        )
+                    )
+                    break
+                break
+            break
 
     return tuple(sources)
 
 
-def _extract_trace_document(payload: object) -> _TraceDocumentDTO | None:
+def _iter_trace_documents(payload: object) -> Iterable[_TraceDocumentDTO]:
     try:
-        return _TraceDocumentDTO.model_validate(payload)
+        yield _TraceDocumentDTO.model_validate(payload)
     except ValidationError:
-        return None
+        return
 
 
-def _trace_payload_from_document(
+def _iter_trace_payloads_from_document(
     document: _TraceDocumentDTO,
-) -> _TracePayloadDTO | None:
+) -> Iterable[_TracePayloadDTO]:
     if document.trace is not None:
-        return document.trace
-    if document.one_cells is None:
-        return None
-    return _TracePayloadDTO(
-        one_cells=document.one_cells,
-        controls=document.controls,
-    )
+        yield document.trace
+        return
+    if document.one_cells is not None:
+        yield _TracePayloadDTO(
+            one_cells=document.one_cells,
+            controls=document.controls,
+        )
 
 
 def _load_delta_records(
@@ -343,30 +341,31 @@ def _load_delta_records(
     if source_document.delta_ledger is not None:
         records.extend(source_document.delta_ledger.records)
 
-    if controls is not None:
-        delta_jsonl_path = _strict_delta_jsonl_path_from_controls(
-            controls=controls,
-            root=root,
-        )
-        if delta_jsonl_path is not None and _is_repo_local_path(
-            path=delta_jsonl_path,
+    for strict_controls in _iter_optional_controls(controls):
+        for delta_jsonl_path in _iter_strict_delta_jsonl_paths_from_controls(
+            controls=strict_controls,
             root=root,
         ):
-            if diagnostics is not None and not delta_jsonl_path.exists():
-                diagnostics.append(
-                    _ingress_violation(
-                        path=delta_jsonl_path,
-                        line=1,
-                        kind="missing_delta_jsonl_path",
-                        message="ASPF delta JSONL path declared in controls does not exist",
+            if _is_repo_local_path(
+                path=delta_jsonl_path,
+                root=root,
+            ):
+                if diagnostics is not None and not delta_jsonl_path.exists():
+                    diagnostics.append(
+                        _ingress_violation(
+                            path=delta_jsonl_path,
+                            line=1,
+                            kind="missing_delta_jsonl_path",
+                            message="ASPF delta JSONL path declared in controls does not exist",
+                        )
+                    )
+                records.extend(
+                    _records_from_jsonl_path(
+                        delta_jsonl_path,
+                        diagnostics=diagnostics,
                     )
                 )
-            records.extend(
-                _records_from_jsonl_path(
-                    delta_jsonl_path,
-                    diagnostics=diagnostics,
-                )
-            )
+        break
 
     return records
 
@@ -443,37 +442,36 @@ def _collect_source_violations(*, root: Path, source: _TraceSource) -> list[Viol
     flow_events_by_identity: dict[str, list[_ObservedNormalization]] = {}
 
     for index, one_cell in enumerate(one_cells, start=1):
-        normalization_class = _normalization_class(one_cell)
-        if normalization_class is None:
-            continue
+        for normalization_class in _iter_normalization_classes(one_cell):
 
-        flow_identity = _derive_canonical_flow_identity(
-            run_context=run_context,
-            one_cell=one_cell,
-        )
-        event_kind = (one_cell.kind or "").strip()
-        one_cell_ref = f"one_cells.{index}"
-        phase_hint = phase_by_one_cell_ref.get(one_cell_ref, "")
-        pre_core = _is_pre_core_event(
-            event_index=index,
-            core_entry_index=core_entry_index,
-            phase_hint=phase_hint,
-        )
-        observed_event = _ObservedNormalization(
-            event_index=index,
-            line=index,
-            column=1,
-            event_kind=event_kind,
-            phase_hint=phase_hint,
-            normalization_class=normalization_class,
-            input_slot="<flow>",
-            pre_core=pre_core,
-        )
-        flow_events_by_identity.setdefault(flow_identity, []).append(observed_event)
-        if pre_core:
-            observed.setdefault((flow_identity, normalization_class), []).append(
-                observed_event
+            flow_identity = _derive_canonical_flow_identity(
+                run_context=run_context,
+                one_cell=one_cell,
             )
+            event_kind = (one_cell.kind or "").strip()
+            one_cell_ref = f"one_cells.{index}"
+            phase_hint = phase_by_one_cell_ref.get(one_cell_ref, "")
+            pre_core = _is_pre_core_event(
+                event_index=index,
+                core_entry_index=core_entry_index,
+                phase_hint=phase_hint,
+            )
+            observed_event = _ObservedNormalization(
+                event_index=index,
+                line=index,
+                column=1,
+                event_kind=event_kind,
+                phase_hint=phase_hint,
+                normalization_class=normalization_class,
+                input_slot="<flow>",
+                pre_core=pre_core,
+            )
+            flow_events_by_identity.setdefault(flow_identity, []).append(observed_event)
+            if pre_core:
+                observed.setdefault((flow_identity, normalization_class), []).append(
+                    observed_event
+                )
+            break
 
     rel_path = source.path.resolve()
     try:
@@ -549,10 +547,9 @@ def _collect_source_violations(*, root: Path, source: _TraceSource) -> list[Viol
                     violation_applies_when_boundary_before_ordinal_gt=duplicate_local_ordinal,
                     violation_clears_when_boundary_before_ordinal_lte=duplicate_local_ordinal,
                     boundary_domain_max_before_ordinal=boundary_domain_max_before_ordinal,
-                    core_entry_before_ordinal=(
-                        local_boundary_before_ordinal
-                        if core_entry_index is not None
-                        else None
+                    core_entry_before_ordinal=_core_entry_before_ordinal(
+                        core_entry_index=core_entry_index,
+                        local_boundary_before_ordinal=local_boundary_before_ordinal,
                     ),
                 ),
                 counterfactual_boundary=FiberCounterfactualBoundary(
@@ -595,6 +592,18 @@ def _first_core_entry_index(*, one_cells: Sequence[_OneCellDTO]) -> int | None:
     return None
 
 
+def _core_entry_before_ordinal(
+    *,
+    core_entry_index: int | None,
+    local_boundary_before_ordinal: int,
+) -> int | None:
+    match core_entry_index:
+        case int():
+            return local_boundary_before_ordinal
+        case _:
+            return None
+
+
 def _is_pre_core_event(
     *,
     event_index: int,
@@ -614,7 +623,7 @@ def _is_pre_core_event(
     return True
 
 
-def _normalization_class(one_cell: _OneCellDTO) -> str | None:
+def _iter_normalization_classes(one_cell: _OneCellDTO) -> Iterable[str]:
     metadata = one_cell.metadata
     if metadata is not None:
         for value in (
@@ -622,37 +631,37 @@ def _normalization_class(one_cell: _OneCellDTO) -> str | None:
             metadata.normalization_kind,
             metadata.normalization_step,
         ):
-            normalized = _normalize_class_label(value)
-            if normalized is not None:
-                return normalized
+            for normalized in _iter_normalized_class_labels(value):
+                yield normalized
+                return
 
     kind = (one_cell.kind or "").strip().lower()
     if not kind:
-        return None
+        return
     fragments = tuple(
         fragment for fragment in re.split(r"[^a-z0-9]+", kind) if fragment
     )
     for class_name, hints in _NORMALIZATION_CLASS_HINTS.items():
         if any(hint in fragments for hint in hints):
-            return class_name
-    return None
+            yield class_name
+            return
 
 
-def _normalize_class_label(value: str | None) -> str | None:
-    if value is None:
-        return None
-    lowered = value.strip().lower()
+def _iter_normalized_class_labels(value: str | None) -> Iterable[str]:
+    lowered = str(value or "").strip().lower()
     if not lowered:
-        return None
+        return
     if lowered in {"parse", "decode"}:
-        return "parse"
+        yield "parse"
+        return
     if lowered in {"validate", "check"}:
-        return "validate"
+        yield "validate"
+        return
     if lowered in {"narrow", "cast", "coerce"}:
-        return "narrow"
+        yield "narrow"
+        return
     if lowered in {"normalize", "canonicalize"}:
-        return "normalize"
-    return None
+        yield "normalize"
 
 
 def _derive_canonical_flow_identity(
@@ -691,6 +700,24 @@ def _structured_hash(*parts: str) -> str:
 def _load_json_object(path: Path) -> object | None:
     loaded, _, _ = _load_json_object_with_diagnostic(path)
     return loaded
+
+
+def _iter_loaded_json_objects(path: Path) -> Iterable[object]:
+    loaded, _, _ = _load_json_object_with_diagnostic(path)
+    if loaded is not None:
+        yield loaded
+
+
+def _iter_optional_payloads(payload: object | None) -> Iterable[object]:
+    if payload is not None:
+        yield payload
+
+
+def _iter_optional_controls(
+    controls: _TraceControlsDTO | None,
+) -> Iterable[_TraceControlsDTO]:
+    if controls is not None:
+        yield controls
 
 
 def _load_json_object_with_diagnostic(
@@ -787,20 +814,19 @@ def _ingress_violation(
     )
 
 
-def _strict_delta_jsonl_path_from_controls(
+def _iter_strict_delta_jsonl_paths_from_controls(
     *,
     controls: _TraceControlsDTO,
     root: Path,
-) -> Path | None:
-    if controls.aspf_delta_jsonl is None:
-        return None
-    text = controls.aspf_delta_jsonl.strip()
+) -> Iterable[Path]:
+    text = str(controls.aspf_delta_jsonl or "").strip()
     if not text:
-        return None
+        return
     path = Path(text)
     if path.is_absolute():
-        return path
-    return (root / path).resolve()
+        yield path
+        return
+    yield (root / path).resolve()
 
 
 __all__ = [
