@@ -190,7 +190,7 @@ def _object_mapping_optional(value: object) -> dict[str, object] | None:
 
 @_object_mapping_optional.register(dict)
 def _sd_reg_1(value: dict[object, object]) -> dict[str, object] | None:
-    return {str(key): value[key] for key in value}
+    return dict(value)
 
 
 def _object_mapping_none(value: object) -> dict[str, object] | None:
@@ -238,6 +238,16 @@ def _non_empty_string_optional(value: object) -> str | None:
     if text:
         return text
     return None
+
+
+def _config_path_optional(value: object) -> Path | None:
+    config_text = _string_optional(value)
+    if config_text is None:
+        return None
+    normalized = config_text.strip()
+    if not normalized:
+        return None
+    return Path(normalized)
 
 
 @singledispatch
@@ -1322,7 +1332,7 @@ def _emit_taint_outputs(
         loaded_mapping = _object_mapping_optional(loaded)
         if loaded_mapping is None:
             never("invalid taint state payload", path=str(state_path))
-        state_payload = {str(key): loaded_mapping[key] for key in loaded_mapping}
+        state_payload = dict(loaded_mapping)
         state = taint_state.parse_state_payload(
             cast(Mapping[str, JSONValue], state_payload)
         )
@@ -2063,9 +2073,7 @@ def _run_analysis_with_progress(
         )
         state.semantic_progress_cumulative = semantic_progress
         context.runtime_state.semantic_progress_cumulative = dict(semantic_progress)
-        persisted_progress_payload: JSONObject = {
-            str(key): progress_payload[key] for key in progress_payload
-        }
+        persisted_progress_payload: JSONObject = dict(progress_payload)
         persisted_progress_payload["semantic_progress"] = semantic_progress
         state.last_collection_resume_payload = persisted_progress_payload
         collection_progress = _analysis_resume_progress(
@@ -2308,13 +2316,8 @@ def _run_analysis_with_progress(
                             "work_total": int(work_total),
                             "event_kind": "progress",
                             "progress_marker": progress_marker,
-                            "phase_progress_v2": (
-                                {
-                                    str(key): phase_progress_v2[key]
-                                    for key in phase_progress_v2
-                                }
-                                if phase_progress_v2 is not None
-                                else None
+                            "phase_progress_v2": _object_mapping_optional(
+                                phase_progress_v2
                             ),
                         },
                         projection_rows=context.projection_rows,
@@ -2374,24 +2377,41 @@ def _run_analysis_with_progress(
             runtime_policy,
             order_policy=OrderPolicy(payload_order_policy.strip().lower()),
         )
-    for key, attr in (
-        ("order_telemetry", "order_telemetry_enabled"),
-        ("order_enforce_canonical_allowlist", "order_enforce_canonical_allowlist"),
-        ("order_deadline_probe", "order_deadline_probe_enabled"),
-    ):
-        value = context.payload.get(key)
-        normalized_bool = _bool_optional(value)
-        if normalized_bool is not None:
-            runtime_policy = dataclasses.replace(
-                runtime_policy, **{attr: normalized_bool}
-            )
-    for key, attr in (
-        ("derivation_cache_max_entries", "derivation_cache_max_entries"),
-        ("projection_registry_gas_limit", "projection_registry_gas_limit"),
-    ):
-        value = context.payload.get(key)
-        if value not in (None, ""):
-            runtime_policy = dataclasses.replace(runtime_policy, **{attr: max(1, int(value))})
+    bool_policy_updates = filter(
+        lambda item: item[1] is not None,
+        map(
+            lambda pair: (
+                pair[1],
+                _bool_optional(context.payload.get(pair[0])),
+            ),
+            (
+                ("order_telemetry", "order_telemetry_enabled"),
+                ("order_enforce_canonical_allowlist", "order_enforce_canonical_allowlist"),
+                ("order_deadline_probe", "order_deadline_probe_enabled"),
+            ),
+        ),
+    )
+    for attr, normalized_bool in bool_policy_updates:
+        runtime_policy = dataclasses.replace(runtime_policy, **{attr: normalized_bool})
+    int_policy_updates = filter(
+        lambda item: item[1] is not None,
+        map(
+            lambda pair: (
+                pair[1],
+                (
+                    max(1, int(context.payload[pair[0]]))
+                    if context.payload.get(pair[0]) not in (None, "")
+                    else None
+                ),
+            ),
+            (
+                ("derivation_cache_max_entries", "derivation_cache_max_entries"),
+                ("projection_registry_gas_limit", "projection_registry_gas_limit"),
+            ),
+        ),
+    )
+    for attr, max_value in int_policy_updates:
+        runtime_policy = dataclasses.replace(runtime_policy, **{attr: max_value})
 
     if context.needs_analysis:
         analysis_started_ns = time.monotonic_ns()
@@ -2619,9 +2639,7 @@ def _create_progress_emitter(
             "adaptation_kind": str(adaptation_kind),
             "event": _object_mapping_optional(canonical_event),
             "adaptation_error": str(adaptation_error).strip(),
-            "identity_allocation_delta_v1": [
-                dict(item) for item in identity_allocation_delta
-            ],
+            "identity_allocation_delta_v1": list(map(dict, identity_allocation_delta)),
             "rejected_progress_payload_v2": _object_mapping_optional(
                 rejected_progress_payload_v2
             ),
@@ -2659,16 +2677,20 @@ def _create_progress_emitter(
         nonlocal last_progress_notification_ns
         nonlocal phase_timeline_header_emitted
         nonlocal previous_transition_state
-        semantic_payload: JSONObject = {}
-        if semantic_progress is not None:
-            for raw_key, raw_value in semantic_progress.items():
-                normalized_key = _string_optional(raw_key)
-                if normalized_key is None:
-                    continue
-                if normalized_key == "substantive_progress" or normalized_key.startswith(
-                    "cumulative_"
-                ):
-                    semantic_payload[normalized_key] = raw_value
+        semantic_payload: JSONObject = (
+            dict(
+                filter(
+                    lambda item: item[0] == "substantive_progress"
+                    or item[0].startswith("cumulative_"),
+                    map(
+                        lambda entry: (_string_optional(entry[0]) or "", entry[1]),
+                        semantic_progress.items(),
+                    ),
+                )
+            )
+            if semantic_progress is not None
+            else {}
+        )
         if "substantive_progress" not in semantic_payload:
             semantic_payload["substantive_progress"] = False
         progress_value: JSONObject = {
@@ -3362,6 +3384,10 @@ def _copy_json_mapping(payload: Mapping[str, JSONValue]) -> JSONObject:
 
 def _fingerprint_spec_item_selected(item: tuple[object, object]) -> bool:
     return not str(item[0]).startswith("synth_")
+
+
+def _artifact_trace_surface(artifact_key: str) -> str:
+    return "delta_payload" if "delta" in artifact_key else "delta_state"
 
 
 def _emit_trace_artifacts_payloads(
@@ -4478,7 +4504,7 @@ def _build_success_response(
         ambiguity_baseline_path=context.options.ambiguity_baseline_path_override,
         taint_baseline_path=context.options.taint_baseline_path_override,
     )
-    for artifact_key, representative in (
+    trace_artifact_pairs = (
         ("test_obsolescence_delta_summary", "emit:test_obsolescence_delta"),
         ("test_annotation_drift_delta_summary", "emit:test_annotation_drift_delta"),
         ("ambiguity_delta_summary", "emit:ambiguity_delta"),
@@ -4490,10 +4516,12 @@ def _build_success_response(
         ("quotient_protocol_readiness", "emit:quotient_protocol_readiness"),
         ("quotient_promotion_decision", "emit:quotient_promotion_decision"),
         ("quotient_demotion_incidents", "emit:quotient_demotion_incidents"),
-    ):
-        if artifact_key not in response:
-            continue
-        if context.aspf_trace_state is not None:
+    )
+    if context.aspf_trace_state is not None:
+        for artifact_key, representative in filter(
+            lambda pair: pair[0] in response,
+            trace_artifact_pairs,
+        ):
             _record_trace_1cell(
                 execute_deps=context.execute_deps,
                 state=context.aspf_trace_state,
@@ -4502,9 +4530,7 @@ def _build_success_response(
                 target_label=f"artifact:{artifact_key}",
                 representative=representative,
                 basis_path=("artifact", "emit", artifact_key),
-                surface="delta_payload"
-                if "delta" in artifact_key
-                else "delta_state",
+                surface=_artifact_trace_surface(artifact_key),
             )
     if context.aspf_trace_state is not None:
         materialized_one_cells: list[JSONObject] = []
@@ -5013,24 +5039,26 @@ def execute_command_total(
     try:
         root = payload.get("root") or ls.workspace.root_path or "."
         config_path = payload.get("config")
+        normalized_root_path = Path(root)
+        normalized_config_path = _config_path_optional(config_path)
         defaults = dataflow_defaults(
-            Path(root), Path(config_path) if config_path else None
+            normalized_root_path, normalized_config_path
         )
         deadline_roots = set(dataflow_deadline_roots(defaults))
         decision_section = decision_defaults(
-            Path(root), Path(config_path) if config_path else None
+            normalized_root_path, normalized_config_path
         )
         decision_tiers = decision_tier_map(decision_section)
         decision_require = decision_require_tiers(decision_section)
         taint_section = taint_defaults(
-            Path(root), Path(config_path) if config_path else None
+            normalized_root_path, normalized_config_path
         )
         exception_section = exception_defaults(
-            Path(root), Path(config_path) if config_path else None
+            normalized_root_path, normalized_config_path
         )
         never_exceptions = set(exception_never_list(exception_section))
         fingerprint_section = fingerprint_defaults(
-            Path(root), Path(config_path) if config_path else None
+            normalized_root_path, normalized_config_path
         )
         synth_min_occurrences = 0
         synth_version = "synth@1"

@@ -6440,6 +6440,61 @@
         "targeted_pytest": "pass (302 passed)",
         "policy_scanner_suite": "expected_nonzero total=10676"
       }
+    },
+    {
+      "cu_id": "CU-GEO6",
+      "summary": "Geometric hotspot server_core seed continuation: eliminate remaining command_orchestrator loop/filter hotspots and collapse repeated config-path sentinel branches.",
+      "timestamp_utc": "2026-03-09T17:14:36Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7244,
+        "defensive_fallback": 128,
+        "fiber_loop_structure_contract": 952,
+        "fiber_filter_processor_contract": 2116,
+        "fiber_scalar_sentinel_contract": 236,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7247,
+        "defensive_fallback": 129,
+        "fiber_loop_structure_contract": 947,
+        "fiber_filter_processor_contract": 2109,
+        "fiber_scalar_sentinel_contract": 231,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 10676,
+      "total_after": 10663,
+      "notes": [
+        "Refactored runtime policy override loops in _run_analysis_with_progress into filter/map update streams (no in-loop branch guards).",
+        "Removed loop/filter findings in _build_success_response and emit_lsp_progress by hoisting filtering upstream and narrowing per-iteration work to processors only.",
+        "Collapsed repeated Path(config_path) if config_path else None expressions into _config_path_optional ingress normalization and replaced several one-loop container comprehensions with structural mapping copies.",
+        "Server_core ring (active five families) reduced 578 -> 565 (-13); command_orchestrator file reduced 101 -> 88 (-13)."
+      ],
+      "validation": {
+        "policy_check_workflows": "fail_expected_symbol_activity_audit (unsuppressed=1486)",
+        "policy_check_ambiguity_contract": "pass",
+        "targeted_pytest": "pass (302 passed)",
+        "policy_scanner_suite": "expected_nonzero total=10663"
+      }
     }
   ],
   "generated_by": "codex",
