@@ -1,0 +1,135 @@
+{
+  "schema_version": 1,
+  "workstream": "aspf_projection_lens_substrate_migration",
+  "generated_by": "codex",
+  "entries": [
+    {
+      "cu_id": "CU-FS1-FS5",
+      "timestamp_utc": "2026-03-09T01:28:31Z",
+      "migrated_families": [
+        "branchless",
+        "defensive_fallback",
+        "no_monkeypatch",
+        "typing_surface",
+        "runtime_narrowing_boundary",
+        "boundary_core_contract",
+        "test_sleep_hygiene",
+        "test_subprocess_hygiene",
+        "no_legacy_monolith_import",
+        "orchestrator_primitive_barrel"
+      ],
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7136,
+        "defensive_fallback": 140,
+        "fiber_scalar_sentinel_contract": 307,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7310,
+        "defensive_fallback": 154,
+        "fiber_loop_structure_contract": 980,
+        "fiber_filter_processor_contract": 2197,
+        "fiber_scalar_sentinel_contract": 298,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 1,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 7583,
+      "total_after": 10940,
+      "drift_notes": [
+        "Architecture-first migration increased branchless/defensive counts due substrate-backed detection and elimination of scanner-local shortcuts.",
+        "Runtime narrowing remained zero; typing surface introduced one residual violation pending follow-up strictification.",
+        "Scanner-local families now route through dedicated rule modules with substrate payload parity."
+      ],
+      "libcst_recovery": {
+        "cst_parse_failure_events": 0,
+        "continued_with_pyast_union": true
+      },
+      "validation": {
+        "policy_workflows": "fail_expected_symbol_activity_audit_gate",
+        "policy_ambiguity_contract": "pass",
+        "targeted_pytest_runtime_policy_cluster": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero"
+      }
+    },
+    {
+      "cu_id": "CU-FS6",
+      "timestamp_utc": "2026-03-09T01:43:02Z",
+      "migrated_families": [
+        "test_sleep_hygiene",
+        "test_subprocess_hygiene"
+      ],
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7310,
+        "defensive_fallback": 154,
+        "fiber_loop_structure_contract": 980,
+        "fiber_filter_processor_contract": 2197,
+        "fiber_scalar_sentinel_contract": 298,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 1,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7285,
+        "defensive_fallback": 142,
+        "fiber_loop_structure_contract": 981,
+        "fiber_filter_processor_contract": 2198,
+        "fiber_scalar_sentinel_contract": 265,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 1,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 10940,
+      "total_after": 10872,
+      "drift_notes": [
+        "Branchless and defensive fallback counts decreased after cleanup and import-cycle stabilization.",
+        "Fiber-loop and filter-processor counts changed by +1 due scanner run inventory drift; deterministic run artifact captured.",
+        "Typing-surface residual remains at 1 (unchanged)."
+      ],
+      "libcst_recovery": {
+        "cst_parse_failure_events": 0,
+        "recovered_modules": "all parseable targets processed"
+      },
+      "validation": {
+        "policy_check_workflows": "fail_expected_symbol_activity_audit",
+        "policy_check_ambiguity_contract": "pass",
+        "targeted_pytest": "pass (40 passed)",
+        "policy_scanner_suite": "expected_nonzero total=10872"
+      }
+    }
+  ]
+}

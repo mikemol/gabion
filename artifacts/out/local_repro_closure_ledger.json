@@ -5681,6 +5681,112 @@
         "targeted_pytest_refactor_cluster": "pass",
         "targeted_pytest_statement_materialization": "pass"
       }
+    },
+    {
+      "cu_id": "CU-FS1-FS5",
+      "summary": "ASPF projection-lens substrate migration for all remaining non-fibration rule families and scanner-local families via canonical policy_substrate runtime (union view, lens composition, taint intervals, overlap provenance).",
+      "timestamp_utc": "2026-03-09T01:27:55Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7136,
+        "defensive_fallback": 140,
+        "fiber_scalar_sentinel_contract": 307,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7310,
+        "defensive_fallback": 154,
+        "fiber_loop_structure_contract": 980,
+        "fiber_filter_processor_contract": 2197,
+        "fiber_scalar_sentinel_contract": 298,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 1,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 7583,
+      "total_after": 10940,
+      "notes": [
+        "Added substrate runtime package: aspf_union_view, projection_lens, taint_intervals, overlap_eval, rule_runtime.",
+        "Migrated non-fibration rules to substrate diagnostics: branchless, defensive_fallback, no_monkeypatch, typing_surface, runtime_narrowing_boundary, boundary_core_contract, test_sleep_hygiene, test_subprocess_hygiene.",
+        "Converted scanner-local families to dedicated rule modules: no_legacy_monolith_import_rule and orchestrator_primitive_barrel_rule; scanner orchestration now invokes modules directly."
+      ],
+      "validation": {
+        "policy_workflows": "fail_expected_symbol_activity_audit_gate",
+        "policy_ambiguity_contract": "pass",
+        "policy_scanner_suite": "fail_expected_nonzero",
+        "targeted_pytest_runtime_policy_cluster": "pass"
+      }
+    },
+    {
+      "cu_id": "CU-FS6",
+      "summary": "Stabilize substrate migration by removing remaining dotted-name sentinel guards in hygiene rules and breaking policy_rules import cycles with lazy module loading.",
+      "timestamp_utc": "2026-03-09T01:43:02Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7310,
+        "defensive_fallback": 154,
+        "fiber_loop_structure_contract": 980,
+        "fiber_filter_processor_contract": 2197,
+        "fiber_scalar_sentinel_contract": 298,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 1,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7285,
+        "defensive_fallback": 142,
+        "fiber_loop_structure_contract": 981,
+        "fiber_filter_processor_contract": 2198,
+        "fiber_scalar_sentinel_contract": 265,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 1,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 10940,
+      "total_after": 10872,
+      "notes": [
+        "Refactored test_sleep_hygiene_rule and test_subprocess_hygiene_rule to remove optional dotted-name sentinel control flow and use direct argparse argv pass-through.",
+        "Replaced eager imports in policy_rules.__init__ with lazy __getattr__ module loading to eliminate circular import between policy_substrate.rule_runtime and boundary_core_contract_rule.",
+        "Validated targeted runtime-policy suites after import-topology change and scanner serialization path updates."
+      ],
+      "validation": {
+        "policy_check_workflows": "fail_expected_symbol_activity_audit",
+        "policy_check_ambiguity_contract": "pass",
+        "targeted_pytest": "pass (40 passed)",
+        "policy_scanner_suite": "expected_nonzero total=10872"
+      }
     }
   ],
   "generated_by": "codex",

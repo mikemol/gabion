@@ -3,12 +3,32 @@ from __future__ import annotations
 
 import argparse
 import ast
+import hashlib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
-
+from gabion.analysis.foundation.event_algebra import CanonicalRunContext
+from gabion.tooling.policy_substrate import (
+    build_aspf_union_view,
+    cst_failure_seeds,
+    decorate_failure,
+    decorate_site,
+    new_run_context,
+)
+from gabion.tooling.policy_rules.fiber_diagnostics import (
+    FiberApplicabilityBounds,
+    FiberCounterfactualBoundary,
+    FiberTraceEvent,
+)
 from gabion.tooling.runtime.policy_result_schema import make_policy_result, write_policy_result
+from gabion.tooling.runtime.policy_scan_batch import (
+    PolicyScanBatch,
+    ScanFailureSeed,
+    build_policy_scan_batch,
+    iter_failure_seeds,
+    load_path_allowlist,
+)
 
+RULE_NAME = "test_subprocess_hygiene"
 TARGET_GLOBS = ("tests/**/*.py",)
 _SPAWN_CALLS = frozenset({"run", "check_output", "Popen"})
 
@@ -22,20 +42,18 @@ class Violation:
     message: str
     call: str
     key: str
+    input_slot: str
+    flow_identity: str
+    fiber_trace: tuple[FiberTraceEvent, ...]
+    applicability_bounds: FiberApplicabilityBounds
+    counterfactual_boundary: FiberCounterfactualBoundary
+    fiber_id: str
+    taint_interval_id: str
+    condition_overlap_id: str
+    structured_hash: str
 
     def render(self) -> str:
         return f"{self.path}:{self.line}:{self.column}: {self.kind}: {self.message}"
-
-
-def _load_allowlist(path: Path) -> set[str]:
-    if not path.exists():
-        return set()
-    allowed: set[str] = set()
-    for raw_line in path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.split("#", 1)[0].strip()
-        if line:
-            allowed.add(line.replace("\\", "/"))
-    return allowed
 
 
 @dataclass
@@ -45,10 +63,16 @@ class _ImportScope:
 
 
 class _SubprocessSpawnVisitor(ast.NodeVisitor):
-    def __init__(self, *, rel_path: str) -> None:
+    def __init__(
+        self,
+        *,
+        rel_path: str,
+        run_context: CanonicalRunContext,
+    ) -> None:
         self.rel_path = rel_path
         self.scope = _ImportScope(subprocess_names={"subprocess"}, subprocess_spawn_names={})
         self.violations: list[Violation] = []
+        self._run_context = run_context
 
     def visit_Import(self, node: ast.Import) -> None:
         for alias in node.names:
@@ -71,9 +95,6 @@ class _SubprocessSpawnVisitor(ast.NodeVisitor):
 
     def visit_Call(self, node: ast.Call) -> None:
         dotted = _dotted_name(node.func)
-        if dotted is None:
-            self.generic_visit(node)
-            return
 
         if "." in dotted:
             head, attr = dotted.rsplit(".", 1)
@@ -113,7 +134,7 @@ class _SubprocessSpawnVisitor(ast.NodeVisitor):
 
     def _check_assignment_target(self, *, target: ast.AST, node: ast.AST) -> None:
         dotted = _dotted_name(target)
-        if dotted is None or "." not in dotted:
+        if "." not in dotted:
             return
         head, attr = dotted.rsplit(".", 1)
         if head not in self.scope.subprocess_names or attr not in _SPAWN_CALLS:
@@ -131,6 +152,32 @@ class _SubprocessSpawnVisitor(ast.NodeVisitor):
     def _report(self, *, node: ast.AST, call: str, kind: str, message: str) -> None:
         line = int(getattr(node, "lineno", 1))
         column = int(getattr(node, "col_offset", 0)) + 1
+        input_slot = f"spawn:{kind}"
+        decoration = decorate_site(
+            run_context=self._run_context,
+            rule_name=RULE_NAME,
+            rel_path=self.rel_path,
+            qualname="<module>",
+            line=line,
+            column=column,
+            node_kind=f"spawn:{kind}",
+            input_slot=input_slot,
+            taint_class="subprocess_spawn",
+            intro_kind=f"syntax:spawn_taint:{kind}",
+            condition_kind=f"syntax:spawn_condition:{kind}",
+            erase_kind=f"syntax:spawn_allowlist:{kind}",
+            rationale=(
+                "Move subprocess spawn behavior to explicit integration boundaries and "
+                "keep general test fibers dependency-injected."
+            ),
+        )
+        structured_hash = _structured_hash(
+            self.rel_path,
+            kind,
+            str(line),
+            str(column),
+            call,
+        )
         self.violations.append(
             Violation(
                 path=self.rel_path,
@@ -140,71 +187,104 @@ class _SubprocessSpawnVisitor(ast.NodeVisitor):
                 message=message,
                 call=call,
                 key=f"{self.rel_path}:{line}:{kind}",
+                input_slot=input_slot,
+                flow_identity=decoration.flow_identity,
+                fiber_trace=decoration.fiber_trace,
+                applicability_bounds=decoration.applicability_bounds,
+                counterfactual_boundary=decoration.counterfactual_boundary,
+                fiber_id=decoration.fiber_id,
+                taint_interval_id=decoration.taint_interval_id,
+                condition_overlap_id=decoration.condition_overlap_id,
+                structured_hash=structured_hash,
             )
         )
 
 
-def _dotted_name(node: ast.AST) -> str | None:
+def _dotted_name(node: ast.AST) -> str:
+    return ".".join(_dotted_name_parts(node))
+
+
+def _dotted_name_parts(node: ast.AST) -> tuple[str, ...]:
     match node:
         case ast.Name(id=identifier):
-            return str(identifier)
+            return (str(identifier),)
         case ast.Attribute(value=value, attr=attr):
-            parent = _dotted_name(value)
-            if parent is None:
-                return None
-            return f"{parent}.{attr}"
+            return (*_dotted_name_parts(value), attr)
         case _:
-            return None
+            return ()
+
+
+def _structured_hash(*parts: str) -> str:
+    digest = hashlib.sha256()
+    for part in parts:
+        digest.update(part.encode("utf-8"))
+        digest.update(b"\x00")
+    return digest.hexdigest()
 
 
 def collect_violations(
     *,
-    root: Path,
+    batch: PolicyScanBatch,
     allowlist_path: Path,
+    run_context: CanonicalRunContext | None = None,
 ) -> list[Violation]:
-    allowlisted_paths = _load_allowlist(allowlist_path)
+    context = run_context if run_context is not None else new_run_context(rule_name=RULE_NAME)
+    allowlisted_paths = load_path_allowlist(allowlist_path)
+    union_view = build_aspf_union_view(batch=batch)
     violations: list[Violation] = []
-    for pattern in TARGET_GLOBS:
-        for path in sorted(root.glob(pattern)):
-            if not path.is_file() or any(part == "__pycache__" for part in path.parts):
-                continue
-            rel_path = path.relative_to(root).as_posix()
-            if rel_path in allowlisted_paths:
-                continue
-            try:
-                source = path.read_text(encoding="utf-8")
-            except OSError:
-                violations.append(
-                    Violation(
-                        path=rel_path,
-                        line=1,
-                        column=1,
-                        kind="read_error",
-                        message="unable to read test file while checking subprocess hygiene",
-                        call="<none>",
-                        key=f"{rel_path}:1:read_error",
-                    )
-                )
-                continue
-            try:
-                tree = ast.parse(source)
-            except SyntaxError as exc:
-                violations.append(
-                    Violation(
-                        path=rel_path,
-                        line=int(exc.lineno or 1),
-                        column=int(exc.offset or 1),
-                        kind="syntax_error",
-                        message="syntax error while checking subprocess hygiene",
-                        call="<none>",
-                        key=f"{rel_path}:{int(exc.lineno or 1)}:syntax_error",
-                    )
-                )
-                continue
-            visitor = _SubprocessSpawnVisitor(rel_path=rel_path)
-            visitor.visit(tree)
-            violations.extend(visitor.violations)
+    module_by_rel_path = {module.rel_path: module for module in union_view.modules}
+    for seed in (*iter_failure_seeds(batch=batch), *cst_failure_seeds(union_view=union_view)):
+        if not _is_target_path(seed.path):
+            continue
+        if seed.path in allowlisted_paths:
+            continue
+        violations.append(_failure_violation(run_context=context, seed=seed))
+    for rel_path in sorted(module_by_rel_path):
+        if not _is_target_path(rel_path):
+            continue
+        if rel_path in allowlisted_paths:
+            continue
+        module = module_by_rel_path[rel_path]
+        visitor = _SubprocessSpawnVisitor(rel_path=rel_path, run_context=context)
+        visitor.visit(module.pyast_tree)
+        violations.extend(visitor.violations)
     return violations
+
+
+def _failure_violation(*, run_context: CanonicalRunContext, seed: ScanFailureSeed) -> Violation:
+    decoration = decorate_failure(
+        run_context=run_context,
+        rule_name=RULE_NAME,
+        seed=seed,
+        rationale="Ensure test module parse/read validity before subprocess-hygiene substrate evaluation.",
+    )
+    message = (
+        "unable to read test file while checking subprocess hygiene"
+        if seed.kind == "read_error"
+        else "syntax error while checking subprocess hygiene"
+    )
+    return Violation(
+        path=seed.path,
+        line=seed.line,
+        column=seed.column,
+        kind=seed.kind,
+        message=message,
+        call="<none>",
+        key=f"{seed.path}:{seed.line}:{seed.kind}",
+        input_slot="module_failure",
+        flow_identity=decoration.flow_identity,
+        fiber_trace=decoration.fiber_trace,
+        applicability_bounds=decoration.applicability_bounds,
+        counterfactual_boundary=decoration.counterfactual_boundary,
+        fiber_id=decoration.fiber_id,
+        taint_interval_id=decoration.taint_interval_id,
+        condition_overlap_id=decoration.condition_overlap_id,
+        structured_hash=_structured_hash(seed.path, seed.kind, str(seed.line), str(seed.column), seed.detail),
+    )
+
+
+def _is_target_path(rel_path: str) -> bool:
+    return rel_path.startswith("tests/") and rel_path.endswith(".py")
 
 
 def _serialize_violation(item: Violation) -> dict[str, object]:
@@ -216,6 +296,12 @@ def _serialize_violation(item: Violation) -> dict[str, object]:
         "call": item.call,
         "message": item.message,
         "key": item.key,
+        "input_slot": item.input_slot,
+        "flow_identity": item.flow_identity,
+        "fiber_id": item.fiber_id,
+        "taint_interval_id": item.taint_interval_id,
+        "condition_overlap_id": item.condition_overlap_id,
+        "structured_hash": item.structured_hash,
         "render": item.render(),
     }
 
@@ -226,7 +312,8 @@ def run(
     allowlist_path: Path,
     output: Path | None = None,
 ) -> int:
-    violations = collect_violations(root=root, allowlist_path=allowlist_path)
+    batch = build_policy_scan_batch(root=root, target_globs=TARGET_GLOBS)
+    violations = collect_violations(batch=batch, allowlist_path=allowlist_path)
     status = "pass" if not violations else "fail"
     if output is not None:
         write_policy_result(
@@ -252,7 +339,7 @@ def run(
     return 1
 
 
-def main(argv: Iterable[str] | None = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", default=".")
     parser.add_argument(
@@ -260,7 +347,7 @@ def main(argv: Iterable[str] | None = None) -> int:
         default="docs/policy/test_subprocess_hygiene_allowlist.txt",
     )
     parser.add_argument("--output", type=Path)
-    args = parser.parse_args(list(argv) if argv is not None else None)
+    args = parser.parse_args(argv)
     output = args.output.resolve() if args.output is not None else None
     return run(
         root=Path(args.root).resolve(),
