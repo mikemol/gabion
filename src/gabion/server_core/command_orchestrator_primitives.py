@@ -262,17 +262,7 @@ def _analysis_input_manifest(
     include_wl_refinement: bool,
     config: AuditConfig,
 ) -> JSONObject:
-    files: list[JSONObject] = []
-    for path in file_paths:
-        check_deadline()
-        entry: JSONObject = {"path": str(path)}
-        try:
-            stat = path.stat()
-        except OSError:
-            entry["missing"] = True
-        else:
-            entry["size"] = int(stat.st_size)
-        files.append(entry)
+    files = list(map(_analysis_input_manifest_file_entry, file_paths))
     return {
         "format_version": _ANALYSIS_INPUT_MANIFEST_FORMAT_VERSION,
         "root": str(root),
@@ -282,6 +272,18 @@ def _analysis_input_manifest(
         "config": _analysis_witness_config_payload(config),
         "files": files,
     }
+
+
+def _analysis_input_manifest_file_entry(path: Path) -> JSONObject:
+    check_deadline()
+    entry: JSONObject = {"path": str(path)}
+    try:
+        stat = path.stat()
+    except OSError:
+        entry["missing"] = True
+    else:
+        entry["size"] = int(stat.st_size)
+    return entry
 
 def _analysis_input_manifest_digest(manifest: JSONObject) -> str:
     return hashlib.sha1(_canonical_json_text(manifest).encode("utf-8")).hexdigest()
@@ -398,7 +400,6 @@ def _has_section_lines(item: tuple[str, list[str]]) -> bool:
 
 
 def _projection_row_section_id(row: Mapping[str, JSONValue]) -> str:
-    check_deadline()
     return str(row.get("section_id", "") or "")
 
 
@@ -408,9 +409,7 @@ def _projection_row_has_section_id(row: Mapping[str, JSONValue]) -> bool:
 
 def _projection_row_deps(row: Mapping[str, JSONValue]) -> list[str]:
     deps_raw = row.get("deps")
-    normalized_deps = _non_string_sequence_optional(deps_raw)
-    if normalized_deps is None:
-        return []
+    normalized_deps = _non_string_sequence_optional(deps_raw) or ()
     return list(
         filter(
             _is_not_none_text,
@@ -454,9 +453,7 @@ def _journal_projection_row_payload(
 
 
 def _coerce_section_lines(value: object) -> list[str]:
-    entries = _non_string_sequence_optional(value)
-    if entries is None:
-        return []
+    entries = _non_string_sequence_optional(value) or ()
     return list(
         filter(
             _is_not_none_text,
@@ -541,6 +538,111 @@ def _write_report_section_journal(
             io_name="report_section_journal.write",
         )
 
+
+@dataclass(frozen=True)
+class _BootstrapPendingRow:
+    section_id: str
+    phase: str
+    deps: list[str]
+    reason: str
+
+
+def _deadline_tick() -> None:
+    if _deadline_tick_budget_allows_check(get_deadline_clock()):
+        check_deadline(allow_frame_fallback=False)
+    else:
+        get_deadline()
+
+
+def _bootstrap_existing_reason(
+    *,
+    report_section_journal_path: Path | None,
+    witness_digest: str | None,
+) -> str | None:
+    if report_section_journal_path is None or not report_section_journal_path.exists():
+        return None
+    try:
+        existing_payload = json.loads(
+            _read_text_profiled(
+                report_section_journal_path,
+                io_name="report_section_journal.read",
+            )
+        )
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return "policy"
+    existing_payload_mapping = _json_mapping_optional(existing_payload)
+    if existing_payload_mapping is None:
+        return "policy"
+    if (
+        existing_payload_mapping.get("format_version")
+        != _REPORT_SECTION_JOURNAL_FORMAT_VERSION
+    ):
+        return "policy"
+    expected_digest = _str_optional(existing_payload_mapping.get("witness_digest"))
+    witness_digest_text = _str_optional(witness_digest)
+    if expected_digest and (witness_digest_text is None or expected_digest != witness_digest_text):
+        return "stale_input"
+    return None
+
+
+def _is_pending_bootstrap_section(section_id: str) -> bool:
+    return bool(section_id) and section_id != "intro"
+
+
+def _pending_reason_from_deps(
+    *,
+    deps: Sequence[str],
+    sections: Mapping[str, list[str]],
+) -> str:
+    return "missing_dep" if not set(deps).issubset(set(sections)) else "policy"
+
+
+def _bootstrap_pending_row(
+    *,
+    row: Mapping[str, JSONValue],
+    sections: Mapping[str, list[str]],
+    existing_reason: str | None,
+) -> _BootstrapPendingRow:
+    _deadline_tick()
+    section_id = _projection_row_section_id(row)
+    phase = str(row.get("phase", "") or "")
+    deps = _projection_row_deps(row)
+    reason = existing_reason or _pending_reason_from_deps(deps=deps, sections=sections)
+    return _BootstrapPendingRow(
+        section_id=section_id,
+        phase=phase,
+        deps=deps,
+        reason=reason,
+    )
+
+
+def _bootstrap_report_block(row: _BootstrapPendingRow) -> tuple[str, str, str]:
+    dep_text = ", ".join(row.deps) or "none"
+    return (
+        f"## Section `{row.section_id}`",
+        f"PENDING (phase: {row.phase}; deps: {dep_text})",
+        "",
+    )
+
+
+def _bootstrap_row_payload(row: _BootstrapPendingRow) -> JSONObject:
+    return {
+        "section_id": row.section_id,
+        "phase": row.phase,
+        "deps": row.deps,
+        "status": "pending",
+    }
+
+
+def _bootstrap_section_payload_item(row: _BootstrapPendingRow) -> tuple[str, JSONObject]:
+    return row.section_id, {
+        "phase": row.phase,
+        "deps": row.deps,
+        "status": "pending",
+        "lines": [],
+        "reason": row.reason,
+    }
+
 def _write_bootstrap_incremental_artifacts(
     *,
     report_output_path: Path | None,
@@ -554,44 +656,32 @@ def _write_bootstrap_incremental_artifacts(
 ) -> None:
     _ = report_phase_checkpoint_path
     get_deadline()
-    if _deadline_tick_budget_allows_check(get_deadline_clock()):
-        check_deadline(allow_frame_fallback=False)
+    _deadline_tick()
     bootstrap_artifacts_ready = report_output_path is not None and bool(projection_rows)
     if bootstrap_artifacts_ready:
-        existing_reason: str | None = None
-        if report_section_journal_path is not None and report_section_journal_path.exists():
-            try:
-                existing_payload = json.loads(
-                    _read_text_profiled(
-                        report_section_journal_path,
-                        io_name="report_section_journal.read",
-                    )
-                )
-            except (OSError, UnicodeError, json.JSONDecodeError):
-                existing_reason = "policy"
-            else:
-                existing_payload_mapping = _json_mapping_optional(existing_payload)
-                if existing_payload_mapping is None:
-                    existing_reason = "policy"
-                elif (
-                    existing_payload_mapping.get("format_version")
-                    != _REPORT_SECTION_JOURNAL_FORMAT_VERSION
-                ):
-                    existing_reason = "policy"
-                else:
-                    expected_digest = _str_optional(
-                        existing_payload_mapping.get("witness_digest")
-                    )
-                    witness_digest_text = _str_optional(witness_digest)
-                    if expected_digest:
-                        if witness_digest_text is None or expected_digest != witness_digest_text:
-                            existing_reason = "stale_input"
+        existing_reason = _bootstrap_existing_reason(
+            report_section_journal_path=report_section_journal_path,
+            witness_digest=witness_digest,
+        )
         intro_lines = [
             "Collection bootstrap checkpoint (provisional).",
             f"- `root`: `{root}`",
             f"- `paths_requested`: `{paths_requested}`",
         ]
         sections: dict[str, list[str]] = {"intro": intro_lines}
+        pending_rows = tuple(
+            filter(
+                lambda row: _is_pending_bootstrap_section(row.section_id),
+                map(
+                    lambda row: _bootstrap_pending_row(
+                        row=row,
+                        sections=sections,
+                        existing_reason=existing_reason,
+                    ),
+                    projection_rows,
+                ),
+            )
+        )
         report_lines = [
             "<!-- dataflow-grammar -->",
             "Dataflow grammar audit (observed forwarding bundles).",
@@ -603,8 +693,17 @@ def _write_bootstrap_incremental_artifacts(
             "## Section `intro`",
             *intro_lines,
             "",
+            *chain.from_iterable(map(_bootstrap_report_block, pending_rows)),
         ]
-        rows_payload: list[JSONObject] = []
+        rows_payload: list[JSONObject] = [
+            {
+                "section_id": "intro",
+                "phase": "collection",
+                "deps": [],
+                "status": "resolved",
+            },
+            *list(map(_bootstrap_row_payload, pending_rows)),
+        ]
         sections_payload: JSONObject = {
             "intro": {
                 "phase": "collection",
@@ -613,57 +712,7 @@ def _write_bootstrap_incremental_artifacts(
                 "lines": intro_lines,
             }
         }
-        rows_payload.append(
-            {
-                "section_id": "intro",
-                "phase": "collection",
-                "deps": [],
-                "status": "resolved",
-            }
-        )
-        for row in projection_rows:
-            if _deadline_tick_budget_allows_check(get_deadline_clock()):
-                check_deadline(allow_frame_fallback=False)
-            else:
-                get_deadline()
-            section_id = str(row.get("section_id", "") or "")
-            if not section_id or section_id == "intro":
-                continue
-            phase = str(row.get("phase", "") or "")
-            deps_raw = row.get("deps")
-            deps: list[str] = []
-            normalized_deps = _non_string_sequence_optional(deps_raw)
-            if normalized_deps is not None:
-                for dep in normalized_deps:
-                    if _deadline_tick_budget_allows_check(get_deadline_clock()):
-                        check_deadline(allow_frame_fallback=False)
-                    else:
-                        get_deadline()
-                    dep_text = _str_optional(dep)
-                    if dep_text is not None:
-                        deps.append(dep_text)
-            dep_text = ", ".join(deps) if deps else "none"
-            reason = existing_reason or (
-                "missing_dep" if any(dep not in sections for dep in deps) else "policy"
-            )
-            report_lines.append(f"## Section `{section_id}`")
-            report_lines.append(f"PENDING (phase: {phase}; deps: {dep_text})")
-            report_lines.append("")
-            sections_payload[section_id] = {
-                "phase": phase,
-                "deps": deps,
-                "status": "pending",
-                "lines": [],
-                "reason": reason,
-            }
-            rows_payload.append(
-                {
-                    "section_id": section_id,
-                    "phase": phase,
-                    "deps": deps,
-                    "status": "pending",
-                }
-            )
+        sections_payload.update(dict(map(_bootstrap_section_payload_item, pending_rows)))
         report_output_path.parent.mkdir(parents=True, exist_ok=True)
         _write_text_profiled(
             report_output_path,
@@ -696,6 +745,56 @@ def _write_bootstrap_incremental_artifacts(
             "remaining_files": 0,
             "section_ids": sort_once(sections, source = 'src/gabion/server.py:2075'),
         }
+
+
+@dataclass(frozen=True)
+class _IncrementalProjectionRow:
+    section_id: str
+    phase: str
+    deps: list[str]
+
+
+def _incremental_projection_row(row: Mapping[str, JSONValue]) -> _IncrementalProjectionRow:
+    check_deadline()
+    return _IncrementalProjectionRow(
+        section_id=_projection_row_section_id(row),
+        phase=str(row.get("phase", "") or ""),
+        deps=_projection_row_deps(row),
+    )
+
+
+def _has_incremental_projection_section(row: _IncrementalProjectionRow) -> bool:
+    return bool(row.section_id)
+
+
+def _resolved_section_block(
+    *,
+    section_id: str,
+    section_lines: Sequence[str],
+) -> tuple[str, ...]:
+    return (
+        f"## Section `{section_id}`",
+        *tuple(section_lines),
+        "",
+    )
+
+
+def _pending_section_reason(
+    *,
+    deps: Sequence[str],
+    sections: Mapping[str, list[str]],
+) -> str:
+    return "missing_dep" if not set(deps).issubset(set(sections)) else "policy"
+
+
+def _pending_section_block(row: _IncrementalProjectionRow) -> tuple[str, str, str]:
+    dep_text = ", ".join(row.deps) or "none"
+    return (
+        f"## Section `{row.section_id}`",
+        f"PENDING (phase: {row.phase}; deps: {dep_text})",
+        "",
+    )
+
 
 def _render_incremental_report(
     *,
@@ -775,44 +874,45 @@ def _render_incremental_report(
             lines.append(f"- `resume_supported`: `{resume_supported}`")
     lines.append("")
 
-    pending_reasons: dict[str, str] = {}
-    for row in projection_rows:
-        check_deadline()
-        section_id = str(row.get("section_id", "") or "")
-        if not section_id:
-            continue
-        phase = str(row.get("phase", "") or "")
-        deps_raw = row.get("deps")
-        deps: list[str] = []
-        normalized_deps = _non_string_sequence_optional(deps_raw)
-        if normalized_deps is not None:
-            deps = [
-                dep_text
-                for dep_text in (_str_optional(dep) for dep in normalized_deps)
-                if dep_text is not None
-            ]
-        section_lines = sections.get(section_id)
-        if section_lines:
-            lines.append(f"## Section `{section_id}`")
-            lines.extend(section_lines)
-            lines.append("")
-            continue
-        dep_text = ", ".join(deps) if deps else "none"
-        if any(dep not in sections for dep in deps):
-            reason = "missing_dep"
-        else:
-            reason = "policy"
-            section_phase = str(row.get("phase", "") or "")
-            try:
-                report_projection_phase_rank(
-                    cast(Literal["collection", "forest", "edge", "post"], section_phase)
-                )
-            except KeyError:
-                reason = "policy"
-        pending_reasons[section_id] = reason
-        lines.append(f"## Section `{section_id}`")
-        lines.append(f"PENDING (phase: {phase}; deps: {dep_text})")
-        lines.append("")
+    projection_state_rows = tuple(
+        filter(
+            _has_incremental_projection_section,
+            map(_incremental_projection_row, projection_rows),
+        )
+    )
+    resolved_rows = tuple(
+        filter(
+            lambda row: bool(sections.get(row.section_id)),
+            projection_state_rows,
+        )
+    )
+    pending_rows = tuple(
+        filter(
+            lambda row: not sections.get(row.section_id),
+            projection_state_rows,
+        )
+    )
+    pending_reasons = dict(
+        map(
+            lambda row: (
+                row.section_id,
+                _pending_section_reason(deps=row.deps, sections=sections),
+            ),
+            pending_rows,
+        )
+    )
+    lines.extend(
+        chain.from_iterable(
+            map(
+                lambda row: _resolved_section_block(
+                    section_id=row.section_id,
+                    section_lines=sections.get(row.section_id, []),
+                ),
+                resolved_rows,
+            )
+        )
+    )
+    lines.extend(chain.from_iterable(map(_pending_section_block, pending_rows)))
     return "\n".join(lines).rstrip() + "\n", pending_reasons
 
 def _phase_timeline_md_path(*, root: Path) -> Path:
@@ -902,6 +1002,58 @@ def _phase_timeline_header_columns() -> list[str]:
 def _phase_timeline_header_block() -> str:
     return progress_timeline.phase_timeline_header_block()
 
+
+def _in_progress_state_processed_count(state_mapping: Mapping[str, JSONValue]) -> int:
+    processed_count_value = _int_optional(state_mapping.get("processed_functions_count"))
+    if processed_count_value is not None:
+        return processed_count_value
+    raw_processed = state_mapping.get("processed_functions")
+    processed_entries = _non_string_sequence_optional(raw_processed) or ()
+    return sum(
+        map(
+            int,
+            map(
+                _is_not_none_text,
+                map(_str_optional, processed_entries),
+            ),
+        )
+    )
+
+
+def _in_progress_state_function_count(state_mapping: Mapping[str, JSONValue]) -> int:
+    function_count_value = _int_optional(state_mapping.get("function_count"))
+    if function_count_value is not None:
+        return function_count_value
+    raw_fn_names = state_mapping.get("fn_names")
+    fn_name_mapping = _json_mapping_optional(raw_fn_names) or {}
+    return sum(
+        map(
+            int,
+            map(
+                _is_not_none_text,
+                map(_str_optional, fn_name_mapping.keys()),
+            ),
+        )
+    )
+
+
+def _in_progress_detail_entry(item: tuple[str, Mapping[str, JSONValue]]) -> str:
+    raw_path, state_mapping = item
+    check_deadline()
+    phase_text = _str_optional(state_mapping.get("phase")) or "unknown"
+    processed_count = _in_progress_state_processed_count(state_mapping)
+    function_count = _in_progress_state_function_count(state_mapping)
+    return (
+        f"{raw_path} "
+        f"(phase={phase_text}, processed_functions={processed_count}, "
+        f"function_count={function_count})"
+    )
+
+
+def _in_progress_detail_line(detail: str) -> str:
+    return f"- `in_progress_detail`: `{detail}`"
+
+
 def _collection_progress_intro_lines(
     *,
     collection_resume: Mapping[str, JSONValue],
@@ -964,59 +1116,16 @@ def _collection_progress_intro_lines(
             lines.append(f"- `substantive_progress`: `{substantive_progress}`")
     in_progress_states = _in_progress_scan_states(collection_resume)
     if in_progress_states:
-        in_progress_paths: list[str] = []
-        for in_progress_path in in_progress_states:
-            check_deadline()
-            in_progress_paths.append(in_progress_path)
+        in_progress_paths = tuple(map(str, in_progress_states.keys()))
         sample = ", ".join(in_progress_paths[:3])
         lines.append(f"- `in_progress_path_sample`: `{sample}`")
-        detail_entries: list[str] = []
-        for raw_path, state_mapping in in_progress_states.items():
-            check_deadline()
-            phase = _str_optional(state_mapping.get("phase"))
-            phase_text = phase if phase else "unknown"
-            processed_count = state_mapping.get("processed_functions_count")
-            processed_count_value = _int_optional(processed_count)
-            if processed_count_value is None:
-                raw_processed = state_mapping.get("processed_functions")
-                processed_entries = _non_string_sequence_optional(raw_processed)
-                if processed_entries is not None:
-                    processed_count = 0
-                    for entry in processed_entries:
-                        check_deadline()
-                        if _str_optional(entry) is not None:
-                            processed_count += 1
-                else:
-                    processed_count = 0
-            else:
-                processed_count = processed_count_value
-            function_count = state_mapping.get("function_count")
-            function_count_value = _int_optional(function_count)
-            if function_count_value is None:
-                raw_fn_names = state_mapping.get("fn_names")
-                fn_name_mapping = _json_mapping_optional(raw_fn_names)
-                if fn_name_mapping is not None:
-                    function_count = 0
-                    for key in fn_name_mapping:
-                        check_deadline()
-                        if _str_optional(key) is not None:
-                            function_count += 1
-                else:
-                    function_count = 0
-            else:
-                function_count = function_count_value
-            detail_entries.append(
-                (
-                    f"{raw_path} "
-                    f"(phase={phase_text}, processed_functions={processed_count}, "
-                    f"function_count={function_count})"
-                )
+        detail_entries = tuple(
+            map(
+                _in_progress_detail_entry,
+                tuple(in_progress_states.items())[:3],
             )
-            if len(detail_entries) >= 3:
-                break
-        for detail in detail_entries:
-            check_deadline()
-            lines.append(f"- `in_progress_detail`: `{detail}`")
+        )
+        lines.extend(map(_in_progress_detail_line, detail_entries))
     raw_analysis_index_resume = _json_mapping_optional(
         collection_resume.get("analysis_index_resume")
     )
@@ -1108,9 +1217,7 @@ def _groups_by_path_from_collection_resume(
     collection_resume: Mapping[str, JSONValue],
 ) -> dict[Path, dict[str, list[set[str]]]]:
     check_deadline()
-    raw_groups = _json_mapping_optional(collection_resume.get("groups_by_path"))
-    if raw_groups is None:
-        return {}
+    raw_groups = _json_mapping_optional(collection_resume.get("groups_by_path")) or {}
     path_items = tuple(
         filter(
             lambda item: item[0] is not None and item[1] is not None,
@@ -1170,6 +1277,32 @@ def _groups_by_path_from_collection_resume(
             path_items,
         )
     )
+
+
+def _section_projection_obligation(
+    *,
+    row: Mapping[str, JSONValue],
+    sections: Mapping[str, list[str]],
+    pending_reasons: Mapping[str, str],
+    stale_input_detected: bool,
+) -> JSONObject:
+    section_id = _projection_row_section_id(row)
+    if section_id in sections:
+        status = "SATISFIED"
+        detail = "section reused from witness-matched journal"
+    else:
+        status = "OBLIGATION"
+        pending_detail = pending_reasons.get(section_id, "section pending")
+        detail = "stale_input" if stale_input_detected and pending_detail == "policy" else pending_detail
+    return {
+        "status": status,
+        "contract": "incremental_projection_contract",
+        "kind": "section_projection_state",
+        "section_id": section_id,
+        "phase": str(row.get("phase", "") or ""),
+        "detail": detail,
+    }
+
 
 def _incremental_progress_obligations(
     *,
@@ -1291,10 +1424,10 @@ def _incremental_progress_obligations(
     )
     if report_requested and is_timeout_state:
         projection_count = sum(
-            1
-            for row in projection_rows
-            if _json_mapping_optional(row) is not None
-            and _str_optional(row.get("section_id")) not in {None, ""}
+            map(
+                int,
+                map(_projection_row_has_section_id, projection_rows),
+            )
         )
         resolved_count = len(sections)
         obligations.append(
@@ -1327,49 +1460,57 @@ def _incremental_progress_obligations(
                 "detail": "not_applicable_without_timeout",
             }
         )
-    for row in projection_rows:
-        check_deadline()
-        section_id = str(row.get("section_id", "") or "")
-        if not section_id:
-            continue
-        if section_id in sections:
-            status = "SATISFIED"
-            detail = "section reused from witness-matched journal"
-        else:
-            status = "OBLIGATION"
-            detail = pending_reasons.get(section_id, "section pending")
-            if stale_input_detected and detail == "policy":
-                detail = "stale_input"
-        obligations.append(
-            {
-                "status": status,
-                "contract": "incremental_projection_contract",
-                "kind": "section_projection_state",
-                "section_id": section_id,
-                "phase": str(row.get("phase", "") or ""),
-                "detail": detail,
-            }
+    obligations.extend(
+        map(
+            lambda row: _section_projection_obligation(
+                row=row,
+                sections=sections,
+                pending_reasons=pending_reasons,
+                stale_input_detected=stale_input_detected,
+            ),
+            filter(_projection_row_has_section_id, projection_rows),
         )
+    )
     return obligations
+
+
+def _is_not_none_mapping_entry(
+    entry: Mapping[str, JSONValue] | None,
+) -> bool:
+    return entry is not None
+
+
+def _json_object_entry(entry_mapping: Mapping[str, JSONValue]) -> JSONObject:
+    return dict(map(lambda item: (str(item[0]), item[1]), entry_mapping.items()))
+
+
+def _contract_name(entry: Mapping[str, JSONValue]) -> str:
+    return str(entry.get("contract", "") or "")
+
+
+def _is_resume_contract_entry(entry: Mapping[str, JSONValue]) -> bool:
+    return _contract_name(entry) == "resume_contract"
+
+
+def _is_incremental_contract_entry(entry: Mapping[str, JSONValue]) -> bool:
+    return _contract_name(entry) in {"progress_report_contract", "incremental_projection_contract"}
+
 
 def _split_incremental_obligations(
     obligations: Sequence[Mapping[str, JSONValue]],
 ) -> tuple[list[JSONObject], list[JSONObject]]:
     check_deadline()
-    resumability: list[JSONObject] = []
-    incremental: list[JSONObject] = []
-    for raw_entry in obligations:
-        check_deadline()
-        entry_mapping = _json_mapping_optional(raw_entry)
-        if entry_mapping is None:
-            continue
-        entry: JSONObject = {str(key): entry_mapping[key] for key in entry_mapping}
-        contract = str(entry.get("contract", "") or "")
-        if contract == "resume_contract":
-            resumability.append(entry)
-            continue
-        if contract in {"progress_report_contract", "incremental_projection_contract"}:
-            incremental.append(entry)
+    normalized_entries = tuple(
+        map(
+            _json_object_entry,
+            filter(
+                _is_not_none_mapping_entry,
+                map(_json_mapping_optional, obligations),
+            ),
+        )
+    )
+    resumability = list(filter(_is_resume_contract_entry, normalized_entries))
+    incremental = list(filter(_is_incremental_contract_entry, normalized_entries))
     return resumability, incremental
 
 def _apply_journal_pending_reason(
@@ -1413,6 +1554,19 @@ def _parse_lint_line(line: str) -> LintEntryDTO | None:
 def _parse_lint_line_as_payload(line: str) -> dict[str, object] | None:
     entry = _parse_lint_line(line)
     return entry.model_dump() if entry is not None else None
+
+
+def _rewrite_plan_schema_error_optional(
+    entry: Mapping[str, JSONValue],
+) -> dict[str, object] | None:
+    issues = validate_rewrite_plan_payload(entry)
+    if not issues:
+        return None
+    return {
+        "plan_id": str(entry.get("plan_id", "")),
+        "issues": issues,
+    }
+
 
 def _normalize_dataflow_response(
     response: Mapping[str, JSONValue],
@@ -1482,25 +1636,24 @@ def _normalize_dataflow_response(
     rewrite_plans = normalized.get("fingerprint_rewrite_plans")
     rewrite_plan_entries = _non_string_sequence_optional(rewrite_plans)
     if rewrite_plan_entries is not None:
+        rewrite_plan_mappings = tuple(
+            filter(
+                _is_not_none_mapping_entry,
+                map(_json_mapping_optional, rewrite_plan_entries),
+            )
+        )
         ordered_plans = normalize_rewrite_plan_order(
-            [
-                entry_mapping
-                for entry_mapping in (
-                    _json_mapping_optional(entry) for entry in rewrite_plan_entries
-                )
-                if entry_mapping is not None
-            ]
+            list(rewrite_plan_mappings)
         )
         normalized["fingerprint_rewrite_plans"] = ordered_plans
-        rewrite_plan_schema_errors: list[dict[str, object]] = []
-        for entry in ordered_plans:
-            issues = validate_rewrite_plan_payload(entry)
-            if issues:
-                rewrite_plan_schema_errors.append(
-                    {"plan_id": str(entry.get("plan_id", "")), "issues": issues}
-                )
+        rewrite_plan_schema_errors = tuple(
+            filter(
+                _is_not_none_mapping_entry,
+                map(_rewrite_plan_schema_error_optional, ordered_plans),
+            )
+        )
         if rewrite_plan_schema_errors:
-            normalized["rewrite_plan_schema_errors"] = rewrite_plan_schema_errors
+            normalized["rewrite_plan_schema_errors"] = list(rewrite_plan_schema_errors)
 
     normalized["exit_code"] = canonical.exit_code
     normalized["timeout"] = canonical.timeout
@@ -1562,18 +1715,22 @@ def _serialize_dataflow_response(
 
 def _truthy_flag(value: object) -> bool:
     bool_value = _bool_optional(value)
-    if bool_value is not None:
-        return bool_value
-    if value is None:
-        return False
     int_value = _int_optional(value)
-    if int_value is not None:
-        return int_value != 0
     float_value = _float_optional(value)
-    if float_value is not None:
-        return float_value != 0
     text = str(value).strip().lower()
-    return text in {"1", "true", "yes", "on"}
+    return (
+        bool_value
+        if bool_value is not None
+        else (
+            int_value != 0
+            if int_value is not None
+            else (
+                float_value != 0
+                if float_value is not None
+                else text in {"1", "true", "yes", "on"}
+            )
+        )
+    )
 
 def _server_deadline_overhead_ns(
     total_ns: int,
@@ -1705,35 +1862,50 @@ def _output_dirs(report_root: Path) -> tuple[Path, Path]:
     artifact_dir.mkdir(parents=True, exist_ok=True)
     return out_dir, artifact_dir
 
+
+def _csv_parts(value_text: str) -> tuple[str, ...]:
+    return tuple(filter(bool, map(str.strip, value_text.split(","))))
+
+
+def _csv_parts_for_item(*, item: object, strict: bool) -> tuple[str, ...]:
+    check_deadline()
+    item_text = _str_optional(item)
+    if item_text is None:
+        if strict:
+            never("name set contains non-string entry", value_type=type(item).__name__)
+        return ()
+    return _csv_parts(item_text)
+
+
 def _normalize_csv_or_iterable_names(value: object, *, strict: bool) -> list[str]:
     check_deadline()
-    if value is None:
-        return []
     value_text = _str_optional(value)
     if value_text is not None:
-        return [part.strip() for part in value_text.split(",") if part.strip()]
+        return list(_csv_parts(value_text))
     entries = _non_string_sequence_optional(value)
     if entries is None:
-        if strict:
+        if strict and value is not None:
             never("invalid name set payload", value_type=type(value).__name__)
-        return []
-    items: list[str] = []
-    for item in entries:
-        check_deadline()
-        item_text = _str_optional(item)
-        if item_text is not None:
-            items.extend([part.strip() for part in item_text.split(",") if part.strip()])
-        elif strict:
-            never("name set contains non-string entry", value_type=type(item).__name__)
-    return items
+    entries_stream = entries or ()
+    return list(
+        chain.from_iterable(
+            map(
+                lambda item: _csv_parts_for_item(item=item, strict=strict),
+                entries_stream,
+            )
+        )
+    )
 
 def _normalize_transparent_decorators(value: object) -> set[str] | None:
     items = _normalize_csv_or_iterable_names(value, strict=False)
-    return set(items) if items else None
+    if not items:
+        return None
+    return set(items)
 
 def _normalize_name_set(value: object) -> set[str] | None:
-    items = _normalize_csv_or_iterable_names(value, strict=True) if value is not None else None
-    return set(items) if items is not None else None
+    if value is None:
+        return None
+    return set(_normalize_csv_or_iterable_names(value, strict=True))
 
 @dataclass(frozen=True)
 class DataflowNameFilterBundle:
@@ -1789,6 +1961,29 @@ def _timeout_context_payload(exc: TimeoutExceeded) -> JSONObject:
         "progress": {"classification": "timed_out_no_progress"},
     }
 
+
+def _key_value_to_str_key(item: tuple[object, JSONValue]) -> tuple[str, JSONValue]:
+    key, value = item
+    return str(key), value
+
+
+def _key_int_optional_item(item: tuple[object, JSONValue]) -> tuple[str, int | None]:
+    key, value = item
+    return str(key), _int_optional(value)
+
+
+def _has_optional_int_value(item: tuple[str, int | None]) -> bool:
+    _key, value = item
+    return value is not None
+
+
+def _required_int_item(item: tuple[str, int | None]) -> tuple[str, int]:
+    key, value = item
+    if value is None:
+        never("missing required int value")
+    return key, value
+
+
 def _materialize_execution_plan(payload: Mapping[str, JSONValue]) -> ExecutionPlan:
     request_value = payload.get("execution_plan_request")
     request_mapping = _json_mapping_optional(request_value)
@@ -1801,9 +1996,17 @@ def _materialize_execution_plan(payload: Mapping[str, JSONValue]) -> ExecutionPl
         )
         inputs_value = _json_mapping_optional(request_mapping.get("inputs"))
         if inputs_value is not None:
-            inputs = {str(key): inputs_value[key] for key in inputs_value}
+            inputs = dict(map(_key_value_to_str_key, inputs_value.items()))
         else:
-            inputs = {str(key): payload[key] for key in payload if key != "execution_plan_request"}
+            inputs = dict(
+                map(
+                    _key_value_to_str_key,
+                    filter(
+                        lambda item: item[0] != "execution_plan_request",
+                        payload.items(),
+                    ),
+                )
+            )
         artifacts_value = _non_string_sequence_optional(
             request_mapping.get("derived_artifacts")
         )
@@ -1832,10 +2035,15 @@ def _materialize_execution_plan(payload: Mapping[str, JSONValue]) -> ExecutionPl
             deadline_value = policy_value.get("deadline")
             deadline_mapping = _json_mapping_optional(deadline_value)
             if deadline_mapping is not None:
-                for key, value in deadline_mapping.items():
-                    int_value = _int_optional(value)
-                    if int_value is not None:
-                        policy_deadline[str(key)] = int_value
+                policy_deadline = dict(
+                    map(
+                        _required_int_item,
+                        filter(
+                            _has_optional_int_value,
+                            map(_key_int_optional_item, deadline_mapping.items()),
+                        ),
+                    )
+                )
             baseline_mode = policy_value.get("baseline_mode")
             baseline_mode_text = _str_optional(baseline_mode)
             if baseline_mode_text is not None:
@@ -1858,7 +2066,7 @@ def _materialize_execution_plan(payload: Mapping[str, JSONValue]) -> ExecutionPl
                 docflow_mode=policy_docflow_mode,
             ),
         )
-    inputs = {str(key): payload[key] for key in payload}
+    inputs = dict(map(_key_value_to_str_key, payload.items()))
     return ExecutionPlan(
         requested_operations=[DATAFLOW_COMMAND],
         inputs=inputs,

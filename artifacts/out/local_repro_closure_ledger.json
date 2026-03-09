@@ -6549,6 +6549,61 @@
         "targeted_pytest": "pass (302 passed)",
         "policy_scanner_suite": "expected_nonzero total=10598"
       }
+    },
+    {
+      "cu_id": "CU-GEO8",
+      "summary": "Geometric hotspot server_core seed continuation: strictify command_orchestrator_primitives bootstrap/report/name-normalization pipelines and eliminate loop/filter hotspots via function-per-loop map/filter composition.",
+      "timestamp_utc": "2026-03-09T17:41:44Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7225,
+        "defensive_fallback": 123,
+        "fiber_loop_structure_contract": 939,
+        "fiber_filter_processor_contract": 2086,
+        "fiber_scalar_sentinel_contract": 225,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7183,
+        "defensive_fallback": 119,
+        "fiber_loop_structure_contract": 933,
+        "fiber_filter_processor_contract": 2050,
+        "fiber_scalar_sentinel_contract": 222,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 10598,
+      "total_after": 10507,
+      "notes": [
+        "Reworked bootstrap incremental artifact emission into map/filter dataclass pipelines (_BootstrapPendingRow) to eliminate nested per-row/per-dependency loop processors.",
+        "Replaced projection-row iteration in _render_incremental_report and _incremental_progress_obligations with upstream filtered row snapshots and mapped block/obligation builders.",
+        "Strictified name-set normalization and execution-plan materialization by removing loop-local branching/comprehension filters in favor of reusable conversion helpers.",
+        "Server_core active-five total reduced 500 -> 409 (-91); command_orchestrator_primitives reduced 269 -> 178 (-91)."
+      ],
+      "validation": {
+        "policy_check_workflows": "fail_expected_symbol_activity_audit (unsuppressed=1510)",
+        "policy_check_ambiguity_contract": "pass",
+        "targeted_pytest": "pass (302 passed)",
+        "policy_scanner_suite": "expected_nonzero total=10507"
+      }
     }
   ],
   "generated_by": "codex",
