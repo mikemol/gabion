@@ -67,7 +67,7 @@ def test_identity_shadow_runtime_allocation_delta_cursor_is_monotonic() -> None:
         progress_payload=_phase_progress_payload(event_seq=2),
     )
     assert first.identity_allocation_delta_v1
-    assert second.identity_allocation_delta_v1 == []
+    assert second.identity_allocation_delta_v1 == ()
     assert len(third.identity_allocation_delta_v1) >= 1
     combined = (
         first.identity_allocation_delta_v1
@@ -93,7 +93,7 @@ def test_identity_shadow_runtime_rejects_progress_without_anchor() -> None:
     assert emission.canonical_event_v1 == {}
     assert isinstance(emission.canonical_event_error_v1, str)
     assert emission.canonical_event_error_v1
-    assert emission.identity_allocation_delta_v1 == []
+    assert emission.identity_allocation_delta_v1 == ()
 
 
 # gabion:behavior primary=desired
@@ -132,11 +132,12 @@ def test_bit_prime_integer_carrier_roundtrips_and_sorts_bits() -> None:
         key="event_seq",
         value=13,
     )
-    assert encoded == ("sign:+", "bit:0", "bit:2", "bit:3")
+    encoded_tokens = tuple(encoded)
+    assert encoded_tokens == ("sign:+", "bit:0", "bit:2", "bit:3")
     decoded = carrier.decode_anchor_tokens(
         namespace="dataflow.progress.integer_anchor",
         key="event_seq",
-        tokens=encoded,
+        tokens=encoded_tokens,
     )
     assert decoded.is_present is True
     assert decoded.value == 13
@@ -146,11 +147,12 @@ def test_bit_prime_integer_carrier_roundtrips_and_sorts_bits() -> None:
         key="event_seq",
         value=-5,
     )
-    assert negative == ("sign:-", "bit:0", "bit:2")
+    negative_tokens = tuple(negative)
+    assert negative_tokens == ("sign:-", "bit:0", "bit:2")
     negative_decoded = carrier.decode_anchor_tokens(
         namespace="dataflow.progress.integer_anchor",
         key="event_seq",
-        tokens=negative,
+        tokens=negative_tokens,
     )
     assert negative_decoded.is_present is True
     assert negative_decoded.value == -5

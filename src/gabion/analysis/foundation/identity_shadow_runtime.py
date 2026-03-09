@@ -1,9 +1,10 @@
 # gabion:decision_protocol_module
 from __future__ import annotations
 
+from itertools import chain
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Mapping, Protocol, cast
+from typing import Iterable, Iterator, Mapping, Protocol
 
 from gabion.analysis.core.prime_identity_adapter import PrimeIdentityAdapter
 from gabion.analysis.core.type_fingerprints import PrimeRegistry
@@ -47,14 +48,14 @@ class IntegerCarrierProtocol(Protocol):
         namespace: str,
         key: str,
         value: int,
-    ) -> tuple[str, ...]: ...
+    ) -> Iterator[str]: ...
 
     def decode_anchor_tokens(
         self,
         *,
         namespace: str,
         key: str,
-        tokens: tuple[str, ...],
+        tokens: Iterable[str],
     ) -> IntegerAnchorDecode: ...
 
 
@@ -71,78 +72,65 @@ class BitPrimeIntegerCarrier(IntegerCarrierProtocol):
         namespace: str,
         key: str,
         value: int,
-    ) -> tuple[str, ...]:
+    ) -> Iterator[str]:
         check_deadline()
         _ = (namespace, key)
         integer_value = int(value)
         sign_token = self.sign_positive if integer_value >= 0 else self.sign_negative
         magnitude = abs(integer_value)
         if magnitude == 0:
-            return (sign_token, self.zero_token)
-        bit_tokens: list[str] = []
-        bit_index = 0
-        while magnitude > 0:
-            check_deadline()
-            if magnitude & 1:
-                bit_tokens.append(f"{self.bit_prefix}{bit_index}")
-            bit_index += 1
-            magnitude >>= 1
-        return tuple([sign_token, *bit_tokens])
+            return iter((sign_token, self.zero_token))
+        bit_tokens = map(
+            lambda bit_index: f"{self.bit_prefix}{bit_index}",
+            _iter_set_bit_indices(magnitude),
+        )
+        return chain((sign_token,), bit_tokens)
 
     def decode_anchor_tokens(
         self,
         *,
         namespace: str,
         key: str,
-        tokens: tuple[str, ...],
+        tokens: Iterable[str],
     ) -> IntegerAnchorDecode:
         check_deadline()
         _ = (namespace, key)
-        if not tokens:
+        normalized_tokens = tuple(map(str.strip, map(str, tokens)))
+        if not normalized_tokens:
             return IntegerAnchorDecode(is_present=False)
-        sign = 1
-        has_sign = False
-        has_zero = False
-        seen_bits: set[int] = set()
-        magnitude = 0
-        for raw_token in tokens:
-            check_deadline()
-            token = str(raw_token).strip()
-            if not token:
-                return IntegerAnchorDecode(is_present=False)
-            if token == self.sign_positive:
-                if has_sign:
-                    return IntegerAnchorDecode(is_present=False)
-                has_sign = True
-                sign = 1
-                continue
-            if token == self.sign_negative:
-                if has_sign:
-                    return IntegerAnchorDecode(is_present=False)
-                has_sign = True
-                sign = -1
-                continue
-            if token == self.zero_token:
-                if has_zero or magnitude > 0:
-                    return IntegerAnchorDecode(is_present=False)
-                has_zero = True
-                continue
-            if token.startswith(self.bit_prefix):
-                if has_zero:
-                    return IntegerAnchorDecode(is_present=False)
-                suffix = token[len(self.bit_prefix) :]
-                if not suffix.isdigit():
-                    return IntegerAnchorDecode(is_present=False)
-                bit_index = int(suffix)
-                if bit_index in seen_bits:
-                    return IntegerAnchorDecode(is_present=False)
-                seen_bits.add(bit_index)
-                magnitude |= 1 << bit_index
-                continue
+        if any(map(lambda token: not token, normalized_tokens)):
             return IntegerAnchorDecode(is_present=False)
-        if not has_sign:
+        sign_tokens = tuple(filter(lambda token: _is_sign_token(self, token), normalized_tokens))
+        if len(sign_tokens) != 1:
             return IntegerAnchorDecode(is_present=False)
-        if has_zero:
+        sign = 1 if sign_tokens[0] == self.sign_positive else -1
+        zero_tokens = tuple(filter(lambda token: token == self.zero_token, normalized_tokens))
+        if len(zero_tokens) > 1:
+            return IntegerAnchorDecode(is_present=False)
+        bit_tokens = tuple(filter(lambda token: token.startswith(self.bit_prefix), normalized_tokens))
+        non_domain_tokens = tuple(
+            filter(
+                lambda token: _is_non_domain_token(self, token),
+                normalized_tokens,
+            )
+        )
+        if non_domain_tokens:
+            return IntegerAnchorDecode(is_present=False)
+        if zero_tokens and bit_tokens:
+            return IntegerAnchorDecode(is_present=False)
+        try:
+            bit_indices = tuple(
+                map(
+                    lambda token: _bit_index_from_token(token, bit_prefix=self.bit_prefix),
+                    bit_tokens,
+                )
+            )
+        except ValueError:
+            return IntegerAnchorDecode(is_present=False)
+        if len(set(bit_indices)) != len(bit_indices):
+            return IntegerAnchorDecode(is_present=False)
+        magnitude = sum(map(lambda bit_index: 1 << bit_index, bit_indices))
+        if zero_tokens:
             return IntegerAnchorDecode(is_present=True, value=0)
         if magnitude == 0:
             return IntegerAnchorDecode(is_present=False)
@@ -157,16 +145,16 @@ class IdentityShadowEmissionKind(StrEnum):
 @dataclass(frozen=True)
 class IdentityShadowEmission:
     kind: IdentityShadowEmissionKind
-    identity_allocation_delta_v1: list[JSONObject]
+    identity_allocation_delta_v1: tuple[JSONObject, ...]
     canonical_event_v1: JSONObject = field(default_factory=dict)
     canonical_event_error_v1: str = ""
 
     def sidecar_payload(self) -> dict[str, object]:
         check_deadline()
         payload: dict[str, object] = {
-            "identity_allocation_delta_v1": [
-                dict(item) for item in self.identity_allocation_delta_v1
-            ]
+            "identity_allocation_delta_v1": list(
+                map(dict, self.identity_allocation_delta_v1)
+            )
         }
         match self.kind:
             case IdentityShadowEmissionKind.VALID:
@@ -218,7 +206,13 @@ class IdentityShadowRuntime:
     def identity_seed_payload(self) -> JSONObject:
         check_deadline()
         seed = self.run_context.identity_space.seed_payload()
-        return cast(JSONObject, {str(key): seed[key] for key in seed})
+        normalized_seed: JSONObject = dict(
+            map(
+                lambda item: (str(item[0]), item[1]),
+                seed.items(),
+            )
+        )
+        return normalized_seed
 
     def _emit_from_decision(
         self,
@@ -226,7 +220,7 @@ class IdentityShadowRuntime:
         decision: CanonicalAdaptationDecision,
     ) -> IdentityShadowEmission:
         check_deadline()
-        allocation_delta = self._allocation_delta_since_last_emit()
+        allocation_delta = tuple(self._allocation_delta_since_last_emit())
         match decision.kind:
             case CanonicalAdaptationKind.VALID:
                 try:
@@ -263,13 +257,20 @@ class IdentityShadowRuntime:
             canonical_event_error_v1="invalid canonical adaptation decision kind.",
         )  # pragma: no cover - never() raises
 
-    def _allocation_delta_since_last_emit(self) -> list[JSONObject]:
+    def _allocation_delta_since_last_emit(self) -> Iterator[JSONObject]:
         check_deadline()
         records = tuple(self.run_context.identity_space.allocation_records())
         cursor = min(max(int(self._allocation_cursor), 0), len(records))
         self._allocation_cursor = len(records)
-        delta_records = records[cursor:]
-        return [_allocation_record_payload(record) for record in delta_records]
+        return map(
+            lambda record: {
+                "seq": int(record.seq),
+                "namespace": str(record.namespace),
+                "token": str(record.token),
+                "atom_id": int(record.atom_id),
+            },
+            records[cursor:],
+        )
 
     def _encode_integer_anchor_tokens(self, key: str, value: int) -> tuple[str, ...]:
         check_deadline()
@@ -278,7 +279,12 @@ class IdentityShadowRuntime:
             key=str(key),
             value=int(value),
         )
-        normalized_tokens = tuple(str(token).strip() for token in encoded if str(token).strip())
+        normalized_tokens = tuple(
+            filter(
+                bool,
+                map(str.strip, map(str, encoded)),
+            )
+        )
         if not normalized_tokens:
             raise ValueError("integer carrier produced no anchor tokens.")
         return normalized_tokens
@@ -306,14 +312,37 @@ def build_identity_shadow_runtime(
     )
 
 
-def _allocation_record_payload(record: IdentityAllocationRecord) -> JSONObject:
+def _iter_set_bit_indices(magnitude: int) -> Iterator[int]:
     check_deadline()
-    return {
-        "seq": int(record.seq),
-        "namespace": str(record.namespace),
-        "token": str(record.token),
-        "atom_id": int(record.atom_id),
-    }
+    bit_index = 0
+    pending = int(magnitude)
+    while pending > 0:
+        check_deadline()
+        if pending & 1:
+            yield bit_index
+        bit_index += 1
+        pending >>= 1
+
+
+def _is_sign_token(carrier: BitPrimeIntegerCarrier, token: str) -> bool:
+    return token == carrier.sign_positive or token == carrier.sign_negative
+
+
+def _is_non_domain_token(carrier: BitPrimeIntegerCarrier, token: str) -> bool:
+    return (
+        token != carrier.zero_token
+        and not token.startswith(carrier.bit_prefix)
+        and not _is_sign_token(carrier, token)
+    )
+
+
+def _bit_index_from_token(token: str, *, bit_prefix: str) -> int:
+    if not token.startswith(bit_prefix):
+        raise ValueError("token is not a bit token")
+    suffix = token[len(bit_prefix) :]
+    if not suffix.isdigit():
+        raise ValueError("bit token suffix must be numeric")
+    return int(suffix)
 
 
 __all__ = [

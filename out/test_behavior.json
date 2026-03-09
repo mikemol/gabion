@@ -8709,7 +8709,7 @@
     {
       "test_id": "tests/test_identity_shadow_runtime.py::test_identity_shadow_runtime_integer_anchor_tokens_scale_by_bit_width",
       "file": "tests/test_identity_shadow_runtime.py",
-      "line": 160,
+      "line": 162,
       "primary": "desired",
       "facets": []
     },
@@ -8730,7 +8730,7 @@
     {
       "test_id": "tests/test_identity_shadow_runtime.py::test_identity_shadow_runtime_uses_governed_integer_anchor_namespace",
       "file": "tests/test_identity_shadow_runtime.py",
-      "line": 181,
+      "line": 183,
       "primary": "desired",
       "facets": []
     },
