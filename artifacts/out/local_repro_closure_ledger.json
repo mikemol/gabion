@@ -6004,6 +6004,61 @@
         "targeted_pytest": "pass (20 passed)",
         "policy_scanner_suite": "expected_nonzero total=10824"
       }
+    },
+    {
+      "cu_id": "CU-FS11",
+      "summary": "Resume codec loop-form strictification: remove single-loop non-generator/nested-loop hits via iterator helpers and yield-from key parser flattening.",
+      "timestamp_utc": "2026-03-09T02:27:33Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7288,
+        "defensive_fallback": 129,
+        "fiber_loop_structure_contract": 986,
+        "fiber_filter_processor_contract": 2180,
+        "fiber_scalar_sentinel_contract": 241,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7290,
+        "defensive_fallback": 129,
+        "fiber_loop_structure_contract": 979,
+        "fiber_filter_processor_contract": 2180,
+        "fiber_scalar_sentinel_contract": 241,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 10824,
+      "total_after": 10819,
+      "notes": [
+        "Moved mapping/default/path map construction to iterator helpers + dict(...) collection boundaries.",
+        "Removed nested loop in iter_int_tuple4_from_sequence by replacing inner generator loop with map(int, parts).",
+        "Flattened iter_resume_map_entries via yield-from helper to avoid nested parser loop in the same function scope.",
+        "Eliminated all fiber_loop_structure_contract findings in resume_codec.py."
+      ],
+      "validation": {
+        "policy_check_workflows": "fail_expected_symbol_activity_audit",
+        "policy_check_ambiguity_contract": "pass",
+        "targeted_pytest": "pass (20 passed)",
+        "policy_scanner_suite": "expected_nonzero total=10819"
+      }
     }
   ],
   "generated_by": "codex",

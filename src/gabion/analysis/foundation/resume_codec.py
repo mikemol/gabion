@@ -41,7 +41,7 @@ def iter_str_key_mappings(value) -> Iterator[tuple[str, Mapping[str, JSONValue]]
 def mapping_optional(value):
     match value:
         case Mapping():
-            return {key: entry for key, entry in iter_mapping_items(value)}
+            return dict(iter_mapping_items(value))
         case _:
             return None
 
@@ -84,18 +84,31 @@ def mapping_sections(
     section_keys: Sequence[str],
 ):
     check_deadline()
-    sections: list[Mapping[str, JSONValue]] = []
+    sections = tuple(
+        _iter_required_mapping_sections(
+            payload=payload,
+            section_keys=section_keys,
+        )
+    )
+    if len(sections) != len(section_keys):
+        return _NO_VALUE
+    return sections
+
+
+def _iter_required_mapping_sections(
+    *,
+    payload: Mapping[str, JSONValue],
+    section_keys: Sequence[str],
+) -> Iterator[Mapping[str, JSONValue]]:
     for key in section_keys:
         check_deadline()
         section = mapping_optional(payload.get(key))
-        if section is None:
-            return _NO_VALUE
-        sections.append(section)
-    return tuple(sections)
+        if section is not None:
+            yield section
 
 
 def mapping_default_empty(value) -> Mapping[str, JSONValue]:
-    return {key: entry for key, entry in iter_mapping_items(value)}
+    return dict(iter_mapping_items(value))
 
 
 def sequence_optional(value, *, allow_str: bool = False):
@@ -138,7 +151,7 @@ def str_set_from_sequence(value) -> set[str]:
 
 
 def str_map_from_mapping(value) -> dict[str, str]:
-    return {key_text: entry_text for key_text, entry_text in iter_str_mapping_items(value)}
+    return dict(iter_str_mapping_items(value))
 
 
 def iter_str_mapping_items(value) -> Iterator[tuple[str, str]]:
@@ -157,7 +170,7 @@ def iter_int_tuple4_from_sequence(value) -> Iterator[tuple[int, int, int, int]]:
         if len(parts) != 4:
             continue
         try:
-            line, col, end_line, end_col = (int(part) for part in parts)
+            line, col, end_line, end_col = map(int, parts)
         except (TypeError, ValueError):
             continue
         yield line, col, end_line, end_col
@@ -219,7 +232,16 @@ def allowed_path_lookup(
     *,
     key_fn: Callable[[Path], str],
 ) -> dict[str, Path]:
-    return {key_fn(path): path for path in paths}
+    return dict(iter_allowed_path_entries(paths=paths, key_fn=key_fn))
+
+
+def iter_allowed_path_entries(
+    *,
+    paths: Sequence[Path],
+    key_fn: Callable[[Path], str],
+) -> Iterator[tuple[str, Path]]:
+    for path in paths:
+        yield key_fn(path), path
 
 
 def load_allowed_paths_from_sequence(
@@ -275,5 +297,16 @@ def iter_resume_map_entries(
         valid_keys=valid_keys,
     ):
         check_deadline()
-        for parsed in parser(raw_value):
-            yield key, parsed
+        yield from _iter_parsed_key_entries(
+            key=key,
+            parsed_values=parser(raw_value),
+        )
+
+
+def _iter_parsed_key_entries(
+    *,
+    key: str,
+    parsed_values: Iterator[_TParsed],
+) -> Iterator[tuple[str, _TParsed]]:
+    for parsed in parsed_values:
+        yield key, parsed
