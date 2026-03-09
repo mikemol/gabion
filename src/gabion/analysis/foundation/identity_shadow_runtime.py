@@ -17,7 +17,7 @@ from gabion.analysis.foundation.event_algebra import (
     CanonicalEventAdaptationError,
     CanonicalRunContext,
     GlobalEventSequencer,
-    canonical_event_to_json_object,
+    _iter_canonical_event_json_items,
     envelope_from_decision_or_raise,
 )
 from gabion.analysis.foundation.identity_namespace_governance import (
@@ -240,7 +240,7 @@ class IdentityShadowRuntime:
                     )
                 return IdentityShadowEmission(
                     kind=IdentityShadowEmissionKind.VALID,
-                    canonical_event_v1=canonical_event_to_json_object(envelope),
+                    canonical_event_v1=dict(_iter_canonical_event_json_items(envelope)),
                     identity_allocation_delta_v1=allocation_delta,
                 )
             case CanonicalAdaptationKind.REJECTED:

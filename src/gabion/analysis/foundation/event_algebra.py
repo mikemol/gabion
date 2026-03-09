@@ -6,8 +6,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 import json
 import threading
-from typing import Mapping, cast
-from gabion.json_types import JSONObject, JSONValue
+from typing import Iterator, Mapping
 
 from gabion.analysis.foundation.identity_space import (
     GlobalIdentitySpace,
@@ -132,15 +131,7 @@ def derive_identity_projection_from_tokens(
     namespace: str = EVENT_IDENTITY_NAMESPACE,
 ) -> IdentityProjection:
     check_deadline()
-    normalized_tokens: list[str] = []
-    for token in tokens:
-        check_deadline()
-        token_text = str(token).strip()
-        if not token_text:
-            raise CanonicalEventAdaptationError(
-                "identity derivation requires non-empty deterministic tokens."
-            )
-        normalized_tokens.append(token_text)
+    normalized_tokens = tuple(map(_required_identity_token_text, tokens))
     if not normalized_tokens:
         raise CanonicalEventAdaptationError(
             "identity derivation requires at least one token."
@@ -175,13 +166,17 @@ def build_canonical_event_envelope(
     sequence = run_context.sequencer.next_sequence()
     event_id = canonical_event_id(run_id=run_context.run_id, sequence=sequence)
     normalized_causal_refs = tuple(
-        ref_text
-        for ref_text in (str(item).strip() for item in causal_refs)
-        if ref_text
+        filter(
+            bool,
+            map(str.strip, map(str, causal_refs)),
+        )
     )
-    normalized_payload: JSONObject = {
-        str(key): payload[key] for key in payload
-    }
+    normalized_payload: JSONObject = dict(
+        map(
+            lambda item: (str(item[0]), item[1]),
+            payload.items(),
+        )
+    )
     return CanonicalEventEnvelope(
         schema_version=CANONICAL_EVENT_SCHEMA_VERSION,
         sequence=sequence,
@@ -196,27 +191,52 @@ def build_canonical_event_envelope(
     )
 
 
-def canonical_event_to_json_object(envelope: CanonicalEventEnvelope) -> JSONObject:
+def _iter_identity_projection_json_items(
+    projection: IdentityProjection,
+) -> Iterator[tuple[str, JSONValue]]:
     check_deadline()
-    return {
-        "schema_version": int(envelope.schema_version),
-        "sequence": int(envelope.sequence),
-        "run_id": str(envelope.run_id),
-        "source": str(envelope.source),
-        "phase": str(envelope.phase),
-        "kind": str(envelope.kind),
-        "identity_projection": _identity_projection_to_json_object(
-            envelope.identity_projection
-        ),
-        "payload": dict(envelope.payload),
-        "causal_refs": list(envelope.causal_refs),
-        "event_id": str(envelope.event_id),
-    }
+    return iter(
+        (
+            (
+                "basis_path",
+                {
+                    "namespace": projection.basis_path.namespace,
+                    "atoms": list(projection.basis_path.atoms),
+                },
+            ),
+            ("prime_product", projection.prime_product),
+            ("digest_alias", projection.digest_alias),
+            ("witness", dict(projection.witness)),
+        )
+    )
+
+
+def _iter_canonical_event_json_items(
+    envelope: CanonicalEventEnvelope,
+) -> Iterator[tuple[str, JSONValue]]:
+    check_deadline()
+    return iter(
+        (
+            ("schema_version", int(envelope.schema_version)),
+            ("sequence", int(envelope.sequence)),
+            ("run_id", str(envelope.run_id)),
+            ("source", str(envelope.source)),
+            ("phase", str(envelope.phase)),
+            ("kind", str(envelope.kind)),
+            (
+                "identity_projection",
+                dict(_iter_identity_projection_json_items(envelope.identity_projection)),
+            ),
+            ("payload", dict(envelope.payload)),
+            ("causal_refs", list(envelope.causal_refs)),
+            ("event_id", str(envelope.event_id)),
+        )
+    )
 
 
 def encode_canonical_event_json(envelope: CanonicalEventEnvelope) -> str:
     check_deadline()
-    return stable_encode.stable_compact_text(canonical_event_to_json_object(envelope))
+    return stable_encode.stable_compact_text(dict(_iter_canonical_event_json_items(envelope)))
 
 
 def decode_canonical_event_json(raw: str) -> CanonicalEventEnvelope:
@@ -230,7 +250,7 @@ def decode_canonical_event_json(raw: str) -> CanonicalEventEnvelope:
         raise CanonicalEventAdaptationError(
             "canonical event json payload must decode to an object."
         )
-    payload = {str(key): loaded_map[key] for key in loaded_map}
+    payload = dict(map(lambda item: (str(item[0]), item[1]), loaded_map.items()))
     schema_version = _required_non_negative_int(payload, "schema_version")
     if schema_version != CANONICAL_EVENT_SCHEMA_VERSION:
         raise CanonicalEventAdaptationError(
@@ -242,10 +262,10 @@ def decode_canonical_event_json(raw: str) -> CanonicalEventEnvelope:
     phase = _required_non_empty_text(payload, "phase")
     kind = _required_non_empty_text(payload, "kind")
     identity_projection = _identity_projection_from_json_object(
-        _required_mapping(payload, "identity_projection")
+        dict(_required_mapping(payload, "identity_projection"))
     )
-    event_payload = _required_mapping(payload, "payload")
-    causal_refs = _required_text_sequence(payload, "causal_refs")
+    event_payload = dict(_required_mapping(payload, "payload"))
+    causal_refs = tuple(_required_text_sequence(payload, "causal_refs"))
     event_id = _required_non_empty_text(payload, "event_id")
     expected_event_id = canonical_event_id(run_id=run_id, sequence=sequence)
     if event_id != expected_event_id:
@@ -260,69 +280,47 @@ def decode_canonical_event_json(raw: str) -> CanonicalEventEnvelope:
         phase=phase,
         kind=kind,
         identity_projection=identity_projection,
-        payload=cast(JSONObject, event_payload),
+        payload=event_payload,
         causal_refs=causal_refs,
         event_id=event_id,
     )
-
-
-def _identity_projection_to_json_object(projection: IdentityProjection) -> JSONObject:
-    check_deadline()
-    return {
-        "basis_path": {
-            "namespace": projection.basis_path.namespace,
-            "atoms": list(projection.basis_path.atoms),
-        },
-        "prime_product": projection.prime_product,
-        "digest_alias": projection.digest_alias,
-        "witness": dict(projection.witness),
-    }
 
 
 def _identity_projection_from_json_object(
     payload: Mapping[str, JSONValue],
 ) -> IdentityProjection:
     check_deadline()
-    basis_path_payload = _required_mapping(payload, "basis_path")
+    basis_path_payload = dict(_required_mapping(payload, "basis_path"))
     namespace = _required_non_empty_text(basis_path_payload, "namespace")
     atoms_raw = sequence_optional(basis_path_payload.get("atoms"))
     if atoms_raw is None:
         raise CanonicalEventAdaptationError(
             "identity basis path atoms must be a sequence."
         )
-    normalized_atoms: list[int] = []
-    for value in atoms_raw:
-        check_deadline()
-        atom = int_optional(value)
-        if atom is None or atom <= 0:
-            raise CanonicalEventAdaptationError(
-                "identity basis path atoms must be positive integers."
-            )
-        normalized_atoms.append(atom)
+    normalized_atoms = tuple(map(_required_positive_atom, atoms_raw))
     if not normalized_atoms:
         raise CanonicalEventAdaptationError(
             "identity basis path atoms must be non-empty."
         )
     prime_product = _required_positive_int(payload, "prime_product")
     digest_alias = _required_non_empty_text(payload, "digest_alias")
-    witness = _required_mapping(payload, "witness")
+    witness = dict(_required_mapping(payload, "witness"))
     return IdentityProjection(
-        basis_path=IdentityPath(namespace=namespace, atoms=tuple(normalized_atoms)),
+        basis_path=IdentityPath(namespace=namespace, atoms=normalized_atoms),
         prime_product=prime_product,
         digest_alias=digest_alias,
-        witness={str(key): witness[key] for key in witness},
+        witness=dict(map(lambda item: (str(item[0]), item[1]), witness.items())),
     )
 
 
-def _required_mapping(payload: Mapping[str, JSONValue], key: str) -> JSONObject:
+def _required_mapping(payload: Mapping[str, JSONValue], key: str) -> Iterator[tuple[str, JSONValue]]:
     check_deadline()
     mapping = mapping_optional(payload.get(key))
     if mapping is None:
         raise CanonicalEventAdaptationError(
             f"canonical event field '{key}' must be an object."
         )
-    normalized: JSONObject = {str(item): mapping[item] for item in mapping}
-    return normalized
+    return map(lambda item: (str(item[0]), item[1]), mapping.items())
 
 
 def _required_non_empty_text(payload: Mapping[str, JSONValue], key: str) -> str:
@@ -363,28 +361,49 @@ def _required_positive_int(payload: Mapping[str, JSONValue], key: str) -> int:
     )
 
 
-def _required_text_sequence(payload: Mapping[str, JSONValue], key: str) -> tuple[str, ...]:
+def _required_text_sequence(payload: Mapping[str, JSONValue], key: str) -> Iterator[str]:
     check_deadline()
     raw = sequence_optional(payload.get(key))
     if raw is None:
         raise CanonicalEventAdaptationError(
             f"canonical event field '{key}' must be a sequence."
         )
-    refs: list[str] = []
-    for item in raw:
-        check_deadline()
-        text = str_optional(item)
-        if text is None:
-            raise CanonicalEventAdaptationError(
-                f"canonical event field '{key}' must contain text refs."
-            )
-        normalized = text.strip()
-        if not normalized:
-            raise CanonicalEventAdaptationError(
-                f"canonical event field '{key}' may not contain empty refs."
-            )
-        refs.append(normalized)
-    return tuple(refs)
+    return map(lambda item: _required_non_empty_sequence_text(item, key=key), raw)
+
+
+def _required_identity_token_text(token: str) -> str:
+    check_deadline()
+    token_text = str(token).strip()
+    if not token_text:
+        raise CanonicalEventAdaptationError(
+            "identity derivation requires non-empty deterministic tokens."
+        )
+    return token_text
+
+
+def _required_positive_atom(value: JSONValue) -> int:
+    check_deadline()
+    atom = int_optional(value)
+    if atom is None or atom <= 0:
+        raise CanonicalEventAdaptationError(
+            "identity basis path atoms must be positive integers."
+        )
+    return atom
+
+
+def _required_non_empty_sequence_text(item: JSONValue, *, key: str) -> str:
+    check_deadline()
+    text = str_optional(item)
+    if text is None:
+        raise CanonicalEventAdaptationError(
+            f"canonical event field '{key}' must contain text refs."
+        )
+    normalized = text.strip()
+    if not normalized:
+        raise CanonicalEventAdaptationError(
+            f"canonical event field '{key}' may not contain empty refs."
+        )
+    return normalized
 
 
 __all__ = [
@@ -400,7 +419,6 @@ __all__ = [
     "canonical_adaptation_rejected",
     "canonical_adaptation_valid",
     "canonical_event_id",
-    "canonical_event_to_json_object",
     "decode_canonical_event_json",
     "derive_identity_projection_from_tokens",
     "encode_canonical_event_json",

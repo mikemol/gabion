@@ -7067,6 +7067,63 @@
         "targeted_pytest": "pass (33 passed)",
         "policy_scanner_suite": "expected_nonzero total=11227"
       }
+    },
+    {
+      "cu_id": "CU-GEO16",
+      "summary": "Zeroed the coupled event-algebra pair (json+proto codec surfaces) with iterator/map-chain strictification and force-major importer rewiring.",
+      "timestamp_utc": "2026-03-09T23:16:48Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 6906,
+        "defensive_fallback": 106,
+        "fiber_loop_structure_contract": 891,
+        "fiber_filter_processor_contract": 1969,
+        "fiber_return_shape_contract": 1128,
+        "fiber_scalar_sentinel_contract": 227,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 6906,
+        "defensive_fallback": 105,
+        "fiber_loop_structure_contract": 881,
+        "fiber_filter_processor_contract": 1964,
+        "fiber_return_shape_contract": 1121,
+        "fiber_scalar_sentinel_contract": 227,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 11227,
+      "total_after": 11204,
+      "notes": [
+        "event_algebra.py and event_algebra_codec.py now have zero active-family findings.",
+        "Foundation ring reduced from 79 to 56; remaining files are timeout_context.py (35) and identity_shadow_runtime.py (21).",
+        "Global deltas: defensive_fallback -1, fiber_loop_structure_contract -10, fiber_filter_processor_contract -5, fiber_return_shape_contract -7.",
+        "Guard families stayed zero (fiber_type_dispatch_contract/runtime_narrowing_boundary/boundary_core_contract/typing_surface)."
+      ],
+      "validation": {
+        "policy_check_workflows": "fail_expected_symbol_activity_audit (unsuppressed=1578)",
+        "policy_check_ambiguity_contract": "pass",
+        "targeted_pytest": "pass (14 passed)",
+        "policy_scanner_suite": "expected_nonzero total=11204"
+      }
     }
   ],
   "generated_by": "codex",

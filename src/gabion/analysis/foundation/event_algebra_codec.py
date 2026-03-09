@@ -2,15 +2,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from itertools import chain
 import json
-from typing import Mapping
+from typing import Iterator, Mapping
 
 from gabion.analysis.foundation.event_algebra import (
     CanonicalEventEnvelope,
     decode_canonical_event_json,
 )
 from gabion.analysis.foundation.identity_space import IdentityProjection
-from gabion.analysis.foundation.json_types import JSONObject
+from gabion.analysis.foundation.json_types import JSONObject, JSONValue
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.runtime import stable_encode
 
@@ -23,6 +24,21 @@ class CanonicalEventProtoDecodeError(ValueError):
 class _ProtobufWireFields:
     varints: dict[int, list[int]]
     bytes_fields: dict[int, list[bytes]]
+
+
+@dataclass(frozen=True)
+class _VarintDecode:
+    value: int
+    cursor: int
+
+
+@dataclass(frozen=True)
+class _IdentityProjectionPayload:
+    namespace: str
+    atoms: list[int]
+    prime_product: int
+    digest_alias: str
+    witness: JSONObject
 
 
 def _encode_varint(value: int) -> bytes:
@@ -42,7 +58,7 @@ def _encode_varint(value: int) -> bytes:
     return bytes(pieces)
 
 
-def _decode_varint(buffer: bytes, offset: int) -> tuple[int, int]:
+def _decode_varint(buffer: bytes, offset: int) -> _VarintDecode:
     check_deadline()
     shift = 0
     value = 0
@@ -52,7 +68,7 @@ def _decode_varint(buffer: bytes, offset: int) -> tuple[int, int]:
         cursor += 1
         value |= (byte & 0x7F) << shift
         if not (byte & 0x80):
-            return value, cursor
+            return _VarintDecode(value=value, cursor=cursor)
         shift += 7
         if shift > 63:
             break
@@ -77,15 +93,21 @@ def _parse_wire_fields(payload: bytes) -> _ProtobufWireFields:
     bytes_fields: dict[int, list[bytes]] = {}
     offset = 0
     while offset < len(payload):
-        tag, offset = _decode_varint(payload, offset)
+        decoded_tag = _decode_varint(payload, offset)
+        tag = decoded_tag.value
+        offset = decoded_tag.cursor
         field_number = tag >> 3
         wire_type = tag & 0x07
         if wire_type == 0:
-            value, offset = _decode_varint(payload, offset)
+            decoded_value = _decode_varint(payload, offset)
+            value = decoded_value.value
+            offset = decoded_value.cursor
             varints.setdefault(field_number, []).append(value)
             continue
         if wire_type == 2:
-            size, offset = _decode_varint(payload, offset)
+            decoded_size = _decode_varint(payload, offset)
+            size = decoded_size.value
+            offset = decoded_size.cursor
             end = offset + size
             if end > len(payload):
                 raise CanonicalEventProtoDecodeError(
@@ -132,12 +154,9 @@ def _repeated_bytes(
     fields: _ProtobufWireFields,
     *,
     field_number: int,
-) -> tuple[bytes, ...]:
+) -> Iterator[bytes]:
     check_deadline()
-    values = fields.bytes_fields.get(field_number)
-    if values is None:
-        return ()
-    return tuple(values)
+    return iter(fields.bytes_fields.get(field_number, ()))
 
 
 def _decode_utf8_text(payload: bytes, *, field_name: str) -> str:
@@ -151,7 +170,7 @@ def _decode_utf8_text(payload: bytes, *, field_name: str) -> str:
     return decoded
 
 
-def _decode_json_object(payload: bytes, *, field_name: str) -> JSONObject:
+def _decode_json_object_entries(payload: bytes, *, field_name: str) -> Iterator[tuple[str, JSONValue]]:
     check_deadline()
     text = _decode_utf8_text(payload, field_name=field_name)
     try:
@@ -162,7 +181,10 @@ def _decode_json_object(payload: bytes, *, field_name: str) -> JSONObject:
         ) from exc
     match loaded:
         case dict() as loaded_map:
-            return {str(key): loaded_map[key] for key in loaded_map}
+            return map(
+                lambda item: (str(item[0]), item[1]),
+                loaded_map.items(),
+            )
         case _:
             raise CanonicalEventProtoDecodeError(
                 f"canonical event proto field '{field_name}' must decode to an object"
@@ -172,21 +194,22 @@ def _decode_json_object(payload: bytes, *, field_name: str) -> JSONObject:
 def _encode_identity_projection_proto(identity: IdentityProjection) -> bytes:
     check_deadline()
     witness_json = stable_encode.stable_compact_text(identity.witness).encode("utf-8")
-    parts: list[bytes] = [_encode_length_delimited(1, identity.basis_path.namespace.encode("utf-8"))]
-    for atom in identity.basis_path.atoms:
-        check_deadline()
-        parts.append(_encode_uint64(2, int(atom)))
-    parts.extend(
-        [
-            _encode_uint64(3, int(identity.prime_product)),
-            _encode_length_delimited(4, identity.digest_alias.encode("utf-8")),
-            _encode_length_delimited(5, witness_json),
-        ]
+    prefix_fields = (
+        _encode_length_delimited(1, identity.basis_path.namespace.encode("utf-8")),
     )
-    return b"".join(parts)
+    atom_fields = map(
+        lambda atom: _encode_uint64(2, int(atom)),
+        identity.basis_path.atoms,
+    )
+    suffix_fields = (
+        _encode_uint64(3, int(identity.prime_product)),
+        _encode_length_delimited(4, identity.digest_alias.encode("utf-8")),
+        _encode_length_delimited(5, witness_json),
+    )
+    return b"".join(chain(prefix_fields, atom_fields, suffix_fields))
 
 
-def _decode_identity_projection_proto(payload: bytes) -> JSONObject:
+def _decode_identity_projection_proto(payload: bytes) -> _IdentityProjectionPayload:
     check_deadline()
     fields = _parse_wire_fields(payload)
     namespace = _decode_utf8_text(
@@ -197,10 +220,7 @@ def _decode_identity_projection_proto(payload: bytes) -> JSONObject:
         ),
         field_name="identity_projection.namespace",
     )
-    atoms = [
-        int(atom)
-        for atom in fields.varints.get(2, [])
-    ]
+    atoms = list(map(int, fields.varints.get(2, ())))
     if not atoms:
         raise CanonicalEventProtoDecodeError(
             "canonical event proto identity_projection.atoms must be non-empty"
@@ -218,27 +238,30 @@ def _decode_identity_projection_proto(payload: bytes) -> JSONObject:
         ),
         field_name="identity_projection.digest_alias",
     )
-    witness = _decode_json_object(
-        _required_single_bytes(
-            fields,
-            field_number=5,
+    witness = dict(
+        _decode_json_object_entries(
+            _required_single_bytes(
+                fields,
+                field_number=5,
+                field_name="identity_projection.witness_json",
+            ),
             field_name="identity_projection.witness_json",
-        ),
-        field_name="identity_projection.witness_json",
+        )
     )
-    return {
-        "basis_path": {"namespace": namespace, "atoms": atoms},
-        "prime_product": prime_product,
-        "digest_alias": digest_alias,
-        "witness": witness,
-    }
+    return _IdentityProjectionPayload(
+        namespace=namespace,
+        atoms=atoms,
+        prime_product=prime_product,
+        digest_alias=digest_alias,
+        witness=witness,
+    )
 
 
 def encode_canonical_event_proto(envelope: CanonicalEventEnvelope) -> bytes:
     check_deadline()
     payload_json = stable_encode.stable_compact_text(envelope.payload).encode("utf-8")
     identity_payload = _encode_identity_projection_proto(envelope.identity_projection)
-    parts: list[bytes] = [
+    prefix_fields = (
         _encode_uint64(1, int(envelope.schema_version)),
         _encode_uint64(2, int(envelope.sequence)),
         _encode_length_delimited(3, envelope.run_id.encode("utf-8")),
@@ -247,12 +270,15 @@ def encode_canonical_event_proto(envelope: CanonicalEventEnvelope) -> bytes:
         _encode_length_delimited(6, envelope.kind.encode("utf-8")),
         _encode_length_delimited(7, identity_payload),
         _encode_length_delimited(8, payload_json),
-    ]
-    for causal_ref in envelope.causal_refs:
-        check_deadline()
-        parts.append(_encode_length_delimited(9, causal_ref.encode("utf-8")))
-    parts.append(_encode_length_delimited(10, envelope.event_id.encode("utf-8")))
-    return b"".join(parts)
+    )
+    causal_fields = map(
+        lambda causal_ref: _encode_length_delimited(9, causal_ref.encode("utf-8")),
+        envelope.causal_refs,
+    )
+    suffix_fields = (
+        _encode_length_delimited(10, envelope.event_id.encode("utf-8")),
+    )
+    return b"".join(chain(prefix_fields, causal_fields, suffix_fields))
 
 
 def decode_canonical_event_proto(payload: bytes) -> CanonicalEventEnvelope:
@@ -280,20 +306,24 @@ def decode_canonical_event_proto(payload: bytes) -> CanonicalEventEnvelope:
         _required_single_bytes(fields, field_number=6, field_name="kind"),
         field_name="kind",
     )
-    identity_projection = _decode_identity_projection_proto(
+    decoded_identity_projection = _decode_identity_projection_proto(
         _required_single_bytes(
             fields,
             field_number=7,
             field_name="identity_projection",
         )
     )
-    payload_json = _decode_json_object(
-        _required_single_bytes(fields, field_number=8, field_name="payload_json"),
-        field_name="payload_json",
+    payload_json = dict(
+        _decode_json_object_entries(
+            _required_single_bytes(fields, field_number=8, field_name="payload_json"),
+            field_name="payload_json",
+        )
     )
     causal_refs = tuple(
-        _decode_utf8_text(raw, field_name="causal_refs")
-        for raw in _repeated_bytes(fields, field_number=9)
+        map(
+            lambda raw: _decode_utf8_text(raw, field_name="causal_refs"),
+            _repeated_bytes(fields, field_number=9),
+        )
     )
     event_id = _decode_utf8_text(
         _required_single_bytes(fields, field_number=10, field_name="event_id"),
@@ -306,7 +336,15 @@ def decode_canonical_event_proto(payload: bytes) -> CanonicalEventEnvelope:
         "source": source,
         "phase": phase,
         "kind": kind,
-        "identity_projection": identity_projection,
+        "identity_projection": {
+            "basis_path": {
+                "namespace": decoded_identity_projection.namespace,
+                "atoms": decoded_identity_projection.atoms,
+            },
+            "prime_product": decoded_identity_projection.prime_product,
+            "digest_alias": decoded_identity_projection.digest_alias,
+            "witness": decoded_identity_projection.witness,
+        },
         "payload": payload_json,
         "causal_refs": list(causal_refs),
         "event_id": event_id,
