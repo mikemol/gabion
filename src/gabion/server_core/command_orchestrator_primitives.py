@@ -6,6 +6,7 @@ import hashlib
 import json
 import threading
 import time
+from itertools import chain, repeat
 from datetime import (datetime, timezone)
 from dataclasses import dataclass
 from decimal import (Decimal, InvalidOperation)
@@ -363,17 +364,105 @@ def _report_witness_digest(
         manifest_text = None
     return digest_text or manifest_text
 
+
+def _is_not_none_text(value: str | None) -> bool:
+    return value is not None
+
+
+def _normalize_section_entry(
+    item: tuple[object, object],
+) -> tuple[str | None, Mapping[str, JSONValue] | None]:
+    key, entry = item
+    return _str_optional(key), _json_mapping_optional(entry)
+
+
+def _has_section_key_mapping(
+    item: tuple[str | None, Mapping[str, JSONValue] | None],
+) -> bool:
+    key_text, entry_mapping = item
+    return key_text is not None and entry_mapping is not None
+
+
+def _section_lines_item(
+    item: tuple[str | None, Mapping[str, JSONValue] | None],
+) -> tuple[str, list[str]]:
+    key_text, entry_mapping = item
+    if key_text is None or entry_mapping is None:
+        never("invalid section entry shape")
+    return key_text, _coerce_section_lines(entry_mapping.get("lines"))
+
+
+def _has_section_lines(item: tuple[str, list[str]]) -> bool:
+    _key, lines = item
+    return bool(lines)
+
+
+def _projection_row_section_id(row: Mapping[str, JSONValue]) -> str:
+    check_deadline()
+    return str(row.get("section_id", "") or "")
+
+
+def _projection_row_has_section_id(row: Mapping[str, JSONValue]) -> bool:
+    return bool(_projection_row_section_id(row))
+
+
+def _projection_row_deps(row: Mapping[str, JSONValue]) -> list[str]:
+    deps_raw = row.get("deps")
+    normalized_deps = _non_string_sequence_optional(deps_raw)
+    if normalized_deps is None:
+        return []
+    return list(
+        filter(
+            _is_not_none_text,
+            map(_str_optional, normalized_deps),
+        )
+    )
+
+
+def _journal_section_status(
+    *,
+    section_id: str,
+    sections: Mapping[str, list[str]],
+) -> str:
+    return "resolved" if section_id in sections else "pending"
+
+
+def _journal_projection_row_payload(
+    *,
+    row: Mapping[str, JSONValue],
+    sections: Mapping[str, list[str]],
+    pending_reasons: Mapping[str, str],
+) -> tuple[str, JSONObject, JSONObject]:
+    section_id = _projection_row_section_id(row)
+    phase = str(row.get("phase", "") or "")
+    deps = _projection_row_deps(row)
+    status = _journal_section_status(section_id=section_id, sections=sections)
+    section_entry: JSONObject = {
+        "phase": phase,
+        "deps": deps,
+        "status": status,
+        "lines": sections.get(section_id, []),
+        "reason": pending_reasons.get(section_id),
+    }
+    row_entry: JSONObject = {
+        "section_id": section_id,
+        "phase": phase,
+        "deps": deps,
+        "status": status,
+    }
+    return section_id, section_entry, row_entry
+
+
 def _coerce_section_lines(value: object) -> list[str]:
     entries = _non_string_sequence_optional(value)
     if entries is None:
         return []
-    lines: list[str] = []
-    for item in entries:
-        check_deadline()
-        item_text = _str_optional(item)
-        if item_text is not None:
-            lines.append(item_text)
-    return lines
+    return list(
+        filter(
+            _is_not_none_text,
+            map(_str_optional, entries),
+        )
+    )
 
 def _load_report_section_journal(
     *,
@@ -401,17 +490,18 @@ def _load_report_section_journal(
     sections_payload = _json_mapping_optional(payload_mapping.get("sections"))
     if sections_payload is None:
         return {}, "policy"
-    sections: dict[str, list[str]] = {}
-    for key, entry in sections_payload.items():
-        check_deadline()
-        key_text = _str_optional(key)
-        entry_mapping = _json_mapping_optional(entry)
-        if key_text is None or entry_mapping is None:
-            continue
-        lines = _coerce_section_lines(entry_mapping.get("lines"))
-        if not lines:
-            continue
-        sections[key_text] = lines
+    sections = dict(
+        filter(
+            _has_section_lines,
+            map(
+                _section_lines_item,
+                filter(
+                    _has_section_key_mapping,
+                    map(_normalize_section_entry, sections_payload.items()),
+                ),
+            ),
+        )
+    )
     return sections, None
 
 def _write_report_section_journal(
@@ -423,41 +513,21 @@ def _write_report_section_journal(
     pending_reasons: Mapping[str, str] | None = None,
 ) -> None:
     if path is not None:
-        rows_payload: list[JSONObject] = []
-        sections_payload: JSONObject = {}
         pending_reasons = pending_reasons or {}
-        for row in projection_rows:
-            check_deadline()
-            section_id = str(row.get("section_id", "") or "")
-            if not section_id:
-                continue
-            phase = str(row.get("phase", "") or "")
-            deps_raw = row.get("deps")
-            deps: list[str] = []
-            normalized_deps = _non_string_sequence_optional(deps_raw)
-            if normalized_deps is not None:
-                deps = [
-                    dep_text
-                    for dep_text in (_str_optional(dep) for dep in normalized_deps)
-                    if dep_text is not None
-                ]
-            status = "resolved" if section_id in sections else "pending"
-            section_entry: JSONObject = {
-                "phase": phase,
-                "deps": deps,
-                "status": status,
-                "lines": sections.get(section_id, []),
-            }
-            section_entry["reason"] = pending_reasons.get(section_id)
-            sections_payload[section_id] = section_entry
-            rows_payload.append(
-                {
-                    "section_id": section_id,
-                    "phase": phase,
-                    "deps": deps,
-                    "status": status,
-                }
+        row_payloads = tuple(
+            map(
+                lambda row: _journal_projection_row_payload(
+                    row=row,
+                    sections=sections,
+                    pending_reasons=pending_reasons,
+                ),
+                filter(_projection_row_has_section_id, projection_rows),
             )
+        )
+        sections_payload: JSONObject = dict(
+            map(lambda item: (item[0], item[1]), row_payloads)
+        )
+        rows_payload: list[JSONObject] = list(map(lambda item: item[2], row_payloads))
         payload: JSONObject = {
             "format_version": _REPORT_SECTION_JOURNAL_FORMAT_VERSION,
             "witness_digest": witness_digest,
@@ -757,6 +827,23 @@ def _progress_heartbeat_seconds(payload: Mapping[str, JSONValue]) -> float:
 def _markdown_table_cell(value: object) -> str:
     return ("" if value is None else str(value)).replace("\n", " ").replace("|", "\\|")
 
+
+def _phase_dimension_fragment(
+    *,
+    raw_dimensions: Mapping[str, JSONValue],
+    dim_name: str,
+) -> str:
+    payload_mapping = _json_mapping_optional(raw_dimensions.get(dim_name))
+    if payload_mapping is None:
+        return ""
+    done = _non_negative_int_optional(payload_mapping.get("done"))
+    total = _non_negative_int_optional(payload_mapping.get("total"))
+    if done is None or total is None:
+        return ""
+    normalized_done = min(done, total) if total else done
+    return f"{dim_name}={normalized_done}/{total}"
+
+
 def _phase_progress_dimensions_summary(
     phase_progress_v2: Mapping[str, JSONValue] | None,
 ) -> str:
@@ -766,28 +853,22 @@ def _phase_progress_dimensions_summary(
     raw_dimensions = _json_mapping_optional(phase_progress_v2_mapping.get("dimensions"))
     if raw_dimensions is None:
         return ""
-    fragments: list[str] = []
     dim_names = sort_once(
-        (
-            name_text
-            for name_text in (_str_optional(name) for name in raw_dimensions)
-            if name_text is not None
-        ),
+        filter(_is_not_none_text, map(_str_optional, raw_dimensions)),
         source="src/gabion/server.py:2253",
     )
-    for dim_name in dim_names:
-        raw_payload = raw_dimensions.get(dim_name)
-        payload_mapping = _json_mapping_optional(raw_payload)
-        if payload_mapping is None:
-            continue
-        raw_done = payload_mapping.get("done")
-        raw_total = payload_mapping.get("total")
-        done = _non_negative_int_optional(raw_done)
-        total = _non_negative_int_optional(raw_total)
-        if done is not None and total is not None:
-            if total:
-                done = min(done, total)
-            fragments.append(f"{dim_name}={done}/{total}")
+    fragments = tuple(
+        filter(
+            bool,
+            map(
+                lambda dim_name: _phase_dimension_fragment(
+                    raw_dimensions=raw_dimensions,
+                    dim_name=dim_name,
+                ),
+                dim_names,
+            ),
+        )
+    )
     return "; ".join(fragments)
 
 def _append_phase_timeline_event(
@@ -971,30 +1052,51 @@ def _collection_components_preview_lines(
             "- `functions_with_groups`: `0`",
             "- `bundle_alternatives`: `0`",
         ]
-    path_count = 0
-    function_count = 0
-    bundle_alternatives = 0
-    for raw_path, raw_path_groups in raw_groups.items():
-        check_deadline()
-        raw_path_text = _str_optional(raw_path)
-        path_groups_mapping = _json_mapping_optional(raw_path_groups)
-        if raw_path_text is None or path_groups_mapping is None:
-            continue
-        path_count += 1
-        for raw_qual, raw_bundles in path_groups_mapping.items():
-            check_deadline()
-            raw_qual_text = _str_optional(raw_qual)
-            if raw_qual_text is None:
-                continue
-            bundle_list = _non_string_sequence_optional(raw_bundles)
-            if bundle_list is None:
-                continue
-            function_count += 1
-            bundle_alternatives += sum(
-                1
-                for bundle in bundle_list
-                if _non_string_sequence_optional(bundle) is not None
+    path_items = tuple(
+        filter(
+            lambda item: item[0] is not None and item[1] is not None,
+            map(
+                lambda item: (
+                    _str_optional(item[0]),
+                    _json_mapping_optional(item[1]),
+                ),
+                raw_groups.items(),
+            ),
+        )
+    )
+    function_bundle_items = tuple(
+        chain.from_iterable(
+            map(
+                lambda path_item: filter(
+                    lambda item: item[0] is not None and item[1] is not None,
+                    map(
+                        lambda item: (
+                            _str_optional(item[0]),
+                            _non_string_sequence_optional(item[1]),
+                        ),
+                        path_item[1].items(),
+                    ),
+                ),
+                path_items,
             )
+        )
+    )
+    path_count = len(path_items)
+    function_count = len(function_bundle_items)
+    bundle_alternatives = sum(
+        map(
+            lambda item: sum(
+                map(
+                    int,
+                    map(
+                        lambda bundle: _non_string_sequence_optional(bundle) is not None,
+                        item[1],
+                    ),
+                )
+            ),
+            function_bundle_items,
+        )
+    )
     return [
         "Component preview (provisional).",
         f"- `paths_with_groups`: `{path_count}`",
@@ -1006,43 +1108,68 @@ def _groups_by_path_from_collection_resume(
     collection_resume: Mapping[str, JSONValue],
 ) -> dict[Path, dict[str, list[set[str]]]]:
     check_deadline()
-    groups_by_path: dict[Path, dict[str, list[set[str]]]] = {}
     raw_groups = _json_mapping_optional(collection_resume.get("groups_by_path"))
     if raw_groups is None:
-        return groups_by_path
-    for raw_path, raw_path_groups in raw_groups.items():
-        check_deadline()
-        raw_path_text = _str_optional(raw_path)
-        path_groups_mapping = _json_mapping_optional(raw_path_groups)
-        if raw_path_text is None or path_groups_mapping is None:
-            continue
-        path_groups: dict[str, list[set[str]]] = {}
-        for raw_qual, raw_bundles in path_groups_mapping.items():
-            check_deadline()
-            raw_qual_text = _str_optional(raw_qual)
-            if raw_qual_text is None:
-                continue
-            bundle_list = _non_string_sequence_optional(raw_bundles)
-            if bundle_list is None:
-                continue
-            bundles: list[set[str]] = []
-            for raw_bundle in bundle_list:
-                check_deadline()
-                bundle_items = _non_string_sequence_optional(raw_bundle)
-                if bundle_items is None:
-                    continue
-                bundles.append(
-                    {
-                        entry_text
-                        for entry_text in (
-                            _str_optional(entry) for entry in bundle_items
-                        )
-                        if entry_text is not None
-                    }
-                )
-            path_groups[raw_qual_text] = bundles
-        groups_by_path[Path(raw_path_text)] = path_groups
-    return groups_by_path
+        return {}
+    path_items = tuple(
+        filter(
+            lambda item: item[0] is not None and item[1] is not None,
+            map(
+                lambda item: (
+                    _str_optional(item[0]),
+                    _json_mapping_optional(item[1]),
+                ),
+                raw_groups.items(),
+            ),
+        )
+    )
+    return dict(
+        map(
+            lambda path_item: (
+                Path(path_item[0]),
+                dict(
+                    map(
+                        lambda item: (
+                            item[0],
+                            list(
+                                filter(
+                                    lambda bundle: bundle is not None,
+                                    map(
+                                        lambda raw_bundle: (
+                                            set(
+                                                filter(
+                                                    _is_not_none_text,
+                                                    map(
+                                                        _str_optional,
+                                                        _non_string_sequence_optional(raw_bundle)
+                                                        or (),
+                                                    ),
+                                                )
+                                            )
+                                            if _non_string_sequence_optional(raw_bundle) is not None
+                                            else None
+                                        ),
+                                        item[1],
+                                    ),
+                                )
+                            ),
+                        ),
+                        filter(
+                            lambda item: item[0] is not None and item[1] is not None,
+                            map(
+                                lambda item: (
+                                    _str_optional(item[0]),
+                                    _non_string_sequence_optional(item[1]),
+                                ),
+                                path_item[1].items(),
+                            ),
+                        ),
+                    )
+                ),
+            ),
+            path_items,
+        )
+    )
 
 def _incremental_progress_obligations(
     *,
@@ -1253,28 +1380,32 @@ def _apply_journal_pending_reason(
     journal_reason: str | None,
 ) -> None:
     if journal_reason in {"stale_input", "policy"}:
-        for row in projection_rows:
-            check_deadline()
-            section_id = str(row.get("section_id", "") or "")
-            if not section_id or section_id in sections:
-                continue
-            pending_reasons[section_id] = journal_reason
+        section_ids = map(_projection_row_section_id, projection_rows)
+        pending_section_ids = filter(
+            lambda section_id: section_id and section_id not in sections,
+            section_ids,
+        )
+        pending_reasons.update(dict(zip(pending_section_ids, repeat(journal_reason))))
 
 def _latest_report_phase(phases: Mapping[str, JSONValue] | None) -> str | None:
     check_deadline()
-    best_phase: str | None = None
-    best_rank = -1
     phase_mapping = _json_mapping_optional(phases)
     phase_names: Mapping[str, JSONValue] = phase_mapping if phase_mapping is not None else {}
-    for phase_name in phase_names:
-        check_deadline()
-        rank = _report_projection_phase_rank_optional(phase_name)
-        if rank is None:
-            continue
-        if rank > best_rank:
-            best_rank = rank
-            best_phase = phase_name
-    return best_phase
+    phase_rank_pairs = tuple(
+        filter(
+            lambda item: item[1] is not None,
+            map(
+                lambda phase_name: (
+                    phase_name,
+                    _report_projection_phase_rank_optional(phase_name),
+                ),
+                phase_names,
+            ),
+        )
+    )
+    if not phase_rank_pairs:
+        return None
+    return max(phase_rank_pairs, key=lambda item: item[1])[0]
 
 def _parse_lint_line(line: str) -> LintEntryDTO | None:
     return parse_lint_line(line)

@@ -6495,6 +6495,60 @@
         "targeted_pytest": "pass (302 passed)",
         "policy_scanner_suite": "expected_nonzero total=10663"
       }
+    },
+    {
+      "cu_id": "CU-GEO7",
+      "summary": "Geometric hotspot server_core seed shift: strictify command_orchestrator_primitives section/group/dimension pipelines to reduce loop/filter/sentinel debt.",
+      "timestamp_utc": "2026-03-09T17:23:40Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7247,
+        "defensive_fallback": 129,
+        "fiber_loop_structure_contract": 947,
+        "fiber_filter_processor_contract": 2109,
+        "fiber_scalar_sentinel_contract": 231,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7225,
+        "defensive_fallback": 123,
+        "fiber_loop_structure_contract": 939,
+        "fiber_filter_processor_contract": 2086,
+        "fiber_scalar_sentinel_contract": 225,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 10663,
+      "total_after": 10598,
+      "notes": [
+        "Replaced section journal load/write loop guards with map/filter payload pipelines and deterministic projection-row transforms.",
+        "Refactored _phase_progress_dimensions_summary, _collection_components_preview_lines, _groups_by_path_from_collection_resume, _apply_journal_pending_reason, and _latest_report_phase to upstream filtering and function-per-loop decompositions.",
+        "Server_core ring (active five families) reduced 565 -> 500 (-65); command_orchestrator_primitives reduced 334 -> 269 (-65)."
+      ],
+      "validation": {
+        "policy_check_workflows": "fail_expected_symbol_activity_audit (unsuppressed=1492)",
+        "policy_check_ambiguity_contract": "pass",
+        "targeted_pytest": "pass (302 passed)",
+        "policy_scanner_suite": "expected_nonzero total=10598"
+      }
     }
   ],
   "generated_by": "codex",
