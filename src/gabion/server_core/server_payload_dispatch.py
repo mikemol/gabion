@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import singledispatch
-from typing import Callable, Mapping, Sequence
+from typing import Callable, Iterator, Mapping, Sequence
 
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.commands import boundary_order
@@ -30,7 +30,7 @@ def _list_optional(value: object) -> list[object] | None:
 
 
 @_list_optional.register(list)
-def _(value: list[object]) -> list[object] | None:
+def _sd_reg_1(value: list[object]) -> list[object] | None:
     return value
 
 
@@ -39,20 +39,125 @@ def _list_none(value: object) -> list[object] | None:
     return None
 
 
-for _runtime_type in (tuple, set, dict, str, int, float, bool, _NONE_TYPE):
-    _list_optional.register(_runtime_type)(_list_none)
+_list_optional.register(tuple)(_list_none)
+_list_optional.register(set)(_list_none)
+_list_optional.register(dict)(_list_none)
+_list_optional.register(str)(_list_none)
+_list_optional.register(int)(_list_none)
+_list_optional.register(float)(_list_none)
+_list_optional.register(bool)(_list_none)
+_list_optional.register(_NONE_TYPE)(_list_none)
+
+
+def _str_is_present(value: str | None) -> bool:
+    return value is not None
+
+
+def _iter_present_text_values(entries: Sequence[object]) -> Iterator[str]:
+    yield from filter(_str_is_present, map(_str_optional, entries))
 
 
 def _string_entries(value: object) -> list[str]:
-    entries = _non_string_sequence_optional(value)
-    if entries is None:
-        return []
-    normalized: list[str] = []
-    for item in entries:
-        item_text = _str_optional(item)
-        if item_text is not None:
-            normalized.append(item_text)
-    return normalized
+    entries = _non_string_sequence_optional(value) or ()
+    return list(_iter_present_text_values(entries))
+
+
+@singledispatch
+def _analysis_manifest_config_value(value: object) -> JSONValue:
+    never("unregistered runtime type", value_type=type(value).__name__)
+
+
+@_analysis_manifest_config_value.register(bool)
+def _sd_reg_2(value: bool) -> JSONValue:
+    return value
+
+
+@_analysis_manifest_config_value.register(int)
+def _sd_reg_3(value: int) -> JSONValue:
+    return value
+
+
+@_analysis_manifest_config_value.register(str)
+def _sd_reg_4(value: str) -> JSONValue:
+    return value
+
+
+@_analysis_manifest_config_value.register(list)
+def _sd_reg_5(value: list[object]) -> JSONValue:
+    return list(map(str, value))
+
+
+def _analysis_manifest_invalid_none(value: object) -> JSONValue:
+    _ = value
+    never("analysis manifest config field missing")
+
+
+def _analysis_manifest_invalid_mapping(value: object) -> JSONValue:
+    _ = value
+    never("invalid analysis manifest config mapping")
+
+
+_analysis_manifest_config_value.register(_NONE_TYPE)(_analysis_manifest_invalid_none)
+_analysis_manifest_config_value.register(dict)(_analysis_manifest_invalid_mapping)
+
+
+def _required_mapping(value: object, *, field_name: str) -> Mapping[str, JSONValue]:
+    mapping_value = _json_mapping_optional(value)
+    if mapping_value is None:
+        never("missing required analysis witness mapping", field=field_name)
+    return mapping_value
+
+
+def _required_str(value: object, *, field_name: str) -> str:
+    value_text = _str_optional(value)
+    if value_text is None:
+        never("missing required analysis witness text field", field=field_name)
+    return value_text
+
+
+def _required_bool(value: object, *, field_name: str) -> bool:
+    flag = _bool_optional(value)
+    if flag is None:
+        never("missing required analysis witness bool field", field=field_name)
+    return flag
+
+
+def _manifest_entry_from_raw(raw_entry: object) -> JSONObject:
+    entry = _required_mapping(raw_entry, field_name="files[]")
+    manifest_entry: JSONObject = {"path": _required_str(entry.get("path"), field_name="path")}
+    maybe_missing = _bool_optional(entry.get("missing"))
+    if maybe_missing is not None:
+        manifest_entry["missing"] = maybe_missing
+    maybe_size = _int_optional(entry.get("size"))
+    if maybe_size is not None:
+        manifest_entry["size"] = maybe_size
+    maybe_content_sha1 = _str_optional(entry.get("content_sha1"))
+    if maybe_content_sha1:
+        manifest_entry["content_sha1"] = maybe_content_sha1
+    return manifest_entry
+
+
+def _iter_manifest_file_entries(raw_entries: Sequence[object]) -> Iterator[JSONObject]:
+    for raw_entry in raw_entries:
+        check_deadline()
+        yield _manifest_entry_from_raw(raw_entry)
+
+
+_MANIFEST_CONFIG_KEYS: tuple[str, ...] = (
+    "exclude_dirs",
+    "ignore_params",
+    "strictness",
+    "external_filter",
+    "transparent_decorators",
+)
+
+
+def _iter_manifest_config_items(
+    config_payload: Mapping[str, JSONValue],
+) -> Iterator[tuple[str, JSONValue]]:
+    for key in _MANIFEST_CONFIG_KEYS:
+        check_deadline()
+        yield key, _analysis_manifest_config_value(config_payload.get(key))
 
 
 def _in_progress_scan_state_payload(
@@ -212,82 +317,28 @@ def _analysis_manifest_digest_from_witness(
     *,
     manifest_format_version: int,
     digest_fn: Callable[[JSONObject], str],
-) -> str | None:
+) -> str:
     check_deadline()
-    files = _list_optional(input_witness.get("files"))
-    if files is None:
-        return None
-    manifest_files: list[JSONObject] = []
-    for raw_entry in files:
-        check_deadline()
-        entry = _json_mapping_optional(raw_entry)
-        if entry is None:
-            return None
-        path_value = _str_optional(entry.get("path"))
-        if path_value is None:
-            return None
-        manifest_entry: JSONObject = {"path": path_value}
-        missing_value = _bool_optional(entry.get("missing"))
-        if missing_value is not None:
-            manifest_entry["missing"] = missing_value
-        size_value = _int_optional(entry.get("size"))
-        if size_value is not None:
-            manifest_entry["size"] = size_value
-        content_sha1_value = _str_optional(entry.get("content_sha1"))
-        if content_sha1_value:
-            manifest_entry["content_sha1"] = content_sha1_value
-        manifest_files.append(manifest_entry)
+    raw_files = _list_optional(input_witness.get("files"))
+    if raw_files is None:
+        never("missing required analysis witness sequence", field="files")
+    manifest_files = list(_iter_manifest_file_entries(raw_files))
 
-    config = _json_mapping_optional(input_witness.get("config"))
-    if config is None:
-        return None
-    config_payload: JSONObject = {}
-    for key in (
-        "exclude_dirs",
-        "ignore_params",
-        "strictness",
-        "external_filter",
-        "transparent_decorators",
-    ):
-        check_deadline()
-        value = config.get(key)
-        list_value = _list_optional(value)
-        if list_value is not None:
-            config_payload[key] = [str(item) for item in list_value]
-            continue
-        bool_value = _bool_optional(value)
-        if bool_value is not None:
-            config_payload[key] = bool_value
-            continue
-        int_value = _int_optional(value)
-        if int_value is not None:
-            config_payload[key] = int_value
-            continue
-        str_value = _str_optional(value)
-        if str_value is not None:
-            config_payload[key] = str_value
-            continue
-        return None
+    config = _required_mapping(input_witness.get("config"), field_name="config")
+    config_payload = dict(_iter_manifest_config_items(config))
 
-    root = _str_optional(input_witness.get("root"))
-    recursive = _bool_optional(input_witness.get("recursive"))
-    include_invariant_propositions = _bool_optional(
-        input_witness.get("include_invariant_propositions")
-    )
-    include_wl_refinement = _bool_optional(input_witness.get("include_wl_refinement"))
-    if (
-        root is None
-        or recursive is None
-        or include_invariant_propositions is None
-        or include_wl_refinement is None
-    ):
-        return None
     manifest: JSONObject = {
         "format_version": manifest_format_version,
-        "root": root,
-        "recursive": recursive,
-        "include_invariant_propositions": include_invariant_propositions,
-        "include_wl_refinement": include_wl_refinement,
+        "root": _required_str(input_witness.get("root"), field_name="root"),
+        "recursive": _required_bool(input_witness.get("recursive"), field_name="recursive"),
+        "include_invariant_propositions": _required_bool(
+            input_witness.get("include_invariant_propositions"),
+            field_name="include_invariant_propositions",
+        ),
+        "include_wl_refinement": _required_bool(
+            input_witness.get("include_wl_refinement"),
+            field_name="include_wl_refinement",
+        ),
         "config": config_payload,
         "files": manifest_files,
     }

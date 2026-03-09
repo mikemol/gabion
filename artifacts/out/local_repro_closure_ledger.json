@@ -6221,6 +6221,61 @@
         "targeted_pytest": "pass (26 passed)",
         "policy_scanner_suite": "expected_nonzero total=10775"
       }
+    },
+    {
+      "cu_id": "CU-GEO1",
+      "summary": "Geometric hotspot campaign: added balanced neighborhood queue (ring-1 + ring-2 + large-zone backlog) and reduced top server_core seed/ring debt via server_payload_dispatch strictification.",
+      "timestamp_utc": "2026-03-09T16:23:53Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7281,
+        "defensive_fallback": 129,
+        "fiber_loop_structure_contract": 970,
+        "fiber_filter_processor_contract": 2154,
+        "fiber_scalar_sentinel_contract": 241,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7272,
+        "defensive_fallback": 123,
+        "fiber_loop_structure_contract": 968,
+        "fiber_filter_processor_contract": 2144,
+        "fiber_scalar_sentinel_contract": 237,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 10775,
+      "total_after": 10744,
+      "notes": [
+        "Implemented scripts/policy/hotspot_neighborhood_queue.py with balanced five-family scoring, ring-1 expansion, ring-2 cosine advisory neighbors, and explicit large-zone backlog segregation.",
+        "Integrated queue artifact emission into scripts/policy/policy_scanner_suite.py and added deterministic tests for ranking/backlog and scanner-script artifact emission.",
+        "Refactored src/gabion/server_core/server_payload_dispatch.py hotspot function _analysis_manifest_digest_from_witness to generator-per-loop + strict never-boundary normalization; removed module-level registration loop and reduced sentinel/loop/filter debt in top ring.",
+        "Server_core ring (active five families) reduced 677 -> 646 (-31); server_payload_dispatch reduced 87 -> 56 (-31)."
+      ],
+      "validation": {
+        "policy_check_workflows": "fail_expected_symbol_activity_audit (unsuppressed=1457)",
+        "policy_check_ambiguity_contract": "pass",
+        "targeted_pytest": "pass (281 passed server/progress + 26 passed policy-script queue tests)",
+        "policy_scanner_suite": "expected_nonzero total=10744"
+      }
     }
   ],
   "generated_by": "codex",

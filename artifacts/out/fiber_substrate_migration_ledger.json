@@ -628,6 +628,70 @@
         "targeted_pytest": "pass (26 passed)",
         "policy_scanner_suite": "expected_nonzero total=10775"
       }
+    },
+    {
+      "cu_id": "CU-GEO1",
+      "timestamp_utc": "2026-03-09T16:23:53Z",
+      "migrated_families": [
+        "branchless",
+        "defensive_fallback",
+        "fiber_filter_processor_contract",
+        "fiber_loop_structure_contract",
+        "fiber_scalar_sentinel_contract"
+      ],
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7281,
+        "defensive_fallback": 129,
+        "fiber_loop_structure_contract": 970,
+        "fiber_filter_processor_contract": 2154,
+        "fiber_scalar_sentinel_contract": 241,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7272,
+        "defensive_fallback": 123,
+        "fiber_loop_structure_contract": 968,
+        "fiber_filter_processor_contract": 2144,
+        "fiber_scalar_sentinel_contract": 237,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 10775,
+      "total_after": 10744,
+      "drift_notes": [
+        "Net total decreased by 31.",
+        "Top ranked non-backlog neighborhood remained src/gabion/server_core and decreased by 31 across active families.",
+        "No regressions in fiber_type_dispatch_contract/runtime_narrowing_boundary/boundary_core_contract (all remain 0)."
+      ],
+      "libcst_recovery": {
+        "cst_parse_failure_events": 0,
+        "recovered_modules": "all parseable targets processed"
+      },
+      "validation": {
+        "policy_check_workflows": "fail_expected_symbol_activity_audit (unsuppressed=1457)",
+        "policy_check_ambiguity_contract": "pass",
+        "targeted_pytest": "pass (281 passed server/progress + 26 passed policy-script queue tests)",
+        "policy_scanner_suite": "expected_nonzero total=10744"
+      }
     }
   ]
 }

@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from gabion.tooling.runtime import policy_result_schema, policy_scanner_suite
+from scripts.policy import hotspot_neighborhood_queue
 
 
 def _run_external_policy_results(*, root: Path, out: Path) -> dict[str, dict[str, object]]:
@@ -110,8 +111,16 @@ def run(
         base_sha=base_sha,
         head_sha=head_sha,
     )
+    queue_json = out.parent / "hotspot_neighborhood_queue.json"
+    queue_md = out.parent / "hotspot_neighborhood_queue.md"
+    hotspot_neighborhood_queue.run(
+        policy_suite_path=out,
+        out_path=queue_json,
+        markdown_out=queue_md,
+    )
     total = result.total_violations()
     print(f"policy-suite scan: cached={result.cached} total_violations={total} out={out}")
+    print(f"hotspot-neighborhood queue: {queue_json}")
     if total == 0:
         for rule_id in ("policy_check", "structural_hash", "deprecated_nonerasability"):
             status = str(result.policy_results.get(rule_id, {}).get("status", "unknown"))
@@ -121,6 +130,8 @@ def run(
         "no_monkeypatch",
         "branchless",
         "defensive_fallback",
+        "fiber_loop_structure_contract",
+        "fiber_filter_processor_contract",
         "fiber_scalar_sentinel_contract",
         "fiber_type_dispatch_contract",
         "no_legacy_monolith_import",
