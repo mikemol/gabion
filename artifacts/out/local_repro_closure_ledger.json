@@ -6167,6 +6167,60 @@
         "targeted_pytest": "pass (26 passed)",
         "policy_scanner_suite": "expected_nonzero total=10798"
       }
+    },
+    {
+      "cu_id": "CU-FS14",
+      "summary": "Boundary-core loop-form completion: split nested scans into generator-per-loop pipelines and push loop filtering upstream via filter/map helpers.",
+      "timestamp_utc": "2026-03-09T03:02:51Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7285,
+        "defensive_fallback": 129,
+        "fiber_loop_structure_contract": 979,
+        "fiber_filter_processor_contract": 2164,
+        "fiber_scalar_sentinel_contract": 241,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7281,
+        "defensive_fallback": 129,
+        "fiber_loop_structure_contract": 970,
+        "fiber_filter_processor_contract": 2154,
+        "fiber_scalar_sentinel_contract": 241,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 10798,
+      "total_after": 10775,
+      "notes": [
+        "Removed remaining fiber_filter_processor_contract and fiber_loop_structure_contract hits in boundary_core_contract_rule.py by function-per-loop decomposition.",
+        "Converted import/call/function-node traversals to upstream filter/map pipelines with generator emitters.",
+        "boundary_core_contract stays 0; runtime_narrowing_boundary and fiber_type_dispatch remain 0."
+      ],
+      "validation": {
+        "policy_check_workflows": "fail_expected_symbol_activity_audit (unsuppressed=1454)",
+        "policy_check_ambiguity_contract": "pass",
+        "targeted_pytest": "pass (26 passed)",
+        "policy_scanner_suite": "expected_nonzero total=10775"
+      }
     }
   ],
   "generated_by": "codex",

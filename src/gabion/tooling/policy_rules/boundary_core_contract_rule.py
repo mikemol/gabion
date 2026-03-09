@@ -4,6 +4,8 @@ from __future__ import annotations
 import ast
 import hashlib
 from dataclasses import dataclass
+from functools import reduce
+from itertools import chain
 from operator import itemgetter
 from pathlib import Path
 from typing import Iterable, Iterator, Sequence
@@ -80,19 +82,32 @@ def collect_violations(
             run_context=context,
         )
     )
-    for module in filter(_is_boundary_module, union_view.modules):
-        violations.extend(
-            _iter_boundary_module_contract_violations(
-                root=batch.root,
-                module=module,
-                run_context=context,
-            )
+    violations.extend(
+        _iter_boundary_contract_violations(
+            root=batch.root,
+            modules=union_view.modules,
+            run_context=context,
         )
+    )
     return _dedupe_exact_violations(violations)
 
 
 def _is_boundary_module(module: object) -> bool:
     return _module_has_boundary_marker(module.source.splitlines())
+
+
+def _iter_boundary_contract_violations(
+    *,
+    root: Path,
+    modules: Sequence[object],
+    run_context: CanonicalRunContext,
+) -> Iterable[Violation]:
+    for module in filter(_is_boundary_module, modules):
+        yield from _iter_boundary_module_contract_violations(
+            root=root,
+            module=module,
+            run_context=run_context,
+        )
 
 
 def _iter_boundary_module_contract_violations(
@@ -291,10 +306,7 @@ def _iter_parsed_tree(source: str) -> Iterable[ast.AST]:
 
 
 def _module_has_boundary_marker(source_lines: Sequence[str]) -> bool:
-    return any(
-        _is_boundary_marker_comment(stripped_line)
-        for stripped_line in filter(None, map(str.strip, source_lines[:100]))
-    )
+    return any(map(_is_boundary_marker_comment, filter(None, map(str.strip, source_lines[:100]))))
 
 
 def _is_boundary_marker_comment(stripped_line: str) -> bool:
@@ -302,10 +314,20 @@ def _is_boundary_marker_comment(stripped_line: str) -> bool:
 
 
 def _collect_core_imports(*, tree: ast.AST, rel_path: str) -> tuple[_CoreImport, ...]:
-    deduped: dict[str, set[str]] = {}
-    for item in _iter_core_imports(tree=tree, package_parts=_package_parts_from_rel_path(rel_path)):
-        deduped.setdefault(item.module_dotted, set()).update(item.alias_names)
+    deduped = reduce(
+        _accumulate_core_import_aliases,
+        _iter_core_imports(tree=tree, package_parts=_package_parts_from_rel_path(rel_path)),
+        {},
+    )
     return tuple(_iter_deduped_core_imports(deduped))
+
+
+def _accumulate_core_import_aliases(
+    deduped: dict[str, set[str]],
+    item: _CoreImport,
+) -> dict[str, set[str]]:
+    deduped.setdefault(item.module_dotted, set()).update(item.alias_names)
+    return deduped
 
 
 def _iter_core_imports(
@@ -335,12 +357,19 @@ def _iter_core_imports_from_import(
     package_parts: tuple[str, ...],
 ) -> Iterable[_CoreImport]:
     del package_parts
-    for alias in node.names:
-        dotted = alias.name.strip()
-        if dotted.endswith("_core"):
-            alias_name = (alias.asname or dotted.rsplit(".", 1)[-1]).strip()
-            if alias_name:
-                yield _CoreImport(module_dotted=dotted, alias_names=(alias_name,))
+    for alias in filter(_is_direct_core_import_alias, node.names):
+        yield from _iter_direct_core_import(alias)
+
+
+def _is_direct_core_import_alias(alias: ast.alias) -> bool:
+    return alias.name.strip().endswith("_core")
+
+
+def _iter_direct_core_import(alias: ast.alias) -> Iterable[_CoreImport]:
+    dotted = alias.name.strip()
+    alias_name = (alias.asname or dotted.rsplit(".", 1)[-1]).strip()
+    if alias_name:
+        yield _CoreImport(module_dotted=dotted, alias_names=(alias_name,))
 
 
 def _iter_core_imports_from_import_from(
@@ -353,20 +382,37 @@ def _iter_core_imports_from_import_from(
         level=int(node.level or 0),
         package_parts=package_parts,
     ):
-        if resolved_module.endswith("_core"):
-            alias_names = tuple(
-                (alias.asname or alias.name).strip()
-                for alias in node.names
-                if alias.name != "*"
-            )
-            if alias_names:
-                yield _CoreImport(module_dotted=resolved_module, alias_names=alias_names)
-            continue
-        yield from _iter_nested_core_imports_from_aliases(
+        yield from _iter_core_imports_for_resolved_module(
             resolved_module=resolved_module,
             import_names=node.names,
         )
     return ()
+
+
+def _iter_core_imports_for_resolved_module(
+    *,
+    resolved_module: str,
+    import_names: Sequence[ast.alias],
+) -> Iterable[_CoreImport]:
+    if resolved_module.endswith("_core"):
+        alias_names = tuple(
+            map(_effective_import_alias_name, filter(_is_non_wildcard_import_alias, import_names))
+        )
+        if alias_names:
+            yield _CoreImport(module_dotted=resolved_module, alias_names=alias_names)
+        return
+    yield from _iter_nested_core_imports_from_aliases(
+        resolved_module=resolved_module,
+        import_names=import_names,
+    )
+
+
+def _is_non_wildcard_import_alias(alias: ast.alias) -> bool:
+    return alias.name != "*"
+
+
+def _effective_import_alias_name(alias: ast.alias) -> str:
+    return (alias.asname or alias.name).strip()
 
 
 def _iter_nested_core_imports_from_aliases(
@@ -374,20 +420,36 @@ def _iter_nested_core_imports_from_aliases(
     resolved_module: str,
     import_names: Sequence[ast.alias],
 ) -> Iterable[_CoreImport]:
-    for alias in import_names:
-        imported_name = alias.name.strip()
-        if imported_name != "*" and imported_name.endswith("_core"):
-            yield _CoreImport(
-                module_dotted=f"{resolved_module}.{imported_name}",
-                alias_names=((alias.asname or imported_name).strip(),),
-            )
+    for alias in filter(_is_nested_core_import_alias, import_names):
+        yield _core_import_from_nested_alias(resolved_module=resolved_module, alias=alias)
+
+
+def _is_nested_core_import_alias(alias: ast.alias) -> bool:
+    imported_name = alias.name.strip()
+    return imported_name != "*" and imported_name.endswith("_core")
+
+
+def _core_import_from_nested_alias(*, resolved_module: str, alias: ast.alias) -> _CoreImport:
+    imported_name = alias.name.strip()
+    return _CoreImport(
+        module_dotted=f"{resolved_module}.{imported_name}",
+        alias_names=((alias.asname or imported_name).strip(),),
+    )
 
 
 def _iter_deduped_core_imports(deduped: dict[str, set[str]]) -> Iterable[_CoreImport]:
-    for module, names in sorted(deduped.items()):
-        alias_names = tuple(sorted(name for name in names if name))
-        if alias_names:
-            yield _CoreImport(module_dotted=module, alias_names=alias_names)
+    pairs = map(_deduped_core_import_pair, sorted(deduped.items()))
+    for module, alias_names in filter(_pair_has_alias_names, pairs):
+        yield _CoreImport(module_dotted=module, alias_names=alias_names)
+
+
+def _deduped_core_import_pair(item: tuple[str, set[str]]) -> tuple[str, tuple[str, ...]]:
+    module, names = item
+    return module, tuple(filter(None, sorted(names)))
+
+
+def _pair_has_alias_names(item: tuple[str, tuple[str, ...]]) -> bool:
+    return bool(item[1])
 
 
 def _package_parts_from_rel_path(rel_path: str) -> tuple[str, ...]:
@@ -446,17 +508,33 @@ def _iter_module_path_from_dotted(*, root: Path, dotted: str) -> Iterable[Path]:
 
 
 def _has_explicit_single_hop_core_call(*, tree: ast.AST, core_imports: Sequence[_CoreImport]) -> bool:
-    module_aliases = {name for item in core_imports for name in item.alias_names}
-    return any(_call_targets_core_alias(call, module_aliases) for call in _iter_call_nodes(tree))
+    module_aliases = set(chain.from_iterable(map(_core_import_alias_names, core_imports)))
+    return (
+        next(
+            filter(
+                lambda call: _call_targets_core_alias(call, module_aliases),
+                _iter_call_nodes(tree),
+            ),
+            None,
+        )
+        is not None
+    )
+
+
+def _core_import_alias_names(core_import: _CoreImport) -> tuple[str, ...]:
+    return core_import.alias_names
 
 
 def _iter_call_nodes(tree: ast.AST) -> Iterable[ast.Call]:
-    for node in ast.walk(tree):
-        match node:
-            case ast.Call() as call:
-                yield call
-            case _:
-                pass
+    yield from filter(_is_call_node, ast.walk(tree))
+
+
+def _is_call_node(node: ast.AST) -> bool:
+    match node:
+        case ast.Call():
+            return True
+        case _:
+            return False
 
 
 def _call_targets_core_alias(call: ast.Call, module_aliases: set[str]) -> bool:
@@ -475,36 +553,63 @@ def _core_annotation_violations(
     tree: ast.AST,
     run_context: CanonicalRunContext,
 ) -> list[Violation]:
-    violations: list[Violation] = []
+    return list(
+        _iter_core_annotation_violations(
+            rel_path=rel_path,
+            tree=tree,
+            run_context=run_context,
+        )
+    )
+
+
+def _iter_core_annotation_violations(
+    *,
+    rel_path: str,
+    tree: ast.AST,
+    run_context: CanonicalRunContext,
+) -> Iterable[Violation]:
     for node in _iter_function_nodes(tree):
-        for line, col, text in filter(
-            lambda site: _is_raw_ingress_annotation(site[2]),
-            _iter_function_annotation_sites(node),
-        ):
-            violations.append(
-                _violation(
-                    rel_path=rel_path,
-                    line=line,
-                    column=col,
-                    qualname=node.name,
-                    kind="raw_ingress_type_in_core",
-                    message=(
-                        "core signature must not expose raw ingress types "
-                        "(Any/object/dict[str, object])"
-                    ),
-                    run_context=run_context,
-                )
-            )
-    return violations
+        yield from _iter_function_annotation_violations(
+            rel_path=rel_path,
+            node=node,
+            run_context=run_context,
+        )
+
+
+def _iter_function_annotation_violations(
+    *,
+    rel_path: str,
+    node: ast.FunctionDef | ast.AsyncFunctionDef,
+    run_context: CanonicalRunContext,
+) -> Iterable[Violation]:
+    for line, col, _ in filter(
+        lambda site: _is_raw_ingress_annotation(site[2]),
+        _iter_function_annotation_sites(node),
+    ):
+        yield _violation(
+            rel_path=rel_path,
+            line=line,
+            column=col,
+            qualname=node.name,
+            kind="raw_ingress_type_in_core",
+            message=(
+                "core signature must not expose raw ingress types "
+                "(Any/object/dict[str, object])"
+            ),
+            run_context=run_context,
+        )
 
 
 def _iter_function_nodes(tree: ast.AST) -> Iterator[ast.FunctionDef | ast.AsyncFunctionDef]:
-    for node in ast.walk(tree):
-        match node:
-            case ast.FunctionDef() | ast.AsyncFunctionDef() as function_node:
-                yield function_node
-            case _:
-                pass
+    yield from filter(_is_function_node, ast.walk(tree))
+
+
+def _is_function_node(node: ast.AST) -> bool:
+    match node:
+        case ast.FunctionDef() | ast.AsyncFunctionDef():
+            return True
+        case _:
+            return False
 
 
 def _iter_function_annotation_sites(
@@ -549,8 +654,23 @@ def _core_narrowing_violations(
     tree: ast.AST,
     run_context: CanonicalRunContext,
 ) -> list[Violation]:
-    return [
-        _violation(
+    return list(
+        _iter_core_narrowing_violations(
+            rel_path=rel_path,
+            tree=tree,
+            run_context=run_context,
+        )
+    )
+
+
+def _iter_core_narrowing_violations(
+    *,
+    rel_path: str,
+    tree: ast.AST,
+    run_context: CanonicalRunContext,
+) -> Iterable[Violation]:
+    for node in filter(_is_runtime_narrowing_node, ast.walk(tree)):
+        yield _violation(
             rel_path=rel_path,
             line=int(getattr(node, "lineno", 1) or 1),
             column=int(getattr(node, "col_offset", 0) or 0) + 1,
@@ -559,8 +679,6 @@ def _core_narrowing_violations(
             message="core module must not perform runtime ingress narrowing",
             run_context=run_context,
         )
-        for node in filter(_is_runtime_narrowing_node, ast.walk(tree))
-    ]
 
 
 def _is_runtime_narrowing_node(node: ast.AST) -> bool:
@@ -579,8 +697,23 @@ def _core_branch_violations(
     tree: ast.AST,
     run_context: CanonicalRunContext,
 ) -> list[Violation]:
-    return [
-        _violation(
+    return list(
+        _iter_core_branch_violations(
+            rel_path=rel_path,
+            tree=tree,
+            run_context=run_context,
+        )
+    )
+
+
+def _iter_core_branch_violations(
+    *,
+    rel_path: str,
+    tree: ast.AST,
+    run_context: CanonicalRunContext,
+) -> Iterable[Violation]:
+    for node in filter(_is_core_branch_node, ast.walk(tree)):
+        yield _violation(
             rel_path=rel_path,
             line=int(getattr(node, "lineno", 1) or 1),
             column=int(getattr(node, "col_offset", 0) or 0) + 1,
@@ -589,8 +722,6 @@ def _core_branch_violations(
             message="paired core module must remain branchless",
             run_context=run_context,
         )
-        for node in filter(_is_core_branch_node, ast.walk(tree))
-    ]
 
 
 def _is_core_branch_node(node: ast.AST) -> bool:
