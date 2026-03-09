@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from functools import singledispatch, singledispatchmethod
+from functools import reduce, singledispatch, singledispatchmethod
+from itertools import chain
 from pathlib import Path
 import re
 from typing import cast
@@ -101,14 +102,11 @@ def _loop_carrier_class(
 def _loop_transform_union_assignment(
     carrier_names: tuple[str, ...],
 ) -> cst.SimpleStatementLine:
-    expr: cst.BaseExpression = cst.Name(carrier_names[0])
-    for carrier_name in carrier_names[1:]:
-        check_deadline()
-        expr = cst.BinaryOperation(
-            left=expr,
-            operator=cst.BitOr(),
-            right=cst.Name(carrier_name),
-        )
+    expr = reduce(
+        _union_binary_expression,
+        carrier_names[1:],
+        cst.Name(carrier_names[0]),
+    )
     return cst.SimpleStatementLine(
         body=[
             cst.Assign(
@@ -116,6 +114,18 @@ def _loop_transform_union_assignment(
                 value=expr,
             )
         ]
+    )
+
+
+def _union_binary_expression(
+    left: cst.BaseExpression,
+    carrier_name: str,
+) -> cst.BaseExpression:
+    check_deadline()
+    return cst.BinaryOperation(
+        left=left,
+        operator=cst.BitOr(),
+        right=cst.Name(carrier_name),
     )
 
 
@@ -243,18 +253,44 @@ class _LoopBodyOutcome:
     reason: str = ""
 
 
+def _loop_body_error_reason(outcome: _LoopBodyOutcome) -> str:
+    if outcome.kind == "error":
+        return outcome.reason
+    return ""
+
+
+def _loop_body_guard_expr_optional(outcome: _LoopBodyOutcome):
+    if outcome.kind == "guard":
+        return outcome.guard_expr
+    return None
+
+
+def _loop_body_operation_optional(outcome: _LoopBodyOutcome):
+    if outcome.kind == "operation":
+        return outcome.operation
+    return None
+
+
+def _is_not_none_expression(value: object) -> bool:
+    return value is not None
+
+
+def _is_not_none_loop_operation(value: object) -> bool:
+    return value is not None
+
+
 @singledispatch
 def _indented_block_optional(suite: object):
     never("unregistered runtime type", value_type=type(suite).__name__)
 
 
 @_indented_block_optional.register(cst.IndentedBlock)
-def _(suite: cst.IndentedBlock):
+def _sd_reg_1(suite: cst.IndentedBlock):
     return suite
 
 
 @_indented_block_optional.register(cst.SimpleStatementSuite)
-def _(suite: cst.SimpleStatementSuite):
+def _sd_reg_2(suite: cst.SimpleStatementSuite):
     _ = suite
     return None
 
@@ -265,12 +301,12 @@ def _star_param_optional(value: object):
 
 
 @_star_param_optional.register(cst.Param)
-def _(value: cst.Param):
+def _sd_reg_3(value: cst.Param):
     return value
 
 
 @_star_param_optional.register(cst.MaybeSentinel)
-def _(value: cst.MaybeSentinel):
+def _sd_reg_4(value: cst.MaybeSentinel):
     _ = value
     return None
 
@@ -281,7 +317,7 @@ def _simple_statement_line_optional(stmt: object):
 
 
 @_simple_statement_line_optional.register(cst.SimpleStatementLine)
-def _(stmt: cst.SimpleStatementLine):
+def _sd_reg_5(stmt: cst.SimpleStatementLine):
     return stmt
 
 
@@ -318,7 +354,7 @@ def _is_continue_statement(stmt: object) -> bool:
 
 
 @_is_continue_statement.register(cst.Continue)
-def _(stmt: cst.Continue) -> bool:
+def _sd_reg_6(stmt: cst.Continue) -> bool:
     _ = stmt
     return True
 
@@ -329,6 +365,7 @@ def _never_continue_statement(value: object) -> bool:
 
 
 for _small_statement_type in (
+    type(None),
     cst.AnnAssign,
     cst.Assert,
     cst.Assign,
@@ -354,7 +391,7 @@ def _name_optional(node: object):
 
 
 @_name_optional.register(cst.Name)
-def _(node: cst.Name):
+def _sd_reg_7(node: cst.Name):
     return node
 
 
@@ -373,7 +410,7 @@ def _call_optional(node: object):
 
 
 @_call_optional.register(cst.Call)
-def _(node: cst.Call):
+def _sd_reg_8(node: cst.Call):
     return node
 
 
@@ -409,7 +446,7 @@ def _attribute_optional(node: object):
 
 
 @_attribute_optional.register(cst.Attribute)
-def _(node: cst.Attribute):
+def _sd_reg_9(node: cst.Attribute):
     return node
 
 
@@ -433,7 +470,7 @@ def _return_optional(stmt: object):
 
 
 @_return_optional.register(cst.Return)
-def _(stmt: cst.Return):
+def _sd_reg_10(stmt: cst.Return):
     return stmt
 
 
@@ -463,7 +500,7 @@ def _subscript_optional(node: object):
 
 
 @_subscript_optional.register(cst.Subscript)
-def _(node: cst.Subscript):
+def _sd_reg_11(node: cst.Subscript):
     return node
 
 
@@ -477,7 +514,7 @@ def _binary_operation_optional(node: object):
 
 
 @_binary_operation_optional.register(cst.BinaryOperation)
-def _(node: cst.BinaryOperation):
+def _sd_reg_12(node: cst.BinaryOperation):
     return node
 
 
@@ -500,12 +537,12 @@ def _subscript_index_value_optional(slice_value: object):
 
 
 @_subscript_index_value_optional.register(cst.Index)
-def _(slice_value: cst.Index):
+def _sd_reg_13(slice_value: cst.Index):
     return slice_value.value
 
 
 @_subscript_index_value_optional.register(cst.Slice)
-def _(slice_value: cst.Slice):
+def _sd_reg_14(slice_value: cst.Slice):
     _ = slice_value
     return None
 
@@ -516,12 +553,12 @@ def _for_loop_optional(node: object):
 
 
 @_for_loop_optional.register(cst.For)
-def _(node: cst.For):
+def _sd_reg_15(node: cst.For):
     return node
 
 
 @_for_loop_optional.register(cst.While)
-def _(node: cst.While):
+def _sd_reg_16(node: cst.While):
     _ = node
     return None
 
@@ -532,7 +569,7 @@ def _analysis_success_optional(analysis: object):
 
 
 @_analysis_success_optional.register(_FunctionAnalysisSuccess)
-def _(analysis: _FunctionAnalysisSuccess):
+def _sd_reg_17(analysis: _FunctionAnalysisSuccess):
     return analysis
 
 
@@ -545,13 +582,17 @@ for _analysis_type in (_FunctionAnalysisError, _FunctionAnalysisNoop):
     _analysis_success_optional.register(_analysis_type)(_analysis_success_none)
 
 
+def _is_not_none_analysis_success(analysis: object) -> bool:
+    return analysis is not None
+
+
 @singledispatch
 def _analysis_error_optional(analysis: object):
     never("unregistered runtime type", value_type=type(analysis).__name__)
 
 
 @_analysis_error_optional.register(_FunctionAnalysisError)
-def _(analysis: _FunctionAnalysisError):
+def _sd_reg_18(analysis: _FunctionAnalysisError):
     return analysis
 
 
@@ -663,35 +704,33 @@ def _contains_loop_hazards(loop: cst.For) -> str:
     loop_body = _indented_block_optional(loop.body)
     if loop_body is None:
         return "loop body must be a block"
+    return next(
+        filter(
+            bool,
+            map(_loop_hazard_reason, loop_body.body),
+        ),
+        "",
+    )
+
+
+def _loop_hazard_reason(stmt: cst.BaseStatement) -> str:
+    check_deadline()
     visitor = _LoopHazardVisitor()
-    for stmt in loop_body.body:
-        check_deadline()
-        stmt.visit(visitor)
-        if visitor.reason:
-            return visitor.reason
-    return ""
+    stmt.visit(visitor)
+    return visitor.reason
 
 
 def _parameter_call_args(params: cst.Parameters) -> tuple[cst.Arg, ...]:
-    args: list[cst.Arg] = []
-    for param in params.posonly_params:
-        check_deadline()
-        args.append(cst.Arg(value=cst.Name(param.name.value)))
-    for param in params.params:
-        check_deadline()
-        args.append(cst.Arg(value=cst.Name(param.name.value)))
+    args: list[cst.Arg] = list(
+        map(
+            _parameter_positional_arg,
+            chain(params.posonly_params, params.params),
+        )
+    )
     star_param = _star_param_optional(params.star_arg)
     if star_param is not None:
         args.append(cst.Arg(star="*", value=cst.Name(star_param.name.value)))
-    for param in params.kwonly_params:
-        check_deadline()
-        name = param.name.value
-        args.append(
-            cst.Arg(
-                keyword=cst.Name(name),
-                value=cst.Name(name),
-            )
-        )
+    args.extend(map(_parameter_keyword_arg, params.kwonly_params))
     if params.star_kwarg is not None:
         args.append(
             cst.Arg(
@@ -702,22 +741,26 @@ def _parameter_call_args(params: cst.Parameters) -> tuple[cst.Arg, ...]:
     return tuple(args)
 
 
+def _parameter_positional_arg(param: cst.Param) -> cst.Arg:
+    check_deadline()
+    return cst.Arg(value=cst.Name(param.name.value))
+
+
+def _parameter_keyword_arg(param: cst.Param) -> cst.Arg:
+    check_deadline()
+    name = param.name.value
+    return cst.Arg(
+        keyword=cst.Name(name),
+        value=cst.Name(name),
+    )
+
+
 def _is_simple_continue_guard(stmt: cst.If) -> bool:
-    if stmt.orelse is not None:
-        return False
     branch_body = _indented_block_optional(stmt.body)
-    if branch_body is None:
-        return False
-    body = branch_body.body
-    if len(body) != 1:
-        return False
-    line = _simple_statement_line_optional(body[0])
-    if line is None:
-        return False
-    only = _single_small_statement_optional(line)
-    if only is None:
-        return False
-    return _is_continue_statement(only)
+    body = tuple(branch_body.body) if branch_body is not None else ()
+    line = _simple_statement_line_optional(body[0]) if len(body) == 1 else None
+    only = _single_small_statement_optional(line) if line is not None else None
+    return stmt.orelse is None and _is_continue_statement(only)
 
 
 def _clone_expression(expr: cst.BaseExpression) -> cst.BaseExpression:
@@ -746,15 +789,23 @@ def _loop_transform_annotation() -> cst.Annotation:
 
 
 def _join_guard_expressions(guards: tuple[cst.BaseExpression, ...]) -> cst.BaseExpression:
-    joined = _clone_expression(guards[0])
-    for guard in guards[1:]:
-        check_deadline()
-        joined = cst.BooleanOperation(
-            left=joined,
-            operator=cst.Or(),
-            right=_clone_expression(guard),
-        )
-    return joined
+    return reduce(
+        _joined_guard_expression,
+        guards[1:],
+        _clone_expression(guards[0]),
+    )
+
+
+def _joined_guard_expression(
+    left: cst.BaseExpression,
+    right: cst.BaseExpression,
+) -> cst.BaseExpression:
+    check_deadline()
+    return cst.BooleanOperation(
+        left=left,
+        operator=cst.Or(),
+        right=_clone_expression(right),
+    )
 
 
 def _yield_operation_statement(
@@ -919,7 +970,7 @@ def _assigned_target_name_optional(stmt: object):
 
 
 @_assigned_target_name_optional.register(cst.Assign)
-def _(stmt: cst.Assign):
+def _sd_reg_19(stmt: cst.Assign):
     if len(stmt.targets) != 1:
         return ""
     name_target = _name_optional(stmt.targets[0].target)
@@ -959,21 +1010,24 @@ def _defined_top_level_name(stmt: object) -> str:
 
 
 @_defined_top_level_name.register(cst.ClassDef)
-def _(stmt: cst.ClassDef) -> str:
+def _sd_reg_20(stmt: cst.ClassDef) -> str:
     return stmt.name.value
 
 
 @_defined_top_level_name.register(cst.FunctionDef)
-def _(stmt: cst.FunctionDef) -> str:
+def _sd_reg_21(stmt: cst.FunctionDef) -> str:
     return stmt.name.value
 
 
 @_defined_top_level_name.register(cst.SimpleStatementLine)
-def _(stmt: cst.SimpleStatementLine) -> str:
+def _sd_reg_22(stmt: cst.SimpleStatementLine) -> str:
     only_stmt = _single_small_statement_optional(stmt)
-    if only_stmt is None:
-        return ""
-    return _assigned_target_name_optional(only_stmt) or ""
+    assigned_name = (
+        _assigned_target_name_optional(only_stmt)
+        if only_stmt is not None
+        else ""
+    )
+    return assigned_name or ""
 
 
 def _empty_defined_top_level_name(value: object) -> str:
@@ -1025,23 +1079,41 @@ def _ensure_loop_generator_scaffolding(module: cst.Module) -> cst.Module:
         )
         insert_idx += 1
 
-    existing_names = {
-        name
-        for name in (_defined_top_level_name(stmt) for stmt in body)
-        if name
-    }
+    existing_names = set(
+        filter(
+            bool,
+            map(_defined_top_level_name, body),
+        )
+    )
     scaffold_nodes = _loop_carrier_nodes()
-    nodes_to_insert: list[cst.CSTNode] = []
-    for node in scaffold_nodes:
-        check_deadline()
-        name = _defined_top_level_name(node)
-        if name and name not in existing_names:
-            existing_names.add(name)
-            nodes_to_insert.append(node)
+    name_node_pairs = tuple(map(_node_name_pair, scaffold_nodes))
+    nodes_to_insert = list(
+        map(
+            lambda item: item[1],
+            filter(
+                lambda item: item[0] and item[0] not in existing_names,
+                name_node_pairs,
+            ),
+        )
+    )
+    existing_names.update(
+        map(
+            lambda item: item[0],
+            filter(
+                lambda item: item[0] and item[0] not in existing_names,
+                name_node_pairs,
+            ),
+        )
+    )
     if not nodes_to_insert:
         return module.with_changes(body=body)
     body[insert_idx:insert_idx] = [cst.EmptyLine(), *nodes_to_insert, cst.EmptyLine()]
     return module.with_changes(body=body)
+
+
+def _node_name_pair(node: cst.CSTNode) -> tuple[str, cst.CSTNode]:
+    check_deadline()
+    return _defined_top_level_name(node), node
 
 
 class _FunctionIndexVisitor(cst.CSTVisitor):
@@ -1068,9 +1140,7 @@ class _FunctionIndexVisitor(cst.CSTVisitor):
 
 def _function_non_doc_body(node: cst.FunctionDef) -> tuple[cst.BaseStatement, ...]:
     body_block = _indented_block_optional(node.body)
-    if body_block is None:
-        return ()
-    body = list(body_block.body)
+    body = list(body_block.body) if body_block is not None else []
     if body and _is_docstring_statement(body[0]):
         return tuple(body[1:])
     return tuple(body)
@@ -1078,38 +1148,37 @@ def _function_non_doc_body(node: cst.FunctionDef) -> tuple[cst.BaseStatement, ..
 
 def _trampoline_helper_name(node: cst.FunctionDef) -> str:
     body = _function_non_doc_body(node)
-    if len(body) != 1:
-        return ""
-    line = _simple_statement_line_optional(body[0])
-    if line is None:
-        return ""
-    only_stmt = _single_small_statement_optional(line)
-    if only_stmt is None:
-        return ""
-    if not cst_matchers.matches(only_stmt, cst_matchers.Return(value=cst_matchers.Call(func=cst_matchers.Name()))):
-        return ""
-    ret = _return_optional(only_stmt)
-    if ret is None:
-        return ""
-    ret_call = _call_optional(ret.value)
-    if ret_call is None:
-        return ""
-    helper_name_node = _name_optional(ret_call.func)
-    if helper_name_node is None:
-        return ""
-    helper_name = helper_name_node.value
+    line = _simple_statement_line_optional(body[0]) if len(body) == 1 else None
+    only_stmt = _single_small_statement_optional(line) if line is not None else None
+    matches_return_call = bool(
+        only_stmt is not None
+        and cst_matchers.matches(
+            only_stmt,
+            cst_matchers.Return(value=cst_matchers.Call(func=cst_matchers.Name())),
+        )
+    )
+    ret = _return_optional(only_stmt) if only_stmt is not None else None
+    ret_call = _call_optional(ret.value) if ret is not None else None
+    helper_name_node = _name_optional(ret_call.func) if ret_call is not None else None
+    helper_name = helper_name_node.value if helper_name_node is not None else ""
     match = _LOOP_HELPER_PATTERN.match(helper_name)
-    if not match:
-        return ""
     source_name_match = _LOOP_HELPER_PATTERN.match(node.name.value)
     source_name = (
         source_name_match.group("name")
         if source_name_match
         else node.name.value
     )
-    if match.group("name") != source_name:
-        return ""
-    return helper_name
+    matches_source = bool(match and match.group("name") == source_name)
+    return (
+        helper_name
+        if line is not None
+        and matches_return_call
+        and ret is not None
+        and ret_call is not None
+        and helper_name_node is not None
+        and matches_source
+        else ""
+    )
 
 
 def _build_function_index(
@@ -1119,10 +1188,16 @@ def _build_function_index(
     module.visit(visitor)
     by_qualname = {entry.qualname: entry for entry in visitor.entries}
     by_name: dict[str, list[str]] = {}
-    for entry in visitor.entries:
-        check_deadline()
-        by_name.setdefault(entry.node.name.value, []).append(entry.qualname)
+    tuple(map(lambda entry: _append_function_name_entry(by_name, entry), visitor.entries))
     return by_qualname, {name: tuple(values) for name, values in by_name.items()}
+
+
+def _append_function_name_entry(
+    by_name: dict[str, list[str]],
+    entry: _FunctionIndexEntry,
+) -> None:
+    check_deadline()
+    by_name.setdefault(entry.node.name.value, []).append(entry.qualname)
 
 
 def _follow_trampoline_chain(
@@ -1130,29 +1205,55 @@ def _follow_trampoline_chain(
     start_qualname: str,
     by_qualname: dict[str, _FunctionIndexEntry],
 ) -> tuple[str, str]:
-    current = start_qualname
-    seen = {current}
-    for _ in range(_MAX_HELPER_CHASE_DEPTH):
-        check_deadline()
-        entry = by_qualname.get(current)
-        if entry is None:
-            return current, ""
-        helper_name = _trampoline_helper_name(entry.node)
-        if not helper_name:
-            return current, ""
-        parent = current.rpartition(".")[0]
-        scoped_target = f"{parent}.{helper_name}" if parent else helper_name
-        if scoped_target in by_qualname:
-            next_target = scoped_target
-        elif helper_name in by_qualname:
-            next_target = helper_name
-        else:
-            next_target = scoped_target
-        if next_target in seen:
-            return current, f"helper chase cycle detected at `{next_target}`"
-        seen.add(next_target)
-        current = next_target
-    return current, f"helper chase exceeded max depth {_MAX_HELPER_CHASE_DEPTH}"
+    return _follow_trampoline_chain_recursive(
+        current=start_qualname,
+        seen={start_qualname},
+        depth=0,
+        by_qualname=by_qualname,
+    )
+
+
+def _follow_trampoline_chain_recursive(
+    *,
+    current: str,
+    seen: set[str],
+    depth: int,
+    by_qualname: dict[str, _FunctionIndexEntry],
+) -> tuple[str, str]:
+    if depth >= _MAX_HELPER_CHASE_DEPTH:
+        return current, f"helper chase exceeded max depth {_MAX_HELPER_CHASE_DEPTH}"
+    check_deadline()
+    next_target = _next_trampoline_target(current=current, by_qualname=by_qualname)
+    if not next_target:
+        return current, ""
+    if next_target in seen:
+        return current, f"helper chase cycle detected at `{next_target}`"
+    return _follow_trampoline_chain_recursive(
+        current=next_target,
+        seen={*seen, next_target},
+        depth=depth + 1,
+        by_qualname=by_qualname,
+    )
+
+
+def _next_trampoline_target(
+    *,
+    current: str,
+    by_qualname: dict[str, _FunctionIndexEntry],
+) -> str:
+    entry = by_qualname.get(current)
+    if entry is None:
+        return ""
+    helper_name = _trampoline_helper_name(entry.node)
+    if not helper_name:
+        return ""
+    parent = current.rpartition(".")[0]
+    scoped_target = f"{parent}.{helper_name}" if parent else helper_name
+    if scoped_target in by_qualname:
+        return scoped_target
+    if helper_name in by_qualname:
+        return helper_name
+    return scoped_target
 
 
 def _resolve_loop_generator_targets(
@@ -1168,25 +1269,41 @@ def _resolve_loop_generator_targets(
 
     for root in sorted(requested_targets):
         check_deadline()
-        candidates: tuple[str, ...]
-        if root in by_qualname:
-            candidates = (root,)
-        else:
-            candidates = by_name.get(root, ())
-        resolved: list[str] = []
-        for candidate in candidates:
-            check_deadline()
-            terminal, issue = _follow_trampoline_chain(
-                start_qualname=candidate,
-                by_qualname=by_qualname,
+        candidates = _resolution_root_candidates(
+            root=root,
+            by_qualname=by_qualname,
+            by_name=by_name,
+        )
+        outcomes = tuple(
+            map(
+                lambda candidate: _resolution_candidate_outcome(
+                    root=root,
+                    candidate=candidate,
+                    by_qualname=by_qualname,
+                ),
+                candidates,
             )
-            if issue:
-                chase_issues.append((root, f"{root}: {issue}"))
-                continue
-            resolved.append(terminal)
-            effective_targets.add(terminal)
-            effective_to_roots.setdefault(terminal, set()).add(root)
-        root_to_effective.append((root, tuple(sorted(set(resolved)))))
+        )
+        root_chase_issues = tuple(
+            filter(
+                bool,
+                map(_resolution_issue_optional, outcomes),
+            )
+        )
+        chase_issues.extend(map(lambda issue: (root, issue), root_chase_issues))
+        resolved = tuple(
+            sorted(
+                set(
+                    filter(
+                        bool,
+                        map(_resolution_terminal_optional, outcomes),
+                    )
+                )
+            )
+        )
+        effective_targets.update(resolved)
+        tuple(map(lambda target: effective_to_roots.setdefault(target, set()).add(root), resolved))
+        root_to_effective.append((root, resolved))
 
     effective_to_roots_items = tuple(
         (target, tuple(sorted(roots)))
@@ -1200,15 +1317,53 @@ def _resolve_loop_generator_targets(
     )
 
 
+def _resolution_root_candidates(
+    *,
+    root: str,
+    by_qualname: dict[str, _FunctionIndexEntry],
+    by_name: dict[str, tuple[str, ...]],
+) -> tuple[str, ...]:
+    if root in by_qualname:
+        return (root,)
+    return by_name.get(root, ())
+
+
+def _resolution_candidate_outcome(
+    *,
+    root: str,
+    candidate: str,
+    by_qualname: dict[str, _FunctionIndexEntry],
+) -> tuple[str, str]:
+    check_deadline()
+    terminal, issue = _follow_trampoline_chain(
+        start_qualname=candidate,
+        by_qualname=by_qualname,
+    )
+    if issue:
+        return "", f"{root}: {issue}"
+    return terminal, ""
+
+
+def _resolution_terminal_optional(outcome: tuple[str, str]) -> str:
+    terminal, _issue = outcome
+    return terminal
+
+
+def _resolution_issue_optional(outcome: tuple[str, str]) -> str:
+    _terminal, issue = outcome
+    return issue
+
+
 def _rewrite_plan_with_chase_context(
     plan: RewritePlanEntry,
     *,
     effective_to_roots: dict[str, tuple[str, ...]],
 ) -> RewritePlanEntry:
     forwarded = tuple(
-        root
-        for root in effective_to_roots.get(plan.target, ())
-        if root != plan.target
+        filter(
+            lambda root: root != plan.target,
+            effective_to_roots.get(plan.target, ()),
+        )
     )
     if not forwarded:
         return plan
@@ -1220,6 +1375,22 @@ def _rewrite_plan_with_chase_context(
         summary=summary,
         non_rewrite_reasons=list(plan.non_rewrite_reasons),
     )
+
+
+def _handler_body_statements(
+    handler: cst.ExceptHandler,
+) -> tuple[cst.BaseStatement, ...]:
+    check_deadline()
+    body_block = _indented_block_optional(handler.body)
+    return tuple(body_block.body) if body_block is not None else ()
+
+
+def _optional_suite_statements(suite: object) -> tuple[tuple[cst.BaseStatement, ...], ...]:
+    if suite is None:
+        return ()
+    body = getattr(suite, "body")
+    body_block = _indented_block_optional(body)
+    return ((tuple(body_block.body),) if body_block is not None else ())
 
 
 class _LoopGeneratorTransformer(cst.CSTTransformer):
@@ -1260,10 +1431,10 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
         updated_node: cst.FunctionDef,
     ) -> cst.CSTNode:
         qualname = ".".join(self._stack)
-        target_key = qualname if qualname in self._targets else None
+        target_key = qualname if qualname in self._targets else ""
 
         output: cst.CSTNode = updated_node
-        if target_key is not None:
+        if target_key:
             self.matched_targets.add(target_key)
             if original_node.asynchronous is not None:
                 reason = f"{qualname}: async functions are not supported in loop_generator mode"
@@ -1423,11 +1594,12 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
             )
 
         if self._target_loop_lines:
-            by_line = [
-                candidate
-                for candidate in loop_candidates
-                if candidate.line in self._target_loop_lines
-            ]
+            by_line = tuple(
+                filter(
+                    lambda candidate: candidate.line in self._target_loop_lines,
+                    loop_candidates,
+                )
+            )
             if not by_line:
                 return _FunctionAnalysisError(
                     target=qualname,
@@ -1457,17 +1629,25 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
         first_error = _analysis_error_optional(first_outcome)
         if first_error is None:
             return first_outcome
-        for candidate in loop_candidates[1:]:
-            check_deadline()
-            outcome = self._analyze_loop_candidate(
-                candidate,
-                qualname=qualname,
-                function_name=node.name.value,
-                params=node.params,
+        fallback_successes = tuple(
+            filter(
+                _is_not_none_analysis_success,
+                map(
+                    _analysis_success_optional,
+                    map(
+                        lambda candidate: self._analyze_loop_candidate(
+                            candidate,
+                            qualname=qualname,
+                            function_name=node.name.value,
+                            params=node.params,
+                        ),
+                        loop_candidates[1:],
+                    ),
+                ),
             )
-            success = _analysis_success_optional(outcome)
-            if success is not None:
-                return success
+        )
+        if fallback_successes:
+            return fallback_successes[0]
 
         if _LOOP_HELPER_PATTERN.match(node.name.value):
             return _FunctionAnalysisNoop(
@@ -1478,9 +1658,8 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
 
     def _suite_statements(self, suite: cst.BaseSuite) -> tuple[cst.BaseStatement, ...]:
         block = _indented_block_optional(suite)
-        if block is None:
-            return ()
-        return tuple(block.body)
+        body = block.body if block is not None else ()
+        return tuple(body)
 
     @singledispatchmethod
     def _child_statement_blocks(
@@ -1516,15 +1695,12 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
 
     @_child_statement_blocks.register
     def _(self, stmt: cst.Try) -> tuple[tuple[cst.BaseStatement, ...], ...]:
-        blocks = [self._suite_statements(stmt.body)]
-        for handler in stmt.handlers:
-            check_deadline()
-            blocks.append(self._suite_statements(handler.body))
-        if stmt.orelse is not None:
-            blocks.append(self._suite_statements(stmt.orelse.body))
-        if stmt.finalbody is not None:
-            blocks.append(self._suite_statements(stmt.finalbody.body))
-        return tuple(blocks)
+        return (
+            self._suite_statements(stmt.body),
+            *tuple(map(_handler_body_statements, stmt.handlers)),
+            *_optional_suite_statements(stmt.orelse),
+            *_optional_suite_statements(stmt.finalbody),
+        )
 
     @_child_statement_blocks.register
     def _(self, stmt: cst.Match) -> tuple[tuple[cst.BaseStatement, ...], ...]:
@@ -1621,20 +1797,16 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
                     line=pos.start.line,
                 )
             )
-        for block in self._child_statement_blocks(stmt):
+        for child_stmt in chain.from_iterable(self._child_statement_blocks(stmt)):
             check_deadline()
-            for child_stmt in block:
-                check_deadline()
-                self._collect_loop_candidates_from_statement(child_stmt, out)
+            self._collect_loop_candidates_from_statement(child_stmt, out)
 
     def _collect_loop_candidates(
         self,
         statements: tuple[cst.BaseStatement, ...],
     ) -> tuple[_LoopCandidate, ...]:
         out: list[_LoopCandidate] = []
-        for stmt in statements:
-            check_deadline()
-            self._collect_loop_candidates_from_statement(stmt, out)
+        tuple(map(lambda stmt: self._collect_loop_candidates_from_statement(stmt, out), statements))
         return tuple(out)
 
     def _analyze_loop_candidate(
@@ -1700,22 +1872,36 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
                 target=qualname,
                 reason=f"{qualname}: loop body must be a block",
             )
-        for stmt in loop_body.body:
-            check_deadline()
-            outcome = self._analyze_for_body_statement(stmt, qualname=qualname)
-            if outcome.kind == "error":
-                return _FunctionAnalysisError(
-                    target=qualname,
-                    reason=outcome.reason,
-                )
-            if outcome.kind == "guard":
-                if outcome.guard_expr is not None:
-                    guard_exprs.append(outcome.guard_expr)
-                continue
-            if outcome.kind == "operation":
-                if outcome.operation is not None:
-                    operations.append(outcome.operation)
-                continue
+        outcomes = tuple(
+            map(
+                lambda stmt: self._analyze_for_body_statement(stmt, qualname=qualname),
+                loop_body.body,
+            )
+        )
+        first_error_reason = next(
+            filter(
+                bool,
+                map(_loop_body_error_reason, outcomes),
+            ),
+            "",
+        )
+        if first_error_reason:
+            return _FunctionAnalysisError(
+                target=qualname,
+                reason=first_error_reason,
+            )
+        guard_exprs.extend(
+            filter(
+                _is_not_none_expression,
+                map(_loop_body_guard_expr_optional, outcomes),
+            )
+        )
+        operations.extend(
+            filter(
+                _is_not_none_loop_operation,
+                map(_loop_body_operation_optional, outcomes),
+            )
+        )
 
         if not operations:
             return _FunctionAnalysisError(
@@ -2080,28 +2266,59 @@ class _LoopGeneratorTransformer(cst.CSTTransformer):
         *,
         function_name: str,
     ) -> bool:
-        if len(non_doc_body) != 1:
-            return False
-        line = _simple_statement_line_optional(non_doc_body[0])
-        if line is None:
-            return False
-        only_stmt = _single_small_statement_optional(line)
-        if only_stmt is None:
-            return False
-        if not cst_matchers.matches(only_stmt, cst_matchers.Return(value=cst_matchers.Call(func=cst_matchers.Name()))):
-            return False
-        ret = _return_optional(only_stmt)
-        if ret is None:
-            return False
-        ret_call = _call_optional(ret.value)
-        if ret_call is None:
-            return False
-        helper_name_node = _name_optional(ret_call.func)
-        if helper_name_node is None:
-            return False
-        helper_name = helper_name_node.value
+        line = _simple_statement_line_optional(non_doc_body[0]) if len(non_doc_body) == 1 else None
+        only_stmt = _single_small_statement_optional(line) if line is not None else None
+        matches_return_call = bool(
+            only_stmt is not None
+            and cst_matchers.matches(
+                only_stmt,
+                cst_matchers.Return(value=cst_matchers.Call(func=cst_matchers.Name())),
+            )
+        )
+        ret = _return_optional(only_stmt) if only_stmt is not None else None
+        ret_call = _call_optional(ret.value) if ret is not None else None
+        helper_name_node = _name_optional(ret_call.func) if ret_call is not None else None
+        helper_name = helper_name_node.value if helper_name_node is not None else ""
         match = _LOOP_HELPER_PATTERN.match(helper_name)
-        return bool(match and match.group("name") == function_name)
+        return bool(
+            line is not None
+            and matches_return_call
+            and ret is not None
+            and ret_call is not None
+            and helper_name_node is not None
+            and match
+            and match.group("name") == function_name
+        )
+
+
+def _root_not_found_after_rewrite(
+    *,
+    root: str,
+    root_to_effective: dict[str, tuple[str, ...]],
+    matched_targets: set[str],
+    roots_with_chase_issue: set[str],
+) -> bool:
+    effective = root_to_effective.get(root, ())
+    matched = any(map(lambda target: target in matched_targets, effective))
+    chased_only = root in roots_with_chase_issue and not effective
+    return not matched and not chased_only
+
+
+def _append_not_found_rewrite(
+    transformer: _LoopGeneratorTransformer,
+    root: str,
+) -> None:
+    reason = f"{root}: target function was not found"
+    transformer.errors.append(reason)
+    transformer.rewrite_plans.append(
+        RewritePlanEntry(
+            kind="LOOP_GENERATOR",
+            status="ABSTAINED",
+            target=root,
+            summary="Loop generator rewrite was not applied.",
+            non_rewrite_reasons=[reason],
+        )
+    )
 
 
 def plan_loop_generator_rewrite(
@@ -2113,21 +2330,25 @@ def plan_loop_generator_rewrite(
     path = Path(request.target_path)
     if project_root is not None and not path.is_absolute():
         path = project_root / path
-    targets = {name.strip() for name in request.target_functions if name.strip()}
+    targets = set(
+        filter(
+            bool,
+            map(str.strip, request.target_functions),
+        )
+    )
     if not targets:
         return RefactorPlan(
             outcome=RefactorPlanOutcome.ERROR,
             errors=["loop_generator mode requires non-empty target_functions"],
         )
-    loop_lines: set[int] = set()
-    for line in request.target_loop_lines:
-        check_deadline()
-        if line <= 0:
-            return RefactorPlan(
-                outcome=RefactorPlanOutcome.ERROR,
-                errors=[f"target_loop_lines must be 1-based positive integers (got {line})"],
-            )
-        loop_lines.add(int(line))
+    loop_lines = set(map(int, request.target_loop_lines))
+    invalid_loop_lines = tuple(filter(lambda line: line <= 0, loop_lines))
+    if invalid_loop_lines:
+        invalid_line = invalid_loop_lines[0]
+        return RefactorPlan(
+            outcome=RefactorPlanOutcome.ERROR,
+            errors=[f"target_loop_lines must be 1-based positive integers (got {invalid_line})"],
+        )
     try:
         source = path.read_text()
     except Exception as exc:
@@ -2173,25 +2394,18 @@ def plan_loop_generator_rewrite(
             )
         )
 
-    for root in sorted(targets):
-        check_deadline()
-        effective = root_to_effective.get(root, ())
-        matched = any(target in transformer.matched_targets for target in effective)
-        if matched:
-            continue
-        if root in roots_with_chase_issue and not effective:
-            continue
-        reason = f"{root}: target function was not found"
-        transformer.errors.append(reason)
-        transformer.rewrite_plans.append(
-            RewritePlanEntry(
-                kind="LOOP_GENERATOR",
-                status="ABSTAINED",
-                target=root,
-                summary="Loop generator rewrite was not applied.",
-                non_rewrite_reasons=[reason],
-            )
+    roots_not_found = tuple(
+        filter(
+            lambda root: _root_not_found_after_rewrite(
+                root=root,
+                root_to_effective=root_to_effective,
+                matched_targets=transformer.matched_targets,
+                roots_with_chase_issue=roots_with_chase_issue,
+            ),
+            sorted(targets),
         )
+    )
+    tuple(map(lambda root: _append_not_found_rewrite(transformer, root), roots_not_found))
 
     rewrite_plans = [
         _rewrite_plan_with_chase_context(

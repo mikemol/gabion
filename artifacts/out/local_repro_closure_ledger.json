@@ -6604,6 +6604,63 @@
         "targeted_pytest": "pass (302 passed)",
         "policy_scanner_suite": "expected_nonzero total=10507"
       }
+    },
+    {
+      "cu_id": "CU-GEO9",
+      "summary": "Add fiber_return_shape_contract policy family (container->iterator, iterator->single-item, single-item->inline) and continue refactor ring strictification in loop_generator while preserving guard-family zero-state.",
+      "timestamp_utc": "2026-03-09T18:12:51Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7183,
+        "defensive_fallback": 119,
+        "fiber_loop_structure_contract": 933,
+        "fiber_filter_processor_contract": 2050,
+        "fiber_return_shape_contract": 0,
+        "fiber_scalar_sentinel_contract": 222,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7207,
+        "defensive_fallback": 106,
+        "fiber_loop_structure_contract": 928,
+        "fiber_filter_processor_contract": 2033,
+        "fiber_return_shape_contract": 1149,
+        "fiber_scalar_sentinel_contract": 233,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 10507,
+      "total_after": 11656,
+      "notes": [
+        "Introduced new hard-fail fiber rule `fiber_return_shape_contract` with three kinds: container_return_prefer_iterator, iterator_return_prefer_item, single_item_return_prefer_inline.",
+        "Wired rule into runtime scanner, CLI reporting, payload normalization defaults, rule-set hash, and scanner integration tests.",
+        "Adjusted loop_generator strictification helpers to avoid cast/isinstance regressions; guard families remain zero (fiber_type_dispatch_contract/runtime_narrowing_boundary/boundary_core_contract).",
+        "Hotspot queue retains log-balanced scoring (`balanced_5_family_logsum`) and currently ranks `src/gabion/commands` ring first."
+      ],
+      "validation": {
+        "policy_check_workflows": "fail_expected_symbol_activity_audit (unsuppressed=1532)",
+        "policy_check_ambiguity_contract": "pass",
+        "targeted_pytest": "pass (160 passed)",
+        "policy_scanner_suite": "expected_nonzero total=11656"
+      }
     }
   ],
   "generated_by": "codex",

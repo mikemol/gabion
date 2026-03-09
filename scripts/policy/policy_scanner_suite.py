@@ -132,6 +132,7 @@ def run(
         "defensive_fallback",
         "fiber_loop_structure_contract",
         "fiber_filter_processor_contract",
+        "fiber_return_shape_contract",
         "fiber_scalar_sentinel_contract",
         "fiber_type_dispatch_contract",
         "no_legacy_monolith_import",

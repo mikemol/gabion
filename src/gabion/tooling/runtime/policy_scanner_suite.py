@@ -9,7 +9,6 @@ import json
 from pathlib import Path
 import subprocess
 from typing import Any, Iterable, Mapping
-import ast
 from gabion.tooling.policy_rules import (
     aspf_normalization_idempotence_rule,
     boundary_core_contract_rule,
@@ -18,9 +17,12 @@ from gabion.tooling.policy_rules import (
     fiber_filter_processor_contract_rule,
     fiber_loop_structure_contract_rule,
     fiber_normalization_contract_rule,
+    fiber_return_shape_contract_rule,
     fiber_scalar_sentinel_contract_rule,
     fiber_type_dispatch_contract_rule,
+    no_legacy_monolith_import_rule,
     no_monkeypatch_rule,
+    orchestrator_primitive_barrel_rule,
     runtime_narrowing_boundary_rule,
     test_sleep_hygiene_rule,
     test_subprocess_hygiene_rule,
@@ -32,6 +34,7 @@ from gabion.tooling.policy_rules.fiber_diagnostics import (
     to_payload_trace as _fiber_trace_payload,
 )
 from gabion.tooling.runtime import policy_result_schema
+from gabion.tooling.runtime.policy_scan_batch import build_policy_scan_batch
 
 _POLICY_ARTIFACT = Path("artifacts/out/policy_suite_results.json")
 _FORMAT_VERSION = 1
@@ -42,14 +45,8 @@ _TYPING_SURFACE_WAIVERS = Path("baselines/typing_surface_policy_waivers.json")
 _RUNTIME_NARROWING_BOUNDARY_BASELINE = Path("baselines/runtime_narrowing_boundary_policy_baseline.json")
 _RUNTIME_NARROWING_BOUNDARY_WAIVERS = Path("baselines/runtime_narrowing_boundary_policy_waivers.json")
 _ASPF_NORMALIZATION_IDEMPOTENCE_BASELINE = Path("baselines/aspf_normalization_idempotence_policy_baseline.json")
-_LEGACY_MONOLITH_MODULE_PATH = Path("src/gabion/analysis/legacy_dataflow_monolith.py")
 _TEST_SUBPROCESS_HYGIENE_ALLOWLIST = Path("docs/policy/test_subprocess_hygiene_allowlist.txt")
 _TEST_SLEEP_HYGIENE_ALLOWLIST = Path("docs/policy/test_sleep_hygiene_allowlist.txt")
-
-
-_ORCHESTRATOR_PRIMITIVE_BARREL_PATH = Path("src/gabion/server_core/command_orchestrator_primitives.py")
-_ORCHESTRATOR_PRIMITIVE_MAX_LINES = 2400
-_ORCHESTRATOR_PRIMITIVE_MAX_ALL_SYMBOLS = 220
 
 _POLICY_RULE_IDS = (
     "no_monkeypatch",
@@ -57,6 +54,7 @@ _POLICY_RULE_IDS = (
     "defensive_fallback",
     "fiber_loop_structure_contract",
     "fiber_filter_processor_contract",
+    "fiber_return_shape_contract",
     "fiber_scalar_sentinel_contract",
     "fiber_type_dispatch_contract",
     "no_legacy_monolith_import",
@@ -91,88 +89,6 @@ def _normalized_external_policy_results(
         ),
     )
     return _policy_result_candidates_to_mapping(candidates)
-
-
-def _scan_orchestrator_primitive_barrel(*, root: Path) -> list[dict[str, Any]]:
-    path = root / _ORCHESTRATOR_PRIMITIVE_BARREL_PATH
-    if not path.exists():
-        return []
-    source = path.read_text(encoding="utf-8")
-    lines = source.splitlines()
-    export_count = source.count("'") if "__all__" in source else 0
-    export_count = _export_count_from_source(
-        source=source,
-        default_export_count=export_count,
-    )
-    violations: list[dict[str, Any]] = []
-    if len(lines) > _ORCHESTRATOR_PRIMITIVE_MAX_LINES:
-        violations.append({
-            "path": _ORCHESTRATOR_PRIMITIVE_BARREL_PATH.as_posix(),
-            "line": 1,
-            "column": 1,
-            "kind": "line_threshold",
-            "message": f"command_orchestrator_primitives.py exceeds line threshold {_ORCHESTRATOR_PRIMITIVE_MAX_LINES}",
-            "render": f"{_ORCHESTRATOR_PRIMITIVE_BARREL_PATH.as_posix()}:1:1: line_threshold: exceeds {_ORCHESTRATOR_PRIMITIVE_MAX_LINES} lines",
-        })
-    if export_count > _ORCHESTRATOR_PRIMITIVE_MAX_ALL_SYMBOLS:
-        violations.append({
-            "path": _ORCHESTRATOR_PRIMITIVE_BARREL_PATH.as_posix(),
-            "line": 1,
-            "column": 1,
-            "kind": "export_threshold",
-            "message": f"command_orchestrator_primitives.py __all__ exports exceed {_ORCHESTRATOR_PRIMITIVE_MAX_ALL_SYMBOLS}",
-            "render": f"{_ORCHESTRATOR_PRIMITIVE_BARREL_PATH.as_posix()}:1:1: export_threshold: __all__ exceeds {_ORCHESTRATOR_PRIMITIVE_MAX_ALL_SYMBOLS} symbols",
-        })
-    return violations
-
-
-def _export_count_from_source(*, source: str, default_export_count: int) -> int:
-    if "__all__" not in source:
-        return default_export_count
-    tree = _parse_optional(source)
-    match tree:
-        case ast.AST() as parsed_tree:
-            return max(
-                _iter_all_assignment_export_counts(parsed_tree.body),
-                default=default_export_count,
-            )
-        case _:
-            return default_export_count
-
-
-def _parse_optional(source: str) -> ast.Module | None:
-    try:
-        return ast.parse(source)
-    except SyntaxError:
-        return None
-
-
-def _iter_all_assignment_export_counts(body: list[ast.stmt]) -> Iterable[int]:
-    for node in body:
-        yield from _assignment_export_counts(node)
-
-
-def _assignment_export_counts(node: ast.stmt) -> tuple[int, ...]:
-    match node:
-        case ast.Assign(targets=targets, value=ast.List(elts=elts)):
-            if _assigns_all_target(targets):
-                return (len(elts),)
-            return ()
-        case ast.Assign(targets=targets, value=ast.Tuple(elts=elts)):
-            if _assigns_all_target(targets):
-                return (len(elts),)
-            return ()
-        case _:
-            return ()
-
-
-def _assigns_all_target(targets: list[ast.expr]) -> bool:
-    return any(_iter_target_is_all(targets))
-
-
-def _iter_target_is_all(targets: list[ast.expr]) -> Iterable[bool]:
-    for target in targets:
-        yield _assign_target_name(target) == "__all__"
 
 
 def _changed_paths_from_git(
@@ -400,6 +316,32 @@ def scan_policy_suite(
         inventory=inventory,
         changed_paths=resolved_changed_paths,
     )
+    src_inventory = tuple(
+        path for path in inventory if path.relative_to(resolved_root).as_posix().startswith("src/gabion/")
+    )
+    test_inventory = tuple(
+        path for path in inventory if path.relative_to(resolved_root).as_posix().startswith("tests/")
+    )
+    inventory_batch = build_policy_scan_batch(
+        root=resolved_root,
+        target_globs=(),
+        files=inventory,
+    )
+    src_batch = build_policy_scan_batch(
+        root=resolved_root,
+        target_globs=(),
+        files=src_inventory,
+    )
+    test_batch = build_policy_scan_batch(
+        root=resolved_root,
+        target_globs=(),
+        files=test_inventory,
+    )
+    boundary_batch = build_policy_scan_batch(
+        root=resolved_root,
+        target_globs=(),
+        files=boundary_scope_files,
+    )
     inventory_hash = _inventory_hash(inventory, resolved_root)
     rule_set_hash = _rule_set_hash()
     branchless_allowed = _load_rule_baseline_keys(
@@ -435,6 +377,7 @@ def scan_policy_suite(
         "defensive_fallback": [],
         "fiber_loop_structure_contract": [],
         "fiber_filter_processor_contract": [],
+        "fiber_return_shape_contract": [],
         "fiber_scalar_sentinel_contract": [],
         "fiber_type_dispatch_contract": [],
         "no_legacy_monolith_import": [],
@@ -479,25 +422,87 @@ def scan_policy_suite(
             }
         )
 
-    legacy_module_path = resolved_root / _LEGACY_MONOLITH_MODULE_PATH
-    if legacy_module_path.exists():
-        violations_by_rule["no_legacy_monolith_import"].append(
-            _serialize_legacy_monolith(
-                _LegacyMonolithViolation(
-                    path=_LEGACY_MONOLITH_MODULE_PATH.as_posix(),
-                    line=1,
-                    column=1,
-                    kind="module_present",
-                    message="retired legacy monolith module must not be present",
-                )
-            )
-        )
-
+    legacy_monolith_violations = no_legacy_monolith_import_rule.collect_violations(
+        batch=inventory_batch,
+    )
+    violations_by_rule["no_legacy_monolith_import"].extend(
+        _serialize_legacy_monolith(item) for item in legacy_monolith_violations
+    )
+    orchestrator_barrel_violations = orchestrator_primitive_barrel_rule.collect_violations(
+        batch=inventory_batch,
+    )
     violations_by_rule["orchestrator_primitive_barrel"].extend(
-        _scan_orchestrator_primitive_barrel(root=resolved_root)
+        _serialize_orchestrator_primitive_barrel(item)
+        for item in orchestrator_barrel_violations
+    )
+    no_mp_violations = no_monkeypatch_rule.collect_violations(batch=inventory_batch)
+    violations_by_rule["no_monkeypatch"].extend(
+        _serialize_no_monkeypatch(item) for item in no_mp_violations
+    )
+    branchless_violations = _filter_baseline_violations(
+        branchless_rule.collect_violations(batch=src_batch),
+        allowed_keys=branchless_allowed,
+    )
+    violations_by_rule["branchless"].extend(
+        _serialize_branchless(item) for item in branchless_violations
+    )
+    defensive_violations = _filter_baseline_violations(
+        defensive_fallback_rule.collect_violations(batch=src_batch),
+        allowed_keys=defensive_allowed,
+    )
+    violations_by_rule["defensive_fallback"].extend(
+        _serialize_defensive(item) for item in defensive_violations
+    )
+    loop_structure_violations = fiber_loop_structure_contract_rule.collect_violations(
+        batch=src_batch,
+    )
+    violations_by_rule["fiber_loop_structure_contract"].extend(
+        _serialize_fiber_loop_structure_contract(item) for item in loop_structure_violations
+    )
+    filter_processor_violations = fiber_filter_processor_contract_rule.collect_violations(
+        batch=src_batch,
+    )
+    violations_by_rule["fiber_filter_processor_contract"].extend(
+        _serialize_fiber_filter_processor_contract(item) for item in filter_processor_violations
+    )
+    return_shape_violations = fiber_return_shape_contract_rule.collect_violations(
+        batch=src_batch,
+    )
+    violations_by_rule["fiber_return_shape_contract"].extend(
+        _serialize_fiber_return_shape_contract(item) for item in return_shape_violations
+    )
+    scalar_sentinel_violations = fiber_scalar_sentinel_contract_rule.collect_violations(
+        batch=src_batch,
+    )
+    violations_by_rule["fiber_scalar_sentinel_contract"].extend(
+        _serialize_fiber_scalar_sentinel_contract(item) for item in scalar_sentinel_violations
+    )
+    type_dispatch_violations = fiber_type_dispatch_contract_rule.collect_violations(
+        batch=src_batch,
+    )
+    violations_by_rule["fiber_type_dispatch_contract"].extend(
+        _serialize_fiber_type_dispatch_contract(item) for item in type_dispatch_violations
+    )
+    typing_surface_violations = _filter_baseline_violations(
+        typing_surface_rule.collect_violations(batch=src_batch),
+        allowed_keys=(typing_surface_allowed | typing_surface_waiver_result.allowed_keys),
+    )
+    violations_by_rule["typing_surface"].extend(
+        _serialize_typing_surface(item) for item in typing_surface_violations
+    )
+    runtime_narrowing_boundary_violations = _filter_baseline_violations(
+        runtime_narrowing_boundary_rule.collect_violations(batch=src_batch),
+        allowed_keys=(
+            runtime_narrowing_boundary_allowed
+            | runtime_narrowing_boundary_waiver_result.allowed_keys
+        ),
+    )
+    violations_by_rule["runtime_narrowing_boundary"].extend(
+        _serialize_runtime_narrowing_boundary(item)
+        for item in runtime_narrowing_boundary_violations
     )
     aspf_normalization_idempotence_violations = _filter_baseline_violations(
-        aspf_normalization_idempotence_rule.collect_violations(root=resolved_root),
+        aspf_normalization_idempotence_rule.collect_violations(batch=src_batch),
         allowed_keys=aspf_normalization_idempotence_allowed,
     )
     aspf_ingress_violations = aspf_normalization_idempotence_rule.collect_ingress_violations(
@@ -513,23 +518,21 @@ def scan_policy_suite(
         for item in aspf_normalization_idempotence_violations
     )
     boundary_core_contract_violations = boundary_core_contract_rule.collect_violations(
-        root=resolved_root,
-        files=boundary_scope_files,
+        batch=boundary_batch,
     )
     violations_by_rule["boundary_core_contract"].extend(
         _serialize_boundary_core_contract(item)
         for item in boundary_core_contract_violations
     )
     fiber_contract_violations = fiber_normalization_contract_rule.collect_violations(
-        root=resolved_root,
-        files=boundary_scope_files,
+        batch=boundary_batch,
     )
     violations_by_rule["fiber_normalization_contract"].extend(
         _serialize_fiber_normalization_contract(item)
         for item in fiber_contract_violations
     )
     test_subprocess_hygiene_violations = test_subprocess_hygiene_rule.collect_violations(
-        root=resolved_root,
+        batch=test_batch,
         allowlist_path=resolved_root / _TEST_SUBPROCESS_HYGIENE_ALLOWLIST,
     )
     violations_by_rule["test_subprocess_hygiene"].extend(
@@ -537,7 +540,7 @@ def scan_policy_suite(
         for item in test_subprocess_hygiene_violations
     )
     test_sleep_hygiene_violations = test_sleep_hygiene_rule.collect_violations(
-        root=resolved_root,
+        batch=test_batch,
         allowlist_path=resolved_root / _TEST_SLEEP_HYGIENE_ALLOWLIST,
     )
     violations_by_rule["test_sleep_hygiene"].extend(
@@ -545,20 +548,6 @@ def scan_policy_suite(
         for item in test_sleep_hygiene_violations
     )
 
-    _drain(
-        _iter_apply_inventory_scans(
-            inventory=inventory,
-            resolved_root=resolved_root,
-            branchless_allowed=branchless_allowed,
-            defensive_allowed=defensive_allowed,
-            typing_surface_allowed=(typing_surface_allowed | typing_surface_waiver_result.allowed_keys),
-            runtime_narrowing_boundary_allowed=(
-                runtime_narrowing_boundary_allowed
-                | runtime_narrowing_boundary_waiver_result.allowed_keys
-            ),
-            violations_by_rule=violations_by_rule,
-        )
-    )
     _drain(_iter_sort_violations_by_rule(violations_by_rule))
     return PolicySuiteResult(
         root=resolved_root,
@@ -572,187 +561,6 @@ def scan_policy_suite(
 
 def _drain(items: Iterable[object]) -> None:
     deque(items, maxlen=0)
-
-
-def _iter_apply_inventory_scans(
-    *,
-    inventory: tuple[Path, ...],
-    resolved_root: Path,
-    branchless_allowed: set[str],
-    defensive_allowed: set[str],
-    typing_surface_allowed: set[str],
-    runtime_narrowing_boundary_allowed: set[str],
-    violations_by_rule: dict[str, list[dict[str, Any]]],
-) -> Iterable[None]:
-    for path in inventory:
-        _apply_inventory_scan(
-            path=path,
-            resolved_root=resolved_root,
-            branchless_allowed=branchless_allowed,
-            defensive_allowed=defensive_allowed,
-            typing_surface_allowed=typing_surface_allowed,
-            runtime_narrowing_boundary_allowed=runtime_narrowing_boundary_allowed,
-            violations_by_rule=violations_by_rule,
-        )
-        yield None
-
-
-def _apply_inventory_scan(
-    *,
-    path: Path,
-    resolved_root: Path,
-    branchless_allowed: set[str],
-    defensive_allowed: set[str],
-    typing_surface_allowed: set[str],
-    runtime_narrowing_boundary_allowed: set[str],
-    violations_by_rule: dict[str, list[dict[str, Any]]],
-) -> None:
-    rel_path = path.relative_to(resolved_root).as_posix()
-    source = path.read_text(encoding="utf-8")
-    source_lines = source.splitlines()
-    tree = _parse_tree(source, rel_path=rel_path)
-    match tree:
-        case ast.AST() as parsed_tree:
-            if rel_path.startswith("src/") or rel_path.startswith("tests/"):
-                _apply_test_and_src_visitors(
-                    rel_path=rel_path,
-                    tree=parsed_tree,
-                    violations_by_rule=violations_by_rule,
-                )
-            if rel_path.startswith("src/gabion/"):
-                _apply_src_only_visitors(
-                    rel_path=rel_path,
-                    source=source,
-                    source_lines=source_lines,
-                    tree=parsed_tree,
-                    branchless_allowed=branchless_allowed,
-                    defensive_allowed=defensive_allowed,
-                    typing_surface_allowed=typing_surface_allowed,
-                    runtime_narrowing_boundary_allowed=runtime_narrowing_boundary_allowed,
-                    violations_by_rule=violations_by_rule,
-                )
-        case _:
-            return
-
-
-def _apply_test_and_src_visitors(
-    *,
-    rel_path: str,
-    tree: ast.AST,
-    violations_by_rule: dict[str, list[dict[str, Any]]],
-) -> None:
-    no_legacy_monolith = _NoLegacyMonolithVisitor(rel_path=rel_path)
-    no_legacy_monolith.visit(tree)
-    violations_by_rule["no_legacy_monolith_import"].extend(
-        list(map(_serialize_legacy_monolith, no_legacy_monolith.violations))
-    )
-    no_mp = no_monkeypatch_rule._NoMonkeypatchVisitor(rel_path=rel_path)
-    no_mp.visit(tree)
-    violations_by_rule["no_monkeypatch"].extend(
-        list(map(_serialize_no_monkeypatch, no_mp.violations))
-    )
-
-
-def _apply_src_only_visitors(
-    *,
-    rel_path: str,
-    source: str,
-    source_lines: list[str],
-    tree: ast.AST,
-    branchless_allowed: set[str],
-    defensive_allowed: set[str],
-    typing_surface_allowed: set[str],
-    runtime_narrowing_boundary_allowed: set[str],
-    violations_by_rule: dict[str, list[dict[str, Any]]],
-) -> None:
-    branchless_visitor = branchless_rule._BranchlessVisitor(
-        rel_path=rel_path,
-        source_lines=source_lines,
-    )
-    branchless_visitor.visit(tree)
-    branchless_violations = _filter_baseline_violations(
-        branchless_visitor.violations,
-        allowed_keys=branchless_allowed,
-    )
-    violations_by_rule["branchless"].extend(
-        list(map(_serialize_branchless, branchless_violations))
-    )
-
-    defensive_visitor = defensive_fallback_rule._DefensiveFallbackVisitor(
-        rel_path=rel_path,
-        source_lines=source_lines,
-    )
-    defensive_visitor.visit(tree)
-    defensive_violations = _filter_baseline_violations(
-        defensive_visitor.violations,
-        allowed_keys=defensive_allowed,
-    )
-    violations_by_rule["defensive_fallback"].extend(
-        list(map(_serialize_defensive, defensive_violations))
-    )
-
-    loop_structure_violations = fiber_loop_structure_contract_rule.collect_violations(
-        rel_path=rel_path,
-        source=source,
-        tree=tree,
-    )
-    violations_by_rule["fiber_loop_structure_contract"].extend(
-        list(map(_serialize_fiber_loop_structure_contract, loop_structure_violations))
-    )
-    filter_processor_violations = (
-        fiber_filter_processor_contract_rule.collect_violations(
-            rel_path=rel_path,
-            source=source,
-            tree=tree,
-        )
-    )
-    violations_by_rule["fiber_filter_processor_contract"].extend(
-        list(map(_serialize_fiber_filter_processor_contract, filter_processor_violations))
-    )
-    scalar_sentinel_violations = fiber_scalar_sentinel_contract_rule.collect_violations(
-        rel_path=rel_path,
-        source=source,
-        tree=tree,
-    )
-    violations_by_rule["fiber_scalar_sentinel_contract"].extend(
-        list(map(_serialize_fiber_scalar_sentinel_contract, scalar_sentinel_violations))
-    )
-    type_dispatch_violations = fiber_type_dispatch_contract_rule.collect_violations(
-        rel_path=rel_path,
-        source=source,
-        tree=tree,
-    )
-    violations_by_rule["fiber_type_dispatch_contract"].extend(
-        list(map(_serialize_fiber_type_dispatch_contract, type_dispatch_violations))
-    )
-    typing_surface_violations = _filter_baseline_violations(
-        typing_surface_rule.collect_violations(
-            rel_path=rel_path,
-            source=source,
-            tree=tree,
-        ),
-        allowed_keys=typing_surface_allowed,
-    )
-    violations_by_rule["typing_surface"].extend(
-        list(map(_serialize_typing_surface, typing_surface_violations))
-    )
-    runtime_narrowing_boundary_violations = _filter_baseline_violations(
-        runtime_narrowing_boundary_rule.collect_violations(
-            rel_path=rel_path,
-            source=source,
-            tree=tree,
-        ),
-        allowed_keys=runtime_narrowing_boundary_allowed,
-    )
-    violations_by_rule["runtime_narrowing_boundary"].extend(
-        list(
-            map(
-                _serialize_runtime_narrowing_boundary,
-                runtime_narrowing_boundary_violations,
-            )
-        )
-    )
-
 
 def _iter_sort_violations_by_rule(
     violations_by_rule: dict[str, list[dict[str, Any]]],
@@ -815,6 +623,7 @@ def _empty_violations_payload() -> dict[str, list[dict[str, Any]]]:
         "defensive_fallback": [],
         "fiber_loop_structure_contract": [],
         "fiber_filter_processor_contract": [],
+        "fiber_return_shape_contract": [],
         "fiber_scalar_sentinel_contract": [],
         "fiber_type_dispatch_contract": [],
         "no_legacy_monolith_import": [],
@@ -884,143 +693,26 @@ def _inventory_hash_chunk(path: Path, root: Path) -> bytes:
 def _rule_set_hash() -> str:
     material = "|".join(
         [
-            "no_monkeypatch:v1",
-            "branchless:v2",
-            "defensive_fallback:v2",
-            "fiber_loop_structure_contract:v1",
-            "fiber_filter_processor_contract:v1",
-            "fiber_scalar_sentinel_contract:v1",
-            "fiber_type_dispatch_contract:v1",
-            "no_legacy_monolith_import:v1",
-            "orchestrator_primitive_barrel:v1",
-            "typing_surface:v2",
-            "runtime_narrowing_boundary:v2",
-            "aspf_normalization_idempotence:v3",
-            "boundary_core_contract:v1",
-            "fiber_normalization_contract:v2",
-            "test_subprocess_hygiene:v2",
-            "test_sleep_hygiene:v1",
+            "no_monkeypatch:v3",
+            "branchless:v4",
+            "defensive_fallback:v4",
+            "fiber_loop_structure_contract:v2",
+            "fiber_filter_processor_contract:v2",
+            "fiber_return_shape_contract:v1",
+            "fiber_scalar_sentinel_contract:v2",
+            "fiber_type_dispatch_contract:v2",
+            "no_legacy_monolith_import:v2",
+            "orchestrator_primitive_barrel:v2",
+            "typing_surface:v4",
+            "runtime_narrowing_boundary:v4",
+            "aspf_normalization_idempotence:v4",
+            "boundary_core_contract:v3",
+            "fiber_normalization_contract:v3",
+            "test_subprocess_hygiene:v4",
+            "test_sleep_hygiene:v3",
         ]
     )
     return hashlib.sha256(material.encode("utf-8")).hexdigest()
-
-
-def _parse_tree(source: str, *, rel_path: str):
-    try:
-        return ast.parse(source)
-    except SyntaxError:
-        # Surface syntax failures through existing rule scripts instead of reclassifying here.
-        return None
-
-
-@dataclass(frozen=True)
-class _LegacyMonolithViolation:
-    path: str
-    line: int
-    column: int
-    kind: str
-    message: str
-
-    @property
-    def key(self) -> str:
-        return f"{self.path}:{self.line}:{self.column}:{self.kind}:{self.message}"
-
-    def render(self) -> str:
-        return f"{self.path}:{self.line}:{self.column}: {self.kind}: {self.message}"
-
-
-class _NoLegacyMonolithVisitor(ast.NodeVisitor):
-    def __init__(self, *, rel_path: str) -> None:
-        self._path = rel_path
-        self.violations: list[_LegacyMonolithViolation] = []
-
-    def visit_Import(self, node: ast.Import) -> None:
-        self.violations.extend(
-            _legacy_monolith_import_violations(
-                path=self._path,
-                node=node,
-            )
-        )
-        self.generic_visit(node)
-
-    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
-        module_name = node.module or ""
-        has_direct_legacy_alias = _has_alias_named(
-            aliases=node.names,
-            name="legacy_dataflow_monolith",
-        )
-        if module_name == "gabion.analysis.legacy_dataflow_monolith":
-            self._record(
-                node,
-                kind="import_from",
-                message="legacy_dataflow_monolith import is retired; use owned modules only",
-            )
-        elif module_name == "gabion.analysis" and has_direct_legacy_alias:
-            self._record(
-                node,
-                kind="import_from",
-                message="legacy_dataflow_monolith import is retired; use owned modules only",
-            )
-        elif node.level > 0 and module_name.endswith("legacy_dataflow_monolith"):
-            self._record(
-                node,
-                kind="import_from",
-                message="legacy_dataflow_monolith import is retired; use owned modules only",
-            )
-        elif node.level > 0 and module_name == "" and has_direct_legacy_alias:
-            self._record(
-                node,
-                kind="import_from",
-                message="legacy_dataflow_monolith import is retired; use owned modules only",
-            )
-        self.generic_visit(node)
-
-    def _record(self, node: ast.AST, *, kind: str, message: str) -> None:
-        self.violations.append(
-            _LegacyMonolithViolation(
-                path=self._path,
-                line=int(getattr(node, "lineno", 1) or 1),
-                column=int(getattr(node, "col_offset", 0) or 0) + 1,
-                kind=kind,
-                message=message,
-            )
-        )
-
-
-def _legacy_monolith_import_violations(
-    *,
-    path: str,
-    node: ast.Import,
-) -> Iterable[_LegacyMonolithViolation]:
-    for alias in node.names:
-        yield from _legacy_monolith_violation_from_alias(
-            path=path,
-            node=node,
-            alias_name=alias.name,
-        )
-
-
-def _legacy_monolith_violation_from_alias(
-    *,
-    path: str,
-    node: ast.Import,
-    alias_name: str,
-) -> tuple[_LegacyMonolithViolation, ...]:
-    if alias_name == "gabion.analysis.legacy_dataflow_monolith":
-        return (
-            _LegacyMonolithViolation(
-                path=path,
-                line=int(getattr(node, "lineno", 1) or 1),
-                column=int(getattr(node, "col_offset", 0) or 0) + 1,
-                kind="import",
-                message="legacy_dataflow_monolith import is retired; use owned modules only",
-            ),
-        )
-    return ()
-
-
-def _has_alias_named(*, aliases: list[ast.alias], name: str) -> bool:
-    return any(map(lambda alias: alias.name == name, aliases))
 
 
 def _load_rule_baseline_keys(*, module: object, baseline_path: Path) -> set[str]:
@@ -1049,15 +741,6 @@ def _str_optional(item: object) -> str | None:
 
 def _is_not_none(value: object) -> bool:
     return value is not None
-
-
-def _assign_target_name(node: ast.AST) -> str | None:
-    match node:
-        case ast.Name(id=name):
-            return name
-        case _:
-            return None
-
 
 def _normalized_policy_result_mapping(
     payload: Mapping[str, Mapping[str, Any]] | object,
@@ -1160,12 +843,37 @@ def _violation_matches_baseline(violation: object, *, allowed_keys: set[str]) ->
     )
 
 
+def _applicability_bounds_payload(violation: object) -> dict[str, object] | None:
+    bounds = getattr(violation, "applicability_bounds", None)
+    match bounds:
+        case None:
+            return None
+        case _:
+            return _fiber_bounds_payload(bounds)
+
+
 def _serialize_no_monkeypatch(violation: object) -> dict[str, object]:
     return {
         "path": getattr(violation, "path"),
         "line": getattr(violation, "line"),
         "column": getattr(violation, "column"),
+        "qualname": getattr(violation, "qualname", "<module>"),
+        "kind": getattr(violation, "kind", "violation"),
         "message": getattr(violation, "message"),
+        "input_slot": getattr(violation, "input_slot", ""),
+        "flow_identity": getattr(violation, "flow_identity", ""),
+        "fiber_trace": _fiber_trace_payload(
+            getattr(violation, "fiber_trace", ())
+        ),
+        "applicability_bounds": _applicability_bounds_payload(violation),
+        "counterfactual_boundary": _fiber_counterfactual_payload(
+            getattr(violation, "counterfactual_boundary", None)
+        ),
+        "fiber_id": getattr(violation, "fiber_id", ""),
+        "taint_interval_id": getattr(violation, "taint_interval_id", ""),
+        "condition_overlap_id": getattr(violation, "condition_overlap_id", ""),
+        "structured_hash": getattr(violation, "structured_hash", ""),
+        "key": getattr(violation, "key", ""),
         "render": getattr(violation, "render")(),
     }
 
@@ -1178,6 +886,18 @@ def _serialize_branchless(violation: object) -> dict[str, object]:
         "qualname": getattr(violation, "qualname"),
         "kind": getattr(violation, "kind"),
         "message": getattr(violation, "message"),
+        "input_slot": getattr(violation, "input_slot", ""),
+        "flow_identity": getattr(violation, "flow_identity", ""),
+        "fiber_trace": _fiber_trace_payload(
+            getattr(violation, "fiber_trace", ())
+        ),
+        "applicability_bounds": _applicability_bounds_payload(violation),
+        "counterfactual_boundary": _fiber_counterfactual_payload(
+            getattr(violation, "counterfactual_boundary", None)
+        ),
+        "fiber_id": getattr(violation, "fiber_id", ""),
+        "taint_interval_id": getattr(violation, "taint_interval_id", ""),
+        "condition_overlap_id": getattr(violation, "condition_overlap_id", ""),
         "structured_hash": getattr(violation, "structured_hash", ""),
         "legacy_key": getattr(violation, "legacy_key", ""),
         "key": getattr(violation, "key"),
@@ -1192,6 +912,19 @@ def _serialize_defensive(violation: object) -> dict[str, object]:
         "column": getattr(violation, "column"),
         "qualname": getattr(violation, "qualname"),
         "kind": getattr(violation, "kind"),
+        "guard_form": getattr(violation, "guard_form", ""),
+        "input_slot": getattr(violation, "input_slot", ""),
+        "flow_identity": getattr(violation, "flow_identity", ""),
+        "fiber_trace": _fiber_trace_payload(
+            getattr(violation, "fiber_trace", ())
+        ),
+        "applicability_bounds": _applicability_bounds_payload(violation),
+        "counterfactual_boundary": _fiber_counterfactual_payload(
+            getattr(violation, "counterfactual_boundary", None)
+        ),
+        "fiber_id": getattr(violation, "fiber_id", ""),
+        "taint_interval_id": getattr(violation, "taint_interval_id", ""),
+        "condition_overlap_id": getattr(violation, "condition_overlap_id", ""),
         "message": getattr(violation, "message"),
         "structured_hash": getattr(violation, "structured_hash", ""),
         "legacy_key": getattr(violation, "legacy_key", ""),
@@ -1215,11 +948,7 @@ def _serialize_fiber_scalar_sentinel_contract(violation: object) -> dict[str, ob
         "fiber_trace": _fiber_trace_payload(
             getattr(violation, "fiber_trace", ())
         ),
-        "applicability_bounds": _fiber_bounds_payload(
-            getattr(violation, "applicability_bounds", None)
-        )
-        if getattr(violation, "applicability_bounds", None) is not None
-        else None,
+        "applicability_bounds": _applicability_bounds_payload(violation),
         "counterfactual_boundary": _fiber_counterfactual_payload(
             getattr(violation, "counterfactual_boundary", None)
         ),
@@ -1243,11 +972,7 @@ def _serialize_fiber_loop_structure_contract(violation: object) -> dict[str, obj
         "fiber_trace": _fiber_trace_payload(
             getattr(violation, "fiber_trace", ())
         ),
-        "applicability_bounds": _fiber_bounds_payload(
-            getattr(violation, "applicability_bounds", None)
-        )
-        if getattr(violation, "applicability_bounds", None) is not None
-        else None,
+        "applicability_bounds": _applicability_bounds_payload(violation),
         "counterfactual_boundary": _fiber_counterfactual_payload(
             getattr(violation, "counterfactual_boundary", None)
         ),
@@ -1271,11 +996,31 @@ def _serialize_fiber_filter_processor_contract(violation: object) -> dict[str, o
         "fiber_trace": _fiber_trace_payload(
             getattr(violation, "fiber_trace", ())
         ),
-        "applicability_bounds": _fiber_bounds_payload(
-            getattr(violation, "applicability_bounds", None)
-        )
-        if getattr(violation, "applicability_bounds", None) is not None
-        else None,
+        "applicability_bounds": _applicability_bounds_payload(violation),
+        "counterfactual_boundary": _fiber_counterfactual_payload(
+            getattr(violation, "counterfactual_boundary", None)
+        ),
+        "structured_hash": getattr(violation, "structured_hash", ""),
+        "key": getattr(violation, "key"),
+        "render": getattr(violation, "render")(),
+    }
+
+
+def _serialize_fiber_return_shape_contract(violation: object) -> dict[str, object]:
+    return {
+        "path": getattr(violation, "path"),
+        "line": getattr(violation, "line"),
+        "column": getattr(violation, "column"),
+        "qualname": getattr(violation, "qualname"),
+        "kind": getattr(violation, "kind"),
+        "message": getattr(violation, "message"),
+        "return_form": getattr(violation, "return_form"),
+        "input_slot": getattr(violation, "input_slot"),
+        "flow_identity": getattr(violation, "flow_identity"),
+        "fiber_trace": _fiber_trace_payload(
+            getattr(violation, "fiber_trace", ())
+        ),
+        "applicability_bounds": _applicability_bounds_payload(violation),
         "counterfactual_boundary": _fiber_counterfactual_payload(
             getattr(violation, "counterfactual_boundary", None)
         ),
@@ -1299,11 +1044,7 @@ def _serialize_fiber_type_dispatch_contract(violation: object) -> dict[str, obje
         "fiber_trace": _fiber_trace_payload(
             getattr(violation, "fiber_trace", ())
         ),
-        "applicability_bounds": _fiber_bounds_payload(
-            getattr(violation, "applicability_bounds", None)
-        )
-        if getattr(violation, "applicability_bounds", None) is not None
-        else None,
+        "applicability_bounds": _applicability_bounds_payload(violation),
         "counterfactual_boundary": _fiber_counterfactual_payload(
             getattr(violation, "counterfactual_boundary", None)
         ),
@@ -1319,8 +1060,46 @@ def _serialize_legacy_monolith(violation: object) -> dict[str, object]:
         "line": getattr(violation, "line"),
         "column": getattr(violation, "column"),
         "kind": getattr(violation, "kind"),
+        "input_slot": getattr(violation, "input_slot", ""),
+        "flow_identity": getattr(violation, "flow_identity", ""),
+        "fiber_trace": _fiber_trace_payload(
+            getattr(violation, "fiber_trace", ())
+        ),
+        "applicability_bounds": _applicability_bounds_payload(violation),
+        "counterfactual_boundary": _fiber_counterfactual_payload(
+            getattr(violation, "counterfactual_boundary", None)
+        ),
+        "fiber_id": getattr(violation, "fiber_id", ""),
+        "taint_interval_id": getattr(violation, "taint_interval_id", ""),
+        "condition_overlap_id": getattr(violation, "condition_overlap_id", ""),
         "message": getattr(violation, "message"),
         "key": getattr(violation, "key"),
+        "structured_hash": getattr(violation, "structured_hash", ""),
+        "render": getattr(violation, "render")(),
+    }
+
+
+def _serialize_orchestrator_primitive_barrel(violation: object) -> dict[str, object]:
+    return {
+        "path": getattr(violation, "path"),
+        "line": getattr(violation, "line"),
+        "column": getattr(violation, "column"),
+        "kind": getattr(violation, "kind"),
+        "input_slot": getattr(violation, "input_slot", ""),
+        "flow_identity": getattr(violation, "flow_identity", ""),
+        "fiber_trace": _fiber_trace_payload(
+            getattr(violation, "fiber_trace", ())
+        ),
+        "applicability_bounds": _applicability_bounds_payload(violation),
+        "counterfactual_boundary": _fiber_counterfactual_payload(
+            getattr(violation, "counterfactual_boundary", None)
+        ),
+        "fiber_id": getattr(violation, "fiber_id", ""),
+        "taint_interval_id": getattr(violation, "taint_interval_id", ""),
+        "condition_overlap_id": getattr(violation, "condition_overlap_id", ""),
+        "message": getattr(violation, "message"),
+        "key": getattr(violation, "key"),
+        "structured_hash": getattr(violation, "structured_hash", ""),
         "render": getattr(violation, "render")(),
     }
 
@@ -1334,6 +1113,18 @@ def _serialize_typing_surface(violation: object) -> dict[str, object]:
         "kind": getattr(violation, "kind"),
         "scope": getattr(violation, "scope"),
         "annotation": getattr(violation, "annotation"),
+        "input_slot": getattr(violation, "input_slot", ""),
+        "flow_identity": getattr(violation, "flow_identity", ""),
+        "fiber_trace": _fiber_trace_payload(
+            getattr(violation, "fiber_trace", ())
+        ),
+        "applicability_bounds": _applicability_bounds_payload(violation),
+        "counterfactual_boundary": _fiber_counterfactual_payload(
+            getattr(violation, "counterfactual_boundary", None)
+        ),
+        "fiber_id": getattr(violation, "fiber_id", ""),
+        "taint_interval_id": getattr(violation, "taint_interval_id", ""),
+        "condition_overlap_id": getattr(violation, "condition_overlap_id", ""),
         "message": getattr(violation, "message"),
         "structured_hash": getattr(violation, "structured_hash", ""),
         "legacy_key": getattr(violation, "legacy_key", ""),
@@ -1350,6 +1141,18 @@ def _serialize_runtime_narrowing_boundary(violation: object) -> dict[str, object
         "qualname": getattr(violation, "qualname"),
         "kind": getattr(violation, "kind"),
         "call": getattr(violation, "call"),
+        "input_slot": getattr(violation, "input_slot", ""),
+        "flow_identity": getattr(violation, "flow_identity", ""),
+        "fiber_trace": _fiber_trace_payload(
+            getattr(violation, "fiber_trace", ())
+        ),
+        "applicability_bounds": _applicability_bounds_payload(violation),
+        "counterfactual_boundary": _fiber_counterfactual_payload(
+            getattr(violation, "counterfactual_boundary", None)
+        ),
+        "fiber_id": getattr(violation, "fiber_id", ""),
+        "taint_interval_id": getattr(violation, "taint_interval_id", ""),
+        "condition_overlap_id": getattr(violation, "condition_overlap_id", ""),
         "message": getattr(violation, "message"),
         "structured_hash": getattr(violation, "structured_hash", ""),
         "legacy_key": getattr(violation, "legacy_key", ""),
@@ -1373,11 +1176,7 @@ def _serialize_aspf_normalization_idempotence(
         "fiber_trace": _fiber_trace_payload(
             getattr(violation, "fiber_trace", ())
         ),
-        "applicability_bounds": _fiber_bounds_payload(
-            getattr(violation, "applicability_bounds", None)
-        )
-        if getattr(violation, "applicability_bounds", None) is not None
-        else None,
+        "applicability_bounds": _applicability_bounds_payload(violation),
         "counterfactual_boundary": _fiber_counterfactual_payload(
             getattr(violation, "counterfactual_boundary", None)
         ),
@@ -1396,6 +1195,18 @@ def _serialize_boundary_core_contract(violation: object) -> dict[str, object]:
         "column": getattr(violation, "column"),
         "qualname": getattr(violation, "qualname"),
         "kind": getattr(violation, "kind"),
+        "input_slot": getattr(violation, "input_slot", ""),
+        "flow_identity": getattr(violation, "flow_identity", ""),
+        "fiber_trace": _fiber_trace_payload(
+            getattr(violation, "fiber_trace", ())
+        ),
+        "applicability_bounds": _applicability_bounds_payload(violation),
+        "counterfactual_boundary": _fiber_counterfactual_payload(
+            getattr(violation, "counterfactual_boundary", None)
+        ),
+        "fiber_id": getattr(violation, "fiber_id", ""),
+        "taint_interval_id": getattr(violation, "taint_interval_id", ""),
+        "condition_overlap_id": getattr(violation, "condition_overlap_id", ""),
         "message": getattr(violation, "message"),
         "structured_hash": getattr(violation, "structured_hash", ""),
         "legacy_key": getattr(violation, "legacy_key", ""),
@@ -1418,11 +1229,7 @@ def _serialize_fiber_normalization_contract(violation: object) -> dict[str, obje
         "fiber_trace": _fiber_trace_payload(
             getattr(violation, "fiber_trace", ())
         ),
-        "applicability_bounds": _fiber_bounds_payload(
-            getattr(violation, "applicability_bounds", None)
-        )
-        if getattr(violation, "applicability_bounds", None) is not None
-        else None,
+        "applicability_bounds": _applicability_bounds_payload(violation),
         "counterfactual_boundary": _fiber_counterfactual_payload(
             getattr(violation, "counterfactual_boundary", None)
         ),
@@ -1440,8 +1247,21 @@ def _serialize_test_subprocess_hygiene(violation: object) -> dict[str, object]:
         "column": getattr(violation, "column"),
         "kind": getattr(violation, "kind"),
         "call": getattr(violation, "call"),
+        "input_slot": getattr(violation, "input_slot", ""),
+        "flow_identity": getattr(violation, "flow_identity", ""),
+        "fiber_trace": _fiber_trace_payload(
+            getattr(violation, "fiber_trace", ())
+        ),
+        "applicability_bounds": _applicability_bounds_payload(violation),
+        "counterfactual_boundary": _fiber_counterfactual_payload(
+            getattr(violation, "counterfactual_boundary", None)
+        ),
+        "fiber_id": getattr(violation, "fiber_id", ""),
+        "taint_interval_id": getattr(violation, "taint_interval_id", ""),
+        "condition_overlap_id": getattr(violation, "condition_overlap_id", ""),
         "message": getattr(violation, "message"),
         "key": getattr(violation, "key"),
+        "structured_hash": getattr(violation, "structured_hash", ""),
         "render": getattr(violation, "render")(),
     }
 
@@ -1453,8 +1273,21 @@ def _serialize_test_sleep_hygiene(violation: object) -> dict[str, object]:
         "column": getattr(violation, "column"),
         "kind": getattr(violation, "kind"),
         "call": getattr(violation, "call"),
+        "input_slot": getattr(violation, "input_slot", ""),
+        "flow_identity": getattr(violation, "flow_identity", ""),
+        "fiber_trace": _fiber_trace_payload(
+            getattr(violation, "fiber_trace", ())
+        ),
+        "applicability_bounds": _applicability_bounds_payload(violation),
+        "counterfactual_boundary": _fiber_counterfactual_payload(
+            getattr(violation, "counterfactual_boundary", None)
+        ),
+        "fiber_id": getattr(violation, "fiber_id", ""),
+        "taint_interval_id": getattr(violation, "taint_interval_id", ""),
+        "condition_overlap_id": getattr(violation, "condition_overlap_id", ""),
         "message": getattr(violation, "message"),
         "key": getattr(violation, "key"),
+        "structured_hash": getattr(violation, "structured_hash", ""),
         "render": getattr(violation, "render")(),
     }
 

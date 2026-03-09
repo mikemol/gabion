@@ -11,6 +11,7 @@ __all__ = [
     "fiber_loop_structure_contract_rule",
     "fiber_noop_block_audit_rule",
     "fiber_normalization_contract_rule",
+    "fiber_return_shape_contract_rule",
     "fiber_scalar_sentinel_contract_rule",
     "fiber_type_dispatch_contract_rule",
     "no_legacy_monolith_import_rule",
@@ -29,4 +30,3 @@ def __getattr__(name: str) -> object:
     module = import_module(f"{__name__}.{name}")
     globals()[name] = module
     return module
-

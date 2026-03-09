@@ -43,15 +43,16 @@ def test_policy_scanner_suite_scan_and_cache(tmp_path: Path) -> None:
     assert first.total_violations() > 0
     assert policy_scanner_suite.violations_for_rule(first, rule="branchless")
     assert policy_scanner_suite.violations_for_rule(first, rule="defensive_fallback")
-    assert policy_scanner_suite.violations_for_rule(first, rule="fiber_loop_structure_contract") == []
-    assert policy_scanner_suite.violations_for_rule(first, rule="fiber_filter_processor_contract") == []
+    assert policy_scanner_suite.violations_for_rule(first, rule="fiber_loop_structure_contract")
+    assert policy_scanner_suite.violations_for_rule(first, rule="fiber_filter_processor_contract")
+    assert policy_scanner_suite.violations_for_rule(first, rule="fiber_return_shape_contract")
     assert policy_scanner_suite.violations_for_rule(first, rule="fiber_scalar_sentinel_contract")
-    assert policy_scanner_suite.violations_for_rule(first, rule="fiber_type_dispatch_contract") == []
+    assert policy_scanner_suite.violations_for_rule(first, rule="fiber_type_dispatch_contract")
     assert policy_scanner_suite.violations_for_rule(first, rule="no_monkeypatch")
     assert policy_scanner_suite.violations_for_rule(first, rule="no_legacy_monolith_import")
     assert policy_scanner_suite.violations_for_rule(first, rule="orchestrator_primitive_barrel") == []
-    assert policy_scanner_suite.violations_for_rule(first, rule="typing_surface") == []
-    assert policy_scanner_suite.violations_for_rule(first, rule="runtime_narrowing_boundary") == []
+    assert policy_scanner_suite.violations_for_rule(first, rule="typing_surface")
+    assert policy_scanner_suite.violations_for_rule(first, rule="runtime_narrowing_boundary")
     assert policy_scanner_suite.violations_for_rule(first, rule="aspf_normalization_idempotence") == []
     assert policy_scanner_suite.violations_for_rule(first, rule="boundary_core_contract") == []
     assert policy_scanner_suite.violations_for_rule(first, rule="fiber_normalization_contract") == []
@@ -94,6 +95,7 @@ def test_policy_scanner_suite_cache_invalidation_and_payload_normalization(
     assert normalized.violations_by_rule["defensive_fallback"] == []
     assert normalized.violations_by_rule["fiber_loop_structure_contract"] == []
     assert normalized.violations_by_rule["fiber_filter_processor_contract"] == []
+    assert normalized.violations_by_rule["fiber_return_shape_contract"] == []
     assert normalized.violations_by_rule["fiber_scalar_sentinel_contract"] == []
     assert normalized.violations_by_rule["fiber_type_dispatch_contract"] == []
     assert normalized.violations_by_rule["no_monkeypatch"] == []
@@ -143,6 +145,7 @@ def test_policy_scanner_suite_private_cache_and_payload_branches(
                 "defensive_fallback": [],
                 "fiber_loop_structure_contract": [],
                 "fiber_filter_processor_contract": [],
+                "fiber_return_shape_contract": [],
                 "fiber_scalar_sentinel_contract": [],
             }
         }
@@ -151,6 +154,7 @@ def test_policy_scanner_suite_private_cache_and_payload_branches(
     assert normalized["orchestrator_primitive_barrel"] == []
     assert normalized["fiber_loop_structure_contract"] == []
     assert normalized["fiber_filter_processor_contract"] == []
+    assert normalized["fiber_return_shape_contract"] == []
     assert normalized["fiber_scalar_sentinel_contract"] == []
     assert normalized["fiber_type_dispatch_contract"] == []
     assert normalized["typing_surface"] == []
@@ -263,6 +267,36 @@ def test_policy_scanner_suite_flags_fiber_filter_processor_contract(
     kinds = {str(item.get("kind", "")) for item in violations}
     assert "branch_in_loop_processor" in kinds
     assert "comprehension_filter_branch" in kinds
+
+
+# gabion:behavior primary=desired
+def test_policy_scanner_suite_flags_fiber_return_shape_contract(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path
+    _write(
+        root / "src/gabion/return_shape_sample.py",
+        "\n".join(
+            [
+                "def eager(values):",
+                "    return [value for value in values]",
+                "",
+                "def singleton_iter():",
+                "    return iter((1,))",
+                "",
+            ]
+        )
+        + "\n",
+    )
+    result = policy_scanner_suite.scan_policy_suite(root=root)
+    violations = policy_scanner_suite.violations_for_rule(
+        result,
+        rule="fiber_return_shape_contract",
+    )
+    assert violations
+    kinds = {str(item.get("kind", "")) for item in violations}
+    assert "container_return_prefer_iterator" in kinds
+    assert "iterator_return_prefer_item" in kinds
 
 
 # gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_flags_retired_monolith_module_file::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
@@ -445,6 +479,7 @@ def test_policy_scanner_suite_respects_branch_and_fallback_baselines(tmp_path: P
     assert policy_scanner_suite.violations_for_rule(result, rule="defensive_fallback") == []
     assert policy_scanner_suite.violations_for_rule(result, rule="fiber_loop_structure_contract") == []
     assert policy_scanner_suite.violations_for_rule(result, rule="fiber_filter_processor_contract") == []
+    assert policy_scanner_suite.violations_for_rule(result, rule="fiber_return_shape_contract") == []
     assert policy_scanner_suite.violations_for_rule(result, rule="fiber_scalar_sentinel_contract") == []
     assert policy_scanner_suite.violations_for_rule(result, rule="fiber_type_dispatch_contract") == []
     assert policy_scanner_suite.violations_for_rule(result, rule="no_monkeypatch") == []

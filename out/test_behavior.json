@@ -8129,6 +8129,27 @@
       "facets": []
     },
     {
+      "test_id": "tests/test_fiber_return_shape_contract_rule.py::test_collect_violations_accepts_non_singleton_and_multi_use_helpers",
+      "file": "tests/test_fiber_return_shape_contract_rule.py",
+      "line": 51,
+      "primary": "desired",
+      "facets": []
+    },
+    {
+      "test_id": "tests/test_fiber_return_shape_contract_rule.py::test_collect_violations_detects_all_return_shape_kinds",
+      "file": "tests/test_fiber_return_shape_contract_rule.py",
+      "line": 16,
+      "primary": "desired",
+      "facets": []
+    },
+    {
+      "test_id": "tests/test_fiber_return_shape_contract_rule.py::test_run_writes_fiber_payload",
+      "file": "tests/test_fiber_return_shape_contract_rule.py",
+      "line": 78,
+      "primary": "desired",
+      "facets": []
+    },
+    {
       "test_id": "tests/test_fiber_scalar_sentinel_contract_rule.py::test_collect_violations_detects_none_scalar_compares_and_ifexp_none",
       "file": "tests/test_fiber_scalar_sentinel_contract_rule.py",
       "line": 16,
@@ -11040,21 +11061,21 @@
     {
       "test_id": "tests/test_policy_scanner_suite.py::test_policy_scanner_suite_cache_invalidation_and_payload_normalization",
       "file": "tests/test_policy_scanner_suite.py",
-      "line": 72,
+      "line": 73,
       "primary": "desired",
       "facets": []
     },
     {
       "test_id": "tests/test_policy_scanner_suite.py::test_policy_scanner_suite_carries_external_policy_results",
       "file": "tests/test_policy_scanner_suite.py",
-      "line": 771,
+      "line": 806,
       "primary": "desired",
       "facets": []
     },
     {
       "test_id": "tests/test_policy_scanner_suite.py::test_policy_scanner_suite_flags_all_legacy_monolith_import_forms",
       "file": "tests/test_policy_scanner_suite.py",
-      "line": 284,
+      "line": 318,
       "primary": "allowed_unwanted",
       "facets": [
         "legacy"
@@ -11063,35 +11084,42 @@
     {
       "test_id": "tests/test_policy_scanner_suite.py::test_policy_scanner_suite_flags_duplicate_pre_core_normalization_on_same_canonical_flow",
       "file": "tests/test_policy_scanner_suite.py",
-      "line": 609,
+      "line": 644,
       "primary": "desired",
       "facets": []
     },
     {
       "test_id": "tests/test_policy_scanner_suite.py::test_policy_scanner_suite_flags_fiber_filter_processor_contract",
       "file": "tests/test_policy_scanner_suite.py",
-      "line": 238,
+      "line": 242,
       "primary": "desired",
       "facets": []
     },
     {
       "test_id": "tests/test_policy_scanner_suite.py::test_policy_scanner_suite_flags_fiber_loop_structure_contract",
       "file": "tests/test_policy_scanner_suite.py",
-      "line": 206,
+      "line": 210,
+      "primary": "desired",
+      "facets": []
+    },
+    {
+      "test_id": "tests/test_policy_scanner_suite.py::test_policy_scanner_suite_flags_fiber_return_shape_contract",
+      "file": "tests/test_policy_scanner_suite.py",
+      "line": 273,
       "primary": "desired",
       "facets": []
     },
     {
       "test_id": "tests/test_policy_scanner_suite.py::test_policy_scanner_suite_flags_fiber_type_dispatch_contract",
       "file": "tests/test_policy_scanner_suite.py",
-      "line": 180,
+      "line": 184,
       "primary": "desired",
       "facets": []
     },
     {
       "test_id": "tests/test_policy_scanner_suite.py::test_policy_scanner_suite_flags_invalid_aspf_baseline_payload",
       "file": "tests/test_policy_scanner_suite.py",
-      "line": 663,
+      "line": 698,
       "primary": "verboten",
       "facets": [
         "invalid"
@@ -11100,7 +11128,7 @@
     {
       "test_id": "tests/test_policy_scanner_suite.py::test_policy_scanner_suite_flags_invalid_runtime_narrowing_boundary_waiver_metadata",
       "file": "tests/test_policy_scanner_suite.py",
-      "line": 593,
+      "line": 628,
       "primary": "verboten",
       "facets": [
         "invalid"
@@ -11109,7 +11137,7 @@
     {
       "test_id": "tests/test_policy_scanner_suite.py::test_policy_scanner_suite_flags_invalid_typing_surface_waiver_metadata",
       "file": "tests/test_policy_scanner_suite.py",
-      "line": 528,
+      "line": 563,
       "primary": "verboten",
       "facets": [
         "invalid"
@@ -11118,49 +11146,49 @@
     {
       "test_id": "tests/test_policy_scanner_suite.py::test_policy_scanner_suite_flags_retired_monolith_module_file",
       "file": "tests/test_policy_scanner_suite.py",
-      "line": 270,
+      "line": 304,
       "primary": "desired",
       "facets": []
     },
     {
       "test_id": "tests/test_policy_scanner_suite.py::test_policy_scanner_suite_flags_runtime_narrowing_boundary_and_respects_baseline_and_waivers",
       "file": "tests/test_policy_scanner_suite.py",
-      "line": 544,
+      "line": 579,
       "primary": "desired",
       "facets": []
     },
     {
       "test_id": "tests/test_policy_scanner_suite.py::test_policy_scanner_suite_flags_typing_surface_and_respects_baseline_and_waivers",
       "file": "tests/test_policy_scanner_suite.py",
-      "line": 477,
+      "line": 512,
       "primary": "desired",
       "facets": []
     },
     {
       "test_id": "tests/test_policy_scanner_suite.py::test_policy_scanner_suite_flags_wide_orchestrator_primitive_barrel",
       "file": "tests/test_policy_scanner_suite.py",
-      "line": 463,
+      "line": 498,
       "primary": "desired",
       "facets": []
     },
     {
       "test_id": "tests/test_policy_scanner_suite.py::test_policy_scanner_suite_private_baseline_loader_and_filter_branches",
       "file": "tests/test_policy_scanner_suite.py",
-      "line": 310,
+      "line": 344,
       "primary": "desired",
       "facets": []
     },
     {
       "test_id": "tests/test_policy_scanner_suite.py::test_policy_scanner_suite_private_cache_and_payload_branches",
       "file": "tests/test_policy_scanner_suite.py",
-      "line": 124,
+      "line": 126,
       "primary": "desired",
       "facets": []
     },
     {
       "test_id": "tests/test_policy_scanner_suite.py::test_policy_scanner_suite_respects_branch_and_fallback_baselines",
       "file": "tests/test_policy_scanner_suite.py",
-      "line": 364,
+      "line": 398,
       "primary": "allowed_unwanted",
       "facets": [
         "fallback"
@@ -11176,21 +11204,21 @@
     {
       "test_id": "tests/test_policy_scanner_suite.py::test_policy_scanner_suite_scan_with_explicit_nonstandard_files",
       "file": "tests/test_policy_scanner_suite.py",
-      "line": 167,
+      "line": 171,
       "primary": "desired",
       "facets": []
     },
     {
       "test_id": "tests/test_policy_scanner_suite.py::test_policy_scanner_suite_scopes_boundary_core_rule_to_changed_paths",
       "file": "tests/test_policy_scanner_suite.py",
-      "line": 729,
+      "line": 764,
       "primary": "desired",
       "facets": []
     },
     {
       "test_id": "tests/test_policy_scanner_suite.py::test_policy_scanner_suite_serializes_fiber_normalization_diagnostics",
       "file": "tests/test_policy_scanner_suite.py",
-      "line": 695,
+      "line": 730,
       "primary": "desired",
       "facets": []
     },
@@ -19988,7 +20016,7 @@
     }
   ],
   "summary": {
-    "desired": 1338,
+    "desired": 1342,
     "allowed_unwanted": 152,
     "verboten": 996
   }
