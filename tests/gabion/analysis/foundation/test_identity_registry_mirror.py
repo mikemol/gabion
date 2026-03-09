@@ -29,7 +29,7 @@ def test_identity_registry_mirror_hydrates_existing_allowed_namespaces_without_l
 
     mirror.start()
     try:
-        assert space.allocation_records() == ()
+        assert tuple(space.allocation_records()) == ()
         base_lookup = space.token_for_atom(namespace="type_base", atom_id=int_atom)
         ctor_lookup = space.token_for_atom(namespace="type_ctor", atom_id=ctor_atom)
         assert base_lookup.is_present is True
@@ -48,10 +48,10 @@ def test_identity_registry_mirror_starts_and_stops_observer_lifecycle() -> None:
 
     mirror.start()
     registry.get_or_assign("int")
-    records_after_start = space.allocation_records_payload()
+    records_after_start = list(space.allocation_records_payload())
     mirror.stop()
     registry.get_or_assign("str")
-    records_after_stop = space.allocation_records_payload()
+    records_after_stop = list(space.allocation_records_payload())
 
     assert len(records_after_start) == 1
     assert records_after_start == records_after_stop
@@ -73,7 +73,7 @@ def test_identity_registry_mirror_tracks_allowed_namespaces_and_ignores_disallow
     finally:
         mirror.stop()
 
-    records = space.allocation_records_payload()
+    records = list(space.allocation_records_payload())
     assert [record["seq"] for record in records] == [1, 2, 3]
     assert {(record["namespace"], record["token"]) for record in records} == {
         ("type_base", "int"),

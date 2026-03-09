@@ -7,9 +7,8 @@ from dataclasses import asdict, dataclass, is_dataclass
 from enum import StrEnum
 from hashlib import sha1
 import json
-from contextlib import contextmanager
 from contextvars import ContextVar, Token
-from types import MappingProxyType
+from types import MappingProxyType, TracebackType
 from typing import Iterator, Mapping, Protocol, Sequence
 
 
@@ -53,7 +52,7 @@ class MarkerReasoning:
 class _ReasoningCarrier(Protocol):
     summary: str
     control: str
-    blocking_dependencies: Sequence[object] | str | None
+    blocking_dependencies: Sequence[str] | str | None
 
 
 ReasoningInput = MarkerReasoning | _ReasoningCarrier | Mapping[str, object] | str | None
@@ -123,6 +122,23 @@ _MARKER_KIND_MAPPING_CONFIG: ContextVar[MarkerKindMappingConfig] = ContextVar(
 )
 
 
+@dataclass(frozen=True)
+class _RuntimeMarkerKindMappingScope:
+    _token: Token[MarkerKindMappingConfig]
+
+    def __enter__(self) -> _RuntimeMarkerKindMappingScope:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> bool:
+        reset_runtime_marker_kind_mapping_config(self._token)
+        return False
+
+
 def marker_kind_mapping_config(profile: MarkerKindProfile) -> MarkerKindMappingConfig:
     return MarkerKindMappingConfig(profile=profile, kind_map=DEFAULT_MARKER_KIND_PROFILE_MAPS[profile])
 
@@ -143,14 +159,11 @@ def reset_runtime_marker_kind_mapping_config(
     _MARKER_KIND_MAPPING_CONFIG.reset(token)
 
 
-@contextmanager
 # gabion:decision_protocol
-def runtime_marker_kind_mapping_scope(config: MarkerKindMappingConfig) -> Iterator[None]:
-    token = set_runtime_marker_kind_mapping_config(config)
-    try:
-        yield
-    finally:
-        reset_runtime_marker_kind_mapping_config(token)
+def runtime_marker_kind_mapping_scope(config: MarkerKindMappingConfig) -> _RuntimeMarkerKindMappingScope:
+    return _RuntimeMarkerKindMappingScope(
+        set_runtime_marker_kind_mapping_config(config),
+    )
 
 
 def resolve_marker_kind_for_profile(
@@ -162,20 +175,35 @@ def resolve_marker_kind_for_profile(
     return effective_mapping_config.kind_map.get(marker_kind, marker_kind)
 
 
-def normalize_semantic_links(raw_links: Sequence[Mapping[str, str]] = _EMPTY_LINKS) -> tuple[SemanticReference, ...]:
-    entries = tuple(
-        (
-            str(raw.get("kind", "")).strip().lower(),
-            str(raw.get("value", "")).strip(),
+def _semantic_link_kind(raw_link: Mapping[str, str]) -> str:
+    return str(raw_link.get("kind", "")).strip().lower()
+
+
+def _semantic_link_value(raw_link: Mapping[str, str]) -> str:
+    return str(raw_link.get("value", "")).strip()
+
+
+def _semantic_link_allowed(raw_link: Mapping[str, str]) -> bool:
+    return _semantic_link_kind(raw_link) in _LINK_KIND_BY_VALUE and bool(_semantic_link_value(raw_link))
+
+
+def _semantic_reference_from_raw_link(raw_link: Mapping[str, str]) -> SemanticReference:
+    kind_value = _semantic_link_kind(raw_link)
+    value_text = _semantic_link_value(raw_link)
+    return SemanticReference(kind=_LINK_KIND_BY_VALUE[kind_value], value=value_text)
+
+
+def normalize_semantic_links(raw_links: Sequence[Mapping[str, str]] = _EMPTY_LINKS) -> Iterator[SemanticReference]:
+    normalized_links = map(
+        _semantic_reference_from_raw_link,
+        filter(_semantic_link_allowed, raw_links),
+    )
+    return iter(
+        sorted(
+            normalized_links,
+            key=lambda link: f"{link.kind.value}\x1f{link.value}",
         )
-        for raw in raw_links
     )
-    links = tuple(
-        SemanticReference(kind=_LINK_KIND_BY_VALUE[kind], value=value)
-        for kind, value in entries
-        if kind in _LINK_KIND_BY_VALUE and value
-    )
-    return tuple(sorted(links, key=lambda link: (link.kind.value, link.value)))
 
 
 def normalize_marker_payload(
@@ -191,7 +219,7 @@ def normalize_marker_payload(
 ) -> MarkerPayload:
     normalized_reasoning = normalize_marker_reasoning(reasoning or reason)
     normalized_reason = normalized_reasoning.summary or "never() invariant reached"
-    env_payload = {str(key): value for key, value in env.items()}
+    env_payload = dict(map(lambda item: (str(item[0]), item[1]), env.items()))
     return MarkerPayload(
         marker_kind=marker_kind,
         reason=normalized_reason,
@@ -199,7 +227,7 @@ def normalize_marker_payload(
         owner=owner.strip(),
         expiry=expiry.strip(),
         lifecycle_state=lifecycle_state,
-        links=normalize_semantic_links(links),
+        links=tuple(normalize_semantic_links(links)),
         env=env_payload,
     )
 
@@ -216,10 +244,12 @@ def marker_identity(payload: MarkerPayload) -> str:
         "owner": payload.owner,
         "expiry": payload.expiry,
         "lifecycle_state": payload.lifecycle_state.value,
-        "links": [
-            {"kind": link.kind.value, "value": link.value}
-            for link in payload.links
-        ],
+        "links": tuple(
+            map(
+                lambda link: {"kind": link.kind.value, "value": link.value},
+                payload.links,
+            )
+        ),
     }
     encoded = json.dumps(identity_payload, separators=(",", ":"), sort_keys=True)
     digest = sha1(encoded.encode("utf-8")).hexdigest()[:12]
@@ -247,22 +277,35 @@ def never_marker_payload(
 
 
 # gabion:decision_protocol
-def _normalize_dependency_values(raw_values: Sequence[object] | str | None) -> tuple[str, ...]:
+def _normalize_dependency_values(raw_values: Sequence[str] | str | None) -> Iterator[str]:
     match raw_values:
         case list() | tuple() | set() | frozenset() as sequence_values:
-            candidates = tuple(str(value) for value in sequence_values)
+            normalized_values = map(str, sequence_values)
         case None:
-            candidates = ("",)
+            normalized_values = ()
         case _:
-            candidates = (str(raw_values),)
-    deduped = {value.strip() for value in candidates if value.strip()}
-    return tuple(sorted(deduped))
+            normalized_values = (str(raw_values),)
+    return iter(
+        sorted(
+            set(
+                filter(
+                    bool,
+                    map(
+                        str.strip,
+                        normalized_values,
+                    ),
+                )
+            ),
+        )
+    )
 
 
 def _normalize_reasoning_mapping(raw_mapping: Mapping[object, object]) -> MarkerReasoning:
     summary = str(raw_mapping.get("summary", "")).strip()
     control = str(raw_mapping.get("control", "")).strip()
-    blocking_dependencies = _normalize_dependency_values(raw_mapping.get("blocking_dependencies", ()))
+    blocking_dependencies = tuple(
+        _normalize_dependency_values(raw_mapping.get("blocking_dependencies", ()))
+    )
     return MarkerReasoning(
         summary=summary,
         control=control,
@@ -282,8 +325,8 @@ def normalize_marker_reasoning(raw_reasoning: ReasoningInput = "") -> MarkerReas
             return MarkerReasoning(
                 summary=reasoning.summary.strip(),
                 control=reasoning.control.strip(),
-                blocking_dependencies=_normalize_dependency_values(
-                    reasoning.blocking_dependencies
+                blocking_dependencies=tuple(
+                    _normalize_dependency_values(reasoning.blocking_dependencies)
                 ),
             )
         case _ if is_dataclass(raw_reasoning):

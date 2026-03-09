@@ -392,7 +392,7 @@
     {
       "test_id": "tests/test_artifact_ordering.py::test_canonical_doc_scope_uses_default_for_empty_cleaned_scope",
       "file": "tests/test_artifact_ordering.py",
-      "line": 21,
+      "line": 23,
       "primary": "verboten",
       "facets": [
         "empty"
@@ -408,14 +408,14 @@
     {
       "test_id": "tests/test_artifact_ordering.py::test_canonical_protocol_specs_and_count_items_are_ordered",
       "file": "tests/test_artifact_ordering.py",
-      "line": 28,
+      "line": 30,
       "primary": "desired",
       "facets": []
     },
     {
       "test_id": "tests/test_artifact_ordering.py::test_canonical_string_values_and_mapping_keys_sort",
       "file": "tests/test_artifact_ordering.py",
-      "line": 42,
+      "line": 44,
       "primary": "desired",
       "facets": []
     },
@@ -1502,14 +1502,14 @@
     {
       "test_id": "tests/test_branchless_policy_check.py::test_branchless_policy_allows_marked_decision_protocol",
       "file": "tests/test_branchless_policy_check.py",
-      "line": 34,
+      "line": 39,
       "primary": "desired",
       "facets": []
     },
     {
       "test_id": "tests/test_branchless_policy_check.py::test_branchless_policy_baseline_write_and_ratchet",
       "file": "tests/test_branchless_policy_check.py",
-      "line": 50,
+      "line": 55,
       "primary": "desired",
       "facets": []
     },
@@ -8639,14 +8639,14 @@
     {
       "test_id": "tests/test_identity_namespace_governance.py::test_apply_namespace_records_to_identity_space_controls_ledger_mode",
       "file": "tests/test_identity_namespace_governance.py",
-      "line": 47,
+      "line": 51,
       "primary": "desired",
       "facets": []
     },
     {
       "test_id": "tests/test_identity_namespace_governance.py::test_iter_registry_namespace_records_filters_and_orders_by_raw_key",
       "file": "tests/test_identity_namespace_governance.py",
-      "line": 29,
+      "line": 31,
       "primary": "desired",
       "facets": []
     },
@@ -11232,35 +11232,42 @@
     {
       "test_id": "tests/test_policy_substrate_runtime.py::test_policy_substrate_builds_lifo_taint_intervals",
       "file": "tests/test_policy_substrate_runtime.py",
-      "line": 30,
+      "line": 36,
       "primary": "desired",
       "facets": []
     },
     {
       "test_id": "tests/test_policy_substrate_runtime.py::test_policy_substrate_builds_union_view_with_deterministic_paths",
       "file": "tests/test_policy_substrate_runtime.py",
-      "line": 15,
+      "line": 21,
       "primary": "desired",
       "facets": []
     },
     {
       "test_id": "tests/test_policy_substrate_runtime.py::test_policy_substrate_condition_overlap_is_subpath_of_interval",
       "file": "tests/test_policy_substrate_runtime.py",
-      "line": 105,
+      "line": 111,
       "primary": "desired",
       "facets": []
     },
     {
       "test_id": "tests/test_policy_substrate_runtime.py::test_policy_substrate_cst_failure_seed_projection",
       "file": "tests/test_policy_substrate_runtime.py",
-      "line": 193,
+      "line": 201,
+      "primary": "desired",
+      "facets": []
+    },
+    {
+      "test_id": "tests/test_policy_substrate_runtime.py::test_policy_substrate_dataflow_bundle_frontier_recombines_required_symbols",
+      "file": "tests/test_policy_substrate_runtime.py",
+      "line": 222,
       "primary": "desired",
       "facets": []
     },
     {
       "test_id": "tests/test_policy_substrate_runtime.py::test_policy_substrate_decorates_site_with_overlap_provenance",
       "file": "tests/test_policy_substrate_runtime.py",
-      "line": 167,
+      "line": 175,
       "primary": "desired",
       "facets": []
     },
@@ -12614,7 +12621,7 @@
     {
       "test_id": "tests/test_resume_codec.py::test_allowed_path_helpers",
       "file": "tests/test_resume_codec.py",
-      "line": 139,
+      "line": 141,
       "primary": "desired",
       "facets": []
     },
@@ -20016,7 +20023,7 @@
     }
   ],
   "summary": {
-    "desired": 1342,
+    "desired": 1343,
     "allowed_unwanted": 152,
     "verboten": 996
   }

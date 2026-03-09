@@ -6953,6 +6953,120 @@
         "targeted_pytest": "pass (20 passed)",
         "policy_scanner_suite": "expected_nonzero total=11564"
       }
+    },
+    {
+      "cu_id": "CU-FS15",
+      "summary": "Join execution-flow and dataflow fibers on canonical site identity and compute upstream recombination frontier over the joined carrier for branchless candidates.",
+      "timestamp_utc": "2026-03-09T21:03:58Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7156,
+        "defensive_fallback": 107,
+        "fiber_loop_structure_contract": 918,
+        "fiber_filter_processor_contract": 1987,
+        "fiber_return_shape_contract": 1169,
+        "fiber_scalar_sentinel_contract": 227,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7157,
+        "defensive_fallback": 107,
+        "fiber_loop_structure_contract": 919,
+        "fiber_filter_processor_contract": 1987,
+        "fiber_return_shape_contract": 1161,
+        "fiber_scalar_sentinel_contract": 227,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 11564,
+      "total_after": 11558,
+      "notes": [
+        "Implemented joined execution+dataflow carrier for branch recombination frontier over canonical site identities.",
+        "Reworked dataflow_fibration helpers to remove local loop/filter debt introduced by joined-carrier pass (remaining local debt: 7 fiber_return_shape_contract findings in dataflow_fibration.py).",
+        "Net global delta: total -6; branchless +1; fiber_loop_structure_contract +1; fiber_filter_processor_contract +0; defensive_fallback +0; fiber_scalar_sentinel_contract +0; fiber_return_shape_contract -8.",
+        "Guard families remained zero (fiber_type_dispatch_contract/runtime_narrowing_boundary/boundary_core_contract)."
+      ],
+      "validation": {
+        "policy_check_workflows": "fail_expected_symbol_activity_audit (unsuppressed=1560)",
+        "policy_check_ambiguity_contract": "pass",
+        "targeted_pytest": "pass (31 passed)",
+        "policy_scanner_suite": "expected_nonzero total=11558"
+      }
+    },
+    {
+      "cu_id": "CU-GEO15",
+      "summary": "Zeroed marker_protocol and identity_space hotspot pair via iterator-first strictification, importer force-majeure updates, and ambiguity-safe typing collapse.",
+      "timestamp_utc": "2026-03-09T23:03:38Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 6906,
+        "defensive_fallback": 106,
+        "fiber_loop_structure_contract": 896,
+        "fiber_filter_processor_contract": 1972,
+        "fiber_return_shape_contract": 1133,
+        "fiber_scalar_sentinel_contract": 227,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 6906,
+        "defensive_fallback": 106,
+        "fiber_loop_structure_contract": 891,
+        "fiber_filter_processor_contract": 1969,
+        "fiber_return_shape_contract": 1128,
+        "fiber_scalar_sentinel_contract": 227,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 11240,
+      "total_after": 11227,
+      "notes": [
+        "analysis/foundation seed ring reduced by 13 findings (92 -> 79).",
+        "marker_protocol.py and identity_space.py now have zero active-family findings.",
+        "Global deltas: fiber_filter_processor_contract -3, fiber_loop_structure_contract -5, fiber_return_shape_contract -5.",
+        "Guard families remained zero (fiber_type_dispatch_contract/runtime_narrowing_boundary/boundary_core_contract/typing_surface)."
+      ],
+      "validation": {
+        "policy_check_workflows": "fail_expected_symbol_activity_audit (unsuppressed=1576)",
+        "policy_check_ambiguity_contract": "pass",
+        "targeted_pytest": "pass (33 passed)",
+        "policy_scanner_suite": "expected_nonzero total=11227"
+      }
     }
   ],
   "generated_by": "codex",

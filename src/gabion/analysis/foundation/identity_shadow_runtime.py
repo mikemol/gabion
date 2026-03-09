@@ -265,7 +265,7 @@ class IdentityShadowRuntime:
 
     def _allocation_delta_since_last_emit(self) -> list[JSONObject]:
         check_deadline()
-        records = self.run_context.identity_space.allocation_records()
+        records = tuple(self.run_context.identity_space.allocation_records())
         cursor = min(max(int(self._allocation_cursor), 0), len(records))
         self._allocation_cursor = len(records)
         delta_records = records[cursor:]

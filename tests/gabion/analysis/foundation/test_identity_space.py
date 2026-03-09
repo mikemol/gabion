@@ -21,7 +21,7 @@ def test_identity_space_interns_same_token_within_namespace() -> None:
     first = space.intern_atom(namespace=IdentityNamespace.SYMBOL, token="MyNode")
     second = space.intern_atom(namespace=IdentityNamespace.SYMBOL, token="MyNode")
     assert first == second
-    assert len(space.allocation_records()) == 1
+    assert len(tuple(space.allocation_records())) == 1
 
 
 # gabion:behavior primary=desired
@@ -30,7 +30,7 @@ def test_identity_space_distinguishes_same_token_across_namespaces() -> None:
     symbol_atom = space.intern_atom(namespace=IdentityNamespace.SYMBOL, token="MyNode")
     feature_atom = space.intern_atom(namespace=IdentityNamespace.FEATURE, token="MyNode")
     assert symbol_atom != feature_atom
-    assert len(space.allocation_records()) == 2
+    assert len(tuple(space.allocation_records())) == 2
 
 
 # gabion:behavior primary=desired
@@ -88,7 +88,7 @@ def test_identity_space_allocation_ledger_is_deterministic_and_replayable() -> N
         namespace=IdentityNamespace.FEATURE,
         tokens=("call", "weight:5"),
     )
-    first_records = first.allocation_records_payload()
+    first_records = list(first.allocation_records_payload())
     seed_payload = first.seed_payload()
 
     second = _build_space()
@@ -101,7 +101,7 @@ def test_identity_space_allocation_ledger_is_deterministic_and_replayable() -> N
         namespace=IdentityNamespace.FEATURE,
         tokens=("call", "weight:5"),
     )
-    second_records = second.allocation_records_payload()
+    second_records = list(second.allocation_records_payload())
 
     assert first_records == second_records
     for record in second.allocation_records():
@@ -124,7 +124,7 @@ def test_identity_space_register_atom_is_idempotent() -> None:
         atom_id=2,
     )
     assert first == second == 2
-    assert len(space.allocation_records()) == 1
+    assert len(tuple(space.allocation_records())) == 1
 
 
 # gabion:behavior primary=desired
@@ -137,7 +137,7 @@ def test_identity_space_register_atom_hydration_does_not_append_allocation_ledge
         record_allocation=False,
     )
     assert atom_id == 3
-    assert space.allocation_records() == ()
+    assert tuple(space.allocation_records()) == ()
     lookup = space.token_for_atom(namespace=IdentityNamespace.SYMBOL, atom_id=3)
     assert lookup.is_present is True
     assert lookup.token == "Hydrated"

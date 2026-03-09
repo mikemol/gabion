@@ -4,7 +4,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import StrEnum
 import hashlib
-from typing import Protocol
+import math
+from typing import Iterable, Iterator, Protocol, TypedDict
 
 from gabion.analysis.core.identity_namespace import (
     EVIDENCE_KIND_NAMESPACE,
@@ -71,6 +72,13 @@ class IdentityAllocator(Protocol):
     def seed_payload(self) -> dict[str, object]: ...
 
     def load_seed_payload(self, payload: object) -> None: ...
+
+
+class IdentityAllocationRecordPayload(TypedDict):
+    seq: int
+    namespace: str
+    token: str
+    atom_id: int
 
 
 @dataclass
@@ -145,21 +153,23 @@ class GlobalIdentitySpace:
             self._next_seq += 1
         return atom_value
 
-    def intern_path(self, *, namespace: str, tokens: object) -> IdentityPath:
+    def intern_path(self, *, namespace: str, tokens: Iterable[str]) -> IdentityPath:
         check_deadline()
         namespace_text = self._normalize_namespace(namespace)
         atoms = tuple(
-            self.intern_atom(namespace=namespace_text, token=str(token))
-            for token in tokens if str(token)
+            map(
+                lambda token_text: self.intern_atom(
+                    namespace=namespace_text,
+                    token=token_text,
+                ),
+                _iter_non_empty_token_texts(tokens),
+            )
         )
         return IdentityPath(namespace=namespace_text, atoms=atoms)
 
     def project(self, *, path: IdentityPath) -> IdentityProjection:
         check_deadline()
-        prime_product = 1
-        for atom in path.atoms:
-            check_deadline()
-            prime_product *= int(atom)
+        prime_product = math.prod(map(int, path.atoms), start=1)
         digest_payload = stable_encode.stable_compact_text(
             {
                 "identity_layer": "ordered_basis_path",
@@ -233,21 +243,21 @@ class GlobalIdentitySpace:
         check_deadline()
         self.allocator.load_seed_payload(payload)
 
-    def allocation_records(self) -> tuple[IdentityAllocationRecord, ...]:
+    def allocation_records(self) -> Iterator[IdentityAllocationRecord]:
         check_deadline()
-        return tuple(self._allocation_records)
+        return iter(self._allocation_records)
 
-    def allocation_records_payload(self) -> list[dict[str, object]]:
+    def allocation_records_payload(self) -> Iterator[IdentityAllocationRecordPayload]:
         check_deadline()
-        return [
-            {
+        return map(
+            lambda record: {
                 "seq": record.seq,
                 "namespace": record.namespace,
                 "token": record.token,
                 "atom_id": record.atom_id,
-            }
-            for record in self._allocation_records
-        ]
+            },
+            self._allocation_records,
+        )
 
     @staticmethod
     def _normalize_namespace(namespace: str) -> str:
@@ -258,3 +268,7 @@ class GlobalIdentitySpace:
         # Ensure all interners agree on namespace -> raw-key semantics.
         raw_key(namespace_text, "")
         return namespace_text
+
+
+def _iter_non_empty_token_texts(tokens: Iterable[str]) -> Iterator[str]:
+    return filter(bool, map(str, tokens))
