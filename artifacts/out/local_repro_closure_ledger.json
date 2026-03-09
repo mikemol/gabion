@@ -6113,6 +6113,60 @@
         "targeted_pytest": "pass (26 passed)",
         "policy_scanner_suite": "expected_nonzero total=10803"
       }
+    },
+    {
+      "cu_id": "CU-FS13",
+      "summary": "Boundary-core traversal strictification follow-up: remove passthrough loop guards and replace with filter/map pipeline to lower branch/filter debt without semantic drift.",
+      "timestamp_utc": "2026-03-09T02:54:06Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7286,
+        "defensive_fallback": 129,
+        "fiber_loop_structure_contract": 979,
+        "fiber_filter_processor_contract": 2168,
+        "fiber_scalar_sentinel_contract": 241,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7285,
+        "defensive_fallback": 129,
+        "fiber_loop_structure_contract": 979,
+        "fiber_filter_processor_contract": 2164,
+        "fiber_scalar_sentinel_contract": 241,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 10803,
+      "total_after": 10798,
+      "notes": [
+        "Replaced helper passthrough loops in boundary_core_contract_rule with filter/map composition (_is_boundary_module, _is_missing_core_resolution, _is_existing_core_resolution).",
+        "Preserved boundary_core_contract behavior at 0 while reducing local branchless and filter/processor policy debt.",
+        "No runtime_narrowing_boundary or fiber_type_dispatch regressions introduced."
+      ],
+      "validation": {
+        "policy_check_workflows": "fail_expected_symbol_activity_audit (unsuppressed=1443)",
+        "policy_check_ambiguity_contract": "pass",
+        "targeted_pytest": "pass (26 passed)",
+        "policy_scanner_suite": "expected_nonzero total=10798"
+      }
     }
   ],
   "generated_by": "codex",

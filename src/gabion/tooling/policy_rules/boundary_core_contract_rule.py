@@ -4,6 +4,7 @@ from __future__ import annotations
 import ast
 import hashlib
 from dataclasses import dataclass
+from operator import itemgetter
 from pathlib import Path
 from typing import Iterable, Iterator, Sequence
 
@@ -72,7 +73,6 @@ def collect_violations(
 ) -> list[Violation]:
     context = run_context if run_context is not None else new_run_context(rule_name=RULE_NAME)
     union_view = build_aspf_union_view(batch=batch)
-    root = batch.root
     violations = list(
         _iter_failure_violations(
             batch=batch,
@@ -80,65 +80,110 @@ def collect_violations(
             run_context=context,
         )
     )
-    for module in union_view.modules:
-        if not _module_has_boundary_marker(module.source.splitlines()):
-            continue
-        core_imports = _collect_core_imports(tree=module.pyast_tree, rel_path=module.rel_path)
-        if not core_imports:
-            violations.append(
-                _violation(
-                    rel_path=module.rel_path,
-                    line=1,
-                    column=1,
-                    qualname="<module>",
-                    kind="missing_paired_core_module",
-                    message="boundary normalization module must import at least one paired *_core module",
-                    run_context=context,
-                )
+    for module in filter(_is_boundary_module, union_view.modules):
+        violations.extend(
+            _iter_boundary_module_contract_violations(
+                root=batch.root,
+                module=module,
+                run_context=context,
             )
-            continue
-        if not _has_explicit_single_hop_core_call(tree=module.pyast_tree, core_imports=core_imports):
-            violations.append(
-                _violation(
-                    rel_path=module.rel_path,
-                    line=1,
-                    column=1,
-                    qualname="<module>",
-                    kind="missing_single_hop_core_call",
-                    message=(
-                        "boundary module must call paired core via "
-                        "explicit single-hop boundary->core call"
-                    ),
-                    run_context=context,
-                )
-            )
-        for module_dotted, core_path in _iter_resolved_core_paths(root=root, core_imports=core_imports):
-            if core_path is None:
-                violations.append(
-                    _violation(
-                        rel_path=module.rel_path,
-                        line=1,
-                        column=1,
-                        qualname="<module>",
-                        kind="missing_core_module_file",
-                        message=(
-                            "paired core module "
-                            f"'{module_dotted}' must resolve "
-                            "to an on-disk module"
-                        ),
-                        run_context=context,
-                    )
-                )
-                continue
-            violations.extend(
-                _iter_core_module_contract_violations(
-                    root=root,
-                    boundary_rel_path=module.rel_path,
-                    core_path=core_path,
-                    run_context=context,
-                )
-            )
+        )
     return _dedupe_exact_violations(violations)
+
+
+def _is_boundary_module(module: object) -> bool:
+    return _module_has_boundary_marker(module.source.splitlines())
+
+
+def _iter_boundary_module_contract_violations(
+    *,
+    root: Path,
+    module,
+    run_context: CanonicalRunContext,
+) -> Iterable[Violation]:
+    core_imports = _collect_core_imports(tree=module.pyast_tree, rel_path=module.rel_path)
+    if not core_imports:
+        yield _violation(
+            rel_path=module.rel_path,
+            line=1,
+            column=1,
+            qualname="<module>",
+            kind="missing_paired_core_module",
+            message="boundary normalization module must import at least one paired *_core module",
+            run_context=run_context,
+        )
+        return
+    if not _has_explicit_single_hop_core_call(tree=module.pyast_tree, core_imports=core_imports):
+        yield _violation(
+            rel_path=module.rel_path,
+            line=1,
+            column=1,
+            qualname="<module>",
+            kind="missing_single_hop_core_call",
+            message=(
+                "boundary module must call paired core via "
+                "explicit single-hop boundary->core call"
+            ),
+            run_context=run_context,
+        )
+    resolved_paths = tuple(_iter_resolved_core_paths(root=root, core_imports=core_imports))
+    yield from _iter_missing_core_module_file_violations(
+        rel_path=module.rel_path,
+        resolved_paths=resolved_paths,
+        run_context=run_context,
+    )
+    yield from _iter_existing_core_module_violations(
+        root=root,
+        boundary_rel_path=module.rel_path,
+        resolved_paths=resolved_paths,
+        run_context=run_context,
+    )
+
+
+def _iter_missing_core_module_file_violations(
+    *,
+    rel_path: str,
+    resolved_paths: Sequence[tuple[str, Path | None]],
+    run_context: CanonicalRunContext,
+) -> Iterable[Violation]:
+    for module_dotted in map(itemgetter(0), filter(_is_missing_core_resolution, resolved_paths)):
+        yield _violation(
+            rel_path=rel_path,
+            line=1,
+            column=1,
+            qualname="<module>",
+            kind="missing_core_module_file",
+            message=(
+                "paired core module "
+                f"'{module_dotted}' must resolve "
+                "to an on-disk module"
+            ),
+            run_context=run_context,
+        )
+
+
+def _is_missing_core_resolution(resolution: tuple[str, Path | None]) -> bool:
+    return resolution[1] is None
+
+
+def _iter_existing_core_module_violations(
+    *,
+    root: Path,
+    boundary_rel_path: str,
+    resolved_paths: Sequence[tuple[str, Path | None]],
+    run_context: CanonicalRunContext,
+) -> Iterable[Violation]:
+    for core_path in map(itemgetter(1), filter(_is_existing_core_resolution, resolved_paths)):
+        yield from _iter_core_module_contract_violations(
+            root=root,
+            boundary_rel_path=boundary_rel_path,
+            core_path=core_path,
+            run_context=run_context,
+        )
+
+
+def _is_existing_core_resolution(resolution: tuple[str, Path | None]) -> bool:
+    return resolution[1] is not None
 
 
 def _iter_failure_violations(
