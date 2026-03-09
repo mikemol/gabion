@@ -130,6 +130,66 @@
         "targeted_pytest": "pass (40 passed)",
         "policy_scanner_suite": "expected_nonzero total=10872"
       }
+    },
+    {
+      "cu_id": "CU-FS7",
+      "timestamp_utc": "2026-03-09T01:51:36Z",
+      "migrated_families": [
+        "boundary_core_contract"
+      ],
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7285,
+        "defensive_fallback": 142,
+        "fiber_loop_structure_contract": 981,
+        "fiber_filter_processor_contract": 2198,
+        "fiber_scalar_sentinel_contract": 265,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 1,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7286,
+        "defensive_fallback": 142,
+        "fiber_loop_structure_contract": 981,
+        "fiber_filter_processor_contract": 2194,
+        "fiber_scalar_sentinel_contract": 265,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 1,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 10872,
+      "total_after": 10869,
+      "drift_notes": [
+        "boundary_core file-level fiber_filter_processor_contract decreased (30 -> 26).",
+        "boundary_core file-level branchless increased slightly (60 -> 61) due structural loop-else flow while preserving semantics.",
+        "Global net improved by 3 total violations."
+      ],
+      "libcst_recovery": {
+        "cst_parse_failure_events": 0,
+        "recovered_modules": "all parseable targets processed"
+      },
+      "validation": {
+        "policy_check_workflows": "fail_expected_symbol_activity_audit",
+        "policy_check_ambiguity_contract": "pass",
+        "targeted_pytest": "pass (26 passed)",
+        "policy_scanner_suite": "expected_nonzero total=10869"
+      }
     }
   ]
 }

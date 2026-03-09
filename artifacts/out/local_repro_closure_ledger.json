@@ -5787,6 +5787,60 @@
         "targeted_pytest": "pass (40 passed)",
         "policy_scanner_suite": "expected_nonzero total=10872"
       }
+    },
+    {
+      "cu_id": "CU-FS7",
+      "summary": "Boundary-core substrate strictification: remove optional sentinel helpers and global run-context; stream core path/read/parse resolution via iterator-first helpers.",
+      "timestamp_utc": "2026-03-09T01:51:36Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7285,
+        "defensive_fallback": 142,
+        "fiber_loop_structure_contract": 981,
+        "fiber_filter_processor_contract": 2198,
+        "fiber_scalar_sentinel_contract": 265,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 1,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7286,
+        "defensive_fallback": 142,
+        "fiber_loop_structure_contract": 981,
+        "fiber_filter_processor_contract": 2194,
+        "fiber_scalar_sentinel_contract": 265,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 1,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 10872,
+      "total_after": 10869,
+      "notes": [
+        "Refactored boundary_core_contract_rule collect path to explicit run-context threading (removed _ACTIVE_RUN_CONTEXT optional global).",
+        "Replaced optional-return helpers with iterator-first helpers: _iter_module_path_from_dotted, _iter_read_source, _iter_parsed_tree, _iter_resolved_import_from_module.",
+        "Preserved rule behavior and test expectations while reducing fiber-filter debt in boundary_core_contract_rule."
+      ],
+      "validation": {
+        "policy_check_workflows": "fail_expected_symbol_activity_audit",
+        "policy_check_ambiguity_contract": "pass",
+        "targeted_pytest": "pass (26 passed)",
+        "policy_scanner_suite": "expected_nonzero total=10869"
+      }
     }
   ],
   "generated_by": "codex",

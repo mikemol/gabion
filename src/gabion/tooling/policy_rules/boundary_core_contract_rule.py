@@ -5,8 +5,26 @@ import ast
 import hashlib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence
+from typing import Iterable, Sequence
 
+from gabion.analysis.foundation.event_algebra import CanonicalRunContext
+from gabion.tooling.policy_substrate import (
+    build_aspf_union_view,
+    cst_failure_seeds,
+    decorate_site,
+    new_run_context,
+)
+from gabion.tooling.policy_rules.fiber_diagnostics import (
+    FiberApplicabilityBounds,
+    FiberCounterfactualBoundary,
+    FiberTraceEvent,
+)
+from gabion.tooling.runtime.policy_scan_batch import (
+    PolicyScanBatch,
+    iter_failure_seeds,
+)
+
+RULE_NAME = "boundary_core_contract"
 TARGET_GLOB = "src/gabion/**/*.py"
 BOUNDARY_MARKER = "gabion:boundary_normalization_module"
 
@@ -19,6 +37,14 @@ class Violation:
     qualname: str
     kind: str
     message: str
+    input_slot: str
+    flow_identity: str
+    fiber_trace: tuple[FiberTraceEvent, ...]
+    applicability_bounds: FiberApplicabilityBounds
+    counterfactual_boundary: FiberCounterfactualBoundary
+    fiber_id: str
+    taint_interval_id: str
+    condition_overlap_id: str
     structured_hash: str
 
     @property
@@ -39,153 +65,181 @@ class _CoreImport:
     alias_names: tuple[str, ...]
 
 
-def collect_violations(*, root: Path, files: Sequence[Path] | None = None) -> list[Violation]:
-    candidates = files if files is not None else tuple(sorted(root.glob(TARGET_GLOB)))
+def collect_violations(
+    *,
+    batch: PolicyScanBatch,
+    run_context: CanonicalRunContext | None = None,
+) -> list[Violation]:
+    context = run_context if run_context is not None else new_run_context(rule_name=RULE_NAME)
+    union_view = build_aspf_union_view(batch=batch)
+    root = batch.root
     violations: list[Violation] = []
-    for path in candidates:
-        path_is_scannable = path.is_file() and not any(
-            part == "__pycache__" for part in path.parts
+    for seed in (*iter_failure_seeds(batch=batch), *cst_failure_seeds(union_view=union_view)):
+        message = (
+            "unable to read boundary module for boundary/core contract checks"
+            if seed.kind == "read_error"
+            else "unable to parse boundary module for boundary/core contract checks"
         )
-        if path_is_scannable:
-            rel_path = path.relative_to(root).as_posix()
-            source = _read_source(path)
-            if source is not None:
-                source_lines = source.splitlines()
-                if _module_has_boundary_marker(source_lines):
-                    tree = _parse_tree(source)
-                    if tree is None:
+        violations.append(
+            _violation(
+                rel_path=seed.path,
+                line=seed.line,
+                column=seed.column,
+                qualname="<module>",
+                kind=seed.kind,
+                message=message,
+                run_context=context,
+            )
+        )
+    for module in union_view.modules:
+        source_lines = module.source.splitlines()
+        if _module_has_boundary_marker(source_lines):
+            core_imports = _collect_core_imports(
+                tree=module.pyast_tree, rel_path=module.rel_path
+            )
+            if not core_imports:
+                violations.append(
+                    _violation(
+                        rel_path=module.rel_path,
+                        line=1,
+                        column=1,
+                        qualname="<module>",
+                            kind="missing_paired_core_module",
+                            message="boundary normalization module must import at least one paired *_core module",
+                            run_context=context,
+                        )
+                    )
+            else:
+                if not _has_explicit_single_hop_core_call(
+                    tree=module.pyast_tree,
+                    core_imports=core_imports,
+                ):
+                    violations.append(
+                        _violation(
+                            rel_path=module.rel_path,
+                            line=1,
+                            column=1,
+                            qualname="<module>",
+                                kind="missing_single_hop_core_call",
+                                message=(
+                                    "boundary module must call paired core via "
+                                    "explicit single-hop boundary->core call"
+                                ),
+                                run_context=context,
+                            )
+                        )
+
+                for core_import in core_imports:
+                    for core_path in _iter_module_path_from_dotted(
+                        root=root,
+                        dotted=core_import.module_dotted,
+                    ):
+                        break
+                    else:
                         violations.append(
                             _violation(
-                                rel_path=rel_path,
+                                rel_path=module.rel_path,
                                 line=1,
                                 column=1,
                                 qualname="<module>",
-                                kind="syntax_error",
-                                message="unable to parse boundary module for boundary/core contract checks",
+                                kind="missing_core_module_file",
+                                message=(
+                                    "paired core module "
+                                    f"'{core_import.module_dotted}' must resolve "
+                                    "to an on-disk module"
+                                ),
+                                run_context=context,
                             )
                         )
-                    else:
-                        core_imports = _collect_core_imports(tree=tree, rel_path=rel_path)
-                        if not core_imports:
-                            violations.append(
-                                _violation(
-                                    rel_path=rel_path,
-                                    line=1,
-                                    column=1,
-                                    qualname="<module>",
-                                    kind="missing_paired_core_module",
-                                    message="boundary normalization module must import at least one paired *_core module",
-                                )
-                            )
-                        else:
-                            if not _has_explicit_single_hop_core_call(
-                                tree=tree,
-                                core_imports=core_imports,
-                            ):
+                        continue
+
+                    for core_source in _iter_read_source(core_path):
+                        core_rel = core_path.relative_to(root).as_posix()
+                        core_lines = core_source.splitlines()
+                        for core_tree in _iter_parsed_tree(core_source):
+                            if _module_has_boundary_marker(core_lines):
                                 violations.append(
                                     _violation(
-                                        rel_path=rel_path,
+                                        rel_path=core_rel,
                                         line=1,
                                         column=1,
                                         qualname="<module>",
-                                        kind="missing_single_hop_core_call",
+                                        kind="core_marked_as_boundary",
                                         message=(
-                                            "boundary module must call paired core via "
-                                            "explicit single-hop boundary->core call"
+                                            "paired core module must not be marked as "
+                                            "boundary_normalization_module"
                                         ),
+                                        run_context=context,
                                     )
                                 )
 
-                            for core_import in core_imports:
-                                core_path = _module_path_from_dotted(
-                                    root=root,
-                                    dotted=core_import.module_dotted,
+                            violations.extend(
+                                _core_annotation_violations(
+                                    rel_path=core_rel,
+                                    tree=core_tree,
+                                    run_context=context,
                                 )
-                                if core_path is None or not core_path.exists():
-                                    violations.append(
-                                        _violation(
-                                            rel_path=rel_path,
-                                            line=1,
-                                            column=1,
-                                            qualname="<module>",
-                                            kind="missing_core_module_file",
-                                            message=(
-                                                "paired core module "
-                                                f"'{core_import.module_dotted}' must resolve "
-                                                "to an on-disk module"
-                                            ),
-                                        )
-                                    )
-                                else:
-                                    core_source = _read_source(core_path)
-                                    if core_source is not None:
-                                        core_rel = core_path.relative_to(root).as_posix()
-                                        core_lines = core_source.splitlines()
-                                        core_tree = _parse_tree(core_source)
-                                        if core_tree is None:
-                                            violations.append(
-                                                _violation(
-                                                    rel_path=core_rel,
-                                                    line=1,
-                                                    column=1,
-                                                    qualname="<module>",
-                                                    kind="core_syntax_error",
-                                                    message=(
-                                                        "paired core module must parse cleanly "
-                                                        "for contract checks"
-                                                    ),
-                                                )
-                                            )
-                                        else:
-                                            if _module_has_boundary_marker(core_lines):
-                                                violations.append(
-                                                    _violation(
-                                                        rel_path=core_rel,
-                                                        line=1,
-                                                        column=1,
-                                                        qualname="<module>",
-                                                        kind="core_marked_as_boundary",
-                                                        message=(
-                                                            "paired core module must not be marked as "
-                                                            "boundary_normalization_module"
-                                                        ),
-                                                    )
-                                                )
+                            )
+                            violations.extend(
+                                _core_narrowing_violations(
+                                    rel_path=core_rel,
+                                    tree=core_tree,
+                                    run_context=context,
+                                )
+                            )
+                            violations.extend(
+                                _core_branch_violations(
+                                    rel_path=core_rel,
+                                    tree=core_tree,
+                                    run_context=context,
+                                )
+                            )
+                            break
+                        else:
+                            violations.append(
+                                _violation(
+                                    rel_path=core_rel,
+                                    line=1,
+                                    column=1,
+                                    qualname="<module>",
+                                    kind="core_syntax_error",
+                                    message=(
+                                        "paired core module must parse cleanly "
+                                        "for contract checks"
+                                    ),
+                                    run_context=context,
+                                )
+                            )
+                        break
+                    else:
+                        violations.append(
+                            _violation(
+                                rel_path=module.rel_path,
+                                line=1,
+                                column=1,
+                                qualname="<module>",
+                                kind="core_read_error",
+                                message="unable to read paired core module for contract checks",
+                                run_context=context,
+                            )
+                        )
 
-                                            violations.extend(
-                                                _core_annotation_violations(
-                                                    rel_path=core_rel,
-                                                    tree=core_tree,
-                                                )
-                                            )
-                                            violations.extend(
-                                                _core_narrowing_violations(
-                                                    rel_path=core_rel,
-                                                    tree=core_tree,
-                                                )
-                                            )
-                                            violations.extend(
-                                                _core_branch_violations(
-                                                    rel_path=core_rel,
-                                                    tree=core_tree,
-                                                )
-                                            )
-
-    return _dedupe_exact_violations(violations)
+    deduped = _dedupe_exact_violations(violations)
+    return deduped
 
 
-def _read_source(path: Path) -> str | None:
+def _iter_read_source(path: Path) -> Iterable[str]:
     try:
-        return path.read_text(encoding="utf-8")
+        yield path.read_text(encoding="utf-8")
     except OSError:
-        return None
+        return
 
 
-def _parse_tree(source: str) -> ast.AST | None:
+def _iter_parsed_tree(source: str) -> Iterable[ast.AST]:
     try:
-        return ast.parse(source)
+        yield ast.parse(source)
     except SyntaxError:
-        return None
+        return
 
 
 def _module_has_boundary_marker(source_lines: list[str]) -> bool:
@@ -213,12 +267,11 @@ def _collect_core_imports(*, tree: ast.AST, rel_path: str) -> tuple[_CoreImport,
                         )
             case ast.ImportFrom(module=module, level=level, names=import_names):
                 module_name = (module or "").strip()
-                resolved_module = _resolve_import_from_module(
+                for resolved_module in _iter_resolved_import_from_module(
                     module=module_name,
                     level=int(level or 0),
                     package_parts=package_parts,
-                )
-                if resolved_module is not None:
+                ):
                     if resolved_module.endswith("_core"):
                         alias_names = tuple(
                             (alias.asname or alias.name).strip()
@@ -266,42 +319,47 @@ def _package_parts_from_rel_path(rel_path: str) -> tuple[str, ...]:
     return tuple(parts[:-1])
 
 
-def _resolve_import_from_module(
+def _iter_resolved_import_from_module(
     *,
     module: str,
     level: int,
     package_parts: tuple[str, ...],
-) -> str | None:
+) -> Iterable[str]:
     if level <= 0:
-        return module or None
+        if module:
+            yield module
+        return
     if not package_parts:
-        return None
+        return
     if level == 1:
         base = package_parts
     else:
         trim = level - 1
         if trim > len(package_parts):
-            return None
+            return
         base = package_parts[: len(package_parts) - trim]
     base_text = ".".join(base)
     if module:
         if base_text:
-            return f"{base_text}.{module}"
-        return module
-    return base_text or None
+            yield f"{base_text}.{module}"
+            return
+        yield module
+        return
+    if base_text:
+        yield base_text
 
 
-def _module_path_from_dotted(*, root: Path, dotted: str) -> Path | None:
+def _iter_module_path_from_dotted(*, root: Path, dotted: str) -> Iterable[Path]:
     if not dotted.startswith("gabion."):
-        return None
+        return
     rel = Path("src") / Path(*dotted.split("."))
     module_path = root / rel.with_suffix(".py")
     if module_path.exists():
-        return module_path
+        yield module_path
+        return
     package_path = root / rel
     if package_path.is_dir():
-        return package_path
-    return module_path
+        yield package_path
 
 
 def _has_explicit_single_hop_core_call(*, tree: ast.AST, core_imports: Sequence[_CoreImport]) -> bool:
@@ -319,7 +377,12 @@ def _has_explicit_single_hop_core_call(*, tree: ast.AST, core_imports: Sequence[
     return False
 
 
-def _core_annotation_violations(*, rel_path: str, tree: ast.AST) -> list[Violation]:
+def _core_annotation_violations(
+    *,
+    rel_path: str,
+    tree: ast.AST,
+    run_context: CanonicalRunContext,
+) -> list[Violation]:
     violations: list[Violation] = []
     for node in ast.walk(tree):
         match node:
@@ -379,6 +442,7 @@ def _core_annotation_violations(*, rel_path: str, tree: ast.AST) -> list[Violati
                                     "core signature must not expose raw ingress types "
                                     "(Any/object/dict[str, object])"
                                 ),
+                                run_context=run_context,
                             )
                         )
             case _:
@@ -386,7 +450,12 @@ def _core_annotation_violations(*, rel_path: str, tree: ast.AST) -> list[Violati
     return violations
 
 
-def _core_narrowing_violations(*, rel_path: str, tree: ast.AST) -> list[Violation]:
+def _core_narrowing_violations(
+    *,
+    rel_path: str,
+    tree: ast.AST,
+    run_context: CanonicalRunContext,
+) -> list[Violation]:
     violations: list[Violation] = []
     for node in ast.walk(tree):
         match node:
@@ -401,6 +470,7 @@ def _core_narrowing_violations(*, rel_path: str, tree: ast.AST) -> list[Violatio
                         qualname="<module>",
                         kind="ingress_narrowing_in_core",
                         message="core module must not perform runtime ingress narrowing",
+                        run_context=run_context,
                     )
                 )
             case _:
@@ -408,7 +478,12 @@ def _core_narrowing_violations(*, rel_path: str, tree: ast.AST) -> list[Violatio
     return violations
 
 
-def _core_branch_violations(*, rel_path: str, tree: ast.AST) -> list[Violation]:
+def _core_branch_violations(
+    *,
+    rel_path: str,
+    tree: ast.AST,
+    run_context: CanonicalRunContext,
+) -> list[Violation]:
     violations: list[Violation] = []
     for node in ast.walk(tree):
         match node:
@@ -430,6 +505,7 @@ def _core_branch_violations(*, rel_path: str, tree: ast.AST) -> list[Violation]:
                         qualname="<module>",
                         kind="branch_in_core_module",
                         message="paired core module must remain branchless",
+                        run_context=run_context,
                     )
                 )
             case _:
@@ -445,7 +521,27 @@ def _violation(
     qualname: str,
     kind: str,
     message: str,
+    run_context: CanonicalRunContext,
 ) -> Violation:
+    input_slot = f"boundary_core:{kind}"
+    decoration = decorate_site(
+        run_context=run_context,
+        rule_name=RULE_NAME,
+        rel_path=rel_path,
+        qualname=qualname,
+        line=line,
+        column=column,
+        node_kind=f"boundary_core:{kind}",
+        input_slot=input_slot,
+        taint_class="boundary_core_contract",
+        intro_kind=f"syntax:boundary_core_taint:{kind}",
+        condition_kind=f"syntax:boundary_core_condition:{kind}",
+        erase_kind=f"syntax:boundary_core_erase:{kind}",
+        rationale=(
+            "Move boundary/core contract checks to explicit substrate boundaries so "
+            "core modules stay normalized and branch-minimal."
+        ),
+    )
     structured_hash = _structured_hash(rel_path, qualname, kind, str(column), message)
     return Violation(
         path=rel_path,
@@ -454,6 +550,14 @@ def _violation(
         qualname=qualname,
         kind=kind,
         message=message,
+        input_slot=input_slot,
+        flow_identity=decoration.flow_identity,
+        fiber_trace=decoration.fiber_trace,
+        applicability_bounds=decoration.applicability_bounds,
+        counterfactual_boundary=decoration.counterfactual_boundary,
+        fiber_id=decoration.fiber_id,
+        taint_interval_id=decoration.taint_interval_id,
+        condition_overlap_id=decoration.condition_overlap_id,
         structured_hash=structured_hash,
     )
 
