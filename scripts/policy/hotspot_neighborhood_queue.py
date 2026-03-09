@@ -215,7 +215,10 @@ def _equal_family_score(
         total = int(totals_by_family.get(family, 0))
         if total <= 0:
             continue
-        score += int(counts_by_family.get(family, 0)) / total
+        factor = int(counts_by_family.get(family, 0)) / total
+        if factor <= 0.0:
+            continue
+        score += math.log1p(factor)
     return score
 
 
@@ -266,9 +269,20 @@ def analyze(
             totals_by_family=family_totals,
             families=families,
         )
-        balanced_score = ring1_equal_family_score + (
+        ring1_balanced_component = (
+            math.log1p(ring1_equal_family_score)
+            if ring1_equal_family_score > 0.0
+            else 0.0
+        )
+        ring2_balanced_component_input = (
             local_config.ring2_weight * ring2_equal_family_score
         )
+        ring2_balanced_component = (
+            math.log1p(ring2_balanced_component_input)
+            if ring2_balanced_component_input > 0.0
+            else 0.0
+        )
+        balanced_score = ring1_balanced_component + ring2_balanced_component
         seed_counts = counts_by_file.get(seed_path, Counter())
         neighborhood_candidates.append(
             {
@@ -288,6 +302,8 @@ def analyze(
                     "ring_2_advisory_total": ring2_total,
                     "ring_1_equal_family_score": round(ring1_equal_family_score, 6),
                     "ring_2_equal_family_score": round(ring2_equal_family_score, 6),
+                    "ring_1_balanced_component": round(ring1_balanced_component, 6),
+                    "ring_2_balanced_component": round(ring2_balanced_component, 6),
                     "ring_2_weight": local_config.ring2_weight,
                 },
             }
@@ -366,7 +382,7 @@ def analyze(
             "ring_2_weight": local_config.ring2_weight,
             "ring_1_backlog_file_threshold": local_config.ring1_backlog_file_threshold,
             "ring_1_definition": "full same-directory neighborhood",
-            "scoring": "balanced_5_family",
+            "scoring": "balanced_5_family_logsum",
         },
         "counts": {
             "policy_suite_counts": {

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 from scripts.policy import hotspot_neighborhood_queue
@@ -102,8 +103,31 @@ def test_analyze_builds_deterministic_ranked_neighborhoods() -> None:
     assert first["seed_path"] == "src/gabion/server_core/a.py"
     assert first["ring_1"]["file_count"] == 2
     assert first["ring_1"]["total"] == 25
+    assert queue["config"]["scoring"] == "balanced_5_family_logsum"
     assert float(first["score"]["ring_1_equal_family_score"]) > 0.0
     assert float(first["score"]["ring_2_equal_family_score"]) > 0.0
+    assert math.isclose(
+        float(first["score"]["ring_1_balanced_component"]),
+        math.log1p(float(first["score"]["ring_1_equal_family_score"])),
+        rel_tol=0.0,
+        abs_tol=1e-6,
+    )
+    assert math.isclose(
+        float(first["score"]["ring_2_balanced_component"]),
+        math.log1p(
+            float(first["score"]["ring_2_weight"])
+            * float(first["score"]["ring_2_equal_family_score"])
+        ),
+        rel_tol=0.0,
+        abs_tol=1e-6,
+    )
+    assert math.isclose(
+        float(first["score"]["balanced"]),
+        float(first["score"]["ring_1_balanced_component"])
+        + float(first["score"]["ring_2_balanced_component"]),
+        rel_tol=0.0,
+        abs_tol=1e-6,
+    )
     ring2_paths = [item["path"] for item in first["ring_2"]]
     assert "src/gabion/tooling/runtime/run_dataflow_stage.py" in ring2_paths
 
