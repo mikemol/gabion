@@ -1,3 +1,4 @@
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -37,10 +38,7 @@ class IdentityShadowSession:
     def stop(self) -> None:
         if not self._started:
             return
-        try:
-            self.registry_mirror.stop()
-        except Exception:
-            pass
+        self.registry_mirror.stop()
         self._started = False
 
     def identity_seed_payload(self) -> dict[str, object]:

@@ -1,6 +1,8 @@
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from collections.abc import Mapping
 
@@ -8,6 +10,16 @@ from gabion.analysis.projection.projection_registry import spec_metadata_payload
 from gabion.analysis.projection.projection_spec import ProjectionSpec
 from gabion.analysis.foundation.resume_codec import mapping_optional, sequence_optional
 from gabion.json_types import JSONValue
+
+
+@dataclass(frozen=True)
+class ParsedSpecMetadata:
+    spec_id: str
+    spec: dict[str, JSONValue]
+
+    def __iter__(self):
+        yield self.spec_id
+        yield self.spec
 
 
 def load_json(path: object) -> Mapping[str, JSONValue]:
@@ -37,7 +49,7 @@ def parse_version(
         case int() as expected_int:
             allowed = (int(expected_int),)
         case _:
-            allowed = tuple(int(value) for value in (expected_values or ()))
+            allowed = tuple(map(int, expected_values or ()))
     if not allowed:
         raise ValueError(
             "parse_version expected requires at least one allowed value"
@@ -52,7 +64,7 @@ def parse_version(
         expected_display = (
             str(allowed[0])
             if len(allowed) == 1
-            else ", ".join(str(entry) for entry in allowed)
+            else ", ".join(map(str, allowed))
         )
         raise ValueError(
             f"Unsupported {error_context} {field}={raw!r}; expected {expected_display}"
@@ -62,13 +74,13 @@ def parse_version(
 
 def parse_spec_metadata(
     payload: Mapping[str, JSONValue],
-) -> tuple[str, dict[str, JSONValue]]:
+) -> ParsedSpecMetadata:
     spec_id = str(payload.get("generated_by_spec_id", "") or "")
     spec_payload = mapping_optional(payload.get("generated_by_spec", {}))
     spec: dict[str, JSONValue] = {}
     if spec_payload is not None:
-        spec = {str(key): spec_payload[key] for key in spec_payload}
-    return spec_id, spec
+        spec = dict(map(lambda key: (str(key), spec_payload[key]), spec_payload))
+    return ParsedSpecMetadata(spec_id=spec_id, spec=spec)
 
 
 def attach_spec_metadata(

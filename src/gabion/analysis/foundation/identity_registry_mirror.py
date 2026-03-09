@@ -1,3 +1,4 @@
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -28,9 +29,11 @@ class IdentityRegistryMirror:
 
     def __post_init__(self) -> None:
         check_deadline()
-        normalized = normalize_namespaces(
-            self.allowed_namespaces,
-            source="IdentityRegistryMirror.__post_init__.allowed_namespaces",
+        normalized = tuple(
+            normalize_namespaces(
+                self.allowed_namespaces,
+                source="IdentityRegistryMirror.__post_init__.allowed_namespaces",
+            )
         )
         self.allowed_namespaces = normalized
         self._allowed_namespace_lookup = set(normalized)
@@ -59,10 +62,12 @@ class IdentityRegistryMirror:
             primes=self.registry.primes,
             allowed_namespaces=self.allowed_namespaces,
         )
-        apply_namespace_records_to_identity_space(
-            identity_space=self.identity_space,
-            records=records,
-            record_allocation=False,
+        tuple(
+            apply_namespace_records_to_identity_space(
+                identity_space=self.identity_space,
+                records=records,
+                record_allocation=False,
+            )
         )
 
     def _on_prime_assignment(self, event: PrimeAssignmentEvent) -> None:
@@ -73,16 +78,18 @@ class IdentityRegistryMirror:
             return
         if not self._namespace_allowed(namespace):
             return
-        apply_namespace_records_to_identity_space(
-            identity_space=self.identity_space,
-            records=(
-                NamespaceRecord(
-                    namespace=namespace,
-                    token=token,
-                    atom_id=int(event.atom_id),
+        tuple(
+            apply_namespace_records_to_identity_space(
+                identity_space=self.identity_space,
+                records=(
+                    NamespaceRecord(
+                        namespace=namespace,
+                        token=token,
+                        atom_id=int(event.atom_id),
+                    ),
                 ),
-            ),
-            record_allocation=True,
+                record_allocation=True,
+            )
         )
 
     def _namespace_allowed(self, namespace: str) -> bool:
@@ -100,7 +107,7 @@ def build_identity_registry_mirror(
     return IdentityRegistryMirror(
         registry=registry,
         identity_space=identity_space,
-        allowed_namespaces=tuple(str(namespace) for namespace in allowed_namespaces),
+        allowed_namespaces=tuple(map(str, allowed_namespaces)),
     )
 
 

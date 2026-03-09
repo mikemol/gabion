@@ -1,6 +1,8 @@
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 from dataclasses import dataclass
+from types import MappingProxyType
 from typing import Mapping
 
 from gabion.analysis.foundation.timeout_context import check_deadline
@@ -41,7 +43,7 @@ def format_transition(
 def count_delta(
     baseline: Mapping[str, object],
     current: Mapping[str, object],
-) -> dict[str, dict[str, int]]:
+) -> Mapping[str, Mapping[str, int]]:
     check_deadline(allow_frame_fallback=True)
     keys = sort_once(
         {*baseline.keys(), *current.keys()},
@@ -52,8 +54,10 @@ def count_delta(
     delta_counts = {
         key: current_counts.get(key, 0) - baseline_counts.get(key, 0) for key in keys
     }
-    return {
-        "baseline": baseline_counts,
-        "current": current_counts,
-        "delta": delta_counts,
-    }
+    return MappingProxyType(
+        {
+            "baseline": MappingProxyType(baseline_counts),
+            "current": MappingProxyType(current_counts),
+            "delta": MappingProxyType(delta_counts),
+        }
+    )

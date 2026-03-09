@@ -1,5 +1,7 @@
+# gabion:decision_protocol_module
 from __future__ import annotations
 
+import json
 from hashlib import sha1
 from typing import Mapping
 
@@ -10,7 +12,8 @@ from gabion.runtime import stable_encode
 
 def mapping_payload_to_json_object(payload: Mapping[str, object]) -> JSONObject:
     check_deadline()
-    return {str(key): payload[key] for key in payload}
+    canonical = stable_encode.stable_compact_text(payload)
+    return json.loads(canonical)
 
 
 def payload_sha1_digest(payload: Mapping[str, object]) -> str:

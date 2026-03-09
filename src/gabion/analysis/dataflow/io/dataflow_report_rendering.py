@@ -29,11 +29,11 @@ def render_synthesis_section(
             name = spec.get("name", "Bundle")
             tier = spec.get("tier", "?")
             fields = spec.get("fields", [])
-            parts = canonical_field_display_parts(fields)
+            parts = tuple(canonical_field_display_parts(fields))
             field_list = ", ".join(parts) if parts else "(no fields)"
             evidence = spec.get("evidence", [])
             if evidence:
-                evidence_entries = canonical_string_values(evidence)
+                evidence_entries = tuple(canonical_string_values(evidence))
                 evidence_str = ", ".join(evidence_entries)
                 lines.append(f"- {name} (tier {tier}; evidence: {evidence_str}): {field_list}")
                 evidence_counts.update(evidence_entries)
