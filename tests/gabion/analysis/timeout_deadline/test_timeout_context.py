@@ -352,7 +352,7 @@ def test_file_site_and_function_site_decode_invalid_payloads() -> None:
 # gabion:behavior primary=verboten facets=invalid,timeout
 def test_decode_call_stack_sites_rejects_invalid_payload_type_and_normalize_site_payload() -> None:
     with pytest.raises(NeverThrown):
-        timeout_context._decode_call_stack_sites([123])
+        timeout_context.pack_call_stack([123])
     normalized = timeout_context._normalize_site_payload(
         {"kind": "FunctionSite", "key": [{"kind": "FileSite", "key": ["a.py"]}, "mod.fn"]}
     )

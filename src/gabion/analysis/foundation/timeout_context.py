@@ -714,9 +714,12 @@ def _decode_deadline_profile_payload(profile: object) -> _DecodedDeadlineProfile
     io_raw = profile_mapping.get("io")
     ticks_per_ns_raw = profile_mapping.get("ticks_per_ns")
     ticks_per_ns = _float_optional(ticks_per_ns_raw)
-    sites_rows = _json_list_optional(sites_raw)
-    edge_rows = _json_list_optional(edges_raw)
-    io_rows = _json_list_optional(io_raw)
+    sites_rows_raw = _json_list_optional(sites_raw)
+    edge_rows_raw = _json_list_optional(edges_raw)
+    io_rows_raw = _json_list_optional(io_raw)
+    sites_rows = sites_rows_raw if sites_rows_raw is not None else ()
+    edge_rows = edge_rows_raw if edge_rows_raw is not None else ()
+    io_rows = io_rows_raw if io_rows_raw is not None else ()
     return _DecodedDeadlineProfile(
         checks_total=int(profile_mapping.get("checks_total", 0) or 0),
         total_elapsed_ns=int(profile_mapping.get("total_elapsed_ns", 0) or 0),
@@ -727,66 +730,79 @@ def _decode_deadline_profile_payload(profile: object) -> _DecodedDeadlineProfile
         sites=tuple(_decode_deadline_profile_site_rows(sites_rows)),
         edges=tuple(_decode_deadline_profile_edge_rows(edge_rows)),
         io=tuple(_decode_deadline_profile_io_rows(io_rows)),
-        sites_total=len(sites_rows) if sites_rows is not None else 0,
-        edges_total=len(edge_rows) if edge_rows is not None else 0,
-        io_total=len(io_rows) if io_rows is not None else 0,
+        sites_total=len(sites_rows),
+        edges_total=len(edge_rows),
+        io_total=len(io_rows),
+    )
+
+
+def _iter_deadline_profile_row_mappings(
+    rows: JSONValue,
+) -> Iterator[dict[str, JSONValue]]:
+    row_list = _json_list_optional(rows)
+    row_values = row_list if row_list is not None else ()
+    return iter(
+        filter(
+            lambda mapping: mapping is not None,
+            map(_json_mapping_optional, row_values),
+        )
+    )
+
+
+def _decode_deadline_profile_site_row(row: JSONValue) -> _DeadlineProfileSiteRow:
+    row_mapping = _json_mapping_optional(row)
+    if row_mapping is None:
+        never("invalid deadline profile site row payload", value_type=type(row).__name__)
+    return _DeadlineProfileSiteRow(
+        path=str(row_mapping.get("path", "") or ""),
+        qual=str(row_mapping.get("qual", "") or ""),
+        check_count=int(row_mapping.get("check_count", 0) or 0),
+        elapsed_between_checks_ns=int(row_mapping.get("elapsed_between_checks_ns", 0) or 0),
+        max_gap_ns=int(row_mapping.get("max_gap_ns", 0) or 0),
     )
 
 
 # gabion:ambiguity_boundary
-def _decode_deadline_profile_site_rows(rows: object) -> Iterator[_DeadlineProfileSiteRow]:
-    row_list = _json_list_optional(rows)
-    if row_list is None:
-        return
-    for row in row_list:
-        row_mapping = _json_mapping_optional(row)
-        if row_mapping is None:
-            continue
-        yield _DeadlineProfileSiteRow(
-            path=str(row_mapping.get("path", "") or ""),
-            qual=str(row_mapping.get("qual", "") or ""),
-            check_count=int(row_mapping.get("check_count", 0) or 0),
-            elapsed_between_checks_ns=int(row_mapping.get("elapsed_between_checks_ns", 0) or 0),
-            max_gap_ns=int(row_mapping.get("max_gap_ns", 0) or 0),
-        )
+def _decode_deadline_profile_site_rows(rows: JSONValue) -> Iterator[_DeadlineProfileSiteRow]:
+    return map(_decode_deadline_profile_site_row, _iter_deadline_profile_row_mappings(rows))
+
+
+def _decode_deadline_profile_edge_row(row: JSONValue) -> _DeadlineProfileEdgeRow:
+    row_mapping = _json_mapping_optional(row)
+    if row_mapping is None:
+        never("invalid deadline profile edge row payload", value_type=type(row).__name__)
+    return _DeadlineProfileEdgeRow(
+        from_path=str(row_mapping.get("from_path", "") or ""),
+        from_qual=str(row_mapping.get("from_qual", "") or ""),
+        to_path=str(row_mapping.get("to_path", "") or ""),
+        to_qual=str(row_mapping.get("to_qual", "") or ""),
+        transition_count=int(row_mapping.get("transition_count", 0) or 0),
+        elapsed_ns=int(row_mapping.get("elapsed_ns", 0) or 0),
+        max_gap_ns=int(row_mapping.get("max_gap_ns", 0) or 0),
+    )
 
 
 # gabion:ambiguity_boundary
-def _decode_deadline_profile_edge_rows(rows: object) -> Iterator[_DeadlineProfileEdgeRow]:
-    row_list = _json_list_optional(rows)
-    if row_list is None:
-        return
-    for row in row_list:
-        row_mapping = _json_mapping_optional(row)
-        if row_mapping is None:
-            continue
-        yield _DeadlineProfileEdgeRow(
-            from_path=str(row_mapping.get("from_path", "") or ""),
-            from_qual=str(row_mapping.get("from_qual", "") or ""),
-            to_path=str(row_mapping.get("to_path", "") or ""),
-            to_qual=str(row_mapping.get("to_qual", "") or ""),
-            transition_count=int(row_mapping.get("transition_count", 0) or 0),
-            elapsed_ns=int(row_mapping.get("elapsed_ns", 0) or 0),
-            max_gap_ns=int(row_mapping.get("max_gap_ns", 0) or 0),
-        )
+def _decode_deadline_profile_edge_rows(rows: JSONValue) -> Iterator[_DeadlineProfileEdgeRow]:
+    return map(_decode_deadline_profile_edge_row, _iter_deadline_profile_row_mappings(rows))
+
+
+def _decode_deadline_profile_io_row(row: JSONValue) -> _DeadlineProfileIoRow:
+    row_mapping = _json_mapping_optional(row)
+    if row_mapping is None:
+        never("invalid deadline profile io row payload", value_type=type(row).__name__)
+    return _DeadlineProfileIoRow(
+        name=str(row_mapping.get("name", "") or ""),
+        event_count=int(row_mapping.get("event_count", 0) or 0),
+        elapsed_ns=int(row_mapping.get("elapsed_ns", 0) or 0),
+        max_event_ns=int(row_mapping.get("max_event_ns", 0) or 0),
+        bytes_total=int(row_mapping.get("bytes_total", 0) or 0),
+    )
 
 
 # gabion:ambiguity_boundary
-def _decode_deadline_profile_io_rows(rows: object) -> Iterator[_DeadlineProfileIoRow]:
-    row_list = _json_list_optional(rows)
-    if row_list is None:
-        return
-    for row in row_list:
-        row_mapping = _json_mapping_optional(row)
-        if row_mapping is None:
-            continue
-        yield _DeadlineProfileIoRow(
-            name=str(row_mapping.get("name", "") or ""),
-            event_count=int(row_mapping.get("event_count", 0) or 0),
-            elapsed_ns=int(row_mapping.get("elapsed_ns", 0) or 0),
-            max_event_ns=int(row_mapping.get("max_event_ns", 0) or 0),
-            bytes_total=int(row_mapping.get("bytes_total", 0) or 0),
-        )
+def _decode_deadline_profile_io_rows(rows: JSONValue) -> Iterator[_DeadlineProfileIoRow]:
+    return map(_decode_deadline_profile_io_row, _iter_deadline_profile_row_mappings(rows))
 
 
 def render_deadline_profile_markdown(
@@ -1052,35 +1068,59 @@ def _site_part_to_payload(value: object) -> JSONValue:
             return _NO_DEADLINE_PROFILE_SNAPSHOT  # pragma: no cover - never() raises
 
 
+def _ordered_forest_nodes(forest) -> Iterator[tuple[object, object]]:
+    return iter(
+        _sorted_values(
+            forest.nodes.items(),
+            key=lambda item: item[0].sort_key(),
+        )
+    )
+
+
+def _node_is_function_site(node_entry: tuple[object, object]) -> bool:
+    node_id, _ = node_entry
+    return node_id.kind == "FunctionSite"
+
+
+def _node_has_path_and_qual(node_entry: tuple[object, object]) -> bool:
+    _, node = node_entry
+    path = str(node.meta.get("path", "") or "")
+    qual = str(node.meta.get("qual", "") or "")
+    return bool(path and qual)
+
+
+def _call_site_from_node(node_entry: tuple[object, object]) -> _CallSite:
+    _, node = node_entry
+    path = str(node.meta.get("path", "") or "")
+    qual = str(node.meta.get("qual", "") or "")
+    span_payload = node.meta.get("span")
+    span_list = _json_list_optional(span_payload)
+    span_values = tuple(span_list) if span_list is not None else ()
+    return _function_site(path=path, qual=qual, span=span_values)
+
+
 def build_site_index(
     forest,
 ) -> dict[tuple[str, str], _CallSite]:
     _ensure_forest_shape(forest)
     index: dict[tuple[str, str], _CallSite] = {}
-    ordered_nodes = _sorted_values(
-        forest.nodes.items(),
-        key=lambda item: item[0].sort_key(),
+    filtered_nodes = filter(
+        _node_has_path_and_qual,
+        filter(_node_is_function_site, _ordered_forest_nodes(forest)),
     )
-    for node_id, node in ordered_nodes:
-        if node_id.kind != "FunctionSite":
-            continue
+    for node_entry in filtered_nodes:
+        _, node = node_entry
         path = str(node.meta.get("path", "") or "")
         qual = str(node.meta.get("qual", "") or "")
-        if not path or not qual:
-            continue
-        span = node.meta.get("span")
-        span_list = list(span) if span else None
-        index.setdefault(
-            (path, qual),
-            _function_site(path=path, qual=qual, span=span_list),
-        )
+        site = _call_site_from_node(node_entry)
+        index.setdefault((path, qual), site)
     return index
 
 
 def pack_call_stack(
     sites,
 ) -> PackedCallStack:
-    normalized = _decode_call_stack_sites(sites)
+    normalized = list(map(_decode_call_stack_site, sites))
     unique: dict[tuple[str, tuple[object, ...]], _InternedCallSite] = {}
     for entry in normalized:
         key = (entry.kind, entry.frozen_key())
@@ -1105,18 +1145,15 @@ def pack_call_stack(
     )
 
 
-# gabion:ambiguity_boundary
-def _decode_call_stack_sites(sites: Iterable[object]) -> list[_CallSite]:
-    normalized: list[_CallSite] = []
-    for site in sites:
-        match site:
-            case _CallSite() as payload:
-                normalized.append(payload)
-            case Mapping() as payload_map:
-                normalized.append(_decode_site_payload(payload_map))
-            case _:
-                never("invalid call stack site payload", payload_type=type(site).__name__)
-    return normalized
+def _decode_call_stack_site(site) -> _CallSite:
+    match site:
+        case _CallSite() as payload:
+            return payload
+        case Mapping() as payload_map:
+            return _decode_site_payload(payload_map)
+        case _:
+            never("invalid call stack site payload", payload_type=type(site).__name__)
+            return _function_site(path="", qual="")
 
 
 def _normalize_site_payload(
@@ -1171,6 +1208,60 @@ def _freeze_key(key: Iterable[object]) -> tuple[object, ...]:
     return tuple(_freeze_value(part) for part in key)
 
 
+def _frame_within_resolved_root(frame: FrameType, resolved_root: Path) -> bool:
+    frame_path = Path(frame.f_code.co_filename).resolve()
+    try:
+        frame_path.relative_to(resolved_root)
+        return True
+    except ValueError:
+        return False
+
+
+def _iter_project_frames(
+    frame_list: Iterable[FrameType],
+    *,
+    resolved_root,
+) -> Iterator[FrameType]:
+    if resolved_root is None:
+        return iter(frame_list)
+    return iter(
+        filter(
+            lambda frame: _frame_within_resolved_root(frame, resolved_root),
+            frame_list,
+        )
+    )
+
+
+def _site_from_key_with_fallback(
+    *,
+    key: tuple[str, str],
+    site_index: Mapping[tuple[str, str], _CallSite],
+) -> _CallSite:
+    site = site_index.get(key)
+    if site is None:
+        return _function_site(path=key[0], qual=key[1])
+    return site
+
+
+def _iter_timeout_context_sites(
+    *,
+    frame_list: Iterable[FrameType],
+    resolved_root,
+    site_index: Mapping[tuple[str, str], _CallSite],
+    allow_frame_fallback: bool,
+) -> Iterator[_CallSite]:
+    keys = map(
+        lambda frame: _frame_site_key(frame, project_root=resolved_root),
+        _iter_project_frames(frame_list, resolved_root=resolved_root),
+    )
+    if allow_frame_fallback:
+        return map(
+            lambda key: _site_from_key_with_fallback(key=key, site_index=site_index),
+            keys,
+        )
+    return map(site_index.__getitem__, filter(site_index.__contains__, keys))
+
+
 def build_timeout_context_from_stack(
     *,
     forest,
@@ -1182,21 +1273,20 @@ def build_timeout_context_from_stack(
     frames = None,
 ) -> TimeoutContext:
     site_index = build_site_index(forest)
-    frame_list = list(frames) if frames is not None else [frame.frame for frame in inspect.stack()]
-    sites: list[_CallSite] = []
+    frame_list = (
+        tuple(frames)
+        if frames is not None
+        else tuple(map(lambda frame_info: frame_info.frame, inspect.stack()))
+    )
     resolved_root = project_root.resolve() if project_root is not None else None
-    for frame in frame_list:
-        if resolved_root is not None:
-            frame_path = Path(frame.f_code.co_filename).resolve()
-            try:
-                frame_path.relative_to(resolved_root)
-            except ValueError:
-                continue
-        key = _frame_site_key(frame, project_root=resolved_root)
-        if key in site_index:
-            sites.append(site_index[key])
-        elif allow_frame_fallback:
-            sites.append(_function_site(path=key[0], qual=key[1]))
+    sites = tuple(
+        _iter_timeout_context_sites(
+            frame_list=frame_list,
+            resolved_root=resolved_root,
+            site_index=site_index,
+            allow_frame_fallback=allow_frame_fallback,
+        )
+    )
     packed = pack_call_stack(reversed(sites))
     profile_payload = deadline_profile or _deadline_profile_snapshot()
     return TimeoutContext(

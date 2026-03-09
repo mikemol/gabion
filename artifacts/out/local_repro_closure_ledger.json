@@ -6777,6 +6777,66 @@
         "targeted_pytest": "pass (97 passed)",
         "policy_scanner_suite": "expected_nonzero total=11644"
       }
+    },
+    {
+      "cu_id": "CU-GEO12",
+      "summary": "Recursive seed strictification in timeout_context: pushed row gating to earliest decode edge, removed loop-local skip guards, and converted site/frame normalization loops to upstream filter-map pipelines.",
+      "timestamp_utc": "2026-03-09T19:09:04Z",
+      "policy_scanner_counts_before": {
+        "no_monkeypatch": 0,
+        "branchless": 7204,
+        "defensive_fallback": 112,
+        "fiber_loop_structure_contract": 919,
+        "fiber_filter_processor_contract": 2012,
+        "fiber_return_shape_contract": 1163,
+        "fiber_scalar_sentinel_contract": 234,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "policy_scanner_counts_after": {
+        "no_monkeypatch": 0,
+        "branchless": 7195,
+        "defensive_fallback": 106,
+        "fiber_loop_structure_contract": 918,
+        "fiber_filter_processor_contract": 2002,
+        "fiber_return_shape_contract": 1163,
+        "fiber_scalar_sentinel_contract": 227,
+        "fiber_type_dispatch_contract": 0,
+        "no_legacy_monolith_import": 0,
+        "orchestrator_primitive_barrel": 0,
+        "typing_surface": 0,
+        "runtime_narrowing_boundary": 0,
+        "aspf_normalization_idempotence": 0,
+        "boundary_core_contract": 0,
+        "fiber_normalization_contract": 0,
+        "test_subprocess_hygiene": 0,
+        "test_sleep_hygiene": 0
+      },
+      "total_before": 11644,
+      "total_after": 11611,
+      "notes": [
+        "Refactored _decode_deadline_profile_{site,edge,io}_rows into projection-style map pipelines over prefiltered row streams.",
+        "Refactored build_site_index/build_timeout_context_from_stack to upstream filters and deterministic stream transforms (no loop-local go/no-go branching).",
+        "Removed _decode_call_stack_sites compatibility surface and updated tests to assert invariants through policy-compliant paths.",
+        "Global active-family delta: branchless -9, fiber_filter_processor_contract -10, fiber_loop_structure_contract -1, defensive_fallback -6, fiber_scalar_sentinel_contract -7, fiber_return_shape_contract +0.",
+        "timeout_context active-six (derived, single-file CU): 173->140 (-33).",
+        "analysis/foundation ring active-six (derived, single-file CU): 439->406 (-33).",
+        "Guard families remained zero (fiber_type_dispatch_contract/runtime_narrowing_boundary/boundary_core_contract/typing_surface)."
+      ],
+      "validation": {
+        "policy_check_workflows": "fail_expected_symbol_activity_audit (unsuppressed=1545)",
+        "policy_check_ambiguity_contract": "pass",
+        "targeted_pytest": "pass (67 passed)",
+        "policy_scanner_suite": "expected_nonzero total=11611"
+      }
     }
   ],
   "generated_by": "codex",
