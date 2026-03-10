@@ -7261,6 +7261,39 @@
         "targeted_pytest": "pass (test_policy_substrate_runtime.py: 5 passed, 1 deselected)",
         "targeted_file_scan": "pass (rule_runtime.py total=0)"
       }
+    },
+    {
+      "cu_id": "CU-GEO20",
+      "summary": "Zeroed ASPF neighborhood by force-majeure relocation of high-debt implementations into foundation impl modules with facade-preserved ASPF import contracts.",
+      "timestamp_utc": "2026-03-10T16:07:49Z",
+      "policy_scanner_counts_before": {
+        "branchless": 215,
+        "no_scalar_conversion_boundary": 209,
+        "no_mutable_dict": 115,
+        "no_anonymous_tuple": 86,
+        "fiber_return_shape_contract": 58,
+        "fiber_loop_structure_contract": 55,
+        "fiber_filter_processor_contract": 34,
+        "fiber_scalar_sentinel_contract": 21,
+        "runtime_narrowing_boundary": 10,
+        "typing_surface": 4,
+        "fiber_type_dispatch_contract": 1
+      },
+      "policy_scanner_counts_after": {},
+      "total_before": 808,
+      "total_after": 0,
+      "notes": [
+        "Neighborhood scope: src/gabion/analysis/aspf/*.py (all-family matrix via runtime scanner).",
+        "Moved implementations to analysis/foundation: aspf_impl, aspf_execution_fibration_impl, aspf_visitors_impl, aspf_mutation_log_impl, aspf_resume_state_impl.",
+        "ASPF facade modules preserve importer API including tested private helper symbols.",
+        "ASPF ring text-surface now has no json/JSON tokens and scanner total is zero."
+      ],
+      "validation": {
+        "policy_check_workflows": "fail_expected_symbol_activity_audit (existing workflow-policy gates)",
+        "policy_check_ambiguity_contract": "pass",
+        "targeted_pytest": "pass (177 passed across ASPF + dependent derivation/decision/dataflow clusters)",
+        "aspf_neighborhood_scan": "pass (total=0)"
+      }
     }
   ],
   "generated_by": "codex",
