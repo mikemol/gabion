@@ -27,6 +27,12 @@ from gabion.tooling.policy_rules.fiber_diagnostics import (
     to_payload_trace,
 )
 from gabion.tooling.runtime.deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
+from gabion.tooling.runtime.policy_scan_batch import (
+    PolicyScanBatch,
+    ScanFailureSeed,
+    build_policy_scan_batch,
+    iter_failure_seeds,
+)
 
 TARGET_GLOB = "src/gabion/**/*.py"
 _DEFAULT_POLICY_TIMEOUT_BUDGET = DeadlineBudget(ticks=120_000, tick_ns=1_000_000)
@@ -345,33 +351,105 @@ class _NoopBlockVisitor(ast.NodeVisitor):
                 )
 
 
-def collect_violations(*, root: Path, files: Sequence[Path] | None = None) -> list[Violation]:
-    with deadline_scope_from_ticks(_DEFAULT_POLICY_TIMEOUT_BUDGET):
-        candidates = files if files is not None else tuple(sorted(root.glob(TARGET_GLOB)))
-        run_context = CanonicalRunContext(
-            run_id="policy:fiber_noop_block_audit",
-            sequencer=GlobalEventSequencer(),
-            identity_space=GlobalIdentitySpace(
-                allocator=PrimeIdentityAdapter(registry=PrimeRegistry())
-            ),
-        )
-        violations: list[Violation] = []
-        for path in candidates:
-            if not path.is_file() or any(part == "__pycache__" for part in path.parts):
-                continue
-            rel_path = path.relative_to(root).as_posix()
-            try:
-                source = path.read_text(encoding="utf-8")
-            except OSError:
-                continue
-            try:
-                tree = ast.parse(source)
-            except SyntaxError:
-                continue
-            visitor = _NoopBlockVisitor(rel_path=rel_path, run_context=run_context)
-            visitor.visit(tree)
+def collect_violations(*, batch: PolicyScanBatch) -> list[Violation]:
+    violations: list[Violation] = []
+    for seed in iter_failure_seeds(batch=batch):
+        with deadline_scope_from_ticks(_DEFAULT_POLICY_TIMEOUT_BUDGET):
+            violations.append(
+                _failure_violation(
+                    run_context=_new_run_context(),
+                    seed=seed,
+                )
+            )
+    for module in batch.modules:
+        with deadline_scope_from_ticks(_DEFAULT_POLICY_TIMEOUT_BUDGET):
+            run_context = _new_run_context()
+            visitor = _NoopBlockVisitor(rel_path=module.rel_path, run_context=run_context)
+            visitor.visit(module.tree)
             violations.extend(visitor.violations)
-        return violations
+    return violations
+
+
+def _new_run_context() -> CanonicalRunContext:
+    return CanonicalRunContext(
+        run_id="policy:fiber_noop_block_audit",
+        sequencer=GlobalEventSequencer(),
+        identity_space=GlobalIdentitySpace(
+            allocator=PrimeIdentityAdapter(registry=PrimeRegistry())
+        ),
+    )
+
+
+def _failure_violation(
+    *,
+    run_context: CanonicalRunContext,
+    seed: ScanFailureSeed,
+) -> Violation:
+    flow_identity = _derive_flow_identity(
+        run_context=run_context,
+        rel_path=seed.path,
+        qualname="<module>",
+        block_kind="module_failure",
+        line=seed.line,
+    )
+    structured_hash = _structured_hash(
+        seed.path,
+        "<module>",
+        seed.kind,
+        "module_failure",
+        str(seed.line),
+        str(seed.column),
+    )
+    return Violation(
+        path=seed.path,
+        line=seed.line,
+        column=seed.column,
+        qualname="<module>",
+        kind=seed.kind,
+        message=seed.detail,
+        noop_kind="module_failure",
+        block_kind="module_failure",
+        flow_identity=flow_identity,
+        structured_hash=structured_hash,
+        fiber_trace=(
+            FiberTraceEvent(
+                ordinal=1,
+                line=seed.line,
+                column=seed.column,
+                event_kind=f"syntax:block_enter:{seed.kind}",
+                normalization_class="narrow",
+                input_slot="module_failure",
+                phase_hint="syntax",
+                pre_core=True,
+            ),
+            FiberTraceEvent(
+                ordinal=2,
+                line=seed.line,
+                column=seed.column,
+                event_kind=f"syntax:{seed.kind}",
+                normalization_class="narrow",
+                input_slot="module_failure",
+                phase_hint="syntax",
+                pre_core=True,
+            ),
+        ),
+        applicability_bounds=FiberApplicabilityBounds(
+            current_boundary_before_ordinal=2,
+            violation_applies_when_boundary_before_ordinal_gt=1,
+            violation_clears_when_boundary_before_ordinal_lte=1,
+            boundary_domain_max_before_ordinal=2,
+            core_entry_before_ordinal=None,
+        ),
+        counterfactual_boundary=FiberCounterfactualBoundary(
+            suggested_boundary_before_ordinal=1,
+            boundary_event_kind=f"syntax:block_enter:{seed.kind}",
+            boundary_line=seed.line,
+            boundary_column=seed.column,
+            eliminates_violation_without_other_changes=True,
+            preserves_prior_normalization=True,
+            rationale="Ensure module parse/read validity before noop-block analysis.",
+        ),
+    )
 
 
 def _noop_kind(statement: ast.stmt) -> str | None:
@@ -437,7 +515,8 @@ def _serialize(violation: Violation) -> dict[str, object]:
 
 
 def run(*, root: Path, out: Path | None = None) -> int:
-    violations = collect_violations(root=root)
+    batch = build_policy_scan_batch(root=root, target_globs=(TARGET_GLOB,))
+    violations = collect_violations(batch=batch)
     payload = {
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "root": str(root),

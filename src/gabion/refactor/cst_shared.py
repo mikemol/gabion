@@ -56,7 +56,7 @@ def _is_simple_statement_line(value: object) -> bool:
 
 
 @_is_simple_statement_line.register(cst.SimpleStatementLine)
-def _(value: cst.SimpleStatementLine) -> bool:
+def _sd_reg_1(value: cst.SimpleStatementLine) -> bool:
     _ = value
     return True
 
@@ -78,7 +78,7 @@ def _is_expr_statement(value: object) -> bool:
 
 
 @_is_expr_statement.register(cst.Expr)
-def _(value: cst.Expr) -> bool:
+def _sd_reg_2(value: cst.Expr) -> bool:
     _ = value
     return True
 
@@ -100,7 +100,7 @@ def _is_simple_string_expression(value: object) -> bool:
 
 
 @_is_simple_string_expression.register(cst.SimpleString)
-def _(value: cst.SimpleString) -> bool:
+def _sd_reg_3(value: cst.SimpleString) -> bool:
     _ = value
     return True
 
@@ -122,7 +122,7 @@ def _line_body_items(value: object) -> tuple[object, ...]:
 
 
 @_line_body_items.register(cst.SimpleStatementLine)
-def _(value: cst.SimpleStatementLine) -> tuple[object, ...]:
+def _sd_reg_4(value: cst.SimpleStatementLine) -> tuple[object, ...]:
     return tuple(value.body)
 
 
@@ -143,7 +143,7 @@ def _expr_statement_value(value: object) -> object:
 
 
 @_expr_statement_value.register(cst.Expr)
-def _(value: cst.Expr) -> object:
+def _sd_reg_5(value: cst.Expr) -> object:
     return value.value
 
 
@@ -163,13 +163,13 @@ def _is_import_statement_item(value: object) -> bool:
 
 
 @_is_import_statement_item.register(cst.Import)
-def _(value: cst.Import) -> bool:
+def _sd_reg_6(value: cst.Import) -> bool:
     _ = value
     return True
 
 
 @_is_import_statement_item.register(cst.ImportFrom)
-def _(value: cst.ImportFrom) -> bool:
+def _sd_reg_7(value: cst.ImportFrom) -> bool:
     _ = value
     return True
 
@@ -217,7 +217,7 @@ def _module_expr_text(
 
 
 @_module_expr_text.register(cst.Name)
-def _(
+def _sd_reg_8(
     expr: cst.Name,
     *,
     check_deadline_fn: Callable[[], None] = _noop_check_deadline,
@@ -227,7 +227,7 @@ def _(
 
 
 @_module_expr_text.register(cst.Attribute)
-def _(
+def _sd_reg_9(
     expr: cst.Attribute,
     *,
     check_deadline_fn: Callable[[], None] = _noop_check_deadline,
@@ -240,7 +240,7 @@ def _(
 
 
 @_module_expr_text.register(_NONE_TYPE)
-def _(
+def _sd_reg_10(
     expr: None,
     *,
     check_deadline_fn: Callable[[], None] = _noop_check_deadline,
@@ -283,7 +283,7 @@ def _is_import_from_statement(value: object) -> bool:
 
 
 @_is_import_from_statement.register(cst.ImportFrom)
-def _(value: cst.ImportFrom) -> bool:
+def _sd_reg_11(value: cst.ImportFrom) -> bool:
     _ = value
     return True
 
@@ -305,7 +305,7 @@ def _import_from_module_expr(value: object) -> object:
 
 
 @_import_from_module_expr.register(cst.ImportFrom)
-def _(value: cst.ImportFrom) -> object:
+def _sd_reg_12(value: cst.ImportFrom) -> object:
     return value.module
 
 
@@ -315,7 +315,7 @@ def _import_from_names_value(value: object) -> object:
 
 
 @_import_from_names_value.register(cst.ImportFrom)
-def _(value: cst.ImportFrom) -> object:
+def _sd_reg_13(value: cst.ImportFrom) -> object:
     return value.names
 
 
@@ -325,19 +325,19 @@ def _is_alias_sequence(value: object) -> bool:
 
 
 @_is_alias_sequence.register(tuple)
-def _(value: tuple[object, ...]) -> bool:
+def _sd_reg_14(value: tuple[object, ...]) -> bool:
     _ = value
     return True
 
 
 @_is_alias_sequence.register(list)
-def _(value: list[object]) -> bool:
+def _sd_reg_15(value: list[object]) -> bool:
     _ = value
     return True
 
 
 @_is_alias_sequence.register(cst.ImportStar)
-def _(value: cst.ImportStar) -> bool:
+def _sd_reg_16(value: cst.ImportStar) -> bool:
     _ = value
     return False
 
@@ -348,17 +348,17 @@ def _alias_sequence_items(value: object) -> tuple[object, ...]:
 
 
 @_alias_sequence_items.register(tuple)
-def _(value: tuple[object, ...]) -> tuple[object, ...]:
+def _sd_reg_17(value: tuple[object, ...]) -> tuple[object, ...]:
     return value
 
 
 @_alias_sequence_items.register(list)
-def _(value: list[object]) -> tuple[object, ...]:
+def _sd_reg_18(value: list[object]) -> tuple[object, ...]:
     return tuple(value)
 
 
 @_alias_sequence_items.register(cst.ImportStar)
-def _(value: cst.ImportStar) -> tuple[object, ...]:
+def _sd_reg_19(value: cst.ImportStar) -> tuple[object, ...]:
     _ = value
     return ()
 
@@ -369,13 +369,13 @@ def _is_import_alias(value: object) -> bool:
 
 
 @_is_import_alias.register(cst.ImportAlias)
-def _(value: cst.ImportAlias) -> bool:
+def _sd_reg_20(value: cst.ImportAlias) -> bool:
     _ = value
     return True
 
 
 @_is_import_alias.register(cst.ImportStar)
-def _(value: cst.ImportStar) -> bool:
+def _sd_reg_21(value: cst.ImportStar) -> bool:
     _ = value
     return False
 
@@ -386,7 +386,7 @@ def _import_alias_name_node(value: object) -> object:
 
 
 @_import_alias_name_node.register(cst.ImportAlias)
-def _(value: cst.ImportAlias) -> object:
+def _sd_reg_22(value: cst.ImportAlias) -> object:
     return value.name
 
 
@@ -396,13 +396,13 @@ def _is_name_node(value: object) -> bool:
 
 
 @_is_name_node.register(cst.Name)
-def _(value: cst.Name) -> bool:
+def _sd_reg_23(value: cst.Name) -> bool:
     _ = value
     return True
 
 
 @_is_name_node.register(cst.Attribute)
-def _(value: cst.Attribute) -> bool:
+def _sd_reg_24(value: cst.Attribute) -> bool:
     _ = value
     return False
 
@@ -413,7 +413,7 @@ def _name_node_value(value: object) -> str:
 
 
 @_name_node_value.register(cst.Name)
-def _(value: cst.Name) -> str:
+def _sd_reg_25(value: cst.Name) -> str:
     return value.value
 
 

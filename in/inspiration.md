@@ -1,21 +1,22 @@
 ---
 doc_revision: 4
-reader_reintern: Reader-only: re-intern if doc_revision changed since you last read this doc.
+reader_reintern: 'Reader-only: re-intern if doc_revision changed since you last read
+  this doc.'
 doc_id: in_inspiration
 doc_role: note
 doc_scope:
-  - repo
-  - governance
-  - semantics
+- repo
+- governance
+- semantics
 doc_authority: normative
 doc_owner: maintainer
 doc_requires:
-  - POLICY_SEED.md#policy_seed
-  - glossary.md#contract
-  - glossary.md#rule_of_polysemy
-  - CONTRIBUTING.md#contributing_contract
-  - README.md#repo_contract
-  - AGENTS.md#agent_obligations
+- POLICY_SEED.md#policy_seed
+- glossary.md#contract
+- glossary.md#rule_of_polysemy
+- CONTRIBUTING.md#contributing_contract
+- README.md#repo_contract
+- AGENTS.md#agent_obligations
 doc_reviewed_as_of:
   POLICY_SEED.md#policy_seed: 1
   glossary.md#contract: 1
@@ -24,53 +25,65 @@ doc_reviewed_as_of:
   README.md#repo_contract: 1
   AGENTS.md#agent_obligations: 1
 doc_review_notes:
-  POLICY_SEED.md#policy_seed: Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope.
-  glossary.md#contract: Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline).
-  glossary.md#rule_of_polysemy: Reviewed glossary.md#rule_of_polysemy rev1 (polysemy axes + commutation obligations).
-  CONTRIBUTING.md#contributing_contract: Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope.
-  README.md#repo_contract: Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope.
+  POLICY_SEED.md#policy_seed: Reviewed POLICY_SEED.md rev1 (mechanized governance
+    default; branch/tag CAS + check-before-use constraints); no conflicts with this
+    document's scope.
+  glossary.md#contract: Reviewed glossary.md#contract rev1 (glossary contract + semantic
+    typing discipline).
+  glossary.md#rule_of_polysemy: Reviewed glossary.md#rule_of_polysemy rev1 (polysemy
+    axes + commutation obligations).
+  CONTRIBUTING.md#contributing_contract: Reviewed CONTRIBUTING.md rev1 (docflow now
+    fails on missing GH references for SPPF-relevant changes); no conflicts with this
+    document's scope.
+  README.md#repo_contract: Reviewed README.md rev1 (docflow audit now scans in/ by
+    default); no conflicts with this document's scope.
   AGENTS.md#agent_obligations: Agent obligations unchanged; note is advisory.
 doc_change_protocol: POLICY_SEED.md#change_protocol
 doc_erasure:
-  - formatting
-  - typos
+- formatting
+- typos
 doc_sections:
   in_inspiration: 1
 doc_section_requires:
   in_inspiration:
-    - POLICY_SEED.md#policy_seed
-    - glossary.md#contract
-    - glossary.md#rule_of_polysemy
-    - CONTRIBUTING.md#contributing_contract
-    - README.md#repo_contract
-    - AGENTS.md#agent_obligations
+  - POLICY_SEED.md#policy_seed
+  - glossary.md#contract
+  - glossary.md#rule_of_polysemy
+  - CONTRIBUTING.md#contributing_contract
+  - README.md#repo_contract
+  - AGENTS.md#agent_obligations
 doc_section_reviews:
   in_inspiration:
     POLICY_SEED.md#policy_seed:
       dep_version: 1
       self_version_at_review: 1
       outcome: no_change
-      note: Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope.
+      note: Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag
+        CAS + check-before-use constraints); no conflicts with this document's scope.
     glossary.md#contract:
       dep_version: 1
       self_version_at_review: 1
       outcome: no_change
-      note: Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline).
+      note: Reviewed glossary.md#contract rev1 (glossary contract + semantic typing
+        discipline).
     glossary.md#rule_of_polysemy:
       dep_version: 1
       self_version_at_review: 1
       outcome: no_change
-      note: Reviewed glossary.md#rule_of_polysemy rev1 (polysemy axes + commutation obligations).
+      note: Reviewed glossary.md#rule_of_polysemy rev1 (polysemy axes + commutation
+        obligations).
     CONTRIBUTING.md#contributing_contract:
       dep_version: 1
       self_version_at_review: 1
       outcome: no_change
-      note: Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope.
+      note: Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references
+        for SPPF-relevant changes); no conflicts with this document's scope.
     README.md#repo_contract:
       dep_version: 1
       self_version_at_review: 1
       outcome: no_change
-      note: Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope.
+      note: Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts
+        with this document's scope.
     AGENTS.md#agent_obligations:
       dep_version: 1
       self_version_at_review: 1

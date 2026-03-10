@@ -36,7 +36,7 @@ def _is_json_object(value: JSONValue) -> bool:
 
 
 @_is_json_object.register(dict)
-def _(value: JSONObject) -> bool:
+def _sd_reg_1(value: JSONObject) -> bool:
     _ = value
     return True
 
@@ -56,7 +56,7 @@ def _json_object_value(value: JSONValue) -> JSONObject:
 
 
 @_json_object_value.register(dict)
-def _(value: JSONObject) -> JSONObject:
+def _sd_reg_2(value: JSONObject) -> JSONObject:
     return value
 
 
@@ -66,7 +66,7 @@ def _is_json_list(value: JSONValue) -> bool:
 
 
 @_is_json_list.register(list)
-def _(value: list[JSONValue]) -> bool:
+def _sd_reg_3(value: list[JSONValue]) -> bool:
     _ = value
     return True
 
@@ -86,7 +86,7 @@ def _json_list_value(value: JSONValue) -> list[JSONValue]:
 
 
 @_json_list_value.register(list)
-def _(value: list[JSONValue]) -> list[JSONValue]:
+def _sd_reg_4(value: list[JSONValue]) -> list[JSONValue]:
     return value
 
 
@@ -96,7 +96,7 @@ def _is_string_value(value: JSONValue) -> bool:
 
 
 @_is_string_value.register(str)
-def _(value: str) -> bool:
+def _sd_reg_5(value: str) -> bool:
     _ = value
     return True
 
@@ -111,7 +111,7 @@ def _string_value(value: JSONValue) -> str:
 
 
 @_string_value.register(str)
-def _(value: str) -> str:
+def _sd_reg_6(value: str) -> str:
     return value
 
 

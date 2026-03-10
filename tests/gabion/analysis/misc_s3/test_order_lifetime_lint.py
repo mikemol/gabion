@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from scripts.misc import order_lifetime_check
+from gabion.tooling.runtime.policy_scan_batch import build_policy_scan_batch
 
 
 def _write_module(root: Path, rel_path: str, content: str) -> None:
@@ -22,7 +23,8 @@ def test_order_lifetime_check_rejects_sort_keys_true_serializer(tmp_path: Path) 
         "def f(payload):\n"
         "    return json.dumps(payload, sort_keys=True)\n",
     )
-    violations = order_lifetime_check.collect_violations(root=tmp_path)
+    batch = build_policy_scan_batch(root=tmp_path, target_globs=(order_lifetime_check.TARGET_GLOB,))
+    violations = order_lifetime_check.collect_violations(batch=batch)
     assert violations
     assert any("sort_keys=True" in violation.message for violation in violations)
 
@@ -37,7 +39,8 @@ def test_order_lifetime_check_rejects_sort_keys_true_everywhere(tmp_path: Path) 
         "def _stable_text(value):\n"
         "    return json.dumps(value, sort_keys=True)\n",
     )
-    violations = order_lifetime_check.collect_violations(root=tmp_path)
+    batch = build_policy_scan_batch(root=tmp_path, target_globs=(order_lifetime_check.TARGET_GLOB,))
+    violations = order_lifetime_check.collect_violations(batch=batch)
     assert any("sort_keys=True" in violation.message for violation in violations)
 
 
@@ -51,7 +54,8 @@ def test_order_lifetime_check_rejects_active_ordered_or_sorted_calls(tmp_path: P
         "def f(values):\n"
         "    return ordered_or_sorted(values, source='x')\n",
     )
-    violations = order_lifetime_check.collect_violations(root=tmp_path)
+    batch = build_policy_scan_batch(root=tmp_path, target_globs=(order_lifetime_check.TARGET_GLOB,))
+    violations = order_lifetime_check.collect_violations(batch=batch)
     assert any("direct active-sort mode via ordered_or_sorted" in violation.message for violation in violations)
 
 
@@ -64,7 +68,8 @@ def test_order_lifetime_check_rejects_raw_sorted_in_strict_module(tmp_path: Path
         "def f(values):\n"
         "    return sorted(values)\n",
     )
-    violations = order_lifetime_check.collect_violations(root=tmp_path)
+    batch = build_policy_scan_batch(root=tmp_path, target_globs=(order_lifetime_check.TARGET_GLOB,))
+    violations = order_lifetime_check.collect_violations(batch=batch)
     assert any("raw sorted" in violation.message for violation in violations)
 
 
@@ -78,7 +83,8 @@ def test_order_lifetime_check_requires_sort_once_source(tmp_path: Path) -> None:
         "def f(values):\n"
         "    return sort_once(values)\n",
     )
-    violations = order_lifetime_check.collect_violations(root=tmp_path)
+    batch = build_policy_scan_batch(root=tmp_path, target_globs=(order_lifetime_check.TARGET_GLOB,))
+    violations = order_lifetime_check.collect_violations(batch=batch)
     assert any("requires source" in violation.message for violation in violations)
 
 
@@ -93,7 +99,8 @@ def test_order_lifetime_check_rejects_dynamic_sort_once_source(tmp_path: Path) -
         "    source_tag = 'runtime.dynamic'\n"
         "    return sort_once(values, source=source_tag)\n",
     )
-    violations = order_lifetime_check.collect_violations(root=tmp_path)
+    batch = build_policy_scan_batch(root=tmp_path, target_globs=(order_lifetime_check.TARGET_GLOB,))
+    violations = order_lifetime_check.collect_violations(batch=batch)
     assert any(
         "must be string literal or f-string" in violation.message
         for violation in violations
@@ -112,8 +119,9 @@ def test_order_lifetime_check_emits_inventory(tmp_path: Path) -> None:
     )
     inventory_path = tmp_path / "artifacts" / "audit_reports" / "inventory.json"
     # Call helpers directly to avoid subprocess overhead.
+    batch = build_policy_scan_batch(root=tmp_path, target_globs=(order_lifetime_check.TARGET_GLOB,))
     violations, inventories = order_lifetime_check.collect_violations_and_inventory(
-        root=tmp_path
+        batch=batch
     )
     assert violations == []
     payload = {

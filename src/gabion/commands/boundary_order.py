@@ -146,7 +146,7 @@ def _canonicalize_value(
 
 
 @_canonicalize_value.register(dict)
-def _(value: dict[object, object], *, source: str) -> object:
+def _sd_reg_1(value: dict[object, object], *, source: str) -> object:
     if is_sorted_once_carrier(value):
         return _enforce_ordered_value(value, source=source)
     items = [(str(key), value[key]) for key in value]
@@ -165,12 +165,12 @@ def _(value: dict[object, object], *, source: str) -> object:
 
 
 @_canonicalize_value.register(MappingProxyType)
-def _(value: MappingProxyType, *, source: str) -> object:
+def _sd_reg_2(value: MappingProxyType, *, source: str) -> object:
     return _canonicalize_value(dict(value), source=source)
 
 
 @_canonicalize_value.register(list)
-def _(value: list[object], *, source: str) -> object:
+def _sd_reg_3(value: list[object], *, source: str) -> object:
     if is_sorted_once_carrier(value):
         return _enforce_ordered_value(value, source=source)
     normalized_values = [
@@ -185,7 +185,7 @@ def _(value: list[object], *, source: str) -> object:
 
 
 @_canonicalize_value.register(tuple)
-def _(value: tuple[object, ...], *, source: str) -> object:
+def _sd_reg_4(value: tuple[object, ...], *, source: str) -> object:
     normalized_values = [
         _canonicalize_value(item, source=f"{source}.tuple_item")
         for item in value
@@ -199,7 +199,7 @@ def _(value: tuple[object, ...], *, source: str) -> object:
 
 
 @_canonicalize_value.register(set)
-def _(value: set[object], *, source: str) -> object:
+def _sd_reg_5(value: set[object], *, source: str) -> object:
     normalized_values = [
         _canonicalize_value(item, source=f"{source}.set_item")
         for item in value
@@ -230,7 +230,7 @@ def _enforce_ordered_value(
 
 
 @_enforce_ordered_value.register(dict)
-def _(value: dict[object, object], *, source: str) -> object:
+def _sd_reg_6(value: dict[object, object], *, source: str) -> object:
     items = [(str(key), value[key]) for key in value]
     ordered_items = enforce_ordered(
         items,
@@ -244,12 +244,12 @@ def _(value: dict[object, object], *, source: str) -> object:
 
 
 @_enforce_ordered_value.register(MappingProxyType)
-def _(value: MappingProxyType, *, source: str) -> object:
+def _sd_reg_7(value: MappingProxyType, *, source: str) -> object:
     return _enforce_ordered_value(dict(value), source=source)
 
 
 @_enforce_ordered_value.register(list)
-def _(value: list[object], *, source: str) -> object:
+def _sd_reg_8(value: list[object], *, source: str) -> object:
     normalized_values = [
         _enforce_ordered_value(item, source=f"{source}.list_item")
         for item in value
@@ -262,7 +262,7 @@ def _(value: list[object], *, source: str) -> object:
 
 
 @_enforce_ordered_value.register(tuple)
-def _(value: tuple[object, ...], *, source: str) -> object:
+def _sd_reg_9(value: tuple[object, ...], *, source: str) -> object:
     normalized_values = [
         _enforce_ordered_value(item, source=f"{source}.tuple_item")
         for item in value
@@ -276,7 +276,7 @@ def _(value: tuple[object, ...], *, source: str) -> object:
 
 
 @_enforce_ordered_value.register(set)
-def _(value: set[object], *, source: str) -> object:
+def _sd_reg_10(value: set[object], *, source: str) -> object:
     _ = value
     never(
         "unordered set cannot cross egress boundary",

@@ -7,7 +7,7 @@ import json
 import sys
 from contextlib import ExitStack, contextmanager
 from pathlib import Path
-from typing import Callable, Iterable, cast
+from typing import Callable, Iterable
 
 from gabion.analysis.aspf.aspf import Forest
 from gabion.analysis.foundation.baseline_io import load_json
@@ -446,7 +446,7 @@ def _run_impl(
                         payload = None
                 else:
                     payload = None
-                payload_mapping = mapping_optional(cast(JSONValue, payload))
+                payload_mapping = mapping_optional(payload)
                 if payload_mapping is not None:
                     synth_registry = build_synth_registry_from_payload(
                         payload_mapping, registry

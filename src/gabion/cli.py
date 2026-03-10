@@ -710,12 +710,12 @@ def _int_optional(value: object) -> int | None:
 
 
 @_int_optional.register
-def _(value: int) -> int | None:
+def _sd_reg_1(value: int) -> int | None:
     return value
 
 
 @_int_optional.register
-def _(value: bool) -> int | None:
+def _sd_reg_2(value: bool) -> int | None:
     _ = value
     return None
 
@@ -735,7 +735,7 @@ def _str_optional(value: object) -> str | None:
 
 
 @_str_optional.register
-def _(value: str) -> str | None:
+def _sd_reg_3(value: str) -> str | None:
     return value
 
 
@@ -754,7 +754,7 @@ def _mapping_optional(value: object) -> Mapping[str, object] | None:
 
 
 @_mapping_optional.register
-def _(value: dict) -> Mapping[str, object] | None:
+def _sd_reg_4(value: dict) -> Mapping[str, object] | None:
     return value
 
 
@@ -773,7 +773,7 @@ def _json_object_optional(value: object) -> JSONObject | None:
 
 
 @_json_object_optional.register
-def _(value: dict) -> JSONObject | None:
+def _sd_reg_5(value: dict) -> JSONObject | None:
     return cast(JSONObject, value)
 
 

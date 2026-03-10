@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from scripts.policy import defensive_fallback_policy_check as policy
+from gabion.tooling.runtime.policy_scan_batch import build_policy_scan_batch
 
 
 def _write(path: Path, content: str) -> None:
@@ -21,7 +22,8 @@ def test_defensive_fallback_policy_flags_sentinel_return_guard(tmp_path: Path) -
         "        return None\n"
         "    return value\n",
     )
-    violations = policy.collect_violations(root=tmp_path)
+    batch = build_policy_scan_batch(root=tmp_path, target_globs=(policy.TARGET_GLOB,))
+    violations = policy.collect_violations(batch=batch)
     assert violations
     assert any(v.kind == "sentinel_return" for v in violations)
 

@@ -1,0 +1,2153 @@
+{
+  "allowlist": "/home/mikemol/github/gabion/docs/policy/private_symbol_import_allowlist.txt",
+  "baseline": "/home/mikemol/github/gabion/docs/baselines/private_symbol_import_baseline.json",
+  "new_violations": [],
+  "non_exempt": [
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_ambiguity_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_projection_materialization",
+      "symbol": "_ambiguity_suite_relation"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_ambiguity_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_projection_materialization",
+      "symbol": "_ambiguity_suite_row_to_suite"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_ambiguity_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_projection_materialization",
+      "symbol": "_ambiguity_virtual_count_gt_1"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_ambiguity_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_projection_materialization",
+      "symbol": "_collect_call_ambiguities"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_ambiguity_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_projection_materialization",
+      "symbol": "_collect_call_ambiguities_indexed"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_ambiguity_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_projection_materialization",
+      "symbol": "_dedupe_call_ambiguities"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_ambiguity_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_projection_materialization",
+      "symbol": "_emit_call_ambiguities"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_ambiguity_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_projection_materialization",
+      "symbol": "_lint_lines_from_call_ambiguities"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_ambiguity_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_projection_materialization",
+      "symbol": "_materialize_ambiguity_suite_agg_spec"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_ambiguity_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_projection_materialization",
+      "symbol": "_materialize_ambiguity_virtual_set_spec"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_ambiguity_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_projection_materialization",
+      "symbol": "_materialize_suite_order_spec"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_ambiguity_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_projection_materialization",
+      "symbol": "_populate_bundle_forest"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_ambiguity_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_projection_materialization",
+      "symbol": "_suite_order_relation"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_ambiguity_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_projection_materialization",
+      "symbol": "_suite_order_row_to_site"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_ambiguity_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_projection_materialization",
+      "symbol": "_suite_site_label"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_ambiguity_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_projection_materialization",
+      "symbol": "_summarize_call_ambiguities"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_evidence_helpers",
+      "symbol": "_base_identifier"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_evidence_helpers",
+      "symbol": "_collect_module_exports"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_evidence_helpers",
+      "symbol": "_enclosing_class_scopes"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_evidence_helpers",
+      "symbol": "_module_name"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_evidence_helpers",
+      "symbol": "_resolve_callee"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_decision_support",
+      "symbol": "_decision_surface_reason_map"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_decision_support",
+      "symbol": "_decorators_transparent"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_decision_support",
+      "symbol": "_value_encoded_decision_params"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_helpers",
+      "symbol": "_collect_functions"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_helpers",
+      "symbol": "_enclosing_class"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_helpers",
+      "symbol": "_enclosing_function_scopes"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_helpers",
+      "symbol": "_enclosing_scopes"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_helpers",
+      "symbol": "_is_test_path"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_helpers",
+      "symbol": "_node_span"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_helpers",
+      "symbol": "_param_annotations"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_helpers",
+      "symbol": "_param_defaults"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_helpers",
+      "symbol": "_param_names"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_helpers",
+      "symbol": "_param_spans"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_runtime_support",
+      "symbol": "_direct_lambda_callee_by_call_span"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_runtime_support",
+      "symbol": "_materialize_direct_lambda_callees"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_runtime_support",
+      "symbol": "_unused_params"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_semantics",
+      "symbol": "_analyze_function"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_semantics",
+      "symbol": "_collect_return_aliases"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_lambda_runtime_support",
+      "symbol": "_collect_lambda_bindings_by_caller"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_lambda_runtime_support",
+      "symbol": "_collect_lambda_function_infos"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_lambda_runtime_support",
+      "symbol": "_function_key"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_local_class_hierarchy",
+      "symbol": "_collect_local_class_bases"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_local_class_hierarchy",
+      "symbol": "_resolve_local_method_in_hierarchy"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_parse_failures",
+      "symbol": "_PARSE_MODULE_ERROR_TYPES"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_parse_failures",
+      "symbol": "_parse_failure_sink"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_parse_failures",
+      "symbol": "_record_parse_failure_witness"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_resume_serialization",
+      "symbol": "_CACHE_IDENTITY_DIGEST_HEX"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_resume_serialization",
+      "symbol": "_CACHE_IDENTITY_PREFIX"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_resume_serialization",
+      "symbol": "_CacheIdentity"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_resume_serialization",
+      "symbol": "_analysis_collection_resume_path_key"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_resume_serialization",
+      "symbol": "_build_analysis_collection_resume_payload"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_resume_serialization",
+      "symbol": "_load_analysis_collection_resume_payload"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_resume_serialization",
+      "symbol": "_load_analysis_index_resume_payload"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_resume_serialization",
+      "symbol": "_load_file_scan_resume_state"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_resume_serialization",
+      "symbol": "_serialize_analysis_index_resume_payload"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_resume_serialization",
+      "symbol": "_serialize_file_scan_resume_state"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_parse_helpers",
+      "symbol": "_ParseModuleStage"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_bundle_iteration.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_evidence_helpers",
+      "symbol": "_module_name"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_bundle_iteration.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_parse_helpers",
+      "symbol": "_ParseModuleFailure"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_bundle_iteration.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_parse_helpers",
+      "symbol": "_ParseModuleStage"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_bundle_iteration.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_parse_helpers",
+      "symbol": "_ParseModuleSuccess"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_bundle_iteration.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_parse_helpers",
+      "symbol": "_forbid_adhoc_bundle_discovery"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_bundle_iteration.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_parse_helpers",
+      "symbol": "_parse_module_tree"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_callee_resolution.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_callee_resolution_support",
+      "symbol": "_callee_key"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_callee_resolution.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_callee_resolution_support",
+      "symbol": "_resolve_class_candidates"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_callee_resolution.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_callee_resolution_support",
+      "symbol": "_resolve_method_in_hierarchy"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_build_analysis_index"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_call_graph_algorithms",
+      "symbol": "_collect_recursive_functions"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_call_graph_algorithms",
+      "symbol": "_collect_recursive_nodes"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_call_graph_algorithms",
+      "symbol": "_reachable_from_roots"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_contracts",
+      "symbol": "_CalleeResolutionOutcome"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_contracts",
+      "symbol": "_DeadlineFunctionFacts"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_contracts",
+      "symbol": "_DeadlineLoopFacts"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_runtime",
+      "symbol": "_DeadlineFunctionCollector"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_runtime",
+      "symbol": "_collect_call_edges"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_runtime",
+      "symbol": "_collect_call_nodes_by_path"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_runtime",
+      "symbol": "_collect_deadline_function_facts"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_runtime",
+      "symbol": "_collect_deadline_local_info"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_runtime",
+      "symbol": "_is_dynamic_dispatch_callee_key"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_runtime",
+      "symbol": "_materialize_call_candidates"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_runtime",
+      "symbol": "_resolve_callee"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_runtime",
+      "symbol": "_resolve_callee_outcome"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_runtime.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_EMPTY_CACHE_SEMANTIC_CONTEXT"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_runtime.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_analysis_index_stage_cache"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_runtime.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_build_analysis_index"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_runtime.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_parse_stage_cache_key"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_runtime.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_sorted_text"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_runtime.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_call_graph_algorithms",
+      "symbol": "_collect_recursive_functions"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_runtime.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_call_graph_algorithms",
+      "symbol": "_collect_recursive_nodes"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_runtime.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_call_graph_algorithms",
+      "symbol": "_reachable_from_roots"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_runtime.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_callee_resolution_support",
+      "symbol": "_callee_key"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_runtime.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_contracts",
+      "symbol": "_CalleeResolutionOutcome"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_runtime.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_contracts",
+      "symbol": "_DeadlineFunctionFacts"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_runtime.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_contracts",
+      "symbol": "_DeadlineLocalInfo"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_runtime.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_contracts",
+      "symbol": "_DeadlineLoopFacts"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_runtime.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_evidence_helpers",
+      "symbol": "_is_test_path"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_runtime.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_evidence_helpers",
+      "symbol": "_module_name"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_runtime.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_evidence_helpers",
+      "symbol": "_target_names"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_runtime.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_helpers",
+      "symbol": "_collect_functions"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_runtime.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_helpers",
+      "symbol": "_enclosing_scopes"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_runtime.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_helpers",
+      "symbol": "_node_span"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_runtime.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_helpers",
+      "symbol": "_param_names"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_runtime.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_post_phase_analyses",
+      "symbol": "_StageCacheSpec"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_runtime.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_parse_helpers",
+      "symbol": "_ParseModuleStage"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_runtime.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_parse_helpers",
+      "symbol": "_parse_module_tree_or_none"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_summary.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_projection_materialization",
+      "symbol": "_format_span_fields"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_documented_bundles.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_parse_helpers",
+      "symbol": "_forbid_adhoc_bundle_discovery"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_evidence_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_callee_resolution_support",
+      "symbol": "_callee_key"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_evidence_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_callee_resolution_support",
+      "symbol": "_resolve_class_candidates"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_evidence_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_callee_resolution_support",
+      "symbol": "_resolve_method_in_hierarchy"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_evidence_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_callee_resolution_support",
+      "symbol": "_resolve_method_in_hierarchy_outcome"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_evidence_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_helpers",
+      "symbol": "_build_function_index"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_evidence_helpers.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_parse_helpers",
+      "symbol": "_ParseModuleFailure"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_evidence_helpers.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_parse_helpers",
+      "symbol": "_ParseModuleStage"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_evidence_helpers.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_parse_helpers",
+      "symbol": "_ParseModuleSuccess"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_evidence_helpers.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_parse_helpers",
+      "symbol": "_parse_module_tree"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_fingerprint_helpers.py",
+      "module_path": "gabion.analysis.core.type_fingerprints",
+      "symbol": "_collect_base_atoms"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_fingerprint_helpers.py",
+      "module_path": "gabion.analysis.core.type_fingerprints",
+      "symbol": "_collect_constructors"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_fingerprint_helpers.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_snapshot_io",
+      "symbol": "_normalize_snapshot_path"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_function_index_decision_support.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_helpers",
+      "symbol": "_param_names"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_function_index_helpers.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_parse_helpers",
+      "symbol": "_ParseModuleFailure"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_function_index_helpers.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_parse_helpers",
+      "symbol": "_ParseModuleStage"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_function_index_helpers.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_parse_helpers",
+      "symbol": "_ParseModuleSuccess"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_function_index_helpers.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_parse_helpers",
+      "symbol": "_parse_module_tree"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_function_index_runtime_support.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_helpers",
+      "symbol": "_node_span"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_function_semantics.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_helpers",
+      "symbol": "_enclosing_class"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_function_semantics.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_helpers",
+      "symbol": "_enclosing_scopes"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_function_semantics.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_helpers",
+      "symbol": "_param_names"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_ingested_analysis_support.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_profiling_v1_payload"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_ingested_analysis_support.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_post_phase_analyses",
+      "symbol": "_callsite_evidence_for_bundle"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_lambda_runtime_support.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_evidence_helpers",
+      "symbol": "_target_names"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_lambda_runtime_support.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_helpers",
+      "symbol": "_enclosing_class"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_lambda_runtime_support.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_helpers",
+      "symbol": "_enclosing_function_scopes"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_lambda_runtime_support.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_helpers",
+      "symbol": "_enclosing_scopes"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_lambda_runtime_support.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_helpers",
+      "symbol": "_node_span"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_lint_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_analysis_index_transitive_callers"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_lint_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_build_analysis_index"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_lint_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_iter_monotonic_paths"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_lint_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_bundle_merge",
+      "symbol": "_merge_counts_by_knobs"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_lint_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_evidence_helpers",
+      "symbol": "_is_test_path"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_lint_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_resume_serialization",
+      "symbol": "_analysis_collection_resume_path_key"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_lint_helpers.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_reporting_helpers",
+      "symbol": "_materialize_projection_spec_rows"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_lint_helpers.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_snapshot_io",
+      "symbol": "_normalize_snapshot_path"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_local_class_hierarchy.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_evidence_helpers",
+      "symbol": "_base_identifier"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_local_class_hierarchy.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_evidence_helpers",
+      "symbol": "_enclosing_class_scopes"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_obligations.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_helpers",
+      "symbol": "_CalleeResolutionOutcome"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_obligations.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_helpers",
+      "symbol": "_DEADLINE_EXEMPT_PREFIXES"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_obligations.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_helpers",
+      "symbol": "_DEADLINE_HELPER_QUALS"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_obligations.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_helpers",
+      "symbol": "_DeadlineArgInfo"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_obligations.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_helpers",
+      "symbol": "_DeadlineFunctionFacts"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_obligations.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_helpers",
+      "symbol": "_build_analysis_index"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_obligations.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_helpers",
+      "symbol": "_caller_param_bindings_for_call"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_obligations.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_helpers",
+      "symbol": "_collect_call_edges_from_forest"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_obligations.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_helpers",
+      "symbol": "_collect_call_nodes_by_path"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_obligations.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_helpers",
+      "symbol": "_collect_call_resolution_obligation_details_from_forest"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_obligations.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_helpers",
+      "symbol": "_collect_call_resolution_obligations_from_forest"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_obligations.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_helpers",
+      "symbol": "_collect_deadline_function_facts"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_obligations.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_helpers",
+      "symbol": "_collect_recursive_nodes"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_obligations.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_helpers",
+      "symbol": "_deadline_arg_info_map"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_obligations.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_helpers",
+      "symbol": "_deadline_loop_forwarded_params"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_obligations.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_helpers",
+      "symbol": "_function_suite_id"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_obligations.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_helpers",
+      "symbol": "_function_suite_key"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_obligations.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_helpers",
+      "symbol": "_is_deadline_param"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_obligations.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_helpers",
+      "symbol": "_materialize_call_candidates"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_obligations.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_helpers",
+      "symbol": "_normalize_snapshot_path"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_obligations.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_helpers",
+      "symbol": "_reachable_from_roots"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_obligations.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_helpers",
+      "symbol": "_resolve_callee_outcome"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_obligations.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_evidence_helpers",
+      "symbol": "_is_test_path"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_ambiguity_helpers",
+      "symbol": "_collect_call_ambiguities"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_ambiguity_helpers",
+      "symbol": "_emit_call_ambiguities"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_ambiguity_helpers",
+      "symbol": "_materialize_ambiguity_suite_agg_spec"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_ambiguity_helpers",
+      "symbol": "_materialize_ambiguity_virtual_set_spec"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_ambiguity_helpers",
+      "symbol": "_materialize_suite_order_spec"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_ambiguity_helpers",
+      "symbol": "_populate_bundle_forest"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_PROGRESS_EMIT_MIN_INTERVAL_SECONDS"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_analyze_file_internal"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_build_analysis_collection_resume_payload"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_build_analysis_index"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_iter_monotonic_paths"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_load_analysis_collection_resume_payload"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_phase_work_progress"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_profiling_v1_payload"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers",
+      "symbol": "_collect_fingerprint_atom_keys"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers",
+      "symbol": "_compute_fingerprint_coherence"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers",
+      "symbol": "_compute_fingerprint_matches"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers",
+      "symbol": "_compute_fingerprint_provenance"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers",
+      "symbol": "_compute_fingerprint_rewrite_plans"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers",
+      "symbol": "_compute_fingerprint_synth"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers",
+      "symbol": "_compute_fingerprint_warnings"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_lint_helpers",
+      "symbol": "_compute_lint_lines"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_lint_helpers",
+      "symbol": "_constant_smells_from_details"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_lint_helpers",
+      "symbol": "_deadness_witnesses_from_constant_details"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_lint_helpers",
+      "symbol": "_internal_broad_type_lint_lines"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_post_phase_analyses",
+      "symbol": "_collect_constant_flow_details"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_post_phase_analyses",
+      "symbol": "_collect_exception_obligations"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_post_phase_analyses",
+      "symbol": "_collect_handledness_witnesses"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_post_phase_analyses",
+      "symbol": "_collect_invariant_propositions"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_post_phase_analyses",
+      "symbol": "_collect_never_invariants"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_post_phase_analyses",
+      "symbol": "_param_annotations_by_path"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_resume_serialization",
+      "symbol": "_analysis_collection_resume_path_key"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_EMPTY_CACHE_SEMANTIC_CONTEXT"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_IndexedPassContext"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_IndexedPassSpec"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_analysis_index_resolved_call_edges"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_analysis_index_resolved_call_edges_by_caller"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_analysis_index_stage_cache"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_build_call_graph"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_iter_resolved_edge_param_events"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_parse_stage_cache_key"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_reduce_resolved_call_edges"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_run_indexed_pass"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_exception_obligations",
+      "symbol": "_builtin_exception_class"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_helpers",
+      "symbol": "_collect_functions"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_helpers",
+      "symbol": "_enclosing_scopes"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_helpers",
+      "symbol": "_is_test_path"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_helpers",
+      "symbol": "_module_name"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_helpers",
+      "symbol": "_node_span"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_helpers",
+      "symbol": "_param_annotations"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_helpers",
+      "symbol": "_param_names"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_lint_helpers",
+      "symbol": "_constant_smells_from_details"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_lint_helpers",
+      "symbol": "_deadness_witnesses_from_constant_details"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_lint_helpers",
+      "symbol": "_decision_param_lint_line"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_lint_helpers",
+      "symbol": "_expand_type_hint"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_lint_helpers",
+      "symbol": "_span_line_col"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_lint_helpers",
+      "symbol": "_split_top_level"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_resume_serialization",
+      "symbol": "_deserialize_invariants_for_resume"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_resume_serialization",
+      "symbol": "_invariant_confidence"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_resume_serialization",
+      "symbol": "_invariant_digest"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_resume_serialization",
+      "symbol": "_normalize_invariant_proposition"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_parse_helpers",
+      "symbol": "_ParseModuleStage"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_parse_helpers",
+      "symbol": "_ParseModuleSuccess"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_parse_helpers",
+      "symbol": "_forbid_adhoc_bundle_discovery"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_parse_helpers",
+      "symbol": "_parse_module_tree"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_parse_helpers",
+      "symbol": "_parse_module_tree_or_none"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_reporting_helpers",
+      "symbol": "_format_span_fields"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_projection_materialization.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_IndexedPassSpec"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_projection_materialization.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_PROGRESS_EMIT_MIN_INTERVAL_SECONDS"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_projection_materialization.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_analysis_index_module_trees"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_projection_materialization.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_build_analysis_index"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_projection_materialization.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_iter_monotonic_paths"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_projection_materialization.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_run_indexed_pass"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_projection_materialization.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_documented_bundles",
+      "symbol": "_iter_documented_bundles"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_projection_materialization.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_evidence_helpers",
+      "symbol": "_build_symbol_table"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_projection_materialization.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_evidence_helpers",
+      "symbol": "_resolve_callee"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_projection_materialization.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_helpers",
+      "symbol": "_collect_functions"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_projection_materialization.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_helpers",
+      "symbol": "_enclosing_scopes"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_projection_materialization.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_helpers",
+      "symbol": "_is_test_path"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_projection_materialization.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_helpers",
+      "symbol": "_module_name"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_projection_materialization.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_helpers",
+      "symbol": "_node_span"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_projection_materialization.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_lint_helpers",
+      "symbol": "_lint_lines_from_call_ambiguities"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_projection_materialization.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_post_phase_analyses",
+      "symbol": "_collect_config_bundles"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_projection_materialization.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_post_phase_analyses",
+      "symbol": "_collect_dataclass_registry"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_projection_materialization.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_post_phase_analyses",
+      "symbol": "_iter_dataclass_call_bundles"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_projection_materialization.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_parse_helpers",
+      "symbol": "_ParseModuleStage"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_projection_materialization.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_parse_helpers",
+      "symbol": "_parse_module_tree"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_projection_materialization.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_reporting_helpers",
+      "symbol": "_format_span_fields"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_projection_materialization.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_reporting_helpers",
+      "symbol": "_materialize_projection_spec_rows"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_raw_runtime.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_baseline_gates",
+      "symbol": "_resolve_baseline_path"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/io/dataflow_refactor_planning.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_build_analysis_index"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/io/dataflow_refactor_planning.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_evidence_helpers",
+      "symbol": "_resolve_callee"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/io/dataflow_reporting_helpers.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_parse_helpers",
+      "symbol": "_ParseModuleStage"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/io/dataflow_reporting_helpers.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_parse_helpers",
+      "symbol": "_parse_module_tree"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/io/dataflow_run_outputs.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_baseline_gates",
+      "symbol": "_apply_baseline"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/io/dataflow_run_outputs.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_baseline_gates",
+      "symbol": "_load_baseline"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/io/dataflow_run_outputs.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_baseline_gates",
+      "symbol": "_write_baseline"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/io/dataflow_snapshot_io.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_parse_helpers",
+      "symbol": "_forbid_adhoc_bundle_discovery"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/io/dataflow_structure_reuse.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_build_analysis_collection_resume_payload"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/io/dataflow_structure_reuse.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_post_phase_analyses",
+      "symbol": "_collect_config_bundles"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/io/dataflow_structure_reuse.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_post_phase_analyses",
+      "symbol": "_collect_dataclass_registry"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/io/dataflow_structure_reuse.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_parse_helpers",
+      "symbol": "_forbid_adhoc_bundle_discovery"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/io/dataflow_synthesis.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_build_analysis_index"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/io/dataflow_synthesis.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_build_call_graph"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/io/dataflow_synthesis.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_bundle_merge",
+      "symbol": "_merge_counts_by_knobs"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/io/dataflow_synthesis.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_evidence_helpers",
+      "symbol": "_resolve_callee"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/io/dataflow_synthesis.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_post_phase_analyses",
+      "symbol": "_collect_config_bundles"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/io/dataflow_synthesis.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_post_phase_analyses",
+      "symbol": "_collect_dataclass_registry"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/io/dataflow_synthesis.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_post_phase_analyses",
+      "symbol": "_combine_type_hints"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/io/dataflow_synthesis.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_post_phase_analyses",
+      "symbol": "_compute_knob_param_names"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/io/dataflow_synthesis.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_post_phase_analyses",
+      "symbol": "_type_from_const_repr"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/io/dataflow_synthesis.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_parse_helpers",
+      "symbol": "_forbid_adhoc_bundle_discovery"
+    },
+    {
+      "importer": "src/gabion/analysis/surfaces/test_evidence_suggestions.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_evidence_helpers",
+      "symbol": "_alt_input"
+    },
+    {
+      "importer": "src/gabion/analysis/surfaces/test_evidence_suggestions.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_evidence_helpers",
+      "symbol": "_build_function_index"
+    },
+    {
+      "importer": "src/gabion/analysis/surfaces/test_evidence_suggestions.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_evidence_helpers",
+      "symbol": "_build_symbol_table"
+    },
+    {
+      "importer": "src/gabion/analysis/surfaces/test_evidence_suggestions.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_evidence_helpers",
+      "symbol": "_collect_class_index"
+    },
+    {
+      "importer": "src/gabion/analysis/surfaces/test_evidence_suggestions.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_evidence_helpers",
+      "symbol": "_enclosing_scopes"
+    },
+    {
+      "importer": "src/gabion/analysis/surfaces/test_evidence_suggestions.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_evidence_helpers",
+      "symbol": "_is_test_path"
+    },
+    {
+      "importer": "src/gabion/analysis/surfaces/test_evidence_suggestions.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_evidence_helpers",
+      "symbol": "_module_name"
+    },
+    {
+      "importer": "src/gabion/analysis/surfaces/test_evidence_suggestions.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_evidence_helpers",
+      "symbol": "_paramset_key"
+    },
+    {
+      "importer": "src/gabion/analysis/surfaces/test_evidence_suggestions.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_evidence_helpers",
+      "symbol": "_resolve_callee"
+    },
+    {
+      "importer": "src/gabion/analysis/surfaces/test_evidence_suggestions.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_ingest_helpers",
+      "symbol": "_iter_paths"
+    },
+    {
+      "importer": "src/gabion/ingest/python_adapter.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_ingest_helpers",
+      "symbol": "_collect_functions"
+    },
+    {
+      "importer": "src/gabion/server_core/command_orchestrator.py",
+      "module_path": "gabion.server_core.command_orchestrator_primitives",
+      "symbol": "_analysis_index_resume_hydrated_count"
+    },
+    {
+      "importer": "src/gabion/server_core/command_orchestrator.py",
+      "module_path": "gabion.server_core.command_orchestrator_primitives",
+      "symbol": "_analysis_index_resume_signature"
+    },
+    {
+      "importer": "src/gabion/server_core/command_orchestrator.py",
+      "module_path": "gabion.server_core.command_orchestrator_primitives",
+      "symbol": "_analysis_resume_cache_verdict"
+    },
+    {
+      "importer": "src/gabion/server_core/command_orchestrator.py",
+      "module_path": "gabion.server_core.command_orchestrator_primitives",
+      "symbol": "_analysis_resume_progress"
+    },
+    {
+      "importer": "src/gabion/server_core/command_orchestrator.py",
+      "module_path": "gabion.server_core.command_orchestrator_primitives",
+      "symbol": "_truthy_flag"
+    },
+    {
+      "importer": "tests/gabion/analysis/alias/test_alias_return_propagation.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_semantics",
+      "symbol": "_analyze_function"
+    },
+    {
+      "importer": "tests/gabion/analysis/alias/test_alias_return_propagation.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_semantics",
+      "symbol": "_collect_return_aliases"
+    },
+    {
+      "importer": "tests/gabion/analysis/aspf/test_aspf_visitors.py",
+      "module_path": "gabion.analysis.aspf.aspf_visitors",
+      "symbol": "_normalize_two_cell_witness_for_replay"
+    },
+    {
+      "importer": "tests/gabion/analysis/call_cluster/test_callsite_evidence_helper.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_post_phase_analyses",
+      "symbol": "_callsite_evidence_for_bundle"
+    },
+    {
+      "importer": "tests/gabion/analysis/dataflow_s1/dataflow_structure_reuse_edges_cases.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_structure_reuse",
+      "symbol": "_build_reuse_replacement_map"
+    },
+    {
+      "importer": "tests/gabion/analysis/dataflow_s1/test_dataflow_callee_resolution.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_evidence_helpers",
+      "symbol": "_resolve_callee"
+    },
+    {
+      "importer": "tests/gabion/analysis/dataflow_s1/test_dataflow_report_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_bundle_merge",
+      "symbol": "_merge_counts_by_knobs"
+    },
+    {
+      "importer": "tests/gabion/analysis/dataflow_s1/test_dataflow_report_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_projection_materialization",
+      "symbol": "_populate_bundle_forest"
+    },
+    {
+      "importer": "tests/gabion/analysis/dataflow_s1/test_dataflow_report_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_runtime_reporting",
+      "symbol": "_report_section_spec"
+    },
+    {
+      "importer": "tests/gabion/analysis/dataflow_s1/test_dataflow_report_helpers.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_projection_helpers",
+      "symbol": "_topologically_order_report_projection_specs"
+    },
+    {
+      "importer": "tests/gabion/analysis/dataflow_s1/test_dataflow_resolve_callee.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_callee_resolution_support",
+      "symbol": "_callee_key"
+    },
+    {
+      "importer": "tests/gabion/analysis/dataflow_s1/test_dataflow_resolve_callee.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_contracts",
+      "symbol": "_CalleeResolutionOutcome"
+    },
+    {
+      "importer": "tests/gabion/analysis/dataflow_s1/test_dataflow_resolve_callee.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_evidence_helpers",
+      "symbol": "_is_test_path"
+    },
+    {
+      "importer": "tests/gabion/analysis/dataflow_s1/test_dataflow_resolve_callee.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_evidence_helpers",
+      "symbol": "_module_name"
+    },
+    {
+      "importer": "tests/gabion/analysis/dataflow_s2/test_dataflow_resume_payloads.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_raw_runtime",
+      "symbol": "_resolve_synth_registry_path"
+    },
+    {
+      "importer": "tests/gabion/analysis/forest/test_forest_signature.py",
+      "module_path": "gabion.analysis.core.forest_signature",
+      "symbol": "_normalize_key"
+    },
+    {
+      "importer": "tests/gabion/analysis/forest/test_forest_signature.py",
+      "module_path": "gabion.analysis.core.forest_signature",
+      "symbol": "_path_name"
+    },
+    {
+      "importer": "tests/gabion/analysis/forest/test_forest_spec.py",
+      "module_path": "gabion.analysis.core.forest_spec",
+      "symbol": "_normalize_decision_tiers"
+    },
+    {
+      "importer": "tests/gabion/analysis/misc_s1/misc_coverage_cases.py",
+      "module_path": "gabion.lsp_client",
+      "symbol": "_read_response"
+    },
+    {
+      "importer": "tests/gabion/analysis/misc_s1/misc_coverage_cases.py",
+      "module_path": "gabion.lsp_client",
+      "symbol": "_read_rpc"
+    },
+    {
+      "importer": "tests/gabion/analysis/misc_s1/misc_coverage_cases.py",
+      "module_path": "gabion.lsp_client",
+      "symbol": "_write_rpc"
+    },
+    {
+      "importer": "tests/gabion/analysis/misc_s1/test_canonical.py",
+      "module_path": "gabion.analysis.core.canonical",
+      "symbol": "_canon_multiset"
+    },
+    {
+      "importer": "tests/gabion/analysis/misc_s1/test_constant_flow_audit.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_post_phase_analyses",
+      "symbol": "_format_call_site"
+    },
+    {
+      "importer": "tests/gabion/analysis/misc_s1/test_wl_refinement.py",
+      "module_path": "gabion.analysis.core.wl_refinement",
+      "symbol": "_bool_param"
+    },
+    {
+      "importer": "tests/gabion/analysis/misc_s1/test_wl_refinement.py",
+      "module_path": "gabion.analysis.core.wl_refinement",
+      "symbol": "_int_param"
+    },
+    {
+      "importer": "tests/gabion/analysis/misc_s1/test_wl_refinement.py",
+      "module_path": "gabion.analysis.core.wl_refinement",
+      "symbol": "_seed_struct"
+    },
+    {
+      "importer": "tests/gabion/analysis/misc_s1/test_wl_refinement.py",
+      "module_path": "gabion.analysis.core.wl_refinement",
+      "symbol": "_string_list_param"
+    },
+    {
+      "importer": "tests/gabion/analysis/misc_s2/test_property_hook_manifest.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_post_phase_analyses",
+      "symbol": "_build_property_hook_callable_index"
+    },
+    {
+      "importer": "tests/gabion/analysis/misc_s2/test_property_hook_manifest.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_post_phase_analyses",
+      "symbol": "_deserialize_invariants_for_resume"
+    },
+    {
+      "importer": "tests/gabion/analysis/misc_s3/test_ambiguity_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_projection_materialization",
+      "symbol": "_collect_call_ambiguities"
+    },
+    {
+      "importer": "tests/gabion/analysis/misc_s3/test_ambiguity_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_projection_materialization",
+      "symbol": "_dedupe_call_ambiguities"
+    },
+    {
+      "importer": "tests/gabion/analysis/misc_s3/test_ambiguity_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_projection_materialization",
+      "symbol": "_emit_call_ambiguities"
+    },
+    {
+      "importer": "tests/gabion/analysis/misc_s3/test_ambiguity_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_projection_materialization",
+      "symbol": "_lint_lines_from_call_ambiguities"
+    },
+    {
+      "importer": "tests/gabion/analysis/misc_s3/test_ambiguity_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_projection_materialization",
+      "symbol": "_materialize_ambiguity_suite_agg_spec"
+    },
+    {
+      "importer": "tests/gabion/analysis/misc_s3/test_ambiguity_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_projection_materialization",
+      "symbol": "_materialize_ambiguity_virtual_set_spec"
+    },
+    {
+      "importer": "tests/gabion/analysis/misc_s3/test_ambiguity_helpers.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_projection_materialization",
+      "symbol": "_summarize_call_ambiguities"
+    },
+    {
+      "importer": "tests/gabion/analysis/misc_s3/test_broad_type_lint.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_analysis_index",
+      "symbol": "_build_analysis_index"
+    },
+    {
+      "importer": "tests/gabion/analysis/misc_s3/test_dataclass_call_bundles.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_evidence_helpers",
+      "symbol": "_build_symbol_table"
+    },
+    {
+      "importer": "tests/gabion/analysis/misc_s3/test_dataclass_call_bundles.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_post_phase_analyses",
+      "symbol": "_collect_dataclass_registry"
+    },
+    {
+      "importer": "tests/gabion/analysis/misc_s3/test_dataclass_call_bundles.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_post_phase_analyses",
+      "symbol": "_iter_dataclass_call_bundles"
+    },
+    {
+      "importer": "tests/gabion/analysis/misc_s3/test_legacy_dataflow_monolith_ambiguity_suite.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_ambiguity_helpers",
+      "symbol": "_ambiguity_suite_relation"
+    },
+    {
+      "importer": "tests/gabion/analysis/misc_s3/test_legacy_dataflow_monolith_ambiguity_suite.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_ambiguity_helpers",
+      "symbol": "_ambiguity_suite_row_to_suite"
+    },
+    {
+      "importer": "tests/gabion/analysis/misc_s3/test_legacy_dataflow_monolith_ambiguity_suite.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_ambiguity_helpers",
+      "symbol": "_ambiguity_virtual_count_gt_1"
+    },
+    {
+      "importer": "tests/gabion/analysis/misc_s3/test_legacy_dataflow_monolith_ambiguity_suite.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_ambiguity_helpers",
+      "symbol": "_emit_call_ambiguities"
+    },
+    {
+      "importer": "tests/gabion/analysis/misc_s3/test_never_invariants.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_lint_helpers",
+      "symbol": "_never_invariant_lint_lines"
+    },
+    {
+      "importer": "tests/gabion/analysis/misc_s3/test_rewrite_plan_verification.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers",
+      "symbol": "_compute_fingerprint_coherence"
+    },
+    {
+      "importer": "tests/gabion/analysis/misc_s3/test_rewrite_plan_verification.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers",
+      "symbol": "_compute_fingerprint_rewrite_plans"
+    },
+    {
+      "importer": "tests/gabion/analysis/misc_s3/test_rewrite_plan_verification.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers",
+      "symbol": "_find_provenance_entry_for_site"
+    },
+    {
+      "importer": "tests/gabion/analysis/misc_s3/test_rewrite_plan_verification.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers",
+      "symbol": "_glossary_match_strata"
+    },
+    {
+      "importer": "tests/gabion/analysis/projection/suite_site_projection_parity_cases.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_projection_materialization",
+      "symbol": "_suite_site_label"
+    },
+    {
+      "importer": "tests/gabion/analysis/projection/test_projection_exec_edges.py",
+      "module_path": "gabion.analysis.projection.projection_exec",
+      "symbol": "_hashable"
+    },
+    {
+      "importer": "tests/gabion/analysis/projection/test_projection_exec_edges.py",
+      "module_path": "gabion.analysis.projection.projection_exec",
+      "symbol": "_sort_value"
+    },
+    {
+      "importer": "tests/gabion/analysis/projection/test_projection_exec_edges.py",
+      "module_path": "gabion.analysis.projection.projection_normalize",
+      "symbol": "_extract_predicates"
+    },
+    {
+      "importer": "tests/gabion/analysis/projection/test_projection_exec_edges.py",
+      "module_path": "gabion.analysis.projection.projection_normalize",
+      "symbol": "_normalize_fields"
+    },
+    {
+      "importer": "tests/gabion/analysis/projection/test_projection_exec_edges.py",
+      "module_path": "gabion.analysis.projection.projection_normalize",
+      "symbol": "_normalize_group_fields"
+    },
+    {
+      "importer": "tests/gabion/analysis/projection/test_projection_exec_edges.py",
+      "module_path": "gabion.analysis.projection.projection_normalize",
+      "symbol": "_normalize_limit"
+    },
+    {
+      "importer": "tests/gabion/analysis/projection/test_projection_exec_edges.py",
+      "module_path": "gabion.analysis.projection.projection_normalize",
+      "symbol": "_normalize_pipeline"
+    },
+    {
+      "importer": "tests/gabion/analysis/projection/test_projection_exec_edges.py",
+      "module_path": "gabion.analysis.projection.projection_normalize",
+      "symbol": "_normalize_sort_by"
+    },
+    {
+      "importer": "tests/gabion/analysis/projection/test_projection_exec_edges.py",
+      "module_path": "gabion.analysis.projection.projection_normalize",
+      "symbol": "_normalize_value"
+    },
+    {
+      "importer": "tests/gabion/analysis/projection/test_projection_registry_edges.py",
+      "module_path": "gabion.analysis.projection.projection_registry",
+      "symbol": "_projection_registry_gas_limit"
+    },
+    {
+      "importer": "tests/gabion/analysis/projection/test_projection_spec.py",
+      "module_path": "gabion.analysis.projection.projection_normalize",
+      "symbol": "_normalize_predicates"
+    },
+    {
+      "importer": "tests/gabion/analysis/projection/test_suite_order_projection_spec.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_projection_materialization",
+      "symbol": "_materialize_suite_order_spec"
+    },
+    {
+      "importer": "tests/gabion/analysis/projection/test_suite_order_projection_spec.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_projection_materialization",
+      "symbol": "_suite_order_relation"
+    },
+    {
+      "importer": "tests/gabion/analysis/projection/test_suite_order_projection_spec.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_projection_materialization",
+      "symbol": "_suite_order_row_to_site"
+    },
+    {
+      "importer": "tests/gabion/analysis/structure/test_structure_diff.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_snapshot_io",
+      "symbol": "_bundle_counts_from_snapshot"
+    },
+    {
+      "importer": "tests/gabion/analysis/structure/test_structure_metrics.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_ambiguity_helpers",
+      "symbol": "_populate_bundle_forest"
+    },
+    {
+      "importer": "tests/gabion/analysis/structure/test_structure_snapshot.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_ambiguity_helpers",
+      "symbol": "_populate_bundle_forest"
+    },
+    {
+      "importer": "tests/gabion/analysis/structure/test_structure_snapshot_invariants.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_ambiguity_helpers",
+      "symbol": "_populate_bundle_forest"
+    },
+    {
+      "importer": "tests/gabion/analysis/timeout_deadline/test_deadline_coverage.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_contracts",
+      "symbol": "_DeadlineFunctionFacts"
+    },
+    {
+      "importer": "tests/gabion/analysis/timeout_deadline/test_deadline_coverage.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_contracts",
+      "symbol": "_DeadlineLocalInfo"
+    },
+    {
+      "importer": "tests/gabion/analysis/timeout_deadline/test_deadline_coverage.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_contracts",
+      "symbol": "_DeadlineLoopFacts"
+    },
+    {
+      "importer": "tests/gabion/analysis/timeout_deadline/test_timeout_context.py",
+      "module_path": "gabion.analysis.foundation.timeout_context",
+      "symbol": "_deadline_profile_snapshot"
+    },
+    {
+      "importer": "tests/gabion/analysis/timeout_deadline/test_timeout_context.py",
+      "module_path": "gabion.analysis.foundation.timeout_context",
+      "symbol": "_frame_site_key"
+    },
+    {
+      "importer": "tests/gabion/analysis/timeout_deadline/test_timeout_context.py",
+      "module_path": "gabion.analysis.foundation.timeout_context",
+      "symbol": "_freeze_value"
+    },
+    {
+      "importer": "tests/gabion/analysis/timeout_deadline/test_timeout_context.py",
+      "module_path": "gabion.analysis.foundation.timeout_context",
+      "symbol": "_profile_site_key"
+    },
+    {
+      "importer": "tests/gabion/analysis/timeout_deadline/test_timeout_context.py",
+      "module_path": "gabion.analysis.foundation.timeout_context",
+      "symbol": "_record_deadline_check"
+    },
+    {
+      "importer": "tests/gabion/analysis/timeout_deadline/test_timeout_context.py",
+      "module_path": "gabion.analysis.foundation.timeout_context",
+      "symbol": "_site_key_payload"
+    },
+    {
+      "importer": "tests/gabion/analysis/timeout_deadline/test_timeout_context.py",
+      "module_path": "gabion.analysis.foundation.timeout_context",
+      "symbol": "_site_part_from_payload"
+    },
+    {
+      "importer": "tests/gabion/analysis/timeout_deadline/test_timeout_context.py",
+      "module_path": "gabion.analysis.foundation.timeout_context",
+      "symbol": "_site_part_to_payload"
+    },
+    {
+      "importer": "tests/gabion/analysis/timeout_deadline/test_timeout_context.py",
+      "module_path": "gabion.analysis.foundation.timeout_context",
+      "symbol": "_timeout_progress_snapshot"
+    },
+    {
+      "importer": "tests/gabion/analysis/type/test_type_fingerprints_sidecar.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers",
+      "symbol": "_collect_fingerprint_atom_keys"
+    },
+    {
+      "importer": "tests/gabion/analysis/type/test_type_fingerprints_sidecar.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers",
+      "symbol": "_compute_fingerprint_matches"
+    },
+    {
+      "importer": "tests/gabion/analysis/type/test_type_fingerprints_sidecar.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers",
+      "symbol": "_compute_fingerprint_provenance"
+    },
+    {
+      "importer": "tests/gabion/analysis/type/test_type_flow_callsite_evidence.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_post_phase_analyses",
+      "symbol": "_format_type_flow_site"
+    },
+    {
+      "importer": "tests/gabion/analysis/visitors/visitors_edges_cases.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_helpers",
+      "symbol": "_callee_name"
+    },
+    {
+      "importer": "tests/gabion/analysis/visitors/visitors_edges_cases.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_semantics",
+      "symbol": "_call_context"
+    },
+    {
+      "importer": "tests/gabion/analysis/visitors/visitors_edges_cases.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_semantics",
+      "symbol": "_const_repr"
+    },
+    {
+      "importer": "tests/gabion/analysis/visitors/visitors_edges_cases.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_semantics",
+      "symbol": "_normalize_key_expr"
+    },
+    {
+      "importer": "tests/gabion/analysis/visitors/visitors_unit_cases.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_index_helpers",
+      "symbol": "_callee_name"
+    },
+    {
+      "importer": "tests/gabion/analysis/visitors/visitors_unit_cases.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_semantics",
+      "symbol": "_call_context"
+    },
+    {
+      "importer": "tests/gabion/analysis/visitors/visitors_unit_cases.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_semantics",
+      "symbol": "_const_repr"
+    },
+    {
+      "importer": "tests/gabion/analysis/visitors/visitors_unit_cases.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_function_semantics",
+      "symbol": "_normalize_key_expr"
+    },
+    {
+      "importer": "tests/gabion/config/config_fields_cases.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_post_phase_analyses",
+      "symbol": "_iter_config_fields"
+    },
+    {
+      "importer": "tests/gabion/ingest/test_adapter_contract.py",
+      "module_path": "gabion.server",
+      "symbol": "_normalize_dataflow_response"
+    },
+    {
+      "importer": "tests/gabion/ingest/test_python_ingest.py",
+      "module_path": "gabion.ingest.python_ingest",
+      "symbol": "_default_deadline"
+    },
+    {
+      "importer": "tests/gabion/lsp_client/lsp_client_direct_cases.py",
+      "module_path": "gabion.lsp_client",
+      "symbol": "_analysis_timeout_total_ns"
+    },
+    {
+      "importer": "tests/gabion/lsp_client/lsp_client_direct_cases.py",
+      "module_path": "gabion.lsp_client",
+      "symbol": "_wait_readable"
+    },
+    {
+      "importer": "tests/gabion/lsp_client/lsp_client_rpc_cases.py",
+      "module_path": "gabion.lsp_client",
+      "symbol": "_read_exact"
+    },
+    {
+      "importer": "tests/gabion/lsp_client/lsp_client_rpc_cases.py",
+      "module_path": "gabion.lsp_client",
+      "symbol": "_read_response"
+    },
+    {
+      "importer": "tests/gabion/lsp_client/lsp_client_rpc_cases.py",
+      "module_path": "gabion.lsp_client",
+      "symbol": "_read_rpc"
+    },
+    {
+      "importer": "tests/gabion/lsp_client/lsp_client_run_command_di_cases.py",
+      "module_path": "gabion.lsp_client",
+      "symbol": "_analysis_timeout_slack_ns"
+    },
+    {
+      "importer": "tests/gabion/lsp_client/lsp_client_run_command_di_cases.py",
+      "module_path": "gabion.lsp_client",
+      "symbol": "_remaining_deadline_ns"
+    },
+    {
+      "importer": "tests/gabion/refactor/engine_edges_cases.py",
+      "module_path": "gabion.refactor.engine",
+      "symbol": "_find_import_insert_index"
+    },
+    {
+      "importer": "tests/gabion/refactor/engine_edges_cases.py",
+      "module_path": "gabion.refactor.engine",
+      "symbol": "_has_typing_import"
+    },
+    {
+      "importer": "tests/gabion/refactor/engine_edges_cases.py",
+      "module_path": "gabion.refactor.engine",
+      "symbol": "_module_expr_to_str"
+    },
+    {
+      "importer": "tests/gabion/refactor/engine_edges_cases.py",
+      "module_path": "gabion.refactor.engine",
+      "symbol": "_module_name"
+    },
+    {
+      "importer": "tests/gabion/refactor/engine_more_cases.py",
+      "module_path": "gabion.refactor.engine",
+      "symbol": "_CallSiteTransformer"
+    },
+    {
+      "importer": "tests/gabion/refactor/engine_more_cases.py",
+      "module_path": "gabion.refactor.engine",
+      "symbol": "_RefactorTransformer"
+    },
+    {
+      "importer": "tests/gabion/refactor/engine_more_cases.py",
+      "module_path": "gabion.refactor.engine",
+      "symbol": "_collect_import_context"
+    },
+    {
+      "importer": "tests/gabion/refactor/engine_more_cases.py",
+      "module_path": "gabion.refactor.engine",
+      "symbol": "_ensure_compat_imports"
+    },
+    {
+      "importer": "tests/gabion/refactor/engine_more_cases.py",
+      "module_path": "gabion.refactor.engine",
+      "symbol": "_has_typing_import"
+    },
+    {
+      "importer": "tests/gabion/refactor/engine_more_cases.py",
+      "module_path": "gabion.refactor.engine",
+      "symbol": "_has_typing_overload_import"
+    },
+    {
+      "importer": "tests/gabion/refactor/engine_more_cases.py",
+      "module_path": "gabion.refactor.engine",
+      "symbol": "_has_typing_protocol_import"
+    },
+    {
+      "importer": "tests/gabion/refactor/engine_more_cases.py",
+      "module_path": "gabion.refactor.engine",
+      "symbol": "_has_warnings_import"
+    },
+    {
+      "importer": "tests/gabion/refactor/engine_more_cases.py",
+      "module_path": "gabion.refactor.engine",
+      "symbol": "_module_expr_to_str"
+    },
+    {
+      "importer": "tests/gabion/refactor/engine_more_cases.py",
+      "module_path": "gabion.refactor.engine",
+      "symbol": "_module_name"
+    },
+    {
+      "importer": "tests/gabion/refactor/engine_more_cases.py",
+      "module_path": "gabion.refactor.engine",
+      "symbol": "_rewrite_call_sites"
+    },
+    {
+      "importer": "tests/gabion/refactor/engine_more_cases.py",
+      "module_path": "gabion.refactor.engine",
+      "symbol": "_rewrite_call_sites_in_project"
+    },
+    {
+      "importer": "tests/gabion/refactor/engine_more_cases.py",
+      "module_path": "gabion.refactor.engine",
+      "symbol": "_validated_module_identifier"
+    },
+    {
+      "importer": "tests/gabion/server/server_rewrite_plan_projection_cases.py",
+      "module_path": "gabion.server",
+      "symbol": "_normalize_dataflow_response"
+    },
+    {
+      "importer": "tests/gabion/server_core/test_command_reducers.py",
+      "module_path": "gabion.server",
+      "symbol": "_default_execute_command_deps"
+    },
+    {
+      "importer": "tests/gabion/synthesis/merge_cases.py",
+      "module_path": "gabion.synthesis.merge",
+      "symbol": "_jaccard"
+    },
+    {
+      "importer": "tests/gabion/synthesis/test_naming.py",
+      "module_path": "gabion.synthesis.naming",
+      "symbol": "_normalize_identifier"
+    },
+    {
+      "importer": "tests/gabion/synthesis/test_schedule.py",
+      "module_path": "gabion.synthesis.schedule",
+      "symbol": "_strongly_connected_components"
+    },
+    {
+      "importer": "tests/gabion/tooling/governance/test_docflow_domain_service.py",
+      "module_path": "gabion_governance.governance_audit_impl",
+      "symbol": "_make_invariant_spec"
+    },
+    {
+      "importer": "tests/gabion/tooling/runtime_policy/test_override_record.py",
+      "module_path": "gabion.tooling.governance.override_record",
+      "symbol": "_parse_time"
+    },
+    {
+      "importer": "tests/gabion/tooling/sppf/test_sppf_status_audit.py",
+      "module_path": "scripts.sppf.sppf_status_audit",
+      "symbol": "_collect_overrides"
+    },
+    {
+      "importer": "tests/gabion/tooling/sppf/test_sppf_status_audit.py",
+      "module_path": "scripts.sppf.sppf_status_audit",
+      "symbol": "_extract_in_status"
+    },
+    {
+      "importer": "tests/gabion/tooling/sppf/test_sppf_status_audit.py",
+      "module_path": "scripts.sppf.sppf_status_audit",
+      "symbol": "_normalize_checklist_pair"
+    },
+    {
+      "importer": "tests/gabion/tooling/sppf/test_sppf_status_audit.py",
+      "module_path": "scripts.sppf.sppf_status_audit",
+      "symbol": "_normalize_in_status"
+    },
+    {
+      "importer": "tests/gabion/tooling/sppf/test_sppf_status_audit.py",
+      "module_path": "scripts.sppf.sppf_status_audit",
+      "symbol": "_normalize_influence_status"
+    }
+  ],
+  "root": "/home/mikemol/github/gabion",
+  "totals": {
+    "all_violations": 607,
+    "new_violations": 0,
+    "non_exempt": 428
+  }
+}

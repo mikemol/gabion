@@ -4,7 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Mapping
+from typing import Callable, Mapping, Sequence
 
 from gabion.tooling.runtime.policy_result_schema import make_policy_result, write_policy_result
 
@@ -31,12 +31,20 @@ def _serialize_errors(errors: list[str]) -> list[dict[str, object]]:
     return [{"message": error, "render": error} for error in errors]
 
 
-def main() -> int:
+def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Enforce non-erasable deprecated fibers")
     parser.add_argument("--baseline", type=Path, required=True)
     parser.add_argument("--current", type=Path, required=True)
     parser.add_argument("--output", type=Path)
-    args = parser.parse_args()
+    return parser.parse_args(list(argv) if argv is not None else None)
+
+
+def main(
+    argv: Sequence[str] | None = None,
+    *,
+    print_fn: Callable[[str], None] = print,
+) -> int:
+    args = _parse_args(argv)
 
     baseline = _load_rows(args.baseline)
     current = _load_rows(args.current)
@@ -60,7 +68,7 @@ def main() -> int:
     if result.ok:
         return 0
     for error in errors:
-        print(error)
+        print_fn(error)
     return 1
 
 

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import ast
 import json
 from pathlib import Path
 
 from gabion.tooling.policy_rules import fiber_filter_processor_contract_rule as rule
+from gabion.tooling.runtime.policy_scan_batch import build_policy_scan_batch_from_sources
 
 
 def _write(path: Path, content: str) -> None:
@@ -29,12 +29,11 @@ def test_collect_violations_detects_loop_branches_and_comprehension_branches() -
             "",
         ]
     )
-    tree = ast.parse(source)
-    violations = rule.collect_violations(
-        rel_path="src/gabion/sample.py",
-        source=source,
-        tree=tree,
+    batch = build_policy_scan_batch_from_sources(
+        root=Path("."),
+        source_by_rel_path={"src/gabion/sample.py": source},
     )
+    violations = rule.collect_violations(batch=batch)
     kinds = {item.kind for item in violations}
     assert "branch_in_loop_processor" in kinds
     assert "comprehension_filter_branch" in kinds
@@ -57,12 +56,11 @@ def test_collect_violations_accepts_separate_filter_and_processor() -> None:
             "",
         ]
     )
-    tree = ast.parse(source)
-    violations = rule.collect_violations(
-        rel_path="src/gabion/sample.py",
-        source=source,
-        tree=tree,
+    batch = build_policy_scan_batch_from_sources(
+        root=Path("."),
+        source_by_rel_path={"src/gabion/sample.py": source},
     )
+    violations = rule.collect_violations(batch=batch)
     assert violations == []
 
 

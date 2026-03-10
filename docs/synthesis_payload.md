@@ -1,19 +1,20 @@
 ---
 doc_revision: 4
-reader_reintern: Reader-only: re-intern if doc_revision changed since you last read this doc.
+reader_reintern: 'Reader-only: re-intern if doc_revision changed since you last read
+  this doc.'
 doc_id: synthesis_payload
 doc_role: schema
 doc_scope:
-  - repo
-  - synthesis
-  - tooling
+- repo
+- synthesis
+- tooling
 doc_authority: informative
 doc_requires:
-  - README.md#repo_contract
-  - CONTRIBUTING.md#contributing_contract
-  - glossary.md#contract
-  - POLICY_SEED.md#policy_seed
-  - AGENTS.md#agent_obligations
+- README.md#repo_contract
+- CONTRIBUTING.md#contributing_contract
+- glossary.md#contract
+- POLICY_SEED.md#policy_seed
+- AGENTS.md#agent_obligations
 doc_reviewed_as_of:
   README.md#repo_contract: 2
   CONTRIBUTING.md#contributing_contract: 2
@@ -21,52 +22,60 @@ doc_reviewed_as_of:
   POLICY_SEED.md#policy_seed: 2
   AGENTS.md#agent_obligations: 2
 doc_review_notes:
-  README.md#repo_contract: Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope.
-  CONTRIBUTING.md#contributing_contract: Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope.
-  glossary.md#contract: Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline).
-  POLICY_SEED.md#policy_seed: Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope.
+  README.md#repo_contract: Reviewed README.md rev1 (docflow audit now scans in/ by
+    default); no conflicts with this document's scope.
+  CONTRIBUTING.md#contributing_contract: Reviewed CONTRIBUTING.md rev1 (docflow now
+    fails on missing GH references for SPPF-relevant changes); no conflicts with this
+    document's scope.
+  glossary.md#contract: Reviewed glossary.md#contract rev1 (glossary contract + semantic
+    typing discipline).
+  POLICY_SEED.md#policy_seed: Reviewed POLICY_SEED.md rev1 (mechanized governance
+    default; branch/tag CAS + check-before-use constraints); no conflicts with this
+    document's scope.
   AGENTS.md#agent_obligations: Agent obligations unchanged; payload remains tool-facing.
 doc_change_protocol: POLICY_SEED.md#change_protocol
 doc_erasure:
-  - formatting
-  - typos
+- formatting
+- typos
 doc_owner: maintainer
 doc_sections:
   synthesis_payload: 1
 doc_section_requires:
   synthesis_payload:
-    - README.md#repo_contract
-    - CONTRIBUTING.md#contributing_contract
-    - glossary.md#contract
-    - POLICY_SEED.md#policy_seed
-    - AGENTS.md#agent_obligations
+  - README.md#repo_contract
+  - CONTRIBUTING.md#contributing_contract
+  - glossary.md#contract
+  - POLICY_SEED.md#policy_seed
+  - AGENTS.md#agent_obligations
 doc_section_reviews:
   synthesis_payload:
     README.md#repo_contract:
       dep_version: 2
       self_version_at_review: 1
       outcome: no_change
-      note: "Repo contract rev2 reviewed; command and artifact guidance remains aligned."
+      note: Repo contract rev2 reviewed; command and artifact guidance remains aligned.
     CONTRIBUTING.md#contributing_contract:
       dep_version: 2
       self_version_at_review: 1
       outcome: no_change
-      note: "Contributor contract rev2 reviewed; dual-sensor cadence and correction gates remain aligned."
+      note: Contributor contract rev2 reviewed; dual-sensor cadence and correction
+        gates remain aligned.
     glossary.md#contract:
       dep_version: 1
       self_version_at_review: 1
       outcome: no_change
-      note: Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline).
+      note: Reviewed glossary.md#contract rev1 (glossary contract + semantic typing
+        discipline).
     POLICY_SEED.md#policy_seed:
       dep_version: 2
       self_version_at_review: 1
       outcome: no_change
-      note: "Policy seed rev2 reviewed; governance obligations remain aligned."
+      note: Policy seed rev2 reviewed; governance obligations remain aligned.
     AGENTS.md#agent_obligations:
       dep_version: 2
       self_version_at_review: 1
       outcome: no_change
-      note: "Agent obligations rev2 reviewed; clause and cadence links remain aligned."
+      note: Agent obligations rev2 reviewed; clause and cadence links remain aligned.
 ---
 
 <a id="synthesis_payload"></a>

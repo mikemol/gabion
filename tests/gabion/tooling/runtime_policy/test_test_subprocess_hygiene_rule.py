@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from gabion.tooling.policy_rules import test_subprocess_hygiene_rule as rule
+from gabion.tooling.runtime.policy_scan_batch import build_policy_scan_batch
 
 
 def _write(path: Path, content: str) -> None:
@@ -35,7 +36,8 @@ def test_collect_violations_detects_subprocess_spawn_calls(tmp_path: Path) -> No
     allowlist = tmp_path / "allowlist.txt"
     allowlist.write_text("", encoding="utf-8")
 
-    violations = rule.collect_violations(root=tmp_path, allowlist_path=allowlist)
+    batch = build_policy_scan_batch(root=tmp_path, target_globs=rule.TARGET_GLOBS)
+    violations = rule.collect_violations(batch=batch, allowlist_path=allowlist)
     paths = {item.path for item in violations}
     kinds = {item.kind for item in violations}
     assert paths == {"tests/x.py", "tests/y.py"}
@@ -68,7 +70,8 @@ def test_collect_violations_respects_allowlist_and_non_spawn_calls(tmp_path: Pat
     allowlist = tmp_path / "allowlist.txt"
     allowlist.write_text("tests/allowed.py\n", encoding="utf-8")
 
-    violations = rule.collect_violations(root=tmp_path, allowlist_path=allowlist)
+    batch = build_policy_scan_batch(root=tmp_path, target_globs=rule.TARGET_GLOBS)
+    violations = rule.collect_violations(batch=batch, allowlist_path=allowlist)
     assert violations == []
 
 
@@ -89,7 +92,8 @@ def test_collect_violations_detects_subprocess_spawn_reassignment(tmp_path: Path
     allowlist = tmp_path / "allowlist.txt"
     allowlist.write_text("", encoding="utf-8")
 
-    violations = rule.collect_violations(root=tmp_path, allowlist_path=allowlist)
+    batch = build_policy_scan_batch(root=tmp_path, target_globs=rule.TARGET_GLOBS)
+    violations = rule.collect_violations(batch=batch, allowlist_path=allowlist)
     assert len(violations) == 1
     violation = violations[0]
     assert violation.path == "tests/x.py"

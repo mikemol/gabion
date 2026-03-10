@@ -89,7 +89,7 @@ def _normalize_name_item(value: object) -> list[str]:
 
 
 @_normalize_name_item.register
-def _(value: str) -> list[str]:
+def _sd_reg_1(value: str) -> list[str]:
     return _split_name_parts(value)
 
 
@@ -117,28 +117,28 @@ def _normalize_name_list(value: TomlValue) -> list[str]:
 
 
 @_normalize_name_list.register(_NONE_TYPE)
-def _(value: None) -> list[str]:
+def _sd_reg_2(value: None) -> list[str]:
     _ = value
     return []
 
 
 @_normalize_name_list.register
-def _(value: str) -> list[str]:
+def _sd_reg_3(value: str) -> list[str]:
     return _split_name_parts(value)
 
 
 @_normalize_name_list.register(list)
-def _(value: list[TomlValue]) -> list[str]:
+def _sd_reg_4(value: list[TomlValue]) -> list[str]:
     return _normalize_name_sequence(value)
 
 
 @_normalize_name_list.register(tuple)
-def _(value: tuple[TomlValue, ...]) -> list[str]:
+def _sd_reg_5(value: tuple[TomlValue, ...]) -> list[str]:
     return _normalize_name_sequence(value)
 
 
 @_normalize_name_list.register(set)
-def _(value: set[TomlValue]) -> list[str]:
+def _sd_reg_6(value: set[TomlValue]) -> list[str]:
     return _normalize_name_sequence(value)
 
 
@@ -157,17 +157,17 @@ def _as_bool(value: TomlValue) -> bool:
 
 
 @_as_bool.register
-def _(value: bool) -> bool:
+def _sd_reg_7(value: bool) -> bool:
     return value
 
 
 @_as_bool.register
-def _(value: int) -> bool:
+def _sd_reg_8(value: int) -> bool:
     return value != 0
 
 
 @_as_bool.register
-def _(value: str) -> bool:
+def _sd_reg_9(value: str) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 

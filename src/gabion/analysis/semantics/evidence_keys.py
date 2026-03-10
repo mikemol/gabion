@@ -4,6 +4,7 @@ import hashlib
 import json
 from dataclasses import dataclass
 from typing import Callable, Iterable, Mapping, Sequence, cast
+from gabion.analysis.foundation.json_types import JSONValue
 from gabion.analysis.foundation.resume_codec import mapping_optional, sequence_optional
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.order_contract import sort_once
@@ -25,18 +26,18 @@ def normalize_reason(value: str) -> str:
     return " ".join(str(value).strip().split())
 
 
-def _mapping_default_empty(value: object) -> Mapping[str, object]:
+def _mapping_default_empty(value) -> Mapping[str, JSONValue]:
     mapping = mapping_optional(value)
     if mapping is None:
         return {}
-    return cast(Mapping[str, object], mapping)
+    return mapping
 
 
-def _sequence_default_empty(value: object) -> Sequence[object]:
+def _sequence_default_empty(value) -> Sequence[JSONValue]:
     sequence = sequence_optional(value)
     if sequence is None:
         return ()
-    return cast(Sequence[object], sequence)
+    return sequence
 
 
 def _normalize_target(target: object) -> object:

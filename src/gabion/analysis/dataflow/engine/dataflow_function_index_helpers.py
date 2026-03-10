@@ -73,12 +73,12 @@ def _int_optional(value: int | None) -> int | None:
 
 
 @_int_optional.register
-def _(value: int) -> int | None:
+def _sd_reg_1(value: int) -> int | None:
     return value
 
 
 @_int_optional.register(_NONE_TYPE)
-def _(value: None) -> int | None:
+def _sd_reg_2(value: None) -> int | None:
     _ = value
     return None
 
@@ -89,17 +89,17 @@ def _lexical_scope_name_optional(node: ast.AST) -> str | None:
 
 
 @_lexical_scope_name_optional.register(ast.ClassDef)
-def _(node: ast.ClassDef) -> str | None:
+def _sd_reg_3(node: ast.ClassDef) -> str | None:
     return node.name
 
 
 @_lexical_scope_name_optional.register(ast.FunctionDef)
-def _(node: ast.FunctionDef) -> str | None:
+def _sd_reg_4(node: ast.FunctionDef) -> str | None:
     return node.name
 
 
 @_lexical_scope_name_optional.register(ast.AsyncFunctionDef)
-def _(node: ast.AsyncFunctionDef) -> str | None:
+def _sd_reg_5(node: ast.AsyncFunctionDef) -> str | None:
     return node.name
 
 
@@ -119,12 +119,12 @@ def _function_scope_name_optional(node: ast.AST) -> str | None:
 
 
 @_function_scope_name_optional.register(ast.FunctionDef)
-def _(node: ast.FunctionDef) -> str | None:
+def _sd_reg_6(node: ast.FunctionDef) -> str | None:
     return node.name
 
 
 @_function_scope_name_optional.register(ast.AsyncFunctionDef)
-def _(node: ast.AsyncFunctionDef) -> str | None:
+def _sd_reg_7(node: ast.AsyncFunctionDef) -> str | None:
     return node.name
 
 
@@ -140,7 +140,7 @@ def _class_scope_name_optional(node: ast.AST) -> str | None:
 
 
 @_class_scope_name_optional.register(ast.ClassDef)
-def _(node: ast.ClassDef) -> str | None:
+def _sd_reg_8(node: ast.ClassDef) -> str | None:
     return node.name
 
 
@@ -163,12 +163,12 @@ def _callee_name_from_expr(node: ast.expr) -> str:
 
 
 @_callee_name_from_expr.register(ast.Name)
-def _(node: ast.Name) -> str:
+def _sd_reg_9(node: ast.Name) -> str:
     return node.id
 
 
 @_callee_name_from_expr.register(ast.Attribute)
-def _(node: ast.Attribute) -> str:
+def _sd_reg_10(node: ast.Attribute) -> str:
     return _unparse_or_default(node, "<call>")
 
 
@@ -188,7 +188,7 @@ def _name_id_optional(node: ast.expr) -> str | None:
 
 
 @_name_id_optional.register(ast.Name)
-def _(node: ast.Name) -> str | None:
+def _sd_reg_11(node: ast.Name) -> str | None:
     return node.id
 
 
@@ -208,7 +208,7 @@ def _is_load_context(node: ast.expr_context) -> bool:
 
 
 @_is_load_context.register(ast.Load)
-def _(node: ast.Load) -> bool:
+def _sd_reg_12(node: ast.Load) -> bool:
     _ = node
     return True
 
@@ -238,7 +238,7 @@ def _route_call_arg(
 
 
 @_route_call_arg.register(ast.Name)
-def _(
+def _sd_reg_13(
     arg: ast.Name,
     *,
     slot: str,
@@ -253,7 +253,7 @@ def _(
 
 
 @_route_call_arg.register(ast.Starred)
-def _(
+def _sd_reg_14(
     arg: ast.Starred,
     *,
     slot: str,
@@ -272,7 +272,7 @@ def _(
 
 
 @_route_call_arg.register(ast.Constant)
-def _(
+def _sd_reg_15(
     arg: ast.Constant,
     *,
     slot: str,
@@ -319,7 +319,7 @@ def _route_keyword_value(
 
 
 @_route_keyword_value.register(ast.Name)
-def _(
+def _sd_reg_16(
     value: ast.Name,
     *,
     name: str,
@@ -332,7 +332,7 @@ def _(
 
 
 @_route_keyword_value.register(ast.Constant)
-def _(
+def _sd_reg_17(
     value: ast.Constant,
     *,
     name: str,

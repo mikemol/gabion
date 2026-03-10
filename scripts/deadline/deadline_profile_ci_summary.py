@@ -4,7 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Mapping
+from typing import Mapping, Sequence
 
 from scripts.deadline.deadline_runtime import deadline_scope_from_lsp_env
 from gabion.analysis.foundation.timeout_context import deadline_loop_iter
@@ -346,7 +346,7 @@ def _render_markdown(summary: Mapping[str, object]) -> str:
     return "\n".join(lines)
 
 
-def _parse_args() -> argparse.Namespace:
+def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Summarize CI deadline profile and compare against local reference."
     )
@@ -386,12 +386,12 @@ def _parse_args() -> argparse.Namespace:
         help="Optional GitHub step summary file to append markdown summary.",
     )
     parser.add_argument("--top", type=int, default=10, help="Top site rows to include.")
-    return parser.parse_args()
+    return parser.parse_args(list(argv) if argv is not None else None)
 
 
-def main() -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     with deadline_scope_from_lsp_env():
-        args = _parse_args()
+        args = _parse_args(argv)
         ci_profile = _load_profile(args.ci_profile)
         if ci_profile is None:
             raise SystemExit(f"Missing CI deadline profile: {args.ci_profile}")

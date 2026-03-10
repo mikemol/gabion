@@ -6,7 +6,6 @@ import hashlib
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence
 
 from gabion.analysis.core.prime_identity_adapter import PrimeIdentityAdapter
 from gabion.analysis.core.type_fingerprints import PrimeRegistry
@@ -22,6 +21,11 @@ from gabion.tooling.policy_rules.fiber_diagnostics import (
     FiberTraceEvent,
 )
 from gabion.tooling.runtime.deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
+from gabion.tooling.runtime.policy_scan_batch import (
+    PolicyScanBatch,
+    ScanFailureSeed,
+    iter_failure_seeds,
+)
 
 TARGET_GLOB = "src/gabion/**/*.py"
 BOUNDARY_MARKER = "gabion:boundary_normalization_module"
@@ -70,9 +74,8 @@ class _NormalizationEvent:
     pre_core: bool
 
 
-def collect_violations(*, root: Path, files: Sequence[Path] | None = None) -> list[Violation]:
+def collect_violations(*, batch: PolicyScanBatch) -> list[Violation]:
     with deadline_scope_from_ticks(_DEFAULT_POLICY_TIMEOUT_BUDGET):
-        candidates = files if files is not None else tuple(sorted(root.glob(TARGET_GLOB)))
         violations: list[Violation] = []
         run_context = CanonicalRunContext(
             run_id="policy:fiber_normalization_contract",
@@ -81,49 +84,101 @@ def collect_violations(*, root: Path, files: Sequence[Path] | None = None) -> li
                 allocator=PrimeIdentityAdapter(registry=PrimeRegistry())
             ),
         )
-
-        for path in candidates:
-            path_is_scannable = path.is_file() and not any(
-                part == "__pycache__" for part in path.parts
+        for seed in iter_failure_seeds(batch=batch):
+            violations.append(
+                _failure_violation(
+                    run_context=run_context,
+                    seed=seed,
+                )
             )
-            if path_is_scannable:
-                rel_path = path.relative_to(root).as_posix()
-                source = _read_source(path)
-                if source is not None:
-                    lines = source.splitlines()
-                    if _module_has_boundary_marker(lines):
-                        tree = _parse_tree(source)
-                        if tree is not None:
-                            annotation_events = _annotation_events(lines)
-                            for node in tree.body:
-                                match node:
-                                    case ast.FunctionDef() | ast.AsyncFunctionDef():
-                                        violations.extend(
-                                            _function_violations(
-                                                rel_path=rel_path,
-                                                node=node,
-                                                annotations=annotation_events,
-                                                run_context=run_context,
-                                            )
-                                        )
-                                    case _:
-                                        pass
+        for module in batch.modules:
+            lines = module.source.splitlines()
+            if _module_has_boundary_marker(lines):
+                annotation_events = _annotation_events(lines)
+                for node in module.tree.body:
+                    match node:
+                        case ast.FunctionDef() | ast.AsyncFunctionDef():
+                            violations.extend(
+                                _function_violations(
+                                    rel_path=module.rel_path,
+                                    node=node,
+                                    annotations=annotation_events,
+                                    run_context=run_context,
+                                )
+                            )
+                        case _:
+                            pass
         return violations
 
 
-def _read_source(path: Path) -> str | None:
-    try:
-        return path.read_text(encoding="utf-8")
-    except OSError:
-        return None
-
-
-def _parse_tree(source: str) -> ast.AST | None:
-    try:
-        return ast.parse(source)
-    except SyntaxError:
-        return None
-
+def _failure_violation(
+    *,
+    run_context: CanonicalRunContext,
+    seed: ScanFailureSeed,
+) -> Violation:
+    flow_identity = _derive_flow_identity(
+        run_context=run_context,
+        rel_path=seed.path,
+        qualname="<module>",
+    )
+    structured_hash = _structured_hash(
+        seed.path,
+        "<module>",
+        seed.kind,
+        "module_failure",
+        "module_failure",
+        str(seed.column),
+    )
+    return Violation(
+        path=seed.path,
+        line=seed.line,
+        column=seed.column,
+        qualname="<module>",
+        kind=seed.kind,
+        message=seed.detail,
+        normalization_class="narrow",
+        input_slot="module_failure",
+        flow_identity=flow_identity,
+        structured_hash=structured_hash,
+        fiber_trace=(
+            FiberTraceEvent(
+                ordinal=1,
+                line=seed.line,
+                column=seed.column,
+                event_kind=f"syntax:block_enter:{seed.kind}",
+                normalization_class="narrow",
+                input_slot="module_failure",
+                phase_hint="syntax",
+                pre_core=True,
+            ),
+            FiberTraceEvent(
+                ordinal=2,
+                line=seed.line,
+                column=seed.column,
+                event_kind=f"syntax:{seed.kind}",
+                normalization_class="narrow",
+                input_slot="module_failure",
+                phase_hint="syntax",
+                pre_core=True,
+            ),
+        ),
+        applicability_bounds=FiberApplicabilityBounds(
+            current_boundary_before_ordinal=2,
+            violation_applies_when_boundary_before_ordinal_gt=1,
+            violation_clears_when_boundary_before_ordinal_lte=1,
+            boundary_domain_max_before_ordinal=2,
+            core_entry_before_ordinal=None,
+        ),
+        counterfactual_boundary=FiberCounterfactualBoundary(
+            suggested_boundary_before_ordinal=1,
+            boundary_event_kind=f"syntax:block_enter:{seed.kind}",
+            boundary_line=seed.line,
+            boundary_column=seed.column,
+            eliminates_violation_without_other_changes=True,
+            preserves_prior_normalization=True,
+            rationale="Ensure module parse/read validity before normalization-contract analysis.",
+        ),
+    )
 
 def _module_has_boundary_marker(lines: list[str]) -> bool:
     for raw in lines[:100]:

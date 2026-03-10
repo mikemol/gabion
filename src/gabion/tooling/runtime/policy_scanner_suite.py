@@ -20,8 +20,11 @@ from gabion.tooling.policy_rules import (
     fiber_return_shape_contract_rule,
     fiber_scalar_sentinel_contract_rule,
     fiber_type_dispatch_contract_rule,
+    no_anonymous_tuple_rule,
     no_legacy_monolith_import_rule,
+    no_mutable_dict_rule,
     no_monkeypatch_rule,
+    no_scalar_conversion_boundary_rule,
     orchestrator_primitive_barrel_rule,
     runtime_narrowing_boundary_rule,
     test_sleep_hygiene_rule,
@@ -57,6 +60,9 @@ _POLICY_RULE_IDS = (
     "fiber_return_shape_contract",
     "fiber_scalar_sentinel_contract",
     "fiber_type_dispatch_contract",
+    "no_anonymous_tuple",
+    "no_mutable_dict",
+    "no_scalar_conversion_boundary",
     "no_legacy_monolith_import",
     "orchestrator_primitive_barrel",
     "typing_surface",
@@ -380,6 +386,9 @@ def scan_policy_suite(
         "fiber_return_shape_contract": [],
         "fiber_scalar_sentinel_contract": [],
         "fiber_type_dispatch_contract": [],
+        "no_anonymous_tuple": [],
+        "no_mutable_dict": [],
+        "no_scalar_conversion_boundary": [],
         "no_legacy_monolith_import": [],
         "orchestrator_primitive_barrel": [],
         "typing_surface": [],
@@ -482,6 +491,27 @@ def scan_policy_suite(
     )
     violations_by_rule["fiber_type_dispatch_contract"].extend(
         _serialize_fiber_type_dispatch_contract(item) for item in type_dispatch_violations
+    )
+    no_anonymous_tuple_violations = no_anonymous_tuple_rule.collect_violations(
+        batch=src_batch,
+    )
+    violations_by_rule["no_anonymous_tuple"].extend(
+        _serialize_no_anonymous_tuple(item) for item in no_anonymous_tuple_violations
+    )
+    no_mutable_dict_violations = no_mutable_dict_rule.collect_violations(
+        batch=src_batch,
+    )
+    violations_by_rule["no_mutable_dict"].extend(
+        _serialize_no_mutable_dict(item) for item in no_mutable_dict_violations
+    )
+    no_scalar_conversion_boundary_violations = (
+        no_scalar_conversion_boundary_rule.collect_violations(
+            batch=src_batch,
+        )
+    )
+    violations_by_rule["no_scalar_conversion_boundary"].extend(
+        _serialize_no_scalar_conversion_boundary(item)
+        for item in no_scalar_conversion_boundary_violations
     )
     typing_surface_violations = _filter_baseline_violations(
         typing_surface_rule.collect_violations(batch=src_batch),
@@ -626,6 +656,9 @@ def _empty_violations_payload() -> dict[str, list[dict[str, Any]]]:
         "fiber_return_shape_contract": [],
         "fiber_scalar_sentinel_contract": [],
         "fiber_type_dispatch_contract": [],
+        "no_anonymous_tuple": [],
+        "no_mutable_dict": [],
+        "no_scalar_conversion_boundary": [],
         "no_legacy_monolith_import": [],
         "orchestrator_primitive_barrel": [],
         "typing_surface": [],
@@ -701,6 +734,9 @@ def _rule_set_hash() -> str:
             "fiber_return_shape_contract:v1",
             "fiber_scalar_sentinel_contract:v2",
             "fiber_type_dispatch_contract:v2",
+            "no_anonymous_tuple:v1",
+            "no_mutable_dict:v1",
+            "no_scalar_conversion_boundary:v1",
             "no_legacy_monolith_import:v2",
             "orchestrator_primitive_barrel:v2",
             "typing_surface:v4",
@@ -852,6 +888,61 @@ def _applicability_bounds_payload(violation: object) -> dict[str, object] | None
             return _fiber_bounds_payload(bounds)
 
 
+def _recombination_frontier_payload(violation: object) -> dict[str, object]:
+    frontier = getattr(violation, "recombination_frontier", None)
+    if frontier is None:
+        return {}
+    return {
+        "branch_site_id": getattr(frontier, "branch_site_id", ""),
+        "branch_site_identity": getattr(frontier, "branch_site_identity", ""),
+        "branch_line": int(getattr(frontier, "branch_line", 0)),
+        "branch_column": int(getattr(frontier, "branch_column", 0)),
+        "branch_node_kind": getattr(frontier, "branch_node_kind", ""),
+        "required_symbols": list(getattr(frontier, "required_symbols", ())),
+        "unresolved_symbols": list(getattr(frontier, "unresolved_symbols", ())),
+        "anchor_site_id": getattr(frontier, "anchor_site_id", ""),
+        "anchor_site_identity": getattr(frontier, "anchor_site_identity", ""),
+        "anchor_line": int(getattr(frontier, "anchor_line", 0)),
+        "anchor_column": int(getattr(frontier, "anchor_column", 0)),
+        "anchor_ordinal": int(getattr(frontier, "anchor_ordinal", 0)),
+        "upstream_site_ids": list(getattr(frontier, "upstream_site_ids", ())),
+        "upstream_site_identities": list(
+            getattr(frontier, "upstream_site_identities", ())
+        ),
+        "upstream_edge_ids": list(getattr(frontier, "upstream_edge_ids", ())),
+        "execution_frontier_site_id": getattr(
+            frontier, "execution_frontier_site_id", ""
+        ),
+        "execution_frontier_site_identity": getattr(
+            frontier, "execution_frontier_site_identity", ""
+        ),
+        "execution_frontier_line": int(
+            getattr(frontier, "execution_frontier_line", 0)
+        ),
+        "execution_frontier_column": int(
+            getattr(frontier, "execution_frontier_column", 0)
+        ),
+        "execution_frontier_ordinal": int(
+            getattr(frontier, "execution_frontier_ordinal", 0)
+        ),
+        "execution_upstream_site_ids": list(
+            getattr(frontier, "execution_upstream_site_ids", ())
+        ),
+        "execution_upstream_site_identities": list(
+            getattr(frontier, "execution_upstream_site_identities", ())
+        ),
+        "execution_upstream_edge_ids": list(
+            getattr(frontier, "execution_upstream_edge_ids", ())
+        ),
+        "bundle_event_count": int(getattr(frontier, "bundle_event_count", 0)),
+        "bundle_edge_count": int(getattr(frontier, "bundle_edge_count", 0)),
+        "execution_event_count": int(
+            getattr(frontier, "execution_event_count", 0)
+        ),
+        "execution_edge_count": int(getattr(frontier, "execution_edge_count", 0)),
+    }
+
+
 def _serialize_no_monkeypatch(violation: object) -> dict[str, object]:
     return {
         "path": getattr(violation, "path"),
@@ -898,6 +989,7 @@ def _serialize_branchless(violation: object) -> dict[str, object]:
         "fiber_id": getattr(violation, "fiber_id", ""),
         "taint_interval_id": getattr(violation, "taint_interval_id", ""),
         "condition_overlap_id": getattr(violation, "condition_overlap_id", ""),
+        "recombination_frontier": _recombination_frontier_payload(violation),
         "structured_hash": getattr(violation, "structured_hash", ""),
         "legacy_key": getattr(violation, "legacy_key", ""),
         "key": getattr(violation, "key"),
@@ -1050,6 +1142,85 @@ def _serialize_fiber_type_dispatch_contract(violation: object) -> dict[str, obje
         ),
         "structured_hash": getattr(violation, "structured_hash", ""),
         "key": getattr(violation, "key"),
+        "render": getattr(violation, "render")(),
+    }
+
+
+def _serialize_no_anonymous_tuple(violation: object) -> dict[str, object]:
+    return {
+        "path": getattr(violation, "path"),
+        "line": getattr(violation, "line"),
+        "column": getattr(violation, "column"),
+        "qualname": getattr(violation, "qualname"),
+        "kind": getattr(violation, "kind"),
+        "message": getattr(violation, "message"),
+        "input_slot": getattr(violation, "input_slot", ""),
+        "flow_identity": getattr(violation, "flow_identity", ""),
+        "fiber_trace": _fiber_trace_payload(
+            getattr(violation, "fiber_trace", ())
+        ),
+        "applicability_bounds": _applicability_bounds_payload(violation),
+        "counterfactual_boundary": _fiber_counterfactual_payload(
+            getattr(violation, "counterfactual_boundary", None)
+        ),
+        "fiber_id": getattr(violation, "fiber_id", ""),
+        "taint_interval_id": getattr(violation, "taint_interval_id", ""),
+        "condition_overlap_id": getattr(violation, "condition_overlap_id", ""),
+        "structured_hash": getattr(violation, "structured_hash", ""),
+        "key": getattr(violation, "key", ""),
+        "render": getattr(violation, "render")(),
+    }
+
+
+def _serialize_no_mutable_dict(violation: object) -> dict[str, object]:
+    return {
+        "path": getattr(violation, "path"),
+        "line": getattr(violation, "line"),
+        "column": getattr(violation, "column"),
+        "qualname": getattr(violation, "qualname"),
+        "kind": getattr(violation, "kind"),
+        "message": getattr(violation, "message"),
+        "input_slot": getattr(violation, "input_slot", ""),
+        "flow_identity": getattr(violation, "flow_identity", ""),
+        "fiber_trace": _fiber_trace_payload(
+            getattr(violation, "fiber_trace", ())
+        ),
+        "applicability_bounds": _applicability_bounds_payload(violation),
+        "counterfactual_boundary": _fiber_counterfactual_payload(
+            getattr(violation, "counterfactual_boundary", None)
+        ),
+        "fiber_id": getattr(violation, "fiber_id", ""),
+        "taint_interval_id": getattr(violation, "taint_interval_id", ""),
+        "condition_overlap_id": getattr(violation, "condition_overlap_id", ""),
+        "structured_hash": getattr(violation, "structured_hash", ""),
+        "key": getattr(violation, "key", ""),
+        "render": getattr(violation, "render")(),
+    }
+
+
+def _serialize_no_scalar_conversion_boundary(violation: object) -> dict[str, object]:
+    return {
+        "path": getattr(violation, "path"),
+        "line": getattr(violation, "line"),
+        "column": getattr(violation, "column"),
+        "qualname": getattr(violation, "qualname"),
+        "kind": getattr(violation, "kind"),
+        "conversion": getattr(violation, "conversion", ""),
+        "message": getattr(violation, "message"),
+        "input_slot": getattr(violation, "input_slot", ""),
+        "flow_identity": getattr(violation, "flow_identity", ""),
+        "fiber_trace": _fiber_trace_payload(
+            getattr(violation, "fiber_trace", ())
+        ),
+        "applicability_bounds": _applicability_bounds_payload(violation),
+        "counterfactual_boundary": _fiber_counterfactual_payload(
+            getattr(violation, "counterfactual_boundary", None)
+        ),
+        "fiber_id": getattr(violation, "fiber_id", ""),
+        "taint_interval_id": getattr(violation, "taint_interval_id", ""),
+        "condition_overlap_id": getattr(violation, "condition_overlap_id", ""),
+        "structured_hash": getattr(violation, "structured_hash", ""),
+        "key": getattr(violation, "key", ""),
         "render": getattr(violation, "render")(),
     }
 

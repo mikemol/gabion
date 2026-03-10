@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from gabion.tooling.governance import ambiguity_contract_policy_check as policy
+from gabion.tooling.runtime.policy_scan_batch import build_policy_scan_batch
 
 
 def _write(path: Path, content: str) -> None:
@@ -52,7 +53,8 @@ def test_ambiguity_contract_collect_violations_respects_boundaries(tmp_path: Pat
         "    pass\n",
     )
 
-    violations = policy.collect_violations(tmp_path)
+    batch = build_policy_scan_batch(root=tmp_path, target_globs=policy.TARGETS)
+    violations = policy.collect_violations(batch=batch)
     assert violations
     rule_ids = {item.rule_id for item in violations}
     assert {"ACP-002", "ACP-003", "ACP-004"}.issubset(rule_ids)

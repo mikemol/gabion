@@ -709,11 +709,26 @@ run_checks_job() {
   step "checks: extract_test_evidence"
   observed checks_extract_test_evidence "$PYTHON_BIN" -m scripts.misc.extract_test_evidence --root . --tests tests --out out/test_evidence.json
 
+  step "checks: extract_test_behavior"
+  observed checks_extract_test_behavior "$PYTHON_BIN" -m scripts.misc.extract_test_behavior --root . --tests tests --out out/test_behavior.json
+
   step "checks: evidence drift diff (strict)"
   observed checks_git_diff_test_evidence git diff --exit-code out/test_evidence.json
+  observed checks_git_diff_test_behavior git diff --exit-code out/test_behavior.json
 
   step "checks: policy scanner suite"
-  observed checks_policy_scanner_suite "$PYTHON_BIN" scripts/policy/policy_scanner_suite.py --root . --out artifacts/out/policy_suite_results.json
+  local scanner_base scanner_head
+  scanner_base="$(resolve_pr_base_sha || true)"
+  scanner_head="$(resolve_pr_head_sha || true)"
+  if [ -n "${scanner_base:-}" ] && [ -n "${scanner_head:-}" ]; then
+    observed checks_policy_scanner_suite "$PYTHON_BIN" scripts/policy/policy_scanner_suite.py \
+      --root . \
+      --out artifacts/out/policy_suite_results.json \
+      --base-sha "$scanner_base" \
+      --head-sha "$scanner_head"
+  else
+    observed checks_policy_scanner_suite "$PYTHON_BIN" scripts/policy/policy_scanner_suite.py --root . --out artifacts/out/policy_suite_results.json
+  fi
 
   step "checks: controller drift audit (advisory, ratchet-ready)"
   local controller_args=(--out artifacts/out/controller_drift.json)
@@ -964,7 +979,11 @@ run_pr_dataflow_job() {
   fi
 
   step "pr-dataflow: policy scanner suite"
-  observed pr_dataflow_policy_scanner_suite "$PYTHON_BIN" scripts/policy/policy_scanner_suite.py --root . --out artifacts/out/policy_suite_results.json
+  observed pr_dataflow_policy_scanner_suite "$PYTHON_BIN" scripts/policy/policy_scanner_suite.py \
+    --root . \
+    --out artifacts/out/policy_suite_results.json \
+    --base-sha "$pr_base" \
+    --head-sha "$pr_head"
 
   step "pr-dataflow: governance PR template fields"
   local pr_template_body_file

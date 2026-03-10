@@ -8,6 +8,11 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Literal
 
+from gabion.tooling.runtime.policy_scan_batch import (
+    PolicyScanBatch,
+    build_policy_scan_batch,
+    iter_failure_seeds,
+)
 
 TARGET_GLOB = "src/gabion/**/*.py"
 Category = Literal[
@@ -275,35 +280,34 @@ def _is_active_ordered_or_sorted_call(node: ast.Call) -> bool:
 
 def collect_violations_and_inventory(
     *,
-    root: Path,
+    batch: PolicyScanBatch,
 ) -> tuple[list[Violation], list[FileInventory]]:
     violations: list[Violation] = []
     inventories: list[FileInventory] = []
-    for path in sorted(root.glob(TARGET_GLOB)):
-        if not path.is_file():
-            continue
-        rel_path = path.relative_to(root).as_posix()
-        try:
-            tree = ast.parse(path.read_text(encoding="utf-8"))
-        except SyntaxError as exc:
-            violations.append(
-                Violation(
-                    path=rel_path,
-                    line=exc.lineno or 1,
-                    column=exc.offset or 1,
-                    message="syntax error while parsing module for order-lifetime checks",
-                )
+    for seed in iter_failure_seeds(batch=batch):
+        message = (
+            "unable to read module for order-lifetime checks"
+            if seed.kind == "read_error"
+            else "syntax error while parsing module for order-lifetime checks"
+        )
+        violations.append(
+            Violation(
+                path=seed.path,
+                line=seed.line,
+                column=seed.column,
+                message=message,
             )
-            continue
-        visitor = _OrderLifetimeVisitor(rel_path=rel_path)
-        visitor.visit(tree)
+        )
+    for module in batch.modules:
+        visitor = _OrderLifetimeVisitor(rel_path=module.rel_path)
+        visitor.visit(module.tree)
         inventories.append(visitor.inventory)
         violations.extend(visitor.violations)
     return violations, inventories
 
 
-def collect_violations(*, root: Path) -> list[Violation]:
-    violations, _inventories = collect_violations_and_inventory(root=root)
+def collect_violations(*, batch: PolicyScanBatch) -> list[Violation]:
+    violations, _inventories = collect_violations_and_inventory(batch=batch)
     return violations
 
 
@@ -341,7 +345,8 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     root = args.root.resolve()
-    violations, inventories = collect_violations_and_inventory(root=root)
+    batch = build_policy_scan_batch(root=root, target_globs=(TARGET_GLOB,))
+    violations, inventories = collect_violations_and_inventory(batch=batch)
     if args.emit_inventory is not None:
         payload = {
             "target_glob": TARGET_GLOB,

@@ -1,18 +1,19 @@
 ---
 doc_revision: 1
-reader_reintern: Reader-only: re-intern if doc_revision changed since you last read this doc.
+reader_reintern: 'Reader-only: re-intern if doc_revision changed since you last read
+  this doc.'
 doc_id: decision_flow_tiers
 doc_role: reference
 doc_scope:
-  - repo
-  - analysis
-  - docs
+- repo
+- analysis
+- docs
 doc_authority: informative
 doc_requires:
-  - glossary.md#decision_table
-  - glossary.md#decision_bundle
-  - glossary.md#decision_protocol
-  - docs/sppf_checklist.md#sppf_checklist
+- glossary.md#decision_table
+- glossary.md#decision_bundle
+- glossary.md#decision_protocol
+- docs/sppf_checklist.md#sppf_checklist
 doc_reviewed_as_of:
   glossary.md#decision_table: 1
   glossary.md#decision_bundle: 1
@@ -22,15 +23,16 @@ doc_review_notes:
   glossary.md#decision_table: Reviewed glossary decision table contract.
   glossary.md#decision_bundle: Reviewed glossary decision bundle contract.
   glossary.md#decision_protocol: Reviewed glossary decision protocol contract.
-  docs/sppf_checklist.md#sppf_checklist: Reviewed checklist status + GH mapping for decision tiers.
+  docs/sppf_checklist.md#sppf_checklist: Reviewed checklist status + GH mapping for
+    decision tiers.
 doc_sections:
   decision_flow_tiers: 1
 doc_section_requires:
   decision_flow_tiers:
-    - glossary.md#decision_table
-    - glossary.md#decision_bundle
-    - glossary.md#decision_protocol
-    - docs/sppf_checklist.md#sppf_checklist
+  - glossary.md#decision_table
+  - glossary.md#decision_bundle
+  - glossary.md#decision_protocol
+  - docs/sppf_checklist.md#sppf_checklist
 doc_section_reviews:
   decision_flow_tiers:
     glossary.md#decision_table:
@@ -55,8 +57,8 @@ doc_section_reviews:
       note: Checklist node references aligned to GH-47/48/49.
 doc_change_protocol: POLICY_SEED.md#change_protocol
 doc_erasure:
-  - formatting
-  - typos
+- formatting
+- typos
 doc_owner: maintainer
 ---
 

@@ -30,7 +30,7 @@ from gabion.analysis.projection.projection_exec import apply_spec
 from gabion.analysis.projection.projection_registry import LINT_FINDINGS_SPEC
 from gabion.analysis.projection.projection_spec import ProjectionSpec
 from gabion.analysis.foundation.resume_codec import (
-    int_tuple4_optional, mapping_default_empty, mapping_optional, sequence_optional)
+    iter_int_tuple4_from_sequence, mapping_default_empty, mapping_optional, sequence_optional)
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.invariants import never
 from gabion.order_contract import sort_once
@@ -695,7 +695,7 @@ def _is_broad_internal_type(annot) -> bool:
 
 
 def _span_line_col(span):
-    parsed = int_tuple4_optional(span)
+    parsed = next(iter_int_tuple4_from_sequence((span,)), None)
     if parsed is None:
         return None, None
     return parsed[0] + 1, parsed[1] + 1

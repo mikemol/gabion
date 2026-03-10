@@ -1,72 +1,132 @@
 ---
-doc_revision: 13
-reader_reintern: Reader-only: re-intern if doc_revision changed since you last read this doc.
+doc_revision: 14
+reader_reintern: 'Reader-only: re-intern if doc_revision changed since you last read
+  this doc.'
 doc_id: matrix_acceptance
 doc_role: reference
 doc_scope:
-  - repo
-  - testing
-  - semantics
-  - governance
+- repo
+- testing
+- semantics
+- governance
 doc_authority: informative
 doc_requires:
-  - POLICY_SEED.md#policy_seed
-  - glossary.md#contract
-  - glossary.md#exception_obligation
-  - CONTRIBUTING.md#contributing_contract
-  - README.md#repo_contract
+- POLICY_SEED.md#policy_seed
+- glossary.md#contract
+- glossary.md#exception_obligation
+- CONTRIBUTING.md#contributing_contract
+- README.md#repo_contract
+- in/in-24.md#in_in_24
+- in/in-25.md#in_in_25
+- in/in-26.md#in_in_26
+- in/in-27.md#in_in_27
 doc_reviewed_as_of:
   POLICY_SEED.md#policy_seed: 2
   glossary.md#contract: 1
   glossary.md#exception_obligation: 1
   CONTRIBUTING.md#contributing_contract: 2
   README.md#repo_contract: 2
+  in/in-24.md#in_in_24: 1
+  in/in-25.md#in_in_25: 1
+  in/in-26.md#in_in_26: 1
+  in/in-27.md#in_in_27: 1
 doc_review_notes:
-  POLICY_SEED.md#policy_seed: Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope.
-  glossary.md#contract: Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline).
-  glossary.md#exception_obligation: Reviewed glossary.md#exception_obligation rev1 (exception obligation status + evidence linkage).
-  CONTRIBUTING.md#contributing_contract: Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope.
-  README.md#repo_contract: Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope.
+  POLICY_SEED.md#policy_seed: Reviewed POLICY_SEED.md rev1 (mechanized governance
+    default; branch/tag CAS + check-before-use constraints); no conflicts with this
+    document's scope.
+  glossary.md#contract: Reviewed glossary.md#contract rev1 (glossary contract + semantic
+    typing discipline).
+  glossary.md#exception_obligation: Reviewed glossary.md#exception_obligation rev1
+    (exception obligation status + evidence linkage).
+  CONTRIBUTING.md#contributing_contract: Reviewed CONTRIBUTING.md rev1 (docflow now
+    fails on missing GH references for SPPF-relevant changes); no conflicts with this
+    document's scope.
+  README.md#repo_contract: Reviewed README.md rev1 (docflow audit now scans in/ by
+    default); no conflicts with this document's scope.
+  in/in-24.md#in_in_24: Reviewed in/in-24.md rev11 (section anchor in_in_24 remains
+    at section revision 1; deadness matrix acceptance checks align with artifact schema
+    requirements).
+  in/in-25.md#in_in_25: Reviewed in/in-25.md rev9 (section anchor in_in_25 remains
+    at section revision 1; coherence matrix acceptance mapping remains consistent
+    with evidence artifacts).
+  in/in-26.md#in_in_26: Reviewed in/in-26.md rev10 (section anchor in_in_26 remains
+    at section revision 1; rewrite-plan verification predicates match matrix obligations).
+  in/in-27.md#in_in_27: Reviewed in/in-27.md rev8 (section anchor in_in_27 remains
+    at section revision 1; exception obligation mapping aligns with handledness/deadness
+    requirements).
 doc_sections:
   matrix_acceptance: 3
 doc_section_requires:
   matrix_acceptance:
-    - POLICY_SEED.md#policy_seed
-    - glossary.md#contract
-    - glossary.md#exception_obligation
-    - CONTRIBUTING.md#contributing_contract
-    - README.md#repo_contract
+  - POLICY_SEED.md#policy_seed
+  - glossary.md#contract
+  - glossary.md#exception_obligation
+  - CONTRIBUTING.md#contributing_contract
+  - README.md#repo_contract
+  - in/in-24.md#in_in_24
+  - in/in-25.md#in_in_25
+  - in/in-26.md#in_in_26
+  - in/in-27.md#in_in_27
 doc_section_reviews:
   matrix_acceptance:
     POLICY_SEED.md#policy_seed:
       dep_version: 2
       self_version_at_review: 3
       outcome: no_change
-      note: "Policy seed rev2 reviewed; governance obligations remain aligned."
+      note: Policy seed rev2 reviewed; governance obligations remain aligned.
     glossary.md#contract:
       dep_version: 1
       self_version_at_review: 3
       outcome: no_change
-      note: Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline).
+      note: Reviewed glossary.md#contract rev1 (glossary contract + semantic typing
+        discipline).
     glossary.md#exception_obligation:
       dep_version: 1
       self_version_at_review: 3
       outcome: no_change
-      note: Reviewed glossary.md#exception_obligation rev1 (exception obligation status + evidence linkage).
+      note: Reviewed glossary.md#exception_obligation rev1 (exception obligation status
+        + evidence linkage).
     CONTRIBUTING.md#contributing_contract:
       dep_version: 2
       self_version_at_review: 3
       outcome: no_change
-      note: "Contributor contract rev2 reviewed; dual-sensor cadence and correction gates remain aligned."
+      note: Contributor contract rev2 reviewed; dual-sensor cadence and correction
+        gates remain aligned.
     README.md#repo_contract:
       dep_version: 2
       self_version_at_review: 3
       outcome: no_change
-      note: "Repo contract rev2 reviewed; command and artifact guidance remains aligned."
+      note: Repo contract rev2 reviewed; command and artifact guidance remains aligned.
+    in/in-24.md#in_in_24:
+      dep_version: 1
+      self_version_at_review: 3
+      outcome: no_change
+      note: Reviewed in/in-24.md rev11 (section anchor in_in_24 remains at section
+        revision 1; deadness matrix acceptance checks align with artifact schema requirements).
+    in/in-25.md#in_in_25:
+      dep_version: 1
+      self_version_at_review: 3
+      outcome: no_change
+      note: Reviewed in/in-25.md rev9 (section anchor in_in_25 remains at section
+        revision 1; coherence matrix acceptance mapping remains consistent with evidence
+        artifacts).
+    in/in-26.md#in_in_26:
+      dep_version: 1
+      self_version_at_review: 3
+      outcome: no_change
+      note: Reviewed in/in-26.md rev10 (section anchor in_in_26 remains at section
+        revision 1; rewrite-plan verification predicates match matrix obligations).
+    in/in-27.md#in_in_27:
+      dep_version: 1
+      self_version_at_review: 3
+      outcome: no_change
+      note: Reviewed in/in-27.md rev8 (section anchor in_in_27 remains at section
+        revision 1; exception obligation mapping aligns with handledness/deadness
+        requirements).
 doc_change_protocol: POLICY_SEED.md#change_protocol
 doc_erasure:
-  - formatting
-  - typos
+- formatting
+- typos
 doc_owner: maintainer
 ---
 

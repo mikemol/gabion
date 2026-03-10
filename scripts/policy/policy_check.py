@@ -19,6 +19,7 @@ from gabion.invariants import never
 from gabion.deadline_clock import MonotonicClock
 from gabion.order_contract import ordered_or_sorted
 from gabion.config import dataflow_adapter_payload, dataflow_defaults, dataflow_required_surfaces
+from scripts.policy import symbol_activity_audit
 
 try:
     import yaml
@@ -28,6 +29,7 @@ except ImportError:  # pragma: no cover - handled as a hard error at runtime.
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW_DIR = REPO_ROOT / ".github" / "workflows"
+TESTS_ROOT = REPO_ROOT / "tests"
 
 ALLOWED_ACTIONS_FILE = REPO_ROOT / "docs" / "allowed_actions.txt"
 REQUIRED_RUNNER_LABELS = {"self-hosted", "gpu", "local"}
@@ -71,6 +73,8 @@ _REQUIRED_NORMATIVE_CLAUSES = {
 
 ASPF_TAINT_MAP = REPO_ROOT / "docs" / "aspf_taint_isomorphism_map.yaml"
 ASPF_TAINT_NO_CHANGE = REPO_ROOT / "docs" / "aspf_taint_isomorphism_no_change.yaml"
+SYMBOL_ACTIVITY_AUDIT_JSON = REPO_ROOT / "artifacts" / "out" / "symbol_activity_audit.json"
+SYMBOL_ACTIVITY_AUDIT_MD = REPO_ROOT / "artifacts" / "out" / "symbol_activity_audit.md"
 _REQUIRED_ASPF_IN_STEPS = {"in-46", "in-47", "in-48", "in-49", "in-50", "in-51", "in-52", "in-53", "in-58"}
 _EXPECTED_ASPF_IDENTIFIER_ANCHORS = {
     "AspfOneCell",
@@ -1789,6 +1793,79 @@ def check_non_boundary_payload_signatures() -> None:
     if errors:
         _fail(["non-boundary payload signature policy check failed", *errors])
 
+
+def _test_behavior_contract_violations(root: Path) -> list[str]:
+    from gabion.analysis.surfaces import test_behavior
+
+    return test_behavior.collect_test_behavior_contract_violations(
+        [root / "tests"],
+        root=root,
+        include=["tests"],
+        exclude=[],
+    )
+
+
+def check_test_behavior_contract() -> None:
+    check_deadline()
+    if not TESTS_ROOT.exists():
+        _fail([f"missing tests root: {TESTS_ROOT}"])
+    violations = _test_behavior_contract_violations(REPO_ROOT)
+    if violations:
+        _fail(["test behavior contract policy check failed", *violations])
+
+
+def _symbol_activity_unsuppressed_bucket_lines(payload: dict[str, object]) -> list[str]:
+    counts_payload = payload.get("counts") if isinstance(payload, dict) else None
+    if not isinstance(counts_payload, dict):
+        return ["symbol activity audit artifact missing counts payload"]
+    by_bucket = counts_payload.get("by_bucket")
+    if not isinstance(by_bucket, dict):
+        return ["symbol activity audit artifact missing counts.by_bucket payload"]
+    lines: list[str] = []
+    for bucket in _sorted(list(by_bucket.keys())):
+        check_deadline()
+        bucket_counts = by_bucket.get(bucket)
+        if not isinstance(bucket_counts, dict):
+            lines.append(f"{bucket}: malformed bucket payload")
+            continue
+        unsuppressed = int(bucket_counts.get("unsuppressed", 0) or 0)
+        if unsuppressed <= 0:
+            continue
+        blocked = int(bucket_counts.get("blocked_by_todo", 0) or 0)
+        total = int(bucket_counts.get("total", 0) or 0)
+        lines.append(
+            f"{bucket}: unsuppressed={unsuppressed} blocked_by_todo={blocked} total={total}"
+        )
+    return lines
+
+
+def check_symbol_activity_audit() -> None:
+    check_deadline()
+    rc = symbol_activity_audit.run(
+        root=REPO_ROOT,
+        out_path=SYMBOL_ACTIVITY_AUDIT_JSON,
+        markdown_out=SYMBOL_ACTIVITY_AUDIT_MD,
+        check=True,
+    )
+    if rc == 0:
+        return
+    if not SYMBOL_ACTIVITY_AUDIT_JSON.exists():
+        _fail(
+            [
+                "symbol activity audit failed",
+                f"missing artifact: {SYMBOL_ACTIVITY_AUDIT_JSON}",
+            ]
+        )
+    payload = json.loads(SYMBOL_ACTIVITY_AUDIT_JSON.read_text(encoding="utf-8"))
+    bucket_lines = _symbol_activity_unsuppressed_bucket_lines(payload)
+    _fail(
+        [
+            "symbol activity audit failed",
+            f"artifact: {SYMBOL_ACTIVITY_AUDIT_JSON}",
+            *bucket_lines,
+        ]
+    )
+
 def _dotted_name(node: ast.AST) -> str | None:
     check_deadline()
     if isinstance(node, ast.Name):
@@ -1869,28 +1946,32 @@ def main(argv: list[str] | None = None):
     parser.add_argument("--workflows", action="store_true", help="lint workflows")
     parser.add_argument("--posture", action="store_true", help="check GitHub posture")
     parser.add_argument("--ambiguity-contract", action="store_true", help="run ambiguity contract policy checks")
+    parser.add_argument("--test-behavior-contract", action="store_true", help="enforce per-test gabion:behavior classification tags")
     parser.add_argument("--normative-map", action="store_true", help="validate docs/normative_enforcement_map.yaml")
     parser.add_argument("--tier2-residue-contract", action="store_true", help="run tier-2 residue policy checks")
     parser.add_argument("--adapter-surfaces", action="store_true", help="validate configured adapter surface requirements")
     parser.add_argument("--semantic-core-payload-branching", action="store_true", help="forbid raw Mapping/list payload branching outside boundary decode functions")
     parser.add_argument("--aspf-taint-crosswalk", action="store_true", help="require ASPF/taint crosswalk acknowledgement when relevant files change")
     parser.add_argument("--non-boundary-payload-signatures", action="store_true", help="forbid dict[str, object]-first helper signatures outside boundary modules")
+    parser.add_argument("--symbol-activity-audit", action="store_true", help="run runtime+scripts symbol activity audit and fail on unsuppressed findings")
     parser.add_argument("--output", type=Path, help="write machine-readable policy result artifact")
     args = parser.parse_args(argv)
 
-    if not args.workflows and not args.posture and not args.ambiguity_contract and not args.normative_map and not args.tier2_residue_contract and not args.adapter_surfaces and not args.semantic_core_payload_branching and not args.aspf_taint_crosswalk and not args.non_boundary_payload_signatures:
+    if not args.workflows and not args.posture and not args.ambiguity_contract and not args.test_behavior_contract and not args.normative_map and not args.tier2_residue_contract and not args.adapter_surfaces and not args.semantic_core_payload_branching and not args.aspf_taint_crosswalk and not args.non_boundary_payload_signatures and not args.symbol_activity_audit:
         args.workflows = True
 
     selected_checks = {
         "workflows": bool(args.workflows),
         "posture": bool(args.posture),
         "ambiguity_contract": bool(args.ambiguity_contract),
+        "test_behavior_contract": bool(args.test_behavior_contract),
         "normative_map": bool(args.normative_map),
         "tier2_residue_contract": bool(args.tier2_residue_contract),
         "adapter_surfaces": bool(args.adapter_surfaces),
         "semantic_core_payload_branching": bool(args.semantic_core_payload_branching),
         "aspf_taint_crosswalk": bool(args.aspf_taint_crosswalk),
         "non_boundary_payload_signatures": bool(args.non_boundary_payload_signatures),
+        "symbol_activity_audit": bool(args.symbol_activity_audit),
     }
     try:
         with _policy_deadline_scope():
@@ -1901,6 +1982,8 @@ def main(argv: list[str] | None = None):
                 check_posture()
             if args.ambiguity_contract:
                 check_ambiguity_contract()
+            if args.test_behavior_contract or args.workflows:
+                check_test_behavior_contract()
             if args.normative_map:
                 check_normative_enforcement_map()
             if args.tier2_residue_contract:
@@ -1915,6 +1998,8 @@ def main(argv: list[str] | None = None):
                 check_aspf_taint_crosswalk_ack()
             if args.non_boundary_payload_signatures or args.workflows:
                 check_non_boundary_payload_signatures()
+            if args.symbol_activity_audit or args.workflows:
+                check_symbol_activity_audit()
     except SystemExit as exc:
         if args.output is not None:
             write_policy_result(

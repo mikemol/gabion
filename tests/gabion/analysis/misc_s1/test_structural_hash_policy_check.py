@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from scripts.policy import structural_hash_policy_check
+from gabion.tooling.runtime.policy_scan_batch import build_policy_scan_batch
 
 
 def _write(path: Path, text: str) -> None:
@@ -30,7 +31,12 @@ def test_structural_hash_policy_check_accepts_clean_identity_paths(tmp_path: Pat
         "from __future__ import annotations\n\ndef structural_key_atom(value, *, source):\n    return value\n",
     )
 
-    violations = structural_hash_policy_check.collect_violations(root=tmp_path)
+    batch = build_policy_scan_batch(
+        root=tmp_path,
+        target_globs=(),
+        files=structural_hash_policy_check._target_files(tmp_path),
+    )
+    violations = structural_hash_policy_check.collect_violations(batch=batch)
 
     assert violations == []
 
@@ -51,7 +57,12 @@ def test_structural_hash_policy_check_rejects_digest_identity_calls(tmp_path: Pa
         "from __future__ import annotations\n\ndef f() -> int:\n    return 1\n",
     )
 
-    violations = structural_hash_policy_check.collect_violations(root=tmp_path)
+    batch = build_policy_scan_batch(
+        root=tmp_path,
+        target_globs=(),
+        files=structural_hash_policy_check._target_files(tmp_path),
+    )
+    violations = structural_hash_policy_check.collect_violations(batch=batch)
 
     assert violations
     assert any("hashlib" in entry.call for entry in violations)

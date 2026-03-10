@@ -34,7 +34,7 @@ def _mapping_carrier(value: _DispatchValue) -> _MappingCarrier:
 
 
 @_mapping_carrier.register(dict)
-def _(value: dict[str, JSONValue]) -> _MappingCarrier:
+def _sd_reg_1(value: dict[str, JSONValue]) -> _MappingCarrier:
     return _MappingCarrier(is_mapping=True, mapping=value)
 
 
@@ -59,7 +59,7 @@ def _list_carrier(value: _DispatchValue) -> _ListCarrier:
 
 
 @_list_carrier.register(list)
-def _(value: list[JSONValue]) -> _ListCarrier:
+def _sd_reg_2(value: list[JSONValue]) -> _ListCarrier:
     return _ListCarrier(is_list=True, values=value)
 
 
@@ -84,7 +84,7 @@ def _string_carrier(value: _DispatchValue) -> _StringCarrier:
 
 
 @_string_carrier.register
-def _(value: str) -> _StringCarrier:
+def _sd_reg_3(value: str) -> _StringCarrier:
     return _StringCarrier(is_string=True, text=value)
 
 
@@ -140,7 +140,7 @@ def _evidence_key_carrier(value: _DispatchValue) -> _EvidenceKeyCarrier:
 
 
 @_evidence_key_carrier.register(dict)
-def _(value: dict[str, JSONValue]) -> _EvidenceKeyCarrier:
+def _sd_reg_4(value: dict[str, JSONValue]) -> _EvidenceKeyCarrier:
     return _EvidenceKeyCarrier(
         resolved=True,
         key=evidence_keys.normalize_key(value),
@@ -190,12 +190,12 @@ def _accumulate_evidence_ref_item(
 
 
 @_accumulate_evidence_ref_item.register
-def _(item: EvidenceRef, *, refs: dict[str, EvidenceRef]) -> None:
+def _sd_reg_5(item: EvidenceRef, *, refs: dict[str, EvidenceRef]) -> None:
     refs[item.identity] = item
 
 
 @_accumulate_evidence_ref_item.register(dict)
-def _(item: dict[str, JSONValue], *, refs: dict[str, EvidenceRef]) -> None:
+def _sd_reg_6(item: dict[str, JSONValue], *, refs: dict[str, EvidenceRef]) -> None:
     raw_key = item.get("key")
     display = item.get("display")
     key_carrier = _normalized_evidence_key_from_fields(raw_key=raw_key, display=display)
@@ -216,7 +216,7 @@ def _(item: dict[str, JSONValue], *, refs: dict[str, EvidenceRef]) -> None:
 
 
 @_accumulate_evidence_ref_item.register
-def _(item: str, *, refs: dict[str, EvidenceRef]) -> None:
+def _sd_reg_7(item: str, *, refs: dict[str, EvidenceRef]) -> None:
     display = item.strip()
     if not display:
         return
@@ -806,33 +806,33 @@ def _normalize_evidence_refs(value: _EvidenceRefInput) -> list[EvidenceRef]:
 
 
 @_normalize_evidence_refs.register(_NONE_TYPE)
-def _(value: None) -> list[EvidenceRef]:
+def _sd_reg_8(value: None) -> list[EvidenceRef]:
     _ = value
     return []
 
 
 @_normalize_evidence_refs.register
-def _(value: EvidenceRef) -> list[EvidenceRef]:
+def _sd_reg_9(value: EvidenceRef) -> list[EvidenceRef]:
     return [value]
 
 
 @_normalize_evidence_refs.register
-def _(value: str) -> list[EvidenceRef]:
+def _sd_reg_10(value: str) -> list[EvidenceRef]:
     return _normalize_evidence_refs_iterable([value])
 
 
 @_normalize_evidence_refs.register(list)
-def _(value: list[_EvidenceRefInput]) -> list[EvidenceRef]:
+def _sd_reg_11(value: list[_EvidenceRefInput]) -> list[EvidenceRef]:
     return _normalize_evidence_refs_iterable(value)
 
 
 @_normalize_evidence_refs.register(tuple)
-def _(value: tuple[_EvidenceRefInput, ...]) -> list[EvidenceRef]:
+def _sd_reg_12(value: tuple[_EvidenceRefInput, ...]) -> list[EvidenceRef]:
     return _normalize_evidence_refs_iterable(list(value))
 
 
 @_normalize_evidence_refs.register(set)
-def _(value: set[_EvidenceRefInput]) -> list[EvidenceRef]:
+def _sd_reg_13(value: set[_EvidenceRefInput]) -> list[EvidenceRef]:
     return _normalize_evidence_refs_iterable(list(value))
 
 

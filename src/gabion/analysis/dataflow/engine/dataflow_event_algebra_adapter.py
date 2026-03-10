@@ -311,7 +311,7 @@ def _collection_identity_tokens(
     return tuple(components)
 
 
-def _positive_int_optional(value: object) -> int | None:
+def _positive_int_optional(value: JSONValue | None) -> int | None:
     check_deadline()
     match value:
         case bool():

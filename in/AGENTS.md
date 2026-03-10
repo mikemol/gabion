@@ -1,32 +1,36 @@
 ---
 doc_revision: 1
-reader_reintern: Reader-only: re-intern if doc_revision changed since you last read this doc.
+reader_reintern: 'Reader-only: re-intern if doc_revision changed since you last read
+  this doc.'
 doc_change_protocol: POLICY_SEED.md#change_protocol
 doc_requires:
-  - POLICY_SEED.md#policy_seed
+- POLICY_SEED.md#policy_seed
 doc_reviewed_as_of:
   POLICY_SEED.md#policy_seed: 2
 doc_review_notes:
-  POLICY_SEED.md#policy_seed: Reviewed POLICY_SEED.md rev2 (forward-remediation order, ci_watch failure-bundle durability, and enforced execution-coverage wording); scoped in/ deltas remain consistent.
+  POLICY_SEED.md#policy_seed: Reviewed POLICY_SEED.md rev2 (forward-remediation order,
+    ci_watch failure-bundle durability, and enforced execution-coverage wording);
+    scoped in/ deltas remain consistent.
 doc_id: in_agents
 doc_role: agent
 doc_scope:
-  - repo
-  - governance
-  - agents
+- repo
+- governance
+- agents
 doc_authority: normative
 doc_sections:
   in_agents: 1
 doc_section_requires:
   in_agents:
-    - POLICY_SEED.md#policy_seed
+  - POLICY_SEED.md#policy_seed
 doc_section_reviews:
   in_agents:
     POLICY_SEED.md#policy_seed:
       dep_version: 2
       self_version_at_review: 1
       outcome: no_change
-      note: Re-reviewed policy seed rev2 anchor; in/ agent deltas still match execution-safety and review-discipline requirements.
+      note: Re-reviewed policy seed rev2 anchor; in/ agent deltas still match execution-safety
+        and review-discipline requirements.
 ---
 
 <a id="in_agents"></a>

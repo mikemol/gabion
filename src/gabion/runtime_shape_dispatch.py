@@ -19,7 +19,7 @@ def json_mapping_optional(value: object):
 
 
 @json_mapping_optional.register(dict)
-def _(value: dict[str, JSONValue]):
+def _sd_reg_1(value: dict[str, JSONValue]):
     return value
 
 
@@ -38,7 +38,7 @@ def json_list_optional(value: object):
 
 
 @json_list_optional.register(list)
-def _(value: list[JSONValue]):
+def _sd_reg_2(value: list[JSONValue]):
     return value
 
 
@@ -57,7 +57,7 @@ def str_optional(value: object):
 
 
 @str_optional.register(str)
-def _(value: str):
+def _sd_reg_3(value: str):
     return value
 
 
@@ -76,12 +76,12 @@ def int_optional(value: object):
 
 
 @int_optional.register(int)
-def _(value: int):
+def _sd_reg_4(value: int):
     return value
 
 
 @int_optional.register(bool)
-def _(value: bool):
+def _sd_reg_5(value: bool):
     _ = value
     return None
 
@@ -101,17 +101,17 @@ def float_optional(value: object):
 
 
 @float_optional.register(float)
-def _(value: float):
+def _sd_reg_6(value: float):
     return value
 
 
 @float_optional.register(int)
-def _(value: int):
+def _sd_reg_7(value: int):
     return float(value)
 
 
 @float_optional.register(bool)
-def _(value: bool):
+def _sd_reg_8(value: bool):
     return float(value)
 
 

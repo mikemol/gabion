@@ -1,45 +1,52 @@
 ---
 doc_revision: 2
-reader_reintern: Reader-only: re-intern if doc_revision changed since you last read this doc.
+reader_reintern: 'Reader-only: re-intern if doc_revision changed since you last read
+  this doc.'
 doc_change_protocol: POLICY_SEED.md#change_protocol
 doc_requires:
-  - POLICY_SEED.md#policy_seed
-  - glossary.md#contract
-  - CONTRIBUTING.md#contributing_contract
+- POLICY_SEED.md#policy_seed
+- glossary.md#contract
+- CONTRIBUTING.md#contributing_contract
 doc_reviewed_as_of:
   POLICY_SEED.md#policy_seed: 42
   glossary.md#contract: 43
   CONTRIBUTING.md#contributing_contract: 84
 doc_review_notes:
-  POLICY_SEED.md#policy_seed: Re-reviewed policy seed execution controls (self-hosted constraints, pinned actions, and review discipline) and confirmed this readme still points to the canonical security contract.
-  glossary.md#contract: Re-reviewed glossary contract semantics and confirmed this readme correctly frames semantic validity as co-equal with execution policy.
-  CONTRIBUTING.md#contributing_contract: Re-reviewed contributor workflow guardrails and confirmed this readme still delegates operational checks to CONTRIBUTING.
+  POLICY_SEED.md#policy_seed: Re-reviewed policy seed execution controls (self-hosted
+    constraints, pinned actions, and review discipline) and confirmed this readme
+    still points to the canonical security contract.
+  glossary.md#contract: Re-reviewed glossary contract semantics and confirmed this
+    readme correctly frames semantic validity as co-equal with execution policy.
+  CONTRIBUTING.md#contributing_contract: Re-reviewed contributor workflow guardrails
+    and confirmed this readme still delegates operational checks to CONTRIBUTING.
 doc_id: in_readme
 doc_role: readme
 doc_scope:
-  - repo
-  - documentation
-  - readme
+- repo
+- documentation
+- readme
 doc_authority: informative
 doc_sections:
   in_readme: 2
 doc_section_requires:
   in_readme:
-    - POLICY_SEED.md#policy_seed
-    - glossary.md#contract
-    - CONTRIBUTING.md#contributing_contract
+  - POLICY_SEED.md#policy_seed
+  - glossary.md#contract
+  - CONTRIBUTING.md#contributing_contract
 doc_section_reviews:
   in_readme:
     POLICY_SEED.md#policy_seed:
       dep_version: 1
       self_version_at_review: 2
       outcome: no_change
-      note: Policy seed anchor still governs execution/CI safety exactly as referenced here.
+      note: Policy seed anchor still governs execution/CI safety exactly as referenced
+        here.
     glossary.md#contract:
       dep_version: 1
       self_version_at_review: 2
       outcome: no_change
-      note: Glossary contract anchor remains the normative semantic companion cited by this readme.
+      note: Glossary contract anchor remains the normative semantic companion cited
+        by this readme.
     CONTRIBUTING.md#contributing_contract:
       dep_version: 1
       self_version_at_review: 2

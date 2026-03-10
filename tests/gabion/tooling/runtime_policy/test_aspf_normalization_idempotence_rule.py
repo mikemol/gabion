@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from gabion.tooling.policy_rules import aspf_normalization_idempotence_rule as rule
+from gabion.tooling.runtime.policy_scan_batch import build_policy_scan_batch
 
 
 def _write_json(path: Path, payload: object) -> None:
@@ -70,7 +71,8 @@ def test_collect_violations_flags_duplicate_pre_core_normalization_class(
         ],
     )
 
-    violations = rule.collect_violations(root=tmp_path)
+    batch = build_policy_scan_batch(root=tmp_path, target_globs=())
+    violations = rule.collect_violations(batch=batch)
     assert len(violations) == 1
     assert violations[0].kind == "duplicate_normalization_class_pre_core"
     assert violations[0].normalization_class == "parse"
@@ -122,7 +124,8 @@ def test_collect_violations_ignores_post_core_duplicates(tmp_path: Path) -> None
     }
     _write_json(tmp_path / "artifacts/out/aspf_trace.json", trace_payload)
 
-    violations = rule.collect_violations(root=tmp_path)
+    batch = build_policy_scan_batch(root=tmp_path, target_globs=())
+    violations = rule.collect_violations(batch=batch)
     assert violations == []
 
 
@@ -337,11 +340,12 @@ def test_collect_violations_defaults_to_current_run_trace_only(
         },
     )
 
-    default_violations = rule.collect_violations(root=tmp_path)
+    batch = build_policy_scan_batch(root=tmp_path, target_globs=())
+    default_violations = rule.collect_violations(batch=batch)
     assert default_violations == []
 
     archive_violations = rule.collect_violations(
-        root=tmp_path,
+        batch=batch,
         include_snapshot_archive=True,
     )
     assert len(archive_violations) == 1

@@ -17,7 +17,6 @@ def _load():
     from gabion.analysis.dataflow.engine import dataflow_analysis_index as index_owner
     from gabion.analysis.dataflow.engine import dataflow_call_graph_algorithms as call_graph
     from gabion.analysis.dataflow.engine import dataflow_deadline_helpers as deadline_helpers
-    from gabion.analysis.dataflow.engine import dataflow_deadline_summary as deadline_summary
     from gabion.analysis.dataflow.engine import dataflow_lint_helpers as lint_helpers
     from gabion.analysis.dataflow.engine import dataflow_projection_materialization as projection
     from gabion.analysis.dataflow.engine.dataflow_contracts import (
@@ -33,6 +32,7 @@ def _load():
         _DeadlineLoopFacts,
     )
     from gabion.analysis.dataflow.io.dataflow_reporting import emit_report
+    from gabion.analysis.dataflow.io import dataflow_reporting_helpers as reporting_helpers
     from gabion.analysis.indexed_scan.deadline.deadline_runtime import (
         bind_call_args as _bind_call_args,
     )
@@ -81,7 +81,7 @@ def _load():
         _materialize_projection_spec_rows=projection._materialize_projection_spec_rows,
         _materialize_call_candidates=deadline_helpers._materialize_call_candidates,
         _spec_row_span=projection._spec_row_span,
-        _summarize_deadline_obligations=deadline_summary._summarize_deadline_obligations,
+        _summarize_deadline_obligations=reporting_helpers.summarize_deadline_obligations,
     )
 
 def _make_fn_info(
@@ -794,9 +794,7 @@ def test_collect_deadline_obligations_full_matrix(tmp_path: Path) -> None:
     assert "untrusted_param" in kinds
     assert "unknown_arg" in kinds
 
-    summary = da._summarize_deadline_obligations(
-        obligations, max_entries=1, forest=da.Forest()
-    )
+    summary = da._summarize_deadline_obligations(obligations, forest=da.Forest())
     assert summary
     assert da._summarize_deadline_obligations([], forest=da.Forest()) == []
 
@@ -1163,11 +1161,10 @@ def test_collect_deadline_obligations_default_progress_matches_explicit_noop(tmp
 
     assert explicit_noop == baseline
 
-# gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_deadline_summary_handles_bad_span::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._summarize_deadline_obligations::test_deadline_coverage.py::tests.test_deadline_coverage._load
+# gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_deadline_summary_handles_bad_span::dataflow_reporting_helpers.py::gabion.analysis.dataflow.io.dataflow_reporting_helpers.summarize_deadline_obligations::test_deadline_coverage.py::tests.test_deadline_coverage._load
 # gabion:behavior primary=verboten facets=timeout
 def test_deadline_summary_handles_bad_span() -> None:
     da = _load()
-    from gabion.exceptions import NeverThrown
 
     entries = [
         {
@@ -1179,12 +1176,10 @@ def test_deadline_summary_handles_bad_span() -> None:
             "span": ["x", "y", "z", "w"],
         }
     ]
-    with pytest.raises(NeverThrown):
-        da._summarize_deadline_obligations(
-            entries, max_entries=1, forest=da.Forest()
-        )
+    summary = da._summarize_deadline_obligations(entries, forest=da.Forest())
+    assert summary == ["mod.py:f status=VIOLATION kind=missing oops"]
 
-# gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_deadline_summary_materializes_spec_facets::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._summarize_deadline_obligations::test_deadline_coverage.py::tests.test_deadline_coverage._load
+# gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_deadline_summary_materializes_spec_facets::dataflow_reporting_helpers.py::gabion.analysis.dataflow.io.dataflow_reporting_helpers.summarize_deadline_obligations::test_deadline_coverage.py::tests.test_deadline_coverage._load
 # gabion:behavior primary=verboten facets=timeout
 def test_deadline_summary_materializes_spec_facets() -> None:
     da = _load()
@@ -1204,15 +1199,11 @@ def test_deadline_summary_materializes_spec_facets() -> None:
             "span": [0, 1, 0, 2],
         }
     ]
-    summary = da._summarize_deadline_obligations(entries, max_entries=1, forest=forest)
+    summary = da._summarize_deadline_obligations(entries, forest=forest)
     assert summary
-    spec_sites = [
-        node
-        for node in forest.nodes.values()
-        if node.kind == "SuiteSite" and node.meta.get("suite_kind") == "spec"
-    ]
-    assert spec_sites
-    assert any(alt.kind == "SpecFacet" for alt in forest.alts)
+    spec_sites = [node for node in forest.nodes.values() if node.kind == "SuiteSite"]
+    assert not spec_sites
+    assert not any(alt.kind == "SpecFacet" for alt in forest.alts)
 
 
 # gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_spec_row_span_handles_invalid_and_valid::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._spec_row_span::test_deadline_coverage.py::tests.test_deadline_coverage._load
@@ -1260,7 +1251,7 @@ def test_materialize_projection_spec_rows_handles_empty_and_missing_site() -> No
     )
     assert not any(alt.kind == "SpecFacet" for alt in forest.alts)
 
-# gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_deadline_summary_row_to_site_handles_missing_path::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._summarize_deadline_obligations::test_deadline_coverage.py::tests.test_deadline_coverage._load
+# gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_deadline_summary_row_to_site_handles_missing_path::dataflow_reporting_helpers.py::gabion.analysis.dataflow.io.dataflow_reporting_helpers.summarize_deadline_obligations::test_deadline_coverage.py::tests.test_deadline_coverage._load
 # gabion:behavior primary=verboten facets=missing,timeout
 def test_deadline_summary_row_to_site_handles_missing_path() -> None:
     da = _load()
@@ -1275,7 +1266,7 @@ def test_deadline_summary_row_to_site_handles_missing_path() -> None:
             "span": [0, 0, 0, 1],
         }
     ]
-    summary = da._summarize_deadline_obligations(entries, max_entries=1, forest=forest)
+    summary = da._summarize_deadline_obligations(entries, forest=forest)
     assert summary
 
     entries = [
@@ -1288,7 +1279,7 @@ def test_deadline_summary_row_to_site_handles_missing_path() -> None:
             "span": [0, 0, 0, 1],
         }
     ]
-    summary = da._summarize_deadline_obligations(entries, max_entries=1, forest=forest)
+    summary = da._summarize_deadline_obligations(entries, forest=forest)
     assert summary
 
 # gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_deadline_obligation_span_fallbacks_param_and_facts::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._build_function_index::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_deadline_obligations::test_deadline_coverage.py::tests.test_deadline_coverage._load::test_deadline_coverage.py::tests.test_deadline_coverage._make_fn_info

@@ -86,7 +86,7 @@ _CSTFailureOutcome = _CSTFailurePresent | _CSTFailureAbsent
 def build_aspf_union_view(*, batch: PolicyScanBatch) -> ASPFUnionView:
     cst = _libcst_optional()
     parser_error_type = _libcst_parser_error_type(cst)
-    parsed_rows = tuple(
+    parsed_rows = list(
         map(
             lambda module: _parse_module_cst(
                 module=module,
@@ -98,8 +98,8 @@ def build_aspf_union_view(*, batch: PolicyScanBatch) -> ASPFUnionView:
     )
     return ASPFUnionView(
         root=batch.root,
-        modules=tuple(map(lambda row: row.module_view, parsed_rows)),
-        cst_failures=tuple(
+        modules=list(map(lambda row: row.module_view, parsed_rows)),
+        cst_failures=list(
             map(
                 lambda outcome: outcome.event,
                 filter(
@@ -178,9 +178,9 @@ def _parse_libcst_result(
         return _LibCSTParsed(tree=parse_module(module.source))
     except parser_error_type as exc:  # pragma: no cover - parser specifics vary
         return _LibCSTFailure(
-            line=int(getattr(exc, "raw_line", 1) or 1),
-            column=int(getattr(exc, "raw_column", 1) or 1),
-            message=str(exc),
+            line=_line_value(getattr(exc, "raw_line", 1)),
+            column=_line_value(getattr(exc, "raw_column", 1)),
+            message=_exception_message(exc),
         )
 
 
@@ -221,6 +221,23 @@ def _is_cst_failure_present(outcome: _CSTFailureOutcome) -> bool:
             return True
         case _CSTFailureAbsent():
             return False
+
+
+def _line_value(value: object) -> int:
+    match value:
+        case int() as line if line > 0:
+            return line
+        case _:
+            return 1
+
+
+def _exception_message(value: object) -> str:
+    message = getattr(value, "msg", "")
+    match message:
+        case str() as text if text:
+            return text
+        case _:
+            return "cst_parse_failure"
 
 
 __all__ = [

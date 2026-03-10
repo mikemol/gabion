@@ -1,64 +1,75 @@
 ---
 doc_revision: 5
-reader_reintern: Reader-only: re-intern if doc_revision changed since you last read this doc.
+reader_reintern: 'Reader-only: re-intern if doc_revision changed since you last read
+  this doc.'
 doc_id: out_3
 doc_role: hypothesis
 doc_scope:
-  - repo
-  - tooling
-  - research
-  - semantics
+- repo
+- tooling
+- research
+- semantics
 doc_authority: informative
 doc_requires:
-  - POLICY_SEED.md#policy_seed
-  - glossary.md#contract
-  - CONTRIBUTING.md#contributing_contract
-  - README.md#repo_contract
+- POLICY_SEED.md#policy_seed
+- glossary.md#contract
+- CONTRIBUTING.md#contributing_contract
+- README.md#repo_contract
 doc_reviewed_as_of:
   POLICY_SEED.md#policy_seed: 1
   glossary.md#contract: 1
   CONTRIBUTING.md#contributing_contract: 1
   README.md#repo_contract: 1
 doc_review_notes:
-  POLICY_SEED.md#policy_seed: Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope.
-  glossary.md#contract: Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline).
-  CONTRIBUTING.md#contributing_contract: Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope.
-  README.md#repo_contract: Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope.
+  POLICY_SEED.md#policy_seed: Reviewed POLICY_SEED.md rev1 (mechanized governance
+    default; branch/tag CAS + check-before-use constraints); no conflicts with this
+    document's scope.
+  glossary.md#contract: Reviewed glossary.md#contract rev1 (glossary contract + semantic
+    typing discipline).
+  CONTRIBUTING.md#contributing_contract: Reviewed CONTRIBUTING.md rev1 (docflow now
+    fails on missing GH references for SPPF-relevant changes); no conflicts with this
+    document's scope.
+  README.md#repo_contract: Reviewed README.md rev1 (docflow audit now scans in/ by
+    default); no conflicts with this document's scope.
 doc_change_protocol: POLICY_SEED.md#change_protocol
 doc_erasure:
-  - formatting
-  - typos
+- formatting
+- typos
 doc_owner: maintainer
 doc_sections:
   out_out_3: 1
 doc_section_requires:
   out_out_3:
-    - POLICY_SEED.md#policy_seed
-    - glossary.md#contract
-    - CONTRIBUTING.md#contributing_contract
-    - README.md#repo_contract
+  - POLICY_SEED.md#policy_seed
+  - glossary.md#contract
+  - CONTRIBUTING.md#contributing_contract
+  - README.md#repo_contract
 doc_section_reviews:
   out_out_3:
     POLICY_SEED.md#policy_seed:
       dep_version: 1
       self_version_at_review: 1
       outcome: no_change
-      note: Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope.
+      note: Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag
+        CAS + check-before-use constraints); no conflicts with this document's scope.
     glossary.md#contract:
       dep_version: 1
       self_version_at_review: 1
       outcome: no_change
-      note: Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline).
+      note: Reviewed glossary.md#contract rev1 (glossary contract + semantic typing
+        discipline).
     CONTRIBUTING.md#contributing_contract:
       dep_version: 1
       self_version_at_review: 1
       outcome: no_change
-      note: Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope.
+      note: Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references
+        for SPPF-relevant changes); no conflicts with this document's scope.
     README.md#repo_contract:
       dep_version: 1
       self_version_at_review: 1
       outcome: no_change
-      note: Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope.
+      note: Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts
+        with this document's scope.
 ---
 
 <a id="out_out_3"></a>

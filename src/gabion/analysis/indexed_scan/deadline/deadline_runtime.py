@@ -205,13 +205,13 @@ def _obligation_span_value(value: JSONValue, *, path: str, qual: str) -> int:
 
 
 @_obligation_span_value.register
-def _(value: int, *, path: str, qual: str) -> int:
+def _sd_reg_1(value: int, *, path: str, qual: str) -> int:
     _ = path, qual
     return value
 
 
 @_obligation_span_value.register(bool)
-def _(value: bool, *, path: str, qual: str) -> int:
+def _sd_reg_2(value: bool, *, path: str, qual: str) -> int:
     _ = path, qual
     _ = value
     never("unregistered runtime type", value_type=type(value).__name__)
@@ -224,7 +224,7 @@ def _obligation_span_carrier(value: JSONValue, *, path: str, qual: str) -> tuple
 
 
 @_obligation_span_carrier.register(list)
-def _(value: list[object], *, path: str, qual: str) -> tuple[int, int, int, int]:
+def _sd_reg_3(value: list[object], *, path: str, qual: str) -> tuple[int, int, int, int]:
     if len(value) != 4:
         never("call resolution obligation requires span", path=path, qual=qual)
     return (
@@ -439,7 +439,7 @@ def _bind_call_arg_route(
 
 
 @_bind_call_arg_route.register(ast.Starred)
-def _(
+def _sd_reg_4(
     value: ast.Starred,
     *,
     index: int,
@@ -480,7 +480,7 @@ def _expr_is_name(value: ast.expr) -> bool:
 
 
 @_expr_is_name.register(ast.Name)
-def _(value: ast.Name) -> bool:
+def _sd_reg_5(value: ast.Name) -> bool:
     _ = value
     return True
 
@@ -619,12 +619,12 @@ def _deadline_origin_attribute_value(value: ast.expr) -> bool:
 
 
 @_deadline_origin_attribute_value.register(ast.Name)
-def _(value: ast.Name) -> bool:
+def _sd_reg_6(value: ast.Name) -> bool:
     return value.id == "Deadline"
 
 
 @_deadline_origin_attribute_value.register(ast.Attribute)
-def _(value: ast.Attribute) -> bool:
+def _sd_reg_7(value: ast.Attribute) -> bool:
     return value.attr == "Deadline"
 
 
@@ -644,12 +644,12 @@ def _deadline_origin_callee(callee: ast.expr) -> bool:
 
 
 @_deadline_origin_callee.register(ast.Name)
-def _(callee: ast.Name) -> bool:
+def _sd_reg_8(callee: ast.Name) -> bool:
     return callee.id == "Deadline"
 
 
 @_deadline_origin_callee.register(ast.Attribute)
-def _(callee: ast.Attribute) -> bool:
+def _sd_reg_9(callee: ast.Attribute) -> bool:
     if callee.attr not in {"from_timeout", "from_timeout_ms", "from_timeout_ticks"}:
         return False
     return _deadline_origin_attribute_value(callee.value)
@@ -671,7 +671,7 @@ def _deadline_origin_expr(expr: ast.AST) -> bool:
 
 
 @_deadline_origin_expr.register(ast.Call)
-def _(expr: ast.Call) -> bool:
+def _sd_reg_10(expr: ast.Call) -> bool:
     return _deadline_origin_callee(expr.func)
 
 

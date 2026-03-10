@@ -260,9 +260,13 @@ def _stripped_text(value: str) -> str:
     return value.strip()
 
 
-def _normalized_stripped_names(values: Iterable[str]) -> list[str]:
+def _iter_normalized_stripped_names(values: Iterable[str]) -> Iterable[str]:
     stripped_values = map(_stripped_text, values)
-    return list(filter(_nonempty_text, stripped_values))
+    return filter(_nonempty_text, stripped_values)
+
+
+def _normalized_stripped_names(values: Iterable[str]) -> list[str]:
+    return list(_iter_normalized_stripped_names(values))
 
 
 @dataclass(frozen=True)
@@ -341,7 +345,7 @@ def _field_spec_collection_with_new_field(
 
 
 def _field_spec_names(field_specs: list[FieldSpec]) -> list[str]:
-    return list(map(lambda spec: spec.name, field_specs))
+    return [spec.name for spec in field_specs]
 
 
 def _module_name(path: Path, project_root) -> str:
@@ -367,7 +371,7 @@ def _simple_statement_line_candidate(stmt: object):
 
 
 @_simple_statement_line_candidate.register(cst.SimpleStatementLine)
-def _(stmt: cst.SimpleStatementLine):
+def _sd_reg_1(stmt: cst.SimpleStatementLine):
     return stmt
 
 
@@ -397,7 +401,7 @@ def _import_candidate(stmt: object):
 
 
 @_import_candidate.register(cst.Import)
-def _(stmt: cst.Import):
+def _sd_reg_2(stmt: cst.Import):
     return stmt
 
 
@@ -407,7 +411,7 @@ def _import_from_candidate(stmt: object):
 
 
 @_import_from_candidate.register(cst.ImportFrom)
-def _(stmt: cst.ImportFrom):
+def _sd_reg_3(stmt: cst.ImportFrom):
     return stmt
 
 
@@ -462,12 +466,12 @@ def _import_alias_candidate(alias: object):
 
 
 @_import_alias_candidate.register(cst.ImportAlias)
-def _(alias: cst.ImportAlias):
+def _sd_reg_4(alias: cst.ImportAlias):
     return alias
 
 
 @_import_alias_candidate.register(cst.ImportStar)
-def _(alias: cst.ImportStar):
+def _sd_reg_5(alias: cst.ImportStar):
     _ = alias
     return None
 
@@ -478,17 +482,17 @@ def _import_alias_sequence(names: object):
 
 
 @_import_alias_sequence.register(list)
-def _(names: list[object]):
+def _sd_reg_6(names: list[object]):
     return names
 
 
 @_import_alias_sequence.register(tuple)
-def _(names: tuple[object, ...]):
+def _sd_reg_7(names: tuple[object, ...]):
     return list(names)
 
 
 @_import_alias_sequence.register(cst.ImportStar)
-def _(names: cst.ImportStar):
+def _sd_reg_8(names: cst.ImportStar):
     _ = names
     return None
 
@@ -499,18 +503,18 @@ def _indented_block_candidate(body: object):
 
 
 @_indented_block_candidate.register(cst.IndentedBlock)
-def _(body: cst.IndentedBlock):
+def _sd_reg_9(body: cst.IndentedBlock):
     return body
 
 
 @_indented_block_candidate.register(cst.SimpleStatementSuite)
-def _(body: cst.SimpleStatementSuite):
+def _sd_reg_10(body: cst.SimpleStatementSuite):
     _ = body
     return None
 
 
 @_indented_block_candidate.register(cst.SimpleStatementLine)
-def _(body: cst.SimpleStatementLine):
+def _sd_reg_11(body: cst.SimpleStatementLine):
     _ = body
     return None
 
@@ -521,7 +525,7 @@ def _top_level_function_name_candidate(node: object) -> str:
 
 
 @_top_level_function_name_candidate.register(cst.FunctionDef)
-def _(node: cst.FunctionDef) -> str:
+def _sd_reg_12(node: cst.FunctionDef) -> str:
     return node.name.value
 
 

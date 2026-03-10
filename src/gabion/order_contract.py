@@ -460,12 +460,12 @@ def _normalize_policy(policy: object) -> OrderPolicy:
 
 
 @_normalize_policy.register
-def _(policy: OrderPolicy) -> OrderPolicy:
+def _sd_reg_1(policy: OrderPolicy) -> OrderPolicy:
     return policy
 
 
 @_normalize_policy.register
-def _(policy: str) -> OrderPolicy:
+def _sd_reg_2(policy: str) -> OrderPolicy:
     # Lazy import avoids import cycle with timeout_context -> order_contract.
     from gabion.analysis.foundation.timeout_context import check_deadline
 

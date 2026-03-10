@@ -9,6 +9,11 @@ from functools import singledispatch
 from pathlib import Path
 
 from gabion.invariants import never
+from gabion.tooling.runtime.policy_scan_batch import (
+    PolicyScanBatch,
+    build_policy_scan_batch,
+    iter_failure_seeds,
+)
 
 TARGETS = (
     "src/gabion/analysis/**/*.py",
@@ -150,12 +155,12 @@ def _name_id_optional(node: object) -> str | None:
 
 
 @_name_id_optional.register(ast.Name)
-def _(node: ast.Name) -> str | None:
+def _sd_reg_1(node: ast.Name) -> str | None:
     return node.id
 
 
 @_name_id_optional.register(ast.AST)
-def _(node: ast.AST) -> str | None:
+def _sd_reg_2(node: ast.AST) -> str | None:
     _ = node
     return None
 
@@ -166,12 +171,12 @@ def _is_isinstance_call(node: object) -> bool:
 
 
 @_is_isinstance_call.register(ast.Call)
-def _(node: ast.Call) -> bool:
+def _sd_reg_3(node: ast.Call) -> bool:
     return _name_id_optional(node.func) == "isinstance"
 
 
 @_is_isinstance_call.register(ast.AST)
-def _(node: ast.AST) -> bool:
+def _sd_reg_4(node: ast.AST) -> bool:
     _ = node
     return False
 
@@ -182,18 +187,18 @@ def _is_none_constant(node: object) -> bool:
 
 
 @_is_none_constant.register(type(None))
-def _(node: None) -> bool:
+def _sd_reg_5(node: None) -> bool:
     _ = node
     return True
 
 
 @_is_none_constant.register(ast.Constant)
-def _(node: ast.Constant) -> bool:
+def _sd_reg_6(node: ast.Constant) -> bool:
     return node.value is None
 
 
 @_is_none_constant.register(ast.AST)
-def _(node: ast.AST) -> bool:
+def _sd_reg_7(node: ast.AST) -> bool:
     _ = node
     return False
 
@@ -204,7 +209,7 @@ def _compare_contains_none_constant(node: object) -> bool:
 
 
 @_compare_contains_none_constant.register(ast.Compare)
-def _(node: ast.Compare) -> bool:
+def _sd_reg_8(node: ast.Compare) -> bool:
     values = [node.left, *node.comparators]
     for value in values:
         if _is_none_constant(value):
@@ -213,7 +218,7 @@ def _(node: ast.Compare) -> bool:
 
 
 @_compare_contains_none_constant.register(ast.AST)
-def _(node: ast.AST) -> bool:
+def _sd_reg_9(node: ast.AST) -> bool:
     _ = node
     return False
 
@@ -224,12 +229,12 @@ def _subscript_value_is_dynamic_alias(node: object) -> bool:
 
 
 @_subscript_value_is_dynamic_alias.register(ast.Name)
-def _(node: ast.Name) -> bool:
+def _sd_reg_10(node: ast.Name) -> bool:
     return node.id in {"Optional", "Union"}
 
 
 @_subscript_value_is_dynamic_alias.register(ast.AST)
-def _(node: ast.AST) -> bool:
+def _sd_reg_11(node: ast.AST) -> bool:
     _ = node
     return False
 
@@ -240,13 +245,13 @@ def _is_bit_or_operator(node: object) -> bool:
 
 
 @_is_bit_or_operator.register(ast.BitOr)
-def _(node: ast.BitOr) -> bool:
+def _sd_reg_12(node: ast.BitOr) -> bool:
     _ = node
     return True
 
 
 @_is_bit_or_operator.register(ast.operator)
-def _(node: ast.operator) -> bool:
+def _sd_reg_13(node: ast.operator) -> bool:
     _ = node
     return False
 
@@ -257,26 +262,26 @@ def _annotation_is_dynamic(node: object) -> bool:
 
 
 @_annotation_is_dynamic.register(ast.Name)
-def _(node: ast.Name) -> bool:
+def _sd_reg_14(node: ast.Name) -> bool:
     return node.id in {"Any", "Optional", "Union"}
 
 
 @_annotation_is_dynamic.register(ast.Subscript)
-def _(node: ast.Subscript) -> bool:
+def _sd_reg_15(node: ast.Subscript) -> bool:
     if _subscript_value_is_dynamic_alias(node.value):
         return True
     return _annotation_is_dynamic(node.value) or _annotation_is_dynamic(node.slice)
 
 
 @_annotation_is_dynamic.register(ast.BinOp)
-def _(node: ast.BinOp) -> bool:
+def _sd_reg_16(node: ast.BinOp) -> bool:
     if _is_bit_or_operator(node.op):
         return True
     return _annotation_is_dynamic(node.left) or _annotation_is_dynamic(node.right)
 
 
 @_annotation_is_dynamic.register(ast.AST)
-def _(node: ast.AST) -> bool:
+def _sd_reg_17(node: ast.AST) -> bool:
     for child in ast.iter_child_nodes(node):
         if _annotation_is_dynamic(child):
             return True
@@ -298,27 +303,27 @@ def _sentinel_return_value(value: object) -> str | None:
 
 
 @_sentinel_return_value.register(type(None))
-def _(value: None) -> str | None:
+def _sd_reg_18(value: None) -> str | None:
     _ = value
     return "return None"
 
 
 @_sentinel_return_value.register(ast.Constant)
-def _(value: ast.Constant) -> str | None:
+def _sd_reg_19(value: ast.Constant) -> str | None:
     if value.value is None:
         return "return None"
     return None
 
 
 @_sentinel_return_value.register(ast.List)
-def _(value: ast.List) -> str | None:
+def _sd_reg_20(value: ast.List) -> str | None:
     if len(value.elts) == 0:
         return "return []"
     return None
 
 
 @_sentinel_return_value.register(ast.AST)
-def _(value: ast.AST) -> str | None:
+def _sd_reg_21(value: ast.AST) -> str | None:
     _ = value
     return None
 
@@ -329,24 +334,24 @@ def _sentinel_stmt_value(stmt: object) -> str | None:
 
 
 @_sentinel_stmt_value.register(ast.Return)
-def _(stmt: ast.Return) -> str | None:
+def _sd_reg_22(stmt: ast.Return) -> str | None:
     return _sentinel_return_value(stmt.value)
 
 
 @_sentinel_stmt_value.register(ast.Continue)
-def _(stmt: ast.Continue) -> str | None:
+def _sd_reg_23(stmt: ast.Continue) -> str | None:
     _ = stmt
     return "continue"
 
 
 @_sentinel_stmt_value.register(ast.Pass)
-def _(stmt: ast.Pass) -> str | None:
+def _sd_reg_24(stmt: ast.Pass) -> str | None:
     _ = stmt
     return "pass"
 
 
 @_sentinel_stmt_value.register(ast.stmt)
-def _(stmt: ast.stmt) -> str | None:
+def _sd_reg_25(stmt: ast.stmt) -> str | None:
     _ = stmt
     return None
 
@@ -363,7 +368,7 @@ def _dict_optional(value: object) -> dict[object, object] | None:
 
 
 @_dict_optional.register(dict)
-def _(value: dict[object, object]) -> dict[object, object] | None:
+def _sd_reg_26(value: dict[object, object]) -> dict[object, object] | None:
     return value
 
 
@@ -382,12 +387,12 @@ def _list_optional(value: object) -> list[object] | None:
 
 
 @_list_optional.register(list)
-def _(value: list[object]) -> list[object] | None:
+def _sd_reg_27(value: list[object]) -> list[object] | None:
     return value
 
 
 @_list_optional.register(tuple)
-def _(value: tuple[object, ...]) -> list[object] | None:
+def _sd_reg_28(value: tuple[object, ...]) -> list[object] | None:
     return list(value)
 
 
@@ -406,7 +411,7 @@ def _str_optional(value: object) -> str | None:
 
 
 @_str_optional.register(str)
-def _(value: str) -> str | None:
+def _sd_reg_29(value: str) -> str | None:
     return value
 
 
@@ -434,18 +439,28 @@ def _baseline_violation_entries(payload: object) -> list[dict[object, object]]:
     return entries
 
 
-def collect_violations(root: Path) -> list[Violation]:
+def collect_violations(*, batch: PolicyScanBatch) -> list[Violation]:
     violations: list[Violation] = []
-    for pattern in TARGETS:
-        for path in sorted(root.glob(pattern)):
-            if not path.is_file() or any(part == "__pycache__" for part in path.parts):
-                continue
-            rel = path.relative_to(root).as_posix()
-            source = path.read_text(encoding="utf-8")
-            tree = ast.parse(source)
-            visitor = _Visitor(rel_path=rel, source_lines=source.splitlines())
-            visitor.visit(tree)
-            violations.extend(visitor.violations)
+    for seed in iter_failure_seeds(batch=batch):
+        message = (
+            "unable to read file while checking ambiguity contract"
+            if seed.kind == "read_error"
+            else "syntax error while checking ambiguity contract"
+        )
+        violations.append(
+            Violation(
+                rule_id="ACP-000",
+                path=seed.path,
+                line=seed.line,
+                column=seed.column,
+                qualname="<module>",
+                message=message,
+            )
+        )
+    for module in batch.modules:
+        visitor = _Visitor(rel_path=module.rel_path, source_lines=module.source.splitlines())
+        visitor.visit(module.tree)
+        violations.extend(visitor.violations)
     return violations
 
 
@@ -480,7 +495,8 @@ def _write_baseline(path: Path, violations: list[Violation]) -> None:
 
 
 def run(root: Path, baseline: Path | None, baseline_write: bool) -> int:
-    violations = collect_violations(root)
+    batch = build_policy_scan_batch(root=root, target_globs=TARGETS)
+    violations = collect_violations(batch=batch)
     if baseline_write:
         if baseline is None:
             raise SystemExit("--baseline is required with --baseline-write")

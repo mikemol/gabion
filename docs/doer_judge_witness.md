@@ -1,19 +1,20 @@
 ---
 doc_revision: 3
-reader_reintern: Reader-only: re-intern if doc_revision changed since you last read this doc.
+reader_reintern: 'Reader-only: re-intern if doc_revision changed since you last read
+  this doc.'
 doc_id: doer_judge_witness
 doc_role: protocol
 doc_scope:
-  - repo
-  - governance
-  - workflow
+- repo
+- governance
+- workflow
 doc_authority: informative
 doc_requires:
-  - POLICY_SEED.md#policy_seed
-  - glossary.md#contract
-  - AGENTS.md#agent_obligations
-  - CONTRIBUTING.md#contributing_contract
-  - README.md#repo_contract
+- POLICY_SEED.md#policy_seed
+- glossary.md#contract
+- AGENTS.md#agent_obligations
+- CONTRIBUTING.md#contributing_contract
+- README.md#repo_contract
 doc_reviewed_as_of:
   POLICY_SEED.md#policy_seed: 2
   glossary.md#contract: 1
@@ -21,52 +22,60 @@ doc_reviewed_as_of:
   CONTRIBUTING.md#contributing_contract: 2
   README.md#repo_contract: 2
 doc_review_notes:
-  POLICY_SEED.md#policy_seed: Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope.
-  glossary.md#contract: Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline).
+  POLICY_SEED.md#policy_seed: Reviewed POLICY_SEED.md rev1 (mechanized governance
+    default; branch/tag CAS + check-before-use constraints); no conflicts with this
+    document's scope.
+  glossary.md#contract: Reviewed glossary.md#contract rev1 (glossary contract + semantic
+    typing discipline).
   AGENTS.md#agent_obligations: Agent obligations align with doer/judge/witness separation.
-  CONTRIBUTING.md#contributing_contract: Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope.
-  README.md#repo_contract: Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope.
+  CONTRIBUTING.md#contributing_contract: Reviewed CONTRIBUTING.md rev1 (docflow now
+    fails on missing GH references for SPPF-relevant changes); no conflicts with this
+    document's scope.
+  README.md#repo_contract: Reviewed README.md rev1 (docflow audit now scans in/ by
+    default); no conflicts with this document's scope.
 doc_change_protocol: POLICY_SEED.md#change_protocol
 doc_erasure:
-  - formatting
-  - typos
+- formatting
+- typos
 doc_owner: maintainer
 doc_sections:
   doer_judge_witness: 1
 doc_section_requires:
   doer_judge_witness:
-    - POLICY_SEED.md#policy_seed
-    - glossary.md#contract
-    - AGENTS.md#agent_obligations
-    - CONTRIBUTING.md#contributing_contract
-    - README.md#repo_contract
+  - POLICY_SEED.md#policy_seed
+  - glossary.md#contract
+  - AGENTS.md#agent_obligations
+  - CONTRIBUTING.md#contributing_contract
+  - README.md#repo_contract
 doc_section_reviews:
   doer_judge_witness:
     POLICY_SEED.md#policy_seed:
       dep_version: 2
       self_version_at_review: 1
       outcome: no_change
-      note: "Policy seed rev2 reviewed; governance obligations remain aligned."
+      note: Policy seed rev2 reviewed; governance obligations remain aligned.
     glossary.md#contract:
       dep_version: 1
       self_version_at_review: 1
       outcome: no_change
-      note: Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline).
+      note: Reviewed glossary.md#contract rev1 (glossary contract + semantic typing
+        discipline).
     AGENTS.md#agent_obligations:
       dep_version: 2
       self_version_at_review: 1
       outcome: no_change
-      note: "Agent obligations rev2 reviewed; clause and cadence links remain aligned."
+      note: Agent obligations rev2 reviewed; clause and cadence links remain aligned.
     CONTRIBUTING.md#contributing_contract:
       dep_version: 2
       self_version_at_review: 1
       outcome: no_change
-      note: "Contributor contract rev2 reviewed; dual-sensor cadence and correction gates remain aligned."
+      note: Contributor contract rev2 reviewed; dual-sensor cadence and correction
+        gates remain aligned.
     README.md#repo_contract:
       dep_version: 2
       self_version_at_review: 1
       outcome: no_change
-      note: "Repo contract rev2 reviewed; command and artifact guidance remains aligned."
+      note: Repo contract rev2 reviewed; command and artifact guidance remains aligned.
 ---
 
 <a id="doer_judge_witness"></a>

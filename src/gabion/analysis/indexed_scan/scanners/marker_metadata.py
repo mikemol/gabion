@@ -69,7 +69,7 @@ def _string_literal_from_constant_value(value: str) -> _StringLiteralCarrier:
 
 
 @_string_literal_from_constant_value.register
-def _(value: str) -> _StringLiteralCarrier:
+def _sd_reg_1(value: str) -> _StringLiteralCarrier:
     return _StringLiteralCarrier(is_string=True, text=value)
 
 
@@ -83,7 +83,7 @@ def _string_literal_from_node(node: ast.AST) -> _StringLiteralCarrier:
 
 
 @_string_literal_from_node.register
-def _(node: ast.Constant) -> _StringLiteralCarrier:
+def _sd_reg_2(node: ast.Constant) -> _StringLiteralCarrier:
     return _string_literal_from_constant_value(node.value)
 
 
@@ -103,7 +103,7 @@ def _list_elements_from_node(node: ast.AST) -> tuple[ast.AST, ...]:
 
 
 @_list_elements_from_node.register
-def _(node: ast.List) -> tuple[ast.AST, ...]:
+def _sd_reg_3(node: ast.List) -> tuple[ast.AST, ...]:
     return tuple(node.elts)
 
 
@@ -123,7 +123,7 @@ def _dict_items_from_node(node: ast.AST) -> tuple[tuple[ast.expr, ast.expr], ...
 
 
 @_dict_items_from_node.register
-def _(node: ast.Dict) -> tuple[tuple[ast.expr, ast.expr], ...]:
+def _sd_reg_4(node: ast.Dict) -> tuple[tuple[ast.expr, ast.expr], ...]:
     pairs: list[tuple[ast.expr, ast.expr]] = []
     for raw_key, raw_value in zip(node.keys, node.values, strict=False):
         if raw_key is not None:

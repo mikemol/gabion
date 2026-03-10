@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import ast
 import json
 from pathlib import Path
 
 from gabion.tooling.policy_rules import fiber_type_dispatch_contract_rule as rule
+from gabion.tooling.runtime.policy_scan_batch import build_policy_scan_batch_from_sources
 
 
 def _write(path: Path, content: str) -> None:
@@ -32,12 +32,11 @@ def test_collect_violations_detects_manual_type_routing_forms() -> None:
             "",
         ]
     )
-    tree = ast.parse(source)
-    violations = rule.collect_violations(
-        rel_path="src/gabion/sample.py",
-        source=source,
-        tree=tree,
+    batch = build_policy_scan_batch_from_sources(
+        root=Path("."),
+        source_by_rel_path={"src/gabion/sample.py": source},
     )
+    violations = rule.collect_violations(batch=batch)
     kinds = {item.kind for item in violations}
     assert "manual_type_guard" in kinds
     assert "match_type_guard" in kinds
@@ -64,12 +63,11 @@ def test_collect_violations_accepts_concrete_singledispatch_with_never_base() ->
             "",
         ]
     )
-    tree = ast.parse(source)
-    violations = rule.collect_violations(
-        rel_path="src/gabion/sample.py",
-        source=source,
-        tree=tree,
+    batch = build_policy_scan_batch_from_sources(
+        root=Path("."),
+        source_by_rel_path={"src/gabion/sample.py": source},
     )
+    violations = rule.collect_violations(batch=batch)
     assert violations == []
 
 
@@ -90,12 +88,11 @@ def test_collect_violations_flags_missing_never_base_and_abstract_registration()
             "",
         ]
     )
-    tree = ast.parse(source)
-    violations = rule.collect_violations(
-        rel_path="src/gabion/sample.py",
-        source=source,
-        tree=tree,
+    batch = build_policy_scan_batch_from_sources(
+        root=Path("."),
+        source_by_rel_path={"src/gabion/sample.py": source},
     )
+    violations = rule.collect_violations(batch=batch)
     kinds = {item.kind for item in violations}
     assert "missing_never_base" in kinds
     assert "abstract_register_type" in kinds

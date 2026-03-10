@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from scripts.policy import no_monkeypatch_policy_check as policy
+from gabion.tooling.runtime.policy_scan_batch import build_policy_scan_batch
 
 
 def _write(path: Path, content: str) -> None:
@@ -23,7 +24,8 @@ def test_no_monkeypatch_policy_detects_fixture_and_patch_calls(tmp_path: Path) -
         "    pass\n",
     )
 
-    violations = policy.collect_violations(root=tmp_path)
+    batch = build_policy_scan_batch(root=tmp_path, target_globs=policy.TARGET_GLOBS)
+    violations = policy.collect_violations(batch=batch)
     assert violations
     rendered = "\n".join(v.render() for v in violations)
     assert "monkeypatch fixture is forbidden" in rendered

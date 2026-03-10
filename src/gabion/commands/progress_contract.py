@@ -48,7 +48,7 @@ def _mapping_optional(value: object) -> dict[str, object] | None:
 
 
 @_mapping_optional.register(dict)
-def _(value: dict[str, object]) -> dict[str, object] | None:
+def _sd_reg_1(value: dict[str, object]) -> dict[str, object] | None:
     return value
 
 
@@ -67,7 +67,7 @@ def _str_optional(value: object) -> str | None:
 
 
 @_str_optional.register(str)
-def _(value: str) -> str | None:
+def _sd_reg_2(value: str) -> str | None:
     return value
 
 
@@ -86,12 +86,12 @@ def _int_non_bool_optional(value: object) -> int | None:
 
 
 @_int_non_bool_optional.register(int)
-def _(value: int) -> int | None:
+def _sd_reg_3(value: int) -> int | None:
     return value
 
 
 @_int_non_bool_optional.register(bool)
-def _(value: bool) -> int | None:
+def _sd_reg_4(value: bool) -> int | None:
     _ = value
     return None
 
@@ -111,12 +111,12 @@ def _int_like_optional(value: object) -> int | bool | None:
 
 
 @_int_like_optional.register(int)
-def _(value: int) -> int | bool | None:
+def _sd_reg_5(value: int) -> int | bool | None:
     return value
 
 
 @_int_like_optional.register(bool)
-def _(value: bool) -> int | bool | None:
+def _sd_reg_6(value: bool) -> int | bool | None:
     return value
 
 
@@ -135,17 +135,17 @@ def _float_non_bool_optional(value: object) -> float | None:
 
 
 @_float_non_bool_optional.register(float)
-def _(value: float) -> float | None:
+def _sd_reg_7(value: float) -> float | None:
     return float(value)
 
 
 @_float_non_bool_optional.register(int)
-def _(value: int) -> float | None:
+def _sd_reg_8(value: int) -> float | None:
     return float(value)
 
 
 @_float_non_bool_optional.register(bool)
-def _(value: bool) -> float | None:
+def _sd_reg_9(value: bool) -> float | None:
     _ = value
     return None
 
@@ -165,17 +165,17 @@ def _float_row_optional(value: object) -> float | None:
 
 
 @_float_row_optional.register(float)
-def _(value: float) -> float | None:
+def _sd_reg_10(value: float) -> float | None:
     return float(value)
 
 
 @_float_row_optional.register(int)
-def _(value: int) -> float | None:
+def _sd_reg_11(value: int) -> float | None:
     return float(value)
 
 
 @_float_row_optional.register(bool)
-def _(value: bool) -> float | None:
+def _sd_reg_12(value: bool) -> float | None:
     return float(value)
 
 
@@ -189,7 +189,7 @@ def _str_key_dict_optional(value: object) -> dict[str, object] | None:
 
 
 @_str_key_dict_optional.register(dict)
-def _(value: dict[object, object]) -> dict[str, object] | None:
+def _sd_reg_13(value: dict[object, object]) -> dict[str, object] | None:
     return {str(key): value[key] for key in value}
 
 

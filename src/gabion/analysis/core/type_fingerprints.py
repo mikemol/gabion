@@ -51,7 +51,7 @@ class PrimeAssignmentEvent:
     token: str
 
 
-def _mapping_default_empty(value: object) -> Mapping[str, JSONValue]:
+def _mapping_default_empty(value) -> Mapping[str, JSONValue]:
     mapping = mapping_optional(value)
     if mapping is None:
         return {}

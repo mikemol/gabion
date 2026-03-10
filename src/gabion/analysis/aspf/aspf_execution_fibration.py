@@ -688,7 +688,7 @@ def _payload_mapping_optional(value: JSONValue) -> JSONObject | None:
 
 
 @_payload_mapping_optional.register(dict)
-def _(value: dict[str, JSONValue]) -> JSONObject | None:
+def _sd_reg_1(value: dict[str, JSONValue]) -> JSONObject | None:
     return value
 
 
@@ -709,12 +709,12 @@ def _parsed_two_cell_witness_optional(
 
 
 @_parsed_two_cell_witness_optional.register(AspfTwoCellWitness)
-def _(value: AspfTwoCellWitness) -> AspfTwoCellWitness | None:
+def _sd_reg_2(value: AspfTwoCellWitness) -> AspfTwoCellWitness | None:
     return value
 
 
 @_parsed_two_cell_witness_optional.register(_NONE_TYPE)
-def _(value: None) -> AspfTwoCellWitness | None:
+def _sd_reg_3(value: None) -> AspfTwoCellWitness | None:
     _ = value
     return None
 
@@ -725,12 +725,12 @@ def _normalized_two_cell_witnesses_default_empty(value: JSONValue) -> list[JSONO
 
 
 @_normalized_two_cell_witnesses_default_empty.register(list)
-def _(value: list[object]) -> list[JSONObject]:
+def _sd_reg_4(value: list[object]) -> list[JSONObject]:
     return _normalize_two_cell_witness_payloads(value)
 
 
 @_normalized_two_cell_witnesses_default_empty.register(tuple)
-def _(value: tuple[object, ...]) -> list[JSONObject]:
+def _sd_reg_5(value: tuple[object, ...]) -> list[JSONObject]:
     return _normalize_two_cell_witness_payloads(value)
 
 
@@ -988,7 +988,7 @@ def _closed_sink_index(sink: AspfEventSink) -> AspfTraceSinkIndex:
 
 
 @_closed_sink_index.register(AspfJsonlEventSink)
-def _(sink: AspfJsonlEventSink) -> AspfTraceSinkIndex:
+def _sd_reg_6(sink: AspfJsonlEventSink) -> AspfTraceSinkIndex:
     return sink.build_index()
 
 
@@ -1155,7 +1155,7 @@ def _as_json_value(value: object) -> JSONValue:
 
 
 @_as_json_value.register(dict)
-def _(value: dict[object, object]) -> JSONValue:
+def _sd_reg_7(value: dict[object, object]) -> JSONValue:
     key_pairs = tuple(
         sort_once(
             [(str(key), key) for key in value],
@@ -1167,43 +1167,43 @@ def _(value: dict[object, object]) -> JSONValue:
 
 
 @_as_json_value.register(list)
-def _(value: list[object]) -> JSONValue:
+def _sd_reg_8(value: list[object]) -> JSONValue:
     return [_as_json_value(item) for item in value]
 
 
 @_as_json_value.register(tuple)
-def _(value: tuple[object, ...]) -> JSONValue:
+def _sd_reg_9(value: tuple[object, ...]) -> JSONValue:
     return [_as_json_value(item) for item in value]
 
 
 @_as_json_value.register(set)
-def _(value: set[object]) -> JSONValue:
+def _sd_reg_10(value: set[object]) -> JSONValue:
     normalized = [_as_json_value(item) for item in value]
     return sorted(normalized, key=lambda item: stable_compact_text(item))
 
 
 @_as_json_value.register(str)
-def _(value: str) -> JSONValue:
+def _sd_reg_11(value: str) -> JSONValue:
     return value
 
 
 @_as_json_value.register(bool)
-def _(value: bool) -> JSONValue:
+def _sd_reg_12(value: bool) -> JSONValue:
     return value
 
 
 @_as_json_value.register(int)
-def _(value: int) -> JSONValue:
+def _sd_reg_13(value: int) -> JSONValue:
     return value
 
 
 @_as_json_value.register(float)
-def _(value: float) -> JSONValue:
+def _sd_reg_14(value: float) -> JSONValue:
     return value
 
 
 @_as_json_value.register(_NONE_TYPE)
-def _(value: None) -> JSONValue:
+def _sd_reg_15(value: None) -> JSONValue:
     _ = value
     return None
 
@@ -1265,27 +1265,27 @@ def _publish_event_to_visitor(event: _AspfVisitorEvent, *, visitor: AspfEventVis
 
 
 @_publish_event_to_visitor.register(OneCellRecorded)
-def _(event: OneCellRecorded, *, visitor: AspfEventVisitor) -> None:
+def _sd_reg_16(event: OneCellRecorded, *, visitor: AspfEventVisitor) -> None:
     visitor.visit_one_cell_recorded(event)
 
 
 @_publish_event_to_visitor.register(TwoCellWitnessRecorded)
-def _(event: TwoCellWitnessRecorded, *, visitor: AspfEventVisitor) -> None:
+def _sd_reg_17(event: TwoCellWitnessRecorded, *, visitor: AspfEventVisitor) -> None:
     visitor.visit_two_cell_witness_recorded(event)
 
 
 @_publish_event_to_visitor.register(CofibrationRecorded)
-def _(event: CofibrationRecorded, *, visitor: AspfEventVisitor) -> None:
+def _sd_reg_18(event: CofibrationRecorded, *, visitor: AspfEventVisitor) -> None:
     visitor.visit_cofibration_recorded(event)
 
 
 @_publish_event_to_visitor.register(SemanticSurfaceUpdated)
-def _(event: SemanticSurfaceUpdated, *, visitor: AspfEventVisitor) -> None:
+def _sd_reg_19(event: SemanticSurfaceUpdated, *, visitor: AspfEventVisitor) -> None:
     visitor.visit_semantic_surface_updated(event)
 
 
 @_publish_event_to_visitor.register(RunFinalized)
-def _(event: RunFinalized, *, visitor: AspfEventVisitor) -> None:
+def _sd_reg_20(event: RunFinalized, *, visitor: AspfEventVisitor) -> None:
     visitor.visit_run_finalized(event)
 
 

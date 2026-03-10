@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from gabion.tooling.policy_rules import fiber_noop_block_audit_rule as audit_rule
+from gabion.tooling.runtime.policy_scan_batch import build_policy_scan_batch
 
 
 def _write(path: Path, content: str) -> None:
@@ -28,7 +29,8 @@ def test_collect_violations_detects_singleton_pass_and_return_none(tmp_path: Pat
             ]
         ),
     )
-    violations = audit_rule.collect_violations(root=root)
+    batch = build_policy_scan_batch(root=root, target_globs=(audit_rule.TARGET_GLOB,))
+    violations = audit_rule.collect_violations(batch=batch)
     assert len(violations) == 2
     kinds = {item.noop_kind for item in violations}
     assert "pass" in kinds
@@ -60,4 +62,3 @@ def test_run_writes_fiber_payload(tmp_path: Path) -> None:
     assert first["fiber_trace"]
     assert first["counterfactual_boundary"]["status"] == "present"
     assert first["applicability_bounds"]["current_boundary_before_ordinal"] == 2
-

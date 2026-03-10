@@ -1,29 +1,30 @@
 ---
 doc_revision: 9
-reader_reintern: Reader-only: re-intern if doc_revision changed since you last read this doc.
+reader_reintern: 'Reader-only: re-intern if doc_revision changed since you last read
+  this doc.'
 doc_id: out_4
 doc_role: report
 doc_scope:
-  - repo
-  - governance
-  - documentation
-  - analysis
+- repo
+- governance
+- documentation
+- analysis
 doc_authority: informative
 doc_requires:
-  - POLICY_SEED.md#policy_seed
-  - glossary.md#aspf
-  - glossary.md#forest
-  - glossary.md#suite_site
-  - glossary.md#hash_consing
-  - glossary.md#ambiguity_set
-  - glossary.md#annotation_drift
-  - CONTRIBUTING.md#contributing_contract
-  - README.md#repo_contract
-  - AGENTS.md#agent_obligations
-  - docs/coverage_semantics.md#coverage_semantics
-  - in/in-23.md#in_in_23
-  - in/in-24.md#in_in_24
-  - in/in-30.md#in_in_30
+- POLICY_SEED.md#policy_seed
+- glossary.md#aspf
+- glossary.md#forest
+- glossary.md#suite_site
+- glossary.md#hash_consing
+- glossary.md#ambiguity_set
+- glossary.md#annotation_drift
+- CONTRIBUTING.md#contributing_contract
+- README.md#repo_contract
+- AGENTS.md#agent_obligations
+- docs/coverage_semantics.md#coverage_semantics
+- in/in-23.md#in_in_23
+- in/in-24.md#in_in_24
+- in/in-30.md#in_in_30
 doc_reviewed_as_of:
   POLICY_SEED.md#policy_seed: 1
   glossary.md#aspf: 1
@@ -40,115 +41,148 @@ doc_reviewed_as_of:
   in/in-24.md#in_in_24: 1
   in/in-30.md#in_in_30: 4
 doc_review_notes:
-  POLICY_SEED.md#policy_seed: Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); inventory report aligns with docflow audit scope.
-  glossary.md#aspf: Reviewed glossary.md#aspf rev1 (ASPF carrier semantics + packed-forest labels).
-  glossary.md#forest: Reviewed glossary.md#forest rev1 (Forest materialized carrier; interned identity; suite-locality facets).
-  glossary.md#suite_site: Reviewed glossary.md#suite_site rev1 (SuiteSite locality carrier + containment semantics).
-  glossary.md#hash_consing: Reviewed glossary.md#hash_consing rev1 (hash-consing/internment: hash==normalize; β-reduction via normalization rules).
-  glossary.md#ambiguity_set: Reviewed glossary.md#ambiguity_set rev2 (ambiguity sets are emergent from CallCandidate alts; ordering erased).
-  glossary.md#annotation_drift: Reviewed glossary.md#annotation_drift rev1 (drift defined by evidence-key identity; advisory before ratchet).
-  CONTRIBUTING.md#contributing_contract: Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); inventory report is advisory only.
-  README.md#repo_contract: Reviewed README.md rev1 (docflow audit now scans in/ by default); scope aligned.
-  AGENTS.md#agent_obligations: Reviewed AGENTS.md rev1 (agent obligations + evidence-first posture); inventory is non-normative.
-  docs/coverage_semantics.md#coverage_semantics: Reviewed docs/coverage_semantics.md#coverage_semantics v1 (glossary-lifted projection + explicit core anchors); report treats excess as unbound evidence, not violations.
-  in/in-23.md#in_in_23: Reviewed in/in-23.md rev7 (ASPF carrier formalization); inventory maps evidence kinds to carrier semantics.
-  in/in-24.md#in_in_24: Reviewed in/in-24.md rev8 (deadness witness pinning); inventory uses those semantics for evidence interpretation.
-  in/in-30.md#in_in_30: Reviewed in/in-30.md rev24 (SuiteSite locality carrier; AmbiguitySet is virtual); inventory aligns with suite-level evidence expectations.
+  POLICY_SEED.md#policy_seed: Reviewed POLICY_SEED.md rev1 (mechanized governance
+    default; branch/tag CAS + check-before-use constraints); inventory report aligns
+    with docflow audit scope.
+  glossary.md#aspf: Reviewed glossary.md#aspf rev1 (ASPF carrier semantics + packed-forest
+    labels).
+  glossary.md#forest: Reviewed glossary.md#forest rev1 (Forest materialized carrier;
+    interned identity; suite-locality facets).
+  glossary.md#suite_site: Reviewed glossary.md#suite_site rev1 (SuiteSite locality
+    carrier + containment semantics).
+  glossary.md#hash_consing: "Reviewed glossary.md#hash_consing rev1 (hash-consing/internment:\
+    \ hash==normalize; \u03B2-reduction via normalization rules)."
+  glossary.md#ambiguity_set: Reviewed glossary.md#ambiguity_set rev2 (ambiguity sets
+    are emergent from CallCandidate alts; ordering erased).
+  glossary.md#annotation_drift: Reviewed glossary.md#annotation_drift rev1 (drift
+    defined by evidence-key identity; advisory before ratchet).
+  CONTRIBUTING.md#contributing_contract: Reviewed CONTRIBUTING.md rev1 (docflow now
+    fails on missing GH references for SPPF-relevant changes); inventory report is
+    advisory only.
+  README.md#repo_contract: Reviewed README.md rev1 (docflow audit now scans in/ by
+    default); scope aligned.
+  AGENTS.md#agent_obligations: Reviewed AGENTS.md rev1 (agent obligations + evidence-first
+    posture); inventory is non-normative.
+  docs/coverage_semantics.md#coverage_semantics: Reviewed docs/coverage_semantics.md#coverage_semantics
+    v1 (glossary-lifted projection + explicit core anchors); report treats excess
+    as unbound evidence, not violations.
+  in/in-23.md#in_in_23: Reviewed in/in-23.md rev7 (ASPF carrier formalization); inventory
+    maps evidence kinds to carrier semantics.
+  in/in-24.md#in_in_24: Reviewed in/in-24.md rev8 (deadness witness pinning); inventory
+    uses those semantics for evidence interpretation.
+  in/in-30.md#in_in_30: Reviewed in/in-30.md rev24 (SuiteSite locality carrier; AmbiguitySet
+    is virtual); inventory aligns with suite-level evidence expectations.
 doc_change_protocol: POLICY_SEED.md#change_protocol
 doc_erasure:
-  - formatting
-  - typos
+- formatting
+- typos
 doc_owner: maintainer
 doc_sections:
   out_out_4: 3
 doc_section_requires:
   out_out_4:
-    - POLICY_SEED.md#policy_seed
-    - glossary.md#aspf
-    - glossary.md#forest
-    - glossary.md#suite_site
-    - glossary.md#hash_consing
-    - glossary.md#ambiguity_set
-    - glossary.md#annotation_drift
-    - CONTRIBUTING.md#contributing_contract
-    - README.md#repo_contract
-    - AGENTS.md#agent_obligations
-    - docs/coverage_semantics.md#coverage_semantics
-    - in/in-23.md#in_in_23
-    - in/in-24.md#in_in_24
-    - in/in-30.md#in_in_30
+  - POLICY_SEED.md#policy_seed
+  - glossary.md#aspf
+  - glossary.md#forest
+  - glossary.md#suite_site
+  - glossary.md#hash_consing
+  - glossary.md#ambiguity_set
+  - glossary.md#annotation_drift
+  - CONTRIBUTING.md#contributing_contract
+  - README.md#repo_contract
+  - AGENTS.md#agent_obligations
+  - docs/coverage_semantics.md#coverage_semantics
+  - in/in-23.md#in_in_23
+  - in/in-24.md#in_in_24
+  - in/in-30.md#in_in_30
 doc_section_reviews:
   out_out_4:
     POLICY_SEED.md#policy_seed:
       dep_version: 1
       self_version_at_review: 3
       outcome: no_change
-      note: Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); inventory report aligns with docflow audit scope.
+      note: Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag
+        CAS + check-before-use constraints); inventory report aligns with docflow
+        audit scope.
     glossary.md#aspf:
       dep_version: 1
       self_version_at_review: 3
       outcome: no_change
-      note: Reviewed glossary.md#aspf rev1 (ASPF carrier semantics + packed-forest labels).
+      note: Reviewed glossary.md#aspf rev1 (ASPF carrier semantics + packed-forest
+        labels).
     glossary.md#forest:
       dep_version: 1
       self_version_at_review: 3
       outcome: no_change
-      note: Reviewed glossary.md#forest rev1 (Forest materialized carrier; interned identity; suite-locality facets).
+      note: Reviewed glossary.md#forest rev1 (Forest materialized carrier; interned
+        identity; suite-locality facets).
     glossary.md#suite_site:
       dep_version: 1
       self_version_at_review: 3
       outcome: no_change
-      note: Reviewed glossary.md#suite_site rev1 (SuiteSite locality carrier + containment semantics).
+      note: Reviewed glossary.md#suite_site rev1 (SuiteSite locality carrier + containment
+        semantics).
     glossary.md#hash_consing:
       dep_version: 1
       self_version_at_review: 3
       outcome: no_change
-      note: Reviewed glossary.md#hash_consing rev1 (hash-consing/internment: hash==normalize; β-reduction via normalization rules).
+      note: "Reviewed glossary.md#hash_consing rev1 (hash-consing/internment: hash==normalize;\
+        \ \u03B2-reduction via normalization rules)."
     glossary.md#ambiguity_set:
       dep_version: 2
       self_version_at_review: 3
       outcome: no_change
-      note: Reviewed glossary.md#ambiguity_set rev2 (ambiguity sets are emergent from CallCandidate alts; ordering erased).
+      note: Reviewed glossary.md#ambiguity_set rev2 (ambiguity sets are emergent from
+        CallCandidate alts; ordering erased).
     glossary.md#annotation_drift:
       dep_version: 1
       self_version_at_review: 3
       outcome: no_change
-      note: Reviewed glossary.md#annotation_drift rev1 (drift defined by evidence-key identity; advisory before ratchet).
+      note: Reviewed glossary.md#annotation_drift rev1 (drift defined by evidence-key
+        identity; advisory before ratchet).
     CONTRIBUTING.md#contributing_contract:
       dep_version: 1
       self_version_at_review: 3
       outcome: no_change
-      note: Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); inventory report is advisory only.
+      note: Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references
+        for SPPF-relevant changes); inventory report is advisory only.
     README.md#repo_contract:
       dep_version: 1
       self_version_at_review: 3
       outcome: no_change
-      note: Reviewed README.md rev1 (docflow audit now scans in/ by default); scope aligned.
+      note: Reviewed README.md rev1 (docflow audit now scans in/ by default); scope
+        aligned.
     AGENTS.md#agent_obligations:
       dep_version: 1
       self_version_at_review: 3
       outcome: no_change
-      note: Reviewed AGENTS.md rev1 (agent obligations + evidence-first posture); inventory is non-normative.
+      note: Reviewed AGENTS.md rev1 (agent obligations + evidence-first posture);
+        inventory is non-normative.
     docs/coverage_semantics.md#coverage_semantics:
       dep_version: 1
       self_version_at_review: 3
       outcome: no_change
-      note: Reviewed docs/coverage_semantics.md#coverage_semantics v1 (glossary-lifted projection + explicit core anchors); report treats excess as unbound evidence, not violations.
+      note: Reviewed docs/coverage_semantics.md#coverage_semantics v1 (glossary-lifted
+        projection + explicit core anchors); report treats excess as unbound evidence,
+        not violations.
     in/in-23.md#in_in_23:
       dep_version: 1
       self_version_at_review: 3
       outcome: no_change
-      note: Reviewed in/in-23.md rev7 (ASPF carrier formalization); inventory maps evidence kinds to carrier semantics.
+      note: Reviewed in/in-23.md rev7 (ASPF carrier formalization); inventory maps
+        evidence kinds to carrier semantics.
     in/in-24.md#in_in_24:
       dep_version: 1
       self_version_at_review: 3
       outcome: no_change
-      note: Reviewed in/in-24.md rev8 (deadness witness pinning); inventory uses those semantics for evidence interpretation.
+      note: Reviewed in/in-24.md rev8 (deadness witness pinning); inventory uses those
+        semantics for evidence interpretation.
     in/in-30.md#in_in_30:
       dep_version: 4
       self_version_at_review: 3
       outcome: no_change
-      note: Reviewed in/in-30.md rev24 (SuiteSite locality carrier; AmbiguitySet is virtual); inventory aligns with suite-level evidence expectations.
+      note: Reviewed in/in-30.md rev24 (SuiteSite locality carrier; AmbiguitySet is
+        virtual); inventory aligns with suite-level evidence expectations.
 ---
 
 <a id="out_out_4"></a>

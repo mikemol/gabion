@@ -18,7 +18,7 @@ def _str_stream(value: object) -> tuple[str, ...]:
 
 
 @_str_stream.register
-def _(value: str) -> tuple[str, ...]:
+def _sd_reg_1(value: str) -> tuple[str, ...]:
     return (value,)
 
 
@@ -37,7 +37,7 @@ def _bool_stream(value: object) -> tuple[bool, ...]:
 
 
 @_bool_stream.register
-def _(value: bool) -> tuple[bool, ...]:
+def _sd_reg_2(value: bool) -> tuple[bool, ...]:
     return (value,)
 
 
@@ -56,7 +56,7 @@ def _int_stream(value: object) -> tuple[int, ...]:
 
 
 @_int_stream.register
-def _(value: int) -> tuple[int, ...]:
+def _sd_reg_3(value: int) -> tuple[int, ...]:
     return (value,)
 
 
@@ -75,17 +75,17 @@ def _float_stream(value: object) -> tuple[float, ...]:
 
 
 @_float_stream.register
-def _(value: float) -> tuple[float, ...]:
+def _sd_reg_4(value: float) -> tuple[float, ...]:
     return (value,)
 
 
 @_float_stream.register
-def _(value: int) -> tuple[float, ...]:
+def _sd_reg_5(value: int) -> tuple[float, ...]:
     return (float(value),)
 
 
 @_float_stream.register
-def _(value: bool) -> tuple[float, ...]:
+def _sd_reg_6(value: bool) -> tuple[float, ...]:
     return (float(value),)
 
 
@@ -104,7 +104,7 @@ def _mapping_stream(value: object) -> tuple[Mapping[str, object], ...]:
 
 
 @_mapping_stream.register
-def _(value: dict) -> tuple[Mapping[str, object], ...]:
+def _sd_reg_7(value: dict) -> tuple[Mapping[str, object], ...]:
     return (value,)
 
 
@@ -123,7 +123,7 @@ def _list_stream(value: object) -> tuple[list[object], ...]:
 
 
 @_list_stream.register
-def _(value: list) -> tuple[list[object], ...]:
+def _sd_reg_8(value: list) -> tuple[list[object], ...]:
     return (value,)
 
 

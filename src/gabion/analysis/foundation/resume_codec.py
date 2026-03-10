@@ -20,17 +20,13 @@ def _is_not_none(value) -> bool:
 
 
 def _path_text_is_selectable(*, allowed_paths: Mapping[str, Path], seen: set[str]):
-    def _predicate(raw_path_text: str | None) -> bool:
-        match raw_path_text:
-            case str() as path_text:
-                if path_text in seen:
-                    return False
-                if path_text not in allowed_paths:
-                    return False
-                seen.add(path_text)
-                return True
-            case _:
-                return False
+    def _predicate(path_text: str) -> bool:
+        if path_text in seen:
+            return False
+        if path_text not in allowed_paths:
+            return False
+        seen.add(path_text)
+        return True
 
     return _predicate
 
@@ -313,12 +309,16 @@ def iter_allowed_paths_from_sequence(
     allowed_paths: Mapping[str, Path],
 ) -> Iterator[Path]:
     seen: set[str] = set()
-    raw_path_texts = map(str_optional, iter_sequence_items(value))
+    raw_path_texts = filter(_is_str, map(str_optional, iter_sequence_items(value)))
     selectable_path_texts = filter(
         _path_text_is_selectable(allowed_paths=allowed_paths, seen=seen),
         raw_path_texts,
     )
     return map(allowed_paths.__getitem__, selectable_path_texts)
+
+
+def _is_str(value) -> bool:
+    return value is not None
 
 
 def load_resume_map(

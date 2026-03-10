@@ -132,11 +132,11 @@ jobs:
       - name: CLI ci-watch surface
         run: .venv/bin/python -m gabion ci-watch --help
       - name: Policy check (workflows)
-        run: .venv/bin/python -m scripts.policy_check --workflows
+        run: .venv/bin/python -m scripts.policy.policy_check --workflows
       - name: Policy check (ambiguity contract)
-        run: .venv/bin/python -m scripts.policy_check --ambiguity-contract
+        run: .venv/bin/python -m scripts.policy.policy_check --ambiguity-contract
       - name: Policy check (tier2 residue contract)
-        run: .venv/bin/python -m scripts.policy_check --tier2-residue-contract
+        run: .venv/bin/python -m scripts.policy.policy_check --tier2-residue-contract
       - name: Policy check (posture)
         if: github.event_name == 'push'
         env:
@@ -146,7 +146,7 @@ jobs:
             echo "POLICY_GITHUB_TOKEN not set; skipping posture check."
             exit 0
           fi
-          .venv/bin/python -m scripts.policy_check --posture
+          .venv/bin/python -m scripts.policy.policy_check --posture
       - name: Docflow audit
         run: .venv/bin/python -m gabion docflow --root . --fail-on-violations --sppf-gh-ref-mode required
       - name: Docflow packetize
@@ -214,8 +214,20 @@ jobs:
         run: |
           .venv/bin/python -m scripts.misc.extract_test_evidence --root . --tests tests --out out/test_evidence.json
           git diff --exit-code out/test_evidence.json
+      - name: Test behavior index
+        run: |
+          .venv/bin/python -m scripts.misc.extract_test_behavior --root . --tests tests --out out/test_behavior.json
+          git diff --exit-code out/test_behavior.json
       - name: Policy scanner suite
-        run: .venv/bin/python scripts/policy/policy_scanner_suite.py --root . --out artifacts/out/policy_suite_results.json
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.event.after || github.sha }}
+        run: |
+          args=(--root . --out artifacts/out/policy_suite_results.json)
+          if [ -n "${BEFORE_SHA:-}" ] && [ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ] && [ -n "${AFTER_SHA:-}" ]; then
+            args+=(--base-sha "$BEFORE_SHA" --head-sha "$AFTER_SHA")
+          fi
+          .venv/bin/python scripts/policy/policy_scanner_suite.py "${args[@]}"
       - name: Restore controller drift gate history
         continue-on-error: true
         env:

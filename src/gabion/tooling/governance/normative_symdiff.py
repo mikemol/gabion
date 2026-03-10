@@ -29,6 +29,7 @@ from scripts.policy import no_monkeypatch_policy_check
 from scripts.misc import order_lifetime_check
 from scripts.policy import policy_check
 from scripts.policy import structural_hash_policy_check
+from gabion.tooling.runtime.policy_scan_batch import build_policy_scan_batch
 
 
 _CLAUSE_HEADING_RE = re.compile(r"^###\s+`(?P<id>NCI-[A-Z0-9-]+)`(?:\s|$)")
@@ -92,22 +93,22 @@ def _coerce_int(value: object) -> int:
 
 
 @_coerce_int.register(bool)
-def _(value: bool) -> int:
+def _sd_reg_1(value: bool) -> int:
     return int(value)
 
 
 @_coerce_int.register(int)
-def _(value: int) -> int:
+def _sd_reg_2(value: int) -> int:
     return value
 
 
 @_coerce_int.register(float)
-def _(value: float) -> int:
+def _sd_reg_3(value: float) -> int:
     return int(value)
 
 
 @_coerce_int.register(str)
-def _(value: str) -> int:
+def _sd_reg_4(value: str) -> int:
     try:
         return int(value.strip())
     except ValueError:
@@ -115,13 +116,13 @@ def _(value: str) -> int:
 
 
 @_coerce_int.register(type(None))
-def _(value: None) -> int:
+def _sd_reg_5(value: None) -> int:
     _ = value
     return 0
 
 
 @_coerce_int.register(object)
-def _(value: object) -> int:
+def _sd_reg_6(value: object) -> int:
     _ = value
     return 0
 
@@ -141,7 +142,7 @@ def _mapping_optional(value: object):
 
 
 @_mapping_optional.register(dict)
-def _(value: dict[object, object]):
+def _sd_reg_7(value: dict[object, object]):
     return value
 
 
@@ -169,12 +170,12 @@ def _list_optional(value: object):
 
 
 @_list_optional.register(list)
-def _(value: list[object]):
+def _sd_reg_8(value: list[object]):
     return value
 
 
 @_list_optional.register(tuple)
-def _(value: tuple[object, ...]):
+def _sd_reg_9(value: tuple[object, ...]):
     return list(value)
 
 
@@ -201,7 +202,7 @@ def _str_optional(value: object):
 
 
 @_str_optional.register(str)
-def _(value: str):
+def _sd_reg_10(value: str):
     return value
 
 
@@ -570,7 +571,11 @@ def _collect_lsp_parity(root: Path) -> dict[str, object]:
 
 
 def _collect_ambiguity_probe(root: Path) -> dict[str, object]:
-    violations = ambiguity_contract_policy_check.collect_violations(root.resolve())
+    batch = build_policy_scan_batch(
+        root=root.resolve(),
+        target_globs=ambiguity_contract_policy_check.TARGETS,
+    )
+    violations = ambiguity_contract_policy_check.collect_violations(batch=batch)
     by_rule: dict[str, int] = {}
     by_path: dict[str, int] = {}
     for item in violations:
@@ -585,7 +590,11 @@ def _collect_ambiguity_probe(root: Path) -> dict[str, object]:
 
 def _collect_branchless_probe(root: Path) -> dict[str, object]:
     baseline_path = root / "baselines" / "branchless_policy_baseline.json"
-    violations = branchless_policy_check.collect_violations(root=root.resolve())
+    batch = build_policy_scan_batch(
+        root=root.resolve(),
+        target_globs=(branchless_policy_check.TARGET_GLOB,),
+    )
+    violations = branchless_policy_check.collect_violations(batch=batch)
     baseline_keys = branchless_policy_check._load_baseline(baseline_path)
     new_violations = [item for item in violations if item.key not in baseline_keys]
     return {
@@ -598,7 +607,11 @@ def _collect_branchless_probe(root: Path) -> dict[str, object]:
 
 def _collect_defensive_probe(root: Path) -> dict[str, object]:
     baseline_path = root / "baselines" / "defensive_fallback_policy_baseline.json"
-    violations = defensive_fallback_policy_check.collect_violations(root=root.resolve())
+    batch = build_policy_scan_batch(
+        root=root.resolve(),
+        target_globs=(defensive_fallback_policy_check.TARGET_GLOB,),
+    )
+    violations = defensive_fallback_policy_check.collect_violations(batch=batch)
     baseline_keys = defensive_fallback_policy_check._load_baseline(baseline_path)
     new_violations = [item for item in violations if item.key not in baseline_keys]
     return {
@@ -610,7 +623,11 @@ def _collect_defensive_probe(root: Path) -> dict[str, object]:
 
 
 def _collect_no_monkeypatch_probe(root: Path) -> dict[str, object]:
-    violations = no_monkeypatch_policy_check.collect_violations(root=root.resolve())
+    batch = build_policy_scan_batch(
+        root=root.resolve(),
+        target_globs=no_monkeypatch_policy_check.TARGET_GLOBS,
+    )
+    violations = no_monkeypatch_policy_check.collect_violations(batch=batch)
     by_path: dict[str, int] = {}
     for item in violations:
         by_path[item.path] = by_path.get(item.path, 0) + 1
@@ -621,7 +638,11 @@ def _collect_no_monkeypatch_probe(root: Path) -> dict[str, object]:
 
 
 def _collect_order_lifetime_probe(root: Path) -> dict[str, object]:
-    violations = order_lifetime_check.collect_violations(root=root.resolve())
+    batch = build_policy_scan_batch(
+        root=root.resolve(),
+        target_globs=(order_lifetime_check.TARGET_GLOB,),
+    )
+    violations = order_lifetime_check.collect_violations(batch=batch)
     by_path: dict[str, int] = {}
     for item in violations:
         by_path[item.path] = by_path.get(item.path, 0) + 1
@@ -632,7 +653,12 @@ def _collect_order_lifetime_probe(root: Path) -> dict[str, object]:
 
 
 def _collect_structural_hash_probe(root: Path) -> dict[str, object]:
-    violations = structural_hash_policy_check.collect_violations(root=root.resolve())
+    batch = build_policy_scan_batch(
+        root=root.resolve(),
+        target_globs=(),
+        files=structural_hash_policy_check._target_files(root.resolve()),
+    )
+    violations = structural_hash_policy_check.collect_violations(batch=batch)
     by_path: dict[str, int] = {}
     for item in violations:
         by_path[item.path] = by_path.get(item.path, 0) + 1

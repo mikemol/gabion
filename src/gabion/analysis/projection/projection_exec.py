@@ -70,22 +70,22 @@ def _string_sequence_payload(value: JSONValue) -> tuple[str, ...]:
 
 
 @_string_sequence_payload.register(str)
-def _(value: str) -> tuple[str, ...]:
+def _sd_reg_1(value: str) -> tuple[str, ...]:
     return (value,)
 
 
 @_string_sequence_payload.register(list)
-def _(value: list[JSONValue]) -> tuple[str, ...]:
+def _sd_reg_2(value: list[JSONValue]) -> tuple[str, ...]:
     return tuple(str_list_from_sequence(value))
 
 
 @_string_sequence_payload.register(tuple)
-def _(value: tuple[object, ...]) -> tuple[str, ...]:
+def _sd_reg_3(value: tuple[object, ...]) -> tuple[str, ...]:
     return tuple(str_list_from_sequence(value))
 
 
 @_string_sequence_payload.register(set)
-def _(value: set[object]) -> tuple[str, ...]:
+def _sd_reg_4(value: set[object]) -> tuple[str, ...]:
     return tuple(str_list_from_sequence(value))
 
 
@@ -104,12 +104,12 @@ def _sort_entries_payload(value: JSONValue) -> tuple[Mapping[str, JSONValue], ..
 
 
 @_sort_entries_payload.register(dict)
-def _(value: dict[str, JSONValue]) -> tuple[Mapping[str, JSONValue], ...]:
+def _sd_reg_5(value: dict[str, JSONValue]) -> tuple[Mapping[str, JSONValue], ...]:
     return (value,)
 
 
 @_sort_entries_payload.register(list)
-def _(value: list[JSONValue]) -> tuple[Mapping[str, JSONValue], ...]:
+def _sd_reg_6(value: list[JSONValue]) -> tuple[Mapping[str, JSONValue], ...]:
     entries: list[Mapping[str, JSONValue]] = []
     for entry in value:
         check_deadline()

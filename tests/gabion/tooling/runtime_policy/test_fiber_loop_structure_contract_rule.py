@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import ast
 import json
 from pathlib import Path
 
 from gabion.tooling.policy_rules import fiber_loop_structure_contract_rule as rule
+from gabion.tooling.runtime.policy_scan_batch import build_policy_scan_batch_from_sources
 
 
 def _write(path: Path, content: str) -> None:
@@ -30,12 +30,11 @@ def test_collect_violations_detects_nested_loops_and_single_loop_non_generator()
             "",
         ]
     )
-    tree = ast.parse(source)
-    violations = rule.collect_violations(
-        rel_path="src/gabion/sample.py",
-        source=source,
-        tree=tree,
+    batch = build_policy_scan_batch_from_sources(
+        root=Path("."),
+        source_by_rel_path={"src/gabion/sample.py": source},
     )
+    violations = rule.collect_violations(batch=batch)
     kinds = {item.kind for item in violations}
     assert "nested_loop" in kinds
     assert "single_loop_non_generator" in kinds
@@ -54,12 +53,11 @@ def test_collect_violations_accepts_single_loop_generator() -> None:
             "",
         ]
     )
-    tree = ast.parse(source)
-    violations = rule.collect_violations(
-        rel_path="src/gabion/sample.py",
-        source=source,
-        tree=tree,
+    batch = build_policy_scan_batch_from_sources(
+        root=Path("."),
+        source_by_rel_path={"src/gabion/sample.py": source},
     )
+    violations = rule.collect_violations(batch=batch)
     assert violations == []
 
 

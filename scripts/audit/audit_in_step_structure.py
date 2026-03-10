@@ -6,6 +6,11 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+try:
+    import yaml
+except ImportError:  # pragma: no cover - fallback path
+    yaml = None
+
 from scripts.deadline.deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.order_contract import ordered_or_sorted
@@ -76,50 +81,18 @@ def _parse_frontmatter(text: str) -> tuple[dict[str, object], list[str]]:
         fm_lines.append(line)
         idx += 1
     body_lines = lines[idx:]
-    return _parse_yaml_like(fm_lines), body_lines
-
-
-def _parse_yaml_like(lines: list[str]) -> dict[str, object]:
-    data: dict[str, object] = {}
-    current_list_key: str | None = None
-    current_map_key: str | None = None
-    for raw in lines:
-        check_deadline()
-        line = raw.rstrip()
-        if not line.strip() or line.lstrip().startswith("#"):
-            continue
-        if current_map_key and line.startswith("  ") and ":" in line:
-            key, value = line.strip().split(":", 1)
-            data.setdefault(current_map_key, {})
-            mapping = data[current_map_key]
-            if isinstance(mapping, dict):
-                mapping[key.strip()] = value.strip().strip("\"")
-            continue
-        if current_list_key and line.strip().startswith("-"):
-            data.setdefault(current_list_key, [])
-            seq = data[current_list_key]
-            if isinstance(seq, list):
-                seq.append(line.strip().lstrip("-").strip())
-            continue
-        current_list_key = None
-        current_map_key = None
-        if ":" in line:
-            key, value = line.split(":", 1)
-            key = key.strip()
-            value = value.strip()
-            if value == "":
-                data[key] = []
-                current_list_key = key
-            elif value == "{}":
-                data[key] = {}
-                current_map_key = key
-            else:
-                if value.startswith("\"") and value.endswith("\""):
-                    value = value[1:-1]
-                data[key] = value
-        else:
-            continue
-    return data
+    if yaml is not None:
+        try:
+            parsed = yaml.safe_load("\n".join(fm_lines))
+        except Exception:
+            parsed = None
+        if isinstance(parsed, dict):
+            normalized: dict[str, object] = {}
+            for key, value in parsed.items():
+                check_deadline()
+                normalized[str(key)] = value
+            return normalized, body_lines
+    return {}, body_lines
 
 
 def _normalize_header(header: str) -> str:

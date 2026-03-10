@@ -8,6 +8,11 @@ from pathlib import Path
 from typing import Iterable
 
 from gabion.tooling.runtime.policy_result_schema import make_policy_result, write_policy_result
+from gabion.tooling.runtime.policy_scan_batch import (
+    PolicyScanBatch,
+    build_policy_scan_batch,
+    iter_failure_seeds,
+)
 
 
 _DERIVATION_IDENTITY_FILES = (
@@ -114,30 +119,8 @@ def _target_files(root: Path) -> list[Path]:
     return [path for path in files if path.exists()]
 
 
-def _scan_file(path: Path, *, root: Path) -> list[Violation]:
-    try:
-        source = path.read_text(encoding="utf-8")
-    except OSError:
-        return [
-            Violation(
-                path=str(path.relative_to(root)),
-                line=0,
-                call="<read>",
-                reason="unable to read file",
-            )
-        ]
-    try:
-        tree = ast.parse(source)
-    except SyntaxError as exc:
-        return [
-            Violation(
-                path=str(path.relative_to(root)),
-                line=int(exc.lineno or 0),
-                call="<parse>",
-                reason="syntax error",
-            )
-        ]
-    rel_path = path.relative_to(root)
+def _scan_module(*, module_rel_path: str, tree: ast.AST) -> list[Violation]:
+    rel_path = Path(module_rel_path)
     visitor = _PolicyVisitor(
         path=rel_path,
         check_all_functions=rel_path != _ASPF_PATH,
@@ -146,10 +129,24 @@ def _scan_file(path: Path, *, root: Path) -> list[Violation]:
     return visitor.violations
 
 
-def collect_violations(*, root: Path) -> list[Violation]:
+def collect_violations(*, batch: PolicyScanBatch) -> list[Violation]:
     violations: list[Violation] = []
-    for path in _target_files(root):
-        violations.extend(_scan_file(path, root=root))
+    for seed in iter_failure_seeds(batch=batch):
+        violations.append(
+            Violation(
+                path=seed.path,
+                line=seed.line,
+                call="<read>" if seed.kind == "read_error" else "<parse>",
+                reason="unable to read file" if seed.kind == "read_error" else "syntax error",
+            )
+        )
+    for module in batch.modules:
+        violations.extend(
+            _scan_module(
+                module_rel_path=module.rel_path,
+                tree=module.tree,
+            )
+        )
     return violations
 
 
@@ -164,7 +161,12 @@ def _serialize_violation(violation: Violation) -> dict[str, object]:
 
 
 def run(*, root: Path, output: Path | None = None) -> int:
-    violations = collect_violations(root=root)
+    batch = build_policy_scan_batch(
+        root=root,
+        target_globs=(),
+        files=_target_files(root),
+    )
+    violations = collect_violations(batch=batch)
     status = "pass" if not violations else "fail"
     if output is not None:
         write_policy_result(

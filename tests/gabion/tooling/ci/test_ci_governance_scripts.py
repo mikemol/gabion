@@ -697,3 +697,68 @@ justification: no semantic coverage row changes
         policy_check.ASPF_TAINT_MAP = original_map
         policy_check.ASPF_TAINT_NO_CHANGE = original_no_change
         policy_check._changed_repo_paths = original_changed  # type: ignore[assignment]
+
+
+# gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_policy_check_symbol_activity_audit_fails_on_unsuppressed_findings
+# gabion:behavior primary=verboten facets=fail
+def test_policy_check_symbol_activity_audit_fails_on_unsuppressed_findings(tmp_path: Path) -> None:
+    out_path = tmp_path / "symbol_activity_audit.json"
+    md_path = tmp_path / "symbol_activity_audit.md"
+    payload = {
+        "counts": {
+            "by_bucket": {
+                "never_referenced": {"total": 2, "unsuppressed": 1, "blocked_by_todo": 1},
+                "dynamic_dispatch_unresolved": {"total": 1, "unsuppressed": 1, "blocked_by_todo": 0},
+            }
+        }
+    }
+
+    def _failing_run(*, root: Path, out_path: Path, markdown_out: Path | None, check: bool) -> int:
+        _ = root, markdown_out, check
+        out_path.write_text(json.dumps(payload), encoding="utf-8")
+        return 1
+
+    original_run = policy_check.symbol_activity_audit.run
+    original_json = policy_check.SYMBOL_ACTIVITY_AUDIT_JSON
+    original_md = policy_check.SYMBOL_ACTIVITY_AUDIT_MD
+    try:
+        policy_check.symbol_activity_audit.run = _failing_run  # type: ignore[assignment]
+        policy_check.SYMBOL_ACTIVITY_AUDIT_JSON = out_path
+        policy_check.SYMBOL_ACTIVITY_AUDIT_MD = md_path
+        with policy_check._policy_deadline_scope():
+            try:
+                policy_check.check_symbol_activity_audit()
+                assert False, "expected check_symbol_activity_audit to fail"
+            except SystemExit as exc:
+                assert exc.code == 2
+        assert any("never_referenced: unsuppressed=1" in item for item in policy_check._LAST_FAIL_ERRORS)
+        assert any("dynamic_dispatch_unresolved: unsuppressed=1" in item for item in policy_check._LAST_FAIL_ERRORS)
+    finally:
+        policy_check.symbol_activity_audit.run = original_run  # type: ignore[assignment]
+        policy_check.SYMBOL_ACTIVITY_AUDIT_JSON = original_json
+        policy_check.SYMBOL_ACTIVITY_AUDIT_MD = original_md
+
+
+# gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_policy_check_symbol_activity_audit_passes_when_audit_is_clean
+# gabion:behavior primary=desired
+def test_policy_check_symbol_activity_audit_passes_when_audit_is_clean(tmp_path: Path) -> None:
+    out_path = tmp_path / "symbol_activity_audit.json"
+    md_path = tmp_path / "symbol_activity_audit.md"
+
+    def _passing_run(*, root: Path, out_path: Path, markdown_out: Path | None, check: bool) -> int:
+        _ = root, out_path, markdown_out, check
+        return 0
+
+    original_run = policy_check.symbol_activity_audit.run
+    original_json = policy_check.SYMBOL_ACTIVITY_AUDIT_JSON
+    original_md = policy_check.SYMBOL_ACTIVITY_AUDIT_MD
+    try:
+        policy_check.symbol_activity_audit.run = _passing_run  # type: ignore[assignment]
+        policy_check.SYMBOL_ACTIVITY_AUDIT_JSON = out_path
+        policy_check.SYMBOL_ACTIVITY_AUDIT_MD = md_path
+        with policy_check._policy_deadline_scope():
+            policy_check.check_symbol_activity_audit()
+    finally:
+        policy_check.symbol_activity_audit.run = original_run  # type: ignore[assignment]
+        policy_check.SYMBOL_ACTIVITY_AUDIT_JSON = original_json
+        policy_check.SYMBOL_ACTIVITY_AUDIT_MD = original_md

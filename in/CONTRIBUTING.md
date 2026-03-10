@@ -1,41 +1,48 @@
 ---
 doc_revision: 2
-reader_reintern: Reader-only: re-intern if doc_revision changed since you last read this doc.
+reader_reintern: 'Reader-only: re-intern if doc_revision changed since you last read
+  this doc.'
 doc_change_protocol: POLICY_SEED.md#change_protocol
 doc_requires:
-  - POLICY_SEED.md#policy_seed
-  - glossary.md#contract
+- POLICY_SEED.md#policy_seed
+- glossary.md#contract
 doc_reviewed_as_of:
   POLICY_SEED.md#policy_seed: 42
   glossary.md#contract: 43
 doc_review_notes:
-  POLICY_SEED.md#policy_seed: Re-reviewed current policy seed requirements (self-hosted trigger guardrails, SHA pinning, and explicit review-discipline) and confirmed this contributor guide still points to the right enforcement flow.
-  glossary.md#contract: Re-reviewed glossary contract obligations (single-axis semantics, commutation obligations, and dataflow-bundle discipline) and confirmed contributor expectations remain semantically aligned.
+  POLICY_SEED.md#policy_seed: Re-reviewed current policy seed requirements (self-hosted
+    trigger guardrails, SHA pinning, and explicit review-discipline) and confirmed
+    this contributor guide still points to the right enforcement flow.
+  glossary.md#contract: Re-reviewed glossary contract obligations (single-axis semantics,
+    commutation obligations, and dataflow-bundle discipline) and confirmed contributor
+    expectations remain semantically aligned.
 doc_id: in_contributing
 doc_role: contributing
 doc_scope:
-  - repo
-  - governance
-  - contributing
+- repo
+- governance
+- contributing
 doc_authority: normative
 doc_sections:
   in_contributing: 1
 doc_section_requires:
   in_contributing:
-    - POLICY_SEED.md#policy_seed
-    - glossary.md#contract
+  - POLICY_SEED.md#policy_seed
+  - glossary.md#contract
 doc_section_reviews:
   in_contributing:
     POLICY_SEED.md#policy_seed:
       dep_version: 1
       self_version_at_review: 1
       outcome: no_change
-      note: Policy seed anchor still mandates execution-safety guardrails reflected in this contributor workflow.
+      note: Policy seed anchor still mandates execution-safety guardrails reflected
+        in this contributor workflow.
     glossary.md#contract:
       dep_version: 1
       self_version_at_review: 1
       outcome: no_change
-      note: Glossary contract still defines the semantic obligations this guide requires before merge.
+      note: Glossary contract still defines the semantic obligations this guide requires
+        before merge.
 ---
 
 <a id="in_contributing"></a>

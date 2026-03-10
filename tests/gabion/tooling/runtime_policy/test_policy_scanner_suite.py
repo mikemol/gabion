@@ -31,6 +31,19 @@ def test_policy_scanner_suite_scan_and_cache(tmp_path: Path) -> None:
         root / "tests/test_legacy_import.py",
         "from gabion.analysis import legacy_dataflow_monolith\n",
     )
+    _write(
+        root / "src/gabion/shape_sample.py",
+        "\n".join(
+            [
+                "def shape(value):",
+                "    pair = (value, value + 1)",
+                "    payload = {'value': value}",
+                "    text = str(value)",
+                "    return pair, payload, text",
+            ]
+        )
+        + "\n",
+    )
     _write(root / "src/gabion/bad_syntax.py", "def broken(:\n")
     _write(root / "src/gabion/__pycache__/ignored.py", "def ignored():\n    return 1\n")
 
@@ -48,6 +61,9 @@ def test_policy_scanner_suite_scan_and_cache(tmp_path: Path) -> None:
     assert policy_scanner_suite.violations_for_rule(first, rule="fiber_return_shape_contract")
     assert policy_scanner_suite.violations_for_rule(first, rule="fiber_scalar_sentinel_contract")
     assert policy_scanner_suite.violations_for_rule(first, rule="fiber_type_dispatch_contract")
+    assert policy_scanner_suite.violations_for_rule(first, rule="no_anonymous_tuple")
+    assert policy_scanner_suite.violations_for_rule(first, rule="no_mutable_dict")
+    assert policy_scanner_suite.violations_for_rule(first, rule="no_scalar_conversion_boundary")
     assert policy_scanner_suite.violations_for_rule(first, rule="no_monkeypatch")
     assert policy_scanner_suite.violations_for_rule(first, rule="no_legacy_monolith_import")
     assert policy_scanner_suite.violations_for_rule(first, rule="orchestrator_primitive_barrel") == []
@@ -98,6 +114,9 @@ def test_policy_scanner_suite_cache_invalidation_and_payload_normalization(
     assert normalized.violations_by_rule["fiber_return_shape_contract"] == []
     assert normalized.violations_by_rule["fiber_scalar_sentinel_contract"] == []
     assert normalized.violations_by_rule["fiber_type_dispatch_contract"] == []
+    assert normalized.violations_by_rule["no_anonymous_tuple"] == []
+    assert normalized.violations_by_rule["no_mutable_dict"] == []
+    assert normalized.violations_by_rule["no_scalar_conversion_boundary"] == []
     assert normalized.violations_by_rule["no_monkeypatch"] == []
     assert normalized.violations_by_rule["no_legacy_monolith_import"] == []
     assert normalized.violations_by_rule["orchestrator_primitive_barrel"] == []
@@ -147,6 +166,9 @@ def test_policy_scanner_suite_private_cache_and_payload_branches(
                 "fiber_filter_processor_contract": [],
                 "fiber_return_shape_contract": [],
                 "fiber_scalar_sentinel_contract": [],
+                "no_anonymous_tuple": [],
+                "no_mutable_dict": [],
+                "no_scalar_conversion_boundary": [],
             }
         }
     )
@@ -157,6 +179,9 @@ def test_policy_scanner_suite_private_cache_and_payload_branches(
     assert normalized["fiber_return_shape_contract"] == []
     assert normalized["fiber_scalar_sentinel_contract"] == []
     assert normalized["fiber_type_dispatch_contract"] == []
+    assert normalized["no_anonymous_tuple"] == []
+    assert normalized["no_mutable_dict"] == []
+    assert normalized["no_scalar_conversion_boundary"] == []
     assert normalized["typing_surface"] == []
     assert normalized["runtime_narrowing_boundary"] == []
     assert normalized["aspf_normalization_idempotence"] == []
@@ -482,6 +507,9 @@ def test_policy_scanner_suite_respects_branch_and_fallback_baselines(tmp_path: P
     assert policy_scanner_suite.violations_for_rule(result, rule="fiber_return_shape_contract") == []
     assert policy_scanner_suite.violations_for_rule(result, rule="fiber_scalar_sentinel_contract") == []
     assert policy_scanner_suite.violations_for_rule(result, rule="fiber_type_dispatch_contract") == []
+    assert policy_scanner_suite.violations_for_rule(result, rule="no_anonymous_tuple") == []
+    assert policy_scanner_suite.violations_for_rule(result, rule="no_mutable_dict") == []
+    assert policy_scanner_suite.violations_for_rule(result, rule="no_scalar_conversion_boundary") == []
     assert policy_scanner_suite.violations_for_rule(result, rule="no_monkeypatch") == []
     assert policy_scanner_suite.violations_for_rule(result, rule="no_legacy_monolith_import") == []
     assert policy_scanner_suite.violations_for_rule(result, rule="orchestrator_primitive_barrel") == []

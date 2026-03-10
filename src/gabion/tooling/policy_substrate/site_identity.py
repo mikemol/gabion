@@ -18,21 +18,42 @@ def canonical_site_identity(
         "site_identity",
         rel_path,
         qualname,
-        str(int(line)),
-        str(int(column)),
+        line,
+        column,
         node_kind,
         surface,
     )
 
 
-def stable_hash(*parts: str) -> str:
+def stable_hash(*parts: object) -> str:
     return reduce(_digest_update, parts, hashlib.sha256()).hexdigest()
 
 
-def _digest_update(digest: object, part: str):
-    digest.update(part.encode("utf-8"))
+def _digest_update(digest: object, part: object):
+    digest.update(_hash_part_bytes(part))
     digest.update(b"\x00")
     return digest
+
+
+def _hash_part_bytes(value: object) -> bytes:
+    match value:
+        case bool() as flag:
+            return b"1" if flag else b"0"
+        case int() as integer:
+            return _int_bytes(integer)
+        case str() as text:
+            return text.encode("utf-8")
+        case bytes() as raw:
+            return raw
+        case _:
+            return b"<unsupported>"
+
+
+def _int_bytes(value: int) -> bytes:
+    magnitude = abs(value)
+    width = max(1, (magnitude.bit_length() + 7) // 8)
+    sign = b"-" if value < 0 else b"+"
+    return sign + magnitude.to_bytes(width, byteorder="big", signed=False)
 
 
 __all__ = ["canonical_site_identity", "stable_hash"]

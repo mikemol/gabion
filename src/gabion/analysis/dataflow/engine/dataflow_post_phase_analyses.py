@@ -72,7 +72,7 @@ from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
 )
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue, ParseFailureWitnesses
 from gabion.analysis.foundation.resume_codec import (
-    int_tuple4_optional,
+    iter_int_tuple4_from_sequence,
     mapping_optional,
     sequence_optional,
 )
@@ -217,7 +217,7 @@ def _is_ast_name(value: ast.AST) -> bool:
 
 
 @_is_ast_name.register(ast.Name)
-def _(value: ast.Name) -> bool:
+def _sd_reg_1(value: ast.Name) -> bool:
     _ = value
     return True
 
@@ -239,7 +239,7 @@ def _ast_name_id(value: ast.AST) -> str:
 
 
 @_ast_name_id.register(ast.Name)
-def _(value: ast.Name) -> str:
+def _sd_reg_2(value: ast.Name) -> str:
     return value.id
 
 
@@ -249,7 +249,7 @@ def _is_ast_compare(value: ast.AST) -> bool:
 
 
 @_is_ast_compare.register(ast.Compare)
-def _(value: ast.Compare) -> bool:
+def _sd_reg_3(value: ast.Compare) -> bool:
     _ = value
     return True
 
@@ -271,7 +271,7 @@ def _compare_left(value: ast.AST) -> ast.AST:
 
 
 @_compare_left.register(ast.Compare)
-def _(value: ast.Compare) -> ast.AST:
+def _sd_reg_4(value: ast.Compare) -> ast.AST:
     return value.left
 
 
@@ -281,7 +281,7 @@ def _compare_ops(value: ast.AST) -> tuple[ast.cmpop, ...]:
 
 
 @_compare_ops.register(ast.Compare)
-def _(value: ast.Compare) -> tuple[ast.cmpop, ...]:
+def _sd_reg_5(value: ast.Compare) -> tuple[ast.cmpop, ...]:
     return tuple(value.ops)
 
 
@@ -291,7 +291,7 @@ def _compare_comparators(value: ast.AST) -> tuple[ast.AST, ...]:
 
 
 @_compare_comparators.register(ast.Compare)
-def _(value: ast.Compare) -> tuple[ast.AST, ...]:
+def _sd_reg_6(value: ast.Compare) -> tuple[ast.AST, ...]:
     return tuple(value.comparators)
 
 
@@ -301,7 +301,7 @@ def _is_eq_compare_operator(value: ast.cmpop) -> bool:
 
 
 @_is_eq_compare_operator.register(ast.Eq)
-def _(value: ast.Eq) -> bool:
+def _sd_reg_7(value: ast.Eq) -> bool:
     _ = value
     return True
 
@@ -323,7 +323,7 @@ def _is_ast_try(value: ast.AST) -> bool:
 
 
 @_is_ast_try.register(ast.Try)
-def _(value: ast.Try) -> bool:
+def _sd_reg_8(value: ast.Try) -> bool:
     _ = value
     return True
 
@@ -345,7 +345,7 @@ def _ast_try_node(value: ast.AST) -> ast.Try:
 
 
 @_ast_try_node.register(ast.Try)
-def _(value: ast.Try) -> ast.Try:
+def _sd_reg_9(value: ast.Try) -> ast.Try:
     return value
 
 
@@ -402,12 +402,12 @@ def _invariant_term(expr: ast.AST, params: set[str]):
 
 
 @_invariant_term.register(ast.Name)
-def _(expr: ast.Name, params: set[str]):
+def _sd_reg_10(expr: ast.Name, params: set[str]):
     return next(iter(params.intersection({expr.id})), None)
 
 
 @_invariant_term.register(ast.Call)
-def _(expr: ast.Call, params: set[str]):
+def _sd_reg_11(expr: ast.Call, params: set[str]):
     if _is_ast_name(expr.func) and _ast_name_id(expr.func) == "len" and len(expr.args) == 1:
         arg = expr.args[0]
         if _is_ast_name(arg):
@@ -1276,39 +1276,36 @@ def _collect_exception_obligations(
     deadness_witnesses=None,
     never_exceptions=None,
 ):
-    return cast(
-        list[JSONObject],
-        _collect_exception_obligations_impl(
-            paths,
-            project_root=project_root,
-            ignore_params=ignore_params,
-            handledness_witnesses=handledness_witnesses,
-            deadness_witnesses=deadness_witnesses,
-            never_exceptions=never_exceptions,
-            check_deadline_fn=check_deadline,
-            parent_annotator_factory=ParentAnnotator,
-            collect_functions_fn=_collect_functions,
-            param_names_fn=_param_names,
-            normalize_snapshot_path_fn=_normalize_snapshot_path,
-            enclosing_function_node_fn=_enclosing_function_node,
-            enclosing_scopes_fn=_enclosing_scopes,
-            function_key_fn=_function_key,
-            exception_type_name_fn=_exception_type_name,
-            decorator_matches_fn=_decorator_matches,
-            is_never_marker_raise_fn=_is_never_marker_raise,
-            exception_param_names_fn=_exception_param_names,
-            exception_path_id_fn=_exception_path_id,
-            sequence_or_none_fn=sequence_optional,
-            branch_reachability_under_env_fn=_branch_reachability_under_env,
-            is_reachability_false_fn=_is_reachability_false,
-            is_reachability_true_fn=_is_reachability_true,
-            names_in_expr_fn=_names_in_expr,
-            sort_once_fn=sort_once,
-            order_policy_sort=OrderPolicy.SORT,
-            order_policy_enforce=OrderPolicy.ENFORCE,
-            mapping_or_none_fn=mapping_optional,
-            literal_eval_error_types=_LITERAL_EVAL_ERROR_TYPES,
-        ),
+    return _collect_exception_obligations_impl(
+        paths,
+        project_root=project_root,
+        ignore_params=ignore_params,
+        handledness_witnesses=handledness_witnesses,
+        deadness_witnesses=deadness_witnesses,
+        never_exceptions=never_exceptions,
+        check_deadline_fn=check_deadline,
+        parent_annotator_factory=ParentAnnotator,
+        collect_functions_fn=_collect_functions,
+        param_names_fn=_param_names,
+        normalize_snapshot_path_fn=_normalize_snapshot_path,
+        enclosing_function_node_fn=_enclosing_function_node,
+        enclosing_scopes_fn=_enclosing_scopes,
+        function_key_fn=_function_key,
+        exception_type_name_fn=_exception_type_name,
+        decorator_matches_fn=_decorator_matches,
+        is_never_marker_raise_fn=_is_never_marker_raise,
+        exception_param_names_fn=_exception_param_names,
+        exception_path_id_fn=_exception_path_id,
+        sequence_or_none_fn=sequence_optional,
+        branch_reachability_under_env_fn=_branch_reachability_under_env,
+        is_reachability_false_fn=_is_reachability_false,
+        is_reachability_true_fn=_is_reachability_true,
+        names_in_expr_fn=_names_in_expr,
+        sort_once_fn=sort_once,
+        order_policy_sort=OrderPolicy.SORT,
+        order_policy_enforce=OrderPolicy.ENFORCE,
+        mapping_or_none_fn=mapping_optional,
+        literal_eval_error_types=_LITERAL_EVAL_ERROR_TYPES,
     )
 
 
@@ -1425,13 +1422,13 @@ def _param_annotations_json(
 
 
 @_param_annotations_json.register(ast.FunctionDef)
-def _(fn: ast.FunctionDef, ignore_params: set[str]) -> dict[str, JSONValue]:
+def _sd_reg_12(fn: ast.FunctionDef, ignore_params: set[str]) -> dict[str, JSONValue]:
     param_annotations = _param_annotations(fn, ignore_params)
     return {name: annotation for name, annotation in param_annotations.items()}
 
 
 @_param_annotations_json.register(ast.AsyncFunctionDef)
-def _(fn: ast.AsyncFunctionDef, ignore_params: set[str]) -> dict[str, JSONValue]:
+def _sd_reg_13(fn: ast.AsyncFunctionDef, ignore_params: set[str]) -> dict[str, JSONValue]:
     param_annotations = _param_annotations(fn, ignore_params)
     return {name: annotation for name, annotation in param_annotations.items()}
 
@@ -1778,7 +1775,7 @@ def _suite_site_label(*, forest: object, suite_id: object) -> str:
     path = str(suite_node.meta.get("path", "") or "")
     qual = str(suite_node.meta.get("qual", "") or "")
     suite_kind = str(suite_node.meta.get("suite_kind", "") or "")
-    span = int_tuple4_optional(suite_node.meta.get("span"))
+    span = next(iter_int_tuple4_from_sequence((suite_node.meta.get("span"),)), None)
     if not path or not qual or not suite_kind or span is None:
         never(  # pragma: no cover - invariant sink
             "suite site label projection missing identity",
@@ -1991,18 +1988,15 @@ def _iter_config_fields(
     tree=None,
     parse_failure_witnesses: ParseFailureWitnesses,
 ) -> dict[str, set[str]]:
-    return cast(
-        dict[str, set[str]],
-        _iter_config_fields_impl(
-            path,
-            tree=tree,
-            parse_failure_witnesses=parse_failure_witnesses,
-            deps=_IterConfigFieldsDeps(
-                check_deadline_fn=check_deadline,
-                parse_module_tree_fn=_parse_module_tree_optional,
-                parse_module_stage_config_fields=_ParseModuleStage.CONFIG_FIELDS,
-                simple_store_name_fn=_simple_store_name,
-            ),
+    return _iter_config_fields_impl(
+        path,
+        tree=tree,
+        parse_failure_witnesses=parse_failure_witnesses,
+        deps=_IterConfigFieldsDeps(
+            check_deadline_fn=check_deadline,
+            parse_module_tree_fn=_parse_module_tree_optional,
+            parse_module_stage_config_fields=_ParseModuleStage.CONFIG_FIELDS,
+            simple_store_name_fn=_simple_store_name,
         ),
     )
 

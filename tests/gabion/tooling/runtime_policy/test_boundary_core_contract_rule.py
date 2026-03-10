@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from gabion.tooling.policy_rules import boundary_core_contract_rule as rule
+from gabion.tooling.runtime.policy_scan_batch import build_policy_scan_batch
 
 
 def _write(path: Path, content: str) -> None:
@@ -37,7 +38,8 @@ def test_boundary_core_contract_passes_for_single_hop_boundary_to_core(tmp_path:
         + "\n",
     )
 
-    violations = rule.collect_violations(root=tmp_path)
+    batch = build_policy_scan_batch(root=tmp_path, target_globs=(rule.TARGET_GLOB,))
+    violations = rule.collect_violations(batch=batch)
     assert violations == []
 
 
@@ -55,7 +57,8 @@ def test_boundary_core_contract_flags_missing_core_pair(tmp_path: Path) -> None:
         + "\n",
     )
 
-    violations = rule.collect_violations(root=tmp_path)
+    batch = build_policy_scan_batch(root=tmp_path, target_globs=(rule.TARGET_GLOB,))
+    violations = rule.collect_violations(batch=batch)
     assert len(violations) == 1
     assert violations[0].kind == "missing_paired_core_module"
 
@@ -88,7 +91,8 @@ def test_boundary_core_contract_flags_raw_ingress_types_in_core(tmp_path: Path) 
         + "\n",
     )
 
-    violations = rule.collect_violations(root=tmp_path)
+    batch = build_policy_scan_batch(root=tmp_path, target_globs=(rule.TARGET_GLOB,))
+    violations = rule.collect_violations(batch=batch)
     assert any(item.kind == "raw_ingress_type_in_core" for item in violations)
 
 
@@ -135,7 +139,8 @@ def test_boundary_core_contract_dedupes_core_violations_across_multiple_boundari
         + "\n",
     )
 
-    violations = rule.collect_violations(root=tmp_path)
+    batch = build_policy_scan_batch(root=tmp_path, target_globs=(rule.TARGET_GLOB,))
+    violations = rule.collect_violations(batch=batch)
     branch_violations = [item for item in violations if item.kind == "branch_in_core_module"]
     assert len(branch_violations) == 1
 
@@ -166,6 +171,7 @@ def test_boundary_core_contract_accepts_core_namespace_package_import(tmp_path: 
         + "\n",
     )
 
-    violations = rule.collect_violations(root=tmp_path)
+    batch = build_policy_scan_batch(root=tmp_path, target_globs=(rule.TARGET_GLOB,))
+    violations = rule.collect_violations(batch=batch)
     missing_core = [item for item in violations if item.kind == "missing_core_module_file"]
     assert missing_core == []

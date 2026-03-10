@@ -340,7 +340,7 @@ def test_policy_probe_collectors_cover_new_and_total_branches(tmp_path: Path) ->
     with _swap_attr(
         normative_symdiff.ambiguity_contract_policy_check,
         "collect_violations",
-        lambda _root: ambiguity_items,
+        lambda **_kwargs: ambiguity_items,
     ):
         ambiguity = normative_symdiff._collect_ambiguity_probe(tmp_path)
     assert ambiguity["total"] == 2

@@ -7,8 +7,27 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from gabion.analysis.foundation.event_algebra import CanonicalRunContext
 from gabion.runtime_shape_dispatch import json_list_optional, json_mapping_optional
+from gabion.tooling.policy_substrate import (
+    build_aspf_union_view,
+    cst_failure_seeds,
+    decorate_failure,
+    decorate_site,
+    new_run_context,
+)
+from gabion.tooling.policy_rules.fiber_diagnostics import (
+    FiberApplicabilityBounds,
+    FiberCounterfactualBoundary,
+    FiberTraceEvent,
+)
+from gabion.tooling.runtime.policy_scan_batch import (
+    PolicyScanBatch,
+    ScanFailureSeed,
+    iter_failure_seeds,
+)
 
+RULE_NAME = "runtime_narrowing_boundary"
 BASELINE_VERSION = 1
 WAIVER_VERSION = 1
 
@@ -31,6 +50,14 @@ class Violation:
     kind: str
     message: str
     call: str
+    input_slot: str
+    flow_identity: str
+    fiber_trace: tuple[FiberTraceEvent, ...]
+    applicability_bounds: FiberApplicabilityBounds
+    counterfactual_boundary: FiberCounterfactualBoundary
+    fiber_id: str
+    taint_interval_id: str
+    condition_overlap_id: str
     structured_hash: str
 
     @property
@@ -58,9 +85,16 @@ class WaiverLoadResult:
 
 
 class _RuntimeNarrowingBoundaryVisitor(ast.NodeVisitor):
-    def __init__(self, *, rel_path: str, source: str) -> None:
+    def __init__(
+        self,
+        *,
+        rel_path: str,
+        source: str,
+        run_context: CanonicalRunContext,
+    ) -> None:
         self._rel_path = rel_path
         self._source = source
+        self._run_context = run_context
         self.violations: list[Violation] = []
         self._qualname_stack: list[str] = []
 
@@ -76,12 +110,31 @@ class _RuntimeNarrowingBoundaryVisitor(ast.NodeVisitor):
             line = int(getattr(node, "lineno", 1) or 1)
             column = int(getattr(node, "col_offset", 0) or 0) + 1
             call_text = ast.get_source_segment(self._source, node) or call_name
+            input_slot = f"narrow:{kind}"
             structural_identity = _structured_hash(
                 self._rel_path,
                 self._qualname,
                 kind,
                 call_text,
                 str(column),
+            )
+            decoration = decorate_site(
+                run_context=self._run_context,
+                rule_name=RULE_NAME,
+                rel_path=self._rel_path,
+                qualname=self._qualname,
+                line=line,
+                column=column,
+                node_kind=f"narrow:{kind}",
+                input_slot=input_slot,
+                taint_class="runtime_narrowing",
+                intro_kind=f"syntax:narrowing_taint:{kind}",
+                condition_kind=f"syntax:narrowing_condition:{kind}",
+                erase_kind=f"syntax:approved_boundary:{kind}",
+                rationale=(
+                    "Move runtime narrowing to approved ingress boundaries and keep "
+                    "core fibers free of ad-hoc narrowing checks."
+                ),
             )
             self.violations.append(
                 Violation(
@@ -91,6 +144,14 @@ class _RuntimeNarrowingBoundaryVisitor(ast.NodeVisitor):
                     qualname=self._qualname,
                     kind=kind,
                     call=call_text,
+                    input_slot=input_slot,
+                    flow_identity=decoration.flow_identity,
+                    fiber_trace=decoration.fiber_trace,
+                    applicability_bounds=decoration.applicability_bounds,
+                    counterfactual_boundary=decoration.counterfactual_boundary,
+                    fiber_id=decoration.fiber_id,
+                    taint_interval_id=decoration.taint_interval_id,
+                    condition_overlap_id=decoration.condition_overlap_id,
                     structured_hash=structural_identity,
                     message=(
                         f"{call_name} runtime narrowing is boundary-only; "
@@ -110,10 +171,58 @@ class _RuntimeNarrowingBoundaryVisitor(ast.NodeVisitor):
         self._qualname_stack.pop()
 
 
-def collect_violations(*, rel_path: str, source: str, tree: ast.AST) -> list[Violation]:
-    visitor = _RuntimeNarrowingBoundaryVisitor(rel_path=rel_path, source=source)
-    visitor.visit(tree)
-    return visitor.violations
+def collect_violations(
+    *,
+    batch: PolicyScanBatch,
+    run_context: CanonicalRunContext | None = None,
+) -> list[Violation]:
+    context = run_context if run_context is not None else new_run_context(rule_name=RULE_NAME)
+    union_view = build_aspf_union_view(batch=batch)
+    violations: list[Violation] = []
+    for seed in (*iter_failure_seeds(batch=batch), *cst_failure_seeds(union_view=union_view)):
+        violations.append(_failure_violation(run_context=context, seed=seed))
+    for module in union_view.modules:
+        visitor = _RuntimeNarrowingBoundaryVisitor(
+            rel_path=module.rel_path,
+            source=module.source,
+            run_context=context,
+        )
+        visitor.visit(module.pyast_tree)
+        violations.extend(visitor.violations)
+    return violations
+
+
+def _failure_violation(*, run_context: CanonicalRunContext, seed: ScanFailureSeed) -> Violation:
+    decoration = decorate_failure(
+        run_context=run_context,
+        rule_name=RULE_NAME,
+        seed=seed,
+        rationale="Ensure module parse/read validity before runtime-narrowing substrate evaluation.",
+    )
+    return Violation(
+        path=seed.path,
+        line=seed.line,
+        column=seed.column,
+        qualname="<module>",
+        kind=seed.kind,
+        message=seed.detail,
+        call="<none>",
+        input_slot="module_failure",
+        flow_identity=decoration.flow_identity,
+        fiber_trace=decoration.fiber_trace,
+        applicability_bounds=decoration.applicability_bounds,
+        counterfactual_boundary=decoration.counterfactual_boundary,
+        fiber_id=decoration.fiber_id,
+        taint_interval_id=decoration.taint_interval_id,
+        condition_overlap_id=decoration.condition_overlap_id,
+        structured_hash=_structured_hash(
+            seed.path,
+            "<module>",
+            seed.kind,
+            "<none>",
+            str(seed.column),
+        ),
+    )
 
 
 def _is_allowlisted(rel_path: str, qualname: str) -> bool:
@@ -132,17 +241,18 @@ def _call_kind(node: ast.Call) -> tuple[str | None, str | None]:
     return None, None
 
 
-def _dotted_name(node: ast.AST) -> str | None:
+def _dotted_name(node: ast.AST) -> str:
+    return ".".join(_dotted_name_parts(node))
+
+
+def _dotted_name_parts(node: ast.AST) -> tuple[str, ...]:
     match node:
         case ast.Name(id=identifier):
-            return identifier
+            return (identifier,)
         case ast.Attribute(value=value, attr=attr):
-            parent = _dotted_name(value)
-            if parent is None:
-                return None
-            return f"{parent}.{attr}"
+            return (*_dotted_name_parts(value), attr)
         case _:
-            return None
+            return ()
 
 
 def _structured_hash(*parts: str) -> str:
@@ -157,16 +267,25 @@ def _load_baseline(path: Path) -> set[str]:
     if not path.exists():
         return set()
     payload = json_mapping_optional(json.loads(path.read_text(encoding="utf-8")))
-    if payload is None:
-        return set()
+    match payload:
+        case None:
+            return set()
+        case _:
+            pass
     raw_items = json_list_optional(payload.get("violations"))
-    if raw_items is None:
-        return set()
+    match raw_items:
+        case None:
+            return set()
+        case _:
+            pass
     keys: set[str] = set()
     for item in raw_items:
         item_mapping = json_mapping_optional(item)
-        if item_mapping is None:
-            continue
+        match item_mapping:
+            case None:
+                continue
+            case _:
+                pass
         path_value = str(item_mapping.get("path", "") or "")
         qualname = str(item_mapping.get("qualname", "") or "")
         kind = str(item_mapping.get("kind", "") or "")
@@ -206,21 +325,30 @@ def load_waivers(path: Path) -> WaiverLoadResult:
     if not path.exists():
         return WaiverLoadResult(allowed_keys=set(), invalid_waivers=[])
     payload = json_mapping_optional(json.loads(path.read_text(encoding="utf-8")))
-    if payload is None:
-        return WaiverLoadResult(allowed_keys=set(), invalid_waivers=[InvalidWaiver(index=0, reason="waiver payload must be an object")])
+    match payload:
+        case None:
+            return WaiverLoadResult(allowed_keys=set(), invalid_waivers=[InvalidWaiver(index=0, reason="waiver payload must be an object")])
+        case _:
+            pass
 
     waivers_raw = json_list_optional(payload.get("waivers"))
-    if waivers_raw is None:
-        return WaiverLoadResult(allowed_keys=set(), invalid_waivers=[InvalidWaiver(index=0, reason="waivers must be a list")])
+    match waivers_raw:
+        case None:
+            return WaiverLoadResult(allowed_keys=set(), invalid_waivers=[InvalidWaiver(index=0, reason="waivers must be a list")])
+        case _:
+            pass
 
     required = ("path", "qualname", "kind", "rationale", "scope", "expiry", "owner")
     allowed_keys: set[str] = set()
     invalid_waivers: list[InvalidWaiver] = []
     for index, waiver in enumerate(waivers_raw, start=1):
         waiver_mapping = json_mapping_optional(waiver)
-        if waiver_mapping is None:
-            invalid_waivers.append(InvalidWaiver(index=index, reason="waiver must be an object"))
-            continue
+        match waiver_mapping:
+            case None:
+                invalid_waivers.append(InvalidWaiver(index=index, reason="waiver must be an object"))
+                continue
+            case _:
+                pass
         missing = [field for field in required if field not in waiver_mapping]
         if missing:
             invalid_waivers.append(InvalidWaiver(index=index, reason=f"missing fields: {', '.join(missing)}"))

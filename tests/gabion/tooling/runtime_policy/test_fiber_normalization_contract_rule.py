@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from gabion.tooling.policy_rules import fiber_normalization_contract_rule as rule
+from gabion.tooling.runtime.policy_scan_batch import build_policy_scan_batch
 
 
 def _write(path: Path, content: str) -> None:
@@ -30,7 +31,8 @@ def test_fiber_rule_flags_duplicate_pre_core_narrowing(tmp_path: Path) -> None:
         + "\n",
     )
 
-    violations = rule.collect_violations(root=tmp_path)
+    batch = build_policy_scan_batch(root=tmp_path, target_globs=(rule.TARGET_GLOB,))
+    violations = rule.collect_violations(batch=batch)
     assert len(violations) == 1
     assert violations[0].kind == "duplicate_normalization_before_core"
     assert violations[0].normalization_class == "narrow"
@@ -67,7 +69,8 @@ def test_fiber_rule_ignores_post_core_reapplication(tmp_path: Path) -> None:
         + "\n",
     )
 
-    violations = rule.collect_violations(root=tmp_path)
+    batch = build_policy_scan_batch(root=tmp_path, target_globs=(rule.TARGET_GLOB,))
+    violations = rule.collect_violations(batch=batch)
     assert violations == []
 
 
@@ -89,7 +92,8 @@ def test_fiber_rule_reads_annotation_contract(tmp_path: Path) -> None:
         + "\n",
     )
 
-    violations = rule.collect_violations(root=tmp_path)
+    batch = build_policy_scan_batch(root=tmp_path, target_globs=(rule.TARGET_GLOB,))
+    violations = rule.collect_violations(batch=batch)
     assert len(violations) == 1
     assert violations[0].normalization_class == "parse"
     assert violations[0].input_slot == "payload"

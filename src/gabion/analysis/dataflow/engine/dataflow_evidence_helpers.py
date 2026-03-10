@@ -66,7 +66,7 @@ def _is_class_def(value: ast.AST) -> bool:
 
 
 @_is_class_def.register(ast.ClassDef)
-def _(value: ast.ClassDef) -> bool:
+def _sd_reg_1(value: ast.ClassDef) -> bool:
     _ = value
     return True
 
@@ -88,7 +88,7 @@ def _class_def_name(value: ast.AST) -> str:
 
 
 @_class_def_name.register(ast.ClassDef)
-def _(value: ast.ClassDef) -> str:
+def _sd_reg_2(value: ast.ClassDef) -> str:
     return value.name
 
 
@@ -98,7 +98,7 @@ def _class_def_bases(value: ast.AST) -> tuple[ast.expr, ...]:
 
 
 @_class_def_bases.register(ast.ClassDef)
-def _(value: ast.ClassDef) -> tuple[ast.expr, ...]:
+def _sd_reg_3(value: ast.ClassDef) -> tuple[ast.expr, ...]:
     return tuple(value.bases)
 
 
@@ -108,7 +108,7 @@ def _class_def_body(value: ast.AST) -> tuple[ast.stmt, ...]:
 
 
 @_class_def_body.register(ast.ClassDef)
-def _(value: ast.ClassDef) -> tuple[ast.stmt, ...]:
+def _sd_reg_4(value: ast.ClassDef) -> tuple[ast.stmt, ...]:
     return tuple(value.body)
 
 
@@ -118,7 +118,7 @@ def _is_name_node(value: ast.AST) -> bool:
 
 
 @_is_name_node.register(ast.Name)
-def _(value: ast.Name) -> bool:
+def _sd_reg_5(value: ast.Name) -> bool:
     _ = value
     return True
 
@@ -140,7 +140,7 @@ def _name_node_id(value: ast.AST) -> str:
 
 
 @_name_node_id.register(ast.Name)
-def _(value: ast.Name) -> str:
+def _sd_reg_6(value: ast.Name) -> str:
     return value.id
 
 
@@ -150,7 +150,7 @@ def _is_add_operator(value: ast.operator) -> bool:
 
 
 @_is_add_operator.register(ast.Add)
-def _(value: ast.Add) -> bool:
+def _sd_reg_7(value: ast.Add) -> bool:
     _ = value
     return True
 
@@ -172,13 +172,13 @@ def _is_list_or_tuple_node(value: ast.AST) -> bool:
 
 
 @_is_list_or_tuple_node.register(ast.List)
-def _(value: ast.List) -> bool:
+def _sd_reg_8(value: ast.List) -> bool:
     _ = value
     return True
 
 
 @_is_list_or_tuple_node.register(ast.Tuple)
-def _(value: ast.Tuple) -> bool:
+def _sd_reg_9(value: ast.Tuple) -> bool:
     _ = value
     return True
 
@@ -200,12 +200,12 @@ def _sequence_elements(value: ast.AST) -> tuple[ast.AST, ...]:
 
 
 @_sequence_elements.register(ast.List)
-def _(value: ast.List) -> tuple[ast.AST, ...]:
+def _sd_reg_10(value: ast.List) -> tuple[ast.AST, ...]:
     return tuple(value.elts)
 
 
 @_sequence_elements.register(ast.Tuple)
-def _(value: ast.Tuple) -> tuple[ast.AST, ...]:
+def _sd_reg_11(value: ast.Tuple) -> tuple[ast.AST, ...]:
     return tuple(value.elts)
 
 
@@ -215,7 +215,7 @@ def _is_string_constant_node(value: ast.AST) -> bool:
 
 
 @_is_string_constant_node.register(ast.Constant)
-def _(value: ast.Constant) -> bool:
+def _sd_reg_12(value: ast.Constant) -> bool:
     return _is_string_value(value.value)
 
 
@@ -236,7 +236,7 @@ def _string_constant_text(value: ast.AST) -> str:
 
 
 @_string_constant_text.register(ast.Constant)
-def _(value: ast.Constant) -> str:
+def _sd_reg_13(value: ast.Constant) -> str:
     return _string_value_text(value.value)
 
 
@@ -246,7 +246,7 @@ def _is_string_value(value: _ConstantValue) -> bool:
 
 
 @_is_string_value.register(str)
-def _(value: str) -> bool:
+def _sd_reg_14(value: str) -> bool:
     _ = value
     return True
 
@@ -277,7 +277,7 @@ def _string_value_text(value: _ConstantValue) -> str:
 
 
 @_string_value_text.register(str)
-def _(value: str) -> str:
+def _sd_reg_15(value: str) -> str:
     return value
 
 
@@ -287,7 +287,7 @@ def _is_json_value_list(value: JSONValue) -> bool:
 
 
 @_is_json_value_list.register(list)
-def _(value: list[JSONValue]) -> bool:
+def _sd_reg_16(value: list[JSONValue]) -> bool:
     _ = value
     return True
 
@@ -298,7 +298,7 @@ def _json_value_list_items(value: JSONValue) -> tuple[JSONValue, ...]:
 
 
 @_json_value_list_items.register(list)
-def _(value: list[JSONValue]) -> tuple[JSONValue, ...]:
+def _sd_reg_17(value: list[JSONValue]) -> tuple[JSONValue, ...]:
     return tuple(value)
 
 

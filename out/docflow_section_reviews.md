@@ -1,12 +1,13 @@
 ---
 doc_revision: 1
-reader_reintern: Reader-only: re-intern if doc_revision changed since you last read this doc.
+reader_reintern: 'Reader-only: re-intern if doc_revision changed since you last read
+  this doc.'
 doc_id: docflow_section_reviews
 doc_role: report
 doc_scope:
-  - repo
-  - docflow
-  - report
+- repo
+- docflow
+- report
 doc_authority: informative
 doc_change_protocol: POLICY_SEED.md#change_protocol
 doc_requires: []

@@ -66,7 +66,7 @@ def _to_plain_json_value(value: object) -> object:
 
 
 @_to_plain_json_value.register(dict)
-def _(value: dict[object, object]) -> object:
+def _sd_reg_1(value: dict[object, object]) -> object:
     return {
         str(key): _to_plain_json_value(item)
         for key, item in value.items()
@@ -74,17 +74,17 @@ def _(value: dict[object, object]) -> object:
 
 
 @_to_plain_json_value.register(list)
-def _(value: list[object]) -> object:
+def _sd_reg_2(value: list[object]) -> object:
     return [_to_plain_json_value(item) for item in value]
 
 
 @_to_plain_json_value.register(tuple)
-def _(value: tuple[object, ...]) -> object:
+def _sd_reg_3(value: tuple[object, ...]) -> object:
     return [_to_plain_json_value(item) for item in value]
 
 
 @_to_plain_json_value.register(set)
-def _(value: set[object]) -> object:
+def _sd_reg_4(value: set[object]) -> object:
     return [
         _to_plain_json_value(item)
         for item in sorted(value, key=repr)
@@ -92,7 +92,7 @@ def _(value: set[object]) -> object:
 
 
 @_to_plain_json_value.register(Path)
-def _(value: Path) -> object:
+def _sd_reg_5(value: Path) -> object:
     return str(value)
 
 
@@ -101,7 +101,7 @@ def _(value: Path) -> object:
 @_to_plain_json_value.register(int)
 @_to_plain_json_value.register(float)
 @_to_plain_json_value.register(bool)
-def _(value: object) -> object:
+def _sd_reg_6(value: object) -> object:
     return value
 
 

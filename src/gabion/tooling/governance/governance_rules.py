@@ -97,7 +97,7 @@ def _str_optional(raw: object) -> str | None:
 
 
 @_str_optional.register(str)
-def _(raw: str) -> str | None:
+def _sd_reg_1(raw: str) -> str | None:
     return raw
 
 
@@ -116,7 +116,7 @@ def _dict_optional(raw: object) -> dict[object, object] | None:
 
 
 @_dict_optional.register(dict)
-def _(raw: dict[object, object]) -> dict[object, object] | None:
+def _sd_reg_2(raw: dict[object, object]) -> dict[object, object] | None:
     return raw
 
 
@@ -135,7 +135,7 @@ def _list_optional(raw: object) -> list[object] | None:
 
 
 @_list_optional.register(list)
-def _(raw: list[object]) -> list[object] | None:
+def _sd_reg_3(raw: list[object]) -> list[object] | None:
     return raw
 
 
@@ -188,13 +188,13 @@ def _as_bool(raw: object, *, field_name: str) -> bool:
 
 
 @_as_bool.register(bool)
-def _(raw: bool, *, field_name: str) -> bool:
+def _sd_reg_4(raw: bool, *, field_name: str) -> bool:
     _ = field_name
     return raw
 
 
 @_as_bool.register(str)
-def _(raw: str, *, field_name: str) -> bool:
+def _sd_reg_5(raw: str, *, field_name: str) -> bool:
     lowered = raw.strip().lower()
     if lowered in {"1", "true", "yes", "on"}:
         return True
@@ -218,7 +218,7 @@ def _optional_tuple_path(raw: object, *, field_name: str) -> tuple[str, ...] | N
 
 
 @_optional_tuple_path.register(list)
-def _(raw: list[object], *, field_name: str) -> tuple[str, ...] | None:
+def _sd_reg_6(raw: list[object], *, field_name: str) -> tuple[str, ...] | None:
     return _tuple_path(raw, field_name=field_name)
 
 
@@ -237,7 +237,7 @@ def _string_key_mapping(raw: object) -> dict[str, object]:
 
 
 @_string_key_mapping.register(dict)
-def _(raw: dict[object, object]) -> dict[str, object]:
+def _sd_reg_7(raw: dict[object, object]) -> dict[str, object]:
     mapped: dict[str, object] = {}
     for key, value in raw.items():
         key_text = _str_optional(key)
@@ -252,7 +252,7 @@ def _string_tuple_default_empty(raw: object) -> tuple[str, ...]:
 
 
 @_string_tuple_default_empty.register(list)
-def _(raw: list[object]) -> tuple[str, ...]:
+def _sd_reg_8(raw: list[object]) -> tuple[str, ...]:
     return tuple(str(item) for item in raw)
 
 

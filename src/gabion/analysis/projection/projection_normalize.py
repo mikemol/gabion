@@ -23,12 +23,12 @@ def _string_values_default_empty(value: JSONValue) -> tuple[str, ...]:
 
 
 @_string_values_default_empty.register(str)
-def _(value: str) -> tuple[str, ...]:
+def _sd_reg_1(value: str) -> tuple[str, ...]:
     return (value,)
 
 
 @_string_values_default_empty.register(list)
-def _(value: list[JSONValue]) -> tuple[str, ...]:
+def _sd_reg_2(value: list[JSONValue]) -> tuple[str, ...]:
     values: list[str] = []
     for entry in value:
         check_deadline()
@@ -53,12 +53,12 @@ def _sort_by_values_default_empty(value: JSONValue) -> tuple[JSONValue, ...]:
 
 
 @_sort_by_values_default_empty.register(str)
-def _(value: str) -> tuple[JSONValue, ...]:
+def _sd_reg_3(value: str) -> tuple[JSONValue, ...]:
     return (value,)
 
 
 @_sort_by_values_default_empty.register(list)
-def _(value: list[JSONValue]) -> tuple[JSONValue, ...]:
+def _sd_reg_4(value: list[JSONValue]) -> tuple[JSONValue, ...]:
     return tuple(value)
 
 
