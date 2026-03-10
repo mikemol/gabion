@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from importlib import import_module
 from pathlib import Path
-from typing import Mapping
+from typing import Any, Mapping
 
 
 def _load_yaml_module(*, importer=import_module):
@@ -173,6 +173,51 @@ def _gate_from_mapping(gate_id: str, payload: Mapping[str, object]) -> GatePolic
         blocking_prefix=str(payload.get("blocking_prefix", "Delta blocking")),
         ok_prefix=str(payload.get("ok_prefix", "Delta OK")),
     )
+
+
+def gate_policy_to_dsl_sources(gate: GatePolicy) -> tuple[Mapping[str, Any], ...]:
+    root = f"gate.{gate.gate_id}"
+    rules: list[Mapping[str, Any]] = []
+    if gate.baseline_missing_key is not None:
+        rules.append(
+            {
+                "rule_id": f"{root}.baseline_missing",
+                "domain": "governance_gate",
+                "severity": "info",
+                "predicate": {"op": "bool_true", "path": list(gate.baseline_missing_key)},
+                "outcome": {"kind": "skip", "message": "Docflow baseline missing; gate skipped."},
+                "evidence_contract": "none",
+            }
+        )
+    rules.extend(
+        [
+            {
+                "rule_id": f"{root}.blocking",
+                "domain": "governance_gate",
+                "severity": "blocking",
+                "predicate": {"op": "int_gte", "path": list(gate.delta_keys), "value": gate.severity.blocking_threshold},
+                "outcome": {"kind": "block", "message": gate.blocking_prefix},
+                "evidence_contract": "none",
+            },
+            {
+                "rule_id": f"{root}.warning",
+                "domain": "governance_gate",
+                "severity": "warning",
+                "predicate": {"op": "int_gte", "path": list(gate.delta_keys), "value": gate.severity.warning_threshold},
+                "outcome": {"kind": "warn", "message": gate.warning_prefix},
+                "evidence_contract": "none",
+            },
+            {
+                "rule_id": f"{root}.ok",
+                "domain": "governance_gate",
+                "severity": "info",
+                "predicate": {"op": "always"},
+                "outcome": {"kind": "pass", "message": gate.ok_prefix},
+                "evidence_contract": "none",
+            },
+        ]
+    )
+    return tuple(rules)
 
 
 @lru_cache(maxsize=1)

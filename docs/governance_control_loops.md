@@ -1,5 +1,5 @@
 ---
-doc_revision: 4
+doc_revision: 6
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: governance_control_loops
 doc_role: policy
@@ -227,3 +227,7 @@ This loop governs first-order loop integrity and prevents controller drift.
 - **max correction step:** one coherent governance patchset across policy + workflow + tooling.
 - **verification command:** `mise exec -- python scripts/governance_controller_audit.py --out artifacts/out/controller_drift.json`.
 - **escalation threshold:** repeated high-severity controller drift after one correction step.
+## DSL evaluation flow
+
+Control-loop gate semantics are authored as DSL sources (`docs/governance_rules.yaml`, `docs/policy_rules.yaml`, `docs/aspf_opportunity_rules.yaml`) and normalized by `src/gabion/policy_dsl/compile.py`, validated in `src/gabion/policy_dsl/typecheck.py`, and executed by `src/gabion/policy_dsl/eval.py`.
+

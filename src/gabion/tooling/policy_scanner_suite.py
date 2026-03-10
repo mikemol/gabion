@@ -10,6 +10,8 @@ from pathlib import Path
 import sys
 from typing import Iterable
 
+from gabion.policy_dsl import PolicyDomain, evaluate_policy
+
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
@@ -46,6 +48,7 @@ class PolicySuiteResult:
             rule: len(items)
             for rule, items in self.violations_by_rule.items()
         }
+        decision = evaluate_policy(domain=PolicyDomain.POLICY_SCANNER, data={"counts": counts})
         return {
             "format_version": _FORMAT_VERSION,
             "generated_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -55,6 +58,12 @@ class PolicySuiteResult:
             "cached": self.cached,
             "counts": counts,
             "violations": self.violations_by_rule,
+            "decision": {
+                "rule_id": decision.rule_id,
+                "outcome": decision.outcome.value,
+                "severity": decision.severity.value,
+                "message": decision.message,
+            },
         }
 
 

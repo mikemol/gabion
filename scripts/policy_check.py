@@ -17,6 +17,9 @@ from gabion.invariants import never
 from gabion.deadline_clock import MonotonicClock
 from gabion.order_contract import ordered_or_sorted
 from gabion.config import dataflow_adapter_payload, dataflow_defaults, dataflow_required_surfaces
+from gabion.policy_dsl.compile import compile_document
+from gabion.policy_dsl.registry import build_registry
+from gabion.policy_dsl.typecheck import typecheck
 
 try:
     import yaml
@@ -309,6 +312,29 @@ def _policy_timeout_budget() -> DeadlineBudget:
         ticks=_DEFAULT_POLICY_TIMEOUT_BUDGET.ticks,
         tick_ns=_DEFAULT_POLICY_TIMEOUT_BUDGET.tick_ns,
     )
+
+
+def check_policy_dsl() -> None:
+    errors: list[str] = []
+    docs = [
+        REPO_ROOT / "docs" / "policy_rules.yaml",
+        REPO_ROOT / "docs" / "aspf_opportunity_rules.yaml",
+    ]
+    for path in docs:
+        if not path.exists():
+            continue
+        program, issues = compile_document(path)
+        for issue in issues:
+            errors.append(f"{path}: compile {issue.code}: {issue.message} ({issue.rule_id})")
+        if program is not None:
+            for issue in typecheck(program):
+                errors.append(f"{path}: typecheck {issue.code}: {issue.message} ({issue.rule_id})")
+    try:
+        _ = build_registry()
+    except ValueError as exc:
+        errors.append(f"registry build failed: {exc}")
+    if errors:
+        _fail(errors)
 
 
 def _policy_deadline_scope():
@@ -1673,9 +1699,10 @@ def main():
     parser.add_argument("--adapter-surfaces", action="store_true", help="validate configured adapter surface requirements")
     parser.add_argument("--semantic-core-payload-branching", action="store_true", help="forbid raw Mapping/list payload branching outside boundary decode functions")
     parser.add_argument("--aspf-taint-crosswalk", action="store_true", help="require ASPF/taint crosswalk acknowledgement when relevant files change")
+    parser.add_argument("--policy-dsl", action="store_true", help="compile/typecheck policy DSL sources")
     args = parser.parse_args()
 
-    if not args.workflows and not args.posture and not args.ambiguity_contract and not args.normative_map and not args.tier2_residue_contract and not args.adapter_surfaces and not args.semantic_core_payload_branching and not args.aspf_taint_crosswalk:
+    if not args.workflows and not args.posture and not args.ambiguity_contract and not args.normative_map and not args.tier2_residue_contract and not args.adapter_surfaces and not args.semantic_core_payload_branching and not args.aspf_taint_crosswalk and not args.policy_dsl:
         args.workflows = True
 
     with _policy_deadline_scope():
@@ -1695,6 +1722,8 @@ def main():
             check_semantic_core_payload_branching()
         if args.aspf_taint_crosswalk or args.workflows:
             check_aspf_taint_crosswalk_ack()
+        if args.policy_dsl or args.workflows:
+            check_policy_dsl()
     return 0
 
 

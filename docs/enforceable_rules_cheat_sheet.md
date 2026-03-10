@@ -1,5 +1,5 @@
 ---
-doc_revision: 10
+doc_revision: 12
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: enforceable_rules_cheat_sheet
 doc_role: reference
@@ -215,3 +215,7 @@ Any new or modified rule entry in this file must include:
 
 This update discipline follows `POLICY_SEED.md#change_protocol` and preserves
 "authoritative by proxy" status without creating a new normative root.
+## Policy DSL migration note
+
+Governance gates, ambiguity contract checks, policy scanner decision summaries, and ASPF opportunity classification now share the typed policy DSL in `src/gabion/policy_dsl/` with shared declarations in `docs/policy_rules.yaml` and `docs/aspf_opportunity_rules.yaml`. Scripts remain orchestration wrappers.
+

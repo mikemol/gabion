@@ -1,0 +1,30 @@
+rules:
+  - rule_id: aspf.opportunity.two_cell
+    domain: aspf_opportunity
+    severity: warning
+    predicate:
+      op: bool_true
+      path: [witness, two_cell]
+    outcome:
+      kind: warn
+      message: two-cell witness opportunity detected
+    evidence_contract: two_cell_witness
+  - rule_id: aspf.opportunity.cofibration
+    domain: aspf_opportunity
+    severity: warning
+    predicate:
+      op: bool_true
+      path: [witness, cofibration]
+    outcome:
+      kind: warn
+      message: cofibration witness opportunity detected
+    evidence_contract: cofibration_witness
+  - rule_id: aspf.opportunity.none
+    domain: aspf_opportunity
+    severity: info
+    predicate:
+      op: always
+    outcome:
+      kind: pass
+      message: no structural opportunity
+    evidence_contract: representative_pair

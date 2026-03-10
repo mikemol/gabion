@@ -1,5 +1,5 @@
 ---
-doc_revision: 6
+doc_revision: 7
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: aspf_execution_fibration
 doc_role: contract
@@ -151,3 +151,7 @@ CLI controls:
 - `--aspf-import-state`
 - `--aspf-delta-jsonl`
 - `--aspf-semantic-surface`
+## Policy DSL ownership
+
+ASPF opportunity classification is now authored in `docs/aspf_opportunity_rules.yaml` and evaluated through `src/gabion/analysis/aspf_rule_engine.py` + `src/gabion/policy_dsl/` compile/typecheck/eval pipeline.
+

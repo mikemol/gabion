@@ -7,8 +7,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
 
+from gabion.policy_dsl import PolicyDomain
+from gabion.policy_dsl.schema import PolicyDecision, PolicyOutcomeKind
+from gabion.policy_dsl.compile import compile_rules
+from gabion.policy_dsl.eval import first_match
+from gabion.tooling.governance_rules import GatePolicy, gate_policy_to_dsl_sources, load_governance_rules
 from gabion.runtime import env_policy, json_io
-from gabion.tooling.governance_rules import GatePolicy, load_governance_rules
 
 OBSOLESCENCE_OPAQUE_ENV_FLAG = "GABION_GATE_OPAQUE_DELTA"
 OBSOLESCENCE_UNMAPPED_ENV_FLAG = "GABION_GATE_UNMAPPED_DELTA"
@@ -97,6 +101,25 @@ def _load_payload(path: Path) -> tuple[Mapping[str, object] | None, str | None]:
     return None, None
 
 
+
+
+def _evaluate_gate_decision(gate_id: str, gate: GatePolicy, payload: Mapping[str, object]) -> PolicyDecision:
+    rules = []
+    for rule in gate_policy_to_dsl_sources(gate):
+        wrapped = dict(rule)
+        wrapped["predicate"] = {
+            "op": "all",
+            "predicates": [
+                {"op": "str_eq", "path": ["gate_id"], "value": gate_id},
+                dict(rule["predicate"]),
+            ],
+        }
+        rules.append(wrapped)
+    program, issues = compile_rules(rules)
+    if issues or program is None:
+        raise ValueError("failed to compile gate policy", issues)
+    return first_match(program, domain=PolicyDomain.GOVERNANCE_GATE, data={**dict(payload), "gate_id": gate_id})
+
 def _gate_id_for_env_flag(env_flag: str) -> str:
     mapping = {
         OBSOLESCENCE_OPAQUE_ENV_FLAG: "obsolescence_opaque",
@@ -111,12 +134,7 @@ def _gate_id_for_env_flag(env_flag: str) -> str:
     return gate_id
 
 
-def _check_standard_gate(
-    spec: StandardGateSpec,
-    path: Path,
-    *,
-    enabled: bool | None,
-) -> int:
+def _check_standard_gate(spec: StandardGateSpec, path: Path, *, enabled: bool | None) -> int:
     gate_enabled = _enabled_default_true(spec.env_flag) if enabled is None else enabled
     if not gate_enabled:
         print(spec.disabled_message)
@@ -131,16 +149,16 @@ def _check_standard_gate(
         else:
             print(spec.unreadable_message)
         return 2
-    gate_policy = load_governance_rules().gates[_gate_id_for_env_flag(spec.env_flag)]
+    gate_id = _gate_id_for_env_flag(spec.env_flag)
+    gate_policy = load_governance_rules().gates[gate_id]
+    decision = _evaluate_gate_decision(gate_id, gate_policy, payload)
     delta_value = _nested_int(payload, spec.delta_keys)
-    if delta_value >= gate_policy.severity.blocking_threshold:
-        before = _nested_int(payload, spec.before_keys)
-        after = _nested_int(payload, spec.after_keys)
+    before = _nested_int(payload, spec.before_keys)
+    after = _nested_int(payload, spec.after_keys)
+    if decision.outcome is PolicyOutcomeKind.BLOCK:
         print(f"{spec.blocking_prefix}: {before} -> {after} (+{delta_value}).")
         return 1
-    if delta_value >= gate_policy.severity.warning_threshold:
-        before = _nested_int(payload, spec.before_keys)
-        after = _nested_int(payload, spec.after_keys)
+    if decision.outcome is PolicyOutcomeKind.WARN:
         print(f"{spec.warning_prefix}: {before} -> {after} (+{delta_value}).")
         return 0
     print(f"{spec.ok_prefix} ({delta_value}).")
@@ -219,25 +237,19 @@ def check_docflow_gate(path: Path, *, enabled: bool | None = None) -> int:
         else:
             print(policy.unreadable_message)
         return 0
-    baseline_missing = bool(payload.get("baseline_missing"))
-    if baseline_missing:
-        print("Docflow baseline missing; gate skipped.")
-        return 0
+    decision = _evaluate_gate_decision("docflow", policy, payload)
     contradicts_delta = docflow_delta_value(payload, "contradicts")
     excess_delta = docflow_delta_value(payload, "excess")
     proposed_delta = docflow_delta_value(payload, "proposed")
-    if contradicts_delta >= policy.severity.blocking_threshold:
+    if decision.outcome is PolicyOutcomeKind.SKIP:
+        print(decision.message)
+        return 0
+    if decision.outcome is PolicyOutcomeKind.BLOCK:
         before = _nested_int(payload, ("summary", "baseline", "contradicts"))
         after = _nested_int(payload, ("summary", "current", "contradicts"))
-        print(
-            f"{policy.blocking_prefix}: "
-            f"{before} -> {after} (+{contradicts_delta})."
-        )
+        print(f"{policy.blocking_prefix}: {before} -> {after} (+{contradicts_delta}).")
         return 1
-    print(
-        f"{policy.ok_prefix} "
-        f"(contradicts {contradicts_delta}, excess {excess_delta}, proposed {proposed_delta})."
-    )
+    print(f"{policy.ok_prefix} (contradicts {contradicts_delta}, excess {excess_delta}, proposed {proposed_delta}).")
     return 0
 
 
