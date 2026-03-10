@@ -90,17 +90,6 @@ doc_owner: maintainer
 ---
 
 <a id="policy_seed"></a>
-Excellent. What you’re asking for is not “documentation” in the usual sense. You’re asking for a **self-stabilizing policy nucleus**: a document that is simultaneously
-
-* **normative** (it constrains behavior),
-* **meta-normative** (it constrains how the constraints themselves may change),
-* **interpretable by LLMs as an active control**, and
-* **embedded in a feedback loop** so it can resist both *decay* (staleness) and *attack* (malice).
-
-Below is a **documentation seed** you can drop into the repo (e.g. `POLICY_SEED.md#policy_seed`). It is written deliberately as a *control object*, not as prose. Repo-native agents and LLMs should be instructed (elsewhere, e.g. in a system prompt or CONTRIBUTING.md#contributing_contract) to treat this file as **authoritative and executable guidance**.
-
----
-
 # POLICY_SEED.md#policy_seed
 
 **Title:** Self-Stabilizing Security & Execution Policy Seed
