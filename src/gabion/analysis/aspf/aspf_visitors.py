@@ -9,7 +9,7 @@ from typing import Callable, Iterable, Literal, Mapping, Protocol, TypeAlias, ca
 from gabion.analysis.aspf.aspf import Alt, Forest, Node, NodeId
 from gabion.analysis.foundation.resume_codec import mapping_default_empty, sequence_optional
 from gabion.invariants import never
-from gabion.json_types import JSONObject, JSONValue
+from gabion.analysis.foundation.wire_types import WireObject, WireValue
 from gabion.order_contract import sort_once
 
 
@@ -206,11 +206,11 @@ class TwoCellReplayNormalizationKind(StrEnum):
 @dataclass(frozen=True)
 class TwoCellReplayNormalizationOutcome:
     kind: TwoCellReplayNormalizationKind
-    payload: Mapping[str, JSONValue] = field(default_factory=dict)
+    payload: Mapping[str, WireValue] = field(default_factory=dict)
 
 
 def _normalize_two_cell_witness_for_replay(
-    witness: Mapping[str, JSONValue],
+    witness: Mapping[str, WireValue],
 ) -> TwoCellReplayNormalizationOutcome:
     normalized = {str(key): witness[key] for key in witness}
     witness_id = str(normalized.get("witness_id", "")).strip()
@@ -311,13 +311,13 @@ def replay_iterator_inputs_to_visitor(
 
 @dataclass
 class TracePayloadEmitter(NullAspfTraversalVisitor):
-    one_cells: list[JSONValue] = field(default_factory=list)
-    two_cell_witnesses: list[JSONValue] = field(default_factory=list)
-    cofibration_witnesses: list[JSONValue] = field(default_factory=list)
+    one_cells: list[WireValue] = field(default_factory=list)
+    two_cell_witnesses: list[WireValue] = field(default_factory=list)
+    cofibration_witnesses: list[WireValue] = field(default_factory=list)
     surface_representatives: dict[str, str] = field(default_factory=dict)
 
     def on_trace_one_cell(self, *, index: int, one_cell: Mapping[str, object]) -> None:
-        self.one_cells.append({str(key): cast(JSONValue, one_cell[key]) for key in one_cell})
+        self.one_cells.append({str(key): cast(WireValue, one_cell[key]) for key in one_cell})
 
     def on_trace_two_cell_witness(
         self,
@@ -326,7 +326,7 @@ class TracePayloadEmitter(NullAspfTraversalVisitor):
         witness: Mapping[str, object],
     ) -> None:
         self.two_cell_witnesses.append(
-            {str(key): cast(JSONValue, witness[key]) for key in witness}
+            {str(key): cast(WireValue, witness[key]) for key in witness}
         )
 
     def on_trace_cofibration(
@@ -336,7 +336,7 @@ class TracePayloadEmitter(NullAspfTraversalVisitor):
         cofibration: Mapping[str, object],
     ) -> None:
         self.cofibration_witnesses.append(
-            {str(key): cast(JSONValue, cofibration[key]) for key in cofibration}
+            {str(key): cast(WireValue, cofibration[key]) for key in cofibration}
         )
 
     def on_trace_surface_representative(
@@ -424,7 +424,7 @@ class OpportunityProofObligation:
     predicate: str
     detail: str
 
-    def as_row(self) -> JSONObject:
+    def as_row(self) -> WireObject:
         return {
             "obligation": self.obligation,
             "satisfied": self.satisfied,
@@ -437,7 +437,7 @@ class OpportunityProofObligation:
 class OpportunityDecisionProtocol:
     opportunity_id: str
     kind: str
-    canonical_identity: JSONObject
+    canonical_identity: WireObject
     affected_surfaces: tuple[str, ...]
     witness_ids: tuple[str, ...]
     reason: str
@@ -445,7 +445,7 @@ class OpportunityDecisionProtocol:
     witness_requirement: OpportunityWitnessRequirement
     actionability: OpportunityActionabilityState
     proof_obligations: tuple[OpportunityProofObligation, ...] = ()
-    carrier_subgraph: JSONObject = field(default_factory=dict)
+    carrier_subgraph: WireObject = field(default_factory=dict)
     witness_chain: tuple[str, ...] = ()
     opportunity_hash: str = ""
 
@@ -462,7 +462,7 @@ class OpportunityDecisionProtocol:
             return round(satisfied / len(self.proof_obligations), 2)
         return 0.0
 
-    def as_row(self) -> JSONObject:
+    def as_row(self) -> WireObject:
         return {
             "opportunity_id": self.opportunity_id,
             "kind": self.kind,
@@ -483,7 +483,7 @@ class OpportunityDecisionProtocol:
             **({"opportunity_hash": self.opportunity_hash} if self.opportunity_hash else {}),
         }
 
-    def as_rewrite_plan(self) -> JSONObject:
+    def as_rewrite_plan(self) -> WireObject:
         return {
             "plan_id": f"rewrite:{self.opportunity_id}",
             "kind": "aspf_opportunity",
@@ -508,7 +508,7 @@ class OpportunityDecisionProtocol:
         }
 
 
-def _node_id_identity_payload(node_id: NodeId) -> JSONObject:
+def _node_id_identity_payload(node_id: NodeId) -> WireObject:
     fingerprint_kind, fingerprint_parts = node_id.fingerprint()
     return {
         "node_id": node_id.as_dict(),
@@ -966,10 +966,10 @@ class OpportunityPayloadEmitter(NullAspfTraversalVisitor):
         decisions = self.taxonomy.decisions_for(observations=self._normalize_observations())
         return sorted(decisions, key=lambda item: item.opportunity_id)
 
-    def build_rows(self) -> list[JSONObject]:
+    def build_rows(self) -> list[WireObject]:
         return [decision.as_row() for decision in self._build_decisions()]
 
-    def build_rewrite_plans(self) -> list[JSONObject]:
+    def build_rewrite_plans(self) -> list[WireObject]:
         decisions = [
             decision
             for decision in self._build_decisions()
@@ -980,15 +980,15 @@ class OpportunityPayloadEmitter(NullAspfTraversalVisitor):
 
 @dataclass
 class StatePayloadEmitter:
-    trace: JSONObject = field(default_factory=dict)
-    equivalence: JSONObject = field(default_factory=dict)
-    opportunities: JSONObject = field(default_factory=dict)
+    trace: WireObject = field(default_factory=dict)
+    equivalence: WireObject = field(default_factory=dict)
+    opportunities: WireObject = field(default_factory=dict)
 
     def set_trace_payload(self, payload: Mapping[str, object]) -> None:
-        self.trace = {str(key): cast(JSONValue, payload[key]) for key in payload}
+        self.trace = {str(key): cast(WireValue, payload[key]) for key in payload}
 
     def set_equivalence_payload(self, payload: Mapping[str, object]) -> None:
-        self.equivalence = {str(key): cast(JSONValue, payload[key]) for key in payload}
+        self.equivalence = {str(key): cast(WireValue, payload[key]) for key in payload}
 
     def set_opportunities_payload(self, payload: Mapping[str, object]) -> None:
-        self.opportunities = {str(key): cast(JSONValue, payload[key]) for key in payload}
+        self.opportunities = {str(key): cast(WireValue, payload[key]) for key in payload}

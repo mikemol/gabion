@@ -39,13 +39,6 @@ from gabion.tooling.runtime.policy_scan_batch import (
 RULE_NAME = "branchless"
 TARGET_GLOB = "src/gabion/**/*.py"
 BASELINE_VERSION = 1
-MODULE_MARKER = "gabion:decision_protocol_module"
-FUNCTION_MARKER = "gabion:decision_protocol"
-DECORATOR_NAMES = {
-    "decision_protocol",
-    "invariants.decision_protocol",
-    "gabion.invariants.decision_protocol",
-}
 
 
 @dataclass(frozen=True)
@@ -82,7 +75,6 @@ class Violation:
 @dataclass(frozen=True)
 class _Scope:
     qualname: str
-    is_decision_protocol: bool
 
 
 class _BranchlessVisitor(ast.NodeVisitor):
@@ -99,7 +91,6 @@ class _BranchlessVisitor(ast.NodeVisitor):
         self.source_lines = source_lines
         self.run_context = run_context
         self.violations: list[Violation] = []
-        self.module_decision_protocol = _module_is_decision_protocol(source_lines)
         self.scope_stack: list[_Scope] = []
         self._dataflow_bundle_by_qualname: dict[str, DataflowFiberBundle] = {}
 
@@ -144,37 +135,12 @@ class _BranchlessVisitor(ast.NodeVisitor):
     def _visit_function_node(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         parent_qual = self.scope_stack[-1].qualname if self.scope_stack else "<module>"
         qualname = node.name if parent_qual == "<module>" else f"{parent_qual}.{node.name}"
-        is_decision_protocol = self._function_is_decision_protocol(node)
-        self.scope_stack.append(_Scope(qualname=qualname, is_decision_protocol=is_decision_protocol))
+        self.scope_stack.append(_Scope(qualname=qualname))
         self.generic_visit(node)
         self.scope_stack.pop()
 
-    def _function_is_decision_protocol(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
-        if self.module_decision_protocol:
-            return True
-        if _has_preceding_marker(
-            source_lines=self.source_lines,
-            line=int(getattr(node, "lineno", 1)),
-            marker=FUNCTION_MARKER,
-        ):
-            return True
-        for decorator in node.decorator_list:
-            dotted = _dotted_name(decorator)
-            if dotted in DECORATOR_NAMES:
-                return True
-            match decorator:
-                case ast.Call(func=func):
-                    call_name = _dotted_name(func)
-                    if call_name in DECORATOR_NAMES:
-                        return True
-                case _:
-                    pass
-        return False
-
     def _record_branch(self, node: ast.AST, *, kind: str) -> None:
-        scope = self.scope_stack[-1] if self.scope_stack else _Scope("<module>", self.module_decision_protocol)
-        if scope.is_decision_protocol:
-            return
+        scope = self.scope_stack[-1] if self.scope_stack else _Scope("<module>")
         line = int(getattr(node, "lineno", 1))
         column = int(getattr(node, "col_offset", 0)) + 1
         input_slot = f"branch:{kind}"
@@ -258,43 +224,6 @@ class _BranchlessVisitor(ast.NodeVisitor):
             branch_node_kind=f"branch:{kind}",
             required_symbols=required_symbols,
         )
-
-
-def _module_is_decision_protocol(source_lines: list[str]) -> bool:
-    for raw_line in source_lines[:80]:
-        stripped = raw_line.strip()
-        if not stripped:
-            continue
-        if stripped.startswith("#") and MODULE_MARKER in stripped:
-            return True
-        if stripped.startswith("\"\"\"") or stripped.startswith("'''"):
-            continue
-    return False
-
-
-def _has_preceding_marker(*, source_lines: list[str], line: int, marker: str) -> bool:
-    idx = max(0, line - 2)
-    while idx >= 0:
-        stripped = source_lines[idx].strip()
-        if not stripped:
-            idx -= 1
-            continue
-        return stripped.startswith("#") and marker in stripped
-    return False
-
-
-def _dotted_name(node: ast.AST) -> str:
-    return ".".join(_dotted_name_parts(node))
-
-
-def _dotted_name_parts(node: ast.AST) -> tuple[str, ...]:
-    match node:
-        case ast.Name(id=identifier):
-            return (identifier,)
-        case ast.Attribute(value=value, attr=attr):
-            return (*_dotted_name_parts(value), attr)
-        case _:
-            return ()
 
 
 def _structured_hash(*parts: str) -> str:

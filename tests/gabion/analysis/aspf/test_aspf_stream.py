@@ -7,7 +7,7 @@ from gabion.analysis.aspf import aspf_stream
 
 
 # gabion:behavior primary=desired
-def test_iter_jsonl_skips_blank_lines() -> None:
+def test_iter_event_lines_skips_blank_lines() -> None:
     path = Path("artifacts/out/test_aspf_stream_blank.jsonl")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
@@ -21,7 +21,7 @@ def test_iter_jsonl_skips_blank_lines() -> None:
         encoding="utf-8",
     )
     try:
-        rows = list(aspf_stream._iter_jsonl(path=path))
+        rows = list(aspf_stream._iter_event_lines(path=path))
     finally:
         path.unlink(missing_ok=True)
     assert rows == [{"kind": "one_cell", "payload": {"id": "a"}}]

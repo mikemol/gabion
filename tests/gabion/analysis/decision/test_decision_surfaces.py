@@ -385,8 +385,8 @@ def test_decision_surface_evidence_is_deterministic(tmp_path: Path) -> None:
             decision_tiers={"flag": 2, "user_mode": 3},
             forest=forest,
         )
-        snapshots.append(json.dumps(forest.to_json(), sort_keys=False, separators=(",", ":")))
-        decision_alts = [alt for alt in forest.to_json()["alts"] if alt.get("kind") == "DecisionSurface"]
+        snapshots.append(json.dumps(forest.to_wire_payload(), sort_keys=False, separators=(",", ":")))
+        decision_alts = [alt for alt in forest.to_wire_payload()["alts"] if alt.get("kind") == "DecisionSurface"]
         assert decision_alts
         evidence = decision_alts[0]["evidence"]
         assert list(evidence) == [

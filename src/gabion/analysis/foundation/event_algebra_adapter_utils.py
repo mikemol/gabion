@@ -5,15 +5,19 @@ import json
 from hashlib import sha1
 from typing import Mapping
 
-from gabion.analysis.foundation.json_types import JSONObject
+from gabion.analysis.foundation.wire_types import WireObject
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.runtime import stable_encode
 
 
-def mapping_payload_to_json_object(payload: Mapping[str, object]) -> JSONObject:
+def mapping_payload_to_wire_object(payload: Mapping[str, object]) -> WireObject:
     check_deadline()
     canonical = stable_encode.stable_compact_text(payload)
     return json.loads(canonical)
+
+
+def mapping_payload_to_json_object(payload: Mapping[str, object]) -> WireObject:
+    return mapping_payload_to_wire_object(payload)
 
 
 def payload_sha1_digest(payload: Mapping[str, object]) -> str:
@@ -22,4 +26,8 @@ def payload_sha1_digest(payload: Mapping[str, object]) -> str:
     return sha1(canonical).hexdigest()
 
 
-__all__ = ["mapping_payload_to_json_object", "payload_sha1_digest"]
+__all__ = [
+    "mapping_payload_to_wire_object",
+    "mapping_payload_to_json_object",
+    "payload_sha1_digest",
+]

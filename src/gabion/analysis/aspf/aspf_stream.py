@@ -1,18 +1,27 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import json
 from pathlib import Path
-from typing import Iterator, Mapping, Protocol, cast
+from typing import Callable, Iterator, Mapping, Protocol
 
-from gabion.json_types import JSONObject
+from gabion.analysis.foundation import aspf_io_boundary, wire_text_codec
+from gabion.analysis.foundation.wire_types import WireObject, WireValue
 from gabion.order_contract import sort_once
 
 from gabion.analysis.aspf import aspf_resume_state
 from gabion.analysis.aspf.aspf_core import AspfOneCell, AspfTwoCellWitness
 from gabion.analysis.aspf.aspf_morphisms import CofibrationWitnessCarrier
+from gabion.analysis.foundation.frozen_object_map import ObjectEntry, make_object_map
 
 AspfExecutionTraceState = object
+
+
+class _SurfaceRepresentativeMap(dict[str, str]):
+    pass
+
+
+class _MutableObjectMap(dict[str, WireValue]):
+    pass
 
 
 @dataclass(frozen=True)
@@ -21,7 +30,7 @@ class OneCellRecorded:
     cell: AspfOneCell
     kind: str
     surface: str
-    metadata_payload: JSONObject
+    metadata_payload: WireObject
 
 
 @dataclass(frozen=True)
@@ -41,18 +50,18 @@ class SemanticSurfaceUpdated:
     state: AspfExecutionTraceState
     surface: str
     representative: str
-    normalized_value: object
+    normalized_value: WireValue
     phase: str
 
 
 @dataclass(frozen=True)
 class RunFinalized:
     state: AspfExecutionTraceState
-    trace_payload: Mapping[str, object]
-    equivalence_payload: Mapping[str, object]
-    opportunities_payload: Mapping[str, object]
-    delta_ledger_payload: Mapping[str, object]
-    state_payload: Mapping[str, object]
+    trace_payload: Mapping[str, WireValue]
+    equivalence_payload: Mapping[str, WireValue]
+    opportunities_payload: Mapping[str, WireValue]
+    delta_ledger_payload: Mapping[str, WireValue]
+    state_payload: Mapping[str, WireValue]
 
 
 class AspfEventVisitor(Protocol):
@@ -95,81 +104,81 @@ class AspfTraceSinkIndex:
     cofibrations_path: Path
     delta_records_path: Path
 
-    def iter_one_cells(self) -> Iterator[JSONObject]:
-        return _iter_jsonl(path=self.one_cells_path)
+    def iter_one_cells(self) -> Iterator[WireObject]:
+        return _iter_event_lines(path=self.one_cells_path)
 
-    def iter_two_cell_witnesses(self) -> Iterator[JSONObject]:
-        return _iter_jsonl(path=self.two_cell_witnesses_path)
+    def iter_two_cell_witnesses(self) -> Iterator[WireObject]:
+        return _iter_event_lines(path=self.two_cell_witnesses_path)
 
-    def iter_cofibrations(self) -> Iterator[JSONObject]:
-        return _iter_jsonl(path=self.cofibrations_path)
+    def iter_cofibrations(self) -> Iterator[WireObject]:
+        return _iter_event_lines(path=self.cofibrations_path)
 
-    def iter_delta_records(self) -> Iterator[JSONObject]:
-        return _iter_jsonl(path=self.delta_records_path)
+    def iter_delta_records(self) -> Iterator[WireObject]:
+        return _iter_event_lines(path=self.delta_records_path)
 
 
 @dataclass
-class AspfJsonlEventSink(AspfEventSink):
+class AspfEventJournalSink(AspfEventSink):
     sink_root: Path
     one_cells_path: Path
     two_cell_witnesses_path: Path
     cofibrations_path: Path
     delta_records_path: Path
-    surface_representatives: dict[str, str]
+    surface_representatives: _SurfaceRepresentativeMap
     one_cell_count: int = 0
     two_cell_witness_count: int = 0
     cofibration_count: int = 0
     delta_record_count: int = 0
 
     @classmethod
-    def create(cls, *, sink_root: Path) -> AspfJsonlEventSink:
+    def create(cls, *, sink_root: Path) -> AspfEventJournalSink:
         sink_root.mkdir(parents=True, exist_ok=True)
         return cls(
             sink_root=sink_root,
-            one_cells_path=sink_root / "one_cells.jsonl",
-            two_cell_witnesses_path=sink_root / "two_cell_witnesses.jsonl",
-            cofibrations_path=sink_root / "cofibrations.jsonl",
-            delta_records_path=sink_root / "delta_records.jsonl",
-            surface_representatives={},
+            one_cells_path=sink_root / aspf_io_boundary.ONE_CELL_STREAM_FILENAME,
+            two_cell_witnesses_path=sink_root / aspf_io_boundary.TWO_CELL_STREAM_FILENAME,
+            cofibrations_path=sink_root / aspf_io_boundary.COFIBRATION_STREAM_FILENAME,
+            delta_records_path=sink_root / aspf_io_boundary.DELTA_RECORD_STREAM_FILENAME,
+            surface_representatives=_SurfaceRepresentativeMap(),
         )
 
     def write_one_cell(self, event: OneCellRecorded) -> None:
-        payload = event.cell.as_dict()
-        payload["kind"] = str(event.kind)
-        payload["surface"] = str(event.surface)
+        payload = _MutableObjectMap(event.cell.as_dict())
+        payload["kind"] = event.kind
+        payload["surface"] = event.surface
         payload["metadata"] = event.metadata_payload
-        _append_jsonl(self.one_cells_path, payload)
+        _append_event_line(self.one_cells_path, payload)
         self.one_cell_count += 1
 
         analysis_state_value = event.metadata_payload.get("analysis_state")
-        analysis_state = (
-            str(analysis_state_value) if analysis_state_value is not None else None
-        )
-        mutation_target = f"one_cells.{self.one_cell_count}"
+        analysis_state = _analysis_state_text(analysis_state_value)
+        mutation_target = "one_cells.%s" % self.one_cell_count
         delta_record = aspf_resume_state.append_delta_record(
             records=[],
             event_kind=event.kind,
-            phase=event.cell.basis_path[0] if event.cell.basis_path else "runtime",
+            phase=_phase_from_basis_path(event.cell.basis_path),
             analysis_state=analysis_state,
             mutation_target=mutation_target,
-            mutation_value={
-                "source": str(event.cell.source),
-                "target": str(event.cell.target),
-                "representative": event.cell.representative,
-                "surface": event.surface,
-                "metadata": event.metadata_payload,
-            },
+            mutation_value=make_object_map(
+                [
+                    ObjectEntry("source", event.cell.source.label),
+                    ObjectEntry("target", event.cell.target.label),
+                    ObjectEntry("representative", event.cell.representative),
+                    ObjectEntry("surface", event.surface),
+                    ObjectEntry("metadata", event.metadata_payload),
+                ]
+            ),
             one_cell_ref=mutation_target,
         )
-        _append_jsonl(self.delta_records_path, delta_record)
+        _append_event_line(self.delta_records_path, delta_record)
         self.delta_record_count += 1
 
     def write_two_cell(self, event: TwoCellWitnessRecorded) -> None:
-        _append_jsonl(self.two_cell_witnesses_path, event.witness.as_dict())
+        _append_event_line(self.two_cell_witnesses_path, event.witness.as_dict())
         self.two_cell_witness_count += 1
 
     def write_cofibration(self, event: CofibrationRecorded) -> None:
-        _append_jsonl(self.cofibrations_path, event.carrier.as_dict())
+        _append_event_line(self.cofibrations_path, event.carrier.as_dict())
         self.cofibration_count += 1
 
     def write_surface_update(self, event: SemanticSurfaceUpdated) -> None:
@@ -179,33 +188,35 @@ class AspfJsonlEventSink(AspfEventSink):
             event_kind="semantic_surface_projection",
             phase=event.phase,
             analysis_state=None,
-            mutation_target=f"semantic_surfaces.{event.surface}",
+            mutation_target="semantic_surfaces.%s" % event.surface,
             mutation_value=event.normalized_value,
             one_cell_ref=None,
         )
-        _append_jsonl(self.delta_records_path, delta_record)
+        _append_event_line(self.delta_records_path, delta_record)
         self.delta_record_count += 1
 
     def write_finalize(self, event: RunFinalized) -> None:
         return None
 
     def close(self) -> None:
-        manifest = {
-            "one_cell_count": self.one_cell_count,
-            "two_cell_witness_count": self.two_cell_witness_count,
-            "cofibration_count": self.cofibration_count,
-            "delta_record_count": self.delta_record_count,
-            "surface_representatives": {
-                surface: self.surface_representatives[surface]
-                for surface in sort_once(
-                    self.surface_representatives,
-                    source="aspf_stream.AspfJsonlEventSink.close.surface_representatives",
-                )
-            },
-        }
-        (self.sink_root / "manifest.json").write_text(
-            json.dumps(manifest, indent=2, sort_keys=False) + "\n",
-            encoding="utf-8",
+        manifest = make_object_map(
+            [
+                ObjectEntry("one_cell_count", self.one_cell_count),
+                ObjectEntry("two_cell_witness_count", self.two_cell_witness_count),
+                ObjectEntry("cofibration_count", self.cofibration_count),
+                ObjectEntry("delta_record_count", self.delta_record_count),
+                ObjectEntry(
+                    "surface_representatives",
+                    _sorted_surface_representatives(self.surface_representatives),
+                ),
+            ]
+        )
+        wire_text_codec.write_pretty_mapping(
+            self.sink_root / aspf_io_boundary.MANIFEST_FILENAME,
+            manifest,
+        )
+        wire_text_codec.append_trailing_newline(
+            self.sink_root / aspf_io_boundary.MANIFEST_FILENAME,
         )
 
     def build_index(self) -> AspfTraceSinkIndex:
@@ -214,7 +225,7 @@ class AspfJsonlEventSink(AspfEventSink):
             two_cell_witness_count=self.two_cell_witness_count,
             cofibration_count=self.cofibration_count,
             delta_record_count=self.delta_record_count,
-            surface_representatives=dict(self.surface_representatives),
+            surface_representatives=_SurfaceRepresentativeMap(self.surface_representatives),
             one_cells_path=self.one_cells_path,
             two_cell_witnesses_path=self.two_cell_witnesses_path,
             cofibrations_path=self.cofibrations_path,
@@ -251,30 +262,32 @@ class AspfInMemoryCompatibilityVisitor:
     def visit_one_cell_recorded(self, event: OneCellRecorded) -> None:
         event.state.one_cells.append(event.cell)
         analysis_state_value = event.metadata_payload.get("analysis_state")
-        analysis_state = (
-            str(analysis_state_value) if analysis_state_value is not None else None
+        analysis_state = _analysis_state_text(analysis_state_value)
+        raw_metadata: WireObject = make_object_map(
+            [
+                ObjectEntry("kind", event.kind),
+                ObjectEntry("surface", event.surface),
+                ObjectEntry("metadata", event.metadata_payload),
+            ]
         )
-        raw_metadata: JSONObject = {
-            "kind": event.kind,
-            "surface": event.surface,
-            "metadata": event.metadata_payload,
-        }
         event.state.one_cell_metadata.append(raw_metadata)
-        mutation_target = f"one_cells.{len(event.state.one_cells)}"
-        phase = event.cell.basis_path[0] if event.cell.basis_path else "runtime"
+        mutation_target = "one_cells.%s" % len(event.state.one_cells)
+        phase = _phase_from_basis_path(event.cell.basis_path)
         aspf_resume_state.append_delta_record(
             records=event.state.delta_records,
             event_kind=event.kind,
-            phase=str(phase),
+            phase=phase,
             analysis_state=analysis_state,
             mutation_target=mutation_target,
-            mutation_value={
-                "source": str(event.cell.source),
-                "target": str(event.cell.target),
-                "representative": event.cell.representative,
-                "surface": event.surface,
-                "metadata": event.metadata_payload,
-            },
+            mutation_value=make_object_map(
+                [
+                    ObjectEntry("source", event.cell.source.label),
+                    ObjectEntry("target", event.cell.target.label),
+                    ObjectEntry("representative", event.cell.representative),
+                    ObjectEntry("surface", event.surface),
+                    ObjectEntry("metadata", event.metadata_payload),
+                ]
+            ),
             one_cell_ref=mutation_target,
         )
 
@@ -291,7 +304,7 @@ class AspfInMemoryCompatibilityVisitor:
             event_kind="semantic_surface_projection",
             phase=event.phase,
             analysis_state=None,
-            mutation_target=f"semantic_surfaces.{event.surface}",
+            mutation_target="semantic_surfaces.%s" % event.surface,
             mutation_value=event.normalized_value,
             one_cell_ref=None,
         )
@@ -303,20 +316,104 @@ class AspfInMemoryCompatibilityVisitor:
         pass
 
 
-def _append_jsonl(path: Path, payload: Mapping[str, object]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(payload, sort_keys=False))
-        handle.write("\n")
+def _append_event_line(path: Path, payload: Mapping[str, object]) -> None:
+    wire_text_codec.append_line(path, payload)
 
 
-def _iter_jsonl(*, path: Path) -> Iterator[JSONObject]:
-    if not path.exists():
-        return
-    with path.open("r", encoding="utf-8") as handle:
-        for raw in handle:
-            line = raw.strip()
-            if not line:
-                continue
-            payload = cast(Mapping[str, object], json.loads(line))
-            yield {str(key): payload[key] for key in payload}
+def _iter_event_lines(*, path: Path) -> Iterator[WireObject]:
+    return _EVENT_LINE_ITERATORS[path.exists()](path)
+
+
+def _iter_missing_event_lines(_: Path) -> Iterator[WireObject]:
+    return iter([])
+
+
+def _iter_existing_event_lines(path: Path) -> Iterator[WireObject]:
+    return map(_event_line_payload, wire_text_codec.iter_nonempty_lines(path))
+
+
+def _strip_text(raw: str) -> str:
+    return raw.strip()
+
+
+def _is_nonempty_text(value: str) -> bool:
+    return value != ""
+
+
+def _event_line_payload(raw: str) -> WireObject:
+    parsed = wire_text_codec.decode_text(raw)
+    payload = _WIRE_MAPPING_COERCERS[_is_dict(parsed)](parsed)
+    entries = map(
+        lambda key: ObjectEntry(_TEXT_COERCERS[_is_str(key)](key), payload[key]),
+        payload,
+    )
+    return make_object_map(entries)
+
+
+def _none_text(_: WireValue) -> str:
+    return ""
+
+
+def _analysis_state_text(value: WireValue) -> str:
+    return _ANALYSIS_STATE_TEXT_COERCERS[value is not None](value)
+
+
+def _phase_from_basis_path(basis_path: tuple[str, ...]) -> str:
+    return _PHASE_COERCERS[len(basis_path) > 0](basis_path)
+
+
+def _phase_runtime(_: tuple[str, ...]) -> str:
+    return "runtime"
+
+
+def _phase_first(basis_path: tuple[str, ...]) -> str:
+    return basis_path[0]
+
+
+def _sorted_surface_representatives(
+    surface_representatives: Mapping[str, str],
+) -> Mapping[str, str]:
+    ordered_surfaces = sort_once(
+        surface_representatives,
+        source="aspf_stream.AspfEventJournalSink.close.surface_representatives",
+    )
+    return _SurfaceRepresentativeMap(
+        map(
+            lambda surface: (surface, surface_representatives[surface]),
+            ordered_surfaces,
+        )
+    )
+
+
+_TEXT_COERCERS: list[Callable[[WireValue], str]] = [lambda _: "", lambda value: value]
+_ANALYSIS_STATE_TEXT_COERCERS: list[Callable[[WireValue], str]] = [
+    _none_text,
+    lambda value: _TEXT_COERCERS[_is_str(value)](value),
+]
+_PHASE_COERCERS: list[Callable[[tuple[str, ...]], str]] = [_phase_runtime, _phase_first]
+_EVENT_LINE_ITERATORS: list[Callable[[Path], Iterator[WireObject]]] = [
+    _iter_missing_event_lines,
+    _iter_existing_event_lines,
+]
+
+
+def _none_mapping(_: WireValue) -> Mapping[str, WireValue]:
+    return make_object_map([])
+
+
+def _identity_mapping(value: WireValue) -> Mapping[str, WireValue]:
+    return value
+
+
+_WIRE_MAPPING_COERCERS: list[Callable[[WireValue], Mapping[str, WireValue]]] = [
+    _none_mapping,
+    _identity_mapping,
+]
+
+
+def _is_dict(value: WireValue) -> bool:
+    return type(value) is dict
+
+
+def _is_str(value: WireValue) -> bool:
+    return type(value) is str

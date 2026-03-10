@@ -5,13 +5,13 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from functools import singledispatch, singledispatchmethod
 import hashlib
-import json
 import os
 from pathlib import Path
 from typing import Iterable, Iterator, Mapping, Sequence, cast
 
 from gabion.invariants import never
-from gabion.json_types import JSONObject, JSONValue
+from gabion.analysis.foundation import aspf_io_boundary, wire_text_codec
+from gabion.analysis.foundation.wire_types import WireObject, WireValue
 from gabion.order_contract import sort_once
 from gabion.runtime.stable_encode import stable_compact_text
 
@@ -22,8 +22,9 @@ from gabion.analysis.aspf.aspf_decision_surface import (
     RepresentativeSelectionMode, RepresentativeSelectionOptions, classify_drift_by_homotopy, select_representative)
 from gabion.analysis.aspf.aspf_morphisms import (
     AspfPrimeBasis, CofibrationWitnessCarrier, DomainPrimeBasis, DomainToAspfCofibration, DomainToAspfCofibrationEntry)
+from gabion.analysis.foundation.frozen_object_map import ObjectEntry, make_object_map
 from gabion.analysis.aspf.aspf_stream import (
-    AspfEventSink, AspfEventVisitor, AspfInMemoryCompatibilityVisitor, AspfJsonlEventSink, AspfSinkVisitor, AspfTraceSinkIndex, CofibrationRecorded, OneCellRecorded, RunFinalized, SemanticSurfaceUpdated, TwoCellWitnessRecorded)
+    AspfEventSink, AspfEventVisitor, AspfInMemoryCompatibilityVisitor, AspfEventJournalSink, AspfSinkVisitor, AspfTraceSinkIndex, CofibrationRecorded, OneCellRecorded, RunFinalized, SemanticSurfaceUpdated, TwoCellWitnessRecorded)
 from gabion.analysis.aspf.aspf_visitors import (
     AspfCofibrationEvent, AspfOneCellEvent, AspfSurfaceUpdateEvent, AspfTraceReplayEvent, AspfEventReplayVisitor, AspfRunBoundaryEvent, AspfTwoCellEvent, OpportunityPayloadEmitter, StatePayloadEmitter, TracePayloadEmitter, replay_iterator_inputs_to_visitor, adapt_event_log_reader_iterator_to_visitor, adapt_live_event_stream_to_visitor, adapt_trace_event_iterator_to_visitor)
 
@@ -56,24 +57,24 @@ _AspfVisitorEvent = (
 
 @dataclass(frozen=True)
 class AspfTraceControls:
-    aspf_trace_json: Path | None
+    trace_output_path: Path | None
     aspf_import_trace: tuple[Path, ...]
     aspf_equivalence_against: tuple[Path, ...]
-    aspf_opportunities_json: Path | None
-    aspf_state_json: Path | None
+    opportunities_output_path: Path | None
+    state_output_path: Path | None
     aspf_import_state: tuple[Path, ...]
-    aspf_delta_jsonl: Path | None
+    delta_output_path: Path | None
     aspf_semantic_surface: tuple[str, ...]
 
     def enabled(self) -> bool:
         return bool(
-            self.aspf_trace_json is not None
+            self.trace_output_path is not None
             or self.aspf_import_trace
             or self.aspf_equivalence_against
-            or self.aspf_opportunities_json is not None
-            or self.aspf_state_json is not None
+            or self.opportunities_output_path is not None
+            or self.state_output_path is not None
             or self.aspf_import_state
-            or self.aspf_delta_jsonl is not None
+            or self.delta_output_path is not None
             or self.aspf_semantic_surface != DEFAULT_PHASE1_SEMANTIC_SURFACES
         )
 
@@ -85,12 +86,12 @@ class AspfExecutionTraceState:
     started_at_utc: str
     command_profile: str
     one_cells: list[AspfOneCell] = field(default_factory=list)
-    one_cell_metadata: list[JSONObject] = field(default_factory=list)
+    one_cell_metadata: list[WireObject] = field(default_factory=list)
     two_cell_witnesses: list[AspfTwoCellWitness] = field(default_factory=list)
     cofibrations: list[CofibrationWitnessCarrier] = field(default_factory=list)
     surface_representatives: dict[str, str] = field(default_factory=dict)
-    imported_trace_payloads: list[JSONObject] = field(default_factory=list)
-    delta_records: list[JSONObject] = field(default_factory=list)
+    imported_trace_payloads: list[WireObject] = field(default_factory=list)
+    delta_records: list[WireObject] = field(default_factory=list)
     event_visitors: list[AspfEventVisitor] = field(default_factory=list)
     event_sinks: list[AspfEventSink] = field(default_factory=list)
     sink_indexes: list[AspfTraceSinkIndex] = field(default_factory=list)
@@ -102,15 +103,15 @@ class AspfExecutionTraceState:
 
 @dataclass(frozen=True)
 class AspfFinalizationArtifacts:
-    trace_payload: JSONObject
-    equivalence_payload: JSONObject
-    opportunities_payload: JSONObject
-    delta_ledger_payload: JSONObject
+    trace_payload: WireObject
+    equivalence_payload: WireObject
+    opportunities_payload: WireObject
+    delta_ledger_payload: WireObject
     trace_path: Path
     equivalence_path: Path
     opportunities_path: Path
-    delta_jsonl_path: Path
-    state_payload: JSONObject | None = None
+    delta_stream_path: Path
+    state_payload: WireObject | None = None
     state_path: Path | None = None
 
 
@@ -125,13 +126,15 @@ class AspfTraceReplayIterators:
 
 def controls_from_payload(payload: Mapping[str, object]) -> AspfTraceControls:
     return AspfTraceControls(
-        aspf_trace_json=_optional_path(payload.get("aspf_trace_json")),
+        trace_output_path=_optional_path(payload.get(aspf_io_boundary.TRACE_OUTPUT_OPTION_KEY)),
         aspf_import_trace=_path_sequence(payload.get("aspf_import_trace")),
         aspf_equivalence_against=_path_sequence(payload.get("aspf_equivalence_against")),
-        aspf_opportunities_json=_optional_path(payload.get("aspf_opportunities_json")),
-        aspf_state_json=_optional_path(payload.get("aspf_state_json")),
+        opportunities_output_path=_optional_path(
+            payload.get(aspf_io_boundary.OPPORTUNITIES_OUTPUT_OPTION_KEY)
+        ),
+        state_output_path=_optional_path(payload.get(aspf_io_boundary.STATE_OUTPUT_OPTION_KEY)),
         aspf_import_state=_path_sequence(payload.get("aspf_import_state")),
-        aspf_delta_jsonl=_optional_path(payload.get("aspf_delta_jsonl")),
+        delta_output_path=_optional_path(payload.get(aspf_io_boundary.DELTA_OUTPUT_OPTION_KEY)),
         aspf_semantic_surface=_semantic_surface_sequence(
             payload.get("aspf_semantic_surface")
         ),
@@ -151,29 +154,29 @@ def start_execution_trace(
             "root": str(root),
             "pid": int(os.getpid()),
             "controls": {
-                "aspf_trace_json": (
-                    str(controls.aspf_trace_json)
-                    if controls.aspf_trace_json is not None
+                aspf_io_boundary.TRACE_OUTPUT_OPTION_KEY: (
+                    str(controls.trace_output_path)
+                    if controls.trace_output_path is not None
                     else None
                 ),
                 "aspf_import_trace": [str(path) for path in controls.aspf_import_trace],
                 "aspf_equivalence_against": [
                     str(path) for path in controls.aspf_equivalence_against
                 ],
-                "aspf_opportunities_json": (
-                    str(controls.aspf_opportunities_json)
-                    if controls.aspf_opportunities_json is not None
+                aspf_io_boundary.OPPORTUNITIES_OUTPUT_OPTION_KEY: (
+                    str(controls.opportunities_output_path)
+                    if controls.opportunities_output_path is not None
                     else None
                 ),
-                "aspf_state_json": (
-                    str(controls.aspf_state_json)
-                    if controls.aspf_state_json is not None
+                aspf_io_boundary.STATE_OUTPUT_OPTION_KEY: (
+                    str(controls.state_output_path)
+                    if controls.state_output_path is not None
                     else None
                 ),
                 "aspf_import_state": [str(path) for path in controls.aspf_import_state],
-                "aspf_delta_jsonl": (
-                    str(controls.aspf_delta_jsonl)
-                    if controls.aspf_delta_jsonl is not None
+                aspf_io_boundary.DELTA_OUTPUT_OPTION_KEY: (
+                    str(controls.delta_output_path)
+                    if controls.delta_output_path is not None
                     else None
                 ),
                 "aspf_semantic_surface": list(controls.aspf_semantic_surface),
@@ -227,7 +230,7 @@ def record_1cell(
     )
     metadata_mapping = _payload_mapping_optional(metadata)
     metadata_payload = (
-        _as_json_value(
+        _as_wire_value(
             {str(key): metadata_mapping[key] for key in metadata_mapping}
         )
         if metadata_mapping is not None
@@ -240,7 +243,7 @@ def record_1cell(
             cell=cell,
             kind=str(kind),
             surface=str(surface) if surface is not None else "",
-            metadata_payload=cast(JSONObject, metadata_payload),
+            metadata_payload=cast(WireObject, metadata_payload),
         ),
     )
     return cell
@@ -313,7 +316,7 @@ def register_semantic_surface(
     value: object,
     phase: str = "post",
 ) -> AspfOneCell:
-    normalized_value = _as_json_value(value)
+    normalized_value = _as_wire_value(value)
     representative = stable_compact_text(normalized_value)
     _publish_event(
         state,
@@ -336,7 +339,7 @@ def register_semantic_surface(
     )
 
 
-def build_trace_payload(state: AspfExecutionTraceState) -> JSONObject:
+def build_trace_payload(state: AspfExecutionTraceState) -> WireObject:
     replay_iterators = _build_trace_replay_iterators(state=state)
 
     emitter = TracePayloadEmitter()
@@ -353,29 +356,29 @@ def build_trace_payload(state: AspfExecutionTraceState) -> JSONObject:
         "trace_id": state.trace_id,
         "started_at_utc": state.started_at_utc,
         "controls": {
-            "aspf_trace_json": (
-                str(state.controls.aspf_trace_json)
-                if state.controls.aspf_trace_json is not None
+            aspf_io_boundary.TRACE_OUTPUT_OPTION_KEY: (
+                str(state.controls.trace_output_path)
+                if state.controls.trace_output_path is not None
                 else None
             ),
             "aspf_import_trace": [str(path) for path in state.controls.aspf_import_trace],
             "aspf_equivalence_against": [
                 str(path) for path in state.controls.aspf_equivalence_against
             ],
-            "aspf_opportunities_json": (
-                str(state.controls.aspf_opportunities_json)
-                if state.controls.aspf_opportunities_json is not None
+            aspf_io_boundary.OPPORTUNITIES_OUTPUT_OPTION_KEY: (
+                str(state.controls.opportunities_output_path)
+                if state.controls.opportunities_output_path is not None
                 else None
             ),
-            "aspf_state_json": (
-                str(state.controls.aspf_state_json)
-                if state.controls.aspf_state_json is not None
+            aspf_io_boundary.STATE_OUTPUT_OPTION_KEY: (
+                str(state.controls.state_output_path)
+                if state.controls.state_output_path is not None
                 else None
             ),
             "aspf_import_state": [str(path) for path in state.controls.aspf_import_state],
-            "aspf_delta_jsonl": (
-                str(state.controls.aspf_delta_jsonl)
-                if state.controls.aspf_delta_jsonl is not None
+            aspf_io_boundary.DELTA_OUTPUT_OPTION_KEY: (
+                str(state.controls.delta_output_path)
+                if state.controls.delta_output_path is not None
                 else None
             ),
             "aspf_semantic_surface": list(state.controls.aspf_semantic_surface),
@@ -393,7 +396,7 @@ def build_equivalence_payload(
     *,
     state: AspfExecutionTraceState,
     baseline_traces: Iterable[Mapping[str, object]],
-) -> JSONObject:
+) -> WireObject:
     baseline_candidates: dict[str, set[str]] = {}
     known_witnesses = _witnesses_by_representative_pair(state=state)
     for payload in baseline_traces:
@@ -405,7 +408,7 @@ def build_equivalence_payload(
             destination=known_witnesses,
             payload=payload,
         )
-    table: list[JSONObject] = []
+    table: list[WireObject] = []
     for surface in state.controls.aspf_semantic_surface:
         current_representative = state.surface_representatives.get(surface)
         candidates = tuple(
@@ -414,7 +417,7 @@ def build_equivalence_payload(
                 source=f"aspf_execution_fibration.build_equivalence_payload.{surface}.candidates",
             )
         )
-        selection_witness: JSONObject | None = None
+        selection_witness: WireObject | None = None
         if candidates:
             selection = select_representative(
                 RepresentativeSelectionOptions(
@@ -462,7 +465,7 @@ def build_opportunities_payload(
     *,
     state: AspfExecutionTraceState,
     equivalence_payload: Mapping[str, object],
-) -> JSONObject:
+) -> WireObject:
     emitter = OpportunityPayloadEmitter()
     adapt_trace_event_iterator_to_visitor(
         events=_iter_trace_events(state=state),
@@ -529,25 +532,25 @@ def finalize_execution_trace(
     semantic_progress_payload = _payload_mapping_optional(
         semantic_surface_payloads.get("_semantic_progress")
     )
-    resume_snapshot: JSONObject = {
+    resume_snapshot: WireObject = {
         "analysis_state": str(analysis_state) if analysis_state is not None else None,
         "collection_resume": (
-            _as_json_value(resume_collection_payload)
+            _as_wire_value(resume_collection_payload)
             if resume_collection_payload is not None
             else {}
         ),
         "latest_collection_progress": (
-            _as_json_value(latest_collection_progress_payload)
+            _as_wire_value(latest_collection_progress_payload)
             if latest_collection_progress_payload is not None
             else {}
         ),
         "semantic_progress": (
-            _as_json_value(semantic_progress_payload)
+            _as_wire_value(semantic_progress_payload)
             if semantic_progress_payload is not None
             else {}
         ),
         "semantic_surfaces": {
-            str(key): _as_json_value(semantic_surface_payloads[key])
+            str(key): _as_wire_value(semantic_surface_payloads[key])
             for key in semantic_surface_payloads
             if key in state.controls.aspf_semantic_surface
         },
@@ -561,23 +564,25 @@ def finalize_execution_trace(
         trace_id=state.trace_id,
         records=tuple(_iter_delta_records(state=state, sink_indexes=sink_indexes)),
     )
-    trace_path = state.controls.aspf_trace_json or (root / "artifacts/out/aspf_trace.json")
-    equivalence_path = root / "artifacts/out/aspf_equivalence.json"
-    opportunities_path = state.controls.aspf_opportunities_json or (
-        root / "artifacts/out/aspf_opportunities.json"
+    trace_path = state.controls.trace_output_path or (
+        root / "artifacts/out" / aspf_io_boundary.TRACE_FILENAME
     )
-    delta_jsonl_path = state.controls.aspf_delta_jsonl or (
-        root / "artifacts/out/aspf_delta.jsonl"
+    equivalence_path = root / "artifacts/out" / aspf_io_boundary.EQUIVALENCE_FILENAME
+    opportunities_path = state.controls.opportunities_output_path or (
+        root / "artifacts/out" / aspf_io_boundary.OPPORTUNITIES_FILENAME
     )
-    _write_json(trace_path, trace_payload)
-    _write_json(equivalence_path, equivalence_payload)
-    _write_json(opportunities_path, opportunities_payload)
-    aspf_resume_state.write_delta_jsonl(
-        path=delta_jsonl_path,
+    delta_stream_path = state.controls.delta_output_path or (
+        root / "artifacts/out" / aspf_io_boundary.DELTA_STREAM_FILENAME
+    )
+    _write_wire_snapshot(trace_path, trace_payload)
+    _write_wire_snapshot(equivalence_path, equivalence_payload)
+    _write_wire_snapshot(opportunities_path, opportunities_payload)
+    aspf_resume_state.write_delta_stream(
+        path=delta_stream_path,
         records=_iter_delta_records(state=state, sink_indexes=sink_indexes),
     )
-    state_path = state.controls.aspf_state_json or (
-        root / "artifacts/out/aspf_state/default/0001_aspf.snapshot.json"
+    state_path = state.controls.state_output_path or (
+        root / "artifacts/out/aspf_state/default" / aspf_io_boundary.STATE_SNAPSHOT_FILENAME
     )
     state_payload = _build_state_payload(
         state=state,
@@ -591,7 +596,7 @@ def finalize_execution_trace(
         resume_projection=resume_projection,
         delta_ledger_payload=delta_ledger_payload,
     )
-    _write_json(state_path, state_payload)
+    _write_wire_snapshot(state_path, state_payload)
     finalization_event = RunFinalized(
         state=state,
         trace_payload=trace_payload,
@@ -611,26 +616,26 @@ def finalize_execution_trace(
         trace_path=trace_path,
         equivalence_path=equivalence_path,
         opportunities_path=opportunities_path,
-        delta_jsonl_path=delta_jsonl_path,
+        delta_stream_path=delta_stream_path,
         state_payload=state_payload,
         state_path=state_path,
     )
 
 
-def load_trace_payload(path: Path) -> JSONObject:
-    payload = cast(Mapping[str, object], json.loads(path.read_text(encoding="utf-8")))
+def load_trace_payload(path: Path) -> WireObject:
+    payload = cast(Mapping[str, object], wire_text_codec.decode_mapping_text(path.read_text(encoding="utf-8")))
     return normalize_imported_trace_payload(payload)
 
 
-def load_trace_stream_payload(path: Path) -> JSONObject:
-    events: list[JSONObject] = []
+def load_trace_stream_payload(path: Path) -> WireObject:
+    events: list[WireObject] = []
     with path.open("r", encoding="utf-8") as handle:
         for line_number, raw in enumerate(handle):
             line = raw.strip()
             if not line:
                 continue
-            payload = cast(Mapping[str, object], json.loads(line))
-            normalized_event = {str(key): _as_json_value(payload[key]) for key in payload}
+            payload = cast(Mapping[str, object], wire_text_codec.decode_mapping_text(line))
+            normalized_event = {str(key): _as_wire_value(payload[key]) for key in payload}
             normalized_event.setdefault("line", line_number)
             events.append(normalized_event)
     ordered_events = sort_once(
@@ -641,17 +646,17 @@ def load_trace_stream_payload(path: Path) -> JSONObject:
     return normalize_imported_trace_payload({"events": ordered_events})
 
 
-def normalize_imported_trace_payload(payload: Mapping[str, object]) -> JSONObject:
+def normalize_imported_trace_payload(payload: Mapping[str, object]) -> WireObject:
     if "events" in payload:
         return _normalize_stream_trace_payload(payload)
 
-    normalized_payload = {str(key): _as_json_value(payload[key]) for key in payload}
+    normalized_payload = {str(key): _as_wire_value(payload[key]) for key in payload}
     trace_payload = normalized_payload.get("trace")
     if trace_payload is None:
         return _normalize_legacy_trace_payload(normalized_payload)
     trace_payload = cast(Mapping[str, object], trace_payload)
-    normalized_trace: JSONObject = {
-        str(key): _as_json_value(trace_payload[key]) for key in trace_payload
+    normalized_trace: WireObject = {
+        str(key): _as_wire_value(trace_payload[key]) for key in trace_payload
     }
     equivalence_payload = cast(
         Mapping[str, object], normalized_payload.get("equivalence", {})
@@ -660,39 +665,39 @@ def normalize_imported_trace_payload(payload: Mapping[str, object]) -> JSONObjec
         Mapping[str, object], normalized_payload.get("opportunities", {})
     )
     normalized_trace["equivalence"] = {
-        str(key): _as_json_value(equivalence_payload[key]) for key in equivalence_payload
+        str(key): _as_wire_value(equivalence_payload[key]) for key in equivalence_payload
     }
     normalized_trace["opportunities"] = {
-        str(key): _as_json_value(opportunities_payload[key]) for key in opportunities_payload
+        str(key): _as_wire_value(opportunities_payload[key]) for key in opportunities_payload
     }
     return _normalize_legacy_trace_payload(normalized_trace)
 
 
-def _command_profile_from_payload(payload: Mapping[str, JSONValue]) -> str:
+def _command_profile_from_payload(payload: Mapping[str, WireValue]) -> str:
     synth_requested = (payload.get("synthesis_plan") is not None) | bool(
         payload.get("synthesis_report")
     )
     return ("check.run", "synth")[int(synth_requested)]
 
 
-def _load_trace_payload_for_import(path: Path) -> JSONObject:
+def _load_trace_payload_for_import(path: Path) -> WireObject:
     suffix = path.suffix.lower()
-    if suffix in {".jsonl", ".ndjson"}:
+    if suffix in aspf_io_boundary.LINE_STREAM_SUFFIXES:
         return load_trace_stream_payload(path)
     return load_trace_payload(path)
 
 
 @singledispatch
-def _payload_mapping_optional(value: JSONValue) -> JSONObject | None:
+def _payload_mapping_optional(value: WireValue) -> WireObject | None:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
 @_payload_mapping_optional.register(dict)
-def _sd_reg_1(value: dict[str, JSONValue]) -> JSONObject | None:
+def _sd_reg_1(value: dict[str, WireValue]) -> WireObject | None:
     return value
 
 
-def _mapping_none(value: JSONValue) -> JSONObject | None:
+def _mapping_none(value: WireValue) -> WireObject | None:
     _ = value
     return None
 
@@ -720,21 +725,21 @@ def _sd_reg_3(value: None) -> AspfTwoCellWitness | None:
 
 
 @singledispatch
-def _normalized_two_cell_witnesses_default_empty(value: JSONValue) -> list[JSONObject]:
+def _normalized_two_cell_witnesses_default_empty(value: WireValue) -> list[WireObject]:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
 @_normalized_two_cell_witnesses_default_empty.register(list)
-def _sd_reg_4(value: list[object]) -> list[JSONObject]:
+def _sd_reg_4(value: list[object]) -> list[WireObject]:
     return _normalize_two_cell_witness_payloads(value)
 
 
 @_normalized_two_cell_witnesses_default_empty.register(tuple)
-def _sd_reg_5(value: tuple[object, ...]) -> list[JSONObject]:
+def _sd_reg_5(value: tuple[object, ...]) -> list[WireObject]:
     return _normalize_two_cell_witness_payloads(value)
 
 
-def _empty_two_cell_witnesses(value: JSONValue) -> list[JSONObject]:
+def _empty_two_cell_witnesses(value: WireValue) -> list[WireObject]:
     _ = value
     return []
 
@@ -743,13 +748,13 @@ for _runtime_type in (dict, set, str, int, float, bool, _NONE_TYPE):
     _normalized_two_cell_witnesses_default_empty.register(_runtime_type)(_empty_two_cell_witnesses)
 
 
-def _normalize_two_cell_witness_payloads(payloads: Sequence[object]) -> list[JSONObject]:
-    normalized_witnesses: list[JSONObject] = []
+def _normalize_two_cell_witness_payloads(payloads: Sequence[object]) -> list[WireObject]:
+    normalized_witnesses: list[WireObject] = []
     for payload in payloads:
         mapping_payload = _payload_mapping_optional(payload)
         if mapping_payload is None:
             continue
-        normalized_payload = {str(key): _as_json_value(mapping_payload[key]) for key in mapping_payload}
+        normalized_payload = {str(key): _as_wire_value(mapping_payload[key]) for key in mapping_payload}
         witness_id = str(normalized_payload.get("witness_id", "")).strip()
         left = str(normalized_payload.get("left_representative", "")).strip()
         right = str(normalized_payload.get("right_representative", "")).strip()
@@ -770,8 +775,8 @@ def _normalize_two_cell_witness_payloads(payloads: Sequence[object]) -> list[JSO
     return normalized_witnesses
 
 
-def _normalize_legacy_trace_payload(payload: Mapping[str, JSONValue]) -> JSONObject:
-    normalized_payload = {str(key): _as_json_value(payload[key]) for key in payload}
+def _normalize_legacy_trace_payload(payload: Mapping[str, WireValue]) -> WireObject:
+    normalized_payload = {str(key): _as_wire_value(payload[key]) for key in payload}
     normalized_payload.setdefault("surface_representatives", {})
     normalized_payload.setdefault("one_cells", [])
     raw_two_cell_witnesses = normalized_payload.get("two_cell_witnesses", [])
@@ -782,7 +787,7 @@ def _normalize_legacy_trace_payload(payload: Mapping[str, JSONValue]) -> JSONObj
     return normalized_payload
 
 
-def _normalize_stream_trace_payload(payload: Mapping[str, JSONValue]) -> JSONObject:
+def _normalize_stream_trace_payload(payload: Mapping[str, WireValue]) -> WireObject:
     raw_events = payload.get("events", ())
     normalized_events = []
     for event in raw_events:
@@ -790,7 +795,7 @@ def _normalize_stream_trace_payload(payload: Mapping[str, JSONValue]) -> JSONObj
         if event_mapping is None:
             continue
         normalized_events.append(
-            {str(key): _as_json_value(event_mapping[key]) for key in event_mapping}
+            {str(key): _as_wire_value(event_mapping[key]) for key in event_mapping}
         )
     ordered_events = sort_once(
         normalized_events,
@@ -809,7 +814,7 @@ def _normalize_stream_trace_payload(payload: Mapping[str, JSONValue]) -> JSONObj
     )
 
 
-def _event_ordering_key(event: Mapping[str, JSONValue]) -> tuple[int, int, int]:
+def _event_ordering_key(event: Mapping[str, WireValue]) -> tuple[int, int, int]:
     sequence = int(event.get("sequence", event.get("index", event.get("line", 0))))
     kind = str(event.get("kind", "")).strip().lower()
     kind_rank = {
@@ -911,7 +916,7 @@ def _build_state_payload(
     analysis_state: str | None,
     resume_projection: Mapping[str, object],
     delta_ledger_payload: Mapping[str, object],
-) -> JSONObject:
+) -> WireObject:
     emitter = StatePayloadEmitter()
     emitter.set_trace_payload(trace_payload)
     emitter.set_equivalence_payload(equivalence_payload)
@@ -953,15 +958,15 @@ def _build_state_payload(
         "equivalence": emitter.equivalence,
         "opportunities": emitter.opportunities,
         "semantic_surfaces": {
-            str(key): _as_json_value(semantic_surface_payloads[key])
+            str(key): _as_wire_value(semantic_surface_payloads[key])
             for key in semantic_surface_payloads
             if key in state.controls.aspf_semantic_surface
         },
         "resume_projection": {
-            str(key): _as_json_value(resume_projection[key]) for key in resume_projection
+            str(key): _as_wire_value(resume_projection[key]) for key in resume_projection
         },
         "delta_ledger": {
-            str(key): _as_json_value(delta_ledger_payload[key])
+            str(key): _as_wire_value(delta_ledger_payload[key])
             for key in delta_ledger_payload
         },
         "exit_code": int(exit_code) if exit_code is not None else None,
@@ -977,7 +982,7 @@ def _session_and_step_from_path(path: Path) -> tuple[str, str]:
 
 def _register_default_trace_sinks(*, state: AspfExecutionTraceState, root: Path) -> None:
     sink_root = root / "artifacts/out/aspf_stream" / state.trace_id.replace(":", "_")
-    sink = AspfJsonlEventSink.create(sink_root=sink_root)
+    sink = AspfEventJournalSink.create(sink_root=sink_root)
     state.event_sinks.append(sink)
     state.event_visitors.append(AspfSinkVisitor(sink=sink))
 
@@ -987,8 +992,8 @@ def _closed_sink_index(sink: AspfEventSink) -> AspfTraceSinkIndex:
     never("unregistered runtime type", value_type=type(sink).__name__)
 
 
-@_closed_sink_index.register(AspfJsonlEventSink)
-def _sd_reg_6(sink: AspfJsonlEventSink) -> AspfTraceSinkIndex:
+@_closed_sink_index.register(AspfEventJournalSink)
+def _sd_reg_6(sink: AspfEventJournalSink) -> AspfTraceSinkIndex:
     return sink.build_index()
 
 
@@ -1007,7 +1012,7 @@ def derive_trace_payload_from_sinks(
     *,
     state: AspfExecutionTraceState,
     sink_indexes: Sequence[AspfTraceSinkIndex],
-) -> JSONObject:
+) -> WireObject:
     return build_trace_payload(state)
 
 
@@ -1098,18 +1103,33 @@ def _iter_trace_events(*, state: AspfExecutionTraceState) -> Iterator[AspfTraceR
 def _iter_memory_one_cell_payloads(
     *,
     state: AspfExecutionTraceState,
-) -> Iterator[JSONObject]:
+) -> Iterator[WireObject]:
     for index, cell in enumerate(state.one_cells):
-        one_cell_payload = cell.as_dict()
         metadata = (
             state.one_cell_metadata[index]
             if index < len(state.one_cell_metadata)
-            else {"kind": "", "surface": "", "metadata": {}}
+            else make_object_map(
+                [
+                    ObjectEntry("kind", ""),
+                    ObjectEntry("surface", ""),
+                    ObjectEntry("metadata", make_object_map([])),
+                ]
+            )
         )
-        one_cell_payload["kind"] = str(metadata.get("kind", ""))
-        one_cell_payload["surface"] = str(metadata.get("surface", ""))
-        one_cell_payload["metadata"] = _as_json_value(metadata.get("metadata", {}))
-        yield one_cell_payload
+        yield make_object_map(
+            [
+                ObjectEntry("source", cell.source.label),
+                ObjectEntry("target", cell.target.label),
+                ObjectEntry("representative", cell.representative),
+                ObjectEntry("basis_path", list(cell.basis_path)),
+                ObjectEntry("kind", str(metadata.get("kind", ""))),
+                ObjectEntry("surface", str(metadata.get("surface", ""))),
+                ObjectEntry(
+                    "metadata",
+                    _as_wire_value(metadata.get("metadata", make_object_map([]))),
+                ),
+            ]
+        )
 
 
 def _semantic_surface_sequence(value: object) -> tuple[str, ...]:
@@ -1150,67 +1170,68 @@ def _is_prime(value: int) -> bool:
 
 
 @singledispatch
-def _as_json_value(value: object) -> JSONValue:
+def _as_wire_value(value: object) -> WireValue:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
-@_as_json_value.register(dict)
-def _sd_reg_7(value: dict[object, object]) -> JSONValue:
+@_as_wire_value.register(dict)
+def _sd_reg_7(value: dict[object, object]) -> WireValue:
     key_pairs = tuple(
         sort_once(
             [(str(key), key) for key in value],
-            source="aspf_execution_fibration._as_json_value.mapping_keys",
+            source="aspf_execution_fibration._as_wire_value.mapping_keys",
             key=lambda pair: pair[0],
         )
     )
-    return {text_key: _as_json_value(value[raw_key]) for text_key, raw_key in key_pairs}
+    return {text_key: _as_wire_value(value[raw_key]) for text_key, raw_key in key_pairs}
 
 
-@_as_json_value.register(list)
-def _sd_reg_8(value: list[object]) -> JSONValue:
-    return [_as_json_value(item) for item in value]
+@_as_wire_value.register(list)
+def _sd_reg_8(value: list[object]) -> WireValue:
+    return [_as_wire_value(item) for item in value]
 
 
-@_as_json_value.register(tuple)
-def _sd_reg_9(value: tuple[object, ...]) -> JSONValue:
-    return [_as_json_value(item) for item in value]
+@_as_wire_value.register(tuple)
+def _sd_reg_9(value: tuple[object, ...]) -> WireValue:
+    return [_as_wire_value(item) for item in value]
 
 
-@_as_json_value.register(set)
-def _sd_reg_10(value: set[object]) -> JSONValue:
-    normalized = [_as_json_value(item) for item in value]
+@_as_wire_value.register(set)
+def _sd_reg_10(value: set[object]) -> WireValue:
+    normalized = [_as_wire_value(item) for item in value]
     return sorted(normalized, key=lambda item: stable_compact_text(item))
 
 
-@_as_json_value.register(str)
-def _sd_reg_11(value: str) -> JSONValue:
+@_as_wire_value.register(str)
+def _sd_reg_11(value: str) -> WireValue:
     return value
 
 
-@_as_json_value.register(bool)
-def _sd_reg_12(value: bool) -> JSONValue:
+@_as_wire_value.register(bool)
+def _sd_reg_12(value: bool) -> WireValue:
     return value
 
 
-@_as_json_value.register(int)
-def _sd_reg_13(value: int) -> JSONValue:
+@_as_wire_value.register(int)
+def _sd_reg_13(value: int) -> WireValue:
     return value
 
 
-@_as_json_value.register(float)
-def _sd_reg_14(value: float) -> JSONValue:
+@_as_wire_value.register(float)
+def _sd_reg_14(value: float) -> WireValue:
     return value
 
 
-@_as_json_value.register(_NONE_TYPE)
-def _sd_reg_15(value: None) -> JSONValue:
+@_as_wire_value.register(_NONE_TYPE)
+def _sd_reg_15(value: None) -> WireValue:
     _ = value
     return None
 
 
-def _write_json(path: Path, payload: Mapping[str, object]) -> None:
+def _write_wire_snapshot(path: Path, payload: Mapping[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=False) + "\n", encoding="utf-8")
+    wire_text_codec.write_pretty_mapping(path, payload)
+    wire_text_codec.append_trailing_newline(path)
 
 
 def _merge_surface_representative(
@@ -1316,7 +1337,7 @@ def _merge_cofibration_payload(
     )
 
 
-def _parse_cofibration(raw: Mapping[str, JSONValue]) -> DomainToAspfCofibration:
+def _parse_cofibration(raw: Mapping[str, WireValue]) -> DomainToAspfCofibration:
     entries_raw = raw["entries"]
     entries: list[DomainToAspfCofibrationEntry] = []
     for raw_entry in entries_raw:
@@ -1338,7 +1359,7 @@ def _parse_cofibration(raw: Mapping[str, JSONValue]) -> DomainToAspfCofibration:
 
 
 def _surface_candidates_from_trace_payload(
-    payload: Mapping[str, JSONValue],
+    payload: Mapping[str, WireValue],
 ) -> dict[str, list[str]]:
     candidates: dict[str, list[str]] = {}
     raw = payload.get("surface_representatives", {})
@@ -1388,7 +1409,7 @@ def _iter_delta_records(
     *,
     state: AspfExecutionTraceState,
     sink_indexes: Sequence[AspfTraceSinkIndex],
-) -> Iterator[JSONObject]:
+) -> Iterator[WireObject]:
     if sink_indexes:
         yield from sink_indexes[0].iter_delta_records()
         return
@@ -1428,6 +1449,6 @@ def _find_witness(
     )
 
 
-def _iter_baseline_trace_payloads(paths: Iterable[Path]) -> Iterator[JSONObject]:
+def _iter_baseline_trace_payloads(paths: Iterable[Path]) -> Iterator[WireObject]:
     for path in paths:
         yield _load_trace_payload_for_import(path)

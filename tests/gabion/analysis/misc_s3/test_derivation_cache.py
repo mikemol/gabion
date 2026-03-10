@@ -111,7 +111,7 @@ def test_derivation_graph_interns_equivalent_inputs() -> None:
     assert first == second
 
 
-# gabion:evidence E:call_footprint::tests/test_derivation_cache.py::test_structural_key_atom_covers_float_set_frozenset_and_nodeid::aspf.py::gabion.analysis.aspf.structural_key_atom::aspf.py::gabion.analysis.aspf.structural_key_json
+# gabion:evidence E:call_footprint::tests/test_derivation_cache.py::test_structural_key_atom_covers_float_set_frozenset_and_nodeid::aspf.py::gabion.analysis.aspf.structural_key_atom::aspf.py::gabion.analysis.aspf.structural_key_wire
 # gabion:behavior primary=desired
 def test_structural_key_atom_covers_float_set_frozenset_and_nodeid() -> None:
     nan_atom = aspf.structural_key_atom(math.nan, source="tests.structural.nan")
@@ -126,7 +126,7 @@ def test_structural_key_atom_covers_float_set_frozenset_and_nodeid() -> None:
         aspf.NodeId(kind="Node", key=("x",)),
         source="tests.structural.node",
     )
-    json_payload = aspf.structural_key_json(("bytes", b"ab"))
+    json_payload = aspf.structural_key_wire(("bytes", b"ab"))
 
     assert nan_atom == ("float_nan",)
     assert inf_atom == ("float_inf", 1)

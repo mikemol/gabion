@@ -46,7 +46,7 @@ def test_iter_delta_records_streams_state_and_jsonl_inputs(tmp_path: Path) -> No
     records = list(
         aspf_resume_state.iter_delta_records(
             state_paths=(state_path,),
-            jsonl_paths=(jsonl_path,),
+            stream_paths=(jsonl_path,),
         )
     )
 
@@ -56,14 +56,14 @@ def test_iter_delta_records_streams_state_and_jsonl_inputs(tmp_path: Path) -> No
 
 
 # gabion:behavior primary=desired
-def test_append_delta_jsonl_record_appends_single_line_payload(tmp_path: Path) -> None:
+def test_append_delta_stream_record_appends_single_line_payload(tmp_path: Path) -> None:
     jsonl_path = tmp_path / "out" / "delta.jsonl"
 
-    aspf_resume_state.append_delta_jsonl_record(
+    aspf_resume_state.append_delta_stream_record(
         path=jsonl_path,
         record={"seq": 1, "mutation_target": "a", "mutation_value": {"k": "v"}},
     )
-    aspf_resume_state.append_delta_jsonl_record(
+    aspf_resume_state.append_delta_stream_record(
         path=jsonl_path,
         record={"seq": 2, "mutation_target": "b", "mutation_value": {"k": "w"}},
     )
@@ -92,7 +92,7 @@ def test_load_resume_projection_compatibility_wrapper_uses_streaming_internals(
 
 
 # gabion:behavior primary=desired
-def test_iter_delta_records_from_jsonl_paths_skips_blank_lines(tmp_path: Path) -> None:
+def test_iter_delta_records_from_stream_paths_skips_blank_lines(tmp_path: Path) -> None:
     jsonl_path = tmp_path / "delta.jsonl"
     jsonl_path.write_text(
         "\n".join(
@@ -105,7 +105,7 @@ def test_iter_delta_records_from_jsonl_paths_skips_blank_lines(tmp_path: Path) -
         encoding="utf-8",
     )
 
-    records = list(aspf_resume_state.iter_delta_records_from_jsonl_paths(jsonl_paths=(jsonl_path,)))
+    records = list(aspf_resume_state.iter_delta_records_from_stream_paths(stream_paths=(jsonl_path,)))
     assert [record["seq"] for record in records] == [1, 2]
 
 

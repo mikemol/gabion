@@ -36,7 +36,7 @@ def test_branchless_policy_flags_non_protocol_branches(tmp_path: Path) -> None:
 # gabion:evidence E:call_footprint::tests/test_branchless_policy_check.py::test_branchless_policy_allows_marked_decision_protocol::branchless_policy_check.py::scripts.branchless_policy_check.run
 
 # gabion:behavior primary=desired
-def test_branchless_policy_allows_marked_decision_protocol(tmp_path: Path) -> None:
+def test_branchless_policy_marks_decorated_decision_protocol_as_violation(tmp_path: Path) -> None:
     _write(
         tmp_path / "src" / "gabion" / "sample.py",
         "from gabion.invariants import decision_protocol\n\n"
@@ -46,7 +46,7 @@ def test_branchless_policy_allows_marked_decision_protocol(tmp_path: Path) -> No
         "        return 1\n"
         "    return 0\n",
     )
-    assert policy.run(root=tmp_path) == 0
+    assert policy.run(root=tmp_path) == 1
 
 
 # gabion:evidence E:call_footprint::tests/test_branchless_policy_check.py::test_branchless_policy_baseline_write_and_ratchet::branchless_policy_check.py::scripts.branchless_policy_check.run

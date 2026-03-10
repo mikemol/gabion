@@ -102,7 +102,7 @@ def test_add_alt_consumes_logical_ticks() -> None:
 def test_to_json_omits_meta_for_nodes_without_metadata() -> None:
     forest = Forest()
     forest.add_node("Sentinel", ("id",))
-    payload = forest.to_json()
+    payload = forest.to_wire_payload()
     sentinel = next(
         node for node in payload["nodes"] if node["kind"] == "Sentinel"
     )
@@ -247,7 +247,7 @@ def test_forest_to_json_is_stable_under_evidence_order_permutations() -> None:
             with deadline_scope(Deadline.from_timeout_ms(1_000)):
                 with deadline_clock_scope(GasMeter(limit=32)):
                     forest.add_alt("Edge", (left, right), evidence=evidence)
-        return forest.to_json()
+        return forest.to_wire_payload()
 
     payload_a = _build({"meta": {"b": 2, "a": 1}, "order": "first"})
     payload_b = _build({"order": "first", "meta": {"a": 1, "b": 2}})
@@ -291,7 +291,7 @@ def test_add_alt_canonicalizes_sequence_evidence_for_rerun_identity() -> None:
             with deadline_scope(Deadline.from_timeout_ms(1_000)):
                 with deadline_clock_scope(GasMeter(limit=32)):
                     forest.add_alt("Edge", (left, right), evidence=evidence)
-        return forest.to_json()
+        return forest.to_wire_payload()
 
     payload_a = _build({"tokens": ["b", "a", "b"], "meta": {"z": [2, 1]}})
     payload_b = _build({"meta": {"z": [1, 2, 1]}, "tokens": ["a", "b"]})

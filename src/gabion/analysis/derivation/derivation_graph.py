@@ -200,8 +200,8 @@ class DerivationGraph:
                         )
                         for entry in node.key.input_nodes
                     ],
-                    "params": aspf.structural_key_json(node.key.params),
-                    "dependencies": aspf.structural_key_json(node.key.dependencies),
+                    "params": aspf.structural_key_wire(node.key.params),
+                    "dependencies": aspf.structural_key_wire(node.key.dependencies),
                     "source": node.source,
                 }
             )
@@ -253,7 +253,7 @@ def _node_id_payload(
 ) -> dict[str, object]:
     return {
         "kind": node_id.kind,
-        "key": aspf.structural_key_json(
+        "key": aspf.structural_key_wire(
             aspf.structural_key_atom(
                 node_id.key,
                 source=source,

@@ -246,7 +246,7 @@ def _node_id_payload(
 ) -> dict[str, object]:
     return {
         "kind": node_id.kind,
-        "key": aspf.structural_key_json(
+        "key": aspf.structural_key_wire(
             aspf.structural_key_atom(node_id.key, source=source)
         ),
     }

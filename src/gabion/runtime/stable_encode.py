@@ -70,6 +70,15 @@ def stable_json_value(
         ) from None
 
 
+def stable_wire_value(
+    value: object,
+    *,
+    source: str,
+) -> object:
+    """Alias for neutral wire-carrier terminology in semantic modules."""
+    return stable_json_value(value, source=source)
+
+
 @singledispatch
 def _normalize(value: object, *, source: str) -> object:
     never(

@@ -12,7 +12,7 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Generic, TypeVar, cast
 
-from gabion.analysis.aspf.aspf import NodeId, structural_key_atom, structural_key_json
+from gabion.analysis.aspf.aspf import NodeId, structural_key_atom, structural_key_wire
 from gabion.analysis.core.type_fingerprints import fingerprint_stage_cache_identity
 from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
     _CACHE_IDENTITY_DIGEST_HEX,
@@ -690,7 +690,7 @@ def _canonical_stage_cache_detail(detail) -> str:
         detail,
         source="gabion.analysis.dataflow_indexed_file_scan._canonical_stage_cache_detail",
     )
-    canonical_json = structural_key_json(structural_detail)
+    canonical_json = structural_key_wire(structural_detail)
     return json.dumps(canonical_json, sort_keys=False, separators=(",", ":"))
 
 

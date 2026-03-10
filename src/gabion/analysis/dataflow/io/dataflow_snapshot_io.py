@@ -284,7 +284,7 @@ def render_decision_snapshot(
             "decision_protocol_violations": len(decision_protocol_violations),
         },
     }
-    snapshot["forest"] = forest.to_json()
+    snapshot["forest"] = forest.to_wire_payload()
     snapshot["forest_signature"] = build_forest_signature(forest)
     spec = forest_spec or default_forest_spec(
         include_bundle_forest=True,

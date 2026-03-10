@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import cast
 
 from gabion.analysis.aspf.aspf_evidence import normalize_alt_evidence_payload
+from gabion.analysis.foundation.wire_types import WireValue
 from gabion.invariants import never
 from gabion.order_contract import sort_once
 from gabion.runtime import stable_encode
@@ -148,9 +149,11 @@ def canon_paramset(params: Iterable[str]) -> tuple[str, ...]:
     return tuple(sort_once(cleaned, source = 'src/gabion/analysis/aspf.py:123'))
 
 
-def _canonicalize_evidence(evidence: object) -> dict[str, object]:
+def _canonicalize_evidence(evidence: WireValue) -> WireValue:
     normalized = normalize_alt_evidence_payload(evidence)
-    return cast(dict[str, object], _canonicalize_evidence_value(normalized))
+    if type(normalized) is not dict:
+        return {}
+    return _canonicalize_evidence_value(normalized)
 
 
 def _canonicalize_evidence_value(value: object) -> object:
@@ -291,12 +294,12 @@ def structural_key_atom(
             )
 
 
-def structural_key_json(
+def structural_key_wire(
     value: StructuralKeyAtom,
 ) -> object:
     match value:
         case tuple() as tuple_value:
-            return [structural_key_json(entry) for entry in tuple_value]
+            return [structural_key_wire(entry) for entry in tuple_value]
         case bytes() as bytes_value:
             return {"_py": "bytes", "hex": bytes_value.hex()}
         case _:
@@ -521,7 +524,7 @@ class Forest:
         node_id = NodeId(kind=kind, key=key)
         return self._intern_node(node_id, meta)
 
-    def to_json(self) -> dict[str, object]:
+    def to_wire_payload(self) -> dict[str, object]:
         nodes = sort_once(self.nodes.values(), key=lambda node: node.node_id.sort_key(), source = 'src/gabion/analysis/aspf.py:346')
         alts = sort_once(self.alts, key=lambda alt: alt.sort_key(), source = 'src/gabion/analysis/aspf.py:347')
         return {

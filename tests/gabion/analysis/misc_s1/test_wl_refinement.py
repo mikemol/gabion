@@ -40,7 +40,7 @@ def _build_suite_forest(*, child_kinds: tuple[str, ...]) -> Forest:
 
 
 def _wl_facet_payload(forest: Forest) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
-    payload = forest.to_json()
+    payload = forest.to_wire_payload()
     nodes = [
         node
         for node in payload["nodes"]

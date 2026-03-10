@@ -76,22 +76,22 @@ def _sample_snapshot_and_events() -> tuple[SnapshotEnvelope, list[EventEnvelope]
 
 # gabion:evidence E:function_site::tests/test_aspf_mutation_log.py::tests.test_aspf_mutation_log.test_replay_ignores_uncommitted_tail_and_preserves_json_equivalence
 # gabion:behavior primary=desired
-def test_replay_ignores_uncommitted_tail_and_preserves_json_equivalence() -> None:
+def test_replay_ignores_uncommitted_tail_and_preserves_wire_equivalence() -> None:
     snapshot, events, commit = _sample_snapshot_and_events()
     result = replay_from_snapshot_and_committed_tail(snapshot=snapshot, events=events, commit=commit)
     assert result.state == {"a": 1, "b": 2}
     assert result.ignored_tail_count == 1
-    assert result.equivalent_to_json_replay is True
+    assert result.equivalent_to_wire_replay is True
 
 
 # gabion:evidence E:function_site::tests/test_aspf_mutation_log.py::tests.test_aspf_mutation_log.test_shadow_write_parity_matches_legacy_json_replay
 # gabion:behavior primary=allowed_unwanted facets=legacy
-def test_shadow_write_parity_matches_legacy_json_replay() -> None:
+def test_shadow_write_parity_matches_legacy_wire_replay() -> None:
     snapshot, events, commit = _sample_snapshot_and_events()
     parity = shadow_write_parity(enabled=True, snapshot=snapshot, events=events, commit=commit)
     assert parity.enabled is True
     assert parity.equivalent is True
-    assert parity.archive_replay == parity.json_replay == {"a": 1, "b": 2}
+    assert parity.archive_replay == parity.wire_replay == {"a": 1, "b": 2}
 
 
 # gabion:evidence E:function_site::tests/test_aspf_mutation_log.py::tests.test_aspf_mutation_log.test_filesystem_projection_and_tar_packaging_are_deterministic
@@ -144,7 +144,7 @@ def test_replay_state_hash_stable_across_repeated_archive_replays() -> None:
 
 # gabion:evidence E:function_site::tests/test_aspf_mutation_log.py::tests.test_aspf_mutation_log.test_snapshot_tail_replay_loader_matches_json_checkpoint_replay
 # gabion:behavior primary=desired
-def test_snapshot_tail_replay_loader_matches_json_checkpoint_replay(tmp_path: Path) -> None:
+def test_snapshot_tail_replay_loader_matches_wire_checkpoint_replay(tmp_path: Path) -> None:
     snapshot, events, commit = _sample_snapshot_and_events()
     manifest = ArchiveManifest(
         schema_version=1,
@@ -165,15 +165,15 @@ def test_snapshot_tail_replay_loader_matches_json_checkpoint_replay(tmp_path: Pa
 
     loaded_manifest, loaded_events, loaded_snapshots, loaded_commit = load_projected_archive(root_dir=archive_root)
     loader_replay = replay_from_projected_archive(root_dir=archive_root)
-    json_replay = replay_from_snapshot_and_committed_tail(
+    wire_replay = replay_from_snapshot_and_committed_tail(
         snapshot=max(loaded_snapshots, key=lambda item: item.snapshot.seq),
         events=loaded_events,
         commit=loaded_commit,
     )
 
     assert loaded_manifest == manifest
-    assert loader_replay.state == json_replay.state
-    assert loader_replay.equivalent_to_json_replay is True
+    assert loader_replay.state == wire_replay.state
+    assert loader_replay.equivalent_to_wire_replay is True
 
 
 # gabion:evidence E:function_site::tests/test_aspf_mutation_log.py::tests.test_aspf_mutation_log.test_crash_recovery_detects_corrupted_tail_entry
@@ -266,11 +266,11 @@ def test_protobuf_varint_and_wire_error_branches() -> None:
 
 
 # gabion:behavior primary=verboten facets=error
-def test_protobuf_json_decode_error_branches() -> None:
+def test_protobuf_wire_decode_error_branches() -> None:
     with pytest.raises(ProtobufDecodeError):
-        aspf_mutation_log._json_bytes_to_object(b"\xff")
+        aspf_mutation_log._wire_bytes_to_object(b"\xff")
     with pytest.raises(ProtobufDecodeError):
-        aspf_mutation_log._json_bytes_to_object(b"[]")
+        aspf_mutation_log._wire_bytes_to_object(b"[]")
 
 
 # gabion:behavior primary=verboten facets=error

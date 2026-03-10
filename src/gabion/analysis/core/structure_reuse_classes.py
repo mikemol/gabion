@@ -5,7 +5,7 @@ import hashlib
 import json
 from typing import Iterable
 
-from gabion.analysis.aspf.aspf import NodeId, structural_key_atom, structural_key_json
+from gabion.analysis.aspf.aspf import NodeId, structural_key_atom, structural_key_wire
 from gabion.analysis.foundation.json_types import JSONObject
 
 
@@ -54,7 +54,7 @@ def structure_class_payload(structure_class: AspfStructureClass) -> JSONObject:
     canonical_identity = structure_class.canonical_identity_payload()
     canonical_identity["node_id"] = {
         "kind": structure_class.node_id.kind,
-        "key": structural_key_json(structure_class.node_id.key),
+        "key": structural_key_wire(structure_class.node_id.key),
     }
     payload: JSONObject = {
         "kind": structure_class.kind,

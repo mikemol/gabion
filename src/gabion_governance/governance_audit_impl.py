@@ -1284,7 +1284,7 @@ def _emit_docflow_suite_artifacts(
     if forest_output is not None:
         forest_output.parent.mkdir(parents=True, exist_ok=True)
         forest_output.write_text(
-            json.dumps(forest.to_json(), indent=2, sort_keys=True),
+            json.dumps(forest.to_wire_payload(), indent=2, sort_keys=True),
             encoding="utf-8",
         )
     if relation_output is not None:

@@ -3,12 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from hashlib import sha256
 from io import BytesIO
-import json
 from pathlib import Path
 import tarfile
 from typing import Mapping
 
-from gabion.analysis.foundation.json_types import JSONObject, JSONValue
+from gabion.analysis.foundation import wire_text_codec
+from gabion.analysis.foundation.wire_types import WireObject, WireValue
 from gabion.analysis.foundation.resume_codec import mapping_optional, sequence_optional
 
 
@@ -16,20 +16,20 @@ from gabion.analysis.foundation.resume_codec import mapping_optional, sequence_o
 class AspfMutationRecord:
     op_id: str
     op_kind: str
-    payload: JSONObject
+    payload: WireObject
 
 
 @dataclass(frozen=True)
 class AspfMutationSnapshot:
     seq: int
-    state: JSONObject
+    state: WireObject
 
 
 @dataclass(frozen=True)
 class AspfShadowReplayResult:
     equivalent: bool
-    expected: JSONObject
-    replayed: JSONObject
+    expected: WireObject
+    replayed: WireObject
     tail_length: int
 
 
@@ -64,17 +64,17 @@ class CommitMarker:
 
 @dataclass(frozen=True)
 class SnapshotTailReplayResult:
-    state: JSONObject
+    state: WireObject
     ignored_tail_count: int
-    equivalent_to_json_replay: bool
+    equivalent_to_wire_replay: bool
 
 
 @dataclass(frozen=True)
 class ShadowWriteParityResult:
     enabled: bool
     equivalent: bool
-    archive_replay: JSONObject
-    json_replay: JSONObject
+    archive_replay: WireObject
+    wire_replay: WireObject
 
 
 class ProtobufDecodeError(ValueError):
@@ -87,8 +87,8 @@ class ProtobufWireFields:
     bytes_fields: dict[int, bytes]
 
 
-def _canonical_json_bytes(payload: Mapping[str, JSONValue]) -> bytes:
-    return json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+def _canonical_wire_bytes(payload: Mapping[str, WireValue]) -> bytes:
+    return wire_text_codec.encode_mapping_bytes(payload, sort_keys=True)
 
 
 def _encode_varint(value: int) -> bytes:
@@ -157,20 +157,15 @@ def _parse_wire_fields(payload: bytes) -> ProtobufWireFields:
     return ProtobufWireFields(varints=varints, bytes_fields=bytes_fields)
 
 
-def _json_bytes_to_object(payload: bytes) -> JSONObject:
+def _wire_bytes_to_object(payload: bytes) -> WireObject:
     try:
-        value = json.loads(payload.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise ProtobufDecodeError("invalid json payload") from exc
-    match value:
-        case dict() as value_map:
-            return value_map
-        case _:
-            raise ProtobufDecodeError("json payload must decode to an object")
+        return wire_text_codec.decode_mapping_bytes(payload)
+    except AssertionError as exc:
+        raise ProtobufDecodeError("invalid wire payload") from exc
 
 
 def encode_event_envelope_proto(envelope: EventEnvelope) -> bytes:
-    record_payload = _canonical_json_bytes(
+    record_payload = _canonical_wire_bytes(
         {
             "op_id": envelope.record.op_id,
             "op_kind": envelope.record.op_kind,
@@ -200,7 +195,7 @@ def decode_event_envelope_proto(payload: bytes) -> EventEnvelope:
         run_id = run_id_field.decode("utf-8")
     except UnicodeDecodeError as exc:
         raise ProtobufDecodeError("invalid run_id encoding") from exc
-    record_payload = _json_bytes_to_object(record_field)
+    record_payload = _wire_bytes_to_object(record_field)
     return EventEnvelope(
         sequence=sequence,
         run_id=run_id,
@@ -217,7 +212,7 @@ def decode_event_envelope_proto(payload: bytes) -> EventEnvelope:
 
 
 def encode_snapshot_envelope_proto(envelope: SnapshotEnvelope) -> bytes:
-    snapshot_payload = _canonical_json_bytes(
+    snapshot_payload = _canonical_wire_bytes(
         {
             "seq": envelope.snapshot.seq,
             "state": envelope.snapshot.state,
@@ -246,7 +241,7 @@ def decode_snapshot_envelope_proto(payload: bytes) -> SnapshotEnvelope:
         run_id = run_id_field.decode("utf-8")
     except UnicodeDecodeError as exc:
         raise ProtobufDecodeError("invalid run_id encoding") from exc
-    snapshot_payload = _json_bytes_to_object(snapshot_field)
+    snapshot_payload = _wire_bytes_to_object(snapshot_field)
     return SnapshotEnvelope(
         run_id=run_id,
         replay_cursor=replay_cursor,
@@ -262,7 +257,7 @@ def decode_snapshot_envelope_proto(payload: bytes) -> SnapshotEnvelope:
 
 
 def encode_archive_manifest_proto(manifest: ArchiveManifest) -> bytes:
-    return _encode_length_delimited(1, _canonical_json_bytes(_manifest_payload(manifest)))
+    return _encode_length_delimited(1, _canonical_wire_bytes(_manifest_payload(manifest)))
 
 
 def decode_archive_manifest_proto(payload: bytes) -> ArchiveManifest:
@@ -273,7 +268,7 @@ def decode_archive_manifest_proto(payload: bytes) -> ArchiveManifest:
             pass
         case _:
             raise ProtobufDecodeError("manifest envelope missing payload")
-    data = _json_bytes_to_object(body)
+    data = _wire_bytes_to_object(body)
     return ArchiveManifest(
         schema_version=int(data.get("schema_version", 0) or 0),
         projection_version=int(data.get("projection_version", 0) or 0),
@@ -307,7 +302,7 @@ def decode_commit_marker_proto(payload: bytes) -> CommitMarker:
     )
 
 
-def _manifest_payload(manifest: ArchiveManifest) -> JSONObject:
+def _manifest_payload(manifest: ArchiveManifest) -> WireObject:
     return {
         "schema_version": manifest.schema_version,
         "projection_version": manifest.projection_version,
@@ -428,12 +423,12 @@ def replay_from_snapshot_and_committed_tail(
         for event in committed_tail
     ]
     archive_replay = replay_tail(snapshot.snapshot, archive_records)
-    json_replay = replay_tail(snapshot.snapshot, replay_records)
-    equivalent = json.dumps(archive_replay, sort_keys=True) == json.dumps(json_replay, sort_keys=True)
+    wire_replay = replay_tail(snapshot.snapshot, replay_records)
+    equivalent = wire_text_codec.equivalent_canonical(archive_replay, wire_replay)
     return SnapshotTailReplayResult(
         state=archive_replay,
         ignored_tail_count=ignored_tail_count,
-        equivalent_to_json_replay=equivalent,
+        equivalent_to_wire_replay=equivalent,
     )
 
 
@@ -461,27 +456,27 @@ def shadow_write_parity(
         events=events,
         commit=commit,
     )
-    json_tail = [
+    replay_tail_records = [
         _record_from_event_envelope(event)
         for event in sorted(events, key=lambda item: item.sequence)
         if snapshot.replay_cursor < event.sequence <= commit.last_durable_sequence
     ]
-    json_replay = replay_tail(snapshot.snapshot, json_tail)
-    equivalent = json.dumps(replay_result.state, sort_keys=True) == json.dumps(json_replay, sort_keys=True)
+    wire_replay = replay_tail(snapshot.snapshot, replay_tail_records)
+    equivalent = wire_text_codec.equivalent_canonical(replay_result.state, wire_replay)
     return ShadowWriteParityResult(
         enabled=enabled,
         equivalent=(equivalent if enabled else True),
         archive_replay=replay_result.state,
-        json_replay=json_replay,
+        wire_replay=wire_replay,
     )
 
 
-def replay_state_hash(*, replay_state: Mapping[str, JSONValue]) -> str:
-    return sha256(_canonical_json_bytes(dict(replay_state))).hexdigest()
+def replay_state_hash(*, replay_state: Mapping[str, WireValue]) -> str:
+    return sha256(_canonical_wire_bytes(dict(replay_state))).hexdigest()
 
 
-def apply_mutation(state: JSONObject, record: AspfMutationRecord) -> JSONObject:
-    next_state: JSONObject = dict(state)
+def apply_mutation(state: WireObject, record: AspfMutationRecord) -> WireObject:
+    next_state: WireObject = dict(state)
     if record.op_kind == "set":
         key = str(record.payload.get("key", ""))
         if key:
@@ -498,11 +493,11 @@ def apply_mutation(state: JSONObject, record: AspfMutationRecord) -> JSONObject:
     return next_state
 
 
-def snapshot_state(state: Mapping[str, JSONValue], *, seq: int) -> AspfMutationSnapshot:
+def snapshot_state(state: Mapping[str, WireValue], *, seq: int) -> AspfMutationSnapshot:
     return AspfMutationSnapshot(seq=seq, state=dict(state))
 
 
-def replay_tail(snapshot: AspfMutationSnapshot, tail: list[AspfMutationRecord]) -> JSONObject:
+def replay_tail(snapshot: AspfMutationSnapshot, tail: list[AspfMutationRecord]) -> WireObject:
     state = dict(snapshot.state)
     for record in tail:
         state = apply_mutation(state, record)
@@ -511,13 +506,13 @@ def replay_tail(snapshot: AspfMutationSnapshot, tail: list[AspfMutationRecord]) 
 
 def shadow_replay_equivalence(
     *,
-    live_state: Mapping[str, JSONValue],
+    live_state: Mapping[str, WireValue],
     snapshot: AspfMutationSnapshot,
     tail: list[AspfMutationRecord],
 ) -> AspfShadowReplayResult:
     replayed = replay_tail(snapshot, tail)
     expected = dict(live_state)
-    equivalent = json.dumps(expected, sort_keys=True) == json.dumps(replayed, sort_keys=True)
+    equivalent = wire_text_codec.equivalent_canonical(expected, replayed)
     return AspfShadowReplayResult(
         equivalent=equivalent,
         expected=expected,
