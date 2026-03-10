@@ -10,13 +10,17 @@ from gabion.tooling.runtime.policy_scan_batch import build_policy_scan_batch_fro
 def test_collect_violations_detects_scalar_conversion_outside_boundary() -> None:
     source = "\n".join(
         [
+            "from functools import reduce",
+            "",
             "def normalize(value):",
             "    label = str(value)",
             "    explicit = value.__str__()",
             "    formatted = f'value={value}'",
             "    rendered = '{}'.format(value)",
             "    combined = 'value=' + value",
-            "    return label, explicit, formatted, rendered, combined",
+            "    joined = ','.join([value, value])",
+            "    reduced = reduce(lambda left, right: left, [value, value])",
+            "    return label, explicit, formatted, rendered, combined, joined, reduced",
             "",
         ]
     )
@@ -33,6 +37,8 @@ def test_collect_violations_detects_scalar_conversion_outside_boundary() -> None
     assert "fstring_format" in kinds
     assert "string_format" in kinds
     assert "string_add" in kinds
+    assert "string_join" in kinds
+    assert "reduce_call" in kinds
     assert violations[0].fiber_trace
 
 

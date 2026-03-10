@@ -28,6 +28,8 @@ from .scalar_flow_index import (
     ScalarFlowIndex,
     build_scalar_flow_index,
     is_dunder_str_call,
+    is_join_call,
+    is_reduce_call,
     is_string_format_call,
     scalar_cast_name,
 )
@@ -66,6 +68,8 @@ __all__ = [
     "empty_recombination_frontier",
     "evaluate_condition_overlaps",
     "is_dunder_str_call",
+    "is_join_call",
+    "is_reduce_call",
     "is_string_format_call",
     "new_run_context",
     "policy_event_kind_from_scalar",

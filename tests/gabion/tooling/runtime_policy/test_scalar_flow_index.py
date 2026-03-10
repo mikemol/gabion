@@ -26,3 +26,24 @@ def test_scalar_flow_index_infers_string_add_from_annotation_and_return_type() -
     binops = [node for node in ast.walk(tree) if isinstance(node, ast.BinOp)]
 
     assert len([node for node in binops if index.is_string_add(node=node)]) == 2
+
+
+# gabion:behavior primary=desired
+def test_scalar_flow_index_detects_join_and_reduce_calls() -> None:
+    source = "\n".join(
+        [
+            "from functools import reduce",
+            "",
+            "def fold(parts: list[str]) -> str:",
+            "    joined = ','.join(parts)",
+            "    reduced = reduce(lambda left, right: left, parts)",
+            "    return joined + reduced",
+            "",
+        ]
+    )
+    tree = ast.parse(source)
+    index = build_scalar_flow_index(tree=tree)
+    calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)]
+
+    assert any(index.is_string_join_call(node=node) for node in calls)
+    assert any(index.is_reduce_call(node=node) for node in calls)

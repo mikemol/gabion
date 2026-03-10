@@ -1,6 +1,6 @@
 ---
 doc_revision: 2
-reader_reintern: Reader-only: re-intern if doc_revision changed since you last read this doc.
+reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: frontmatter_yaml_migration_ledger
 doc_role: ledger
 doc_scope:
@@ -17,9 +17,9 @@ doc_reviewed_as_of:
   CONTRIBUTING.md#contributing_contract: 2
   AGENTS.md#agent_obligations: 31
 doc_review_notes:
-  CONTRIBUTING.md#contributing_contract: Front-matter policy and validation cadence reviewed.
-  AGENTS.md#agent_obligations: Governance obligations and doc hygiene reviewed.
-doc_change_protocol: POLICY_SEED.md#change_protocol
+  CONTRIBUTING.md#contributing_contract: "Front-matter policy and validation cadence reviewed."
+  AGENTS.md#agent_obligations: "Governance obligations and doc hygiene reviewed."
+doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_owner: maintainer
 ---
 

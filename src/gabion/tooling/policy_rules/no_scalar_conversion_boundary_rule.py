@@ -114,6 +114,26 @@ class _NoScalarConversionVisitor(ast.NodeVisitor):
                     "I/O boundary or DTO __str__"
                 ),
             )
+        if self._scalar_flow_index.is_string_join_call(node=node) and not self._is_boundary_scope():
+            self._record(
+                node=node,
+                kind="string_join",
+                conversion="join",
+                message=(
+                    "join() scalarization outside I/O boundary; move joining to I/O "
+                    "boundary or DTO __str__"
+                ),
+            )
+        if self._scalar_flow_index.is_reduce_call(node=node) and not self._is_boundary_scope():
+            self._record(
+                node=node,
+                kind="reduce_call",
+                conversion="reduce",
+                message=(
+                    "reduce() scalarization outside I/O boundary; preserve stream shape "
+                    "until I/O boundary"
+                ),
+            )
         self.generic_visit(node)
 
     def visit_BinOp(self, node: ast.BinOp) -> None:

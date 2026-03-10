@@ -14,6 +14,8 @@ class ScalarFlowIndex(ast.NodeVisitor):
         self._symbol_scopes: list[dict[str, str]] = [dict()]
         self._function_return_kinds: dict[str, str] = {}
         self._string_add_nodes: set[int] = set()
+        self._string_join_call_nodes: set[int] = set()
+        self._reduce_call_nodes: set[int] = set()
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self._visit_scoped(node=node)
@@ -57,8 +59,21 @@ class ScalarFlowIndex(ast.NodeVisitor):
             self._string_add_nodes.add(id(node))
         self.generic_visit(node)
 
+    def visit_Call(self, node: ast.Call) -> None:
+        if self._is_string_join_call(node):
+            self._string_join_call_nodes.add(id(node))
+        if self._is_reduce_call(node):
+            self._reduce_call_nodes.add(id(node))
+        self.generic_visit(node)
+
     def is_string_add(self, *, node: ast.BinOp) -> bool:
         return id(node) in self._string_add_nodes
+
+    def is_string_join_call(self, *, node: ast.Call) -> bool:
+        return id(node) in self._string_join_call_nodes
+
+    def is_reduce_call(self, *, node: ast.Call) -> bool:
+        return id(node) in self._reduce_call_nodes
 
     def _visit_scoped(
         self,
@@ -138,6 +153,8 @@ class ScalarFlowIndex(ast.NodeVisitor):
                     return _KIND_STRING
                 if is_string_format_call(func=func):
                     return _KIND_STRING
+                if self._is_join_call(func=func):
+                    return _KIND_STRING
                 return self._infer_call_result_kind(func=func)
             case ast.BinOp(op=ast.Add()):
                 left_kind = self._infer_expr_kind(node.left)
@@ -163,6 +180,22 @@ class ScalarFlowIndex(ast.NodeVisitor):
         left_kind = self._infer_expr_kind(node.left)
         right_kind = self._infer_expr_kind(node.right)
         return left_kind == _KIND_STRING or right_kind == _KIND_STRING
+
+    def _is_string_join_call(self, node: ast.Call) -> bool:
+        if not self._is_join_call(func=node.func):
+            return False
+        match node.func:
+            case ast.Attribute(value=receiver):
+                receiver_kind = self._infer_expr_kind(receiver)
+                return receiver_kind == _KIND_STRING
+            case _:
+                return False
+
+    def _is_reduce_call(self, node: ast.Call) -> bool:
+        return _is_reduce_call(func=node.func)
+
+    def _is_join_call(self, *, func: ast.AST) -> bool:
+        return _is_join_call(func=func)
 
 
 def build_scalar_flow_index(*, tree: ast.AST) -> ScalarFlowIndex:
@@ -191,6 +224,14 @@ def is_dunder_str_call(*, func: ast.AST) -> bool:
             return False
 
 
+def is_join_call(*, func: ast.AST) -> bool:
+    return _is_join_call(func=func)
+
+
+def is_reduce_call(*, func: ast.AST) -> bool:
+    return _is_reduce_call(func=func)
+
+
 def _is_format_call(*, func: ast.AST) -> bool:
     match func:
         case ast.Attribute(attr="format", value=ast.Constant(value=value)) if isinstance(value, str):
@@ -202,6 +243,24 @@ def _is_format_call(*, func: ast.AST) -> bool:
 def _is_builtin_format_call(*, func: ast.AST) -> bool:
     match func:
         case ast.Name(id="format"):
+            return True
+        case _:
+            return False
+
+
+def _is_join_call(*, func: ast.AST) -> bool:
+    match func:
+        case ast.Attribute(attr="join"):
+            return True
+        case _:
+            return False
+
+
+def _is_reduce_call(*, func: ast.AST) -> bool:
+    match func:
+        case ast.Name(id="reduce"):
+            return True
+        case ast.Attribute(attr="reduce"):
             return True
         case _:
             return False
@@ -225,6 +284,8 @@ __all__ = [
     "ScalarFlowIndex",
     "build_scalar_flow_index",
     "is_dunder_str_call",
+    "is_join_call",
+    "is_reduce_call",
     "is_string_format_call",
     "scalar_cast_name",
 ]
