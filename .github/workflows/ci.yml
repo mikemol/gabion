@@ -211,7 +211,7 @@ jobs:
             exit 0
           fi
           gh api "$history_url" > artifacts/out/controller_drift_gate_history.zip
-          python -c 'import zipfile; from pathlib import Path; z=Path("artifacts/out/controller_drift_gate_history.zip"); zipfile.ZipFile(z).extractall("artifacts/out"); z.unlink(missing_ok=True)'
+          .venv/bin/python -c 'import zipfile; from pathlib import Path; z=Path("artifacts/out/controller_drift_gate_history.zip"); zipfile.ZipFile(z).extractall("artifacts/out"); z.unlink(missing_ok=True)'
       - name: Controller drift audit
         run: .venv/bin/python scripts/governance_controller_audit.py --out artifacts/out/controller_drift.json
       - name: Override lifecycle record emit
