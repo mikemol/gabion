@@ -3,10 +3,10 @@ from __future__ import annotations
 
 import inspect
 import os
+from functools import reduce
 from decimal import Decimal, InvalidOperation
 from dataclasses import dataclass, field
 from collections.abc import Callable, Iterable, Iterator, Mapping
-from contextlib import contextmanager
 from pathlib import Path
 from types import FrameType
 from typing import TypeVar
@@ -36,16 +36,22 @@ def _sorted_values(values, *, key):
     return sorted(values, key=key)
 
 
+def _span_contains_non_int(span: Iterable[object]) -> bool:
+    return any(map(lambda part: _int_optional(part) is None, span))
+
+
 @dataclass(frozen=True)
 class PackedCallStack:
     site_table: tuple["_CallSite", ...]
     stack: tuple[int, ...]
 
     def as_payload(self) -> dict[str, JSONValue]:
-        return {
-            "site_table": [entry.as_payload() for entry in self.site_table],
-            "stack": [value for value in self.stack],
+        site_table_payload = list(map(lambda entry: entry.as_payload(), self.site_table))
+        payload: dict[str, JSONValue] = {
+            "site_table": site_table_payload,
+            "stack": list(self.stack),
         }
+        return payload
 
 
 @dataclass(frozen=True)
@@ -80,7 +86,8 @@ class _FileSite:
     def as_payload(self) -> dict[str, JSONValue]:
         # Keep canonical key order ("key" then "kind") so caller-order checks
         # can hold without fallback sorting.
-        return {"key": [self.path], "kind": "FileSite"}
+        payload: dict[str, JSONValue] = {"key": [self.path], "kind": "FileSite"}
+        return payload
 
     @classmethod
     def decode_payload(cls, payload: Mapping[str, object]) -> "_FileSite":
@@ -106,15 +113,15 @@ class _FunctionSiteIdentity:
             never("site identity missing path/qual", path=self.path, qual=self.qual)
         if len(self.span) != 4:
             never("invalid function site span", span=self.span)
-        for part in self.span:
-            if _int_optional(part) is None:
-                never("invalid function site span", span=self.span)
+        if _span_contains_non_int(self.span):
+            never("invalid function site span", span=self.span)
 
     def key(self) -> tuple[object, ...]:
-        key: list[object] = [_FileSite(self.path), self.qual]
         if self.has_span:
-            key.extend(self.span)
-        return tuple(key)
+            key = (_FileSite(self.path), self.qual, *self.span)
+        else:
+            key = (_FileSite(self.path), self.qual)
+        return key
 
     @classmethod
     def decode_payload(cls, site: Mapping[str, object]) -> "_FunctionSiteIdentity":
@@ -137,15 +144,22 @@ class _FunctionSiteIdentity:
 
 
 @dataclass(frozen=True)
+class _SiteKey:
+    path: str
+    qual: str
+
+
+@dataclass(frozen=True)
 class _CallSite:
     kind: str
     key: tuple[object, ...]
 
     def as_payload(self) -> dict[str, JSONValue]:
-        return {
+        payload: dict[str, JSONValue] = {
             "kind": self.kind,
-            "key": [_site_part_to_payload(part) for part in self.key],
+            "key": list(map(_site_part_to_payload, self.key)),
         }
+        return payload
 
     def frozen_key(self) -> tuple[object, ...]:
         return _freeze_key(self.key)
@@ -154,6 +168,12 @@ class _CallSite:
 @dataclass(frozen=True)
 class _InternedCallSite:
     order: int
+    site: _CallSite
+
+
+@dataclass(frozen=True)
+class _SiteIndexEntry:
+    key: _SiteKey
     site: _CallSite
 
 
@@ -269,6 +289,19 @@ _forest_var: ContextVar[object] = ContextVar(
 )
 
 
+@dataclass(frozen=True)
+class _ScopeResetContext:
+    token: Token
+    resetter: Callable[[Token], None]
+
+    def __enter__(self) -> None:
+        return None
+
+    def __exit__(self, exc_type, exc, traceback) -> bool:
+        self.resetter(self.token)
+        return False
+
+
 @dataclass
 class _DeadlineSiteStats:
     checks: int = 0
@@ -310,8 +343,8 @@ class _DeadlineProfileState:
     root_resolution_cache: dict[str, tuple[object, object]] = field(
         default_factory=dict
     )
-    site_keys: list[tuple[str, str]] = field(default_factory=list)
-    site_ids: dict[tuple[str, str], int] = field(default_factory=dict)
+    site_keys: list[_SiteKey] = field(default_factory=list)
+    site_ids: dict[_SiteKey, int] = field(default_factory=dict)
     frame_site_cache: dict[tuple[object, object], int] = field(default_factory=dict)
     site_stats: dict[int, _DeadlineSiteStats] = field(default_factory=dict)
     edge_stats: dict[
@@ -337,8 +370,13 @@ def set_deadline_profile(
     sample_interval: int = 1,
 ):
     normalized_sample_interval = max(1, int(sample_interval))
-    resolved_root = project_root.resolve() if project_root is not None else None
-    root_key = str(resolved_root) if resolved_root is not None else None
+    resolved_root = None
+    root_key = None
+    root_resolution_cache: dict[str, tuple[object, object]] = {}
+    if project_root is not None:
+        resolved_root = project_root.resolve()
+        root_key = str(resolved_root)
+        root_resolution_cache[str(project_root)] = (resolved_root, root_key)
     now = _current_deadline_mark()
     wall_now = _SYSTEM_CLOCK.get_mark()
     state = _DeadlineProfileState(
@@ -350,9 +388,7 @@ def set_deadline_profile(
         project_root=resolved_root,
         project_root_key=root_key,
         sample_interval=normalized_sample_interval,
-        root_resolution_cache={str(project_root): (resolved_root, root_key)}
-        if project_root is not None
-        else {},
+        root_resolution_cache=root_resolution_cache,
     )
     return _deadline_profile_var.set(state)
 
@@ -417,36 +453,23 @@ def get_forest():
     return forest
 
 
-@contextmanager
 def deadline_scope(deadline: Deadline):
     if deadline is None:
         never("deadline carrier missing")
     token = set_deadline(deadline)
-    try:
-        yield
-    finally:
-        reset_deadline(token)
+    return _ScopeResetContext(token=token, resetter=reset_deadline)
 
 
-@contextmanager
 def deadline_clock_scope(clock: DeadlineClock):
     token = set_deadline_clock(clock)
-    try:
-        yield
-    finally:
-        reset_deadline_clock(token)
+    return _ScopeResetContext(token=token, resetter=reset_deadline_clock)
 
 
-@contextmanager
 def forest_scope(forest):
     token = set_forest(forest)
-    try:
-        yield
-    finally:
-        reset_forest(token)
+    return _ScopeResetContext(token=token, resetter=reset_forest)
 
 
-@contextmanager
 def deadline_profile_scope(
     *,
     project_root = None,
@@ -458,31 +481,31 @@ def deadline_profile_scope(
         enabled=enabled,
         sample_interval=sample_interval,
     )
-    try:
-        yield
-    finally:
-        reset_deadline_profile(token)
+    return _ScopeResetContext(token=token, resetter=reset_deadline_profile)
 
 
 def _profile_site_key(
     frame: FrameType,
     *,
     project_root,
-) -> tuple[str, str]:
+) -> _SiteKey:
     if project_root is None:
-        return _frame_site_key(frame, project_root=None)
+        site_key = _frame_site_key(frame, project_root=None)
+        return site_key
     try:
-        return _frame_site_key(frame, project_root=project_root)
+        site_key = _frame_site_key(frame, project_root=project_root)
+        return site_key
     except NeverThrown:
-        _, qual = _frame_site_key(frame, project_root=None)
-        return ("<external>", qual)
+        local_site_key = _frame_site_key(frame, project_root=None)
+        fallback_key = _SiteKey(path="<external>", qual=local_site_key.qual)
+        return fallback_key
 
 
 def _record_deadline_check(
     project_root,
     *,
     frame_getter = inspect.currentframe,
-    profile_site_key_fn: Callable[..., tuple[str, str]] = _profile_site_key,
+    profile_site_key_fn: Callable[..., _SiteKey] = _profile_site_key,
 ) -> None:
     state = _deadline_profile_var.get()
     if state is not None and state.enabled:
@@ -570,11 +593,13 @@ def _deadline_profile_snapshot():
         state.site_stats.items(),
         key=lambda item: (
             -item[1].elapsed_ns,
-            state.site_keys[item[0]][0],
-            state.site_keys[item[0]][1],
+            state.site_keys[item[0]].path,
+            state.site_keys[item[0]].qual,
         ),
     ):
-        path, qual = state.site_keys[site_id]
+        site_key = state.site_keys[site_id]
+        path = site_key.path
+        qual = site_key.qual
         site_rows.append(
             {
                 "path": path,
@@ -589,20 +614,20 @@ def _deadline_profile_snapshot():
         state.edge_stats.items(),
         key=lambda item: (
             -item[1].elapsed_ns,
-            state.site_keys[item[0][0]][0],
-            state.site_keys[item[0][0]][1],
-            state.site_keys[item[0][1]][0],
-            state.site_keys[item[0][1]][1],
+            state.site_keys[item[0][0]].path,
+            state.site_keys[item[0][0]].qual,
+            state.site_keys[item[0][1]].path,
+            state.site_keys[item[0][1]].qual,
         ),
     ):
         source = state.site_keys[source_id]
         target = state.site_keys[target_id]
         edge_rows.append(
             {
-                "from_path": source[0],
-                "from_qual": source[1],
-                "to_path": target[0],
-                "to_qual": target[1],
+                "from_path": source.path,
+                "from_qual": source.qual,
+                "to_path": target.path,
+                "to_qual": target.qual,
                 "transition_count": stats.transitions,
                 "elapsed_ns": stats.elapsed_ns,
                 "max_gap_ns": stats.max_gap_ns,
@@ -622,7 +647,7 @@ def _deadline_profile_snapshot():
                 "bytes_total": stats.bytes_total,
             }
         )
-    return {
+    payload: dict[str, JSONValue] = {
         "checks_total": state.checks_total,
         "sample_interval": state.sample_interval,
         "sampled_checks_total": state.sampled_checks_total,
@@ -639,6 +664,7 @@ def _deadline_profile_snapshot():
         "edges": edge_rows,
         "io": io_rows,
     }
+    return payload
 
 
 def _timeout_progress_snapshot(
@@ -674,7 +700,7 @@ def _timeout_progress_snapshot(
             ticks_remaining = max(0, tick_limit - tick_mark)
         case _:
             pass
-    return {
+    payload: dict[str, JSONValue] = {
         "classification": classification,
         "retry_recommended": progressed,
         "resume_supported": False,
@@ -687,6 +713,7 @@ def _timeout_progress_snapshot(
         "ticks_remaining": ticks_remaining,
         "ticks_per_ns": ticks_per_ns,
     }
+    return payload
 
 
 # gabion:ambiguity_boundary
@@ -709,7 +736,9 @@ def _decode_deadline_profile_payload(profile: object) -> _DecodedDeadlineProfile
         )
 
     ticks_consumed_raw = profile_mapping.get("ticks_consumed")
-    ticks_consumed = int(ticks_consumed_raw) if ticks_consumed_raw is not None else None
+    ticks_consumed = None
+    if ticks_consumed_raw is not None:
+        ticks_consumed = int(ticks_consumed_raw)
     sites_raw = profile_mapping.get("sites")
     edges_raw = profile_mapping.get("edges")
     io_raw = profile_mapping.get("io")
@@ -968,7 +997,7 @@ def _frame_site_key(
     frame: FrameType,
     *,
     project_root,
-) -> tuple[str, str]:
+) -> _SiteKey:
     module = frame.f_globals.get("__name__") or ""
     qualname = _normalize_qualname(frame.f_code.co_qualname or frame.f_code.co_name)
     if module:
@@ -986,7 +1015,8 @@ def _frame_site_key(
                 path=resolved_path,
                 project_root=root_text,
             )
-    return (path.name, qual)
+    site_key = _SiteKey(path=path.name, qual=qual)
+    return site_key
 
 
 def _site_key_payload(
@@ -1005,13 +1035,18 @@ def _site_key(
     span = None,
 ) -> tuple[object, ...]:
     has_span = bool(span and len(span) == 4)
+    span_tuple = (0, 0, 0, 0)
+    if has_span:
+        span_values = span if span is not None else ()
+        span_tuple = tuple(map(int, span_values))
     identity = _FunctionSiteIdentity(
         path=path,
         qual=qual,
-        span=tuple(int(part) for part in span) if has_span else (0, 0, 0, 0),
+        span=span_tuple,
         has_span=has_span,
     )
-    return identity.key()
+    key = identity.key()
+    return key
 
 
 def _function_site(
@@ -1036,7 +1071,8 @@ def _decode_site_part_payload(value: object) -> object:
         case Mapping() as mapping_value:
             return _decode_site_mapping_payload(mapping_value)
         case list() as payload_list:
-            return tuple(_decode_site_part_payload(part) for part in payload_list)
+            decoded_parts = tuple(map(_decode_site_part_payload, payload_list))
+            return decoded_parts
         case None | str() | int() | float() | bool():
             return value
         case _:
@@ -1061,7 +1097,8 @@ def _site_part_to_payload(value: object) -> JSONValue:
         case _FileSite() as file_site:
             return file_site.as_payload()
         case tuple() as key_tuple:
-            return [_site_part_to_payload(part) for part in key_tuple]
+            payload_parts = list(map(_site_part_to_payload, key_tuple))
+            return payload_parts
         case None | str() | int() | float() | bool():
             return value
         case _:
@@ -1102,19 +1139,14 @@ def _call_site_from_node(node_entry: tuple[object, object]) -> _CallSite:
 
 def build_site_index(
     forest,
-) -> dict[tuple[str, str], _CallSite]:
+) -> dict[_SiteKey, _CallSite]:
     _ensure_forest_shape(forest)
-    index: dict[tuple[str, str], _CallSite] = {}
     filtered_nodes = filter(
         _node_has_path_and_qual,
         filter(_node_is_function_site, _ordered_forest_nodes(forest)),
     )
-    for node_entry in filtered_nodes:
-        _, node = node_entry
-        path = str(node.meta.get("path", "") or "")
-        qual = str(node.meta.get("qual", "") or "")
-        site = _call_site_from_node(node_entry)
-        index.setdefault((path, qual), site)
+    index_entries = map(_site_index_entry, filtered_nodes)
+    index = reduce(_site_index_insert, index_entries, {})
     return index
 
 
@@ -1125,8 +1157,7 @@ def pack_call_stack(
     unique: dict[tuple[str, tuple[object, ...]], _InternedCallSite] = {}
     for entry in normalized:
         key = (entry.kind, entry.frozen_key())
-        if key not in unique:
-            unique[key] = _InternedCallSite(order=len(unique), site=entry)
+        unique.setdefault(key, _InternedCallSite(order=len(unique), site=entry))
     ordered_unique = _sorted_values(
         unique.items(),
         key=lambda item: item[1].order,
@@ -1157,12 +1188,6 @@ def _decode_call_stack_site(site) -> _CallSite:
             return _function_site(path="", qual="")
 
 
-def _normalize_site_payload(
-    site: Mapping[str, JSONValue],
-) -> _CallSite:
-    return _decode_site_payload(site)
-
-
 # gabion:ambiguity_boundary
 def _decode_site_payload(site: Mapping[object, object]) -> _CallSite:
     kind = str(site.get("kind", "") or "FunctionSite")
@@ -1171,7 +1196,9 @@ def _decode_site_payload(site: Mapping[object, object]) -> _CallSite:
         case list() as key_entries if key_entries:
             key = [value for value in key_entries]
             first = key[0]
-            second = key[1] if key[1:] else None
+            second = None
+            if len(key) > 1:
+                second = key[1]
             match (first, second):
                 case (str() as path_value, str() as qual_value):
                     key = [_FileSite(path_value), qual_value, *key[2:]]
@@ -1185,28 +1212,35 @@ def _decode_site_payload(site: Mapping[object, object]) -> _CallSite:
         case _:
             pass
     identity = _FunctionSiteIdentity.decode_payload(site)
+    span_payload = None
+    if identity.has_span:
+        span_payload = list(identity.span)
     return _function_site(
         path=identity.path,
         qual=identity.qual,
-        span=list(identity.span) if identity.has_span else None,
+        span=span_payload,
     )
 
 
 def _freeze_value(value: object) -> object:
     match value:
         case _FileSite() as file_site:
-            return ("FileSite", file_site.path)
+            frozen_value = ("FileSite", file_site.path)
+            return frozen_value
         case tuple() as key_tuple:
-            return ("tuple", tuple(_freeze_value(item) for item in key_tuple))
+            frozen_value = ("tuple", tuple(map(_freeze_value, key_tuple)))
+            return frozen_value
         case None | str() | int() | float() | bool():
-            return ("atom", value)
+            frozen_value = ("atom", value)
+            return frozen_value
         case _:
             never("invalid site key value for freezing", value_type=type(value).__name__)
             return value  # pragma: no cover - never() raises
 
 
 def _freeze_key(key: Iterable[object]) -> tuple[object, ...]:
-    return tuple(_freeze_value(part) for part in key)
+    frozen_key = tuple(map(_freeze_value, key))
+    return frozen_key
 
 
 def _frame_within_resolved_root(frame: FrameType, resolved_root: Path) -> bool:
@@ -1235,20 +1269,42 @@ def _iter_project_frames(
 
 def _site_from_key_with_fallback(
     *,
-    key: tuple[str, str],
-    site_index: Mapping[tuple[str, str], _CallSite],
+    key: _SiteKey,
+    site_index: Mapping[_SiteKey, _CallSite],
 ) -> _CallSite:
     site = site_index.get(key)
     if site is None:
-        return _function_site(path=key[0], qual=key[1])
+        return _function_site(path=key.path, qual=key.qual)
     return site
+
+
+def _site_index_entry(
+    node_entry: tuple[object, object],
+) -> _SiteIndexEntry:
+    _, node = node_entry
+    path = str(node.meta.get("path", "") or "")
+    qual = str(node.meta.get("qual", "") or "")
+    site = _call_site_from_node(node_entry)
+    index_entry = _SiteIndexEntry(
+        key=_SiteKey(path=path, qual=qual),
+        site=site,
+    )
+    return index_entry
+
+
+def _site_index_insert(
+    index: dict[_SiteKey, _CallSite],
+    entry: _SiteIndexEntry,
+) -> dict[_SiteKey, _CallSite]:
+    index[entry.key] = entry.site
+    return index
 
 
 def _iter_timeout_context_sites(
     *,
     frame_list: Iterable[FrameType],
     resolved_root,
-    site_index: Mapping[tuple[str, str], _CallSite],
+    site_index: Mapping[_SiteKey, _CallSite],
     allow_frame_fallback: bool,
 ) -> Iterator[_CallSite]:
     keys = map(
@@ -1279,7 +1335,9 @@ def build_timeout_context_from_stack(
         if frames is not None
         else tuple(map(lambda frame_info: frame_info.frame, inspect.stack()))
     )
-    resolved_root = project_root.resolve() if project_root is not None else None
+    resolved_root = None
+    if project_root is not None:
+        resolved_root = project_root.resolve()
     sites = tuple(
         _iter_timeout_context_sites(
             frame_list=frame_list,

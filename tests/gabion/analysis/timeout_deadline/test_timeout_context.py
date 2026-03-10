@@ -168,7 +168,7 @@ def test_build_site_index_filters_nodes() -> None:
     forest.add_site("", "mod.missing")
     forest.add_site("ok.py", "mod.ok")
     index = build_site_index(forest)
-    assert list(index.keys()) == [("ok.py", "mod.ok")]
+    assert list(index.keys()) == [timeout_context._SiteKey(path="ok.py", qual="mod.ok")]
 
 
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.pack_call_stack E:decision_surface/direct::timeout_context.py::gabion.analysis.timeout_context.pack_call_stack::stale_1a892a545319_b666ebce
@@ -282,7 +282,10 @@ def test_frame_site_key_without_module_name() -> None:
             )(),
         },
     )()
-    assert _frame_site_key(frame, project_root=None) == ("mod.py", "inner")
+    assert _frame_site_key(frame, project_root=None) == timeout_context._SiteKey(
+        path="mod.py",
+        qual="inner",
+    )
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_set_deadline_rejects_none::timeout_context.py::gabion.analysis.timeout_context.set_deadline
@@ -350,10 +353,10 @@ def test_file_site_and_function_site_decode_invalid_payloads() -> None:
 
 
 # gabion:behavior primary=verboten facets=invalid,timeout
-def test_decode_call_stack_sites_rejects_invalid_payload_type_and_normalize_site_payload() -> None:
+def test_decode_call_stack_sites_rejects_invalid_payload_type_and_decode_site_payload() -> None:
     with pytest.raises(NeverThrown):
         timeout_context.pack_call_stack([123])
-    normalized = timeout_context._normalize_site_payload(
+    normalized = timeout_context._decode_site_payload(
         {"kind": "FunctionSite", "key": [{"kind": "FileSite", "key": ["a.py"]}, "mod.fn"]}
     )
     assert normalized.kind == "FunctionSite"
@@ -695,7 +698,7 @@ def test_site_part_from_payload_rejects_non_string_filesite_key() -> None:
 def test_deadline_profile_private_helpers_cover_fallback_paths() -> None:
     frame = inspect.currentframe()
     assert frame is not None
-    assert _profile_site_key(frame, project_root=None)[1]
+    assert _profile_site_key(frame, project_root=None).qual
     assert Context().run(_deadline_profile_snapshot) is None
     with deadline_profile_scope(project_root=None, enabled=True):
         _record_deadline_check(project_root=None, frame_getter=lambda: None)
@@ -707,7 +710,11 @@ def test_record_deadline_check_caches_site_keys_per_code_object() -> None:
     calls = 0
     original = timeout_context._profile_site_key
 
-    def counting_profile_site_key(frame: object, *, project_root: Path | None) -> tuple[str, str]:
+    def counting_profile_site_key(
+        frame: object,
+        *,
+        project_root: Path | None,
+    ) -> timeout_context._SiteKey:
         nonlocal calls
         calls += 1
         return original(frame, project_root=project_root)
@@ -757,9 +764,16 @@ def test_record_deadline_check_resolves_project_root_once_and_caches_it(
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_record_deadline_check_reuses_existing_site_id_without_reallocating::timeout_context.py::gabion.analysis.timeout_context._deadline_profile_snapshot::timeout_context.py::gabion.analysis.timeout_context._record_deadline_check::timeout_context.py::gabion.analysis.timeout_context.deadline_profile_scope
 # gabion:behavior primary=verboten facets=timeout
 def test_record_deadline_check_reuses_existing_site_id_without_reallocating() -> None:
-    def _constant_site_key(_frame: object, *, project_root: Path | None) -> tuple[str, str]:
+    def _constant_site_key(
+        _frame: object,
+        *,
+        project_root: Path | None,
+    ) -> timeout_context._SiteKey:
         _ = project_root
-        return ("tests/test_timeout_context.py", "constant.qual")
+        return timeout_context._SiteKey(
+            path="tests/test_timeout_context.py",
+            qual="constant.qual",
+        )
 
     def _site_a() -> None:
         _record_deadline_check(
@@ -823,12 +837,12 @@ def test_deadline_profile_sampling_preserves_total_checks_with_pending_tail() ->
 def test_profile_site_key_falls_back_to_external_path_when_root_misses() -> None:
     frame = inspect.currentframe()
     assert frame is not None
-    path, qual = _profile_site_key(
+    site_key = _profile_site_key(
         frame,
         project_root=REPO_ROOT / "missing_root",
     )
-    assert path == "<external>"
-    assert qual
+    assert site_key.path == "<external>"
+    assert site_key.qual
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_record_deadline_check_keeps_edge_max_gap_when_delta_not_greater::test_timeout_context.py::tests.test_timeout_context._deadline_test_scope::test_timeout_context.py::tests.test_timeout_context.test_record_deadline_check_keeps_edge_max_gap_when_delta_not_greater._site_a::test_timeout_context.py::tests.test_timeout_context.test_record_deadline_check_keeps_edge_max_gap_when_delta_not_greater._site_b::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ms::timeout_context.py::gabion.analysis.timeout_context._deadline_profile_snapshot::timeout_context.py::gabion.analysis.timeout_context.check_deadline::timeout_context.py::gabion.analysis.timeout_context.deadline_profile_scope
