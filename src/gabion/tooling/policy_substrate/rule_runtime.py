@@ -23,6 +23,12 @@ from gabion.tooling.policy_substrate.aspf_union_view import (
     CSTParseFailureEvent,
 )
 from gabion.tooling.policy_substrate.overlap_eval import evaluate_condition_overlaps
+from gabion.tooling.policy_substrate.policy_event_kind import (
+    PolicyEventKind,
+    coerce_policy_event_kind,
+    policy_event_kind_segments,
+    policy_event_kind_scalar,
+)
 from gabion.tooling.policy_substrate.projection_lens import (
     LensEvent,
     LensSite,
@@ -75,9 +81,9 @@ def decorate_site(
     node_kind: str,
     input_slot: str,
     taint_class: str,
-    intro_kind: str,
-    condition_kind: str,
-    erase_kind: str,
+    intro_kind: PolicyEventKind | str,
+    condition_kind: PolicyEventKind | str,
+    erase_kind: PolicyEventKind | str,
     rationale: str,
     surface: str = "pyast",
 ) -> SubstrateDecoration:
@@ -123,13 +129,16 @@ def decorate_site(
             taint_class=taint_class,
             input_slot=input_slot,
         )
+        intro_kind_value = coerce_policy_event_kind(kind=intro_kind)
+        condition_kind_value = coerce_policy_event_kind(kind=condition_kind)
+        erase_kind_value = coerce_policy_event_kind(kind=erase_kind)
         events = list(
             run_projection_lenses(
                 site=site,
                 specs=(
-                    _intro_spec(event_kind=intro_kind),
-                    _condition_spec(event_kind=condition_kind),
-                    _erase_spec(event_kind=erase_kind),
+                    _intro_spec(event_kind=intro_kind_value),
+                    _condition_spec(event_kind=condition_kind_value),
+                    _erase_spec(event_kind=erase_kind_value),
                 ),
             )
         )
@@ -159,7 +168,7 @@ def decorate_site(
         intro_event = interval.intro_event
         counterfactual = FiberCounterfactualBoundary(
             suggested_boundary_before_ordinal=intro_event.ordinal,
-            boundary_event_kind=intro_event.event_kind,
+            boundary_event_kind=policy_event_kind_scalar(kind=intro_event.event_kind),
             boundary_line=intro_event.line,
             boundary_column=intro_event.column,
             eliminates_violation_without_other_changes=True,
@@ -216,7 +225,7 @@ def _cst_failure_seed(event: CSTParseFailureEvent) -> ScanFailureSeed:
     )
 
 
-def _intro_spec(*, event_kind: str) -> ProjectionLensSpec:
+def _intro_spec(*, event_kind: PolicyEventKind) -> ProjectionLensSpec:
     return ProjectionLensSpec(
         name="taint_intro_spec",
         project=lambda site: (
@@ -240,7 +249,7 @@ def _intro_spec(*, event_kind: str) -> ProjectionLensSpec:
     )
 
 
-def _condition_spec(*, event_kind: str) -> ProjectionLensSpec:
+def _condition_spec(*, event_kind: PolicyEventKind) -> ProjectionLensSpec:
     return ProjectionLensSpec(
         name="condition_spec",
         project=lambda site: (
@@ -264,7 +273,7 @@ def _condition_spec(*, event_kind: str) -> ProjectionLensSpec:
     )
 
 
-def _erase_spec(*, event_kind: str) -> ProjectionLensSpec:
+def _erase_spec(*, event_kind: PolicyEventKind) -> ProjectionLensSpec:
     return ProjectionLensSpec(
         name="taint_erase_spec",
         project=lambda site: (
@@ -362,7 +371,7 @@ def _iter_fiber_trace(events: Iterable[LensEvent]):
             ordinal=event.ordinal,
             line=event.line,
             column=event.column,
-            event_kind=event.event_kind,
+            event_kind=policy_event_kind_scalar(kind=event.event_kind),
             normalization_class=event.taint_class,
             input_slot=event.input_slot,
             phase_hint=event.event_phase,
@@ -381,6 +390,10 @@ def _condition_overlap_id(overlap: object) -> str:
 
 def _hash_part_bytes(value: object) -> bytes:
     match value:
+        case PolicyEventKind() as event_kind:
+            return b"\x1f".join(
+                map(lambda segment: segment.encode("utf-8"), policy_event_kind_segments(kind=event_kind))
+            )
         case bool() as flag:
             return b"1" if flag else b"0"
         case int() as integer:

@@ -2,11 +2,16 @@
 from __future__ import annotations
 
 import hashlib
+from collections import defaultdict
 from dataclasses import dataclass
 from functools import reduce
 from itertools import chain
 from typing import Iterable, Iterator
 
+from gabion.tooling.policy_substrate.policy_event_kind import (
+    PolicyEventKind,
+    policy_event_kind_segments,
+)
 from gabion.tooling.policy_substrate.projection_lens import LensEvent
 
 
@@ -24,8 +29,14 @@ class TaintInterval:
 
 @dataclass(frozen=True)
 class _GroupIntervalState:
-    stack: tuple[LensEvent, ...]
-    intervals: tuple[TaintInterval, ...]
+    stack: list[LensEvent]
+    intervals: list[TaintInterval]
+
+
+@dataclass(frozen=True)
+class _FiberGroupKey:
+    fiber_id: str
+    taint_class: str
 
 
 def build_taint_intervals(*, events: Iterable[LensEvent]) -> Iterator[TaintInterval]:
@@ -38,8 +49,8 @@ def build_taint_intervals(*, events: Iterable[LensEvent]) -> Iterator[TaintInter
         key=lambda interval: (
             interval.fiber_id,
             interval.taint_class,
-            int(interval.start_ordinal),
-            int(interval.end_ordinal),
+            interval.start_ordinal,
+            interval.end_ordinal,
         ),
     )
     for interval in ordered_intervals:
@@ -48,25 +59,29 @@ def build_taint_intervals(*, events: Iterable[LensEvent]) -> Iterator[TaintInter
 
 def _group_events_by_fiber(
     events: Iterable[LensEvent],
-) -> dict[tuple[str, str], tuple[LensEvent, ...]]:
-    return reduce(_append_event_to_group, events, {})
+) -> defaultdict[_FiberGroupKey, list[LensEvent]]:
+    return reduce(_append_event_to_group, events, defaultdict(list))
 
 
 def _append_event_to_group(
-    grouped: dict[tuple[str, str], tuple[LensEvent, ...]],
+    grouped: defaultdict[_FiberGroupKey, list[LensEvent]],
     event: LensEvent,
-) -> dict[tuple[str, str], tuple[LensEvent, ...]]:
-    key = (event.fiber_id, event.taint_class)
-    existing = grouped.get(key, ())
-    grouped[key] = (*existing, event)
+) -> defaultdict[_FiberGroupKey, list[LensEvent]]:
+    key = _FiberGroupKey(
+        fiber_id=event.fiber_id,
+        taint_class=event.taint_class,
+    )
+    grouped[key].append(event)
     return grouped
 
 
 def _intervals_for_group_item(
-    group_item: tuple[tuple[str, str], tuple[LensEvent, ...]],
+    group_item: tuple[_FiberGroupKey, list[LensEvent]],
 ) -> Iterator[TaintInterval]:
-    (fiber_id, taint_class), grouped_events = group_item
-    sorted_events = tuple(sorted(grouped_events, key=lambda item: item.ordinal))
+    group_key, grouped_events = group_item
+    fiber_id = group_key.fiber_id
+    taint_class = group_key.taint_class
+    sorted_events = list(sorted(grouped_events, key=lambda item: item.ordinal))
     max_ordinal = max(map(lambda event: event.ordinal, sorted_events), default=0)
     state = reduce(
         lambda current, event: _consume_group_event(
@@ -76,7 +91,7 @@ def _intervals_for_group_item(
             taint_class=taint_class,
         ),
         sorted_events,
-        _GroupIntervalState(stack=(), intervals=()),
+        _GroupIntervalState(stack=[], intervals=[]),
     )
     yield from state.intervals
     yield from map(
@@ -102,7 +117,10 @@ def _consume_group_event(
 ) -> _GroupIntervalState:
     match event.action:
         case "taint_intro":
-            return _GroupIntervalState(stack=(*state.stack, event), intervals=state.intervals)
+            return _GroupIntervalState(
+                stack=[*state.stack, event],
+                intervals=state.intervals,
+            )
         case "taint_erase":
             return _consume_erase_event(
                 state=state,
@@ -133,8 +151,8 @@ def _consume_erase_event(
                 is_closed=True,
             )
             return _GroupIntervalState(
-                stack=tuple(rest),
-                intervals=(*state.intervals, interval),
+                stack=list(rest),
+                intervals=[*state.intervals, interval],
             )
         case _:
             return state
@@ -153,9 +171,9 @@ def _new_interval(
     interval_id = _stable_hash(
         fiber_id,
         taint_class,
-        str(start_ordinal),
-        str(end_ordinal),
-        str(is_closed),
+        start_ordinal,
+        end_ordinal,
+        is_closed,
         intro_event.event_kind,
         erase_event.event_kind if erase_event is not None else "<open>",
     )
@@ -171,14 +189,39 @@ def _new_interval(
     )
 
 
-def _stable_hash(*parts: str) -> str:
+def _stable_hash(*parts: object) -> str:
     return reduce(_digest_update, parts, hashlib.sha256()).hexdigest()
 
 
-def _digest_update(digest: object, part: str):
-    digest.update(part.encode("utf-8"))
+def _digest_update(digest: object, part: object):
+    digest.update(_hash_part_bytes(part))
     digest.update(b"\x00")
     return digest
+
+
+def _hash_part_bytes(value: object) -> bytes:
+    match value:
+        case PolicyEventKind() as event_kind:
+            return b"\x1f".join(
+                map(lambda segment: segment.encode("utf-8"), policy_event_kind_segments(kind=event_kind))
+            )
+        case bool() as flag:
+            return b"1" if flag else b"0"
+        case int() as integer:
+            return _int_bytes(integer)
+        case str() as text:
+            return text.encode("utf-8")
+        case bytes() as raw:
+            return raw
+        case _:
+            return b"<unsupported>"
+
+
+def _int_bytes(value: int) -> bytes:
+    magnitude = abs(value)
+    width = max(1, (magnitude.bit_length() + 7) // 8)
+    sign = b"-" if value < 0 else b"+"
+    return sign + magnitude.to_bytes(width, byteorder="big", signed=False)
 
 
 __all__ = [

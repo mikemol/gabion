@@ -11,10 +11,16 @@ from typing import Iterable
 
 from gabion.analysis.foundation.event_algebra import CanonicalRunContext
 from gabion.tooling.policy_substrate import (
+    DataflowFiberBundle,
+    RecombinationFrontier,
+    branch_required_symbols,
     build_aspf_union_view,
+    build_dataflow_fiber_bundle_for_qualname,
+    compute_recombination_frontier,
     cst_failure_seeds,
     decorate_failure,
     decorate_site,
+    empty_recombination_frontier,
     new_run_context,
 )
 from gabion.tooling.policy_rules.fiber_diagnostics import (
@@ -58,6 +64,7 @@ class Violation:
     fiber_id: str
     taint_interval_id: str
     condition_overlap_id: str
+    recombination_frontier: RecombinationFrontier
     structured_hash: str
 
     @property
@@ -83,15 +90,18 @@ class _BranchlessVisitor(ast.NodeVisitor):
         self,
         *,
         rel_path: str,
+        module_tree: ast.AST,
         source_lines: list[str],
         run_context: CanonicalRunContext,
     ) -> None:
         self.rel_path = rel_path
+        self.module_tree = module_tree
         self.source_lines = source_lines
         self.run_context = run_context
         self.violations: list[Violation] = []
         self.module_decision_protocol = _module_is_decision_protocol(source_lines)
         self.scope_stack: list[_Scope] = []
+        self._dataflow_bundle_by_qualname: dict[str, DataflowFiberBundle] = {}
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         self._visit_function_node(node)
@@ -165,12 +175,14 @@ class _BranchlessVisitor(ast.NodeVisitor):
         scope = self.scope_stack[-1] if self.scope_stack else _Scope("<module>", self.module_decision_protocol)
         if scope.is_decision_protocol:
             return
+        line = int(getattr(node, "lineno", 1))
+        column = int(getattr(node, "col_offset", 0)) + 1
         input_slot = f"branch:{kind}"
         structural_identity = _structured_hash(
             self.rel_path,
             scope.qualname,
             kind,
-            str(int(getattr(node, "col_offset", 0)) + 1),
+            str(column),
             "branch construct outside decision protocol",
         )
         decoration = decorate_site(
@@ -178,8 +190,8 @@ class _BranchlessVisitor(ast.NodeVisitor):
             rule_name=RULE_NAME,
             rel_path=self.rel_path,
             qualname=scope.qualname,
-            line=int(getattr(node, "lineno", 1)),
-            column=int(getattr(node, "col_offset", 0)) + 1,
+            line=line,
+            column=column,
             node_kind=f"branch:{kind}",
             input_slot=input_slot,
             taint_class="branch_control",
@@ -191,11 +203,18 @@ class _BranchlessVisitor(ast.NodeVisitor):
                 "core fibers remain branchless."
             ),
         )
+        recombination_frontier = self._recombination_frontier(
+            scope_qualname=scope.qualname,
+            node=node,
+            kind=kind,
+            line=line,
+            column=column,
+        )
         self.violations.append(
             Violation(
                 path=self.rel_path,
-                line=int(getattr(node, "lineno", 1)),
-                column=int(getattr(node, "col_offset", 0)) + 1,
+                line=line,
+                column=column,
                 qualname=scope.qualname,
                 kind=kind,
                 message="branch construct outside decision protocol",
@@ -207,8 +226,37 @@ class _BranchlessVisitor(ast.NodeVisitor):
                 fiber_id=decoration.fiber_id,
                 taint_interval_id=decoration.taint_interval_id,
                 condition_overlap_id=decoration.condition_overlap_id,
+                recombination_frontier=recombination_frontier,
                 structured_hash=structural_identity,
             )
+        )
+
+    def _recombination_frontier(
+        self,
+        *,
+        scope_qualname: str,
+        node: ast.AST,
+        kind: str,
+        line: int,
+        column: int,
+    ) -> RecombinationFrontier:
+        bundle = self._dataflow_bundle_by_qualname.get(scope_qualname)
+        if bundle is None:
+            bundle = build_dataflow_fiber_bundle_for_qualname(
+                rel_path=self.rel_path,
+                module_tree=self.module_tree,
+                qualname=scope_qualname,
+            )
+            self._dataflow_bundle_by_qualname[scope_qualname] = bundle
+        required_symbols = branch_required_symbols(node)
+        return compute_recombination_frontier(
+            rel_path=self.rel_path,
+            qualname=scope_qualname,
+            bundle=bundle,
+            branch_line=line,
+            branch_column=column,
+            branch_node_kind=f"branch:{kind}",
+            required_symbols=required_symbols,
         )
 
 
@@ -279,6 +327,7 @@ def _collect_with_context(
     for module in union_view.modules:
         visitor = _BranchlessVisitor(
             rel_path=module.rel_path,
+            module_tree=module.pyast_tree,
             source_lines=module.source.splitlines(),
             run_context=run_context,
         )
@@ -316,6 +365,13 @@ def _failure_violation(*, run_context: CanonicalRunContext, seed: ScanFailureSee
         fiber_id=decoration.fiber_id,
         taint_interval_id=decoration.taint_interval_id,
         condition_overlap_id=decoration.condition_overlap_id,
+        recombination_frontier=empty_recombination_frontier(
+            rel_path=seed.path,
+            qualname="<module>",
+            line=seed.line,
+            column=seed.column,
+            node_kind="module_failure",
+        ),
         structured_hash=structured_hash,
     )
 
@@ -338,7 +394,7 @@ def _write_baseline(*, path: Path, violations: list[Violation]) -> None:
     payload = {
         "version": BASELINE_VERSION,
         "violations": [
-            asdict(violation)
+            _violation_payload(violation)
             for violation in sorted(
                 violations,
                 key=lambda item: (item.path, item.qualname, item.line, item.kind),
@@ -346,6 +402,44 @@ def _write_baseline(*, path: Path, violations: list[Violation]) -> None:
         ],
     }
     path.write_text(json.dumps(payload, indent=2, sort_keys=False) + "\n", encoding="utf-8")
+
+
+def _violation_payload(violation: Violation) -> dict[str, object]:
+    payload = asdict(violation)
+    payload["recombination_frontier"] = _frontier_payload(violation.recombination_frontier)
+    return payload
+
+
+def _frontier_payload(frontier: RecombinationFrontier) -> dict[str, object]:
+    return {
+        "branch_site_id": frontier.branch_site_id,
+        "branch_site_identity": frontier.branch_site_identity,
+        "branch_line": frontier.branch_line,
+        "branch_column": frontier.branch_column,
+        "branch_node_kind": frontier.branch_node_kind,
+        "required_symbols": list(frontier.required_symbols),
+        "unresolved_symbols": list(frontier.unresolved_symbols),
+        "anchor_site_id": frontier.anchor_site_id,
+        "anchor_site_identity": frontier.anchor_site_identity,
+        "anchor_line": frontier.anchor_line,
+        "anchor_column": frontier.anchor_column,
+        "anchor_ordinal": frontier.anchor_ordinal,
+        "upstream_site_ids": list(frontier.upstream_site_ids),
+        "upstream_site_identities": list(frontier.upstream_site_identities),
+        "upstream_edge_ids": list(frontier.upstream_edge_ids),
+        "execution_frontier_site_id": frontier.execution_frontier_site_id,
+        "execution_frontier_site_identity": frontier.execution_frontier_site_identity,
+        "execution_frontier_line": frontier.execution_frontier_line,
+        "execution_frontier_column": frontier.execution_frontier_column,
+        "execution_frontier_ordinal": frontier.execution_frontier_ordinal,
+        "execution_upstream_site_ids": list(frontier.execution_upstream_site_ids),
+        "execution_upstream_site_identities": list(frontier.execution_upstream_site_identities),
+        "execution_upstream_edge_ids": list(frontier.execution_upstream_edge_ids),
+        "bundle_event_count": frontier.bundle_event_count,
+        "bundle_edge_count": frontier.bundle_edge_count,
+        "execution_event_count": frontier.execution_event_count,
+        "execution_edge_count": frontier.execution_edge_count,
+    }
 
 
 def run(*, root: Path, baseline: Path | None = None, baseline_write: bool = False) -> int:

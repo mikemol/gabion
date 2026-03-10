@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from scripts.policy import branchless_policy_check as policy
+from gabion.tooling.runtime.policy_scan_batch import build_policy_scan_batch
 
 
 def _write(path: Path, content: str) -> None:
@@ -21,9 +22,15 @@ def test_branchless_policy_flags_non_protocol_branches(tmp_path: Path) -> None:
         "        return 1\n"
         "    return 0\n",
     )
-    violations = policy.collect_violations(root=tmp_path)
+    batch = build_policy_scan_batch(root=tmp_path, target_globs=(policy.TARGET_GLOB,))
+    violations = policy.collect_violations(batch=batch)
     assert violations
-    assert any(v.kind == "if" for v in violations)
+    if_violation = next(v for v in violations if v.kind == "if")
+    assert list(if_violation.recombination_frontier.required_symbols) == ["x"]
+    assert list(if_violation.recombination_frontier.unresolved_symbols) == []
+    assert if_violation.recombination_frontier.anchor_line == 1
+    assert if_violation.recombination_frontier.execution_event_count >= 1
+    assert if_violation.recombination_frontier.execution_frontier_ordinal >= 0
 
 
 # gabion:evidence E:call_footprint::tests/test_branchless_policy_check.py::test_branchless_policy_allows_marked_decision_protocol::branchless_policy_check.py::scripts.branchless_policy_check.run

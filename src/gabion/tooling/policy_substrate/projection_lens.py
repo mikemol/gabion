@@ -5,6 +5,11 @@ from dataclasses import dataclass
 from itertools import chain
 from typing import Callable, Iterable, Iterator
 
+from gabion.tooling.policy_substrate.policy_event_kind import (
+    PolicyEventKind,
+    policy_event_kind_sort_key,
+)
+
 
 @dataclass(frozen=True)
 class LensSite:
@@ -31,7 +36,7 @@ class LensEvent:
     node_kind: str
     surface: str
     fiber_id: str
-    event_kind: str
+    event_kind: PolicyEventKind | str
     event_phase: str
     input_slot: str
     taint_class: str
@@ -52,10 +57,10 @@ def run_projection_lenses(
     ordered_events = sorted(
         chain.from_iterable(map(lambda spec: spec.project(site), specs)),
         key=lambda event: (
-            int(event.ordinal),
-            str(event.action),
-            str(event.event_phase),
-            str(event.event_kind),
+            event.ordinal,
+            event.action,
+            event.event_phase,
+            policy_event_kind_sort_key(kind=event.event_kind),
         ),
     )
     for event in ordered_events:

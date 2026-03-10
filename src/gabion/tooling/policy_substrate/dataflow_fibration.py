@@ -2,13 +2,30 @@
 from __future__ import annotations
 
 import ast
+from collections import defaultdict
 from functools import reduce
 import hashlib
 from itertools import chain, groupby
 from dataclasses import dataclass
-from typing import Iterable, Iterator
+from typing import Callable, Generic, Iterable, Iterator, TypeVar
 
 from gabion.tooling.policy_substrate.site_identity import canonical_site_identity
+
+_StreamItem = TypeVar("_StreamItem")
+
+
+@dataclass(frozen=True)
+class ReplayableStream(Generic[_StreamItem]):
+    factory: Callable[[], Iterator[_StreamItem]]
+
+    def __iter__(self) -> Iterator[_StreamItem]:
+        return self.factory()
+
+
+def _stream_from_sequence(
+    values: tuple[_StreamItem, ...],
+) -> ReplayableStream[_StreamItem]:
+    return ReplayableStream(factory=lambda: iter(values))
 
 
 @dataclass(frozen=True)
@@ -67,10 +84,10 @@ class DataflowFiberBundle:
     qualname: str
     entry_site_id: str
     entry_site_identity: str
-    events: tuple[DataflowEvent, ...]
-    edges: tuple[DataflowEdge, ...]
-    execution_events: tuple[ExecutionEvent, ...]
-    execution_edges: tuple[ExecutionEdge, ...]
+    events: ReplayableStream[DataflowEvent]
+    edges: ReplayableStream[DataflowEdge]
+    execution_events: ReplayableStream[ExecutionEvent]
+    execution_edges: ReplayableStream[ExecutionEdge]
 
 
 @dataclass(frozen=True)
@@ -80,28 +97,34 @@ class RecombinationFrontier:
     branch_line: int
     branch_column: int
     branch_node_kind: str
-    required_symbols: tuple[str, ...]
-    unresolved_symbols: tuple[str, ...]
+    required_symbols: ReplayableStream[str]
+    unresolved_symbols: ReplayableStream[str]
     anchor_site_id: str
     anchor_site_identity: str
     anchor_line: int
     anchor_column: int
     anchor_ordinal: int
-    upstream_site_ids: tuple[str, ...]
-    upstream_site_identities: tuple[str, ...]
-    upstream_edge_ids: tuple[str, ...]
+    upstream_site_ids: ReplayableStream[str]
+    upstream_site_identities: ReplayableStream[str]
+    upstream_edge_ids: ReplayableStream[str]
     execution_frontier_site_id: str
     execution_frontier_site_identity: str
     execution_frontier_line: int
     execution_frontier_column: int
     execution_frontier_ordinal: int
-    execution_upstream_site_ids: tuple[str, ...]
-    execution_upstream_site_identities: tuple[str, ...]
-    execution_upstream_edge_ids: tuple[str, ...]
+    execution_upstream_site_ids: ReplayableStream[str]
+    execution_upstream_site_identities: ReplayableStream[str]
+    execution_upstream_edge_ids: ReplayableStream[str]
     bundle_event_count: int
     bundle_edge_count: int
     execution_event_count: int
     execution_edge_count: int
+
+
+@dataclass(frozen=True)
+class _DefinitionRecord:
+    symbol: str
+    event: DataflowEvent
 
 
 def build_dataflow_fiber_bundle_for_qualname(
@@ -118,14 +141,21 @@ def build_dataflow_fiber_bundle_for_qualname(
         entry_column=scope.start_column,
     )
     collector.record_argument_definitions(scope.arguments)
-    tuple(map(collector.visit, scope.body))
+    list(map(collector.visit, scope.body))
     execution_collector = _ExecutionCollector(
         rel_path=rel_path,
         qualname=scope.qualname,
         entry_line=scope.start_line,
         entry_column=scope.start_column,
     )
-    tuple(execution_collector.record_scope_statements(scope.body))
+    list(execution_collector.record_scope_statements(scope.body))
+    collected_events = tuple(collector.events)
+    collected_edges = tuple(
+        sorted(
+            collector.edges,
+            key=lambda edge: (edge.source_ordinal, edge.target_ordinal, edge.symbol),
+        )
+    )
     execution_events = tuple(
         sorted(
             execution_collector.events,
@@ -143,23 +173,18 @@ def build_dataflow_fiber_bundle_for_qualname(
         qualname=scope.qualname,
         entry_site_id=collector.entry_site_id,
         entry_site_identity=collector.entry_site_identity,
-        events=tuple(collector.events),
-        edges=tuple(
-            sorted(
-                collector.edges,
-                key=lambda edge: (edge.source_ordinal, edge.target_ordinal, edge.symbol),
-            )
-        ),
-        execution_events=execution_events,
-        execution_edges=execution_edges,
+        events=_stream_from_sequence(collected_events),
+        edges=_stream_from_sequence(collected_edges),
+        execution_events=_stream_from_sequence(execution_events),
+        execution_edges=_stream_from_sequence(execution_edges),
     )
 
 
 def branch_required_symbols(node: ast.AST) -> Iterator[str]:
-    expression_nodes = tuple(_branch_condition_nodes(node))
+    expression_nodes = list(_branch_condition_nodes(node))
     all_walked_nodes = chain.from_iterable(map(ast.walk, expression_nodes))
     name_ids = map(
-        lambda item: str(item.id),
+        lambda item: item.id,
         filter(_is_loaded_name_node, all_walked_nodes),
     )
     for name in sorted(dict.fromkeys(name_ids)):
@@ -176,15 +201,20 @@ def compute_recombination_frontier(
     branch_node_kind: str,
     required_symbols: Iterable[str],
 ) -> RecombinationFrontier:
+    bundle_events = tuple(bundle.events)
+    bundle_edges = tuple(bundle.edges)
+    execution_events = tuple(bundle.execution_events)
+    execution_edges = tuple(bundle.execution_edges)
     normalized_required = tuple(sorted(dict.fromkeys(required_symbols)))
-    defs_by_symbol = dict(
+    definition_records = list(
         _iter_latest_definitions_before_branch(
-            events=bundle.events,
+            events=bundle_events,
             branch_line=branch_line,
             branch_column=branch_column,
             symbols=normalized_required,
         )
     )
+    defs_by_symbol = _definition_lookup(definition_records)
     unresolved = tuple(
         filter(
             _symbol_missing_in(defs_by_symbol),
@@ -192,11 +222,14 @@ def compute_recombination_frontier(
         )
     )
     upstream_events = tuple(
-        sorted(defs_by_symbol.values(), key=lambda event: event.ordinal)
+        sorted(
+            map(lambda item: item.event, definition_records),
+            key=lambda event: event.ordinal,
+        )
     )
     anchor_event = _anchor_event(
         upstream_events=upstream_events,
-        events=bundle.events,
+        events=bundle_events,
     )
     upstream_site_ids = tuple(map(_site_id_from_event, upstream_events))
     upstream_site_identities = tuple(map(_site_identity_from_event, upstream_events))
@@ -205,7 +238,7 @@ def compute_recombination_frontier(
             _edge_id_from_edge,
             filter(
                 _edge_targets_in(upstream_site_ids),
-                bundle.edges,
+                bundle_edges,
             ),
         )
     )
@@ -217,7 +250,8 @@ def compute_recombination_frontier(
         node_kind=branch_node_kind,
     )
     execution_frontier = _execution_recombination_frontier(
-        bundle=bundle,
+        execution_events=execution_events,
+        execution_edges=execution_edges,
         branch_site_identity=branch_site_identity,
         required_dataflow_events=upstream_events,
     )
@@ -235,16 +269,16 @@ def compute_recombination_frontier(
         branch_line=branch_line,
         branch_column=branch_column,
         branch_node_kind=branch_node_kind,
-        required_symbols=normalized_required,
-        unresolved_symbols=unresolved,
+        required_symbols=_stream_from_sequence(normalized_required),
+        unresolved_symbols=_stream_from_sequence(unresolved),
         anchor_site_id=anchor_event.site_id,
         anchor_site_identity=anchor_event.site_identity,
         anchor_line=anchor_event.line,
         anchor_column=anchor_event.column,
         anchor_ordinal=anchor_event.ordinal,
-        upstream_site_ids=upstream_site_ids,
-        upstream_site_identities=upstream_site_identities,
-        upstream_edge_ids=tuple(sorted(upstream_edge_ids)),
+        upstream_site_ids=_stream_from_sequence(upstream_site_ids),
+        upstream_site_identities=_stream_from_sequence(upstream_site_identities),
+        upstream_edge_ids=_stream_from_sequence(tuple(sorted(upstream_edge_ids))),
         execution_frontier_site_id=execution_frontier.site_id,
         execution_frontier_site_identity=execution_frontier.site_identity,
         execution_frontier_line=execution_frontier.line,
@@ -253,10 +287,10 @@ def compute_recombination_frontier(
         execution_upstream_site_ids=execution_frontier.upstream_site_ids,
         execution_upstream_site_identities=execution_frontier.upstream_site_identities,
         execution_upstream_edge_ids=execution_frontier.upstream_edge_ids,
-        bundle_event_count=len(bundle.events),
-        bundle_edge_count=len(bundle.edges),
-        execution_event_count=len(bundle.execution_events),
-        execution_edge_count=len(bundle.execution_edges),
+        bundle_event_count=len(bundle_events),
+        bundle_edge_count=len(bundle_edges),
+        execution_event_count=len(execution_events),
+        execution_edge_count=len(execution_edges),
     )
 
 
@@ -290,24 +324,24 @@ def empty_recombination_frontier(
         branch_line=line,
         branch_column=column,
         branch_node_kind=node_kind,
-        required_symbols=(),
-        unresolved_symbols=(),
+        required_symbols=_stream_from_sequence(()),
+        unresolved_symbols=_stream_from_sequence(()),
         anchor_site_id=site_id,
         anchor_site_identity=site_identity,
         anchor_line=line,
         anchor_column=column,
         anchor_ordinal=0,
-        upstream_site_ids=(),
-        upstream_site_identities=(),
-        upstream_edge_ids=(),
+        upstream_site_ids=_stream_from_sequence(()),
+        upstream_site_identities=_stream_from_sequence(()),
+        upstream_edge_ids=_stream_from_sequence(()),
         execution_frontier_site_id=site_id,
         execution_frontier_site_identity=site_identity,
         execution_frontier_line=line,
         execution_frontier_column=column,
         execution_frontier_ordinal=0,
-        execution_upstream_site_ids=(),
-        execution_upstream_site_identities=(),
-        execution_upstream_edge_ids=(),
+        execution_upstream_site_ids=_stream_from_sequence(()),
+        execution_upstream_site_identities=_stream_from_sequence(()),
+        execution_upstream_edge_ids=_stream_from_sequence(()),
         bundle_event_count=0,
         bundle_edge_count=0,
         execution_event_count=0,
@@ -325,7 +359,7 @@ class _ResolvedScope:
 
 
 def _resolve_scope(*, module_tree: ast.AST, qualname: str) -> _ResolvedScope:
-    root_statements = tuple(_module_statements(module_tree))
+    root_statements = list(_module_statements(module_tree))
     if qualname == "<module>":
         return _ResolvedScope(
             qualname="<module>",
@@ -335,7 +369,7 @@ def _resolve_scope(*, module_tree: ast.AST, qualname: str) -> _ResolvedScope:
             body=root_statements,
         )
 
-    segments = tuple(filter(bool, qualname.split(".")))
+    segments = list(filter(bool, qualname.split(".")))
     resolved_scope = _resolve_function_scope(segments=segments, root_statements=root_statements)
     if not resolved_scope.resolved:
         return _ResolvedScope(
@@ -398,14 +432,14 @@ def _resolve_function_scope_recursive(
     if not rest:
         return _ResolvedFunctionScope(
             resolved=True,
-            start_line=int(getattr(first_match, "lineno", 1)),
-            start_column=int(getattr(first_match, "col_offset", 0)) + 1,
-            arguments=tuple(_iter_function_arguments(first_match)),
-            body=tuple(first_match.body),
+            start_line=_line_value(getattr(first_match, "lineno", 1)),
+            start_column=_column_value(getattr(first_match, "col_offset", 0)) + 1,
+            arguments=list(_iter_function_arguments(first_match)),
+            body=list(first_match.body),
         )
     return _resolve_function_scope_recursive(
         segments=rest,
-        statements=tuple(first_match.body),
+        statements=list(first_match.body),
     )
 
 
@@ -439,7 +473,7 @@ def _iter_function_arguments(
     arguments = function_node.args
     for argument in chain(arguments.posonlyargs, arguments.args, arguments.kwonlyargs):
         yield argument
-    for optional in filter(_is_ast_arg, (arguments.vararg, arguments.kwarg)):
+    for optional in filter(_is_ast_arg, [arguments.vararg, arguments.kwarg]):
         yield optional
 
 
@@ -457,7 +491,9 @@ class _DataflowCollector(ast.NodeVisitor):
         self._next_ordinal = 1
         self.events: list[DataflowEvent] = []
         self.edges: list[DataflowEdge] = []
-        self._last_def_by_symbol: dict[str, DataflowEvent] = {}
+        self._last_def_by_symbol: defaultdict[str, DataflowEvent | None] = defaultdict(
+            _none_dataflow_event
+        )
         self.entry_site_identity = _site_identity(
             rel_path=rel_path,
             qualname=qualname,
@@ -490,13 +526,13 @@ class _DataflowCollector(ast.NodeVisitor):
         )
 
     def record_argument_definitions(self, arguments: tuple[ast.arg, ...]) -> None:
-        tuple(map(self._record_argument_definition, arguments))
+        list(map(self._record_argument_definition, arguments))
 
     def _record_argument_definition(self, arg_node: ast.arg) -> None:
         self._record_definition(
-            symbol=str(arg_node.arg),
-            line=int(getattr(arg_node, "lineno", 1)),
-            column=int(getattr(arg_node, "col_offset", 0)) + 1,
+            symbol=arg_node.arg,
+            line=_line_value(getattr(arg_node, "lineno", 1)),
+            column=_column_value(getattr(arg_node, "col_offset", 0)) + 1,
             node_kind="arg",
         )
 
@@ -513,9 +549,9 @@ class _DataflowCollector(ast.NodeVisitor):
         _ = node
 
     def visit_Name(self, node: ast.Name) -> None:
-        symbol = str(node.id)
-        line = int(getattr(node, "lineno", 1))
-        column = int(getattr(node, "col_offset", 0)) + 1
+        symbol = node.id
+        line = _line_value(getattr(node, "lineno", 1))
+        column = _column_value(getattr(node, "col_offset", 0)) + 1
         match node.ctx:
             case ast.Store() | ast.Del():
                 self._record_definition(
@@ -610,9 +646,9 @@ class _DataflowCollector(ast.NodeVisitor):
         )
         self.events.append(event)
         self._next_ordinal += 1
-        if symbol not in self._last_def_by_symbol:
+        source_event = self._last_def_by_symbol.get(symbol)
+        if source_event is None:
             return
-        source_event = self._last_def_by_symbol[symbol]
         self.edges.append(
             DataflowEdge(
                 edge_id=_edge_id(
@@ -687,8 +723,8 @@ class _ExecutionCollector:
             yield current
 
     def _record_statement_event(self, *, statement: ast.stmt) -> ExecutionEvent:
-        line = int(getattr(statement, "lineno", 1))
-        column = int(getattr(statement, "col_offset", 0)) + 1
+        line = _line_value(getattr(statement, "lineno", 1))
+        column = _column_value(getattr(statement, "col_offset", 0)) + 1
         node_kind = _execution_node_kind(statement)
         site_identity = _site_identity(
             rel_path=self.rel_path,
@@ -725,7 +761,7 @@ class _ExecutionCollector:
         statement: ast.stmt,
         branch_event: ExecutionEvent,
     ) -> None:
-        tuple(
+        list(
             chain.from_iterable(
                 map(
                     lambda group: self._iter_nested_group_events(
@@ -740,7 +776,7 @@ class _ExecutionCollector:
     def _iter_nested_group_events(
         self,
         *,
-        group: tuple[ast.stmt, ...],
+        group: list[ast.stmt],
         branch_event: ExecutionEvent,
     ) -> Iterator[ExecutionEvent]:
         predecessor = branch_event
@@ -785,9 +821,9 @@ class _ExecutionFrontierAnchor:
     line: int
     column: int
     ordinal: int
-    upstream_site_ids: tuple[str, ...]
-    upstream_site_identities: tuple[str, ...]
-    upstream_edge_ids: tuple[str, ...]
+    upstream_site_ids: ReplayableStream[str]
+    upstream_site_identities: ReplayableStream[str]
+    upstream_edge_ids: ReplayableStream[str]
 
 
 def _iter_latest_definitions_before_branch(
@@ -796,9 +832,9 @@ def _iter_latest_definitions_before_branch(
     branch_line: int,
     branch_column: int,
     symbols: tuple[str, ...],
-) -> Iterator[tuple[str, DataflowEvent]]:
+) -> Iterator[_DefinitionRecord]:
     symbol_set = set(symbols)
-    sorted_candidates = tuple(
+    sorted_candidates = list(
         sorted(
             filter(
                 _definition_candidate_filter(
@@ -815,7 +851,10 @@ def _iter_latest_definitions_before_branch(
         sorted_candidates,
         key=lambda event: event.symbol,
     ):
-        yield symbol, tuple(grouped_events)[-1]
+        yield _DefinitionRecord(
+            symbol=symbol,
+            event=list(grouped_events)[-1],
+        )
 
 
 def _event_before_or_at_branch(
@@ -838,7 +877,7 @@ def _anchor_event(
 ) -> DataflowEvent:
     if upstream_events:
         return max(upstream_events, key=lambda event: event.ordinal)
-    entry_candidates = tuple(filter(_is_entry_event, events))
+    entry_candidates = list(filter(_is_entry_event, events))
     if entry_candidates:
         return entry_candidates[0]
     return DataflowEvent(
@@ -857,42 +896,38 @@ def _anchor_event(
 
 def _execution_recombination_frontier(
     *,
-    bundle: DataflowFiberBundle,
+    execution_events: tuple[ExecutionEvent, ...],
+    execution_edges: tuple[ExecutionEdge, ...],
     branch_site_identity: str,
     required_dataflow_events: tuple[DataflowEvent, ...],
 ) -> _ExecutionFrontierAnchor:
-    if not bundle.execution_events:
+    if not execution_events:
         return _empty_execution_frontier_anchor(branch_site_identity=branch_site_identity)
-    execution_by_identity = {
-        event.site_identity: event for event in bundle.execution_events
-    }
-    execution_by_site_id = {event.site_id: event for event in bundle.execution_events}
-    predecessor_map: dict[str, list[str]] = {}
-    for edge in bundle.execution_edges:
+    execution_by_identity = _execution_events_by_identity(execution_events)
+    execution_by_site_id = _execution_events_by_site_id(execution_events)
+    predecessor_map: defaultdict[str, list[str]] = defaultdict(list)
+    for edge in execution_edges:
         predecessor_map.setdefault(edge.target_site_id, []).append(edge.source_site_id)
-    predecessors = {
-        site_id: tuple(dict.fromkeys(predecessor_map[site_id]))
-        for site_id in predecessor_map
-    }
+    predecessors = _dedup_predecessor_map(predecessor_map)
     branch_event = _match_execution_event_for_branch(
-        execution_events=bundle.execution_events,
+        execution_events=execution_events,
         branch_site_identity=branch_site_identity,
     )
     required_execution_events = tuple(
         map(
             lambda event: _match_execution_event_for_dataflow(
-                execution_events=bundle.execution_events,
+                execution_events=execution_events,
                 dataflow_event=event,
             ),
             required_dataflow_events,
         )
     )
     origin_events = tuple(
-        dict.fromkeys((branch_event, *required_execution_events))
+        dict.fromkeys([branch_event, *required_execution_events])
     )
     if not origin_events:
-        origin_events = (bundle.execution_events[0],)
-    ancestor_sets = tuple(
+        origin_events = (execution_events[0],)
+    ancestor_sets = list(
         _execution_ancestors(site_id=origin.site_id, predecessors=predecessors)
         for origin in origin_events
     )
@@ -906,7 +941,7 @@ def _execution_recombination_frontier(
         sorted(
             filter(
                 lambda event: event.ordinal <= frontier_event.ordinal,
-                tuple(execution_by_identity.values()),
+                _execution_events_from_lookup(execution_by_identity),
             ),
             key=lambda event: event.ordinal,
         )
@@ -921,7 +956,7 @@ def _execution_recombination_frontier(
                 _execution_edge_id_from_edge,
                 filter(
                     _execution_edge_targets_in(upstream_site_ids),
-                    bundle.execution_edges,
+                    execution_edges,
                 ),
             )
         )
@@ -932,9 +967,9 @@ def _execution_recombination_frontier(
         line=frontier_event.line,
         column=frontier_event.column,
         ordinal=frontier_event.ordinal,
-        upstream_site_ids=upstream_site_ids,
-        upstream_site_identities=upstream_site_identities,
-        upstream_edge_ids=upstream_edge_ids,
+        upstream_site_ids=_stream_from_sequence(upstream_site_ids),
+        upstream_site_identities=_stream_from_sequence(upstream_site_identities),
+        upstream_edge_ids=_stream_from_sequence(upstream_edge_ids),
     )
 
 
@@ -945,16 +980,56 @@ def _empty_execution_frontier_anchor(*, branch_site_identity: str) -> _Execution
         line=1,
         column=1,
         ordinal=0,
-        upstream_site_ids=(),
-        upstream_site_identities=(),
-        upstream_edge_ids=(),
+        upstream_site_ids=_stream_from_sequence(()),
+        upstream_site_identities=_stream_from_sequence(()),
+        upstream_edge_ids=_stream_from_sequence(()),
     )
+
+
+def _execution_events_by_identity(
+    events: list[ExecutionEvent],
+) -> defaultdict[str, ExecutionEvent | None]:
+    lookup: defaultdict[str, ExecutionEvent | None] = defaultdict(_none_execution_event)
+    for event in events:
+        lookup[event.site_identity] = event
+    return lookup
+
+
+def _execution_events_by_site_id(
+    events: list[ExecutionEvent],
+) -> defaultdict[str, ExecutionEvent | None]:
+    lookup: defaultdict[str, ExecutionEvent | None] = defaultdict(_none_execution_event)
+    for event in events:
+        lookup[event.site_id] = event
+    return lookup
+
+
+def _execution_events_from_lookup(
+    lookup: defaultdict[str, ExecutionEvent | None],
+) -> Iterator[ExecutionEvent]:
+    for event in lookup.values():
+        if event is not None:
+            yield event
+
+
+def _dedup_predecessor_map(
+    predecessor_map: defaultdict[str, list[str]],
+) -> defaultdict[str, list[str]]:
+    out: defaultdict[str, list[str]] = defaultdict(list)
+    for site_id, predecessor_ids in predecessor_map.items():
+        seen: set[str] = set()
+        for predecessor_id in predecessor_ids:
+            if predecessor_id in seen:
+                continue
+            seen.add(predecessor_id)
+            out[site_id].append(predecessor_id)
+    return out
 
 
 def _execution_ancestors(
     *,
     site_id: str,
-    predecessors: dict[str, tuple[str, ...]],
+    predecessors: defaultdict[str, list[str]],
 ) -> set[str]:
     visited: set[str] = set()
     stack = [site_id]
@@ -963,18 +1038,23 @@ def _execution_ancestors(
         if current in visited:
             continue
         visited.add(current)
-        stack.extend(predecessors.get(current, ()))
+        stack.extend(predecessors.get(current, _empty_string_list()))
     return visited
 
 
 def _latest_execution_event(
     *,
     event_ids: set[str],
-    execution_by_site_id: dict[str, ExecutionEvent],
+    execution_by_site_id: defaultdict[str, ExecutionEvent | None],
     fallback: ExecutionEvent,
 ) -> ExecutionEvent:
     resolved_ids = event_ids.intersection(execution_by_site_id)
-    candidates = tuple(map(execution_by_site_id.__getitem__, resolved_ids))
+    candidates = list(
+        filter(
+            _is_execution_event,
+            map(execution_by_site_id.__getitem__, resolved_ids),
+        )
+    )
     if not candidates:
         return fallback
     return max(candidates, key=lambda event: event.ordinal)
@@ -985,7 +1065,7 @@ def _match_execution_event_for_branch(
     execution_events: tuple[ExecutionEvent, ...],
     branch_site_identity: str,
 ) -> ExecutionEvent:
-    direct = tuple(
+    direct = list(
         filter(
             lambda event: event.site_identity == branch_site_identity,
             execution_events,
@@ -1001,7 +1081,7 @@ def _match_execution_event_for_dataflow(
     execution_events: tuple[ExecutionEvent, ...],
     dataflow_event: DataflowEvent,
 ) -> ExecutionEvent:
-    direct = tuple(
+    direct = list(
         filter(
             lambda event: event.site_identity == dataflow_event.site_identity,
             execution_events,
@@ -1009,7 +1089,7 @@ def _match_execution_event_for_dataflow(
     )
     if direct:
         return direct[0]
-    same_line = tuple(
+    same_line = list(
         filter(
             lambda event: event.line == dataflow_event.line
             and event.column <= dataflow_event.column,
@@ -1055,8 +1135,17 @@ def _is_ast_arg(node: object) -> bool:
             return False
 
 
-def _symbol_missing_in(lookup: dict[str, DataflowEvent]):
-    return lambda symbol: symbol not in lookup
+def _definition_lookup(
+    definitions: list[_DefinitionRecord],
+) -> defaultdict[str, DataflowEvent | None]:
+    lookup: defaultdict[str, DataflowEvent | None] = defaultdict(_none_dataflow_event)
+    for item in definitions:
+        lookup[item.symbol] = item.event
+    return lookup
+
+
+def _symbol_missing_in(lookup: defaultdict[str, DataflowEvent | None]):
+    return lambda symbol: lookup.get(symbol) is None
 
 
 def _edge_targets_in(targets: tuple[str, ...]):
@@ -1151,7 +1240,7 @@ def _branch_site_identity(
 
 def _execution_node_kind_from_branch(node_kind: str) -> str:
     if node_kind.startswith("branch:"):
-        return f"stmt:{node_kind.removeprefix('branch:')}"
+        return "stmt:" + node_kind.removeprefix("branch:")
     return node_kind
 
 
@@ -1168,8 +1257,8 @@ def _site_id(
     return _stable_hash(
         rel_path,
         qualname,
-        str(line),
-        str(column),
+        _text_part(line),
+        _text_part(column),
         event_kind,
         symbol,
         node_kind,
@@ -1189,8 +1278,8 @@ def _execution_site_id(
         "execution",
         rel_path,
         qualname,
-        str(line),
-        str(column),
+        _text_part(line),
+        _text_part(column),
         node_kind,
         event_kind,
     )
@@ -1204,47 +1293,47 @@ def _execution_edge_id(*, source_site_id: str, target_site_id: str) -> str:
     return _stable_hash("execution_edge", source_site_id, target_site_id)
 
 
-def _nested_statement_groups(statement: ast.stmt) -> Iterator[tuple[ast.stmt, ...]]:
+def _nested_statement_groups(statement: ast.stmt) -> Iterator[list[ast.stmt]]:
     match statement:
         case ast.If(body=body, orelse=orelse):
-            yield from _non_empty_statement_groups((tuple(body), tuple(orelse)))
+            yield from _non_empty_statement_groups([list(body), list(orelse)])
         case ast.For(body=body, orelse=orelse):
-            yield from _non_empty_statement_groups((tuple(body), tuple(orelse)))
+            yield from _non_empty_statement_groups([list(body), list(orelse)])
         case ast.AsyncFor(body=body, orelse=orelse):
-            yield from _non_empty_statement_groups((tuple(body), tuple(orelse)))
+            yield from _non_empty_statement_groups([list(body), list(orelse)])
         case ast.While(body=body, orelse=orelse):
-            yield from _non_empty_statement_groups((tuple(body), tuple(orelse)))
+            yield from _non_empty_statement_groups([list(body), list(orelse)])
         case ast.With(body=body):
-            yield from _non_empty_statement_groups((tuple(body),))
+            yield from _non_empty_statement_groups([list(body)])
         case ast.AsyncWith(body=body):
-            yield from _non_empty_statement_groups((tuple(body),))
+            yield from _non_empty_statement_groups([list(body)])
         case ast.Try(body=body, handlers=handlers, orelse=orelse, finalbody=finalbody):
-            handler_groups = tuple(tuple(handler.body) for handler in handlers)
+            handler_groups = list(list(handler.body) for handler in handlers)
             yield from _non_empty_statement_groups(
-                (tuple(body), *handler_groups, tuple(orelse), tuple(finalbody))
+                [list(body), *handler_groups, list(orelse), list(finalbody)]
             )
         case ast.TryStar(body=body, handlers=handlers, orelse=orelse, finalbody=finalbody):
-            handler_groups = tuple(tuple(handler.body) for handler in handlers)
+            handler_groups = list(list(handler.body) for handler in handlers)
             yield from _non_empty_statement_groups(
-                (tuple(body), *handler_groups, tuple(orelse), tuple(finalbody))
+                [list(body), *handler_groups, list(orelse), list(finalbody)]
             )
         case ast.Match(cases=cases):
             yield from _non_empty_statement_groups(
-                tuple(tuple(case.body) for case in cases)
+                list(list(case.body) for case in cases)
             )
         case _:
             return
 
 
 def _non_empty_statement_groups(
-    groups: tuple[tuple[ast.stmt, ...], ...],
-) -> Iterator[tuple[ast.stmt, ...]]:
+    groups: list[list[ast.stmt]],
+) -> Iterator[list[ast.stmt]]:
     for group in filter(bool, groups):
         yield group
 
 
 def _execution_node_kind(node: ast.stmt) -> str:
-    return f"stmt:{node.__class__.__name__.lower()}"
+    return "stmt:" + node.__class__.__name__.lower()
 
 
 def _stable_hash(*parts: str) -> str:
@@ -1256,6 +1345,50 @@ def _digest_with_part(digest: object, part: str):
     digest.update(part.encode("utf-8"))
     digest.update(b"\x00")
     return digest
+
+
+def _none_dataflow_event() -> DataflowEvent | None:
+    return None
+
+
+def _none_execution_event() -> ExecutionEvent | None:
+    return None
+
+
+def _is_execution_event(value: object) -> bool:
+    match value:
+        case ExecutionEvent():
+            return True
+        case _:
+            return False
+
+
+def _empty_string_list() -> list[str]:
+    return []
+
+
+def _line_value(value: object) -> int:
+    match value:
+        case int() as line:
+            return line
+        case _:
+            return 1
+
+
+def _column_value(value: object) -> int:
+    match value:
+        case int() as column:
+            return column
+        case _:
+            return 0
+
+
+def _text_part(value: object) -> str:
+    match value:
+        case str() as text:
+            return text
+        case _:
+            return value.__str__()
 
 
 __all__ = [

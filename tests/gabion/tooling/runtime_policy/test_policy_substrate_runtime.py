@@ -246,11 +246,11 @@ def test_policy_substrate_dataflow_bundle_frontier_recombines_required_symbols()
         required_symbols=required_symbols,
     )
     assert set(frontier.required_symbols) == {"x", "y"}
-    assert frontier.unresolved_symbols == ()
-    assert frontier.upstream_site_ids
+    assert list(frontier.unresolved_symbols) == []
+    assert list(frontier.upstream_site_ids)
     assert frontier.anchor_line == 3
     assert frontier.bundle_event_count >= 1
     assert frontier.execution_event_count >= 1
     assert frontier.execution_frontier_ordinal >= 0
-    assert frontier.execution_upstream_site_ids
+    assert list(frontier.execution_upstream_site_ids)
     assert frontier.execution_frontier_line == 2
