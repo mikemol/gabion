@@ -137,6 +137,15 @@ def test_migrated_modules_use_dsl_evaluator() -> None:
     assert "first_match(" not in delta_source
 
 
+def test_aspf_opportunity_taxonomy_no_python_predicate_registry() -> None:
+    source = Path("src/gabion/analysis/foundation/aspf_visitors_impl.py").read_text(
+        encoding="utf-8"
+    )
+    assert "OpportunityTaxonomyRegistry" not in source
+    assert "OpportunityAlgebraicPredicate" not in source
+    assert "classify_aspf_opportunity(" in source
+
+
 def test_projection_rule_blocks_on_unerased_obligation() -> None:
     decision = evaluate_policy(
         domain=PolicyDomain.PROJECTION_FIBER,

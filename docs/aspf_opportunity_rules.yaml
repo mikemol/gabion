@@ -1,4 +1,98 @@
 rules:
+  - rule_id: aspf.opportunity.materialize_load_fusion
+    domain: aspf_opportunity
+    severity: warning
+    predicate:
+      op: all
+      predicates:
+        - op: str_eq
+          path: [observation, structure]
+          value: one_cell
+        - op: bool_true
+          path: [observation, has_resume_load]
+        - op: bool_true
+          path: [observation, has_resume_write]
+        - op: int_gte
+          path: [observation, one_cell_count]
+          value: 2
+    outcome:
+      kind: warn
+      message: materialize-load fusion opportunity detected
+    evidence_contract: representative_pair
+  - rule_id: aspf.opportunity.materialize_load_observed
+    domain: aspf_opportunity
+    severity: warning
+    predicate:
+      op: all
+      predicates:
+        - op: str_eq
+          path: [observation, structure]
+          value: one_cell
+        - op: bool_true
+          path: [observation, has_resume_load]
+        - op: not
+          predicate:
+            op: bool_true
+            path: [observation, has_resume_write]
+    outcome:
+      kind: warn
+      message: materialize-load opportunity observed
+    evidence_contract: representative_pair
+  - rule_id: aspf.opportunity.fungible_execution_path_substitution
+    domain: aspf_opportunity
+    severity: warning
+    predicate:
+      op: all
+      predicates:
+        - op: str_eq
+          path: [observation, structure]
+          value: two_cell
+        - op: str_eq
+          path: [observation, classification]
+          value: non_drift
+        - op: int_gte
+          path: [observation, two_cell_count]
+          value: 1
+        - op: bool_true
+          path: [witness, two_cell]
+    outcome:
+      kind: warn
+      message: fungible execution path substitution opportunity detected
+    evidence_contract: two_cell_witness
+  - rule_id: aspf.opportunity.reusable_boundary_artifact
+    domain: aspf_opportunity
+    severity: warning
+    predicate:
+      op: all
+      predicates:
+        - op: str_eq
+          path: [observation, structure]
+          value: two_cell
+        - op: int_gte
+          path: [observation, surface_count]
+          value: 2
+    outcome:
+      kind: warn
+      message: reusable boundary representative opportunity detected
+    evidence_contract: representative_pair
+  - rule_id: aspf.opportunity.cofibration_prime_embedding_reuse
+    domain: aspf_opportunity
+    severity: warning
+    predicate:
+      op: all
+      predicates:
+        - op: str_eq
+          path: [observation, structure]
+          value: cofibration
+        - op: int_gte
+          path: [observation, cofibration_count]
+          value: 1
+        - op: bool_true
+          path: [witness, cofibration]
+    outcome:
+      kind: warn
+      message: cofibration prime-embedding reuse opportunity detected
+    evidence_contract: cofibration_witness
   - rule_id: aspf.opportunity.two_cell
     domain: aspf_opportunity
     severity: warning

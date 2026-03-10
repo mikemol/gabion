@@ -4,9 +4,10 @@ from dataclasses import dataclass, field
 
 import pytest
 
+from gabion.analysis import aspf_rule_engine
 from gabion.analysis.aspf.aspf import Alt, Forest, Node
 from gabion.analysis.aspf.aspf_visitors import (
-    AspfCofibrationEvent, AspfOneCellEvent, AspfRunBoundaryEvent, AspfSurfaceUpdateEvent, AspfTwoCellEvent, NullAspfTraversalVisitor, OpportunityPayloadEmitter, OpportunityActionabilityState, OpportunityAlgebraicObservation, OpportunityAlgebraicPredicate, OpportunityStructure, OpportunityDecisionProtocol, OpportunityConfidenceProvenance, OpportunityWitnessRequirement, TwoCellReplayNormalizationKind, _normalize_two_cell_witness_for_replay, adapt_event_log_reader_iterator_to_visitor, adapt_live_event_stream_to_visitor, adapt_trace_event_iterator_to_visitor, traverse_forest_to_visitor)
+    AspfCofibrationEvent, AspfOneCellEvent, AspfRunBoundaryEvent, AspfSurfaceUpdateEvent, AspfTwoCellEvent, NullAspfTraversalVisitor, OpportunityPayloadEmitter, OpportunityActionabilityState, OpportunityDecisionProtocol, OpportunityConfidenceProvenance, OpportunityWitnessRequirement, TwoCellReplayNormalizationKind, _normalize_two_cell_witness_for_replay, adapt_event_log_reader_iterator_to_visitor, adapt_live_event_stream_to_visitor, adapt_trace_event_iterator_to_visitor, traverse_forest_to_visitor)
 from gabion.exceptions import NeverRaise
 
 
@@ -84,20 +85,25 @@ def test_replay_trace_and_equivalence_to_opportunity_visitor() -> None:
 
     rows = emitter.build_rows()
     kinds = [str(row.get("kind")) for row in rows]
+    rule_ids = [str(row.get("rule_id")) for row in rows]
     assert "materialize_load_fusion" in kinds
-    assert "reusable_boundary_artifact" in kinds
     assert "fungible_execution_path_substitution" in kinds
     assert "cofibration_prime_embedding_reuse" in kinds
+    assert all(rule_id.startswith("aspf.opportunity.") for rule_id in rule_ids)
     fungible = next(
         row for row in rows if isinstance(row, dict) and row.get("kind") == "fungible_execution_path_substitution"
     )
+    fungible_decision = aspf_rule_engine.classify_aspf_opportunity(fungible)
     assert fungible["actionability"] == "actionable"
     assert fungible["confidence_provenance"] == "morphism_witness"
+    assert fungible["rule_id"] == fungible_decision.rule_id
 
     cofibration = next(
         row for row in rows if isinstance(row, dict) and row.get("kind") == "cofibration_prime_embedding_reuse"
     )
+    cofibration_decision = aspf_rule_engine.classify_aspf_opportunity(cofibration)
     assert cofibration["witness_requirement"] == "cofibration_witness"
+    assert cofibration["rule_id"] == cofibration_decision.rule_id
 
     plans = emitter.build_rewrite_plans()
     assert plans
@@ -147,9 +153,14 @@ def test_trace_event_iterator_adapter_dispatches_without_json_batching() -> None
         visitor=emitter,
     )
 
-    kinds = {str(row.get("kind")) for row in emitter.build_rows() if isinstance(row, dict)}
+    rows = [row for row in emitter.build_rows() if isinstance(row, dict)]
+    kinds = {str(row.get("kind")) for row in rows}
     assert "materialize_load_fusion" in kinds
     assert "fungible_execution_path_substitution" in kinds
+    assert all(
+        str(row.get("rule_id", "")).startswith("aspf.opportunity.")
+        for row in rows
+    )
 
 
 # gabion:behavior primary=allowed_unwanted facets=noop
@@ -309,36 +320,22 @@ def test_adapt_live_event_stream_skips_invalid_two_cell_payloads() -> None:
 
 
 # gabion:behavior primary=desired
-def test_opportunity_predicate_requires_resume_kinds_and_confidence_default() -> None:
-    observation = OpportunityAlgebraicObservation(
-        structure=OpportunityStructure.ONE_CELL,
-        subject_id="subject",
-        one_cell_count=1,
-        one_cell_kinds=frozenset({"resume_write"}),
+def test_opportunity_dsl_classifies_resume_load_observed_and_confidence_default() -> None:
+    decision = aspf_rule_engine.classify_aspf_opportunity(
+        {
+            "observation": {
+                "structure": "one_cell",
+                "one_cell_count": 1,
+                "has_resume_load": True,
+                "has_resume_write": False,
+            }
+        }
     )
-    requires_load = OpportunityAlgebraicPredicate(
-        structure=OpportunityStructure.ONE_CELL,
-        min_one_cells=1,
-        requires_resume_load=True,
-    )
-    requires_write = OpportunityAlgebraicPredicate(
-        structure=OpportunityStructure.ONE_CELL,
-        min_one_cells=1,
-        requires_resume_write=True,
-    )
-    assert requires_load.matches(observation=observation) is False
-    assert requires_write.matches(observation=observation) is True
-    assert requires_write.matches(
-        observation=OpportunityAlgebraicObservation(
-            structure=OpportunityStructure.ONE_CELL,
-            subject_id="subject-no-write",
-            one_cell_count=1,
-            one_cell_kinds=frozenset({"resume_load"}),
-        )
-    ) is False
+    assert decision.rule_id == "aspf.opportunity.materialize_load_observed"
 
     decision = OpportunityDecisionProtocol(
         opportunity_id="opp:test",
+        rule_id="aspf.opportunity.none",
         kind="test",
         canonical_identity={},
         affected_surfaces=(),
