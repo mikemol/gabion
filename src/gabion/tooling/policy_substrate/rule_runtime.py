@@ -11,7 +11,6 @@ from gabion.analysis.core.type_fingerprints import PrimeRegistry
 from gabion.analysis.foundation.event_algebra import (
     CanonicalRunContext,
     GlobalEventSequencer,
-    derive_identity_projection_from_tokens,
 )
 from gabion.analysis.foundation.identity_space import GlobalIdentitySpace
 from gabion.tooling.policy_rules.fiber_diagnostics import (
@@ -41,7 +40,7 @@ _DEFAULT_POLICY_TIMEOUT_BUDGET = DeadlineBudget(ticks=120_000, tick_ns=1_000_000
 @dataclass(frozen=True)
 class SubstrateDecoration:
     flow_identity: str
-    fiber_trace: tuple[FiberTraceEvent, ...]
+    fiber_trace: list[FiberTraceEvent]
     applicability_bounds: FiberApplicabilityBounds
     counterfactual_boundary: FiberCounterfactualBoundary
     fiber_id: str
@@ -49,9 +48,15 @@ class SubstrateDecoration:
     condition_overlap_id: str
 
 
+class MissingTaintIntervalError(ValueError):
+    def __init__(self, *, fiber_id: str) -> None:
+        self.fiber_id = fiber_id
+        super().__init__("missing_taint_interval")
+
+
 def new_run_context(*, rule_name: str) -> CanonicalRunContext:
     return CanonicalRunContext(
-        run_id=f"policy:{rule_name}",
+        run_id=rule_name,
         sequencer=GlobalEventSequencer(),
         identity_space=GlobalIdentitySpace(
             allocator=PrimeIdentityAdapter(registry=PrimeRegistry())
@@ -90,8 +95,8 @@ def decorate_site(
             rule_name,
             rel_path,
             qualname,
-            str(line),
-            str(column),
+            line,
+            column,
             input_slot,
             taint_class,
         )
@@ -118,7 +123,7 @@ def decorate_site(
             taint_class=taint_class,
             input_slot=input_slot,
         )
-        events = tuple(
+        events = list(
             run_projection_lenses(
                 site=site,
                 specs=(
@@ -128,8 +133,8 @@ def decorate_site(
                 ),
             )
         )
-        intervals = tuple(build_taint_intervals(events=events))
-        overlaps = tuple(
+        intervals = list(build_taint_intervals(events=events))
+        overlaps = list(
             evaluate_condition_overlaps(
                 intervals=intervals,
                 condition_events=iter_condition_events(events),
@@ -141,9 +146,9 @@ def decorate_site(
             interval_id=interval.interval_id,
         )
 
-        fiber_trace = tuple(_iter_fiber_trace(events))
+        fiber_trace = list(_iter_fiber_trace(events))
 
-        erase_ordinal = int(interval.end_ordinal)
+        erase_ordinal = interval.end_ordinal
         bounds = FiberApplicabilityBounds(
             current_boundary_before_ordinal=erase_ordinal,
             violation_applies_when_boundary_before_ordinal_gt=max(1, erase_ordinal - 1),
@@ -153,10 +158,10 @@ def decorate_site(
         )
         intro_event = interval.intro_event
         counterfactual = FiberCounterfactualBoundary(
-            suggested_boundary_before_ordinal=int(intro_event.ordinal),
-            boundary_event_kind=str(intro_event.event_kind),
-            boundary_line=int(intro_event.line),
-            boundary_column=int(intro_event.column),
+            suggested_boundary_before_ordinal=intro_event.ordinal,
+            boundary_event_kind=intro_event.event_kind,
+            boundary_line=intro_event.line,
+            boundary_column=intro_event.column,
             eliminates_violation_without_other_changes=True,
             preserves_prior_normalization=True,
             rationale=rationale,
@@ -185,14 +190,14 @@ def decorate_failure(
         rule_name=rule_name,
         rel_path=seed.path,
         qualname="<module>",
-        line=int(seed.line),
-        column=int(seed.column),
+        line=seed.line,
+        column=seed.column,
         node_kind="module_failure",
         input_slot="module_failure",
         taint_class="module_failure",
-        intro_kind=f"syntax:block_enter:{seed.kind}",
-        condition_kind=f"syntax:{seed.kind}",
-        erase_kind=f"syntax:boundary:{seed.kind}",
+        intro_kind="syntax:block_enter",
+        condition_kind="syntax:module_failure",
+        erase_kind="syntax:boundary",
         rationale=rationale,
     )
 
@@ -204,8 +209,8 @@ def cst_failure_seeds(*, union_view: ASPFUnionView):
 def _cst_failure_seed(event: CSTParseFailureEvent) -> ScanFailureSeed:
     return ScanFailureSeed(
         path=event.rel_path,
-        line=int(event.line),
-        column=int(event.column),
+        line=event.line,
+        column=event.column,
         kind=event.kind,
         detail=event.message,
     )
@@ -292,14 +297,14 @@ def _first_interval(*, intervals: Iterable[object], fiber_id: str):
             )
         )
     except StopIteration as exc:
-        raise ValueError(f"missing taint interval for fiber_id={fiber_id}") from exc
+        raise MissingTaintIntervalError(fiber_id=fiber_id) from exc
 
 
 def _first_overlap(*, overlaps: Iterable[object], interval_id: str) -> str:
     try:
         return next(
             map(
-                lambda overlap: str(getattr(overlap, "condition_overlap_id", "")),
+                _condition_overlap_id,
                 filter(
                     lambda overlap: getattr(overlap, "taint_interval_id", "")
                     == interval_id,
@@ -323,49 +328,76 @@ def _derive_flow_identity(
     taint_class: str,
     site_id: str,
 ) -> str:
-    projection = derive_identity_projection_from_tokens(
-        run_context=run_context,
-        tokens=(
-            f"fiber.{rule_name}",
-            f"path:{rel_path}",
-            f"qualname:{qualname}",
-            f"line:{line}",
-            f"column:{column}",
-            f"slot:{input_slot}",
-            f"taint:{taint_class}",
-            f"site:{site_id}",
-        ),
+    _ = run_context
+    _ = line
+    _ = column
+    return _stable_hash(
+        "flow",
+        rule_name,
+        rel_path,
+        qualname,
+        input_slot,
+        taint_class,
+        site_id,
     )
-    atoms = ".".join(map(str, projection.basis_path.atoms))
-    return f"{projection.basis_path.namespace}:{atoms}"
 
 
-def _stable_hash(*parts: str) -> str:
+def _stable_hash(*parts: object) -> str:
     return reduce(_digest_update, parts, hashlib.sha256()).hexdigest()
 
 
-def _digest_update(digest: object, part: str):
-    digest.update(part.encode("utf-8"))
+def _digest_update(digest: object, part: object):
+    digest.update(_hash_part_bytes(part))
     digest.update(b"\x00")
     return digest
 
 
-def iter_condition_events(events: tuple[LensEvent, ...]):
+def iter_condition_events(events: Iterable[LensEvent]):
     return filter(lambda event: event.action == "condition", events)
 
 
-def _iter_fiber_trace(events: tuple[LensEvent, ...]):
+def _iter_fiber_trace(events: Iterable[LensEvent]):
     for event in events:
         yield FiberTraceEvent(
-            ordinal=int(event.ordinal),
-            line=int(event.line),
-            column=int(event.column),
-            event_kind=str(event.event_kind),
-            normalization_class=str(event.taint_class),
-            input_slot=str(event.input_slot),
-            phase_hint=str(event.event_phase),
+            ordinal=event.ordinal,
+            line=event.line,
+            column=event.column,
+            event_kind=event.event_kind,
+            normalization_class=event.taint_class,
+            input_slot=event.input_slot,
+            phase_hint=event.event_phase,
             pre_core=True,
         )
+
+
+def _condition_overlap_id(overlap: object) -> str:
+    value = getattr(overlap, "condition_overlap_id", "")
+    match value:
+        case str() as text:
+            return text
+        case _:
+            return ""
+
+
+def _hash_part_bytes(value: object) -> bytes:
+    match value:
+        case bool() as flag:
+            return b"1" if flag else b"0"
+        case int() as integer:
+            return _int_bytes(integer)
+        case str() as text:
+            return text.encode("utf-8")
+        case bytes() as raw:
+            return raw
+        case _:
+            return b"<unsupported>"
+
+
+def _int_bytes(value: int) -> bytes:
+    magnitude = abs(value)
+    width = max(1, (magnitude.bit_length() + 7) // 8)
+    sign = b"-" if value < 0 else b"+"
+    return sign + magnitude.to_bytes(width, byteorder="big", signed=False)
 
 
 __all__ = [

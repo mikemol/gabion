@@ -1822,6 +1822,35 @@
         "targeted_pytest": "pass (58 passed)",
         "policy_scanner_suite": "expected_nonzero total=11148"
       }
+    },
+    {
+      "cu_id": "CU-GEO19",
+      "timestamp_utc": "2026-03-10T01:09:51Z",
+      "migrated_families": [
+        "no_scalar_conversion_boundary"
+      ],
+      "policy_scanner_counts_before": {
+        "no_scalar_conversion_boundary": 5
+      },
+      "policy_scanner_counts_after": {
+        "no_scalar_conversion_boundary": 0
+      },
+      "total_before": 5,
+      "total_after": 0,
+      "drift_notes": [
+        "Neighborhood-local net total changed by -5.",
+        "No neighborhood-local increases across other families for scoped file scan."
+      ],
+      "libcst_recovery": {
+        "cst_parse_failure_events": 0,
+        "recovered_modules": "all parseable targets processed"
+      },
+      "validation": {
+        "policy_check_workflows": "fail_expected_symbol_activity_audit (unsuppressed=1595)",
+        "policy_check_ambiguity_contract": "pass",
+        "targeted_pytest": "pass (test_policy_substrate_runtime.py: 5 passed, 1 deselected)",
+        "targeted_file_scan": "pass (rule_runtime.py total=0)"
+      }
     }
   ]
 }

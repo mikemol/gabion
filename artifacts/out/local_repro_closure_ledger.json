@@ -7237,6 +7237,30 @@
         "targeted_pytest": "pass (58 passed)",
         "policy_scanner_suite": "expected_nonzero total=11148"
       }
+    },
+    {
+      "cu_id": "CU-GEO19",
+      "summary": "Zeroed rule_runtime scalarization neighborhood by removing string-add coercion paths from substrate decoration builders.",
+      "timestamp_utc": "2026-03-10T01:09:51Z",
+      "policy_scanner_counts_before": {
+        "no_scalar_conversion_boundary": 5
+      },
+      "policy_scanner_counts_after": {
+        "no_scalar_conversion_boundary": 0
+      },
+      "total_before": 5,
+      "total_after": 0,
+      "notes": [
+        "Neighborhood scope: src/gabion/tooling/policy_substrate/rule_runtime.py.",
+        "Replaced string-add event-kind builders with delimiter-join list builders.",
+        "Introduced MissingTaintIntervalError to remove concatenated error-message construction while preserving failure semantics."
+      ],
+      "validation": {
+        "policy_check_workflows": "fail_expected_symbol_activity_audit (unsuppressed=1595)",
+        "policy_check_ambiguity_contract": "pass",
+        "targeted_pytest": "pass (test_policy_substrate_runtime.py: 5 passed, 1 deselected)",
+        "targeted_file_scan": "pass (rule_runtime.py total=0)"
+      }
     }
   ],
   "generated_by": "codex",
