@@ -9,6 +9,8 @@ from functools import singledispatch
 from pathlib import Path
 
 from gabion.invariants import never
+from gabion.policy_dsl import PolicyDomain, evaluate_policy
+from gabion.policy_dsl.schema import PolicyOutcomeKind
 from gabion.tooling.runtime.policy_scan_batch import (
     PolicyScanBatch,
     build_policy_scan_batch,
@@ -69,7 +71,7 @@ class _Visitor(ast.NodeVisitor):
             self.generic_visit(node)
             return
         if _is_isinstance_call(node):
-            self._report(node, rule_id="ACP-003", message="runtime type narrowing in deterministic core")
+            self._report_event(node, event="runtime_isinstance_call")
         self.generic_visit(node)
 
     def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
@@ -89,7 +91,7 @@ class _Visitor(ast.NodeVisitor):
         if _looks_like_guard(node.test):
             sentinel = _single_sentinel_stmt(node.body)
             if sentinel is not None:
-                self._report(node, rule_id="ACP-002", message=f"sentinel control outcome in core ({sentinel})")
+                self._report_event(node, event="sentinel_control", sentinel=sentinel)
         self.generic_visit(node)
 
     @property
@@ -110,7 +112,17 @@ class _Visitor(ast.NodeVisitor):
 
     def _check_annotation(self, annotation: ast.AST, node: ast.AST) -> None:
         if _annotation_is_dynamic(annotation):
-            self._report(node, rule_id="ACP-004", message="dynamic type alternation in deterministic core annotation")
+            self._report_event(node, event="dynamic_annotation")
+
+    def _report_event(self, node: ast.AST, *, event: str, sentinel: str | None = None) -> None:
+        decision = evaluate_policy(
+            domain=PolicyDomain.AMBIGUITY_CONTRACT_AST,
+            data={"event": event},
+        )
+        if decision.outcome is PolicyOutcomeKind.PASS:
+            return
+        message = decision.message if sentinel is None else f"{decision.message} ({sentinel})"
+        self._report(node, rule_id=decision.rule_id, message=message)
 
     def _report(self, node: ast.AST, *, rule_id: str, message: str) -> None:
         scope = self.scope_stack[-1] if self.scope_stack else _Scope("<module>", self.module_boundary)
@@ -510,8 +522,12 @@ def run(root: Path, baseline: Path | None, baseline_write: bool) -> int:
         baseline_keys = _load_baseline(baseline)
 
     new_violations = [v for v in violations if v.key not in baseline_keys]
-    if new_violations:
-        print("ambiguity contract policy violations:")
+    decision = evaluate_policy(
+        domain=PolicyDomain.AMBIGUITY_CONTRACT,
+        data={"new_violations": len(new_violations)},
+    )
+    if decision.outcome is PolicyOutcomeKind.BLOCK:
+        print(f"{decision.message}:")
         for item in sorted(new_violations, key=lambda v: (v.rule_id, v.path, v.line, v.column)):
             print(f"  - {item.render()}")
         return 1

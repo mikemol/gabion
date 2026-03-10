@@ -7,11 +7,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
 
-from gabion.policy_dsl import PolicyDomain
+from gabion.policy_dsl import PolicyDomain, evaluate_policy
 from gabion.policy_dsl.schema import PolicyDecision, PolicyOutcomeKind
-from gabion.policy_dsl.compile import compile_rules
-from gabion.policy_dsl.eval import first_match
-from gabion.tooling.governance_rules import GatePolicy, gate_policy_to_dsl_sources, load_governance_rules
+from gabion.tooling.governance.governance_rules import GatePolicy, load_governance_rules
 from gabion.runtime import env_policy, json_io
 
 OBSOLESCENCE_OPAQUE_ENV_FLAG = "GABION_GATE_OPAQUE_DELTA"
@@ -36,6 +34,33 @@ class StandardGateSpec:
     warning_prefix: str
     blocking_prefix: str
     ok_prefix: str
+
+
+@dataclass(frozen=True)
+class StandardGateAdapter:
+    gate_id: str
+    spec: StandardGateSpec
+    default_path: Path
+
+    def enabled(self, value: str | None = None) -> bool:
+        return _enabled_default_true(self.spec.env_flag, value)
+
+    def delta_value(self, payload: Mapping[str, object]) -> int:
+        return _nested_int(payload, self.spec.delta_keys)
+
+    def check_gate(self, path: Path, *, enabled: bool | None = None) -> int:
+        return _check_standard_gate(self.spec, path, enabled=enabled)
+
+    def main(self) -> int:
+        return self.check_gate(self.default_path)
+
+
+_STANDARD_GATE_DEFAULT_PATHS: dict[str, Path] = {
+    "obsolescence_opaque": Path("artifacts/out/test_obsolescence_delta.json"),
+    "obsolescence_unmapped": Path("artifacts/out/test_obsolescence_delta.json"),
+    "annotation_orphaned": Path("artifacts/out/test_annotation_drift_delta.json"),
+    "ambiguity": Path("artifacts/out/ambiguity_delta.json"),
+}
 
 
 def _standard_spec_from_policy(policy: GatePolicy) -> StandardGateSpec:
@@ -103,22 +128,11 @@ def _load_payload(path: Path) -> tuple[Mapping[str, object] | None, str | None]:
 
 
 
-def _evaluate_gate_decision(gate_id: str, gate: GatePolicy, payload: Mapping[str, object]) -> PolicyDecision:
-    rules = []
-    for rule in gate_policy_to_dsl_sources(gate):
-        wrapped = dict(rule)
-        wrapped["predicate"] = {
-            "op": "all",
-            "predicates": [
-                {"op": "str_eq", "path": ["gate_id"], "value": gate_id},
-                dict(rule["predicate"]),
-            ],
-        }
-        rules.append(wrapped)
-    program, issues = compile_rules(rules)
-    if issues or program is None:
-        raise ValueError("failed to compile gate policy", issues)
-    return first_match(program, domain=PolicyDomain.GOVERNANCE_GATE, data={**dict(payload), "gate_id": gate_id})
+def _evaluate_gate_decision(gate_id: str, payload: Mapping[str, object]) -> PolicyDecision:
+    return evaluate_policy(
+        domain=PolicyDomain.GOVERNANCE_GATE,
+        data={**dict(payload), "gate_id": gate_id},
+    )
 
 def _gate_id_for_env_flag(env_flag: str) -> str:
     mapping = {
@@ -132,6 +146,25 @@ def _gate_id_for_env_flag(env_flag: str) -> str:
     if gate_id is None:
         raise ValueError(f"unsupported env flag for governance mapping: {env_flag}")
     return gate_id
+
+
+def make_standard_gate_adapter(
+    *,
+    gate_id: str | None = None,
+    env_flag: str | None = None,
+    default_path: Path | None = None,
+) -> StandardGateAdapter:
+    if (gate_id is None) == (env_flag is None):
+        raise ValueError("provide exactly one of gate_id or env_flag")
+    resolved_gate_id = gate_id if gate_id is not None else _gate_id_for_env_flag(env_flag or "")
+    if resolved_gate_id not in _STANDARD_GATE_DEFAULT_PATHS:
+        raise ValueError(f"unsupported standard gate adapter id: {resolved_gate_id}")
+    spec = _policy_spec(resolved_gate_id)
+    return StandardGateAdapter(
+        gate_id=resolved_gate_id,
+        spec=spec,
+        default_path=default_path or _STANDARD_GATE_DEFAULT_PATHS[resolved_gate_id],
+    )
 
 
 def _check_standard_gate(spec: StandardGateSpec, path: Path, *, enabled: bool | None) -> int:
@@ -150,8 +183,7 @@ def _check_standard_gate(spec: StandardGateSpec, path: Path, *, enabled: bool | 
             print(spec.unreadable_message)
         return 2
     gate_id = _gate_id_for_env_flag(spec.env_flag)
-    gate_policy = load_governance_rules().gates[gate_id]
-    decision = _evaluate_gate_decision(gate_id, gate_policy, payload)
+    decision = _evaluate_gate_decision(gate_id, payload)
     delta_value = _nested_int(payload, spec.delta_keys)
     before = _nested_int(payload, spec.before_keys)
     after = _nested_int(payload, spec.after_keys)
@@ -237,7 +269,7 @@ def check_docflow_gate(path: Path, *, enabled: bool | None = None) -> int:
         else:
             print(policy.unreadable_message)
         return 0
-    decision = _evaluate_gate_decision("docflow", policy, payload)
+    decision = _evaluate_gate_decision("docflow", payload)
     contradicts_delta = docflow_delta_value(payload, "contradicts")
     excess_delta = docflow_delta_value(payload, "excess")
     proposed_delta = docflow_delta_value(payload, "proposed")

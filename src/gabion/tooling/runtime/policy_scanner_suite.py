@@ -9,6 +9,8 @@ import json
 from pathlib import Path
 import subprocess
 from typing import Any, Iterable, Mapping
+from gabion.policy_dsl import PolicyDomain, evaluate_policy
+from gabion.policy_dsl.schema import PolicyDecision
 from gabion.tooling.policy_rules import (
     aspf_normalization_idempotence_rule,
     boundary_core_contract_rule,
@@ -210,8 +212,16 @@ class PolicySuiteResult:
     def total_violations(self) -> int:
         return sum(_iter_rule_violation_counts(self.violations_by_rule.values()))
 
+    def decision(self) -> PolicyDecision:
+        counts = dict(map(_rule_count_pair, self.violations_by_rule.items()))
+        return evaluate_policy(
+            domain=PolicyDomain.POLICY_SCANNER,
+            data={"counts": counts},
+        )
+
     def to_payload(self) -> dict[str, object]:
         counts = dict(map(_rule_count_pair, self.violations_by_rule.items()))
+        decision = self.decision()
         return {
             "format_version": _FORMAT_VERSION,
             "generated_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -221,6 +231,12 @@ class PolicySuiteResult:
             "cached": self.cached,
             "counts": counts,
             "violations": self.violations_by_rule,
+            "decision": {
+                "rule_id": decision.rule_id,
+                "outcome": decision.outcome.value,
+                "severity": decision.severity.value,
+                "message": decision.message,
+            },
             "policy_results": self.policy_results,
         }
 

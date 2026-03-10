@@ -17,6 +17,7 @@ from gabion.invariants import never
 from gabion.deadline_clock import MonotonicClock
 from gabion.order_contract import ordered_or_sorted
 from gabion.config import dataflow_adapter_payload, dataflow_defaults, dataflow_required_surfaces
+from gabion.tooling.runtime import policy_result_schema
 from gabion.policy_dsl.compile import compile_document
 from gabion.policy_dsl.registry import build_registry
 from gabion.policy_dsl.typecheck import typecheck
@@ -27,7 +28,7 @@ except ImportError:  # pragma: no cover - handled as a hard error at runtime.
     yaml = None
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW_DIR = REPO_ROOT / ".github" / "workflows"
 
 ALLOWED_ACTIONS_FILE = REPO_ROOT / "docs" / "allowed_actions.txt"
@@ -1700,31 +1701,75 @@ def main():
     parser.add_argument("--semantic-core-payload-branching", action="store_true", help="forbid raw Mapping/list payload branching outside boundary decode functions")
     parser.add_argument("--aspf-taint-crosswalk", action="store_true", help="require ASPF/taint crosswalk acknowledgement when relevant files change")
     parser.add_argument("--policy-dsl", action="store_true", help="compile/typecheck policy DSL sources")
+    parser.add_argument("--output", type=Path, help="optional policy-result artifact path")
     args = parser.parse_args()
 
     if not args.workflows and not args.posture and not args.ambiguity_contract and not args.normative_map and not args.tier2_residue_contract and not args.adapter_surfaces and not args.semantic_core_payload_branching and not args.aspf_taint_crosswalk and not args.policy_dsl:
         args.workflows = True
 
-    with _policy_deadline_scope():
-        if args.workflows:
-            check_workflows()
-        if args.posture:
-            check_posture()
-        if args.ambiguity_contract:
-            check_ambiguity_contract()
-        if args.normative_map:
-            check_normative_enforcement_map()
-        if args.tier2_residue_contract:
-            check_tier2_residue_contract()
-        if args.adapter_surfaces:
-            check_adapter_surface_policy()
-        if args.semantic_core_payload_branching:
-            check_semantic_core_payload_branching()
-        if args.aspf_taint_crosswalk or args.workflows:
-            check_aspf_taint_crosswalk_ack()
-        if args.policy_dsl or args.workflows:
-            check_policy_dsl()
-    return 0
+    requested_checks = tuple(
+        name
+        for name, enabled in (
+            ("workflows", args.workflows),
+            ("posture", args.posture),
+            ("ambiguity_contract", args.ambiguity_contract),
+            ("normative_map", args.normative_map),
+            ("tier2_residue_contract", args.tier2_residue_contract),
+            ("adapter_surfaces", args.adapter_surfaces),
+            ("semantic_core_payload_branching", args.semantic_core_payload_branching),
+            ("aspf_taint_crosswalk", args.aspf_taint_crosswalk),
+            ("policy_dsl", args.policy_dsl),
+        )
+        if enabled
+    )
+
+    returncode = 0
+    try:
+        with _policy_deadline_scope():
+            if args.workflows:
+                check_workflows()
+            if args.posture:
+                check_posture()
+            if args.ambiguity_contract:
+                check_ambiguity_contract()
+            if args.normative_map:
+                check_normative_enforcement_map()
+            if args.tier2_residue_contract:
+                check_tier2_residue_contract()
+            if args.adapter_surfaces:
+                check_adapter_surface_policy()
+            if args.semantic_core_payload_branching:
+                check_semantic_core_payload_branching()
+            if args.aspf_taint_crosswalk or args.workflows:
+                check_aspf_taint_crosswalk_ack()
+            if args.policy_dsl or args.workflows:
+                check_policy_dsl()
+    except SystemExit as exc:
+        code = exc.code
+        returncode = int(code) if isinstance(code, int) else 1
+
+    if args.output is not None:
+        violations: list[dict[str, str]] = []
+        if returncode != 0:
+            violations.append(
+                {
+                    "message": "policy checks failed",
+                    "render": f"policy_check returncode={returncode}",
+                }
+            )
+        policy_result_schema.write_policy_result(
+            path=args.output,
+            result=policy_result_schema.make_policy_result(
+                rule_id="policy_check",
+                status="pass" if returncode == 0 else "fail",
+                violations=violations,
+                baseline_mode="none",
+                source_tool="scripts/policy/policy_check.py",
+                input_scope={"checks": requested_checks},
+            ),
+        )
+
+    return returncode
 
 
 if __name__ == "__main__":

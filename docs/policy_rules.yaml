@@ -35,6 +35,210 @@ rules:
       message: no_monkeypatch policy violations
     evidence_contract: none
 
+  - rule_id: scanner.fiber_loop_structure_contract.blocking
+    domain: policy_scanner
+    severity: blocking
+    predicate:
+      op: int_gte
+      path: [counts, fiber_loop_structure_contract]
+      value: 1
+    outcome:
+      kind: block
+      message: fiber_loop_structure_contract policy violations
+    evidence_contract: none
+
+  - rule_id: scanner.fiber_filter_processor_contract.blocking
+    domain: policy_scanner
+    severity: blocking
+    predicate:
+      op: int_gte
+      path: [counts, fiber_filter_processor_contract]
+      value: 1
+    outcome:
+      kind: block
+      message: fiber_filter_processor_contract policy violations
+    evidence_contract: none
+
+  - rule_id: scanner.fiber_return_shape_contract.blocking
+    domain: policy_scanner
+    severity: blocking
+    predicate:
+      op: int_gte
+      path: [counts, fiber_return_shape_contract]
+      value: 1
+    outcome:
+      kind: block
+      message: fiber_return_shape_contract policy violations
+    evidence_contract: none
+
+  - rule_id: scanner.fiber_scalar_sentinel_contract.blocking
+    domain: policy_scanner
+    severity: blocking
+    predicate:
+      op: int_gte
+      path: [counts, fiber_scalar_sentinel_contract]
+      value: 1
+    outcome:
+      kind: block
+      message: fiber_scalar_sentinel_contract policy violations
+    evidence_contract: none
+
+  - rule_id: scanner.fiber_type_dispatch_contract.blocking
+    domain: policy_scanner
+    severity: blocking
+    predicate:
+      op: int_gte
+      path: [counts, fiber_type_dispatch_contract]
+      value: 1
+    outcome:
+      kind: block
+      message: fiber_type_dispatch_contract policy violations
+    evidence_contract: none
+
+  - rule_id: scanner.no_anonymous_tuple.blocking
+    domain: policy_scanner
+    severity: blocking
+    predicate:
+      op: int_gte
+      path: [counts, no_anonymous_tuple]
+      value: 1
+    outcome:
+      kind: block
+      message: no_anonymous_tuple policy violations
+    evidence_contract: none
+
+  - rule_id: scanner.no_mutable_dict.blocking
+    domain: policy_scanner
+    severity: blocking
+    predicate:
+      op: int_gte
+      path: [counts, no_mutable_dict]
+      value: 1
+    outcome:
+      kind: block
+      message: no_mutable_dict policy violations
+    evidence_contract: none
+
+  - rule_id: scanner.no_scalar_conversion_boundary.blocking
+    domain: policy_scanner
+    severity: blocking
+    predicate:
+      op: int_gte
+      path: [counts, no_scalar_conversion_boundary]
+      value: 1
+    outcome:
+      kind: block
+      message: no_scalar_conversion_boundary policy violations
+    evidence_contract: none
+
+  - rule_id: scanner.no_legacy_monolith_import.blocking
+    domain: policy_scanner
+    severity: blocking
+    predicate:
+      op: int_gte
+      path: [counts, no_legacy_monolith_import]
+      value: 1
+    outcome:
+      kind: block
+      message: no_legacy_monolith_import policy violations
+    evidence_contract: none
+
+  - rule_id: scanner.orchestrator_primitive_barrel.blocking
+    domain: policy_scanner
+    severity: blocking
+    predicate:
+      op: int_gte
+      path: [counts, orchestrator_primitive_barrel]
+      value: 1
+    outcome:
+      kind: block
+      message: orchestrator_primitive_barrel policy violations
+    evidence_contract: none
+
+  - rule_id: scanner.typing_surface.blocking
+    domain: policy_scanner
+    severity: blocking
+    predicate:
+      op: int_gte
+      path: [counts, typing_surface]
+      value: 1
+    outcome:
+      kind: block
+      message: typing_surface policy violations
+    evidence_contract: none
+
+  - rule_id: scanner.runtime_narrowing_boundary.blocking
+    domain: policy_scanner
+    severity: blocking
+    predicate:
+      op: int_gte
+      path: [counts, runtime_narrowing_boundary]
+      value: 1
+    outcome:
+      kind: block
+      message: runtime_narrowing_boundary policy violations
+    evidence_contract: none
+
+  - rule_id: scanner.aspf_normalization_idempotence.blocking
+    domain: policy_scanner
+    severity: blocking
+    predicate:
+      op: int_gte
+      path: [counts, aspf_normalization_idempotence]
+      value: 1
+    outcome:
+      kind: block
+      message: aspf_normalization_idempotence policy violations
+    evidence_contract: none
+
+  - rule_id: scanner.boundary_core_contract.blocking
+    domain: policy_scanner
+    severity: blocking
+    predicate:
+      op: int_gte
+      path: [counts, boundary_core_contract]
+      value: 1
+    outcome:
+      kind: block
+      message: boundary_core_contract policy violations
+    evidence_contract: none
+
+  - rule_id: scanner.fiber_normalization_contract.blocking
+    domain: policy_scanner
+    severity: blocking
+    predicate:
+      op: int_gte
+      path: [counts, fiber_normalization_contract]
+      value: 1
+    outcome:
+      kind: block
+      message: fiber_normalization_contract policy violations
+    evidence_contract: none
+
+  - rule_id: scanner.test_subprocess_hygiene.blocking
+    domain: policy_scanner
+    severity: blocking
+    predicate:
+      op: int_gte
+      path: [counts, test_subprocess_hygiene]
+      value: 1
+    outcome:
+      kind: block
+      message: test_subprocess_hygiene policy violations
+    evidence_contract: none
+
+  - rule_id: scanner.test_sleep_hygiene.blocking
+    domain: policy_scanner
+    severity: blocking
+    predicate:
+      op: int_gte
+      path: [counts, test_sleep_hygiene]
+      value: 1
+    outcome:
+      kind: block
+      message: test_sleep_hygiene policy violations
+    evidence_contract: none
+
   - rule_id: scanner.ok
     domain: policy_scanner
     severity: info

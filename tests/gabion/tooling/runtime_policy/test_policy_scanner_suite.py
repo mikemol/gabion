@@ -54,6 +54,9 @@ def test_policy_scanner_suite_scan_and_cache(tmp_path: Path) -> None:
     )
     assert first.cached is False
     assert first.total_violations() > 0
+    decision = first.to_payload().get("decision")
+    assert isinstance(decision, dict)
+    assert decision.get("outcome") in {"block", "warn", "pass", "skip"}
     assert policy_scanner_suite.violations_for_rule(first, rule="branchless")
     assert policy_scanner_suite.violations_for_rule(first, rule="defensive_fallback")
     assert policy_scanner_suite.violations_for_rule(first, rule="fiber_loop_structure_contract")

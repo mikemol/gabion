@@ -5,9 +5,9 @@ from pathlib import Path
 from gabion.analysis import aspf_rule_engine
 from gabion.policy_dsl import PolicyDomain, evaluate_policy
 from gabion.policy_dsl.registry import build_registry
-from gabion.tooling import ambiguity_contract_policy_check as ambiguity_policy
-from gabion.tooling import delta_gate
-from gabion.tooling.policy_scanner_suite import PolicySuiteResult
+from gabion.tooling.delta import delta_gate
+from gabion.tooling.governance import ambiguity_contract_policy_check as ambiguity_policy
+from gabion.tooling.runtime.policy_scanner_suite import PolicySuiteResult
 
 
 def test_registry_rule_ids_are_unique_and_stable() -> None:
@@ -43,10 +43,11 @@ def test_delta_gate_value_helpers_remain_compatible() -> None:
 
 def test_scanner_payload_uses_dsl_decision_shape() -> None:
     result = PolicySuiteResult(
-        root=Path('.').resolve(),
+        root=Path(".").resolve(),
         inventory_hash="h1",
         rule_set_hash="r1",
         violations_by_rule={"branchless": [{}], "defensive_fallback": [], "no_monkeypatch": []},
+        policy_results={},
         cached=False,
     )
     payload = result.to_payload()
@@ -65,7 +66,7 @@ def test_ambiguity_contract_run_uses_dsl_blocking_rule(monkeypatch: object, tmp_
         qualname="f",
         message="x",
     )
-    monkeypatch.setattr(ambiguity_policy, "collect_violations", lambda root: [violation])
+    monkeypatch.setattr(ambiguity_policy, "collect_violations", lambda batch: [violation])
     baseline = tmp_path / "baseline.json"
     exit_code = ambiguity_policy.run(root=tmp_path, baseline=baseline, baseline_write=False)
     assert exit_code == 1
@@ -93,10 +94,28 @@ def test_ambiguity_ast_event_rules_are_dsl_backed() -> None:
 
 
 def test_governance_adapter_emits_baseline_missing_rule() -> None:
-    source = Path("src/gabion/tooling/governance_rules.py").read_text(encoding="utf-8")
+    source = Path("src/gabion/tooling/governance/governance_rules.py").read_text(
+        encoding="utf-8"
+    )
     assert ".baseline_missing" in source
 
 
 def test_delta_gate_no_python_docflow_baseline_branch() -> None:
-    source = Path("src/gabion/tooling/delta_gate.py").read_text(encoding="utf-8")
+    source = Path("src/gabion/tooling/delta/delta_gate.py").read_text(encoding="utf-8")
     assert "baseline_missing = bool(payload.get" not in source
+
+
+def test_migrated_modules_use_dsl_evaluator() -> None:
+    ambiguity_source = Path(
+        "src/gabion/tooling/governance/ambiguity_contract_policy_check.py"
+    ).read_text(encoding="utf-8")
+    scanner_source = Path(
+        "src/gabion/tooling/runtime/policy_scanner_suite.py"
+    ).read_text(encoding="utf-8")
+    delta_source = Path("src/gabion/tooling/delta/delta_gate.py").read_text(
+        encoding="utf-8"
+    )
+    assert "evaluate_policy(" in ambiguity_source
+    assert "evaluate_policy(" in scanner_source
+    assert "compile_rules(" not in delta_source
+    assert "first_match(" not in delta_source

@@ -111,6 +111,7 @@ def run(
         base_sha=base_sha,
         head_sha=head_sha,
     )
+    decision = result.decision()
     queue_json = out.parent / "hotspot_neighborhood_queue.json"
     queue_md = out.parent / "hotspot_neighborhood_queue.md"
     hotspot_neighborhood_queue.run(
@@ -120,6 +121,11 @@ def run(
     )
     total = result.total_violations()
     print(f"policy-suite scan: cached={result.cached} total_violations={total} out={out}")
+    print(
+        "policy-suite decision: "
+        f"rule_id={decision.rule_id} outcome={decision.outcome.value} "
+        f"severity={decision.severity.value}"
+    )
     print(f"hotspot-neighborhood queue: {queue_json}")
     if total == 0:
         for rule_id in ("policy_check", "structural_hash", "deprecated_nonerasability"):
@@ -154,7 +160,7 @@ def run(
         print(f"{rule} violations:")
         for item in items:
             print(f"  - {item.get('render', item)}")
-    return 1
+    return 1 if decision.outcome.value == "block" else 0
 
 
 def main(argv: list[str] | None = None) -> int:

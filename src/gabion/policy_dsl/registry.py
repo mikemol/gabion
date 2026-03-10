@@ -5,7 +5,10 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Mapping
 
-from gabion.tooling.governance_rules import gate_policy_to_dsl_sources, load_governance_rules
+from gabion.tooling.governance.governance_rules import (
+    gate_policy_to_dsl_sources,
+    load_governance_rules,
+)
 
 from .compile import compile_document, compile_rules
 from .ir import IRProgram
