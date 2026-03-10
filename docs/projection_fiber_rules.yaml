@@ -1,0 +1,27 @@
+rules:
+  - rule_id: projection_fiber.convergence.blocking
+    domain: projection_fiber
+    severity: blocking
+    predicate:
+      op: int_gte
+      path: [error_count]
+      value: 1
+    outcome:
+      kind: block
+      message: projection fiber convergence policy violations
+    evidence_contract: none
+
+  - rule_id: projection_fiber.convergence.ok
+    domain: projection_fiber
+    severity: info
+    predicate:
+      op: always
+    outcome:
+      kind: pass
+      message: projection fiber convergence clean
+    evidence_contract: none
+
+transforms:
+  - transform_id: projection.unmapped_intro
+    intro_from: unmapped_witness
+    erase_when: mapping_complete

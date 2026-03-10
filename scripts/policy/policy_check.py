@@ -18,9 +18,14 @@ from gabion.deadline_clock import MonotonicClock
 from gabion.order_contract import ordered_or_sorted
 from gabion.config import dataflow_adapter_payload, dataflow_defaults, dataflow_required_surfaces
 from gabion.tooling.runtime import policy_result_schema
+from gabion.policy_dsl import PolicyDomain, evaluate_policy
 from gabion.policy_dsl.compile import compile_document
 from gabion.policy_dsl.registry import build_registry
+from gabion.policy_dsl.schema import PolicyOutcomeKind
 from gabion.policy_dsl.typecheck import typecheck
+from gabion.tooling.policy_substrate.lattice_convergence_semantic import (
+    collect_semantic_lattice_convergence,
+)
 
 try:
     import yaml
@@ -320,6 +325,7 @@ def check_policy_dsl() -> None:
     docs = [
         REPO_ROOT / "docs" / "policy_rules.yaml",
         REPO_ROOT / "docs" / "aspf_opportunity_rules.yaml",
+        REPO_ROOT / "docs" / "projection_fiber_rules.yaml",
     ]
     for path in docs:
         if not path.exists():
@@ -336,6 +342,21 @@ def check_policy_dsl() -> None:
         errors.append(f"registry build failed: {exc}")
     if errors:
         _fail(errors)
+
+
+def check_aspf_lattice_convergence() -> None:
+    report = collect_semantic_lattice_convergence(repo_root=REPO_ROOT)
+    decision = evaluate_policy(
+        domain=PolicyDomain.PROJECTION_FIBER,
+        data=report.policy_data(),
+    )
+    if decision.outcome is PolicyOutcomeKind.BLOCK:
+        _fail(
+            [
+                decision.message,
+                *report.error_messages(),
+            ]
+        )
 
 
 def _policy_deadline_scope():
@@ -1744,6 +1765,7 @@ def main():
                 check_aspf_taint_crosswalk_ack()
             if args.policy_dsl or args.workflows:
                 check_policy_dsl()
+                check_aspf_lattice_convergence()
     except SystemExit as exc:
         code = exc.code
         returncode = int(code) if isinstance(code, int) else 1

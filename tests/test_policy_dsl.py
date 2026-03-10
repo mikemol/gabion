@@ -79,6 +79,17 @@ def test_aspf_rule_engine_classifies_two_cell() -> None:
     assert decision.rule_id == "aspf.opportunity.two_cell"
 
 
+def test_aspf_rule_engine_classifies_fungible_observation_kind() -> None:
+    decision = aspf_rule_engine.classify_aspf_opportunity(
+        {
+            "kind": "fungible_execution_path_substitution",
+            "witness_requirement": "two_cell_witness",
+            "actionability": "actionable",
+        }
+    )
+    assert decision.rule_id == "aspf.opportunity.fungible_execution_path_substitution"
+
+
 def test_registry_python_source_does_not_inline_scanner_rule_ids() -> None:
     source = Path("src/gabion/policy_dsl/registry.py").read_text(encoding="utf-8")
     assert "scanner.branchless.blocking" not in source
@@ -91,6 +102,11 @@ def test_ambiguity_ast_event_rules_are_dsl_backed() -> None:
         data={"event": "runtime_isinstance_call"},
     )
     assert decision.rule_id == "ACP-003"
+    fallthrough_decision = evaluate_policy(
+        domain=PolicyDomain.AMBIGUITY_CONTRACT_AST,
+        data={"event": "match_fallthrough_without_never"},
+    )
+    assert fallthrough_decision.rule_id == "ACP-005"
 
 
 def test_governance_adapter_emits_baseline_missing_rule() -> None:
@@ -119,3 +135,41 @@ def test_migrated_modules_use_dsl_evaluator() -> None:
     assert "evaluate_policy(" in scanner_source
     assert "compile_rules(" not in delta_source
     assert "first_match(" not in delta_source
+
+
+def test_projection_rule_blocks_on_unerased_obligation() -> None:
+    decision = evaluate_policy(
+        domain=PolicyDomain.PROJECTION_FIBER,
+        data={"error_count": 1},
+    )
+    assert decision.rule_id == "projection_fiber.convergence.blocking"
+
+
+def test_projection_rule_passes_after_erasure() -> None:
+    decision = evaluate_policy(
+        domain=PolicyDomain.PROJECTION_FIBER,
+        data={"error_count": 0},
+    )
+    assert decision.rule_id == "projection_fiber.convergence.ok"
+
+
+def test_opportunity_rule_ids_deterministic_order() -> None:
+    first = tuple(
+        rule.rule_id
+        for rule in build_registry().program.by_domain(PolicyDomain.ASPF_OPPORTUNITY)
+    )
+    second = tuple(
+        rule.rule_id
+        for rule in build_registry().program.by_domain(PolicyDomain.ASPF_OPPORTUNITY)
+    )
+    assert first == second
+    assert "aspf.opportunity.fungible_execution_path_substitution" in first
+    assert "aspf.opportunity.materialize_load_fusion" in first
+
+
+def test_policy_check_lattice_convergence_uses_semantic_collector_and_dsl() -> None:
+    source = Path("scripts/policy/policy_check.py").read_text(encoding="utf-8")
+    assert "collect_semantic_lattice_convergence" in source
+    assert "PolicyDomain.PROJECTION_FIBER" in source
+    assert "collect_lattice_convergence_probe" not in source
+    assert "legacy frontier implementation token remains" not in source
