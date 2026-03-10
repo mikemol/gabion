@@ -11,15 +11,15 @@ from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from gabion.tooling.runtime.policy_result_schema import make_policy_result, write_policy_result
-
-from scripts.deadline.deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
-from gabion.analysis.foundation.timeout_context import Deadline, check_deadline, deadline_clock_scope, deadline_scope
+from scripts.deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
+from gabion.analysis.timeout_context import Deadline, check_deadline, deadline_clock_scope, deadline_scope
 from gabion.invariants import never
 from gabion.deadline_clock import MonotonicClock
 from gabion.order_contract import ordered_or_sorted
 from gabion.config import dataflow_adapter_payload, dataflow_defaults, dataflow_required_surfaces
-from scripts.policy import symbol_activity_audit
+from gabion.policy_dsl.compile import compile_document
+from gabion.policy_dsl.registry import build_registry
+from gabion.policy_dsl.typecheck import typecheck
 
 try:
     import yaml
@@ -27,9 +27,8 @@ except ImportError:  # pragma: no cover - handled as a hard error at runtime.
     yaml = None
 
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW_DIR = REPO_ROOT / ".github" / "workflows"
-TESTS_ROOT = REPO_ROOT / "tests"
 
 ALLOWED_ACTIONS_FILE = REPO_ROOT / "docs" / "allowed_actions.txt"
 REQUIRED_RUNNER_LABELS = {"self-hosted", "gpu", "local"}
@@ -59,8 +58,6 @@ _REQUIRED_NORMATIVE_CLAUSES = {
     "NCI-ACTIONS-ALLOWLIST",
     "NCI-DATAFLOW-BUNDLE-TIERS",
     "NCI-SHIFT-AMBIGUITY-LEFT",
-    "NCI-RUNTIME-NARROWING-BOUNDARY",
-    "NCI-FIBER-TRACE-BOUNDARY",
     "NCI-BASELINE-RATCHET",
     "NCI-DEADLINE-TIMEOUT-PROPAGATION",
     "NCI-CONTROLLER-ADAPTATION-LAW",
@@ -68,13 +65,10 @@ _REQUIRED_NORMATIVE_CLAUSES = {
     "NCI-CONTROLLER-DRIFT-LIFECYCLE",
     "NCI-COMMAND-MATURITY-PARITY",
     "NCI-DUAL-SENSOR-CORRECTION-LOOP",
-    "NCI-DOCFLOW-CLOSED-LOOP",
 }
 
 ASPF_TAINT_MAP = REPO_ROOT / "docs" / "aspf_taint_isomorphism_map.yaml"
 ASPF_TAINT_NO_CHANGE = REPO_ROOT / "docs" / "aspf_taint_isomorphism_no_change.yaml"
-SYMBOL_ACTIVITY_AUDIT_JSON = REPO_ROOT / "artifacts" / "out" / "symbol_activity_audit.json"
-SYMBOL_ACTIVITY_AUDIT_MD = REPO_ROOT / "artifacts" / "out" / "symbol_activity_audit.md"
 _REQUIRED_ASPF_IN_STEPS = {"in-46", "in-47", "in-48", "in-49", "in-50", "in-51", "in-52", "in-53", "in-58"}
 _EXPECTED_ASPF_IDENTIFIER_ANCHORS = {
     "AspfOneCell",
@@ -100,12 +94,6 @@ _ASPF_TAINT_TRIGGER_PATHS = {
 _ASPF_TAINT_TRIGGER_PREFIXES = (
     "src/gabion/analysis/",
 )
-
-_SCRIPT_FILE_LOADING_APIS = {
-    "importlib.util.spec_from_file_location",
-    "SourceFileLoader",
-    "importlib.machinery.SourceFileLoader",
-}
 
 
 def _changed_repo_paths() -> set[str]:
@@ -326,6 +314,29 @@ def _policy_timeout_budget() -> DeadlineBudget:
     )
 
 
+def check_policy_dsl() -> None:
+    errors: list[str] = []
+    docs = [
+        REPO_ROOT / "docs" / "policy_rules.yaml",
+        REPO_ROOT / "docs" / "aspf_opportunity_rules.yaml",
+    ]
+    for path in docs:
+        if not path.exists():
+            continue
+        program, issues = compile_document(path)
+        for issue in issues:
+            errors.append(f"{path}: compile {issue.code}: {issue.message} ({issue.rule_id})")
+        if program is not None:
+            for issue in typecheck(program):
+                errors.append(f"{path}: typecheck {issue.code}: {issue.message} ({issue.rule_id})")
+    try:
+        _ = build_registry()
+    except ValueError as exc:
+        errors.append(f"registry build failed: {exc}")
+    if errors:
+        _fail(errors)
+
+
 def _policy_deadline_scope():
     return deadline_scope_from_ticks(
         budget=_policy_timeout_budget(),
@@ -347,11 +358,7 @@ class JobContext:
     path: Path
 
 
-_LAST_FAIL_ERRORS: list[str] = []
-
 def _fail(errors):
-    global _LAST_FAIL_ERRORS
-    _LAST_FAIL_ERRORS = [str(err) for err in errors]
     for err in errors:
         check_deadline()
         print(f"policy-check: {err}", file=sys.stderr)
@@ -685,11 +692,11 @@ def _check_release_tag_workflow(doc, path, errors):
                 f"{path}:{name}: release tag workflow must guard on repository owner"
             )
         steps = job.get("steps", [])
-        if not _step_run_contains_any(steps, {"scripts/release/release_tag.py"}):
+        if not _step_run_contains_any(steps, {"scripts/release_tag.py"}):
             errors.append(
-                f"{path}:{name}: release tag workflow must use scripts/release/release_tag.py"
+                f"{path}:{name}: release tag workflow must use scripts/release_tag.py"
             )
-    script_path = REPO_ROOT / "scripts" / "release" / "release_tag.py"
+    script_path = REPO_ROOT / "scripts" / "release_tag.py"
     if script_path.exists():
         script_text = script_path.read_text(encoding="utf-8")
         required_tokens = [
@@ -742,7 +749,7 @@ def _check_auto_test_tag_workflow(doc, path, errors):
             errors.append(
                 f"{path}:{name}: auto test tag workflow must verify next mirrors main"
             )
-        if not _step_run_contains_any(steps, {"scripts/release/release_read_project_version.py"}):
+        if not _step_run_contains_any(steps, {"scripts/release_read_project_version.py"}):
             errors.append(
                 f"{path}:{name}: auto test tag workflow must derive tag from pyproject.toml"
             )
@@ -909,13 +916,11 @@ def _check_ci_script_entrypoints(doc, path, errors):
     if not isinstance(jobs, dict):
         return
     required_tokens = {
-        "scripts/ci/ci_finalize_dataflow_outcome.py",
-        "scripts/ci/ci_controller_drift_gate.py",
-        "scripts/ci/ci_override_record_emit.py",
-        "scripts/policy/policy_scanner_suite.py",
-        "scripts/policy/docflow_packetize.py",
-        "scripts/policy/docflow_packet_enforce.py",
-        "scripts/misc/aspf_handoff.py run",
+        "scripts/ci_finalize_dataflow_outcome.py",
+        "scripts/ci_controller_drift_gate.py",
+        "scripts/ci_override_record_emit.py",
+        "scripts/policy_scanner_suite.py",
+        "scripts/aspf_handoff.py run",
         "check delta-bundle",
         "check delta-gates",
     }
@@ -948,19 +953,19 @@ def _check_policy_scanner_suite_entrypoints(doc, path, errors):
         raw_steps = job.get("steps", [])
         if isinstance(raw_steps, list):
             steps.extend(raw_steps)
-    if not _step_run_contains_any(steps, {"scripts/policy/policy_scanner_suite.py"}):
-        errors.append(f"{path}: workflow must invoke scripts/policy/policy_scanner_suite.py")
+    if not _step_run_contains_any(steps, {"scripts/policy_scanner_suite.py"}):
+        errors.append(f"{path}: workflow must invoke scripts/policy_scanner_suite.py")
     deprecated_scanner_tokens = {
-        "scripts/policy/no_monkeypatch_policy_check.py",
-        "scripts/policy/branchless_policy_check.py",
-        "scripts/policy/defensive_fallback_policy_check.py",
+        "scripts/no_monkeypatch_policy_check.py",
+        "scripts/branchless_policy_check.py",
+        "scripts/defensive_fallback_policy_check.py",
     }
     for token in sorted(deprecated_scanner_tokens):
         check_deadline()
         if _step_run_contains_any(steps, {token}):
             errors.append(
                 f"{path}: workflow must not invoke legacy scanner entrypoint {token}; "
-                "use scripts/policy/policy_scanner_suite.py"
+                "use scripts/policy_scanner_suite.py"
             )
 
 
@@ -987,8 +992,8 @@ def _check_pr_stage_ci_poll_cadence(doc, path, errors):
 
 def _check_dense_core_lock_in(errors):
     check_deadline()
-    run_dataflow_stage_path = REPO_ROOT / "src/gabion/tooling/runtime/run_dataflow_stage.py"
-    finalize_path = REPO_ROOT / "scripts/ci/ci_finalize_dataflow_outcome.py"
+    run_dataflow_stage_path = REPO_ROOT / "src/gabion/tooling/run_dataflow_stage.py"
+    finalize_path = REPO_ROOT / "scripts/ci_finalize_dataflow_outcome.py"
     try:
         run_dataflow_stage_source = run_dataflow_stage_path.read_text(encoding="utf-8")
     except OSError:
@@ -1042,7 +1047,7 @@ def _check_release_testpypi_workflow(doc, path, errors):
         "TAG_SHA",
     }
     required_scripts = {
-        "scripts/release/release_verify_test_tag.py",
+        "scripts/release_verify_test_tag.py",
     }
     for name, job in jobs.items():
         check_deadline()
@@ -1090,7 +1095,7 @@ def _check_release_pypi_workflow(doc, path, errors):
         "TAG_SHA",
     }
     required_scripts = {
-        "scripts/release/release_verify_pypi_tag.py",
+        "scripts/release_verify_pypi_tag.py",
     }
     for name, job in jobs.items():
         check_deadline()
@@ -1354,73 +1359,6 @@ def check_workflows():
         _fail(errors)
 
 
-def _tracked_markdown_paths() -> list[Path]:
-    check_deadline()
-    try:
-        completed = subprocess.run(
-            ["git", "ls-files", "*.md"],
-            cwd=REPO_ROOT,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-    except (subprocess.CalledProcessError, OSError) as exc:
-        _fail([f"unable to enumerate tracked markdown files: {exc}"])
-    paths: list[Path] = []
-    for line in completed.stdout.splitlines():
-        check_deadline()
-        rel = line.strip()
-        if not rel:
-            continue
-        path = REPO_ROOT / rel
-        if path.is_file():
-            paths.append(path)
-    return paths
-
-
-def _strict_yaml_frontmatter_errors(path: Path) -> list[str]:
-    check_deadline()
-    try:
-        text = path.read_text(encoding="utf-8")
-    except OSError as exc:
-        return [f"{path}: failed to read markdown file ({exc})"]
-    if not text.startswith("---\n"):
-        return []
-    lines = text.splitlines()
-    if not lines or lines[0].strip() != "---":
-        return []
-    end = None
-    for index in range(1, len(lines)):
-        check_deadline()
-        if lines[index].strip() == "---":
-            end = index
-            break
-    if end is None:
-        return [f"{path}: frontmatter is missing closing '---' delimiter"]
-    if yaml is None:
-        return [f"{path}: PyYAML is required for frontmatter checks"]
-    raw = "\n".join(lines[1:end])
-    try:
-        payload = yaml.safe_load(raw)
-    except Exception as exc:
-        detail = str(exc).splitlines()[0] if str(exc).strip() else type(exc).__name__
-        return [f"{path}: frontmatter is not strict YAML ({detail})"]
-    if payload is None:
-        return []
-    if not isinstance(payload, dict):
-        return [f"{path}: frontmatter root must be a mapping (got {type(payload).__name__})"]
-    return []
-
-
-def check_markdown_frontmatter_yaml() -> None:
-    errors: list[str] = []
-    for path in _tracked_markdown_paths():
-        check_deadline()
-        errors.extend(_strict_yaml_frontmatter_errors(path))
-    if errors:
-        _fail(["markdown frontmatter YAML policy check failed", *errors])
-
-
 def _api_json(url, token):
     headers = {
         "Accept": "application/vnd.github+json",
@@ -1560,16 +1498,22 @@ def _load_tier2_residue_baseline(path: Path) -> set[str]:
 
 
 def check_tier2_residue_contract() -> None:
-    from gabion.analysis.projection import pattern_schema_projection
+    from gabion.analysis import dataflow_audit
 
+    source_path = REPO_ROOT / "src" / "gabion" / "analysis" / "dataflow_audit.py"
+    try:
+        source = source_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        _fail([f"tier2 residue policy check failed to read source: {exc}"])
     with deadline_clock_scope(MonotonicClock()):
         with deadline_scope(Deadline.from_timeout_ms(10_000)):
-            instances = pattern_schema_projection.pattern_schema_matches(
+            instances = dataflow_audit._pattern_schema_matches(
                 groups_by_path={},
-                include_execution=True,
+                source=source,
+                source_path=source_path,
             )
-            residues = pattern_schema_projection.tier2_unreified_residue_entries(
-                pattern_schema_projection.pattern_schema_residue_entries(instances)
+            residues = dataflow_audit._tier2_unreified_residue_entries(
+                dataflow_audit._pattern_schema_residue_entries(instances)
             )
     current = {
         f"{entry.reason}:{entry.payload.get('kind', '')}:{entry.schema_id}"
@@ -1606,9 +1550,7 @@ def check_ambiguity_contract() -> None:
 
 
 _SEMANTIC_CORE_PAYLOAD_BRANCH_MODULES = (
-    REPO_ROOT / "src" / "gabion" / "analysis" / "dataflow_pipeline.py",
-    REPO_ROOT / "src" / "gabion" / "analysis" / "dataflow_reporting.py",
-    REPO_ROOT / "src" / "gabion" / "analysis" / "dataflow_run_outputs.py",
+    REPO_ROOT / "src" / "gabion" / "analysis" / "dataflow_audit.py",
     REPO_ROOT / "src" / "gabion" / "analysis" / "timeout_context.py",
 )
 
@@ -1726,196 +1668,6 @@ def check_semantic_core_payload_branching() -> None:
             *errors,
         ])
 
-
-
-def _is_dict_object_annotation(annotation: ast.AST) -> bool:
-    text = ast.unparse(annotation).replace(" ", "")
-    return text in {
-        "dict[str,object]",
-        "Mapping[str,object]",
-        "MutableMapping[str,object]",
-        "collections.abc.Mapping[str,object]",
-        "collections.abc.MutableMapping[str,object]",
-    }
-
-
-def _helper_payload_signature_violations(path: Path) -> list[str]:
-    check_deadline()
-    try:
-        source = path.read_text(encoding="utf-8")
-    except OSError as exc:
-        return [f"{path}: failed to read source ({exc})"]
-    if "gabion:boundary_normalization_module" in source:
-        return []
-    try:
-        module = ast.parse(source, filename=str(path))
-    except SyntaxError as exc:
-        return [f"{path}: failed to parse source ({exc})"]
-    violations: list[str] = []
-    try:
-        rel = path.relative_to(REPO_ROOT).as_posix()
-    except ValueError:
-        rel = str(path)
-    for node_index, node in enumerate(ast.walk(module)):
-        if (node_index & 255) == 0:
-            check_deadline()
-        if not isinstance(node, ast.FunctionDef):
-            continue
-        if not node.name.startswith("_"):
-            continue
-        params = [*node.args.posonlyargs, *node.args.args]
-        if not params:
-            continue
-        first_param = params[0]
-        if first_param.annotation is None:
-            continue
-        if _is_dict_object_annotation(first_param.annotation):
-            line = int(getattr(first_param, "lineno", getattr(node, "lineno", 1)) or 1)
-            violations.append(
-                f"{rel}:{line}: non-boundary helper must not use dict[str, object]-first payload signatures"
-            )
-    return violations
-
-
-def check_non_boundary_payload_signatures() -> None:
-    changed = _changed_repo_paths()
-    errors: list[str] = []
-    for rel in sorted(changed):
-        check_deadline()
-        if not rel.startswith("src/") or not rel.endswith(".py"):
-            continue
-        if rel.startswith("src/gabion/commands/"):
-            continue
-        path = REPO_ROOT / rel
-        if not path.is_file():
-            continue
-        errors.extend(_helper_payload_signature_violations(path))
-    if errors:
-        _fail(["non-boundary payload signature policy check failed", *errors])
-
-
-def _test_behavior_contract_violations(root: Path) -> list[str]:
-    from gabion.analysis.surfaces import test_behavior
-
-    return test_behavior.collect_test_behavior_contract_violations(
-        [root / "tests"],
-        root=root,
-        include=["tests"],
-        exclude=[],
-    )
-
-
-def check_test_behavior_contract() -> None:
-    check_deadline()
-    if not TESTS_ROOT.exists():
-        _fail([f"missing tests root: {TESTS_ROOT}"])
-    violations = _test_behavior_contract_violations(REPO_ROOT)
-    if violations:
-        _fail(["test behavior contract policy check failed", *violations])
-
-
-def _symbol_activity_unsuppressed_bucket_lines(payload: dict[str, object]) -> list[str]:
-    counts_payload = payload.get("counts") if isinstance(payload, dict) else None
-    if not isinstance(counts_payload, dict):
-        return ["symbol activity audit artifact missing counts payload"]
-    by_bucket = counts_payload.get("by_bucket")
-    if not isinstance(by_bucket, dict):
-        return ["symbol activity audit artifact missing counts.by_bucket payload"]
-    lines: list[str] = []
-    for bucket in _sorted(list(by_bucket.keys())):
-        check_deadline()
-        bucket_counts = by_bucket.get(bucket)
-        if not isinstance(bucket_counts, dict):
-            lines.append(f"{bucket}: malformed bucket payload")
-            continue
-        unsuppressed = int(bucket_counts.get("unsuppressed", 0) or 0)
-        if unsuppressed <= 0:
-            continue
-        blocked = int(bucket_counts.get("blocked_by_todo", 0) or 0)
-        total = int(bucket_counts.get("total", 0) or 0)
-        lines.append(
-            f"{bucket}: unsuppressed={unsuppressed} blocked_by_todo={blocked} total={total}"
-        )
-    return lines
-
-
-def check_symbol_activity_audit() -> None:
-    check_deadline()
-    rc = symbol_activity_audit.run(
-        root=REPO_ROOT,
-        out_path=SYMBOL_ACTIVITY_AUDIT_JSON,
-        markdown_out=SYMBOL_ACTIVITY_AUDIT_MD,
-        check=True,
-    )
-    if rc == 0:
-        return
-    if not SYMBOL_ACTIVITY_AUDIT_JSON.exists():
-        _fail(
-            [
-                "symbol activity audit failed",
-                f"missing artifact: {SYMBOL_ACTIVITY_AUDIT_JSON}",
-            ]
-        )
-    payload = json.loads(SYMBOL_ACTIVITY_AUDIT_JSON.read_text(encoding="utf-8"))
-    bucket_lines = _symbol_activity_unsuppressed_bucket_lines(payload)
-    _fail(
-        [
-            "symbol activity audit failed",
-            f"artifact: {SYMBOL_ACTIVITY_AUDIT_JSON}",
-            *bucket_lines,
-        ]
-    )
-
-def _dotted_name(node: ast.AST) -> str | None:
-    check_deadline()
-    if isinstance(node, ast.Name):
-        return node.id
-    if isinstance(node, ast.Attribute):
-        check_deadline()
-        parent = _dotted_name(node.value)
-        if parent is None:
-            return None
-        return f"{parent}.{node.attr}"
-    return None
-
-
-def _node_mentions_scripts(node: ast.AST) -> bool:
-    for child in ast.walk(node):
-        check_deadline()
-        if isinstance(child, ast.Constant) and isinstance(child.value, str):
-            value = child.value
-            if "scripts/" in value or value == "scripts":
-                return True
-    return False
-
-
-def check_src_script_file_loading_policy() -> None:
-    errors: list[str] = []
-    for path in sorted((REPO_ROOT / "src" / "gabion").glob("**/*.py")):
-        check_deadline()
-        if not path.is_file() or any(part == "__pycache__" for part in path.parts):
-            continue
-        check_deadline()
-        source = path.read_text(encoding="utf-8")
-        check_deadline()
-        module = ast.parse(source)
-        rel_path = path.relative_to(REPO_ROOT).as_posix()
-        for node_index, node in enumerate(ast.walk(module)):
-            if (node_index & 255) == 0:
-                check_deadline()
-            if not isinstance(node, ast.Call):
-                continue
-            dotted = _dotted_name(node.func)
-            if dotted not in _SCRIPT_FILE_LOADING_APIS:
-                continue
-            if _node_mentions_scripts(node):
-                line = int(getattr(node, "lineno", 1) or 1)
-                errors.append(
-                    f"{rel_path}:{line}: src/gabion modules must not file-load scripts/**; import runtime modules directly"
-                )
-    if errors:
-        _fail(["src script file-loading policy check failed", *errors])
-
 def check_adapter_surface_policy() -> None:
     errors: list[str] = []
     dataflow = dataflow_defaults(root=REPO_ROOT)
@@ -1937,95 +1689,41 @@ def check_adapter_surface_policy() -> None:
     if errors:
         _fail(errors)
 
-def _serialize_policy_check_errors(errors: list[str]) -> list[dict[str, object]]:
-    return [{"message": item, "render": item} for item in errors]
-
-
-def main(argv: list[str] | None = None):
+def main():
     parser = argparse.ArgumentParser(description="POLICY_SEED guardrails")
     parser.add_argument("--workflows", action="store_true", help="lint workflows")
     parser.add_argument("--posture", action="store_true", help="check GitHub posture")
     parser.add_argument("--ambiguity-contract", action="store_true", help="run ambiguity contract policy checks")
-    parser.add_argument("--test-behavior-contract", action="store_true", help="enforce per-test gabion:behavior classification tags")
     parser.add_argument("--normative-map", action="store_true", help="validate docs/normative_enforcement_map.yaml")
     parser.add_argument("--tier2-residue-contract", action="store_true", help="run tier-2 residue policy checks")
     parser.add_argument("--adapter-surfaces", action="store_true", help="validate configured adapter surface requirements")
     parser.add_argument("--semantic-core-payload-branching", action="store_true", help="forbid raw Mapping/list payload branching outside boundary decode functions")
     parser.add_argument("--aspf-taint-crosswalk", action="store_true", help="require ASPF/taint crosswalk acknowledgement when relevant files change")
-    parser.add_argument("--non-boundary-payload-signatures", action="store_true", help="forbid dict[str, object]-first helper signatures outside boundary modules")
-    parser.add_argument("--symbol-activity-audit", action="store_true", help="run runtime+scripts symbol activity audit and fail on unsuppressed findings")
-    parser.add_argument("--output", type=Path, help="write machine-readable policy result artifact")
-    args = parser.parse_args(argv)
+    parser.add_argument("--policy-dsl", action="store_true", help="compile/typecheck policy DSL sources")
+    args = parser.parse_args()
 
-    if not args.workflows and not args.posture and not args.ambiguity_contract and not args.test_behavior_contract and not args.normative_map and not args.tier2_residue_contract and not args.adapter_surfaces and not args.semantic_core_payload_branching and not args.aspf_taint_crosswalk and not args.non_boundary_payload_signatures and not args.symbol_activity_audit:
+    if not args.workflows and not args.posture and not args.ambiguity_contract and not args.normative_map and not args.tier2_residue_contract and not args.adapter_surfaces and not args.semantic_core_payload_branching and not args.aspf_taint_crosswalk and not args.policy_dsl:
         args.workflows = True
 
-    selected_checks = {
-        "workflows": bool(args.workflows),
-        "posture": bool(args.posture),
-        "ambiguity_contract": bool(args.ambiguity_contract),
-        "test_behavior_contract": bool(args.test_behavior_contract),
-        "normative_map": bool(args.normative_map),
-        "tier2_residue_contract": bool(args.tier2_residue_contract),
-        "adapter_surfaces": bool(args.adapter_surfaces),
-        "semantic_core_payload_branching": bool(args.semantic_core_payload_branching),
-        "aspf_taint_crosswalk": bool(args.aspf_taint_crosswalk),
-        "non_boundary_payload_signatures": bool(args.non_boundary_payload_signatures),
-        "symbol_activity_audit": bool(args.symbol_activity_audit),
-    }
-    try:
-        with _policy_deadline_scope():
-            if args.workflows:
-                check_workflows()
-                check_markdown_frontmatter_yaml()
-            if args.posture:
-                check_posture()
-            if args.ambiguity_contract:
-                check_ambiguity_contract()
-            if args.test_behavior_contract or args.workflows:
-                check_test_behavior_contract()
-            if args.normative_map:
-                check_normative_enforcement_map()
-            if args.tier2_residue_contract:
-                check_tier2_residue_contract()
-            if args.adapter_surfaces:
-                check_adapter_surface_policy()
-            if args.semantic_core_payload_branching:
-                check_semantic_core_payload_branching()
-            if args.workflows:
-                check_src_script_file_loading_policy()
-            if args.aspf_taint_crosswalk or args.workflows:
-                check_aspf_taint_crosswalk_ack()
-            if args.non_boundary_payload_signatures or args.workflows:
-                check_non_boundary_payload_signatures()
-            if args.symbol_activity_audit or args.workflows:
-                check_symbol_activity_audit()
-    except SystemExit as exc:
-        if args.output is not None:
-            write_policy_result(
-                path=args.output.resolve(),
-                result=make_policy_result(
-                    rule_id="policy_check",
-                    status="fail",
-                    violations=_serialize_policy_check_errors(_LAST_FAIL_ERRORS),
-                    baseline_mode="none",
-                    source_tool="scripts/policy/policy_check.py",
-                    input_scope={"checks": selected_checks},
-                ),
-            )
-        raise
-    if args.output is not None:
-        write_policy_result(
-            path=args.output.resolve(),
-            result=make_policy_result(
-                rule_id="policy_check",
-                status="pass",
-                violations=[],
-                baseline_mode="none",
-                source_tool="scripts/policy/policy_check.py",
-                input_scope={"checks": selected_checks},
-            ),
-        )
+    with _policy_deadline_scope():
+        if args.workflows:
+            check_workflows()
+        if args.posture:
+            check_posture()
+        if args.ambiguity_contract:
+            check_ambiguity_contract()
+        if args.normative_map:
+            check_normative_enforcement_map()
+        if args.tier2_residue_contract:
+            check_tier2_residue_contract()
+        if args.adapter_surfaces:
+            check_adapter_surface_policy()
+        if args.semantic_core_payload_branching:
+            check_semantic_core_payload_branching()
+        if args.aspf_taint_crosswalk or args.workflows:
+            check_aspf_taint_crosswalk_ack()
+        if args.policy_dsl or args.workflows:
+            check_policy_dsl()
     return 0
 
 

@@ -151,19 +151,7 @@ CLI controls:
 - `--aspf-import-state`
 - `--aspf-delta-jsonl`
 - `--aspf-semantic-surface`
+## Policy DSL ownership
 
-## Policy Fiber Diagnostics Direction
+ASPF opportunity classification is now authored in `docs/aspf_opportunity_rules.yaml` and evaluated through `src/gabion/analysis/aspf_rule_engine.py` + `src/gabion/policy_dsl/` compile/typecheck/eval pipeline.
 
-Current policy diagnostics are mixed-basis:
-- `aspf_normalization_idempotence_rule` is ASPF-backed using trace `one_cells`.
-- `fiber_normalization_contract_rule` currently derives fiber traces from syntax/event-local sequencing inside boundary functions.
-- Counterfactuals are currently emitted as ordinal/location/event metadata with explicit applicability bounds.
-
-Target policy diagnostics are ASPF-node-native end-to-end:
-- Fiber identity should resolve to explicit ASPF node-addressed paths for all fiber-based rule families.
-- Counterfactual boundaries should be represented as ASPF nodes on the same affected path (with equivalent ordinal projections available as a compatibility view only).
-
-Strictification anti-pattern (normative direction):
-- Extending a trace from a prohibited zone to an external file and then returning to the same prohibited zone does not remediate the violation.
-- That relocation is concealment, not strictification, because behavior remains on the same prohibited fiber segment.
-- Valid remediation shifts boundary ownership upstream of the prohibited zone for the same fiber path.

@@ -1,4 +1,5 @@
 version: 1
+# policy_dsl_owner: src/gabion/policy_dsl/registry.py (YAML is source-of-truth input; evaluation runs through policy DSL compile/typecheck/eval)
 override_token_env: GABION_POLICY_OVERRIDE_TOKEN
 gates:
   obsolescence_opaque:

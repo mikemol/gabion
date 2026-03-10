@@ -1,0 +1,114 @@
+rules:
+  - rule_id: scanner.branchless.blocking
+    domain: policy_scanner
+    severity: blocking
+    predicate:
+      op: int_gte
+      path: [counts, branchless]
+      value: 1
+    outcome:
+      kind: block
+      message: branchless policy violations
+    evidence_contract: none
+
+  - rule_id: scanner.defensive_fallback.blocking
+    domain: policy_scanner
+    severity: blocking
+    predicate:
+      op: int_gte
+      path: [counts, defensive_fallback]
+      value: 1
+    outcome:
+      kind: block
+      message: defensive fallback policy violations
+    evidence_contract: none
+
+  - rule_id: scanner.no_monkeypatch.blocking
+    domain: policy_scanner
+    severity: blocking
+    predicate:
+      op: int_gte
+      path: [counts, no_monkeypatch]
+      value: 1
+    outcome:
+      kind: block
+      message: no_monkeypatch policy violations
+    evidence_contract: none
+
+  - rule_id: scanner.ok
+    domain: policy_scanner
+    severity: info
+    predicate:
+      op: always
+    outcome:
+      kind: pass
+      message: policy scanner clean
+    evidence_contract: none
+
+  - rule_id: ambiguity.new_violations
+    domain: ambiguity_contract
+    severity: blocking
+    predicate:
+      op: int_gte
+      path: [new_violations]
+      value: 1
+    outcome:
+      kind: block
+      message: ambiguity contract policy violations
+    evidence_contract: none
+
+  - rule_id: ambiguity.ok
+    domain: ambiguity_contract
+    severity: info
+    predicate:
+      op: always
+    outcome:
+      kind: pass
+      message: ambiguity contract policy check passed
+    evidence_contract: none
+
+  - rule_id: ACP-003
+    domain: ambiguity_contract_ast
+    severity: blocking
+    predicate:
+      op: str_eq
+      path: [event]
+      value: runtime_isinstance_call
+    outcome:
+      kind: block
+      message: runtime type narrowing in deterministic core
+    evidence_contract: none
+
+  - rule_id: ACP-004
+    domain: ambiguity_contract_ast
+    severity: blocking
+    predicate:
+      op: str_eq
+      path: [event]
+      value: dynamic_annotation
+    outcome:
+      kind: block
+      message: dynamic type alternation in deterministic core annotation
+    evidence_contract: none
+
+  - rule_id: ACP-002
+    domain: ambiguity_contract_ast
+    severity: blocking
+    predicate:
+      op: str_eq
+      path: [event]
+      value: sentinel_control
+    outcome:
+      kind: block
+      message: sentinel control outcome in core
+    evidence_contract: none
+
+  - rule_id: ambiguity.ast.ok
+    domain: ambiguity_contract_ast
+    severity: info
+    predicate:
+      op: always
+    outcome:
+      kind: pass
+      message: ambiguity AST event ignored
+    evidence_contract: none
