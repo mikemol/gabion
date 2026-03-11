@@ -6,6 +6,7 @@ import hashlib
 import json
 from dataclasses import dataclass
 from typing import Callable, Iterable, Mapping, Sequence, cast
+from gabion.analysis.canonical import canon, encode_canon
 from gabion.analysis.resume_codec import mapping_or_none, sequence_or_none
 from gabion.analysis.timeout_context import check_deadline
 from gabion.order_contract import sort_once
@@ -527,7 +528,8 @@ def is_opaque(key: Mapping[str, object]) -> bool:
 @dataclass(frozen=True)
 class FingerprintIdentityLayers:
     canonical: dict[str, object]
-    scalar_projection: dict[str, object]
+    canonical_multiset_rope_projection: dict[str, object]
+    scalar_alias_projection: dict[str, object]
     digest_projection: dict[str, object]
 
     def as_dict(self) -> dict[str, object]:
@@ -535,22 +537,65 @@ class FingerprintIdentityLayers:
             "identity_layer": "canonical_aspf_path",
             "canonical": self.canonical,
             "derived": {
-                "scalar_prime_product": self.scalar_projection,
+                "canonical_multiset_rope": self.canonical_multiset_rope_projection,
+                "scalar_prime_product": self.scalar_alias_projection,
                 "digest_alias": self.digest_projection,
             },
         }
 
 
+def canonical_prime_product_multiset_rope(
+    *,
+    base_product: int,
+    ctor_product: int,
+    provenance_product: int,
+    synth_product: int,
+) -> str:
+    multiset_payload = [
+        "ms",
+        [
+            [["base", max(1, int(base_product))], 1],
+            [["ctor", max(1, int(ctor_product))], 1],
+            [["provenance", max(1, int(provenance_product))], 1],
+            [["synth", max(1, int(synth_product))], 1],
+        ],
+    ]
+    return encode_canon(canon(multiset_payload))
+
+
 def fingerprint_identity_layers(
     *,
     canonical_aspf_path: Mapping[str, object],
-    scalar_prime_product: int,
+    canonical_multiset_rope: str,
+    scalar_prime_product_alias: int,
 ) -> FingerprintIdentityLayers:
     canonical_payload = dict(canonical_aspf_path)
+    rope_payload = {
+        "value": str(canonical_multiset_rope),
+        "canonical": True,
+        "projection": "prime_product_multiset_rope",
+    }
     scalar_payload = {
-        "value": int(scalar_prime_product),
+        "value": int(scalar_prime_product_alias),
         "canonical": False,
-        "projection": "prime_product",
+        "projection": "prime_product_alias",
+        "adapter_lifecycle": {
+            "actor": "gabion",
+            "rationale": "temporary boundary adapter for legacy scalar consumers",
+            "scope": "output payloads only",
+            "start": "2026-03-11",
+            "expiry": "remove after scalar consumers migrate to canonical_multiset_rope",
+            "rollback_condition": "re-enable only if canonical_multiset_rope parsing regresses",
+            "evidence_links": [
+                "tests/test_fingerprint_soundness.py::test_fingerprint_identity_payload_marks_canonical_vs_derived",
+                "tests/test_type_fingerprints_sidecar.py::test_dataflow_fingerprint_provenance_emits_identity_layer_and_selection_witness",
+            ],
+        },
+        "deprecation": {
+            "status": "deprecated",
+            "replaced_by": "canonical_multiset_rope",
+            "drop_condition": "all identity-layer consumers use canonical_multiset_rope",
+        },
     }
     digest_payload = {
         "value": normalized_fingerprint_identity(canonical_payload),
@@ -559,6 +604,7 @@ def fingerprint_identity_layers(
     }
     return FingerprintIdentityLayers(
         canonical=canonical_payload,
-        scalar_projection=scalar_payload,
+        canonical_multiset_rope_projection=rope_payload,
+        scalar_alias_projection=scalar_payload,
         digest_projection=digest_payload,
     )

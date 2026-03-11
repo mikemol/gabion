@@ -27,7 +27,10 @@ from gabion.analysis.aspf_morphisms import (
     DomainToAspfCofibration,
     DomainToAspfCofibrationEntry,
 )
-from gabion.analysis.evidence_keys import fingerprint_identity_layers
+from gabion.analysis.evidence_keys import (
+    canonical_prime_product_multiset_rope,
+    fingerprint_identity_layers,
+)
 from gabion.analysis.json_types import JSONObject, JSONValue
 from gabion.analysis.resume_codec import mapping_or_none, sequence_or_none, str_list_from_sequence
 from gabion.analysis.timeout_context import check_deadline
@@ -525,9 +528,16 @@ def fingerprint_identity_payload(
         * max(1, fingerprint.provenance.product)
         * max(1, fingerprint.synth.product),
     )
+    canonical_rope = canonical_prime_product_multiset_rope(
+        base_product=fingerprint.base.product,
+        ctor_product=fingerprint.ctor.product,
+        provenance_product=fingerprint.provenance.product,
+        synth_product=fingerprint.synth.product,
+    )
     layers = fingerprint_identity_layers(
         canonical_aspf_path=canonical_identity.as_dict(),
-        scalar_prime_product=scalar_alias,
+        canonical_multiset_rope=canonical_rope,
+        scalar_prime_product_alias=scalar_alias,
     )
     higher_path_witness = AspfTwoCellWitness(
         left=AspfOneCell(
@@ -560,6 +570,23 @@ def fingerprint_identity_payload(
                 "value": scalar_alias,
                 "canonical": False,
                 "alias_of": "canonical_identity_contract",
+                "adapter_lifecycle": {
+                    "actor": "gabion",
+                    "rationale": "temporary boundary adapter for legacy scalar consumers",
+                    "scope": "output payloads only",
+                    "start": "2026-03-11",
+                    "expiry": "remove after scalar consumers migrate to canonical_multiset_rope",
+                    "rollback_condition": "re-enable only if canonical_multiset_rope parsing regresses",
+                    "evidence_links": [
+                        "tests/test_fingerprint_soundness.py::test_fingerprint_identity_payload_marks_canonical_vs_derived",
+                        "tests/test_type_fingerprints_sidecar.py::test_dataflow_fingerprint_provenance_emits_identity_layer_and_selection_witness",
+                    ],
+                },
+                "deprecation": {
+                    "status": "deprecated",
+                    "replaced_by": "identity_layers.derived.canonical_multiset_rope",
+                    "drop_condition": "all identity-layer consumers use canonical_multiset_rope",
+                },
             },
             "digest_alias": {
                 "value": layers.digest_projection["value"],

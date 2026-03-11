@@ -33,7 +33,10 @@ def test_fingerprint_identity_payload_marks_canonical_vs_derived() -> None:
     fingerprint = tf.Fingerprint(base=tf.FingerprintDimension(product=2, mask=0))
     payload = tf.fingerprint_identity_payload(fingerprint)
     assert payload["identity_layers"]["identity_layer"] == "canonical_aspf_path"
+    assert payload["identity_layers"]["derived"]["canonical_multiset_rope"]["canonical"] is True
+    assert payload["identity_layers"]["derived"]["canonical_multiset_rope"]["projection"] == "prime_product_multiset_rope"
     assert payload["identity_layers"]["derived"]["scalar_prime_product"]["canonical"] is False
+    assert payload["identity_layers"]["derived"]["scalar_prime_product"]["deprecation"]["status"] == "deprecated"
     assert payload["identity_layers"]["derived"]["digest_alias"]["canonical"] is False
 
 # gabion:evidence E:function_site::tests/test_fingerprint_soundness.py::tests.test_fingerprint_soundness.test_fingerprint_identity_payload_handles_empty_cofibration_basis
