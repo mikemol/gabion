@@ -229,7 +229,9 @@ def test_dataflow_fingerprint_provenance_emits_identity_layer_and_selection_witn
     assert entry["identity_layers"]["identity_layer"] == "canonical_aspf_path"
     assert entry["representative_selection"]["mode"] == "lexicographic_min"
     assert entry["witness_carriers"]["higher_path_witness"]["witness_id"].startswith("higher:")
+    assert entry["identity_layers"]["derived"]["canonical_multiset_rope"]["canonical"] is True
     assert entry["derived_aliases"]["scalar_prime_product"]["canonical"] is False
+    assert entry["derived_aliases"]["scalar_prime_product"]["deprecation"]["status"] == "deprecated"
     assert entry["drift_classification"] == "non_drift"
 
 

@@ -27,7 +27,10 @@ from gabion.analysis.aspf_morphisms import (
     DomainToAspfCofibration,
     DomainToAspfCofibrationEntry,
 )
-from gabion.analysis.evidence_keys import fingerprint_identity_layers
+from gabion.analysis.evidence_keys import (
+    canonical_prime_product_multiset_rope,
+    fingerprint_identity_layers,
+)
 from gabion.exceptions import NeverThrown
 
 
@@ -120,10 +123,18 @@ def test_deterministic_representative_selection_and_identity_layers() -> None:
 
     identity = fingerprint_identity_layers(
         canonical_aspf_path={"representative": witness.selected, "basis_path": ["a"]},
-        scalar_prime_product=2,
+        canonical_multiset_rope=canonical_prime_product_multiset_rope(
+            base_product=2,
+            ctor_product=1,
+            provenance_product=1,
+            synth_product=1,
+        ),
+        scalar_prime_product_alias=2,
     ).as_dict()
     assert identity["identity_layer"] == "canonical_aspf_path"
+    assert identity["derived"]["canonical_multiset_rope"]["canonical"] is True
     assert identity["derived"]["scalar_prime_product"]["canonical"] is False
+    assert identity["derived"]["scalar_prime_product"]["deprecation"]["status"] == "deprecated"
     assert identity["derived"]["digest_alias"]["canonical"] is False
 
 
