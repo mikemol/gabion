@@ -491,7 +491,8 @@ def _completion_focus(
             "status": (
                 "pass"
                 if (
-                    "collect_semantic_lattice_convergence" in policy_check_source
+                    "iter_semantic_lattice_convergence" in policy_check_source
+                    and "materialize_semantic_lattice_convergence" in policy_check_source
                     and "collect_lattice_convergence_probe" not in policy_check_source
                 )
                 else "fail"

@@ -106,7 +106,10 @@ def _write_statement_source_docs(root: Path) -> None:
         "docs/enforceable_rules_cheat_sheet.md": "typed policy DSL with aspf_opportunity_rules.yaml\n",
         "docs/aspf_execution_fibration.md": "Policy DSL ownership\nLattice algebra ownership\n",
         "docs/policy_dsl_migration_notes.md": "temporary boundary adapters\nremoval_condition\n",
-        "scripts/policy/policy_check.py": "collect_semantic_lattice_convergence\n",
+        "scripts/policy/policy_check.py": (
+            "iter_semantic_lattice_convergence\n"
+            "materialize_semantic_lattice_convergence\n"
+        ),
     }
     for rel_path, content in docs.items():
         path = root / rel_path

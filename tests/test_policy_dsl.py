@@ -209,7 +209,8 @@ def test_opportunity_rule_ids_deterministic_order() -> None:
 
 def test_policy_check_lattice_convergence_uses_semantic_collector_and_dsl() -> None:
     source = Path("scripts/policy/policy_check.py").read_text(encoding="utf-8")
-    assert "collect_semantic_lattice_convergence" in source
+    assert "iter_semantic_lattice_convergence" in source
+    assert "materialize_semantic_lattice_convergence" in source
     assert "PolicyDomain.PROJECTION_FIBER" in source
     assert "collect_lattice_convergence_probe" not in source
     assert "legacy frontier implementation token remains" not in source

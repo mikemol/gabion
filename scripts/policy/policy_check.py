@@ -24,7 +24,8 @@ from gabion.policy_dsl.registry import build_registry
 from gabion.policy_dsl.schema import PolicyOutcomeKind
 from gabion.policy_dsl.typecheck import typecheck
 from gabion.tooling.policy_substrate.lattice_convergence_semantic import (
-    collect_semantic_lattice_convergence,
+    iter_semantic_lattice_convergence,
+    materialize_semantic_lattice_convergence,
 )
 
 try:
@@ -345,7 +346,10 @@ def check_policy_dsl() -> None:
 
 
 def check_aspf_lattice_convergence() -> None:
-    report = collect_semantic_lattice_convergence(repo_root=REPO_ROOT)
+    events = iter_semantic_lattice_convergence(repo_root=REPO_ROOT)
+    report = materialize_semantic_lattice_convergence(
+        events=events,
+    )
     decision = evaluate_policy(
         domain=PolicyDomain.PROJECTION_FIBER,
         data=report.policy_data(),

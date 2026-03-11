@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import ast
 from dataclasses import dataclass
+from itertools import groupby
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Iterator
 
 from gabion.analysis.aspf import aspf_lattice_algebra
 from gabion.order_contract import ordered_or_sorted
@@ -119,6 +120,12 @@ class SemanticLatticeConvergenceReport:
             "witness_incomplete": incomplete,
             "witness_violation": has_violation,
         }
+
+
+@dataclass(frozen=True)
+class LatticeConvergenceEvent:
+    request: LatticeBranchRequest | None = None
+    diagnostic: LatticeConvergenceDiagnostic | None = None
 
 
 @dataclass(frozen=True)
@@ -309,118 +316,150 @@ def _collect_linkage_diagnostics() -> tuple[LatticeConvergenceDiagnostic, ...]:
     )
 
 
-def collect_semantic_lattice_convergence(
+def iter_semantic_lattice_convergence(
     *,
     repo_root: Path,
     corpus: tuple[str, ...] | None = None,
+) -> Iterator[LatticeConvergenceEvent]:
+    selected_corpus = tuple(_sorted(corpus or _CANONICAL_CORPUS))
+
+    def _events() -> Iterator[LatticeConvergenceEvent]:
+        for diagnostic in _collect_linkage_diagnostics():
+            yield LatticeConvergenceEvent(diagnostic=diagnostic)
+
+        for rel_path in selected_corpus:
+            path = repo_root / rel_path
+            try:
+                source = path.read_text(encoding="utf-8")
+            except OSError as exc:
+                yield LatticeConvergenceEvent(
+                    diagnostic=LatticeConvergenceDiagnostic(
+                        code="lattice_corpus_read_failure",
+                        message="unable to read canonical corpus file",
+                        path=rel_path,
+                        detail=f"{type(exc).__name__}: {exc}",
+                    )
+                )
+                continue
+            try:
+                tree = ast.parse(source)
+            except SyntaxError as exc:
+                yield LatticeConvergenceEvent(
+                    diagnostic=LatticeConvergenceDiagnostic(
+                        code="lattice_corpus_parse_failure",
+                        message="unable to parse canonical corpus file",
+                        path=rel_path,
+                        line=int(exc.lineno or 0),
+                        column=int(exc.offset or 0),
+                        detail=str(exc.msg or ""),
+                    )
+                )
+                continue
+
+            requests = _collect_requests(rel_path=rel_path, module_tree=tree)
+            for qualname, qual_request_iter in groupby(requests, key=lambda item: item.qualname):
+                qual_requests = tuple(qual_request_iter)
+                branch_requests = tuple(
+                    aspf_lattice_algebra.BranchWitnessRequest(
+                        branch_line=request.line,
+                        branch_column=request.column,
+                        branch_node_kind=request.node_kind,
+                        required_symbols=request.required_symbols,
+                    )
+                    for request in qual_requests
+                )
+                try:
+                    witness_iter = aspf_lattice_algebra.iter_lattice_witnesses(
+                        rel_path=rel_path,
+                        qualname=qualname,
+                        module_tree=tree,
+                        requests=branch_requests,
+                    )
+                except Exception as exc:  # pragma: no cover - fail-closed fallback
+                    for request in qual_requests:
+                        yield LatticeConvergenceEvent(
+                            request=request,
+                            diagnostic=LatticeConvergenceDiagnostic(
+                                code="lattice_witness_compute_failure",
+                                message="lattice witness computation failed",
+                                path=request.path,
+                                qualname=request.qualname,
+                                line=request.line,
+                                column=request.column,
+                                node_kind=request.node_kind,
+                                detail=f"{type(exc).__name__}: {exc}",
+                            ),
+                        )
+                    continue
+                for request in qual_requests:
+                    try:
+                        witness = next(witness_iter)
+                    except StopIteration:
+                        yield LatticeConvergenceEvent(
+                            request=request,
+                            diagnostic=LatticeConvergenceDiagnostic(
+                                code="lattice_witness_stream_shortfall",
+                                message="lattice witness iterator ended before all requests were evaluated",
+                                path=request.path,
+                                qualname=request.qualname,
+                                line=request.line,
+                                column=request.column,
+                                node_kind=request.node_kind,
+                            ),
+                        )
+                        continue
+                    except Exception as exc:  # pragma: no cover - fail-closed fallback
+                        yield LatticeConvergenceEvent(
+                            request=request,
+                            diagnostic=LatticeConvergenceDiagnostic(
+                                code="lattice_witness_compute_failure",
+                                message="lattice witness computation failed",
+                                path=request.path,
+                                qualname=request.qualname,
+                                line=request.line,
+                                column=request.column,
+                                node_kind=request.node_kind,
+                                detail=f"{type(exc).__name__}: {exc}",
+                            ),
+                        )
+                        continue
+
+                    incomplete = not bool(getattr(witness, "complete", False))
+                    has_violation = getattr(witness, "violation", None) is not None
+                    if incomplete or has_violation:
+                        yield LatticeConvergenceEvent(
+                            request=request,
+                            diagnostic=LatticeConvergenceDiagnostic(
+                                code="lattice_witness_incomplete_or_violation",
+                                message="lattice witness did not converge cleanly",
+                                path=request.path,
+                                qualname=request.qualname,
+                                line=request.line,
+                                column=request.column,
+                                node_kind=request.node_kind,
+                                detail=f"incomplete={incomplete},has_violation={has_violation}",
+                            ),
+                        )
+                        continue
+                    yield LatticeConvergenceEvent(request=request)
+
+    return _events()
+
+
+def materialize_semantic_lattice_convergence(
+    *,
+    corpus: tuple[str, ...] | None = None,
+    events: Iterable[LatticeConvergenceEvent],
 ) -> SemanticLatticeConvergenceReport:
-    selected_corpus = tuple(
-        _sorted(corpus or _CANONICAL_CORPUS)
-    )
-    diagnostics: list[LatticeConvergenceDiagnostic] = list(_collect_linkage_diagnostics())
-    parsed_trees: dict[str, ast.AST] = {}
-    requests: list[LatticeBranchRequest] = []
-    for rel_path in selected_corpus:
-        path = repo_root / rel_path
-        try:
-            source = path.read_text(encoding="utf-8")
-        except OSError as exc:
-            diagnostics.append(
-                LatticeConvergenceDiagnostic(
-                    code="lattice_corpus_read_failure",
-                    message="unable to read canonical corpus file",
-                    path=rel_path,
-                    detail=f"{type(exc).__name__}: {exc}",
-                )
-            )
-            continue
-        try:
-            tree = ast.parse(source)
-        except SyntaxError as exc:
-            diagnostics.append(
-                LatticeConvergenceDiagnostic(
-                    code="lattice_corpus_parse_failure",
-                    message="unable to parse canonical corpus file",
-                    path=rel_path,
-                    line=int(exc.lineno or 0),
-                    column=int(exc.offset or 0),
-                    detail=str(exc.msg or ""),
-                )
-            )
-            continue
-        parsed_trees[rel_path] = tree
-        requests.extend(_collect_requests(rel_path=rel_path, module_tree=tree))
-
-    ordered_requests = tuple(
-        _sorted(
-            requests,
-            key=lambda item: (
-                item.path,
-                item.qualname,
-                item.line,
-                item.column,
-                item.node_kind,
-                item.required_symbols,
-            ),
-        )
-    )
-    bundle_cache: dict[tuple[str, str], object] = {}
-    evaluated_count = 0
-    for request in ordered_requests:
-        tree = parsed_trees.get(request.path)
-        if tree is None:
-            continue
-        cache_key = (request.path, request.qualname)
-        try:
-            bundle = bundle_cache.get(cache_key)
-            if bundle is None:
-                bundle = aspf_lattice_algebra.build_fiber_bundle_for_qualname(
-                    rel_path=request.path,
-                    module_tree=tree,
-                    qualname=request.qualname,
-                )
-                bundle_cache[cache_key] = bundle
-            witness = aspf_lattice_algebra.compute_lattice_witness(
-                rel_path=request.path,
-                qualname=request.qualname,
-                bundle=bundle,
-                branch_line=request.line,
-                branch_column=request.column,
-                branch_node_kind=request.node_kind,
-                required_symbols=request.required_symbols,
-            )
-            evaluated_count += 1
-        except Exception as exc:  # pragma: no cover - fail-closed fallback
-            diagnostics.append(
-                LatticeConvergenceDiagnostic(
-                    code="lattice_witness_compute_failure",
-                    message="lattice witness computation failed",
-                    path=request.path,
-                    qualname=request.qualname,
-                    line=request.line,
-                    column=request.column,
-                    node_kind=request.node_kind,
-                    detail=f"{type(exc).__name__}: {exc}",
-                )
-            )
-            continue
-
-        incomplete = not bool(getattr(witness, "complete", False))
-        has_violation = getattr(witness, "violation", None) is not None
-        if incomplete or has_violation:
-            diagnostics.append(
-                LatticeConvergenceDiagnostic(
-                    code="lattice_witness_incomplete_or_violation",
-                    message="lattice witness did not converge cleanly",
-                    path=request.path,
-                    qualname=request.qualname,
-                    line=request.line,
-                    column=request.column,
-                    node_kind=request.node_kind,
-                    detail=f"incomplete={incomplete},has_violation={has_violation}",
-                )
-            )
-
+    diagnostics: list[LatticeConvergenceDiagnostic] = []
+    evaluated_requests: list[LatticeBranchRequest] = []
+    for event in events:
+        request = event.request
+        diagnostic = event.diagnostic
+        if request is not None:
+            evaluated_requests.append(request)
+        if diagnostic is not None:
+            diagnostics.append(diagnostic)
     ordered_diagnostics = tuple(
         _sorted(
             diagnostics,
@@ -435,17 +474,48 @@ def collect_semantic_lattice_convergence(
             ),
         )
     )
+    ordered_requests = tuple(
+        _sorted(
+            evaluated_requests,
+            key=lambda item: (
+                item.path,
+                item.qualname,
+                item.line,
+                item.column,
+                item.node_kind,
+                item.required_symbols,
+            ),
+        )
+    )
     return SemanticLatticeConvergenceReport(
-        corpus=selected_corpus,
-        evaluated_request_count=evaluated_count,
+        corpus=tuple(_sorted(corpus or _CANONICAL_CORPUS)),
+        evaluated_request_count=len(ordered_requests),
         diagnostics=ordered_diagnostics,
         evaluated_requests=ordered_requests,
     )
 
 
+def collect_semantic_lattice_convergence(
+    *,
+    repo_root: Path,
+    corpus: tuple[str, ...] | None = None,
+) -> SemanticLatticeConvergenceReport:
+    selected_corpus = tuple(_sorted(corpus or _CANONICAL_CORPUS))
+    return materialize_semantic_lattice_convergence(
+        corpus=selected_corpus,
+        events=iter_semantic_lattice_convergence(
+            repo_root=repo_root,
+            corpus=selected_corpus,
+        ),
+    )
+
+
 __all__ = [
     "LatticeBranchRequest",
+    "LatticeConvergenceEvent",
     "LatticeConvergenceDiagnostic",
     "SemanticLatticeConvergenceReport",
     "collect_semantic_lattice_convergence",
+    "iter_semantic_lattice_convergence",
+    "materialize_semantic_lattice_convergence",
 ]
