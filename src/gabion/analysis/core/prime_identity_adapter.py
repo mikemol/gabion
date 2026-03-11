@@ -6,6 +6,7 @@ from gabion.analysis.core.identity_namespace import namespace_key, raw_key
 from gabion.analysis.core.type_fingerprints import PrimeRegistry
 from gabion.analysis.foundation.identity_space import IdentityTokenLookup
 from gabion.analysis.foundation.timeout_context import check_deadline
+from gabion.invariants import never
 
 
 @dataclass
@@ -27,6 +28,7 @@ class PrimeIdentityAdapter:
                 decoded_namespace, decoded_token = namespace_key(raw_token)
             case _:
                 return IdentityTokenLookup(is_present=False)
+                never("unreachable wildcard match fall-through")
         if decoded_namespace != str(namespace):
             return IdentityTokenLookup(is_present=False)
         return IdentityTokenLookup(is_present=True, token=decoded_token)

@@ -65,6 +65,7 @@ def _capability_enabled(adapter_contract: object, capability_name: str) -> bool:
             return True
 
 
+            never("unreachable wildcard match fall-through")
 def _unsupported_surface_diagnostic(
     *,
     surface: str,
@@ -147,8 +148,10 @@ def _normalized_dimension_payload(
                                 normalized[dim_name] = {"done": done, "total": total}
                     case _:
                         pass
+                        never("unreachable wildcard match fall-through")
             case _:
                 pass
+                never("unreachable wildcard match fall-through")
     return normalized
 
 
@@ -206,6 +209,7 @@ def _apply_forest_progress_delta(
             )
 
 
+            never("unreachable wildcard match fall-through")
 def _run_forest_phase(
     *,
     file_paths: list[Path],
@@ -1083,10 +1087,13 @@ def analyze_paths(
                                     file_stage_timings_v1_by_path[path] = normalized_entry
                                 case _:
                                     pass
+                                    never("unreachable wildcard match fall-through")
                     case _:
                         pass
+                        never("unreachable wildcard match fall-through")
             case _:
                 pass
+                never("unreachable wildcard match fall-through")
         forest_spec: object = None
         planned_forest_spec_id: object = None
         ambiguity_witnesses: list[JSONObject] = []
@@ -1244,6 +1251,7 @@ def analyze_paths(
                     }
                 case _:
                     report_carrier.phase_progress_v2 = None
+                    never("unreachable wildcard match fall-through")
             report_carrier.progress_marker = progress_marker
             analysis_profile_counters["analysis.phase_progress_emits"] += 1
             _phase_progress_callback(

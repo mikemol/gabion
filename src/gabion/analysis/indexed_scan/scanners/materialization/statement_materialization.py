@@ -7,6 +7,7 @@ from enum import StrEnum
 from typing import cast
 from gabion.analysis.aspf.aspf import Forest, NodeId
 from gabion.analysis.foundation.timeout_context import check_deadline
+from gabion.invariants import never
 
 
 class _SuiteSpanStatus(StrEnum):
@@ -63,6 +64,7 @@ def _int_span4_optional(value):
             return None
 
 
+            never("unreachable wildcard match fall-through")
 def materialize_statement_suite_contains(
     *,
     forest: Forest,

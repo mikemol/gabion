@@ -134,6 +134,7 @@ def _path_name(path: object) -> str:
             return path_name
         case _:
             pass
+            never("unreachable wildcard match fall-through")
     return str(path)
 
 

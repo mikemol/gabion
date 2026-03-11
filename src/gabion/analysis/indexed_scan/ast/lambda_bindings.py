@@ -5,6 +5,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Mapping, Sequence, cast
+from gabion.invariants import never
 
 
 @dataclass(frozen=True)
@@ -96,6 +97,7 @@ def collect_lambda_function_infos(
                     )
             case _:
                 pass
+                never("unreachable wildcard match fall-through")
     return lambda_infos
 
 
@@ -142,6 +144,7 @@ def collect_closure_lambda_factories(
                                     factories[key].update(returned)
                         case _:
                             pass
+                            never("unreachable wildcard match fall-through")
                     if assignment_value is not None:
                         assigned_quals: set[str] = set()
                         value_span = deps.node_span_fn(assignment_value)
@@ -161,10 +164,12 @@ def collect_closure_lambda_factories(
                                             assigned_quals.add(qual)
                                     case _:
                                         pass
+                                        never("unreachable wildcard match fall-through")
                             case ast.Name(id=name):
                                 assigned_quals.update(local_bindings.get(name, set()))
                             case _:
                                 pass
+                                never("unreachable wildcard match fall-through")
                         for target in assignment_targets:
                             deps.check_deadline_fn()
                             for name in deps.target_names_fn(target):
@@ -175,6 +180,7 @@ def collect_closure_lambda_factories(
                                     local_bindings.pop(name, None)
             case _:
                 pass
+                never("unreachable wildcard match fall-through")
     return factories
 
 
@@ -222,6 +228,7 @@ def collect_lambda_bindings_by_caller(
                 assignment_value = value
             case _:
                 pass
+                never("unreachable wildcard match fall-through")
         if assignment_node is not None and assignment_value is not None:
             fn_scope = deps.enclosing_scopes_fn(assignment_node, parent_map)
             if fn_scope:
@@ -247,6 +254,7 @@ def collect_lambda_bindings_by_caller(
                                     assigned_quals.add(qual)
                             case _:
                                 pass
+                                never("unreachable wildcard match fall-through")
                     case ast.Name(id=name):
                         assigned_quals.update(binding_sets.get(caller_key, {}).get(name, set()))
                     case ast.Call(func=ast.Name(id=called_name)):
@@ -254,6 +262,7 @@ def collect_lambda_bindings_by_caller(
                     case _:
                         pass
 
+                        never("unreachable wildcard match fall-through")
                 for target in assignment_targets:
                     deps.check_deadline_fn()
                     target_names = list(deps.target_names_fn(target))
@@ -262,6 +271,7 @@ def collect_lambda_bindings_by_caller(
                             target_names.append(f"{target_name}.{attr}")
                         case _:
                             pass
+                            never("unreachable wildcard match fall-through")
                     for name in target_names:
                         deps.check_deadline_fn()
                         if assigned_quals:

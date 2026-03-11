@@ -4,6 +4,7 @@ import ast
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import cast
+from gabion.invariants import never
 
 
 @dataclass(frozen=True)
@@ -87,6 +88,7 @@ def decide_handledness(
         case _:
             pass
 
+            never("unreachable wildcard match fall-through")
     if handler_kind is None and exception_name == "SystemExit":
         handler_kind = "convert"
         handler_boundary = "process exit"

@@ -94,6 +94,15 @@ class _Visitor(ast.NodeVisitor):
                 self._report_event(node, event="sentinel_control", sentinel=sentinel)
         self.generic_visit(node)
 
+    def visit_Match(self, node: ast.Match) -> None:
+        if self._scope_boundary:
+            self.generic_visit(node)
+            return
+        for case in node.cases:
+            if _is_fallthrough_case(case) and not _body_calls_never(case.body):
+                self._report_event(case.pattern, event="match_fallthrough_without_never")
+        self.generic_visit(node)
+
     @property
     def _scope_boundary(self) -> bool:
         if self.scope_stack:
@@ -372,6 +381,25 @@ def _single_sentinel_stmt(body: list[ast.stmt]) -> str | None:
     if len(body) != 1:
         return None
     return _sentinel_stmt_value(body[0])
+
+
+def _is_fallthrough_case(case: ast.match_case) -> bool:
+    match case.pattern:
+        case ast.MatchAs(pattern=None, name=None):
+            return True
+        case _:
+            return False
+
+
+def _body_calls_never(body: list[ast.stmt]) -> bool:
+    for stmt in body:
+        for node in ast.walk(stmt):
+            match node:
+                case ast.Call(func=ast.Name(id="never")):
+                    return True
+                case _:
+                    continue
+    return False
 
 
 @singledispatch

@@ -14,6 +14,7 @@ from gabion.analysis.foundation.identity_space import IdentityProjection
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.runtime import stable_encode
+from gabion.invariants import never
 
 
 class CanonicalEventProtoDecodeError(ValueError):
@@ -191,6 +192,7 @@ def _decode_json_object_entries(payload: bytes, *, field_name: str) -> Iterator[
             )
 
 
+            never("unreachable wildcard match fall-through")
 def _encode_identity_projection_proto(identity: IdentityProjection) -> bytes:
     check_deadline()
     witness_json = stable_encode.stable_compact_text(identity.witness).encode("utf-8")

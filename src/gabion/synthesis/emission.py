@@ -8,6 +8,7 @@ from gabion.json_types import JSONValue
 from gabion.analysis.foundation.resume_codec import mapping_optional, sequence_optional
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.order_contract import sort_once
+from gabion.invariants import never
 
 
 def _sanitize_contextvar_identifier(value: str) -> str:
@@ -44,6 +45,7 @@ def _tier_parts(value: object) -> tuple[int, str]:
             return 99, str(value or "?")
 
 
+            never("unreachable wildcard match fall-through")
 def _string_tuple_from_payload(
     payload: Mapping[str, JSONValue],
     *,

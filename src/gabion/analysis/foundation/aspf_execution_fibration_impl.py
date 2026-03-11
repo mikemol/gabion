@@ -10,8 +10,10 @@ from pathlib import Path
 from typing import Iterable, Iterator, Mapping, Sequence, cast
 
 from gabion.invariants import never
+from gabion.analysis import aspf_rule_engine
 from gabion.analysis.foundation import aspf_io_boundary, wire_text_codec
 from gabion.analysis.foundation.wire_types import WireObject, WireValue
+from gabion.policy_dsl import PolicyDecision
 from gabion.order_contract import sort_once
 from gabion.runtime.stable_encode import stable_compact_text
 
@@ -27,6 +29,7 @@ from gabion.analysis.aspf.aspf_stream import (
     AspfEventSink, AspfEventVisitor, AspfInMemoryCompatibilityVisitor, AspfEventJournalSink, AspfSinkVisitor, AspfTraceSinkIndex, CofibrationRecorded, OneCellRecorded, RunFinalized, SemanticSurfaceUpdated, TwoCellWitnessRecorded)
 from gabion.analysis.aspf.aspf_visitors import (
     AspfCofibrationEvent, AspfOneCellEvent, AspfSurfaceUpdateEvent, AspfTraceReplayEvent, AspfEventReplayVisitor, AspfRunBoundaryEvent, AspfTwoCellEvent, OpportunityPayloadEmitter, StatePayloadEmitter, TracePayloadEmitter, replay_iterator_inputs_to_visitor, adapt_event_log_reader_iterator_to_visitor, adapt_live_event_stream_to_visitor, adapt_trace_event_iterator_to_visitor)
+from gabion.analysis.aspf.aspf_lattice_algebra import join as lattice_join
 
 DEFAULT_PHASE1_SEMANTIC_SURFACES: tuple[str, ...] = (
     "groups_by_path",
@@ -478,13 +481,59 @@ def build_opportunities_payload(
         ),
         visitor=emitter,
     )
-    opportunities = emitter.build_rows()
-    rewrite_plans = emitter.build_rewrite_plans()
+    opportunities = _annotate_opportunity_rows(rows=emitter.build_rows())
+    rewrite_plans = _annotate_rewrite_plans(
+        plans=emitter.build_rewrite_plans(),
+        opportunities=opportunities,
+    )
     return {
         "format_version": _OPPORTUNITY_FORMAT_VERSION,
         "trace_id": state.trace_id,
         "opportunities": opportunities,
         "rewrite_plans": rewrite_plans,
+    }
+
+
+def _annotate_opportunity_rows(*, rows: Sequence[WireObject]) -> list[WireObject]:
+    annotated_rows: list[WireObject] = []
+    for row in rows:
+        normalized = {str(key): _as_wire_value(row[key]) for key in row}
+        decision = aspf_rule_engine.classify_aspf_opportunity(normalized)
+        normalized["policy_decision"] = _policy_decision_payload(decision)
+        normalized["rule_id"] = decision.rule_id
+        annotated_rows.append(normalized)
+    return annotated_rows
+
+
+def _annotate_rewrite_plans(
+    *,
+    plans: Sequence[WireObject],
+    opportunities: Sequence[WireObject],
+) -> list[WireObject]:
+    decision_by_opportunity = {
+        str(row.get("opportunity_id", "")): str(row.get("rule_id", ""))
+        for row in opportunities
+    }
+    annotated_plans: list[WireObject] = []
+    for plan in plans:
+        normalized = {str(key): _as_wire_value(plan[key]) for key in plan}
+        normalized["rule_id"] = decision_by_opportunity.get(
+            str(plan.get("opportunity_id", "")),
+            "",
+        )
+        annotated_plans.append(normalized)
+    return annotated_plans
+
+
+def _policy_decision_payload(decision: PolicyDecision) -> WireObject:
+    return {
+        "rule_id": decision.rule_id,
+        "domain": decision.domain.value,
+        "severity": decision.severity.value,
+        "outcome": decision.outcome.value,
+        "message": decision.message,
+        "evidence_contract": decision.evidence_contract.value,
+        "matched": decision.matched,
     }
 
 
@@ -1384,7 +1433,16 @@ def _merge_candidate_sets(
 ) -> None:
     for surface in candidates:
         existing = destination.setdefault(surface, set())
-        existing.update(candidates[surface])
+        merged = lattice_join(
+            left_ids=existing,
+            right_ids=candidates[surface],
+        )
+        if not merged.deterministic:
+            never(
+                "non_deterministic lattice join in ASPF candidate merge",
+                surface=surface,
+            )
+        destination[surface] = set(merged.result_ids)
 
 
 def _witnesses_by_representative_pair(

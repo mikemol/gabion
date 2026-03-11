@@ -28,6 +28,7 @@ from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.analysis.foundation.timeout_context import consume_deadline_ticks
 from gabion.order_contract import OrderPolicy, sort_once
 from gabion.runtime import stable_encode
+from gabion.invariants import never
 
 def _namespace_key(key: str) -> tuple[str, str]:
     return _decode_namespace_key(key)
@@ -81,6 +82,7 @@ def _str_int_pairs(value: object) -> list[tuple[str, int]]:
                     out.append((key_text, value_int))
                 case _:
                     pass
+                    never("unreachable wildcard match fall-through")
     return out
 
 
@@ -394,6 +396,7 @@ class PrimeRegistry:
                             flat_bits[_raw_key(namespace_text, key)] = value
                     case _:
                         pass
+                        never("unreachable wildcard match fall-through")
             _apply_registry_payload(
                 {
                     "primes": flat_primes,
@@ -786,8 +789,10 @@ def _normalize_type_list(value: object) -> list[str]:
                         )
                     case _:
                         pass
+                        never("unreachable wildcard match fall-through")
         case _:
             pass
+            never("unreachable wildcard match fall-through")
     return [item for item in items if item]
 
 

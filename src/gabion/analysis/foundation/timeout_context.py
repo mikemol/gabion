@@ -585,8 +585,8 @@ def _deadline_profile_snapshot():
             ticks_consumed = int(gas_clock.get_mark())
             if wall_total_elapsed_ns > 0:
                 ticks_per_ns = float(ticks_consumed) / float(wall_total_elapsed_ns)
-        case _:
-            pass
+        case clock_value:
+            _ = clock_value
     total_elapsed_ns = max(0, state.last_ns - state.started_ns)
     site_rows: list[dict[str, JSONValue]] = []
     for site_id, stats in _sorted_values(
@@ -698,8 +698,8 @@ def _timeout_progress_snapshot(
         case GasMeter() as gas_clock:
             tick_limit = int(gas_clock.limit)
             ticks_remaining = max(0, tick_limit - tick_mark)
-        case _:
-            pass
+        case clock_value:
+            _ = clock_value
     payload: dict[str, JSONValue] = {
         "classification": classification,
         "retry_recommended": progressed,
@@ -856,8 +856,8 @@ def render_deadline_profile_markdown(
     match ticks_per_ns:
         case int() | float():
             lines.append(f"- ticks_per_ns: `{ticks_per_ns:.9f}`")
-        case _:
-            pass
+        case ticks_per_ns_value:
+            _ = ticks_per_ns_value
     lines.append(f"- unattributed_elapsed_ns: `{unattributed_ns}`")
     lines.append("")
     lines.append("## Site Heat")
@@ -1192,25 +1192,17 @@ def _decode_call_stack_site(site) -> _CallSite:
 def _decode_site_payload(site: Mapping[object, object]) -> _CallSite:
     kind = str(site.get("kind", "") or "FunctionSite")
     key_payload = site.get("key")
-    match key_payload:
-        case list() as key_entries if key_entries:
-            key = [value for value in key_entries]
-            first = key[0]
-            second = None
-            if len(key) > 1:
-                second = key[1]
-            match (first, second):
-                case (str() as path_value, str() as qual_value):
-                    key = [_FileSite(path_value), qual_value, *key[2:]]
-                case _:
-                    pass
-            key_tuple = tuple(_site_part_from_payload(value) for value in key)
-            return _CallSite(
-                kind=kind,
-                key=key_tuple,
-            )
-        case _:
-            pass
+    if isinstance(key_payload, list) and key_payload:
+        key = [value for value in key_payload]
+        first = key[0]
+        second = key[1] if len(key) > 1 else None
+        if isinstance(first, str) and isinstance(second, str):
+            key = [_FileSite(first), second, *key[2:]]
+        key_tuple = tuple(_site_part_from_payload(value) for value in key)
+        return _CallSite(
+            kind=kind,
+            key=key_tuple,
+        )
     identity = _FunctionSiteIdentity.decode_payload(site)
     span_payload = None
     if identity.has_span:

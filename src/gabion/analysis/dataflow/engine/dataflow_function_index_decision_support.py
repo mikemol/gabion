@@ -1,4 +1,5 @@
 from __future__ import annotations
+from gabion.invariants import never
 
 """Canonical decision/decorator helpers for function-index accumulation."""
 
@@ -70,6 +71,7 @@ def _decision_root_name(node: ast.AST):
             return None
 
 
+            never("unreachable wildcard match fall-through")
 def is_decision_surface(node: ast.AST) -> bool:
     node_type = type(node)
     return (

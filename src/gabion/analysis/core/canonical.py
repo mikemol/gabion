@@ -61,9 +61,7 @@ def _looks_multiset(value: list[object]) -> bool:
         case [marker, pairs]:
             return marker == "ms" and sequence_optional(pairs) is not None
         case _:
-            return False
-
-
+            never("unreachable wildcard match fall-through")
 def _canon_multiset(value: list[object]) -> JSONValue:
     marker = value[0] if value else None
     if marker != "ms":

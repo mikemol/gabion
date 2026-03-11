@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Iterator, Mapping
 
 from gabion.analysis.foundation.wire_types import WireObject, WireValue
+from gabion.invariants import never
 
 
 def encode_text(
@@ -45,6 +46,7 @@ def decode_mapping_text(text: str) -> WireObject:
             raise AssertionError("wire payload must decode to an object mapping")
 
 
+            never("unreachable wildcard match fall-through")
 def decode_mapping_bytes(payload: bytes) -> WireObject:
     try:
         return decode_mapping_text(payload.decode("utf-8"))

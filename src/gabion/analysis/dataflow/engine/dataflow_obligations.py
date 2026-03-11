@@ -17,6 +17,7 @@ from gabion.analysis.foundation.json_types import JSONObject, ParseFailureWitnes
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.invariants import require_not_none
 from gabion.order_contract import sort_once
+from gabion.invariants import never
 
 _PROGRESS_EMIT_MIN_INTERVAL_SECONDS = 1.0
 
@@ -166,6 +167,7 @@ class _DeadlineObligationBuilder:
                 site_payload["suite_id"] = suite_identity_text
             case _:
                 pass
+                never("unreachable wildcard match fall-through")
         site_payload["suite_kind"] = suite_kind
         paramset_id = self.forest.add_paramset(bundle)
         evidence: dict[str, object] = {

@@ -9,6 +9,7 @@ from gabion.analysis.foundation.json_types import ParseFailureWitnesses
 from gabion.analysis.indexed_scan.index.analysis_index_stage_cache import (
     AnalysisIndexStageCacheFn,
 )
+from gabion.invariants import never
 
 
 @dataclass(frozen=True)
@@ -57,6 +58,7 @@ def iter_config_fields(
                 pass
             case _:
                 continue
+                never("unreachable wildcard match fall-through")
         decorators = {getattr(d, "id", None) for d in class_node.decorator_list}
         is_dataclass = "dataclass" in decorators
         is_config = class_node.name.endswith("Config")
@@ -73,6 +75,7 @@ def iter_config_fields(
                             fields.add(field_name)
                         case _:
                             pass
+                            never("unreachable wildcard match fall-through")
                 case ast.Assign(targets=targets):
                     for target in targets:
                         deps.check_deadline_fn()
@@ -82,8 +85,10 @@ def iter_config_fields(
                                 fields.add(field_name)
                             case _:
                                 pass
+                                never("unreachable wildcard match fall-through")
                 case _:
                     pass
+                    never("unreachable wildcard match fall-through")
         if fields:
             bundles[class_node.name] = fields
     return bundles

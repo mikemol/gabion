@@ -8,6 +8,7 @@ from gabion.analysis.foundation.json_types import JSONValue
 from gabion.analysis.foundation.resume_codec import mapping_optional, sequence_optional
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.order_contract import sort_once
+from gabion.invariants import never
 
 
 def normalize_params(values: Iterable[str]) -> list[str]:
@@ -274,8 +275,12 @@ def normalize_key(key: Mapping[str, object]) -> dict[str, object]:
         match params_payload:
             case str() as params_text:
                 params_values: Iterable[str] = params_text.split(",")
-            case _:
-                params_values = (str(value) for value in _sequence_default_empty(params_payload))
+            case payload_values:
+                _ = payload_values
+                params_values = (
+                    str(value)
+                    for value in _sequence_default_empty(params_payload)
+                )
         return make_paramset_key(params_values)
     if kind == "decision_surface":
         mode = str(key.get("m", "direct") or "direct")

@@ -14,6 +14,7 @@ from gabion.analysis.foundation.json_types import JSONObject
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.order_contract import sort_once
 from gabion.synthesis.schedule import topological_schedule
+from gabion.invariants import never
 
 
 def _function_key(scope: Iterable[str], name: str) -> str:
@@ -206,6 +207,7 @@ def render_reuse_lemma_stubs(reuse: JSONObject) -> str:
                 suggested_entries.append(suggested_entry)
             case _:
                 continue
+                never("unreachable wildcard match fall-through")
     plan_artifacts: list[JSONObject] = []
     for entry in sort_once(
         suggested_entries,

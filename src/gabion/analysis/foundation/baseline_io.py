@@ -10,6 +10,7 @@ from gabion.analysis.projection.projection_registry import spec_metadata_payload
 from gabion.analysis.projection.projection_spec import ProjectionSpec
 from gabion.analysis.foundation.resume_codec import mapping_optional, sequence_optional
 from gabion.json_types import JSONValue
+from gabion.invariants import never
 
 
 @dataclass(frozen=True)
@@ -48,7 +49,8 @@ def parse_version(
     match expected:
         case int() as expected_int:
             allowed = (int(expected_int),)
-        case _:
+        case expected_other:
+            _ = expected_other
             allowed = tuple(map(int, expected_values or ()))
     if not allowed:
         raise ValueError(

@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from io import StringIO
 from pathlib import Path
 from typing import Any, Iterable
+from gabion.invariants import never
 
 try:
     import yaml
@@ -261,7 +262,9 @@ def _links_from_test(*, path: Path, root: Path) -> list[ImpactLink]:
                         comment_map=comment_map,
                     )
                 )
-            case ast.ClassDef(name=class_name, body=class_body) if class_name.startswith("Test"):
+            case ast.ClassDef(name=class_name, body=class_body):
+                if not class_name.startswith("Test"):
+                    continue
                 for child in class_body:
                     check_deadline()
                     match child:
@@ -274,9 +277,9 @@ def _links_from_test(*, path: Path, root: Path) -> list[ImpactLink]:
                                     comment_map=comment_map,
                                 )
                             )
-                        case _:
+                        case ast.AST():
                             pass
-            case _:
+            case ast.AST():
                 pass
     return links
 
@@ -479,7 +482,7 @@ def _build_graph_payload(root: Path) -> dict[str, object]:
                     match node:
                         case ast.FunctionDef() | ast.AsyncFunctionDef():
                             is_test_function = name.startswith("test_")
-                        case _:
+                        case ast.AST():
                             pass
                     if rel_path.startswith("tests/") and is_test_function:
                         test_key = f"{rel_path}::{name}"
@@ -611,7 +614,8 @@ def _extract_call_name(call: ast.Call):
             return identifier
         case ast.Attribute(attr=attribute):
             return attribute
-        case _:
+        case func_expr:
+            _ = func_expr
             return None
 
 
@@ -624,12 +628,14 @@ def _collect_import_aliases_for_graph(tree: ast.AST) -> dict[str, str]:
                 module = module_name or ""
                 for alias in names:
                     check_deadline()
-                    aliases[alias.asname or alias.name] = f"{module}.{alias.name}".strip(".")
+                    aliases[alias.asname or alias.name] = (
+                        f"{module}.{alias.name}".strip(".")
+                    )
             case ast.Import(names=names):
                 for alias in names:
                     check_deadline()
                     aliases[alias.asname or alias.name] = alias.name
-            case _:
+            case ast.AST():
                 pass
     return aliases
 
@@ -643,7 +649,7 @@ def _iter_local_calls(node: ast.AST) -> Iterable[ast.Call]:
             case ast.Call():
                 yield child
                 yield from _iter_local_calls(child)
-            case _:
+            case ast.AST():
                 yield from _iter_local_calls(child)
 
 
@@ -656,7 +662,7 @@ def _iter_local_names(node: ast.AST) -> Iterable[str]:
             case ast.Name(id=identifier):
                 yield identifier
                 yield from _iter_local_names(child)
-            case _:
+            case ast.AST():
                 yield from _iter_local_names(child)
 
 
@@ -818,8 +824,10 @@ def _import_aliases(tree: ast.Module) -> dict[str, str]:
                     check_deadline()
                     if alias.name != "*":
                         name = alias.asname or alias.name
-                        aliases[name] = f"{module}.{alias.name}" if module else alias.name
-            case _:
+                        aliases[name] = (
+                            f"{module}.{alias.name}" if module else alias.name
+                        )
+            case ast.AST():
                 pass
     return aliases
 
@@ -843,11 +851,11 @@ def _decorator_targets(decorators: list[ast.expr]) -> list[str]:
                                     match item:
                                         case ast.Constant(value=str() as target_literal):
                                             targets.extend(_split_targets(target_literal))
-                                        case _:
+                                        case ast.expr():
                                             pass
-                            case _:
+                            case ast.expr():
                                 pass
-            case _:
+            case ast.expr():
                 pass
     return sort_once(set(targets), source="impact_index.decorator_targets")
 
@@ -858,7 +866,8 @@ def _call_name(expr: ast.expr) -> str:
             return identifier
         case ast.Attribute(attr=attribute):
             return attribute
-        case _:
+        case expr_node:
+            _ = expr_node
             return ""
 
 
@@ -891,7 +900,7 @@ def _inferred_targets_from_body(
                     root = path[0]
                     if root in imports:
                         mentioned.add(".".join([imports[root], *path[1:]]))
-            case _:
+            case ast.AST():
                 pass
     return sort_once(mentioned, source="impact_index.inferred_targets")
 
@@ -906,10 +915,7 @@ def _attribute_path(node: ast.Attribute) -> list[str]:
             if prefix:
                 return [*prefix, node.attr]
             return list()
-        case _:
-            return list()
-
-
+    return list()
 # gabion:ambiguity_boundary
 def _parse_frontmatter(text: str) -> tuple[dict[str, JSONValue], str]:
     if not text.startswith("---\n"):
@@ -930,15 +936,12 @@ def _parse_frontmatter(text: str) -> tuple[dict[str, JSONValue], str]:
             parsed = yaml.safe_load("\n".join(raw))
         except Exception:
             parsed = None
-        match parsed:
-            case dict() as parsed_mapping:
-                normalized: dict[str, JSONValue] = {}
-                for key, value in parsed_mapping.items():
-                    check_deadline()
-                    normalized[str(key)] = value
-                return normalized, body
-            case _:
-                pass
+        if isinstance(parsed, dict):
+            normalized: dict[str, JSONValue] = {}
+            for key, value in parsed.items():
+                check_deadline()
+                normalized[str(key)] = value
+            return normalized, body
     return {}, body
 
 
@@ -954,10 +957,7 @@ def _coerce_target_list(value: object) -> list[str]:
                 {str(item).strip() for item in list_value if str(item).strip()},
                 source="impact_index.coerce_target_list",
             )
-        case _:
-            return list()
-
-
+    return list()
 def _collect_symbol_universe(root: Path) -> set[str]:
     symbols: set[str] = set()
     src = root / "src"
@@ -976,7 +976,7 @@ def _collect_symbol_universe(root: Path) -> set[str]:
                 match node:
                     case ast.FunctionDef(name=node_name) | ast.AsyncFunctionDef(name=node_name) | ast.ClassDef(name=node_name):
                         symbols.add(f"{module}.{node_name}")
-                    case _:
+                    case ast.AST():
                         pass
     return symbols
 

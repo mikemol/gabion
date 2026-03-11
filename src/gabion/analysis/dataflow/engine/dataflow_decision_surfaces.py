@@ -16,6 +16,7 @@ from gabion.analysis.foundation.resume_codec import sequence_optional
 from gabion.order_contract import sort_once
 from gabion.refactor.rewrite_plan import (
     RewritePlanKind, attach_plan_schema, normalize_rewrite_plan_order)
+from gabion.invariants import never
 
 
 def summarize_deadness_witnesses(
@@ -96,6 +97,7 @@ def compute_fingerprint_coherence(
                 )
             case _:
                 pass
+                never("unreachable wildcard match fall-through")
     return sort_values(
         witnesses,
         source="_compute_fingerprint_coherence.witnesses",
@@ -265,6 +267,7 @@ def compute_fingerprint_rewrite_plans(
                                 non_regression_gates.append(kind_text)
                             case _:
                                 pass
+                                never("unreachable wildcard match fall-through")
                     return {
                         "plan_id": (
                             f"rewrite:{site.path}:{site.function}:{bundle_key}:"
@@ -479,6 +482,7 @@ def compute_fingerprint_rewrite_plans(
                     )
             case _:
                 pass
+                never("unreachable wildcard match fall-through")
         if not has_rewrite_inputs:
             has_rewrite_inputs = has_rewrite_inputs
 

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from gabion.analysis.foundation.json_types import JSONValue
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.order_contract import sort_once
+from gabion.invariants import never
 
 
 def normalize_bundle_key(bundle: object) -> str:
@@ -24,8 +25,10 @@ def normalize_bundle_key(bundle: object) -> str:
                         values.add(item_text.strip())
                     case _:
                         pass
+                        never("unreachable wildcard match fall-through")
         case _:
             return ""
+            never("unreachable wildcard match fall-through")
     return ",".join(
         sort_once(
             values,
@@ -54,9 +57,11 @@ def normalize_string_list(value: object) -> list[str]:
                         raw.append(item_text)
                     case _:
                         pass
+                        never("unreachable wildcard match fall-through")
         case _:
             return raw
 
+            never("unreachable wildcard match fall-through")
     parts: list[str] = []
     for item in raw:
         check_deadline()
@@ -84,6 +89,7 @@ class Site:
             case _:
                 return None
 
+                never("unreachable wildcard match fall-through")
     def bundle_key(self) -> str:
         check_deadline()
         return normalize_bundle_key(list(self.bundle))
@@ -120,4 +126,5 @@ def exception_obligation_summary_for_site(
                 summary["total"] += 1
             case _:
                 continue
+                never("unreachable wildcard match fall-through")
     return summary

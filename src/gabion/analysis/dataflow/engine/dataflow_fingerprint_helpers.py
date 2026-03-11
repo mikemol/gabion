@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from gabion.json_types import JSONObject, JSONValue
+from gabion.invariants import never
 """Fingerprint helper ownership module during runtime retirement."""
 
 from dataclasses import dataclass
@@ -313,6 +314,7 @@ def _compute_fingerprint_provenance(
                         )
                     case _:
                         higher_path_witness = None
+                        never("unreachable wildcard match fall-through")
                 drift_classification = classify_drift_by_homotopy(
                     baseline_representative=representative,
                     current_representative=basis_repr,

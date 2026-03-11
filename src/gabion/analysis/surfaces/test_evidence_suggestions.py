@@ -19,6 +19,7 @@ from gabion.analysis.foundation.json_types import JSONObject
 from gabion.invariants import require_not_none
 from gabion.analysis.semantics.report_doc import ReportDoc
 from gabion.order_contract import sort_once
+from gabion.invariants import never
 
 
 GRAPH_SOURCE = "graph"
@@ -100,6 +101,7 @@ def load_test_evidence(path: str) -> list[TestEvidenceEntry]:
             pass
         case _:
             tests = []
+            never("unreachable wildcard match fall-through")
     if tests_payload is not tests:
         raise ValueError("test evidence payload is missing tests list")
     entries: list[TestEvidenceEntry] = []
@@ -126,6 +128,7 @@ def load_test_evidence(path: str) -> list[TestEvidenceEntry]:
                     )
             case _:
                 pass
+                never("unreachable wildcard match fall-through")
     return sort_once(entries, key=lambda item: item.test_id, source = 'src/gabion/analysis/test_evidence_suggestions.py:145')
 
 
@@ -691,6 +694,7 @@ def _index_nodes_by_scope(
                 index[(scopes, node.name)] = node
             case _:
                 pass
+                never("unreachable wildcard match fall-through")
     return index
 
 
@@ -708,6 +712,7 @@ def _iter_outer_calls(node: ast.AST) -> list[ast.Call]:
                 calls.append(current)
             case _:
                 pass
+                never("unreachable wildcard match fall-through")
         if expand_children:
             stack.extend(ast.iter_child_nodes(current))
     return calls
@@ -726,6 +731,7 @@ def _call_symbol_refs(call: ast.Call) -> list[str]:
                 refs.append(name)
         case _:
             pass
+            never("unreachable wildcard match fall-through")
     for arg in call.args:
         name = _expr_symbol_ref(arg)
         if name:
@@ -769,6 +775,7 @@ def _expr_symbol_ref(node: ast.AST):
             return _NO_RESULT
 
 
+            never("unreachable wildcard match fall-through")
 def _module_literal(node: ast.AST):
     match node:
         case ast.Constant(value=str() as value):
@@ -777,6 +784,7 @@ def _module_literal(node: ast.AST):
             return _NO_RESULT
 
 
+            never("unreachable wildcard match fall-through")
 def _attribute_chain(node: ast.Attribute):
     check_deadline()
     parts: list[str] = []
@@ -793,6 +801,7 @@ def _attribute_chain(node: ast.Attribute):
                 return _NO_RESULT
 
 
+                never("unreachable wildcard match fall-through")
 def _resolve_symbol_target(
     callee_name,
     module_name,
@@ -1194,8 +1203,10 @@ def _normalize_evidence_list(value: object) -> list[str]:
                         items.append(display)
                     case _:
                         pass
+                        never("unreachable wildcard match fall-through")
         case _:
             return list()
+            never("unreachable wildcard match fall-through")
     cleaned = [item.strip() for item in items if item.strip()]
     return sort_once(set(cleaned), source = 'src/gabion/analysis/test_evidence_suggestions.py:1195')
 def _summarize_unmapped(

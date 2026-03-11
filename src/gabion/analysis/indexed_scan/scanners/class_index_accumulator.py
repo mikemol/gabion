@@ -4,6 +4,7 @@ import ast
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, cast
+from gabion.invariants import never
 
 
 @dataclass(frozen=True)
@@ -35,6 +36,7 @@ def accumulate_class_index_for_tree(
                 pass
             case _:
                 continue
+                never("unreachable wildcard match fall-through")
         scopes = deps.enclosing_class_scopes_fn(class_node, parents.parents)
         qual_parts = [module] if module else []
         qual_parts.extend(scopes)

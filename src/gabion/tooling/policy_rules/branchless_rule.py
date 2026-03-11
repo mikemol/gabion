@@ -11,16 +11,16 @@ from typing import Iterable
 
 from gabion.analysis.foundation.event_algebra import CanonicalRunContext
 from gabion.tooling.policy_substrate import (
-    DataflowFiberBundle,
-    RecombinationFrontier,
+    FiberBundle,
+    FrontierWitness,
     branch_required_symbols,
     build_aspf_union_view,
-    build_dataflow_fiber_bundle_for_qualname,
-    compute_recombination_frontier,
+    build_fiber_bundle_for_qualname,
+    compute_lattice_witness,
     cst_failure_seeds,
     decorate_failure,
     decorate_site,
-    empty_recombination_frontier,
+    frontier_failure_witness,
     new_run_context,
 )
 from gabion.tooling.policy_rules.fiber_diagnostics import (
@@ -57,7 +57,7 @@ class Violation:
     fiber_id: str
     taint_interval_id: str
     condition_overlap_id: str
-    recombination_frontier: RecombinationFrontier
+    lattice_witness: FrontierWitness
     structured_hash: str
 
     @property
@@ -92,7 +92,7 @@ class _BranchlessVisitor(ast.NodeVisitor):
         self.run_context = run_context
         self.violations: list[Violation] = []
         self.scope_stack: list[_Scope] = []
-        self._dataflow_bundle_by_qualname: dict[str, DataflowFiberBundle] = {}
+        self._fiber_bundle_by_qualname: dict[str, FiberBundle] = {}
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         self._visit_function_node(node)
@@ -169,7 +169,7 @@ class _BranchlessVisitor(ast.NodeVisitor):
                 "core fibers remain branchless."
             ),
         )
-        recombination_frontier = self._recombination_frontier(
+        lattice_witness = self._lattice_witness(
             scope_qualname=scope.qualname,
             node=node,
             kind=kind,
@@ -192,12 +192,12 @@ class _BranchlessVisitor(ast.NodeVisitor):
                 fiber_id=decoration.fiber_id,
                 taint_interval_id=decoration.taint_interval_id,
                 condition_overlap_id=decoration.condition_overlap_id,
-                recombination_frontier=recombination_frontier,
+                lattice_witness=lattice_witness,
                 structured_hash=structural_identity,
             )
         )
 
-    def _recombination_frontier(
+    def _lattice_witness(
         self,
         *,
         scope_qualname: str,
@@ -205,24 +205,23 @@ class _BranchlessVisitor(ast.NodeVisitor):
         kind: str,
         line: int,
         column: int,
-    ) -> RecombinationFrontier:
-        bundle = self._dataflow_bundle_by_qualname.get(scope_qualname)
+    ) -> FrontierWitness:
+        bundle = self._fiber_bundle_by_qualname.get(scope_qualname)
         if bundle is None:
-            bundle = build_dataflow_fiber_bundle_for_qualname(
+            bundle = build_fiber_bundle_for_qualname(
                 rel_path=self.rel_path,
                 module_tree=self.module_tree,
                 qualname=scope_qualname,
             )
-            self._dataflow_bundle_by_qualname[scope_qualname] = bundle
-        required_symbols = branch_required_symbols(node)
-        return compute_recombination_frontier(
+            self._fiber_bundle_by_qualname[scope_qualname] = bundle
+        return compute_lattice_witness(
             rel_path=self.rel_path,
             qualname=scope_qualname,
             bundle=bundle,
             branch_line=line,
             branch_column=column,
             branch_node_kind=f"branch:{kind}",
-            required_symbols=required_symbols,
+            required_symbols=branch_required_symbols(node),
         )
 
 
@@ -294,12 +293,13 @@ def _failure_violation(*, run_context: CanonicalRunContext, seed: ScanFailureSee
         fiber_id=decoration.fiber_id,
         taint_interval_id=decoration.taint_interval_id,
         condition_overlap_id=decoration.condition_overlap_id,
-        recombination_frontier=empty_recombination_frontier(
+        lattice_witness=frontier_failure_witness(
             rel_path=seed.path,
             qualname="<module>",
             line=seed.line,
             column=seed.column,
             node_kind="module_failure",
+            reason=seed.detail,
         ),
         structured_hash=structured_hash,
     )
@@ -335,11 +335,11 @@ def _write_baseline(*, path: Path, violations: list[Violation]) -> None:
 
 def _violation_payload(violation: Violation) -> dict[str, object]:
     payload = asdict(violation)
-    payload["recombination_frontier"] = _frontier_payload(violation.recombination_frontier)
+    payload["lattice_witness"] = _lattice_payload(violation.lattice_witness)
     return payload
 
 
-def _frontier_payload(frontier: RecombinationFrontier) -> dict[str, object]:
+def _lattice_payload(frontier: FrontierWitness) -> dict[str, object]:
     return {
         "branch_site_id": frontier.branch_site_id,
         "branch_site_identity": frontier.branch_site_identity,
@@ -348,26 +348,60 @@ def _frontier_payload(frontier: RecombinationFrontier) -> dict[str, object]:
         "branch_node_kind": frontier.branch_node_kind,
         "required_symbols": list(frontier.required_symbols),
         "unresolved_symbols": list(frontier.unresolved_symbols),
-        "anchor_site_id": frontier.anchor_site_id,
-        "anchor_site_identity": frontier.anchor_site_identity,
-        "anchor_line": frontier.anchor_line,
-        "anchor_column": frontier.anchor_column,
-        "anchor_ordinal": frontier.anchor_ordinal,
-        "upstream_site_ids": list(frontier.upstream_site_ids),
-        "upstream_site_identities": list(frontier.upstream_site_identities),
-        "upstream_edge_ids": list(frontier.upstream_edge_ids),
-        "execution_frontier_site_id": frontier.execution_frontier_site_id,
-        "execution_frontier_site_identity": frontier.execution_frontier_site_identity,
-        "execution_frontier_line": frontier.execution_frontier_line,
-        "execution_frontier_column": frontier.execution_frontier_column,
-        "execution_frontier_ordinal": frontier.execution_frontier_ordinal,
-        "execution_upstream_site_ids": list(frontier.execution_upstream_site_ids),
-        "execution_upstream_site_identities": list(frontier.execution_upstream_site_identities),
-        "execution_upstream_edge_ids": list(frontier.execution_upstream_edge_ids),
+        "data_anchor_site_id": frontier.data_anchor_site_id,
+        "data_anchor_site_identity": frontier.data_anchor_site_identity,
+        "data_anchor_line": frontier.data_anchor_line,
+        "data_anchor_column": frontier.data_anchor_column,
+        "data_anchor_ordinal": frontier.data_anchor_ordinal,
+        "data_upstream_site_ids": list(frontier.data_upstream_site_ids),
+        "data_upstream_site_identities": list(frontier.data_upstream_site_identities),
+        "data_upstream_edge_ids": list(frontier.data_upstream_edge_ids),
+        "exec_frontier_site_id": frontier.exec_frontier_site_id,
+        "exec_frontier_site_identity": frontier.exec_frontier_site_identity,
+        "exec_frontier_line": frontier.exec_frontier_line,
+        "exec_frontier_column": frontier.exec_frontier_column,
+        "exec_frontier_ordinal": frontier.exec_frontier_ordinal,
+        "exec_upstream_site_ids": list(frontier.exec_upstream_site_ids),
+        "exec_upstream_site_identities": list(frontier.exec_upstream_site_identities),
+        "exec_upstream_edge_ids": list(frontier.exec_upstream_edge_ids),
         "bundle_event_count": frontier.bundle_event_count,
         "bundle_edge_count": frontier.bundle_edge_count,
         "execution_event_count": frontier.execution_event_count,
         "execution_edge_count": frontier.execution_edge_count,
+        "data_exec_join": {
+            "left_ids": list(frontier.data_exec_join.left_ids),
+            "right_ids": list(frontier.data_exec_join.right_ids),
+            "result_ids": list(frontier.data_exec_join.result_ids),
+            "deterministic": frontier.data_exec_join.deterministic,
+        },
+        "data_exec_meet": {
+            "left_ids": list(frontier.data_exec_meet.left_ids),
+            "right_ids": list(frontier.data_exec_meet.right_ids),
+            "result_ids": list(frontier.data_exec_meet.result_ids),
+            "deterministic": frontier.data_exec_meet.deterministic,
+        },
+        "eta_data_to_exec": _naturality_payload(frontier.eta_data_to_exec),
+        "eta_exec_to_data": _naturality_payload(frontier.eta_exec_to_data),
+        "complete": frontier.complete,
+    }
+
+
+def _naturality_payload(witness: object) -> dict[str, object]:
+    unmapped_items = list(getattr(witness, "unmapped", ()))
+    return {
+        "direction": str(getattr(witness, "direction", "")),
+        "mapped_source_site_ids": list(getattr(witness, "mapped_source_site_ids", ())),
+        "mapped_target_site_ids": list(getattr(witness, "mapped_target_site_ids", ())),
+        "unmapped": [
+            {
+                "source_kind": str(getattr(item, "source_kind", "")),
+                "source_site_id": str(getattr(item, "source_site_id", "")),
+                "source_site_identity": str(getattr(item, "source_site_identity", "")),
+                "reason": str(getattr(item, "reason", "")),
+            }
+            for item in unmapped_items
+        ],
+        "complete": bool(getattr(witness, "complete", False)),
     }
 
 

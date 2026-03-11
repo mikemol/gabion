@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import List, Tuple
+from gabion.invariants import never
 
 Position = Tuple[int, int]
 
@@ -38,6 +39,7 @@ def normalize_compatibility_shim(
             return CompatibilityShimConfig(enabled=bool(compatibility_shim))
 
 
+            never("unreachable wildcard match fall-through")
 @dataclass(frozen=True)
 class RefactorRequest:
     protocol_name: str

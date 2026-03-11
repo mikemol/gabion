@@ -18,6 +18,7 @@ from gabion.order_contract import sort_once
 
 from gabion.analysis.projection.pattern_schema_projection import (
     pattern_schema_matches as _pattern_schema_matches, pattern_schema_residue_entries as _pattern_schema_residue_entries, pattern_schema_residue_lines as _pattern_schema_residue_lines, pattern_schema_suggestions_from_instances as _pattern_schema_suggestions_from_instances)
+from gabion.invariants import never
 
 @dataclass(frozen=True)
 class _ReportSectionKey:
@@ -342,6 +343,7 @@ def _append_report_tail_sections(
                     pass
                 case _:
                     continue
+                    never("unreachable wildcard match fall-through")
             if bool(dict(diagnostic).get("required_by_policy", False)):
                 surface = str(dict(diagnostic).get("surface", ""))
                 adapter = str(dict(diagnostic).get("adapter", "native"))

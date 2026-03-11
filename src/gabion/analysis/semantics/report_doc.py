@@ -44,6 +44,7 @@ class ReportDoc:
                 rendered = rendered_text
             case _:
                 rendered = json.dumps(content, indent=2, sort_keys=False)
+                never("unreachable wildcard match fall-through")
         fence = f"```{language}" if language else "```"
         self._lines.append(fence)
         self._lines.extend(rendered.splitlines() or [""])

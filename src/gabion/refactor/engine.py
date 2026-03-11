@@ -1575,6 +1575,7 @@ def _ambient_param_annotation(annotation, protocol_hint: str) -> cst.Annotation:
             return existing
         case _:
             pass
+            never("unreachable wildcard match fall-through")
     return _ambient_default_annotation(protocol_hint)
 
 

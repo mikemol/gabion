@@ -5,6 +5,7 @@ from enum import StrEnum
 from collections.abc import Mapping, Sequence
 
 from gabion.analysis.foundation.resume_codec import mapping_optional, sequence_optional
+from gabion.invariants import never
 
 
 class DeprecatedLifecycleState(StrEnum):
@@ -105,6 +106,7 @@ def deprecated(
             resolved_metadata = metadata_mapping
         case _:
             resolved_metadata = None
+            never("unreachable wildcard match fall-through")
     return DeprecatedFiber(
         fiber_id=str(fiber_id),
         canonical_aspf_path=path,
@@ -151,6 +153,7 @@ def ingest_perf_samples(samples: Sequence[Mapping[str, object]]) -> tuple[PerfSa
                     weight = int(weight_value)
                 case _:
                     weight = 1
+                    never("unreachable wildcard match fall-through")
             parsed.append(PerfSample(stack=stack, weight=weight))
     return tuple(parsed)
 

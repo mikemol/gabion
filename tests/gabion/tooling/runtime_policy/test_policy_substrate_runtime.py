@@ -3,11 +3,18 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+from gabion.analysis.aspf import aspf_lattice_algebra as lattice_algebra
 from gabion.tooling.policy_substrate.aspf_union_view import ASPFUnionView, CSTParseFailureEvent, build_aspf_union_view
 from gabion.tooling.policy_substrate.dataflow_fibration import (
+    BranchWitnessRequest,
     branch_required_symbols,
-    build_dataflow_fiber_bundle_for_qualname,
-    compute_recombination_frontier,
+    build_fiber_bundle_for_qualname,
+    compute_lattice_witness,
+    eta_data_to_exec,
+    eta_exec_to_data,
+    iter_lattice_witnesses,
+    join,
+    meet,
 )
 from gabion.tooling.policy_substrate.overlap_eval import evaluate_condition_overlaps
 from gabion.tooling.policy_substrate.projection_lens import LensEvent
@@ -229,14 +236,14 @@ def test_policy_substrate_dataflow_bundle_frontier_recombines_required_symbols()
         "    return y\n"
     )
     module_tree = ast.parse(source)
-    bundle = build_dataflow_fiber_bundle_for_qualname(
+    bundle = build_fiber_bundle_for_qualname(
         rel_path="src/gabion/example.py",
         module_tree=module_tree,
         qualname="fn",
     )
     branch_node = next(node for node in ast.walk(module_tree) if isinstance(node, ast.If))
     required_symbols = branch_required_symbols(branch_node)
-    frontier = compute_recombination_frontier(
+    witness = compute_lattice_witness(
         rel_path="src/gabion/example.py",
         qualname="fn",
         bundle=bundle,
@@ -245,12 +252,220 @@ def test_policy_substrate_dataflow_bundle_frontier_recombines_required_symbols()
         branch_node_kind="branch:if",
         required_symbols=required_symbols,
     )
-    assert set(frontier.required_symbols) == {"x", "y"}
-    assert list(frontier.unresolved_symbols) == []
-    assert list(frontier.upstream_site_ids)
-    assert frontier.anchor_line == 3
-    assert frontier.bundle_event_count >= 1
-    assert frontier.execution_event_count >= 1
-    assert frontier.execution_frontier_ordinal >= 0
-    assert list(frontier.execution_upstream_site_ids)
-    assert frontier.execution_frontier_line == 2
+    assert set(witness.required_symbols) == {"x", "y"}
+    assert list(witness.unresolved_symbols) == []
+    assert list(witness.data_upstream_site_ids)
+    assert witness.data_anchor_line == 3
+    assert witness.bundle_event_count >= 1
+    assert witness.execution_event_count >= 1
+    assert witness.exec_frontier_ordinal >= 0
+    assert list(witness.exec_upstream_site_ids)
+    assert witness.exec_frontier_line == 2
+    assert witness.complete
+
+
+# gabion:behavior primary=desired
+def test_policy_substrate_lattice_join_meet_are_commutative_idempotent() -> None:
+    left = ("a", "b", "a")
+    right = ("b", "c")
+    j1 = join(left_ids=left, right_ids=right)
+    j2 = join(left_ids=right, right_ids=left)
+    m1 = meet(left_ids=left, right_ids=right)
+    m2 = meet(left_ids=right, right_ids=left)
+    assert tuple(j1.result_ids) == ("a", "b", "c")
+    assert tuple(j1.result_ids) == tuple(j2.result_ids)
+    assert tuple(m1.result_ids) == ("b",)
+    assert tuple(m1.result_ids) == tuple(m2.result_ids)
+    self_join = join(left_ids=left, right_ids=left)
+    self_meet = meet(left_ids=left, right_ids=left)
+    assert tuple(self_join.result_ids) == ("a", "b")
+    assert tuple(self_meet.result_ids) == ("a", "b")
+
+
+# gabion:behavior primary=desired
+def test_policy_substrate_naturality_witnesses_are_complete_for_simple_function() -> None:
+    source = (
+        "def fn(a):\n"
+        "    x = a + 1\n"
+        "    if x:\n"
+        "        return x\n"
+        "    return 0\n"
+    )
+    module_tree = ast.parse(source)
+    bundle = build_fiber_bundle_for_qualname(
+        rel_path="src/gabion/example.py",
+        module_tree=module_tree,
+        qualname="fn",
+    )
+    data_events = tuple(bundle.data.events)
+    exec_events = tuple(bundle.exec.events)
+    forward = eta_data_to_exec(data_events=data_events, exec_events=exec_events)
+    reverse = eta_exec_to_data(data_events=data_events, exec_events=exec_events)
+    assert forward.complete
+    assert reverse.complete
+
+
+# gabion:behavior primary=desired
+def test_lazy_pull_no_work_before_consumption() -> None:
+    source = (
+        "def fn(a):\n"
+        "    x = a + 1\n"
+        "    if x:\n"
+        "        return x\n"
+        "    return 0\n"
+    )
+    module_tree = ast.parse(source)
+    branch_node = next(node for node in ast.walk(module_tree) if isinstance(node, ast.If))
+    request = BranchWitnessRequest(
+        branch_line=branch_node.lineno,
+        branch_column=branch_node.col_offset + 1,
+        branch_node_kind="branch:if",
+        required_symbols=tuple(branch_required_symbols(branch_node)),
+    )
+    call_count = {"count": 0}
+    real_builder = lattice_algebra.build_fiber_bundle_for_qualname
+
+    def _wrapped_builder(*, rel_path: str, module_tree: ast.AST, qualname: str):
+        call_count["count"] += 1
+        return real_builder(
+            rel_path=rel_path,
+            module_tree=module_tree,
+            qualname=qualname,
+        )
+
+    original_builder = lattice_algebra.build_fiber_bundle_for_qualname
+    lattice_algebra.build_fiber_bundle_for_qualname = _wrapped_builder  # type: ignore[assignment]
+    try:
+        witness_iter = iter_lattice_witnesses(
+            rel_path="src/gabion/example.py",
+            qualname="fn",
+            module_tree=module_tree,
+            requests=(request,),
+        )
+        assert call_count["count"] == 0
+        next(witness_iter)
+        assert call_count["count"] == 1
+    finally:
+        lattice_algebra.build_fiber_bundle_for_qualname = original_builder  # type: ignore[assignment]
+
+
+# gabion:behavior primary=desired
+def test_policy_substrate_iter_lattice_witnesses_is_lazy_until_consumed() -> None:
+    source = (
+        "def fn(a):\n"
+        "    x = a + 1\n"
+        "    if x:\n"
+        "        return x\n"
+        "    return 0\n"
+    )
+    module_tree = ast.parse(source)
+    branch_node = next(node for node in ast.walk(module_tree) if isinstance(node, ast.If))
+    request = BranchWitnessRequest(
+        branch_line=branch_node.lineno,
+        branch_column=branch_node.col_offset + 1,
+        branch_node_kind="branch:if",
+        required_symbols=tuple(branch_required_symbols(branch_node)),
+    )
+    call_count = {"count": 0}
+    real_builder = lattice_algebra.build_fiber_bundle_for_qualname
+
+    def _wrapped_builder(*, rel_path: str, module_tree: ast.AST, qualname: str):
+        call_count["count"] += 1
+        return real_builder(
+            rel_path=rel_path,
+            module_tree=module_tree,
+            qualname=qualname,
+        )
+
+    original_builder = lattice_algebra.build_fiber_bundle_for_qualname
+    lattice_algebra.build_fiber_bundle_for_qualname = _wrapped_builder  # type: ignore[assignment]
+    try:
+        witness_iter = iter_lattice_witnesses(
+            rel_path="src/gabion/example.py",
+            qualname="fn",
+            module_tree=module_tree,
+            requests=(request,),
+        )
+        assert call_count["count"] == 0
+        first = next(witness_iter)
+        assert first.branch_line == branch_node.lineno
+        assert call_count["count"] == 1
+    finally:
+        lattice_algebra.build_fiber_bundle_for_qualname = original_builder  # type: ignore[assignment]
+
+
+# gabion:behavior primary=desired
+def test_policy_substrate_unresolved_obligation_crossing_emits_violation() -> None:
+    source = (
+        "def fn(a):\n"
+        "    if missing_symbol:\n"
+        "        return a\n"
+        "    return a\n"
+    )
+    module_tree = ast.parse(source)
+    bundle = build_fiber_bundle_for_qualname(
+        rel_path="src/gabion/example.py",
+        module_tree=module_tree,
+        qualname="fn",
+    )
+    branch_node = next(node for node in ast.walk(module_tree) if isinstance(node, ast.If))
+    witness = compute_lattice_witness(
+        rel_path="src/gabion/example.py",
+        qualname="fn",
+        bundle=bundle,
+        branch_line=branch_node.lineno,
+        branch_column=branch_node.col_offset + 1,
+        branch_node_kind="branch:if",
+        required_symbols=branch_required_symbols(branch_node),
+    )
+    assert list(witness.unresolved_symbols) == ["missing_symbol"]
+    assert list(witness.obligations)
+    assert witness.violation is not None
+    assert witness.complete is False
+
+
+# gabion:behavior primary=desired
+def test_policy_substrate_compute_lattice_witness_reuses_artifact_cache() -> None:
+    source = (
+        "def fn(a):\n"
+        "    x = a + 1\n"
+        "    if x:\n"
+        "        return x\n"
+        "    return 0\n"
+    )
+    module_tree = ast.parse(source)
+    bundle = build_fiber_bundle_for_qualname(
+        rel_path="src/gabion/example.py",
+        module_tree=module_tree,
+        qualname="fn",
+    )
+    branch_node = next(node for node in ast.walk(module_tree) if isinstance(node, ast.If))
+    first = compute_lattice_witness(
+        rel_path="src/gabion/example.py",
+        qualname="fn",
+        bundle=bundle,
+        branch_line=branch_node.lineno,
+        branch_column=branch_node.col_offset + 1,
+        branch_node_kind="branch:if",
+        required_symbols=branch_required_symbols(branch_node),
+    )
+    assert first.complete
+
+    def _raise_frontier(**_: object):
+        raise AssertionError("frontier should not be recomputed when cache is warm")
+
+    original_frontier = lattice_algebra.frontier
+    lattice_algebra.frontier = _raise_frontier  # type: ignore[assignment]
+    try:
+        second = compute_lattice_witness(
+            rel_path="src/gabion/example.py",
+            qualname="fn",
+            bundle=bundle,
+            branch_line=branch_node.lineno,
+            branch_column=branch_node.col_offset + 1,
+            branch_node_kind="branch:if",
+            required_symbols=branch_required_symbols(branch_node),
+        )
+        assert second.branch_site_id == first.branch_site_id
+    finally:
+        lattice_algebra.frontier = original_frontier  # type: ignore[assignment]

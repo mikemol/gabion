@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Literal
 
 from gabion.analysis.foundation.json_types import JSONObject
+from gabion.invariants import never
 
 _PARSE_MODULE_ERROR_TYPES = (
     OSError,
@@ -95,6 +96,7 @@ def _parse_module_tree_optional(
             return None
 
 
+            never("unreachable wildcard match fall-through")
 def _forbid_adhoc_bundle_discovery(reason: str) -> None:
     if os.environ.get("GABION_FORBID_ADHOC_BUNDLES") == "1":
         raise AssertionError(

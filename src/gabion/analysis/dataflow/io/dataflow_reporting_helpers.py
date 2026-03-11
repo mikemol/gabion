@@ -27,6 +27,7 @@ from gabion.runtime_shape_dispatch import (
     json_mapping_optional as _json_mapping_optional,
     str_optional as _str_optional,
 )
+from gabion.invariants import never
 
 _FORBID_RAW_SORTED_ENV = "GABION_FORBID_RAW_SORTED"
 
@@ -73,6 +74,7 @@ def _raw_sorted_callsite_counts(
                             locations.append((line, col))
                         case _:
                             pass
+                            never("unreachable wildcard match fall-through")
                 if locations:
                     counts[_raw_sorted_baseline_key(path)] = locations
     return counts
@@ -371,6 +373,7 @@ def _span4(value: object) -> tuple[object, object, object, object]:
             return (-1, -1, -1, -1)
 
 
+            never("unreachable wildcard match fall-through")
 def summarize_never_invariants(entries: list[JSONObject]) -> list[str]:
     check_deadline()
     if not entries:

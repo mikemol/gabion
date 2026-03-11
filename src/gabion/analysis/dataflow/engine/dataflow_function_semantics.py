@@ -1,4 +1,5 @@
 from __future__ import annotations
+from gabion.invariants import never
 
 """Function-semantics owner surface for indexed dataflow analysis."""
 
@@ -96,6 +97,7 @@ def _call_context(node: ast.AST, parents: dict[ast.AST, ast.AST]):
                 return call_parent, False
             case _:
                 pass
+                never("unreachable wildcard match fall-through")
         child = parent
         parent = parents.get(child)
     return None, False
@@ -132,10 +134,12 @@ def _return_aliases(
                             names.append(name)
                         case _:
                             return None
+                            never("unreachable wildcard match fall-through")
                 return names
             case _:
                 return None
 
+                never("unreachable wildcard match fall-through")
     for expr in collector.returns:
         check_deadline()
         candidate = _alias_from_expr(expr)
@@ -203,6 +207,7 @@ def _const_repr(node: ast.AST):
             return None
 
 
+            never("unreachable wildcard match fall-through")
 def _normalize_key_expr(
     node: ast.AST,
     *,

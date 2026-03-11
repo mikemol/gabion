@@ -10,6 +10,7 @@ from gabion.analysis.foundation.json_types import ParseFailureWitnesses
 from gabion.analysis.indexed_scan.index.analysis_index_stage_cache import (
     AnalysisIndexStageCacheFn,
 )
+from gabion.invariants import never
 
 
 @dataclass(frozen=True)
@@ -44,6 +45,7 @@ def call_nodes_for_tree(
                 pass
             case _:
                 continue
+                never("unreachable wildcard match fall-through")
         span = deps.node_span_fn(call_node)
         if span is not None:
             span_map[span].append(call_node)

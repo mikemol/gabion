@@ -12,6 +12,7 @@ from gabion.analysis.foundation.resume_codec import sequence_optional
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.json_types import JSONObject, JSONValue
 from gabion.order_contract import sort_once
+from gabion.invariants import never
 
 
 def emit_wl_refinement_facets(
@@ -276,6 +277,7 @@ def _seed_struct(
                 seed[field] = canon_fn(structured_value)
             case _:
                 seed[field] = str(value)
+                never("unreachable wildcard match fall-through")
     return canon_fn(seed)
 
 
@@ -302,6 +304,7 @@ def _bool_param(params: Mapping[str, JSONValue], name: str, default: bool) -> bo
             return bool(numeric_value)
         case _:
             pass
+            never("unreachable wildcard match fall-through")
     text = str(value or "").strip().lower()
     if text in {"1", "true", "yes", "on"}:
         return True

@@ -155,3 +155,10 @@ CLI controls:
 
 ASPF opportunity classification is now authored in `docs/aspf_opportunity_rules.yaml` and evaluated through `src/gabion/analysis/aspf_rule_engine.py` + `src/gabion/policy_dsl/` compile/typecheck/eval pipeline.
 
+## Lattice algebra ownership
+
+Canonical fiber algebra now lives in `src/gabion/analysis/aspf/aspf_lattice_algebra.py`.
+- Fibers are first-class and typed as execution fibers (`ExecFiber`) and datum fibers (`DataFiber`), bundled in `FiberBundle`.
+- Frontier/recombination provenance is emitted as `FrontierWitness` (hard cutover from legacy `recombination_frontier` payload shape).
+- Cross-flow commutation is explicit through natural transforms `eta_data_to_exec` and `eta_exec_to_data`, each with required witness output.
+- Policy-substrate recombination is an adapter over this module (`src/gabion/tooling/policy_substrate/dataflow_fibration.py`) and must not host independent frontier/merge algorithms.

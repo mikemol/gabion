@@ -94,12 +94,15 @@ def _collect_local_dataclasses(tree: ast.AST) -> dict[str, tuple[str, ...]]:
                                             fields.append(target_name.id)
                                         case _:
                                             pass
+                                            never("unreachable wildcard match fall-through")
                             case _:
                                 pass
+                                never("unreachable wildcard match fall-through")
                     if fields:
                         local_dataclasses[class_node.name] = tuple(fields)
             case _:
                 pass
+                never("unreachable wildcard match fall-through")
     return local_dataclasses
 
 
@@ -109,6 +112,7 @@ def _module_identifier(module_name: object) -> ModuleIdentifier:
             normalized = module_name_text.strip()
         case _:
             raise ValueError("_module_name must return str")
+            never("unreachable wildcard match fall-through")
     if not normalized:
         raise ValueError("module identifier must be non-empty")
     return ModuleIdentifier(value=normalized)
@@ -129,6 +133,7 @@ def _effective_dataclass_registry(
         case _:
             pass
 
+            never("unreachable wildcard match fall-through")
     effective_registry: dict[str, tuple[str, ...]] = {}
     for name, fields in local_dataclasses.items():
         check_deadline()
@@ -172,6 +177,7 @@ def _resolve_dataclass_fields(
                         return context.dataclass_registry[candidate]
         case _:
             pass
+            never("unreachable wildcard match fall-through")
     return ()
 
 
@@ -238,6 +244,7 @@ def _plan_constructor_operations(
                             witness_effects=tuple(witness_effects),
                             terminal_status="stop",
                         )
+                        never("unreachable wildcard match fall-through")
             case _:
                 operations.append(
                     _ConstructorOperation(
@@ -247,6 +254,7 @@ def _plan_constructor_operations(
                     )
                 )
 
+                never("unreachable wildcard match fall-through")
     for keyword in call.keywords:
         check_deadline()
         if keyword.arg is not None:
@@ -300,6 +308,7 @@ def _plan_constructor_operations(
                                 witness_effects=tuple(witness_effects),
                                 terminal_status="stop",
                             )
+                            never("unreachable wildcard match fall-through")
             case _:
                 witness_effects.append(
                     _unresolved_starred_witness(
@@ -315,6 +324,7 @@ def _plan_constructor_operations(
                     terminal_status="stop",
                 )
 
+                never("unreachable wildcard match fall-through")
     return _ConstructorPlan(
         operations=tuple(operations),
         witness_effects=tuple(witness_effects),
@@ -467,6 +477,7 @@ def iter_dataclass_call_bundle_effects(
             case _:
                 pass
 
+                never("unreachable wildcard match fall-through")
     return BundleIterationOutcome(
         bundles=frozenset(bundles),
         witness_effects=tuple(witness_effects),

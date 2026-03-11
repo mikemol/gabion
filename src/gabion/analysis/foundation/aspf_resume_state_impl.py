@@ -152,14 +152,12 @@ def iter_delta_records_from_stream_paths(
     for path in stream_paths:
         for line in wire_text_codec.iter_nonempty_lines(path):
             loaded = wire_text_codec.decode_text(line)
-            match loaded:
-                case dict() as loaded_mapping:
-                    yield {
-                        str(key): _as_wire_value(loaded_mapping[key])
-                        for key in loaded_mapping
-                    }
-                case _:
-                    raise AssertionError("delta stream line must decode to a mapping")
+            if not isinstance(loaded, dict):
+                raise AssertionError("delta stream line must decode to a mapping")
+            yield {
+                str(key): _as_wire_value(loaded[key])
+                for key in loaded
+            }
 
 
 def iter_delta_records(
@@ -187,38 +185,29 @@ def load_latest_resume_projection_from_state_files(
     for path in state_paths:
         payload = _load_wire_object(path)
         resume = payload.get("resume_projection")
-        match resume:
-            case dict() as resume_mapping:
-                latest_projection = {
-                    str(key): _as_wire_value(resume_mapping[key])
-                    for key in resume_mapping
-                }
-            case _:
-                raise AssertionError("resume_projection must be a mapping")
+        if not isinstance(resume, dict):
+            raise AssertionError("resume_projection must be a mapping")
+        latest_projection = {
+            str(key): _as_wire_value(resume[key])
+            for key in resume
+        }
     return latest_projection
 
 
 def _iter_delta_records_from_state_payload(*, payload: Mapping[str, object]) -> Iterator[WireObject]:
     ledger = payload.get("delta_ledger")
-    match ledger:
-        case dict() as ledger_mapping:
-            raw_records = ledger_mapping.get("records")
-        case _:
-            raise AssertionError("delta_ledger must be a mapping")
-    match raw_records:
-        case list() as raw_record_list:
-            pass
-        case _:
-            raise AssertionError("delta_ledger.records must be a list")
-    for raw_record in raw_record_list:
-        match raw_record:
-            case dict() as raw_record_mapping:
-                yield {
-                    str(key): _as_wire_value(raw_record_mapping[key])
-                    for key in raw_record_mapping
-                }
-            case _:
-                raise AssertionError("delta_ledger.records entries must be mappings")
+    if not isinstance(ledger, dict):
+        raise AssertionError("delta_ledger must be a mapping")
+    raw_records = ledger.get("records")
+    if not isinstance(raw_records, list):
+        raise AssertionError("delta_ledger.records must be a list")
+    for raw_record in raw_records:
+        if not isinstance(raw_record, dict):
+            raise AssertionError("delta_ledger.records entries must be mappings")
+        yield {
+            str(key): _as_wire_value(raw_record[key])
+            for key in raw_record
+        }
 
 
 def _delta_stream_path_for_state_path(path: Path) -> Path:
@@ -251,12 +240,10 @@ def _assign_by_path(
 
 
 def _as_wire_value(value: object) -> WireValue:
-    match value:
-        case dict() as mapping:
-            return {str(key): _as_wire_value(mapping[key]) for key in mapping}
-        case list() | tuple() | set() as sequence:
-            return [_as_wire_value(item) for item in sequence]
-        case str() | int() | float() | bool() | None:
-            return value
-        case _:
-            raise AssertionError("resume state payload values must be wire-compatible")
+    if isinstance(value, dict):
+        return {str(key): _as_wire_value(value[key]) for key in value}
+    if isinstance(value, list | tuple | set):
+        return [_as_wire_value(item) for item in value]
+    if value is None or isinstance(value, str | int | float | bool):
+        return value
+    raise AssertionError("resume state payload values must be wire-compatible")

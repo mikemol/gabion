@@ -6,6 +6,7 @@ from typing import Callable, Mapping, Sequence, cast
 
 from gabion.analysis.dataflow.engine.dataflow_contracts import InvariantProposition
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue
+from gabion.invariants import never
 
 
 @dataclass(frozen=True)
@@ -133,12 +134,14 @@ def build_property_hook_callable_index(
                 pass
             case _:
                 continue
+                never("unreachable wildcard match fall-through")
         callable_payload = hook_payload.get("callable")
         match callable_payload:
             case dict() as callable_mapping:
                 pass
             case _:
                 continue
+                never("unreachable wildcard match fall-through")
         path = str(callable_mapping.get("path", "") or "")
         qual = str(callable_mapping.get("qual", "") or "")
         if not path or not qual:

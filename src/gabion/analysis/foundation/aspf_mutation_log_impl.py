@@ -10,6 +10,7 @@ from typing import Mapping
 from gabion.analysis.foundation import wire_text_codec
 from gabion.analysis.foundation.wire_types import WireObject, WireValue
 from gabion.analysis.foundation.resume_codec import mapping_optional, sequence_optional
+from gabion.invariants import never
 
 
 @dataclass(frozen=True)
@@ -191,6 +192,7 @@ def decode_event_envelope_proto(payload: bytes) -> EventEnvelope:
             pass
         case _:
             raise ProtobufDecodeError("event envelope missing required fields")
+            never("unreachable wildcard match fall-through")
     try:
         run_id = run_id_field.decode("utf-8")
     except UnicodeDecodeError as exc:
@@ -237,6 +239,7 @@ def decode_snapshot_envelope_proto(payload: bytes) -> SnapshotEnvelope:
             pass
         case _:
             raise ProtobufDecodeError("snapshot envelope missing required fields")
+            never("unreachable wildcard match fall-through")
     try:
         run_id = run_id_field.decode("utf-8")
     except UnicodeDecodeError as exc:
@@ -268,6 +271,7 @@ def decode_archive_manifest_proto(payload: bytes) -> ArchiveManifest:
             pass
         case _:
             raise ProtobufDecodeError("manifest envelope missing payload")
+            never("unreachable wildcard match fall-through")
     data = _wire_bytes_to_object(body)
     return ArchiveManifest(
         schema_version=int(data.get("schema_version", 0) or 0),

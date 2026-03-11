@@ -13,6 +13,7 @@ from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.json_types import JSONObject, JSONValue
 from gabion.order_contract import sort_once
 from gabion.runtime import stable_encode
+from gabion.invariants import never
 
 
 class TaintColor(StrEnum):
@@ -658,6 +659,7 @@ def _witness_from_payload(payload: object) -> object:
             return None
 
 
+            never("unreachable wildcard match fall-through")
 def _boundary_from_payload(payload: object) -> object:
     match payload:
         case TaintBoundaryLocus() as boundary:
@@ -666,6 +668,7 @@ def _boundary_from_payload(payload: object) -> object:
             return None
 
 
+            never("unreachable wildcard match fall-through")
 def _boundary_diagnostic_codes(
     *,
     profile: TaintProfile,
@@ -730,3 +733,4 @@ def _normalized_today(payload: object) -> date:
             return day
         case _:
             return date.today()
+            never("unreachable wildcard match fall-through")

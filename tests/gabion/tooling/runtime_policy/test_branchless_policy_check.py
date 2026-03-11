@@ -26,11 +26,12 @@ def test_branchless_policy_flags_non_protocol_branches(tmp_path: Path) -> None:
     violations = policy.collect_violations(batch=batch)
     assert violations
     if_violation = next(v for v in violations if v.kind == "if")
-    assert list(if_violation.recombination_frontier.required_symbols) == ["x"]
-    assert list(if_violation.recombination_frontier.unresolved_symbols) == []
-    assert if_violation.recombination_frontier.anchor_line == 1
-    assert if_violation.recombination_frontier.execution_event_count >= 1
-    assert if_violation.recombination_frontier.execution_frontier_ordinal >= 0
+    assert list(if_violation.lattice_witness.required_symbols) == ["x"]
+    assert list(if_violation.lattice_witness.unresolved_symbols) == []
+    assert if_violation.lattice_witness.data_anchor_line == 1
+    assert if_violation.lattice_witness.execution_event_count >= 1
+    assert if_violation.lattice_witness.exec_frontier_ordinal >= 0
+    assert if_violation.lattice_witness.complete
 
 
 # gabion:evidence E:call_footprint::tests/test_branchless_policy_check.py::test_branchless_policy_allows_marked_decision_protocol::branchless_policy_check.py::scripts.branchless_policy_check.run

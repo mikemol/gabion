@@ -373,6 +373,7 @@ def _deserialize_call_args(payload: Mapping[str, JSONValue]):
             pass
         case _:
             return None
+            never("unreachable wildcard match fall-through")
     star_pos = list(int_str_pairs_from_sequence(payload.get("star_pos")))
     span = _first_int_tuple4(payload.get("span"))
     return CallArgs(
@@ -471,6 +472,7 @@ def _deserialize_class_info_for_resume(
             pass
         case _:
             return None
+            never("unreachable wildcard match fall-through")
     bases = list(str_list_from_sequence(payload.get("bases")))
     methods = set(str_set_from_sequence(payload.get("methods")))
     return ClassInfo(

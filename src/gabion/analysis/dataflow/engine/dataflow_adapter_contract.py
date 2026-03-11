@@ -1,4 +1,5 @@
 from __future__ import annotations
+from gabion.invariants import never
 
 """Adapter contract normalization owner surface."""
 
@@ -26,6 +27,7 @@ def parse_adapter_capabilities(payload: object) -> AdapterCapabilities:
                     case _:
                         return default
 
+                        never("unreachable wildcard match fall-through")
             return AdapterCapabilities(
                 bundle_inference=_read("bundle_inference"),
                 decision_surfaces=_read("decision_surfaces"),
@@ -37,6 +39,7 @@ def parse_adapter_capabilities(payload: object) -> AdapterCapabilities:
             return AdapterCapabilities()
 
 
+            never("unreachable wildcard match fall-through")
 def normalize_adapter_contract(payload: object) -> JSONObject:
     match payload:
         case dict() as raw:
@@ -50,6 +53,7 @@ def normalize_adapter_contract(payload: object) -> JSONObject:
             return {"name": "native", "capabilities": AdapterCapabilities().__dict__}
 
 
+            never("unreachable wildcard match fall-through")
 __all__ = [
     "AdapterCapabilities",
     "normalize_adapter_contract",

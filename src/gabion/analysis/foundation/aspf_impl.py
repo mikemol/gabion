@@ -43,6 +43,7 @@ def _fingerprint_part(part: object) -> str:
             return f"repr:{part!r}"
 
 
+            never("unreachable wildcard match fall-through")
 def fingerprint_identity(kind: str, key: NodeKey) -> NodeFingerprint:
     return (kind, tuple(_fingerprint_part(part) for part in key))
 
@@ -184,6 +185,7 @@ def _canonicalize_evidence_value(value: object) -> object:
             return value
 
 
+            never("unreachable wildcard match fall-through")
 def _float_structural_atom(value: float) -> StructuralKeyAtom:
     if math.isnan(value):
         return ("float_nan",)
@@ -306,6 +308,7 @@ def structural_key_wire(
             return value
 
 
+            never("unreachable wildcard match fall-through")
 @dataclass
 class Forest:
     nodes: dict[NodeId, Node] = field(default_factory=dict)
@@ -471,6 +474,7 @@ class Forest:
                 meta["spec_version"] = int(normalized_spec_version)
             case _:
                 pass
+                never("unreachable wildcard match fall-through")
         return self._intern_node(node_id, meta)
 
     def add_alt(

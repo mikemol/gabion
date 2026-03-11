@@ -727,12 +727,14 @@ def _lint_lines_from_call_ambiguities(entries: Iterable[JSONObject]) -> list[str
                 pass
             case _:
                 continue
+                never("unreachable wildcard match fall-through")
         site = entry_payload.get("site", {})
         match site:
             case dict() as site_mapping:
                 pass
             case _:
                 continue
+                never("unreachable wildcard match fall-through")
         path = str(site_mapping.get("path", "") or "")
         if not path:
             continue

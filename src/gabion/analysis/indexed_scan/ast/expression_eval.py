@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from gabion.analysis.foundation.json_types import JSONValue
+from gabion.invariants import never
 
 
 class EvalDecision(StrEnum):
@@ -60,6 +61,7 @@ def _is_numeric_value(value: JSONValue) -> bool:
             return False
 
 
+            never("unreachable wildcard match fall-through")
 def eval_value_expr(
     expr: ast.AST,
     env: Mapping[str, JSONValue],
@@ -74,6 +76,7 @@ def eval_value_expr(
                     return _known_value_outcome(value)
                 case _:
                     return _unknown_value_outcome()
+                    never("unreachable wildcard match fall-through")
         case ast.Name(id=name):
             if name in env:
                 return _known_value_outcome(env[name])
@@ -86,6 +89,7 @@ def eval_value_expr(
                     is_negative = False
                 case _:
                     return _unknown_value_outcome()
+                    never("unreachable wildcard match fall-through")
             value_outcome = eval_value_expr(
                 operand,
                 env,
@@ -100,6 +104,7 @@ def eval_value_expr(
             return _unknown_value_outcome()
 
 
+            never("unreachable wildcard match fall-through")
 def _eval_boolop_values(
     values: Sequence[ast.expr],
     env: Mapping[str, JSONValue],
@@ -153,6 +158,7 @@ def _eval_compare(
                 return _bool_outcome(left_value >= right_value)
         case _:
             pass
+            never("unreachable wildcard match fall-through")
     return _unknown_bool_outcome()
 
 
@@ -195,6 +201,7 @@ def eval_bool_expr(
             return _unknown_bool_outcome()
 
 
+            never("unreachable wildcard match fall-through")
 def branch_reachability_under_env(
     node: ast.AST,
     parents: Mapping[ast.AST, ast.AST],
@@ -217,6 +224,7 @@ def branch_reachability_under_env(
                     constraints.append((if_node.test, False))
             case _:
                 pass
+                never("unreachable wildcard match fall-through")
         current_node = current
         current = parents.get(current_node)
 

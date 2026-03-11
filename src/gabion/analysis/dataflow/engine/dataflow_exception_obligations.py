@@ -8,6 +8,7 @@ from collections.abc import Callable, Mapping
 from enum import StrEnum
 
 from gabion.order_contract import sort_once
+from gabion.invariants import never
 
 _AST_UNPARSE_ERROR_TYPES = (
     AttributeError,
@@ -40,8 +41,10 @@ def exception_param_names(
                         names.add(name_text)
                     case _:
                         pass
+                        never("unreachable wildcard match fall-through")
         case _:
             pass
+            never("unreachable wildcard match fall-through")
     return sort_once(names, source="_exception_param_names.names")
 
 
@@ -59,6 +62,7 @@ def exception_type_name(
             return None
 
 
+            never("unreachable wildcard match fall-through")
 def handler_is_broad(handler: ast.ExceptHandler) -> bool:
     if handler.type is None:
         return True
@@ -71,6 +75,7 @@ def handler_is_broad(handler: ast.ExceptHandler) -> bool:
             return False
 
 
+            never("unreachable wildcard match fall-through")
 def handler_label(handler: ast.ExceptHandler) -> str:
     if handler.type is None:
         return "except:"
@@ -121,6 +126,7 @@ def handler_type_names(
             return ()
 
 
+            never("unreachable wildcard match fall-through")
 def exception_handler_compatibility(
     exception_name: object,
     handler_type: object,
@@ -143,6 +149,7 @@ def exception_handler_compatibility(
             exception_cls = _builtin_exception_class(exception_name_text)
         case _:
             exception_cls = None
+            never("unreachable wildcard match fall-through")
     if exception_cls is None:
         return "unknown"
     any_unknown = False
@@ -166,3 +173,4 @@ def _builtin_exception_class(name: str) -> object:
             return None
         case _:
             return None
+            never("unreachable wildcard match fall-through")

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Callable
 
 from gabion.analysis.foundation.json_types import ParseFailureWitnesses
+from gabion.invariants import never
 
 
 @dataclass(frozen=True)
@@ -70,6 +71,7 @@ def infer_type_flow(
             case _:
                 return None
 
+                never("unreachable wildcard match fall-through")
     def _downstream_for(info) -> tuple[dict[str, set[str]], dict[str, dict[str, set[str]]]]:
         deps.check_deadline_fn()
         downstream: dict[str, set[str]] = defaultdict(set)

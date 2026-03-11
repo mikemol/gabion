@@ -41,6 +41,7 @@ def extract_report_sections(
             case _:
                 if active_section_id:
                     sections[active_section_id].append(raw_line)
+                never("unreachable wildcard match fall-through")
     return sections
 
 

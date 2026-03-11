@@ -307,6 +307,18 @@ rules:
       message: sentinel control outcome in core
     evidence_contract: none
 
+  - rule_id: ACP-005
+    domain: ambiguity_contract_ast
+    severity: blocking
+    predicate:
+      op: str_eq
+      path: [event]
+      value: match_fallthrough_without_never
+    outcome:
+      kind: block
+      message: fall-through match case must call never() in its body
+    evidence_contract: none
+
   - rule_id: ambiguity.ast.ok
     domain: ambiguity_contract_ast
     severity: info

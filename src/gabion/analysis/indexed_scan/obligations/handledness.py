@@ -12,6 +12,7 @@ from gabion.analysis.indexed_scan.ast.ast_context import (
     enclosing_function_context)
 from gabion.analysis.indexed_scan.ast.context_walkers import iter_nodes_of_types, iter_parsed_path_contexts
 from gabion.analysis.indexed_scan.obligations.handledness_decision import decide_handledness
+from gabion.invariants import never
 
 
 def collect_handledness_witnesses(
@@ -69,6 +70,7 @@ def collect_handledness_witnesses(
                 case _:
                     raise AssertionError("node must be ast.Raise or ast.Assert")
 
+                    never("unreachable wildcard match fall-through")
             function, params, param_annotations = enclosing_function_context(
                 raise_node,
                 parents=context.parents,

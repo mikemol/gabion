@@ -1092,11 +1092,7 @@ def tier2_unreified_residue_entries(
     for entry in entries:
         check_deadline()
         expected_raw = entry.payload.get("expected")
-        match expected_raw:
-            case dict() as expected_mapping:
-                expected = expected_mapping
-            case _:
-                expected = {}
+        expected = expected_raw if isinstance(expected_raw, dict) else {}
         tier_value = expected.get("tier")
         min_members_raw = str(expected.get("min_members", "")).strip()
         min_members = (

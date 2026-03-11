@@ -313,35 +313,29 @@ def _collection_identity_tokens(
 
 def _positive_int_optional(value: JSONValue | None) -> int | None:
     check_deadline()
-    match value:
-        case bool():
-            return None
-        case int() as int_value if int_value > 0:
-            return int_value
-        case _:
-            return None
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int) and value > 0:
+        return value
+    return None
 
 
 def _normalized_nonempty_str_list(value: JSONValue | None) -> list[str]:
     check_deadline()
-    match value:
-        case list() as raw_items if raw_items:
-            normalized_items: list[str] = []
-            for item in raw_items:
-                check_deadline()
-                match item:
-                    case str() as item_text:
-                        normalized_item = item_text.strip()
-                        if not normalized_item:
-                            return []
-                        normalized_items.append(normalized_item)
-                    case _:
-                        return []
-            if len(normalized_items) == len(raw_items):
-                return normalized_items
-            return []
-        case _:
-            return []
+    if isinstance(value, list) and value:
+        normalized_items: list[str] = []
+        for item in value:
+            check_deadline()
+            if not isinstance(item, str):
+                return []
+            normalized_item = item.strip()
+            if not normalized_item:
+                return []
+            normalized_items.append(normalized_item)
+        if len(normalized_items) == len(value):
+            return normalized_items
+        return []
+    return []
 
 
 def _payload_digest(payload: Mapping[str, JSONValue]) -> str:

@@ -9,6 +9,7 @@ from gabion.analysis.foundation.json_types import ParseFailureWitnesses
 from gabion.analysis.indexed_scan.index.analysis_index_stage_cache import (
     AnalysisIndexStageCacheFn,
 )
+from gabion.invariants import never
 
 
 @dataclass(frozen=True)
@@ -103,6 +104,7 @@ def dataclass_registry_for_tree(
                 pass
             case _:
                 continue
+                never("unreachable wildcard match fall-through")
         decorators = {deps.decorator_text_fn(dec) for dec in class_node.decorator_list}
         if not any("dataclass" in dec for dec in decorators):
             continue
@@ -117,6 +119,7 @@ def dataclass_registry_for_tree(
                             fields.append(field_name)
                         case _:
                             pass
+                            never("unreachable wildcard match fall-through")
                 case ast.Assign(targets=targets):
                     for target in targets:
                         deps.check_deadline_fn()
@@ -126,8 +129,10 @@ def dataclass_registry_for_tree(
                                 fields.append(field_name)
                             case _:
                                 pass
+                                never("unreachable wildcard match fall-through")
                 case _:
                     pass
+                    never("unreachable wildcard match fall-through")
         if not fields:
             continue
         if module:

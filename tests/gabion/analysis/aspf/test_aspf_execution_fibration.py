@@ -9,6 +9,7 @@ from gabion.analysis.aspf import aspf_execution_fibration
 from gabion.analysis.aspf.aspf_core import AspfOneCell, BasisZeroCell
 from gabion.analysis.aspf.aspf_morphisms import (
     AspfPrimeBasis, DomainPrimeBasis, DomainToAspfCofibration, DomainToAspfCofibrationEntry)
+from gabion.analysis.foundation import aspf_execution_fibration_impl
 from gabion.exceptions import NeverRaise
 
 
@@ -252,18 +253,87 @@ def test_build_opportunities_payload_emits_materialize_and_fungible_candidates(
         state=state,
         equivalence_payload=equivalence,
     )
+    assert opportunities["format_version"] == 1
+    assert opportunities["trace_id"] == state.trace_id
     rows = opportunities["opportunities"]
     assert isinstance(rows, list)
-    kinds = {str(row.get("kind")) for row in rows if isinstance(row, dict)}
-    assert "materialize_load_fusion" in kinds
-    assert "fungible_execution_path_substitution" in kinds
+    opportunity_ids = [
+        str(row.get("opportunity_id", ""))
+        for row in rows
+        if isinstance(row, dict)
+    ]
+    assert opportunity_ids
+    assert opportunity_ids == sorted(opportunity_ids)
+    by_opportunity: dict[str, dict[str, object]] = {
+        str(row.get("opportunity_id", "")): row
+        for row in rows
+        if isinstance(row, dict)
+    }
+    for row in by_opportunity.values():
+        decision = row.get("policy_decision")
+        assert isinstance(decision, dict)
+        assert decision.get("domain") == "aspf_opportunity"
+        assert decision.get("matched") is True
+        assert decision.get("rule_id") == row.get("rule_id")
+    fungible_row = by_opportunity["opp:fungible-substitution:groups_by_path"]
+    assert fungible_row["rule_id"] == "aspf.opportunity.fungible_execution_path_substitution"
     rewrite_plans = opportunities["rewrite_plans"]
     assert isinstance(rewrite_plans, list)
+    plan_ids = [str(plan.get("plan_id", "")) for plan in rewrite_plans if isinstance(plan, dict)]
+    assert plan_ids == sorted(plan_ids)
     fungible_plan = next(
-        plan for plan in rewrite_plans if isinstance(plan, dict) and plan.get("opportunity_id") == "opp:fungible-substitution:groups_by_path"
+        plan
+        for plan in rewrite_plans
+        if isinstance(plan, dict)
+        and plan.get("opportunity_id") == "opp:fungible-substitution:groups_by_path"
     )
     assert fungible_plan["actionability"] == "actionable"
     assert fungible_plan["required_witnesses"] == ["w:groups-fungible"]
+    assert fungible_plan["rule_id"] == "aspf.opportunity.fungible_execution_path_substitution"
+
+
+def test_execution_fibration_boundary_materializes_iterator_once(tmp_path: Path) -> None:
+    state = aspf_execution_fibration.start_execution_trace(
+        root=tmp_path,
+        payload=_trace_payload(
+            trace_json=tmp_path / "trace.json",
+            surfaces=["groups_by_path"],
+        ),
+    )
+    assert state is not None
+    aspf_execution_fibration.register_semantic_surface(
+        state=state,
+        surface="groups_by_path",
+        value={"pkg/mod.py": {"fn": [{"a"}]}},
+    )
+    equivalence = aspf_execution_fibration.build_equivalence_payload(
+        state=state,
+        baseline_traces=[],
+    )
+    counter = {"created": 0, "yielded": 0}
+    real_iter_trace_events = aspf_execution_fibration_impl._iter_trace_events
+
+    def _wrapped_iter_trace_events(*, state: object):
+        counter["created"] += 1
+        for event in real_iter_trace_events(state=state):
+            counter["yielded"] += 1
+            yield event
+
+    original_iter_trace_events = aspf_execution_fibration_impl._iter_trace_events
+    aspf_execution_fibration_impl._iter_trace_events = _wrapped_iter_trace_events  # type: ignore[assignment]
+    try:
+        assert counter["created"] == 0
+        assert counter["yielded"] == 0
+        payload = aspf_execution_fibration.build_opportunities_payload(
+            state=state,
+            equivalence_payload=equivalence,
+        )
+        assert payload["trace_id"] == state.trace_id
+        assert isinstance(payload["opportunities"], list)
+        assert counter["created"] == 1
+        assert counter["yielded"] >= 1
+    finally:
+        aspf_execution_fibration_impl._iter_trace_events = original_iter_trace_events  # type: ignore[assignment]
 
 
 # gabion:evidence E:call_footprint::tests/test_aspf_execution_fibration.py::test_finalize_execution_trace_allows_state_object_roundtrip_import::aspf_execution_fibration.py::gabion.analysis.aspf_execution_fibration.finalize_execution_trace

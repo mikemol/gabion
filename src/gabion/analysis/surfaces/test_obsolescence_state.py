@@ -59,24 +59,16 @@ def parse_state_payload(payload: Mapping[str, JSONValue]) -> ObsolescenceState:
         error_context="test obsolescence state",
     )
     baseline_payload = payload.get("baseline", {})
-    match baseline_payload:
-        case {**baseline_mapping}:
-            pass
-        case _:
-            raise ValueError("Test obsolescence state baseline must be an object.")
+    if not isinstance(baseline_payload, dict):
+        raise ValueError("Test obsolescence state baseline must be an object.")
+    baseline_mapping = baseline_payload
     baseline = test_obsolescence_delta.parse_baseline_payload(baseline_mapping)
     candidates_payload = payload.get("candidates", [])
     candidates: list[dict[str, JSONValue]] = []
-    match candidates_payload:
-        case list() as candidate_entries:
-            for entry in candidate_entries:
-                match entry:
-                    case {**entry_mapping}:
-                        candidates.append({str(k): entry_mapping[k] for k in entry_mapping})
-                    case _:
-                        pass
-        case _:
-            pass
+    if isinstance(candidates_payload, list):
+        for entry in candidates_payload:
+            if isinstance(entry, dict):
+                candidates.append({str(k): entry[k] for k in entry})
     spec_id, spec = parse_spec_metadata(payload)
     return ObsolescenceState(
         candidates=candidates,

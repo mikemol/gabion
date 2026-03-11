@@ -167,8 +167,6 @@ def _extract_predicates(params: Mapping[str, JSONValue]) -> list[str]:
     match legacy:
         case str() as legacy_text if legacy_text.strip():
             predicates.append(legacy_text.strip())
-        case _:
-            pass
     explicit = params.get("predicates")
     match explicit:
         case str() as explicit_text if explicit_text.strip():
@@ -179,10 +177,6 @@ def _extract_predicates(params: Mapping[str, JSONValue]) -> list[str]:
                 match entry:
                     case str() as entry_text:
                         predicates.append(entry_text.strip())
-                    case _:
-                        pass
-        case _:
-            pass
     return predicates
 
 
@@ -276,13 +270,20 @@ def _normalize_limit(value: JSONValue):
     return count
 
 
+@singledispatch
 def _normalize_value(value: JSONValue) -> JSONValue:
     check_deadline()
-    match value:
-        case dict() as value_map:
-            ordered_keys = canonical_mapping_keys(value_map)
-            return {str(key): _normalize_value(value_map[key]) for key in ordered_keys}
-        case list() as value_list:
-            return [_normalize_value(entry) for entry in value_list]
-        case _:
-            return value
+    return value
+
+
+@_normalize_value.register(dict)
+def _sd_reg_5(value: dict[object, JSONValue]) -> JSONValue:
+    check_deadline()
+    ordered_keys = canonical_mapping_keys(value)
+    return {str(key): _normalize_value(value[key]) for key in ordered_keys}
+
+
+@_normalize_value.register(list)
+def _sd_reg_6(value: list[JSONValue]) -> JSONValue:
+    check_deadline()
+    return [_normalize_value(entry) for entry in value]

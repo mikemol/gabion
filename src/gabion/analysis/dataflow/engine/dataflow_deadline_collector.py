@@ -73,6 +73,7 @@ def make_deadline_function_collector(
                 case _:
                     return False
 
+                    never("unreachable wildcard match fall-through")
         def _visit_loop_body(
             self,
             node: ast.AST,

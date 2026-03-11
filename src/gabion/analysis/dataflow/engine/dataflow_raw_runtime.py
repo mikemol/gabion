@@ -295,8 +295,10 @@ def _normalize_transparent_decorators(
                         items.extend(parts)
                     case _:
                         pass
+                        never("unreachable wildcard match fall-through")
         case _:
             pass
+            never("unreachable wildcard match fall-through")
     if items:
         return set(items)
     return None
@@ -485,6 +487,7 @@ def _run_impl(
                     required_analysis_surfaces.add(normalized_surface)
             case _:
                 pass
+                never("unreachable wildcard match fall-through")
     config = AuditConfig(
         project_root=Path(args.root),
         exclude_dirs=exclude_dirs,

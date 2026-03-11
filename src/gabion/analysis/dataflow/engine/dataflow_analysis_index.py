@@ -685,6 +685,7 @@ def _normalize_cache_config(value):
             return value
 
 
+            never("unreachable wildcard match fall-through")
 def _canonical_stage_cache_detail(detail) -> str:
     structural_detail = structural_key_atom(
         detail,

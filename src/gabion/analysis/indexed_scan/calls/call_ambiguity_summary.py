@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Callable, Mapping, cast
 
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue
+from gabion.invariants import never
 
 
 @dataclass(frozen=True)
@@ -34,6 +35,7 @@ def summarize_call_ambiguities(
                 pass
             case _:
                 continue
+                never("unreachable wildcard match fall-through")
         kind = str(entry_payload.get("kind", "") or "unknown")
         site_payload = entry_payload.get("site", {})
         match site_payload:
@@ -41,6 +43,7 @@ def summarize_call_ambiguities(
                 pass
             case _:
                 site_mapping = {}
+                never("unreachable wildcard match fall-through")
         path = str(site_mapping.get("path", "") or "")
         function = str(site_mapping.get("function", "") or "")
         span = site_mapping.get("span")

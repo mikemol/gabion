@@ -9,6 +9,7 @@ from typing import TypeVar
 from gabion.analysis.foundation.json_types import JSONValue
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.runtime_shape_dispatch import str_optional
+from gabion.invariants import never
 
 
 _TParsed = TypeVar("_TParsed")
@@ -40,6 +41,7 @@ def iter_mapping_items(value):
             return
 
 
+            never("unreachable wildcard match fall-through")
 def iter_mapping_values(value) -> Iterator[Mapping[str, JSONValue]]:
     return filter(
         _is_not_none,
@@ -68,6 +70,7 @@ def mapping_optional(value):
             return None
 
 
+            never("unreachable wildcard match fall-through")
 def mapping_payload(
     payload,
 ):
@@ -142,6 +145,7 @@ def mapping_default_empty(value) -> Mapping[str, JSONValue]:
             return {}
 
 
+            never("unreachable wildcard match fall-through")
 def sequence_optional(value, *, allow_str: bool = False):
     match value:
         case str() | bytes() | bytearray():
@@ -154,6 +158,7 @@ def sequence_optional(value, *, allow_str: bool = False):
             return None
 
 
+            never("unreachable wildcard match fall-through")
 def iter_sequence_items(value, *, allow_str: bool = False):
     for entry in sequence_optional(value, allow_str=allow_str) or ():
         check_deadline()
@@ -234,6 +239,7 @@ def _iter_int_str_pair_entry(entry) -> Iterator[tuple[int, str]]:
             return chain()
 
 
+            never("unreachable wildcard match fall-through")
 def int_str_pairs_from_sequence(value) -> Iterator[tuple[int, str]]:
     return iter_int_str_pairs_from_sequence(value)
 
@@ -254,6 +260,7 @@ def _iter_str_pair_entry(entry) -> Iterator[tuple[str, str]]:
             return chain()
 
 
+            never("unreachable wildcard match fall-through")
 def str_pair_set_from_sequence(value) -> Iterator[tuple[str, str]]:
     return iter_str_pairs_from_sequence(value)
 

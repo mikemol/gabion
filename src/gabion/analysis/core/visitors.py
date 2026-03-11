@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 from typing import Callable, Hashable, TYPE_CHECKING, cast
 from gabion.analysis.foundation.timeout_context import check_deadline
+from gabion.invariants import never
 
 if TYPE_CHECKING:
     from gabion.analysis.dataflow.engine.dataflow_contracts import CallArgs, ParamUse
@@ -16,6 +17,7 @@ def _is_ast(node: object, node_type: type[ast.AST]) -> bool:
             return False
 
 
+            never("unreachable wildcard match fall-through")
 def _is_ast_one_of(node: object, node_types: tuple[type[ast.AST], ...]) -> bool:
     match node:
         case ast.AST() as ast_node:
@@ -24,6 +26,7 @@ def _is_ast_one_of(node: object, node_types: tuple[type[ast.AST], ...]) -> bool:
             return False
 
 
+            never("unreachable wildcard match fall-through")
 class ProjectVisitor(ast.NodeVisitor):
     def visit(self, node: ast.AST):  # type: ignore[override]
         # Treat every node entry as a deterministic work unit.

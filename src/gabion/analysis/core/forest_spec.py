@@ -8,6 +8,7 @@ from gabion.json_types import JSONValue
 from gabion.analysis.foundation.resume_codec import mapping_optional
 from gabion.order_contract import sort_once
 from gabion.analysis.foundation.timeout_context import check_deadline
+from gabion.invariants import never
 
 
 @dataclass(frozen=True)
@@ -272,6 +273,7 @@ def forest_spec_from_dict(payload: Mapping[str, JSONValue]) -> ForestSpec:
             spec_params = {str(k): v for k, v in params_payload.items()}
         case _:
             pass
+            never("unreachable wildcard match fall-through")
     declared_outputs: tuple[str, ...] = ()
     outputs_payload = payload.get("declared_outputs", [])
     match outputs_payload:
@@ -281,6 +283,7 @@ def forest_spec_from_dict(payload: Mapping[str, JSONValue]) -> ForestSpec:
             )
         case _:
             pass
+            never("unreachable wildcard match fall-through")
     collectors_payload = payload.get("collectors", [])
     collectors: list[ForestCollectorSpec] = []
     match collectors_payload:
@@ -305,6 +308,7 @@ def forest_spec_from_dict(payload: Mapping[str, JSONValue]) -> ForestSpec:
                                 )
                             case _:
                                 pass
+                                never("unreachable wildcard match fall-through")
                         params = collector_payload.get("params")
                         collector_params: dict[str, JSONValue] = {}
                         match params:
@@ -314,6 +318,7 @@ def forest_spec_from_dict(payload: Mapping[str, JSONValue]) -> ForestSpec:
                                 }
                             case _:
                                 pass
+                                never("unreachable wildcard match fall-through")
                         collectors.append(
                             ForestCollectorSpec(
                                 name=collector_name,
@@ -323,8 +328,10 @@ def forest_spec_from_dict(payload: Mapping[str, JSONValue]) -> ForestSpec:
                         )
                     case _:
                         pass
+                        never("unreachable wildcard match fall-through")
         case _:
             pass
+            never("unreachable wildcard match fall-through")
     return ForestSpec(
         spec_version=version,
         name=spec_name,
@@ -405,6 +412,7 @@ def _sorted_strings(values: object) -> list[str]:
             iterable_values = values_iterable
         case _:
             pass
+            never("unreachable wildcard match fall-through")
     cleaned = {
         str(value).strip()
         for value in iterable_values
@@ -421,6 +429,7 @@ def _is_string_value(value: JSONValue) -> bool:
             return False
 
 
+            never("unreachable wildcard match fall-through")
 def _normalize_value(value: JSONValue) -> JSONValue:
     check_deadline()
     match value:
@@ -436,3 +445,4 @@ def _normalize_value(value: JSONValue) -> JSONValue:
             return [_normalize_value(entry) for entry in list_value]
         case _:
             return value
+            never("unreachable wildcard match fall-through")

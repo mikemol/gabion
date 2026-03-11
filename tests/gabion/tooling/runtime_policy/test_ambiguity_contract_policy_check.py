@@ -31,6 +31,9 @@ def test_ambiguity_contract_collect_violations_respects_boundaries(tmp_path: Pat
         "        return None\n"
         "    if value is None:\n"
         "        typed = 0\n"
+        "    match value:\n"
+        "        case _:\n"
+        "            pass\n"
         "    return value\n\n"
         "async def bad_async(value: Any) -> int:\n"
         "    if value is None:\n"
@@ -57,7 +60,7 @@ def test_ambiguity_contract_collect_violations_respects_boundaries(tmp_path: Pat
     violations = policy.collect_violations(batch=batch)
     assert violations
     rule_ids = {item.rule_id for item in violations}
-    assert {"ACP-002", "ACP-003", "ACP-004"}.issubset(rule_ids)
+    assert {"ACP-002", "ACP-003", "ACP-004", "ACP-005"}.issubset(rule_ids)
     assert all("boundary.py" not in item.path for item in violations)
     assert all("__pycache__" not in item.path for item in violations)
     rendered = violations[0].render()
@@ -122,6 +125,11 @@ def test_ambiguity_contract_helper_predicates_cover_all_sentinels() -> None:
     assert policy._single_sentinel_stmt(
         ast.parse("def f():\n    x = 1\n    return 1\n").body[0].body  # type: ignore[union-attr]
     ) is None
+    wildcard_case = ast.parse("match x:\n    case _:\n        pass\n").body[0].cases[0]
+    assert policy._is_fallthrough_case(wildcard_case)
+    assert not policy._body_calls_never(wildcard_case.body)
+    never_case = ast.parse("match x:\n    case _:\n        never('x')\n").body[0].cases[0]
+    assert policy._body_calls_never(never_case.body)
 
 
 # gabion:evidence E:call_footprint::tests/test_ambiguity_contract_policy_check.py::test_ambiguity_contract_baseline_io_and_run_paths::ambiguity_contract_policy_check.py::gabion.tooling.ambiguity_contract_policy_check._load_baseline::ambiguity_contract_policy_check.py::gabion.tooling.ambiguity_contract_policy_check._write_baseline::ambiguity_contract_policy_check.py::gabion.tooling.ambiguity_contract_policy_check.run

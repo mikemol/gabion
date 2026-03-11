@@ -9,6 +9,7 @@ from gabion.analysis.derivation.derivation_contract import DerivationOp
 from gabion.analysis.derivation.derivation_graph import DerivationGraph
 from gabion.analysis.aspf import aspf
 from gabion.json_types import JSONValue
+from gabion.invariants import never
 
 
 DERIVATION_CACHE_FORMAT_VERSION = 2
@@ -53,10 +54,12 @@ def read_derivation_checkpoint(
                     return runtime_map
                 case _:
                     return None
+                    never("unreachable wildcard match fall-through")
         case _:
             return None
 
 
+            never("unreachable wildcard match fall-through")
 def hydrate_graph_from_checkpoint(
     *,
     graph: DerivationGraph,
@@ -68,11 +71,13 @@ def hydrate_graph_from_checkpoint(
             nodes = graph_payload_map.get("nodes")
         case _:
             return 0
+            never("unreachable wildcard match fall-through")
     match nodes:
         case list() as node_payloads:
             nodes = node_payloads
         case _:
             return 0
+            never("unreachable wildcard match fall-through")
     restored = 0
     for raw_node in nodes:
         match raw_node:
@@ -86,8 +91,10 @@ def hydrate_graph_from_checkpoint(
                         pass
                     case _:
                         continue
+                        never("unreachable wildcard match fall-through")
             case _:
                 continue
+                never("unreachable wildcard match fall-through")
         op_name = str(op_payload_map.get("name", "") or "")
         if not op_name:
             continue
@@ -132,11 +139,13 @@ def _node_id_from_payload(
                     normalized_key = key_tuple
                 case _:
                     normalized_key = (key_atom,)
+                    never("unreachable wildcard match fall-through")
             return aspf.NodeId(kind=kind, key=normalized_key)
         case _:
             return None
 
 
+            never("unreachable wildcard match fall-through")
 def _structural_json_to_atom(value: object) -> object:
     match value:
         case list() as sequence_value:
@@ -153,6 +162,7 @@ def _structural_json_to_atom(value: object) -> object:
                             return b""
                     case _:
                         pass
+                        never("unreachable wildcard match fall-through")
             return tuple(
                 (
                     str(key),
@@ -162,3 +172,4 @@ def _structural_json_to_atom(value: object) -> object:
             )
         case _:
             return value
+            never("unreachable wildcard match fall-through")

@@ -58,6 +58,10 @@ def test_policy_scanner_suite_scan_and_cache(tmp_path: Path) -> None:
     assert isinstance(decision, dict)
     assert decision.get("outcome") in {"block", "warn", "pass", "skip"}
     assert policy_scanner_suite.violations_for_rule(first, rule="branchless")
+    branchless_violation = policy_scanner_suite.violations_for_rule(first, rule="branchless")[0]
+    assert "lattice_witness" in branchless_violation
+    assert "recombination_frontier" not in branchless_violation
+    assert branchless_violation["lattice_witness"]["complete"] in {True, False}
     assert policy_scanner_suite.violations_for_rule(first, rule="defensive_fallback")
     assert policy_scanner_suite.violations_for_rule(first, rule="fiber_loop_structure_contract")
     assert policy_scanner_suite.violations_for_rule(first, rule="fiber_filter_processor_contract")

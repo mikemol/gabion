@@ -107,21 +107,17 @@ def envelope_from_decision_or_raise(
     decision: CanonicalAdaptationDecision,
 ) -> CanonicalEventEnvelope:
     check_deadline()
-    match decision.kind:
-        case CanonicalAdaptationKind.VALID:
-            match decision.envelope:
-                case CanonicalEventEnvelope() as envelope:
-                    return envelope
-                case _:
-                    raise CanonicalEventAdaptationError(
-                        "valid adaptation decision missing canonical envelope."
-                    )
-        case CanonicalAdaptationKind.REJECTED:
-            raise CanonicalEventAdaptationError(
-                str(decision.reason) or "canonical adaptation rejected."
-            )
-        case _:
-            never("invalid canonical adaptation decision kind", kind=decision.kind)
+    if decision.kind is CanonicalAdaptationKind.VALID:
+        if isinstance(decision.envelope, CanonicalEventEnvelope):
+            return decision.envelope
+        raise CanonicalEventAdaptationError(
+            "valid adaptation decision missing canonical envelope."
+        )
+    if decision.kind is CanonicalAdaptationKind.REJECTED:
+        raise CanonicalEventAdaptationError(
+            str(decision.reason) or "canonical adaptation rejected."
+        )
+    never("invalid canonical adaptation decision kind", kind=decision.kind)
 
 
 def derive_identity_projection_from_tokens(

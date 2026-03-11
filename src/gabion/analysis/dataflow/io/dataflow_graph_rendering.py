@@ -8,6 +8,7 @@ from gabion.analysis.aspf.aspf import Alt, Forest, NodeId
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.order_contract import sort_once
+from gabion.invariants import never
 
 
 @dataclass(frozen=True)
@@ -163,6 +164,7 @@ def emit_dot(forest: Forest) -> str:
             pass
         case _:
             raise RuntimeError("forest required for dataflow dot output")
+            never("unreachable wildcard match fall-through")
     projection = bundle_projection_from_forest(forest, file_paths=[])
     lines = [
         "digraph dataflow_grammar {",

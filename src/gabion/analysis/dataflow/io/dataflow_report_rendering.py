@@ -8,6 +8,7 @@ from collections.abc import Callable
 from gabion.analysis.foundation.artifact_ordering import (
     canonical_count_summary_items, canonical_field_display_parts, canonical_protocol_specs, canonical_string_values)
 from gabion.analysis.foundation.json_types import JSONObject
+from gabion.invariants import never
 
 
 def render_synthesis_section(
@@ -74,6 +75,7 @@ def render_unsupported_by_adapter_section(
                 pass
             case _:
                 continue
+                never("unreachable wildcard match fall-through")
         surface = str(diagnostic.get("surface", ""))
         adapter = str(diagnostic.get("adapter", "native"))
         required = bool(diagnostic.get("required_by_policy", False))

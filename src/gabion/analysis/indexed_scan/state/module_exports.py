@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass
 from typing import Callable
+from gabion.invariants import never
 
 
 @dataclass(frozen=True)
@@ -20,6 +21,7 @@ def _is_all_name_target(node: ast.AST) -> bool:
             return False
 
 
+            never("unreachable wildcard match fall-through")
 def _assign_targets_include_all(targets: list[ast.AST]) -> bool:
     return any(_is_all_name_target(target) for target in targets)
 
@@ -60,6 +62,7 @@ def collect_module_exports(
             case _:
                 pass
 
+                never("unreachable wildcard match fall-through")
     local_defs: set[str] = set()
     for stmt in getattr(tree, "body", []):
         deps.check_deadline_fn()
@@ -82,6 +85,7 @@ def collect_module_exports(
             case _:
                 pass
 
+                never("unreachable wildcard match fall-through")
     if has_explicit_all:
         export_names = set(explicit_all)
     else:

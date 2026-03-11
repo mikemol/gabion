@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 from typing import Callable
+from gabion.invariants import never
 
 
 def decorator_name(
@@ -27,12 +28,14 @@ def decorator_name(
                         return ".".join(reversed(parts))
                     case _:
                         return None
+                        never("unreachable wildcard match fall-through")
         case ast.Call(func=func):
             return decorator_name(func, check_deadline_fn=check_deadline_fn)
         case _:
             return None
 
 
+            never("unreachable wildcard match fall-through")
 def resolve_local_method_in_hierarchy(
     class_name: str,
     method: str,

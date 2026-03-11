@@ -21,6 +21,7 @@ from gabion.analysis.semantics.report_doc import ReportDoc
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.json_types import JSONValue
 from gabion.order_contract import sort_once
+from gabion.invariants import never
 
 CONSOLIDATION_VERSION = 1
 
@@ -206,6 +207,7 @@ def render_markdown(
         case _:
             doc.line("No consolidation candidates.")
             return doc.emit()
+            never("unreachable wildcard match fall-through")
     cluster_index: dict[str, Mapping[str, JSONValue]] = {}
     match clusters:
         case list() as cluster_entries:
@@ -218,8 +220,10 @@ def render_markdown(
                             cluster_index[identity] = cluster_payload
                     case _:
                         pass
+                        never("unreachable wildcard match fall-through")
         case _:
             pass
+            never("unreachable wildcard match fall-through")
     doc.line("Consolidation plan:")
     current_cluster = None
     current_lines: list[str] = []
@@ -252,6 +256,7 @@ def render_markdown(
                         replace_tokens = ", ".join(str(item) for item in replace_list)
                     case _:
                         replace_tokens = str(replace)
+                        never("unreachable wildcard match fall-through")
                 with_entry = entry_payload.get("with", {})
                 with_display = ""
                 match with_entry:
@@ -259,11 +264,13 @@ def render_markdown(
                         with_display = str(with_payload.get("display", "") or "")
                     case _:
                         pass
+                        never("unreachable wildcard match fall-through")
                 current_lines.append(
                     f"{test_id} ({file_path}:{line}) replace [{replace_tokens}] -> {with_display}"
                 )
             case _:
                 pass
+                never("unreachable wildcard match fall-through")
     _flush_current_lines()
     return doc.emit()
 
@@ -292,8 +299,10 @@ def _targets_signature(value: object) -> tuple[tuple[str, str], ...]:
                             pairs.append((path, qual))
                     case _:
                         pass
+                        never("unreachable wildcard match fall-through")
         case _:
             return ()
+            never("unreachable wildcard match fall-through")
     return tuple(pairs)
 
 

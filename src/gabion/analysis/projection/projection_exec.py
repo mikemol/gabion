@@ -207,10 +207,7 @@ def _sort_value(value: JSONValue) -> tuple[int, object]:
     match value:
         case int() | float() | str():
             return (0, value)
-        case _:
-            return (0, str(value))
-
-
+    return (0, str(value))
 def _hashable(value: JSONValue) -> object:
     try:
         hash(value)
@@ -300,18 +297,16 @@ def _traverse_params_from_map(params_map: Mapping[str, JSONValue]) -> TraversePa
     if field_name is None or not field_name.strip():
         return TraverseParams(field="")
     field = field_name.strip()
-    merge = params_map.get("merge", True)
-    match merge:
+    merge = True
+    merge_raw = params_map.get("merge", True)
+    match merge_raw:
         case bool() as merge_bool:
             merge = merge_bool
-        case _:
-            merge = True
-    keep = params_map.get("keep", False)
-    match keep:
+    keep = False
+    keep_raw = params_map.get("keep", False)
+    match keep_raw:
         case bool() as keep_bool:
             keep = keep_bool
-        case _:
-            keep = False
     prefix = params_map.get("prefix", "")
     prefix = str_optional(prefix) or ""
     as_field = params_map.get("as", field)
