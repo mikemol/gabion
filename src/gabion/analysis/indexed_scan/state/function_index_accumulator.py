@@ -72,9 +72,6 @@ def accumulate_function_index_for_tree(
         match node:
             case ast.Call(func=ast.Lambda()) as lambda_call:
                 lambda_call_nodes.append(lambda_call)
-            case _:
-                pass
-                never("unreachable wildcard match fall-through")
     direct_lambda_callee_by_call_span = deps.direct_lambda_callee_by_call_span_fn(
         lambda_call_nodes,
         lambda_infos=lambda_infos,

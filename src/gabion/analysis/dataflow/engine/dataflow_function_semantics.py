@@ -1,10 +1,11 @@
 from __future__ import annotations
-from gabion.invariants import never
 
 """Function-semantics owner surface for indexed dataflow analysis."""
 
 import ast
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from functools import singledispatch
 from typing import cast
 
 from gabion.analysis.core.visitors import UseVisitor
@@ -57,6 +58,78 @@ class _ReturnAliasCollector(ast.NodeVisitor):
         self.returns.append(node.value)
 
 
+@dataclass(frozen=True)
+class _AliasExprResolved:
+    names: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class _AliasExprRejected:
+    pass
+
+
+AliasExprDecision = _AliasExprResolved | _AliasExprRejected
+
+
+def _alias_sequence_decision(
+    elements: Sequence[ast.AST],
+    *,
+    param_names: frozenset[str],
+) -> AliasExprDecision:
+    element_decisions = tuple(
+        _alias_expr_decision(element, param_names=param_names)
+        for element in elements
+    )
+    resolved_names: list[str] = []
+    for decision in element_decisions:
+        match decision:
+            case _AliasExprResolved(names=(name,)):
+                resolved_names.append(name)
+            case _AliasExprResolved() | _AliasExprRejected():
+                return _AliasExprRejected()
+    return _AliasExprResolved(names=tuple(resolved_names))
+
+
+@singledispatch
+def _alias_expr_decision(
+    expr: object,
+    *,
+    param_names: frozenset[str],
+) -> AliasExprDecision:
+    _ = expr
+    _ = param_names
+    return _AliasExprRejected()
+
+
+@_alias_expr_decision.register(ast.Name)
+def _alias_name_expr_decision(
+    expr: ast.Name,
+    *,
+    param_names: frozenset[str],
+) -> AliasExprDecision:
+    if expr.id in param_names:
+        return _AliasExprResolved(names=(expr.id,))
+    return _AliasExprRejected()
+
+
+@_alias_expr_decision.register(ast.Tuple)
+def _alias_tuple_expr_decision(
+    expr: ast.Tuple,
+    *,
+    param_names: frozenset[str],
+) -> AliasExprDecision:
+    return _alias_sequence_decision(expr.elts, param_names=param_names)
+
+
+@_alias_expr_decision.register(ast.List)
+def _alias_list_expr_decision(
+    expr: ast.List,
+    *,
+    param_names: frozenset[str],
+) -> AliasExprDecision:
+    return _alias_sequence_decision(expr.elts, param_names=param_names)
+
+
 def _function_key(scope: list[str], name: str) -> str:
     if not scope:
         return name
@@ -95,9 +168,6 @@ def _call_context(node: ast.AST, parents: dict[ast.AST, ast.AST]):
                     if child is kw or child is kw.value:
                         return call_parent, True
                 return call_parent, False
-            case _:
-                pass
-                never("unreachable wildcard match fall-through")
         child = parent
         parent = parents.get(child)
     return None, False
@@ -119,38 +189,18 @@ def _return_aliases(
     if not collector.returns:
         return None
     alias = None
-
-    def _alias_from_expr(expr = None):
-        check_deadline()
-        match expr:
-            case ast.Name(id=name) if name in param_set:
-                return [name]
-            case ast.Tuple(elts=elts) | ast.List(elts=elts):
-                names: list[str] = []
-                for elt in elts:
-                    check_deadline()
-                    match elt:
-                        case ast.Name(id=name) if name in param_set:
-                            names.append(name)
-                        case _:
-                            return None
-                            never("unreachable wildcard match fall-through")
-                return names
-            case _:
-                return None
-
-                never("unreachable wildcard match fall-through")
     for expr in collector.returns:
         check_deadline()
-        candidate = _alias_from_expr(expr)
-        if candidate is not None:
-            if alias is None:
-                alias = candidate
-                continue
-            if alias != candidate:
+        candidate = _alias_expr_decision(expr, param_names=frozenset(param_set))
+        match candidate:
+            case _AliasExprResolved(names=names):
+                if alias is None:
+                    alias = list(names)
+                    continue
+                if alias != list(names):
+                    return None
+            case _AliasExprRejected():
                 return None
-            continue
-        return None
     return alias
 
 
@@ -203,11 +253,7 @@ def _const_repr(node: ast.AST):
                 return ast.unparse(node)
             except _AST_UNPARSE_ERROR_TYPES:
                 return None
-        case _:
-            return None
-
-
-            never("unreachable wildcard match fall-through")
+    return None
 def _normalize_key_expr(
     node: ast.AST,
     *,

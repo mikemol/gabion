@@ -34,22 +34,18 @@ def _subscript_args(node: ast.Subscript) -> list[ast.AST]:
     match slice_node:
         case ast.Tuple(elts=elements):
             return list(elements)
-        case _:
-            return [slice_node]
+    return [slice_node]
 
 
-            never("unreachable wildcard match fall-through")
 def _name(node: ast.AST) -> object:
     match node:
         case ast.Name(id=name_text):
             return name_text
         case ast.Attribute(attr=attr_text):
             return attr_text
-        case _:
-            return None
+    return None
 
 
-            never("unreachable wildcard match fall-through")
 def _is_str(node: ast.AST) -> bool:
     return _name(node) == "str"
 
@@ -76,9 +72,6 @@ def _contains_anonymous_dict(annotation: ast.AST) -> bool:
             case ast.Subscript() as subscript_node:
                 if _is_anonymous_dict_subscript(subscript_node):
                     return True
-            case _:
-                pass
-                never("unreachable wildcard match fall-through")
     return False
 
 
@@ -184,15 +177,13 @@ class _SurfaceVisitor(ast.NodeVisitor):
     def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
         if node.annotation and _contains_anonymous_dict(node.annotation):
             target = node.target
-            name_hint = ""
-            label = ""
             match target:
                 case ast.Name(id=target_name):
                     name_hint = target_name
                     label = target_name
-                case _:
+                case ast.AST():
+                    name_hint = ""
                     label = _unparse(target)
-                    never("unreachable wildcard match fall-through")
             prefix = self._context_prefix()
             context = f"{prefix}.{label}" if prefix else label
             self._record(

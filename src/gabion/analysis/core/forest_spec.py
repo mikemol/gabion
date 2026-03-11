@@ -266,72 +266,25 @@ def forest_spec_from_dict(payload: Mapping[str, JSONValue]) -> ForestSpec:
     except (TypeError, ValueError):
         version = 1
     spec_name = str(payload.get("name", "") or "")
-    params = payload.get("params")
-    spec_params: dict[str, JSONValue] = {}
-    match params:
-        case Mapping() as params_payload:
-            spec_params = {str(k): v for k, v in params_payload.items()}
-        case _:
-            pass
-            never("unreachable wildcard match fall-through")
-    declared_outputs: tuple[str, ...] = ()
-    outputs_payload = payload.get("declared_outputs", [])
-    match outputs_payload:
-        case list() as outputs_list:
-            declared_outputs = tuple(
-                str(entry) for entry in outputs_list if str(entry).strip()
-            )
-        case _:
-            pass
-            never("unreachable wildcard match fall-through")
+    spec_params = _string_key_mapping(payload.get("params"))
+    declared_outputs = _string_tuple_payload(payload.get("declared_outputs", []))
     collectors_payload = payload.get("collectors", [])
     collectors: list[ForestCollectorSpec] = []
     match collectors_payload:
-        case list() as collectors_list:
-            for entry in collectors_list:
+        case list() as collector_entries:
+            for entry in collector_entries:
                 check_deadline()
-                match entry:
-                    case Mapping() as collector_payload:
-                        collector_name = str(
-                            collector_payload.get("name", "") or ""
-                        ).strip()
-                        if not collector_name:
-                            continue
-                        outputs = collector_payload.get("outputs", [])
-                        outputs_list: tuple[str, ...] = ()
-                        match outputs:
-                            case list() as collector_outputs:
-                                outputs_list = tuple(
-                                    str(item)
-                                    for item in collector_outputs
-                                    if str(item).strip()
-                                )
-                            case _:
-                                pass
-                                never("unreachable wildcard match fall-through")
-                        params = collector_payload.get("params")
-                        collector_params: dict[str, JSONValue] = {}
-                        match params:
-                            case Mapping() as collector_params_payload:
-                                collector_params = {
-                                    str(k): v for k, v in collector_params_payload.items()
-                                }
-                            case _:
-                                pass
-                                never("unreachable wildcard match fall-through")
+                collector_payload = mapping_optional(entry)
+                if collector_payload is not None:
+                    collector_name = str(collector_payload.get("name", "") or "").strip()
+                    if collector_name:
                         collectors.append(
                             ForestCollectorSpec(
                                 name=collector_name,
-                                outputs=outputs_list,
-                                params=collector_params,
+                                outputs=_string_tuple_payload(collector_payload.get("outputs", [])),
+                                params=_string_key_mapping(collector_payload.get("params")),
                             )
                         )
-                    case _:
-                        pass
-                        never("unreachable wildcard match fall-through")
-        case _:
-            pass
-            never("unreachable wildcard match fall-through")
     return ForestSpec(
         spec_version=version,
         name=spec_name,
@@ -395,27 +348,27 @@ def _normalize_decision_tiers(
     for key, value in tiers.items():
         check_deadline()
         name = str(key).strip()
-        if not name:
-            continue
-        try:
-            tier = int(value)
-        except (TypeError, ValueError):
-            continue
-        normalized[name] = tier
+        if name:
+            try:
+                tier = int(value)
+            except (TypeError, ValueError):
+                tier = None
+            if tier is not None:
+                normalized[name] = tier
     return {key: normalized[key] for key in sort_once(normalized, source = 'src/gabion/analysis/forest_spec.py:353')}
 
 
-def _sorted_strings(values: object) -> list[str]:
-    iterable_values: Iterable[str] = ()
+def _iterable_values(values: object) -> Iterable[object]:
     match values:
-        case Iterable() as values_iterable:
-            iterable_values = values_iterable
-        case _:
-            pass
-            never("unreachable wildcard match fall-through")
+        case Iterable() as iterable_values:
+            return iterable_values
+    return ()
+
+
+def _sorted_strings(values: object) -> list[str]:
     cleaned = {
         str(value).strip()
-        for value in iterable_values
+        for value in _iterable_values(values)
         if str(value).strip()
     }
     return sort_once(cleaned, source = 'src/gabion/analysis/forest_spec.py:360')
@@ -425,24 +378,34 @@ def _is_string_value(value: JSONValue) -> bool:
     match value:
         case str():
             return True
-        case _:
-            return False
+    return False
 
 
-            never("unreachable wildcard match fall-through")
 def _normalize_value(value: JSONValue) -> JSONValue:
     check_deadline()
     match value:
-        case dict() as mapping_value:
+        case dict() as value_mapping:
             return {
-                str(k): _normalize_value(mapping_value[k])
-                for k in sort_once(mapping_value, source = 'src/gabion/analysis/forest_spec.py:366')
+                str(k): _normalize_value(value_mapping[k])
+                for k in sort_once(value_mapping, source = 'src/gabion/analysis/forest_spec.py:366')
             }
-        case list() as list_value:
-            all_strings = all(_is_string_value(entry) for entry in list_value)
-            if list_value and all_strings:
-                return _sorted_strings([str(entry) for entry in list_value])
-            return [_normalize_value(entry) for entry in list_value]
-        case _:
-            return value
-            never("unreachable wildcard match fall-through")
+        case list() as value_list:
+            all_strings = all(_is_string_value(entry) for entry in value_list)
+            if value_list and all_strings:
+                return _sorted_strings([str(entry) for entry in value_list])
+            return [_normalize_value(entry) for entry in value_list]
+    return value
+
+
+def _string_key_mapping(value: object) -> dict[str, JSONValue]:
+    payload = mapping_optional(value)
+    if payload is None:
+        return {}
+    return {str(k): v for k, v in payload.items()}
+
+
+def _string_tuple_payload(value: object) -> tuple[str, ...]:
+    match value:
+        case list() as value_list:
+            return tuple(str(entry) for entry in value_list if str(entry).strip())
+    return ()

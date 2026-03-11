@@ -18,7 +18,6 @@ from gabion.order_contract import sort_once
 from gabion.refactor.rewrite_plan import (
     RewritePlanKind, attach_plan_schema, normalize_rewrite_plan_order)
 
-
 _PR412_REWRITE_PLAN_RAW_IDENTITY_SURFACE = todo(
     reasoning={
         "summary": "PR-412 canonical identity contract adoption still partial in rewrite-plan evidence surfaces",
@@ -195,12 +194,14 @@ def compute_fingerprint_rewrite_plans(
         check_deadline()
         matches = entry.get("glossary_matches") or []
         site = site_from_payload(entry)
-        has_rewrite_inputs = False
-        match matches:
-            case list() as match_list if (
-                len(match_list) >= 2 and site is not None and site.path and site.function
+        match matches, site:
+            case list() as match_list, site_candidate if (
+                len(match_list) >= 2
+                and site_candidate is not None
+                and site_candidate.path
+                and site_candidate.function
             ):
-                has_rewrite_inputs = True
+                site = site_candidate
                 bundle_key = site.bundle_key()
                 coherence_entry = coherence_map.get(site.key())
                 coherence_id = coherence_entry.get("coherence_id") if coherence_entry else None
@@ -278,9 +279,6 @@ def compute_fingerprint_rewrite_plans(
                         match kind_value:
                             case str() as kind_text if kind_text.endswith("non_regression"):
                                 non_regression_gates.append(kind_text)
-                            case _:
-                                pass
-                                never("unreachable wildcard match fall-through")
                     return {
                         "plan_id": (
                             f"rewrite:{site.path}:{site.function}:{bundle_key}:"

@@ -704,17 +704,14 @@ def _iter_outer_calls(node: ast.AST) -> list[ast.Call]:
     stack = list(getattr(node, "body", ()))
     while stack:
         current = stack.pop()
-        expand_children = True
         match current:
             case ast.FunctionDef() | ast.AsyncFunctionDef() | ast.ClassDef():
-                expand_children = False
+                pass
             case ast.Call():
                 calls.append(current)
-            case _:
-                pass
-                never("unreachable wildcard match fall-through")
-        if expand_children:
-            stack.extend(ast.iter_child_nodes(current))
+                stack.extend(ast.iter_child_nodes(current))
+            case ast.AST():
+                stack.extend(ast.iter_child_nodes(current))
     return calls
 
 

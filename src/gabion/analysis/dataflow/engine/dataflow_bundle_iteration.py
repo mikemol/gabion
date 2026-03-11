@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from functools import singledispatch
 from pathlib import Path
 from typing import Literal, cast
 
@@ -69,6 +70,32 @@ ConstructorProjectionResult = (
 )
 
 
+@dataclass(frozen=True)
+class _StarredElementsResolved:
+    count: int
+
+
+@dataclass(frozen=True)
+class _StarredElementsRejected:
+    detail: str
+
+
+StarredElementsDecision = _StarredElementsResolved | _StarredElementsRejected
+
+
+@dataclass(frozen=True)
+class _KeywordMappingExpanded:
+    operations: tuple[_ConstructorOperation, ...]
+
+
+@dataclass(frozen=True)
+class _KeywordMappingRejected:
+    witness_effects: tuple[JSONObject, ...]
+
+
+KeywordMappingDecision = _KeywordMappingExpanded | _KeywordMappingRejected
+
+
 def _collect_local_dataclasses(tree: ast.AST) -> dict[str, tuple[str, ...]]:
     local_dataclasses: dict[str, tuple[str, ...]] = {}
     for node in ast.walk(tree):
@@ -92,17 +119,8 @@ def _collect_local_dataclasses(tree: ast.AST) -> dict[str, tuple[str, ...]]:
                                     match target:
                                         case ast.Name() as target_name:
                                             fields.append(target_name.id)
-                                        case _:
-                                            pass
-                                            never("unreachable wildcard match fall-through")
-                            case _:
-                                pass
-                                never("unreachable wildcard match fall-through")
                     if fields:
                         local_dataclasses[class_node.name] = tuple(fields)
-            case _:
-                pass
-                never("unreachable wildcard match fall-through")
     return local_dataclasses
 
 
@@ -110,12 +128,10 @@ def _module_identifier(module_name: object) -> ModuleIdentifier:
     match module_name:
         case str() as module_name_text:
             normalized = module_name_text.strip()
-        case _:
-            raise ValueError("_module_name must return str")
-            never("unreachable wildcard match fall-through")
-    if not normalized:
-        raise ValueError("module identifier must be non-empty")
-    return ModuleIdentifier(value=normalized)
+            if normalized:
+                return ModuleIdentifier(value=normalized)
+            raise ValueError("module identifier must be non-empty")
+    raise ValueError("_module_name must return str")
 
 
 def _effective_dataclass_registry(
@@ -130,10 +146,6 @@ def _effective_dataclass_registry(
                 name: tuple(fields)
                 for name, fields in dataclass_registry_payload.items()
             }
-        case _:
-            pass
-
-            never("unreachable wildcard match fall-through")
     effective_registry: dict[str, tuple[str, ...]] = {}
     for name, fields in local_dataclasses.items():
         check_deadline()
@@ -175,9 +187,6 @@ def _resolve_dataclass_fields(
                     candidate = f"{base_star}.{attr}"
                     if candidate in context.dataclass_registry:
                         return context.dataclass_registry[candidate]
-        case _:
-            pass
-            never("unreachable wildcard match fall-through")
     return ()
 
 
@@ -204,6 +213,91 @@ def _unresolved_starred_witness(
     }
 
 
+@singledispatch
+def _starred_elements_decision(node: object) -> StarredElementsDecision:
+    return _StarredElementsRejected(
+        detail=f"unsupported * payload={type(node).__name__}"
+    )
+
+
+@_starred_elements_decision.register(ast.List)
+def _starred_list_elements_decision(node: ast.List) -> StarredElementsDecision:
+    return _StarredElementsResolved(count=len(node.elts))
+
+
+@_starred_elements_decision.register(ast.Tuple)
+def _starred_tuple_elements_decision(node: ast.Tuple) -> StarredElementsDecision:
+    return _StarredElementsResolved(count=len(node.elts))
+
+
+@_starred_elements_decision.register(ast.Set)
+def _starred_set_elements_decision(node: ast.Set) -> StarredElementsDecision:
+    return _StarredElementsResolved(count=len(node.elts))
+
+
+@singledispatch
+def _keyword_mapping_projection(
+    node: object,
+    *,
+    path: Path,
+    call: ast.Call,
+) -> KeywordMappingDecision:
+    return _KeywordMappingRejected(
+        witness_effects=(
+            _unresolved_starred_witness(
+                path=path,
+                call=call,
+                category="dynamic_star_kwargs",
+                detail=f"unsupported ** payload={type(node).__name__}",
+            ),
+        )
+    )
+
+
+@_keyword_mapping_projection.register(ast.Dict)
+def _keyword_mapping_dict_projection(
+    node: ast.Dict,
+    *,
+    path: Path,
+    call: ast.Call,
+) -> KeywordMappingDecision:
+    operations: list[_ConstructorOperation] = []
+    for key in node.keys:
+        check_deadline()
+        match key:
+            case None:
+                return _KeywordMappingRejected(
+                    witness_effects=(
+                        _unresolved_starred_witness(
+                            path=path,
+                            call=call,
+                            category="dynamic_star_kwargs",
+                            detail="dict unpack inside ** literal is dynamic",
+                        ),
+                    )
+                )
+            case ast.Constant(value=str() as key_name):
+                operations.append(
+                    _ConstructorOperation(
+                        kind="append_keyword",
+                        name=key_name,
+                        source="**dict",
+                    )
+                )
+            case ast.expr():
+                return _KeywordMappingRejected(
+                    witness_effects=(
+                        _unresolved_starred_witness(
+                            path=path,
+                            call=call,
+                            category="dynamic_star_kwargs",
+                            detail="non-string literal key in ** dict",
+                        ),
+                    )
+                )
+    return _KeywordMappingExpanded(operations=tuple(operations))
+
+
 def _plan_constructor_operations(
     *,
     path: Path,
@@ -216,27 +310,22 @@ def _plan_constructor_operations(
         check_deadline()
         match arg:
             case ast.Starred(value=starred_value):
-                match starred_value:
-                    case ast.List(elts=elements) | ast.Tuple(elts=elements) | ast.Set(
-                        elts=elements
-                    ):
+                match _starred_elements_decision(starred_value):
+                    case _StarredElementsResolved(count=elements_count):
                         operations.append(
                             _ConstructorOperation(
                                 kind="append_positional",
-                                count=len(elements),
+                                count=elements_count,
                                 source=f"*{type(starred_value).__name__}",
                             )
                         )
-                    case _:
+                    case _StarredElementsRejected(detail=detail):
                         witness_effects.append(
                             _unresolved_starred_witness(
                                 path=path,
                                 call=call,
                                 category="dynamic_star_args",
-                                detail=(
-                                    "unsupported * payload="
-                                    f"{type(starred_value).__name__}"
-                                ),
+                                detail=detail,
                             )
                         )
                         return _ConstructorPlan(
@@ -244,8 +333,7 @@ def _plan_constructor_operations(
                             witness_effects=tuple(witness_effects),
                             terminal_status="stop",
                         )
-                        never("unreachable wildcard match fall-through")
-            case _:
+            case ast.expr():
                 operations.append(
                     _ConstructorOperation(
                         kind="append_positional",
@@ -253,8 +341,6 @@ def _plan_constructor_operations(
                         source="arg",
                     )
                 )
-
-                never("unreachable wildcard match fall-through")
     for keyword in call.keywords:
         check_deadline()
         if keyword.arg is not None:
@@ -266,65 +352,16 @@ def _plan_constructor_operations(
                 )
             )
             continue
-        mapping_node = keyword.value
-        match mapping_node:
-            case ast.Dict(keys=mapping_keys):
-                for key in mapping_keys:
-                    check_deadline()
-                    match key:
-                        case None:
-                            witness_effects.append(
-                                _unresolved_starred_witness(
-                                    path=path,
-                                    call=call,
-                                    category="dynamic_star_kwargs",
-                                    detail="dict unpack inside ** literal is dynamic",
-                                )
-                            )
-                            return _ConstructorPlan(
-                                operations=tuple(operations),
-                                witness_effects=tuple(witness_effects),
-                                terminal_status="stop",
-                            )
-                        case ast.Constant(value=str() as key_name):
-                            operations.append(
-                                _ConstructorOperation(
-                                    kind="append_keyword",
-                                    name=key_name,
-                                    source="**dict",
-                                )
-                            )
-                        case _:
-                            witness_effects.append(
-                                _unresolved_starred_witness(
-                                    path=path,
-                                    call=call,
-                                    category="dynamic_star_kwargs",
-                                    detail="non-string literal key in ** dict",
-                                )
-                            )
-                            return _ConstructorPlan(
-                                operations=tuple(operations),
-                                witness_effects=tuple(witness_effects),
-                                terminal_status="stop",
-                            )
-                            never("unreachable wildcard match fall-through")
-            case _:
-                witness_effects.append(
-                    _unresolved_starred_witness(
-                        path=path,
-                        call=call,
-                        category="dynamic_star_kwargs",
-                        detail=f"unsupported ** payload={type(mapping_node).__name__}",
-                    )
-                )
+        match _keyword_mapping_projection(keyword.value, path=path, call=call):
+            case _KeywordMappingExpanded(operations=mapping_operations):
+                operations.extend(mapping_operations)
+            case _KeywordMappingRejected(witness_effects=mapping_witness_effects):
+                witness_effects.extend(mapping_witness_effects)
                 return _ConstructorPlan(
                     operations=tuple(operations),
                     witness_effects=tuple(witness_effects),
                     terminal_status="stop",
                 )
-
-                never("unreachable wildcard match fall-through")
     return _ConstructorPlan(
         operations=tuple(operations),
         witness_effects=tuple(witness_effects),
@@ -474,10 +511,6 @@ def iter_dataclass_call_bundle_effects(
                                 "unexpected constructor projection outcome",
                                 projection_type=type(projection).__name__,
                             )
-            case _:
-                pass
-
-                never("unreachable wildcard match fall-through")
     return BundleIterationOutcome(
         bundles=frozenset(bundles),
         witness_effects=tuple(witness_effects),

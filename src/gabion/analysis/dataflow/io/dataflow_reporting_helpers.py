@@ -72,9 +72,6 @@ def _raw_sorted_callsite_counts(
                             line = int(getattr(call_node, "lineno", 1))
                             col = int(getattr(call_node, "col_offset", 0)) + 1
                             locations.append((line, col))
-                        case _:
-                            pass
-                            never("unreachable wildcard match fall-through")
                 if locations:
                     counts[_raw_sorted_baseline_key(path)] = locations
     return counts
@@ -369,11 +366,7 @@ def _span4(value: object) -> tuple[object, object, object, object]:
     match value:
         case [a, b, c, d, *_]:
             return (a, b, c, d)
-        case _:
-            return (-1, -1, -1, -1)
-
-
-            never("unreachable wildcard match fall-through")
+    return (-1, -1, -1, -1)
 def summarize_never_invariants(entries: list[JSONObject]) -> list[str]:
     check_deadline()
     if not entries:

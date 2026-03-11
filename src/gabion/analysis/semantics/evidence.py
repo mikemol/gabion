@@ -9,6 +9,59 @@ from gabion.order_contract import sort_once
 from gabion.invariants import never
 
 
+@dataclass(frozen=True)
+class _BundleSequenceAccepted:
+    values: tuple[object, ...]
+
+
+@dataclass(frozen=True)
+class _BundleSequenceRejected:
+    pass
+
+
+BundleSequenceDecision = _BundleSequenceAccepted | _BundleSequenceRejected
+
+
+@dataclass(frozen=True)
+class _StringListAccepted:
+    raw: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class _StringListRejected:
+    pass
+
+
+StringListDecision = _StringListAccepted | _StringListRejected
+
+
+def _bundle_sequence_decision(bundle: object) -> BundleSequenceDecision:
+    match bundle:
+        case list() | tuple() | set() as bundle_values:
+            return _BundleSequenceAccepted(values=tuple(bundle_values))
+    return _BundleSequenceRejected()
+
+
+def _string_list_decision(value: object) -> StringListDecision:
+    match value:
+        case None:
+            return _StringListAccepted(raw=())
+        case str() as text_value:
+            return _StringListAccepted(raw=(text_value,))
+        case list() | tuple() | set() as sequence_value:
+            raw: list[str] = []
+            for item in sequence_value:
+                match item:
+                    case str() as item_text:
+                        raw.append(item_text)
+                    case None | int() | float() | bool() | dict() | list() | tuple() | set():
+                        pass
+                    case _:
+                        never("invalid string list payload item", item_type=type(item).__name__)
+            return _StringListAccepted(raw=tuple(raw))
+    return _StringListRejected()
+
+
 def normalize_bundle_key(bundle: object) -> str:
     """Canonicalize a bundle payload into a stable join key.
 
@@ -17,18 +70,20 @@ def normalize_bundle_key(bundle: object) -> str:
     """
     check_deadline()
     values: set[str] = set()
-    match bundle:
-        case list() | tuple() | set() as bundle_values:
+    match _bundle_sequence_decision(bundle):
+        case _BundleSequenceAccepted(values=bundle_values):
             for item in bundle_values:
                 match item:
                     case str() as item_text if item_text.strip():
                         values.add(item_text.strip())
-                    case _:
+                    case str():
                         pass
-                        never("unreachable wildcard match fall-through")
-        case _:
+                    case None | int() | float() | bool() | dict() | list() | tuple() | set():
+                        pass
+                    case _:
+                        never("invalid bundle key item payload", item_type=type(item).__name__)
+        case _BundleSequenceRejected():
             return ""
-            never("unreachable wildcard match fall-through")
     return ",".join(
         sort_once(
             values,
@@ -44,24 +99,11 @@ def normalize_string_list(value: object) -> list[str]:
     fields can be absent, malformed, or represented as comma-separated strings.
     """
     check_deadline()
-    raw: list[str] = []
-    match value:
-        case None:
-            return raw
-        case str() as text_value:
-            raw = [text_value]
-        case list() | tuple() | set() as sequence_value:
-            for item in sequence_value:
-                match item:
-                    case str() as item_text:
-                        raw.append(item_text)
-                    case _:
-                        pass
-                        never("unreachable wildcard match fall-through")
-        case _:
-            return raw
-
-            never("unreachable wildcard match fall-through")
+    match _string_list_decision(value):
+        case _StringListAccepted(raw=raw):
+            pass
+        case _StringListRejected():
+            return []
     parts: list[str] = []
     for item in raw:
         check_deadline()
@@ -86,10 +128,7 @@ class Site:
                 function = str(payload_mapping.get("function", "")).strip()
                 bundle = normalize_string_list(payload_mapping.get("bundle", []) or [])
                 return cls(path=path, function=function, bundle=tuple(bundle))
-            case _:
-                return None
-
-                never("unreachable wildcard match fall-through")
+        return None
     def bundle_key(self) -> str:
         check_deadline()
         return normalize_bundle_key(list(self.bundle))
@@ -124,7 +163,4 @@ def exception_obligation_summary_for_site(
                     status = "UNKNOWN"
                 summary[status] += 1
                 summary["total"] += 1
-            case _:
-                continue
-                never("unreachable wildcard match fall-through")
     return summary
