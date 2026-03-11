@@ -13,6 +13,7 @@ from gabion.analysis.aspf_core import (
     identity_1cell,
     parse_2cell_witness,
     validate_2cell_compatibility,
+    normalize_basis_path,
 )
 from gabion.analysis.aspf_decision_surface import (
     RepresentativeSelectionMode,
@@ -36,8 +37,8 @@ def test_aspf_identity_and_associativity() -> None:
     a = BasisZeroCell("A")
     b = BasisZeroCell("B")
     c = BasisZeroCell("C")
-    ab = AspfOneCell(a, b, "ab", ("A", "B"))
-    bc = AspfOneCell(b, c, "bc", ("B", "C"))
+    ab = AspfOneCell(a, b, "ab", normalize_basis_path(("A", "B")))
+    bc = AspfOneCell(b, c, "bc", normalize_basis_path(("B", "C")))
 
     left = compose_1cells(identity_1cell(a), ab)
     right = compose_1cells(ab, identity_1cell(b))
@@ -45,15 +46,15 @@ def test_aspf_identity_and_associativity() -> None:
     assert right.basis_path == ab.basis_path
 
     composed = compose_1cells(ab, bc)
-    assert composed.basis_path == ("A", "B", "C")
+    assert composed.basis_path == normalize_basis_path(("A", "B", "C"))
 
 
 # gabion:evidence E:function_site::tests/test_aspf_cofibration_laws.py::tests.test_aspf_cofibration_laws.test_higher_path_equivalence_and_drift_quotienting
 def test_higher_path_equivalence_and_drift_quotienting() -> None:
     a = BasisZeroCell("A")
     b = BasisZeroCell("B")
-    left = AspfOneCell(a, b, "left", ("A", "B"))
-    right = AspfOneCell(a, b, "right", ("A", "B"))
+    left = AspfOneCell(a, b, "left", normalize_basis_path(("A", "B")))
+    right = AspfOneCell(a, b, "right", normalize_basis_path(("A", "B")))
     witness = AspfTwoCellWitness(left=left, right=right, witness_id="w:1", reason="equiv")
     validate_2cell_compatibility(witness)
 
@@ -97,7 +98,7 @@ def test_canonical_identity_contract_carries_suite_site_endpoints() -> None:
         source=BasisZeroCell("fingerprint:start"),
         target=BasisZeroCell("fingerprint:end"),
         representative="rep",
-        basis_path=("a", "b"),
+        basis_path=normalize_basis_path(("a", "b")),
         suite_site_source=SuiteSiteEndpoint("SuiteSite", ("fingerprint:start", "fingerprint", "source")),
         suite_site_target=SuiteSiteEndpoint("SuiteSite", ("fingerprint:end", "fingerprint", "target")),
     )
@@ -119,7 +120,7 @@ def test_deterministic_representative_selection_and_identity_layers() -> None:
     assert witness.selected == "a"
 
     identity = fingerprint_identity_layers(
-        canonical_aspf_path={"representative": witness.selected, "basis_path": ["a"]},
+        canonical_aspf_path={"representative": witness.selected, "basis_path": [normalize_basis_path(("a",))[0]]},
         scalar_prime_product=2,
     ).as_dict()
     assert identity["identity_layer"] == "canonical_aspf_path"
@@ -132,15 +133,15 @@ def test_aspf_edge_guards_and_parse_paths() -> None:
     a = BasisZeroCell("A")
     b = BasisZeroCell("B")
     c = BasisZeroCell("C")
-    ab = AspfOneCell(a, b, "ab", ("A", "B"))
-    ca = AspfOneCell(c, a, "ca", ("C", "A"))
+    ab = AspfOneCell(a, b, "ab", normalize_basis_path(("A", "B")))
+    ca = AspfOneCell(c, a, "ca", normalize_basis_path(("C", "A")))
 
     with pytest.raises(ValueError):
         compose_1cells(ab, ca)
 
     incompatible = AspfTwoCellWitness(
-        left=AspfOneCell(a, b, "left", ("A", "B")),
-        right=AspfOneCell(a, b, "right", ("A", "C")),
+        left=AspfOneCell(a, b, "left", normalize_basis_path(("A", "B"))),
+        right=AspfOneCell(a, b, "right", normalize_basis_path(("A", "C"))),
         witness_id="w:bad",
         reason="bad",
     )
@@ -151,12 +152,12 @@ def test_aspf_edge_guards_and_parse_paths() -> None:
     assert parse_2cell_witness({"left": {}, "right": {}, "witness_id": 1, "reason": "r"}) is None
     assert parse_2cell_witness(
         {
-            "left": {"source": "A", "target": "B", "representative": "ab", "basis_path": "bad"},
+            "left": {"source": "A", "target": "B", "representative": "ab", "basis_path": "A/B"},
             "right": {"source": "A", "target": "B", "representative": "ab", "basis_path": ["A", "B"]},
             "witness_id": "w:1",
             "reason": "ok",
         }
-    ) is None
+    ) is not None
     assert parse_2cell_witness(
         {
             "left": {"source": 1, "target": "B", "representative": "ab", "basis_path": ["A", "B"]},
@@ -204,8 +205,8 @@ def test_selection_and_cofibration_failure_edges() -> None:
         == "non_drift"
     )
     mismatch_witness = AspfTwoCellWitness(
-        left=AspfOneCell(BasisZeroCell("L"), BasisZeroCell("R"), "left", ("L", "R")),
-        right=AspfOneCell(BasisZeroCell("L"), BasisZeroCell("R"), "other", ("L", "R")),
+        left=AspfOneCell(BasisZeroCell("L"), BasisZeroCell("R"), "left", normalize_basis_path(("L", "R"))),
+        right=AspfOneCell(BasisZeroCell("L"), BasisZeroCell("R"), "other", normalize_basis_path(("L", "R"))),
         witness_id="w:mismatch",
         reason="mismatch",
     )
@@ -258,3 +259,63 @@ def test_selection_and_cofibration_failure_edges() -> None:
     )
     with pytest.raises(ValueError):
         non_faithful.validate()
+
+
+# gabion:evidence E:function_site::tests/test_aspf_cofibration_laws.py::tests.test_aspf_cofibration_laws.test_legacy_string_basis_path_ingestion_normalizes_to_integer_atoms
+def test_legacy_string_basis_path_ingestion_normalizes_to_integer_atoms() -> None:
+    witness = parse_2cell_witness(
+        {
+            "left": {
+                "source": "A",
+                "target": "B",
+                "representative": "ab",
+                "basis_path": "A/B",
+            },
+            "right": {
+                "source": "A",
+                "target": "B",
+                "representative": "ab",
+                "basis_path": ["A", "B"],
+            },
+            "witness_id": "w:legacy",
+            "reason": "ok",
+        }
+    )
+    assert witness is not None
+    parsed = cast(AspfTwoCellWitness, witness)
+    assert parsed.left.basis_path == normalize_basis_path(("A", "B"))
+    assert parsed.right.basis_path == normalize_basis_path(("A", "B"))
+
+
+# gabion:evidence E:function_site::tests/test_aspf_cofibration_laws.py::tests.test_aspf_cofibration_laws.test_integer_atom_canonical_output_emits_integer_basis_path
+def test_integer_atom_canonical_output_emits_integer_basis_path() -> None:
+    cell = AspfOneCell(
+        source=BasisZeroCell("A"),
+        target=BasisZeroCell("B"),
+        representative="ab",
+        basis_path=(101, 202),
+    )
+    payload = cell.as_dict()
+    assert payload["basis_path"] == [101, 202]
+
+
+# gabion:evidence E:function_site::tests/test_aspf_cofibration_laws.py::tests.test_aspf_cofibration_laws.test_basis_path_json_round_trip_stability
+def test_basis_path_json_round_trip_stability() -> None:
+    original = AspfOneCell(
+        source=BasisZeroCell("A"),
+        target=BasisZeroCell("B"),
+        representative="ab",
+        basis_path=normalize_basis_path(("A", "B", "C")),
+    )
+    reparsed = parse_2cell_witness(
+        {
+            "left": original.as_dict(),
+            "right": original.as_dict(),
+            "witness_id": "w:rt",
+            "reason": "round_trip",
+        }
+    )
+    assert reparsed is not None
+    parsed = cast(AspfTwoCellWitness, reparsed)
+    assert parsed.left.basis_path == original.basis_path
+    assert parsed.right.basis_path == original.basis_path

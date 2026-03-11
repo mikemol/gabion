@@ -2,8 +2,9 @@
 # gabion:decision_protocol_module
 from __future__ import annotations
 
-from dataclasses import dataclass
 from collections.abc import Mapping
+from dataclasses import dataclass
+from hashlib import blake2b
 from typing import Protocol
 
 from gabion.analysis.resume_codec import mapping_or_none
@@ -13,6 +14,43 @@ class AspfZeroCell(Protocol):
     """Typed 0-cell contract in the ASPF basis."""
 
     label: str
+
+
+class BasisPathIngress(Protocol):
+    """Boundary contract for values that carry a basis path payload."""
+
+    basis_path: object
+
+
+def _legacy_basis_atom_to_int(atom: str) -> int:
+    digest = blake2b(atom.encode("utf-8"), digest_size=8).digest()
+    return int.from_bytes(digest, byteorder="big", signed=False)
+
+
+def normalize_basis_path(basis_path: object) -> tuple[int, ...]:
+    """Normalize ingress basis-path carriers to canonical integer atoms."""
+
+    match basis_path:
+        case tuple() | list() as atoms:
+            normalized: list[int] = []
+            for atom in atoms:
+                match atom:
+                    case bool():
+                        return ()
+                    case int() as int_atom:
+                        normalized.append(int_atom)
+                    case str() as text_atom:
+                        normalized.append(_legacy_basis_atom_to_int(text_atom))
+                    case _:
+                        return ()
+            return tuple(normalized)
+        case str() as legacy_path:
+            segments = tuple(segment for segment in legacy_path.split("/") if segment)
+            if not segments:
+                return ()
+            return tuple(_legacy_basis_atom_to_int(segment) for segment in segments)
+        case _:
+            return ()
 
 
 @dataclass(frozen=True)
@@ -29,7 +67,10 @@ class AspfOneCell:
     source: BasisZeroCell
     target: BasisZeroCell
     representative: str
-    basis_path: tuple[str, ...]
+    basis_path: tuple[int, ...]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "basis_path", normalize_basis_path(self.basis_path))
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -88,9 +129,12 @@ class AspfCanonicalIdentityContract:
     source: BasisZeroCell
     target: BasisZeroCell
     representative: str
-    basis_path: tuple[str, ...]
+    basis_path: tuple[int, ...]
     suite_site_source: SuiteSiteEndpoint
     suite_site_target: SuiteSiteEndpoint
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "basis_path", normalize_basis_path(self.basis_path))
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -126,7 +170,7 @@ def parse_2cell_witness(payload: Mapping[str, object]) -> object:
         source_label = ""
         target_label = ""
         representative_label = ""
-        basis_items: tuple[str, ...] = ()
+        basis_items: tuple[int, ...] = ()
         basis_valid = False
 
         match source:
@@ -138,10 +182,8 @@ def parse_2cell_witness(payload: Mapping[str, object]) -> object:
         match representative:
             case str() as representative_text:
                 representative_label = representative_text
-        match basis_path:
-            case list() as basis_list:
-                basis_items = tuple(str(item) for item in basis_list)
-                basis_valid = True
+        basis_items = normalize_basis_path(basis_path)
+        basis_valid = bool(basis_items)
         decoded_cell = AspfOneCell(
             source=BasisZeroCell(source_label),
             target=BasisZeroCell(target_label),
