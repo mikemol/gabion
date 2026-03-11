@@ -1,0 +1,16 @@
+{
+  "profile": "enforce",
+  "gate_predicates": [
+    {
+      "gate_id": "governance.workflow_policy_green",
+      "pass": true,
+      "clause_id": "F58-1",
+      "source_artifact": "out/quotient_governance_report.json",
+      "reason_codes": []
+    }
+  ],
+  "pass": true,
+  "details": {
+    "violation_count": 0
+  }
+}

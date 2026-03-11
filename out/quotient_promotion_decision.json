@@ -1,0 +1,6 @@
+{
+  "decision": "promote",
+  "target_profile": "strict-core",
+  "rationale_codes": [],
+  "source_artifact": "out/quotient_protocol_readiness.json"
+}

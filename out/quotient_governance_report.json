@@ -1,0 +1,12 @@
+{
+  "profile_id": "workflow_policy.enforce",
+  "decision": "pass",
+  "metrics": {
+    "violation_count": 0,
+    "reason_code_counts": {}
+  },
+  "sources": {
+    "workflows": ".github/workflows/*.yml",
+    "policy_check": "scripts/policy/policy_check.py --workflows"
+  }
+}
