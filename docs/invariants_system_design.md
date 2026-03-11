@@ -1,5 +1,5 @@
 ---
-doc_revision: 2
+doc_revision: 3
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: invariants_system_design
 doc_role: design
@@ -90,7 +90,7 @@ The requested structure is represented as 3 notions, each with:
 ### N1.F1 - Throw policy is profile data
 - N1.F1.S1 - Throw decision is looked up by marker kind
   - N1.F1.S1.H1 - profile can make `never` non-throwing (diagnostic mode)
-  - N1.F1.S1.H2 - profile can make `todo` throwing (strict debt gate)
+  - N1.F1.S1.H2 - profile can make `todo` warning-emitting without throwing
   - N1.F1.S1.H3 - profile can make `deprecated` throwing (sunset enforcement)
 - N1.F1.S2 - Throw decision is independent of marker-kind remapping
   - N1.F1.S2.H1 - kind remaps for analysis without changing runtime throw

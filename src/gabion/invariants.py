@@ -95,7 +95,11 @@ _PROFILE_RUNTIME_BEHAVIOR_MATRIX: dict[
 ] = {
     InvariantProfile.STRICT: {
         "never": _STRICT_BEHAVIOR,
-        "todo": _STRICT_BEHAVIOR,
+        "todo": MarkerRuntimeBehavior(
+            throws=False,
+            emits_warning=False,
+            warning_limit=0,
+        ),
         "deprecated": _STRICT_BEHAVIOR,
     },
     InvariantProfile.DIAGNOSTIC: {
@@ -105,7 +109,11 @@ _PROFILE_RUNTIME_BEHAVIOR_MATRIX: dict[
     },
     InvariantProfile.DEBT_GATE: {
         "never": _DEBT_GATE_NEVER,
-        "todo": _DEBT_GATE_TODO,
+        "todo": MarkerRuntimeBehavior(
+            throws=False,
+            emits_warning=_DEBT_GATE_TODO.emits_warning,
+            warning_limit=_DEBT_GATE_TODO.warning_limit,
+        ),
         "deprecated": _DEBT_GATE_DEPRECATED,
     },
     InvariantProfile.SUNSET_GATE: {

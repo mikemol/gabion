@@ -320,6 +320,36 @@ def test_diagnostic_profile_returns_payload_and_emits_warning() -> None:
 
 
 # gabion:behavior primary=desired
+@pytest.mark.parametrize(
+    ("profile", "warns"),
+    (
+        (invariants.InvariantProfile.STRICT, False),
+        (invariants.InvariantProfile.DIAGNOSTIC, True),
+        (invariants.InvariantProfile.DEBT_GATE, True),
+        (invariants.InvariantProfile.SUNSET_GATE, True),
+    ),
+)
+def test_todo_is_non_throwing_in_all_profiles(
+    profile: invariants.InvariantProfile,
+    warns: bool,
+) -> None:
+    with invariants.invariant_runtime_behavior_scope(
+        invariants.InvariantRuntimeBehaviorConfig(profile=profile)
+    ):
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            payload = invariants.todo(
+                reasoning={
+                    "summary": f"todo-{profile.value}",
+                    "control": "pr412.identity_contract.partial",
+                    "blocking_dependencies": ["typed_contract_migration"],
+                }
+            )
+    assert payload.marker_kind is MarkerKind.TODO
+    assert bool(caught) is warns
+
+
+# gabion:behavior primary=desired
 def test_diagnostic_profile_dedupes_repeated_warning_keys() -> None:
     with invariants.invariant_runtime_behavior_scope(
         invariants.InvariantRuntimeBehaviorConfig(profile=invariants.InvariantProfile.DIAGNOSTIC)

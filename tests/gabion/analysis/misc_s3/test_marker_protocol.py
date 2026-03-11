@@ -177,10 +177,9 @@ def test_invariant_factory_applies_marker_specific_payload_defaults() -> None:
     assert never_exc.value.marker_kind == "never"
     assert never_exc.value.marker_payload.reason == "structured never"
 
-    with pytest.raises(NeverThrown) as todo_exc:
-        invariant_factory("todo")
-    assert todo_exc.value.marker_kind == "todo"
-    assert todo_exc.value.marker_payload.reason == "todo() marker reached"
+    todo_payload = invariant_factory("todo")
+    assert todo_payload.marker_kind is MarkerKind.TODO
+    assert todo_payload.reason == "todo() marker reached"
 
     with pytest.raises(NeverThrown) as deprecated_exc:
         invariant_factory("deprecated")
@@ -190,9 +189,8 @@ def test_invariant_factory_applies_marker_specific_payload_defaults() -> None:
 
 # gabion:behavior primary=allowed_unwanted facets=deprecated
 def test_todo_and_deprecated_markers_carry_kind() -> None:
-    with pytest.raises(NeverThrown) as todo_exc:
-        todo("later", links=[{"kind": "doc_id", "value": "in-50"}])
-    assert todo_exc.value.marker_kind == "todo"
+    todo_payload = todo("later", links=[{"kind": "doc_id", "value": "in-50"}])
+    assert todo_payload.marker_kind is MarkerKind.TODO
 
     with pytest.raises(NeverThrown) as deprecated_exc:
         deprecated("legacy", links=[{"kind": "policy_id", "value": "NCI-LSP-FIRST"}])
@@ -239,9 +237,8 @@ def test_runtime_marker_behavior_is_independent_from_marker_kind_mapping_profile
             InvariantRuntimeBehaviorConfig(profile=InvariantProfile.DEBT_GATE)
         ):
             with pytest.warns(InvariantMarkerWarning):
-                with pytest.raises(NeverThrown) as exc_info:
-                    todo("debt gate marker")
-    assert exc_info.value.marker_kind == "todo"
+                payload = todo("debt gate marker")
+    assert payload.marker_kind is MarkerKind.TODO
 
     with runtime_marker_kind_mapping_scope(collapse_profile):
         with invariant_runtime_behavior_scope(
