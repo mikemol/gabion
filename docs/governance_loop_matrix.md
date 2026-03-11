@@ -18,14 +18,14 @@ doc_requires:
   - POLICY_SEED.md#policy_seed
   - glossary.md#contract
 doc_reviewed_as_of:
-  docs/governance_control_loops.md#governance_control_loops: 2
+  docs/governance_control_loops.md#governance_control_loops: 1
   README.md#repo_contract: 2
   AGENTS.md#agent_obligations: 2
   CONTRIBUTING.md#contributing_contract: 2
   POLICY_SEED.md#policy_seed: 2
   glossary.md#contract: 1
 doc_review_notes:
-  docs/governance_control_loops.md#governance_control_loops: "Control-loop domain registry reviewed; matrix rows align to declared first-order loops including strict docflow packetization/enforcement."
+  docs/governance_control_loops.md#governance_control_loops: "Re-reviewed governance_control_loops section v1 under doc rev6; matrix rows remain aligned to declared first-order loops including strict docflow packetization/enforcement."
   README.md#repo_contract: "Reviewed README.md rev2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
   AGENTS.md#agent_obligations: "Reviewed AGENTS.md rev2 (required validation stack, forward-remediation preference, and ci_watch failure-bundle triage guidance)."
   CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
@@ -44,10 +44,10 @@ doc_section_requires:
 doc_section_reviews:
   governance_loop_matrix:
     docs/governance_control_loops.md#governance_control_loops:
-      dep_version: 2
+      dep_version: 1
       self_version_at_review: 2
       outcome: no_change
-      note: "Domain/correction model remains compatible with matrix columns including packetized strict docflow loop controls."
+      note: "Domain/correction model remains compatible with matrix columns including packetized strict docflow loop controls after re-reviewing section v1 under doc rev6."
     README.md#repo_contract:
       dep_version: 2
       self_version_at_review: 2

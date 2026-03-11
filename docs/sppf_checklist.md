@@ -1,5 +1,5 @@
 ---
-doc_revision: 165
+doc_revision: 166
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -155,6 +155,12 @@ trailers or run `python -m scripts.sppf_sync --comment` after adding references.
 ## Governance tooling nodes
 - [~] Docflow audit outputs + frontmatter/anchorized report artifacts in `out/`. (in-28, GH-86) sppf{doc=done; impl=partial; doc_ref=in-28@8}
 
+## ProjectionSpec substrate convergence nodes
+- [~] CF04 semantic convergence hard-cut landed: `policy_check` evaluates projection-fiber convergence from semantic lattice witnesses via DSL decisions (probe heuristics removed). Evidence anchors: `scripts/policy/policy_check.py`, `src/gabion/tooling/policy_substrate/lattice_convergence_semantic.py`, `tests/test_policy_dsl.py::test_policy_check_lattice_convergence_uses_semantic_collector_and_dsl`. sppf{doc=partial; impl=done; doc_ref=in-30@27,in-31@6}
+- [~] CF05 opportunity taxonomy is DSL-owned (`rule_id` semantics) instead of Python predicate registries. Evidence anchors: `docs/aspf_opportunity_rules.yaml`, `src/gabion/analysis/aspf_rule_engine.py`, `src/gabion/analysis/foundation/aspf_visitors_impl.py`, `tests/gabion/analysis/aspf/test_aspf_visitors.py`. sppf{doc=partial; impl=done; doc_ref=in-30@27,in-31@6}
+- [~] CF06/CF07/CF08 projection-fiber semantics are rule-level and transform-active in policy DSL; canonical algebra no longer executes projection transform specs. Evidence anchors: `docs/projection_fiber_rules.yaml`, `src/gabion/policy_dsl/compile.py`, `src/gabion/policy_dsl/eval.py`, `src/gabion/analysis/aspf/aspf_lattice_algebra.py`, `tests/gabion/tooling/runtime_policy/test_lattice_convergence_semantic.py`. sppf{doc=partial; impl=done; doc_ref=in-30@27,in-31@6}
+- [~] CF09/CF10/CF11 execution and contract hard-cuts landed: iterator-first convergence collection, adapter-free policy substrate exports, and single `FrontierWitness` frontier contract in canonical algebra. Evidence anchors: `src/gabion/tooling/policy_substrate/lattice_convergence_semantic.py`, `src/gabion/tooling/policy_substrate/dataflow_fibration.py`, `src/gabion/analysis/aspf/aspf_lattice_algebra.py`, `tests/gabion/tooling/runtime_policy/test_policy_substrate_runtime.py`, `tests/test_policy_dsl.py`. sppf{doc=partial; impl=done; doc_ref=in-30@27,in-31@6}
+
 ## Functional-core roadmap lane
 - Lane audit tracker: `docs/audits/functional_core_audit.md#functional_core_audit`.
 - Active slice state artifact: `artifacts/audit_reports/refactor_slice_state.json`.
@@ -182,7 +188,7 @@ trailers or run `python -m scripts.sppf_sync --comment` after adding references.
 - [x] Wildcard forwarding: signature-aware mapping for `*args/**kwargs`.
 - [x] Wildcard forwarding: pass-through via `*args/**kwargs` variables.
 - [x] Type-flow tightening audit (downstream annotations).
-- [~] Internal broad-type lint (Any/object + scalar types like str/int/float/bool/bytes, except NodeId) on non-boundary surfaces (heuristic allow/deny set remains intentionally narrow). Evidence anchors: `src/gabion/analysis/dataflow/engine/dataflow_lint_helpers.py::_internal_broad_type_lint_lines_indexed`, `tests/gabion/analysis/misc_s3/test_broad_type_lint.py::test_broad_type_helpers_cover_edges`. (GH-89) sppf{doc=partial; impl=partial; doc_ref=in-31@5}
+- [~] Internal broad-type lint (Any/object + scalar types like str/int/float/bool/bytes, except NodeId) on non-boundary surfaces (heuristic allow/deny set remains intentionally narrow). Evidence anchors: `src/gabion/analysis/dataflow/engine/dataflow_lint_helpers.py::_internal_broad_type_lint_lines_indexed`, `tests/gabion/analysis/misc_s3/test_broad_type_lint.py::test_broad_type_helpers_cover_edges`. (GH-89) sppf{doc=partial; impl=partial; doc_ref=in-31@6}
 - [x] Type-flow ambiguities fail `gabion check` in repo defaults.
 - [x] Anonymous schema surface detection (dict[str, object]/Any payload annotations).
 - [x] Constant-flow audit (dead knobs / always-constant params).

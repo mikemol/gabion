@@ -137,17 +137,15 @@ _ERA_SPECS: tuple[EraSpec, ...] = (
         validation_surfaces=(
             "tests/test_policy_dsl.py",
         ),
-        completion_gaps=(
-            "Projection-fiber rules are present in local workspace but not yet committed as canonical source.",
-        ),
+        completion_gaps=(),
         next_actions=(
-            "Finalize projection-fiber DSL source and lock it in registry/typecheck paths.",
+            "Preserve rule_id/witness drift checks so policy decisions stay DSL-owned.",
         ),
     ),
     EraSpec(
         era_id="PS-ERA-05",
         title="Fiber-First Lattice Cutover",
-        base_status="in_progress",
+        base_status="implemented",
         intent_sources=(
             "docs/aspf_execution_fibration.md",
             "docs/projection_fiber_rules.yaml",
@@ -162,38 +160,37 @@ _ERA_SPECS: tuple[EraSpec, ...] = (
             "tests/test_policy_dsl.py",
             "tests/gabion/analysis/aspf/test_aspf_execution_fibration.py",
         ),
-        completion_gaps=(
-            "Canonical lattice algebra path is present locally but still provisional in this workspace state.",
-            "Convergence gate still needs a fully semantic witness corpus with no transitional heuristics.",
-        ),
+        completion_gaps=(),
         next_actions=(
-            "Commit lattice algebra and projection-fiber rule sources, then lock semantic witness convergence checks.",
-            "Replace remaining legacy frontier detection branches with canonical lattice witness contracts.",
+            "Keep iterator-first convergence and single-frontier drift tests as required gates.",
         ),
     ),
     EraSpec(
         era_id="PS-ERA-06",
         title="Integrated Substrate Completion",
-        base_status="open",
+        base_status="in_progress",
         intent_sources=(
             "docs/projection_fiber_rules.yaml",
             "docs/policy_dsl_migration_notes.md",
+            "docs/governance_loop_matrix.md",
             "in/in-32.md",
         ),
-        implementation_surfaces=(),
+        implementation_surfaces=(
+            "scripts/policy/policy_check.py",
+            "src/gabion/tooling/policy_substrate/lattice_convergence_semantic.py",
+            "src/gabion/tooling/policy_substrate/dataflow_fibration.py",
+            "src/gabion/analysis/aspf/aspf_lattice_algebra.py",
+        ),
         validation_surfaces=(
             "tests/test_policy_dsl.py",
             "scripts/policy/policy_check.py",
         ),
         completion_gaps=(
-            "Demand-driven end-to-end evaluation is not yet the only execution mode for convergence checks.",
-            "Full removal of transitional adapter surfaces is incomplete.",
-            "ProjectionSpec core and fiber/lattice substrate are not yet represented by a single canonical evaluation contract.",
+            "Workflow policy gate stack still reports unresolved workflow/lock-in failures.",
         ),
         next_actions=(
-            "Hard-cut convergence checks to DSL structural predicates over canonical lattice outputs.",
-            "Finish transition to evaluator decisions with witness contracts only.",
-            "Lock deterministic closure tests for cold/warm artifact-cache parity under lazy pull.",
+            "Close workflow-policy and lock-in source gate failures in a dedicated correction unit.",
+            "Keep strict docflow packet loop green while CF04-CF11 substrate state remains stable.",
         ),
     ),
 )

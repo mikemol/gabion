@@ -34,7 +34,7 @@ doc_role: audit
 ### Intent At The Time
 - ProjectionSpec remains unchanged — only the base carrier improves. (in/in-30.md:488)
 - 4. **Projection Idempotence** (in/in-30.md:717)
-- - **F1:** ProjectionSpec is a quotient morphism that erases evidence: (in/in-31.md:173)
+- - **F1:** ProjectionSpec is a quotient morphism that erases evidence: (in/in-31.md:174)
 
 ### What Shipped
 - `src/gabion/analysis/projection/projection_spec.py`
@@ -70,7 +70,7 @@ doc_role: audit
 ### Intent At The Time
 - ProjectionSpec remains unchanged — only the base carrier improves. (in/in-30.md:488)
 - 4. **Projection Idempotence** (in/in-30.md:717)
-- - **F1:** ProjectionSpec is a quotient morphism that erases evidence: (in/in-31.md:173)
+- - **F1:** ProjectionSpec is a quotient morphism that erases evidence: (in/in-31.md:174)
 
 ### What Shipped
 - `src/gabion/analysis/dataflow/engine/dataflow_projection_materialization.py`
@@ -160,8 +160,8 @@ doc_role: audit
 - `1e7f3b5e` `2026-02-23` Hard-cut governance audit scripts into gabion CLI subcommands
 - `650c67db` `2026-02-23` Add governance control-loop registry and docflow enforcement
 - `76c103ae` `2026-02-23` Canonicalize governance loop doc and fix agent drift checks
-- `94e2a91d` `2026-03-10` CF10: hard-cut legacy frontier adapter exports
 - `9ead86ef` `2026-03-10` CF08: hard-cut projection transform runtime to policy DSL
+- `b7e11e40` `2026-03-10` CF11 hard-cut lattice recombination frontier bridge
 - `d814f25f` `2026-03-10` CF07: execute projection-fiber transforms in policy DSL
 - `e13c54b0` `2026-03-10` Force majeure: continue projection substrate and policy convergence
 - `f74f5dee` `2026-03-10` CU-CF06 projection-fiber row-level obligation semantics
@@ -170,13 +170,13 @@ doc_role: audit
 - No provisional workspace-only delta for this era.
 
 ### What Remains
-- Projection-fiber rules are present in local workspace but not yet committed as canonical source.
+- No explicit completion gap recorded for this era.
 
 ### Next Actions
-- Finalize projection-fiber DSL source and lock it in registry/typecheck paths.
+- Preserve rule_id/witness drift checks so policy decisions stay DSL-owned.
 
 ## PS-ERA-05: Fiber-First Lattice Cutover
-- status: `in_progress`
+- status: `implemented`
 - date_window: `2026-02-25` -> `2026-03-10`
 
 ### Intent At The Time
@@ -195,25 +195,23 @@ doc_role: audit
 - `d03ba757` `2026-02-27` docs: remove stale ASPF action-plan CLI and artifact surfaces
 - `e3f92c4b` `2026-02-27` docs: propagate re-internment metadata across governance dependents
 - `776ebde9` `2026-03-03` refactor: split import DAG into submodules and rewrite paths
-- `94e2a91d` `2026-03-10` CF10: hard-cut legacy frontier adapter exports
 - `9ead86ef` `2026-03-10` CF08: hard-cut projection transform runtime to policy DSL
+- `b7e11e40` `2026-03-10` CF11 hard-cut lattice recombination frontier bridge
 - `d814f25f` `2026-03-10` CF07: execute projection-fiber transforms in policy DSL
 - `e13c54b0` `2026-03-10` Force majeure: continue projection substrate and policy convergence
 - `f74f5dee` `2026-03-10` CU-CF06 projection-fiber row-level obligation semantics
 
 ### What Drifted
-- `[PROVISIONAL]` `src/gabion/analysis/aspf/aspf_lattice_algebra.py` ( M)
+- No provisional workspace-only delta for this era.
 
 ### What Remains
-- Canonical lattice algebra path is present locally but still provisional in this workspace state.
-- Convergence gate still needs a fully semantic witness corpus with no transitional heuristics.
+- No explicit completion gap recorded for this era.
 
 ### Next Actions
-- Commit lattice algebra and projection-fiber rule sources, then lock semantic witness convergence checks.
-- Replace remaining legacy frontier detection branches with canonical lattice witness contracts.
+- Keep iterator-first convergence and single-frontier drift tests as required gates.
 
 ## PS-ERA-06: Integrated Substrate Completion
-- status: `open`
+- status: `in_progress`
 - date_window: `2026-02-12` -> `2026-03-10`
 
 ### Intent At The Time
@@ -221,17 +219,20 @@ doc_role: audit
 - Temporary boundary adapters kept: (docs/policy_dsl_migration_notes.md:9)
 
 ### What Shipped
-- No committed implementation surface for this era yet.
+- `scripts/policy/policy_check.py`
+- `src/gabion/tooling/policy_substrate/lattice_convergence_semantic.py`
+- `src/gabion/tooling/policy_substrate/dataflow_fibration.py`
+- `src/gabion/analysis/aspf/aspf_lattice_algebra.py`
 
 ### Evidence Commits
 - `58f2eaf1` `2026-02-12` docflow: update in-32 and section-review outputs
 - `dd4cb1fd` `2026-02-12` docs: intern in-32 as non-normative hypothesis
 - `6b38b878` `2026-02-17` docs(in-32): emphasize non-normative status and implementation boundary
 - `d595634e` `2026-02-23` Refresh in/ doc dependency reviews and cadence note
-- `08471e11` `2026-02-25` Add ASPF reuse classes, witness gates, and shadow replay log
-- `8a370a8f` `2026-03-10` Eliminate remaining Python-authored ambiguity/docflow rule branches
+- `dde38f18` `2026-02-23` Merge PR #225: Add governance loop matrix doc and matrix-drift audit check
 - `94e2a91d` `2026-03-10` CF10: hard-cut legacy frontier adapter exports
 - `9ead86ef` `2026-03-10` CF08: hard-cut projection transform runtime to policy DSL
+- `b7e11e40` `2026-03-10` CF11 hard-cut lattice recombination frontier bridge
 - `d814f25f` `2026-03-10` CF07: execute projection-fiber transforms in policy DSL
 - `f74f5dee` `2026-03-10` CU-CF06 projection-fiber row-level obligation semantics
 
@@ -239,14 +240,11 @@ doc_role: audit
 - No provisional workspace-only delta for this era.
 
 ### What Remains
-- Demand-driven end-to-end evaluation is not yet the only execution mode for convergence checks.
-- Full removal of transitional adapter surfaces is incomplete.
-- ProjectionSpec core and fiber/lattice substrate are not yet represented by a single canonical evaluation contract.
+- Workflow policy gate stack still reports unresolved workflow/lock-in failures.
 
 ### Next Actions
-- Hard-cut convergence checks to DSL structural predicates over canonical lattice outputs.
-- Finish transition to evaluator decisions with witness contracts only.
-- Lock deterministic closure tests for cold/warm artifact-cache parity under lazy pull.
+- Close workflow-policy and lock-in source gate failures in a dedicated correction unit.
+- Keep strict docflow packet loop green while CF04-CF11 substrate state remains stable.
 
 ## Completion Focus Appendix
 

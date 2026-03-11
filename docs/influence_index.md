@@ -1,5 +1,5 @@
 ---
-doc_revision: 53
+doc_revision: 54
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: influence_index
 doc_role: index
@@ -127,8 +127,8 @@ Status legend:
 - in/in-27.md — **partial** (exception obligations emitted with deadness/handledness witnesses; exception-aware rewrite acceptance predicates implemented; remaining handledness refinement tracked; SPPF/GH-77, GH-80.)
 - in/in-28.md — **adopted** (in_step template discipline enforced; docflow structure and review requirements codified.)
 - in/in-29.md — **partial** (test evidence carrier + dominance/equivalence + obsolescence/suggestions projections implemented; dominance deltas pending.)
-- in/in-30.md — **partial** (implemented: suite ambiguity projections + suite-order SpecFacet path + tick-budget deadline propagation; open: SuiteSite-native loop obligation enforcement; deferred: phase-3/4 decision-surface migration; SPPF/GH-85, GH-87, GH-88.)
-- in/in-31.md — **partial** (implemented: suite-order ProjectionSpec/SpecFacet quotient path; open: explicit quotient/internment regression harness; deferred: internal broad-type lint tightening impact; SPPF/GH-85, GH-89.)
+- in/in-30.md — **partial** (implemented: suite ambiguity projections + suite-order SpecFacet path + tick-budget deadline propagation + projection-fiber substrate CF04-CF11 cutovers; open: SuiteSite-native loop obligation enforcement; deferred: phase-3/4 decision-surface migration; SPPF/GH-85, GH-87, GH-88.)
+- in/in-31.md — **partial** (implemented: suite-order ProjectionSpec/SpecFacet quotient path + explicit quotient/internment regression harness in `tests/gabion/analysis/projection/test_suite_order_projection_spec.py`; deferred: internal broad-type lint tightening impact; SPPF/GH-85, GH-89.)
 - in/in-32.md — **queued** (hypothetical/non-normative Gödel-numbering exploration; acknowledged, but not a controlling contract for implementation or CI at this time.)
 - in/in-33.md — [**partial**](docs/sppf_checklist.md#in-33-pattern-schema-unification) (implemented: PatternSchema/PatternInstance/PatternResidue carriers + unified schema suggestion/residue pipeline + Tier-2 residue ratchet/metafactory reification gate; open: execution-rule coverage breadth.)
 - in/in-34.md — [**partial**](docs/sppf_checklist.md#in-34-lambda-callable-sites) (synthetic lambda function sites are indexed and used for direct/bound lambda call resolution, while broader closure/alias cases still fall back conservatively.)
