@@ -6,6 +6,8 @@ from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from dataclasses import dataclass
 from enum import StrEnum
+from pathlib import Path
+import traceback
 from typing import TYPE_CHECKING, Callable, TypeVar
 import warnings
 
@@ -284,7 +286,11 @@ def _normalized_invariant_marker_payload(
 def invariant_factory(
     marker_kind: str, reasoning: object = "", **env: object
 ) -> MarkerPayload:
-    payload = _normalized_invariant_marker_payload(marker_kind, reasoning, **env)
+    payload = _normalized_invariant_marker_payload(
+        marker_kind,
+        reasoning,
+        **_env_with_marker_source_site(env),
+    )
     runtime_config = invariant_runtime_behavior_config()
     behavior = resolve_marker_runtime_behavior(
         payload.marker_kind.value,
@@ -299,6 +305,31 @@ def invariant_factory(
     if behavior.throws:
         raise NeverThrown(payload.reason, marker_payload=payload)
     return payload
+
+
+def _env_with_marker_source_site(env: dict[str, object]) -> dict[str, object]:
+    if (
+        "marker_source_path" in env
+        or "marker_source_line" in env
+        or "marker_source_function" in env
+    ):
+        return dict(env)
+    normalized_env = dict(env)
+    cwd = Path.cwd()
+    invariant_path = Path(__file__).resolve()
+    for frame in reversed(traceback.extract_stack()):
+        frame_path = Path(frame.filename).resolve()
+        if frame_path == invariant_path:
+            continue
+        try:
+            relative_path = frame_path.relative_to(cwd)
+        except ValueError:
+            relative_path = frame_path
+        normalized_env["marker_source_path"] = relative_path.as_posix()
+        normalized_env["marker_source_line"] = frame.lineno
+        normalized_env["marker_source_function"] = frame.name
+        return normalized_env
+    return normalized_env
 
 
 def _emit_legacy_never_string_reason_deprecation(

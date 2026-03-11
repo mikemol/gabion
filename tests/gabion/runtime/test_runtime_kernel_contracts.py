@@ -8,6 +8,7 @@ import pytest
 from decimal import ROUND_FLOOR
 
 from gabion.exceptions import NeverThrown
+from gabion.invariants import never
 from gabion.runtime import (
     deadline_policy,
     env_policy,
@@ -37,6 +38,21 @@ def test_env_policy_truthy_helpers_explicit_values() -> None:
     assert env_policy.env_enabled_truthy_only("UNUSED", value="no") is False
     assert env_policy.env_enabled_flag("UNUSED", value="on") is True
     assert env_policy.env_enabled_flag("UNUSED", value="off") is False
+
+
+def _raise_runtime_never_with_source_site() -> None:
+    never("runtime source site")
+
+
+# gabion:behavior primary=desired
+def test_never_marker_payload_carries_source_site() -> None:
+    with pytest.raises(NeverThrown) as exc_info:
+        _raise_runtime_never_with_source_site()
+
+    marker_env = exc_info.value.marker_payload.env
+    assert marker_env["marker_source_path"] == "tests/gabion/runtime/test_runtime_kernel_contracts.py"
+    assert marker_env["marker_source_function"] == "_raise_runtime_never_with_source_site"
+    assert isinstance(marker_env["marker_source_line"], int)
 
 
 # gabion:evidence E:call_footprint::tests/test_runtime_kernel_contracts.py::test_env_policy_timeout_env_removed::env_policy.py::gabion.runtime.env_policy.timeout_ticks_from_env

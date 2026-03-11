@@ -106,6 +106,23 @@ def test_invariant_error_message_falls_back_to_default() -> None:
     assert server._invariant_error_message(NeverThrown("")) == "invariant violation"
 
 
+def _raise_invariant_for_message() -> None:
+    raise NeverThrown("structural failure")
+
+
+# gabion:behavior primary=verboten facets=edge,error
+def test_invariant_error_message_includes_traceback_location_when_present() -> None:
+    try:
+        _raise_invariant_for_message()
+    except NeverThrown as error:
+        message = server._invariant_error_message(error)
+    else:  # pragma: no cover
+        raise AssertionError("expected NeverThrown")
+
+    assert "structural failure" in message
+    assert "tests/gabion/server/server_execute_command_edges_cases.py" in message
+
+
 _TIMEOUT_PAYLOAD = {
     "analysis_timeout_ticks": 50_000,
     "analysis_timeout_tick_ns": 1_000_000,

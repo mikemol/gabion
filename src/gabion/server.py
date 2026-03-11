@@ -6,6 +6,7 @@ import os
 import re
 import threading
 import time
+import traceback
 from datetime import datetime, timezone
 from collections import defaultdict, deque
 from contextlib import contextmanager
@@ -1448,11 +1449,52 @@ def _timeout_context_payload(exc: TimeoutExceeded) -> JSONObject:
     return orchestrator_primitives._timeout_context_payload(exc)
 
 
+def _invariant_error_location(error: NeverThrown) -> str | None:
+    marker_env = error.marker_payload.env
+    raw_path = marker_env.get("marker_source_path")
+    raw_line = marker_env.get("marker_source_line")
+    if isinstance(raw_path, str) and raw_path.strip():
+        match raw_line:
+            case int() as line_number:
+                return f"{raw_path}:{line_number}"
+            case str() as line_text if line_text.isdigit():
+                return f"{raw_path}:{line_text}"
+    extracted_frames = traceback.extract_tb(error.__traceback__)
+    if not extracted_frames:
+        return None
+    cwd = Path.cwd()
+    utility_suffixes = {
+        "src/gabion/invariants.py",
+        "src/gabion/exceptions.py",
+    }
+    selected_frame = extracted_frames[-1]
+    for frame in reversed(extracted_frames):
+        frame_path = Path(frame.filename)
+        try:
+            relative_path = frame_path.relative_to(cwd)
+        except ValueError:
+            relative_path = frame_path
+        relative_text = relative_path.as_posix()
+        if relative_text in utility_suffixes:
+            continue
+        selected_frame = frame
+        break
+    selected_path = Path(selected_frame.filename)
+    try:
+        relative_path = selected_path.relative_to(cwd)
+    except ValueError:
+        relative_path = selected_path
+    return f"{relative_path}:{selected_frame.lineno}"
+
+
 def _invariant_error_message(error: NeverThrown) -> str:
     message = str(error).strip()
-    if message:
+    if not message:
+        message = "invariant violation"
+    location = _invariant_error_location(error)
+    if location is None:
         return message
-    return "invariant violation"
+    return f"{message} [{location}]"
 
 
 @decision_protocol
