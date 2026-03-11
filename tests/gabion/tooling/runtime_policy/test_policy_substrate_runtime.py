@@ -4,6 +4,7 @@ import ast
 from pathlib import Path
 
 from gabion.analysis.aspf import aspf_lattice_algebra as lattice_algebra
+from gabion.tooling.policy_substrate import dataflow_fibration as dataflow_fibration_adapter
 from gabion.tooling.policy_substrate.aspf_union_view import ASPFUnionView, CSTParseFailureEvent, build_aspf_union_view
 from gabion.tooling.policy_substrate.dataflow_fibration import (
     BranchWitnessRequest,
@@ -471,3 +472,13 @@ def test_policy_substrate_compute_lattice_witness_reuses_artifact_cache() -> Non
         assert second.branch_site_id == first.branch_site_id
     finally:
         lattice_algebra.frontier = original_frontier  # type: ignore[assignment]
+
+
+# gabion:behavior primary=desired
+def test_policy_substrate_adapter_removes_legacy_recombination_exports() -> None:
+    assert "compute_recombination_frontier" not in dataflow_fibration_adapter.__all__
+    assert "empty_recombination_frontier" not in dataflow_fibration_adapter.__all__
+    assert "RecombinationFrontier" not in dataflow_fibration_adapter.__all__
+    assert not hasattr(dataflow_fibration_adapter, "compute_recombination_frontier")
+    assert not hasattr(dataflow_fibration_adapter, "empty_recombination_frontier")
+    assert not hasattr(dataflow_fibration_adapter, "RecombinationFrontier")

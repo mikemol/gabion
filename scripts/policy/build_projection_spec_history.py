@@ -465,6 +465,29 @@ def _completion_focus(
         if policy_check_path.exists()
         else ""
     )
+    substrate_init_path = repo_root / "src/gabion/tooling/policy_substrate/__init__.py"
+    substrate_adapter_path = repo_root / "src/gabion/tooling/policy_substrate/dataflow_fibration.py"
+    substrate_init_source = (
+        substrate_init_path.read_text(encoding="utf-8")
+        if substrate_init_path.exists()
+        else ""
+    )
+    substrate_adapter_source = (
+        substrate_adapter_path.read_text(encoding="utf-8")
+        if substrate_adapter_path.exists()
+        else ""
+    )
+    legacy_adapter_symbols = (
+        "RecombinationFrontier",
+        "compute_recombination_frontier",
+        "empty_recombination_frontier",
+    )
+    adapter_free = (
+        bool(substrate_init_source)
+        and bool(substrate_adapter_source)
+        and all(symbol not in substrate_init_source for symbol in legacy_adapter_symbols)
+        and all(symbol not in substrate_adapter_source for symbol in legacy_adapter_symbols)
+    )
 
     criteria = [
         {
@@ -505,12 +528,22 @@ def _completion_focus(
             "status": "pass" if git.tracked("docs/policy_dsl_migration_notes.md") else "in_progress",
             "evidence": "docs/policy_dsl_migration_notes.md",
         },
+        {
+            "criterion_id": "CF-06",
+            "description": "Policy substrate adapter exports are canonical witness-only",
+            "status": "pass" if adapter_free else "in_progress",
+            "evidence": (
+                "src/gabion/tooling/policy_substrate/__init__.py; "
+                "src/gabion/tooling/policy_substrate/dataflow_fibration.py"
+            ),
+        },
     ]
     sequence = [
         "Commit projection-fiber rule source and lattice algebra as canonical tracked surfaces.",
         "Cut convergence checks to evaluator decisions over semantic lattice witnesses only.",
         "Eliminate remaining transitional frontier compatibility branches in policy substrate adapters.",
         "Lock deterministic lazy-pull and cache-parity tests as hard convergence gates.",
+        "Enforce adapter-free substrate exports via drift checks and completion criteria.",
     ]
     return criteria, sequence
 

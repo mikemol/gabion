@@ -193,6 +193,23 @@ def test_aspf_lattice_algebra_has_no_projection_transform_runtime() -> None:
     assert "_run_projection_fixpoint" not in source
 
 
+def test_policy_substrate_exports_no_legacy_recombination_surface() -> None:
+    adapter_source = Path(
+        "src/gabion/tooling/policy_substrate/dataflow_fibration.py"
+    ).read_text(encoding="utf-8")
+    package_source = Path("src/gabion/tooling/policy_substrate/__init__.py").read_text(
+        encoding="utf-8"
+    )
+    banned = (
+        "RecombinationFrontier",
+        "compute_recombination_frontier",
+        "empty_recombination_frontier",
+    )
+    for symbol in banned:
+        assert symbol not in adapter_source
+        assert symbol not in package_source
+
+
 def test_opportunity_rule_ids_deterministic_order() -> None:
     first = tuple(
         rule.rule_id
