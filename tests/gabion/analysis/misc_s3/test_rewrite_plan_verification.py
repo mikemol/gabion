@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import ast
+from pathlib import Path
+
 from gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers import (
     _compute_fingerprint_coherence,
     _compute_fingerprint_rewrite_plans,
@@ -9,6 +12,19 @@ from gabion.analysis.dataflow.engine.dataflow_fingerprint_helpers import (
     verify_rewrite_plans,
 )
 from gabion.analysis.semantics.evidence import Site, normalize_bundle_key
+from gabion.invariants import todo
+
+_PR412_REWRITE_PLAN_FIXTURE_PARTIAL_IDENTITY = todo(
+    reasoning={
+        "summary": "PR-412 canonical identity contract adoption still partial in representative-only rewrite-plan fixtures",
+        "control": "pr412.identity_contract.fixture_partial_shape",
+        "blocking_dependencies": (
+            "replace_representative_only_rewrite_plan_fixtures_with_typed_canonical_identity_contract",
+        ),
+    },
+    owner="tests.gabion.analysis.misc_s3",
+    links=[{"kind": "object_id", "value": "pr:412"}],
+)
 
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._glossary_match_strata::matches E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._glossary_match_strata::stale_199cab83ea28
@@ -18,6 +34,28 @@ def test_glossary_match_strata_classification() -> None:
     assert _glossary_match_strata([]) == "none"
     assert _glossary_match_strata(["x"]) == "exact"
     assert _glossary_match_strata(["x", "y"]) == "ambiguous"
+
+
+def _todo_call_lines(path: Path) -> list[int]:
+    tree = ast.parse(path.read_text(), filename=str(path))
+    call_lines: list[int] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "todo":
+            call_lines.append(int(node.lineno))
+    return sorted(call_lines)
+
+
+# gabion:behavior primary=desired
+def test_pr412_todo_markers_remain_scanner_visible_in_source_and_fixtures() -> None:
+    repo_root = Path(__file__).resolve().parents[4]
+    marker_paths = (
+        repo_root / "src/gabion/analysis/dataflow/engine/dataflow_fingerprint_helpers.py",
+        repo_root / "src/gabion/analysis/dataflow/engine/dataflow_decision_surfaces.py",
+        repo_root / "src/gabion/analysis/dataflow/io/dataflow_structure_reuse.py",
+        Path(__file__).resolve(),
+    )
+    for path in marker_paths:
+        assert _todo_call_lines(path), str(path)
 
 # gabion:evidence E:function_site::test_rewrite_plan_verification.py::tests.test_rewrite_plan_verification._load
 # gabion:behavior primary=verboten facets=edge

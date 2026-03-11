@@ -13,10 +13,23 @@ import re
 
 from gabion.analysis.foundation.json_types import JSONObject
 from gabion.analysis.foundation.resume_codec import sequence_optional
+from gabion.invariants import never, todo
 from gabion.order_contract import sort_once
 from gabion.refactor.rewrite_plan import (
     RewritePlanKind, attach_plan_schema, normalize_rewrite_plan_order)
-from gabion.invariants import never
+
+
+_PR412_REWRITE_PLAN_RAW_IDENTITY_SURFACE = todo(
+    reasoning={
+        "summary": "PR-412 canonical identity contract adoption still partial in rewrite-plan evidence surfaces",
+        "control": "pr412.identity_payload.rewrite_plan_raw_surface",
+        "blocking_dependencies": (
+            "reify_rewrite_plan_identity_evidence_as_typed_canonical_identity_contract",
+        ),
+    },
+    owner="gabion.analysis.dataflow.engine",
+    links=[{"kind": "object_id", "value": "pr:412"}],
+)
 
 
 def summarize_deadness_witnesses(

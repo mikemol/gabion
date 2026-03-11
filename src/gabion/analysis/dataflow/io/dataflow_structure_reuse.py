@@ -24,10 +24,22 @@ from gabion.analysis.dataflow.io.forest_signature_metadata import apply_forest_s
 from gabion.analysis.foundation.resume_codec import mapping_default_empty, mapping_optional, sequence_optional
 from gabion.analysis.core.structure_reuse_classes import build_structure_class, structure_class_payload
 from gabion.analysis.foundation.timeout_context import check_deadline
-from gabion.invariants import never
+from gabion.invariants import never, todo
 from gabion.order_contract import sort_once
 
 _NONE_TYPE = type(None)
+
+_PR412_REPRESENTATIVE_ONLY_STRUCTURE_REUSE_IDENTITY = todo(
+    reasoning={
+        "summary": "PR-412 canonical identity contract adoption still partial in representative-only structure reuse payloads",
+        "control": "pr412.identity_payload.representative_only_structure_reuse",
+        "blocking_dependencies": (
+            "replace_representative_only_structure_reuse_identity_with_typed_canonical_contract",
+        ),
+    },
+    owner="gabion.analysis.dataflow.io",
+    links=[{"kind": "object_id", "value": "pr:412"}],
+)
 
 
 @singledispatch

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from gabion.json_types import JSONObject, JSONValue
-from gabion.invariants import never
+from gabion.invariants import never, todo
 """Fingerprint helper ownership module during runtime retirement."""
 
 from dataclasses import dataclass
@@ -24,6 +24,42 @@ from gabion.order_contract import sort_once
 from gabion.refactor.rewrite_plan import rewrite_plan_schema, validate_rewrite_plan_payload
 
 OptionalJsonObjectList = list[JSONObject] | None
+
+_PR412_RAW_IDENTITY_LAYER_CONSUMER = todo(
+    reasoning={
+        "summary": "PR-412 canonical identity contract adoption still partial in raw identity layer consumers",
+        "control": "pr412.identity_payload.raw_consumer",
+        "blocking_dependencies": (
+            "replace_raw_identity_layers_access_with_typed_projection",
+        ),
+    },
+    owner="gabion.analysis.dataflow.engine",
+    links=[{"kind": "object_id", "value": "pr:412"}],
+)
+
+_PR412_RAW_IDENTITY_PAYLOAD_PROPAGATION = todo(
+    reasoning={
+        "summary": "PR-412 canonical identity contract adoption still partial in raw identity payload propagation",
+        "control": "pr412.identity_payload.raw_propagation",
+        "blocking_dependencies": (
+            "replace_raw_identity_payload_dict_propagation_with_typed_contract_carriers",
+        ),
+    },
+    owner="gabion.analysis.dataflow.engine",
+    links=[{"kind": "object_id", "value": "pr:412"}],
+)
+
+_PR412_RAW_IDENTITY_CONTRACT_EQUALITY = todo(
+    reasoning={
+        "summary": "PR-412 canonical identity contract adoption still partial in raw mapping equality checks",
+        "control": "pr412.identity_payload.raw_equality",
+        "blocking_dependencies": (
+            "replace_mapping_equality_with_typed_canonical_identity_contract_comparison",
+        ),
+    },
+    owner="gabion.analysis.dataflow.engine",
+    links=[{"kind": "object_id", "value": "pr:412"}],
+)
 
 
 def _compute_fingerprint_warnings(
