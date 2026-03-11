@@ -580,18 +580,9 @@ def fingerprint_identity_payload(
             "cofibration_witness": cofibration.as_dict() if cofibration.entries else {"entries": []},
             "higher_path_witness": higher_path_witness.as_dict(),
         },
-        "derived_aliases": {
-            "scalar_prime_product": {
-                "value": scalar_alias,
-                "canonical": False,
-                "alias_of": "canonical_identity_contract",
-            },
-            "digest_alias": {
-                "value": layers.digest_projection["value"],
-                "canonical": False,
-                "alias_of": "canonical_identity_contract",
-            },
-        },
+        "derived_aliases": layers.derived_aliases(
+            alias_of="canonical_identity_contract"
+        ),
     }
     if cofibration.entries:
         payload["cofibration_witness"] = cofibration.as_dict()
