@@ -97,7 +97,8 @@ def test_semantic_lattice_convergence_parse_and_read_failures_increment_error_co
     assert isinstance(witness_rows, list)
     assert len(witness_rows) == 2
     assert all(isinstance(row, dict) for row in witness_rows)
-    assert all(row.get("obligation_state") == "unresolved" for row in witness_rows)
+    assert all(row.get("witness_kind") == "unmapped_witness" for row in witness_rows)
+    assert all(row.get("mapping_complete") is False for row in witness_rows)
     assert all(row.get("boundary_crossed") is True for row in witness_rows)
 
 

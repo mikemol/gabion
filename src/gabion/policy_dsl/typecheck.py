@@ -14,7 +14,9 @@ _ASPF_ALLOWED_EVIDENCE = {
 def typecheck(program: IRProgram) -> list[TypecheckIssue]:
     issues: list[TypecheckIssue] = []
     seen: set[str] = set()
+    seen_transforms: set[str] = set()
     domain_fallback: set[PolicyDomain] = set()
+    domains = {item.domain for item in program.rules}
     for rule in program.rules:
         if rule.rule_id in seen:
             issues.append(TypecheckIssue(code="duplicate_rule_id", message="rule_id must be globally unique", rule_id=rule.rule_id))
@@ -38,7 +40,27 @@ def typecheck(program: IRProgram) -> list[TypecheckIssue]:
                     rule_id=rule.rule_id,
                 )
             )
-    for domain in {item.domain for item in program.rules}:
+    for domain in domains:
         if domain not in domain_fallback:
             issues.append(TypecheckIssue(code="missing_totality_fallback", message=f"domain {domain.value} requires at least one always predicate", rule_id=None))
+    for transform in program.transforms:
+        if transform.transform_id in seen_transforms:
+            issues.append(
+                TypecheckIssue(
+                    code="duplicate_transform_id",
+                    message="transform_id must be globally unique",
+                    rule_id=transform.transform_id,
+                )
+            )
+        seen_transforms.add(transform.transform_id)
+        if transform.domain not in (None,) and transform.domain not in domains:
+            issues.append(
+                TypecheckIssue(
+                    code="transform_domain_without_rules",
+                    message=(
+                        f"transform domain {transform.domain.value} must exist in rule domains"
+                    ),
+                    rule_id=transform.transform_id,
+                )
+            )
     return sorted(issues, key=lambda item: (item.rule_id or "", item.code, item.message))

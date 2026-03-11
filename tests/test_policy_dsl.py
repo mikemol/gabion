@@ -152,7 +152,8 @@ def test_projection_rule_blocks_on_unerased_obligation() -> None:
         data={
             "witness_rows": [
                 {
-                    "obligation_state": "unresolved",
+                    "witness_kind": "unmapped_witness",
+                    "mapping_complete": False,
                     "boundary_crossed": True,
                 }
             ]
@@ -167,13 +168,20 @@ def test_projection_rule_passes_after_erasure() -> None:
         data={
             "witness_rows": [
                 {
-                    "obligation_state": "erased",
-                    "boundary_crossed": False,
+                    "witness_kind": "unmapped_witness",
+                    "mapping_complete": True,
+                    "boundary_crossed": True,
                 }
             ]
         },
     )
     assert decision.rule_id == "projection_fiber.convergence.ok"
+
+
+def test_projection_fiber_transforms_are_loaded_in_registry() -> None:
+    transforms = tuple(build_registry().program.transforms)
+    transform_ids = tuple(item.transform_id for item in transforms)
+    assert "projection.unmapped_intro" in transform_ids
 
 
 def test_opportunity_rule_ids_deterministic_order() -> None:

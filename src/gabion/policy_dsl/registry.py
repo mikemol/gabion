@@ -11,7 +11,7 @@ from gabion.tooling.governance.governance_rules import (
 )
 
 from .compile import compile_document, compile_rules
-from .ir import IRProgram
+from .ir import IRProgram, IRTransform
 from .schema import CompileIssue, TypecheckIssue
 from .typecheck import typecheck
 
@@ -38,15 +38,17 @@ def _governance_gate_rules() -> list[Mapping[str, Any]]:
     return compiled
 
 
-def _rules_from_document(path: Path) -> tuple[list[Mapping[str, Any]], list[CompileIssue]]:
+def _rules_from_document(
+    path: Path,
+) -> tuple[list[Mapping[str, Any]], tuple[IRTransform, ...], list[CompileIssue]]:
     if not path.exists():
-        return [], []
+        return [], (), []
     program, issues = compile_document(path)
     if issues:
-        return [], issues
+        return [], (), issues
     if program is None:
-        return [], []
-    return [
+        return [], (), []
+    rules = [
         {
             "rule_id": rule.rule_id,
             "domain": rule.domain.value,
@@ -59,25 +61,52 @@ def _rules_from_document(path: Path) -> tuple[list[Mapping[str, Any]], list[Comp
             "evidence_contract": rule.evidence_contract.value,
         }
         for rule in program.rules
-    ], []
+    ]
+    return rules, program.transforms, []
 
 
 @lru_cache(maxsize=1)
 def build_registry() -> RegistrySnapshot:
     repo_root = Path(__file__).resolve().parents[3]
-    aspf_rules, aspf_compile_issues = _rules_from_document(repo_root / "docs" / "aspf_opportunity_rules.yaml")
-    policy_rules, policy_compile_issues = _rules_from_document(repo_root / "docs" / "policy_rules.yaml")
+    aspf_rules, aspf_transforms, aspf_compile_issues = _rules_from_document(
+        repo_root / "docs" / "aspf_opportunity_rules.yaml"
+    )
+    policy_rules, policy_transforms, policy_compile_issues = _rules_from_document(
+        repo_root / "docs" / "policy_rules.yaml"
+    )
+    projection_fiber_rules, projection_fiber_transforms, projection_fiber_compile_issues = _rules_from_document(
+        repo_root / "docs" / "projection_fiber_rules.yaml"
+    )
     all_rules: list[Mapping[str, Any]] = []
     all_rules.extend(_governance_gate_rules())
     all_rules.extend(policy_rules)
     all_rules.extend(aspf_rules)
+    all_rules.extend(projection_fiber_rules)
 
     program, compile_issues = compile_rules([dict(item) for item in all_rules])
-    merged_compile = [*compile_issues, *policy_compile_issues, *aspf_compile_issues]
+    merged_compile = [
+        *compile_issues,
+        *policy_compile_issues,
+        *aspf_compile_issues,
+        *projection_fiber_compile_issues,
+    ]
     if merged_compile:
         raise ValueError("policy compile failed", merged_compile)
     if program is None:
         raise ValueError("policy compile produced empty program")
+    program = IRProgram(
+        rules=program.rules,
+        transforms=tuple(
+            sorted(
+                (
+                    *policy_transforms,
+                    *aspf_transforms,
+                    *projection_fiber_transforms,
+                ),
+                key=lambda item: (item.priority, item.transform_id),
+            )
+        ),
+    )
     type_issues: list[TypecheckIssue] = typecheck(program)
     if type_issues:
         raise ValueError("policy typecheck failed", type_issues)

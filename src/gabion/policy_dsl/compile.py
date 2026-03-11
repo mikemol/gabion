@@ -4,7 +4,7 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any, Mapping
 
-from .ir import IRProgram, IRRule
+from .ir import IRProgram, IRRule, IRTransform
 from .schema import CompileIssue, EvidenceContract, PolicyDomain, PolicyOutcomeKind, PolicySeverity, RuleIdentity, RuleSchema
 
 
@@ -77,6 +77,65 @@ def _compile_rule(raw: Mapping[str, Any], *, index: int) -> tuple[IRRule | None,
     ), []
 
 
+def _compile_transform(
+    raw: Mapping[str, Any],
+    *,
+    index: int,
+    default_domain: PolicyDomain | None,
+) -> tuple[IRTransform | None, list[CompileIssue]]:
+    issues: list[CompileIssue] = []
+    transform_id = str(raw.get("transform_id", "")).strip()
+    if not transform_id:
+        issues.append(
+            CompileIssue(
+                code="missing_transform_id",
+                message="transform_id is required",
+            )
+        )
+        return None, issues
+    intro_from = str(raw.get("intro_from", "")).strip()
+    if not intro_from:
+        issues.append(
+            CompileIssue(
+                code="missing_intro_from",
+                message="intro_from is required",
+                rule_id=transform_id,
+            )
+        )
+    erase_when = str(raw.get("erase_when", "")).strip()
+    if not erase_when:
+        issues.append(
+            CompileIssue(
+                code="missing_erase_when",
+                message="erase_when is required",
+                rule_id=transform_id,
+            )
+        )
+    raw_domain = raw.get("domain")
+    domain_value = str(raw_domain).strip() if raw_domain not in (None,) else ""
+    domain: PolicyDomain | None = default_domain
+    if domain_value not in ("",):
+        try:
+            domain = PolicyDomain(domain_value)
+        except ValueError:
+            issues.append(
+                CompileIssue(
+                    code="invalid_transform_domain",
+                    message="transform domain is invalid",
+                    rule_id=transform_id,
+                )
+            )
+    if issues:
+        return None, issues
+    return IRTransform(
+        transform_id=transform_id,
+        domain=domain,
+        intro_from=intro_from,
+        erase_when=erase_when,
+        priority=index,
+    ), []
+
+
 def compile_rules(raw_rules: list[Mapping[str, Any]]) -> tuple[IRProgram | None, list[CompileIssue]]:
     issues: list[CompileIssue] = []
     compiled: list[IRRule] = []
@@ -87,7 +146,9 @@ def compile_rules(raw_rules: list[Mapping[str, Any]]) -> tuple[IRProgram | None,
             compiled.append(rule)
     if issues:
         return None, sorted(issues, key=lambda item: (item.rule_id or "", item.code, item.message))
-    return IRProgram(rules=tuple(sorted(compiled, key=lambda item: (item.priority, item.rule_id)))), []
+    return IRProgram(
+        rules=tuple(sorted(compiled, key=lambda item: (item.priority, item.rule_id))),
+    ), []
 
 
 def compile_document(path: Path) -> tuple[IRProgram | None, list[CompileIssue]]:
@@ -98,4 +159,49 @@ def compile_document(path: Path) -> tuple[IRProgram | None, list[CompileIssue]]:
     if not isinstance(rules, list):
         return None, [CompileIssue(code="invalid_rules", message="policy document must define rules: []")]
     normalized = [dict(item) for item in rules if isinstance(item, Mapping)]
-    return compile_rules(normalized)
+    program, issues = compile_rules(normalized)
+    if issues:
+        return None, issues
+    assert program is not None
+    raw_transforms = payload.get("transforms", [])
+    if raw_transforms in (None,):
+        raw_transforms = []
+    if not isinstance(raw_transforms, list):
+        return None, [
+            CompileIssue(
+                code="invalid_transforms",
+                message="policy document transforms must be a list",
+            )
+        ]
+    domains = sorted({rule.domain for rule in program.rules}, key=lambda item: item.value)
+    default_domain = domains[0] if len(domains) == 1 else None
+    compiled_transforms: list[IRTransform] = []
+    transform_issues: list[CompileIssue] = []
+    for index, item in enumerate(raw_transforms):
+        if not isinstance(item, Mapping):
+            transform_issues.append(
+                CompileIssue(
+                    code="invalid_transform",
+                    message="transform entry must be an object",
+                )
+            )
+            continue
+        transform, item_issues = _compile_transform(
+            item,
+            index=index,
+            default_domain=default_domain,
+        )
+        transform_issues.extend(item_issues)
+        if transform is not None:
+            compiled_transforms.append(transform)
+    if transform_issues:
+        return None, sorted(
+            transform_issues,
+            key=lambda item: (item.rule_id or "", item.code, item.message),
+        )
+    return IRProgram(
+        rules=program.rules,
+        transforms=tuple(
+            sorted(compiled_transforms, key=lambda item: (item.priority, item.transform_id))
+        ),
+    ), []

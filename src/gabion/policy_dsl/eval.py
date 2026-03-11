@@ -58,10 +58,51 @@ def _eval_predicate(predicate: Mapping[str, Any], data: Mapping[str, Any]) -> bo
     return False
 
 
+def _apply_transforms(
+    *,
+    program: IRProgram,
+    domain: PolicyDomain,
+    data: Mapping[str, Any],
+) -> Mapping[str, Any]:
+    transforms = tuple(
+        sorted(
+            program.transforms_by_domain(domain),
+            key=lambda item: (item.priority, item.transform_id),
+        )
+    )
+    if transforms in (()):
+        return data
+    rows = _get_path(data, ("witness_rows",))
+    if not isinstance(rows, list):
+        return data
+    transformed_rows: list[object] = []
+    for row in rows:
+        if not isinstance(row, Mapping):
+            transformed_rows.append(row)
+            continue
+        transformed_row: dict[str, object] = {str(key): row[key] for key in row}
+        for transform in transforms:
+            witness_kind = str(transformed_row.get("witness_kind", "")).strip()
+            if witness_kind == transform.intro_from:
+                transformed_row["obligation_intro"] = True
+                transformed_row["obligation_state"] = "unresolved"
+            if bool(transformed_row.get(transform.erase_when)):
+                transformed_row["obligation_state"] = "erased"
+        transformed_rows.append(transformed_row)
+    projected: dict[str, object] = {str(key): data[key] for key in data}
+    projected["witness_rows"] = transformed_rows
+    return projected
+
+
 def evaluate(program: IRProgram, *, domain: PolicyDomain, data: Mapping[str, Any]) -> tuple[PolicyDecision, ...]:
+    transformed_data = _apply_transforms(
+        program=program,
+        domain=domain,
+        data=data,
+    )
     decisions: list[PolicyDecision] = []
     for rule in sorted(program.by_domain(domain), key=lambda item: (item.priority, item.rule_id)):
-        matched = _eval_predicate(rule.predicate, data)
+        matched = _eval_predicate(rule.predicate, transformed_data)
         decisions.append(
             PolicyDecision(
                 rule_id=rule.rule_id,
