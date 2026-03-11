@@ -61,11 +61,7 @@ def _capability_enabled(adapter_contract: object, capability_name: str) -> bool:
     match value:
         case bool() as enabled:
             return enabled
-        case _:
-            return True
-
-
-            never("unreachable wildcard match fall-through")
+    return True
 def _unsupported_surface_diagnostic(
     *,
     surface: str,
@@ -126,32 +122,80 @@ class _PostPhaseResult:
     lint_lines: list[str]
 
 
+@dataclass(frozen=True)
+class _DimensionNameAccepted:
+    value: str
+
+
+@dataclass(frozen=True)
+class _DimensionNameRejected:
+    pass
+
+
+DimensionNameDecision = _DimensionNameAccepted | _DimensionNameRejected
+
+
+@dataclass(frozen=True)
+class _DimensionProgressAccepted:
+    value: JSONObject
+
+
+@dataclass(frozen=True)
+class _DimensionProgressRejected:
+    pass
+
+
+DimensionProgressDecision = _DimensionProgressAccepted | _DimensionProgressRejected
+
+
+def _normalized_dimension_name(raw_name: object) -> DimensionNameDecision:
+    match raw_name:
+        case str() as raw_name_text:
+            return _DimensionNameAccepted(value=raw_name_text)
+    return _DimensionNameRejected()
+
+
+def _normalized_dimension_progress(raw_payload: object) -> DimensionProgressDecision:
+    mapping_payload = json_mapping_optional(raw_payload)
+    if mapping_payload is None:
+        return _DimensionProgressRejected()
+    done_value = int_optional(mapping_payload.get("done"))
+    total_value = int_optional(mapping_payload.get("total"))
+    if done_value is None or total_value is None:
+        return _DimensionProgressRejected()
+    done = max(done_value, 0)
+    total = max(total_value, 0)
+    if total:
+        done = min(done, total)
+    return _DimensionProgressAccepted(value={"done": done, "total": total})
+
+
 def _normalized_dimension_payload(
     raw_dimensions: Mapping[str, JSONObject],
 ) -> dict[str, JSONObject]:
     normalized: dict[str, JSONObject] = {}
     for raw_name, raw_payload in raw_dimensions.items():
         check_deadline()
-        match raw_name:
-            case str() as dim_name:
-                match raw_payload:
-                    case Mapping() as dimension_payload:
-                        mapping_payload = json_mapping_optional(dimension_payload)
-                        if mapping_payload is not None:
-                            done_value = int_optional(mapping_payload.get("done"))
-                            total_value = int_optional(mapping_payload.get("total"))
-                            if done_value is not None and total_value is not None:
-                                done = max(done_value, 0)
-                                total = max(total_value, 0)
-                                if total:
-                                    done = min(done, total)
-                                normalized[dim_name] = {"done": done, "total": total}
-                    case _:
-                        pass
-                        never("unreachable wildcard match fall-through")
-            case _:
+        match (
+            _normalized_dimension_name(raw_name),
+            _normalized_dimension_progress(raw_payload),
+        ):
+            case (
+                _DimensionNameAccepted(value=dimension_name),
+                _DimensionProgressAccepted(value=dimension_progress),
+            ):
+                normalized[dimension_name] = dimension_progress
+            case (
+                _DimensionNameRejected(),
+                _DimensionProgressAccepted(),
+            ) | (
+                _DimensionNameAccepted(),
+                _DimensionProgressRejected(),
+            ) | (
+                _DimensionNameRejected(),
+                _DimensionProgressRejected(),
+            ):
                 pass
-                never("unreachable wildcard match fall-through")
     return normalized
 
 
@@ -199,17 +243,13 @@ def _apply_forest_progress_delta(
                 forest_dimensions,
                 True,
             )
-        case _:
-            return (
-                forest_mutable_progress_done,
-                forest_mutable_progress_total,
-                forest_progress_marker,
-                forest_dimensions,
-                False,
-            )
-
-
-            never("unreachable wildcard match fall-through")
+    return (
+        forest_mutable_progress_done,
+        forest_mutable_progress_total,
+        forest_progress_marker,
+        forest_dimensions,
+        False,
+    )
 def _run_forest_phase(
     *,
     file_paths: list[Path],
@@ -459,8 +499,50 @@ def _run_edge_phase(
     if include_unused_arg_smells:
         edge_work_total += 1
     edge_work_done = 0
+    edge_type_audit_done = False
+    edge_constant_flow_done = False
+    edge_unused_arg_done = False
+    edge_progress_marker = "enter"
 
-    def _emit_edge_phase_progress() -> None:
+    def _edge_phase_progress_v2() -> JSONObject:
+        dimensions: JSONObject = {
+            "edge_tasks": {
+                "done": edge_work_done,
+                "total": edge_work_total,
+            }
+        }
+        if type_audit or type_audit_report:
+            dimensions["type_audit"] = {
+                "done": 1 if edge_type_audit_done else 0,
+                "total": 1,
+            }
+        if include_constant_smells or include_deadness_witnesses:
+            dimensions["constant_flow"] = {
+                "done": 1 if edge_constant_flow_done else 0,
+                "total": 1,
+            }
+        if include_unused_arg_smells:
+            dimensions["unused_arg_flow"] = {
+                "done": 1 if edge_unused_arg_done else 0,
+                "total": 1,
+            }
+        return {
+            "format_version": 1,
+            "schema": "gabion/phase_progress_v2",
+            "primary_unit": "edge_tasks",
+            "primary_done": edge_work_done,
+            "primary_total": edge_work_total,
+            "dimensions": dimensions,
+            "inventory": {
+                "enabled_task_count": edge_work_total,
+                "input_file_paths_total": len(file_paths),
+            },
+        }
+
+    def _emit_edge_phase_progress(*, marker: str = "") -> None:
+        nonlocal edge_progress_marker
+        if marker:
+            edge_progress_marker = marker
         emit_phase_progress_fn(
             "edge",
             report_carrier=ReportCarrier(
@@ -480,11 +562,14 @@ def _run_edge_phase(
                 work_done=edge_work_done,
                 work_total=edge_work_total,
             ),
+            phase_progress_v2=_edge_phase_progress_v2(),
+            progress_marker=edge_progress_marker,
         )
 
     _emit_edge_phase_progress()
     edge_started_ns = time.monotonic_ns()
     if type_audit or type_audit_report:
+        _emit_edge_phase_progress(marker="type_audit:start")
         deadline_check_fn(allow_frame_fallback=False)
         type_suggestions, type_ambiguities, type_callsite_evidence = (
             analyze_type_flow_repo_with_evidence(
@@ -502,10 +587,12 @@ def _run_edge_phase(
             type_suggestions = type_suggestions[:type_audit_max]
             type_ambiguities = type_ambiguities[:type_audit_max]
             type_callsite_evidence = type_callsite_evidence[:type_audit_max]
+        edge_type_audit_done = True
         edge_work_done += 1
-        _emit_edge_phase_progress()
+        _emit_edge_phase_progress(marker="type_audit:done")
 
     if include_constant_smells or include_deadness_witnesses:
+        _emit_edge_phase_progress(marker="constant_flow:start")
         constant_details = _collect_constant_flow_details(
             file_paths,
             project_root=config.project_root,
@@ -523,10 +610,12 @@ def _run_edge_phase(
                 constant_details,
                 project_root=config.project_root,
             )
+        edge_constant_flow_done = True
         edge_work_done += 1
-        _emit_edge_phase_progress()
+        _emit_edge_phase_progress(marker="constant_flow:done")
 
     if include_unused_arg_smells:
+        _emit_edge_phase_progress(marker="unused_arg_flow:start")
         unused_arg_smells = analyze_unused_arg_flow_repo(
             file_paths,
             project_root=config.project_root,
@@ -537,10 +626,11 @@ def _run_edge_phase(
             parse_failure_witnesses=parse_failure_witnesses,
             analysis_index=require_analysis_index_fn(),
         )
+        edge_unused_arg_done = True
         edge_work_done += 1
-        _emit_edge_phase_progress()
+        _emit_edge_phase_progress(marker="unused_arg_flow:done")
 
-    _emit_edge_phase_progress()
+    _emit_edge_phase_progress(marker="complete")
     analysis_profile_stage_ns["analysis.edge"] += time.monotonic_ns() - edge_started_ns
     return _EdgePhaseResult(
         type_suggestions=type_suggestions,
@@ -599,19 +689,86 @@ def _run_post_phase(
     handledness_witnesses: list[JSONObject] = []
     context_suggestions: list[str] = []
     lint_lines: list[str] = []
+    need_exception_obligations = include_exception_obligations or (
+        include_lint_lines and bool(config.never_exceptions)
+    )
+    include_fingerprint = config.fingerprint_registry is not None and bool(
+        config.fingerprint_index
+    )
     post_task_flags = [
         include_deadline_obligations,
         include_decision_surfaces,
         include_value_decision_surfaces,
-        include_exception_obligations
-        or (include_lint_lines and bool(config.never_exceptions)),
+        need_exception_obligations,
         include_never_invariants,
-        config.fingerprint_registry is not None and bool(config.fingerprint_index),
+        include_fingerprint,
         include_lint_lines,
     ]
     post_work_total = sum(1 for enabled in post_task_flags if enabled)
     post_work_done = 0
     post_progress_marker = "enter"
+    post_deadline_done = False
+    post_decision_done = False
+    post_value_decision_done = False
+    post_exception_done = False
+    post_never_done = False
+    post_fingerprint_done = False
+    post_lint_done = False
+
+    def _post_phase_progress_v2() -> JSONObject:
+        dimensions: JSONObject = {
+            "post_tasks": {
+                "done": post_work_done,
+                "total": post_work_total,
+            }
+        }
+        if include_deadline_obligations:
+            dimensions["deadline_obligations"] = {
+                "done": 1 if post_deadline_done else 0,
+                "total": 1,
+            }
+        if include_decision_surfaces:
+            dimensions["decision_surfaces"] = {
+                "done": 1 if post_decision_done else 0,
+                "total": 1,
+            }
+        if include_value_decision_surfaces:
+            dimensions["value_decisions"] = {
+                "done": 1 if post_value_decision_done else 0,
+                "total": 1,
+            }
+        if need_exception_obligations:
+            dimensions["exception_obligations"] = {
+                "done": 1 if post_exception_done else 0,
+                "total": 1,
+            }
+        if include_never_invariants:
+            dimensions["never_invariants"] = {
+                "done": 1 if post_never_done else 0,
+                "total": 1,
+            }
+        if include_fingerprint:
+            dimensions["fingerprint"] = {
+                "done": 1 if post_fingerprint_done else 0,
+                "total": 1,
+            }
+        if include_lint_lines:
+            dimensions["lint"] = {
+                "done": 1 if post_lint_done else 0,
+                "total": 1,
+            }
+        return {
+            "format_version": 1,
+            "schema": "gabion/phase_progress_v2",
+            "primary_unit": "post_tasks",
+            "primary_done": post_work_done,
+            "primary_total": post_work_total,
+            "dimensions": dimensions,
+            "inventory": {
+                "enabled_task_count": post_work_total,
+                "input_file_paths_total": len(file_paths),
+            },
+        }
 
     def _emit_post_phase_progress(*, marker: str = "") -> None:
         nonlocal post_progress_marker
@@ -652,6 +809,7 @@ def _run_post_phase(
                 work_done=post_work_done,
                 work_total=post_work_total,
             ),
+            phase_progress_v2=_post_phase_progress_v2(),
             progress_marker=post_progress_marker,
         )
 
@@ -676,6 +834,7 @@ def _run_post_phase(
         )
         _emit_post_phase_progress(marker="deadline_obligations:suite_order")
         _materialize_suite_order_spec(forest=forest)
+        post_deadline_done = True
         post_work_done += 1
         _emit_post_phase_progress(marker="deadline_obligations:done")
 
@@ -696,6 +855,7 @@ def _run_post_phase(
                 analysis_index=require_analysis_index_fn(),
             )
         )
+        post_decision_done = True
         post_work_done += 1
         _emit_post_phase_progress(marker="decision_surfaces:done")
 
@@ -721,12 +881,9 @@ def _run_post_phase(
         )
         decision_warnings.extend(value_warnings)
         decision_lint_lines.extend(value_lint_lines)
+        post_value_decision_done = True
         post_work_done += 1
         _emit_post_phase_progress(marker="value_decisions:done")
-
-    need_exception_obligations = include_exception_obligations or (
-        include_lint_lines and bool(config.never_exceptions)
-    )
     if need_exception_obligations or include_handledness_witnesses:
         handledness_witnesses = _collect_handledness_witnesses(
             file_paths,
@@ -743,6 +900,7 @@ def _run_post_phase(
             deadness_witnesses=deadness_witnesses,
             never_exceptions=config.never_exceptions,
         )
+        post_exception_done = True
         post_work_done += 1
         _emit_post_phase_progress(marker="exception_obligations:done")
     if include_never_invariants:
@@ -755,9 +913,10 @@ def _run_post_phase(
             marker_aliases=set(config.never_exceptions),
             deadness_witnesses=deadness_witnesses,
         )
+        post_never_done = True
         post_work_done += 1
         _emit_post_phase_progress(marker="never_invariants:done")
-    if config.fingerprint_registry is not None and config.fingerprint_index:
+    if include_fingerprint:
         _emit_post_phase_progress(marker="fingerprint:start")
         annotations_by_path: dict[Path, dict[str, dict[str, object]]] = {}
         annotation_total = len(file_paths)
@@ -839,6 +998,7 @@ def _run_post_phase(
                 ),
             )
             _emit_post_phase_progress(marker="fingerprint:rewrite_plans")
+        post_fingerprint_done = True
         post_work_done += 1
         _emit_post_phase_progress(marker="fingerprint:done")
 
@@ -875,6 +1035,7 @@ def _run_post_phase(
             constant_smells=constant_smells,
             unused_arg_smells=unused_arg_smells,
         )
+        post_lint_done = True
         post_work_done += 1
         _emit_post_phase_progress(marker="lint:done")
 
@@ -1067,33 +1228,25 @@ def analyze_paths(
             include_invariant_propositions=include_invariant_propositions,
         )
         file_stage_timings_v1_by_path: dict[Path, JSONObject] = {}
-        match collection_resume:
-            case Mapping() as collection_resume_payload:
-                raw_stage_timings = collection_resume_payload.get(
-                    "file_stage_timings_v1_by_path"
+        collection_resume_payload = json_mapping_optional(collection_resume)
+        stage_timings_payload = None
+        if collection_resume_payload is not None:
+            stage_timings_payload = json_mapping_optional(
+                collection_resume_payload.get("file_stage_timings_v1_by_path")
+            )
+        if stage_timings_payload is not None:
+            for path in file_paths:
+                check_deadline()
+                path_key = _analysis_collection_resume_path_key(path)
+                stage_entry_payload = json_mapping_optional(
+                    stage_timings_payload.get(path_key)
                 )
-                match raw_stage_timings:
-                    case Mapping() as stage_timings_payload:
-                        for path in file_paths:
-                            check_deadline()
-                            path_key = _analysis_collection_resume_path_key(path)
-                            raw_entry = stage_timings_payload.get(path_key)
-                            match raw_entry:
-                                case Mapping() as stage_entry_payload:
-                                    normalized_entry: JSONObject = {}
-                                    for key, value in stage_entry_payload.items():
-                                        check_deadline()
-                                        normalized_entry[str(key)] = value
-                                    file_stage_timings_v1_by_path[path] = normalized_entry
-                                case _:
-                                    pass
-                                    never("unreachable wildcard match fall-through")
-                    case _:
-                        pass
-                        never("unreachable wildcard match fall-through")
-            case _:
-                pass
-                never("unreachable wildcard match fall-through")
+                if stage_entry_payload is not None:
+                    normalized_entry: JSONObject = {}
+                    for key, value in stage_entry_payload.items():
+                        check_deadline()
+                        normalized_entry[str(key)] = value
+                    file_stage_timings_v1_by_path[path] = normalized_entry
         forest_spec: object = None
         planned_forest_spec_id: object = None
         ambiguity_witnesses: list[JSONObject] = []
@@ -1239,7 +1392,7 @@ def analyze_paths(
             *,
             report_carrier: ReportCarrier,
             work_progress: _PhaseWorkProgress,
-            phase_progress_v2: object = None,
+            phase_progress_v2: object,
             progress_marker: str = "",
         ) -> None:
             if not emit_phase_progress_enabled:
@@ -1250,8 +1403,10 @@ def analyze_paths(
                         str(key): phase_progress_map[key] for key in phase_progress_map
                     }
                 case _:
-                    report_carrier.phase_progress_v2 = None
-                    never("unreachable wildcard match fall-through")
+                    never(
+                        "invalid phase progress payload",
+                        value_type=type(phase_progress_v2).__name__,
+                    )
             report_carrier.progress_marker = progress_marker
             analysis_profile_counters["analysis.phase_progress_emits"] += 1
             _phase_progress_callback(

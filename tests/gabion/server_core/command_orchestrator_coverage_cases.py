@@ -130,6 +130,53 @@ def test_execute_command_total_starts_and_stops_identity_shadow_session(
     )
 
 
+def test_execute_command_total_uses_protocol_notify_when_send_notification_missing(
+    tmp_path: Path,
+) -> None:
+    _bind()
+    module_path = tmp_path / "sample.py"
+    module_path.write_text("def sample(x):\n    return x\n")
+
+    class _Workspace:
+        def __init__(self, root_path: str) -> None:
+            self.root_path = root_path
+
+    notifications: list[tuple[str, dict[str, object]]] = []
+
+    class _Protocol:
+        def notify(self, method: str, params: dict[str, object]) -> None:
+            notifications.append((method, params))
+
+    class _DummyProtocolServer:
+        def __init__(self, root_path: str) -> None:
+            self.workspace = _Workspace(root_path)
+            self.protocol = _Protocol()
+
+    ls = _DummyProtocolServer(str(tmp_path))
+    payload = {
+        "root": str(tmp_path),
+        "paths": [str(module_path)],
+        "report": "-",
+        "analysis_timeout_ticks": 50_000,
+        "analysis_timeout_tick_ns": 1_000_000,
+    }
+    deps = server._default_execute_command_deps().with_overrides(
+        analyze_paths_fn=lambda *_args, **_kwargs: _empty_analysis_result(),
+    )
+
+    response = orchestrator.execute_command_total(
+        ls,
+        payload,
+        deps=deps,
+    )
+
+    assert response.canonical.analysis_state == "succeeded"
+    assert any(
+        method == orchestrator._LSP_PROGRESS_NOTIFICATION_METHOD
+        for method, _params in notifications
+    )
+
+
 def _analysis_context(
     *,
     tmp_path: Path,

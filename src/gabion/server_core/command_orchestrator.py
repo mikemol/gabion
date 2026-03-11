@@ -13,6 +13,8 @@ import threading
 import time
 from typing import Callable, Literal, Mapping, cast
 
+from lsprotocol.types import ProgressParams
+
 from gabion.analysis import (
     AnalysisResult,
     AuditConfig,
@@ -2524,6 +2526,33 @@ class _NotificationRuntime:
     emit_phase_progress_events: bool
 
 
+def _language_server_notify_fn(ls: object) -> object:
+    direct_notify = getattr(ls, "send_notification", None)
+    if callable(direct_notify):
+        return direct_notify
+    protocol = getattr(ls, "protocol", None)
+    protocol_notify = getattr(protocol, "notify", None)
+    if callable(protocol_notify):
+        def _protocol_send_notification(method: object, params: object) -> None:
+            method_name = _string_optional(method) or str(method)
+            params_mapping = _object_mapping_optional(params)
+            if (
+                method_name == _LSP_PROGRESS_NOTIFICATION_METHOD
+                and params_mapping is not None
+            ):
+                token = params_mapping.get("token")
+                if isinstance(token, (str, int)) and not isinstance(token, bool):
+                    protocol_notify(
+                        method_name,
+                        ProgressParams(token=token, value=params_mapping.get("value")),
+                    )
+                    return
+            protocol_notify(method_name, params)
+
+        return _protocol_send_notification
+    return None
+
+
 def _notification_runtime(send_notification: object) -> _NotificationRuntime:
     if send_notification is None:
         return _NotificationRuntime(
@@ -4887,7 +4916,7 @@ def _stage_runtime_bootstrap(
     identity_shadow_session.start()
     progress_emitter = _create_progress_emitter(
         notification_runtime=_notification_runtime(
-            getattr(ls, "send_notification", None)
+            _language_server_notify_fn(ls)
         ),
         phase_timeline_markdown_path=phase_timeline_markdown_path,
         phase_timeline_jsonl_path=phase_timeline_jsonl_path,

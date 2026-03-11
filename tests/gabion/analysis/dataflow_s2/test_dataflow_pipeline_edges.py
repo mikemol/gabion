@@ -105,6 +105,53 @@ def test_analyze_paths_rejects_invalid_phase_progress_callback() -> None:
         )
 
 
+def test_analyze_paths_emits_structured_edge_and_post_phase_progress(
+    tmp_path: Path,
+) -> None:
+    _bind()
+    phase_payloads: dict[str, list[dict[str, object]]] = {}
+
+    def _on_phase_progress(
+        phase: object,
+        _groups_by_path: object,
+        report_carrier: object,
+        _work_done: object,
+        _work_total: object,
+    ) -> None:
+        phase_name = str(phase)
+        phase_progress_v2 = getattr(report_carrier, "phase_progress_v2", None)
+        if isinstance(phase_progress_v2, dict):
+            phase_payloads.setdefault(phase_name, []).append(phase_progress_v2)
+
+    result = dataflow_pipeline.analyze_paths(
+        paths=[],
+        forest=dataflow_pipeline.Forest(),
+        recursive=False,
+        type_audit=False,
+        type_audit_report=False,
+        type_audit_max=1,
+        include_constant_smells=False,
+        include_unused_arg_smells=False,
+        on_phase_progress=_on_phase_progress,
+        config=dataflow_pipeline.AuditConfig(project_root=tmp_path),
+        file_paths_override=[],
+    )
+
+    assert result.forest is not None
+    edge_payloads = phase_payloads["edge"]
+    post_payloads = phase_payloads["post"]
+    assert edge_payloads
+    assert post_payloads
+    assert edge_payloads[0]["primary_unit"] == "edge_tasks"
+    assert edge_payloads[0]["dimensions"] == {
+        "edge_tasks": {"done": 0, "total": 0}
+    }
+    assert post_payloads[0]["primary_unit"] == "post_tasks"
+    assert post_payloads[0]["dimensions"] == {
+        "post_tasks": {"done": 0, "total": 0}
+    }
+
+
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_pipeline_edges.py::test_dataflow_pipeline_collect_fingerprint_atoms_order_invariant::dataflow_pipeline.py::gabion.analysis.dataflow_pipeline._collect_fingerprint_atom_keys
 # gabion:behavior primary=verboten facets=edge
