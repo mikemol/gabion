@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass
+from enum import Enum
+from dataclasses import dataclass, field
 from typing import Callable, Iterable, Mapping, Sequence, cast
 from gabion.analysis.resume_codec import mapping_or_none, sequence_or_none
 from gabion.analysis.timeout_context import check_deadline
+from gabion.invariants import never
 from gabion.order_contract import sort_once
 
 
@@ -524,41 +526,385 @@ def is_opaque(key: Mapping[str, object]) -> bool:
     return normalize_key(key).get("k") == "opaque"
 
 
+
+
+def _normalize_suite_site_endpoint(payload: object, *, role: str) -> dict[str, object]:
+    endpoint_mapping = mapping_or_none(payload)
+    if endpoint_mapping is None:
+        never(
+            "canonical identity suite_site endpoint must be a mapping",
+            role=role,
+            endpoint_type=type(payload).__name__,
+        )
+    kind = str(endpoint_mapping.get("kind", "") or "").strip()
+    if not kind:
+        never(
+            "canonical identity suite_site endpoint kind must be non-empty",
+            role=role,
+        )
+    if kind != "SuiteSite":
+        never(
+            "canonical identity suite_site endpoint kind must be SuiteSite",
+            role=role,
+            kind=kind,
+        )
+    key_payload = sequence_or_none(endpoint_mapping.get("key"))
+    if key_payload is None:
+        never(
+            "canonical identity suite_site endpoint key must be a sequence",
+            role=role,
+        )
+    key = [str(part).strip() for part in key_payload if str(part).strip()]
+    if not key:
+        never(
+            "canonical identity suite_site endpoint key must contain at least one segment",
+            role=role,
+        )
+    return {"kind": kind, "key": key}
+
+
+def _normalize_suite_site_endpoints(payload: object) -> dict[str, object]:
+    endpoints_mapping = mapping_or_none(payload)
+    if endpoints_mapping is None:
+        never("canonical identity suite_site_endpoints must be a mapping")
+    source_payload = endpoints_mapping.get("source")
+    target_payload = endpoints_mapping.get("target")
+    return {
+        "source": _normalize_suite_site_endpoint(source_payload, role="source"),
+        "target": _normalize_suite_site_endpoint(target_payload, role="target"),
+    }
+
+
 @dataclass(frozen=True)
-class FingerprintIdentityLayers:
-    canonical: dict[str, object]
-    scalar_projection: dict[str, object]
-    digest_projection: dict[str, object]
+class CanonicalAspfPathPayload:
+    representative: str
+    basis_path: tuple[str, ...]
+    identity_kind: str = ""
+    source: str = ""
+    target: str = ""
+    suite_site_endpoints: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_mapping(cls, payload: Mapping[str, object]) -> "CanonicalAspfPathPayload":
+        representative = str(payload.get("representative", "") or "").strip()
+        if not representative:
+            never("canonical identity representative must be non-empty")
+        basis_payload = sequence_or_none(payload.get("basis_path"))
+        if basis_payload is None:
+            never("canonical identity basis_path must be a sequence")
+        basis_path = tuple(str(part).strip() for part in basis_payload if str(part).strip())
+        if not basis_path:
+            never("canonical identity basis_path must contain at least one segment")
+        identity_kind_raw = payload.get("identity_kind")
+        identity_kind = str(identity_kind_raw).strip() if identity_kind_raw is not None else None
+        source_raw = payload.get("source")
+        source = str(source_raw).strip() if source_raw is not None else None
+        target_raw = payload.get("target")
+        target = str(target_raw).strip() if target_raw is not None else None
+        suite_site_endpoints_raw = payload.get("suite_site_endpoints")
+        payload_obj = cls(
+            representative=representative,
+            basis_path=basis_path,
+            identity_kind=identity_kind or "",
+            source=source or "",
+            target=target or "",
+            suite_site_endpoints=(
+                _normalize_suite_site_endpoints(suite_site_endpoints_raw)
+                if suite_site_endpoints_raw is not None
+                else {}
+            ),
+        )
+        payload_obj.validate()
+        return payload_obj
+
+    def validate(self) -> None:
+        if bool(self.source) ^ bool(self.target):
+            never(
+                "canonical identity source/target must be both present or both empty",
+                source=self.source,
+                target=self.target,
+            )
+        if self.identity_kind and not (self.source and self.target):
+            never(
+                "canonical identity kind requires source and target labels",
+                identity_kind=self.identity_kind,
+                source=self.source,
+                target=self.target,
+            )
+        if self.suite_site_endpoints:
+            normalized_endpoints = _normalize_suite_site_endpoints(self.suite_site_endpoints)
+            if not (self.source and self.target):
+                never(
+                    "canonical identity suite_site_endpoints require source and target labels",
+                    source=self.source,
+                    target=self.target,
+                )
+            source_key = sequence_or_none(normalized_endpoints["source"].get("key"))
+            target_key = sequence_or_none(normalized_endpoints["target"].get("key"))
+            if source_key is None or str(source_key[0]).strip() != self.source:
+                never(
+                    "canonical identity suite_site source key must start with source label",
+                    source=self.source,
+                    source_key=source_key,
+                )
+            if target_key is None or str(target_key[0]).strip() != self.target:
+                never(
+                    "canonical identity suite_site target key must start with target label",
+                    target=self.target,
+                    target_key=target_key,
+                )
+            if source_key is None or str(source_key[-1]).strip() != "source":
+                never(
+                    "canonical identity suite_site source key must end with source role",
+                    source_key=source_key,
+                )
+            if target_key is None or str(target_key[-1]).strip() != "target":
+                never(
+                    "canonical identity suite_site target key must end with target role",
+                    target_key=target_key,
+                )
+
+    def as_dict(self) -> dict[str, object]:
+        self.validate()
+        payload: dict[str, object] = {
+            "representative": self.representative,
+            "basis_path": list(self.basis_path),
+        }
+        if self.identity_kind:
+            payload["identity_kind"] = self.identity_kind
+        if self.source:
+            payload["source"] = self.source
+        if self.target:
+            payload["target"] = self.target
+        if self.suite_site_endpoints:
+            payload["suite_site_endpoints"] = dict(self.suite_site_endpoints)
+        return payload
+
+
+@dataclass(frozen=True)
+class DerivedIdentityAdapterLifecycle:
+    actor: str
+    rationale: str
+    scope: str
+    start: str
+    expiry: str
+    rollback_condition: str
+    evidence_links: tuple[str, ...]
+    adapter_name: str
 
     def as_dict(self) -> dict[str, object]:
         return {
-            "identity_layer": "canonical_aspf_path",
+            "actor": self.actor,
+            "rationale": self.rationale,
+            "scope": self.scope,
+            "start": self.start,
+            "expiry": self.expiry,
+            "rollback_condition": self.rollback_condition,
+            "evidence_links": list(self.evidence_links),
+            "adapter_name": self.adapter_name,
+        }
+
+
+@dataclass(frozen=True)
+class DerivedIdentityProjection:
+    value: object
+    canonical: bool
+    projection: str
+    adapter_lifecycle: DerivedIdentityAdapterLifecycle
+
+    def validate(self, *, expected_projection: str, expected_adapter_name: str) -> None:
+        match self.value:
+            case int() | str():
+                pass
+            case _:
+                never(
+                    "derived projection value must be int or str",
+                    expected_projection=expected_projection,
+                    value_type=type(self.value).__name__,
+                )
+        if self.canonical is not False:
+            never(
+                "derived projection canonical flag must be false",
+                expected_projection=expected_projection,
+                canonical=self.canonical,
+            )
+        if self.projection != expected_projection:
+            never(
+                "derived projection kind mismatch",
+                expected_projection=expected_projection,
+                observed=self.projection,
+            )
+        if self.adapter_lifecycle.adapter_name != expected_adapter_name:
+            never(
+                "derived projection adapter_name mismatch",
+                expected_adapter_name=expected_adapter_name,
+                observed=self.adapter_lifecycle.adapter_name,
+            )
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "value": self.value,
             "canonical": self.canonical,
+            "projection": self.projection,
+            "adapter_lifecycle": self.adapter_lifecycle.as_dict(),
+        }
+
+
+@dataclass(frozen=True)
+class DerivedAliasPayload:
+    value: object
+    canonical: bool
+    alias_of: str
+    adapter_lifecycle: DerivedIdentityAdapterLifecycle
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "value": self.value,
+            "canonical": self.canonical,
+            "alias_of": self.alias_of,
+            "adapter_lifecycle": self.adapter_lifecycle.as_dict(),
+        }
+
+
+@dataclass(frozen=True)
+class ProjectionContract:
+    expected_projection: str
+    expected_adapter_name: str
+
+    def validate_projection(self, projection: DerivedIdentityProjection) -> None:
+        projection.validate(
+            expected_projection=self.expected_projection,
+            expected_adapter_name=self.expected_adapter_name,
+        )
+
+
+SCALAR_PROJECTION_CONTRACT = ProjectionContract(
+    expected_projection="prime_product",
+    expected_adapter_name="scalar_prime_product",
+)
+DIGEST_PROJECTION_CONTRACT = ProjectionContract(
+    expected_projection="digest_alias",
+    expected_adapter_name="digest_alias",
+)
+class ProjectionSlot(str, Enum):
+    SCALAR = "scalar_projection"
+    DIGEST = "digest_projection"
+
+
+@dataclass(frozen=True)
+class ProjectionBinding:
+    contract: ProjectionContract
+    slot: ProjectionSlot
+
+
+PROJECTION_CONTRACTS: tuple[ProjectionBinding, ...] = (
+    ProjectionBinding(contract=SCALAR_PROJECTION_CONTRACT, slot=ProjectionSlot.SCALAR),
+    ProjectionBinding(contract=DIGEST_PROJECTION_CONTRACT, slot=ProjectionSlot.DIGEST),
+)
+
+
+@dataclass(frozen=True)
+class FingerprintIdentityLayers:
+    canonical: CanonicalAspfPathPayload
+    scalar_projection: DerivedIdentityProjection
+    digest_projection: DerivedIdentityProjection
+
+    def _projection_for_slot(self, slot: ProjectionSlot) -> DerivedIdentityProjection:
+        match slot:
+            case ProjectionSlot.SCALAR:
+                return self.scalar_projection
+            case ProjectionSlot.DIGEST:
+                return self.digest_projection
+            case _:
+                never(
+                    "unknown projection slot",
+                    slot=slot,
+                )
+
+    def validate(self) -> None:
+        self.canonical.validate()
+        for binding in PROJECTION_CONTRACTS:
+            binding.contract.validate_projection(self._projection_for_slot(binding.slot))
+
+    def as_dict(self) -> dict[str, object]:
+        self.validate()
+        return {
+            "identity_layer": "canonical_aspf_path",
+            "canonical": self.canonical.as_dict(),
             "derived": {
-                "scalar_prime_product": self.scalar_projection,
-                "digest_alias": self.digest_projection,
+                "scalar_prime_product": self.scalar_projection.as_dict(),
+                "digest_alias": self.digest_projection.as_dict(),
             },
         }
 
+    def derived_aliases(self, *, alias_of: str) -> dict[str, dict[str, object]]:
+        self.validate()
+        return {
+            "scalar_prime_product": _derived_alias_payload(
+                projection=self.scalar_projection,
+                alias_of=alias_of,
+            ),
+            "digest_alias": _derived_alias_payload(
+                projection=self.digest_projection,
+                alias_of=alias_of,
+            ),
+        }
+
+
+def _derived_alias_payload(
+    *,
+    projection: DerivedIdentityProjection,
+    alias_of: str,
+) -> dict[str, object]:
+    return DerivedAliasPayload(
+        value=projection.value,
+        canonical=False,
+        alias_of=alias_of,
+        adapter_lifecycle=projection.adapter_lifecycle,
+    ).as_dict()
+
+
+def _identity_adapter_lifecycle_metadata(*, adapter_name: str) -> DerivedIdentityAdapterLifecycle:
+    return DerivedIdentityAdapterLifecycle(
+        actor="gabion.analysis.type_fingerprints",
+        rationale="temporary_boundary_adapter",
+        scope="fingerprint_identity_payload.derived_aliases",
+        start="meta_reify_plan_step_3",
+        expiry="remove_when_all_consumers_use_identity_layers.canonical",
+        rollback_condition="consumer_requires_scalar_or_digest_alias",
+        evidence_links=(
+            "tests/test_fingerprint_soundness.py",
+            "tests/test_type_fingerprints_sidecar.py",
+        ),
+        adapter_name=adapter_name,
+    )
 
 def fingerprint_identity_layers(
     *,
     canonical_aspf_path: Mapping[str, object],
     scalar_prime_product: int,
 ) -> FingerprintIdentityLayers:
-    canonical_payload = dict(canonical_aspf_path)
-    scalar_payload = {
-        "value": int(scalar_prime_product),
-        "canonical": False,
-        "projection": "prime_product",
-    }
-    digest_payload = {
-        "value": normalized_fingerprint_identity(canonical_payload),
-        "canonical": False,
-        "projection": "digest_alias",
-    }
-    return FingerprintIdentityLayers(
+    canonical_payload = CanonicalAspfPathPayload.from_mapping(canonical_aspf_path)
+    scalar_payload = DerivedIdentityProjection(
+        value=int(scalar_prime_product),
+        canonical=False,
+        projection="prime_product",
+        adapter_lifecycle=_identity_adapter_lifecycle_metadata(
+            adapter_name="scalar_prime_product"
+        ),
+    )
+    digest_payload = DerivedIdentityProjection(
+        value=normalized_fingerprint_identity(canonical_payload.as_dict()),
+        canonical=False,
+        projection="digest_alias",
+        adapter_lifecycle=_identity_adapter_lifecycle_metadata(
+            adapter_name="digest_alias"
+        ),
+    )
+    layers = FingerprintIdentityLayers(
         canonical=canonical_payload,
         scalar_projection=scalar_payload,
         digest_projection=digest_payload,
     )
+    layers.validate()
+    return layers

@@ -35,6 +35,19 @@ def test_fingerprint_identity_payload_marks_canonical_vs_derived() -> None:
     assert payload["identity_layers"]["identity_layer"] == "canonical_aspf_path"
     assert payload["identity_layers"]["derived"]["scalar_prime_product"]["canonical"] is False
     assert payload["identity_layers"]["derived"]["digest_alias"]["canonical"] is False
+    assert payload["identity_layers"]["derived"]["scalar_prime_product"]["adapter_lifecycle"]["actor"] == "gabion.analysis.type_fingerprints"
+    assert payload["identity_layers"]["derived"]["digest_alias"]["adapter_lifecycle"]["adapter_name"] == "digest_alias"
+    assert payload["derived_aliases"]["scalar_prime_product"]["value"] == payload["identity_layers"]["derived"]["scalar_prime_product"]["value"]
+    assert sorted(payload["derived_aliases"]["digest_alias"]["adapter_lifecycle"].keys()) == [
+        "actor",
+        "adapter_name",
+        "evidence_links",
+        "expiry",
+        "rationale",
+        "rollback_condition",
+        "scope",
+        "start",
+    ]
 
 # gabion:evidence E:function_site::tests/test_fingerprint_soundness.py::tests.test_fingerprint_soundness.test_fingerprint_identity_payload_handles_empty_cofibration_basis
 def test_fingerprint_identity_payload_handles_empty_cofibration_basis() -> None:

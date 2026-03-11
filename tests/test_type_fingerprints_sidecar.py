@@ -230,6 +230,8 @@ def test_dataflow_fingerprint_provenance_emits_identity_layer_and_selection_witn
     assert entry["representative_selection"]["mode"] == "lexicographic_min"
     assert entry["witness_carriers"]["higher_path_witness"]["witness_id"].startswith("higher:")
     assert entry["derived_aliases"]["scalar_prime_product"]["canonical"] is False
+    assert entry["derived_aliases"]["scalar_prime_product"]["adapter_lifecycle"]["scope"] == "fingerprint_identity_payload.derived_aliases"
+    assert entry["derived_aliases"]["digest_alias"]["alias_of"] == "canonical_identity_contract"
     assert entry["drift_classification"] == "non_drift"
 
 
