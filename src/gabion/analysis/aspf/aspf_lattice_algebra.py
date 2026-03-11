@@ -5,11 +5,10 @@ from __future__ import annotations
 import ast
 import builtins
 from collections import defaultdict
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from functools import lru_cache, reduce
 import hashlib
 import json
-from importlib import import_module
 from itertools import chain, groupby
 from pathlib import Path
 from typing import Callable, Generic, Iterable, Iterator, TypeVar
@@ -17,7 +16,7 @@ from gabion.invariants import never
 
 _StreamItem = TypeVar("_StreamItem")
 
-_LATTICE_CACHE_VERSION = "v4"
+_LATTICE_CACHE_VERSION = "v5"
 _MODULE_INGRESS_SYMBOLS = {
     "__annotations__",
     "__cached__",
@@ -564,10 +563,7 @@ def frontier(
             and bool(recombination.execution_frontier_site_id)
         ),
     )
-    return _run_projection_fixpoint(
-        witness=base_witness,
-        transform_specs=_projection_transform_specs(),
-    )
+    return base_witness
 
 
 def compute_lattice_witness(
@@ -635,167 +631,6 @@ def iter_lattice_witnesses(
     return _query()
 
 
-@dataclass(frozen=True)
-class _ProjectionTransformSpec:
-    transform_id: str
-    intro_from: str
-    erase_when: str
-
-
-def _run_projection_fixpoint(
-    *,
-    witness: FrontierWitness,
-    transform_specs: tuple[_ProjectionTransformSpec, ...],
-) -> FrontierWitness:
-    pending: dict[str, ObligationIntro] = {}
-    intro_events = list(_iter_intro_obligations(witness=witness, specs=transform_specs))
-    for intro in intro_events:
-        pending[intro.obligation_id] = intro
-
-    erase_events: list[ObligationErase] = []
-    changed = True
-    while changed:
-        changed = False
-        for erase in _iter_erase_obligations(
-            witness=witness,
-            pending=tuple(pending.values()),
-            specs=transform_specs,
-        ):
-            if erase.obligation_id not in pending:
-                continue
-            del pending[erase.obligation_id]
-            erase_events.append(erase)
-            changed = True
-
-    crossing = BoundaryCrossing(
-        crossing_id=_stable_hash(
-            "boundary_cross",
-            witness.branch_site_id,
-            witness.branch_site_identity,
-            _text_part(witness.branch_line),
-            _text_part(witness.branch_column),
-        ),
-        branch_site_id=witness.branch_site_id,
-        branch_site_identity=witness.branch_site_identity,
-        boundary_kind="branch_boundary",
-    )
-    unresolved_ids = tuple(sorted(pending))
-    violation = None
-    if unresolved_ids:
-        violation = ViolationWitness(
-            violation_id=_stable_hash("violation", crossing.crossing_id, *unresolved_ids),
-            boundary_crossing_id=crossing.crossing_id,
-            unresolved_obligation_ids=_stream_from_sequence(unresolved_ids),
-            reason="taint crossed boundary without erasure",
-        )
-    return replace(
-        witness,
-        complete=(witness.complete and not unresolved_ids),
-        obligations=_stream_from_sequence(tuple(intro_events)),
-        erasures=_stream_from_sequence(tuple(erase_events)),
-        boundary_crossings=_stream_from_sequence((crossing,)),
-        violation=violation,
-    )
-
-
-def _iter_intro_obligations(
-    *,
-    witness: FrontierWitness,
-    specs: tuple[_ProjectionTransformSpec, ...],
-) -> Iterator[ObligationIntro]:
-    default_transform = specs[0].transform_id if specs else "projection.default"
-    for symbol in witness.unresolved_symbols:
-        obligation_id = _stable_hash(
-            "obligation",
-            witness.branch_site_id,
-            witness.branch_site_identity,
-            symbol,
-        )
-        yield ObligationIntro(
-            obligation_id=obligation_id,
-            source_kind="data_symbol",
-            source_site_id=witness.branch_site_id,
-            source_site_identity=witness.branch_site_identity,
-            reason=f"missing_symbol:{symbol}",
-            introduced_by=default_transform,
-        )
-    for naturality in (witness.eta_data_to_exec, witness.eta_exec_to_data):
-        for unmapped in naturality.unmapped:
-            obligation_id = _stable_hash(
-                "obligation",
-                unmapped.source_kind,
-                unmapped.source_site_id,
-                unmapped.reason,
-            )
-            yield ObligationIntro(
-                obligation_id=obligation_id,
-                source_kind=unmapped.source_kind,
-                source_site_id=unmapped.source_site_id,
-                source_site_identity=unmapped.source_site_identity,
-                reason=unmapped.reason,
-                introduced_by=default_transform,
-            )
-
-
-def _iter_erase_obligations(
-    *,
-    witness: FrontierWitness,
-    pending: tuple[ObligationIntro, ...],
-    specs: tuple[_ProjectionTransformSpec, ...],
-) -> Iterator[ObligationErase]:
-    if not pending:
-        return
-    complete_mapping = witness.eta_data_to_exec.complete and witness.eta_exec_to_data.complete
-    mapping_based_specs = tuple(
-        spec for spec in specs if spec.erase_when == "mapping_complete"
-    )
-    if not (complete_mapping and mapping_based_specs and not tuple(witness.unresolved_symbols)):
-        return
-    eraser = mapping_based_specs[0]
-    for intro in pending:
-        yield ObligationErase(
-            obligation_id=intro.obligation_id,
-            erased_by=eraser.transform_id,
-            reason="mapping_complete",
-        )
-
-
-@lru_cache(maxsize=1)
-def _projection_transform_specs() -> tuple[_ProjectionTransformSpec, ...]:
-    repo_root = Path(__file__).resolve().parents[4]
-    rules_path = repo_root / "docs" / "projection_fiber_rules.yaml"
-    if not rules_path.exists():
-        return ()
-    try:
-        payload = _yaml_module().safe_load(rules_path.read_text(encoding="utf-8"))
-    except Exception:
-        return ()
-    if not isinstance(payload, dict):
-        return ()
-    raw = payload.get("transforms")
-    if not isinstance(raw, list):
-        return ()
-    parsed = []
-    for item in raw:
-        if not isinstance(item, dict):
-            continue
-        transform_id = str(item.get("transform_id", "") or "").strip()
-        if not transform_id:
-            continue
-        parsed.append(
-            _ProjectionTransformSpec(
-                transform_id=transform_id,
-                intro_from=str(item.get("intro_from", "unmapped_witness") or "unmapped_witness"),
-                erase_when=str(item.get("erase_when", "mapping_complete") or "mapping_complete"),
-            )
-        )
-    return tuple(parsed)
-
-
-def _yaml_module():
-    return import_module("yaml")
-
-
 def _lattice_cache_key(
     *,
     rel_path: str,
@@ -815,7 +650,6 @@ def _lattice_cache_key(
         branch_node_kind,
         *required_symbols,
         _bundle_digest(bundle),
-        _projection_rules_digest(),
     )
 
 
@@ -846,19 +680,6 @@ def _bundle_digest(bundle: FiberBundle) -> str:
         for event in bundle.exec.events
     )
     return _stable_hash(*data_parts, *exec_parts)
-
-
-@lru_cache(maxsize=1)
-def _projection_rules_digest() -> str:
-    repo_root = Path(__file__).resolve().parents[4]
-    path = repo_root / "docs" / "projection_fiber_rules.yaml"
-    if not path.exists():
-        return _stable_hash("no_projection_rules")
-    try:
-        return hashlib.sha256(path.read_bytes()).hexdigest()
-    except OSError:
-        return _stable_hash("projection_rules_unreadable")
-
 
 def _cache_root() -> Path:
     return Path("artifacts/out/aspf_lattice_cache")

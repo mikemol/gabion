@@ -395,7 +395,7 @@ def test_policy_substrate_iter_lattice_witnesses_is_lazy_until_consumed() -> Non
 
 
 # gabion:behavior primary=desired
-def test_policy_substrate_unresolved_obligation_crossing_emits_violation() -> None:
+def test_policy_substrate_unresolved_symbols_do_not_apply_projection_transforms() -> None:
     source = (
         "def fn(a):\n"
         "    if missing_symbol:\n"
@@ -419,8 +419,10 @@ def test_policy_substrate_unresolved_obligation_crossing_emits_violation() -> No
         required_symbols=branch_required_symbols(branch_node),
     )
     assert list(witness.unresolved_symbols) == ["missing_symbol"]
-    assert list(witness.obligations)
-    assert witness.violation is not None
+    assert list(witness.obligations) == []
+    assert list(witness.erasures) == []
+    assert list(witness.boundary_crossings) == []
+    assert witness.violation is None
     assert witness.complete is False
 
 

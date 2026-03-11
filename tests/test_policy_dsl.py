@@ -184,6 +184,15 @@ def test_projection_fiber_transforms_are_loaded_in_registry() -> None:
     assert "projection.unmapped_intro" in transform_ids
 
 
+def test_aspf_lattice_algebra_has_no_projection_transform_runtime() -> None:
+    source = Path("src/gabion/analysis/aspf/aspf_lattice_algebra.py").read_text(
+        encoding="utf-8"
+    )
+    assert "projection_fiber_rules.yaml" not in source
+    assert "_projection_transform_specs" not in source
+    assert "_run_projection_fixpoint" not in source
+
+
 def test_opportunity_rule_ids_deterministic_order() -> None:
     first = tuple(
         rule.rule_id

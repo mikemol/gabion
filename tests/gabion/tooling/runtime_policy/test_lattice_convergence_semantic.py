@@ -100,6 +100,7 @@ def test_semantic_lattice_convergence_parse_and_read_failures_increment_error_co
     assert all(row.get("witness_kind") == "unmapped_witness" for row in witness_rows)
     assert all(row.get("mapping_complete") is False for row in witness_rows)
     assert all(row.get("boundary_crossed") is True for row in witness_rows)
+    assert all("obligation_state" not in row for row in witness_rows)
 
 
 def test_semantic_lattice_convergence_counts_incomplete_or_violation_once_per_request(
@@ -142,3 +143,10 @@ def test_semantic_lattice_convergence_counts_incomplete_or_violation_once_per_re
     witness_row = report.policy_data()["witness_rows"][0]
     assert witness_row["witness_incomplete"] is True
     assert witness_row["witness_violation"] is True
+
+
+def test_semantic_convergence_payload_stays_pre_transform_shape() -> None:
+    source = Path("src/gabion/tooling/policy_substrate/lattice_convergence_semantic.py").read_text(
+        encoding="utf-8"
+    )
+    assert "obligation_state" not in source
