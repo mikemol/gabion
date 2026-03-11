@@ -1,5 +1,5 @@
 ---
-doc_revision: 1
+doc_revision: 2
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: aspf_fingerprint_contract
 doc_role: design
@@ -35,6 +35,44 @@ This document defines the formalized fingerprint contract used by analysis modul
 3. **Derived digest alias**: hash alias derived from canonical payload, explicitly marked `canonical: false`.
 
 Downstream consumers must treat only the canonical ASPF path as semantic source-of-truth.
+
+## Current-state map (live codepath anchors)
+
+This contract is grounded in the existing implementation surfaces below. Any
+implementation or refactor work must update these anchors directly instead of
+introducing detached abstractions.
+
+1. **ASPF carrier + canonical contract primitives**
+   - `src/gabion/analysis/aspf_core.py`
+   - `AspfOneCell` is the concrete canonical path carrier.
+   - `AspfCanonicalIdentityContract` is the canonical identity envelope.
+   - **Why change here:** semantic identity shape, path fields, or canonical
+     contract semantics are defined here.
+
+2. **Fingerprint → ASPF identity projection**
+   - `src/gabion/analysis/type_fingerprints.py`
+   - `fingerprint_to_aspf_path` builds the `AspfOneCell` representative from a
+     fingerprint.
+   - `fingerprint_identity_payload` materializes canonical + derived identity
+     projections consumed downstream.
+   - **Why change here:** representative selection, canonical payload emission,
+     and derived scalar/digest alias behavior are assembled here.
+
+3. **Identity layer decomposition for evidence keys**
+   - `src/gabion/analysis/evidence_keys.py`
+   - `fingerprint_identity_layers` computes layered identity components used by
+     evidence-key surfaces.
+   - **Why change here:** evidence-facing identity strata and layer stability
+     obligations are anchored here.
+
+## Remapping gate (required before implementation changes)
+
+Before any implementation work in this area, remap proposals to the
+current-state map above and identify the exact function/class touchpoints.
+Do not add new semantic-core wrappers or placeholder modules (for example,
+`identity_space.py`, `IdentityProjection`, or `canonical_site_identity`) unless
+a temporary boundary adapter is explicitly justified with lifecycle metadata per
+policy.
 
 ## Representative selection and drift rules
 
