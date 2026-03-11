@@ -465,6 +465,11 @@ def _completion_focus(
         if policy_check_path.exists()
         else ""
     )
+    lattice_source = (
+        (repo_root / lattice_path).read_text(encoding="utf-8")
+        if (repo_root / lattice_path).exists()
+        else ""
+    )
     substrate_init_path = repo_root / "src/gabion/tooling/policy_substrate/__init__.py"
     substrate_adapter_path = repo_root / "src/gabion/tooling/policy_substrate/dataflow_fibration.py"
     substrate_init_source = (
@@ -487,6 +492,10 @@ def _completion_focus(
         and bool(substrate_adapter_source)
         and all(symbol not in substrate_init_source for symbol in legacy_adapter_symbols)
         and all(symbol not in substrate_adapter_source for symbol in legacy_adapter_symbols)
+    )
+    single_frontier_contract = (
+        bool(lattice_source)
+        and all(symbol not in lattice_source for symbol in legacy_adapter_symbols)
     )
 
     criteria = [
@@ -537,6 +546,12 @@ def _completion_focus(
                 "src/gabion/tooling/policy_substrate/dataflow_fibration.py"
             ),
         },
+        {
+            "criterion_id": "CF-07",
+            "description": "Canonical lattice algebra uses a single FrontierWitness contract",
+            "status": "pass" if single_frontier_contract else "in_progress",
+            "evidence": lattice_path,
+        },
     ]
     sequence = [
         "Commit projection-fiber rule source and lattice algebra as canonical tracked surfaces.",
@@ -544,6 +559,7 @@ def _completion_focus(
         "Eliminate remaining transitional frontier compatibility branches in policy substrate adapters.",
         "Lock deterministic lazy-pull and cache-parity tests as hard convergence gates.",
         "Enforce adapter-free substrate exports via drift checks and completion criteria.",
+        "Enforce single frontier contract in canonical lattice algebra with no recombination bridge symbols.",
     ]
     return criteria, sequence
 

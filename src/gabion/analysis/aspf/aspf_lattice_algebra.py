@@ -155,37 +155,6 @@ class DataflowFiberBundle:
 
 
 @dataclass(frozen=True)
-class RecombinationFrontier:
-    branch_site_id: str
-    branch_site_identity: str
-    branch_line: int
-    branch_column: int
-    branch_node_kind: str
-    required_symbols: ReplayableStream[str]
-    unresolved_symbols: ReplayableStream[str]
-    anchor_site_id: str
-    anchor_site_identity: str
-    anchor_line: int
-    anchor_column: int
-    anchor_ordinal: int
-    upstream_site_ids: ReplayableStream[str]
-    upstream_site_identities: ReplayableStream[str]
-    upstream_edge_ids: ReplayableStream[str]
-    execution_frontier_site_id: str
-    execution_frontier_site_identity: str
-    execution_frontier_line: int
-    execution_frontier_column: int
-    execution_frontier_ordinal: int
-    execution_upstream_site_ids: ReplayableStream[str]
-    execution_upstream_site_identities: ReplayableStream[str]
-    execution_upstream_edge_ids: ReplayableStream[str]
-    bundle_event_count: int
-    bundle_edge_count: int
-    execution_event_count: int
-    execution_edge_count: int
-
-
-@dataclass(frozen=True)
 class DataFiber:
     rel_path: str
     qualname: str
@@ -487,83 +456,129 @@ def frontier(
     branch_node_kind: str,
     required_symbols: Iterable[str],
 ) -> FrontierWitness:
-    legacy_bundle = DataflowFiberBundle(
-        rel_path=bundle.rel_path,
-        qualname=bundle.qualname,
-        entry_site_id=bundle.data.entry_site_id,
-        entry_site_identity=bundle.data.entry_site_identity,
-        events=bundle.data.events,
-        edges=bundle.data.edges,
-        execution_events=bundle.exec.events,
-        execution_edges=bundle.exec.edges,
-        module_bound_symbols=bundle.module_bound_symbols,
+    data_events = tuple(bundle.data.events)
+    data_edges = tuple(bundle.data.edges)
+    execution_events = tuple(bundle.exec.events)
+    execution_edges = tuple(bundle.exec.edges)
+    normalized_required = tuple(sorted(dict.fromkeys(required_symbols)))
+    definition_records = list(
+        _iter_latest_definitions_before_branch(
+            events=data_events,
+            branch_line=branch_line,
+            branch_column=branch_column,
+            symbols=normalized_required,
+        )
     )
-    recombination = compute_recombination_frontier(
+    defs_by_symbol = _definition_lookup(definition_records)
+    symbols_defined_in_scope = _defined_symbols(data_events)
+    module_bound_symbols = set(bundle.module_bound_symbols)
+    unresolved = tuple(
+        filter(
+            _missing_local_or_ingress_definition(
+                lookup=defs_by_symbol,
+                symbols_defined_in_scope=symbols_defined_in_scope,
+                module_bound_symbols=module_bound_symbols,
+            ),
+            normalized_required,
+        )
+    )
+    upstream_events = tuple(
+        sorted(
+            map(lambda item: item.event, definition_records),
+            key=lambda event: event.ordinal,
+        )
+    )
+    anchor_event = _anchor_event(
+        upstream_events=upstream_events,
+        events=data_events,
+    )
+    upstream_site_ids = tuple(map(_site_id_from_event, upstream_events))
+    upstream_site_identities = tuple(map(_site_identity_from_event, upstream_events))
+    upstream_edge_ids = tuple(
+        sorted(
+            map(
+                _edge_id_from_edge,
+                filter(_edge_targets_in(upstream_site_ids), data_edges),
+            )
+        )
+    )
+    branch_site_identity = _branch_site_identity(
         rel_path=rel_path,
         qualname=qualname,
-        bundle=legacy_bundle,
+        line=branch_line,
+        column=branch_column,
+        node_kind=branch_node_kind,
+    )
+    execution_frontier = _execution_recombination_frontier(
+        execution_events=execution_events,
+        execution_edges=execution_edges,
+        branch_site_identity=branch_site_identity,
+        required_dataflow_events=upstream_events,
+    )
+    eta_forward = eta_data_to_exec(
+        data_events=data_events,
+        exec_events=execution_events,
+    )
+    eta_reverse = eta_exec_to_data(
+        data_events=data_events,
+        exec_events=execution_events,
+    )
+    data_exec_join = join(
+        left_ids=upstream_site_ids,
+        right_ids=execution_frontier.upstream_site_ids,
+    )
+    data_exec_meet = meet(
+        left_ids=upstream_site_ids,
+        right_ids=execution_frontier.upstream_site_ids,
+    )
+    return FrontierWitness(
+        branch_site_id=_site_id(
+            rel_path=rel_path,
+            qualname=qualname,
+            line=branch_line,
+            column=branch_column,
+            event_kind="branch",
+            symbol="",
+            node_kind=branch_node_kind,
+        ),
+        branch_site_identity=branch_site_identity,
         branch_line=branch_line,
         branch_column=branch_column,
         branch_node_kind=branch_node_kind,
-        required_symbols=required_symbols,
-    )
-    eta_forward = eta_data_to_exec(
-        data_events=tuple(bundle.data.events),
-        exec_events=tuple(bundle.exec.events),
-    )
-    eta_reverse = eta_exec_to_data(
-        data_events=tuple(bundle.data.events),
-        exec_events=tuple(bundle.exec.events),
-    )
-    data_exec_join = join(
-        left_ids=recombination.upstream_site_ids,
-        right_ids=recombination.execution_upstream_site_ids,
-    )
-    data_exec_meet = meet(
-        left_ids=recombination.upstream_site_ids,
-        right_ids=recombination.execution_upstream_site_ids,
-    )
-    base_witness = FrontierWitness(
-        branch_site_id=recombination.branch_site_id,
-        branch_site_identity=recombination.branch_site_identity,
-        branch_line=recombination.branch_line,
-        branch_column=recombination.branch_column,
-        branch_node_kind=recombination.branch_node_kind,
-        required_symbols=recombination.required_symbols,
-        unresolved_symbols=recombination.unresolved_symbols,
-        data_anchor_site_id=recombination.anchor_site_id,
-        data_anchor_site_identity=recombination.anchor_site_identity,
-        data_anchor_line=recombination.anchor_line,
-        data_anchor_column=recombination.anchor_column,
-        data_anchor_ordinal=recombination.anchor_ordinal,
-        data_upstream_site_ids=recombination.upstream_site_ids,
-        data_upstream_site_identities=recombination.upstream_site_identities,
-        data_upstream_edge_ids=recombination.upstream_edge_ids,
-        exec_frontier_site_id=recombination.execution_frontier_site_id,
-        exec_frontier_site_identity=recombination.execution_frontier_site_identity,
-        exec_frontier_line=recombination.execution_frontier_line,
-        exec_frontier_column=recombination.execution_frontier_column,
-        exec_frontier_ordinal=recombination.execution_frontier_ordinal,
-        exec_upstream_site_ids=recombination.execution_upstream_site_ids,
-        exec_upstream_site_identities=recombination.execution_upstream_site_identities,
-        exec_upstream_edge_ids=recombination.execution_upstream_edge_ids,
-        bundle_event_count=recombination.bundle_event_count,
-        bundle_edge_count=recombination.bundle_edge_count,
-        execution_event_count=recombination.execution_event_count,
-        execution_edge_count=recombination.execution_edge_count,
+        required_symbols=_stream_from_sequence(normalized_required),
+        unresolved_symbols=_stream_from_sequence(unresolved),
+        data_anchor_site_id=anchor_event.site_id,
+        data_anchor_site_identity=anchor_event.site_identity,
+        data_anchor_line=anchor_event.line,
+        data_anchor_column=anchor_event.column,
+        data_anchor_ordinal=anchor_event.ordinal,
+        data_upstream_site_ids=_stream_from_sequence(upstream_site_ids),
+        data_upstream_site_identities=_stream_from_sequence(upstream_site_identities),
+        data_upstream_edge_ids=_stream_from_sequence(upstream_edge_ids),
+        exec_frontier_site_id=execution_frontier.site_id,
+        exec_frontier_site_identity=execution_frontier.site_identity,
+        exec_frontier_line=execution_frontier.line,
+        exec_frontier_column=execution_frontier.column,
+        exec_frontier_ordinal=execution_frontier.ordinal,
+        exec_upstream_site_ids=execution_frontier.upstream_site_ids,
+        exec_upstream_site_identities=execution_frontier.upstream_site_identities,
+        exec_upstream_edge_ids=execution_frontier.upstream_edge_ids,
+        bundle_event_count=len(data_events),
+        bundle_edge_count=len(data_edges),
+        execution_event_count=len(execution_events),
+        execution_edge_count=len(execution_edges),
         data_exec_join=data_exec_join,
         data_exec_meet=data_exec_meet,
         eta_data_to_exec=eta_forward,
         eta_exec_to_data=eta_reverse,
         complete=(
-            not tuple(recombination.unresolved_symbols)
+            not unresolved
             and eta_forward.complete
             and eta_reverse.complete
-            and bool(recombination.anchor_site_id)
-            and bool(recombination.execution_frontier_site_id)
+            and bool(anchor_event.site_id)
+            and bool(execution_frontier.site_id)
         ),
     )
-    return base_witness
 
 
 def compute_lattice_witness(
@@ -1145,170 +1160,6 @@ def branch_required_symbols(node: ast.AST) -> Iterator[str]:
     )
     for name in sorted(dict.fromkeys(name_ids)):
         yield name
-
-
-def compute_recombination_frontier(
-    *,
-    rel_path: str,
-    qualname: str,
-    bundle: DataflowFiberBundle,
-    branch_line: int,
-    branch_column: int,
-    branch_node_kind: str,
-    required_symbols: Iterable[str],
-) -> RecombinationFrontier:
-    bundle_events = tuple(bundle.events)
-    bundle_edges = tuple(bundle.edges)
-    execution_events = tuple(bundle.execution_events)
-    execution_edges = tuple(bundle.execution_edges)
-    normalized_required = tuple(sorted(dict.fromkeys(required_symbols)))
-    definition_records = list(
-        _iter_latest_definitions_before_branch(
-            events=bundle_events,
-            branch_line=branch_line,
-            branch_column=branch_column,
-            symbols=normalized_required,
-        )
-    )
-    defs_by_symbol = _definition_lookup(definition_records)
-    symbols_defined_in_scope = _defined_symbols(bundle_events)
-    module_bound_symbols = set(bundle.module_bound_symbols)
-    unresolved = tuple(
-        filter(
-            _missing_local_or_ingress_definition(
-                lookup=defs_by_symbol,
-                symbols_defined_in_scope=symbols_defined_in_scope,
-                module_bound_symbols=module_bound_symbols,
-            ),
-            normalized_required,
-        )
-    )
-    upstream_events = tuple(
-        sorted(
-            map(lambda item: item.event, definition_records),
-            key=lambda event: event.ordinal,
-        )
-    )
-    anchor_event = _anchor_event(
-        upstream_events=upstream_events,
-        events=bundle_events,
-    )
-    upstream_site_ids = tuple(map(_site_id_from_event, upstream_events))
-    upstream_site_identities = tuple(map(_site_identity_from_event, upstream_events))
-    upstream_edge_ids = tuple(
-        map(
-            _edge_id_from_edge,
-            filter(
-                _edge_targets_in(upstream_site_ids),
-                bundle_edges,
-            ),
-        )
-    )
-    branch_site_identity = _branch_site_identity(
-        rel_path=rel_path,
-        qualname=qualname,
-        line=branch_line,
-        column=branch_column,
-        node_kind=branch_node_kind,
-    )
-    execution_frontier = _execution_recombination_frontier(
-        execution_events=execution_events,
-        execution_edges=execution_edges,
-        branch_site_identity=branch_site_identity,
-        required_dataflow_events=upstream_events,
-    )
-    return RecombinationFrontier(
-        branch_site_id=_site_id(
-            rel_path=rel_path,
-            qualname=qualname,
-            line=branch_line,
-            column=branch_column,
-            event_kind="branch",
-            symbol="",
-            node_kind=branch_node_kind,
-        ),
-        branch_site_identity=branch_site_identity,
-        branch_line=branch_line,
-        branch_column=branch_column,
-        branch_node_kind=branch_node_kind,
-        required_symbols=_stream_from_sequence(normalized_required),
-        unresolved_symbols=_stream_from_sequence(unresolved),
-        anchor_site_id=anchor_event.site_id,
-        anchor_site_identity=anchor_event.site_identity,
-        anchor_line=anchor_event.line,
-        anchor_column=anchor_event.column,
-        anchor_ordinal=anchor_event.ordinal,
-        upstream_site_ids=_stream_from_sequence(upstream_site_ids),
-        upstream_site_identities=_stream_from_sequence(upstream_site_identities),
-        upstream_edge_ids=_stream_from_sequence(tuple(sorted(upstream_edge_ids))),
-        execution_frontier_site_id=execution_frontier.site_id,
-        execution_frontier_site_identity=execution_frontier.site_identity,
-        execution_frontier_line=execution_frontier.line,
-        execution_frontier_column=execution_frontier.column,
-        execution_frontier_ordinal=execution_frontier.ordinal,
-        execution_upstream_site_ids=execution_frontier.upstream_site_ids,
-        execution_upstream_site_identities=execution_frontier.upstream_site_identities,
-        execution_upstream_edge_ids=execution_frontier.upstream_edge_ids,
-        bundle_event_count=len(bundle_events),
-        bundle_edge_count=len(bundle_edges),
-        execution_event_count=len(execution_events),
-        execution_edge_count=len(execution_edges),
-    )
-
-
-def empty_recombination_frontier(
-    *,
-    rel_path: str,
-    qualname: str,
-    line: int,
-    column: int,
-    node_kind: str,
-) -> RecombinationFrontier:
-    site_identity = _branch_site_identity(
-        rel_path=rel_path,
-        qualname=qualname,
-        line=line,
-        column=column,
-        node_kind=node_kind,
-    )
-    site_id = _site_id(
-        rel_path=rel_path,
-        qualname=qualname,
-        line=line,
-        column=column,
-        event_kind="branch",
-        symbol="",
-        node_kind=node_kind,
-    )
-    return RecombinationFrontier(
-        branch_site_id=site_id,
-        branch_site_identity=site_identity,
-        branch_line=line,
-        branch_column=column,
-        branch_node_kind=node_kind,
-        required_symbols=_stream_from_sequence(()),
-        unresolved_symbols=_stream_from_sequence(()),
-        anchor_site_id=site_id,
-        anchor_site_identity=site_identity,
-        anchor_line=line,
-        anchor_column=column,
-        anchor_ordinal=0,
-        upstream_site_ids=_stream_from_sequence(()),
-        upstream_site_identities=_stream_from_sequence(()),
-        upstream_edge_ids=_stream_from_sequence(()),
-        execution_frontier_site_id=site_id,
-        execution_frontier_site_identity=site_identity,
-        execution_frontier_line=line,
-        execution_frontier_column=column,
-        execution_frontier_ordinal=0,
-        execution_upstream_site_ids=_stream_from_sequence(()),
-        execution_upstream_site_identities=_stream_from_sequence(()),
-        execution_upstream_edge_ids=_stream_from_sequence(()),
-        bundle_event_count=0,
-        bundle_edge_count=0,
-        execution_event_count=0,
-        execution_edge_count=0,
-    )
 
 
 @dataclass(frozen=True)
@@ -2447,17 +2298,14 @@ __all__ = [
     "DataflowFiberBundle",
     "ExecutionEdge",
     "ExecutionEvent",
-    "RecombinationFrontier",
     "UnmappedWitness",
     "ViolationWitness",
     "branch_required_symbols",
     "build_fiber_bundle_for_qualname",
     "build_dataflow_fiber_bundle_for_qualname",
     "compute_lattice_witness",
-    "compute_recombination_frontier",
     "eta_data_to_exec",
     "eta_exec_to_data",
-    "empty_recombination_frontier",
     "frontier",
     "frontier_failure_witness",
     "iter_lattice_witnesses",

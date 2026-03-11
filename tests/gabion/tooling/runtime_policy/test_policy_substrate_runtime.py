@@ -482,3 +482,10 @@ def test_policy_substrate_adapter_removes_legacy_recombination_exports() -> None
     assert not hasattr(dataflow_fibration_adapter, "compute_recombination_frontier")
     assert not hasattr(dataflow_fibration_adapter, "empty_recombination_frontier")
     assert not hasattr(dataflow_fibration_adapter, "RecombinationFrontier")
+
+
+# gabion:behavior primary=desired
+def test_canonical_lattice_algebra_removes_recombination_bridge_exports() -> None:
+    assert not hasattr(lattice_algebra, "compute_recombination_frontier")
+    assert not hasattr(lattice_algebra, "empty_recombination_frontier")
+    assert not hasattr(lattice_algebra, "RecombinationFrontier")

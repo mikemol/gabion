@@ -28,8 +28,8 @@ doc_role: audit
 | 10 | docs/baselines/private_symbol_import_baseline.json | 21 | docs | general |
 
 ## PS-ERA-01: ProjectionSpec Core Calculus
-- status: `in_progress`
-- date_window: `2026-02-09` -> `2026-03-09`
+- status: `implemented`
+- date_window: `2026-02-09` -> `2026-03-10`
 
 ### Intent At The Time
 - ProjectionSpec remains unchanged — only the base carrier improves. (in/in-30.md:488)
@@ -48,15 +48,14 @@ doc_role: audit
 - `d77dc91d` `2026-02-09` docflow: enforce SPPF axis tags + GH ref gate (GH-82)
 - `1a86872a` `2026-02-10` analysis: projection spec carrier + proof mode
 - `358a4207` `2026-02-10` docs: in-30 SuiteSite adoption tracking
-- `d4057e11` `2026-03-07` CU-PM0-B7 global marker purge batch 7
 - `2e39f9bf` `2026-03-08` CU-D2AI batch strictify residual type-routing surfaces
 - `5cf21c86` `2026-03-08` Eliminate *_or_none/_or_empty helper family and streamify timeout progress
 - `d5d98bc3` `2026-03-08` CU-D2AJ dispatch-lift projection and semantic coverage loaders
 - `2de45e25` `2026-03-09` snapshot: stage entire worktree
+- `e13c54b0` `2026-03-10` Force majeure: continue projection substrate and policy convergence
 
 ### What Drifted
-- `[PROVISIONAL]` `src/gabion/analysis/projection/projection_exec.py` ( M)
-- `[PROVISIONAL]` `src/gabion/analysis/projection/projection_normalize.py` ( M)
+- No provisional workspace-only delta for this era.
 
 ### What Remains
 - No explicit completion gap recorded for this era.
@@ -99,8 +98,8 @@ doc_role: audit
 - Keep quotient/internment invariants tied to canonical projection owner paths.
 
 ## PS-ERA-03: WS5 Dataflow Projection Ownerization
-- status: `in_progress`
-- date_window: `2026-03-02` -> `2026-03-09`
+- status: `implemented`
+- date_window: `2026-03-02` -> `2026-03-10`
 
 ### Intent At The Time
 - | `DFD-037` | duplicate reporting projection materialization/span rendering helpers still present in indexed boundary module | strict coverage checkpoint (`97.50%`) + reporting hotspot family ownership hard-cut follow-up | yes | `CU-06C` | mitigated | `src/gabion/analysis/dataflow_indexed_file_scan.py`; `src/gabion/analysis/dataflow_reporting_helpers.py`; `tests/gabion/analysis/test_dataflow_report_helpers.py`; `tests/gabion/analysis/test_report_markdown_module.py` | codex | 2026-03-22 | keep monolith as thin boundary wrapper for `_materialize_projection_spec_rows` and `_format_span_fields`, with owner logic centralized in `dataflow_reporting_helpers` | (docs/audits/dataflow_runtime_debt_ledger.md:90)
@@ -121,14 +120,14 @@ doc_role: audit
 - `03effc7d` `2026-03-02` test(policy): close scanner-suite branch arcs (CU-04E)
 - `09d170b5` `2026-03-02` analysis(ambiguity): collapse pass-through wrappers to alias exports (CU-06D)
 - `11c88688` `2026-03-02` analysis(indexed-scan): extract resume-state owner and expand owner tests (CU-04)
-- `6f150437` `2026-03-07` CU-PM0-B3 global marker purge batch 3
 - `2e39f9bf` `2026-03-08` CU-D2AI batch strictify residual type-routing surfaces
 - `5cf21c86` `2026-03-08` Eliminate *_or_none/_or_empty helper family and streamify timeout progress
 - `d58caa76` `2026-03-08` CU-D2T batch strict-dispatch payload lift
 - `2de45e25` `2026-03-09` snapshot: stage entire worktree
+- `e13c54b0` `2026-03-10` Force majeure: continue projection substrate and policy convergence
 
 ### What Drifted
-- `[PROVISIONAL]` `src/gabion/analysis/dataflow/io/dataflow_reporting_helpers.py` ( M)
+- No provisional workspace-only delta for this era.
 
 ### What Remains
 - No explicit completion gap recorded for this era.
@@ -137,7 +136,7 @@ doc_role: audit
 - Prevent compatibility wrapper drift by keeping projection/reporting helper ownership centralized.
 
 ## PS-ERA-04: Policy DSL Convergence
-- status: `in_progress`
+- status: `implemented`
 - date_window: `2026-02-21` -> `2026-03-10`
 
 ### Intent At The Time
@@ -161,17 +160,14 @@ doc_role: audit
 - `1e7f3b5e` `2026-02-23` Hard-cut governance audit scripts into gabion CLI subcommands
 - `650c67db` `2026-02-23` Add governance control-loop registry and docflow enforcement
 - `76c103ae` `2026-02-23` Canonicalize governance loop doc and fix agent drift checks
-- `c7b90d45` `2026-03-07` CU-GV1: add fiber trace boundary clause and diagnostics direction
-- `2de45e25` `2026-03-09` snapshot: stage entire worktree
-- `44f115da` `2026-03-10` CU-DSL1 complete typed policy DSL migration adapters
-- `49521e97` `2026-03-10` Merge branch 'pr-408' into stage
-- `8a370a8f` `2026-03-10` Eliminate remaining Python-authored ambiguity/docflow rule branches
+- `94e2a91d` `2026-03-10` CF10: hard-cut legacy frontier adapter exports
+- `9ead86ef` `2026-03-10` CF08: hard-cut projection transform runtime to policy DSL
+- `d814f25f` `2026-03-10` CF07: execute projection-fiber transforms in policy DSL
+- `e13c54b0` `2026-03-10` Force majeure: continue projection substrate and policy convergence
+- `f74f5dee` `2026-03-10` CU-CF06 projection-fiber row-level obligation semantics
 
 ### What Drifted
-- `[PROVISIONAL]` `scripts/policy/policy_check.py` ( M)
-- `[PROVISIONAL]` `src/gabion/analysis/aspf_rule_engine.py` ( M)
-- `[PROVISIONAL]` `src/gabion/policy_dsl/registry.py` ( M)
-- `[PROVISIONAL]` `src/gabion/policy_dsl/schema.py` ( M)
+- No provisional workspace-only delta for this era.
 
 ### What Remains
 - Projection-fiber rules are present in local workspace but not yet committed as canonical source.
@@ -199,17 +195,14 @@ doc_role: audit
 - `d03ba757` `2026-02-27` docs: remove stale ASPF action-plan CLI and artifact surfaces
 - `e3f92c4b` `2026-02-27` docs: propagate re-internment metadata across governance dependents
 - `776ebde9` `2026-03-03` refactor: split import DAG into submodules and rewrite paths
-- `8227d78f` `2026-03-09` CU-GEO20 structural policy-event kinds and stream frontier carriers
-- `44f115da` `2026-03-10` CU-DSL1 complete typed policy DSL migration adapters
-- `49521e97` `2026-03-10` Merge branch 'pr-408' into stage
-- `5184450d` `2026-03-10` CU-GEO18 remove JSON surface from ASPF ring via wire I/O boundary
-- `8a370a8f` `2026-03-10` Eliminate remaining Python-authored ambiguity/docflow rule branches
+- `94e2a91d` `2026-03-10` CF10: hard-cut legacy frontier adapter exports
+- `9ead86ef` `2026-03-10` CF08: hard-cut projection transform runtime to policy DSL
+- `d814f25f` `2026-03-10` CF07: execute projection-fiber transforms in policy DSL
+- `e13c54b0` `2026-03-10` Force majeure: continue projection substrate and policy convergence
+- `f74f5dee` `2026-03-10` CU-CF06 projection-fiber row-level obligation semantics
 
 ### What Drifted
-- `[PROVISIONAL]` `src/gabion/analysis/aspf/aspf_lattice_algebra.py` (??)
-- `[PROVISIONAL]` `src/gabion/tooling/policy_rules/branchless_rule.py` ( M)
-- `[PROVISIONAL]` `src/gabion/tooling/policy_substrate/lattice_convergence_semantic.py` (??)
-- `[PROVISIONAL]` `src/gabion/tooling/runtime/policy_scanner_suite.py` ( M)
+- `[PROVISIONAL]` `src/gabion/analysis/aspf/aspf_lattice_algebra.py` ( M)
 
 ### What Remains
 - Canonical lattice algebra path is present locally but still provisional in this workspace state.
@@ -236,11 +229,11 @@ doc_role: audit
 - `6b38b878` `2026-02-17` docs(in-32): emphasize non-normative status and implementation boundary
 - `d595634e` `2026-02-23` Refresh in/ doc dependency reviews and cadence note
 - `08471e11` `2026-02-25` Add ASPF reuse classes, witness gates, and shadow replay log
-- `c7b90d45` `2026-03-07` CU-GV1: add fiber trace boundary clause and diagnostics direction
-- `2de45e25` `2026-03-09` snapshot: stage entire worktree
-- `44f115da` `2026-03-10` CU-DSL1 complete typed policy DSL migration adapters
-- `49521e97` `2026-03-10` Merge branch 'pr-408' into stage
 - `8a370a8f` `2026-03-10` Eliminate remaining Python-authored ambiguity/docflow rule branches
+- `94e2a91d` `2026-03-10` CF10: hard-cut legacy frontier adapter exports
+- `9ead86ef` `2026-03-10` CF08: hard-cut projection transform runtime to policy DSL
+- `d814f25f` `2026-03-10` CF07: execute projection-fiber transforms in policy DSL
+- `f74f5dee` `2026-03-10` CU-CF06 projection-fiber row-level obligation semantics
 
 ### What Drifted
 - No provisional workspace-only delta for this era.
@@ -262,13 +255,17 @@ doc_role: audit
 | criterion_id | description | status | evidence |
 | --- | --- | --- | --- |
 | CF-01 | ProjectionSpec inventory is present and populated | pass | artifacts/out/projection_spec_inventory.json |
-| CF-02 | Projection-fiber DSL source is committed and registry-addressable | in_progress | docs/projection_fiber_rules.yaml |
-| CF-03 | Canonical lattice algebra module is committed | in_progress | src/gabion/analysis/aspf/aspf_lattice_algebra.py |
+| CF-02 | Projection-fiber DSL source is committed and registry-addressable | pass | docs/projection_fiber_rules.yaml |
+| CF-03 | Canonical lattice algebra module is committed | pass | src/gabion/analysis/aspf/aspf_lattice_algebra.py |
 | CF-04 | Convergence gate is DSL/witness-only semantic evaluation | pass | scripts/policy/policy_check.py |
 | CF-05 | Policy DSL migration notes still constrain temporary boundary adapters | pass | docs/policy_dsl_migration_notes.md |
+| CF-06 | Policy substrate adapter exports are canonical witness-only | pass | src/gabion/tooling/policy_substrate/__init__.py; src/gabion/tooling/policy_substrate/dataflow_fibration.py |
+| CF-07 | Canonical lattice algebra uses a single FrontierWitness contract | pass | src/gabion/analysis/aspf/aspf_lattice_algebra.py |
 
 ### Prioritized Closure Sequence
 1. Commit projection-fiber rule source and lattice algebra as canonical tracked surfaces.
 2. Cut convergence checks to evaluator decisions over semantic lattice witnesses only.
 3. Eliminate remaining transitional frontier compatibility branches in policy substrate adapters.
 4. Lock deterministic lazy-pull and cache-parity tests as hard convergence gates.
+5. Enforce adapter-free substrate exports via drift checks and completion criteria.
+6. Enforce single frontier contract in canonical lattice algebra with no recombination bridge symbols.

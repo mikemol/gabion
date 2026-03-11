@@ -191,6 +191,9 @@ def test_aspf_lattice_algebra_has_no_projection_transform_runtime() -> None:
     assert "projection_fiber_rules.yaml" not in source
     assert "_projection_transform_specs" not in source
     assert "_run_projection_fixpoint" not in source
+    assert "RecombinationFrontier" not in source
+    assert "compute_recombination_frontier" not in source
+    assert "empty_recombination_frontier" not in source
 
 
 def test_policy_substrate_exports_no_legacy_recombination_surface() -> None:
