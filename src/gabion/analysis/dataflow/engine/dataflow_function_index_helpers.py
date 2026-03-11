@@ -19,6 +19,7 @@ from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
 )
 from gabion.analysis.foundation.json_types import JSONObject, ParseFailureWitnesses
 from gabion.analysis.foundation.timeout_context import check_deadline
+from gabion.analysis.foundation.timeout_context import deadline_loop_iter
 from gabion.invariants import never
 
 
@@ -424,8 +425,7 @@ def _enclosing_class(node: ast.AST, parents: dict[ast.AST, ast.AST]) -> str | No
 
 def _collect_functions(tree: ast.AST) -> list[ast.FunctionDef | ast.AsyncFunctionDef]:
     functions: list[ast.FunctionDef | ast.AsyncFunctionDef] = []
-    for node in ast.walk(tree):
-        check_deadline()
+    for node in deadline_loop_iter(ast.walk(tree)):
         if type(node) in {ast.FunctionDef, ast.AsyncFunctionDef}:
             functions.append(cast(ast.FunctionDef | ast.AsyncFunctionDef, node))
     return sorted(

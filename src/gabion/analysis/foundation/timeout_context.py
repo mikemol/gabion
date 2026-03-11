@@ -28,6 +28,16 @@ from gabion.json_types import JSONValue
 
 _TIMEOUT_PROGRESS_CHECKS_FLOOR = 32
 _TIMEOUT_PROGRESS_SITE_FLOOR = 4
+_TIMEOUT_FLOW_INITIAL_WINDOW = 64
+_TIMEOUT_FLOW_EWMA_ALPHA = 0.35
+_TIMEOUT_FLOW_BEST_RATE_DECAY = 0.95
+_TIMEOUT_FLOW_UTILIZATION_FRACTION = 0.5
+_TIMEOUT_FLOW_STABILITY_TOLERANCE = 0.25
+_TIMEOUT_FLOW_STABLE_GROWTH_FACTOR = 8
+_TIMEOUT_FLOW_UNSTABLE_GROWTH_FACTOR = 4
+_TIMEOUT_FLOW_BACKOFF_FACTOR = 0.75
+_TIMEOUT_FLOW_HARD_CAP = 4096
+_TIMEOUT_FLOW_MIN_RATE = 1e-18
 _NO_DEADLINE_PROFILE_SNAPSHOT = None
 _LoopItem = TypeVar("_LoopItem")
 
@@ -204,6 +214,288 @@ class _DeadlineProfileIoRow:
     elapsed_ns: int
     max_event_ns: int
     bytes_total: int
+
+
+@dataclass(frozen=True)
+class _RemainingTickBudget:
+    known: bool
+    remaining_ticks: int
+
+
+def _gas_ticks_remaining(clock: DeadlineClock) -> _RemainingTickBudget:
+    match clock:
+        case GasMeter() as gas_clock:
+            return _RemainingTickBudget(
+                known=True,
+                remaining_ticks=max(0, int(gas_clock.limit) - int(gas_clock.current)),
+            )
+    return _RemainingTickBudget(known=False, remaining_ticks=0)
+
+
+def _deadline_ns_remaining(deadline: Deadline) -> int:
+    return max(0, int(deadline.deadline_ns) - int(_SYSTEM_CLOCK.get_mark()))
+
+
+@dataclass(frozen=True)
+class _DeadlineFlowObservation:
+    items_delta: int
+    tick_delta: int
+    ns_delta: int
+
+    def __post_init__(self) -> None:
+        if self.items_delta <= 0:
+            never("invalid deadline flow observation items", items_delta=self.items_delta)
+        if self.tick_delta <= 0:
+            never("invalid deadline flow observation ticks", tick_delta=self.tick_delta)
+        if self.ns_delta <= 0:
+            never("invalid deadline flow observation ns", ns_delta=self.ns_delta)
+
+    @property
+    def items_per_tick(self) -> float:
+        return float(self.items_delta) / float(self.tick_delta)
+
+    @property
+    def items_per_ns(self) -> float:
+        return float(self.items_delta) / float(self.ns_delta)
+
+
+@dataclass(frozen=True)
+class _DeadlineFlowProjection:
+    next_window: int
+    items_per_tick_ewma: float
+    items_per_ns_ewma: float
+    best_items_per_tick: float
+    best_items_per_ns: float
+    has_items_per_tick_ewma: bool
+    has_items_per_ns_ewma: bool
+    has_best_items_per_tick: bool
+    has_best_items_per_ns: bool
+
+
+def _deadline_flow_rate_ewma(
+    previous: float,
+    *,
+    has_previous: bool,
+    observed: float,
+) -> float:
+    if not has_previous:
+        return observed
+    alpha = _TIMEOUT_FLOW_EWMA_ALPHA
+    return ((1.0 - alpha) * previous) + (alpha * observed)
+
+
+def _deadline_flow_best_rate(
+    previous: float,
+    *,
+    has_previous: bool,
+    observed: float,
+) -> float:
+    if not has_previous:
+        return observed
+    return max(observed, previous * _TIMEOUT_FLOW_BEST_RATE_DECAY)
+
+
+def _deadline_flow_rate_drop(
+    observed: float,
+    *,
+    baseline: float,
+    has_baseline: bool,
+) -> bool:
+    if not has_baseline:
+        return False
+    tolerance = max(0.0, 1.0 - _TIMEOUT_FLOW_STABILITY_TOLERANCE)
+    return observed < (baseline * tolerance)
+
+
+def _deadline_flow_items_from_budget(
+    *,
+    remaining_budget: int,
+    items_per_unit: float,
+) -> int:
+    safe_budget = max(1, int(remaining_budget))
+    safe_items_per_unit = max(float(items_per_unit), _TIMEOUT_FLOW_MIN_RATE)
+    projected_budget = max(1, int(float(safe_budget) * _TIMEOUT_FLOW_UTILIZATION_FRACTION))
+    return max(1, int(float(projected_budget) * safe_items_per_unit))
+
+
+def _project_deadline_flow_window(
+    *,
+    previous_window: int,
+    previous_items_per_tick_ewma: float,
+    has_previous_items_per_tick_ewma: bool,
+    previous_items_per_ns_ewma: float,
+    has_previous_items_per_ns_ewma: bool,
+    previous_best_items_per_tick: float,
+    has_previous_best_items_per_tick: bool,
+    previous_best_items_per_ns: float,
+    has_previous_best_items_per_ns: bool,
+    observation: _DeadlineFlowObservation,
+    remaining_tick_budget: _RemainingTickBudget,
+) -> _DeadlineFlowProjection:
+    normalized_previous_window = max(1, int(previous_window))
+    items_per_tick_ewma = _deadline_flow_rate_ewma(
+        previous_items_per_tick_ewma,
+        has_previous=has_previous_items_per_tick_ewma,
+        observed=observation.items_per_tick,
+    )
+    items_per_ns_ewma = _deadline_flow_rate_ewma(
+        previous_items_per_ns_ewma,
+        has_previous=has_previous_items_per_ns_ewma,
+        observed=observation.items_per_ns,
+    )
+    best_items_per_tick = _deadline_flow_best_rate(
+        previous_best_items_per_tick,
+        has_previous=has_previous_best_items_per_tick,
+        observed=observation.items_per_tick,
+    )
+    best_items_per_ns = _deadline_flow_best_rate(
+        previous_best_items_per_ns,
+        has_previous=has_previous_best_items_per_ns,
+        observed=observation.items_per_ns,
+    )
+    projected_items_per_tick = max(items_per_tick_ewma, best_items_per_tick)
+    projected_items_per_ns = max(items_per_ns_ewma, best_items_per_ns)
+    deadline = get_deadline()
+    remaining_ns = _deadline_ns_remaining(deadline)
+    time_window = _deadline_flow_items_from_budget(
+        remaining_budget=remaining_ns,
+        items_per_unit=projected_items_per_ns,
+    )
+    tick_window = _TIMEOUT_FLOW_HARD_CAP
+    if remaining_tick_budget.known:
+        tick_window = _deadline_flow_items_from_budget(
+            remaining_budget=remaining_tick_budget.remaining_ticks,
+            items_per_unit=projected_items_per_tick,
+        )
+    stable_ticks = not _deadline_flow_rate_drop(
+        observation.items_per_tick,
+        baseline=previous_items_per_tick_ewma,
+        has_baseline=has_previous_items_per_tick_ewma,
+    )
+    stable_ns = not _deadline_flow_rate_drop(
+        observation.items_per_ns,
+        baseline=previous_items_per_ns_ewma,
+        has_baseline=has_previous_items_per_ns_ewma,
+    )
+    growth_factor = (
+        _TIMEOUT_FLOW_STABLE_GROWTH_FACTOR
+        if stable_ticks and stable_ns
+        else _TIMEOUT_FLOW_UNSTABLE_GROWTH_FACTOR
+    )
+    growth_cap = max(
+        _TIMEOUT_PROGRESS_CHECKS_FLOOR,
+        normalized_previous_window * growth_factor,
+    )
+    projected_window = min(
+        tick_window,
+        time_window,
+        growth_cap,
+        _TIMEOUT_FLOW_HARD_CAP,
+    )
+    sustained_tick_drop = _deadline_flow_rate_drop(
+        observation.items_per_tick,
+        baseline=previous_best_items_per_tick,
+        has_baseline=has_previous_best_items_per_tick,
+    ) and _deadline_flow_rate_drop(
+        observation.items_per_tick,
+        baseline=previous_items_per_tick_ewma,
+        has_baseline=has_previous_items_per_tick_ewma,
+    )
+    sustained_ns_drop = _deadline_flow_rate_drop(
+        observation.items_per_ns,
+        baseline=previous_best_items_per_ns,
+        has_baseline=has_previous_best_items_per_ns,
+    ) and _deadline_flow_rate_drop(
+        observation.items_per_ns,
+        baseline=previous_items_per_ns_ewma,
+        has_baseline=has_previous_items_per_ns_ewma,
+    )
+    if sustained_tick_drop and sustained_ns_drop:
+        projected_window = min(
+            projected_window,
+            max(1, int(normalized_previous_window * _TIMEOUT_FLOW_BACKOFF_FACTOR)),
+        )
+    return _DeadlineFlowProjection(
+        next_window=max(1, int(projected_window)),
+        items_per_tick_ewma=items_per_tick_ewma,
+        items_per_ns_ewma=items_per_ns_ewma,
+        best_items_per_tick=best_items_per_tick,
+        best_items_per_ns=best_items_per_ns,
+        has_items_per_tick_ewma=True,
+        has_items_per_ns_ewma=True,
+        has_best_items_per_tick=True,
+        has_best_items_per_ns=True,
+    )
+
+
+@dataclass
+class _DeadlineFlowBuffer:
+    window: int
+    last_tick_mark: int
+    last_wall_mark_ns: int
+    items_per_tick_ewma: float = 0.0
+    has_items_per_tick_ewma: bool = False
+    items_per_ns_ewma: float = 0.0
+    has_items_per_ns_ewma: bool = False
+    best_items_per_tick: float = 0.0
+    has_best_items_per_tick: bool = False
+    best_items_per_ns: float = 0.0
+    has_best_items_per_ns: bool = False
+    completed_items: int = 0
+
+    @classmethod
+    def open(cls) -> "_DeadlineFlowBuffer":
+        check_deadline()
+        clock = get_deadline_clock()
+        return cls(
+            window=max(_TIMEOUT_PROGRESS_CHECKS_FLOOR, _TIMEOUT_FLOW_INITIAL_WINDOW),
+            last_tick_mark=int(clock.get_mark()),
+            last_wall_mark_ns=int(_SYSTEM_CLOCK.get_mark()),
+        )
+
+    def before_item(self) -> None:
+        if self.completed_items < self.window:
+            return
+        self._poll()
+
+    def after_item(self) -> None:
+        self.completed_items += 1
+
+    def _poll(self) -> None:
+        check_deadline()
+        clock = get_deadline_clock()
+        current_tick_mark = int(clock.get_mark())
+        current_wall_mark_ns = int(_SYSTEM_CLOCK.get_mark())
+        observation = _DeadlineFlowObservation(
+            tick_delta=max(1, current_tick_mark - self.last_tick_mark),
+            items_delta=max(1, self.completed_items),
+            ns_delta=max(1, current_wall_mark_ns - self.last_wall_mark_ns),
+        )
+        projection = _project_deadline_flow_window(
+            previous_window=self.window,
+            previous_items_per_tick_ewma=self.items_per_tick_ewma,
+            has_previous_items_per_tick_ewma=self.has_items_per_tick_ewma,
+            previous_items_per_ns_ewma=self.items_per_ns_ewma,
+            has_previous_items_per_ns_ewma=self.has_items_per_ns_ewma,
+            previous_best_items_per_tick=self.best_items_per_tick,
+            has_previous_best_items_per_tick=self.has_best_items_per_tick,
+            previous_best_items_per_ns=self.best_items_per_ns,
+            has_previous_best_items_per_ns=self.has_best_items_per_ns,
+            observation=observation,
+            remaining_tick_budget=_gas_ticks_remaining(clock),
+        )
+        self.window = projection.next_window
+        self.items_per_tick_ewma = projection.items_per_tick_ewma
+        self.has_items_per_tick_ewma = projection.has_items_per_tick_ewma
+        self.items_per_ns_ewma = projection.items_per_ns_ewma
+        self.has_items_per_ns_ewma = projection.has_items_per_ns_ewma
+        self.best_items_per_tick = projection.best_items_per_tick
+        self.has_best_items_per_tick = projection.has_best_items_per_tick
+        self.best_items_per_ns = projection.best_items_per_ns
+        self.has_best_items_per_ns = projection.has_best_items_per_ns
+        self.last_tick_mark = current_tick_mark
+        self.last_wall_mark_ns = current_wall_mark_ns
+        self.completed_items = 0
 
 
 @dataclass(frozen=True)
@@ -956,9 +1248,11 @@ def check_deadline(
 
 
 def deadline_loop_iter(values: Iterable[_LoopItem]) -> Iterator[_LoopItem]:
+    flow_buffer = _DeadlineFlowBuffer.open()
     for value in values:
-        check_deadline()
+        flow_buffer.before_item()
         yield value
+        flow_buffer.after_item()
 
 
 def consume_deadline_ticks(

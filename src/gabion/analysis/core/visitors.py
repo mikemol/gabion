@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import ast
 from typing import Callable, Hashable, TYPE_CHECKING, cast
-from gabion.analysis.foundation.timeout_context import check_deadline
+from gabion.analysis.foundation.timeout_context import check_deadline, deadline_loop_iter
 from gabion.invariants import never
 
 if TYPE_CHECKING:
     from gabion.analysis.dataflow.engine.dataflow_contracts import CallArgs, ParamUse
+
+
+_VISITOR_DEADLINE_STRIDE = 32
 
 
 def _is_ast(node: object, node_type: type[ast.AST]) -> bool:
@@ -29,8 +32,12 @@ def _is_ast_one_of(node: object, node_types: tuple[type[ast.AST], ...]) -> bool:
             never("unreachable wildcard match fall-through")
 class ProjectVisitor(ast.NodeVisitor):
     def visit(self, node: ast.AST):  # type: ignore[override]
-        # Treat every node entry as a deterministic work unit.
-        check_deadline()
+        # Keep interruption responsive without charging a full deadline check on
+        # every AST node visit.
+        visit_counter = int(getattr(self, "_deadline_visit_counter", 0)) + 1
+        self._deadline_visit_counter = visit_counter
+        if visit_counter == 1 or visit_counter % _VISITOR_DEADLINE_STRIDE == 0:
+            check_deadline()
         return super().visit(node)
 
 
@@ -39,9 +46,7 @@ class ParentAnnotator(ProjectVisitor):
         self.parents: dict[ast.AST, ast.AST] = {}
 
     def generic_visit(self, node: ast.AST) -> None:
-        check_deadline()
-        for child in ast.iter_child_nodes(node):
-            check_deadline()
+        for child in deadline_loop_iter(ast.iter_child_nodes(node)):
             self.parents[child] = node
             self.visit(child)
 
