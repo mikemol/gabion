@@ -477,7 +477,7 @@ def fingerprint_identity_payload(
     aspf_path = fingerprint_to_aspf_path(fingerprint)
     candidates = (
         aspf_path.representative,
-        "|".join(aspf_path.basis_path),
+        "|".join(str(atom) for atom in aspf_path.basis_path),
     )
     rep_witness = select_representative(
         RepresentativeSelectionOptions(mode=representative_mode, candidates=candidates)
@@ -539,7 +539,7 @@ def fingerprint_identity_payload(
         right=AspfOneCell(
             source=aspf_path.source,
             target=aspf_path.target,
-            representative="|".join(aspf_path.basis_path),
+            representative="|".join(str(atom) for atom in aspf_path.basis_path),
             basis_path=aspf_path.basis_path,
         ),
         witness_id=f"higher:{rep_witness.witness_id}",

@@ -126,7 +126,7 @@ class AspfOneCellDTO(BaseModel):
     source: str
     target: str
     representative: str
-    basis_path: List[str]
+    basis_path: List[int]
     kind: Optional[str] = None
     surface: Optional[str] = None
     metadata: Dict[str, Any] = {}

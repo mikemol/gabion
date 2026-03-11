@@ -21,6 +21,7 @@ from .aspf_core import (
     AspfOneCell,
     AspfTwoCellWitness,
     BasisZeroCell,
+    normalize_basis_path,
     parse_2cell_witness,
     validate_2cell_compatibility,
 )
@@ -243,11 +244,11 @@ def record_1cell(
     source_label: str,
     target_label: str,
     representative: str,
-    basis_path: Sequence[str],
+    basis_path: Sequence[int],
     surface: str | None = None,
     metadata: Mapping[str, object] | None = None,
 ) -> AspfOneCell:
-    normalized_basis = tuple(str(step) for step in basis_path)
+    normalized_basis = normalize_basis_path(tuple(basis_path))
     cell = AspfOneCell(
         source=BasisZeroCell(str(source_label)),
         target=BasisZeroCell(str(target_label)),
@@ -1135,7 +1136,7 @@ def _merge_one_cell_payload(
     source = str(one_cell_payload["source"])
     target = str(one_cell_payload["target"])
     representative = str(one_cell_payload["representative"])
-    basis_path = tuple(str(item) for item in one_cell_payload["basis_path"])
+    basis_path = normalize_basis_path(one_cell_payload["basis_path"])
     record_1cell(
         state,
         kind=str(one_cell_payload.get("kind", "imported_1cell")),

@@ -151,7 +151,7 @@ class AspfJsonlEventSink(AspfEventSink):
         delta_record = aspf_resume_state.append_delta_record(
             records=[],
             event_kind=event.kind,
-            phase=event.cell.basis_path[0] if event.cell.basis_path else "runtime",
+            phase=str(event.cell.basis_path[0]) if event.cell.basis_path else "runtime",
             analysis_state=analysis_state,
             mutation_target=mutation_target,
             mutation_value={
