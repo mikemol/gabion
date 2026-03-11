@@ -57,6 +57,7 @@ def _rules_from_document(
             "outcome": {
                 "kind": rule.outcome_kind.value,
                 "message": rule.outcome_message,
+                **dict(rule.outcome_details),
             },
             "evidence_contract": rule.evidence_contract.value,
         }

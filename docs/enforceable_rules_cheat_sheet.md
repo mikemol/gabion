@@ -1,5 +1,5 @@
 ---
-doc_revision: 12
+doc_revision: 13
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: enforceable_rules_cheat_sheet
 doc_role: reference
@@ -23,25 +23,25 @@ doc_requires:
   - in/in-23.md#in_in_23
   - in/in-24.md#in_in_24
 doc_reviewed_as_of:
-  POLICY_SEED.md#policy_seed: 2
-  AGENTS.md#agent_obligations: 2
-  README.md#repo_contract: 2
-  CONTRIBUTING.md#contributing_contract: 2
-  glossary.md#contract: 1
-  docs/coverage_semantics.md#coverage_semantics: 1
-  docs/publishing_practices.md#publishing_practices: 1
-  in/in-23.md#in_in_23: 1
-  in/in-24.md#in_in_24: 1
+  POLICY_SEED.md#policy_seed: 55
+  AGENTS.md#agent_obligations: 33
+  README.md#repo_contract: 83
+  CONTRIBUTING.md#contributing_contract: 118
+  glossary.md#contract: 44
+  docs/coverage_semantics.md#coverage_semantics: 21
+  docs/publishing_practices.md#publishing_practices: 28
+  in/in-23.md#in_in_23: 11
+  in/in-24.md#in_in_24: 11
 doc_review_notes:
-  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev2 (forward-remediation order, ci_watch failure-bundle durability, and enforced execution-coverage policy wording)."
-  AGENTS.md#agent_obligations: "Reviewed AGENTS.md rev2 (required validation stack, forward-remediation preference, and ci_watch failure-bundle triage guidance)."
-  README.md#repo_contract: "Reviewed README.md rev2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
-  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
-  glossary.md#contract: "Reviewed semantic typing rules for bundle/tier/protocol/decision/evidence terms referenced by this checklist."
-  docs/coverage_semantics.md#coverage_semantics: "Reviewed required rule/evidence coverage obligations and ratchet rules mapped in this checklist."
-  docs/publishing_practices.md#publishing_practices: "Reviewed release hardening and trusted publishing practices referenced by policy-linked security checks."
-  in/in-23.md#in_in_23: "Reviewed ASPF/SPPF carrier discipline and deterministic artifact obligations relevant to ordering guarantees."
-  in/in-24.md#in_in_24: "Reviewed deadness/evidence artifact contract and determinism requirements that require canonical sorted serialization surfaces."
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev55 (shift-ambiguity-left and correction-unit obligations still anchor this checklist)."
+  AGENTS.md#agent_obligations: "Reviewed AGENTS.md rev33 (required validation stack and ambiguity-left obligations remain aligned with this checklist)."
+  README.md#repo_contract: "Reviewed README.md rev83 (repo scope and entry points remain aligned with the command references here)."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev118 (validation stack and evidence duties remain aligned with the checks listed here)."
+  glossary.md#contract: "Reviewed glossary.md rev44 (bundle, tier, protocol, and evidence terminology remain the semantic source for this checklist)."
+  docs/coverage_semantics.md#coverage_semantics: "Reviewed coverage_semantics rev21 (rule/evidence coverage obligations remain aligned with this checklist)."
+  docs/publishing_practices.md#publishing_practices: "Reviewed publishing_practices rev28 (release hardening references remain advisory and compatible here)."
+  in/in-23.md#in_in_23: "Reviewed in/in-23 rev11 (ASPF/SPPF carrier discipline still aligns with deterministic artifact obligations listed here)."
+  in/in-24.md#in_in_24: "Reviewed in/in-24 rev11 (deadness/evidence artifact constraints still align with canonical ordering expectations here)."
 doc_sections:
   enforceable_rules_cheat_sheet: 1
 doc_section_requires:
@@ -59,50 +59,50 @@ doc_section_requires:
 doc_section_reviews:
   enforceable_rules_cheat_sheet:
     POLICY_SEED.md#policy_seed:
-      dep_version: 2
-      self_version_at_review: 1
+      dep_version: 55
+      self_version_at_review: 13
       outcome: no_change
-      note: "Policy seed rev2 reviewed; governance obligations remain aligned."
+      note: "Policy seed rev55 reviewed; governance obligations remain aligned."
     AGENTS.md#agent_obligations:
-      dep_version: 2
-      self_version_at_review: 1
+      dep_version: 33
+      self_version_at_review: 13
       outcome: no_change
-      note: "Agent obligations rev2 reviewed; clause and cadence links remain aligned."
+      note: "Agent obligations rev33 reviewed; clause and cadence links remain aligned."
     README.md#repo_contract:
-      dep_version: 2
-      self_version_at_review: 1
+      dep_version: 83
+      self_version_at_review: 13
       outcome: no_change
-      note: "Repo contract rev2 reviewed; command and artifact guidance remains aligned."
+      note: "Repo contract rev83 reviewed; command and artifact guidance remains aligned."
     CONTRIBUTING.md#contributing_contract:
-      dep_version: 2
-      self_version_at_review: 1
+      dep_version: 118
+      self_version_at_review: 13
       outcome: no_change
-      note: "Contributor contract rev2 reviewed; dual-sensor cadence and correction gates remain aligned."
+      note: "Contributor contract rev118 reviewed; dual-sensor cadence and correction gates remain aligned."
     glossary.md#contract:
-      dep_version: 1
-      self_version_at_review: 1
+      dep_version: 44
+      self_version_at_review: 13
       outcome: no_change
-      note: "Glossary semantics remain the canonical meaning source for checklist rule IDs."
+      note: "Glossary rev44 remains the canonical meaning source for checklist rule IDs."
     docs/coverage_semantics.md#coverage_semantics:
-      dep_version: 1
-      self_version_at_review: 1
+      dep_version: 21
+      self_version_at_review: 13
       outcome: no_change
-      note: "Coverage policy remains consistent with checklist testing and evidence obligations."
+      note: "Coverage semantics rev21 remains consistent with checklist testing and evidence obligations."
     docs/publishing_practices.md#publishing_practices:
-      dep_version: 1
-      self_version_at_review: 1
+      dep_version: 28
+      self_version_at_review: 13
       outcome: no_change
-      note: "Publishing guidance remains advisory and policy-compatible for release hardening references."
+      note: "Publishing guidance rev28 remains advisory and policy-compatible for release hardening references."
     in/in-23.md#in_in_23:
-      dep_version: 1
-      self_version_at_review: 2
+      dep_version: 11
+      self_version_at_review: 13
       outcome: no_change
-      note: "ASPF/SPPF carrier constraints align with deterministic checklist interpretation."
+      note: "in-23 rev11 still aligns with deterministic checklist interpretation."
     in/in-24.md#in_in_24:
-      dep_version: 1
-      self_version_at_review: 2
+      dep_version: 11
+      self_version_at_review: 13
       outcome: no_change
-      note: "Deadness/evidence determinism constraints align with canonical ordering expectations."
+      note: "in-24 rev11 still aligns with canonical ordering expectations."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_erasure:
   - formatting
@@ -142,7 +142,7 @@ Gate-level control-loop mapping lives in `docs/governance_loop_matrix.md#governa
 | `ARC-001` | LSP-first invariant: server is semantic core; CLI must remain a thin client (no reimplemented analysis logic). | [`README.md#repo_contract`](../README.md#repo_contract), [`CONTRIBUTING.md#contributing_contract`](../CONTRIBUTING.md#contributing_contract), [`AGENTS.md#agent_obligations`](../AGENTS.md#agent_obligations) | `mise exec -- python -m pytest` + code review of `src/gabion/cli.py` vs `src/gabion/server.py` | Behavioral divergence between CLI and server semantics or review rejection. |
 | `ARC-002` | Repo-local tooling commands use `mise exec -- python` to bind pinned interpreter/deps. | [`AGENTS.md#agent_obligations`](../AGENTS.md#agent_obligations), [`CONTRIBUTING.md#contributing_contract`](../CONTRIBUTING.md#contributing_contract) | Command/scripts review; run checks through `mise exec -- python ...` | Execution drift or non-reproducible local/CI behavior. |
 | `DFG-001` | Cross-boundary recurring bundles must be Protocol-reified or explicitly marked with `# dataflow-bundle:`; Tier-2 must be reified before merge. | [`AGENTS.md#agent_obligations`](../AGENTS.md#agent_obligations), [`glossary.md#bundle`](../glossary.md#bundle), [`glossary.md#tier`](../glossary.md#tier), [`CONTRIBUTING.md#contributing_contract`](../CONTRIBUTING.md#contributing_contract) | `mise exec -- python -m gabion check` | Dataflow grammar violations in report/lint outputs; merge blocked. |
-| `DFG-002` | Ambiguity must be normalized at boundaries and reified structurally; no ad-hoc core alternation/sentinel shortcuts or semantic-core compatibility-layer bridges. `# pragma: no cover` is allowed only on `never(...)`-guarded branches (including enum exhaustiveness fallbacks). | [`NCI-SHIFT-AMBIGUITY-LEFT`](./normative_clause_index.md#clause-shift-ambiguity-left), [`POLICY_SEED.md#policy_seed` §4.8](../POLICY_SEED.md#policy_seed) | `mise exec -- python -m gabion ambiguity-contract-gate --root .` | Ambiguity-contract gate fails when violations are present. |
+| `DFG-002` | Ambiguity must be normalized at boundaries and reified structurally; on ordinary call edges the ambiguity budget is non-increasing, and cost/cardinality escalations must stay at explicit named boundaries. `# pragma: no cover` is allowed only on `never(...)`-guarded branches (including enum exhaustiveness fallbacks). | [`NCI-SHIFT-AMBIGUITY-LEFT`](./normative_clause_index.md#clause-shift-ambiguity-left), [`POLICY_SEED.md#policy_seed` §4.8](../POLICY_SEED.md#policy_seed) | `mise exec -- python -m gabion ambiguity-contract-gate --root .` | Ambiguity-contract gate fails when AST or graded call-edge monotonicity violations are present. |
 | `DFG-003` | Repository JSON/mapping evidence surfaces must be canonically sorted to preserve deterministic replay and stable evidence artifacts. | [`glossary.md#contract`](../glossary.md#contract), [`in/in-23.md#in_in_23`](../in/in-23.md#in_in_23), [`in/in-24.md#in_in_24`](../in/in-24.md#in_in_24) | `mise exec -- python -m pytest tests/test_runtime_kernel_contracts.py` | Nondeterministic key ordering causes unstable artifacts/diffs and replay evidence drift. |
 | `DFG-004` | Any enforced sortedness must disclose sort key/function (or comparator shape) and rationale; non-lexical sorting must declare comparator components. | [`POLICY_SEED.md#policy_seed` §4.9](../POLICY_SEED.md#policy_seed), [`CONTRIBUTING.md#contributing_contract`](../CONTRIBUTING.md#contributing_contract), [`in/in-24.md#in_in_24`](../in/in-24.md#in_in_24) | Code review + targeted ordering contract tests (`mise exec -- python -m pytest tests/test_command_boundary_order.py tests/test_runtime_kernel_contracts.py`) | Undocumented ordering semantics or silent non-lexical sorting leading to semantically ambiguous or unstable output. |
 | `DFG-005` | Single-sort lifetime ratchet: each carrier may consume active sorting at most once; egress must enforce order without serializer `sort_keys=True` fallback for canonical carriers. | [`POLICY_SEED.md#policy_seed` §4.9](../POLICY_SEED.md#policy_seed), [`CONTRIBUTING.md#contributing_contract`](../CONTRIBUTING.md#contributing_contract) | `mise exec -- python scripts/order_lifetime_check.py --root .` | Second-sort attempts, boundary/runtime raw sorting shortcuts, or `json.dumps(..., sort_keys=True)` fallback in protected surfaces. |
@@ -154,7 +154,7 @@ Gate-level control-loop mapping lives in `docs/governance_loop_matrix.md#governa
 | `POL-001` | Tests must not use monkeypatch/patch-style runtime mutation; seam control is DI-only. | [`AGENTS.md#agent_obligations`](../AGENTS.md#agent_obligations), [`CONTRIBUTING.md#contributing_contract`](../CONTRIBUTING.md#contributing_contract) | `mise exec -- python scripts/no_monkeypatch_policy_check.py --root .` | Monkeypatch/patched runtime mutation detected in tests. |
 | `POL-002` | Branch constructs outside explicit Decision Protocol surfaces are violations (hard-zero). | [`AGENTS.md#agent_obligations`](../AGENTS.md#agent_obligations), [`glossary.md#decision_protocol`](../glossary.md#decision_protocol) | `mise exec -- python scripts/branchless_policy_check.py --root .` | Branchless policy violation reported. |
 | `POL-003` | Defensive fallback/sentinel continuation outside approved boundaries are violations (hard-zero). | [`AGENTS.md#agent_obligations`](../AGENTS.md#agent_obligations), [`CONTRIBUTING.md#contributing_contract`](../CONTRIBUTING.md#contributing_contract) | `mise exec -- python scripts/defensive_fallback_policy_check.py --root .` | Defensive fallback policy violation reported. |
-| `ACP-001` | Semantic core ambiguity signatures must be zero (`isinstance`, dynamic type alternation, sentinel control outcomes). | [`NCI-SHIFT-AMBIGUITY-LEFT`](./normative_clause_index.md#clause-shift-ambiguity-left), [`docs/architecture_zones.md#architecture_zones`](./architecture_zones.md#architecture_zones) | `mise exec -- python -m gabion ambiguity-contract-gate --root .` | Ambiguity-contract gate reports policy violations. |
+| `ACP-001` | Ordinary core call edges must not increase nullable/type/shape/classification budgets; local AST ambiguity signatures remain fast-fail proxies for that deeper edge invariant. | [`NCI-SHIFT-AMBIGUITY-LEFT`](./normative_clause_index.md#clause-shift-ambiguity-left), [`docs/architecture_zones.md#architecture_zones`](./architecture_zones.md#architecture_zones) | `mise exec -- python -m gabion ambiguity-contract-gate --root .` | Ambiguity-contract gate reports AST proxy or graded edge-monotonicity violations. |
 | `DOC-001` | Documentation review stamping must be real (no mechanical `doc_reviewed_as_of` updates; explicit review notes required). | [`CONTRIBUTING.md#contributing_contract`](../CONTRIBUTING.md#contributing_contract), [`AGENTS.md#agent_obligations`](../AGENTS.md#agent_obligations), [`POLICY_SEED.md#policy_seed` §0.2](../POLICY_SEED.md#policy_seed) | `mise exec -- python -m gabion docflow --root . --fail-on-violations --sppf-gh-ref-mode required` | Docflow violations for review-note/metadata discipline. |
 | `DOC-002` | Markdown docs require frontmatter discipline (`doc_revision`, dependency tracking, change protocol linkage). | [`AGENTS.md#agent_obligations`](../AGENTS.md#agent_obligations), [`CONTRIBUTING.md#contributing_contract`](../CONTRIBUTING.md#contributing_contract), [`POLICY_SEED.md#change_protocol`](../POLICY_SEED.md#change_protocol) | `mise exec -- python -m gabion docflow --root . --fail-on-violations --sppf-gh-ref-mode required` | Missing/invalid frontmatter or policy-linkage findings in docflow output. |
 
@@ -218,4 +218,3 @@ This update discipline follows `POLICY_SEED.md#change_protocol` and preserves
 ## Policy DSL migration note
 
 Governance gates, ambiguity contract checks, policy scanner decision summaries, and ASPF opportunity classification now share the typed policy DSL in `src/gabion/policy_dsl/` with shared declarations in `docs/policy_rules.yaml` and `docs/aspf_opportunity_rules.yaml`. Scripts remain orchestration wrappers.
-

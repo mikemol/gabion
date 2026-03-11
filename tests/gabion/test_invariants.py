@@ -53,6 +53,17 @@ def test_decision_and_boundary_markers_return_original_callable() -> None:
 
     assert invariants.decision_protocol(_sample) is _sample
     assert invariants.boundary_normalization(_sample) is _sample
+    assert invariants.grade_boundary(kind="aggregation_materialization", name="demo")(_sample) is _sample
+
+
+def test_grade_boundary_carrier_supports_with_scope() -> None:
+    marker = invariants.grade_boundary(
+        kind="aggregation_materialization",
+        name="scoped_demo",
+    )
+    with marker as active:
+        assert active.kind == "aggregation_materialization"
+        assert active.name == "scoped_demo"
 
 
 # gabion:behavior primary=desired

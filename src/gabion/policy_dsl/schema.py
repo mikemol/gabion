@@ -9,6 +9,7 @@ class PolicyDomain(str, Enum):
     GOVERNANCE_GATE = "governance_gate"
     AMBIGUITY_CONTRACT = "ambiguity_contract"
     AMBIGUITY_CONTRACT_AST = "ambiguity_contract_ast"
+    GRADE_MONOTONICITY = "grade_monotonicity"
     POLICY_SCANNER = "policy_scanner"
     ASPF_OPPORTUNITY = "aspf_opportunity"
     PROJECTION_FIBER = "projection_fiber"

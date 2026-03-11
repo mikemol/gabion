@@ -14,6 +14,7 @@ class IRRule:
     predicate: Mapping[str, Any]
     outcome_kind: PolicyOutcomeKind
     outcome_message: str
+    outcome_details: Mapping[str, Any]
     evidence_contract: EvidenceContract
     priority: int
 

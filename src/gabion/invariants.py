@@ -35,6 +35,27 @@ class InvariantRuntimeBehaviorConfig:
     profile: InvariantProfile = InvariantProfile.STRICT
 
 
+@dataclass(frozen=True)
+class _GradeBoundaryCarrier:
+    kind: str
+    name: str
+
+    def __call__(self, func: FuncT) -> FuncT:
+        return func
+
+    def __enter__(self) -> "_GradeBoundaryCarrier":
+        return self
+
+    def __exit__(
+        self,
+        exc_type: object,
+        exc: object,
+        tb: object,
+    ) -> bool:
+        del exc_type, exc, tb
+        return False
+
+
 InvariantWarningKey = tuple[str, str, str, tuple[str, ...]]
 
 
@@ -497,3 +518,8 @@ def decision_protocol(func: FuncT) -> FuncT:
 def boundary_normalization(func: FuncT) -> FuncT:
     """Marker decorator for boundary normalization surfaces."""
     return func
+
+
+def grade_boundary(*, kind: str, name: str) -> _GradeBoundaryCarrier:
+    """Marker carrier for grade-boundary decorator or with-scope usage."""
+    return _GradeBoundaryCarrier(kind=kind, name=name)

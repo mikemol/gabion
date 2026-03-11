@@ -112,7 +112,7 @@ def evaluate(program: IRProgram, *, domain: PolicyDomain, data: Mapping[str, Any
                 message=rule.outcome_message if matched else "",
                 evidence_contract=rule.evidence_contract,
                 matched=matched,
-                details={},
+                details=dict(rule.outcome_details) if matched else {},
             )
         )
         if matched:

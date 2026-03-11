@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import json
 import runpy
 import sys
 from pathlib import Path
@@ -35,6 +36,25 @@ def test_ambiguity_contract_collect_violations_respects_boundaries(tmp_path: Pat
         "        case _:\n"
         "            pass\n"
         "    return value\n\n"
+        "def workaround_match(value):\n"
+        "    placeholder = ''\n"
+        "    matched = False\n"
+        "    match value:\n"
+        "        case str() as text:\n"
+        "            placeholder = text\n"
+        "            matched = True\n"
+        "    if not matched:\n"
+        "        return None\n"
+        "    return placeholder\n\n"
+        "def workaround_if(value):\n"
+        "    normalized = ''\n"
+        "    matched = False\n"
+        "    if isinstance(value, str):\n"
+        "        normalized = value\n"
+        "        matched = True\n"
+        "    if not matched:\n"
+        "        return normalized\n"
+        "    return normalized\n\n"
         "async def bad_async(value: Any) -> int:\n"
         "    if value is None:\n"
         "        return []\n"
@@ -60,12 +80,53 @@ def test_ambiguity_contract_collect_violations_respects_boundaries(tmp_path: Pat
     violations = policy.collect_violations(batch=batch)
     assert violations
     rule_ids = {item.rule_id for item in violations}
-    assert {"ACP-002", "ACP-003", "ACP-004", "ACP-005"}.issubset(rule_ids)
+    assert {"ACP-002", "ACP-003", "ACP-004", "ACP-005", "ACP-006", "ACP-007"}.issubset(rule_ids)
+    probe_recovery_violations = [
+        item for item in violations if item.rule_id == "ACP-006"
+    ]
+    nullable_contract_violations = [
+        item for item in violations if item.rule_id == "ACP-007"
+    ]
+    assert len(probe_recovery_violations) >= 2
+    assert nullable_contract_violations
     assert all("boundary.py" not in item.path for item in violations)
     assert all("__pycache__" not in item.path for item in violations)
     rendered = violations[0].render()
     assert "[ACP-" in rendered
     assert violations[0].key.count(":") >= 2
+    rendered_probe = probe_recovery_violations[0].render()
+    assert "why:" in rendered_probe
+    assert "prefer:" in rendered_probe
+    assert "avoid:" in rendered_probe
+    rendered_nullable = nullable_contract_violations[0].render()
+    assert "nullable contract leaked past ingress" in rendered_nullable
+    assert "do not replace None with a custom sentinel" in rendered_nullable
+
+
+def test_ambiguity_contract_ignores_boundary_dispatch_and_reducer_patterns(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "src" / "gabion" / "analysis" / "good.py",
+        "from functools import singledispatch\n\n"
+        "@singledispatch\n"
+        "def normalize(value):\n"
+        "    return None\n\n"
+        "@normalize.register(str)\n"
+        "def _(value):\n"
+        "    return value\n\n"
+        "def good(items):\n"
+        "    accepted = tuple(\n"
+        "        name\n"
+        "        for name in (normalize(item) for item in items)\n"
+        "        if name is not None\n"
+        "    )\n"
+        "    return accepted\n",
+    )
+
+    batch = build_policy_scan_batch(root=tmp_path, target_globs=policy.TARGETS)
+    violations = policy.collect_violations(batch=batch)
+    assert not any(item.rule_id == "ACP-006" for item in violations)
 
 
 # gabion:evidence E:call_footprint::tests/test_ambiguity_contract_policy_check.py::test_ambiguity_contract_helper_predicates_cover_all_sentinels::ambiguity_contract_policy_check.py::gabion.tooling.ambiguity_contract_policy_check._module_boundary::ambiguity_contract_policy_check.py::gabion.tooling.ambiguity_contract_policy_check._has_marker::ambiguity_contract_policy_check.py::gabion.tooling.ambiguity_contract_policy_check._annotation_is_dynamic::ambiguity_contract_policy_check.py::gabion.tooling.ambiguity_contract_policy_check._looks_like_guard::ambiguity_contract_policy_check.py::gabion.tooling.ambiguity_contract_policy_check._single_sentinel_stmt
@@ -105,8 +166,10 @@ def test_ambiguity_contract_helper_predicates_cover_all_sentinels() -> None:
     assert policy._looks_like_guard(isinstance_guard)
     none_guard = ast.parse("if value is None:\n    pass\n").body[0].test
     assert policy._looks_like_guard(none_guard)
+    assert policy._contains_none_guard(none_guard)
     plain_guard = ast.parse("if value > 0:\n    pass\n").body[0].test
     assert not policy._looks_like_guard(plain_guard)
+    assert not policy._contains_none_guard(plain_guard)
 
     assert policy._single_sentinel_stmt(
         ast.parse("def f():\n    return\n").body[0].body  # type: ignore[union-attr]
@@ -138,19 +201,24 @@ def test_ambiguity_contract_baseline_io_and_run_paths(tmp_path: Path) -> None:
     root = tmp_path / "repo"
     _write(
         root / "src" / "gabion" / "analysis" / "bad.py",
-        "from typing import Optional\n"
+        "import json\n"
+        "from typing import Optional\n\n"
         "def bad(value: Optional[int]) -> Optional[int]:\n"
         "    if value is None:\n"
         "        return None\n"
-        "    return value\n",
+        "    return json.loads(value)\n",
     )
-    baseline = tmp_path / "baseline.json"
+    baseline = root / policy.DEFAULT_BASELINE_RELATIVE_PATH
+    artifact_path = root / policy.ARTIFACT_RELATIVE_PATH
 
-    with pytest.raises(SystemExit):
-        policy.run(root=root, baseline=None, baseline_write=True)
     assert policy.run(root=root, baseline=None, baseline_write=False) == 1
-    assert policy.run(root=root, baseline=baseline, baseline_write=True) == 0
+    assert policy.run(root=root, baseline=None, baseline_write=True) == 0
     assert baseline.exists()
+    payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    assert "ast" in payload
+    assert "grade" in payload
+    assert "witness_rows" in payload["grade"]
+    assert policy.run(root=root, baseline=None, baseline_write=False) == 0
     assert policy.run(root=root, baseline=baseline, baseline_write=False) == 0
 
     missing = tmp_path / "missing.json"
@@ -214,3 +282,20 @@ def test_ambiguity_contract_main_and_module_entrypoint(tmp_path: Path) -> None:
     finally:
         sys.argv = previous_argv
     assert int(exc.value.code or 0) == 0
+
+# gabion:evidence E:call_footprint::tests/test_ambiguity_contract_policy_check.py::test_ambiguity_contract_gate_blocks_on_grade_monotonicity_violation::ambiguity_contract_policy_check.py::gabion.tooling.governance.ambiguity_contract_policy_check.run::grade_monotonicity_semantic.py::gabion.tooling.policy_substrate.grade_monotonicity_semantic.collect_grade_monotonicity
+# gabion:behavior primary=desired
+def test_ambiguity_contract_gate_blocks_on_grade_monotonicity_violation(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    _write(
+        root / "src" / "gabion" / "analysis" / "grade.py",
+        "import json\n\n"
+        "def strict(value: int) -> object:\n"
+        "    return json.loads(str(value))\n",
+    )
+
+    assert policy.run(root=root, baseline=None, baseline_write=False) == 1
+    artifact = json.loads((root / policy.ARTIFACT_RELATIVE_PATH).read_text(encoding="utf-8"))
+    assert artifact["grade"]["violation_count"] >= 1
+    assert artifact["decisions"]["grade_monotonicity"]["rule_id"] == "grade_monotonicity.new_violations"
+    assert artifact["decisions"]["grade_monotonicity"]["outcome"] == "block"

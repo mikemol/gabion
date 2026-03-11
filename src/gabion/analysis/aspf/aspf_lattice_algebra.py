@@ -6,12 +6,13 @@ import ast
 import builtins
 from collections import defaultdict
 from dataclasses import dataclass, field
+from enum import Enum, IntEnum
 from functools import lru_cache, reduce
 import hashlib
 import json
 from itertools import chain, groupby
 from pathlib import Path
-from typing import Callable, Generic, Iterable, Iterator, TypeVar
+from typing import Callable, Generic, Iterable, Iterator, Mapping, TypeVar
 from gabion.invariants import never
 
 _StreamItem = TypeVar("_StreamItem")
@@ -58,6 +59,24 @@ def canonical_site_identity(
         qualname,
         line,
         column,
+        node_kind,
+        surface,
+    )
+
+
+def canonical_structural_identity(
+    *,
+    rel_path: str,
+    qualname: str,
+    structural_path: str,
+    node_kind: str,
+    surface: str,
+) -> str:
+    return _stable_identity_hash(
+        "structural_identity",
+        rel_path,
+        qualname,
+        structural_path,
         node_kind,
         surface,
     )
@@ -257,6 +276,177 @@ class NaturalityWitness:
     mapped_target_site_ids: ReplayableStream[str]
     unmapped: ReplayableStream[UnmappedWitness]
     complete: bool
+
+
+class ProtocolDischargeLevel(IntEnum):
+    RAW_INGRESS = 0
+    DECISION_TABLE = 1
+    DECISION_BUNDLE = 2
+    DECISION_PROTOCOL = 3
+    INVARIANT_DISCHARGED = 4
+
+
+class OutputCardinalityClass(IntEnum):
+    CONSTANT = 0
+    LINEAR = 1
+    QUADRATIC = 2
+    EXPONENTIAL_OR_UNBOUNDED = 3
+    UNKNOWN_TOP = 4
+
+
+class WorkGrowthClass(IntEnum):
+    CONSTANT = 0
+    LOGARITHMIC = 1
+    LINEAR = 2
+    N_LOG_N = 3
+    QUADRATIC = 4
+    EXPONENTIAL_OR_WORSE = 5
+    UNKNOWN_TOP = 6
+
+
+class GradeBoundaryKind(str, Enum):
+    INGRESS_NORMALIZATION = "ingress_normalization"
+    DECISION_PROTOCOL_BUILDER = "decision_protocol_builder"
+    AGGREGATION_MATERIALIZATION = "aggregation_materialization"
+    ANALYSIS_BUDGET = "analysis_budget"
+
+
+@dataclass(frozen=True)
+class GradeBoundaryMarker:
+    kind: GradeBoundaryKind
+    name: str
+    source: str = ""
+    line: int = 0
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "kind": self.kind.value,
+            "name": self.name,
+            "source": self.source,
+            "line": self.line,
+        }
+
+
+@dataclass(frozen=True)
+class DeterminismCostGrade:
+    nullable_domain_cardinality: int
+    type_domain_cardinality: int
+    shape_domain_cardinality: int
+    runtime_classification_count: int
+    protocol_discharge_level: ProtocolDischargeLevel
+    output_cardinality_class: OutputCardinalityClass
+    work_growth_class: WorkGrowthClass
+
+    @classmethod
+    def unknown_top(cls) -> "DeterminismCostGrade":
+        return cls(
+            nullable_domain_cardinality=999,
+            type_domain_cardinality=999,
+            shape_domain_cardinality=999,
+            runtime_classification_count=999,
+            protocol_discharge_level=ProtocolDischargeLevel.RAW_INGRESS,
+            output_cardinality_class=OutputCardinalityClass.UNKNOWN_TOP,
+            work_growth_class=WorkGrowthClass.UNKNOWN_TOP,
+        )
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "nullable_domain_cardinality": self.nullable_domain_cardinality,
+            "type_domain_cardinality": self.type_domain_cardinality,
+            "shape_domain_cardinality": self.shape_domain_cardinality,
+            "runtime_classification_count": self.runtime_classification_count,
+            "protocol_discharge_level": int(self.protocol_discharge_level),
+            "protocol_discharge_label": self.protocol_discharge_level.name.lower(),
+            "output_cardinality_class": int(self.output_cardinality_class),
+            "output_cardinality_label": self.output_cardinality_class.name.lower(),
+            "work_growth_class": int(self.work_growth_class),
+            "work_growth_label": self.work_growth_class.name.lower(),
+        }
+
+
+@dataclass(frozen=True)
+class CallEdgeGradeWitness:
+    witness_id: str
+    edge_site_identity: str
+    edge_structural_identity: str
+    caller_path: str
+    caller_qualname: str
+    caller_line: int
+    caller_column: int
+    callee_path: str
+    callee_qualname: str
+    callee_line: int
+    callee_column: int
+    call_line: int
+    call_column: int
+    edge_resolution_status: str
+    edge_resolution_phase: str
+    edge_kind: str
+    boundary_marker: GradeBoundaryMarker | None
+    caller_grade: DeterminismCostGrade
+    callee_grade: DeterminismCostGrade
+    monotone: bool
+    failure_rule_ids: tuple[str, ...] = ()
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "witness_id": self.witness_id,
+            "edge_site_identity": self.edge_site_identity,
+            "edge_structural_identity": self.edge_structural_identity,
+            "caller_path": self.caller_path,
+            "caller_qualname": self.caller_qualname,
+            "caller_line": self.caller_line,
+            "caller_column": self.caller_column,
+            "callee_path": self.callee_path,
+            "callee_qualname": self.callee_qualname,
+            "callee_line": self.callee_line,
+            "callee_column": self.callee_column,
+            "call_line": self.call_line,
+            "call_column": self.call_column,
+            "edge_resolution_status": self.edge_resolution_status,
+            "edge_resolution_phase": self.edge_resolution_phase,
+            "edge_kind": self.edge_kind,
+            "boundary_marker": (
+                None if self.boundary_marker is None else self.boundary_marker.as_payload()
+            ),
+            "caller_grade": self.caller_grade.as_payload(),
+            "callee_grade": self.callee_grade.as_payload(),
+            "monotone": self.monotone,
+            "failure_rule_ids": list(self.failure_rule_ids),
+        }
+
+
+@dataclass(frozen=True)
+class GradeMonotonicityViolation:
+    violation_id: str
+    witness_id: str
+    rule_id: str
+    path: str
+    line: int
+    column: int
+    qualname: str
+    callee_qualname: str
+    message: str
+    details: Mapping[str, object] = field(default_factory=dict)
+
+    @property
+    def key(self) -> str:
+        return f"{self.rule_id}:{self.witness_id}"
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "violation_id": self.violation_id,
+            "witness_id": self.witness_id,
+            "rule_id": self.rule_id,
+            "path": self.path,
+            "line": self.line,
+            "column": self.column,
+            "qualname": self.qualname,
+            "callee_qualname": self.callee_qualname,
+            "message": self.message,
+            "details": dict(self.details),
+            "key": self.key,
+        }
 
 
 @dataclass(frozen=True)
@@ -2284,25 +2474,34 @@ def _text_part(value: object) -> str:
 __all__ = [
     "BoundaryCrossing",
     "BranchWitnessRequest",
+    "CallEdgeGradeWitness",
     "DataFiber",
     "DataflowEdge",
     "DataflowEvent",
+    "DeterminismCostGrade",
     "ExecFiber",
     "FiberBundle",
     "FrontierWitness",
+    "GradeBoundaryKind",
+    "GradeBoundaryMarker",
+    "GradeMonotonicityViolation",
     "JoinWitness",
     "MeetWitness",
     "NaturalityWitness",
     "ObligationErase",
     "ObligationIntro",
+    "OutputCardinalityClass",
+    "ProtocolDischargeLevel",
     "DataflowFiberBundle",
     "ExecutionEdge",
     "ExecutionEvent",
     "UnmappedWitness",
     "ViolationWitness",
+    "WorkGrowthClass",
     "branch_required_symbols",
     "build_fiber_bundle_for_qualname",
     "build_dataflow_fiber_bundle_for_qualname",
+    "canonical_structural_identity",
     "compute_lattice_witness",
     "eta_data_to_exec",
     "eta_exec_to_data",

@@ -1,5 +1,5 @@
 ---
-doc_revision: 4
+doc_revision: 5
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: architecture_zones
 doc_role: architecture
@@ -15,13 +15,13 @@ doc_requires:
   - POLICY_SEED.md#policy_seed
   - glossary.md#contract
 doc_reviewed_as_of:
-  README.md#repo_contract: 2
-  POLICY_SEED.md#policy_seed: 2
-  glossary.md#contract: 1
+  README.md#repo_contract: 83
+  POLICY_SEED.md#policy_seed: 55
+  glossary.md#contract: 44
 doc_review_notes:
-  README.md#repo_contract: "Reviewed README.md rev2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
-  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev2 (forward-remediation order, ci_watch failure-bundle durability, and enforced execution-coverage policy wording)."
-  glossary.md#contract: "Reviewed tier semantics; handoff contract uses Tier-1 reification at core ingress."
+  README.md#repo_contract: "Reviewed README.md rev83 (repo contract and command entry points still align with boundary-to-core handoff guidance)."
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev55 (shift-ambiguity-left obligations still govern the boundary-to-core transition described here)."
+  glossary.md#contract: "Reviewed glossary.md rev44 (tier and decision-protocol semantics still anchor the handoff language used here)."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_sections:
   architecture_zones: 1
@@ -33,20 +33,20 @@ doc_section_requires:
 doc_section_reviews:
   architecture_zones:
     README.md#repo_contract:
-      dep_version: 2
-      self_version_at_review: 1
+      dep_version: 83
+      self_version_at_review: 5
       outcome: no_change
-      note: "Repo contract rev2 reviewed; command and artifact guidance remains aligned."
+      note: "Repo contract rev83 reviewed; command and artifact guidance remains aligned."
     POLICY_SEED.md#policy_seed:
-      dep_version: 2
-      self_version_at_review: 1
+      dep_version: 55
+      self_version_at_review: 5
       outcome: no_change
-      note: "Policy seed rev2 reviewed; governance obligations remain aligned."
+      note: "Policy seed rev55 reviewed; governance obligations remain aligned."
     glossary.md#contract:
-      dep_version: 1
-      self_version_at_review: 1
+      dep_version: 44
+      self_version_at_review: 5
       outcome: no_change
-      note: "Tier language is glossary-aligned."
+      note: "Glossary rev44 reviewed; tier and decision terminology remain aligned."
 doc_erasure:
   - formatting
   - typos
@@ -63,8 +63,8 @@ These zones are allowed to accept ambiguous, partial, or external shapes before 
 - **External payload adapters:** `src/gabion/lsp_client.py` and `src/gabion/server.py` (JSON-RPC request/response transport and command payload intake).
 - **Serialization boundaries:** `src/gabion/schema.py` and `src/gabion/json_types.py` (DTO validation, JSON-like carrier typing, artifact wire shapes).
 
-## Deterministic core zones
-These zones are expected to run deterministic semantics once data is reified:
+## Edge-monotone core zones
+These zones are expected to preserve non-increasing ambiguity budgets once data is reified:
 
 - **Server command-core orchestration zone:** `src/gabion/server_core/` (deterministic command orchestration, ingress-normalized command options, and stable command-core sequencing).
 - **Analysis semantics pipeline:** `src/gabion/analysis/` (dataflow graphing, evidence projection, decision/report surfaces).
@@ -75,17 +75,24 @@ These zones are expected to run deterministic semantics once data is reified:
 
 ## Ambiguity control matrix
 
-| Pattern | Ambiguity admission zones | Deterministic core zones |
+| Pattern | Ambiguity admission zones | Edge-monotone core zones |
 | --- | --- | --- |
-| `isinstance` runtime narrowing | Allowed only to normalize incoming shape once at ingress | Forbidden as recurring control strategy; use reified contracts instead |
-| `Optional` / `Union` / `Any` / `|` alternation | Allowed in boundary DTO/adapter normalization | Forbidden as unresolved downstream alternation in core semantics |
-| Sentinel outcomes (`None`, empty sentinels, `pass`/`continue` fallthrough) | Allowed only inside explicit boundary normalizers | Forbidden for core control flow; use structural decision outcomes |
+| `isinstance` runtime narrowing | Allowed only to normalize incoming shape once at ingress | Forbidden as recurring control strategy on ordinary call edges; use reified contracts instead |
+| `Optional` / `Union` / `Any` / `|` alternation | Allowed in boundary DTO/adapter normalization | Downstream callees must not widen the caller contract back to unresolved alternation |
+| Sentinel outcomes (`None`, empty sentinels, `pass`/`continue` fallthrough) | Allowed only inside explicit boundary normalizers | Forbidden for ordinary core control flow; use structural decision outcomes |
 
 The boundary/core distinction above operationalizes
 [`NCI-SHIFT-AMBIGUITY-LEFT`](docs/normative_clause_index.md#clause-shift-ambiguity-left).
 
+Operationally, the “core” is not a hand-wavy region. It is the part of the
+call graph where ordinary edges are monotone:
+
+- nullable, dynamic-type, structural-shape, and runtime-classification budgets do not increase
+- protocol discharge is preserved or strengthened
+- output cardinality and work-growth only escalate at explicit named boundaries
+
 ## Boundary handoff contract
-Only **Tier-1 reified objects** cross from ambiguity zones into deterministic core zones.
+Only **Tier-1 reified objects** cross from ambiguity zones into edge-monotone core zones.
 
 - Inputs must be promoted to typed DTO/model/config carriers before they enter `src/gabion/server_core/`, `src/gabion/analysis/`, `src/gabion/synthesis/`, or `src/gabion/refactor/`.
 - Acceptable carriers across `cli/lsp_client/server -> server_core` are JSON-RPC command payload DTOs, execution-plan dataclasses, and validated mapping carriers with normalized key order.

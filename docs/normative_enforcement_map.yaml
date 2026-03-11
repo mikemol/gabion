@@ -56,6 +56,7 @@ clauses:
       - scripts/policy/policy_scanner_suite.py
       - src/gabion/tooling/runtime/policy_scanner_suite.py
       - src/gabion/tooling/governance/ambiguity_contract_policy_check.py
+      - src/gabion/tooling/policy_substrate/grade_monotonicity_semantic.py
     ci_anchors:
       - workflow: .github/workflows/ci.yml
         job: checks
@@ -65,6 +66,7 @@ clauses:
         step: Policy check (ambiguity contract)
     expected_artifacts:
       - artifacts/out/ambiguity_contract_policy_check.json
+      - baselines/ambiguity_contract_policy_baseline.json
   NCI-RUNTIME-NARROWING-BOUNDARY:
     status: enforced
     enforcing_modules:

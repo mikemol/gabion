@@ -107,6 +107,66 @@ def test_ambiguity_ast_event_rules_are_dsl_backed() -> None:
         data={"event": "match_fallthrough_without_never"},
     )
     assert fallthrough_decision.rule_id == "ACP-005"
+    probe_recovery_decision = evaluate_policy(
+        domain=PolicyDomain.AMBIGUITY_CONTRACT_AST,
+        data={"event": "probe_state_recovery"},
+    )
+    assert probe_recovery_decision.rule_id == "ACP-006"
+    assert probe_recovery_decision.details == {
+        "guidance": {
+            "why": (
+                "stores unresolved shape or type ambiguity in local carrier state "
+                "and resolves it later, recreating downstream control ambiguity"
+            ),
+            "prefer": (
+                "move dispatch to the boundary, or use a reducer over "
+                "already-accepted variants, or return an explicit tagged result"
+            ),
+            "avoid": [
+                (
+                    "do not add matched_* locals, placeholder strings or ints, "
+                    "or post-probe if-not-matched recovery branches"
+                ),
+                "do not silence the site by inserting never() downstream of the structural probe",
+            ],
+        }
+    }
+    nullable_contract_decision = evaluate_policy(
+        domain=PolicyDomain.AMBIGUITY_CONTRACT_AST,
+        data={"event": "nullable_contract_control"},
+    )
+    assert nullable_contract_decision.rule_id == "ACP-007"
+    assert nullable_contract_decision.details == {
+        "guidance": {
+            "why": (
+                "core logic is classifying a nullable carrier imperatively "
+                "instead of receiving a strict contract from ingress"
+            ),
+            "prefer": (
+                "normalize at ingress into a non-null DTO, tagged result, or "
+                "explicit decision protocol so downstream code is only called on "
+                "strict inputs"
+            ),
+            "avoid": [
+                "do not replace None with a custom sentinel or alternate magic value",
+                "do not add more is None or is not None branches deeper in deterministic core",
+            ],
+        }
+    }
+
+# gabion:evidence E:call_footprint::tests/test_policy_dsl.py::test_grade_monotonicity_summary_rules_are_dsl_backed::policy_rules.yaml::grade_monotonicity.new_violations::policy_rules.yaml::grade_monotonicity.ok
+# gabion:behavior primary=desired
+def test_grade_monotonicity_summary_rules_are_dsl_backed() -> None:
+    blocking = evaluate_policy(
+        domain=PolicyDomain.GRADE_MONOTONICITY,
+        data={"new_violations": 1},
+    )
+    assert blocking.rule_id == "grade_monotonicity.new_violations"
+    clean = evaluate_policy(
+        domain=PolicyDomain.GRADE_MONOTONICITY,
+        data={"new_violations": 0},
+    )
+    assert clean.rule_id == "grade_monotonicity.ok"
 
 
 def test_governance_adapter_emits_baseline_missing_rule() -> None:

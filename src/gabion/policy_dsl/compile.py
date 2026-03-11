@@ -54,6 +54,11 @@ def _compile_rule(raw: Mapping[str, Any], *, index: int) -> tuple[IRRule | None,
     assert isinstance(outcome, Mapping)
     outcome_kind = _enum(PolicyOutcomeKind, outcome.get("kind", ""), field="outcome_kind")
     outcome_message = str(outcome.get("message", "")).strip()
+    outcome_details = {
+        str(key): value
+        for key, value in outcome.items()
+        if key not in {"kind", "message"}
+    }
     if not outcome_message:
         issues.append(CompileIssue(code="missing_outcome_message", message="outcome.message is required", rule_id=rule_id))
     if issues:
@@ -72,6 +77,7 @@ def _compile_rule(raw: Mapping[str, Any], *, index: int) -> tuple[IRRule | None,
         predicate=schema.predicate,
         outcome_kind=outcome_kind,
         outcome_message=outcome_message,
+        outcome_details=outcome_details,
         evidence_contract=schema.evidence_contract,
         priority=index,
     ), []
