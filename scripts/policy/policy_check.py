@@ -47,6 +47,14 @@ CONTENT_WRITE_WORKFLOWS = {
     "promote-release.yml",
 }
 
+_WORKFLOW_POLICY_OUTPUT_ROOT = REPO_ROOT / "out"
+_QUOTIENT_GOVERNANCE_REPORT = _WORKFLOW_POLICY_OUTPUT_ROOT / "quotient_governance_report.json"
+_QUOTIENT_RATCHET_DELTA = _WORKFLOW_POLICY_OUTPUT_ROOT / "quotient_ratchet_delta.json"
+_QUOTIENT_POLICY_VIOLATIONS = _WORKFLOW_POLICY_OUTPUT_ROOT / "quotient_policy_violations.json"
+_QUOTIENT_PROTOCOL_READINESS = _WORKFLOW_POLICY_OUTPUT_ROOT / "quotient_protocol_readiness.json"
+_QUOTIENT_PROMOTION_DECISION = _WORKFLOW_POLICY_OUTPUT_ROOT / "quotient_promotion_decision.json"
+_QUOTIENT_DEMOTION_INCIDENTS = _WORKFLOW_POLICY_OUTPUT_ROOT / "quotient_demotion_incidents.json"
+
 _SHA_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 
 _DEFAULT_POLICY_TIMEOUT_TICKS = 120_000
@@ -378,6 +386,132 @@ def _sorted(values, *, key=None, reverse: bool = False):
     )
 
 
+def _workflow_reason_code(error: str) -> str:
+    normalized = error.lower()
+    if "unable to read lock-in source" in normalized or "dense-core lock-in missing token" in normalized:
+        return "WF57_DENSE_CORE_LOCKIN"
+    if "must invoke" in normalized and "workflow" in normalized:
+        return "WF57_ENTRYPOINT_MISSING"
+    if "workflow must invoke" in normalized:
+        return "WF57_ENTRYPOINT_MISSING"
+    if "release tag workflow must use" in normalized or "release_tag.py missing" in normalized:
+        return "WF53_RELEASE_TAG_ENTRYPOINT"
+    if "must derive tag from pyproject.toml" in normalized:
+        return "WF53_VERSION_DERIVATION"
+    if "must verify tag equals main/next/release" in normalized:
+        return "WF53_RELEASE_TAG_PROVENANCE"
+    if "must verify tag equals main/next" in normalized:
+        return "WF53_TEST_TAG_PROVENANCE"
+    return "WF57_POLICY_GUARDRAIL"
+
+
+def _write_workflow_governance_artifacts(*, errors: list[str], output_root: Path = _WORKFLOW_POLICY_OUTPUT_ROOT) -> None:
+    output_root.mkdir(parents=True, exist_ok=True)
+    governance_report_path = output_root / _QUOTIENT_GOVERNANCE_REPORT.name
+    ratchet_delta_path = output_root / _QUOTIENT_RATCHET_DELTA.name
+    policy_violations_path = output_root / _QUOTIENT_POLICY_VIOLATIONS.name
+    readiness_path = output_root / _QUOTIENT_PROTOCOL_READINESS.name
+    promotion_path = output_root / _QUOTIENT_PROMOTION_DECISION.name
+    demotion_path = output_root / _QUOTIENT_DEMOTION_INCIDENTS.name
+    normalized_errors = _sorted(errors)
+    violations = []
+    reason_counts: dict[str, int] = {}
+    for idx, message in enumerate(normalized_errors, start=1):
+        check_deadline()
+        reason_code = _workflow_reason_code(message)
+        reason_counts[reason_code] = reason_counts.get(reason_code, 0) + 1
+        violations.append(
+            {
+                "violation_id": f"WFV-{idx:04d}",
+                "clause_id": "F57-4",
+                "severity": "error",
+                "reason_code": reason_code,
+                "message": message,
+            }
+        )
+
+    previous_violation_count = 0
+    if governance_report_path.exists():
+        try:
+            previous_payload = json.loads(governance_report_path.read_text(encoding="utf-8"))
+            metrics = previous_payload.get("metrics", {}) if isinstance(previous_payload, dict) else {}
+            if isinstance(metrics, dict):
+                previous_violation_count = int(metrics.get("violation_count", 0))
+        except (OSError, ValueError, TypeError):
+            previous_violation_count = 0
+
+    violation_count = len(normalized_errors)
+    readiness_pass = violation_count == 0
+    sorted_reason_counts = {
+        key: reason_counts[key]
+        for key in _sorted(reason_counts)
+    }
+    governance_report = {
+        "profile_id": "workflow_policy.enforce",
+        "decision": "pass" if readiness_pass else "fail",
+        "metrics": {
+            "violation_count": violation_count,
+            "reason_code_counts": sorted_reason_counts,
+        },
+        "sources": {
+            "workflows": ".github/workflows/*.yml",
+            "policy_check": "scripts/policy/policy_check.py --workflows",
+        },
+    }
+    ratchet_delta = {
+        "baseline_id": "workflow_policy.previous_report",
+        "previous_violation_count": previous_violation_count,
+        "current_violation_count": violation_count,
+        "violation_count_delta": violation_count - previous_violation_count,
+        "reason_code_counts": sorted_reason_counts,
+    }
+    policy_violations = {
+        "profile_id": "workflow_policy.enforce",
+        "violations": violations,
+    }
+    readiness_payload = {
+        "profile": "enforce",
+        "gate_predicates": [
+            {
+                "gate_id": "governance.workflow_policy_green",
+                "pass": readiness_pass,
+                "clause_id": "F58-1",
+                "source_artifact": "out/quotient_governance_report.json",
+                "reason_codes": _sorted(reason_counts) if not readiness_pass else [],
+            }
+        ],
+        "pass": readiness_pass,
+        "details": {
+            "violation_count": violation_count,
+        },
+    }
+    promotion_payload = {
+        "decision": "promote" if readiness_pass else "hold",
+        "target_profile": "strict-core",
+        "rationale_codes": [] if readiness_pass else _sorted(reason_counts),
+        "source_artifact": "out/quotient_protocol_readiness.json",
+    }
+    demotion_payload = {
+        "incidents": []
+        if readiness_pass
+        else [
+            {
+                "trigger_id": "workflow_policy.nonzero_violation_count",
+                "impacted_profile": "strict-core",
+                "reason_codes": _sorted(reason_counts),
+                "closure_status": "open",
+            }
+        ]
+    }
+
+    governance_report_path.write_text(json.dumps(governance_report, indent=2, sort_keys=False) + "\n", encoding="utf-8")
+    ratchet_delta_path.write_text(json.dumps(ratchet_delta, indent=2, sort_keys=False) + "\n", encoding="utf-8")
+    policy_violations_path.write_text(json.dumps(policy_violations, indent=2, sort_keys=False) + "\n", encoding="utf-8")
+    readiness_path.write_text(json.dumps(readiness_payload, indent=2, sort_keys=False) + "\n", encoding="utf-8")
+    promotion_path.write_text(json.dumps(promotion_payload, indent=2, sort_keys=False) + "\n", encoding="utf-8")
+    demotion_path.write_text(json.dumps(demotion_payload, indent=2, sort_keys=False) + "\n", encoding="utf-8")
+
+
 @dataclass(frozen=True)
 class JobContext:
     job_name: str
@@ -385,6 +519,8 @@ class JobContext:
 
 
 def _fail(errors):
+    global _LAST_FAIL_ERRORS
+    _LAST_FAIL_ERRORS = list(errors)
     for err in errors:
         check_deadline()
         print(f"policy-check: {err}", file=sys.stderr)
@@ -718,11 +854,11 @@ def _check_release_tag_workflow(doc, path, errors):
                 f"{path}:{name}: release tag workflow must guard on repository owner"
             )
         steps = job.get("steps", [])
-        if not _step_run_contains_any(steps, {"scripts/release_tag.py"}):
+        if not _step_run_contains_any(steps, {"scripts/release/release_tag.py"}):
             errors.append(
-                f"{path}:{name}: release tag workflow must use scripts/release_tag.py"
+                f"{path}:{name}: release tag workflow must use scripts/release/release_tag.py"
             )
-    script_path = REPO_ROOT / "scripts" / "release_tag.py"
+    script_path = REPO_ROOT / "scripts" / "release" / "release_tag.py"
     if script_path.exists():
         script_text = script_path.read_text(encoding="utf-8")
         required_tokens = [
@@ -775,7 +911,7 @@ def _check_auto_test_tag_workflow(doc, path, errors):
             errors.append(
                 f"{path}:{name}: auto test tag workflow must verify next mirrors main"
             )
-        if not _step_run_contains_any(steps, {"scripts/release_read_project_version.py"}):
+        if not _step_run_contains_any(steps, {"scripts/release/release_read_project_version.py"}):
             errors.append(
                 f"{path}:{name}: auto test tag workflow must derive tag from pyproject.toml"
             )
@@ -942,11 +1078,11 @@ def _check_ci_script_entrypoints(doc, path, errors):
     if not isinstance(jobs, dict):
         return
     required_tokens = {
-        "scripts/ci_finalize_dataflow_outcome.py",
-        "scripts/ci_controller_drift_gate.py",
-        "scripts/ci_override_record_emit.py",
-        "scripts/policy_scanner_suite.py",
-        "scripts/aspf_handoff.py run",
+        "scripts/ci/ci_finalize_dataflow_outcome.py",
+        "scripts/ci/ci_controller_drift_gate.py",
+        "scripts/ci/ci_override_record_emit.py",
+        "scripts/policy/policy_scanner_suite.py",
+        "scripts/misc/aspf_handoff.py run",
         "check delta-bundle",
         "check delta-gates",
     }
@@ -979,8 +1115,8 @@ def _check_policy_scanner_suite_entrypoints(doc, path, errors):
         raw_steps = job.get("steps", [])
         if isinstance(raw_steps, list):
             steps.extend(raw_steps)
-    if not _step_run_contains_any(steps, {"scripts/policy_scanner_suite.py"}):
-        errors.append(f"{path}: workflow must invoke scripts/policy_scanner_suite.py")
+    if not _step_run_contains_any(steps, {"scripts/policy/policy_scanner_suite.py"}):
+        errors.append(f"{path}: workflow must invoke scripts/policy/policy_scanner_suite.py")
     deprecated_scanner_tokens = {
         "scripts/no_monkeypatch_policy_check.py",
         "scripts/branchless_policy_check.py",
@@ -991,7 +1127,7 @@ def _check_policy_scanner_suite_entrypoints(doc, path, errors):
         if _step_run_contains_any(steps, {token}):
             errors.append(
                 f"{path}: workflow must not invoke legacy scanner entrypoint {token}; "
-                "use scripts/policy_scanner_suite.py"
+                "use scripts/policy/policy_scanner_suite.py"
             )
 
 
@@ -1018,8 +1154,8 @@ def _check_pr_stage_ci_poll_cadence(doc, path, errors):
 
 def _check_dense_core_lock_in(errors):
     check_deadline()
-    run_dataflow_stage_path = REPO_ROOT / "src/gabion/tooling/run_dataflow_stage.py"
-    finalize_path = REPO_ROOT / "scripts/ci_finalize_dataflow_outcome.py"
+    run_dataflow_stage_path = REPO_ROOT / "src/gabion/tooling/runtime/run_dataflow_stage.py"
+    finalize_path = REPO_ROOT / "scripts/ci/ci_finalize_dataflow_outcome.py"
     try:
         run_dataflow_stage_source = run_dataflow_stage_path.read_text(encoding="utf-8")
     except OSError:
@@ -1073,7 +1209,7 @@ def _check_release_testpypi_workflow(doc, path, errors):
         "TAG_SHA",
     }
     required_scripts = {
-        "scripts/release_verify_test_tag.py",
+        "scripts/release/release_verify_test_tag.py",
     }
     for name, job in jobs.items():
         check_deadline()
@@ -1121,7 +1257,7 @@ def _check_release_pypi_workflow(doc, path, errors):
         "TAG_SHA",
     }
     required_scripts = {
-        "scripts/release_verify_pypi_tag.py",
+        "scripts/release/release_verify_pypi_tag.py",
     }
     for name, job in jobs.items():
         check_deadline()
@@ -1381,6 +1517,7 @@ def check_workflows():
                 )
                 _check_actions(job, job_ctx, errors, allowed_actions)
     _check_dense_core_lock_in(errors)
+    _write_workflow_governance_artifacts(errors=errors)
     if errors:
         _fail(errors)
 
@@ -1591,6 +1728,8 @@ _KNOWN_ADAPTER_SURFACES = {
     "exception-obligations": "exception_obligations",
     "rewrite-plan-support": "rewrite_plan_support",
 }
+
+_LAST_FAIL_ERRORS: list[str] = []
 
 
 

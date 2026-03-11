@@ -29,6 +29,57 @@ def test_policy_check_requires_ci_script_entrypoints() -> None:
     assert any("scripts/ci/ci_controller_drift_gate.py" in error for error in errors)
 
 
+# gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_policy_check_workflow_reason_code_classification
+# gabion:behavior primary=desired
+def test_policy_check_workflow_reason_code_classification() -> None:
+    assert (
+        policy_check._workflow_reason_code(
+            ".github/workflows/ci.yml: ci workflow must invoke scripts/policy/policy_scanner_suite.py"
+        )
+        == "WF57_ENTRYPOINT_MISSING"
+    )
+    assert (
+        policy_check._workflow_reason_code(
+            ".github/workflows/release-tag.yml: release_tag.py missing (required for release tagging)"
+        )
+        == "WF53_RELEASE_TAG_ENTRYPOINT"
+    )
+    assert (
+        policy_check._workflow_reason_code(
+            "src/gabion/tooling/runtime/run_dataflow_stage.py: unable to read lock-in source"
+        )
+        == "WF57_DENSE_CORE_LOCKIN"
+    )
+
+
+# gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_policy_check_writes_workflow_governance_artifacts
+# gabion:behavior primary=desired
+def test_policy_check_writes_workflow_governance_artifacts(tmp_path: Path) -> None:
+    policy_check._write_workflow_governance_artifacts(
+        errors=[
+            ".github/workflows/ci.yml: ci workflow must invoke scripts/policy/policy_scanner_suite.py",
+            ".github/workflows/release-pypi.yml:publish: release-pypi workflow must verify tag equals main/next/release",
+        ],
+        output_root=tmp_path,
+    )
+    violations_payload = json.loads(
+        (tmp_path / "quotient_policy_violations.json").read_text(encoding="utf-8")
+    )
+    readiness_payload = json.loads(
+        (tmp_path / "quotient_protocol_readiness.json").read_text(encoding="utf-8")
+    )
+    decision_payload = json.loads(
+        (tmp_path / "quotient_promotion_decision.json").read_text(encoding="utf-8")
+    )
+    assert len(violations_payload["violations"]) == 2
+    assert {item["reason_code"] for item in violations_payload["violations"]} == {
+        "WF53_RELEASE_TAG_PROVENANCE",
+        "WF57_ENTRYPOINT_MISSING",
+    }
+    assert readiness_payload["pass"] is False
+    assert decision_payload["decision"] == "hold"
+
+
 # gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_policy_check_test_behavior_contract_reports_missing
 # gabion:behavior primary=verboten facets=missing
 def test_policy_check_test_behavior_contract_reports_missing(tmp_path: Path) -> None:
