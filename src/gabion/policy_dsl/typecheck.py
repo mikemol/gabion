@@ -3,7 +3,7 @@ from __future__ import annotations
 from .ir import IRProgram
 from .schema import EvidenceContract, PolicyDomain, TypecheckIssue
 
-_ALLOWED_OPS = {"always", "int_gte", "bool_true", "str_eq", "all", "any", "not"}
+_ALLOWED_OPS = {"always", "int_gte", "bool_true", "str_eq", "all", "any", "not", "rows_any"}
 _ASPF_ALLOWED_EVIDENCE = {
     EvidenceContract.REPRESENTATIVE_PAIR,
     EvidenceContract.TWO_CELL_WITNESS,

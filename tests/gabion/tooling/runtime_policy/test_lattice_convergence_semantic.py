@@ -59,6 +59,7 @@ def test_semantic_lattice_convergence_request_order_is_deterministic(
     assert first.evaluated_requests == second.evaluated_requests
     assert first.policy_data() == second.policy_data()
     assert first.error_count == 0
+    assert first.policy_data()["witness_rows"] == []
     assert tuple(request.path for request in first.evaluated_requests) == tuple(
         sorted(request.path for request in first.evaluated_requests)
     )
@@ -92,6 +93,12 @@ def test_semantic_lattice_convergence_parse_and_read_failures_increment_error_co
         "lattice_corpus_read_failure",
     )
     assert report.error_count == 2
+    witness_rows = report.policy_data()["witness_rows"]
+    assert isinstance(witness_rows, list)
+    assert len(witness_rows) == 2
+    assert all(isinstance(row, dict) for row in witness_rows)
+    assert all(row.get("obligation_state") == "unresolved" for row in witness_rows)
+    assert all(row.get("boundary_crossed") is True for row in witness_rows)
 
 
 def test_semantic_lattice_convergence_counts_incomplete_or_violation_once_per_request(
@@ -131,3 +138,6 @@ def test_semantic_lattice_convergence_counts_incomplete_or_violation_once_per_re
     assert tuple(item.code for item in report.diagnostics) == (
         "lattice_witness_incomplete_or_violation",
     )
+    witness_row = report.policy_data()["witness_rows"][0]
+    assert witness_row["witness_incomplete"] is True
+    assert witness_row["witness_violation"] is True

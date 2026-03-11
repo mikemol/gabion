@@ -86,12 +86,38 @@ class SemanticLatticeConvergenceReport:
         return tuple(item.render() for item in self.diagnostics)
 
     def policy_data(self) -> dict[str, object]:
+        witness_rows = [self._witness_row(item) for item in self.diagnostics]
         return {
             "error_count": self.error_count,
             "evaluated_request_count": self.evaluated_request_count,
             "corpus": list(self.corpus),
             "evaluated_requests": [item.as_payload() for item in self.evaluated_requests],
             "diagnostics": [item.as_payload() for item in self.diagnostics],
+            "witness_rows": witness_rows,
+        }
+
+    def _witness_row(self, diagnostic: LatticeConvergenceDiagnostic) -> dict[str, object]:
+        code = diagnostic.code
+        is_linkage = code.startswith("lattice_linkage_")
+        is_ingress = code.startswith("lattice_corpus_")
+        is_compute = code == "lattice_witness_compute_failure"
+        is_witness = code == "lattice_witness_incomplete_or_violation"
+        detail = diagnostic.detail
+        has_violation = "has_violation=True" in detail if is_witness else False
+        incomplete = "incomplete=True" in detail if is_witness else False
+        return {
+            "code": code,
+            "path": diagnostic.path,
+            "qualname": diagnostic.qualname,
+            "line": diagnostic.line,
+            "column": diagnostic.column,
+            "node_kind": diagnostic.node_kind,
+            "obligation_intro": True,
+            "obligation_state": "unresolved",
+            "boundary_crossed": True,
+            "collector_failure": is_linkage or is_ingress or is_compute,
+            "witness_incomplete": incomplete,
+            "witness_violation": has_violation,
         }
 
 

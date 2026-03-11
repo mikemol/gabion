@@ -149,7 +149,14 @@ def test_aspf_opportunity_taxonomy_no_python_predicate_registry() -> None:
 def test_projection_rule_blocks_on_unerased_obligation() -> None:
     decision = evaluate_policy(
         domain=PolicyDomain.PROJECTION_FIBER,
-        data={"error_count": 1},
+        data={
+            "witness_rows": [
+                {
+                    "obligation_state": "unresolved",
+                    "boundary_crossed": True,
+                }
+            ]
+        },
     )
     assert decision.rule_id == "projection_fiber.convergence.blocking"
 
@@ -157,7 +164,14 @@ def test_projection_rule_blocks_on_unerased_obligation() -> None:
 def test_projection_rule_passes_after_erasure() -> None:
     decision = evaluate_policy(
         domain=PolicyDomain.PROJECTION_FIBER,
-        data={"error_count": 0},
+        data={
+            "witness_rows": [
+                {
+                    "obligation_state": "erased",
+                    "boundary_crossed": False,
+                }
+            ]
+        },
     )
     assert decision.rule_id == "projection_fiber.convergence.ok"
 

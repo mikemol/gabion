@@ -3,9 +3,16 @@ rules:
     domain: projection_fiber
     severity: blocking
     predicate:
-      op: int_gte
-      path: [error_count]
-      value: 1
+      op: rows_any
+      path: [witness_rows]
+      predicate:
+        op: all
+        predicates:
+          - op: str_eq
+            path: [obligation_state]
+            value: unresolved
+          - op: bool_true
+            path: [boundary_crossed]
     outcome:
       kind: block
       message: projection fiber convergence policy violations

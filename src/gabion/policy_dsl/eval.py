@@ -44,6 +44,17 @@ def _eval_predicate(predicate: Mapping[str, Any], data: Mapping[str, Any]) -> bo
     if op == "not":
         child = predicate.get("predicate")
         return isinstance(child, Mapping) and not _eval_predicate(child, data)
+    if op == "rows_any":
+        path = tuple(str(p) for p in predicate.get("path", ()))
+        row_predicate = predicate.get("predicate")
+        rows = _get_path(data, path)
+        if not isinstance(rows, list) or not isinstance(row_predicate, Mapping):
+            return False
+        return any(
+            _eval_predicate(row_predicate, row)
+            for row in rows
+            if isinstance(row, Mapping)
+        )
     return False
 
 
