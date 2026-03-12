@@ -1,5 +1,5 @@
 ---
-doc_revision: 42
+doc_revision: 43
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -597,6 +597,9 @@ Current implementation status:
 - the outward-facing `PolicySuiteResult` carrier and payload no longer project
   cache identity hashes (`inventory_hash`, `rule_set_hash`); those now remain
   artifact-only cache metadata instead of public reporting surface
+- the outward-facing `PolicySuiteResult` payload no longer projects the
+  wrapper/runtime `cached` bit; cache-hit state remains an in-memory wrapper
+  concern rather than a reporting/semantic contract
 - wrapper-owned policy-result synthesis has now been removed from the
   policy-suite path entirely: the deprecated-nonerasability child check emits
   its own canonical `skip` result when baseline/current inputs are absent, and

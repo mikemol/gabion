@@ -916,6 +916,7 @@ def test_policy_scanner_suite_carries_external_policy_results(tmp_path: Path) ->
     )
     payload = result.to_payload()
     assert "policy_results" not in payload
+    assert "cached" not in payload
     assert payload["projection_fiber_semantics"] == semantics
     assert "projection_fiber_semantics_summary" not in payload
     summary = projection_fiber_semantics_summary_from_payload(payload)
@@ -952,6 +953,7 @@ def test_policy_scanner_suite_carries_external_policy_results(tmp_path: Path) ->
     assert cached.cached is False
     persisted_payload = json.loads(artifact_path.read_text(encoding="utf-8"))
     assert "policy_results" not in persisted_payload
+    assert "cached" not in persisted_payload
     assert "projection_fiber_semantics" not in persisted_payload
 
     cached_again = policy_scanner_suite.load_or_scan_policy_suite(

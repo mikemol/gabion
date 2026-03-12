@@ -202,7 +202,6 @@ class PolicySuiteResult:
             "format_version": _FORMAT_VERSION,
             "generated_at_utc": datetime.now(timezone.utc).isoformat(),
             "root": str(self.root),
-            "cached": self.cached,
             "counts": counts,
             "violations": self.violations_by_rule,
             "decision": {
