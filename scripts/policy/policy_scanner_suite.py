@@ -53,7 +53,6 @@ def run(
     projection_fiber_semantics = _resolve_projection_fiber_semantics(out_dir=out_dir)
     result = runtime_policy_scanner_suite.scan_policy_suite(
         root=root,
-        projection_fiber_semantics=projection_fiber_semantics,
         base_sha=base_sha,
         head_sha=head_sha,
     )
@@ -64,8 +63,8 @@ def run(
         "format_version": 1,
         "violations": result.violations_by_rule,
     }
-    if result.projection_fiber_semantics is not None:
-        payload["projection_fiber_semantics"] = result.projection_fiber_semantics
+    if projection_fiber_semantics is not None:
+        payload["projection_fiber_semantics"] = projection_fiber_semantics
     hotspot_neighborhood_queue.run_from_payload(
         payload=payload,
         out_path=queue_json,

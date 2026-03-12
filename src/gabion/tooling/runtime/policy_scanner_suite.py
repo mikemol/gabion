@@ -176,7 +176,6 @@ def _boundary_scoped_candidate(
 @dataclass(frozen=True)
 class PolicySuiteResult:
     violations_by_rule: dict[str, list[dict[str, Any]]]
-    projection_fiber_semantics: dict[str, Any] | None
 
     def decision(self) -> PolicyDecision:
         counts = dict(map(_rule_count_pair, self.violations_by_rule.items()))
@@ -195,7 +194,6 @@ def scan_policy_suite(
     *,
     root: Path,
     files: tuple[Path, ...] | None = None,
-    projection_fiber_semantics: dict[str, Any] | None,
     base_sha: str | None = None,
     head_sha: str | None = None,
     changed_paths: set[str] | None = None,
@@ -473,7 +471,6 @@ def scan_policy_suite(
     _drain(_iter_sort_violations_by_rule(violations_by_rule))
     return PolicySuiteResult(
         violations_by_rule=violations_by_rule,
-        projection_fiber_semantics=projection_fiber_semantics,
     )
 
 

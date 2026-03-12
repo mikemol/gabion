@@ -26,25 +26,15 @@ def _total_violations(result: policy_scanner_suite.PolicySuiteResult) -> int:
     return sum(len(items) for items in result.violations_by_rule.values())
 
 
-def _empty_projection_fiber_semantics() -> dict[str, object] | None:
-    return None
-
-
 def _scan_policy_suite(
     *,
     root: Path,
     files: tuple[Path, ...] | None = None,
-    projection_fiber_semantics: dict[str, object] | None = None,
     changed_paths: set[str] | None = None,
 ) -> policy_scanner_suite.PolicySuiteResult:
     return policy_scanner_suite.scan_policy_suite(
         root=root,
         files=files,
-        projection_fiber_semantics=(
-            projection_fiber_semantics
-            if projection_fiber_semantics is not None
-            else _empty_projection_fiber_semantics()
-        ),
         changed_paths=changed_paths,
     )
 
@@ -125,12 +115,6 @@ def test_policy_scanner_suite_scan_result_shape(tmp_path: Path) -> None:
     assert "counts" not in first_payload
     assert "inventory_hash" not in first_payload
     assert "rule_set_hash" not in first_payload
-
-
-def test_policy_scanner_suite_projection_fiber_semantics_explicit_none() -> None:
-    projection_fiber_semantics = _empty_projection_fiber_semantics()
-    assert projection_fiber_semantics is None
-
 
 # gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_scan_with_explicit_nonstandard_files::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
 # gabion:behavior primary=desired
@@ -770,66 +754,57 @@ def test_policy_scanner_suite_scopes_boundary_core_rule_to_changed_paths(
     )
 
 
-# gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_carries_external_policy_results::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
+# gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_runtime_result_excludes_external_projection_semantics::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
 # gabion:behavior primary=desired
-def test_policy_scanner_suite_carries_external_policy_results(tmp_path: Path) -> None:
+def test_policy_scanner_suite_runtime_result_excludes_external_projection_semantics(
+    tmp_path: Path,
+) -> None:
     root = tmp_path
-    policy_results = {
-        "policy_check": {
-            "rule_id": "policy_check",
-            "status": "pass",
-            "violations": [],
-            "projection_fiber_semantics": {
-                "decision": {"rule_id": "projection_fiber.convergence.ok"},
-                "report": {
-                    "semantic_rows": [
+    projection_fiber_semantics = {
+        "decision": {"rule_id": "projection_fiber.convergence.ok"},
+        "report": {
+            "semantic_rows": [
+                {
+                    "structural_identity": "row-1",
+                    "obligation_state": "discharged",
+                    "payload": {
+                        "path": "src/gabion/example.py",
+                        "qualname": "example.frontier",
+                        "structural_path": "example.frontier::branch[0]",
+                        "complete": True,
+                    },
+                }
+            ],
+            "compiled_projection_semantic_bundles": [
+                {
+                    "spec_name": "projection_fiber_frontier",
+                    "bindings": [
                         {
-                            "structural_identity": "row-1",
-                            "obligation_state": "discharged",
-                            "payload": {
-                                "path": "src/gabion/example.py",
-                                "qualname": "example.frontier",
-                                "structural_path": "example.frontier::branch[0]",
-                                "complete": True,
-                            },
+                            "quotient_face": "projection_fiber.frontier",
+                            "source_structural_identity": "row-1",
                         }
                     ],
-                    "compiled_projection_semantic_bundles": [
-                        {
-                            "spec_name": "projection_fiber_frontier",
-                            "bindings": [
-                                {
-                                    "quotient_face": "projection_fiber.frontier",
-                                    "source_structural_identity": "row-1",
-                                }
-                            ],
-                        }
-                    ]
-                },
-            },
+                }
+            ],
         },
     }
-    result = _scan_policy_suite(
-        root=root,
-        projection_fiber_semantics=policy_results["policy_check"][
-            "projection_fiber_semantics"
-        ],
-    )
-    semantics = result.projection_fiber_semantics
-    assert semantics is not None
-    assert semantics["report"]["compiled_projection_semantic_bundles"][0]["spec_name"] == (
+    result = _scan_policy_suite(root=root)
+    assert not hasattr(result, "projection_fiber_semantics")
+    assert projection_fiber_semantics["report"]["compiled_projection_semantic_bundles"][0][
+        "spec_name"
+    ] == (
         "projection_fiber_frontier"
     )
     payload = {
         "format_version": 1,
         "violations": result.violations_by_rule,
-        "projection_fiber_semantics": semantics,
+        "projection_fiber_semantics": projection_fiber_semantics,
     }
     assert "policy_results" not in payload
     assert "cached" not in payload
     assert "generated_at_utc" not in payload
     assert "root" not in payload
-    assert payload["projection_fiber_semantics"] == semantics
+    assert payload["projection_fiber_semantics"] == projection_fiber_semantics
     assert "projection_fiber_semantics_summary" not in payload
     summary = projection_fiber_semantics_summary_from_payload(payload)
     assert summary is not None

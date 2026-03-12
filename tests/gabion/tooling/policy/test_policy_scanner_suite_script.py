@@ -416,7 +416,6 @@ def test_run_passes_minimal_boundary_shape_with_projection_fiber_semantics(
     def _fake_scan_policy_suite(**_: object) -> object:
         return policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteResult(
             violations_by_rule={"branchless": [{"path": "src/gabion/example.py"}]},
-            projection_fiber_semantics=dict(projection_fiber_semantics),
         )
 
     def _fake_run_from_payload(
@@ -479,7 +478,6 @@ def test_run_prints_nonempty_violation_families_from_runtime_result(
                 "branchless": [{"render": "branchless render"}],
                 "future_rule_family": [{"render": "future render"}],
             },
-            projection_fiber_semantics=None,
         )
 
     def _fake_run_from_payload(

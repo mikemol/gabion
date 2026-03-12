@@ -44,7 +44,6 @@ def test_delta_gate_value_helpers_remain_compatible() -> None:
 def test_scanner_result_uses_dsl_decision_shape() -> None:
     result = PolicySuiteResult(
         violations_by_rule={"branchless": [{}], "defensive_fallback": [], "no_monkeypatch": []},
-        projection_fiber_semantics=None,
     )
     decision = result.decision()
     assert decision.rule_id == "scanner.branchless.blocking"
