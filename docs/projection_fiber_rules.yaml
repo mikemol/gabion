@@ -4,15 +4,19 @@ rules:
     severity: blocking
     predicate:
       op: rows_any
-      path: [witness_rows]
+      path: [semantic_rows]
       predicate:
         op: all
         predicates:
           - op: str_eq
             path: [obligation_state]
             value: unresolved
-          - op: bool_true
-            path: [boundary_crossed]
+          - op: rows_any
+            path: [boundary_trace]
+            predicate:
+              op: str_eq
+              path: [kind]
+              value: boundary_crossing
     outcome:
       kind: block
       message: projection fiber convergence policy violations
@@ -27,8 +31,3 @@ rules:
       kind: pass
       message: projection fiber convergence clean
     evidence_contract: none
-
-transforms:
-  - transform_id: projection.unmapped_intro
-    intro_from: unmapped_witness
-    erase_when: mapping_complete

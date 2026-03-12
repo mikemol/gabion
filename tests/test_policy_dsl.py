@@ -204,15 +204,18 @@ def test_aspf_opportunity_taxonomy_no_python_predicate_registry() -> None:
     assert "classify_aspf_opportunity(" in source
 
 
-def test_projection_rule_blocks_on_unerased_obligation() -> None:
+def test_projection_rule_blocks_on_unerased_semantic_row_with_boundary_trace() -> None:
     decision = evaluate_policy(
         domain=PolicyDomain.PROJECTION_FIBER,
         data={
-            "witness_rows": [
+            "semantic_rows": [
                 {
-                    "witness_kind": "unmapped_witness",
-                    "mapping_complete": False,
-                    "boundary_crossed": True,
+                    "obligation_state": "unresolved",
+                    "boundary_trace": [
+                        {
+                            "kind": "boundary_crossing",
+                        }
+                    ],
                 }
             ]
         },
@@ -220,15 +223,18 @@ def test_projection_rule_blocks_on_unerased_obligation() -> None:
     assert decision.rule_id == "projection_fiber.convergence.blocking"
 
 
-def test_projection_rule_passes_after_erasure() -> None:
+def test_projection_rule_passes_after_discharge_on_semantic_row() -> None:
     decision = evaluate_policy(
         domain=PolicyDomain.PROJECTION_FIBER,
         data={
-            "witness_rows": [
+            "semantic_rows": [
                 {
-                    "witness_kind": "unmapped_witness",
-                    "mapping_complete": True,
-                    "boundary_crossed": True,
+                    "obligation_state": "discharged",
+                    "boundary_trace": [
+                        {
+                            "kind": "boundary_crossing",
+                        }
+                    ],
                 }
             ]
         },
@@ -236,10 +242,25 @@ def test_projection_rule_passes_after_erasure() -> None:
     assert decision.rule_id == "projection_fiber.convergence.ok"
 
 
-def test_projection_fiber_transforms_are_loaded_in_registry() -> None:
+def test_projection_rule_passes_when_unresolved_row_has_no_boundary_trace() -> None:
+    decision = evaluate_policy(
+        domain=PolicyDomain.PROJECTION_FIBER,
+        data={
+            "semantic_rows": [
+                {
+                    "obligation_state": "unresolved",
+                    "boundary_trace": [],
+                }
+            ]
+        },
+    )
+    assert decision.rule_id == "projection_fiber.convergence.ok"
+
+
+def test_projection_fiber_registry_has_no_legacy_projection_transforms() -> None:
     transforms = tuple(build_registry().program.transforms)
     transform_ids = tuple(item.transform_id for item in transforms)
-    assert "projection.unmapped_intro" in transform_ids
+    assert "projection.unmapped_intro" not in transform_ids
 
 
 def test_aspf_lattice_algebra_has_no_projection_transform_runtime() -> None:

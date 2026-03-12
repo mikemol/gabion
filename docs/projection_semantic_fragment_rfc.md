@@ -1,5 +1,5 @@
 ---
-doc_revision: 83
+doc_revision: 84
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -828,6 +828,12 @@ The following current surfaces are temporary adapters:
 
 The policy DSL remains a judgment surface. It is not promoted to semantic
 construction ownership by this RFC.
+
+When canonical `semantic_rows` are already available, policy and authoring
+consumers must judge those rows directly instead of reintroducing witness-row
+transform bridges. The current landed example is
+`projection_fiber.convergence.blocking`, which now reads `semantic_rows`
+directly and no longer depends on `projection.unmapped_intro`.
 
 ## 7. Test and acceptance plan
 

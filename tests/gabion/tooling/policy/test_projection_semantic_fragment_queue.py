@@ -68,7 +68,8 @@ def test_analyze_emits_landed_and_active_queue_rows() -> None:
     assert items["PSF-003"]["status"] == "landed"
     assert items["PSF-004"]["status"] == "in_progress"
     assert items["PSF-005"]["status"] == "queued"
-    assert queue["next_queue_ids"] == ["PSF-004", "PSF-005", "PSF-006", "PSF-007"]
+    assert items["PSF-006"]["status"] == "landed"
+    assert queue["next_queue_ids"] == ["PSF-004", "PSF-005", "PSF-007"]
 
 
 # gabion:evidence E:function_site::test_projection_semantic_fragment_queue.py::tests.gabion.tooling.policy.test_projection_semantic_fragment_queue.test_markdown_summary_lists_queue_and_semantic_preview_context
@@ -84,6 +85,7 @@ def test_markdown_summary_lists_queue_and_semantic_preview_context() -> None:
     assert "decision_rule: `projection_fiber.convergence.ok`" in markdown
     assert "compiled_specs: `projection_fiber_frontier`" in markdown
     assert "| PSF-004 | Phase 4 | in_progress | Friendly-surface convergence via typed ProjectionSpec lowering |" in markdown
+    assert "| PSF-006 | Phase 4 | landed | Move policy and authoring consumers toward direct canonical-carrier judgment |" in markdown
     assert "## Semantic Previews" in markdown
     assert "src/gabion/example.py" in markdown
 

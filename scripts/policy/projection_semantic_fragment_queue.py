@@ -4,10 +4,13 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from functools import lru_cache
 import json
 from pathlib import Path
 from typing import Any, Mapping
 
+from gabion.policy_dsl.registry import build_registry
+from gabion.policy_dsl.schema import PolicyDomain
 from gabion.order_contract import ordered_or_sorted
 from gabion.tooling.runtime.projection_fiber_semantics_summary import (
     projection_fiber_decision_from_payload,
@@ -94,6 +97,42 @@ class ProjectionSemanticFragmentQueue:
         }
 
 
+@lru_cache(maxsize=1)
+def _projection_fiber_policy_direct_carrier_judgment_landed() -> bool:
+    registry = build_registry()
+    blocking_rule = next(
+        (
+            rule
+            for rule in registry.program.rules
+            if rule.domain is PolicyDomain.PROJECTION_FIBER
+            and rule.rule_id == "projection_fiber.convergence.blocking"
+        ),
+        None,
+    )
+    if blocking_rule is None:
+        return False
+    has_legacy_transform = any(
+        transform.transform_id == "projection.unmapped_intro"
+        for transform in registry.program.transforms
+    )
+    return _predicate_reads_semantic_rows(blocking_rule.predicate) and not has_legacy_transform
+
+
+def _predicate_reads_semantic_rows(predicate: Mapping[str, Any]) -> bool:
+    op = predicate.get("op")
+    path = predicate.get("path")
+    if op == "rows_any" and path == ["semantic_rows"]:
+        return True
+    for value in predicate.values():
+        if isinstance(value, Mapping) and _predicate_reads_semantic_rows(value):
+            return True
+        if isinstance(value, list):
+            for item in value:
+                if isinstance(item, Mapping) and _predicate_reads_semantic_rows(item):
+                    return True
+    return False
+
+
 def analyze(
     *,
     payload: Mapping[str, object],
@@ -142,6 +181,9 @@ def _queue_items(
     bundle_count = current_state.compiled_projection_semantic_bundle_count
     preview_count = current_state.semantic_preview_count
     semantic_lowering_landed = bundle_count > 0 and bool(spec_names)
+    policy_direct_carrier_judgment_landed = (
+        _projection_fiber_policy_direct_carrier_judgment_landed()
+    )
     items = (
         ProjectionSemanticFragmentQueueItem(
             queue_id="PSF-001",
@@ -241,13 +283,21 @@ def _queue_items(
         ProjectionSemanticFragmentQueueItem(
             queue_id="PSF-006",
             phase="Phase 4",
-            status="queued",
+            status="landed" if policy_direct_carrier_judgment_landed else "queued",
             title="Move policy and authoring consumers toward direct canonical-carrier judgment",
-            summary="The projection-fiber policy path is carrier-backed, but broader policy/authoring surfaces still depend on compatibility and summary bridges.",
-            next_action="Shift the next consumer from row-shape inference to direct canonical-carrier reads, then preserve that path with policy tests.",
+            summary=(
+                "The projection-fiber policy DSL now judges canonical semantic_rows directly, and the retired projection.unmapped_intro bridge is no longer present in the registry."
+                if policy_direct_carrier_judgment_landed
+                else "The projection-fiber policy path is carrier-backed, but broader policy/authoring surfaces still depend on compatibility and summary bridges."
+            ),
+            next_action=(
+                "Preserve direct canonical-carrier judgment for the next consumer; do not reintroduce witness-row transforms once semantic_rows exist."
+                if policy_direct_carrier_judgment_landed
+                else "Shift the next consumer from row-shape inference to direct canonical-carrier reads, then preserve that path with policy tests."
+            ),
             evidence_links=(
-                "scripts/policy/policy_check.py",
-                "src/gabion/tooling/runtime/policy_scanner_suite.py",
+                "docs/projection_fiber_rules.yaml",
+                "tests/test_policy_dsl.py",
                 "docs/projection_semantic_fragment_rfc.md",
             ),
         ),
