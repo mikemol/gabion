@@ -23,6 +23,7 @@ class SemanticProjectionKind(str, Enum):
     REFLECT = "reflect"
     QUOTIENT_FACE = "quotient_face"
     SYNTHESIZE_WITNESS = "synthesize_witness"
+    WEDGE = "wedge"
     SUPPORT_REFLECT = "support_reflect"
 
 
@@ -246,6 +247,15 @@ def _normalize_projection_op(
             op_name=op_name,
             params={"surface": surface},
         )
+    if op_name == "wedge":
+        surface = _normalized_nonempty_string(_mapping_value(params, "surface"))
+        if not surface:
+            never("wedge projection op missing surface")
+        return _NormalizedProjectionOp(
+            source_index=index,
+            op_name=op_name,
+            params={"surface": surface},
+        )
     return _NormalizedProjectionOp(
         source_index=index,
         op_name=op_name,
@@ -324,6 +334,22 @@ def _lower_projection_op(normalized_op: _NormalizedProjectionOp) -> _LoweredProj
                 source_index=normalized_op.source_index,
                 source_op=op_name,
                 semantic_op=SemanticProjectionKind.SYNTHESIZE_WITNESS,
+                params={"surface": surface},
+            ),
+        )
+    if op_name == "wedge":
+        surface = _normalized_nonempty_string(_mapping_value(params, "surface"))
+        if surface != "projection_fiber":
+            never(
+                "unsupported wedge semantic surface",
+                surface=surface or "<missing>",
+            )
+        return _LoweredSemanticProjectionOp(
+            layer=ProjectionOpLayer.SEMANTIC,
+            semantic_op=SemanticProjectionOp(
+                source_index=normalized_op.source_index,
+                source_op=op_name,
+                semantic_op=SemanticProjectionKind.WEDGE,
                 params={"surface": surface},
             ),
         )

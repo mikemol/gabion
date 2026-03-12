@@ -22,6 +22,7 @@ from gabion.analysis.projection.semantic_fragment_compile import (
     compile_projection_fiber_quotient_face_to_sparql,
     compile_projection_fiber_support_reflect_to_shacl,
     compile_projection_fiber_support_reflect_to_sparql,
+    compile_projection_fiber_wedge_to_sparql,
 )
 from gabion.invariants import never
 from gabion.json_types import JSONValue
@@ -160,6 +161,11 @@ def _compile_semantic_projection_op(
             semantic_op=semantic_op,
             semantic_rows=semantic_rows,
         )
+    if semantic_op.semantic_op is SemanticProjectionKind.WEDGE:
+        return _compile_wedge_semantic_op(
+            semantic_op=semantic_op,
+            semantic_rows=semantic_rows,
+        )
     never(
         "unsupported semantic projection op for lowering compilation",
         semantic_op=semantic_op.semantic_op.value,
@@ -250,6 +256,23 @@ def _compile_support_reflect_semantic_op(
         shacl_plans.append(compile_projection_fiber_support_reflect_to_shacl(row))
         sparql_plans.append(compile_projection_fiber_support_reflect_to_sparql(row))
     return (), tuple(shacl_plans), tuple(sparql_plans)
+
+
+def _compile_wedge_semantic_op(
+    *,
+    semantic_op: SemanticProjectionOp,
+    semantic_rows: tuple[CanonicalWitnessedSemanticRow, ...],
+) -> tuple[
+    tuple[CompiledProjectionSemanticBinding, ...],
+    tuple[CompiledShaclPlan, ...],
+    tuple[CompiledSparqlPlan, ...],
+]:
+    surface = _required_surface(semantic_op.params)
+    sparql_plans: list[CompiledSparqlPlan] = []
+    for row in _semantic_rows_for_surface(surface=surface, semantic_rows=semantic_rows):
+        check_deadline()
+        sparql_plans.append(compile_projection_fiber_wedge_to_sparql(row))
+    return (), (), tuple(sparql_plans)
 
 
 def _compile_synthesize_witness_semantic_op(

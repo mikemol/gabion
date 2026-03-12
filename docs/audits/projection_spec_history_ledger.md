@@ -48,11 +48,11 @@ doc_role: audit
 - `d77dc91d` `2026-02-09` docflow: enforce SPPF axis tags + GH ref gate (GH-82)
 - `1a86872a` `2026-02-10` analysis: projection spec carrier + proof mode
 - `358a4207` `2026-02-10` docs: in-30 SuiteSite adoption tracking
-- `6a7592ce` `2026-03-12` Erase semantic ops at projection exec ingress
 - `aba32d7a` `2026-03-12` Promote support_reflect through typed lowering
 - `aece7d9f` `2026-03-12` Promote reflect through typed projection lowering
 - `bc006434` `2026-03-12` Extract projection exec ingress adapter
 - `fa174d91` `2026-03-12` Split ProjectionSpec ingress from executor
+- `fd9c9782` `2026-03-12` Promote witness synthesis through typed lowering
 
 ### What Drifted
 - `[PROVISIONAL]` `src/gabion/analysis/projection/projection_registry.py` ( M)
@@ -282,6 +282,7 @@ doc_role: audit
 | deadline_obligations_summary | deadline_obligations | presentation_only | 0 | 2 | 0 |  |
 | lint_findings | lint_findings | presentation_only | 0 | 2 | 0 |  |
 | never_invariants_section | never_invariants | presentation_plus_bridge | 0 | 2 | 1 |  |
+| projection_fiber_context_wedge | projection_fiber | semantic_promoted | 1 | 0 | 0 |  |
 | projection_fiber_frontier | projection_fiber | mixed | 1 | 1 | 0 | projection_fiber.frontier |
 | projection_fiber_reflection | projection_fiber | semantic_promoted | 1 | 0 | 0 |  |
 | projection_fiber_reflective_boundary | projection_fiber | mixed | 1 | 1 | 0 | projection_fiber.reflective_boundary |
