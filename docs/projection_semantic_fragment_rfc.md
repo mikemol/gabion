@@ -550,6 +550,10 @@ Current implementation status:
   remaining temporary grade markers on that path are function-local and limited
   to the actual carrier planners/materializers they still justify during
   `PSF-007`
+- the broad module-level `semantic_carrier_adapter` marker formerly attached to
+  `projection_exec.py` is now retired as well; the executor keeps only
+  function-local temporary grading on the concrete typed-execution surfaces
+  still needed during the cutover window
 - that substrate output now crosses a runtime-facing boundary: `policy_check
   --output` carries a `projection_fiber_semantics` payload with the lattice
   decision, semantic report, and compiled projection-semantic bundles, so the

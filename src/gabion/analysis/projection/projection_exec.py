@@ -1,4 +1,3 @@
-# gabion:grade_boundary kind=semantic_carrier_adapter name=projection_exec
 from __future__ import annotations
 
 from functools import singledispatch
@@ -17,6 +16,7 @@ from gabion.analysis.projection.projection_exec_protocol import (
 )
 from gabion.json_types import JSONValue
 from gabion.analysis.foundation.timeout_context import check_deadline
+from gabion.invariants import grade_boundary
 from gabion.order_contract import OrderPolicy, sort_once
 from gabion.runtime_shape_dispatch import (
     json_list_optional,
@@ -31,7 +31,10 @@ PredicateRegistry = Mapping[
 _EMPTY_PREDICATE_REGISTRY: Final[PredicateRegistry] = {}
 _EMPTY_RUNTIME_PARAMS: Final[Mapping[str, JSONValue]] = {}
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_exec.apply_execution_ops",
+)
 def apply_execution_ops(
     execution_ops: Iterable[ExecutionProjectionOp],
     rows: Iterable[Mapping[str, JSONValue]],
@@ -58,7 +61,10 @@ def apply_execution_ops(
 
     return current
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_exec.apply_normalized_execution_op",
+)
 def _apply_normalized_execution_op(
     rows: Relation,
     *,
@@ -73,7 +79,10 @@ def _apply_normalized_execution_op(
         runtime_params=runtime_params,
     )
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_exec.apply_execution_op",
+)
 @singledispatch
 def _apply_execution_op(
     execution_op: ExecutionProjectionOp,
@@ -85,7 +94,10 @@ def _apply_execution_op(
     _ = execution_op, op_registry, runtime_params
     return rows
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_exec.apply_select_execution_op",
+)
 @_apply_execution_op.register
 def _apply_select_execution_op(
     execution_op: SelectExecutionOp,
@@ -101,7 +113,10 @@ def _apply_select_execution_op(
         runtime_params=runtime_params,
     )
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_exec.apply_project_execution_op",
+)
 @_apply_execution_op.register
 def _apply_project_execution_op(
     execution_op: ProjectExecutionOp,
@@ -115,7 +130,10 @@ def _apply_project_execution_op(
         return _apply_project(rows, execution_op)
     return rows
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_exec.apply_count_by_execution_op",
+)
 @_apply_execution_op.register
 def _apply_count_by_execution_op(
     execution_op: CountByExecutionOp,
@@ -129,7 +147,10 @@ def _apply_count_by_execution_op(
         return _apply_count_by(rows, execution_op)
     return rows
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_exec.apply_traverse_execution_op",
+)
 @_apply_execution_op.register
 def _apply_traverse_execution_op(
     execution_op: TraverseExecutionOp,
@@ -143,7 +164,10 @@ def _apply_traverse_execution_op(
         return _apply_traverse(rows, execution_op)
     return rows
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_exec.apply_sort_execution_op",
+)
 @_apply_execution_op.register
 def _apply_sort_execution_op(
     execution_op: SortExecutionOp,
@@ -165,7 +189,10 @@ def _apply_sort_execution_op(
         )
     return current
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_exec.apply_limit_execution_op",
+)
 @_apply_execution_op.register
 def _apply_limit_execution_op(
     execution_op: LimitExecutionOp,
@@ -179,11 +206,17 @@ def _apply_limit_execution_op(
         return rows[:execution_op.count]
     return rows
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_exec.copy_json_mapping",
+)
 def _copy_json_mapping(params: Mapping[str, JSONValue]) -> dict[str, JSONValue]:
     return {str(key): value for key, value in params.items()}
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_exec.sort_value",
+)
 def _sort_value(value: JSONValue) -> tuple[int, object]:
     if value is None:
         return (1, "")
@@ -192,7 +225,10 @@ def _sort_value(value: JSONValue) -> tuple[int, object]:
             return (0, value)
     return (0, str(value))
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_exec.hashable",
+)
 def _hashable(value: JSONValue) -> object:
     try:
         hash(value)
@@ -200,7 +236,10 @@ def _hashable(value: JSONValue) -> object:
         return json.dumps(value, sort_keys=False, separators=(",", ":"))
     return value
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_exec.apply_select",
+)
 def _apply_select(
     rows: Relation,
     select_params: SelectExecutionOp,
@@ -216,7 +255,10 @@ def _apply_select(
             selected = [row for row in selected if predicate(row, runtime_params)]
     return selected
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_exec.apply_project",
+)
 def _apply_project(rows: Relation, params: ProjectExecutionOp) -> Relation:
     projected: Relation = []
     for row in rows:
@@ -224,7 +266,10 @@ def _apply_project(rows: Relation, params: ProjectExecutionOp) -> Relation:
         projected.append({field: row.get(field) for field in params.fields})
     return projected
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_exec.apply_count_by",
+)
 def _apply_count_by(rows: Relation, params: CountByExecutionOp) -> Relation:
     counts: dict[tuple[object, ...], dict[str, JSONValue]] = {}
     for row in rows:
@@ -248,7 +293,10 @@ def _apply_count_by(rows: Relation, params: CountByExecutionOp) -> Relation:
     )
     return [counts[key] for key in ordered_group_keys]
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_exec.apply_traverse",
+)
 def _apply_traverse(rows: Relation, params: TraverseExecutionOp) -> Relation:
     traversed: Relation = []
     for row in rows:
