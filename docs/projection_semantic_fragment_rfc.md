@@ -1,5 +1,5 @@
 ---
-doc_revision: 73
+doc_revision: 74
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -579,6 +579,10 @@ Current implementation status:
   `policy_check_result.json` just to hand it to the hotspot queue; the queue
   now owns that last child-artifact read when invoked from canonical
   wrapper/runtime inputs
+- the runtime scanner no longer returns a `PolicySuiteResult` wrapper carrier
+  at all; `scan_policy_suite()` now returns the canonical `violations_by_rule`
+  mapping directly, and suite-decision evaluation is an explicit helper over
+  that mapping rather than a method on a compatibility result object
 - policy-scanner-suite runtime payloads now surface semantic context, when
   needed, as a direct top-level `projection_fiber_semantics` carrier rather
   than nested child `policy_results`, and queue/report consumers no longer

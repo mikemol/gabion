@@ -7,6 +7,7 @@ from pathlib import Path
 from gabion.tooling.runtime import policy_scanner_suite as runtime_policy_scanner_suite
 from scripts.policy import hotspot_neighborhood_queue
 
+
 def run(
     *,
     root: Path,
@@ -14,21 +15,23 @@ def run(
     base_sha: str | None = None,
     head_sha: str | None = None,
 ) -> int:
-    result = runtime_policy_scanner_suite.scan_policy_suite(
+    violations_by_rule = runtime_policy_scanner_suite.scan_policy_suite(
         root=root,
         base_sha=base_sha,
         head_sha=head_sha,
     )
-    decision = result.decision()
+    decision = runtime_policy_scanner_suite.policy_suite_decision(
+        violations_by_rule,
+    )
     queue_json = out_dir / "hotspot_neighborhood_queue.json"
     queue_md = out_dir / "hotspot_neighborhood_queue.md"
     hotspot_neighborhood_queue.run_from_inputs(
-        violations_by_rule=result.violations_by_rule,
+        violations_by_rule=violations_by_rule,
         projection_fiber_source_artifact_path=out_dir / "policy_check_result.json",
         out_path=queue_json,
         markdown_out=queue_md,
     )
-    total = sum(len(items) for items in result.violations_by_rule.values())
+    total = sum(len(items) for items in violations_by_rule.values())
     print(f"policy-suite scan: total_violations={total} out_dir={out_dir}")
     print(
         "policy-suite decision: "
@@ -38,7 +41,7 @@ def run(
     print(f"hotspot-neighborhood queue: {queue_json}")
     if total == 0:
         return 0
-    for rule, items in result.violations_by_rule.items():
+    for rule, items in violations_by_rule.items():
         if not items:
             continue
         print(f"{rule} violations:")

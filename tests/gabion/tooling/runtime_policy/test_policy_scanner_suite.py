@@ -19,15 +19,21 @@ def _write(path: Path, content: str) -> None:
 
 
 def _violations(
-    result: policy_scanner_suite.PolicySuiteResult,
+    result: dict[str, list[dict[str, object]]],
     *,
     rule: str,
 ) -> list[dict[str, object]]:
-    return list(result.violations_by_rule.get(rule, []))
+    return list(result.get(rule, []))
 
 
-def _total_violations(result: policy_scanner_suite.PolicySuiteResult) -> int:
-    return sum(len(items) for items in result.violations_by_rule.values())
+def _total_violations(result: dict[str, list[dict[str, object]]]) -> int:
+    return sum(len(items) for items in result.values())
+
+
+def _decision(
+    result: dict[str, list[dict[str, object]]],
+) -> object:
+    return policy_scanner_suite.policy_suite_decision(result)
 
 
 def _scan_policy_suite(
@@ -35,7 +41,7 @@ def _scan_policy_suite(
     root: Path,
     files: tuple[Path, ...] | None = None,
     changed_paths: set[str] | None = None,
-) -> policy_scanner_suite.PolicySuiteResult:
+) -> dict[str, list[dict[str, object]]]:
     return policy_scanner_suite.scan_policy_suite(
         root=root,
         files=files,
@@ -81,7 +87,7 @@ def test_policy_scanner_suite_scan_result_shape(tmp_path: Path) -> None:
 
     result = _scan_policy_suite(root=root)
     assert _total_violations(result) > 0
-    decision = result.decision()
+    decision = _decision(result)
     assert decision.outcome.value in {"block", "warn", "pass", "skip"}
     assert _violations(result, rule="branchless")
     branchless_violation = _violations(result, rule="branchless")[0]
@@ -111,7 +117,7 @@ def test_policy_scanner_suite_scan_result_shape(tmp_path: Path) -> None:
     assert _violations(result, rule="test_sleep_hygiene") == []
     first_payload = {
         "format_version": 1,
-        "violations": result.violations_by_rule,
+        "violations": result,
     }
     assert "decision" not in first_payload
     assert "generated_at_utc" not in first_payload
@@ -801,7 +807,7 @@ def test_policy_scanner_suite_runtime_result_excludes_external_projection_semant
     )
     payload = {
         "format_version": 1,
-        "violations": result.violations_by_rule,
+        "violations": result,
         "projection_fiber_semantics": projection_fiber_semantics,
     }
     assert "policy_results" not in payload

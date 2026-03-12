@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections import deque
-from dataclasses import dataclass
 import itertools
 import json
 from pathlib import Path
@@ -173,16 +172,15 @@ def _boundary_scoped_candidate(
     return ()
 
 
-@dataclass(frozen=True)
-class PolicySuiteResult:
-    violations_by_rule: dict[str, list[dict[str, Any]]]
+def policy_suite_decision(
+    violations_by_rule: dict[str, list[dict[str, Any]]],
+) -> PolicyDecision:
+    counts = dict(map(_rule_count_pair, violations_by_rule.items()))
+    return evaluate_policy(
+        domain=PolicyDomain.POLICY_SCANNER,
+        data={"counts": counts},
+    )
 
-    def decision(self) -> PolicyDecision:
-        counts = dict(map(_rule_count_pair, self.violations_by_rule.items()))
-        return evaluate_policy(
-            domain=PolicyDomain.POLICY_SCANNER,
-            data={"counts": counts},
-        )
 
 def _rule_count_pair(item: tuple[str, list[dict[str, Any]]]) -> tuple[str, int]:
     rule, items = item
@@ -197,7 +195,7 @@ def scan_policy_suite(
     base_sha: str | None = None,
     head_sha: str | None = None,
     changed_paths: set[str] | None = None,
-) -> PolicySuiteResult:
+) -> dict[str, list[dict[str, Any]]]:
     resolved_root = root.resolve()
     inventory = files if files is not None else _inventory_files(resolved_root)
     resolved_changed_paths = (
@@ -469,9 +467,7 @@ def scan_policy_suite(
     )
 
     _drain(_iter_sort_violations_by_rule(violations_by_rule))
-    return PolicySuiteResult(
-        violations_by_rule=violations_by_rule,
-    )
+    return violations_by_rule
 
 
 def _drain(items: Iterable[object]) -> None:
@@ -1105,6 +1101,6 @@ def _serialize_test_sleep_hygiene(violation: object) -> dict[str, object]:
 
 
 __all__ = [
-    "PolicySuiteResult",
+    "policy_suite_decision",
     "scan_policy_suite",
 ]

@@ -172,9 +172,7 @@ def test_run_passes_minimal_boundary_shape_with_projection_fiber_source_artifact
     captured: dict[str, object] = {}
 
     def _fake_scan_policy_suite(**_: object) -> object:
-        return policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteResult(
-            violations_by_rule={"branchless": [{"path": "src/gabion/example.py"}]},
-        )
+        return {"branchless": [{"path": "src/gabion/example.py"}]}
 
     def _fake_run_from_inputs(
         *,
@@ -227,12 +225,10 @@ def test_run_prints_nonempty_violation_families_from_runtime_result(
     out_dir = root / "artifacts/out"
 
     def _fake_scan_policy_suite(**_: object) -> object:
-        return policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteResult(
-            violations_by_rule={
-                "branchless": [{"render": "branchless render"}],
-                "future_rule_family": [{"render": "future render"}],
-            },
-        )
+        return {
+            "branchless": [{"render": "branchless render"}],
+            "future_rule_family": [{"render": "future render"}],
+        }
 
     def _fake_run_from_inputs(
         *,

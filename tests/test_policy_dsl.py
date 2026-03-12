@@ -7,7 +7,7 @@ from gabion.policy_dsl import PolicyDomain, evaluate_policy
 from gabion.policy_dsl.registry import build_registry
 from gabion.tooling.delta import delta_gate
 from gabion.tooling.governance import ambiguity_contract_policy_check as ambiguity_policy
-from gabion.tooling.runtime.policy_scanner_suite import PolicySuiteResult
+from gabion.tooling.runtime.policy_scanner_suite import policy_suite_decision
 
 
 def test_registry_rule_ids_are_unique_and_stable() -> None:
@@ -42,10 +42,9 @@ def test_delta_gate_value_helpers_remain_compatible() -> None:
 
 
 def test_scanner_result_uses_dsl_decision_shape() -> None:
-    result = PolicySuiteResult(
-        violations_by_rule={"branchless": [{}], "defensive_fallback": [], "no_monkeypatch": []},
+    decision = policy_suite_decision(
+        {"branchless": [{}], "defensive_fallback": [], "no_monkeypatch": []},
     )
-    decision = result.decision()
     assert decision.rule_id == "scanner.branchless.blocking"
     assert decision.outcome.value == "block"
 
