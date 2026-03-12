@@ -109,6 +109,17 @@ def test_execution_ops_from_spec_erases_semantic_metadata_and_semantic_only_ops(
     )
 
 
+def test_execution_ops_from_spec_skips_negative_limit() -> None:
+    spec = ProjectionSpec(
+        spec_version=1,
+        name="demo",
+        domain="tests",
+        pipeline=(ProjectionOp(op="limit", params={"count": -1}),),
+    )
+
+    assert execution_ops_from_spec(spec) == ()
+
+
 def test_apply_spec_handles_invalid_and_semantic_only_ops_at_exec_ingress() -> None:
     rows = [
         {"group": ["a"], "value": 1},

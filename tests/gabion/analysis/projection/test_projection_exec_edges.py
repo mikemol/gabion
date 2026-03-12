@@ -5,6 +5,7 @@ from gabion.analysis.projection.projection_exec import (
 )
 from gabion.analysis.projection.projection_exec_protocol import (
     CountByExecutionOp,
+    LimitExecutionOp,
     ProjectExecutionOp,
     SelectExecutionOp,
     SortExecutionOp,
@@ -173,6 +174,21 @@ def test_apply_execution_ops_skips_empty_typed_ops() -> None:
         rows,
     )
     assert result == rows
+
+
+def test_apply_execution_ops_applies_limit_directly() -> None:
+    rows = [{"group": "a"}, {"group": "b"}, {"group": "c"}]
+    result = apply_execution_ops(
+        (
+            LimitExecutionOp(
+                source_index=0,
+                op_name="limit",
+                count=2,
+            ),
+        ),
+        rows,
+    )
+    assert result == [{"group": "a"}, {"group": "b"}]
 
 
 # gabion:evidence E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec.apply_execution_ops::runtime_params

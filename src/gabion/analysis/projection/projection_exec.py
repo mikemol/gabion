@@ -225,10 +225,6 @@ def _apply_sort_execution_op(
         )
     return current
 
-@grade_boundary(
-    kind="semantic_carrier_adapter",
-    name="projection_exec.apply_limit_execution_op",
-)
 @_apply_execution_op.register
 def _apply_limit_execution_op(
     execution_op: LimitExecutionOp,
@@ -238,9 +234,7 @@ def _apply_limit_execution_op(
     runtime_params: Mapping[str, JSONValue],
 ) -> Relation:
     _ = op_registry, runtime_params
-    if execution_op.count >= 0:
-        return rows[:execution_op.count]
-    return rows
+    return rows[:execution_op.count]
 
 @grade_boundary(
     kind="semantic_carrier_adapter",
