@@ -1,5 +1,5 @@
 ---
-doc_revision: 43
+doc_revision: 44
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -591,6 +591,10 @@ Current implementation status:
   mappings after ingress validation; external child checks now resolve
   directly to the typed `PolicySuiteChildInputs` bundle before any wrapper
   orchestration continues
+- the policy-scanner-suite wrapper no longer materializes a temporary
+  `dict[rule_id, payload]` child-result rendezvous during ingress resolution;
+  preserved or newly emitted child artifacts are normalized directly into
+  `PolicySuiteChildInputs` at the wrapper boundary
 - the runtime policy-scanner-suite module no longer exposes a raw child-result
   parser at all; `PolicySuiteChildInputs` is now a pure typed carrier, and raw
   child payload normalization lives only in the wrapper boundary helper

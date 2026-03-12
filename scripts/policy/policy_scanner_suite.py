@@ -12,41 +12,22 @@ from gabion.tooling.runtime import policy_scanner_suite as runtime_policy_scanne
 from scripts.policy import hotspot_neighborhood_queue
 
 
-def _child_inputs_from_policy_results(
-    payload: object,
-) -> runtime_policy_scanner_suite.PolicySuiteChildInputs:
-    try:
-        items = tuple(payload.items())  # type: ignore[attr-defined]
-    except AttributeError:
-        return runtime_policy_scanner_suite.PolicySuiteChildInputs.empty()
+def _policy_result_status(payload: dict[str, object]) -> str | None:
+    status = str(payload.get("status", "") or "").strip()
+    return status or None
 
-    child_statuses: dict[str, str] = {}
-    projection_fiber_semantics: dict[str, object] | None = None
-    for key, value in items:
-        try:
-            mapping = dict(value.items())  # type: ignore[attr-defined]
-        except (AttributeError, TypeError, ValueError):
-            continue
-        status = str(mapping.get("status", "") or "").strip()
-        if status:
-            child_statuses[str(key)] = status
-        if str(key) != "policy_check":
-            continue
-        try:
-            raw_projection_fiber_semantics = mapping["projection_fiber_semantics"]
-            projection_fiber_semantics = dict(
-                raw_projection_fiber_semantics.items()  # type: ignore[union-attr]
-            )
-            if not projection_fiber_semantics:
-                projection_fiber_semantics = None
-        except KeyError:
-            projection_fiber_semantics = None
-        except (AttributeError, TypeError, ValueError):
-            projection_fiber_semantics = None
-    return runtime_policy_scanner_suite.PolicySuiteChildInputs(
-        child_statuses=child_statuses,
-        projection_fiber_semantics=projection_fiber_semantics,
-    )
+
+def _policy_check_projection_fiber_semantics(
+    payload: dict[str, object],
+) -> dict[str, object] | None:
+    if str(payload.get("rule_id", "") or "").strip() != "policy_check":
+        return None
+    raw_semantics = payload.get("projection_fiber_semantics")
+    match raw_semantics:
+        case dict() as semantics_mapping if semantics_mapping:
+            return dict(semantics_mapping)
+        case _:
+            return None
 
 
 def _load_preserved_policy_result(
@@ -96,7 +77,6 @@ def _resolve_external_child_inputs(
             ],
         ),
     )
-    results: dict[str, dict[str, object]] = {}
     env = os.environ.copy()
     existing_pythonpath = str(env.get("PYTHONPATH", "") or "").strip()
     root_pythonpath = str(root)
@@ -105,6 +85,8 @@ def _resolve_external_child_inputs(
         if not existing_pythonpath
         else f"{root_pythonpath}:{existing_pythonpath}"
     )
+    child_statuses: dict[str, str] = {}
+    projection_fiber_semantics: dict[str, object] | None = None
     for rule_id, command in checks:
         artifact = Path(command[-1])
         preserved = _load_preserved_policy_result(
@@ -112,7 +94,13 @@ def _resolve_external_child_inputs(
             expected_rule_id=rule_id,
         )
         if preserved is not None:
-            results[rule_id] = preserved
+            status = _policy_result_status(preserved)
+            if status is not None:
+                child_statuses[rule_id] = status
+            projection_fiber_semantics = (
+                _policy_check_projection_fiber_semantics(preserved)
+                or projection_fiber_semantics
+            )
             continue
         completed = subprocess.run(
             [sys.executable, *command],
@@ -122,13 +110,22 @@ def _resolve_external_child_inputs(
         )
         loaded = policy_result_schema.load_policy_result(artifact)
         if loaded is not None:
-            results[rule_id] = loaded
+            status = _policy_result_status(loaded)
+            if status is not None:
+                child_statuses[rule_id] = status
+            projection_fiber_semantics = (
+                _policy_check_projection_fiber_semantics(loaded)
+                or projection_fiber_semantics
+            )
             continue
         raise RuntimeError(
             "external policy result artifact missing after wrapper invocation: "
             f"rule_id={rule_id} returncode={completed.returncode} artifact={artifact}"
         )
-    return _child_inputs_from_policy_results(results)
+    return runtime_policy_scanner_suite.PolicySuiteChildInputs(
+        child_statuses=child_statuses,
+        projection_fiber_semantics=projection_fiber_semantics,
+    )
 
 
 def run(
