@@ -210,6 +210,27 @@ def test_count_by_groups_rows() -> None:
     ]
 
 
+# gabion:evidence E:call_footprint::tests/test_projection_spec.py::test_count_by_groups_structurally_equal_mapping_values::projection_exec.py::gabion.analysis.projection.projection_exec.apply_execution_ops
+# gabion:behavior primary=desired facets=edge
+def test_count_by_groups_structurally_equal_mapping_values() -> None:
+    spec = ProjectionSpec(
+        spec_version=1,
+        name="count-mappings",
+        domain="tests",
+        pipeline=(ProjectionOp("count_by", {"fields": ["group"]}),),
+    )
+    rows = [
+        {"group": {"b": 2, "a": 1}},
+        {"group": {"a": 1, "b": 2}},
+        {"group": {"a": 2}},
+    ]
+
+    assert _apply_spec(spec, rows) == [
+        {"group": {"b": 2, "a": 1}, "count": 2},
+        {"group": {"a": 2}, "count": 1},
+    ]
+
+
 # gabion:evidence E:call_footprint::tests/test_projection_spec.py::test_spec_from_dict_ignores_non_list_pipeline_payload::projection_spec.py::gabion.analysis.projection_spec.spec_from_dict
 # gabion:behavior primary=desired
 def test_spec_from_dict_ignores_non_list_pipeline_payload() -> None:

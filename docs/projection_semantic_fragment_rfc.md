@@ -1,5 +1,5 @@
 ---
-doc_revision: 103
+doc_revision: 104
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -562,8 +562,8 @@ Current implementation status:
 - the executor-side temporary grading is now narrower too: `projection_exec.py`
   no longer carries a separate normalized-op relay or runtime-params copy seam,
   and the remaining temporary grading on that path is concentrated on the real
-  typed execution surfaces plus the still-explicit sort/hash classification
-  helpers they depend on
+  typed execution surfaces plus the still-explicit sort/canonical-group-
+  reference helpers they depend on
 - that substrate output now crosses a runtime-facing boundary: `policy_check
   --output` carries a `projection_fiber_semantics` payload with the lattice
   decision, semantic report, and compiled projection-semantic bundles, so the
