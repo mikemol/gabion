@@ -1,5 +1,5 @@
 ---
-doc_revision: 78
+doc_revision: 79
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -727,11 +727,10 @@ Current implementation status:
 - `projection_exec.py` still executes the legacy row pipeline as a
   compatibility runtime, but semantic-only ops and semantic metadata are now
   erased at execution ingress rather than being tolerated by dispatch
-  fallthrough; the module is now explicitly marked as a temporary
-  `semantic_carrier_adapter` boundary so that compatibility work stays
-  boundary-scoped while the lowering layer lets the authoring surface converge
-  on the semantic fragment without widening semantic behavior in the legacy
-  runtime
+  fallthrough; that normalization/erasure step now lives in a dedicated
+  `projection_exec_ingress.py` adapter boundary, keeping the executor itself
+  closer to a pure row runtime while compatibility work stays boundary-scoped
+  during semantic-fragment convergence
 
 Implementation rule:
 - policy DSL must consume canonical carrier rows rather than infer semantics

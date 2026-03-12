@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from gabion.analysis.projection.projection_exec import (
     _hashable,
-    _normalize_execution_projection_op,
     _sort_value,
     apply_spec,
 )
@@ -281,34 +280,6 @@ def test_apply_spec_traverse_skips_when_field_invalid() -> None:
         pipeline=(ProjectionOp("traverse", {"field": 123}),),
     )
     assert apply_spec(spec, rows) == rows
-
-
-def test_normalized_execution_projection_op_erases_semantic_metadata_and_semantic_only_ops() -> None:
-    project_op = _normalize_execution_projection_op(
-        index=0,
-        op=ProjectionOp(
-            "project",
-            {
-                "fields": ["id"],
-                "quotient_face": "projection_fiber.frontier",
-            },
-        ),
-    )
-    reflect_op = _normalize_execution_projection_op(
-        index=1,
-        op=ProjectionOp("reflect", {"surface": "projection_fiber"}),
-    )
-    custom_op = _normalize_execution_projection_op(
-        index=2,
-        op=ProjectionOp("custom", {"a": 1}),
-    )
-
-    assert project_op.op_name == "project"
-    assert project_op.params == {"fields": ["id"]}
-    assert reflect_op.op_name == ""
-    assert reflect_op.params == {}
-    assert custom_op.op_name == ""
-    assert custom_op.params == {}
 
 
 def test_apply_spec_erases_semantic_projection_compatibility_at_exec_ingress() -> None:

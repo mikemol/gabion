@@ -8,16 +8,11 @@ from collections.abc import Callable, Iterable, Mapping
 from typing import cast
 
 from gabion.analysis.foundation.resume_codec import str_list_from_sequence
-from gabion.analysis.projection.projection_normalize import (
-    _extract_predicates,
-    _normalize_fields,
-    _normalize_group_fields,
-    _normalize_limit,
-    _normalize_predicates,
-    _normalize_sort_by,
-    _normalize_value,
+from gabion.analysis.projection.projection_exec_ingress import (
+    ExecutionProjectionOp,
+    execution_ops_from_spec,
 )
-from gabion.analysis.projection.projection_spec import ProjectionOp, ProjectionSpec
+from gabion.analysis.projection.projection_spec import ProjectionSpec
 from gabion.json_types import JSONValue
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.invariants import never
@@ -30,13 +25,6 @@ from gabion.runtime_shape_dispatch import (
 )
 
 Relation = list[dict[str, JSONValue]]
-
-
-@dataclass(frozen=True)
-class _NormalizedExecutionProjectionOp:
-    source_index: int
-    op_name: str
-    params: dict[str, JSONValue]
 
 
 @dataclass(frozen=True)
@@ -162,14 +150,11 @@ def apply_spec(
         for row in rows
     ]
 
-    for index, op in enumerate(spec.pipeline):
+    for execution_op in execution_ops_from_spec(spec):
         check_deadline()
-        normalized_op = _normalize_execution_projection_op(index=index, op=op)
-        if normalized_op.op_name == "":
-            continue
         current = _apply_normalized_execution_op(
             current,
-            normalized_op=normalized_op,
+            execution_op=execution_op,
             op_registry=op_registry,
             runtime_params=params,
         )
@@ -180,14 +165,14 @@ def apply_spec(
 def _apply_normalized_execution_op(
     rows: Relation,
     *,
-    normalized_op: _NormalizedExecutionProjectionOp,
+    execution_op: ExecutionProjectionOp,
     op_registry: Mapping[str, Callable[[Mapping[str, JSONValue], Mapping[str, JSONValue]], bool]],
     runtime_params: Mapping[str, JSONValue],
 ) -> Relation:
     return _apply_execution_op_from_map(
         rows,
-        op_name=normalized_op.op_name,
-        params_map=normalized_op.params,
+        op_name=execution_op.op_name,
+        params_map=execution_op.params,
         op_registry=op_registry,
         runtime_params=runtime_params,
     )
@@ -245,127 +230,8 @@ def _apply_execution_op_from_map(
     return current
 
 
-def _normalize_execution_projection_op(
-    *,
-    index: int,
-    op: ProjectionOp,
-) -> _NormalizedExecutionProjectionOp:
-    op_name = str(op.op).strip()
-    if not op_name:
-        return _NormalizedExecutionProjectionOp(
-            source_index=index,
-            op_name="",
-            params={},
-        )
-    params = _copy_json_mapping(op.params)
-    if op_name == "select":
-        predicates = _normalize_predicates(_extract_predicates(params))
-        if not predicates:
-            return _NormalizedExecutionProjectionOp(
-                source_index=index,
-                op_name="",
-                params={},
-            )
-        return _NormalizedExecutionProjectionOp(
-            source_index=index,
-            op_name=op_name,
-            params={"predicates": predicates},
-        )
-    if op_name == "project":
-        fields = _normalize_fields(_mapping_value(params, "fields"))
-        if not fields:
-            return _NormalizedExecutionProjectionOp(
-                source_index=index,
-                op_name="",
-                params={},
-            )
-        return _NormalizedExecutionProjectionOp(
-            source_index=index,
-            op_name=op_name,
-            params={"fields": list(fields)},
-        )
-    if op_name == "count_by":
-        fields = _normalize_group_fields(
-            _mapping_value(params, "fields")
-            if "fields" in params
-            else _mapping_value(params, "field")
-        )
-        if not fields:
-            return _NormalizedExecutionProjectionOp(
-                source_index=index,
-                op_name="",
-                params={},
-            )
-        return _NormalizedExecutionProjectionOp(
-            source_index=index,
-            op_name=op_name,
-            params={"fields": list(fields)},
-        )
-    if op_name == "traverse":
-        field = _normalized_nonempty_string(_mapping_value(params, "field"))
-        if not field:
-            return _NormalizedExecutionProjectionOp(
-                source_index=index,
-                op_name="",
-                params={},
-            )
-        normalized_params: dict[str, JSONValue] = {"field": field}
-        for key in ("merge", "keep", "prefix", "as", "index"):
-            if key in params:
-                normalized_params[key] = _normalize_value(params[key])
-        return _NormalizedExecutionProjectionOp(
-            source_index=index,
-            op_name=op_name,
-            params=normalized_params,
-        )
-    if op_name == "sort":
-        by = _normalize_sort_by(_mapping_value(params, "by"))
-        if not by:
-            return _NormalizedExecutionProjectionOp(
-                source_index=index,
-                op_name="",
-                params={},
-            )
-        return _NormalizedExecutionProjectionOp(
-            source_index=index,
-            op_name=op_name,
-            params={"by": by},
-        )
-    if op_name == "limit":
-        count = _normalize_limit(_mapping_value(params, "count"))
-        if count is None:
-            return _NormalizedExecutionProjectionOp(
-                source_index=index,
-                op_name="",
-                params={},
-            )
-        return _NormalizedExecutionProjectionOp(
-            source_index=index,
-            op_name=op_name,
-            params={"count": count},
-        )
-    return _NormalizedExecutionProjectionOp(
-        source_index=index,
-        op_name="",
-        params={},
-    )
-
-
-def _normalized_nonempty_string(value: JSONValue) -> str:
-    match value:
-        case str() as text_value:
-            return text_value.strip()
-    return ""
-
-
 def _copy_json_mapping(params: Mapping[str, JSONValue]) -> dict[str, JSONValue]:
     return {str(key): value for key, value in params.items()}
-
-
-def _mapping_value(params: Mapping[str, JSONValue], key: str) -> JSONValue:
-    if key in params:
-        return params[key]
-    return []
 
 
 def _sort_value(value: JSONValue) -> tuple[int, object]:
