@@ -1,5 +1,5 @@
 ---
-doc_revision: 34
+doc_revision: 35
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -629,8 +629,9 @@ Ratchet rules:
   input contract is intentionally generic and explicit
 - runtime/wrapper APIs must not preserve suite-era default artifact paths once
   every in-repo caller already passes an explicit artifact owner
-- runtime cache loaders must not preserve fixed suite-specific child-result
-  projections once canonical cached payloads already store `policy_results`
+- wrapper cache artifacts must not persist child-owned canonical policy
+  results once those results are already explicit boundary inputs; cache only
+  the wrapper-owned scan output plus the hashes needed to validate reuse
 - queue/report artifacts must not materialize queue-owned semantic-summary
   blobs when direct semantic fields and preview rows already discharge the same
   reporting obligation

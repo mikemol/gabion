@@ -270,9 +270,7 @@ def load_or_scan_policy_suite(
                 inventory_hash=inventory_hash,
                 rule_set_hash=rule_set_hash,
                 violations_by_rule=violations,
-                policy_results=_normalized_policy_result_mapping(
-                    cached_payload.get("policy_results")
-                ),
+                policy_results=normalized_policy_results,
                 cached=True,
             )
 
@@ -284,7 +282,7 @@ def load_or_scan_policy_suite(
         head_sha=head_sha,
         changed_paths=changed_paths,
     )
-    payload = result.to_payload()
+    payload = _cache_payload(result)
     payload["policy_results_hash"] = policy_results_hash
     payload["changed_scope_hash"] = changed_scope_hash
     artifact_path.parent.mkdir(parents=True, exist_ok=True)
@@ -640,6 +638,12 @@ def _violations_from_payload(payload: Mapping[str, Any]) -> dict[str, list[dict[
             return dict(pairs)
         case _:
             return _empty_violations_payload()
+
+
+def _cache_payload(result: PolicySuiteResult) -> dict[str, object]:
+    payload = result.to_payload()
+    payload.pop("policy_results", None)
+    return payload
 
 
 def _empty_violations_payload() -> dict[str, list[dict[str, Any]]]:

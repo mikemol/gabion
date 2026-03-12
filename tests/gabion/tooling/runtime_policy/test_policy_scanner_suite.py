@@ -94,6 +94,8 @@ def test_policy_scanner_suite_scan_and_cache(tmp_path: Path) -> None:
     assert second.cached is True
     assert second.inventory_hash == first.inventory_hash
     assert second.rule_set_hash == first.rule_set_hash
+    cached_payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    assert "policy_results" not in cached_payload
 
 
 # gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_cache_invalidation_and_payload_normalization::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
@@ -857,43 +859,45 @@ def test_policy_scanner_suite_scopes_boundary_core_rule_to_changed_paths(
 # gabion:behavior primary=desired
 def test_policy_scanner_suite_carries_external_policy_results(tmp_path: Path) -> None:
     root = tmp_path
-    result = policy_scanner_suite.scan_policy_suite(
-        root=root,
-        policy_results={
-            "policy_check": {
-                "rule_id": "policy_check",
-                "status": "pass",
-                "violations": [],
-                "projection_fiber_semantics": {
-                    "decision": {"rule_id": "projection_fiber.convergence.ok"},
-                    "report": {
-                        "semantic_rows": [
-                            {
-                                "structural_identity": "row-1",
-                                "obligation_state": "discharged",
-                                "payload": {
-                                    "path": "src/gabion/example.py",
-                                    "qualname": "example.frontier",
-                                    "structural_path": "example.frontier::branch[0]",
-                                    "complete": True,
-                                },
-                            }
-                        ],
-                        "compiled_projection_semantic_bundles": [
-                            {
-                                "spec_name": "projection_fiber_frontier",
-                                "bindings": [
-                                    {
-                                        "quotient_face": "projection_fiber.frontier",
-                                        "source_structural_identity": "row-1",
-                                    }
-                                ],
-                            }
-                        ]
-                    },
+    artifact_path = root / "artifacts/out/policy_suite_results.json"
+    policy_results = {
+        "policy_check": {
+            "rule_id": "policy_check",
+            "status": "pass",
+            "violations": [],
+            "projection_fiber_semantics": {
+                "decision": {"rule_id": "projection_fiber.convergence.ok"},
+                "report": {
+                    "semantic_rows": [
+                        {
+                            "structural_identity": "row-1",
+                            "obligation_state": "discharged",
+                            "payload": {
+                                "path": "src/gabion/example.py",
+                                "qualname": "example.frontier",
+                                "structural_path": "example.frontier::branch[0]",
+                                "complete": True,
+                            },
+                        }
+                    ],
+                    "compiled_projection_semantic_bundles": [
+                        {
+                            "spec_name": "projection_fiber_frontier",
+                            "bindings": [
+                                {
+                                    "quotient_face": "projection_fiber.frontier",
+                                    "source_structural_identity": "row-1",
+                                }
+                            ],
+                        }
+                    ]
                 },
             },
         },
+    }
+    result = policy_scanner_suite.scan_policy_suite(
+        root=root,
+        policy_results=policy_results,
     )
     assert result.policy_results["policy_check"]["status"] == "pass"
     semantics = result.policy_results["policy_check"]["projection_fiber_semantics"]
@@ -922,6 +926,28 @@ def test_policy_scanner_suite_carries_external_policy_results(tmp_path: Path) ->
             "complete": True,
         }
     ]
+
+    cached = policy_scanner_suite.load_or_scan_policy_suite(
+        root=root,
+        artifact_path=artifact_path,
+        policy_results=policy_results,
+    )
+    assert cached.cached is False
+    persisted_payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    assert "policy_results" not in persisted_payload
+
+    cached_again = policy_scanner_suite.load_or_scan_policy_suite(
+        root=root,
+        artifact_path=artifact_path,
+        policy_results=policy_results,
+    )
+    assert cached_again.cached is True
+    assert cached_again.policy_results["policy_check"]["status"] == "pass"
+    cached_summary = projection_fiber_semantics_summary_from_payload(
+        cached_again.to_payload()
+    )
+    assert cached_summary is not None
+    assert cached_summary.decision["rule_id"] == "projection_fiber.convergence.ok"
 
 
 def test_projection_fiber_semantics_summary_requires_canonical_payload_shape() -> None:
