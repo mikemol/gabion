@@ -457,7 +457,6 @@ def analyze(
         "format_version": 1,
         "generated_at_utc": datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
         "source": {
-            "source_generated_at_utc": payload.get("generated_at_utc"),
             "projection_fiber_decision": projection_fiber_decision,
             "projection_fiber_semantic_bundle_count": projection_fiber_semantic_bundle_count,
             "projection_fiber_semantic_preview_count": len(semantic_previews),

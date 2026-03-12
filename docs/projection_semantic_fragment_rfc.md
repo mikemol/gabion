@@ -1,5 +1,5 @@
 ---
-doc_revision: 50
+doc_revision: 51
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -622,6 +622,10 @@ Current implementation status:
   `decision`; callers that need the suite decision compute it from
   `PolicySuiteResult.decision()`, keeping the serialized reporting carrier
   closer to canonical `violations`
+- the outward `PolicySuiteResult` payload no longer emits `generated_at_utc`,
+  and the hotspot-neighborhood queue no longer copies a
+  `source_generated_at_utc` field from that payload; queue artifacts now keep
+  only their own generation timestamp plus direct source-derived content
 - wrapper-owned policy-result synthesis has now been removed from the
   policy-suite path entirely: the deprecated-nonerasability child check emits
   its own canonical `skip` result when baseline/current inputs are absent, and

@@ -196,7 +196,6 @@ class PolicySuiteResult:
     def to_payload(self) -> dict[str, object]:
         payload: dict[str, object] = {
             "format_version": _FORMAT_VERSION,
-            "generated_at_utc": datetime.now(timezone.utc).isoformat(),
             "violations": self.violations_by_rule,
         }
         if self.projection_fiber_semantics is not None:

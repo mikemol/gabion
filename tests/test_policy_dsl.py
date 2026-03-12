@@ -51,6 +51,7 @@ def test_scanner_result_uses_dsl_decision_shape() -> None:
     assert "cached" not in payload
     assert "counts" not in payload
     assert "decision" not in payload
+    assert "generated_at_utc" not in payload
     assert "root" not in payload
     assert decision.rule_id == "scanner.branchless.blocking"
     assert decision.outcome.value == "block"

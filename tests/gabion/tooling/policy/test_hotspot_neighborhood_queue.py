@@ -169,7 +169,7 @@ def test_run_writes_json_and_markdown_outputs(tmp_path: Path) -> None:
     assert out.exists()
     assert md.exists()
     payload = json.loads(out.read_text(encoding="utf-8"))
-    assert payload["source"]["source_generated_at_utc"] == "2026-03-09T00:00:00Z"
+    assert "source_generated_at_utc" not in payload["source"]
     assert "inventory_hash" not in payload["source"]
     assert "rule_set_hash" not in payload["source"]
     assert "policy_results_hash" not in payload["source"]
@@ -319,7 +319,7 @@ def test_analyze_carries_projection_fiber_semantic_fields() -> None:
     )
 
     source = queue["source"]
-    assert source["source_generated_at_utc"] == "2026-03-09T00:00:00Z"
+    assert "source_generated_at_utc" not in source
     assert source["projection_fiber_decision"]["rule_id"] == (
         "projection_fiber.convergence.ok"
     )
