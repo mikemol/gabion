@@ -1,5 +1,5 @@
 ---
-doc_revision: 29
+doc_revision: 30
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -544,6 +544,9 @@ Current implementation status:
   artifact path instead of baking in `policy_suite_results.json`, so the
   compatibility wrapper no longer projects that artifact name as an implicit
   ownership contract
+- the runtime policy-scanner-suite cache loader now normalizes only the
+  canonical `policy_results` payload it persists itself, rather than carrying
+  a wrapper-era top-level child-result compatibility branch
 - the shared projection-fiber summary decoder no longer accepts a top-level
   `policy_check` wrapper payload as a generic ingress shape; canonical summary
   decoding is now restricted to direct `policy_check` payloads,
@@ -611,6 +614,8 @@ Ratchet rules:
   input contract is intentionally generic and explicit
 - runtime/wrapper APIs must not preserve suite-era default artifact paths once
   every in-repo caller already passes an explicit artifact owner
+- runtime cache loaders must not preserve wrapper-era top-level child-result
+  normalization once canonical cached payloads already store `policy_results`
 - shared semantic-summary decoders must not preserve wrapper-only ingress
   branches once the canonical artifact paths are explicit
 - shared decoders must not retain retired suite-local embedding fallbacks once

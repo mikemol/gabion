@@ -1,0 +1,2843 @@
+@prefix cat:  <https://example.org/cat#> .
+@prefix lg:   <https://example.org/lg#> .
+@prefix sh:   <http://www.w3.org/ns/shacl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+lg:thisVar a lg:ReservedVariable ;
+  lg:variableName "this" .
+
+lg:sVar a lg:QueryVariable ; lg:variableName "s" .
+lg:tVar a lg:QueryVariable ; lg:variableName "t" .
+lg:cVar a lg:QueryVariable ; lg:variableName "c" .
+lg:rVar a lg:QueryVariable ; lg:variableName "r" .
+lg:g2Var a lg:QueryVariable ; lg:variableName "g2" .
+lg:iVar a lg:QueryVariable ; lg:variableName "i" .
+
+lg:augmentedRuleTypingConsistencyQuery
+  a lg:SelectQuery ;
+  lg:projectsVariable lg:thisVar ;
+  lg:wherePattern lg:augmentedRuleTypingConsistencyPattern .
+
+lg:augmentedRuleTypingConsistencyPattern
+  a lg:AntiJoinPattern ;
+  lg:leftPattern lg:augmentedRuleTypingConsistencyJoin ;
+  lg:rightPattern lg:augmentedRuleTypingConsistencyRequiredEdge .
+
+lg:augmentedRuleTypingConsistencyJoin
+  a lg:JoinPattern ;
+  lg:leftPattern lg:augmentedRuleHasSyntaxTriple ;
+  lg:rightPattern lg:augmentedRuleHasTypingTriple .
+
+lg:augmentedRuleHasSyntaxTriple
+  a lg:TriplePattern ;
+  lg:subjectTerm lg:thisVar ;
+  lg:predicateTerm lg:hasSyntaxClause ;
+  lg:objectTerm lg:sVar .
+
+lg:augmentedRuleHasTypingTriple
+  a lg:TriplePattern ;
+  lg:subjectTerm lg:thisVar ;
+  lg:predicateTerm lg:hasTypingClause ;
+  lg:objectTerm lg:tVar .
+
+lg:augmentedRuleTypingConsistencyRequiredEdge
+  a lg:TriplePattern ;
+  lg:subjectTerm lg:tVar ;
+  lg:predicateTerm lg:fiberOverSyntaxClause ;
+  lg:objectTerm lg:sVar .
+
+lg:augmentedRuleTypingConsistencyRendering
+  a lg:QueryRendering ;
+  lg:wrapsQueryAST lg:augmentedRuleTypingConsistencyQuery ;
+  rdf:value """
+    SELECT $this
+    WHERE {
+      $this lg:hasSyntaxClause ?s ;
+            lg:hasTypingClause ?t .
+      FILTER NOT EXISTS { ?t lg:fiberOverSyntaxClause ?s . }
+    }
+  """ .
+
+lg:augmentedRuleCategoricalConsistencyQuery
+  a lg:SelectQuery ;
+  lg:projectsVariable lg:thisVar ;
+  lg:wherePattern lg:augmentedRuleCategoricalConsistencyPattern .
+
+lg:augmentedRuleCategoricalConsistencyPattern
+  a lg:AntiJoinPattern ;
+  lg:leftPattern lg:augmentedRuleCategoricalConsistencyJoin ;
+  lg:rightPattern lg:augmentedRuleCategoricalConsistencyRequiredEdge .
+
+lg:augmentedRuleCategoricalConsistencyJoin
+  a lg:JoinPattern ;
+  lg:leftPattern lg:augmentedRuleHasTypingTriple ;
+  lg:rightPattern lg:augmentedRuleHasCategoricalTriple .
+
+lg:augmentedRuleHasCategoricalTriple
+  a lg:TriplePattern ;
+  lg:subjectTerm lg:thisVar ;
+  lg:predicateTerm lg:hasCategoricalClause ;
+  lg:objectTerm lg:cVar .
+
+lg:augmentedRuleCategoricalConsistencyRequiredEdge
+  a lg:TriplePattern ;
+  lg:subjectTerm lg:cVar ;
+  lg:predicateTerm lg:indexedByTypingClause ;
+  lg:objectTerm lg:tVar .
+
+lg:augmentedRuleCategoricalConsistencyRendering
+  a lg:QueryRendering ;
+  lg:wrapsQueryAST lg:augmentedRuleCategoricalConsistencyQuery ;
+  rdf:value """
+    SELECT $this
+    WHERE {
+      $this lg:hasTypingClause ?t ;
+            lg:hasCategoricalClause ?c .
+      FILTER NOT EXISTS { ?c lg:indexedByTypingClause ?t . }
+    }
+  """ .
+
+lg:evolutionIdentifierPersistenceQuery
+  a lg:SelectQuery ;
+  lg:projectsVariable lg:thisVar ;
+  lg:wherePattern lg:evolutionIdentifierPersistencePattern .
+
+lg:evolutionIdentifierPersistencePattern
+  a lg:AntiJoinPattern ;
+  lg:leftPattern lg:evolutionIdentifierPersistenceJoin ;
+  lg:rightPattern lg:evolutionIdentifierPersistenceRequiredEdge .
+
+lg:evolutionIdentifierPersistenceJoin
+  a lg:JoinPattern ;
+  lg:leftPattern lg:evolutionViaRuleTriple ;
+  lg:rightPattern lg:evolutionToGrammarTriple .
+
+lg:evolutionViaRuleTriple
+  a lg:TriplePattern ;
+  lg:subjectTerm lg:thisVar ;
+  lg:predicateTerm lg:viaRule ;
+  lg:objectTerm lg:rVar .
+
+lg:evolutionToGrammarTriple
+  a lg:TriplePattern ;
+  lg:subjectTerm lg:thisVar ;
+  lg:predicateTerm lg:toGrammarState ;
+  lg:objectTerm lg:g2Var .
+
+lg:evolutionIdentifierPersistenceRequiredEdge
+  a lg:JoinPattern ;
+  lg:leftPattern lg:ruleIntroducesIdentifierTriple ;
+  lg:rightPattern lg:grammarRetainsIdentifierTriple .
+
+lg:ruleIntroducesIdentifierTriple
+  a lg:TriplePattern ;
+  lg:subjectTerm lg:rVar ;
+  lg:predicateTerm lg:introducesIdentifier ;
+  lg:objectTerm lg:iVar .
+
+lg:grammarRetainsIdentifierTriple
+  a lg:TriplePattern ;
+  lg:subjectTerm lg:g2Var ;
+  lg:predicateTerm lg:hasEmergentIdentifier ;
+  lg:objectTerm lg:iVar .
+
+lg:evolutionIdentifierPersistenceRendering
+  a lg:QueryRendering ;
+  lg:wrapsQueryAST lg:evolutionIdentifierPersistenceQuery ;
+  rdf:value """
+    SELECT $this
+    WHERE {
+      $this lg:viaRule ?r ;
+            lg:toGrammarState ?g2 .
+      ?r lg:introducesIdentifier ?i .
+      FILTER NOT EXISTS { ?g2 lg:hasEmergentIdentifier ?i . }
+    }
+  """ .
+
+lg:evolutionRulePersistenceQuery
+  a lg:SelectQuery ;
+  lg:projectsVariable lg:thisVar ;
+  lg:wherePattern lg:evolutionRulePersistencePattern .
+
+lg:evolutionRulePersistencePattern
+  a lg:AntiJoinPattern ;
+  lg:leftPattern lg:evolutionRulePersistenceJoin ;
+  lg:rightPattern lg:evolutionRulePersistenceRequiredEdge .
+
+lg:evolutionRulePersistenceJoin
+  a lg:JoinPattern ;
+  lg:leftPattern lg:evolutionViaRuleTriple ;
+  lg:rightPattern lg:evolutionToGrammarTriple .
+
+lg:evolutionRulePersistenceRequiredEdge
+  a lg:TriplePattern ;
+  lg:subjectTerm lg:g2Var ;
+  lg:predicateTerm lg:hasRule ;
+  lg:objectTerm lg:rVar .
+
+lg:evolutionRulePersistenceRendering
+  a lg:QueryRendering ;
+  lg:wrapsQueryAST lg:evolutionRulePersistenceQuery ;
+  rdf:value """
+    SELECT $this
+    WHERE {
+      $this lg:viaRule ?r ;
+            lg:toGrammarState ?g2 .
+      FILTER NOT EXISTS { ?g2 lg:hasRule ?r . }
+    }
+  """ .
+
+cat:MorphismShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass cat:Morphism ;
+  lg:constrainsClass cat:Morphism ;
+  sh:property [
+    sh:path cat:dom ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class cat:Object
+  ] ;
+  sh:property [
+    sh:path cat:cod ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class cat:Object
+  ] .
+
+cat:FunctorShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass cat:Functor ;
+  lg:constrainsClass cat:Functor ;
+  sh:property [
+    sh:path cat:sourceCategory ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class cat:Category
+  ] ;
+  sh:property [
+    sh:path cat:targetCategory ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class cat:Category
+  ] .
+
+lg:QueryVariableShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:QueryVariable ;
+  lg:constrainsClass lg:QueryVariable ;
+  sh:property [
+    sh:path lg:variableName ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:datatype xsd:string
+  ] .
+
+lg:SelectQueryShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:SelectQuery ;
+  lg:constrainsClass lg:SelectQuery ;
+  sh:property [
+    sh:path lg:projectsVariable ;
+    sh:minCount 1 ;
+    sh:class lg:QueryVariable
+  ] ;
+  sh:property [
+    sh:path lg:wherePattern ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:GraphPattern
+  ] .
+
+lg:TriplePatternShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:TriplePattern ;
+  lg:constrainsClass lg:TriplePattern ;
+  sh:property [
+    sh:path lg:subjectTerm ;
+    sh:minCount 1 ;
+    sh:maxCount 1
+  ] ;
+  sh:property [
+    sh:path lg:predicateTerm ;
+    sh:minCount 1 ;
+    sh:maxCount 1
+  ] ;
+  sh:property [
+    sh:path lg:objectTerm ;
+    sh:minCount 1 ;
+    sh:maxCount 1
+  ] .
+
+lg:JoinPatternShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:JoinPattern ;
+  lg:constrainsClass lg:JoinPattern ;
+  sh:property [
+    sh:path lg:leftPattern ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:GraphPattern
+  ] ;
+  sh:property [
+    sh:path lg:rightPattern ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:GraphPattern
+  ] .
+
+lg:AntiJoinPatternShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:AntiJoinPattern ;
+  lg:constrainsClass lg:AntiJoinPattern ;
+  sh:property [
+    sh:path lg:leftPattern ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:GraphPattern
+  ] ;
+  sh:property [
+    sh:path lg:rightPattern ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:GraphPattern
+  ] .
+
+lg:QueryRenderingShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:QueryRendering ;
+  lg:constrainsClass lg:QueryRendering ;
+  sh:property [
+    sh:path lg:wrapsQueryAST ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:QueryAST
+  ] ;
+  sh:property [
+    sh:path rdf:value ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:datatype xsd:string
+  ] .
+
+lg:queryRenderingWrapsSameASTCheck
+  a lg:SelectQuery ;
+  lg:projectsVariable lg:thisVar ;
+  lg:wherePattern [
+    a lg:AntiJoinPattern ;
+    lg:leftPattern [
+      a lg:JoinPattern ;
+      lg:leftPattern [
+        a lg:TriplePattern ;
+        lg:subjectTerm lg:thisVar ;
+        lg:predicateTerm lg:hasQueryAST ;
+        lg:objectTerm [ a lg:QueryVariable ; lg:variableName "q" ]
+      ] ;
+      lg:rightPattern [
+        a lg:TriplePattern ;
+        lg:subjectTerm lg:thisVar ;
+        lg:predicateTerm lg:hasQueryRendering ;
+        lg:objectTerm [ a lg:QueryVariable ; lg:variableName "r" ]
+      ]
+    ] ;
+    lg:rightPattern [
+      a lg:TriplePattern ;
+      lg:subjectTerm [ a lg:QueryVariable ; lg:variableName "r" ] ;
+      lg:predicateTerm lg:wrapsQueryAST ;
+      lg:objectTerm [ a lg:QueryVariable ; lg:variableName "q" ]
+    ]
+  ] .
+
+lg:queryRenderingWrapsSameASTCheckRendering
+  a lg:QueryRendering ;
+  lg:wrapsQueryAST lg:queryRenderingWrapsSameASTCheck ;
+  rdf:value """
+    SELECT $this
+    WHERE {
+      $this lg:hasQueryAST ?q ;
+            lg:hasQueryRendering ?r .
+      FILTER NOT EXISTS { ?r lg:wrapsQueryAST ?q . }
+    }
+  """ .
+
+lg:queryRenderingMatchesSelectTextCheck
+  a lg:SelectQuery ;
+  lg:projectsVariable lg:thisVar ;
+  lg:wherePattern [
+    a lg:AntiJoinPattern ;
+    lg:leftPattern [
+      a lg:JoinPattern ;
+      lg:leftPattern [
+        a lg:TriplePattern ;
+        lg:subjectTerm lg:thisVar ;
+        lg:predicateTerm lg:hasQueryRendering ;
+        lg:objectTerm [ a lg:QueryVariable ; lg:variableName "r" ]
+      ] ;
+      lg:rightPattern [
+        a lg:TriplePattern ;
+        lg:subjectTerm lg:thisVar ;
+        lg:predicateTerm sh:select ;
+        lg:objectTerm [ a lg:QueryVariable ; lg:variableName "s" ]
+      ]
+    ] ;
+    lg:rightPattern [
+      a lg:TriplePattern ;
+      lg:subjectTerm [ a lg:QueryVariable ; lg:variableName "r" ] ;
+      lg:predicateTerm rdf:value ;
+      lg:objectTerm [ a lg:QueryVariable ; lg:variableName "s" ]
+    ]
+  ] .
+
+lg:queryRenderingMatchesSelectTextCheckRendering
+  a lg:QueryRendering ;
+  lg:wrapsQueryAST lg:queryRenderingMatchesSelectTextCheck ;
+  rdf:value """
+    SELECT $this
+    WHERE {
+      $this lg:hasQueryRendering ?r ;
+            sh:select ?s .
+      FILTER NOT EXISTS { ?r rdf:value ?s . }
+    }
+  """ .
+
+lg:SPARQLConstraintShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:SPARQLConstraint ;
+  lg:constrainsClass lg:SPARQLConstraint ;
+  sh:property [
+    sh:path lg:hasQueryAST ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:SelectQuery
+  ] ;
+  sh:property [
+    sh:path lg:hasQueryRendering ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:QueryRendering
+  ] ;
+  sh:property [
+    sh:path sh:select ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:datatype xsd:string
+  ] ;
+  sh:sparql [
+    a lg:SPARQLConstraint ;
+    sh:message "The query rendering of a SPARQL constraint must wrap the same query AST carried by the constraint." ;
+    lg:hasQueryAST lg:queryRenderingWrapsSameASTCheck ;
+    lg:hasQueryRendering lg:queryRenderingWrapsSameASTCheckRendering ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasQueryAST ?q ;
+              lg:hasQueryRendering ?r .
+        FILTER NOT EXISTS { ?r lg:wrapsQueryAST ?q . }
+      }
+    """
+  ] ;
+  sh:sparql [
+    a lg:SPARQLConstraint ;
+    sh:message "The lowered sh:select string must agree with the rdf:value of the query rendering node." ;
+    lg:hasQueryAST lg:queryRenderingMatchesSelectTextCheck ;
+    lg:hasQueryRendering lg:queryRenderingMatchesSelectTextCheckRendering ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasQueryRendering ?r ;
+              sh:select ?s .
+        FILTER NOT EXISTS { ?r rdf:value ?s . }
+      }
+    """
+  ] .
+
+lg:TypingRuleShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:TypingRule ;
+  lg:constrainsClass lg:TypingRule ;
+  sh:property [
+    sh:path lg:fiberOverSyntaxClause ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:SyntacticRule
+  ] .
+
+lg:CategoricalRuleShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:CategoricalRule ;
+  lg:constrainsClass lg:CategoricalRule ;
+  sh:property [
+    sh:path lg:indexedByTypingClause ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:TypingRule
+  ] ;
+  sh:property [
+    sh:path lg:denotesTransition ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:ExecutableTransition
+  ] .
+
+lg:AugmentedRuleShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:AugmentedRule ;
+  lg:constrainsClass lg:AugmentedRule ;
+  sh:property [
+    sh:path lg:hasSyntaxClause ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:SyntacticRule
+  ] ;
+  sh:property [
+    sh:path lg:hasTypingClause ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:TypingRule
+  ] ;
+  sh:property [
+    sh:path lg:hasCategoricalClause ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:CategoricalRule
+  ] ;
+  sh:property [
+    sh:path lg:introducesIdentifier ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:Identifier
+  ] ;
+  sh:sparql [
+    a lg:SPARQLConstraint ;
+    sh:message "The typing clause of an augmented rule must fiber over that rule's syntax clause." ;
+    lg:hasQueryAST lg:augmentedRuleTypingConsistencyQuery ;
+    lg:hasQueryRendering lg:augmentedRuleTypingConsistencyRendering ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasSyntaxClause ?s ;
+              lg:hasTypingClause ?t .
+        FILTER NOT EXISTS { ?t lg:fiberOverSyntaxClause ?s . }
+      }
+    """
+  ] ;
+  sh:sparql [
+    a lg:SPARQLConstraint ;
+    sh:message "The categorical clause of an augmented rule must be indexed by that rule's typing clause." ;
+    lg:hasQueryAST lg:augmentedRuleCategoricalConsistencyQuery ;
+    lg:hasQueryRendering lg:augmentedRuleCategoricalConsistencyRendering ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasTypingClause ?t ;
+              lg:hasCategoricalClause ?c .
+        FILTER NOT EXISTS { ?c lg:indexedByTypingClause ?t . }
+      }
+    """
+  ] .
+
+lg:TypingJudgmentShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:TypingJudgment ;
+  lg:constrainsClass lg:TypingJudgment ;
+  sh:property [
+    sh:path lg:judgesTerm ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:CoreTerm
+  ] ;
+  sh:property [
+    sh:path lg:judgesType ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:SemanticType
+  ] ;
+  sh:property [
+    sh:path lg:judgesInWorldState ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:WorldState
+  ] ;
+  sh:property [
+    sh:path lg:judgesUnderGrammarState ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:GrammarState
+  ] .
+
+lg:EvolutionStepShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:EvolutionStep ;
+  lg:constrainsClass lg:EvolutionStep ;
+  sh:property [
+    sh:path lg:fromGrammarState ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:GrammarState
+  ] ;
+  sh:property [
+    sh:path lg:viaRule ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:AugmentedRule
+  ] ;
+  sh:property [
+    sh:path lg:toGrammarState ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:GrammarState
+  ] ;
+  sh:sparql [
+    a lg:SPARQLConstraint ;
+    sh:message "The target grammar state of an evolution step must include the rule's introduced identifier." ;
+    lg:hasQueryAST lg:evolutionIdentifierPersistenceQuery ;
+    lg:hasQueryRendering lg:evolutionIdentifierPersistenceRendering ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:viaRule ?r ;
+              lg:toGrammarState ?g2 .
+        ?r lg:introducesIdentifier ?i .
+        FILTER NOT EXISTS { ?g2 lg:hasEmergentIdentifier ?i . }
+      }
+    """
+  ] ;
+  sh:sparql [
+    a lg:SPARQLConstraint ;
+    sh:message "The target grammar state of an evolution step must include the introduced augmented rule." ;
+    lg:hasQueryAST lg:evolutionRulePersistenceQuery ;
+    lg:hasQueryRendering lg:evolutionRulePersistenceRendering ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:viaRule ?r ;
+              lg:toGrammarState ?g2 .
+        FILTER NOT EXISTS { ?g2 lg:hasRule ?r . }
+      }
+    """
+  ] .
+
+lg:ReflectionShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:CoreTerm ;
+  lg:constrainsClass lg:CoreTerm ;
+  sh:property [
+    sh:path lg:reifiesAsHandle ;
+    sh:maxCount 1 ;
+    sh:class lg:Handle
+  ] .
+
+
+# ---- Galois / polarity shapes ----
+
+lg:RulePolarityShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:RulePolarity ;
+  lg:constrainsClass lg:RulePolarity ;
+  sh:property [
+    sh:path lg:hasWitnessDomain ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:WitnessDomain
+  ] ;
+  sh:property [
+    sh:path lg:hasPredicateDomain ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:PredicateDomain
+  ] ;
+  sh:property [
+    sh:path lg:hasIncidenceRelation ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:IncidenceRelation
+  ] ;
+  sh:property [
+    sh:path lg:valuedInSemiring ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:Semiring
+  ] ;
+  sh:property [
+    sh:path lg:hasWitnessDerivation ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:DerivationOperator
+  ] ;
+  sh:property [
+    sh:path lg:hasPredicateDerivation ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:DerivationOperator
+  ] ;
+  sh:property [
+    sh:path lg:hasExtentClosure ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:ClosureOperator
+  ] ;
+  sh:property [
+    sh:path lg:hasIntentClosure ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:ClosureOperator
+  ] ;
+  sh:property [
+    sh:path lg:hasSupportReflection ;
+    sh:maxCount 1 ;
+    sh:class lg:SupportReflection
+  ] ;
+  sh:sparql [
+    sh:message "The witness derivation must go from the witness domain to the predicate domain of the same polarity." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasWitnessDomain ?w ;
+              lg:hasPredicateDomain ?p ;
+              lg:hasWitnessDerivation ?d .
+        FILTER NOT EXISTS {
+          ?d cat:dom ?w ;
+             cat:cod ?p .
+        }
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "The predicate derivation must go from the predicate domain to the witness domain of the same polarity." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasWitnessDomain ?w ;
+              lg:hasPredicateDomain ?p ;
+              lg:hasPredicateDerivation ?d .
+        FILTER NOT EXISTS {
+          ?d cat:dom ?p ;
+             cat:cod ?w .
+        }
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "The extent closure must close on the witness domain of the same polarity." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasWitnessDomain ?w ;
+              lg:hasExtentClosure ?c .
+        FILTER NOT EXISTS {
+          ?c cat:dom ?w ;
+             cat:cod ?w .
+        }
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "The intent closure must close on the predicate domain of the same polarity." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasPredicateDomain ?p ;
+              lg:hasIntentClosure ?c .
+        FILTER NOT EXISTS {
+          ?c cat:dom ?p ;
+             cat:cod ?p .
+        }
+      }
+    """
+  ] .
+
+lg:AugmentedRulePolarityShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:AugmentedRule ;
+  lg:constrainsClass lg:AugmentedRule ;
+  sh:property [
+    sh:path lg:hasPolarity ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:RulePolarity
+  ] .
+
+lg:SemanticAtlasShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:SemanticAtlas ;
+  lg:constrainsClass lg:SemanticAtlas ;
+  sh:property [
+    sh:path lg:hasMatrixPresentation ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:MatrixPresentation
+  ] ;
+  sh:property [
+    sh:path lg:hasKleisliPresentation ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:KleisliPresentation
+  ] ;
+  sh:property [
+    sh:path lg:hasPredicatePresentation ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:PredicatePresentation
+  ] .
+
+lg:CategoricalRuleAtlasShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:CategoricalRule ;
+  lg:constrainsClass lg:CategoricalRule ;
+  sh:property [
+    sh:path lg:hasSemanticAtlas ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:SemanticAtlas
+  ] .
+
+lg:ClosedRuleCellShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:ClosedRuleCell ;
+  lg:constrainsClass lg:ClosedRuleCell ;
+  sh:property [
+    sh:path lg:hasClosedExtent ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:ClosedExtent
+  ] ;
+  sh:property [
+    sh:path lg:hasClosedIntent ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:ClosedIntent
+  ] .
+
+
+# ---- Quotient recovery and lattice shapes ----
+
+lg:QuotientProjectionShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:QuotientProjection ;
+  lg:constrainsClass lg:QuotientProjection ;
+  sh:property [
+    sh:path lg:quotientsBy ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:KernelCongruence
+  ] .
+
+lg:ConceptLatticeShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:ConceptLattice ;
+  lg:constrainsClass lg:ConceptLattice ;
+  sh:property [
+    sh:path lg:generatedByPolarity ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:RulePolarity
+  ] ;
+  sh:property [
+    sh:path lg:hasFormalConcept ;
+    sh:minCount 1 ;
+    sh:class lg:FormalConcept
+  ] ;
+  sh:property [
+    sh:path lg:hasTopConcept ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:FormalConcept
+  ] ;
+  sh:property [
+    sh:path lg:hasBottomConcept ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:FormalConcept
+  ] ;
+  sh:property [
+    sh:path lg:hasOrderRelation ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:OrderRelation
+  ] ;
+  sh:property [
+    sh:path lg:hasMeetOperation ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:MeetOperation
+  ] ;
+  sh:property [
+    sh:path lg:hasJoinOperation ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:JoinOperation
+  ] .
+
+lg:FormalConceptShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:FormalConcept ;
+  lg:constrainsClass lg:FormalConcept ;
+  sh:property [
+    sh:path lg:formalExtent ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:ClosedExtent
+  ] ;
+  sh:property [
+    sh:path lg:formalIntent ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:ClosedIntent
+  ] ;
+  sh:property [
+    sh:path lg:memberOfLattice ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:ConceptLattice
+  ] .
+
+lg:RulePolarityLatticeShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:RulePolarity ;
+  lg:constrainsClass lg:RulePolarity ;
+  sh:property [
+    sh:path lg:inducesConceptLattice ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:ConceptLattice
+  ] ;
+  sh:sparql [
+    sh:message "A polarity's induced concept lattice must point back to the same polarity as its generator." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:inducesConceptLattice ?l .
+        FILTER NOT EXISTS { ?l lg:generatedByPolarity $this . }
+      }
+    """
+  ] .
+
+lg:ClosedRuleCellQuotientShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:ClosedRuleCell ;
+  lg:constrainsClass lg:ClosedRuleCell ;
+  sh:property [
+    sh:path lg:hasSyntaxProjection ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:QuotientProjection
+  ] ;
+  sh:property [
+    sh:path lg:hasTypingProjection ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:QuotientProjection
+  ] ;
+  sh:property [
+    sh:path lg:hasSemanticProjection ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:QuotientProjection
+  ] ;
+  sh:property [
+    sh:path lg:hasExtentProjection ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:QuotientProjection
+  ] ;
+  sh:property [
+    sh:path lg:hasIntentProjection ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:QuotientProjection
+  ] ;
+  sh:property [
+    sh:path lg:realizesFormalConcept ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:FormalConcept
+  ] ;
+  sh:sparql [
+    sh:message "The syntax quotient projection must project from the rule-cell to its syntax clause." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasSyntaxClause ?s ;
+              lg:hasSyntaxProjection ?q .
+        FILTER NOT EXISTS { ?q cat:dom $this ; cat:cod ?s . }
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "The typing quotient projection must project from the rule-cell to its typing clause." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasTypingClause ?t ;
+              lg:hasTypingProjection ?q .
+        FILTER NOT EXISTS { ?q cat:dom $this ; cat:cod ?t . }
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "The semantic quotient projection must project from the rule-cell to its categorical clause." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasCategoricalClause ?c ;
+              lg:hasSemanticProjection ?q .
+        FILTER NOT EXISTS { ?q cat:dom $this ; cat:cod ?c . }
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "The extent quotient projection must project from the rule-cell to its closed extent." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasClosedExtent ?e ;
+              lg:hasExtentProjection ?q .
+        FILTER NOT EXISTS { ?q cat:dom $this ; cat:cod ?e . }
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "The intent quotient projection must project from the rule-cell to its closed intent." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasClosedIntent ?i ;
+              lg:hasIntentProjection ?q .
+        FILTER NOT EXISTS { ?q cat:dom $this ; cat:cod ?i . }
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "A closed rule-cell must realize a formal concept whose extent and intent agree with the cell's own closed faces." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasClosedExtent ?e ;
+              lg:hasClosedIntent ?i ;
+              lg:realizesFormalConcept ?fc .
+        FILTER NOT EXISTS { ?fc lg:formalExtent ?e ; lg:formalIntent ?i . }
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "The realized formal concept of a closed rule-cell must belong to the concept lattice induced by the cell's polarity." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasPolarity ?p ;
+              lg:realizesFormalConcept ?fc .
+        ?p lg:inducesConceptLattice ?l .
+        FILTER NOT EXISTS { ?fc lg:memberOfLattice ?l . }
+      }
+    """
+  ] .
+
+
+# ---- Theorem / proof-obligation extension ----
+
+lg:ProofObligationShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:ProofObligation ;
+  lg:constrainsClass lg:ProofObligation ;
+  sh:property [
+    sh:path lg:statesLawSchema ;
+    sh:maxCount 1 ;
+    sh:class lg:LawSchema
+  ] .
+
+lg:MeetAssociativityObligationShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:MeetAssociativityObligation ;
+  lg:constrainsClass lg:MeetAssociativityObligation ;
+  sh:property [ sh:path lg:governsLattice ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:ConceptLattice ] ;
+  sh:property [ sh:path lg:governsMeetOperation ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:MeetOperation ] .
+
+lg:JoinAssociativityObligationShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:JoinAssociativityObligation ;
+  lg:constrainsClass lg:JoinAssociativityObligation ;
+  sh:property [ sh:path lg:governsLattice ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:ConceptLattice ] ;
+  sh:property [ sh:path lg:governsJoinOperation ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:JoinOperation ] .
+
+lg:MeetCommutativityObligationShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:MeetCommutativityObligation ;
+  lg:constrainsClass lg:MeetCommutativityObligation ;
+  sh:property [ sh:path lg:governsLattice ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:ConceptLattice ] ;
+  sh:property [ sh:path lg:governsMeetOperation ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:MeetOperation ] .
+
+lg:JoinCommutativityObligationShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:JoinCommutativityObligation ;
+  lg:constrainsClass lg:JoinCommutativityObligation ;
+  sh:property [ sh:path lg:governsLattice ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:ConceptLattice ] ;
+  sh:property [ sh:path lg:governsJoinOperation ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:JoinOperation ] .
+
+lg:MeetIdempotenceObligationShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:MeetIdempotenceObligation ;
+  lg:constrainsClass lg:MeetIdempotenceObligation ;
+  sh:property [ sh:path lg:governsLattice ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:ConceptLattice ] ;
+  sh:property [ sh:path lg:governsMeetOperation ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:MeetOperation ] .
+
+lg:JoinIdempotenceObligationShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:JoinIdempotenceObligation ;
+  lg:constrainsClass lg:JoinIdempotenceObligation ;
+  sh:property [ sh:path lg:governsLattice ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:ConceptLattice ] ;
+  sh:property [ sh:path lg:governsJoinOperation ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:JoinOperation ] .
+
+lg:AbsorptionObligationShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:AbsorptionObligation ;
+  lg:constrainsClass lg:AbsorptionObligation ;
+  sh:property [ sh:path lg:governsLattice ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:ConceptLattice ] ;
+  sh:property [ sh:path lg:governsMeetOperation ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:MeetOperation ] ;
+  sh:property [ sh:path lg:governsJoinOperation ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:JoinOperation ] .
+
+lg:BoundednessObligationShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:BoundednessObligation ;
+  lg:constrainsClass lg:BoundednessObligation ;
+  sh:property [ sh:path lg:governsLattice ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:ConceptLattice ] ;
+  sh:property [ sh:path lg:governsTopConcept ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:FormalConcept ] ;
+  sh:property [ sh:path lg:governsBottomConcept ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:FormalConcept ] .
+
+lg:OrderCompatibilityObligationShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:OrderCompatibilityObligation ;
+  lg:constrainsClass lg:OrderCompatibilityObligation ;
+  sh:property [ sh:path lg:governsLattice ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:ConceptLattice ] ;
+  sh:property [ sh:path lg:governsOrderRelation ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:OrderRelation ] ;
+  sh:property [ sh:path lg:governsMeetOperation ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:MeetOperation ] ;
+  sh:property [ sh:path lg:governsJoinOperation ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:JoinOperation ] .
+
+lg:ConceptLatticeTheoremShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:ConceptLattice ;
+  lg:constrainsClass lg:ConceptLattice ;
+  sh:property [ sh:path lg:hasMeetAssociativityObligation ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:MeetAssociativityObligation ] ;
+  sh:property [ sh:path lg:hasJoinAssociativityObligation ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:JoinAssociativityObligation ] ;
+  sh:property [ sh:path lg:hasMeetCommutativityObligation ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:MeetCommutativityObligation ] ;
+  sh:property [ sh:path lg:hasJoinCommutativityObligation ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:JoinCommutativityObligation ] ;
+  sh:property [ sh:path lg:hasMeetIdempotenceObligation ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:MeetIdempotenceObligation ] ;
+  sh:property [ sh:path lg:hasJoinIdempotenceObligation ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:JoinIdempotenceObligation ] ;
+  sh:property [ sh:path lg:hasAbsorptionObligation ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:AbsorptionObligation ] ;
+  sh:property [ sh:path lg:hasBoundednessObligation ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:BoundednessObligation ] ;
+  sh:property [ sh:path lg:hasOrderCompatibilityObligation ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:OrderCompatibilityObligation ] ;
+  sh:sparql [
+    sh:message "The meet associativity obligation must govern this lattice and its designated meet operation." ;
+    sh:select """
+      SELECT $this WHERE {
+        $this lg:hasMeetAssociativityObligation ?o ;
+              lg:hasMeetOperation ?m .
+        FILTER NOT EXISTS { ?o lg:governsLattice $this ; lg:governsMeetOperation ?m . }
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "The join associativity obligation must govern this lattice and its designated join operation." ;
+    sh:select """
+      SELECT $this WHERE {
+        $this lg:hasJoinAssociativityObligation ?o ;
+              lg:hasJoinOperation ?j .
+        FILTER NOT EXISTS { ?o lg:governsLattice $this ; lg:governsJoinOperation ?j . }
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "The meet commutativity obligation must govern this lattice and its designated meet operation." ;
+    sh:select """
+      SELECT $this WHERE {
+        $this lg:hasMeetCommutativityObligation ?o ;
+              lg:hasMeetOperation ?m .
+        FILTER NOT EXISTS { ?o lg:governsLattice $this ; lg:governsMeetOperation ?m . }
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "The join commutativity obligation must govern this lattice and its designated join operation." ;
+    sh:select """
+      SELECT $this WHERE {
+        $this lg:hasJoinCommutativityObligation ?o ;
+              lg:hasJoinOperation ?j .
+        FILTER NOT EXISTS { ?o lg:governsLattice $this ; lg:governsJoinOperation ?j . }
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "The meet idempotence obligation must govern this lattice and its designated meet operation." ;
+    sh:select """
+      SELECT $this WHERE {
+        $this lg:hasMeetIdempotenceObligation ?o ;
+              lg:hasMeetOperation ?m .
+        FILTER NOT EXISTS { ?o lg:governsLattice $this ; lg:governsMeetOperation ?m . }
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "The join idempotence obligation must govern this lattice and its designated join operation." ;
+    sh:select """
+      SELECT $this WHERE {
+        $this lg:hasJoinIdempotenceObligation ?o ;
+              lg:hasJoinOperation ?j .
+        FILTER NOT EXISTS { ?o lg:governsLattice $this ; lg:governsJoinOperation ?j . }
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "The absorption obligation must govern this lattice together with its designated meet and join operations." ;
+    sh:select """
+      SELECT $this WHERE {
+        $this lg:hasAbsorptionObligation ?o ;
+              lg:hasMeetOperation ?m ;
+              lg:hasJoinOperation ?j .
+        FILTER NOT EXISTS { ?o lg:governsLattice $this ; lg:governsMeetOperation ?m ; lg:governsJoinOperation ?j . }
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "The boundedness obligation must govern this lattice together with its designated top and bottom concepts." ;
+    sh:select """
+      SELECT $this WHERE {
+        $this lg:hasBoundednessObligation ?o ;
+              lg:hasTopConcept ?t ;
+              lg:hasBottomConcept ?b .
+        FILTER NOT EXISTS { ?o lg:governsLattice $this ; lg:governsTopConcept ?t ; lg:governsBottomConcept ?b . }
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "The order compatibility obligation must govern this lattice together with its designated order, meet, and join." ;
+    sh:select """
+      SELECT $this WHERE {
+        $this lg:hasOrderCompatibilityObligation ?o ;
+              lg:hasOrderRelation ?r ;
+              lg:hasMeetOperation ?m ;
+              lg:hasJoinOperation ?j .
+        FILTER NOT EXISTS { ?o lg:governsLattice $this ; lg:governsOrderRelation ?r ; lg:governsMeetOperation ?m ; lg:governsJoinOperation ?j . }
+      }
+    """
+  ] .
+
+lg:QuotientUniversalityObligationShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:QuotientUniversalityObligation ;
+  lg:constrainsClass lg:QuotientUniversalityObligation ;
+  sh:property [ sh:path lg:governsProjection ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:QuotientProjection ] ;
+  sh:property [ sh:path lg:governsKernelCongruence ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:KernelCongruence ] ;
+  sh:property [ sh:path lg:governsQuotientFace ; sh:minCount 1 ; sh:maxCount 1 ; sh:class cat:Object ] ;
+  sh:property [ sh:path lg:hasFactorizationSchema ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:FactorizationSchema ] ;
+  sh:property [ sh:path lg:hasUniquenessSchema ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:UniquenessSchema ] .
+
+lg:QuotientProjectionTheoremShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:QuotientProjection ;
+  lg:constrainsClass lg:QuotientProjection ;
+  sh:property [ sh:path lg:hasQuotientUniversalityObligation ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:QuotientUniversalityObligation ] ;
+  sh:sparql [
+    sh:message "A quotient projection's universality obligation must govern the same projection, kernel congruence, and quotient face as the projection itself." ;
+    sh:select """
+      SELECT $this WHERE {
+        $this lg:hasQuotientUniversalityObligation ?o ;
+              lg:quotientsBy ?k ;
+              cat:cod ?c .
+        FILTER NOT EXISTS {
+          ?o lg:governsProjection $this ;
+             lg:governsKernelCongruence ?k ;
+             lg:governsQuotientFace ?c .
+        }
+      }
+    """
+  ] .
+
+
+# ---- Reflective SHACL boundary / denotational quotient shapes ----
+
+lg:InternalProofCalculusShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:InternalProofCalculus ;
+  lg:constrainsClass lg:InternalProofCalculus ;
+  sh:property [
+    sh:path lg:hasInternalProofTerm ;
+    sh:minCount 1 ;
+    sh:class lg:InternalProofTerm
+  ] ;
+  sh:property [
+    sh:path lg:hasInternalDerivation ;
+    sh:minCount 1 ;
+    sh:class lg:InternalDerivation
+  ] .
+
+lg:InternalProofTermShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:InternalProofTerm ;
+  lg:constrainsClass lg:InternalProofTerm ;
+  sh:property [
+    sh:path lg:denotesConstraint ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:ConstraintDenotation
+  ] .
+
+lg:InternalDerivationShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:InternalDerivation ;
+  lg:constrainsClass lg:InternalDerivation ;
+  sh:property [
+    sh:path lg:derivesInternalProofTerm ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:InternalProofTerm
+  ] .
+
+lg:ConstraintDenotationShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:ConstraintDenotation ;
+  lg:constrainsClass lg:ConstraintDenotation ;
+  sh:property [
+    sh:path lg:representedByConstraintArtifact ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:ConstraintArtifact
+  ] ;
+  sh:property [
+    sh:path lg:canonicalInternalRepresentative ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:InternalProofTerm
+  ] ;
+  sh:sparql [
+    sh:message "A constraint denotation's canonical internal representative must denote that same constraint denotation." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:canonicalInternalRepresentative ?p .
+        FILTER NOT EXISTS { ?p lg:denotesConstraint $this . }
+      }
+    """
+  ] .
+
+lg:DenotationalQuotientShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:DenotationalQuotient ;
+  lg:constrainsClass lg:DenotationalQuotient ;
+  sh:property [
+    sh:path lg:quotientsFragment ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:WellFormedSHACLFragment
+  ] ;
+  sh:property [
+    sh:path lg:byConstraintEquivalence ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:ConstraintEquivalence
+  ] ;
+  sh:property [
+    sh:path lg:hasDenotationCategory ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:SHACLDenotationCategory
+  ] ;
+  sh:property [
+    sh:path lg:hasConstraintDenotation ;
+    sh:minCount 1 ;
+    sh:class lg:ConstraintDenotation
+  ] .
+
+lg:LoweringFunctorShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:LoweringFunctor ;
+  lg:constrainsClass lg:LoweringFunctor ;
+  sh:property [
+    sh:path cat:sourceCategory ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:InternalProofCalculus
+  ] ;
+  sh:property [
+    sh:path cat:targetCategory ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:SHACLDenotationCategory
+  ] .
+
+lg:ReflectionFunctorShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:ReflectionFunctor ;
+  lg:constrainsClass lg:ReflectionFunctor ;
+  sh:property [
+    sh:path cat:sourceCategory ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:SHACLDenotationCategory
+  ] ;
+  sh:property [
+    sh:path cat:targetCategory ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:class lg:InternalProofCalculus
+  ] .
+
+lg:LoweringSoundnessObligationShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:LoweringSoundnessObligation ;
+  lg:constrainsClass lg:LoweringSoundnessObligation ;
+  sh:property [ sh:path lg:governsBoundary ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:SHACLBoundary ] ;
+  sh:property [ sh:path lg:governsProofCalculus ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:InternalProofCalculus ] ;
+  sh:property [ sh:path lg:governsSHACLFragment ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:WellFormedSHACLFragment ] ;
+  sh:property [ sh:path lg:governsConstraintEquivalence ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:ConstraintEquivalence ] ;
+  sh:property [ sh:path lg:governsDenotationalQuotient ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:DenotationalQuotient ] ;
+  sh:property [ sh:path lg:governsLoweringFunctor ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:LoweringFunctor ] .
+
+lg:SHACLSurjectivityObligationShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:SHACLSurjectivityObligation ;
+  lg:constrainsClass lg:SHACLSurjectivityObligation ;
+  sh:property [ sh:path lg:governsBoundary ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:SHACLBoundary ] ;
+  sh:property [ sh:path lg:governsProofCalculus ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:InternalProofCalculus ] ;
+  sh:property [ sh:path lg:governsSHACLFragment ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:WellFormedSHACLFragment ] ;
+  sh:property [ sh:path lg:governsConstraintEquivalence ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:ConstraintEquivalence ] ;
+  sh:property [ sh:path lg:governsDenotationalQuotient ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:DenotationalQuotient ] ;
+  sh:property [ sh:path lg:governsLoweringFunctor ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:LoweringFunctor ] .
+
+lg:ConservativeProjectionObligationShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:ConservativeProjectionObligation ;
+  lg:constrainsClass lg:ConservativeProjectionObligation ;
+  sh:property [ sh:path lg:governsBoundary ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:SHACLBoundary ] ;
+  sh:property [ sh:path lg:governsProofCalculus ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:InternalProofCalculus ] ;
+  sh:property [ sh:path lg:governsSHACLFragment ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:WellFormedSHACLFragment ] ;
+  sh:property [ sh:path lg:governsConstraintEquivalence ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:ConstraintEquivalence ] ;
+  sh:property [ sh:path lg:governsDenotationalQuotient ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:DenotationalQuotient ] ;
+  sh:property [ sh:path lg:governsLoweringFunctor ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:LoweringFunctor ] .
+
+lg:ReflectiveQuotientObligationShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:ReflectiveQuotientObligation ;
+  lg:constrainsClass lg:ReflectiveQuotientObligation ;
+  sh:property [ sh:path lg:governsBoundary ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:ReflectiveSHACLBoundary ] ;
+  sh:property [ sh:path lg:governsProofCalculus ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:InternalProofCalculus ] ;
+  sh:property [ sh:path lg:governsSHACLFragment ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:WellFormedSHACLFragment ] ;
+  sh:property [ sh:path lg:governsConstraintEquivalence ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:ConstraintEquivalence ] ;
+  sh:property [ sh:path lg:governsDenotationalQuotient ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:DenotationalQuotient ] ;
+  sh:property [ sh:path lg:governsLoweringFunctor ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:LoweringFunctor ] ;
+  sh:property [ sh:path lg:governsReflectionFunctor ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:ReflectionFunctor ] .
+
+lg:SHACLBoundaryShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:SHACLBoundary ;
+  lg:constrainsClass lg:SHACLBoundary ;
+  sh:property [ sh:path lg:hasInternalProofCalculus ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:InternalProofCalculus ] ;
+  sh:property [ sh:path lg:supportsSHACLFragment ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:WellFormedSHACLFragment ] ;
+  sh:property [ sh:path lg:hasConstraintEquivalence ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:ConstraintEquivalence ] ;
+  sh:property [ sh:path lg:hasDenotationalQuotient ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:DenotationalQuotient ] ;
+  sh:property [ sh:path lg:hasLoweringFunctor ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:LoweringFunctor ] ;
+  sh:property [ sh:path lg:hasLoweringSoundnessObligation ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:LoweringSoundnessObligation ] ;
+  sh:property [ sh:path lg:hasSHACLSurjectivityObligation ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:SHACLSurjectivityObligation ] ;
+  sh:property [ sh:path lg:hasConservativeProjectionObligation ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:ConservativeProjectionObligation ] ;
+  sh:sparql [
+    sh:message "A SHACL boundary's denotational quotient must quotient the same fragment and equivalence declared by the boundary itself." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:supportsSHACLFragment ?frag ;
+              lg:hasConstraintEquivalence ?eq ;
+              lg:hasDenotationalQuotient ?dq .
+        FILTER NOT EXISTS {
+          ?dq lg:quotientsFragment ?frag ;
+              lg:byConstraintEquivalence ?eq .
+        }
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "A SHACL boundary's lowering functor must start at the boundary's internal proof calculus and land in the denotation category of its denotational quotient." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasInternalProofCalculus ?pc ;
+              lg:hasDenotationalQuotient ?dq ;
+              lg:hasLoweringFunctor ?lf .
+        ?dq lg:hasDenotationCategory ?dc .
+        FILTER NOT EXISTS {
+          ?lf cat:sourceCategory ?pc ;
+              cat:targetCategory ?dc .
+        }
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "The lowering soundness obligation must govern the same boundary package declared by the SHACL boundary." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasInternalProofCalculus ?pc ;
+              lg:supportsSHACLFragment ?frag ;
+              lg:hasConstraintEquivalence ?eq ;
+              lg:hasDenotationalQuotient ?dq ;
+              lg:hasLoweringFunctor ?lf ;
+              lg:hasLoweringSoundnessObligation ?o .
+        FILTER NOT EXISTS {
+          ?o lg:governsBoundary $this ;
+             lg:governsProofCalculus ?pc ;
+             lg:governsSHACLFragment ?frag ;
+             lg:governsConstraintEquivalence ?eq ;
+             lg:governsDenotationalQuotient ?dq ;
+             lg:governsLoweringFunctor ?lf .
+        }
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "The SHACL surjectivity obligation must govern the same boundary package declared by the SHACL boundary." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasInternalProofCalculus ?pc ;
+              lg:supportsSHACLFragment ?frag ;
+              lg:hasConstraintEquivalence ?eq ;
+              lg:hasDenotationalQuotient ?dq ;
+              lg:hasLoweringFunctor ?lf ;
+              lg:hasSHACLSurjectivityObligation ?o .
+        FILTER NOT EXISTS {
+          ?o lg:governsBoundary $this ;
+             lg:governsProofCalculus ?pc ;
+             lg:governsSHACLFragment ?frag ;
+             lg:governsConstraintEquivalence ?eq ;
+             lg:governsDenotationalQuotient ?dq ;
+             lg:governsLoweringFunctor ?lf .
+        }
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "The conservative projection obligation must govern the same boundary package declared by the SHACL boundary." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasInternalProofCalculus ?pc ;
+              lg:supportsSHACLFragment ?frag ;
+              lg:hasConstraintEquivalence ?eq ;
+              lg:hasDenotationalQuotient ?dq ;
+              lg:hasLoweringFunctor ?lf ;
+              lg:hasConservativeProjectionObligation ?o .
+        FILTER NOT EXISTS {
+          ?o lg:governsBoundary $this ;
+             lg:governsProofCalculus ?pc ;
+             lg:governsSHACLFragment ?frag ;
+             lg:governsConstraintEquivalence ?eq ;
+             lg:governsDenotationalQuotient ?dq ;
+             lg:governsLoweringFunctor ?lf .
+        }
+      }
+    """
+  ] .
+
+lg:ReflectiveSHACLBoundaryShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:ReflectiveSHACLBoundary ;
+  lg:constrainsClass lg:ReflectiveSHACLBoundary ;
+  sh:property [ sh:path lg:hasReflectionFunctor ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:ReflectionFunctor ] ;
+  sh:property [ sh:path lg:hasReflectiveQuotientObligation ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:ReflectiveQuotientObligation ] ;
+  sh:sparql [
+    sh:message "A reflective SHACL boundary's reflection functor must start at the boundary's denotation category and land back in the boundary's internal proof calculus." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasInternalProofCalculus ?pc ;
+              lg:hasDenotationalQuotient ?dq ;
+              lg:hasReflectionFunctor ?rf .
+        ?dq lg:hasDenotationCategory ?dc .
+        FILTER NOT EXISTS {
+          ?rf cat:sourceCategory ?dc ;
+              cat:targetCategory ?pc .
+        }
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "The reflective quotient obligation must govern the same reflective boundary package declared by the SHACL boundary." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasInternalProofCalculus ?pc ;
+              lg:supportsSHACLFragment ?frag ;
+              lg:hasConstraintEquivalence ?eq ;
+              lg:hasDenotationalQuotient ?dq ;
+              lg:hasLoweringFunctor ?lf ;
+              lg:hasReflectionFunctor ?rf ;
+              lg:hasReflectiveQuotientObligation ?o .
+        FILTER NOT EXISTS {
+          ?o lg:governsBoundary $this ;
+             lg:governsProofCalculus ?pc ;
+             lg:governsSHACLFragment ?frag ;
+             lg:governsConstraintEquivalence ?eq ;
+             lg:governsDenotationalQuotient ?dq ;
+             lg:governsLoweringFunctor ?lf ;
+             lg:governsReflectionFunctor ?rf .
+        }
+      }
+    """
+  ] .
+
+
+# ---- Proof-carrying query / immutable history shapes ----
+
+lg:ProofCarryingQueryShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:ProofCarryingQuery ;
+  lg:constrainsClass lg:ProofCarryingQuery ;
+  sh:property [ sh:path lg:hasProofQueryAST ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:QueryAST ] ;
+  sh:property [ sh:path lg:hasProofQueryRendering ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:QueryRendering ] ;
+  sh:property [ sh:path lg:hasAlgebraicQuery ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:SPARQLAlgebraExpression ] ;
+  sh:property [ sh:path lg:witnessesResultSet ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:QueryResultSet ] ;
+  sh:property [ sh:path lg:hasEvaluationTrace ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:QueryEvaluationTrace ] ;
+  sh:property [ sh:path lg:evaluatedAgainstHistoryState ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:HistoryState ] ;
+  sh:property [ sh:path lg:belongsToHistoryLineage ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:HistoryLineage ] ;
+  sh:property [ sh:path lg:hasConstructiveCarryingObligation ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:ConstructiveCarryingObligation ] ;
+  sh:sparql [
+    sh:message "A proof-carrying query's rendering must wrap the same AST attached to the query." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasProofQueryAST ?ast ;
+              lg:hasProofQueryRendering ?rend .
+        FILTER NOT EXISTS { ?rend lg:wrapsQueryAST ?ast . }
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "A proof-carrying query's evaluation trace must witness the same result set and history state attached to the query." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:witnessesResultSet ?rs ;
+              lg:evaluatedAgainstHistoryState ?hs ;
+              lg:hasEvaluationTrace ?tr .
+        FILTER NOT EXISTS { ?tr lg:traceResultSet ?rs ; lg:traceHistoryState ?hs . }
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "The constructive carrying obligation must govern the same query, result set, trace, history state, and history lineage declared by the proof-carrying query." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:witnessesResultSet ?rs ;
+              lg:hasEvaluationTrace ?tr ;
+              lg:evaluatedAgainstHistoryState ?hs ;
+              lg:belongsToHistoryLineage ?hl ;
+              lg:hasConstructiveCarryingObligation ?o .
+        FILTER NOT EXISTS {
+          ?o lg:governsProofCarryingQuery $this ;
+             lg:governsQueryResultSet ?rs ;
+             lg:governsQueryEvaluationTrace ?tr ;
+             lg:governsHistoryState ?hs ;
+             lg:governsHistoryLineage ?hl .
+        }
+      }
+    """
+  ] .
+
+lg:SPARQLAlgebraExpressionShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:SPARQLAlgebraExpression ;
+  lg:constrainsClass lg:SPARQLAlgebraExpression .
+
+lg:QueryEvaluationTraceShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:QueryEvaluationTrace ;
+  lg:constrainsClass lg:QueryEvaluationTrace ;
+  sh:property [ sh:path lg:traceResultSet ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:QueryResultSet ] ;
+  sh:property [ sh:path lg:traceHistoryState ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:HistoryState ] ;
+  sh:property [ sh:path lg:hasEvaluationStep ; sh:minCount 1 ; sh:class lg:EvaluationStep ] ;
+  sh:sparql [
+    sh:message "Every historical assertion cited by an evaluation step must belong to the trace's history state." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:traceHistoryState ?hs ;
+              lg:hasEvaluationStep ?step .
+        ?step lg:groundedInHistoricalAssertion ?ha .
+        FILTER NOT EXISTS { ?hs lg:hasHistoricalAssertion ?ha . }
+      }
+    """
+  ] .
+
+lg:QueryResultSetShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:QueryResultSet ;
+  lg:constrainsClass lg:QueryResultSet ;
+  sh:property [ sh:path lg:hasSolutionMapping ; sh:class lg:SolutionMapping ] .
+
+lg:SolutionMappingShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:SolutionMapping ;
+  lg:constrainsClass lg:SolutionMapping ;
+  sh:property [ sh:path lg:hasBindingWitness ; sh:class lg:BindingWitness ] .
+
+lg:BindingWitnessShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:BindingWitness ;
+  lg:constrainsClass lg:BindingWitness ;
+  sh:property [ sh:path lg:bindsVariable ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:QueryVariable ] ;
+  sh:property [ sh:path lg:bindsValue ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:justifiedByEvaluationStep ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:EvaluationStep ] .
+
+lg:HistoryStateShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:HistoryState ;
+  lg:constrainsClass lg:HistoryState ;
+  sh:property [ sh:path lg:stateDigest ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ] ;
+  sh:property [ sh:path lg:hasHistoricalAssertion ; sh:class lg:HistoricalAssertion ] ;
+  sh:property [ sh:path lg:predecessorHistoryState ; sh:class lg:HistoryState ] .
+
+lg:HistoricalAssertionShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:HistoricalAssertion ;
+  lg:constrainsClass lg:HistoricalAssertion ;
+  sh:property [ sh:path lg:assertionSubject ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:assertionPredicate ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:assertionObject ; sh:minCount 1 ; sh:maxCount 1 ] .
+
+lg:HistoryLineageShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:HistoryLineage ;
+  lg:constrainsClass lg:HistoryLineage ;
+  sh:property [ sh:path lg:hasHistoryState ; sh:minCount 1 ; sh:class lg:HistoryState ] ;
+  sh:property [ sh:path lg:hasHistoryImmutabilityObligation ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:HistoryImmutabilityObligation ] ;
+  sh:sparql [
+    sh:message "The history immutability obligation must govern the same lineage declared by the history lineage object." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasHistoryImmutabilityObligation ?o .
+        FILTER NOT EXISTS { ?o lg:governsHistoryLineage $this . }
+      }
+    """
+  ] .
+
+lg:HistoryExtensionShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:HistoryExtension ;
+  lg:constrainsClass lg:HistoryExtension ;
+  sh:property [ sh:path cat:dom ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:HistoryState ] ;
+  sh:property [ sh:path cat:cod ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:HistoryState ] .
+
+lg:ConstructiveCarryingObligationShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:ConstructiveCarryingObligation ;
+  lg:constrainsClass lg:ConstructiveCarryingObligation ;
+  sh:property [ sh:path lg:governsProofCarryingQuery ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:ProofCarryingQuery ] ;
+  sh:property [ sh:path lg:governsQueryResultSet ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:QueryResultSet ] ;
+  sh:property [ sh:path lg:governsQueryEvaluationTrace ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:QueryEvaluationTrace ] ;
+  sh:property [ sh:path lg:governsHistoryState ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:HistoryState ] ;
+  sh:property [ sh:path lg:governsHistoryLineage ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:HistoryLineage ] .
+
+lg:HistoryImmutabilityObligationShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:HistoryImmutabilityObligation ;
+  lg:constrainsClass lg:HistoryImmutabilityObligation ;
+  sh:property [ sh:path lg:governsHistoryLineage ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:HistoryLineage ] .
+
+
+# ---- Stamped history / wedge product / constructive empty-result shapes ----
+
+lg:ProofCarryingQueryHistoryBoundaryShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:ProofCarryingQuery ;
+  lg:constrainsClass lg:ProofCarryingQuery ;
+  sh:property [ sh:path lg:hasHistoryStamp ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:HistoryStamp ] ;
+  sh:property [ sh:path lg:hasQueryWedgeProduct ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:QueryWedgeProduct ] ;
+  sh:sparql [
+    sh:message "A proof-carrying query's history stamp must name the same history state and lineage as the query itself." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:evaluatedAgainstHistoryState ?hs ;
+              lg:belongsToHistoryLineage ?hl ;
+              lg:hasHistoryStamp ?stamp .
+        FILTER NOT EXISTS {
+          ?stamp lg:stampsHistoryState ?hs ;
+                 lg:stampedInHistoryLineage ?hl .
+        }
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "A proof-carrying query's wedge product must wedge that same query and the same history stamp." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasHistoryStamp ?stamp ;
+              lg:hasQueryWedgeProduct ?wedge .
+        FILTER NOT EXISTS {
+          ?wedge lg:wedgesProofCarryingQuery $this ;
+                 lg:wedgesHistoryStamp ?stamp .
+        }
+      }
+    """
+  ] .
+
+lg:HistoryStampShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:HistoryStamp ;
+  lg:constrainsClass lg:HistoryStamp ;
+  sh:property [ sh:path lg:stampsHistoryState ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:HistoryState ] ;
+  sh:property [ sh:path lg:stampDigest ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ] ;
+  sh:property [ sh:path lg:stampedInHistoryLineage ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:HistoryLineage ] ;
+  sh:property [ sh:path lg:hasHistoryBoundaryCompletenessObligation ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:HistoryBoundaryCompletenessObligation ] ;
+  sh:sparql [
+    sh:message "A history stamp's digest must agree with the digest of the stamped history state." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:stampsHistoryState ?hs ;
+              lg:stampDigest ?d .
+        ?hs lg:stateDigest ?sd .
+        FILTER (?d != ?sd)
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "The history boundary completeness obligation must govern the same history stamp, state, and lineage declared by the stamp." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:stampsHistoryState ?hs ;
+              lg:stampedInHistoryLineage ?hl ;
+              lg:hasHistoryBoundaryCompletenessObligation ?o .
+        FILTER NOT EXISTS {
+          ?o lg:governsHistoryStamp $this ;
+             lg:governsHistoryState ?hs ;
+             lg:governsHistoryLineage ?hl .
+        }
+      }
+    """
+  ] .
+
+lg:QueryWedgeProductShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:QueryWedgeProduct ;
+  lg:constrainsClass lg:QueryWedgeProduct ;
+  sh:property [ sh:path lg:wedgesProofCarryingQuery ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:ProofCarryingQuery ] ;
+  sh:property [ sh:path lg:wedgesHistoryStamp ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:HistoryStamp ] ;
+  sh:property [ sh:path lg:hasWedgeHistoricalAssertion ; sh:class lg:HistoricalAssertion ] ;
+  sh:sparql [
+    sh:message "Every historical assertion carried by a wedge product must belong to the history state named by the wedge's history stamp." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:wedgesHistoryStamp ?stamp ;
+              lg:hasWedgeHistoricalAssertion ?ha .
+        ?stamp lg:stampsHistoryState ?hs .
+        FILTER NOT EXISTS { ?hs lg:hasHistoricalAssertion ?ha . }
+      }
+    """
+  ] .
+
+lg:QueryResultSetCardinalityShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:QueryResultSet ;
+  lg:constrainsClass lg:QueryResultSet ;
+  sh:property [ sh:path lg:resultCardinality ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:nonNegativeInteger ] .
+
+lg:EmptyQueryResultSetShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:EmptyQueryResultSet ;
+  lg:constrainsClass lg:EmptyQueryResultSet ;
+  sh:property [ sh:path lg:resultCardinality ; sh:minCount 1 ; sh:maxCount 1 ; sh:hasValue "0"^^xsd:nonNegativeInteger ] ;
+  sh:property [ sh:path lg:hasSolutionMapping ; sh:maxCount 0 ] .
+
+lg:EmptyWedgeProductShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:EmptyWedgeProduct ;
+  lg:constrainsClass lg:EmptyWedgeProduct ;
+  sh:property [ sh:path lg:hasWedgeHistoricalAssertion ; sh:maxCount 0 ] .
+
+lg:AbsenceEvaluationStepShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:AbsenceEvaluationStep ;
+  lg:constrainsClass lg:AbsenceEvaluationStep ;
+  sh:property [ sh:path lg:groundedInHistoryStamp ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:HistoryStamp ] ;
+  sh:property [ sh:path lg:verifiesEmptyWedgeProduct ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:EmptyWedgeProduct ] .
+
+lg:AbsenceEvaluationTraceShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:AbsenceEvaluationTrace ;
+  lg:constrainsClass lg:AbsenceEvaluationTrace ;
+  sh:property [ sh:path lg:traceResultSet ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:EmptyQueryResultSet ] ;
+  sh:property [ sh:path lg:hasEvaluationStep ; sh:minCount 1 ; sh:class lg:AbsenceEvaluationStep ] .
+
+lg:EmptyResultWitnessShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:EmptyResultWitness ;
+  lg:constrainsClass lg:EmptyResultWitness ;
+  sh:property [ sh:path lg:witnessesEmptyResultSet ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:EmptyQueryResultSet ] ;
+  sh:property [ sh:path lg:witnessesEmptyWedgeProduct ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:EmptyWedgeProduct ] ;
+  sh:property [ sh:path lg:witnessesHistoryStamp ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:HistoryStamp ] ;
+  sh:property [ sh:path lg:witnessesAbsenceTrace ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:AbsenceEvaluationTrace ] ;
+  sh:sparql [
+    sh:message "An empty result witness's absence trace must certify the same empty result set named by the witness." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:witnessesEmptyResultSet ?rs ;
+              lg:witnessesAbsenceTrace ?tr .
+        FILTER NOT EXISTS { ?tr lg:traceResultSet ?rs . }
+      }
+    """
+  ] .
+
+lg:HistoryBoundaryCompletenessObligationShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:HistoryBoundaryCompletenessObligation ;
+  lg:constrainsClass lg:HistoryBoundaryCompletenessObligation ;
+  sh:property [ sh:path lg:governsHistoryStamp ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:HistoryStamp ] ;
+  sh:property [ sh:path lg:governsHistoryState ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:HistoryState ] ;
+  sh:property [ sh:path lg:governsHistoryLineage ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:HistoryLineage ] .
+
+lg:EmptyResultConstructivityObligationShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:EmptyResultConstructivityObligation ;
+  lg:constrainsClass lg:EmptyResultConstructivityObligation ;
+  sh:property [ sh:path lg:governsProofCarryingQuery ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:EmptyResultProofQuery ] ;
+  sh:property [ sh:path lg:governsQueryResultSet ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:EmptyQueryResultSet ] ;
+  sh:property [ sh:path lg:governsQueryEvaluationTrace ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:AbsenceEvaluationTrace ] ;
+  sh:property [ sh:path lg:governsHistoryState ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:HistoryState ] ;
+  sh:property [ sh:path lg:governsHistoryLineage ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:HistoryLineage ] ;
+  sh:property [ sh:path lg:governsHistoryStamp ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:HistoryStamp ] ;
+  sh:property [ sh:path lg:governsQueryWedgeProduct ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:EmptyWedgeProduct ] ;
+  sh:property [ sh:path lg:governsEmptyResultWitness ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:EmptyResultWitness ] .
+
+lg:EmptyResultProofQueryShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:EmptyResultProofQuery ;
+  lg:constrainsClass lg:EmptyResultProofQuery ;
+  sh:property [ sh:path lg:witnessesResultSet ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:EmptyQueryResultSet ] ;
+  sh:property [ sh:path lg:hasQueryWedgeProduct ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:EmptyWedgeProduct ] ;
+  sh:property [ sh:path lg:hasEvaluationTrace ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:AbsenceEvaluationTrace ] ;
+  sh:property [ sh:path lg:hasEmptyResultWitness ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:EmptyResultWitness ] ;
+  sh:property [ sh:path lg:hasEmptyResultConstructivityObligation ; sh:minCount 1 ; sh:maxCount 1 ; sh:class lg:EmptyResultConstructivityObligation ] ;
+  sh:sparql [
+    sh:message "The empty result witness and empty-result constructivity obligation must govern the same query, result set, trace, history state, lineage, stamp, and wedge declared by the empty-result proof query." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:witnessesResultSet ?rs ;
+              lg:hasEvaluationTrace ?tr ;
+              lg:evaluatedAgainstHistoryState ?hs ;
+              lg:belongsToHistoryLineage ?hl ;
+              lg:hasHistoryStamp ?stamp ;
+              lg:hasQueryWedgeProduct ?wedge ;
+              lg:hasEmptyResultWitness ?w ;
+              lg:hasEmptyResultConstructivityObligation ?o .
+        FILTER NOT EXISTS {
+          ?w lg:witnessesEmptyResultSet ?rs ;
+             lg:witnessesEmptyWedgeProduct ?wedge ;
+             lg:witnessesHistoryStamp ?stamp ;
+             lg:witnessesAbsenceTrace ?tr .
+          ?o lg:governsProofCarryingQuery $this ;
+             lg:governsQueryResultSet ?rs ;
+             lg:governsQueryEvaluationTrace ?tr ;
+             lg:governsHistoryState ?hs ;
+             lg:governsHistoryLineage ?hl ;
+             lg:governsHistoryStamp ?stamp ;
+             lg:governsQueryWedgeProduct ?wedge ;
+             lg:governsEmptyResultWitness ?w .
+        }
+      }
+    """
+  ] .
+
+
+# ---- Adjoint EXISTS / NOT EXISTS over stamped-history wedges ----
+
+lg:AdjointPairShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:AdjointPair ;
+  sh:property [ sh:path lg:hasLeftAdjointOperator ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasRightAdjointOperator ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:alongContextProjection ; sh:class lg:ContextProjection ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  lg:constrainsClass lg:AdjointPair .
+
+lg:ExistentialImageShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:ExistentialImage ;
+  sh:property [ sh:path lg:derivedFromQueryWedgeProduct ; sh:class lg:QueryWedgeProduct ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:alongWitnessProjection ; sh:class lg:ContextProjection ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  lg:constrainsClass lg:ExistentialImage .
+
+lg:ExistsWitnessedQueryShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:ExistsWitnessedQuery ;
+  sh:property [ sh:path lg:hasAlgebraicQuery ; sh:class lg:ExistsAlgebraExpression ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasContextProjection ; sh:class lg:ContextProjection ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasReindexingOperator ; sh:class lg:ReindexingOperator ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasExistentialImageOperator ; sh:class lg:ExistentialImageOperator ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasAdjointPair ; sh:class lg:AdjointPair ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasExistentialImage ; sh:class lg:ExistentialImage ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasExistentialAdjunctionObligation ; sh:class lg:ExistentialAdjunctionObligation ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:sparql [
+    sh:message "The adjoint pair of an EXISTS-witnessed query must use the query's declared existential image operator, reindexing operator, and context projection." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasAdjointPair ?a ;
+              lg:hasExistentialImageOperator ?l ;
+              lg:hasReindexingOperator ?r ;
+              lg:hasContextProjection ?p .
+        FILTER NOT EXISTS {
+          ?a lg:hasLeftAdjointOperator ?l ;
+             lg:hasRightAdjointOperator ?r ;
+             lg:alongContextProjection ?p .
+        }
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "The existential image of an EXISTS-witnessed query must be derived from that query's wedge and along that query's context projection." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasExistentialImage ?e ;
+              lg:hasQueryWedgeProduct ?w ;
+              lg:hasContextProjection ?p .
+        FILTER NOT EXISTS {
+          ?e lg:derivedFromQueryWedgeProduct ?w ;
+             lg:alongWitnessProjection ?p .
+        }
+      }
+    """
+  ] ;
+  lg:constrainsClass lg:ExistsWitnessedQuery .
+
+lg:NotExistsWitnessedQueryShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:NotExistsWitnessedQuery ;
+  sh:property [ sh:path lg:hasAlgebraicQuery ; sh:class lg:NotExistsAlgebraExpression ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasContextProjection ; sh:class lg:ContextProjection ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasSupportReflectionOperator ; sh:class lg:SupportReflectionOperator ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasSupportReflectedImage ; sh:class lg:SupportReflectedImage ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasNegationOperator ; sh:class lg:NegationOperator ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasNegatedExistentialImage ; sh:class lg:NegatedExistentialImage ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasCorrelatedInnerQuery ; sh:class lg:EmptyResultProofQuery ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasSupportReflectionObligation ; sh:class lg:SupportReflectionObligation ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasNotExistsAdjointDerivationObligation ; sh:class lg:NotExistsAdjointDerivationObligation ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:sparql [
+    sh:message "A NOT EXISTS-witnessed query and its correlated inner query must share the same stamped history boundary." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasHistoryStamp ?hs ;
+              lg:hasCorrelatedInnerQuery ?inner .
+        FILTER NOT EXISTS { ?inner lg:hasHistoryStamp ?hs . }
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "The support-reflected image of a NOT EXISTS-witnessed query must be reflected from the existential image of its correlated inner query." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasCorrelatedInnerQuery ?inner ;
+              lg:hasSupportReflectedImage ?s .
+        ?inner lg:hasExistentialImage ?e .
+        FILTER NOT EXISTS { ?s lg:reflectedFromExistentialImage ?e . }
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "The negated existential image of a NOT EXISTS-witnessed query must negate its declared support-reflected image." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasSupportReflectedImage ?s ;
+              lg:hasNegatedExistentialImage ?n .
+        FILTER NOT EXISTS { ?n lg:negatesSupportReflectedImage ?s . }
+      }
+    """
+  ] ;
+  lg:constrainsClass lg:NotExistsWitnessedQuery .
+
+
+# -----------------------------------------------------------------------------
+# Semantic policy shapes for support reflection and negation
+# -----------------------------------------------------------------------------
+
+lg:SupportReflectionPolicyShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:SupportReflectionPolicy ;
+  sh:property [ sh:path lg:declaresSupportTruthValueStructure ; sh:class lg:TruthValueStructure ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:selectsSupportReflectionOperator ; sh:class lg:SupportReflectionOperator ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  lg:constrainsClass lg:SupportReflectionPolicy .
+
+lg:NegationPolicyShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:NegationPolicy ;
+  sh:property [ sh:path lg:declaresNegationTruthValueStructure ; sh:class lg:TruthValueStructure ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:selectsNegationOperator ; sh:class lg:NegationOperator ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:requiresSupportPolicy ; sh:class lg:SupportReflectionPolicy ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  lg:constrainsClass lg:NegationPolicy .
+
+lg:SemanticPolicyBundleShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:SemanticPolicyBundle ;
+  sh:property [ sh:path lg:hasSupportPolicy ; sh:class lg:SupportReflectionPolicy ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasNegationPolicy ; sh:class lg:NegationPolicy ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasTruthValueStructure ; sh:class lg:TruthValueStructure ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:sparql [
+    sh:message "The support policy of a semantic policy bundle must declare the same truth-value structure as the bundle itself." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasSupportPolicy ?s ;
+              lg:hasTruthValueStructure ?t .
+        FILTER NOT EXISTS { ?s lg:declaresSupportTruthValueStructure ?t . }
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "The negation policy of a semantic policy bundle must declare the same truth-value structure as the bundle itself." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasNegationPolicy ?n ;
+              lg:hasTruthValueStructure ?t .
+        FILTER NOT EXISTS { ?n lg:declaresNegationTruthValueStructure ?t . }
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "The negation policy of a semantic policy bundle must require that bundle's support policy." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasSupportPolicy ?s ;
+              lg:hasNegationPolicy ?n .
+        FILTER NOT EXISTS { ?n lg:requiresSupportPolicy ?s . }
+      }
+    """
+  ] ;
+  lg:constrainsClass lg:SemanticPolicyBundle .
+
+lg:SemanticPolicyCoherenceObligationShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:SemanticPolicyCoherenceObligation ;
+  sh:property [ sh:path lg:governsProofCarryingQuery ; sh:class lg:NotExistsWitnessedQuery ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsSemanticPolicyBundle ; sh:class lg:SemanticPolicyBundle ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsSupportPolicy ; sh:class lg:SupportReflectionPolicy ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsNegationPolicy ; sh:class lg:NegationPolicy ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsTruthValueStructure ; sh:class lg:TruthValueStructure ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  lg:constrainsClass lg:SemanticPolicyCoherenceObligation .
+
+lg:NegationPolicySemanticsObligationShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:NegationPolicySemanticsObligation ;
+  sh:property [ sh:path lg:governsProofCarryingQuery ; sh:class lg:NotExistsWitnessedQuery ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsNegationPolicy ; sh:class lg:NegationPolicy ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsTruthValueStructure ; sh:class lg:TruthValueStructure ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsNegatedExistentialImage ; sh:class lg:NegatedExistentialImage ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  lg:constrainsClass lg:NegationPolicySemanticsObligation .
+
+lg:NotExistsSemanticPolicyShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:NotExistsWitnessedQuery ;
+  sh:property [ sh:path lg:hasSemanticPolicyBundle ; sh:class lg:SemanticPolicyBundle ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasSemanticPolicyCoherenceObligation ; sh:class lg:SemanticPolicyCoherenceObligation ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasNegationPolicySemanticsObligation ; sh:class lg:NegationPolicySemanticsObligation ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:sparql [
+    sh:message "The support policy selected by a NOT EXISTS query's semantic policy bundle must select the query's declared support-reflection operator." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasSemanticPolicyBundle ?b ;
+              lg:hasSupportReflectionOperator ?op .
+        ?b lg:hasSupportPolicy ?s .
+        FILTER NOT EXISTS { ?s lg:selectsSupportReflectionOperator ?op . }
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "The negation policy selected by a NOT EXISTS query's semantic policy bundle must select the query's declared negation operator." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasSemanticPolicyBundle ?b ;
+              lg:hasNegationOperator ?op .
+        ?b lg:hasNegationPolicy ?n .
+        FILTER NOT EXISTS { ?n lg:selectsNegationOperator ?op . }
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "The support-reflected and negated images of a NOT EXISTS query must be interpreted in the truth-value structure declared by its semantic policy bundle." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasSemanticPolicyBundle ?b ;
+              lg:hasSupportReflectedImage ?simg ;
+              lg:hasNegatedExistentialImage ?nimg .
+        ?b lg:hasTruthValueStructure ?t .
+        FILTER (
+          NOT EXISTS { ?simg lg:interpretedInTruthValueStructure ?t . } ||
+          NOT EXISTS { ?nimg lg:interpretedInTruthValueStructure ?t . }
+        )
+      }
+    """
+  ] ;
+  lg:constrainsClass lg:NotExistsWitnessedQuery .
+
+
+# -----------------------------------------------------------------------------
+# Policy-indexed proof calculus extension
+# -----------------------------------------------------------------------------
+
+lg:PolicyIndexedProofCalculusShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:PolicyIndexedProofCalculus ;
+  sh:property [ sh:path lg:registersPolicyIndexedProofTerm ; sh:class lg:PolicyIndexedProofTerm ; sh:minCount 1 ] ;
+  sh:property [ sh:path lg:registersPolicyIndexedDerivation ; sh:class lg:PolicyIndexedDerivation ; sh:minCount 1 ] ;
+  lg:constrainsClass lg:PolicyIndexedProofCalculus .
+
+lg:PolicyCertificateShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:PolicyCertificate ;
+  sh:property [ sh:path lg:certifiesSemanticPolicyBundle ; sh:class lg:SemanticPolicyBundle ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:certifiesSupportPolicy ; sh:class lg:SupportReflectionPolicy ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:certifiesNegationPolicy ; sh:class lg:NegationPolicy ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:certifiesTruthValueStructure ; sh:class lg:TruthValueStructure ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:certifiesHistoryStamp ; sh:class lg:HistoryStamp ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:certifiesProofCarryingQuery ; sh:class lg:ProofCarryingQuery ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  lg:constrainsClass lg:PolicyCertificate .
+
+lg:PolicyScopedJudgmentShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:PolicyScopedJudgment ;
+  sh:property [ sh:path lg:judgmentAboutQuery ; sh:class lg:ProofCarryingQuery ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:judgmentUnderSemanticPolicyBundle ; sh:class lg:SemanticPolicyBundle ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:judgmentTruthValueStructure ; sh:class lg:TruthValueStructure ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  lg:constrainsClass lg:PolicyScopedJudgment .
+
+lg:PolicyIndexedDerivationShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:PolicyIndexedDerivation ;
+  sh:property [ sh:path lg:derivationUnderSemanticPolicyBundle ; sh:class lg:SemanticPolicyBundle ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:derivationUnderSupportPolicy ; sh:class lg:SupportReflectionPolicy ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:derivationUnderNegationPolicy ; sh:class lg:NegationPolicy ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:derivationUnderTruthValueStructure ; sh:class lg:TruthValueStructure ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:usesProofConstructor ; sh:class lg:ProofConstructor ; sh:minCount 1 ] ;
+  sh:property [ sh:path lg:concludesPolicyScopedJudgment ; sh:class lg:PolicyScopedJudgment ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:sparql [
+    sh:message "The semantic policy bundle governing a policy-indexed derivation must declare the same support policy, negation policy, and truth-value structure as the derivation." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:derivationUnderSemanticPolicyBundle ?b ;
+              lg:derivationUnderSupportPolicy ?s ;
+              lg:derivationUnderNegationPolicy ?n ;
+              lg:derivationUnderTruthValueStructure ?t .
+        FILTER (
+          NOT EXISTS { ?b lg:hasSupportPolicy ?s . } ||
+          NOT EXISTS { ?b lg:hasNegationPolicy ?n . } ||
+          NOT EXISTS { ?b lg:hasTruthValueStructure ?t . }
+        )
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "The concluded policy-scoped judgment of a policy-indexed derivation must live under the same semantic policy bundle and truth-value structure as the derivation." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:derivationUnderSemanticPolicyBundle ?b ;
+              lg:derivationUnderTruthValueStructure ?t ;
+              lg:concludesPolicyScopedJudgment ?j .
+        FILTER (
+          NOT EXISTS { ?j lg:judgmentUnderSemanticPolicyBundle ?b . } ||
+          NOT EXISTS { ?j lg:judgmentTruthValueStructure ?t . }
+        )
+      }
+    """
+  ] ;
+  lg:constrainsClass lg:PolicyIndexedDerivation .
+
+lg:PolicyIndexedProofCarryingQueryShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:PolicyIndexedProofCarryingQuery ;
+  sh:property [ sh:path lg:derivedUnderSemanticPolicyBundle ; sh:class lg:SemanticPolicyBundle ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasPolicyDerivation ; sh:class lg:PolicyIndexedDerivation ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasPolicyCertificate ; sh:class lg:PolicyCertificate ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasPolicyScopedJudgment ; sh:class lg:PolicyScopedJudgment ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasPolicyIndexedConstructiveDerivationObligation ; sh:class lg:PolicyIndexedConstructiveDerivationObligation ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasPolicyPreservingLoweringObligation ; sh:class lg:PolicyPreservingLoweringObligation ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasPolicyReflectiveCompatibilityObligation ; sh:class lg:PolicyReflectiveCompatibilityObligation ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:sparql [
+    sh:message "A policy-indexed proof-carrying query must agree with its explicit semantic policy bundle, if one is already declared at the query level." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:derivedUnderSemanticPolicyBundle ?b .
+        FILTER EXISTS { $this lg:hasSemanticPolicyBundle ?qb . FILTER(?qb != ?b) }
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "The policy-indexed derivation of a policy-indexed proof-carrying query must be indexed by the same semantic policy bundle as the query itself." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:derivedUnderSemanticPolicyBundle ?b ;
+              lg:hasPolicyDerivation ?d .
+        FILTER NOT EXISTS { ?d lg:derivationUnderSemanticPolicyBundle ?b . }
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "The policy-scoped judgment of a policy-indexed proof-carrying query must be about that same query and live under the same semantic policy bundle." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:derivedUnderSemanticPolicyBundle ?b ;
+              lg:hasPolicyScopedJudgment ?j .
+        FILTER (
+          NOT EXISTS { ?j lg:judgmentAboutQuery $this . } ||
+          NOT EXISTS { ?j lg:judgmentUnderSemanticPolicyBundle ?b . }
+        )
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "The policy certificate of a policy-indexed proof-carrying query must certify that same query and the same semantic policy bundle." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:derivedUnderSemanticPolicyBundle ?b ;
+              lg:hasPolicyCertificate ?c .
+        FILTER (
+          NOT EXISTS { ?c lg:certifiesProofCarryingQuery $this . } ||
+          NOT EXISTS { ?c lg:certifiesSemanticPolicyBundle ?b . }
+        )
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "The support policy, negation policy, and truth-value structure certified for a policy-indexed proof-carrying query must agree with its semantic policy bundle." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:derivedUnderSemanticPolicyBundle ?b ;
+              lg:hasPolicyCertificate ?c .
+        ?b lg:hasSupportPolicy ?s ;
+           lg:hasNegationPolicy ?n ;
+           lg:hasTruthValueStructure ?t .
+        FILTER (
+          NOT EXISTS { ?c lg:certifiesSupportPolicy ?s . } ||
+          NOT EXISTS { ?c lg:certifiesNegationPolicy ?n . } ||
+          NOT EXISTS { ?c lg:certifiesTruthValueStructure ?t . }
+        )
+      }
+    """
+  ] ;
+  lg:constrainsClass lg:PolicyIndexedProofCarryingQuery .
+
+lg:PolicyIndexedConstructiveDerivationObligationShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:PolicyIndexedConstructiveDerivationObligation ;
+  sh:property [ sh:path lg:governsBoundary ; sh:class lg:SHACLBoundary ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsProofCalculus ; sh:class lg:InternalProofCalculus ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsSemanticPolicyBundle ; sh:class lg:SemanticPolicyBundle ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsPolicyIndexedProofTerm ; sh:class lg:PolicyIndexedProofTerm ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsPolicyIndexedDerivation ; sh:class lg:PolicyIndexedDerivation ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsPolicyScopedJudgment ; sh:class lg:PolicyScopedJudgment ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsPolicyCertificate ; sh:class lg:PolicyCertificate ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasProofWitness ; sh:class lg:ProofWitness ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  lg:constrainsClass lg:PolicyIndexedConstructiveDerivationObligation .
+
+lg:PolicyPreservingLoweringObligationShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:PolicyPreservingLoweringObligation ;
+  sh:property [ sh:path lg:governsBoundary ; sh:class lg:SHACLBoundary ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsProofCalculus ; sh:class lg:InternalProofCalculus ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsLoweringFunctor ; sh:class lg:LoweringFunctor ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsSemanticPolicyBundle ; sh:class lg:SemanticPolicyBundle ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsPolicyIndexedProofTerm ; sh:class lg:PolicyIndexedProofTerm ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsPolicyIndexedDerivation ; sh:class lg:PolicyIndexedDerivation ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsPolicyScopedJudgment ; sh:class lg:PolicyScopedJudgment ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsPolicyCertificate ; sh:class lg:PolicyCertificate ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasProofWitness ; sh:class lg:ProofWitness ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  lg:constrainsClass lg:PolicyPreservingLoweringObligation .
+
+lg:PolicyReflectiveCompatibilityObligationShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:PolicyReflectiveCompatibilityObligation ;
+  sh:property [ sh:path lg:governsBoundary ; sh:class lg:ReflectiveSHACLBoundary ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsProofCalculus ; sh:class lg:InternalProofCalculus ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsLoweringFunctor ; sh:class lg:LoweringFunctor ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsReflectionFunctor ; sh:class lg:ReflectionFunctor ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsSemanticPolicyBundle ; sh:class lg:SemanticPolicyBundle ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsPolicyIndexedProofTerm ; sh:class lg:PolicyIndexedProofTerm ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsPolicyIndexedDerivation ; sh:class lg:PolicyIndexedDerivation ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsPolicyScopedJudgment ; sh:class lg:PolicyScopedJudgment ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsPolicyCertificate ; sh:class lg:PolicyCertificate ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasProofWitness ; sh:class lg:ProofWitness ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  lg:constrainsClass lg:PolicyReflectiveCompatibilityObligation .
+
+
+# -----------------------------------------------------------------------------
+# Compositional proof-term shapes
+# -----------------------------------------------------------------------------
+
+lg:PolicyIndexedProofTermShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:PolicyIndexedProofTerm ;
+  sh:property [ sh:path lg:derivedUnderSemanticPolicyBundle ; sh:class lg:SemanticPolicyBundle ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:denotesConstraint ; sh:class lg:ConstraintDenotation ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  lg:constrainsClass lg:PolicyIndexedProofTerm .
+
+lg:ProofConstructorShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:ProofConstructor ;
+  lg:constrainsClass lg:ProofConstructor .
+
+lg:ProofTermExpressionShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:ProofTermExpression ;
+  sh:property [ sh:path lg:derivedUnderSemanticPolicyBundle ; sh:class lg:SemanticPolicyBundle ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:denotesConstraint ; sh:class lg:ConstraintDenotation ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  lg:constrainsClass lg:ProofTermExpression .
+
+lg:HistoryStampIntroTermShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:HistoryStampIntroTerm ;
+  sh:property [ sh:path lg:hasProofConstructorHead ; sh:class lg:HistoryStampProofConstructor ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:introducesHistoryStamp ; sh:class lg:HistoryStamp ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasConstructorTypingObligation ; sh:class lg:ConstructorTypingObligation ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  lg:constrainsClass lg:HistoryStampIntroTerm .
+
+lg:ExistentialImageIntroTermShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:ExistentialImageIntroTerm ;
+  sh:property [ sh:path lg:hasProofConstructorHead ; sh:class lg:ExistentialImageProofConstructor ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasPremiseProofTerm ; sh:class lg:ProofTermExpression ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:introducesExistentialImage ; sh:class lg:ExistentialImage ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:overQueryWedgeProduct ; sh:class lg:QueryWedgeProduct ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:underContextProjection ; sh:class lg:ContextProjection ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasConstructorTypingObligation ; sh:class lg:ConstructorTypingObligation ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:sparql [
+    sh:message "An existential-image introduction term must introduce an existential image derived from its declared wedge product and along its declared context projection." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:introducesExistentialImage ?img ;
+              lg:overQueryWedgeProduct ?w ;
+              lg:underContextProjection ?p .
+        FILTER (
+          NOT EXISTS { ?img lg:derivedFromQueryWedgeProduct ?w . } ||
+          NOT EXISTS { ?img lg:alongWitnessProjection ?p . }
+        )
+      }
+    """
+  ] ;
+  lg:constrainsClass lg:ExistentialImageIntroTerm .
+
+lg:SupportReflectionIntroTermShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:SupportReflectionIntroTerm ;
+  sh:property [ sh:path lg:hasProofConstructorHead ; sh:class lg:SupportReflectionProofConstructor ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasPremiseProofTerm ; sh:class lg:ProofTermExpression ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:introducesSupportReflectedImage ; sh:class lg:SupportReflectedImage ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:underSupportReflectionOperator ; sh:class lg:SupportReflectionOperator ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasConstructorTypingObligation ; sh:class lg:ConstructorTypingObligation ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:sparql [
+    sh:message "A support-reflection introduction term must reflect the existential image introduced by its premise proof term." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasPremiseProofTerm ?p ;
+              lg:introducesSupportReflectedImage ?simg .
+        ?p a lg:ExistentialImageIntroTerm ;
+           lg:introducesExistentialImage ?eimg .
+        FILTER NOT EXISTS { ?simg lg:reflectedFromExistentialImage ?eimg . }
+      }
+    """
+  ] ;
+  lg:constrainsClass lg:SupportReflectionIntroTerm .
+
+lg:NegationIntroTermShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:NegationIntroTerm ;
+  sh:property [ sh:path lg:hasProofConstructorHead ; sh:class lg:NegationProofConstructor ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasPremiseProofTerm ; sh:class lg:ProofTermExpression ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:introducesNegatedExistentialImage ; sh:class lg:NegatedExistentialImage ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:underNegationOperator ; sh:class lg:NegationOperator ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasConstructorTypingObligation ; sh:class lg:ConstructorTypingObligation ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:sparql [
+    sh:message "A negation introduction term must negate the support-reflected image introduced by its premise proof term." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasPremiseProofTerm ?p ;
+              lg:introducesNegatedExistentialImage ?nimg .
+        ?p a lg:SupportReflectionIntroTerm ;
+           lg:introducesSupportReflectedImage ?simg .
+        FILTER NOT EXISTS { ?nimg lg:negatesSupportReflectedImage ?simg . }
+      }
+    """
+  ] ;
+  lg:constrainsClass lg:NegationIntroTerm .
+
+lg:SequentialProofCompositionShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:SequentialProofComposition ;
+  sh:property [ sh:path lg:hasLeftProofTerm ; sh:class lg:ProofTermExpression ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasRightProofTerm ; sh:class lg:ProofTermExpression ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasNormalizedProofTerm ; sh:class lg:ProofTermExpression ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasProofCompositionObligation ; sh:class lg:ProofTermCompositionObligation ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:sparql [
+    sh:message "A sequential proof composition must be indexed by the same semantic policy bundle as its left term, right term, and normalized term." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:derivedUnderSemanticPolicyBundle ?b ;
+              lg:hasLeftProofTerm ?l ;
+              lg:hasRightProofTerm ?r ;
+              lg:hasNormalizedProofTerm ?n .
+        FILTER (
+          NOT EXISTS { ?l lg:derivedUnderSemanticPolicyBundle ?b . } ||
+          NOT EXISTS { ?r lg:derivedUnderSemanticPolicyBundle ?b . } ||
+          NOT EXISTS { ?n lg:derivedUnderSemanticPolicyBundle ?b . }
+        )
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "A sequential proof composition must denote the same constraint as its normalized proof term." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:denotesConstraint ?d ;
+              lg:hasNormalizedProofTerm ?n .
+        FILTER NOT EXISTS { ?n lg:denotesConstraint ?d . }
+      }
+    """
+  ] ;
+  lg:constrainsClass lg:SequentialProofComposition .
+
+lg:NormalizationWitnessShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:NormalizationWitness ;
+  sh:property [ sh:path lg:normalizesSourceProofTerm ; sh:class lg:ProofTermExpression ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:normalizesTargetProofTerm ; sh:class lg:ProofTermExpression ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  lg:constrainsClass lg:NormalizationWitness .
+
+lg:InternalDerivationRealizationShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:PolicyIndexedDerivation ;
+  sh:property [ sh:path lg:realizedByProofTerm ; sh:class lg:ProofTermExpression ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:sparql [
+    sh:message "A realized policy-indexed derivation must be realized by a proof term with the same semantic policy bundle and concluding constraint denotation as the derivation's judgment." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:derivationUnderSemanticPolicyBundle ?b ;
+              lg:concludesPolicyScopedJudgment ?j ;
+              lg:realizedByProofTerm ?t .
+        ?j lg:judgmentAboutQuery ?q .
+        ?q lg:denotesConstraint ?d .
+        FILTER (
+          NOT EXISTS { ?t lg:derivedUnderSemanticPolicyBundle ?b . } ||
+          NOT EXISTS { ?t lg:denotesConstraint ?d . }
+        )
+      }
+    """
+  ] ;
+  lg:constrainsClass lg:PolicyIndexedDerivation .
+
+lg:PolicyIndexedProofCarryingQueryRealizationShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:PolicyIndexedProofCarryingQuery ;
+  sh:property [ sh:path lg:hasProofTermAdequacyObligation ; sh:class lg:ProofTermAdequacyObligation ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:sparql [
+    sh:message "A policy-indexed proof-carrying query must either be the realized canonical proof term of its policy derivation or be the normalization target of that realized proof term." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasPolicyDerivation ?d .
+        ?d lg:realizedByProofTerm ?t .
+        FILTER (?t != $this && NOT EXISTS { ?t lg:hasNormalizedProofTerm $this . })
+      }
+    """
+  ] ;
+  lg:constrainsClass lg:PolicyIndexedProofCarryingQuery .
+
+lg:ProofTermAdequacyObligationShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:ProofTermAdequacyObligation ;
+  sh:property [ sh:path lg:governsPolicyIndexedProofTerm ; sh:class lg:PolicyIndexedProofTerm ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsPolicyIndexedDerivation ; sh:class lg:PolicyIndexedDerivation ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsProofTerm ; sh:class lg:ProofTermExpression ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  lg:constrainsClass lg:ProofTermAdequacyObligation .
+
+
+# -----------------------------------------------------------------------------
+# Substitution, cut-elimination, and shared-subproof reuse layer
+# -----------------------------------------------------------------------------
+
+lg:ProofVariableShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:ProofVariable ;
+  sh:property [ sh:path lg:proofVariableName ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  lg:constrainsClass lg:ProofVariable .
+
+lg:ProofContextShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:ProofContext ;
+  sh:property [ sh:path lg:bindsProofVariable ; sh:class lg:ProofVariable ; sh:minCount 1 ] ;
+  sh:property [ sh:path lg:hasProofAssumption ; sh:class lg:ProofAssumption ; sh:minCount 1 ] ;
+  lg:constrainsClass lg:ProofContext .
+
+lg:ProofAssumptionShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:ProofAssumption ;
+  sh:property [ sh:path lg:assumesProofVariable ; sh:class lg:ProofVariable ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:assumesProofTerm ; sh:class lg:ProofTermExpression ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:inProofContext ; sh:class lg:ProofContext ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:sparql [
+    sh:message "A proof assumption's proof variable must be bound by the context in which the assumption lives." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:assumesProofVariable ?v ;
+              lg:inProofContext ?ctx .
+        FILTER NOT EXISTS { ?ctx lg:bindsProofVariable ?v . }
+      }
+    """
+  ] ;
+  lg:constrainsClass lg:ProofAssumption .
+
+lg:SubstitutionWitnessShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:SubstitutionWitness ;
+  sh:property [ sh:path lg:substitutesSourceProofTerm ; sh:class lg:ProofTermExpression ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:substitutesTargetProofTerm ; sh:class lg:ProofTermExpression ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:substitutesReplacementTerm ; sh:class lg:ProofTermExpression ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  lg:constrainsClass lg:SubstitutionWitness .
+
+lg:SubstitutionApplicationShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:SubstitutionApplication ;
+  sh:property [ sh:path lg:substitutesProofVariable ; sh:class lg:ProofVariable ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:substitutesWithProofTerm ; sh:class lg:ProofTermExpression ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:substitutesInProofTerm ; sh:class lg:ProofTermExpression ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:substitutesToProofTerm ; sh:class lg:ProofTermExpression ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasSubstitutionWitness ; sh:class lg:SubstitutionWitness ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasSubstitutionSoundnessObligation ; sh:class lg:SubstitutionSoundnessObligation ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasSubstitutionCompatibilityObligation ; sh:class lg:SubstitutionCompatibilityObligation ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:sparql [
+    sh:message "A substitution application must share a semantic policy bundle with its source term, replacement term, and target term." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:derivedUnderSemanticPolicyBundle ?b ;
+              lg:substitutesInProofTerm ?src ;
+              lg:substitutesWithProofTerm ?rep ;
+              lg:substitutesToProofTerm ?tgt .
+        FILTER (
+          NOT EXISTS { ?src lg:derivedUnderSemanticPolicyBundle ?b . } ||
+          NOT EXISTS { ?rep lg:derivedUnderSemanticPolicyBundle ?b . } ||
+          NOT EXISTS { ?tgt lg:derivedUnderSemanticPolicyBundle ?b . }
+        )
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "A substitution witness must point from the source proof term to the target proof term and cite the replacement proof term used by the substitution." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:substitutesInProofTerm ?src ;
+              lg:substitutesWithProofTerm ?rep ;
+              lg:substitutesToProofTerm ?tgt ;
+              lg:hasSubstitutionWitness ?w .
+        FILTER (
+          NOT EXISTS { ?w lg:substitutesSourceProofTerm ?src . } ||
+          NOT EXISTS { ?w lg:substitutesTargetProofTerm ?tgt . } ||
+          NOT EXISTS { ?w lg:substitutesReplacementTerm ?rep . }
+        )
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "A substitution application must denote the same constraint as its substitution target proof term." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:denotesConstraint ?d ;
+              lg:substitutesToProofTerm ?tgt .
+        FILTER NOT EXISTS { ?tgt lg:denotesConstraint ?d . }
+      }
+    """
+  ] ;
+  lg:constrainsClass lg:SubstitutionApplication .
+
+lg:CutEliminationWitnessShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:CutEliminationWitness ;
+  sh:property [ sh:path lg:normalizesSourceProofTerm ; sh:class lg:ProofTermExpression ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:normalizesTargetProofTerm ; sh:class lg:ProofTermExpression ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:eliminatesCutSourceProofTerm ; sh:class lg:ProofTermExpression ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:cutEliminatesToProofTerm ; sh:class lg:ProofTermExpression ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:sparql [
+    sh:message "A cut-elimination witness must name the same source and target proof terms through its normalization and elimination projections." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:normalizesSourceProofTerm ?src ;
+              lg:normalizesTargetProofTerm ?tgt .
+        FILTER (
+          NOT EXISTS { $this lg:eliminatesCutSourceProofTerm ?src . } ||
+          NOT EXISTS { $this lg:cutEliminatesToProofTerm ?tgt . }
+        )
+      }
+    """
+  ] ;
+  lg:constrainsClass lg:CutEliminationWitness .
+
+lg:CutApplicationShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:CutApplication ;
+  sh:property [ sh:path lg:hasLeftProofTerm ; sh:class lg:ProofTermExpression ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasRightProofTerm ; sh:class lg:ProofTermExpression ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:cutsOnProofVariable ; sh:class lg:ProofVariable ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:cutsOnProofAssumption ; sh:class lg:ProofAssumption ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasNormalizedProofTerm ; sh:class lg:ProofTermExpression ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasCutEliminationWitness ; sh:class lg:CutEliminationWitness ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasCutAdmissibilityObligation ; sh:class lg:CutAdmissibilityObligation ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasCutEliminationObligation ; sh:class lg:CutEliminationObligation ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:sparql [
+    sh:message "A cut application must be indexed by the same semantic policy bundle as its left term, right term, and normalized term." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:derivedUnderSemanticPolicyBundle ?b ;
+              lg:hasLeftProofTerm ?l ;
+              lg:hasRightProofTerm ?r ;
+              lg:hasNormalizedProofTerm ?n .
+        FILTER (
+          NOT EXISTS { ?l lg:derivedUnderSemanticPolicyBundle ?b . } ||
+          NOT EXISTS { ?r lg:derivedUnderSemanticPolicyBundle ?b . } ||
+          NOT EXISTS { ?n lg:derivedUnderSemanticPolicyBundle ?b . }
+        )
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "A cut application's designated assumption must bind the same proof variable named as the cut variable." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:cutsOnProofVariable ?v ;
+              lg:cutsOnProofAssumption ?a .
+        FILTER NOT EXISTS { ?a lg:assumesProofVariable ?v . }
+      }
+    """
+  ] ;
+  sh:sparql [
+    sh:message "A cut-elimination witness must point from the cut application to its normalized proof term." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this lg:hasNormalizedProofTerm ?n ;
+              lg:hasCutEliminationWitness ?w .
+        FILTER (
+          NOT EXISTS { ?w lg:eliminatesCutSourceProofTerm $this . } ||
+          NOT EXISTS { ?w lg:cutEliminatesToProofTerm ?n . }
+        )
+      }
+    """
+  ] ;
+  lg:constrainsClass lg:CutApplication .
+
+lg:SharedSubproofShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:SharedSubproof ;
+  sh:property [ sh:path lg:registeredInReuseCategory ; sh:class lg:SubproofReuseCategory ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:hasSubproofReuseObligation ; sh:class lg:SharedSubproofReuseObligation ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  lg:constrainsClass lg:SharedSubproof .
+
+lg:SubproofReuseMorphismShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:SubproofReuseMorphism ;
+  sh:property [ sh:path cat:dom ; sh:class lg:SharedSubproof ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path cat:cod ; sh:class lg:SharedSubproof ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path cat:inCategory ; sh:class lg:SubproofReuseCategory ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:reusesSharedSubproof ; sh:class lg:SharedSubproof ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:sparql [
+    sh:message "A subproof reuse morphism must reuse a shared subproof registered in its own reuse category." ;
+    sh:select """
+      SELECT $this
+      WHERE {
+        $this cat:inCategory ?c ;
+              lg:reusesSharedSubproof ?s .
+        FILTER NOT EXISTS { ?s lg:registeredInReuseCategory ?c . }
+      }
+    """
+  ] ;
+  lg:constrainsClass lg:SubproofReuseMorphism .
+
+lg:SubproofReuseCategoryShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:SubproofReuseCategory ;
+  sh:property [ sh:path lg:hasSubproofReuseMorphism ; sh:class lg:SubproofReuseMorphism ; sh:minCount 1 ] ;
+  sh:property [ sh:path lg:hasFunctorialSubproofReuseObligation ; sh:class lg:FunctorialSubproofReuseObligation ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  lg:constrainsClass lg:SubproofReuseCategory .
+
+lg:SubstitutionSoundnessObligationShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:SubstitutionSoundnessObligation ;
+  sh:property [ sh:path lg:governsSubstitutionApplication ; sh:class lg:SubstitutionApplication ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsProofVariable ; sh:class lg:ProofVariable ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsSourceProofTerm ; sh:class lg:ProofTermExpression ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsTargetProofTerm ; sh:class lg:ProofTermExpression ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  lg:constrainsClass lg:SubstitutionSoundnessObligation .
+
+lg:SubstitutionCompatibilityObligationShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:SubstitutionCompatibilityObligation ;
+  sh:property [ sh:path lg:governsSubstitutionApplication ; sh:class lg:SubstitutionApplication ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsProofContext ; sh:class lg:ProofContext ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsProofAssumption ; sh:class lg:ProofAssumption ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  lg:constrainsClass lg:SubstitutionCompatibilityObligation .
+
+lg:CutAdmissibilityObligationShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:CutAdmissibilityObligation ;
+  sh:property [ sh:path lg:governsCutApplication ; sh:class lg:CutApplication ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsProofVariable ; sh:class lg:ProofVariable ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsProofAssumption ; sh:class lg:ProofAssumption ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  lg:constrainsClass lg:CutAdmissibilityObligation .
+
+lg:CutEliminationObligationShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:CutEliminationObligation ;
+  sh:property [ sh:path lg:governsCutApplication ; sh:class lg:CutApplication ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsSourceProofTerm ; sh:class lg:ProofTermExpression ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsTargetProofTerm ; sh:class lg:ProofTermExpression ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  lg:constrainsClass lg:CutEliminationObligation .
+
+lg:SharedSubproofReuseObligationShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:SharedSubproofReuseObligation ;
+  sh:property [ sh:path lg:governsSharedSubproof ; sh:class lg:SharedSubproof ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path lg:governsReuseCategory ; sh:class lg:SubproofReuseCategory ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  lg:constrainsClass lg:SharedSubproofReuseObligation .
+
+lg:FunctorialSubproofReuseObligationShape
+  a sh:NodeShape, lg:ShapeConstraint ;
+  sh:targetClass lg:FunctorialSubproofReuseObligation ;
+  sh:property [ sh:path lg:governsReuseCategory ; sh:class lg:SubproofReuseCategory ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  lg:constrainsClass lg:FunctorialSubproofReuseObligation .

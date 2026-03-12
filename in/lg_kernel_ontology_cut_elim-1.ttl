@@ -1,0 +1,2512 @@
+@prefix cat:  <https://example.org/cat#> .
+@prefix lg:   <https://example.org/lg#> .
+@prefix sh:   <http://www.w3.org/ns/shacl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+cat:Category a rdfs:Class ;
+  rdfs:label "Category" ;
+  rdfs:comment "A small category presented inside RDF." .
+
+cat:Object a rdfs:Class ;
+  rdfs:label "Object" .
+
+cat:Morphism a rdfs:Class ;
+  rdfs:label "Morphism" .
+
+cat:Functor a rdfs:Class ;
+  rdfs:label "Functor" .
+
+cat:inCategory a rdf:Property ;
+  rdfs:range cat:Category ;
+  rdfs:label "in category" .
+
+cat:dom a rdf:Property ;
+  rdfs:domain cat:Morphism ;
+  rdfs:range cat:Object ;
+  rdfs:label "domain" .
+
+cat:cod a rdf:Property ;
+  rdfs:domain cat:Morphism ;
+  rdfs:range cat:Object ;
+  rdfs:label "codomain" .
+
+cat:sourceCategory a rdf:Property ;
+  rdfs:domain cat:Functor ;
+  rdfs:range cat:Category ;
+  rdfs:label "source category" .
+
+cat:targetCategory a rdf:Property ;
+  rdfs:domain cat:Functor ;
+  rdfs:range cat:Category ;
+  rdfs:label "target category" .
+
+cat:mapsObject a rdf:Property ;
+  rdfs:domain cat:Functor ;
+  rdfs:range cat:Object ;
+  rdfs:label "maps object" .
+
+cat:mapsMorphism a rdf:Property ;
+  rdfs:domain cat:Functor ;
+  rdfs:range cat:Morphism ;
+  rdfs:label "maps morphism" .
+
+lg:RuleObject a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Rule object" ;
+  rdfs:comment "A first-class law-object in the language kernel." .
+
+lg:AugmentedRule a rdfs:Class ;
+  rdfs:subClassOf lg:RuleObject ;
+  rdfs:label "Augmented rule" ;
+  rdfs:comment "An atomic rule-object binding syntax, typing, and semantics." .
+
+lg:SyntacticRule a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Syntactic rule" .
+
+lg:TypingRule a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Typing rule" .
+
+lg:CategoricalRule a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Categorical rule" .
+
+lg:GrammarState a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Grammar state" ;
+  rdfs:comment "A pair consisting of the current rule set and emergent vocabulary." .
+
+lg:GrammarCategory a rdfs:Class ;
+  rdfs:subClassOf cat:Category ;
+  rdfs:label "Grammar category" .
+
+lg:WorldCategory a rdfs:Class ;
+  rdfs:subClassOf cat:Category ;
+  rdfs:label "World category" .
+
+lg:WorldState a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "World state" .
+
+lg:ExecutableTransition a rdfs:Class ;
+  rdfs:subClassOf cat:Morphism ;
+  rdfs:label "Executable transition" .
+
+lg:SemanticType a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Semantic type" .
+
+lg:CoreTerm a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Core term" .
+
+lg:Handle a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Handle" .
+
+lg:Identifier a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Identifier" .
+
+lg:Derivation a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Derivation" .
+
+lg:ParseForest a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Parse forest" .
+
+lg:TypingJudgment a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Typing judgment" .
+
+lg:EvolutionStep a rdfs:Class ;
+  rdfs:subClassOf cat:Morphism ;
+  rdfs:label "Evolution step" ;
+  rdfs:comment "A grammar-state transition induced by an admissible augmented rule." .
+
+lg:ConstraintArtifact a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Constraint artifact" ;
+  rdfs:comment "A first-class constraint object, intended to host SHACL/SPARQL constraints inside the ontology." .
+
+lg:ShapeConstraint a rdfs:Class ;
+  rdfs:subClassOf lg:ConstraintArtifact ;
+  rdfs:label "Shape constraint" .
+
+lg:SPARQLConstraint a rdfs:Class ;
+  rdfs:subClassOf lg:ConstraintArtifact ;
+  rdfs:label "SPARQL constraint" ;
+  rdfs:comment "A constraint whose primary intensional form is a query AST, but which may also be lowered to standard SHACL select text." .
+
+lg:QueryAST a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Query AST" ;
+  rdfs:comment "A graph-native, abstract representation of a SPARQL query." .
+
+lg:SelectQuery a rdfs:Class ;
+  rdfs:subClassOf lg:QueryAST ;
+  rdfs:label "SELECT query AST" .
+
+lg:GraphPattern a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Graph pattern" .
+
+lg:TriplePattern a rdfs:Class ;
+  rdfs:subClassOf lg:GraphPattern ;
+  rdfs:label "Triple pattern" .
+
+lg:JoinPattern a rdfs:Class ;
+  rdfs:subClassOf lg:GraphPattern ;
+  rdfs:label "Join pattern" ;
+  rdfs:comment "Algebraic conjunction of two graph patterns." .
+
+lg:AntiJoinPattern a rdfs:Class ;
+  rdfs:subClassOf lg:GraphPattern ;
+  rdfs:label "Anti-join pattern" ;
+  rdfs:comment "Pattern-level representation of correlated negation such as FILTER NOT EXISTS." .
+
+lg:QueryVariable a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Query variable" .
+
+lg:ReservedVariable a rdfs:Class ;
+  rdfs:subClassOf lg:QueryVariable ;
+  rdfs:label "Reserved query variable" .
+
+lg:QueryRendering a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Query rendering" ;
+  rdfs:comment "A node that wraps a query AST and carries a concrete string serialization for interoperability." .
+
+lg:hasSyntaxClause a rdf:Property ;
+  rdfs:domain lg:AugmentedRule ;
+  rdfs:range lg:SyntacticRule ;
+  rdfs:label "has syntax clause" .
+
+lg:hasTypingClause a rdf:Property ;
+  rdfs:domain lg:AugmentedRule ;
+  rdfs:range lg:TypingRule ;
+  rdfs:label "has typing clause" .
+
+lg:hasCategoricalClause a rdf:Property ;
+  rdfs:domain lg:AugmentedRule ;
+  rdfs:range lg:CategoricalRule ;
+  rdfs:label "has categorical clause" .
+
+lg:fiberOverSyntaxClause a rdf:Property ;
+  rdfs:domain lg:TypingRule ;
+  rdfs:range lg:SyntacticRule ;
+  rdfs:label "fibers over syntax clause" ;
+  rdfs:comment "The typing rule is indexed by the syntactic clause it types." .
+
+lg:indexedByTypingClause a rdf:Property ;
+  rdfs:domain lg:CategoricalRule ;
+  rdfs:range lg:TypingRule ;
+  rdfs:label "indexed by typing clause" ;
+  rdfs:comment "The semantic clause is indexed by the typing clause whose valid terms it interprets." .
+
+lg:introducesIdentifier a rdf:Property ;
+  rdfs:domain lg:AugmentedRule ;
+  rdfs:range lg:Identifier ;
+  rdfs:label "introduces identifier" .
+
+lg:hasRule a rdf:Property ;
+  rdfs:domain lg:GrammarState ;
+  rdfs:range lg:AugmentedRule ;
+  rdfs:label "has rule" .
+
+lg:hasEmergentIdentifier a rdf:Property ;
+  rdfs:domain lg:GrammarState ;
+  rdfs:range lg:Identifier ;
+  rdfs:label "has emergent identifier" .
+
+lg:fromGrammarState a rdf:Property ;
+  rdfs:domain lg:EvolutionStep ;
+  rdfs:range lg:GrammarState ;
+  rdfs:label "from grammar state" .
+
+lg:viaRule a rdf:Property ;
+  rdfs:domain lg:EvolutionStep ;
+  rdfs:range lg:AugmentedRule ;
+  rdfs:label "via rule" .
+
+lg:toGrammarState a rdf:Property ;
+  rdfs:domain lg:EvolutionStep ;
+  rdfs:range lg:GrammarState ;
+  rdfs:label "to grammar state" .
+
+lg:denotesTransition a rdf:Property ;
+  rdfs:domain lg:CategoricalRule ;
+  rdfs:range lg:ExecutableTransition ;
+  rdfs:label "denotes transition" .
+
+lg:normalizesTo a rdf:Property ;
+  rdfs:domain lg:Derivation ;
+  rdfs:range lg:CoreTerm ;
+  rdfs:label "normalizes to" .
+
+lg:reifiesAsHandle a rdf:Property ;
+  rdfs:domain lg:CoreTerm ;
+  rdfs:range lg:Handle ;
+  rdfs:label "reifies as handle" .
+
+lg:reflectsHandle a rdf:Property ;
+  rdfs:domain lg:Handle ;
+  rdfs:range lg:CoreTerm ;
+  rdfs:label "reflects handle" .
+
+lg:judgesTerm a rdf:Property ;
+  rdfs:domain lg:TypingJudgment ;
+  rdfs:range lg:CoreTerm ;
+  rdfs:label "judges term" .
+
+lg:judgesType a rdf:Property ;
+  rdfs:domain lg:TypingJudgment ;
+  rdfs:range lg:SemanticType ;
+  rdfs:label "judges type" .
+
+lg:judgesInWorldState a rdf:Property ;
+  rdfs:domain lg:TypingJudgment ;
+  rdfs:range lg:WorldState ;
+  rdfs:label "judges in world state" .
+
+lg:judgesUnderGrammarState a rdf:Property ;
+  rdfs:domain lg:TypingJudgment ;
+  rdfs:range lg:GrammarState ;
+  rdfs:label "judges under grammar state" .
+
+lg:constrainsClass a rdf:Property ;
+  rdfs:domain lg:ConstraintArtifact ;
+  rdfs:range rdfs:Class ;
+  rdfs:label "constrains class" .
+
+lg:usesConstraintLanguage a rdf:Property ;
+  rdfs:domain lg:ConstraintArtifact ;
+  rdfs:range cat:Object ;
+  rdfs:label "uses constraint language" .
+
+lg:hasQueryAST a rdf:Property ;
+  rdfs:domain lg:SPARQLConstraint ;
+  rdfs:range lg:SelectQuery ;
+  rdfs:label "has query AST" ;
+  rdfs:comment "Associates a SPARQL constraint with its primary abstract query representation." .
+
+lg:hasQueryRendering a rdf:Property ;
+  rdfs:domain lg:SPARQLConstraint ;
+  rdfs:range lg:QueryRendering ;
+  rdfs:label "has query rendering" ;
+  rdfs:comment "Associates a SPARQL constraint with a rendering node that can yield a concrete query string." .
+
+lg:wrapsQueryAST a rdf:Property ;
+  rdfs:domain lg:QueryRendering ;
+  rdfs:range lg:QueryAST ;
+  rdfs:label "wraps query AST" .
+
+lg:projectsVariable a rdf:Property ;
+  rdfs:domain lg:SelectQuery ;
+  rdfs:range lg:QueryVariable ;
+  rdfs:label "projects variable" .
+
+lg:wherePattern a rdf:Property ;
+  rdfs:domain lg:SelectQuery ;
+  rdfs:range lg:GraphPattern ;
+  rdfs:label "where pattern" .
+
+lg:leftPattern a rdf:Property ;
+  rdfs:domain lg:GraphPattern ;
+  rdfs:range lg:GraphPattern ;
+  rdfs:label "left pattern" .
+
+lg:rightPattern a rdf:Property ;
+  rdfs:domain lg:GraphPattern ;
+  rdfs:range lg:GraphPattern ;
+  rdfs:label "right pattern" .
+
+lg:subjectTerm a rdf:Property ;
+  rdfs:domain lg:TriplePattern ;
+  rdfs:label "subject term" .
+
+lg:predicateTerm a rdf:Property ;
+  rdfs:domain lg:TriplePattern ;
+  rdfs:label "predicate term" .
+
+lg:objectTerm a rdf:Property ;
+  rdfs:domain lg:TriplePattern ;
+  rdfs:label "object term" .
+
+lg:variableName a rdf:Property ;
+  rdfs:domain lg:QueryVariable ;
+  rdfs:range xsd:string ;
+  rdfs:label "variable name" .
+
+sh:select rdfs:comment "In standard SHACL-SPARQL, sh:select takes an xsd:string. In this ontology, the primary intensional representation is carried by lg:hasQueryAST, while sh:select remains available as the lowered interoperable serialization." .
+
+
+# ---- Galois / polarity extension for AugmentedRule ----
+
+lg:RulePolarity a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Rule polarity" ;
+  rdfs:comment "A semiring-valued witness/predicate polarity attached to an AugmentedRule. It packages the witness domain, predicate domain, incidence relation, derivation operators, and closure operators from which closed rule-cells are recovered." .
+
+lg:WitnessDomain a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Witness domain" ;
+  rdfs:comment "The witness-side domain of an AugmentedRule polarity. This is the side on which realized distinctions and observers live." .
+
+lg:PredicateDomain a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Predicate domain" ;
+  rdfs:comment "The predicate-side domain of an AugmentedRule polarity. This is the side on which forms, laws, and classificatory content live." .
+
+lg:IncidenceRelation a rdfs:Class ;
+  rdfs:subClassOf cat:Morphism ;
+  rdfs:label "Incidence relation" ;
+  rdfs:comment "A semiring-valued incidence relation from the witness domain to the predicate domain. It internalizes the observer as the witness to distinction." .
+
+lg:Semiring a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Semiring" ;
+  rdfs:comment "A value object parameterizing multiplicity, weighting, or effect-sensitive valuation in the rule polarity." .
+
+lg:SupportReflection a rdfs:Class ;
+  rdfs:subClassOf cat:Morphism ;
+  rdfs:label "Support reflection" ;
+  rdfs:comment "An optional morphism from the chosen semiring to a boolean or support-valued semantics. It is present only when ordinary support or negation is required." .
+
+lg:DerivationOperator a rdfs:Class ;
+  rdfs:subClassOf cat:Morphism ;
+  rdfs:label "Derivation operator" ;
+  rdfs:comment "One half of the Galois connection induced by a rule polarity." .
+
+lg:ClosureOperator a rdfs:Class ;
+  rdfs:subClassOf cat:Morphism ;
+  rdfs:label "Closure operator" ;
+  rdfs:comment "A closure induced by composing the two derivation operators of a rule polarity." .
+
+lg:ClosedExtent a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Closed extent" ;
+  rdfs:comment "A witness-side fixed point of the polarity closure. It is the existential face of a closed rule-cell." .
+
+lg:ClosedIntent a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Closed intent" ;
+  rdfs:comment "A predicate-side fixed point of the polarity closure. It is the classificatory face of a closed rule-cell." .
+
+lg:ClosedRuleCell a rdfs:Class ;
+  rdfs:subClassOf lg:AugmentedRule ;
+  rdfs:label "Closed rule-cell" ;
+  rdfs:comment "An AugmentedRule whose witness/predicate polarity has chosen closure-fixed extent and intent. This is the bifacial atomic cell used by the ontology." .
+
+lg:SemanticAtlas a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Semantic atlas" ;
+  rdfs:comment "A package of exact finitary presentations of the semantic face of a rule: matrix, Kleisli, and predicate/doctrine charts." .
+
+lg:MatrixPresentation a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Matrix presentation" .
+
+lg:KleisliPresentation a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Kleisli presentation" .
+
+lg:PredicatePresentation a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Predicate presentation" .
+
+lg:hasPolarity a rdf:Property ;
+  rdfs:domain lg:AugmentedRule ;
+  rdfs:range lg:RulePolarity ;
+  rdfs:label "has polarity" .
+
+lg:hasWitnessDomain a rdf:Property ;
+  rdfs:domain lg:RulePolarity ;
+  rdfs:range lg:WitnessDomain ;
+  rdfs:label "has witness domain" .
+
+lg:hasPredicateDomain a rdf:Property ;
+  rdfs:domain lg:RulePolarity ;
+  rdfs:range lg:PredicateDomain ;
+  rdfs:label "has predicate domain" .
+
+lg:hasIncidenceRelation a rdf:Property ;
+  rdfs:domain lg:RulePolarity ;
+  rdfs:range lg:IncidenceRelation ;
+  rdfs:label "has incidence relation" .
+
+lg:valuedInSemiring a rdf:Property ;
+  rdfs:domain lg:RulePolarity ;
+  rdfs:range lg:Semiring ;
+  rdfs:label "valued in semiring" .
+
+lg:hasSupportReflection a rdf:Property ;
+  rdfs:domain lg:RulePolarity ;
+  rdfs:range lg:SupportReflection ;
+  rdfs:label "has support reflection" .
+
+lg:hasWitnessDerivation a rdf:Property ;
+  rdfs:domain lg:RulePolarity ;
+  rdfs:range lg:DerivationOperator ;
+  rdfs:label "has witness derivation" ;
+  rdfs:comment "The derivation from the witness side toward the predicate side." .
+
+lg:hasPredicateDerivation a rdf:Property ;
+  rdfs:domain lg:RulePolarity ;
+  rdfs:range lg:DerivationOperator ;
+  rdfs:label "has predicate derivation" ;
+  rdfs:comment "The derivation from the predicate side toward the witness side." .
+
+lg:hasExtentClosure a rdf:Property ;
+  rdfs:domain lg:RulePolarity ;
+  rdfs:range lg:ClosureOperator ;
+  rdfs:label "has extent closure" .
+
+lg:hasIntentClosure a rdf:Property ;
+  rdfs:domain lg:RulePolarity ;
+  rdfs:range lg:ClosureOperator ;
+  rdfs:label "has intent closure" .
+
+lg:hasClosedExtent a rdf:Property ;
+  rdfs:domain lg:ClosedRuleCell ;
+  rdfs:range lg:ClosedExtent ;
+  rdfs:label "has closed extent" .
+
+lg:hasClosedIntent a rdf:Property ;
+  rdfs:domain lg:ClosedRuleCell ;
+  rdfs:range lg:ClosedIntent ;
+  rdfs:label "has closed intent" .
+
+lg:hasSemanticAtlas a rdf:Property ;
+  rdfs:domain lg:CategoricalRule ;
+  rdfs:range lg:SemanticAtlas ;
+  rdfs:label "has semantic atlas" .
+
+lg:hasMatrixPresentation a rdf:Property ;
+  rdfs:domain lg:SemanticAtlas ;
+  rdfs:range lg:MatrixPresentation ;
+  rdfs:label "has matrix presentation" .
+
+lg:hasKleisliPresentation a rdf:Property ;
+  rdfs:domain lg:SemanticAtlas ;
+  rdfs:range lg:KleisliPresentation ;
+  rdfs:label "has Kleisli presentation" .
+
+lg:hasPredicatePresentation a rdf:Property ;
+  rdfs:domain lg:SemanticAtlas ;
+  rdfs:range lg:PredicatePresentation ;
+  rdfs:label "has predicate presentation" .
+
+
+# ---- Quotient recovery and lattice extension ----
+
+lg:KernelCongruence a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Kernel congruence" ;
+  rdfs:comment "A congruence witnessing the identification performed by a quotient projection from a closed rule-cell to one of its recoverable faces." .
+
+lg:QuotientProjection a rdfs:Class ;
+  rdfs:subClassOf cat:Morphism ;
+  rdfs:label "Quotient projection" ;
+  rdfs:comment "A projection that recovers one face of a closed rule-cell as a quotient of the whole by an explicit kernel congruence." .
+
+lg:ConceptLattice a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Concept lattice" ;
+  rdfs:comment "The lattice of closure-fixed witness/predicate pairs induced by a rule polarity." .
+
+lg:FormalConcept a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Formal concept" ;
+  rdfs:comment "A closure-fixed pair of extent and intent inside a concept lattice." .
+
+lg:OrderRelation a rdfs:Class ;
+  rdfs:subClassOf cat:Morphism ;
+  rdfs:label "Order relation" ;
+  rdfs:comment "The internal order relation of a concept lattice." .
+
+lg:MeetOperation a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Meet operation" .
+
+lg:JoinOperation a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Join operation" .
+
+lg:quotientsBy a rdf:Property ;
+  rdfs:domain lg:QuotientProjection ;
+  rdfs:range lg:KernelCongruence ;
+  rdfs:label "quotients by" .
+
+lg:hasSyntaxProjection a rdf:Property ;
+  rdfs:domain lg:ClosedRuleCell ;
+  rdfs:range lg:QuotientProjection ;
+  rdfs:label "has syntax projection" .
+
+lg:hasTypingProjection a rdf:Property ;
+  rdfs:domain lg:ClosedRuleCell ;
+  rdfs:range lg:QuotientProjection ;
+  rdfs:label "has typing projection" .
+
+lg:hasSemanticProjection a rdf:Property ;
+  rdfs:domain lg:ClosedRuleCell ;
+  rdfs:range lg:QuotientProjection ;
+  rdfs:label "has semantic projection" .
+
+lg:hasExtentProjection a rdf:Property ;
+  rdfs:domain lg:ClosedRuleCell ;
+  rdfs:range lg:QuotientProjection ;
+  rdfs:label "has extent projection" .
+
+lg:hasIntentProjection a rdf:Property ;
+  rdfs:domain lg:ClosedRuleCell ;
+  rdfs:range lg:QuotientProjection ;
+  rdfs:label "has intent projection" .
+
+lg:inducesConceptLattice a rdf:Property ;
+  rdfs:domain lg:RulePolarity ;
+  rdfs:range lg:ConceptLattice ;
+  rdfs:label "induces concept lattice" .
+
+lg:generatedByPolarity a rdf:Property ;
+  rdfs:domain lg:ConceptLattice ;
+  rdfs:range lg:RulePolarity ;
+  rdfs:label "generated by polarity" .
+
+lg:hasFormalConcept a rdf:Property ;
+  rdfs:domain lg:ConceptLattice ;
+  rdfs:range lg:FormalConcept ;
+  rdfs:label "has formal concept" .
+
+lg:formalExtent a rdf:Property ;
+  rdfs:domain lg:FormalConcept ;
+  rdfs:range lg:ClosedExtent ;
+  rdfs:label "formal extent" .
+
+lg:formalIntent a rdf:Property ;
+  rdfs:domain lg:FormalConcept ;
+  rdfs:range lg:ClosedIntent ;
+  rdfs:label "formal intent" .
+
+lg:memberOfLattice a rdf:Property ;
+  rdfs:domain lg:FormalConcept ;
+  rdfs:range lg:ConceptLattice ;
+  rdfs:label "member of lattice" .
+
+lg:hasTopConcept a rdf:Property ;
+  rdfs:domain lg:ConceptLattice ;
+  rdfs:range lg:FormalConcept ;
+  rdfs:label "has top concept" .
+
+lg:hasBottomConcept a rdf:Property ;
+  rdfs:domain lg:ConceptLattice ;
+  rdfs:range lg:FormalConcept ;
+  rdfs:label "has bottom concept" .
+
+lg:hasOrderRelation a rdf:Property ;
+  rdfs:domain lg:ConceptLattice ;
+  rdfs:range lg:OrderRelation ;
+  rdfs:label "has order relation" .
+
+lg:hasMeetOperation a rdf:Property ;
+  rdfs:domain lg:ConceptLattice ;
+  rdfs:range lg:MeetOperation ;
+  rdfs:label "has meet operation" .
+
+lg:hasJoinOperation a rdf:Property ;
+  rdfs:domain lg:ConceptLattice ;
+  rdfs:range lg:JoinOperation ;
+  rdfs:label "has join operation" .
+
+lg:realizesFormalConcept a rdf:Property ;
+  rdfs:domain lg:ClosedRuleCell ;
+  rdfs:range lg:FormalConcept ;
+  rdfs:label "realizes formal concept" .
+
+
+# ---- Theorem / proof-obligation extension ----
+
+lg:ProofObligation a rdfs:Class ;
+  rdfs:subClassOf lg:ConstraintArtifact ;
+  rdfs:label "Proof obligation" ;
+  rdfs:comment "A first-class internal obligation asserting that a structure satisfies a law or universal property. SHACL enforces the presence and coherence of these obligations, while mathematical proof remains a higher layer." .
+
+lg:ProofWitness a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Proof witness" ;
+  rdfs:comment "A witness artifact, derivation, or certificate attached to a proof obligation. The ontology records such witnesses without requiring a specific proof calculus." .
+
+lg:LawSchema a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Law schema" ;
+  rdfs:comment "An internal schema naming the form of a law or universal property." .
+
+lg:UniversalPropertySchema a rdfs:Class ;
+  rdfs:subClassOf lg:LawSchema ;
+  rdfs:label "Universal property schema" .
+
+lg:FactorizationSchema a rdfs:Class ;
+  rdfs:subClassOf lg:UniversalPropertySchema ;
+  rdfs:label "Factorization schema" .
+
+lg:UniquenessSchema a rdfs:Class ;
+  rdfs:subClassOf lg:UniversalPropertySchema ;
+  rdfs:label "Uniqueness schema" .
+
+lg:LatticeLawObligation a rdfs:Class ;
+  rdfs:subClassOf lg:ProofObligation ;
+  rdfs:label "Lattice law obligation" ;
+  rdfs:comment "A proof obligation stating that a designated concept lattice satisfies one of the lattice laws relative to its operations and order." .
+
+lg:MeetAssociativityObligation a rdfs:Class ;
+  rdfs:subClassOf lg:LatticeLawObligation ;
+  rdfs:label "Meet associativity obligation" .
+
+lg:JoinAssociativityObligation a rdfs:Class ;
+  rdfs:subClassOf lg:LatticeLawObligation ;
+  rdfs:label "Join associativity obligation" .
+
+lg:MeetCommutativityObligation a rdfs:Class ;
+  rdfs:subClassOf lg:LatticeLawObligation ;
+  rdfs:label "Meet commutativity obligation" .
+
+lg:JoinCommutativityObligation a rdfs:Class ;
+  rdfs:subClassOf lg:LatticeLawObligation ;
+  rdfs:label "Join commutativity obligation" .
+
+lg:MeetIdempotenceObligation a rdfs:Class ;
+  rdfs:subClassOf lg:LatticeLawObligation ;
+  rdfs:label "Meet idempotence obligation" .
+
+lg:JoinIdempotenceObligation a rdfs:Class ;
+  rdfs:subClassOf lg:LatticeLawObligation ;
+  rdfs:label "Join idempotence obligation" .
+
+lg:AbsorptionObligation a rdfs:Class ;
+  rdfs:subClassOf lg:LatticeLawObligation ;
+  rdfs:label "Absorption obligation" .
+
+lg:BoundednessObligation a rdfs:Class ;
+  rdfs:subClassOf lg:LatticeLawObligation ;
+  rdfs:label "Boundedness obligation" .
+
+lg:OrderCompatibilityObligation a rdfs:Class ;
+  rdfs:subClassOf lg:LatticeLawObligation ;
+  rdfs:label "Order compatibility obligation" ;
+  rdfs:comment "A proof obligation relating the lattice order to the designated meet and join operations." .
+
+lg:QuotientUniversalityObligation a rdfs:Class ;
+  rdfs:subClassOf lg:ProofObligation ;
+  rdfs:label "Quotient universality obligation" ;
+  rdfs:comment "A first-class obligation stating that a quotient projection satisfies its universal property relative to the designated kernel congruence and quotient face." .
+
+lg:hasProofWitness a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:ProofWitness ;
+  rdfs:label "has proof witness" .
+
+lg:witnessesObligation a rdf:Property ;
+  rdfs:domain lg:ProofWitness ;
+  rdfs:range lg:ProofObligation ;
+  rdfs:label "witnesses obligation" .
+
+lg:statesLawSchema a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:LawSchema ;
+  rdfs:label "states law schema" .
+
+lg:governsLattice a rdf:Property ;
+  rdfs:domain lg:LatticeLawObligation ;
+  rdfs:range lg:ConceptLattice ;
+  rdfs:label "governs lattice" .
+
+lg:governsMeetOperation a rdf:Property ;
+  rdfs:domain lg:LatticeLawObligation ;
+  rdfs:range lg:MeetOperation ;
+  rdfs:label "governs meet operation" .
+
+lg:governsJoinOperation a rdf:Property ;
+  rdfs:domain lg:LatticeLawObligation ;
+  rdfs:range lg:JoinOperation ;
+  rdfs:label "governs join operation" .
+
+lg:governsOrderRelation a rdf:Property ;
+  rdfs:domain lg:LatticeLawObligation ;
+  rdfs:range lg:OrderRelation ;
+  rdfs:label "governs order relation" .
+
+lg:governsTopConcept a rdf:Property ;
+  rdfs:domain lg:LatticeLawObligation ;
+  rdfs:range lg:FormalConcept ;
+  rdfs:label "governs top concept" .
+
+lg:governsBottomConcept a rdf:Property ;
+  rdfs:domain lg:LatticeLawObligation ;
+  rdfs:range lg:FormalConcept ;
+  rdfs:label "governs bottom concept" .
+
+lg:hasMeetAssociativityObligation a rdf:Property ;
+  rdfs:domain lg:ConceptLattice ;
+  rdfs:range lg:MeetAssociativityObligation ;
+  rdfs:label "has meet associativity obligation" .
+
+lg:hasJoinAssociativityObligation a rdf:Property ;
+  rdfs:domain lg:ConceptLattice ;
+  rdfs:range lg:JoinAssociativityObligation ;
+  rdfs:label "has join associativity obligation" .
+
+lg:hasMeetCommutativityObligation a rdf:Property ;
+  rdfs:domain lg:ConceptLattice ;
+  rdfs:range lg:MeetCommutativityObligation ;
+  rdfs:label "has meet commutativity obligation" .
+
+lg:hasJoinCommutativityObligation a rdf:Property ;
+  rdfs:domain lg:ConceptLattice ;
+  rdfs:range lg:JoinCommutativityObligation ;
+  rdfs:label "has join commutativity obligation" .
+
+lg:hasMeetIdempotenceObligation a rdf:Property ;
+  rdfs:domain lg:ConceptLattice ;
+  rdfs:range lg:MeetIdempotenceObligation ;
+  rdfs:label "has meet idempotence obligation" .
+
+lg:hasJoinIdempotenceObligation a rdf:Property ;
+  rdfs:domain lg:ConceptLattice ;
+  rdfs:range lg:JoinIdempotenceObligation ;
+  rdfs:label "has join idempotence obligation" .
+
+lg:hasAbsorptionObligation a rdf:Property ;
+  rdfs:domain lg:ConceptLattice ;
+  rdfs:range lg:AbsorptionObligation ;
+  rdfs:label "has absorption obligation" .
+
+lg:hasBoundednessObligation a rdf:Property ;
+  rdfs:domain lg:ConceptLattice ;
+  rdfs:range lg:BoundednessObligation ;
+  rdfs:label "has boundedness obligation" .
+
+lg:hasOrderCompatibilityObligation a rdf:Property ;
+  rdfs:domain lg:ConceptLattice ;
+  rdfs:range lg:OrderCompatibilityObligation ;
+  rdfs:label "has order compatibility obligation" .
+
+lg:governsProjection a rdf:Property ;
+  rdfs:domain lg:QuotientUniversalityObligation ;
+  rdfs:range lg:QuotientProjection ;
+  rdfs:label "governs projection" .
+
+lg:governsKernelCongruence a rdf:Property ;
+  rdfs:domain lg:QuotientUniversalityObligation ;
+  rdfs:range lg:KernelCongruence ;
+  rdfs:label "governs kernel congruence" .
+
+lg:governsQuotientFace a rdf:Property ;
+  rdfs:domain lg:QuotientUniversalityObligation ;
+  rdfs:range cat:Object ;
+  rdfs:label "governs quotient face" .
+
+lg:hasFactorizationSchema a rdf:Property ;
+  rdfs:domain lg:QuotientUniversalityObligation ;
+  rdfs:range lg:FactorizationSchema ;
+  rdfs:label "has factorization schema" .
+
+lg:hasUniquenessSchema a rdf:Property ;
+  rdfs:domain lg:QuotientUniversalityObligation ;
+  rdfs:range lg:UniquenessSchema ;
+  rdfs:label "has uniqueness schema" .
+
+lg:hasQuotientUniversalityObligation a rdf:Property ;
+  rdfs:domain lg:QuotientProjection ;
+  rdfs:range lg:QuotientUniversalityObligation ;
+  rdfs:label "has quotient universality obligation" .
+
+
+# ---- Reflective SHACL boundary / denotational quotient extension ----
+
+lg:SHACLBoundary a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "SHACL boundary" ;
+  rdfs:comment "A boundary package relating an internal proof calculus to a declared SHACL fragment through a denotational quotient and lowering functor." .
+
+lg:ReflectiveSHACLBoundary a rdfs:Class ;
+  rdfs:subClassOf lg:SHACLBoundary ;
+  rdfs:label "Reflective SHACL boundary" ;
+  rdfs:comment "A SHACL boundary equipped with a reflection functor, so that SHACL is treated as a reflective quotient of the internal calculus." .
+
+lg:InternalProofCalculus a rdfs:Class ;
+  rdfs:subClassOf cat:Category ;
+  rdfs:label "Internal proof calculus" ;
+  rdfs:comment "An internal category of proof terms and derivational artifacts from which SHACL is recovered by lowering." .
+
+lg:InternalProofTerm a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Internal proof term" ;
+  rdfs:comment "A proof-term object in the internal calculus. It is richer than any particular lowered SHACL rendering." .
+
+lg:InternalDerivation a rdfs:Class ;
+  rdfs:subClassOf lg:Derivation ;
+  rdfs:label "Internal derivation" ;
+  rdfs:comment "A derivational artifact in the internal proof calculus." .
+
+lg:SHACLFragment a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "SHACL fragment" ;
+  rdfs:comment "A declared fragment of SHACL targeted by lowering from the internal proof calculus." .
+
+lg:WellFormedSHACLFragment a rdfs:Class ;
+  rdfs:subClassOf lg:SHACLFragment ;
+  rdfs:label "Well-formed SHACL fragment" ;
+  rdfs:comment "A SHACL fragment whose members are intended to be well-formed in the sense of the chosen boundary semantics." .
+
+lg:ConstraintEquivalence a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Constraint equivalence" ;
+  rdfs:comment "An equivalence relation used to quotient SHACL constraints by denotational or observational equality." .
+
+lg:ObservationalEquivalence a rdfs:Class ;
+  rdfs:subClassOf lg:ConstraintEquivalence ;
+  rdfs:label "Observational equivalence" ;
+  rdfs:comment "A constraint equivalence induced by identical validation behavior on the chosen SHACL fragment." .
+
+lg:SHACLDenotationCategory a rdfs:Class ;
+  rdfs:subClassOf cat:Category ;
+  rdfs:label "SHACL denotation category" ;
+  rdfs:comment "A target category whose objects are denotations of SHACL constraints modulo the declared equivalence." .
+
+lg:ConstraintDenotation a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Constraint denotation" ;
+  rdfs:comment "An equivalence class or denotational object representing a SHACL constraint independently of concrete syntax." .
+
+lg:DenotationalQuotient a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Denotational quotient" ;
+  rdfs:comment "A quotient of a well-formed SHACL fragment by a declared constraint equivalence, yielding a denotation category." .
+
+lg:LoweringFunctor a rdfs:Class ;
+  rdfs:subClassOf cat:Functor ;
+  rdfs:label "Lowering functor" ;
+  rdfs:comment "A functor sending internal proof terms and derivations to SHACL denotations." .
+
+lg:ReflectionFunctor a rdfs:Class ;
+  rdfs:subClassOf cat:Functor ;
+  rdfs:label "Reflection functor" ;
+  rdfs:comment "A functor choosing internal representatives for SHACL denotations, making SHACL a reflective quotient of the proof calculus when available." .
+
+lg:hasInternalProofCalculus a rdf:Property ;
+  rdfs:domain lg:SHACLBoundary ;
+  rdfs:range lg:InternalProofCalculus ;
+  rdfs:label "has internal proof calculus" .
+
+lg:hasInternalProofTerm a rdf:Property ;
+  rdfs:domain lg:InternalProofCalculus ;
+  rdfs:range lg:InternalProofTerm ;
+  rdfs:label "has internal proof term" .
+
+lg:hasInternalDerivation a rdf:Property ;
+  rdfs:domain lg:InternalProofCalculus ;
+  rdfs:range lg:InternalDerivation ;
+  rdfs:label "has internal derivation" .
+
+lg:derivesInternalProofTerm a rdf:Property ;
+  rdfs:domain lg:InternalDerivation ;
+  rdfs:range lg:InternalProofTerm ;
+  rdfs:label "derives internal proof term" .
+
+lg:denotesConstraint a rdf:Property ;
+  rdfs:domain lg:InternalProofTerm ;
+  rdfs:range lg:ConstraintDenotation ;
+  rdfs:label "denotes constraint" .
+
+lg:representedByConstraintArtifact a rdf:Property ;
+  rdfs:domain lg:ConstraintDenotation ;
+  rdfs:range lg:ConstraintArtifact ;
+  rdfs:label "represented by constraint artifact" .
+
+lg:canonicalInternalRepresentative a rdf:Property ;
+  rdfs:domain lg:ConstraintDenotation ;
+  rdfs:range lg:InternalProofTerm ;
+  rdfs:label "canonical internal representative" .
+
+lg:supportsSHACLFragment a rdf:Property ;
+  rdfs:domain lg:SHACLBoundary ;
+  rdfs:range lg:WellFormedSHACLFragment ;
+  rdfs:label "supports SHACL fragment" .
+
+lg:hasConstraintEquivalence a rdf:Property ;
+  rdfs:domain lg:SHACLBoundary ;
+  rdfs:range lg:ConstraintEquivalence ;
+  rdfs:label "has constraint equivalence" .
+
+lg:hasDenotationalQuotient a rdf:Property ;
+  rdfs:domain lg:SHACLBoundary ;
+  rdfs:range lg:DenotationalQuotient ;
+  rdfs:label "has denotational quotient" .
+
+lg:quotientsFragment a rdf:Property ;
+  rdfs:domain lg:DenotationalQuotient ;
+  rdfs:range lg:WellFormedSHACLFragment ;
+  rdfs:label "quotients fragment" .
+
+lg:byConstraintEquivalence a rdf:Property ;
+  rdfs:domain lg:DenotationalQuotient ;
+  rdfs:range lg:ConstraintEquivalence ;
+  rdfs:label "by constraint equivalence" .
+
+lg:hasDenotationCategory a rdf:Property ;
+  rdfs:domain lg:DenotationalQuotient ;
+  rdfs:range lg:SHACLDenotationCategory ;
+  rdfs:label "has denotation category" .
+
+lg:hasConstraintDenotation a rdf:Property ;
+  rdfs:domain lg:DenotationalQuotient ;
+  rdfs:range lg:ConstraintDenotation ;
+  rdfs:label "has constraint denotation" .
+
+lg:hasLoweringFunctor a rdf:Property ;
+  rdfs:domain lg:SHACLBoundary ;
+  rdfs:range lg:LoweringFunctor ;
+  rdfs:label "has lowering functor" .
+
+lg:hasReflectionFunctor a rdf:Property ;
+  rdfs:domain lg:ReflectiveSHACLBoundary ;
+  rdfs:range lg:ReflectionFunctor ;
+  rdfs:label "has reflection functor" .
+
+lg:LoweringSoundnessObligation a rdfs:Class ;
+  rdfs:subClassOf lg:ProofObligation ;
+  rdfs:label "Lowering soundness obligation" ;
+  rdfs:comment "An obligation asserting that lowering from the internal proof calculus lands in the intended SHACL denotations for the supported fragment." .
+
+lg:SHACLSurjectivityObligation a rdfs:Class ;
+  rdfs:subClassOf lg:ProofObligation ;
+  rdfs:label "SHACL surjectivity obligation" ;
+  rdfs:comment "An obligation asserting that every denotation in the supported SHACL quotient has an internal proof-term representative under lowering." .
+
+lg:ReflectiveQuotientObligation a rdfs:Class ;
+  rdfs:subClassOf lg:ProofObligation ;
+  rdfs:label "Reflective quotient obligation" ;
+  rdfs:comment "An obligation asserting that the supported SHACL quotient is reflective in the internal proof calculus via a chosen reflection functor." .
+
+lg:ConservativeProjectionObligation a rdfs:Class ;
+  rdfs:subClassOf lg:ProofObligation ;
+  rdfs:label "Conservative projection obligation" ;
+  rdfs:comment "An obligation asserting that lowering to the supported SHACL quotient does not collapse distinctions deemed semantically relevant by the declared boundary." .
+
+lg:governsBoundary a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:SHACLBoundary ;
+  rdfs:label "governs boundary" .
+
+lg:governsProofCalculus a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:InternalProofCalculus ;
+  rdfs:label "governs proof calculus" .
+
+lg:governsSHACLFragment a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:WellFormedSHACLFragment ;
+  rdfs:label "governs SHACL fragment" .
+
+lg:governsDenotationalQuotient a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:DenotationalQuotient ;
+  rdfs:label "governs denotational quotient" .
+
+lg:governsConstraintEquivalence a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:ConstraintEquivalence ;
+  rdfs:label "governs constraint equivalence" .
+
+lg:governsLoweringFunctor a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:LoweringFunctor ;
+  rdfs:label "governs lowering functor" .
+
+lg:governsReflectionFunctor a rdf:Property ;
+  rdfs:domain lg:ReflectiveQuotientObligation ;
+  rdfs:range lg:ReflectionFunctor ;
+  rdfs:label "governs reflection functor" .
+
+lg:hasLoweringSoundnessObligation a rdf:Property ;
+  rdfs:domain lg:SHACLBoundary ;
+  rdfs:range lg:LoweringSoundnessObligation ;
+  rdfs:label "has lowering soundness obligation" .
+
+lg:hasSHACLSurjectivityObligation a rdf:Property ;
+  rdfs:domain lg:SHACLBoundary ;
+  rdfs:range lg:SHACLSurjectivityObligation ;
+  rdfs:label "has SHACL surjectivity obligation" .
+
+lg:hasReflectiveQuotientObligation a rdf:Property ;
+  rdfs:domain lg:ReflectiveSHACLBoundary ;
+  rdfs:range lg:ReflectiveQuotientObligation ;
+  rdfs:label "has reflective quotient obligation" .
+
+lg:hasConservativeProjectionObligation a rdf:Property ;
+  rdfs:domain lg:SHACLBoundary ;
+  rdfs:range lg:ConservativeProjectionObligation ;
+  rdfs:label "has conservative projection obligation" .
+
+
+# ---- Proof-carrying query / immutable history extension ----
+
+lg:ProofCarryingQuery a rdfs:Class ;
+  rdfs:subClassOf lg:InternalProofTerm, lg:ProofWitness ;
+  rdfs:label "Proof-carrying query" ;
+  rdfs:comment "A reified SPARQL query that serves as its own proof witness by carrying an AST, rendering, algebraic form, constructive evaluation trace, and a fixed historical basis for the derived result set." .
+
+lg:SPARQLAlgebraExpression a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "SPARQL algebra expression" ;
+  rdfs:comment "An internal algebraic form of a query, prior to any rendered SHACL/SPARQL string." .
+
+lg:ProjectAlgebraExpression a rdfs:Class ;
+  rdfs:subClassOf lg:SPARQLAlgebraExpression ;
+  rdfs:label "Project algebra expression" .
+
+lg:FilterAlgebraExpression a rdfs:Class ;
+  rdfs:subClassOf lg:SPARQLAlgebraExpression ;
+  rdfs:label "Filter algebra expression" .
+
+lg:JoinAlgebraExpression a rdfs:Class ;
+  rdfs:subClassOf lg:SPARQLAlgebraExpression ;
+  rdfs:label "Join algebra expression" .
+
+lg:ExistsAlgebraExpression a rdfs:Class ;
+  rdfs:subClassOf lg:SPARQLAlgebraExpression ;
+  rdfs:label "Exists algebra expression" .
+
+lg:NotExistsAlgebraExpression a rdfs:Class ;
+  rdfs:subClassOf lg:SPARQLAlgebraExpression ;
+  rdfs:label "Not exists algebra expression" .
+
+lg:QueryResultSet a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Query result set" ;
+  rdfs:comment "A result set witnessed by a proof-carrying query relative to a fixed history state." .
+
+lg:SolutionMapping a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Solution mapping" ;
+  rdfs:comment "A constructive witness to a partial variable assignment in a result set." .
+
+lg:BindingWitness a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Binding witness" ;
+  rdfs:comment "A witness object for one variable binding inside a solution mapping." .
+
+lg:QueryEvaluationTrace a rdfs:Class ;
+  rdfs:subClassOf lg:InternalDerivation, lg:ProofWitness ;
+  rdfs:label "Query evaluation trace" ;
+  rdfs:comment "A constructive derivation trace witnessing how a result set was obtained from a query over a fixed history state." .
+
+lg:EvaluationStep a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Evaluation step" ;
+  rdfs:comment "A local constructive step in the evaluation trace of a proof-carrying query." .
+
+lg:HistoryLineage a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "History lineage" ;
+  rdfs:comment "An append-only lineage of history states. Derived witnesses point into this lineage rather than to mutable ambient state." .
+
+lg:HistoryState a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "History state" ;
+  rdfs:comment "A fixed historical state against which a proof-carrying query is evaluated." .
+
+lg:HistoryExtension a rdfs:Class ;
+  rdfs:subClassOf cat:Morphism ;
+  rdfs:label "History extension" ;
+  rdfs:comment "An append-only transition from one history state to a later history state." .
+
+lg:HistoricalAssertion a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Historical assertion" ;
+  rdfs:comment "A reified assertion retained in history so that later derivations can cite it as provenance." .
+
+lg:ConstructiveCarryingObligation a rdfs:Class ;
+  rdfs:subClassOf lg:ProofObligation ;
+  rdfs:label "Constructive carrying obligation" ;
+  rdfs:comment "An obligation asserting that a proof-carrying query carries enough constructive evidence to witness its result set over a fixed history state." .
+
+lg:HistoryImmutabilityObligation a rdfs:Class ;
+  rdfs:subClassOf lg:ProofObligation ;
+  rdfs:label "History immutability obligation" ;
+  rdfs:comment "An obligation asserting that the history referenced by proof-carrying queries is append-only and remains available to the witnesses derived from it." .
+
+lg:hasProofQueryAST a rdf:Property ;
+  rdfs:domain lg:ProofCarryingQuery ;
+  rdfs:range lg:QueryAST ;
+  rdfs:label "has proof query AST" .
+
+lg:hasProofQueryRendering a rdf:Property ;
+  rdfs:domain lg:ProofCarryingQuery ;
+  rdfs:range lg:QueryRendering ;
+  rdfs:label "has proof query rendering" .
+
+lg:hasAlgebraicQuery a rdf:Property ;
+  rdfs:domain lg:ProofCarryingQuery ;
+  rdfs:range lg:SPARQLAlgebraExpression ;
+  rdfs:label "has algebraic query" .
+
+lg:witnessesResultSet a rdf:Property ;
+  rdfs:domain lg:ProofCarryingQuery ;
+  rdfs:range lg:QueryResultSet ;
+  rdfs:label "witnesses result set" .
+
+lg:hasEvaluationTrace a rdf:Property ;
+  rdfs:domain lg:ProofCarryingQuery ;
+  rdfs:range lg:QueryEvaluationTrace ;
+  rdfs:label "has evaluation trace" .
+
+lg:evaluatedAgainstHistoryState a rdf:Property ;
+  rdfs:range lg:HistoryState ;
+  rdfs:label "evaluated against history state" .
+
+lg:belongsToHistoryLineage a rdf:Property ;
+  rdfs:range lg:HistoryLineage ;
+  rdfs:label "belongs to history lineage" .
+
+lg:traceResultSet a rdf:Property ;
+  rdfs:domain lg:QueryEvaluationTrace ;
+  rdfs:range lg:QueryResultSet ;
+  rdfs:label "trace result set" .
+
+lg:traceHistoryState a rdf:Property ;
+  rdfs:domain lg:QueryEvaluationTrace ;
+  rdfs:range lg:HistoryState ;
+  rdfs:label "trace history state" .
+
+lg:hasEvaluationStep a rdf:Property ;
+  rdfs:domain lg:QueryEvaluationTrace ;
+  rdfs:range lg:EvaluationStep ;
+  rdfs:label "has evaluation step" .
+
+lg:hasSolutionMapping a rdf:Property ;
+  rdfs:domain lg:QueryResultSet ;
+  rdfs:range lg:SolutionMapping ;
+  rdfs:label "has solution mapping" .
+
+lg:hasBindingWitness a rdf:Property ;
+  rdfs:domain lg:SolutionMapping ;
+  rdfs:range lg:BindingWitness ;
+  rdfs:label "has binding witness" .
+
+lg:bindsVariable a rdf:Property ;
+  rdfs:domain lg:BindingWitness ;
+  rdfs:range lg:QueryVariable ;
+  rdfs:label "binds variable" .
+
+lg:bindsValue a rdf:Property ;
+  rdfs:domain lg:BindingWitness ;
+  rdfs:label "binds value" .
+
+lg:justifiedByEvaluationStep a rdf:Property ;
+  rdfs:domain lg:BindingWitness ;
+  rdfs:range lg:EvaluationStep ;
+  rdfs:label "justified by evaluation step" .
+
+lg:groundedInHistoricalAssertion a rdf:Property ;
+  rdfs:domain lg:EvaluationStep ;
+  rdfs:range lg:HistoricalAssertion ;
+  rdfs:label "grounded in historical assertion" .
+
+lg:hasHistoryState a rdf:Property ;
+  rdfs:domain lg:HistoryLineage ;
+  rdfs:range lg:HistoryState ;
+  rdfs:label "has history state" .
+
+lg:predecessorHistoryState a rdf:Property ;
+  rdfs:domain lg:HistoryState ;
+  rdfs:range lg:HistoryState ;
+  rdfs:label "predecessor history state" .
+
+lg:stateDigest a rdf:Property ;
+  rdfs:domain lg:HistoryState ;
+  rdfs:range xsd:string ;
+  rdfs:label "state digest" .
+
+lg:hasHistoricalAssertion a rdf:Property ;
+  rdfs:domain lg:HistoryState ;
+  rdfs:range lg:HistoricalAssertion ;
+  rdfs:label "has historical assertion" .
+
+lg:assertionSubject a rdf:Property ;
+  rdfs:domain lg:HistoricalAssertion ;
+  rdfs:label "assertion subject" .
+
+lg:assertionPredicate a rdf:Property ;
+  rdfs:domain lg:HistoricalAssertion ;
+  rdfs:label "assertion predicate" .
+
+lg:assertionObject a rdf:Property ;
+  rdfs:domain lg:HistoricalAssertion ;
+  rdfs:label "assertion object" .
+
+lg:hasConstructiveCarryingObligation a rdf:Property ;
+  rdfs:domain lg:ProofCarryingQuery ;
+  rdfs:range lg:ConstructiveCarryingObligation ;
+  rdfs:label "has constructive carrying obligation" .
+
+lg:hasHistoryImmutabilityObligation a rdf:Property ;
+  rdfs:domain lg:HistoryLineage ;
+  rdfs:range lg:HistoryImmutabilityObligation ;
+  rdfs:label "has history immutability obligation" .
+
+lg:governsProofCarryingQuery a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:ProofCarryingQuery ;
+  rdfs:label "governs proof-carrying query" .
+
+lg:governsQueryResultSet a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:QueryResultSet ;
+  rdfs:label "governs query result set" .
+
+lg:governsQueryEvaluationTrace a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:QueryEvaluationTrace ;
+  rdfs:label "governs query evaluation trace" .
+
+lg:governsHistoryState a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:HistoryState ;
+  rdfs:label "governs history state" .
+
+lg:governsHistoryLineage a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:HistoryLineage ;
+  rdfs:label "governs history lineage" .
+
+
+# ---- Stamped history / wedge product / constructive empty-result extension ----
+
+lg:HistoryStamp a rdfs:Class ;
+  rdfs:subClassOf cat:Object, lg:ProofWitness ;
+  rdfs:label "History stamp" ;
+  rdfs:comment "A stamped witness to an immutable history boundary. It names a fixed history state and its digest so later proofs can cite the bounded ontology content constructively." .
+
+lg:HistoryBoundaryCompletenessObligation a rdfs:Class ;
+  rdfs:subClassOf lg:ProofObligation ;
+  rdfs:label "History boundary completeness obligation" ;
+  rdfs:comment "An obligation asserting that a history stamp constructively bounds the ontology content of the stamped history state." .
+
+lg:QueryWedgeProduct a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Query wedge product" ;
+  rdfs:comment "An internal constructive meet of a proof-carrying query with the ontology snapshot named by a history stamp. It records the historical assertion slice relevant to that query at that stamped history point." .
+
+lg:EmptyWedgeProduct a rdfs:Class ;
+  rdfs:subClassOf lg:QueryWedgeProduct ;
+  rdfs:label "Empty wedge product" ;
+  rdfs:comment "A query wedge product with no matching historical assertions in the stamped history state." .
+
+lg:EmptyQueryResultSet a rdfs:Class ;
+  rdfs:subClassOf lg:QueryResultSet ;
+  rdfs:label "Empty query result set" ;
+  rdfs:comment "A result set whose cardinality is constructively witnessed to be zero relative to a stamped history boundary." .
+
+lg:EmptyResultProofQuery a rdfs:Class ;
+  rdfs:subClassOf lg:ProofCarryingQuery ;
+  rdfs:label "Empty-result proof query" ;
+  rdfs:comment "A proof-carrying query whose carried witness constructively certifies an empty result set via an immutable history stamp and an empty query wedge product." .
+
+lg:AbsenceEvaluationTrace a rdfs:Class ;
+  rdfs:subClassOf lg:QueryEvaluationTrace ;
+  rdfs:label "Absence evaluation trace" .
+
+lg:AbsenceEvaluationStep a rdfs:Class ;
+  rdfs:subClassOf lg:EvaluationStep ;
+  rdfs:label "Absence evaluation step" ;
+  rdfs:comment "A constructive trace step witnessing that no historical assertion in the stamped history state satisfies the query slice represented by the wedge product." .
+
+lg:EmptyResultWitness a rdfs:Class ;
+  rdfs:subClassOf lg:ProofWitness ;
+  rdfs:label "Empty result witness" ;
+  rdfs:comment "A constructive witness to an empty result set, carried by a stamped history point, an empty wedge product, and an absence evaluation trace." .
+
+lg:EmptyResultConstructivityObligation a rdfs:Class ;
+  rdfs:subClassOf lg:ConstructiveCarryingObligation ;
+  rdfs:label "Empty result constructivity obligation" ;
+  rdfs:comment "An obligation asserting that an empty result set is witnessed constructively from a stamped history boundary and an empty wedge product, rather than by mere failure to find a result." .
+
+lg:stampsHistoryState a rdf:Property ;
+  rdfs:domain lg:HistoryStamp ;
+  rdfs:range lg:HistoryState ;
+  rdfs:label "stamps history state" .
+
+lg:stampDigest a rdf:Property ;
+  rdfs:domain lg:HistoryStamp ;
+  rdfs:range xsd:string ;
+  rdfs:label "stamp digest" .
+
+lg:stampedInHistoryLineage a rdf:Property ;
+  rdfs:domain lg:HistoryStamp ;
+  rdfs:range lg:HistoryLineage ;
+  rdfs:label "stamped in history lineage" .
+
+lg:hasHistoryStamp a rdf:Property ;
+  rdfs:domain lg:ProofCarryingQuery ;
+  rdfs:range lg:HistoryStamp ;
+  rdfs:label "has history stamp" .
+
+lg:hasHistoryBoundaryCompletenessObligation a rdf:Property ;
+  rdfs:domain lg:HistoryStamp ;
+  rdfs:range lg:HistoryBoundaryCompletenessObligation ;
+  rdfs:label "has history boundary completeness obligation" .
+
+lg:governsHistoryStamp a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:HistoryStamp ;
+  rdfs:label "governs history stamp" .
+
+lg:hasQueryWedgeProduct a rdf:Property ;
+  rdfs:domain lg:ProofCarryingQuery ;
+  rdfs:range lg:QueryWedgeProduct ;
+  rdfs:label "has query wedge product" .
+
+lg:wedgesProofCarryingQuery a rdf:Property ;
+  rdfs:domain lg:QueryWedgeProduct ;
+  rdfs:range lg:ProofCarryingQuery ;
+  rdfs:label "wedges proof-carrying query" .
+
+lg:wedgesHistoryStamp a rdf:Property ;
+  rdfs:domain lg:QueryWedgeProduct ;
+  rdfs:range lg:HistoryStamp ;
+  rdfs:label "wedges history stamp" .
+
+lg:hasWedgeHistoricalAssertion a rdf:Property ;
+  rdfs:domain lg:QueryWedgeProduct ;
+  rdfs:range lg:HistoricalAssertion ;
+  rdfs:label "has wedge historical assertion" .
+
+lg:resultCardinality a rdf:Property ;
+  rdfs:domain lg:QueryResultSet ;
+  rdfs:range xsd:nonNegativeInteger ;
+  rdfs:label "result cardinality" .
+
+lg:hasEmptyResultWitness a rdf:Property ;
+  rdfs:domain lg:EmptyResultProofQuery ;
+  rdfs:range lg:EmptyResultWitness ;
+  rdfs:label "has empty result witness" .
+
+lg:hasEmptyResultConstructivityObligation a rdf:Property ;
+  rdfs:domain lg:EmptyResultProofQuery ;
+  rdfs:range lg:EmptyResultConstructivityObligation ;
+  rdfs:label "has empty result constructivity obligation" .
+
+lg:witnessesEmptyResultSet a rdf:Property ;
+  rdfs:domain lg:EmptyResultWitness ;
+  rdfs:range lg:EmptyQueryResultSet ;
+  rdfs:label "witnesses empty result set" .
+
+lg:witnessesEmptyWedgeProduct a rdf:Property ;
+  rdfs:domain lg:EmptyResultWitness ;
+  rdfs:range lg:EmptyWedgeProduct ;
+  rdfs:label "witnesses empty wedge product" .
+
+lg:witnessesHistoryStamp a rdf:Property ;
+  rdfs:domain lg:EmptyResultWitness ;
+  rdfs:range lg:HistoryStamp ;
+  rdfs:label "witnesses history stamp" .
+
+lg:witnessesAbsenceTrace a rdf:Property ;
+  rdfs:domain lg:EmptyResultWitness ;
+  rdfs:range lg:AbsenceEvaluationTrace ;
+  rdfs:label "witnesses absence trace" .
+
+lg:groundedInHistoryStamp a rdf:Property ;
+  rdfs:domain lg:AbsenceEvaluationStep ;
+  rdfs:range lg:HistoryStamp ;
+  rdfs:label "grounded in history stamp" .
+
+lg:verifiesEmptyWedgeProduct a rdf:Property ;
+  rdfs:domain lg:AbsenceEvaluationStep ;
+  rdfs:range lg:EmptyWedgeProduct ;
+  rdfs:label "verifies empty wedge product" .
+
+lg:governsQueryWedgeProduct a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:QueryWedgeProduct ;
+  rdfs:label "governs query wedge product" .
+
+lg:governsEmptyResultWitness a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:EmptyResultWitness ;
+  rdfs:label "governs empty result witness" .
+
+
+# ---- Adjoint EXISTS / NOT EXISTS over stamped-history wedges ----
+
+lg:QueryContext a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Query context" ;
+  rdfs:comment "A context of visible and witness variables used by reindexing and existential image over reified query wedges." .
+
+lg:ContextProjection a rdfs:Class ;
+  rdfs:subClassOf cat:Morphism ;
+  rdfs:label "Context projection" ;
+  rdfs:comment "A projection from a witness-bearing query context to an outer visible context. It is the projection along which existential image is taken." .
+
+lg:ReindexingOperator a rdfs:Class ;
+  rdfs:subClassOf cat:Functor ;
+  rdfs:label "Reindexing operator" ;
+  rdfs:comment "The pullback/reindexing operator associated with a context projection." .
+
+lg:ExistentialImageOperator a rdfs:Class ;
+  rdfs:subClassOf lg:DerivationOperator ;
+  rdfs:label "Existential image operator" ;
+  rdfs:comment "The left-adjoint image operator along a context projection. EXISTS is witnessed by such an image of a stamped wedge product." .
+
+lg:SupportReflectionOperator a rdfs:Class ;
+  rdfs:subClassOf cat:Functor ;
+  rdfs:label "Support reflection operator" ;
+  rdfs:comment "A reflection from semiring-valued existential image to support/truth-level image, used before negation in NOT EXISTS." .
+
+lg:NegationOperator a rdfs:Class ;
+  rdfs:subClassOf cat:Functor ;
+  rdfs:label "Negation operator" ;
+  rdfs:comment "A negation or pseudocomplement operator applied after support reflection when deriving NOT EXISTS." .
+
+lg:AdjointPair a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Adjoint pair" ;
+  rdfs:comment "A reified adjoint pair connecting existential image and reindexing along one context projection." .
+
+lg:ExistentialImage a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Existential image" ;
+  rdfs:comment "The image of a stamped query wedge product along a witness projection. This is the constructive content of EXISTS." .
+
+lg:SupportReflectedImage a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Support-reflected image" ;
+  rdfs:comment "A support/truth-level image reflected from a semiring-valued existential image, used as the input to negation for NOT EXISTS." .
+
+lg:NegatedExistentialImage a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Negated existential image" ;
+  rdfs:comment "The negation or pseudocomplement of a support-reflected existential image, serving as the constructive payload of NOT EXISTS." .
+
+lg:ExistsWitnessedQuery a rdfs:Class ;
+  rdfs:subClassOf lg:ProofCarryingQuery ;
+  rdfs:label "EXISTS-witnessed query" ;
+  rdfs:comment "A proof-carrying query whose constructive witness is an existential image of its stamped wedge product along a declared context projection." .
+
+lg:NotExistsWitnessedQuery a rdfs:Class ;
+  rdfs:subClassOf lg:ProofCarryingQuery ;
+  rdfs:label "NOT EXISTS-witnessed query" ;
+  rdfs:comment "A proof-carrying query whose constructive witness is obtained by negating a support-reflected existential image of a correlated inner query at the same stamped history boundary." .
+
+lg:ExistentialAdjunctionObligation a rdfs:Class ;
+  rdfs:subClassOf lg:ProofObligation ;
+  rdfs:label "Existential adjunction obligation" ;
+  rdfs:comment "An obligation asserting that the declared existential image operator is left adjoint to reindexing along the query's context projection." .
+
+lg:SupportReflectionObligation a rdfs:Class ;
+  rdfs:subClassOf lg:ProofObligation ;
+  rdfs:label "Support reflection obligation" ;
+  rdfs:comment "An obligation asserting that the support-reflected image for NOT EXISTS is correctly derived from the inner query's existential image." .
+
+lg:NotExistsAdjointDerivationObligation a rdfs:Class ;
+  rdfs:subClassOf lg:ProofObligation ;
+  rdfs:label "NOT EXISTS adjoint derivation obligation" ;
+  rdfs:comment "An obligation asserting that a NOT EXISTS witness is derived by negating the support-reflected existential image of a correlated inner query over the same stamped history boundary." .
+
+lg:hasContextProjection a rdf:Property ;
+  rdfs:domain lg:ProofCarryingQuery ;
+  rdfs:range lg:ContextProjection ;
+  rdfs:label "has context projection" .
+
+lg:hasReindexingOperator a rdf:Property ;
+  rdfs:domain lg:ProofCarryingQuery ;
+  rdfs:range lg:ReindexingOperator ;
+  rdfs:label "has reindexing operator" .
+
+lg:hasExistentialImageOperator a rdf:Property ;
+  rdfs:domain lg:ProofCarryingQuery ;
+  rdfs:range lg:ExistentialImageOperator ;
+  rdfs:label "has existential image operator" .
+
+lg:hasAdjointPair a rdf:Property ;
+  rdfs:domain lg:ProofCarryingQuery ;
+  rdfs:range lg:AdjointPair ;
+  rdfs:label "has adjoint pair" .
+
+lg:hasLeftAdjointOperator a rdf:Property ;
+  rdfs:domain lg:AdjointPair ;
+  rdfs:range cat:Object ;
+  rdfs:label "has left adjoint operator" .
+
+lg:hasRightAdjointOperator a rdf:Property ;
+  rdfs:domain lg:AdjointPair ;
+  rdfs:range cat:Object ;
+  rdfs:label "has right adjoint operator" .
+
+lg:alongContextProjection a rdf:Property ;
+  rdfs:domain lg:AdjointPair ;
+  rdfs:range lg:ContextProjection ;
+  rdfs:label "along context projection" .
+
+lg:hasExistentialImage a rdf:Property ;
+  rdfs:domain lg:ProofCarryingQuery ;
+  rdfs:range lg:ExistentialImage ;
+  rdfs:label "has existential image" .
+
+lg:derivedFromQueryWedgeProduct a rdf:Property ;
+  rdfs:domain lg:ExistentialImage ;
+  rdfs:range lg:QueryWedgeProduct ;
+  rdfs:label "derived from query wedge product" .
+
+lg:alongWitnessProjection a rdf:Property ;
+  rdfs:domain lg:ExistentialImage ;
+  rdfs:range lg:ContextProjection ;
+  rdfs:label "along witness projection" .
+
+lg:hasSupportReflectionOperator a rdf:Property ;
+  rdfs:domain lg:NotExistsWitnessedQuery ;
+  rdfs:range lg:SupportReflectionOperator ;
+  rdfs:label "has support reflection operator" .
+
+lg:hasSupportReflectedImage a rdf:Property ;
+  rdfs:domain lg:NotExistsWitnessedQuery ;
+  rdfs:range lg:SupportReflectedImage ;
+  rdfs:label "has support reflected image" .
+
+lg:reflectedFromExistentialImage a rdf:Property ;
+  rdfs:domain lg:SupportReflectedImage ;
+  rdfs:range lg:ExistentialImage ;
+  rdfs:label "reflected from existential image" .
+
+lg:hasNegationOperator a rdf:Property ;
+  rdfs:domain lg:NotExistsWitnessedQuery ;
+  rdfs:range lg:NegationOperator ;
+  rdfs:label "has negation operator" .
+
+lg:hasNegatedExistentialImage a rdf:Property ;
+  rdfs:domain lg:NotExistsWitnessedQuery ;
+  rdfs:range lg:NegatedExistentialImage ;
+  rdfs:label "has negated existential image" .
+
+lg:negatesSupportReflectedImage a rdf:Property ;
+  rdfs:domain lg:NegatedExistentialImage ;
+  rdfs:range lg:SupportReflectedImage ;
+  rdfs:label "negates support reflected image" .
+
+lg:hasCorrelatedInnerQuery a rdf:Property ;
+  rdfs:domain lg:NotExistsWitnessedQuery ;
+  rdfs:range lg:ProofCarryingQuery ;
+  rdfs:label "has correlated inner query" .
+
+lg:hasExistentialAdjunctionObligation a rdf:Property ;
+  rdfs:domain lg:ProofCarryingQuery ;
+  rdfs:range lg:ExistentialAdjunctionObligation ;
+  rdfs:label "has existential adjunction obligation" .
+
+lg:hasSupportReflectionObligation a rdf:Property ;
+  rdfs:domain lg:NotExistsWitnessedQuery ;
+  rdfs:range lg:SupportReflectionObligation ;
+  rdfs:label "has support reflection obligation" .
+
+lg:hasNotExistsAdjointDerivationObligation a rdf:Property ;
+  rdfs:domain lg:NotExistsWitnessedQuery ;
+  rdfs:range lg:NotExistsAdjointDerivationObligation ;
+  rdfs:label "has NOT EXISTS adjoint derivation obligation" .
+
+lg:governsAdjointPair a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:AdjointPair ;
+  rdfs:label "governs adjoint pair" .
+
+lg:governsExistentialImage a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:ExistentialImage ;
+  rdfs:label "governs existential image" .
+
+lg:governsSupportReflectedImage a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:SupportReflectedImage ;
+  rdfs:label "governs support reflected image" .
+
+lg:governsNegatedExistentialImage a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:NegatedExistentialImage ;
+  rdfs:label "governs negated existential image" .
+
+lg:governsContextProjection a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:ContextProjection ;
+  rdfs:label "governs context projection" .
+
+
+# -----------------------------------------------------------------------------
+# Semantic policy layer for support reflection and negation
+# -----------------------------------------------------------------------------
+
+lg:SemanticPolicyBundle a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Semantic policy bundle" ;
+  rdfs:comment "A first-class package of support-reflection and negation choices governing the semantics of a witnessed NOT EXISTS query." .
+
+lg:TruthValueStructure a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Truth-value structure" ;
+  rdfs:comment "A truth-value object or algebra into which support is reflected and in which negation is interpreted." .
+
+lg:BooleanTruthValueStructure a rdfs:Class ;
+  rdfs:subClassOf lg:TruthValueStructure ;
+  rdfs:label "Boolean truth-value structure" .
+
+lg:HeytingTruthValueStructure a rdfs:Class ;
+  rdfs:subClassOf lg:TruthValueStructure ;
+  rdfs:label "Heyting truth-value structure" .
+
+lg:ResiduatedTruthValueStructure a rdfs:Class ;
+  rdfs:subClassOf lg:TruthValueStructure ;
+  rdfs:label "Residuated truth-value structure" .
+
+lg:GirardTruthValueStructure a rdfs:Class ;
+  rdfs:subClassOf lg:ResiduatedTruthValueStructure ;
+  rdfs:label "Girard truth-value structure" .
+
+lg:SupportReflectionPolicy a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Support-reflection policy" ;
+  rdfs:comment "A policy selecting how semiring-valued images are reflected into truth-support before negation is applied." .
+
+lg:BooleanSupportReflectionPolicy a rdfs:Class ;
+  rdfs:subClassOf lg:SupportReflectionPolicy ;
+  rdfs:label "Boolean support-reflection policy" .
+
+lg:HeytingSupportReflectionPolicy a rdfs:Class ;
+  rdfs:subClassOf lg:SupportReflectionPolicy ;
+  rdfs:label "Heyting support-reflection policy" .
+
+lg:NegationPolicy a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Negation policy" ;
+  rdfs:comment "A first-class choice of negation semantics, attached explicitly to a witnessed NOT EXISTS query." .
+
+lg:BooleanNegationPolicy a rdfs:Class ;
+  rdfs:subClassOf lg:NegationPolicy ;
+  rdfs:label "Boolean negation policy" .
+
+lg:HeytingNegationPolicy a rdfs:Class ;
+  rdfs:subClassOf lg:NegationPolicy ;
+  rdfs:label "Heyting pseudocomplement policy" .
+
+lg:ResiduatedNegationPolicy a rdfs:Class ;
+  rdfs:subClassOf lg:NegationPolicy ;
+  rdfs:label "Residuated negation policy" .
+
+lg:GirardNegationPolicy a rdfs:Class ;
+  rdfs:subClassOf lg:ResiduatedNegationPolicy ;
+  rdfs:label "Girard negation policy" .
+
+lg:SemanticPolicyCoherenceObligation a rdfs:Class ;
+  rdfs:subClassOf lg:ProofObligation ;
+  rdfs:label "Semantic policy coherence obligation" ;
+  rdfs:comment "An obligation certifying that the policy bundle attached to a NOT EXISTS query agrees with that query's declared operators and images." .
+
+lg:NegationPolicySemanticsObligation a rdfs:Class ;
+  rdfs:subClassOf lg:ProofObligation ;
+  rdfs:label "Negation-policy semantics obligation" ;
+  rdfs:comment "An obligation certifying that the declared negation policy is the intended semantics for the query's negated existential image." .
+
+lg:BooleanNegationSemanticsObligation a rdfs:Class ;
+  rdfs:subClassOf lg:NegationPolicySemanticsObligation ;
+  rdfs:label "Boolean negation semantics obligation" .
+
+lg:HeytingPseudocomplementObligation a rdfs:Class ;
+  rdfs:subClassOf lg:NegationPolicySemanticsObligation ;
+  rdfs:label "Heyting pseudocomplement obligation" .
+
+lg:ResiduatedNegationSemanticsObligation a rdfs:Class ;
+  rdfs:subClassOf lg:NegationPolicySemanticsObligation ;
+  rdfs:label "Residuated negation semantics obligation" .
+
+lg:GirardNegationSemanticsObligation a rdfs:Class ;
+  rdfs:subClassOf lg:ResiduatedNegationSemanticsObligation ;
+  rdfs:label "Girard negation semantics obligation" .
+
+lg:hasSemanticPolicyBundle a rdf:Property ;
+  rdfs:domain lg:NotExistsWitnessedQuery ;
+  rdfs:range lg:SemanticPolicyBundle ;
+  rdfs:label "has semantic policy bundle" .
+
+lg:hasSupportPolicy a rdf:Property ;
+  rdfs:domain lg:SemanticPolicyBundle ;
+  rdfs:range lg:SupportReflectionPolicy ;
+  rdfs:label "has support policy" .
+
+lg:hasNegationPolicy a rdf:Property ;
+  rdfs:domain lg:SemanticPolicyBundle ;
+  rdfs:range lg:NegationPolicy ;
+  rdfs:label "has negation policy" .
+
+lg:hasTruthValueStructure a rdf:Property ;
+  rdfs:domain lg:SemanticPolicyBundle ;
+  rdfs:range lg:TruthValueStructure ;
+  rdfs:label "has truth-value structure" .
+
+lg:declaresSupportTruthValueStructure a rdf:Property ;
+  rdfs:domain lg:SupportReflectionPolicy ;
+  rdfs:range lg:TruthValueStructure ;
+  rdfs:label "declares support truth-value structure" .
+
+lg:declaresNegationTruthValueStructure a rdf:Property ;
+  rdfs:domain lg:NegationPolicy ;
+  rdfs:range lg:TruthValueStructure ;
+  rdfs:label "declares negation truth-value structure" .
+
+lg:interpretedInTruthValueStructure a rdf:Property ;
+  rdfs:range lg:TruthValueStructure ;
+  rdfs:label "interpreted in truth-value structure" ;
+  rdfs:comment "Attaches a support-reflected or negated image to the truth-value structure in which it is interpreted." .
+
+lg:selectsSupportReflectionOperator a rdf:Property ;
+  rdfs:domain lg:SupportReflectionPolicy ;
+  rdfs:range lg:SupportReflectionOperator ;
+  rdfs:label "selects support-reflection operator" .
+
+lg:selectsNegationOperator a rdf:Property ;
+  rdfs:domain lg:NegationPolicy ;
+  rdfs:range lg:NegationOperator ;
+  rdfs:label "selects negation operator" .
+
+lg:requiresSupportPolicy a rdf:Property ;
+  rdfs:domain lg:NegationPolicy ;
+  rdfs:range lg:SupportReflectionPolicy ;
+  rdfs:label "requires support policy" .
+
+lg:hasSemanticPolicyCoherenceObligation a rdf:Property ;
+  rdfs:domain lg:NotExistsWitnessedQuery ;
+  rdfs:range lg:SemanticPolicyCoherenceObligation ;
+  rdfs:label "has semantic-policy coherence obligation" .
+
+lg:hasNegationPolicySemanticsObligation a rdf:Property ;
+  rdfs:domain lg:NotExistsWitnessedQuery ;
+  rdfs:range lg:NegationPolicySemanticsObligation ;
+  rdfs:label "has negation-policy semantics obligation" .
+
+lg:governsSemanticPolicyBundle a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:SemanticPolicyBundle ;
+  rdfs:label "governs semantic policy bundle" .
+
+lg:governsSupportPolicy a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:SupportReflectionPolicy ;
+  rdfs:label "governs support policy" .
+
+lg:governsNegationPolicy a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:NegationPolicy ;
+  rdfs:label "governs negation policy" .
+
+lg:governsTruthValueStructure a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:TruthValueStructure ;
+  rdfs:label "governs truth-value structure" .
+
+
+# -----------------------------------------------------------------------------
+# Policy-indexed proof calculus core (completed ontology layer)
+# -----------------------------------------------------------------------------
+
+lg:PolicyIndexedProofCalculus a rdfs:Class ;
+  rdfs:subClassOf lg:InternalProofCalculus ;
+  rdfs:label "Policy-indexed proof calculus" ;
+  rdfs:comment "An internal proof calculus whose terms and derivations are explicitly indexed by a declared semantic policy bundle." .
+
+lg:PolicyIndexedProofTerm a rdfs:Class ;
+  rdfs:subClassOf lg:InternalProofTerm ;
+  rdfs:label "Policy-indexed proof term" ;
+  rdfs:comment "An internal proof term carrying an explicit semantic-policy index." .
+
+lg:PolicyIndexedProofCarryingQuery a rdfs:Class ;
+  rdfs:subClassOf lg:PolicyIndexedProofTerm, lg:ProofCarryingQuery ;
+  rdfs:label "Policy-indexed proof-carrying query" ;
+  rdfs:comment "A proof-carrying query treated as an internal proof term and indexed by a declared semantic policy bundle." .
+
+lg:PolicyIndexedNotExistsProofQuery a rdfs:Class ;
+  rdfs:subClassOf lg:PolicyIndexedProofCarryingQuery, lg:NotExistsWitnessedQuery ;
+  rdfs:label "Policy-indexed NOT EXISTS proof query" ;
+  rdfs:comment "A policy-indexed proof-carrying query witnessing NOT EXISTS semantics under a declared policy bundle." .
+
+lg:PolicyIndexedDerivation a rdfs:Class ;
+  rdfs:subClassOf lg:InternalDerivation ;
+  rdfs:label "Policy-indexed derivation" ;
+  rdfs:comment "A derivation explicitly indexed by a declared semantic policy, support policy, negation policy, and truth-value structure." .
+
+lg:PolicyScopedJudgment a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Policy-scoped judgment" ;
+  rdfs:comment "A judgment about a proof-carrying query under an explicit semantic policy bundle." .
+
+lg:PolicyCertificate a rdfs:Class ;
+  rdfs:subClassOf lg:ProofWitness ;
+  rdfs:label "Policy certificate" ;
+  rdfs:comment "A witness certifying that a proof-carrying query and its derivation were constructed under a coherent semantic policy bundle." .
+
+lg:ProofConstructor a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Proof constructor" ;
+  rdfs:comment "A term-forming constructor of the internal proof calculus." .
+
+lg:HistoryStampProofConstructor a rdfs:Class ;
+  rdfs:subClassOf lg:ProofConstructor ;
+  rdfs:label "History-stamp proof constructor" .
+
+lg:ExistentialImageProofConstructor a rdfs:Class ;
+  rdfs:subClassOf lg:ProofConstructor ;
+  rdfs:label "Existential-image proof constructor" .
+
+lg:SupportReflectionProofConstructor a rdfs:Class ;
+  rdfs:subClassOf lg:ProofConstructor ;
+  rdfs:label "Support-reflection proof constructor" .
+
+lg:NegationProofConstructor a rdfs:Class ;
+  rdfs:subClassOf lg:ProofConstructor ;
+  rdfs:label "Negation proof constructor" .
+
+lg:PolicyIndexedConstructiveDerivationObligation a rdfs:Class ;
+  rdfs:subClassOf lg:ProofObligation ;
+  rdfs:label "Policy-indexed constructive derivation obligation" .
+
+lg:PolicyPreservingLoweringObligation a rdfs:Class ;
+  rdfs:subClassOf lg:ProofObligation ;
+  rdfs:label "Policy-preserving lowering obligation" .
+
+lg:PolicyReflectiveCompatibilityObligation a rdfs:Class ;
+  rdfs:subClassOf lg:ProofObligation ;
+  rdfs:label "Policy-reflective compatibility obligation" .
+
+lg:registersPolicyIndexedProofTerm a rdf:Property ;
+  rdfs:domain lg:PolicyIndexedProofCalculus ;
+  rdfs:range lg:PolicyIndexedProofTerm ;
+  rdfs:label "registers policy-indexed proof term" .
+
+lg:registersPolicyIndexedDerivation a rdf:Property ;
+  rdfs:domain lg:PolicyIndexedProofCalculus ;
+  rdfs:range lg:PolicyIndexedDerivation ;
+  rdfs:label "registers policy-indexed derivation" .
+
+lg:derivationUnderSemanticPolicyBundle a rdf:Property ;
+  rdfs:domain lg:PolicyIndexedDerivation ;
+  rdfs:range lg:SemanticPolicyBundle ;
+  rdfs:label "derivation under semantic policy bundle" .
+
+lg:derivationUnderSupportPolicy a rdf:Property ;
+  rdfs:domain lg:PolicyIndexedDerivation ;
+  rdfs:range lg:SupportReflectionPolicy ;
+  rdfs:label "derivation under support policy" .
+
+lg:derivationUnderNegationPolicy a rdf:Property ;
+  rdfs:domain lg:PolicyIndexedDerivation ;
+  rdfs:range lg:NegationPolicy ;
+  rdfs:label "derivation under negation policy" .
+
+lg:derivationUnderTruthValueStructure a rdf:Property ;
+  rdfs:domain lg:PolicyIndexedDerivation ;
+  rdfs:range lg:TruthValueStructure ;
+  rdfs:label "derivation under truth-value structure" .
+
+lg:usesProofConstructor a rdf:Property ;
+  rdfs:domain lg:PolicyIndexedDerivation ;
+  rdfs:range lg:ProofConstructor ;
+  rdfs:label "uses proof constructor" .
+
+lg:concludesPolicyScopedJudgment a rdf:Property ;
+  rdfs:range lg:PolicyScopedJudgment ;
+  rdfs:label "concludes policy-scoped judgment" .
+
+lg:judgmentAboutQuery a rdf:Property ;
+  rdfs:domain lg:PolicyScopedJudgment ;
+  rdfs:range lg:ProofCarryingQuery ;
+  rdfs:label "judgment about query" .
+
+lg:judgmentUnderSemanticPolicyBundle a rdf:Property ;
+  rdfs:domain lg:PolicyScopedJudgment ;
+  rdfs:range lg:SemanticPolicyBundle ;
+  rdfs:label "judgment under semantic policy bundle" .
+
+lg:judgmentTruthValueStructure a rdf:Property ;
+  rdfs:domain lg:PolicyScopedJudgment ;
+  rdfs:range lg:TruthValueStructure ;
+  rdfs:label "judgment truth-value structure" .
+
+lg:certifiesSemanticPolicyBundle a rdf:Property ;
+  rdfs:domain lg:PolicyCertificate ;
+  rdfs:range lg:SemanticPolicyBundle ;
+  rdfs:label "certifies semantic policy bundle" .
+
+lg:certifiesSupportPolicy a rdf:Property ;
+  rdfs:domain lg:PolicyCertificate ;
+  rdfs:range lg:SupportReflectionPolicy ;
+  rdfs:label "certifies support policy" .
+
+lg:certifiesNegationPolicy a rdf:Property ;
+  rdfs:domain lg:PolicyCertificate ;
+  rdfs:range lg:NegationPolicy ;
+  rdfs:label "certifies negation policy" .
+
+lg:certifiesTruthValueStructure a rdf:Property ;
+  rdfs:domain lg:PolicyCertificate ;
+  rdfs:range lg:TruthValueStructure ;
+  rdfs:label "certifies truth-value structure" .
+
+lg:certifiesHistoryStamp a rdf:Property ;
+  rdfs:domain lg:PolicyCertificate ;
+  rdfs:range lg:HistoryStamp ;
+  rdfs:label "certifies history stamp" .
+
+lg:certifiesProofCarryingQuery a rdf:Property ;
+  rdfs:domain lg:PolicyCertificate ;
+  rdfs:range lg:ProofCarryingQuery ;
+  rdfs:label "certifies proof-carrying query" .
+
+lg:derivedUnderSemanticPolicyBundle a rdf:Property ;
+  rdfs:domain lg:PolicyIndexedProofTerm ;
+  rdfs:range lg:SemanticPolicyBundle ;
+  rdfs:label "derived under semantic policy bundle" .
+
+lg:hasPolicyDerivation a rdf:Property ;
+  rdfs:domain lg:PolicyIndexedProofCarryingQuery ;
+  rdfs:range lg:PolicyIndexedDerivation ;
+  rdfs:label "has policy derivation" .
+
+lg:hasPolicyCertificate a rdf:Property ;
+  rdfs:domain lg:PolicyIndexedProofCarryingQuery ;
+  rdfs:range lg:PolicyCertificate ;
+  rdfs:label "has policy certificate" .
+
+lg:hasPolicyScopedJudgment a rdf:Property ;
+  rdfs:domain lg:PolicyIndexedProofCarryingQuery ;
+  rdfs:range lg:PolicyScopedJudgment ;
+  rdfs:label "has policy-scoped judgment" .
+
+lg:hasPolicyIndexedConstructiveDerivationObligation a rdf:Property ;
+  rdfs:domain lg:PolicyIndexedProofCarryingQuery ;
+  rdfs:range lg:PolicyIndexedConstructiveDerivationObligation ;
+  rdfs:label "has policy-indexed constructive derivation obligation" .
+
+lg:hasPolicyPreservingLoweringObligation a rdf:Property ;
+  rdfs:domain lg:PolicyIndexedProofCarryingQuery ;
+  rdfs:range lg:PolicyPreservingLoweringObligation ;
+  rdfs:label "has policy-preserving lowering obligation" .
+
+lg:hasPolicyReflectiveCompatibilityObligation a rdf:Property ;
+  rdfs:domain lg:PolicyIndexedProofCarryingQuery ;
+  rdfs:range lg:PolicyReflectiveCompatibilityObligation ;
+  rdfs:label "has policy-reflective compatibility obligation" .
+
+lg:governsProofCalculus a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:InternalProofCalculus ;
+  rdfs:label "governs proof calculus" .
+
+lg:governsPolicyIndexedProofTerm a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:PolicyIndexedProofTerm ;
+  rdfs:label "governs policy-indexed proof term" .
+
+lg:governsPolicyIndexedDerivation a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:PolicyIndexedDerivation ;
+  rdfs:label "governs policy-indexed derivation" .
+
+lg:governsPolicyScopedJudgment a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:PolicyScopedJudgment ;
+  rdfs:label "governs policy-scoped judgment" .
+
+lg:governsPolicyCertificate a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:PolicyCertificate ;
+  rdfs:label "governs policy certificate" .
+
+lg:realizesProofCarryingQuery a rdf:Property ;
+  rdfs:range lg:ProofCarryingQuery ;
+  rdfs:label "realizes proof-carrying query" .
+
+lg:realizesPolicyIndexedDerivation a rdf:Property ;
+  rdfs:range lg:PolicyIndexedDerivation ;
+  rdfs:label "realizes policy-indexed derivation" .
+
+# -----------------------------------------------------------------------------
+# Compositional proof-term extension
+# -----------------------------------------------------------------------------
+
+lg:ProofTermExpression a rdfs:Class ;
+  rdfs:subClassOf lg:PolicyIndexedProofTerm ;
+  rdfs:label "Proof-term expression" ;
+  rdfs:comment "A compositional term of the internal proof calculus." .
+
+lg:CanonicalProofTerm a rdfs:Class ;
+  rdfs:subClassOf lg:ProofTermExpression ;
+  rdfs:label "Canonical proof term" ;
+  rdfs:comment "A normal-form proof term chosen as the canonical representative of a derivation or proof-carrying query." .
+
+lg:AtomicProofTerm a rdfs:Class ;
+  rdfs:subClassOf lg:ProofTermExpression ;
+  rdfs:label "Atomic proof term" .
+
+lg:CompositeProofTerm a rdfs:Class ;
+  rdfs:subClassOf lg:ProofTermExpression ;
+  rdfs:label "Composite proof term" .
+
+lg:ProofConstructorApplication a rdfs:Class ;
+  rdfs:subClassOf lg:CompositeProofTerm ;
+  rdfs:label "Proof-constructor application" .
+
+lg:UnaryProofConstructorApplication a rdfs:Class ;
+  rdfs:subClassOf lg:ProofConstructorApplication ;
+  rdfs:label "Unary proof-constructor application" .
+
+lg:BinaryProofConstructorApplication a rdfs:Class ;
+  rdfs:subClassOf lg:ProofConstructorApplication ;
+  rdfs:label "Binary proof-constructor application" .
+
+lg:SequentialProofComposition a rdfs:Class ;
+  rdfs:subClassOf lg:BinaryProofConstructorApplication ;
+  rdfs:label "Sequential proof composition" ;
+  rdfs:comment "A compositional proof term built by sequencing two proof terms and normalizing to a canonical representative." .
+
+lg:HistoryStampIntroTerm a rdfs:Class ;
+  rdfs:subClassOf lg:AtomicProofTerm ;
+  rdfs:label "History-stamp introduction term" .
+
+lg:ExistentialImageIntroTerm a rdfs:Class ;
+  rdfs:subClassOf lg:UnaryProofConstructorApplication ;
+  rdfs:label "Existential-image introduction term" .
+
+lg:SupportReflectionIntroTerm a rdfs:Class ;
+  rdfs:subClassOf lg:UnaryProofConstructorApplication ;
+  rdfs:label "Support-reflection introduction term" .
+
+lg:NegationIntroTerm a rdfs:Class ;
+  rdfs:subClassOf lg:UnaryProofConstructorApplication ;
+  rdfs:label "Negation introduction term" .
+
+lg:NormalizationWitness a rdfs:Class ;
+  rdfs:subClassOf lg:ProofWitness ;
+  rdfs:label "Normalization witness" ;
+  rdfs:comment "A witness that one proof term normalizes to another." .
+
+lg:ConstructorTypingObligation a rdfs:Class ;
+  rdfs:subClassOf lg:ProofObligation ;
+  rdfs:label "Constructor typing obligation" .
+
+lg:ProofTermCompositionObligation a rdfs:Class ;
+  rdfs:subClassOf lg:ProofObligation ;
+  rdfs:label "Proof-term composition obligation" .
+
+lg:NormalizationSoundnessObligation a rdfs:Class ;
+  rdfs:subClassOf lg:ProofObligation ;
+  rdfs:label "Normalization soundness obligation" .
+
+lg:ProofTermAdequacyObligation a rdfs:Class ;
+  rdfs:subClassOf lg:ProofObligation ;
+  rdfs:label "Proof-term adequacy obligation" .
+
+lg:hasProofConstructorHead a rdf:Property ;
+  rdfs:domain lg:ProofConstructorApplication ;
+  rdfs:range lg:ProofConstructor ;
+  rdfs:label "has proof-constructor head" .
+
+lg:hasPremiseProofTerm a rdf:Property ;
+  rdfs:domain lg:UnaryProofConstructorApplication ;
+  rdfs:range lg:ProofTermExpression ;
+  rdfs:label "has premise proof term" .
+
+lg:hasLeftProofTerm a rdf:Property ;
+  rdfs:domain lg:BinaryProofConstructorApplication ;
+  rdfs:range lg:ProofTermExpression ;
+  rdfs:label "has left proof term" .
+
+lg:hasRightProofTerm a rdf:Property ;
+  rdfs:domain lg:BinaryProofConstructorApplication ;
+  rdfs:range lg:ProofTermExpression ;
+  rdfs:label "has right proof term" .
+
+lg:introducesHistoryStamp a rdf:Property ;
+  rdfs:domain lg:HistoryStampIntroTerm ;
+  rdfs:range lg:HistoryStamp ;
+  rdfs:label "introduces history stamp" .
+
+lg:introducesExistentialImage a rdf:Property ;
+  rdfs:domain lg:ExistentialImageIntroTerm ;
+  rdfs:range lg:ExistentialImage ;
+  rdfs:label "introduces existential image" .
+
+lg:introducesSupportReflectedImage a rdf:Property ;
+  rdfs:domain lg:SupportReflectionIntroTerm ;
+  rdfs:range lg:SupportReflectedImage ;
+  rdfs:label "introduces support-reflected image" .
+
+lg:introducesNegatedExistentialImage a rdf:Property ;
+  rdfs:domain lg:NegationIntroTerm ;
+  rdfs:range lg:NegatedExistentialImage ;
+  rdfs:label "introduces negated existential image" .
+
+lg:overQueryWedgeProduct a rdf:Property ;
+  rdfs:range lg:QueryWedgeProduct ;
+  rdfs:label "over query wedge product" .
+
+lg:underContextProjection a rdf:Property ;
+  rdfs:range lg:ContextProjection ;
+  rdfs:label "under context projection" .
+
+lg:underSupportReflectionOperator a rdf:Property ;
+  rdfs:range lg:SupportReflectionOperator ;
+  rdfs:label "under support-reflection operator" .
+
+lg:underNegationOperator a rdf:Property ;
+  rdfs:range lg:NegationOperator ;
+  rdfs:label "under negation operator" .
+
+lg:realizedByProofTerm a rdf:Property ;
+  rdfs:domain lg:InternalDerivation ;
+  rdfs:range lg:ProofTermExpression ;
+  rdfs:label "realized by proof term" .
+
+lg:hasNormalizedProofTerm a rdf:Property ;
+  rdfs:domain lg:ProofTermExpression ;
+  rdfs:range lg:ProofTermExpression ;
+  rdfs:label "has normalized proof term" .
+
+lg:hasNormalizationWitness a rdf:Property ;
+  rdfs:domain lg:ProofTermExpression ;
+  rdfs:range lg:NormalizationWitness ;
+  rdfs:label "has normalization witness" .
+
+lg:normalizesSourceProofTerm a rdf:Property ;
+  rdfs:domain lg:NormalizationWitness ;
+  rdfs:range lg:ProofTermExpression ;
+  rdfs:label "normalizes source proof term" .
+
+lg:normalizesTargetProofTerm a rdf:Property ;
+  rdfs:domain lg:NormalizationWitness ;
+  rdfs:range lg:ProofTermExpression ;
+  rdfs:label "normalizes target proof term" .
+
+lg:hasConstructorTypingObligation a rdf:Property ;
+  rdfs:domain lg:ProofTermExpression ;
+  rdfs:range lg:ConstructorTypingObligation ;
+  rdfs:label "has constructor typing obligation" .
+
+lg:hasProofCompositionObligation a rdf:Property ;
+  rdfs:domain lg:SequentialProofComposition ;
+  rdfs:range lg:ProofTermCompositionObligation ;
+  rdfs:label "has proof composition obligation" .
+
+lg:hasNormalizationSoundnessObligation a rdf:Property ;
+  rdfs:domain lg:ProofTermExpression ;
+  rdfs:range lg:NormalizationSoundnessObligation ;
+  rdfs:label "has normalization soundness obligation" .
+
+lg:hasProofTermAdequacyObligation a rdf:Property ;
+  rdfs:domain lg:PolicyIndexedProofCarryingQuery ;
+  rdfs:range lg:ProofTermAdequacyObligation ;
+  rdfs:label "has proof-term adequacy obligation" .
+
+lg:governsProofTerm a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:ProofTermExpression ;
+  rdfs:label "governs proof term" .
+
+lg:governsSourceProofTerm a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:ProofTermExpression ;
+  rdfs:label "governs source proof term" .
+
+lg:governsTargetProofTerm a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:ProofTermExpression ;
+  rdfs:label "governs target proof term" .
+
+lg:governsProofConstructor a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:ProofConstructor ;
+  rdfs:label "governs proof constructor" .
+
+
+# -----------------------------------------------------------------------------
+# Substitution, cut-elimination, and shared-subproof reuse layer
+# -----------------------------------------------------------------------------
+
+lg:ProofVariable a rdfs:Class ;
+  rdfs:subClassOf lg:AtomicProofTerm ;
+  rdfs:label "Proof variable" ;
+  rdfs:comment "A variable ranging over proof terms inside an internal proof context." .
+
+lg:ProofContext a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Proof context" ;
+  rdfs:comment "A context binding proof variables and assumptions for proof-term substitution and cut." .
+
+lg:ProofAssumption a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Proof assumption" ;
+  rdfs:comment "An explicit assumption connecting a proof variable to a witness-bearing proof term within a proof context." .
+
+lg:SubstitutionApplication a rdfs:Class ;
+  rdfs:subClassOf lg:CompositeProofTerm ;
+  rdfs:label "Substitution application" ;
+  rdfs:comment "Application of a proof-term substitution that replaces a proof variable in a source proof term by a witness-bearing proof term." .
+
+lg:SubstitutionWitness a rdfs:Class ;
+  rdfs:subClassOf cat:Object ;
+  rdfs:label "Substitution witness" ;
+  rdfs:comment "A witness that a substitution operation transforms one proof term into another by replacing a designated proof variable with a designated witness term." .
+
+lg:CutApplication a rdfs:Class ;
+  rdfs:subClassOf lg:BinaryProofConstructorApplication, lg:CompositeProofTerm ;
+  rdfs:label "Cut application" ;
+  rdfs:comment "A cut term composing a schematic proof with a witness-bearing proof of the cut assumption." .
+
+lg:CutFreeProofTerm a rdfs:Class ;
+  rdfs:subClassOf lg:CanonicalProofTerm ;
+  rdfs:label "Cut-free proof term" ;
+  rdfs:comment "A canonical proof term free of explicit cut applications." .
+
+lg:CutEliminationWitness a rdfs:Class ;
+  rdfs:subClassOf lg:NormalizationWitness ;
+  rdfs:label "Cut-elimination witness" ;
+  rdfs:comment "A normalization witness specifically certifying elimination of a cut application to a cut-free proof term." .
+
+lg:SharedSubproof a rdfs:Class ;
+  rdfs:subClassOf lg:ProofTermExpression ;
+  rdfs:label "Shared subproof" ;
+  rdfs:comment "A reusable proof-term fragment intended to be shared across multiple derivations or eliminations." .
+
+lg:SubproofReuseCategory a rdfs:Class ;
+  rdfs:subClassOf cat:Category ;
+  rdfs:label "Subproof reuse category" ;
+  rdfs:comment "A category whose objects are shared subproofs and whose morphisms witness reusable identity or transport across derivations." .
+
+lg:SubproofReuseMorphism a rdfs:Class ;
+  rdfs:subClassOf cat:Morphism ;
+  rdfs:label "Subproof reuse morphism" ;
+  rdfs:comment "A morphism witnessing reusable access to a shared subproof." .
+
+lg:SubproofReuseFunctor a rdfs:Class ;
+  rdfs:subClassOf cat:Functor ;
+  rdfs:label "Subproof reuse functor" ;
+  rdfs:comment "A functor preserving designated reuse structure on shared subproofs." .
+
+lg:SubstitutionSoundnessObligation a rdfs:Class ;
+  rdfs:subClassOf lg:ProofObligation ;
+  rdfs:label "Substitution soundness obligation" .
+
+lg:SubstitutionCompatibilityObligation a rdfs:Class ;
+  rdfs:subClassOf lg:ProofObligation ;
+  rdfs:label "Substitution compatibility obligation" .
+
+lg:CutAdmissibilityObligation a rdfs:Class ;
+  rdfs:subClassOf lg:ProofObligation ;
+  rdfs:label "Cut admissibility obligation" .
+
+lg:CutEliminationObligation a rdfs:Class ;
+  rdfs:subClassOf lg:ProofObligation ;
+  rdfs:label "Cut-elimination obligation" .
+
+lg:SharedSubproofReuseObligation a rdfs:Class ;
+  rdfs:subClassOf lg:ProofObligation ;
+  rdfs:label "Shared subproof reuse obligation" .
+
+lg:FunctorialSubproofReuseObligation a rdfs:Class ;
+  rdfs:subClassOf lg:ProofObligation ;
+  rdfs:label "Functorial subproof reuse obligation" .
+
+lg:proofVariableName a rdf:Property ;
+  rdfs:domain lg:ProofVariable ;
+  rdfs:range xsd:string ;
+  rdfs:label "proof-variable name" .
+
+lg:hasProofContext a rdf:Property ;
+  rdfs:range lg:ProofContext ;
+  rdfs:label "has proof context" .
+
+lg:bindsProofVariable a rdf:Property ;
+  rdfs:domain lg:ProofContext ;
+  rdfs:range lg:ProofVariable ;
+  rdfs:label "binds proof variable" .
+
+lg:hasProofAssumption a rdf:Property ;
+  rdfs:domain lg:ProofContext ;
+  rdfs:range lg:ProofAssumption ;
+  rdfs:label "has proof assumption" .
+
+lg:assumesProofVariable a rdf:Property ;
+  rdfs:domain lg:ProofAssumption ;
+  rdfs:range lg:ProofVariable ;
+  rdfs:label "assumes proof variable" .
+
+lg:assumesProofTerm a rdf:Property ;
+  rdfs:domain lg:ProofAssumption ;
+  rdfs:range lg:ProofTermExpression ;
+  rdfs:label "assumes proof term" .
+
+lg:inProofContext a rdf:Property ;
+  rdfs:domain lg:ProofAssumption ;
+  rdfs:range lg:ProofContext ;
+  rdfs:label "in proof context" .
+
+lg:substitutesProofVariable a rdf:Property ;
+  rdfs:domain lg:SubstitutionApplication ;
+  rdfs:range lg:ProofVariable ;
+  rdfs:label "substitutes proof variable" .
+
+lg:substitutesWithProofTerm a rdf:Property ;
+  rdfs:domain lg:SubstitutionApplication ;
+  rdfs:range lg:ProofTermExpression ;
+  rdfs:label "substitutes with proof term" .
+
+lg:substitutesInProofTerm a rdf:Property ;
+  rdfs:domain lg:SubstitutionApplication ;
+  rdfs:range lg:ProofTermExpression ;
+  rdfs:label "substitutes in proof term" .
+
+lg:substitutesToProofTerm a rdf:Property ;
+  rdfs:domain lg:SubstitutionApplication ;
+  rdfs:range lg:ProofTermExpression ;
+  rdfs:label "substitutes to proof term" .
+
+lg:hasSubstitutionWitness a rdf:Property ;
+  rdfs:domain lg:SubstitutionApplication ;
+  rdfs:range lg:SubstitutionWitness ;
+  rdfs:label "has substitution witness" .
+
+lg:substitutesSourceProofTerm a rdf:Property ;
+  rdfs:domain lg:SubstitutionWitness ;
+  rdfs:range lg:ProofTermExpression ;
+  rdfs:label "substitutes source proof term" .
+
+lg:substitutesTargetProofTerm a rdf:Property ;
+  rdfs:domain lg:SubstitutionWitness ;
+  rdfs:range lg:ProofTermExpression ;
+  rdfs:label "substitutes target proof term" .
+
+lg:substitutesReplacementTerm a rdf:Property ;
+  rdfs:domain lg:SubstitutionWitness ;
+  rdfs:range lg:ProofTermExpression ;
+  rdfs:label "substitutes replacement term" .
+
+lg:cutsOnProofVariable a rdf:Property ;
+  rdfs:domain lg:CutApplication ;
+  rdfs:range lg:ProofVariable ;
+  rdfs:label "cuts on proof variable" .
+
+lg:cutsOnProofAssumption a rdf:Property ;
+  rdfs:domain lg:CutApplication ;
+  rdfs:range lg:ProofAssumption ;
+  rdfs:label "cuts on proof assumption" .
+
+lg:hasCutEliminationWitness a rdf:Property ;
+  rdfs:domain lg:CutApplication ;
+  rdfs:range lg:CutEliminationWitness ;
+  rdfs:label "has cut-elimination witness" .
+
+lg:eliminatesCutSourceProofTerm a rdf:Property ;
+  rdfs:domain lg:CutEliminationWitness ;
+  rdfs:range lg:ProofTermExpression ;
+  rdfs:label "eliminates cut source proof term" .
+
+lg:cutEliminatesToProofTerm a rdf:Property ;
+  rdfs:domain lg:CutEliminationWitness ;
+  rdfs:range lg:ProofTermExpression ;
+  rdfs:label "cut-eliminates to proof term" .
+
+lg:hasSharedSubproof a rdf:Property ;
+  rdfs:domain lg:ProofTermExpression ;
+  rdfs:range lg:SharedSubproof ;
+  rdfs:label "has shared subproof" .
+
+lg:registeredInReuseCategory a rdf:Property ;
+  rdfs:domain lg:SharedSubproof ;
+  rdfs:range lg:SubproofReuseCategory ;
+  rdfs:label "registered in reuse category" .
+
+lg:hasSubproofReuseMorphism a rdf:Property ;
+  rdfs:domain lg:SubproofReuseCategory ;
+  rdfs:range lg:SubproofReuseMorphism ;
+  rdfs:label "has subproof reuse morphism" .
+
+lg:reusesSharedSubproof a rdf:Property ;
+  rdfs:domain lg:SubproofReuseMorphism ;
+  rdfs:range lg:SharedSubproof ;
+  rdfs:label "reuses shared subproof" .
+
+lg:hasSubproofReuseObligation a rdf:Property ;
+  rdfs:domain lg:SharedSubproof ;
+  rdfs:range lg:SharedSubproofReuseObligation ;
+  rdfs:label "has subproof reuse obligation" .
+
+lg:hasFunctorialSubproofReuseObligation a rdf:Property ;
+  rdfs:domain lg:SubproofReuseCategory ;
+  rdfs:range lg:FunctorialSubproofReuseObligation ;
+  rdfs:label "has functorial subproof reuse obligation" .
+
+lg:hasSubstitutionSoundnessObligation a rdf:Property ;
+  rdfs:domain lg:SubstitutionApplication ;
+  rdfs:range lg:SubstitutionSoundnessObligation ;
+  rdfs:label "has substitution soundness obligation" .
+
+lg:hasSubstitutionCompatibilityObligation a rdf:Property ;
+  rdfs:domain lg:SubstitutionApplication ;
+  rdfs:range lg:SubstitutionCompatibilityObligation ;
+  rdfs:label "has substitution compatibility obligation" .
+
+lg:hasCutAdmissibilityObligation a rdf:Property ;
+  rdfs:domain lg:CutApplication ;
+  rdfs:range lg:CutAdmissibilityObligation ;
+  rdfs:label "has cut admissibility obligation" .
+
+lg:hasCutEliminationObligation a rdf:Property ;
+  rdfs:domain lg:CutApplication ;
+  rdfs:range lg:CutEliminationObligation ;
+  rdfs:label "has cut-elimination obligation" .
+
+lg:governsProofContext a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:ProofContext ;
+  rdfs:label "governs proof context" .
+
+lg:governsProofVariable a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:ProofVariable ;
+  rdfs:label "governs proof variable" .
+
+lg:governsProofAssumption a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:ProofAssumption ;
+  rdfs:label "governs proof assumption" .
+
+lg:governsSharedSubproof a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:SharedSubproof ;
+  rdfs:label "governs shared subproof" .
+
+lg:governsReuseCategory a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:SubproofReuseCategory ;
+  rdfs:label "governs reuse category" .
+
+lg:governsSubstitutionApplication a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:SubstitutionApplication ;
+  rdfs:label "governs substitution application" .
+
+lg:governsCutApplication a rdf:Property ;
+  rdfs:domain lg:ProofObligation ;
+  rdfs:range lg:CutApplication ;
+  rdfs:label "governs cut application" .

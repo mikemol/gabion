@@ -8,6 +8,20 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Literal
 
+from gabion.analysis.foundation.timeout_context import (
+    Deadline,
+    deadline_clock_scope,
+    deadline_scope,
+)
+from gabion.analysis.projection.projection_registry import iter_registered_specs
+from gabion.analysis.projection.projection_semantic_lowering import (
+    BridgeProjectionOp,
+    PresentationProjectionOp,
+    ProjectionSemanticLoweringPlan,
+    SemanticProjectionOp,
+    lower_projection_spec_to_semantic_plan,
+)
+from gabion.deadline_clock import GasMeter
 from gabion.order_contract import ordered_or_sorted
 
 EraStatus = Literal["implemented", "in_progress", "open"]
@@ -561,6 +575,124 @@ def _completion_focus(
     return criteria, sequence
 
 
+def _semantic_lowering_focus() -> dict[str, Any]:
+    with deadline_scope(Deadline.from_timeout_ms(1000)):
+        with deadline_clock_scope(GasMeter(limit=1_000_000)):
+            rows = [
+                _semantic_lowering_row(
+                    lower_projection_spec_to_semantic_plan(spec)
+                )
+                for spec in _sorted(
+                    list(iter_registered_specs()),
+                    key=lambda item: (str(item.domain), str(item.name)),
+                )
+            ]
+    summary = {
+        "registered_spec_count": len(rows),
+        "semantic_promoted_count": sum(
+            1 for row in rows if int(row["semantic_op_count"]) > 0
+        ),
+        "presentation_only_count": sum(
+            1
+            for row in rows
+            if row["lowering_status"] == "presentation_only"
+        ),
+        "bridge_present_count": sum(
+            1 for row in rows if int(row["bridge_op_count"]) > 0
+        ),
+    }
+    return {
+        "summary": summary,
+        "rows": rows,
+    }
+
+
+def _semantic_lowering_row(
+    lowering_plan: ProjectionSemanticLoweringPlan,
+) -> dict[str, Any]:
+    semantic_ops = tuple(
+        _semantic_op_payload(item) for item in lowering_plan.semantic_ops
+    )
+    presentation_ops = tuple(
+        _presentation_op_payload(item) for item in lowering_plan.presentation_ops
+    )
+    bridge_ops = tuple(
+        _bridge_op_payload(item) for item in lowering_plan.bridge_ops
+    )
+    quotient_faces = tuple(
+        _sorted(
+            [
+                str(item["quotient_face"])
+                for item in semantic_ops
+                if isinstance(item.get("quotient_face"), str)
+                and str(item["quotient_face"]).strip()
+            ]
+        )
+    )
+    lowering_status = _lowering_status(
+        semantic_ops=semantic_ops,
+        presentation_ops=presentation_ops,
+        bridge_ops=bridge_ops,
+    )
+    return {
+        "spec_identity": lowering_plan.spec_identity,
+        "spec_name": lowering_plan.spec_name,
+        "domain": lowering_plan.domain,
+        "lowering_status": lowering_status,
+        "semantic_op_count": len(semantic_ops),
+        "presentation_op_count": len(presentation_ops),
+        "bridge_op_count": len(bridge_ops),
+        "quotient_faces": list(quotient_faces),
+        "semantic_ops": [item for item in semantic_ops],
+        "presentation_ops": [item for item in presentation_ops],
+        "bridge_ops": [item for item in bridge_ops],
+    }
+
+
+def _semantic_op_payload(op: SemanticProjectionOp) -> dict[str, Any]:
+    return {
+        "source_index": op.source_index,
+        "source_op": op.source_op,
+        "semantic_op": op.semantic_op.value,
+        "quotient_face": str(op.params.get("quotient_face", "") or ""),
+    }
+
+
+def _presentation_op_payload(op: PresentationProjectionOp) -> dict[str, Any]:
+    return {
+        "source_index": op.source_index,
+        "source_op": op.source_op,
+    }
+
+
+def _bridge_op_payload(op: BridgeProjectionOp) -> dict[str, Any]:
+    return {
+        "source_index": op.source_index,
+        "source_op": op.source_op,
+        "bridge_kind": op.bridge_kind.value,
+    }
+
+
+def _lowering_status(
+    *,
+    semantic_ops: tuple[dict[str, Any], ...],
+    presentation_ops: tuple[dict[str, Any], ...],
+    bridge_ops: tuple[dict[str, Any], ...],
+) -> str:
+    has_semantic = bool(semantic_ops)
+    has_presentation = bool(presentation_ops)
+    has_bridge = bool(bridge_ops)
+    if has_semantic and has_presentation:
+        return "mixed"
+    if has_semantic:
+        return "semantic_promoted"
+    if has_bridge and has_presentation:
+        return "presentation_plus_bridge"
+    if has_bridge:
+        return "bridge_only"
+    return "presentation_only"
+
+
 def build_history(
     *,
     repo_root: Path,
@@ -637,6 +769,7 @@ def build_history(
         repo_root=repo_root,
         git=git,
     )
+    semantic_lowering_focus = _semantic_lowering_focus()
     return {
         "format_version": 1,
         "source": {
@@ -656,6 +789,7 @@ def build_history(
             "criteria": completion_criteria,
             "closure_sequence": closure_sequence,
         },
+        "semantic_lowering_focus": semantic_lowering_focus,
     }
 
 
@@ -682,6 +816,41 @@ def validate_history(
         expected = _top_hotspots(inventory)
         if top_hotspots != expected:
             errors.append("history top_hotspots ordering does not match inventory ranking")
+
+    semantic_lowering_focus = history.get("semantic_lowering_focus")
+    if not isinstance(semantic_lowering_focus, dict):
+        errors.append("history.semantic_lowering_focus must be an object")
+    else:
+        lowering_summary = semantic_lowering_focus.get("summary")
+        if not isinstance(lowering_summary, dict):
+            errors.append("history.semantic_lowering_focus.summary must be an object")
+        lowering_rows = semantic_lowering_focus.get("rows")
+        if not isinstance(lowering_rows, list):
+            errors.append("history.semantic_lowering_focus.rows must be a list")
+        else:
+            required_lowering_fields = {
+                "spec_identity",
+                "spec_name",
+                "domain",
+                "lowering_status",
+                "semantic_op_count",
+                "presentation_op_count",
+                "bridge_op_count",
+                "quotient_faces",
+                "semantic_ops",
+                "presentation_ops",
+                "bridge_ops",
+            }
+            for row in lowering_rows:
+                if not isinstance(row, dict):
+                    errors.append("history.semantic_lowering_focus.rows entries must be objects")
+                    continue
+                missing = required_lowering_fields - set(row.keys())
+                if missing:
+                    errors.append(
+                        "semantic lowering row missing required fields: "
+                        f"{sorted(missing)}"
+                    )
 
     eras = history.get("eras")
     if not isinstance(eras, list):
@@ -865,6 +1034,7 @@ def render_markdown(history: dict[str, Any]) -> str:
                     lines.append(f"- {action}")
 
     focus = history.get("completion_focus", {})
+    semantic_lowering_focus = history.get("semantic_lowering_focus", {})
     lines.extend(
         [
             "",
@@ -897,6 +1067,34 @@ def render_markdown(history: dict[str, Any]) -> str:
             lines.append(f"{index}. {step}")
     else:
         lines.append("1. No closure sequence recorded.")
+
+    lines.extend(
+        [
+            "",
+            "## Semantic Lowering Appendix",
+            "",
+            "| spec_name | domain | status | semantic | presentation | bridge | quotient_faces |",
+            "| --- | --- | --- | ---: | ---: | ---: | --- |",
+        ]
+    )
+    lowering_rows = semantic_lowering_focus.get("rows")
+    if isinstance(lowering_rows, list):
+        for row in lowering_rows:
+            if not isinstance(row, dict):
+                continue
+            lines.append(
+                "| {spec_name} | {domain} | {status} | {semantic} | {presentation} | {bridge} | {faces} |".format(
+                    spec_name=str(row.get("spec_name", "")),
+                    domain=str(row.get("domain", "")),
+                    status=str(row.get("lowering_status", "")),
+                    semantic=int(row.get("semantic_op_count", 0) or 0),
+                    presentation=int(row.get("presentation_op_count", 0) or 0),
+                    bridge=int(row.get("bridge_op_count", 0) or 0),
+                    faces=", ".join(str(item) for item in row.get("quotient_faces", [])),
+                )
+            )
+    else:
+        lines.append("| <none> |  |  | 0 | 0 | 0 |  |")
 
     lines.append("")
     return "\n".join(lines)

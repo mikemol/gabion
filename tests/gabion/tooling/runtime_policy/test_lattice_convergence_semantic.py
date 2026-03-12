@@ -152,6 +152,79 @@ def test_semantic_convergence_payload_stays_pre_transform_shape() -> None:
     assert "obligation_state" not in source
 
 
+def test_semantic_lattice_convergence_linkage_checks_frontier_payload_contract() -> None:
+    codes = {
+        item.code for item in lattice_convergence_semantic._collect_linkage_diagnostics()
+    }
+    assert "lattice_linkage_missing_frontier_payload" not in codes
+    assert "lattice_linkage_frontier_payload_failure" not in codes
+    assert "lattice_linkage_frontier_payload_invalid" not in codes
+
+
+def test_semantic_lattice_convergence_emits_canonical_semantic_rows_for_real_witnesses(
+    tmp_path: Path,
+    monkeypatch: object,
+) -> None:
+    _write(
+        tmp_path / "one.py",
+        "def f(x):\n    if x:\n        return 1\n    return 0\n",
+    )
+    monkeypatch.setattr(lattice_convergence_semantic, "_CANONICAL_CORPUS", ("one.py",))
+    monkeypatch.setattr(lattice_convergence_semantic, "_collect_linkage_diagnostics", lambda: ())
+
+    report = lattice_convergence_semantic.collect_semantic_lattice_convergence(
+        repo_root=tmp_path,
+    )
+
+    payload = report.policy_data()
+    semantic_rows = payload["semantic_rows"]
+    assert isinstance(semantic_rows, list)
+    assert len(semantic_rows) == 1
+    semantic_row = semantic_rows[0]
+    assert semantic_row["surface"] == "projection_fiber"
+    assert semantic_row["carrier_kind"] == "frontier_witness"
+    assert semantic_row["obligation_state"] == "discharged"
+    assert semantic_row["payload"]["structural_path"] == "f::branch[0]::branch:if::x"
+    shacl_plans = payload["compiled_shacl_plans"]
+    sparql_plans = payload["compiled_sparql_plans"]
+    compiled_projection_bundles = payload["compiled_projection_semantic_bundles"]
+    assert isinstance(shacl_plans, list)
+    assert isinstance(sparql_plans, list)
+    assert isinstance(compiled_projection_bundles, list)
+    assert len(shacl_plans) == 1
+    assert len(sparql_plans) == 1
+    assert len(compiled_projection_bundles) == 2
+    assert shacl_plans[0]["source_structural_identity"] == semantic_row["structural_identity"]
+    assert sparql_plans[0]["source_structural_identity"] == semantic_row["structural_identity"]
+    assert shacl_plans[0]["semantic_op"] == "reflect"
+    assert sparql_plans[0]["semantic_op"] == "reflect"
+    bundles_by_name = {bundle["spec_name"]: bundle for bundle in compiled_projection_bundles}
+    assert set(bundles_by_name) == {
+        "projection_fiber_frontier",
+        "projection_fiber_reflective_boundary",
+    }
+    frontier_bundle = bundles_by_name["projection_fiber_frontier"]
+    assert len(frontier_bundle["bindings"]) == 1
+    assert frontier_bundle["bindings"][0]["quotient_face"] == "projection_fiber.frontier"
+    assert frontier_bundle["compiled_shacl_plans"][0]["semantic_op"] == "quotient_face"
+    assert frontier_bundle["compiled_sparql_plans"][0]["semantic_op"] == "quotient_face"
+    reflective_boundary_bundle = bundles_by_name["projection_fiber_reflective_boundary"]
+    assert len(reflective_boundary_bundle["bindings"]) == 1
+    assert (
+        reflective_boundary_bundle["bindings"][0]["quotient_face"]
+        == "projection_fiber.reflective_boundary"
+    )
+    assert (
+        reflective_boundary_bundle["compiled_shacl_plans"][0]["source_structural_identity"]
+        == semantic_row["structural_identity"]
+    )
+    assert (
+        reflective_boundary_bundle["compiled_sparql_plans"][0]["source_structural_identity"]
+        == semantic_row["structural_identity"]
+    )
+    assert payload["witness_rows"] == []
+
+
 def test_semantic_lattice_convergence_is_lazy_until_first_pull(
     tmp_path: Path,
     monkeypatch: object,

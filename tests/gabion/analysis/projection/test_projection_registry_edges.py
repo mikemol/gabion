@@ -3,7 +3,14 @@ from __future__ import annotations
 import pytest
 
 from gabion.analysis.projection.projection_registry import (
-    WL_REFINEMENT_SPEC, _projection_registry_gas_limit, build_registered_specs, spec_metadata_lines, spec_metadata_lines_from_payload)
+    PROJECTION_FIBER_FRONTIER_SPEC,
+    PROJECTION_FIBER_REFLECTIVE_BOUNDARY_SPEC,
+    WL_REFINEMENT_SPEC,
+    _projection_registry_gas_limit,
+    build_registered_specs,
+    spec_metadata_lines,
+    spec_metadata_lines_from_payload,
+)
 from gabion.exceptions import NeverThrown
 from gabion.runtime.policy_runtime import RuntimePolicyConfig, runtime_policy_scope
 
@@ -55,3 +62,19 @@ def test_build_registered_specs_uses_configured_gas_limit() -> None:
     with runtime_policy_scope(RuntimePolicyConfig(projection_registry_gas_limit=10_000)):
         specs = build_registered_specs()
     assert specs
+
+
+def test_projection_fiber_frontier_spec_is_registered_with_declared_quotient_face() -> None:
+    specs = build_registered_specs()
+    assert PROJECTION_FIBER_FRONTIER_SPEC in specs.values()
+    project_op = PROJECTION_FIBER_FRONTIER_SPEC.pipeline[0]
+    assert project_op.op == "project"
+    assert project_op.params["quotient_face"] == "projection_fiber.frontier"
+
+
+def test_projection_fiber_reflective_boundary_spec_is_registered_with_declared_quotient_face() -> None:
+    specs = build_registered_specs()
+    assert PROJECTION_FIBER_REFLECTIVE_BOUNDARY_SPEC in specs.values()
+    project_op = PROJECTION_FIBER_REFLECTIVE_BOUNDARY_SPEC.pipeline[0]
+    assert project_op.op == "project"
+    assert project_op.params["quotient_face"] == "projection_fiber.reflective_boundary"

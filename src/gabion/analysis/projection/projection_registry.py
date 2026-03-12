@@ -561,6 +561,53 @@ QUOTIENT_DEMOTION_INCIDENTS_SPEC = ProjectionSpec(
 )
 
 
+PROJECTION_FIBER_FRONTIER_SPEC = ProjectionSpec(
+    spec_version=1,
+    name="projection_fiber_frontier",
+    domain="projection_fiber",
+    pipeline=(
+        ProjectionOp(
+            "project",
+            {
+                "fields": [
+                    "frontier_key",
+                    "projection_name",
+                    "structural_path",
+                    "complete",
+                    "obligation_state",
+                ],
+                "quotient_face": "projection_fiber.frontier",
+            },
+        ),
+        ProjectionOp("sort", {"by": ["frontier_key"]}),
+    ),
+)
+
+
+PROJECTION_FIBER_REFLECTIVE_BOUNDARY_SPEC = ProjectionSpec(
+    spec_version=1,
+    name="projection_fiber_reflective_boundary",
+    domain="projection_fiber",
+    pipeline=(
+        ProjectionOp(
+            "project",
+            {
+                "fields": [
+                    "frontier_key",
+                    "structural_path",
+                    "data_anchor_site_identity",
+                    "exec_frontier_site_identity",
+                    "complete",
+                    "obligation_state",
+                ],
+                "quotient_face": "projection_fiber.reflective_boundary",
+            },
+        ),
+        ProjectionOp("sort", {"by": ["frontier_key"]}),
+    ),
+)
+
+
 WL_REFINEMENT_SPEC = ProjectionSpec(
     spec_version=1,
     name="wl_refinement",
@@ -633,7 +680,15 @@ def iter_registered_specs() -> Iterable[ProjectionSpec]:
         QUOTIENT_PROTOCOL_READINESS_SPEC,
         QUOTIENT_PROMOTION_DECISION_SPEC,
         QUOTIENT_DEMOTION_INCIDENTS_SPEC,
+        *iter_projection_fiber_semantic_specs(),
         WL_REFINEMENT_SPEC,
+    )
+
+
+def iter_projection_fiber_semantic_specs() -> Iterable[ProjectionSpec]:
+    return (
+        PROJECTION_FIBER_FRONTIER_SPEC,
+        PROJECTION_FIBER_REFLECTIVE_BOUNDARY_SPEC,
     )
 
 

@@ -1,0 +1,118 @@
+from __future__ import annotations
+
+from gabion.analysis.projection.projection_exec import apply_spec
+from gabion.analysis.projection.projection_semantic_lowering import (
+    BridgeProjectionKind,
+    SemanticProjectionKind,
+    lower_projection_spec_to_semantic_plan,
+)
+from gabion.analysis.projection.projection_spec import ProjectionOp, ProjectionSpec
+
+
+def test_lower_projection_spec_classifies_rfc_layers() -> None:
+    spec = ProjectionSpec(
+        spec_version=1,
+        name="demo",
+        domain="tests",
+        pipeline=(
+            ProjectionOp(op="select", params={"predicate": "stable"}),
+            ProjectionOp(op="project", params={"fields": ["id", "status"]}),
+            ProjectionOp(op="count_by", params={"fields": ["status"]}),
+            ProjectionOp(op="traverse", params={"field": "items"}),
+            ProjectionOp(op="sort", params={"by": ["status"]}),
+            ProjectionOp(op="limit", params={"count": 3}),
+        ),
+    )
+
+    lowered = lower_projection_spec_to_semantic_plan(spec)
+
+    assert lowered.semantic_ops == ()
+    assert tuple(op.source_op for op in lowered.presentation_ops) == (
+        "project",
+        "count_by",
+        "sort",
+        "limit",
+    )
+    assert tuple(op.bridge_kind for op in lowered.bridge_ops) == (
+        BridgeProjectionKind.PREDICATE_FILTER,
+        BridgeProjectionKind.TRAVERSE,
+    )
+
+
+def test_lower_projection_spec_promotes_declared_quotient_face() -> None:
+    spec = ProjectionSpec(
+        spec_version=1,
+        name="demo",
+        domain="projection_fiber",
+        pipeline=(
+            ProjectionOp(
+                op="project",
+                params={
+                    "fields": ["frontier_key", "projection_name"],
+                    "quotient_face": "projection_fiber.frontier",
+                },
+            ),
+            ProjectionOp(op="sort", params={"by": ["frontier_key"]}),
+        ),
+    )
+
+    lowered = lower_projection_spec_to_semantic_plan(spec)
+
+    assert len(lowered.semantic_ops) == 1
+    semantic_op = lowered.semantic_ops[0]
+    assert semantic_op.semantic_op is SemanticProjectionKind.QUOTIENT_FACE
+    assert semantic_op.params["quotient_face"] == "projection_fiber.frontier"
+    assert lowered.presentation_ops[0].source_op == "sort"
+
+
+def test_lower_projection_spec_promotes_reflective_boundary_face() -> None:
+    spec = ProjectionSpec(
+        spec_version=1,
+        name="demo",
+        domain="projection_fiber",
+        pipeline=(
+            ProjectionOp(
+                op="project",
+                params={
+                    "fields": [
+                        "frontier_key",
+                        "data_anchor_site_identity",
+                        "exec_frontier_site_identity",
+                    ],
+                    "quotient_face": "projection_fiber.reflective_boundary",
+                },
+            ),
+            ProjectionOp(op="sort", params={"by": ["frontier_key"]}),
+        ),
+    )
+
+    lowered = lower_projection_spec_to_semantic_plan(spec)
+
+    assert len(lowered.semantic_ops) == 1
+    semantic_op = lowered.semantic_ops[0]
+    assert semantic_op.semantic_op is SemanticProjectionKind.QUOTIENT_FACE
+    assert semantic_op.params["quotient_face"] == "projection_fiber.reflective_boundary"
+    assert lowered.presentation_ops[0].source_op == "sort"
+
+
+def test_project_quotient_face_metadata_is_lowered_without_changing_exec() -> None:
+    spec = ProjectionSpec(
+        spec_version=1,
+        name="demo",
+        domain="tests",
+        pipeline=(
+            ProjectionOp(
+                op="project",
+                params={
+                    "fields": ["id"],
+                    "quotient_face": "projection_fiber.frontier",
+                },
+            ),
+        ),
+    )
+
+    lowered = lower_projection_spec_to_semantic_plan(spec)
+    assert lowered.semantic_ops[0].params["quotient_face"] == "projection_fiber.frontier"
+
+    rows = [{"id": 1, "status": "ok"}]
+    assert apply_spec(spec, rows) == [{"id": 1}]

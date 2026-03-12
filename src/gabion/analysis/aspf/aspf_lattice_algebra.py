@@ -309,6 +309,7 @@ class GradeBoundaryKind(str, Enum):
     DECISION_PROTOCOL_BUILDER = "decision_protocol_builder"
     AGGREGATION_MATERIALIZATION = "aggregation_materialization"
     ANALYSIS_BUDGET = "analysis_budget"
+    SEMANTIC_CARRIER_ADAPTER = "semantic_carrier_adapter"
 
 
 @dataclass(frozen=True)
@@ -493,6 +494,132 @@ class FrontierWitness:
         default_factory=lambda: _stream_from_sequence(())
     )
     violation: ViolationWitness | None = None
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "branch_site_id": self.branch_site_id,
+            "branch_site_identity": self.branch_site_identity,
+            "branch_line": self.branch_line,
+            "branch_column": self.branch_column,
+            "branch_node_kind": self.branch_node_kind,
+            "required_symbols": [item for item in self.required_symbols],
+            "unresolved_symbols": [item for item in self.unresolved_symbols],
+            "data_anchor_site_id": self.data_anchor_site_id,
+            "data_anchor_site_identity": self.data_anchor_site_identity,
+            "data_anchor_line": self.data_anchor_line,
+            "data_anchor_column": self.data_anchor_column,
+            "data_anchor_ordinal": self.data_anchor_ordinal,
+            "data_upstream_site_ids": [item for item in self.data_upstream_site_ids],
+            "data_upstream_site_identities": [
+                item for item in self.data_upstream_site_identities
+            ],
+            "data_upstream_edge_ids": [item for item in self.data_upstream_edge_ids],
+            "exec_frontier_site_id": self.exec_frontier_site_id,
+            "exec_frontier_site_identity": self.exec_frontier_site_identity,
+            "exec_frontier_line": self.exec_frontier_line,
+            "exec_frontier_column": self.exec_frontier_column,
+            "exec_frontier_ordinal": self.exec_frontier_ordinal,
+            "exec_upstream_site_ids": [item for item in self.exec_upstream_site_ids],
+            "exec_upstream_site_identities": [
+                item for item in self.exec_upstream_site_identities
+            ],
+            "exec_upstream_edge_ids": [item for item in self.exec_upstream_edge_ids],
+            "bundle_event_count": self.bundle_event_count,
+            "bundle_edge_count": self.bundle_edge_count,
+            "execution_event_count": self.execution_event_count,
+            "execution_edge_count": self.execution_edge_count,
+            "data_exec_join": {
+                "left_ids": [item for item in self.data_exec_join.left_ids],
+                "right_ids": [item for item in self.data_exec_join.right_ids],
+                "result_ids": [item for item in self.data_exec_join.result_ids],
+                "deterministic": self.data_exec_join.deterministic,
+            },
+            "data_exec_meet": {
+                "left_ids": [item for item in self.data_exec_meet.left_ids],
+                "right_ids": [item for item in self.data_exec_meet.right_ids],
+                "result_ids": [item for item in self.data_exec_meet.result_ids],
+                "deterministic": self.data_exec_meet.deterministic,
+            },
+            "eta_data_to_exec": {
+                "direction": self.eta_data_to_exec.direction,
+                "mapped_source_site_ids": [
+                    item for item in self.eta_data_to_exec.mapped_source_site_ids
+                ],
+                "mapped_target_site_ids": [
+                    item for item in self.eta_data_to_exec.mapped_target_site_ids
+                ],
+                "unmapped": [
+                    {
+                        "source_kind": item.source_kind,
+                        "source_site_id": item.source_site_id,
+                        "source_site_identity": item.source_site_identity,
+                        "reason": item.reason,
+                    }
+                    for item in self.eta_data_to_exec.unmapped
+                ],
+                "complete": self.eta_data_to_exec.complete,
+            },
+            "eta_exec_to_data": {
+                "direction": self.eta_exec_to_data.direction,
+                "mapped_source_site_ids": [
+                    item for item in self.eta_exec_to_data.mapped_source_site_ids
+                ],
+                "mapped_target_site_ids": [
+                    item for item in self.eta_exec_to_data.mapped_target_site_ids
+                ],
+                "unmapped": [
+                    {
+                        "source_kind": item.source_kind,
+                        "source_site_id": item.source_site_id,
+                        "source_site_identity": item.source_site_identity,
+                        "reason": item.reason,
+                    }
+                    for item in self.eta_exec_to_data.unmapped
+                ],
+                "complete": self.eta_exec_to_data.complete,
+            },
+            "complete": self.complete,
+            "obligations": [
+                {
+                    "obligation_id": item.obligation_id,
+                    "source_kind": item.source_kind,
+                    "source_site_id": item.source_site_id,
+                    "source_site_identity": item.source_site_identity,
+                    "reason": item.reason,
+                    "introduced_by": item.introduced_by,
+                }
+                for item in self.obligations
+            ],
+            "erasures": [
+                {
+                    "obligation_id": item.obligation_id,
+                    "erased_by": item.erased_by,
+                    "reason": item.reason,
+                }
+                for item in self.erasures
+            ],
+            "boundary_crossings": [
+                {
+                    "crossing_id": item.crossing_id,
+                    "branch_site_id": item.branch_site_id,
+                    "branch_site_identity": item.branch_site_identity,
+                    "boundary_kind": item.boundary_kind,
+                }
+                for item in self.boundary_crossings
+            ],
+            "violation": (
+                None
+                if self.violation is None
+                else {
+                    "violation_id": self.violation.violation_id,
+                    "boundary_crossing_id": self.violation.boundary_crossing_id,
+                    "unresolved_obligation_ids": [
+                        item for item in self.violation.unresolved_obligation_ids
+                    ],
+                    "reason": self.violation.reason,
+                }
+            ),
+        }
 
 
 @dataclass(frozen=True)

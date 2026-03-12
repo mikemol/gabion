@@ -7,8 +7,29 @@ from pathlib import Path
 from typing import Iterable, Iterator
 
 from gabion.analysis.aspf import aspf_lattice_algebra
+from gabion.analysis.projection.projection_registry import (
+    iter_projection_fiber_semantic_specs,
+)
+from gabion.analysis.projection.projection_semantic_lowering import (
+    ProjectionSemanticLoweringPlan,
+    lower_projection_spec_to_semantic_plan,
+)
+from gabion.analysis.projection.projection_semantic_lowering_compile import (
+    ProjectionSemanticCompiledPlanBundle,
+    compile_projection_semantic_lowering_plan,
+)
+from gabion.analysis.projection.semantic_fragment_compile import (
+    CompiledShaclPlan,
+    CompiledSparqlPlan,
+    compile_projection_fiber_reflect_to_shacl,
+    compile_projection_fiber_reflect_to_sparql,
+)
+from gabion.analysis.projection.semantic_fragment import (
+    CanonicalWitnessedSemanticRow,
+    ProjectionFiberRequestContext,
+    reflect_projection_fiber_witness,
+)
 from gabion.order_contract import ordered_or_sorted
-from gabion.tooling.runtime import policy_scanner_suite
 
 
 _CANONICAL_CORPUS: tuple[str, ...] = (
@@ -56,6 +77,7 @@ class LatticeConvergenceDiagnostic:
 class LatticeBranchRequest:
     path: str
     qualname: str
+    structural_path: str
     line: int
     column: int
     node_kind: str
@@ -65,6 +87,7 @@ class LatticeBranchRequest:
         return {
             "path": self.path,
             "qualname": self.qualname,
+            "structural_path": self.structural_path,
             "line": self.line,
             "column": self.column,
             "node_kind": self.node_kind,
@@ -78,6 +101,10 @@ class SemanticLatticeConvergenceReport:
     evaluated_request_count: int
     diagnostics: tuple[LatticeConvergenceDiagnostic, ...]
     evaluated_requests: tuple[LatticeBranchRequest, ...]
+    semantic_rows: tuple[CanonicalWitnessedSemanticRow, ...]
+    compiled_shacl_plans: tuple[CompiledShaclPlan, ...]
+    compiled_sparql_plans: tuple[CompiledSparqlPlan, ...]
+    compiled_projection_semantic_bundles: tuple[ProjectionSemanticCompiledPlanBundle, ...]
 
     @property
     def error_count(self) -> int:
@@ -95,6 +122,12 @@ class SemanticLatticeConvergenceReport:
             "evaluated_requests": [item.as_payload() for item in self.evaluated_requests],
             "diagnostics": [item.as_payload() for item in self.diagnostics],
             "witness_rows": witness_rows,
+            "semantic_rows": [item for item in self.semantic_rows],
+            "compiled_shacl_plans": [item for item in self.compiled_shacl_plans],
+            "compiled_sparql_plans": [item for item in self.compiled_sparql_plans],
+            "compiled_projection_semantic_bundles": [
+                item.policy_data() for item in self.compiled_projection_semantic_bundles
+            ],
         }
 
     def _witness_row(self, diagnostic: LatticeConvergenceDiagnostic) -> dict[str, object]:
@@ -126,6 +159,7 @@ class SemanticLatticeConvergenceReport:
 class LatticeConvergenceEvent:
     request: LatticeBranchRequest | None = None
     diagnostic: LatticeConvergenceDiagnostic | None = None
+    witness: object | None = None
 
 
 @dataclass(frozen=True)
@@ -137,6 +171,8 @@ class _RequestCollector(ast.NodeVisitor):
     def __init__(self, *, rel_path: str) -> None:
         self.rel_path = rel_path
         self.scope_stack: list[_Scope] = []
+        self.branch_counters: list[int] = []
+        self.module_branch_counter = 0
         self.requests: list[LatticeBranchRequest] = []
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
@@ -181,21 +217,38 @@ class _RequestCollector(ast.NodeVisitor):
         parent = self.scope_stack[-1].qualname if self.scope_stack else "<module>"
         qualname = node.name if parent == "<module>" else f"{parent}.{node.name}"
         self.scope_stack.append(_Scope(qualname=qualname))
+        self.branch_counters.append(0)
         self.generic_visit(node)
+        self.branch_counters.pop()
         self.scope_stack.pop()
 
     def _record_branch(self, *, node: ast.AST, node_kind: str) -> None:
         scope = self.scope_stack[-1].qualname if self.scope_stack else "<module>"
+        if self.scope_stack:
+            branch_index = self.branch_counters[-1]
+            self.branch_counters[-1] += 1
+        else:
+            branch_index = self.module_branch_counter
+            self.module_branch_counter += 1
+        required_symbols = tuple(
+            sorted(dict.fromkeys(aspf_lattice_algebra.branch_required_symbols(node)))
+        )
         self.requests.append(
             LatticeBranchRequest(
                 path=self.rel_path,
                 qualname=scope,
+                structural_path=_structural_path_identity(
+                    (
+                        scope,
+                        f"branch[{branch_index}]",
+                        node_kind,
+                        *required_symbols,
+                    )
+                ),
                 line=int(getattr(node, "lineno", 1)),
                 column=int(getattr(node, "col_offset", 0)) + 1,
                 node_kind=node_kind,
-                required_symbols=tuple(
-                    sorted(dict.fromkeys(aspf_lattice_algebra.branch_required_symbols(node)))
-                ),
+                required_symbols=required_symbols,
             )
         )
 
@@ -261,34 +314,30 @@ def _collect_linkage_diagnostics() -> tuple[LatticeConvergenceDiagnostic, ...]:
                 message="branchless_rule.compute_lattice_witness must link to canonical algebra",
             )
         )
-    serializer = getattr(policy_scanner_suite, "_lattice_witness_payload", None)
+    sample_witness = aspf_lattice_algebra.frontier_failure_witness(
+        rel_path="lattice_probe.py",
+        qualname="<module>",
+        line=1,
+        column=1,
+        node_kind="branch:if",
+        reason="linkage_probe",
+    )
+    serializer = getattr(sample_witness, "as_payload", None)
     if not callable(serializer):
         diagnostics.append(
             LatticeConvergenceDiagnostic(
-                code="lattice_linkage_missing_scanner_serializer",
-                message="policy_scanner_suite must expose lattice witness serializer",
+                code="lattice_linkage_missing_frontier_payload",
+                message="FrontierWitness must expose canonical payload serializer",
             )
         )
     else:
-        sample_witness = aspf_lattice_algebra.frontier_failure_witness(
-            rel_path="lattice_probe.py",
-            qualname="<module>",
-            line=1,
-            column=1,
-            node_kind="branch:if",
-            reason="linkage_probe",
-        )
-
-        class _Carrier:
-            lattice_witness = sample_witness
-
         try:
-            payload = serializer(_Carrier())
+            payload = serializer()
         except Exception as exc:  # pragma: no cover - fail-closed fallback
             diagnostics.append(
                 LatticeConvergenceDiagnostic(
-                    code="lattice_linkage_scanner_serializer_failure",
-                    message="scanner lattice witness serializer raised",
+                    code="lattice_linkage_frontier_payload_failure",
+                    message="FrontierWitness payload serializer raised",
                     detail=f"{type(exc).__name__}: {exc}",
                 )
             )
@@ -296,8 +345,8 @@ def _collect_linkage_diagnostics() -> tuple[LatticeConvergenceDiagnostic, ...]:
             if not isinstance(payload, dict) or "complete" not in payload:
                 diagnostics.append(
                     LatticeConvergenceDiagnostic(
-                        code="lattice_linkage_scanner_payload_invalid",
-                        message="scanner lattice witness serializer must emit dict with complete field",
+                        code="lattice_linkage_frontier_payload_invalid",
+                        message="FrontierWitness payload serializer must emit dict with complete field",
                     )
                 )
     return tuple(
@@ -429,6 +478,7 @@ def iter_semantic_lattice_convergence(
                     if incomplete or has_violation:
                         yield LatticeConvergenceEvent(
                             request=request,
+                            witness=witness,
                             diagnostic=LatticeConvergenceDiagnostic(
                                 code="lattice_witness_incomplete_or_violation",
                                 message="lattice witness did not converge cleanly",
@@ -441,7 +491,7 @@ def iter_semantic_lattice_convergence(
                             ),
                         )
                         continue
-                    yield LatticeConvergenceEvent(request=request)
+                    yield LatticeConvergenceEvent(request=request, witness=witness)
 
     return _events()
 
@@ -453,11 +503,28 @@ def materialize_semantic_lattice_convergence(
 ) -> SemanticLatticeConvergenceReport:
     diagnostics: list[LatticeConvergenceDiagnostic] = []
     evaluated_requests: list[LatticeBranchRequest] = []
+    semantic_rows: list[CanonicalWitnessedSemanticRow] = []
     for event in events:
         request = event.request
         diagnostic = event.diagnostic
+        witness = event.witness
         if request is not None:
             evaluated_requests.append(request)
+            if isinstance(witness, aspf_lattice_algebra.FrontierWitness):
+                semantic_rows.append(
+                    reflect_projection_fiber_witness(
+                        context={
+                            "path": request.path,
+                            "qualname": request.qualname,
+                            "structural_path": request.structural_path,
+                            "line": request.line,
+                            "column": request.column,
+                            "node_kind": request.node_kind,
+                            "required_symbols": request.required_symbols,
+                        },
+                        witness=witness,
+                    )
+                )
         if diagnostic is not None:
             diagnostics.append(diagnostic)
     ordered_diagnostics = tuple(
@@ -480,10 +547,20 @@ def materialize_semantic_lattice_convergence(
             key=lambda item: (
                 item.path,
                 item.qualname,
+                item.structural_path,
                 item.line,
                 item.column,
                 item.node_kind,
                 item.required_symbols,
+            ),
+        )
+    )
+    ordered_semantic_rows = tuple(
+        _sorted(
+            semantic_rows,
+            key=lambda item: (
+                item["structural_identity"],
+                item["site_identity"],
             ),
         )
     )
@@ -492,6 +569,59 @@ def materialize_semantic_lattice_convergence(
         evaluated_request_count=len(ordered_requests),
         diagnostics=ordered_diagnostics,
         evaluated_requests=ordered_requests,
+        semantic_rows=ordered_semantic_rows,
+        compiled_shacl_plans=tuple(
+            _sorted(
+                [compile_projection_fiber_reflect_to_shacl(item) for item in ordered_semantic_rows],
+                key=lambda item: (
+                    item["source_structural_identity"],
+                    item["plan_id"],
+                ),
+            )
+        ),
+        compiled_sparql_plans=tuple(
+            _sorted(
+                [compile_projection_fiber_reflect_to_sparql(item) for item in ordered_semantic_rows],
+                key=lambda item: (
+                    item["source_structural_identity"],
+                    item["plan_id"],
+                ),
+            )
+        ),
+        compiled_projection_semantic_bundles=tuple(
+            _sorted(
+                [
+                    compile_projection_semantic_lowering_plan(
+                        lowering_plan,
+                        ordered_semantic_rows,
+                    )
+                    for lowering_plan in _projection_fiber_semantic_lowering_plans()
+                ],
+                key=lambda item: (
+                    item.spec_name,
+                    item.spec_identity,
+                ),
+            )
+        ),
+    )
+
+
+def _structural_path_identity(path: tuple[str, ...]) -> str:
+    return "::".join(path)
+
+
+def _projection_fiber_semantic_lowering_plans() -> tuple[ProjectionSemanticLoweringPlan, ...]:
+    return tuple(
+        _sorted(
+            [
+                lower_projection_spec_to_semantic_plan(spec)
+                for spec in iter_projection_fiber_semantic_specs()
+            ],
+            key=lambda item: (
+                item.spec_name,
+                item.spec_identity,
+            ),
+        )
     )
 
 

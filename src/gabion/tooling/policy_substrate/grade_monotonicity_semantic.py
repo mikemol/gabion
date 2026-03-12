@@ -956,6 +956,11 @@ def _edge_failure_rule_ids(
     callee_grade: DeterminismCostGrade,
     boundary_marker: GradeBoundaryMarker | None,
 ) -> tuple[str, ...]:
+    if (
+        boundary_marker is not None
+        and boundary_marker.kind is GradeBoundaryKind.SEMANTIC_CARRIER_ADAPTER
+    ):
+        return ()
     failures: list[str] = []
     if callee_grade.nullable_domain_cardinality > caller_grade.nullable_domain_cardinality:
         failures.append("GMP-001")

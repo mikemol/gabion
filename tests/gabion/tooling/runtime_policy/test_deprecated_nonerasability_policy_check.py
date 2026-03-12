@@ -99,3 +99,32 @@ def test_nonerasability_policy_check_writes_policy_result_output(tmp_path: Path)
     payload = json.loads(output.read_text(encoding="utf-8"))
     assert payload["rule_id"] == "deprecated_nonerasability"
     assert payload["status"] == "pass"
+
+
+# gabion:evidence E:function_site::tests/test_deprecated_nonerasability_policy_check.py::tests.test_deprecated_nonerasability_policy_check.test_nonerasability_policy_check_writes_skip_result_when_inputs_missing
+# gabion:behavior primary=desired
+def test_nonerasability_policy_check_writes_skip_result_when_inputs_missing(
+    tmp_path: Path,
+) -> None:
+    baseline = tmp_path / "baseline.json"
+    current = tmp_path / "current.json"
+    output = tmp_path / "out/nonerasability.json"
+
+    result = deprecated_nonerasability_policy_check.main(
+        [
+            "--baseline",
+            str(baseline),
+            "--current",
+            str(current),
+            "--output",
+            str(output),
+        ]
+    )
+
+    assert result == 0
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["rule_id"] == "deprecated_nonerasability"
+    assert payload["status"] == "skip"
+    assert payload["violations"][0]["message"] == (
+        "baseline/current payload missing; rule skipped by child policy check"
+    )

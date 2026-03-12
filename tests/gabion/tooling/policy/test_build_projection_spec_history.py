@@ -219,3 +219,26 @@ def test_summary_and_hotspot_rankings_match_inventory(tmp_path: Path) -> None:
     top_hotspots = history["top_hotspots"]
     assert top_hotspots[0]["path"] == "src/gabion/analysis/projection/projection_spec.py"
     assert top_hotspots[0]["term_hit_count"] == 9
+    lowering_focus = history["semantic_lowering_focus"]
+    assert lowering_focus["summary"]["registered_spec_count"] > 0
+    rows = lowering_focus["rows"]
+    frontier_row = next(
+        item for item in rows if item["spec_name"] == "projection_fiber_frontier"
+    )
+    assert frontier_row["lowering_status"] == "mixed"
+    assert frontier_row["semantic_op_count"] == 1
+    assert frontier_row["presentation_op_count"] == 1
+    assert frontier_row["bridge_op_count"] == 0
+    assert frontier_row["quotient_faces"] == ["projection_fiber.frontier"]
+    reflective_boundary_row = next(
+        item
+        for item in rows
+        if item["spec_name"] == "projection_fiber_reflective_boundary"
+    )
+    assert reflective_boundary_row["lowering_status"] == "mixed"
+    assert reflective_boundary_row["semantic_op_count"] == 1
+    assert reflective_boundary_row["presentation_op_count"] == 1
+    assert reflective_boundary_row["bridge_op_count"] == 0
+    assert reflective_boundary_row["quotient_faces"] == [
+        "projection_fiber.reflective_boundary"
+    ]

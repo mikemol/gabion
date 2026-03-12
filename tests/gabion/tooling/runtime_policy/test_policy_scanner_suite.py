@@ -4,6 +4,10 @@ import json
 from pathlib import Path
 
 from gabion.tooling.runtime import policy_scanner_suite
+from gabion.tooling.runtime.projection_fiber_semantics_summary import (
+    projection_fiber_semantics_summary_from_payload,
+    projection_fiber_semantics_summary_from_summary_payload,
+)
 
 
 def _write(path: Path, content: str) -> None:
@@ -62,6 +66,8 @@ def test_policy_scanner_suite_scan_and_cache(tmp_path: Path) -> None:
     assert "lattice_witness" in branchless_violation
     assert "recombination_frontier" not in branchless_violation
     assert branchless_violation["lattice_witness"]["complete"] in {True, False}
+    assert "obligations" in branchless_violation["lattice_witness"]
+    assert "boundary_crossings" in branchless_violation["lattice_witness"]
     assert policy_scanner_suite.violations_for_rule(first, rule="defensive_fallback")
     assert policy_scanner_suite.violations_for_rule(first, rule="fiber_loop_structure_contract")
     assert policy_scanner_suite.violations_for_rule(first, rule="fiber_filter_processor_contract")
@@ -843,7 +849,108 @@ def test_policy_scanner_suite_carries_external_policy_results(tmp_path: Path) ->
     result = policy_scanner_suite.scan_policy_suite(
         root=root,
         policy_results={
-            "policy_check": {"rule_id": "policy_check", "status": "pass", "violations": []},
+            "policy_check": {
+                "rule_id": "policy_check",
+                "status": "pass",
+                "violations": [],
+                "projection_fiber_semantics": {
+                    "decision": {"rule_id": "projection_fiber.convergence.ok"},
+                    "report": {
+                        "semantic_rows": [
+                            {
+                                "structural_identity": "row-1",
+                                "obligation_state": "discharged",
+                                "payload": {
+                                    "path": "src/gabion/example.py",
+                                    "qualname": "example.frontier",
+                                    "structural_path": "example.frontier::branch[0]",
+                                    "complete": True,
+                                },
+                            }
+                        ],
+                        "compiled_projection_semantic_bundles": [
+                            {
+                                "spec_name": "projection_fiber_frontier",
+                                "bindings": [
+                                    {
+                                        "quotient_face": "projection_fiber.frontier",
+                                        "source_structural_identity": "row-1",
+                                    }
+                                ],
+                            }
+                        ]
+                    },
+                },
+            },
         },
     )
     assert result.policy_results["policy_check"]["status"] == "pass"
+    semantics = result.policy_results["policy_check"]["projection_fiber_semantics"]
+    assert semantics["report"]["compiled_projection_semantic_bundles"][0]["spec_name"] == (
+        "projection_fiber_frontier"
+    )
+    payload = result.to_payload()
+    assert "projection_fiber_semantics_summary" not in payload
+    summary = projection_fiber_semantics_summary_from_payload(payload)
+    assert summary is not None
+    assert summary.decision["rule_id"] == "projection_fiber.convergence.ok"
+    assert summary.semantic_row_count == 1
+    assert summary.compiled_projection_semantic_bundle_count == 1
+    assert list(summary.compiled_projection_semantic_spec_names) == [
+        "projection_fiber_frontier"
+    ]
+    assert [item.as_payload() for item in summary.semantic_previews] == [
+        {
+            "spec_name": "projection_fiber_frontier",
+            "quotient_face": "projection_fiber.frontier",
+            "source_structural_identity": "row-1",
+            "path": "src/gabion/example.py",
+            "qualname": "example.frontier",
+            "structural_path": "example.frontier::branch[0]",
+            "obligation_state": "discharged",
+            "complete": True,
+        }
+    ]
+
+
+def test_projection_fiber_semantics_summary_requires_canonical_payload_shape() -> None:
+    summary_payload = {
+        "decision": {"rule_id": "projection_fiber.convergence.ok"},
+        "semantic_row_count": 1,
+        "compiled_projection_semantic_bundle_count": 1,
+        "compiled_projection_semantic_spec_names": [
+            "projection_fiber_frontier"
+        ],
+        "semantic_previews": [
+            {
+                "spec_name": "projection_fiber_frontier",
+                "quotient_face": "projection_fiber.frontier",
+                "source_structural_identity": "row-1",
+                "path": "src/gabion/example.py",
+                "qualname": "example.frontier",
+                "structural_path": "example.frontier::branch[0]",
+                "obligation_state": "discharged",
+                "complete": True,
+            }
+        ],
+    }
+
+    assert projection_fiber_semantics_summary_from_payload(
+        {"projection_fiber_semantics_summary": summary_payload}
+    ) is None
+    assert projection_fiber_semantics_summary_from_payload(
+        {
+            "policy_check": {
+                "projection_fiber_semantics": {
+                    "decision": {"rule_id": "projection_fiber.convergence.ok"},
+                    "report": {
+                        "semantic_rows": [],
+                        "compiled_projection_semantic_bundles": [],
+                    },
+                }
+            }
+        }
+    ) is None
+    summary = projection_fiber_semantics_summary_from_summary_payload(summary_payload)
+    assert summary is not None
+    assert summary.decision["rule_id"] == "projection_fiber.convergence.ok"

@@ -1,0 +1,1673 @@
+@prefix cat:  <https://example.org/cat#> .
+@prefix lg:   <https://example.org/lg#> .
+@prefix sh:   <http://www.w3.org/ns/shacl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+lg:W a lg:WorldCategory .
+
+lg:W0 a lg:WorldState ;
+  cat:inCategory lg:W .
+
+lg:W1 a lg:WorldState ;
+  cat:inCategory lg:W .
+
+lg:eatTransition
+  a lg:ExecutableTransition ;
+  cat:dom lg:W0 ;
+  cat:cod lg:W1 ;
+  cat:inCategory lg:W .
+
+lg:G0 a lg:GrammarState .
+lg:G1 a lg:GrammarState .
+
+lg:eatIdentifier a lg:Identifier .
+
+lg:eatSyntaxClause a lg:SyntacticRule .
+lg:eatTypingClause a lg:TypingRule ;
+  lg:fiberOverSyntaxClause lg:eatSyntaxClause .
+lg:eatCategoricalClause a lg:CategoricalRule ;
+  lg:indexedByTypingClause lg:eatTypingClause ;
+  lg:denotesTransition lg:eatTransition .
+
+lg:EatRule
+  a lg:AugmentedRule ;
+  lg:hasSyntaxClause lg:eatSyntaxClause ;
+  lg:hasTypingClause lg:eatTypingClause ;
+  lg:hasCategoricalClause lg:eatCategoricalClause ;
+  lg:introducesIdentifier lg:eatIdentifier .
+
+lg:G0 lg:hasRule lg:EatRule .
+lg:G1 lg:hasRule lg:EatRule ;
+      lg:hasEmergentIdentifier lg:eatIdentifier .
+
+lg:eatEvolution
+  a lg:EvolutionStep ;
+  lg:fromGrammarState lg:G0 ;
+  lg:viaRule lg:EatRule ;
+  lg:toGrammarState lg:G1 ;
+  cat:dom lg:G0 ;
+  cat:cod lg:G1 .
+
+lg:eatTerm a lg:CoreTerm ;
+  lg:reifiesAsHandle lg:eatHandle .
+
+lg:eatHandle a lg:Handle ;
+  lg:reflectsHandle lg:eatTerm .
+
+lg:eatVerbType a lg:SemanticType .
+
+lg:eatTypingJudgment
+  a lg:TypingJudgment ;
+  lg:judgesTerm lg:eatTerm ;
+  lg:judgesType lg:eatVerbType ;
+  lg:judgesInWorldState lg:W0 ;
+  lg:judgesUnderGrammarState lg:G0 .
+
+lg:thisVar a lg:ReservedVariable ;
+  lg:variableName "this" .
+
+lg:demoRuleVar a lg:QueryVariable ;
+  lg:variableName "r" .
+
+lg:demoGrammarVar a lg:QueryVariable ;
+  lg:variableName "g2" .
+
+lg:demoRulePersistenceQuery
+  a lg:SelectQuery ;
+  lg:projectsVariable lg:thisVar ;
+  lg:wherePattern [
+    a lg:AntiJoinPattern ;
+    lg:leftPattern [
+      a lg:JoinPattern ;
+      lg:leftPattern [
+        a lg:TriplePattern ;
+        lg:subjectTerm lg:thisVar ;
+        lg:predicateTerm lg:viaRule ;
+        lg:objectTerm lg:demoRuleVar
+      ] ;
+      lg:rightPattern [
+        a lg:TriplePattern ;
+        lg:subjectTerm lg:thisVar ;
+        lg:predicateTerm lg:toGrammarState ;
+        lg:objectTerm lg:demoGrammarVar
+      ]
+    ] ;
+    lg:rightPattern [
+      a lg:TriplePattern ;
+      lg:subjectTerm lg:demoGrammarVar ;
+      lg:predicateTerm lg:hasRule ;
+      lg:objectTerm lg:demoRuleVar
+    ]
+  ] .
+
+lg:demoRulePersistenceRendering
+  a lg:QueryRendering ;
+  lg:wrapsQueryAST lg:demoRulePersistenceQuery ;
+  rdf:value """
+    SELECT $this
+    WHERE {
+      $this lg:viaRule ?r ;
+            lg:toGrammarState ?g2 .
+      FILTER NOT EXISTS { ?g2 lg:hasRule ?r . }
+    }
+  """ .
+
+lg:demoRulePersistenceConstraint
+  a lg:SPARQLConstraint ;
+  lg:hasQueryAST lg:demoRulePersistenceQuery ;
+  lg:hasQueryRendering lg:demoRulePersistenceRendering ;
+  sh:select """
+    SELECT $this
+    WHERE {
+      $this lg:viaRule ?r ;
+            lg:toGrammarState ?g2 .
+      FILTER NOT EXISTS { ?g2 lg:hasRule ?r . }
+    }
+  """ .
+
+
+# ---- Galois / polarity example ----
+
+lg:NatSemiring a lg:Semiring .
+lg:BoolSemiring a lg:Semiring .
+
+lg:natSupportReflection
+  a lg:SupportReflection ;
+  cat:dom lg:NatSemiring ;
+  cat:cod lg:BoolSemiring .
+
+lg:eatWitnessDomain a lg:WitnessDomain .
+lg:eatPredicateDomain a lg:PredicateDomain .
+
+lg:eatIncidence
+  a lg:IncidenceRelation ;
+  cat:dom lg:eatWitnessDomain ;
+  cat:cod lg:eatPredicateDomain .
+
+lg:eatWitnessDerivation
+  a lg:DerivationOperator ;
+  cat:dom lg:eatWitnessDomain ;
+  cat:cod lg:eatPredicateDomain .
+
+lg:eatPredicateDerivation
+  a lg:DerivationOperator ;
+  cat:dom lg:eatPredicateDomain ;
+  cat:cod lg:eatWitnessDomain .
+
+lg:eatExtentClosure
+  a lg:ClosureOperator ;
+  cat:dom lg:eatWitnessDomain ;
+  cat:cod lg:eatWitnessDomain .
+
+lg:eatIntentClosure
+  a lg:ClosureOperator ;
+  cat:dom lg:eatPredicateDomain ;
+  cat:cod lg:eatPredicateDomain .
+
+lg:eatRulePolarity
+  a lg:RulePolarity ;
+  lg:hasWitnessDomain lg:eatWitnessDomain ;
+  lg:hasPredicateDomain lg:eatPredicateDomain ;
+  lg:hasIncidenceRelation lg:eatIncidence ;
+  lg:valuedInSemiring lg:NatSemiring ;
+  lg:hasSupportReflection lg:natSupportReflection ;
+  lg:hasWitnessDerivation lg:eatWitnessDerivation ;
+  lg:hasPredicateDerivation lg:eatPredicateDerivation ;
+  lg:hasExtentClosure lg:eatExtentClosure ;
+  lg:hasIntentClosure lg:eatIntentClosure .
+
+lg:eatMatrixFace a lg:MatrixPresentation .
+lg:eatKleisliFace a lg:KleisliPresentation .
+lg:eatPredicateFace a lg:PredicatePresentation .
+
+lg:eatSemanticAtlas
+  a lg:SemanticAtlas ;
+  lg:hasMatrixPresentation lg:eatMatrixFace ;
+  lg:hasKleisliPresentation lg:eatKleisliFace ;
+  lg:hasPredicatePresentation lg:eatPredicateFace .
+
+lg:eatCategoricalClause lg:hasSemanticAtlas lg:eatSemanticAtlas .
+
+lg:eatClosedExtent a lg:ClosedExtent .
+lg:eatClosedIntent a lg:ClosedIntent .
+
+lg:EatRule a lg:ClosedRuleCell ;
+  lg:hasPolarity lg:eatRulePolarity ;
+  lg:hasClosedExtent lg:eatClosedExtent ;
+  lg:hasClosedIntent lg:eatClosedIntent .
+
+
+# ---- Quotient recovery and concept lattice example ----
+
+lg:eatSyntaxKernel a lg:KernelCongruence .
+lg:eatTypingKernel a lg:KernelCongruence .
+lg:eatSemanticKernel a lg:KernelCongruence .
+lg:eatExtentKernel a lg:KernelCongruence .
+lg:eatIntentKernel a lg:KernelCongruence .
+
+lg:eatSyntaxProjection
+  a lg:QuotientProjection ;
+  cat:dom lg:EatRule ;
+  cat:cod lg:eatSyntaxClause ;
+  lg:quotientsBy lg:eatSyntaxKernel .
+
+lg:eatTypingProjection
+  a lg:QuotientProjection ;
+  cat:dom lg:EatRule ;
+  cat:cod lg:eatTypingClause ;
+  lg:quotientsBy lg:eatTypingKernel .
+
+lg:eatSemanticProjection
+  a lg:QuotientProjection ;
+  cat:dom lg:EatRule ;
+  cat:cod lg:eatCategoricalClause ;
+  lg:quotientsBy lg:eatSemanticKernel .
+
+lg:eatExtentProjection
+  a lg:QuotientProjection ;
+  cat:dom lg:EatRule ;
+  cat:cod lg:eatClosedExtent ;
+  lg:quotientsBy lg:eatExtentKernel .
+
+lg:eatIntentProjection
+  a lg:QuotientProjection ;
+  cat:dom lg:EatRule ;
+  cat:cod lg:eatClosedIntent ;
+  lg:quotientsBy lg:eatIntentKernel .
+
+lg:eatConceptOrder a lg:OrderRelation .
+lg:eatConceptMeet a lg:MeetOperation .
+lg:eatConceptJoin a lg:JoinOperation .
+
+lg:eatTopExtent a lg:ClosedExtent .
+lg:eatTopIntent a lg:ClosedIntent .
+lg:eatBottomExtent a lg:ClosedExtent .
+lg:eatBottomIntent a lg:ClosedIntent .
+
+lg:eatFormalConcept
+  a lg:FormalConcept ;
+  lg:formalExtent lg:eatClosedExtent ;
+  lg:formalIntent lg:eatClosedIntent .
+
+lg:eatTopConcept
+  a lg:FormalConcept ;
+  lg:formalExtent lg:eatTopExtent ;
+  lg:formalIntent lg:eatTopIntent .
+
+lg:eatBottomConcept
+  a lg:FormalConcept ;
+  lg:formalExtent lg:eatBottomExtent ;
+  lg:formalIntent lg:eatBottomIntent .
+
+lg:eatConceptLattice
+  a lg:ConceptLattice ;
+  lg:generatedByPolarity lg:eatRulePolarity ;
+  lg:hasFormalConcept lg:eatFormalConcept, lg:eatTopConcept, lg:eatBottomConcept ;
+  lg:hasTopConcept lg:eatTopConcept ;
+  lg:hasBottomConcept lg:eatBottomConcept ;
+  lg:hasOrderRelation lg:eatConceptOrder ;
+  lg:hasMeetOperation lg:eatConceptMeet ;
+  lg:hasJoinOperation lg:eatConceptJoin .
+
+lg:eatRulePolarity lg:inducesConceptLattice lg:eatConceptLattice .
+
+lg:eatFormalConcept lg:memberOfLattice lg:eatConceptLattice .
+lg:eatTopConcept lg:memberOfLattice lg:eatConceptLattice .
+lg:eatBottomConcept lg:memberOfLattice lg:eatConceptLattice .
+
+lg:EatRule
+  lg:hasSyntaxProjection lg:eatSyntaxProjection ;
+  lg:hasTypingProjection lg:eatTypingProjection ;
+  lg:hasSemanticProjection lg:eatSemanticProjection ;
+  lg:hasExtentProjection lg:eatExtentProjection ;
+  lg:hasIntentProjection lg:eatIntentProjection ;
+  lg:realizesFormalConcept lg:eatFormalConcept .
+
+
+# ---- Theorem / proof-obligation example ----
+
+lg:meetAssocSchema a lg:LawSchema .
+lg:joinAssocSchema a lg:LawSchema .
+lg:meetCommSchema a lg:LawSchema .
+lg:joinCommSchema a lg:LawSchema .
+lg:meetIdemSchema a lg:LawSchema .
+lg:joinIdemSchema a lg:LawSchema .
+lg:absorptionSchema a lg:LawSchema .
+lg:boundednessSchema a lg:LawSchema .
+lg:orderCompatibilitySchema a lg:LawSchema .
+
+lg:eatMeetAssociativityObligation
+  a lg:MeetAssociativityObligation ;
+  lg:statesLawSchema lg:meetAssocSchema ;
+  lg:governsLattice lg:eatConceptLattice ;
+  lg:governsMeetOperation lg:eatConceptMeet .
+
+lg:eatJoinAssociativityObligation
+  a lg:JoinAssociativityObligation ;
+  lg:statesLawSchema lg:joinAssocSchema ;
+  lg:governsLattice lg:eatConceptLattice ;
+  lg:governsJoinOperation lg:eatConceptJoin .
+
+lg:eatMeetCommutativityObligation
+  a lg:MeetCommutativityObligation ;
+  lg:statesLawSchema lg:meetCommSchema ;
+  lg:governsLattice lg:eatConceptLattice ;
+  lg:governsMeetOperation lg:eatConceptMeet .
+
+lg:eatJoinCommutativityObligation
+  a lg:JoinCommutativityObligation ;
+  lg:statesLawSchema lg:joinCommSchema ;
+  lg:governsLattice lg:eatConceptLattice ;
+  lg:governsJoinOperation lg:eatConceptJoin .
+
+lg:eatMeetIdempotenceObligation
+  a lg:MeetIdempotenceObligation ;
+  lg:statesLawSchema lg:meetIdemSchema ;
+  lg:governsLattice lg:eatConceptLattice ;
+  lg:governsMeetOperation lg:eatConceptMeet .
+
+lg:eatJoinIdempotenceObligation
+  a lg:JoinIdempotenceObligation ;
+  lg:statesLawSchema lg:joinIdemSchema ;
+  lg:governsLattice lg:eatConceptLattice ;
+  lg:governsJoinOperation lg:eatConceptJoin .
+
+lg:eatAbsorptionObligation
+  a lg:AbsorptionObligation ;
+  lg:statesLawSchema lg:absorptionSchema ;
+  lg:governsLattice lg:eatConceptLattice ;
+  lg:governsMeetOperation lg:eatConceptMeet ;
+  lg:governsJoinOperation lg:eatConceptJoin .
+
+lg:eatBoundednessObligation
+  a lg:BoundednessObligation ;
+  lg:statesLawSchema lg:boundednessSchema ;
+  lg:governsLattice lg:eatConceptLattice ;
+  lg:governsTopConcept lg:eatTopConcept ;
+  lg:governsBottomConcept lg:eatBottomConcept .
+
+lg:eatOrderCompatibilityObligation
+  a lg:OrderCompatibilityObligation ;
+  lg:statesLawSchema lg:orderCompatibilitySchema ;
+  lg:governsLattice lg:eatConceptLattice ;
+  lg:governsOrderRelation lg:eatConceptOrder ;
+  lg:governsMeetOperation lg:eatConceptMeet ;
+  lg:governsJoinOperation lg:eatConceptJoin .
+
+lg:eatConceptLattice
+  lg:hasMeetAssociativityObligation lg:eatMeetAssociativityObligation ;
+  lg:hasJoinAssociativityObligation lg:eatJoinAssociativityObligation ;
+  lg:hasMeetCommutativityObligation lg:eatMeetCommutativityObligation ;
+  lg:hasJoinCommutativityObligation lg:eatJoinCommutativityObligation ;
+  lg:hasMeetIdempotenceObligation lg:eatMeetIdempotenceObligation ;
+  lg:hasJoinIdempotenceObligation lg:eatJoinIdempotenceObligation ;
+  lg:hasAbsorptionObligation lg:eatAbsorptionObligation ;
+  lg:hasBoundednessObligation lg:eatBoundednessObligation ;
+  lg:hasOrderCompatibilityObligation lg:eatOrderCompatibilityObligation .
+
+lg:eatMeetAssocWitness a lg:ProofWitness ;
+  lg:witnessesObligation lg:eatMeetAssociativityObligation .
+lg:eatJoinAssocWitness a lg:ProofWitness ;
+  lg:witnessesObligation lg:eatJoinAssociativityObligation .
+lg:eatAbsorptionWitness a lg:ProofWitness ;
+  lg:witnessesObligation lg:eatAbsorptionObligation .
+
+lg:eatMeetAssociativityObligation lg:hasProofWitness lg:eatMeetAssocWitness .
+lg:eatJoinAssociativityObligation lg:hasProofWitness lg:eatJoinAssocWitness .
+lg:eatAbsorptionObligation lg:hasProofWitness lg:eatAbsorptionWitness .
+
+lg:quotientUniversalitySchema a lg:UniversalPropertySchema .
+
+lg:eatSyntaxFactorizationSchema a lg:FactorizationSchema .
+lg:eatSyntaxUniquenessSchema a lg:UniquenessSchema .
+lg:eatTypingFactorizationSchema a lg:FactorizationSchema .
+lg:eatTypingUniquenessSchema a lg:UniquenessSchema .
+lg:eatSemanticFactorizationSchema a lg:FactorizationSchema .
+lg:eatSemanticUniquenessSchema a lg:UniquenessSchema .
+lg:eatExtentFactorizationSchema a lg:FactorizationSchema .
+lg:eatExtentUniquenessSchema a lg:UniquenessSchema .
+lg:eatIntentFactorizationSchema a lg:FactorizationSchema .
+lg:eatIntentUniquenessSchema a lg:UniquenessSchema .
+
+lg:eatSyntaxUniversalityObligation
+  a lg:QuotientUniversalityObligation ;
+  lg:statesLawSchema lg:quotientUniversalitySchema ;
+  lg:governsProjection lg:eatSyntaxProjection ;
+  lg:governsKernelCongruence lg:eatSyntaxKernel ;
+  lg:governsQuotientFace lg:eatSyntaxClause ;
+  lg:hasFactorizationSchema lg:eatSyntaxFactorizationSchema ;
+  lg:hasUniquenessSchema lg:eatSyntaxUniquenessSchema .
+
+lg:eatTypingUniversalityObligation
+  a lg:QuotientUniversalityObligation ;
+  lg:statesLawSchema lg:quotientUniversalitySchema ;
+  lg:governsProjection lg:eatTypingProjection ;
+  lg:governsKernelCongruence lg:eatTypingKernel ;
+  lg:governsQuotientFace lg:eatTypingClause ;
+  lg:hasFactorizationSchema lg:eatTypingFactorizationSchema ;
+  lg:hasUniquenessSchema lg:eatTypingUniquenessSchema .
+
+lg:eatSemanticUniversalityObligation
+  a lg:QuotientUniversalityObligation ;
+  lg:statesLawSchema lg:quotientUniversalitySchema ;
+  lg:governsProjection lg:eatSemanticProjection ;
+  lg:governsKernelCongruence lg:eatSemanticKernel ;
+  lg:governsQuotientFace lg:eatCategoricalClause ;
+  lg:hasFactorizationSchema lg:eatSemanticFactorizationSchema ;
+  lg:hasUniquenessSchema lg:eatSemanticUniquenessSchema .
+
+lg:eatExtentUniversalityObligation
+  a lg:QuotientUniversalityObligation ;
+  lg:statesLawSchema lg:quotientUniversalitySchema ;
+  lg:governsProjection lg:eatExtentProjection ;
+  lg:governsKernelCongruence lg:eatExtentKernel ;
+  lg:governsQuotientFace lg:eatClosedExtent ;
+  lg:hasFactorizationSchema lg:eatExtentFactorizationSchema ;
+  lg:hasUniquenessSchema lg:eatExtentUniquenessSchema .
+
+lg:eatIntentUniversalityObligation
+  a lg:QuotientUniversalityObligation ;
+  lg:statesLawSchema lg:quotientUniversalitySchema ;
+  lg:governsProjection lg:eatIntentProjection ;
+  lg:governsKernelCongruence lg:eatIntentKernel ;
+  lg:governsQuotientFace lg:eatClosedIntent ;
+  lg:hasFactorizationSchema lg:eatIntentFactorizationSchema ;
+  lg:hasUniquenessSchema lg:eatIntentUniquenessSchema .
+
+lg:eatSyntaxProjection lg:hasQuotientUniversalityObligation lg:eatSyntaxUniversalityObligation .
+lg:eatTypingProjection lg:hasQuotientUniversalityObligation lg:eatTypingUniversalityObligation .
+lg:eatSemanticProjection lg:hasQuotientUniversalityObligation lg:eatSemanticUniversalityObligation .
+lg:eatExtentProjection lg:hasQuotientUniversalityObligation lg:eatExtentUniversalityObligation .
+lg:eatIntentProjection lg:hasQuotientUniversalityObligation lg:eatIntentUniversalityObligation .
+
+
+
+# ---- Reflective SHACL boundary example ----
+
+lg:coreConstraintProofCalculus
+  a lg:InternalProofCalculus .
+
+lg:coreConstraintDenotationCategory
+  a lg:SHACLDenotationCategory .
+
+lg:coreSupportedSHACLFragment
+  a lg:WellFormedSHACLFragment .
+
+lg:coreObservationalEquivalence
+  a lg:ObservationalEquivalence .
+
+lg:demoRulePersistenceDenotation
+  a lg:ConstraintDenotation ;
+  cat:inCategory lg:coreConstraintDenotationCategory ;
+  lg:representedByConstraintArtifact lg:demoRulePersistenceConstraint ;
+  lg:canonicalInternalRepresentative lg:demoRulePersistenceProofTerm .
+
+lg:demoRulePersistenceProofTerm
+  a lg:InternalProofTerm ;
+  cat:inCategory lg:coreConstraintProofCalculus ;
+  lg:denotesConstraint lg:demoRulePersistenceDenotation .
+
+lg:demoRulePersistenceDerivation
+  a lg:InternalDerivation ;
+  cat:inCategory lg:coreConstraintProofCalculus ;
+  lg:derivesInternalProofTerm lg:demoRulePersistenceProofTerm .
+
+lg:coreConstraintProofCalculus
+  lg:hasInternalProofTerm lg:demoRulePersistenceProofTerm ;
+  lg:hasInternalDerivation lg:demoRulePersistenceDerivation .
+
+lg:coreConstraintQuotient
+  a lg:DenotationalQuotient ;
+  lg:quotientsFragment lg:coreSupportedSHACLFragment ;
+  lg:byConstraintEquivalence lg:coreObservationalEquivalence ;
+  lg:hasDenotationCategory lg:coreConstraintDenotationCategory ;
+  lg:hasConstraintDenotation lg:demoRulePersistenceDenotation .
+
+lg:coreLoweringFunctor
+  a lg:LoweringFunctor ;
+  cat:sourceCategory lg:coreConstraintProofCalculus ;
+  cat:targetCategory lg:coreConstraintDenotationCategory .
+
+lg:coreReflectionFunctor
+  a lg:ReflectionFunctor ;
+  cat:sourceCategory lg:coreConstraintDenotationCategory ;
+  cat:targetCategory lg:coreConstraintProofCalculus .
+
+lg:coreLoweringSoundnessWitness a lg:ProofWitness .
+lg:coreSHACLSurjectivityWitness a lg:ProofWitness .
+lg:coreReflectiveQuotientWitness a lg:ProofWitness .
+lg:coreConservativeProjectionWitness a lg:ProofWitness .
+
+lg:coreReflectiveBoundary
+  a lg:ReflectiveSHACLBoundary ;
+  lg:hasInternalProofCalculus lg:coreConstraintProofCalculus ;
+  lg:supportsSHACLFragment lg:coreSupportedSHACLFragment ;
+  lg:hasConstraintEquivalence lg:coreObservationalEquivalence ;
+  lg:hasDenotationalQuotient lg:coreConstraintQuotient ;
+  lg:hasLoweringFunctor lg:coreLoweringFunctor ;
+  lg:hasReflectionFunctor lg:coreReflectionFunctor ;
+  lg:hasLoweringSoundnessObligation lg:coreLoweringSoundnessObligation ;
+  lg:hasSHACLSurjectivityObligation lg:coreSHACLSurjectivityObligation ;
+  lg:hasReflectiveQuotientObligation lg:coreReflectiveQuotientObligation ;
+  lg:hasConservativeProjectionObligation lg:coreConservativeProjectionObligation .
+
+lg:coreLoweringSoundnessObligation
+  a lg:LoweringSoundnessObligation ;
+  lg:governsBoundary lg:coreReflectiveBoundary ;
+  lg:governsProofCalculus lg:coreConstraintProofCalculus ;
+  lg:governsSHACLFragment lg:coreSupportedSHACLFragment ;
+  lg:governsConstraintEquivalence lg:coreObservationalEquivalence ;
+  lg:governsDenotationalQuotient lg:coreConstraintQuotient ;
+  lg:governsLoweringFunctor lg:coreLoweringFunctor ;
+  lg:hasProofWitness lg:coreLoweringSoundnessWitness .
+
+lg:coreSHACLSurjectivityObligation
+  a lg:SHACLSurjectivityObligation ;
+  lg:governsBoundary lg:coreReflectiveBoundary ;
+  lg:governsProofCalculus lg:coreConstraintProofCalculus ;
+  lg:governsSHACLFragment lg:coreSupportedSHACLFragment ;
+  lg:governsConstraintEquivalence lg:coreObservationalEquivalence ;
+  lg:governsDenotationalQuotient lg:coreConstraintQuotient ;
+  lg:governsLoweringFunctor lg:coreLoweringFunctor ;
+  lg:hasProofWitness lg:coreSHACLSurjectivityWitness .
+
+lg:coreReflectiveQuotientObligation
+  a lg:ReflectiveQuotientObligation ;
+  lg:governsBoundary lg:coreReflectiveBoundary ;
+  lg:governsProofCalculus lg:coreConstraintProofCalculus ;
+  lg:governsSHACLFragment lg:coreSupportedSHACLFragment ;
+  lg:governsConstraintEquivalence lg:coreObservationalEquivalence ;
+  lg:governsDenotationalQuotient lg:coreConstraintQuotient ;
+  lg:governsLoweringFunctor lg:coreLoweringFunctor ;
+  lg:governsReflectionFunctor lg:coreReflectionFunctor ;
+  lg:hasProofWitness lg:coreReflectiveQuotientWitness .
+
+lg:coreConservativeProjectionObligation
+  a lg:ConservativeProjectionObligation ;
+  lg:governsBoundary lg:coreReflectiveBoundary ;
+  lg:governsProofCalculus lg:coreConstraintProofCalculus ;
+  lg:governsSHACLFragment lg:coreSupportedSHACLFragment ;
+  lg:governsConstraintEquivalence lg:coreObservationalEquivalence ;
+  lg:governsDenotationalQuotient lg:coreConstraintQuotient ;
+  lg:governsLoweringFunctor lg:coreLoweringFunctor ;
+  lg:hasProofWitness lg:coreConservativeProjectionWitness .
+
+
+# ---- Proof-carrying query / immutable history example ----
+
+lg:historyLineage0 a lg:HistoryLineage .
+
+lg:historyState0
+  a lg:HistoryState ;
+  lg:stateDigest "sha256:history-state-0" ;
+  lg:hasHistoricalAssertion lg:histAssertViaRule ;
+  lg:hasHistoricalAssertion lg:histAssertToGrammar ;
+  lg:hasHistoricalAssertion lg:histAssertHasRule ;
+  lg:hasHistoricalAssertion lg:histAssertHasIdentifier .
+
+lg:historyLineage0
+  lg:hasHistoryState lg:historyState0 ;
+  lg:hasHistoryImmutabilityObligation lg:historyLineage0ImmutabilityObligation .
+
+lg:historyLineage0ImmutabilityObligation
+  a lg:HistoryImmutabilityObligation ;
+  lg:governsHistoryLineage lg:historyLineage0 ;
+  lg:hasProofWitness lg:historyLineage0ImmutabilityWitness .
+
+lg:historyLineage0ImmutabilityWitness a lg:ProofWitness .
+
+lg:histAssertViaRule
+  a lg:HistoricalAssertion ;
+  lg:assertionSubject lg:eatEvolution ;
+  lg:assertionPredicate lg:viaRule ;
+  lg:assertionObject lg:EatRule .
+
+lg:histAssertToGrammar
+  a lg:HistoricalAssertion ;
+  lg:assertionSubject lg:eatEvolution ;
+  lg:assertionPredicate lg:toGrammarState ;
+  lg:assertionObject lg:G1 .
+
+lg:histAssertHasRule
+  a lg:HistoricalAssertion ;
+  lg:assertionSubject lg:G1 ;
+  lg:assertionPredicate lg:hasRule ;
+  lg:assertionObject lg:EatRule .
+
+lg:histAssertHasIdentifier
+  a lg:HistoricalAssertion ;
+  lg:assertionSubject lg:G1 ;
+  lg:assertionPredicate lg:hasEmergentIdentifier ;
+  lg:assertionObject lg:eatIdentifier .
+
+lg:evolutionLookupVar a lg:QueryVariable ;
+  lg:variableName "r" .
+
+lg:evolutionLookupQuery
+  a lg:SelectQuery ;
+  lg:projectsVariable lg:thisVar ;
+  lg:wherePattern [
+    a lg:TriplePattern ;
+    lg:subjectTerm lg:thisVar ;
+    lg:predicateTerm lg:viaRule ;
+    lg:objectTerm lg:evolutionLookupVar
+  ] .
+
+lg:evolutionLookupRendering
+  a lg:QueryRendering ;
+  lg:wrapsQueryAST lg:evolutionLookupQuery ;
+  rdf:value """
+    SELECT $this
+    WHERE {
+      $this lg:viaRule ?r .
+    }
+  """ .
+
+lg:evolutionLookupAlgebra
+  a lg:ProjectAlgebraExpression .
+
+lg:evolutionLookupConstraint
+  a lg:SPARQLConstraint ;
+  lg:hasQueryAST lg:evolutionLookupQuery ;
+  lg:hasQueryRendering lg:evolutionLookupRendering ;
+  sh:select """
+    SELECT $this
+    WHERE {
+      $this lg:viaRule ?r .
+    }
+  """ .
+
+lg:evolutionLookupDenotation
+  a lg:ConstraintDenotation ;
+  cat:inCategory lg:coreConstraintDenotationCategory ;
+  lg:representedByConstraintArtifact lg:evolutionLookupConstraint ;
+  lg:canonicalInternalRepresentative lg:evolutionLookupProofQuery .
+
+lg:evolutionLookupResultSet a lg:QueryResultSet .
+
+lg:evolutionLookupMapping1 a lg:SolutionMapping ;
+  lg:hasBindingWitness lg:evolutionLookupBinding1 .
+
+lg:evolutionLookupBinding1
+  a lg:BindingWitness ;
+  lg:bindsVariable lg:thisVar ;
+  lg:bindsValue lg:eatEvolution ;
+  lg:justifiedByEvaluationStep lg:evolutionLookupStep1 .
+
+lg:evolutionLookupResultSet
+  lg:hasSolutionMapping lg:evolutionLookupMapping1 .
+
+lg:evolutionLookupStep1
+  a lg:EvaluationStep ;
+  lg:groundedInHistoricalAssertion lg:histAssertViaRule .
+
+lg:evolutionLookupTrace
+  a lg:QueryEvaluationTrace ;
+  cat:inCategory lg:coreConstraintProofCalculus ;
+  lg:traceResultSet lg:evolutionLookupResultSet ;
+  lg:traceHistoryState lg:historyState0 ;
+  lg:hasEvaluationStep lg:evolutionLookupStep1 ;
+  lg:derivesInternalProofTerm lg:evolutionLookupProofQuery .
+
+lg:evolutionLookupConstructiveWitness
+  a lg:ConstructiveCarryingObligation ;
+  lg:governsProofCarryingQuery lg:evolutionLookupProofQuery ;
+  lg:governsQueryResultSet lg:evolutionLookupResultSet ;
+  lg:governsQueryEvaluationTrace lg:evolutionLookupTrace ;
+  lg:governsHistoryState lg:historyState0 ;
+  lg:governsHistoryLineage lg:historyLineage0 ;
+  lg:hasProofWitness lg:evolutionLookupProofQuery .
+
+lg:evolutionLookupProofQuery
+  a lg:ProofCarryingQuery ;
+  cat:inCategory lg:coreConstraintProofCalculus ;
+  lg:hasProofQueryAST lg:evolutionLookupQuery ;
+  lg:hasProofQueryRendering lg:evolutionLookupRendering ;
+  lg:hasAlgebraicQuery lg:evolutionLookupAlgebra ;
+  lg:witnessesResultSet lg:evolutionLookupResultSet ;
+  lg:hasEvaluationTrace lg:evolutionLookupTrace ;
+  lg:evaluatedAgainstHistoryState lg:historyState0 ;
+  lg:belongsToHistoryLineage lg:historyLineage0 ;
+  lg:denotesConstraint lg:evolutionLookupDenotation ;
+  lg:hasConstructiveCarryingObligation lg:evolutionLookupConstructiveWitness .
+
+lg:coreConstraintProofCalculus
+  lg:hasInternalProofTerm lg:evolutionLookupProofQuery ;
+  lg:hasInternalDerivation lg:evolutionLookupTrace .
+
+lg:coreConstraintQuotient
+  lg:hasConstraintDenotation lg:evolutionLookupDenotation .
+
+
+# ---- Stamped history / wedge product / constructive empty-result example ----
+
+lg:historyStamp0
+  a lg:HistoryStamp ;
+  lg:stampsHistoryState lg:historyState0 ;
+  lg:stampDigest "sha256:history-state-0" ;
+  lg:stampedInHistoryLineage lg:historyLineage0 ;
+  lg:hasHistoryBoundaryCompletenessObligation lg:historyStamp0BoundaryCompletenessObligation .
+
+lg:historyStamp0BoundaryCompletenessObligation
+  a lg:HistoryBoundaryCompletenessObligation ;
+  lg:governsHistoryStamp lg:historyStamp0 ;
+  lg:governsHistoryState lg:historyState0 ;
+  lg:governsHistoryLineage lg:historyLineage0 ;
+  lg:hasProofWitness lg:historyStamp0 .
+
+lg:evolutionLookupResultSet
+  lg:resultCardinality "1"^^xsd:nonNegativeInteger .
+
+lg:evolutionLookupWedge
+  a lg:QueryWedgeProduct ;
+  lg:wedgesProofCarryingQuery lg:evolutionLookupProofQuery ;
+  lg:wedgesHistoryStamp lg:historyStamp0 ;
+  lg:hasWedgeHistoricalAssertion lg:histAssertViaRule .
+
+lg:evolutionLookupProofQuery
+  lg:hasHistoryStamp lg:historyStamp0 ;
+  lg:hasQueryWedgeProduct lg:evolutionLookupWedge .
+
+lg:missingRule a lg:AugmentedRule .
+
+lg:emptyViaMissingRuleQuery
+  a lg:SelectQuery ;
+  lg:projectsVariable lg:thisVar ;
+  lg:wherePattern [
+    a lg:TriplePattern ;
+    lg:subjectTerm lg:thisVar ;
+    lg:predicateTerm lg:viaRule ;
+    lg:objectTerm lg:missingRule
+  ] .
+
+lg:emptyViaMissingRuleRendering
+  a lg:QueryRendering ;
+  lg:wrapsQueryAST lg:emptyViaMissingRuleQuery ;
+  rdf:value """
+    SELECT $this
+    WHERE {
+      $this lg:viaRule lg:missingRule .
+    }
+  """ .
+
+lg:emptyViaMissingRuleAlgebra
+  a lg:ProjectAlgebraExpression .
+
+lg:emptyViaMissingRuleConstraint
+  a lg:SPARQLConstraint ;
+  lg:hasQueryAST lg:emptyViaMissingRuleQuery ;
+  lg:hasQueryRendering lg:emptyViaMissingRuleRendering ;
+  sh:select """
+    SELECT $this
+    WHERE {
+      $this lg:viaRule lg:missingRule .
+    }
+  """ .
+
+lg:emptyViaMissingRuleDenotation
+  a lg:ConstraintDenotation ;
+  cat:inCategory lg:coreConstraintDenotationCategory ;
+  lg:representedByConstraintArtifact lg:emptyViaMissingRuleConstraint ;
+  lg:canonicalInternalRepresentative lg:emptyViaMissingRuleProofQuery .
+
+lg:emptyViaMissingRuleResultSet
+  a lg:EmptyQueryResultSet ;
+  lg:resultCardinality "0"^^xsd:nonNegativeInteger .
+
+lg:emptyViaMissingRuleWedge
+  a lg:EmptyWedgeProduct ;
+  lg:wedgesProofCarryingQuery lg:emptyViaMissingRuleProofQuery ;
+  lg:wedgesHistoryStamp lg:historyStamp0 .
+
+lg:emptyViaMissingRuleAbsenceStep
+  a lg:AbsenceEvaluationStep ;
+  lg:groundedInHistoryStamp lg:historyStamp0 ;
+  lg:verifiesEmptyWedgeProduct lg:emptyViaMissingRuleWedge .
+
+lg:emptyViaMissingRuleTrace
+  a lg:AbsenceEvaluationTrace ;
+  cat:inCategory lg:coreConstraintProofCalculus ;
+  lg:traceResultSet lg:emptyViaMissingRuleResultSet ;
+  lg:traceHistoryState lg:historyState0 ;
+  lg:hasEvaluationStep lg:emptyViaMissingRuleAbsenceStep ;
+  lg:derivesInternalProofTerm lg:emptyViaMissingRuleProofQuery .
+
+lg:emptyViaMissingRuleWitness
+  a lg:EmptyResultWitness ;
+  lg:witnessesEmptyResultSet lg:emptyViaMissingRuleResultSet ;
+  lg:witnessesEmptyWedgeProduct lg:emptyViaMissingRuleWedge ;
+  lg:witnessesHistoryStamp lg:historyStamp0 ;
+  lg:witnessesAbsenceTrace lg:emptyViaMissingRuleTrace .
+
+lg:emptyViaMissingRuleConstructiveObligation
+  a lg:EmptyResultConstructivityObligation ;
+  lg:governsProofCarryingQuery lg:emptyViaMissingRuleProofQuery ;
+  lg:governsQueryResultSet lg:emptyViaMissingRuleResultSet ;
+  lg:governsQueryEvaluationTrace lg:emptyViaMissingRuleTrace ;
+  lg:governsHistoryState lg:historyState0 ;
+  lg:governsHistoryLineage lg:historyLineage0 ;
+  lg:governsHistoryStamp lg:historyStamp0 ;
+  lg:governsQueryWedgeProduct lg:emptyViaMissingRuleWedge ;
+  lg:governsEmptyResultWitness lg:emptyViaMissingRuleWitness ;
+  lg:hasProofWitness lg:emptyViaMissingRuleWitness .
+
+lg:emptyViaMissingRuleProofQuery
+  a lg:EmptyResultProofQuery ;
+  cat:inCategory lg:coreConstraintProofCalculus ;
+  lg:hasProofQueryAST lg:emptyViaMissingRuleQuery ;
+  lg:hasProofQueryRendering lg:emptyViaMissingRuleRendering ;
+  lg:hasAlgebraicQuery lg:emptyViaMissingRuleAlgebra ;
+  lg:witnessesResultSet lg:emptyViaMissingRuleResultSet ;
+  lg:hasEvaluationTrace lg:emptyViaMissingRuleTrace ;
+  lg:evaluatedAgainstHistoryState lg:historyState0 ;
+  lg:belongsToHistoryLineage lg:historyLineage0 ;
+  lg:hasHistoryStamp lg:historyStamp0 ;
+  lg:hasQueryWedgeProduct lg:emptyViaMissingRuleWedge ;
+  lg:denotesConstraint lg:emptyViaMissingRuleDenotation ;
+  lg:hasConstructiveCarryingObligation lg:emptyViaMissingRuleConstructiveObligation ;
+  lg:hasEmptyResultConstructivityObligation lg:emptyViaMissingRuleConstructiveObligation ;
+  lg:hasEmptyResultWitness lg:emptyViaMissingRuleWitness .
+
+lg:coreConstraintProofCalculus
+  lg:hasInternalProofTerm lg:emptyViaMissingRuleProofQuery ;
+  lg:hasInternalDerivation lg:emptyViaMissingRuleTrace .
+
+lg:coreConstraintQuotient
+  lg:hasConstraintDenotation lg:emptyViaMissingRuleDenotation .
+
+
+# ---- Adjoint EXISTS / NOT EXISTS over stamped-history wedges example ----
+
+lg:outerThisContext
+  a lg:QueryContext ;
+  rdfs:label "Outer this-context" .
+
+lg:outerThisWitnessContext
+  a lg:QueryContext ;
+  rdfs:label "Outer this-plus-witness context" .
+
+lg:viaRuleWitnessProjection
+  a lg:ContextProjection ;
+  cat:dom lg:outerThisWitnessContext ;
+  cat:cod lg:outerThisContext ;
+  rdfs:label "Projection forgetting ?r" .
+
+lg:viaRuleReindexing
+  a lg:ReindexingOperator ;
+  cat:sourceCategory lg:coreConstraintProofCalculus ;
+  cat:targetCategory lg:coreConstraintProofCalculus ;
+  rdfs:label "Reindexing along viaRule witness projection" .
+
+lg:viaRuleExistsOperator
+  a lg:ExistentialImageOperator ;
+  rdfs:label "Existential image along viaRule witness projection" .
+
+lg:viaRuleAdjointPair
+  a lg:AdjointPair ;
+  lg:hasLeftAdjointOperator lg:viaRuleExistsOperator ;
+  lg:hasRightAdjointOperator lg:viaRuleReindexing ;
+  lg:alongContextProjection lg:viaRuleWitnessProjection .
+
+lg:existsViaRuleQuery
+  a lg:SelectQuery ;
+  lg:projectsVariable lg:thisVar ;
+  lg:wherePattern [
+    a lg:TriplePattern ;
+    lg:subjectTerm lg:thisVar ;
+    lg:predicateTerm lg:viaRule ;
+    lg:objectTerm lg:rVar
+  ] .
+
+lg:existsViaRuleRendering
+  a lg:QueryRendering ;
+  lg:wrapsQueryAST lg:existsViaRuleQuery ;
+  rdf:value """
+    SELECT $this
+    WHERE {
+      $this lg:viaRule ?r .
+    }
+  """ .
+
+lg:existsViaRuleAlgebra
+  a lg:ExistsAlgebraExpression .
+
+lg:existsViaRuleConstraint
+  a lg:SPARQLConstraint ;
+  lg:hasQueryAST lg:existsViaRuleQuery ;
+  lg:hasQueryRendering lg:existsViaRuleRendering ;
+  sh:select """
+    SELECT $this
+    WHERE {
+      $this lg:viaRule ?r .
+    }
+  """ .
+
+lg:existsViaRuleDenotation
+  a lg:ConstraintDenotation ;
+  cat:inCategory lg:coreConstraintDenotationCategory ;
+  lg:representedByConstraintArtifact lg:existsViaRuleConstraint ;
+  lg:canonicalInternalRepresentative lg:existsViaRuleProofQuery .
+
+lg:existsViaRuleResultSet
+  a lg:QueryResultSet ;
+  lg:resultCardinality "1"^^xsd:nonNegativeInteger ;
+  lg:hasSolutionMapping lg:existsViaRuleMapping1 .
+
+lg:existsViaRuleBinding1
+  a lg:BindingWitness ;
+  lg:bindsVariable lg:thisVar ;
+  lg:bindsValue lg:eatEvolution ;
+  lg:justifiedByEvaluationStep lg:existsViaRuleStep1 .
+
+lg:existsViaRuleMapping1
+  a lg:SolutionMapping ;
+  lg:hasBindingWitness lg:existsViaRuleBinding1 .
+
+lg:existsViaRuleStep1
+  a lg:EvaluationStep ;
+  lg:groundedInHistoricalAssertion lg:histAssertViaRule .
+
+lg:existsViaRuleTrace
+  a lg:QueryEvaluationTrace ;
+  cat:inCategory lg:coreConstraintProofCalculus ;
+  lg:traceResultSet lg:existsViaRuleResultSet ;
+  lg:traceHistoryState lg:historyState0 ;
+  lg:hasEvaluationStep lg:existsViaRuleStep1 ;
+  lg:derivesInternalProofTerm lg:existsViaRuleProofQuery .
+
+lg:existsViaRuleWedge
+  a lg:QueryWedgeProduct ;
+  lg:wedgesProofCarryingQuery lg:existsViaRuleProofQuery ;
+  lg:wedgesHistoryStamp lg:historyStamp0 ;
+  lg:hasWedgeHistoricalAssertion lg:histAssertViaRule .
+
+lg:existsViaRuleImage
+  a lg:ExistentialImage ;
+  lg:derivedFromQueryWedgeProduct lg:existsViaRuleWedge ;
+  lg:alongWitnessProjection lg:viaRuleWitnessProjection .
+
+lg:existsViaRuleConstructiveObligation
+  a lg:ConstructiveCarryingObligation ;
+  lg:governsProofCarryingQuery lg:existsViaRuleProofQuery ;
+  lg:governsQueryResultSet lg:existsViaRuleResultSet ;
+  lg:governsQueryEvaluationTrace lg:existsViaRuleTrace ;
+  lg:governsHistoryState lg:historyState0 ;
+  lg:governsHistoryLineage lg:historyLineage0 ;
+  lg:hasProofWitness lg:existsViaRuleProofQuery .
+
+lg:existsViaRuleAdjunctionObligation
+  a lg:ExistentialAdjunctionObligation ;
+  lg:governsProofCarryingQuery lg:existsViaRuleProofQuery ;
+  lg:governsAdjointPair lg:viaRuleAdjointPair ;
+  lg:governsContextProjection lg:viaRuleWitnessProjection ;
+  lg:governsExistentialImage lg:existsViaRuleImage ;
+  lg:hasProofWitness lg:existsViaRuleProofQuery .
+
+lg:existsViaRuleProofQuery
+  a lg:ExistsWitnessedQuery ;
+  cat:inCategory lg:coreConstraintProofCalculus ;
+  lg:hasProofQueryAST lg:existsViaRuleQuery ;
+  lg:hasProofQueryRendering lg:existsViaRuleRendering ;
+  lg:hasAlgebraicQuery lg:existsViaRuleAlgebra ;
+  lg:witnessesResultSet lg:existsViaRuleResultSet ;
+  lg:hasEvaluationTrace lg:existsViaRuleTrace ;
+  lg:evaluatedAgainstHistoryState lg:historyState0 ;
+  lg:belongsToHistoryLineage lg:historyLineage0 ;
+  lg:hasHistoryStamp lg:historyStamp0 ;
+  lg:hasQueryWedgeProduct lg:existsViaRuleWedge ;
+  lg:hasContextProjection lg:viaRuleWitnessProjection ;
+  lg:hasReindexingOperator lg:viaRuleReindexing ;
+  lg:hasExistentialImageOperator lg:viaRuleExistsOperator ;
+  lg:hasAdjointPair lg:viaRuleAdjointPair ;
+  lg:hasExistentialImage lg:existsViaRuleImage ;
+  lg:denotesConstraint lg:existsViaRuleDenotation ;
+  lg:hasConstructiveCarryingObligation lg:existsViaRuleConstructiveObligation ;
+  lg:hasExistentialAdjunctionObligation lg:existsViaRuleAdjunctionObligation .
+
+lg:coreConstraintProofCalculus
+  lg:hasInternalProofTerm lg:existsViaRuleProofQuery ;
+  lg:hasInternalDerivation lg:existsViaRuleTrace .
+
+lg:coreConstraintQuotient
+  lg:hasConstraintDenotation lg:existsViaRuleDenotation .
+
+lg:notExistsMissingRuleLeftPattern
+  a lg:TriplePattern ;
+  lg:subjectTerm lg:thisVar ;
+  lg:predicateTerm lg:viaRule ;
+  lg:objectTerm lg:rVar .
+
+lg:notExistsMissingRuleRightPattern
+  a lg:TriplePattern ;
+  lg:subjectTerm lg:thisVar ;
+  lg:predicateTerm lg:viaRule ;
+  lg:objectTerm lg:missingRule .
+
+lg:notExistsMissingRuleAntiJoin
+  a lg:AntiJoinPattern ;
+  lg:leftPattern lg:notExistsMissingRuleLeftPattern ;
+  lg:rightPattern lg:notExistsMissingRuleRightPattern .
+
+lg:notExistsMissingRuleQuery
+  a lg:SelectQuery ;
+  lg:projectsVariable lg:thisVar ;
+  lg:wherePattern lg:notExistsMissingRuleAntiJoin .
+
+lg:notExistsMissingRuleRendering
+  a lg:QueryRendering ;
+  lg:wrapsQueryAST lg:notExistsMissingRuleQuery ;
+  rdf:value """
+    SELECT $this
+    WHERE {
+      $this lg:viaRule ?r .
+      FILTER NOT EXISTS { $this lg:viaRule lg:missingRule . }
+    }
+  """ .
+
+lg:notExistsMissingRuleAlgebra
+  a lg:NotExistsAlgebraExpression .
+
+lg:notExistsMissingRuleConstraint
+  a lg:SPARQLConstraint ;
+  lg:hasQueryAST lg:notExistsMissingRuleQuery ;
+  lg:hasQueryRendering lg:notExistsMissingRuleRendering ;
+  sh:select """
+    SELECT $this
+    WHERE {
+      $this lg:viaRule ?r .
+      FILTER NOT EXISTS { $this lg:viaRule lg:missingRule . }
+    }
+  """ .
+
+lg:notExistsMissingRuleDenotation
+  a lg:ConstraintDenotation ;
+  cat:inCategory lg:coreConstraintDenotationCategory ;
+  lg:representedByConstraintArtifact lg:notExistsMissingRuleConstraint ;
+  lg:canonicalInternalRepresentative lg:notExistsMissingRuleProofQuery .
+
+lg:notExistsMissingRuleResultSet
+  a lg:QueryResultSet ;
+  lg:resultCardinality "1"^^xsd:nonNegativeInteger ;
+  lg:hasSolutionMapping lg:notExistsMissingRuleMapping1 .
+
+lg:notExistsMissingRuleBinding1
+  a lg:BindingWitness ;
+  lg:bindsVariable lg:thisVar ;
+  lg:bindsValue lg:eatEvolution ;
+  lg:justifiedByEvaluationStep lg:notExistsMissingRuleStep1 .
+
+lg:notExistsMissingRuleMapping1
+  a lg:SolutionMapping ;
+  lg:hasBindingWitness lg:notExistsMissingRuleBinding1 .
+
+lg:notExistsMissingRuleStep1
+  a lg:EvaluationStep ;
+  lg:groundedInHistoricalAssertion lg:histAssertViaRule .
+
+lg:notExistsMissingRuleTrace
+  a lg:QueryEvaluationTrace ;
+  cat:inCategory lg:coreConstraintProofCalculus ;
+  lg:traceResultSet lg:notExistsMissingRuleResultSet ;
+  lg:traceHistoryState lg:historyState0 ;
+  lg:hasEvaluationStep lg:notExistsMissingRuleStep1 ;
+  lg:derivesInternalProofTerm lg:notExistsMissingRuleProofQuery .
+
+lg:notExistsMissingRuleWedge
+  a lg:QueryWedgeProduct ;
+  lg:wedgesProofCarryingQuery lg:notExistsMissingRuleProofQuery ;
+  lg:wedgesHistoryStamp lg:historyStamp0 ;
+  lg:hasWedgeHistoricalAssertion lg:histAssertViaRule .
+
+lg:missingRuleSupportImage
+  a lg:SupportReflectedImage ;
+  lg:reflectedFromExistentialImage lg:emptyViaMissingRuleImage .
+
+lg:missingRuleNegatedImage
+  a lg:NegatedExistentialImage ;
+  lg:negatesSupportReflectedImage lg:missingRuleSupportImage .
+
+lg:missingRuleSupportReflectionOperator
+  a lg:SupportReflectionOperator ;
+  rdfs:label "Support reflection for missingRule witness image" .
+
+lg:missingRuleNegationOperator
+  a lg:NegationOperator ;
+  rdfs:label "Negation of support-reflected missingRule image" .
+
+lg:notExistsMissingRuleConstructiveObligation
+  a lg:ConstructiveCarryingObligation ;
+  lg:governsProofCarryingQuery lg:notExistsMissingRuleProofQuery ;
+  lg:governsQueryResultSet lg:notExistsMissingRuleResultSet ;
+  lg:governsQueryEvaluationTrace lg:notExistsMissingRuleTrace ;
+  lg:governsHistoryState lg:historyState0 ;
+  lg:governsHistoryLineage lg:historyLineage0 ;
+  lg:hasProofWitness lg:notExistsMissingRuleProofQuery .
+
+lg:notExistsMissingRuleSupportReflectionObligation
+  a lg:SupportReflectionObligation ;
+  lg:governsProofCarryingQuery lg:notExistsMissingRuleProofQuery ;
+  lg:governsSupportReflectedImage lg:missingRuleSupportImage ;
+  lg:governsExistentialImage lg:emptyViaMissingRuleImage ;
+  lg:governsHistoryStamp lg:historyStamp0 ;
+  lg:hasProofWitness lg:emptyViaMissingRuleWitness .
+
+lg:notExistsMissingRuleAdjointDerivationObligation
+  a lg:NotExistsAdjointDerivationObligation ;
+  lg:governsProofCarryingQuery lg:notExistsMissingRuleProofQuery ;
+  lg:governsSupportReflectedImage lg:missingRuleSupportImage ;
+  lg:governsNegatedExistentialImage lg:missingRuleNegatedImage ;
+  lg:governsHistoryStamp lg:historyStamp0 ;
+  lg:hasProofWitness lg:notExistsMissingRuleProofQuery .
+
+lg:notExistsMissingRuleProofQuery
+  a lg:NotExistsWitnessedQuery ;
+  cat:inCategory lg:coreConstraintProofCalculus ;
+  lg:hasProofQueryAST lg:notExistsMissingRuleQuery ;
+  lg:hasProofQueryRendering lg:notExistsMissingRuleRendering ;
+  lg:hasAlgebraicQuery lg:notExistsMissingRuleAlgebra ;
+  lg:witnessesResultSet lg:notExistsMissingRuleResultSet ;
+  lg:hasEvaluationTrace lg:notExistsMissingRuleTrace ;
+  lg:evaluatedAgainstHistoryState lg:historyState0 ;
+  lg:belongsToHistoryLineage lg:historyLineage0 ;
+  lg:hasHistoryStamp lg:historyStamp0 ;
+  lg:hasQueryWedgeProduct lg:notExistsMissingRuleWedge ;
+  lg:hasContextProjection lg:viaRuleWitnessProjection ;
+  lg:hasCorrelatedInnerQuery lg:emptyViaMissingRuleProofQuery ;
+  lg:hasSupportReflectionOperator lg:missingRuleSupportReflectionOperator ;
+  lg:hasSupportReflectedImage lg:missingRuleSupportImage ;
+  lg:hasNegationOperator lg:missingRuleNegationOperator ;
+  lg:hasNegatedExistentialImage lg:missingRuleNegatedImage ;
+  lg:denotesConstraint lg:notExistsMissingRuleDenotation ;
+  lg:hasConstructiveCarryingObligation lg:notExistsMissingRuleConstructiveObligation ;
+  lg:hasSupportReflectionObligation lg:notExistsMissingRuleSupportReflectionObligation ;
+  lg:hasNotExistsAdjointDerivationObligation lg:notExistsMissingRuleAdjointDerivationObligation .
+
+lg:coreConstraintProofCalculus
+  lg:hasInternalProofTerm lg:notExistsMissingRuleProofQuery ;
+  lg:hasInternalDerivation lg:notExistsMissingRuleTrace .
+
+lg:coreConstraintQuotient
+  lg:hasConstraintDenotation lg:notExistsMissingRuleDenotation .
+
+lg:emptyViaMissingRuleImage
+  a lg:ExistentialImage ;
+  lg:derivedFromQueryWedgeProduct lg:emptyViaMissingRuleWedge ;
+  lg:alongWitnessProjection lg:viaRuleWitnessProjection .
+
+lg:emptyViaMissingRuleAdjointPair
+  a lg:AdjointPair ;
+  lg:hasLeftAdjointOperator lg:viaRuleExistsOperator ;
+  lg:hasRightAdjointOperator lg:viaRuleReindexing ;
+  lg:alongContextProjection lg:viaRuleWitnessProjection .
+
+lg:emptyViaMissingRuleAdjunctionObligation
+  a lg:ExistentialAdjunctionObligation ;
+  lg:governsProofCarryingQuery lg:emptyViaMissingRuleProofQuery ;
+  lg:governsAdjointPair lg:emptyViaMissingRuleAdjointPair ;
+  lg:governsContextProjection lg:viaRuleWitnessProjection ;
+  lg:governsExistentialImage lg:emptyViaMissingRuleImage ;
+  lg:hasProofWitness lg:emptyViaMissingRuleWitness .
+
+lg:emptyViaMissingRuleProofQuery
+  lg:hasContextProjection lg:viaRuleWitnessProjection ;
+  lg:hasReindexingOperator lg:viaRuleReindexing ;
+  lg:hasExistentialImageOperator lg:viaRuleExistsOperator ;
+  lg:hasAdjointPair lg:emptyViaMissingRuleAdjointPair ;
+  lg:hasExistentialImage lg:emptyViaMissingRuleImage ;
+  lg:hasExistentialAdjunctionObligation lg:emptyViaMissingRuleAdjunctionObligation .
+
+
+# -----------------------------------------------------------------------------
+# Explicit semantic policy choices for NOT EXISTS
+# -----------------------------------------------------------------------------
+
+lg:booleanTruthStructure
+  a lg:BooleanTruthValueStructure ;
+  rdfs:label "Boolean truth-value structure for support-reflected NOT EXISTS semantics" .
+
+lg:missingRuleBooleanSupportPolicy
+  a lg:BooleanSupportReflectionPolicy ;
+  lg:declaresSupportTruthValueStructure lg:booleanTruthStructure ;
+  lg:selectsSupportReflectionOperator lg:missingRuleSupportReflectionOperator .
+
+lg:missingRuleBooleanNegationPolicy
+  a lg:BooleanNegationPolicy ;
+  lg:declaresNegationTruthValueStructure lg:booleanTruthStructure ;
+  lg:requiresSupportPolicy lg:missingRuleBooleanSupportPolicy ;
+  lg:selectsNegationOperator lg:missingRuleNegationOperator .
+
+lg:notExistsMissingRulePolicyBundle
+  a lg:SemanticPolicyBundle ;
+  lg:hasSupportPolicy lg:missingRuleBooleanSupportPolicy ;
+  lg:hasNegationPolicy lg:missingRuleBooleanNegationPolicy ;
+  lg:hasTruthValueStructure lg:booleanTruthStructure .
+
+lg:missingRuleSupportImage
+  lg:interpretedInTruthValueStructure lg:booleanTruthStructure .
+
+lg:missingRuleNegatedImage
+  lg:interpretedInTruthValueStructure lg:booleanTruthStructure .
+
+lg:notExistsMissingRulePolicyCoherenceObligation
+  a lg:SemanticPolicyCoherenceObligation ;
+  lg:governsProofCarryingQuery lg:notExistsMissingRuleProofQuery ;
+  lg:governsSemanticPolicyBundle lg:notExistsMissingRulePolicyBundle ;
+  lg:governsSupportPolicy lg:missingRuleBooleanSupportPolicy ;
+  lg:governsNegationPolicy lg:missingRuleBooleanNegationPolicy ;
+  lg:governsTruthValueStructure lg:booleanTruthStructure ;
+  lg:governsSupportReflectedImage lg:missingRuleSupportImage ;
+  lg:governsNegatedExistentialImage lg:missingRuleNegatedImage ;
+  lg:governsHistoryStamp lg:historyStamp0 ;
+  lg:hasProofWitness lg:notExistsMissingRuleProofQuery .
+
+lg:notExistsMissingRuleBooleanSemanticsObligation
+  a lg:BooleanNegationSemanticsObligation ;
+  lg:governsProofCarryingQuery lg:notExistsMissingRuleProofQuery ;
+  lg:governsSemanticPolicyBundle lg:notExistsMissingRulePolicyBundle ;
+  lg:governsNegationPolicy lg:missingRuleBooleanNegationPolicy ;
+  lg:governsTruthValueStructure lg:booleanTruthStructure ;
+  lg:governsNegatedExistentialImage lg:missingRuleNegatedImage ;
+  lg:governsHistoryStamp lg:historyStamp0 ;
+  lg:hasProofWitness lg:notExistsMissingRuleProofQuery .
+
+lg:notExistsMissingRuleProofQuery
+  lg:hasSemanticPolicyBundle lg:notExistsMissingRulePolicyBundle ;
+  lg:hasSemanticPolicyCoherenceObligation lg:notExistsMissingRulePolicyCoherenceObligation ;
+  lg:hasNegationPolicySemanticsObligation lg:notExistsMissingRuleBooleanSemanticsObligation .
+
+# Prototype future policies kept explicit but unattached until needed.
+lg:heytingTruthStructure
+  a lg:HeytingTruthValueStructure ;
+  rdfs:label "Prototype Heyting truth-value structure" .
+
+lg:prototypeHeytingSupportPolicy
+  a lg:HeytingSupportReflectionPolicy ;
+  lg:declaresSupportTruthValueStructure lg:heytingTruthStructure ;
+  lg:selectsSupportReflectionOperator lg:missingRuleSupportReflectionOperator .
+
+lg:prototypeHeytingNegationPolicy
+  a lg:HeytingNegationPolicy ;
+  lg:declaresNegationTruthValueStructure lg:heytingTruthStructure ;
+  lg:requiresSupportPolicy lg:prototypeHeytingSupportPolicy ;
+  lg:selectsNegationOperator lg:missingRuleNegationOperator .
+
+lg:residuatedTruthStructure
+  a lg:ResiduatedTruthValueStructure ;
+  rdfs:label "Prototype residuated truth-value structure" .
+
+lg:prototypeResiduatedNegationPolicy
+  a lg:ResiduatedNegationPolicy ;
+  lg:declaresNegationTruthValueStructure lg:residuatedTruthStructure ;
+  lg:requiresSupportPolicy lg:missingRuleBooleanSupportPolicy ;
+  lg:selectsNegationOperator lg:missingRuleNegationOperator .
+
+lg:girardTruthStructure
+  a lg:GirardTruthValueStructure ;
+  rdfs:label "Prototype Girard truth-value structure" .
+
+lg:prototypeGirardNegationPolicy
+  a lg:GirardNegationPolicy ;
+  lg:declaresNegationTruthValueStructure lg:girardTruthStructure ;
+  lg:requiresSupportPolicy lg:missingRuleBooleanSupportPolicy ;
+  lg:selectsNegationOperator lg:missingRuleNegationOperator .
+
+
+# -----------------------------------------------------------------------------
+# Policy-indexed proof calculus example
+# -----------------------------------------------------------------------------
+
+lg:coreConstraintProofCalculus
+  a lg:PolicyIndexedProofCalculus ;
+  lg:registersPolicyIndexedProofTerm lg:notExistsMissingRuleProofQuery ;
+  lg:registersPolicyIndexedDerivation lg:notExistsMissingRulePolicyDerivation .
+
+lg:historyStampProofConstructor0
+  a lg:HistoryStampProofConstructor .
+
+lg:existentialImageProofConstructor0
+  a lg:ExistentialImageProofConstructor .
+
+lg:supportReflectionProofConstructor0
+  a lg:SupportReflectionProofConstructor .
+
+lg:negationProofConstructor0
+  a lg:NegationProofConstructor .
+
+lg:notExistsMissingRulePolicyJudgment
+  a lg:PolicyScopedJudgment ;
+  lg:judgmentAboutQuery lg:notExistsMissingRuleProofQuery ;
+  lg:judgmentUnderSemanticPolicyBundle lg:notExistsMissingRulePolicyBundle ;
+  lg:judgmentTruthValueStructure lg:booleanTruthStructure .
+
+lg:notExistsMissingRulePolicyCertificate
+  a lg:PolicyCertificate ;
+  lg:certifiesSemanticPolicyBundle lg:notExistsMissingRulePolicyBundle ;
+  lg:certifiesSupportPolicy lg:missingRuleBooleanSupportPolicy ;
+  lg:certifiesNegationPolicy lg:missingRuleBooleanNegationPolicy ;
+  lg:certifiesTruthValueStructure lg:booleanTruthStructure ;
+  lg:certifiesHistoryStamp lg:historyStamp0 ;
+  lg:certifiesProofCarryingQuery lg:notExistsMissingRuleProofQuery .
+
+lg:notExistsMissingRulePolicyDerivation
+  a lg:PolicyIndexedDerivation ;
+  cat:inCategory lg:coreConstraintProofCalculus ;
+  lg:derivationUnderSemanticPolicyBundle lg:notExistsMissingRulePolicyBundle ;
+  lg:derivationUnderSupportPolicy lg:missingRuleBooleanSupportPolicy ;
+  lg:derivationUnderNegationPolicy lg:missingRuleBooleanNegationPolicy ;
+  lg:derivationUnderTruthValueStructure lg:booleanTruthStructure ;
+  lg:usesProofConstructor lg:historyStampProofConstructor0, lg:existentialImageProofConstructor0, lg:supportReflectionProofConstructor0, lg:negationProofConstructor0 ;
+  lg:concludesPolicyScopedJudgment lg:notExistsMissingRulePolicyJudgment ;
+  lg:derivesInternalProofTerm lg:notExistsMissingRuleProofQuery .
+
+lg:notExistsMissingRulePolicyDerivationObligation
+  a lg:PolicyIndexedConstructiveDerivationObligation ;
+  lg:governsBoundary lg:coreReflectiveBoundary ;
+  lg:governsProofCalculus lg:coreConstraintProofCalculus ;
+  lg:governsSemanticPolicyBundle lg:notExistsMissingRulePolicyBundle ;
+  lg:governsSupportPolicy lg:missingRuleBooleanSupportPolicy ;
+  lg:governsNegationPolicy lg:missingRuleBooleanNegationPolicy ;
+  lg:governsTruthValueStructure lg:booleanTruthStructure ;
+  lg:governsHistoryStamp lg:historyStamp0 ;
+  lg:governsPolicyIndexedProofTerm lg:notExistsMissingRuleProofQuery ;
+  lg:governsPolicyIndexedDerivation lg:notExistsMissingRulePolicyDerivation ;
+  lg:governsPolicyScopedJudgment lg:notExistsMissingRulePolicyJudgment ;
+  lg:governsPolicyCertificate lg:notExistsMissingRulePolicyCertificate ;
+  lg:hasProofWitness lg:notExistsMissingRulePolicyCertificate .
+
+lg:notExistsMissingRulePolicyPreservingLoweringObligation
+  a lg:PolicyPreservingLoweringObligation ;
+  lg:governsBoundary lg:coreReflectiveBoundary ;
+  lg:governsProofCalculus lg:coreConstraintProofCalculus ;
+  lg:governsSHACLFragment lg:coreSupportedSHACLFragment ;
+  lg:governsConstraintEquivalence lg:coreObservationalEquivalence ;
+  lg:governsDenotationalQuotient lg:coreConstraintQuotient ;
+  lg:governsLoweringFunctor lg:coreLoweringFunctor ;
+  lg:governsSemanticPolicyBundle lg:notExistsMissingRulePolicyBundle ;
+  lg:governsSupportPolicy lg:missingRuleBooleanSupportPolicy ;
+  lg:governsNegationPolicy lg:missingRuleBooleanNegationPolicy ;
+  lg:governsTruthValueStructure lg:booleanTruthStructure ;
+  lg:governsHistoryStamp lg:historyStamp0 ;
+  lg:governsPolicyIndexedProofTerm lg:notExistsMissingRuleProofQuery ;
+  lg:governsPolicyIndexedDerivation lg:notExistsMissingRulePolicyDerivation ;
+  lg:governsPolicyScopedJudgment lg:notExistsMissingRulePolicyJudgment ;
+  lg:governsPolicyCertificate lg:notExistsMissingRulePolicyCertificate ;
+  lg:hasProofWitness lg:notExistsMissingRulePolicyCertificate .
+
+lg:notExistsMissingRulePolicyReflectiveCompatibilityObligation
+  a lg:PolicyReflectiveCompatibilityObligation ;
+  lg:governsBoundary lg:coreReflectiveBoundary ;
+  lg:governsProofCalculus lg:coreConstraintProofCalculus ;
+  lg:governsSHACLFragment lg:coreSupportedSHACLFragment ;
+  lg:governsConstraintEquivalence lg:coreObservationalEquivalence ;
+  lg:governsDenotationalQuotient lg:coreConstraintQuotient ;
+  lg:governsLoweringFunctor lg:coreLoweringFunctor ;
+  lg:governsReflectionFunctor lg:coreReflectionFunctor ;
+  lg:governsSemanticPolicyBundle lg:notExistsMissingRulePolicyBundle ;
+  lg:governsSupportPolicy lg:missingRuleBooleanSupportPolicy ;
+  lg:governsNegationPolicy lg:missingRuleBooleanNegationPolicy ;
+  lg:governsTruthValueStructure lg:booleanTruthStructure ;
+  lg:governsHistoryStamp lg:historyStamp0 ;
+  lg:governsPolicyIndexedProofTerm lg:notExistsMissingRuleProofQuery ;
+  lg:governsPolicyIndexedDerivation lg:notExistsMissingRulePolicyDerivation ;
+  lg:governsPolicyScopedJudgment lg:notExistsMissingRulePolicyJudgment ;
+  lg:governsPolicyCertificate lg:notExistsMissingRulePolicyCertificate ;
+  lg:hasProofWitness lg:notExistsMissingRulePolicyCertificate .
+
+lg:notExistsMissingRuleProofQuery
+  a lg:PolicyIndexedNotExistsProofQuery ;
+  lg:derivedUnderSemanticPolicyBundle lg:notExistsMissingRulePolicyBundle ;
+  lg:hasPolicyDerivation lg:notExistsMissingRulePolicyDerivation ;
+  lg:hasPolicyCertificate lg:notExistsMissingRulePolicyCertificate ;
+  lg:hasPolicyScopedJudgment lg:notExistsMissingRulePolicyJudgment ;
+  lg:hasPolicyIndexedConstructiveDerivationObligation lg:notExistsMissingRulePolicyDerivationObligation ;
+  lg:hasPolicyPreservingLoweringObligation lg:notExistsMissingRulePolicyPreservingLoweringObligation ;
+  lg:hasPolicyReflectiveCompatibilityObligation lg:notExistsMissingRulePolicyReflectiveCompatibilityObligation ;
+  lg:realizesProofCarryingQuery lg:notExistsMissingRuleProofQuery ;
+  lg:realizesPolicyIndexedDerivation lg:notExistsMissingRulePolicyDerivation .
+
+
+# -----------------------------------------------------------------------------
+# Compositional proof-term witness for NOT EXISTS
+# -----------------------------------------------------------------------------
+
+lg:sequentialCompositionProofConstructor0
+  a lg:ProofConstructor ;
+  rdfs:label "Sequential proof composition constructor" .
+
+lg:historyStampConstructorTypingObligation0
+  a lg:ConstructorTypingObligation ;
+  lg:governsProofConstructor lg:historyStampProofConstructor0 ;
+  lg:governsHistoryStamp lg:historyStamp0 ;
+  lg:governsSemanticPolicyBundle lg:notExistsMissingRulePolicyBundle ;
+  lg:hasProofWitness lg:historyStamp0 .
+
+lg:existentialImageConstructorTypingObligation0
+  a lg:ConstructorTypingObligation ;
+  lg:governsProofConstructor lg:existentialImageProofConstructor0 ;
+  lg:governsExistentialImage lg:emptyViaMissingRuleImage ;
+  lg:governsQueryWedgeProduct lg:emptyViaMissingRuleWedge ;
+  lg:governsSemanticPolicyBundle lg:notExistsMissingRulePolicyBundle ;
+  lg:hasProofWitness lg:emptyViaMissingRuleWitness .
+
+lg:supportReflectionConstructorTypingObligation0
+  a lg:ConstructorTypingObligation ;
+  lg:governsProofConstructor lg:supportReflectionProofConstructor0 ;
+  lg:governsSupportReflectedImage lg:missingRuleSupportImage ;
+  lg:governsSemanticPolicyBundle lg:notExistsMissingRulePolicyBundle ;
+  lg:governsSupportPolicy lg:missingRuleBooleanSupportPolicy ;
+  lg:hasProofWitness lg:emptyViaMissingRuleWitness .
+
+lg:negationConstructorTypingObligation0
+  a lg:ConstructorTypingObligation ;
+  lg:governsProofConstructor lg:negationProofConstructor0 ;
+  lg:governsNegatedExistentialImage lg:missingRuleNegatedImage ;
+  lg:governsSemanticPolicyBundle lg:notExistsMissingRulePolicyBundle ;
+  lg:governsNegationPolicy lg:missingRuleBooleanNegationPolicy ;
+  lg:hasProofWitness lg:notExistsMissingRuleProofQuery .
+
+lg:proofCompositionObligation0
+  a lg:ProofTermCompositionObligation ;
+  lg:governsProofConstructor lg:sequentialCompositionProofConstructor0 ;
+  lg:governsSourceProofTerm lg:missingRuleHistoryStampTerm ;
+  lg:governsTargetProofTerm lg:notExistsMissingRuleProofQuery ;
+  lg:governsSemanticPolicyBundle lg:notExistsMissingRulePolicyBundle ;
+  lg:hasProofWitness lg:notExistsMissingRuleSequentialProof .
+
+lg:normalizationSoundnessObligation0
+  a lg:NormalizationSoundnessObligation ;
+  lg:governsSourceProofTerm lg:notExistsMissingRuleSequentialProof ;
+  lg:governsTargetProofTerm lg:notExistsMissingRuleProofQuery ;
+  lg:governsSemanticPolicyBundle lg:notExistsMissingRulePolicyBundle ;
+  lg:hasProofWitness lg:notExistsMissingRuleNormalizationWitness .
+
+lg:proofTermAdequacyObligation0
+  a lg:ProofTermAdequacyObligation ;
+  lg:governsPolicyIndexedProofTerm lg:notExistsMissingRuleProofQuery ;
+  lg:governsPolicyIndexedDerivation lg:notExistsMissingRulePolicyDerivation ;
+  lg:governsProofTerm lg:notExistsMissingRuleSequentialProof ;
+  lg:governsSemanticPolicyBundle lg:notExistsMissingRulePolicyBundle ;
+  lg:hasProofWitness lg:notExistsMissingRuleSequentialProof .
+
+lg:missingRuleHistoryStampTerm
+  a lg:HistoryStampIntroTerm, lg:AtomicProofTerm ;
+  lg:hasProofConstructorHead lg:historyStampProofConstructor0 ;
+  lg:introducesHistoryStamp lg:historyStamp0 ;
+  lg:derivedUnderSemanticPolicyBundle lg:notExistsMissingRulePolicyBundle ;
+  lg:denotesConstraint lg:emptyViaMissingRuleDenotation ;
+  lg:hasConstructorTypingObligation lg:historyStampConstructorTypingObligation0 .
+
+lg:emptyViaMissingRuleExistsTerm
+  a lg:ExistentialImageIntroTerm ;
+  lg:hasProofConstructorHead lg:existentialImageProofConstructor0 ;
+  lg:hasPremiseProofTerm lg:missingRuleHistoryStampTerm ;
+  lg:introducesExistentialImage lg:emptyViaMissingRuleImage ;
+  lg:overQueryWedgeProduct lg:emptyViaMissingRuleWedge ;
+  lg:underContextProjection lg:viaRuleWitnessProjection ;
+  lg:derivedUnderSemanticPolicyBundle lg:notExistsMissingRulePolicyBundle ;
+  lg:denotesConstraint lg:emptyViaMissingRuleDenotation ;
+  lg:hasConstructorTypingObligation lg:existentialImageConstructorTypingObligation0 .
+
+lg:missingRuleSupportReflectionTerm
+  a lg:SupportReflectionIntroTerm ;
+  lg:hasProofConstructorHead lg:supportReflectionProofConstructor0 ;
+  lg:hasPremiseProofTerm lg:emptyViaMissingRuleExistsTerm ;
+  lg:introducesSupportReflectedImage lg:missingRuleSupportImage ;
+  lg:underSupportReflectionOperator lg:missingRuleSupportReflectionOperator ;
+  lg:derivedUnderSemanticPolicyBundle lg:notExistsMissingRulePolicyBundle ;
+  lg:denotesConstraint lg:notExistsMissingRuleDenotation ;
+  lg:hasConstructorTypingObligation lg:supportReflectionConstructorTypingObligation0 .
+
+lg:notExistsMissingRuleNormalizationWitness
+  a lg:NormalizationWitness ;
+  lg:normalizesSourceProofTerm lg:notExistsMissingRuleSequentialProof ;
+  lg:normalizesTargetProofTerm lg:notExistsMissingRuleProofQuery .
+
+lg:notExistsMissingRuleSequentialProof
+  a lg:SequentialProofComposition ;
+  lg:hasProofConstructorHead lg:sequentialCompositionProofConstructor0 ;
+  lg:hasLeftProofTerm lg:missingRuleHistoryStampTerm ;
+  lg:hasRightProofTerm lg:notExistsMissingRuleProofQuery ;
+  lg:hasNormalizedProofTerm lg:notExistsMissingRuleProofQuery ;
+  lg:hasNormalizationWitness lg:notExistsMissingRuleNormalizationWitness ;
+  lg:derivedUnderSemanticPolicyBundle lg:notExistsMissingRulePolicyBundle ;
+  lg:denotesConstraint lg:notExistsMissingRuleDenotation ;
+  lg:hasProofCompositionObligation lg:proofCompositionObligation0 ;
+  lg:hasNormalizationSoundnessObligation lg:normalizationSoundnessObligation0 .
+
+lg:notExistsMissingRulePolicyDerivation
+  lg:realizedByProofTerm lg:notExistsMissingRuleSequentialProof .
+
+lg:notExistsMissingRuleProofQuery
+  a lg:CanonicalProofTerm, lg:NegationIntroTerm ;
+  lg:hasProofConstructorHead lg:negationProofConstructor0 ;
+  lg:hasPremiseProofTerm lg:missingRuleSupportReflectionTerm ;
+  lg:introducesNegatedExistentialImage lg:missingRuleNegatedImage ;
+  lg:underNegationOperator lg:missingRuleNegationOperator ;
+  lg:derivedUnderSemanticPolicyBundle lg:notExistsMissingRulePolicyBundle ;
+  lg:concludesPolicyScopedJudgment lg:notExistsMissingRulePolicyJudgment ;
+  lg:hasConstructorTypingObligation lg:negationConstructorTypingObligation0 ;
+  lg:hasProofTermAdequacyObligation lg:proofTermAdequacyObligation0 .
+
+lg:coreConstraintProofCalculus
+  lg:registersPolicyIndexedProofTerm lg:notExistsMissingRuleProofQuery, lg:missingRuleHistoryStampTerm, lg:emptyViaMissingRuleExistsTerm, lg:missingRuleSupportReflectionTerm, lg:notExistsMissingRuleSequentialProof ;
+  lg:registersPolicyIndexedDerivation lg:notExistsMissingRulePolicyDerivation .
+
+
+# -----------------------------------------------------------------------------
+# Substitution, cut-elimination, and shared-subproof reuse example
+# -----------------------------------------------------------------------------
+
+lg:substitutionProofConstructor0
+  a lg:ProofConstructor ;
+  rdfs:label "Substitution constructor" .
+
+lg:cutProofConstructor0
+  a lg:ProofConstructor ;
+  rdfs:label "Cut constructor" .
+
+lg:coreSubproofReuseCategory
+  a lg:SubproofReuseCategory .
+
+lg:notExistsProofVar
+  a lg:ProofVariable ;
+  lg:proofVariableName "p_support" ;
+  lg:derivedUnderSemanticPolicyBundle lg:notExistsMissingRulePolicyBundle ;
+  lg:denotesConstraint lg:notExistsMissingRuleDenotation .
+
+lg:notExistsProofContext
+  a lg:ProofContext ;
+  lg:bindsProofVariable lg:notExistsProofVar .
+
+lg:notExistsSupportAssumption
+  a lg:ProofAssumption ;
+  lg:assumesProofVariable lg:notExistsProofVar ;
+  lg:assumesProofTerm lg:missingRuleSupportReflectionTerm ;
+  lg:inProofContext lg:notExistsProofContext .
+
+lg:notExistsProofContext
+  lg:hasProofAssumption lg:notExistsSupportAssumption .
+
+lg:notExistsNegationSchemaTerm
+  a lg:UnaryProofConstructorApplication, lg:CompositeProofTerm ;
+  lg:hasProofConstructorHead lg:negationProofConstructor0 ;
+  lg:hasPremiseProofTerm lg:notExistsProofVar ;
+  lg:hasProofContext lg:notExistsProofContext ;
+  lg:derivedUnderSemanticPolicyBundle lg:notExistsMissingRulePolicyBundle ;
+  lg:denotesConstraint lg:notExistsMissingRuleDenotation .
+
+lg:notExistsSubstitutionWitness0
+  a lg:SubstitutionWitness ;
+  lg:substitutesSourceProofTerm lg:notExistsNegationSchemaTerm ;
+  lg:substitutesTargetProofTerm lg:notExistsMissingRuleProofQuery ;
+  lg:substitutesReplacementTerm lg:missingRuleSupportReflectionTerm .
+
+lg:notExistsSubstitutionSoundnessObligation0
+  a lg:SubstitutionSoundnessObligation ;
+  lg:governsSubstitutionApplication lg:notExistsNegationSubstitution0 ;
+  lg:governsProofVariable lg:notExistsProofVar ;
+  lg:governsSourceProofTerm lg:notExistsNegationSchemaTerm ;
+  lg:governsTargetProofTerm lg:notExistsMissingRuleProofQuery ;
+  lg:governsSemanticPolicyBundle lg:notExistsMissingRulePolicyBundle ;
+  lg:hasProofWitness lg:notExistsSubstitutionWitness0 .
+
+lg:notExistsSubstitutionCompatibilityObligation0
+  a lg:SubstitutionCompatibilityObligation ;
+  lg:governsSubstitutionApplication lg:notExistsNegationSubstitution0 ;
+  lg:governsProofContext lg:notExistsProofContext ;
+  lg:governsProofAssumption lg:notExistsSupportAssumption ;
+  lg:governsSemanticPolicyBundle lg:notExistsMissingRulePolicyBundle ;
+  lg:hasProofWitness lg:notExistsSubstitutionWitness0 .
+
+lg:notExistsNegationSubstitution0
+  a lg:SubstitutionApplication ;
+  lg:substitutesProofVariable lg:notExistsProofVar ;
+  lg:substitutesWithProofTerm lg:missingRuleSupportReflectionTerm ;
+  lg:substitutesInProofTerm lg:notExistsNegationSchemaTerm ;
+  lg:substitutesToProofTerm lg:notExistsMissingRuleProofQuery ;
+  lg:hasSubstitutionWitness lg:notExistsSubstitutionWitness0 ;
+  lg:derivedUnderSemanticPolicyBundle lg:notExistsMissingRulePolicyBundle ;
+  lg:denotesConstraint lg:notExistsMissingRuleDenotation ;
+  lg:hasSubstitutionSoundnessObligation lg:notExistsSubstitutionSoundnessObligation0 ;
+  lg:hasSubstitutionCompatibilityObligation lg:notExistsSubstitutionCompatibilityObligation0 .
+
+lg:notExistsCutEliminationWitness0
+  a lg:CutEliminationWitness ;
+  lg:normalizesSourceProofTerm lg:notExistsCutApplication0 ;
+  lg:normalizesTargetProofTerm lg:notExistsMissingRuleProofQuery ;
+  lg:eliminatesCutSourceProofTerm lg:notExistsCutApplication0 ;
+  lg:cutEliminatesToProofTerm lg:notExistsMissingRuleProofQuery .
+
+lg:notExistsCutAdmissibilityObligation0
+  a lg:CutAdmissibilityObligation ;
+  lg:governsCutApplication lg:notExistsCutApplication0 ;
+  lg:governsProofVariable lg:notExistsProofVar ;
+  lg:governsProofAssumption lg:notExistsSupportAssumption ;
+  lg:governsSemanticPolicyBundle lg:notExistsMissingRulePolicyBundle ;
+  lg:hasProofWitness lg:notExistsCutEliminationWitness0 .
+
+lg:notExistsCutEliminationObligation0
+  a lg:CutEliminationObligation ;
+  lg:governsCutApplication lg:notExistsCutApplication0 ;
+  lg:governsSourceProofTerm lg:notExistsCutApplication0 ;
+  lg:governsTargetProofTerm lg:notExistsMissingRuleProofQuery ;
+  lg:governsSemanticPolicyBundle lg:notExistsMissingRulePolicyBundle ;
+  lg:hasProofWitness lg:notExistsCutEliminationWitness0 .
+
+lg:notExistsCutApplication0
+  a lg:CutApplication ;
+  lg:hasProofConstructorHead lg:cutProofConstructor0 ;
+  lg:hasLeftProofTerm lg:notExistsNegationSchemaTerm ;
+  lg:hasRightProofTerm lg:missingRuleSupportReflectionTerm ;
+  lg:cutsOnProofVariable lg:notExistsProofVar ;
+  lg:cutsOnProofAssumption lg:notExistsSupportAssumption ;
+  lg:hasNormalizedProofTerm lg:notExistsMissingRuleProofQuery ;
+  lg:hasCutEliminationWitness lg:notExistsCutEliminationWitness0 ;
+  lg:derivedUnderSemanticPolicyBundle lg:notExistsMissingRulePolicyBundle ;
+  lg:denotesConstraint lg:notExistsMissingRuleDenotation ;
+  lg:hasCutAdmissibilityObligation lg:notExistsCutAdmissibilityObligation0 ;
+  lg:hasCutEliminationObligation lg:notExistsCutEliminationObligation0 .
+
+lg:missingRuleSupportReuseObligation0
+  a lg:SharedSubproofReuseObligation ;
+  lg:governsSharedSubproof lg:missingRuleSupportReflectionTerm ;
+  lg:governsReuseCategory lg:coreSubproofReuseCategory ;
+  lg:governsSemanticPolicyBundle lg:notExistsMissingRulePolicyBundle ;
+  lg:hasProofWitness lg:missingRuleSupportReflectionTerm .
+
+lg:coreSubproofFunctorialityObligation0
+  a lg:FunctorialSubproofReuseObligation ;
+  lg:governsReuseCategory lg:coreSubproofReuseCategory ;
+  lg:governsSemanticPolicyBundle lg:notExistsMissingRulePolicyBundle ;
+  lg:hasProofWitness lg:supportReuseMorphism0 .
+
+lg:missingRuleSupportReflectionTerm
+  a lg:SharedSubproof ;
+  lg:registeredInReuseCategory lg:coreSubproofReuseCategory ;
+  lg:hasSubproofReuseObligation lg:missingRuleSupportReuseObligation0 .
+
+lg:supportReuseMorphism0
+  a lg:SubproofReuseMorphism ;
+  cat:dom lg:missingRuleSupportReflectionTerm ;
+  cat:cod lg:missingRuleSupportReflectionTerm ;
+  cat:inCategory lg:coreSubproofReuseCategory ;
+  lg:reusesSharedSubproof lg:missingRuleSupportReflectionTerm .
+
+lg:coreSubproofReuseFunctor0
+  a lg:SubproofReuseFunctor ;
+  cat:sourceCategory lg:coreSubproofReuseCategory ;
+  cat:targetCategory lg:coreSubproofReuseCategory ;
+  cat:mapsObject lg:missingRuleSupportReflectionTerm ;
+  cat:mapsMorphism lg:supportReuseMorphism0 .
+
+lg:coreSubproofReuseCategory
+  lg:hasSubproofReuseMorphism lg:supportReuseMorphism0 ;
+  lg:hasFunctorialSubproofReuseObligation lg:coreSubproofFunctorialityObligation0 .
+
+lg:notExistsCutApplication0
+  lg:hasSharedSubproof lg:missingRuleSupportReflectionTerm .
+
+lg:notExistsMissingRuleProofQuery
+  a lg:CutFreeProofTerm ;
+  lg:hasSharedSubproof lg:missingRuleSupportReflectionTerm .

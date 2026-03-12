@@ -340,69 +340,7 @@ def _violation_payload(violation: Violation) -> dict[str, object]:
 
 
 def _lattice_payload(frontier: FrontierWitness) -> dict[str, object]:
-    return {
-        "branch_site_id": frontier.branch_site_id,
-        "branch_site_identity": frontier.branch_site_identity,
-        "branch_line": frontier.branch_line,
-        "branch_column": frontier.branch_column,
-        "branch_node_kind": frontier.branch_node_kind,
-        "required_symbols": list(frontier.required_symbols),
-        "unresolved_symbols": list(frontier.unresolved_symbols),
-        "data_anchor_site_id": frontier.data_anchor_site_id,
-        "data_anchor_site_identity": frontier.data_anchor_site_identity,
-        "data_anchor_line": frontier.data_anchor_line,
-        "data_anchor_column": frontier.data_anchor_column,
-        "data_anchor_ordinal": frontier.data_anchor_ordinal,
-        "data_upstream_site_ids": list(frontier.data_upstream_site_ids),
-        "data_upstream_site_identities": list(frontier.data_upstream_site_identities),
-        "data_upstream_edge_ids": list(frontier.data_upstream_edge_ids),
-        "exec_frontier_site_id": frontier.exec_frontier_site_id,
-        "exec_frontier_site_identity": frontier.exec_frontier_site_identity,
-        "exec_frontier_line": frontier.exec_frontier_line,
-        "exec_frontier_column": frontier.exec_frontier_column,
-        "exec_frontier_ordinal": frontier.exec_frontier_ordinal,
-        "exec_upstream_site_ids": list(frontier.exec_upstream_site_ids),
-        "exec_upstream_site_identities": list(frontier.exec_upstream_site_identities),
-        "exec_upstream_edge_ids": list(frontier.exec_upstream_edge_ids),
-        "bundle_event_count": frontier.bundle_event_count,
-        "bundle_edge_count": frontier.bundle_edge_count,
-        "execution_event_count": frontier.execution_event_count,
-        "execution_edge_count": frontier.execution_edge_count,
-        "data_exec_join": {
-            "left_ids": list(frontier.data_exec_join.left_ids),
-            "right_ids": list(frontier.data_exec_join.right_ids),
-            "result_ids": list(frontier.data_exec_join.result_ids),
-            "deterministic": frontier.data_exec_join.deterministic,
-        },
-        "data_exec_meet": {
-            "left_ids": list(frontier.data_exec_meet.left_ids),
-            "right_ids": list(frontier.data_exec_meet.right_ids),
-            "result_ids": list(frontier.data_exec_meet.result_ids),
-            "deterministic": frontier.data_exec_meet.deterministic,
-        },
-        "eta_data_to_exec": _naturality_payload(frontier.eta_data_to_exec),
-        "eta_exec_to_data": _naturality_payload(frontier.eta_exec_to_data),
-        "complete": frontier.complete,
-    }
-
-
-def _naturality_payload(witness: object) -> dict[str, object]:
-    unmapped_items = list(getattr(witness, "unmapped", ()))
-    return {
-        "direction": str(getattr(witness, "direction", "")),
-        "mapped_source_site_ids": list(getattr(witness, "mapped_source_site_ids", ())),
-        "mapped_target_site_ids": list(getattr(witness, "mapped_target_site_ids", ())),
-        "unmapped": [
-            {
-                "source_kind": str(getattr(item, "source_kind", "")),
-                "source_site_id": str(getattr(item, "source_site_id", "")),
-                "source_site_identity": str(getattr(item, "source_site_identity", "")),
-                "reason": str(getattr(item, "reason", "")),
-            }
-            for item in unmapped_items
-        ],
-        "complete": bool(getattr(witness, "complete", False)),
-    }
+    return frontier.as_payload()
 
 
 def run(*, root: Path, baseline: Path | None = None, baseline_write: bool = False) -> int:

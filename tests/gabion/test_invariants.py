@@ -54,6 +54,7 @@ def test_decision_and_boundary_markers_return_original_callable() -> None:
     assert invariants.decision_protocol(_sample) is _sample
     assert invariants.boundary_normalization(_sample) is _sample
     assert invariants.grade_boundary(kind="aggregation_materialization", name="demo")(_sample) is _sample
+    assert invariants.grade_boundary(kind="semantic_carrier_adapter", name="demo")(_sample) is _sample
 
 
 def test_grade_boundary_carrier_supports_with_scope() -> None:

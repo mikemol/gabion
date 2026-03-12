@@ -159,6 +159,38 @@ def test_grade_monotonicity_callsite_boundary_scope_is_local(tmp_path: Path) -> 
     assert "GMP-007" in ordinary_witness.failure_rule_ids
 
 
+def test_grade_monotonicity_semantic_carrier_boundary_suppresses_adapter_edges(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "src" / "gabion" / "analysis" / "adapter.py",
+        "import json\n\n"
+        "# gabion:grade_boundary kind=semantic_carrier_adapter name=semantic_adapter\n"
+        "def build_row(raw: str) -> dict[str, object]:\n"
+        "    return {'payload': json.loads(raw), 'present': bool(raw)}\n\n"
+        "def caller(raw: str) -> dict[str, object]:\n"
+        "    return build_row(raw)\n",
+    )
+    batch = build_policy_scan_batch(
+        root=tmp_path,
+        target_globs=("src/gabion/analysis/**/*.py",),
+    )
+
+    report = grade_monotonicity_semantic.collect_grade_monotonicity(batch=batch)
+
+    build_row_witnesses = [
+        witness
+        for witness in report.witnesses
+        if witness.callee_qualname.endswith(".build_row")
+    ]
+    assert len(build_row_witnesses) == 1
+    witness = build_row_witnesses[0]
+    assert witness.edge_kind == "boundary"
+    assert witness.boundary_marker is not None
+    assert witness.boundary_marker.kind.value == "semantic_carrier_adapter"
+    assert witness.failure_rule_ids == ()
+
+
 # gabion:evidence E:call_footprint::tests/test_grade_monotonicity_semantic.py::test_grade_monotonicity_unresolved_external_targets_fail_closed::grade_monotonicity_semantic.py::gabion.tooling.policy_substrate.grade_monotonicity_semantic.collect_grade_monotonicity
 # gabion:behavior primary=desired
 def test_grade_monotonicity_unresolved_external_targets_fail_closed(tmp_path: Path) -> None:

@@ -11,6 +11,10 @@ from pathlib import Path
 from typing import Any
 
 from gabion.order_contract import ordered_or_sorted
+from gabion.tooling.runtime.projection_fiber_semantics_summary import (
+    projection_fiber_semantics_summary_from_payload,
+    projection_fiber_semantics_summary_from_summary_payload,
+)
 
 ACTIVE_FAMILIES: tuple[str, ...] = (
     "branchless",
@@ -222,6 +226,77 @@ def _equal_family_score(
     return score
 
 
+def _projection_fiber_semantic_previews(
+    summary: object,
+) -> list[dict[str, Any]]:
+    resolved_summary = projection_fiber_semantics_summary_from_summary_payload(summary)
+    if resolved_summary is None:
+        return []
+    normalized = [item.as_payload() for item in resolved_summary.semantic_previews]
+    return _sorted(
+        normalized,
+        key=lambda item: (
+            str(item.get("spec_name", "")),
+            str(item.get("quotient_face", "")),
+            str(item.get("path", "")),
+            str(item.get("qualname", "")),
+            str(item.get("structural_path", "")),
+        ),
+    )
+
+
+def _projection_fiber_summary(
+    *,
+    payload: dict[str, Any],
+) -> object | None:
+    summary = projection_fiber_semantics_summary_from_payload(payload)
+    if summary is None:
+        return None
+    return summary.as_payload()
+
+
+def _projection_fiber_overlap(
+    *,
+    semantic_previews: list[dict[str, Any]],
+    ring1_paths: list[str],
+    ring2_paths: list[str],
+) -> dict[str, Any]:
+    ring1_set = set(ring1_paths)
+    ring2_set = set(ring2_paths)
+    matched_previews: list[dict[str, Any]] = []
+    ring1_match_count = 0
+    ring2_match_count = 0
+    for preview in semantic_previews:
+        path = preview.get("path")
+        if not isinstance(path, str) or not path.strip():
+            continue
+        location = ""
+        if path in ring1_set:
+            location = "ring_1"
+            ring1_match_count += 1
+        elif path in ring2_set:
+            location = "ring_2"
+            ring2_match_count += 1
+        if not location:
+            continue
+        matched_previews.append(
+            {
+                "location": location,
+                "spec_name": str(preview.get("spec_name", "")),
+                "quotient_face": str(preview.get("quotient_face", "")),
+                "path": path,
+                "qualname": str(preview.get("qualname", "")),
+                "structural_path": str(preview.get("structural_path", "")),
+            }
+        )
+    return {
+        "match_count": len(matched_previews),
+        "ring_1_match_count": ring1_match_count,
+        "ring_2_match_count": ring2_match_count,
+        "matched_previews": matched_previews,
+    }
+
+
 def analyze(
     *,
     payload: dict[str, Any],
@@ -230,6 +305,10 @@ def analyze(
     local_config = config if config is not None else QueueConfig()
     families = ACTIVE_FAMILIES
     counts_by_file = _file_family_counts(payload, families)
+    projection_fiber_summary = _projection_fiber_summary(
+        payload=payload,
+    )
+    semantic_previews = _projection_fiber_semantic_previews(projection_fiber_summary)
     family_totals = _family_totals(counts_by_file=counts_by_file, families=families)
     seed_paths = _seed_paths(counts_by_file=counts_by_file, config=local_config)
 
@@ -248,6 +327,11 @@ def analyze(
             families=families,
             config=local_config,
         )
+        ring2_paths = [
+            str(item["path"])
+            for item in ring2_neighbors
+            if isinstance(item, dict) and isinstance(item.get("path"), str)
+        ]
         ring2_total = sum(int(item["total"]) for item in ring2_neighbors)
         ring2_counts = Counter[str]()
         for neighbor in ring2_neighbors:
@@ -296,6 +380,11 @@ def analyze(
                 },
                 "ring_1": ring1_payload,
                 "ring_2": ring2_neighbors,
+                "projection_fiber_overlap": _projection_fiber_overlap(
+                    semantic_previews=semantic_previews,
+                    ring1_paths=ring1_paths,
+                    ring2_paths=ring2_paths,
+                ),
                 "score": {
                     "balanced": round(balanced_score, 6),
                     "ring_1_total": int(ring1_payload["total"]),
@@ -366,11 +455,12 @@ def analyze(
         "format_version": 1,
         "generated_at_utc": datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
         "source": {
-            "policy_suite_generated_at_utc": payload.get("generated_at_utc"),
+            "source_generated_at_utc": payload.get("generated_at_utc"),
             "inventory_hash": payload.get("inventory_hash"),
             "rule_set_hash": payload.get("rule_set_hash"),
             "policy_results_hash": payload.get("policy_results_hash"),
             "changed_scope_hash": payload.get("changed_scope_hash"),
+            "projection_fiber_semantics_summary": projection_fiber_summary,
         },
         "config": {
             "active_families": list(families),
@@ -385,7 +475,7 @@ def analyze(
             "scoring": "balanced_5_family_logsum",
         },
         "counts": {
-            "policy_suite_counts": {
+            "source_counts": {
                 family: _count_int(source_counts.get(family))
                 for family in families
             },
@@ -399,31 +489,114 @@ def analyze(
 
 
 def _markdown_summary(payload: dict[str, Any]) -> str:
+    source = payload.get("source")
+    source_mapping = source if isinstance(source, dict) else {}
+    semantics = projection_fiber_semantics_summary_from_summary_payload(
+        source_mapping.get("projection_fiber_semantics_summary")
+    )
     lines = [
         "# Hotspot Neighborhood Queue",
         "",
         f"- generated_at_utc: {payload.get('generated_at_utc', '')}",
         f"- neighborhoods: {payload.get('counts', {}).get('neighborhood_count', 0)}",
         f"- large_zone_backlog: {payload.get('counts', {}).get('large_zone_backlog_count', 0)}",
-        "",
-        "| rank | ring_1_scope | seed_path | score | ring_1_total | ring_2_total |",
-        "| ---: | --- | --- | ---: | ---: | ---: |",
     ]
+    if semantics is not None:
+        lines.extend(
+            [
+                f"- projection_fiber_decision: {semantics.decision.get('rule_id', '')}",
+                (
+                    "- projection_fiber_semantic_bundles: "
+                    f"{semantics.compiled_projection_semantic_bundle_count}"
+                ),
+            ]
+        )
+        semantic_previews = [item.as_payload() for item in semantics.semantic_previews]
+        if semantic_previews:
+            lines.extend(
+                [
+                    "",
+                    "## Projection Fiber Semantic Previews",
+                    "",
+                    "| spec | quotient_face | path | qualname | structural_path |",
+                    "| --- | --- | --- | --- | --- |",
+                ]
+            )
+            for item in semantic_previews:
+                if not isinstance(item, dict):
+                    continue
+                lines.append(
+                    "| {spec} | {face} | {path} | {qualname} | {structural_path} |".format(
+                        spec=str(item.get("spec_name", "")),
+                        face=str(item.get("quotient_face", "")),
+                        path=str(item.get("path", "")),
+                        qualname=str(item.get("qualname", "")),
+                        structural_path=str(item.get("structural_path", "")),
+                    )
+                )
+    lines.extend(
+        [
+            "",
+            "| rank | ring_1_scope | seed_path | pf_overlap | score | ring_1_total | ring_2_total |",
+            "| ---: | --- | --- | ---: | ---: | ---: | ---: |",
+        ]
+    )
     neighborhoods = payload.get("neighborhoods")
     if isinstance(neighborhoods, list):
         for item in neighborhoods:
             if not isinstance(item, dict):
                 continue
             lines.append(
-                "| {rank} | {scope} | {seed} | {score:.3f} | {ring1} | {ring2} |".format(
+                "| {rank} | {scope} | {seed} | {overlap} | {score:.3f} | {ring1} | {ring2} |".format(
                     rank=int(item.get("rank", 0) or 0),
                     scope=str(item.get("ring_1_scope", "")),
                     seed=str(item.get("seed_path", "")),
+                    overlap=int(
+                        ((item.get("projection_fiber_overlap") or {}).get("match_count", 0))
+                        or 0
+                    ),
                     score=float((item.get("score") or {}).get("balanced", 0.0) or 0.0),
                     ring1=int((item.get("score") or {}).get("ring_1_total", 0) or 0),
                     ring2=int((item.get("score") or {}).get("ring_2_advisory_total", 0) or 0),
                 )
             )
+        matched_neighborhoods = [
+            item
+            for item in neighborhoods
+            if isinstance(item, dict)
+            and int(((item.get("projection_fiber_overlap") or {}).get("match_count", 0)) or 0)
+            > 0
+        ]
+        if matched_neighborhoods:
+            lines.extend(
+                [
+                    "",
+                    "## Projection Fiber Queue Overlap",
+                    "",
+                    "| rank | location | path | qualname | structural_path |",
+                    "| ---: | --- | --- | --- | --- |",
+                ]
+            )
+            for item in matched_neighborhoods:
+                overlap = item.get("projection_fiber_overlap")
+                if not isinstance(overlap, dict):
+                    continue
+                previews = overlap.get("matched_previews")
+                if not isinstance(previews, list):
+                    continue
+                rank = int(item.get("rank", 0) or 0)
+                for preview in previews:
+                    if not isinstance(preview, dict):
+                        continue
+                    lines.append(
+                        "| {rank} | {location} | {path} | {qualname} | {structural_path} |".format(
+                            rank=rank,
+                            location=str(preview.get("location", "")),
+                            path=str(preview.get("path", "")),
+                            qualname=str(preview.get("qualname", "")),
+                            structural_path=str(preview.get("structural_path", "")),
+                        )
+                    )
     backlog = payload.get("large_zone_backlog")
     if isinstance(backlog, list) and backlog:
         lines.extend(
@@ -451,15 +624,12 @@ def _markdown_summary(payload: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def run(
+def _write_queue_outputs(
     *,
-    policy_suite_path: Path,
+    queue: dict[str, Any],
     out_path: Path,
     markdown_out: Path | None = None,
-    config: QueueConfig | None = None,
 ) -> int:
-    payload = json.loads(policy_suite_path.read_text(encoding="utf-8"))
-    queue = analyze(payload=payload, config=config)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(queue, indent=2) + "\n", encoding="utf-8")
     if markdown_out is not None:
@@ -468,9 +638,51 @@ def run(
     return 0
 
 
+def run(
+    *,
+    source_artifact_path: Path,
+    out_path: Path,
+    markdown_out: Path | None = None,
+    config: QueueConfig | None = None,
+) -> int:
+    payload = json.loads(source_artifact_path.read_text(encoding="utf-8"))
+    queue = analyze(
+        payload=payload,
+        config=config,
+    )
+    return _write_queue_outputs(
+        queue=queue,
+        out_path=out_path,
+        markdown_out=markdown_out,
+    )
+
+
+def run_from_payload(
+    *,
+    payload: dict[str, Any],
+    out_path: Path,
+    markdown_out: Path | None = None,
+    config: QueueConfig | None = None,
+) -> int:
+    queue = analyze(
+        payload=payload,
+        config=config,
+    )
+    return _write_queue_outputs(
+        queue=queue,
+        out_path=out_path,
+        markdown_out=markdown_out,
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Build geometric hotspot neighborhood queue from policy suite payload.")
-    parser.add_argument("--policy-suite", default="artifacts/out/policy_suite_results.json")
+    parser = argparse.ArgumentParser(
+        description="Build geometric hotspot neighborhood queue from a source artifact payload."
+    )
+    parser.add_argument(
+        "--source-artifact",
+        required=True,
+    )
     parser.add_argument("--out", default="artifacts/out/hotspot_neighborhood_queue.json")
     parser.add_argument("--markdown-out", default="artifacts/out/hotspot_neighborhood_queue.md")
     parser.add_argument("--min-seed-families", type=int, default=DEFAULT_MIN_SEED_FAMILIES)
@@ -495,7 +707,7 @@ def main(argv: list[str] | None = None) -> int:
         ring1_backlog_file_threshold=args.ring1_backlog_file_threshold,
     )
     return run(
-        policy_suite_path=Path(args.policy_suite).resolve(),
+        source_artifact_path=Path(args.source_artifact).resolve(),
         out_path=Path(args.out).resolve(),
         markdown_out=Path(args.markdown_out).resolve(),
         config=config,

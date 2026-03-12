@@ -116,6 +116,33 @@ def test_policy_substrate_builds_lifo_taint_intervals() -> None:
 
 # gabion:behavior primary=desired
 
+def test_frontier_witness_exposes_canonical_payload_serializer() -> None:
+    witness = lattice_algebra.frontier_failure_witness(
+        rel_path="src/gabion/sample.py",
+        qualname="sample",
+        line=7,
+        column=5,
+        node_kind="branch:if",
+        reason="serializer_probe",
+    )
+
+    payload = witness.as_payload()
+
+    assert payload["branch_line"] == 7
+    assert payload["branch_column"] == 5
+    assert payload["branch_node_kind"] == "branch:if"
+    assert payload["complete"] is False
+    assert isinstance(payload["required_symbols"], list)
+    assert isinstance(payload["data_exec_join"], dict)
+    assert isinstance(payload["eta_data_to_exec"], dict)
+    assert isinstance(payload["obligations"], list)
+    assert isinstance(payload["erasures"], list)
+    assert isinstance(payload["boundary_crossings"], list)
+    assert payload["violation"] is None
+
+
+# gabion:behavior primary=desired
+
 def test_policy_substrate_condition_overlap_is_subpath_of_interval() -> None:
     events = (
         LensEvent(

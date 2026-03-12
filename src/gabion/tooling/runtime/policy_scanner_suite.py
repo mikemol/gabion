@@ -77,27 +77,6 @@ _POLICY_RULE_IDS = (
 _BOUNDARY_MARKER = "gabion:boundary_normalization_module"
 
 
-def _normalize_policy_results(raw: object) -> dict[str, dict[str, Any]]:
-    match raw:
-        case dict() as payload:
-            return _normalized_external_policy_results(payload)
-        case _:
-            return {}
-
-
-def _normalized_external_policy_results(
-    payload: Mapping[str, object],
-) -> dict[str, dict[str, Any]]:
-    candidates = (
-        _policy_result_candidate(("policy_check", payload.get("policy_check"))),
-        _policy_result_candidate(("structural_hash", payload.get("structural_hash"))),
-        _policy_result_candidate(
-            ("deprecated_nonerasability", payload.get("deprecated_nonerasability"))
-        ),
-    )
-    return _policy_result_candidates_to_mapping(candidates)
-
-
 def _changed_paths_from_git(
     *,
     root: Path,
@@ -291,7 +270,9 @@ def load_or_scan_policy_suite(
                 inventory_hash=inventory_hash,
                 rule_set_hash=rule_set_hash,
                 violations_by_rule=violations,
-                policy_results=_normalize_policy_results(cached_payload.get("policy_results")),
+                policy_results=_normalized_policy_result_mapping(
+                    cached_payload.get("policy_results")
+                ),
                 cached=True,
             )
 

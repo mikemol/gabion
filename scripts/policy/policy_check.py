@@ -353,7 +353,33 @@ def check_policy_dsl() -> None:
         _fail(errors)
 
 
-def check_aspf_lattice_convergence() -> None:
+@dataclass(frozen=True)
+class ProjectionFiberLatticeConvergenceResult:
+    decision_rule_id: str
+    decision_outcome: str
+    decision_severity: str
+    decision_message: str
+    report_payload: dict[str, object]
+    error_messages: tuple[str, ...]
+
+    @property
+    def blocking(self) -> bool:
+        return self.decision_outcome == PolicyOutcomeKind.BLOCK.value
+
+    def as_policy_output(self) -> dict[str, object]:
+        return {
+            "decision": {
+                "rule_id": self.decision_rule_id,
+                "outcome": self.decision_outcome,
+                "severity": self.decision_severity,
+                "message": self.decision_message,
+            },
+            "report": self.report_payload,
+            "error_messages": list(self.error_messages),
+        }
+
+
+def collect_aspf_lattice_convergence_result() -> ProjectionFiberLatticeConvergenceResult:
     events = iter_semantic_lattice_convergence(repo_root=REPO_ROOT)
     report = materialize_semantic_lattice_convergence(
         events=events,
@@ -362,13 +388,14 @@ def check_aspf_lattice_convergence() -> None:
         domain=PolicyDomain.PROJECTION_FIBER,
         data=report.policy_data(),
     )
-    if decision.outcome is PolicyOutcomeKind.BLOCK:
-        _fail(
-            [
-                decision.message,
-                *report.error_messages(),
-            ]
-        )
+    return ProjectionFiberLatticeConvergenceResult(
+        decision_rule_id=decision.rule_id,
+        decision_outcome=decision.outcome.value,
+        decision_severity=decision.severity.value,
+        decision_message=decision.message,
+        report_payload=report.policy_data(),
+        error_messages=report.error_messages(),
+    )
 
 
 def _policy_deadline_scope():
@@ -1732,6 +1759,19 @@ _KNOWN_ADAPTER_SURFACES = {
 _LAST_FAIL_ERRORS: list[str] = []
 
 
+def _write_projection_semantic_fragment_queue_artifacts(
+    *,
+    output_path: Path,
+) -> None:
+    from scripts.policy import projection_semantic_fragment_queue
+
+    projection_semantic_fragment_queue.run(
+        source_artifact_path=output_path,
+        out_path=output_path.parent / "projection_semantic_fragment_queue.json",
+        markdown_out=output_path.parent / "projection_semantic_fragment_queue.md",
+    )
+
+
 
 def _raw_payload_branching_violations(path: Path) -> list[str]:
     check_deadline()
@@ -1854,7 +1894,7 @@ def check_adapter_surface_policy() -> None:
     if errors:
         _fail(errors)
 
-def main():
+def main(argv: list[str] | None = None):
     parser = argparse.ArgumentParser(description="POLICY_SEED guardrails")
     parser.add_argument("--workflows", action="store_true", help="lint workflows")
     parser.add_argument("--posture", action="store_true", help="check GitHub posture")
@@ -1866,7 +1906,7 @@ def main():
     parser.add_argument("--aspf-taint-crosswalk", action="store_true", help="require ASPF/taint crosswalk acknowledgement when relevant files change")
     parser.add_argument("--policy-dsl", action="store_true", help="compile/typecheck policy DSL sources")
     parser.add_argument("--output", type=Path, help="optional policy-result artifact path")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if not args.workflows and not args.posture and not args.ambiguity_contract and not args.normative_map and not args.tier2_residue_contract and not args.adapter_surfaces and not args.semantic_core_payload_branching and not args.aspf_taint_crosswalk and not args.policy_dsl:
         args.workflows = True
@@ -1888,6 +1928,8 @@ def main():
     )
 
     returncode = 0
+    lattice_convergence_result: ProjectionFiberLatticeConvergenceResult | None = None
+    _LAST_FAIL_ERRORS.clear()
     try:
         with _policy_deadline_scope():
             if args.workflows:
@@ -1908,7 +1950,14 @@ def main():
                 check_aspf_taint_crosswalk_ack()
             if args.policy_dsl or args.workflows:
                 check_policy_dsl()
-                check_aspf_lattice_convergence()
+                lattice_convergence_result = collect_aspf_lattice_convergence_result()
+                if lattice_convergence_result.blocking:
+                    _fail(
+                        [
+                            lattice_convergence_result.decision_message,
+                            *lattice_convergence_result.error_messages,
+                        ]
+                    )
     except SystemExit as exc:
         code = exc.code
         returncode = int(code) if isinstance(code, int) else 1
@@ -1916,23 +1965,38 @@ def main():
     if args.output is not None:
         violations: list[dict[str, str]] = []
         if returncode != 0:
-            violations.append(
+            violations = [
                 {
-                    "message": "policy checks failed",
-                    "render": f"policy_check returncode={returncode}",
+                    "message": message,
+                    "render": message,
                 }
-            )
+                for message in _LAST_FAIL_ERRORS
+            ]
+            if not violations:
+                violations.append(
+                    {
+                        "message": "policy checks failed",
+                        "render": f"policy_check returncode={returncode}",
+                    }
+                )
+        result = policy_result_schema.make_policy_result(
+            rule_id="policy_check",
+            status="pass" if returncode == 0 else "fail",
+            violations=violations,
+            baseline_mode="none",
+            source_tool="scripts/policy/policy_check.py",
+            input_scope={"checks": requested_checks},
+        )
+        if lattice_convergence_result is not None:
+            result["projection_fiber_semantics"] = lattice_convergence_result.as_policy_output()
         policy_result_schema.write_policy_result(
             path=args.output,
-            result=policy_result_schema.make_policy_result(
-                rule_id="policy_check",
-                status="pass" if returncode == 0 else "fail",
-                violations=violations,
-                baseline_mode="none",
-                source_tool="scripts/policy/policy_check.py",
-                input_scope={"checks": requested_checks},
-            ),
+            result=result,
         )
+        if lattice_convergence_result is not None:
+            _write_projection_semantic_fragment_queue_artifacts(
+                output_path=args.output,
+            )
 
     return returncode
 
