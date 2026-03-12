@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from gabion.analysis.call_cluster import call_clusters
-from gabion.analysis.projection.projection_spec import ProjectionOp, ProjectionSpec
 
 
 # gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.build_call_clusters_payload
@@ -79,51 +78,6 @@ def test_call_clusters_payload_handles_empty_targets(
         [tests_dir],
         root=tmp_path,
         evidence_path=evidence_path,
-    )
-    assert payload["summary"]["clusters"] == 0
-    assert payload["summary"]["tests"] == 0
-
-
-# gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.build_call_clusters_payload E:decision_surface/direct::call_clusters.py::gabion.analysis.call_clusters.build_call_clusters_payload::stale_22ef4ce04dc7
-# gabion:behavior primary=desired
-def test_call_clusters_payload_projection_skips_unknown_identity(
-    tmp_path: Path,
-    write_test_evidence_payload,
-    test_evidence_path: Path,
-) -> None:
-    src_dir = tmp_path / "src"
-    src_dir.mkdir()
-    (src_dir / "mod.py").write_text("def helper(x):\n    return x\n")
-    tests_dir = tmp_path / "tests"
-    tests_dir.mkdir()
-    (tests_dir / "test_mod.py").write_text(
-        "from mod import helper\n\ndef test_helper():\n    helper(1)\n"
-    )
-
-    evidence_path = test_evidence_path
-    entries = [
-        {
-            "test_id": "tests/test_mod.py::test_helper",
-            "file": "tests/test_mod.py",
-            "line": 1,
-            "evidence": [],
-            "status": "unmapped",
-        }
-    ]
-    write_test_evidence_payload(evidence_path, entries=entries)
-
-    spec = ProjectionSpec(
-        spec_version=1,
-        name="call_cluster_summary_test",
-        domain="call_clusters",
-        pipeline=(ProjectionOp("project", {"fields": ["count"]}),),
-    )
-
-    payload = call_clusters.build_call_clusters_payload(
-        [tests_dir, src_dir],
-        root=tmp_path,
-        evidence_path=evidence_path,
-        summary_spec=spec,
     )
     assert payload["summary"]["clusters"] == 0
     assert payload["summary"]["tests"] == 0
@@ -256,17 +210,11 @@ def test_call_clusters_payload_uses_execution_ops_for_default_summary_spec(
         seen["rows"] = rows
         return rows
 
-    def _fail_apply_spec(spec, rows):
-        raise AssertionError(
-            "default summary spec should use typed execution ops"
-        )
-
     monkeypatch.setattr(
         call_clusters,
         "apply_execution_ops",
         _fake_apply_execution_ops,
     )
-    monkeypatch.setattr(call_clusters, "apply_spec", _fail_apply_spec)
 
     payload = call_clusters.build_call_clusters_payload(
         [tests_dir, src_dir],
@@ -275,77 +223,6 @@ def test_call_clusters_payload_uses_execution_ops_for_default_summary_spec(
     )
 
     assert seen["ops"] == ("typed-summary-op",)
-    rows = seen["rows"]
-    assert isinstance(rows, list)
-    assert len(rows) == 1
-    assert rows[0]["count"] == 1
-    assert payload["summary"]["clusters"] == 1
-
-
-# gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.build_call_clusters_payload
-# gabion:behavior primary=desired
-def test_call_clusters_payload_uses_apply_spec_for_custom_summary_spec(
-    tmp_path: Path,
-    write_test_evidence_payload,
-    test_evidence_path: Path,
-    monkeypatch,
-) -> None:
-    src_dir = tmp_path / "src"
-    src_dir.mkdir()
-    (src_dir / "mod.py").write_text("def helper(x):\n    return x\n")
-    tests_dir = tmp_path / "tests"
-    tests_dir.mkdir()
-    (tests_dir / "test_mod.py").write_text(
-        "from mod import helper\n\ndef test_helper():\n    helper(1)\n"
-    )
-    write_test_evidence_payload(
-        test_evidence_path,
-        entries=[
-            {
-                "test_id": "tests/test_mod.py::test_helper",
-                "file": "tests/test_mod.py",
-                "line": 1,
-                "evidence": [],
-                "status": "unmapped",
-            }
-        ],
-    )
-
-    custom_spec = ProjectionSpec(
-        spec_version=1,
-        name="call_cluster_summary_custom",
-        domain="call_clusters",
-        pipeline=(
-            ProjectionOp("project", {"fields": ["identity", "display", "count"]}),
-        ),
-    )
-    seen: dict[str, object] = {}
-
-    def _fake_apply_spec(spec, rows):
-        seen["spec"] = spec
-        seen["rows"] = rows
-        return rows
-
-    def _fail_apply_execution_ops(ops, rows):
-        raise AssertionError(
-            "custom summary spec should keep using ProjectionSpec ingress"
-        )
-
-    monkeypatch.setattr(call_clusters, "apply_spec", _fake_apply_spec)
-    monkeypatch.setattr(
-        call_clusters,
-        "apply_execution_ops",
-        _fail_apply_execution_ops,
-    )
-
-    payload = call_clusters.build_call_clusters_payload(
-        [tests_dir, src_dir],
-        root=tmp_path,
-        evidence_path=test_evidence_path,
-        summary_spec=custom_spec,
-    )
-
-    assert seen["spec"] is custom_spec
     rows = seen["rows"]
     assert isinstance(rows, list)
     assert len(rows) == 1

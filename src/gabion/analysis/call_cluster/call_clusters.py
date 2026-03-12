@@ -14,18 +14,13 @@ from gabion.analysis.call_cluster.call_cluster_shared import (
     render_string_codeblock,
     sorted_unique_strings,
 )
-from gabion.analysis.dataflow.engine.dataflow_contracts import AuditConfig
 from gabion.analysis.projection.projection_exec import apply_execution_ops
-from gabion.analysis.projection.projection_exec_ingress import (
-    apply_spec,
-    execution_ops_from_spec,
-)
+from gabion.analysis.projection.projection_exec_ingress import execution_ops_from_spec
 from gabion.analysis.projection.projection_registry import (
     CALL_CLUSTER_SUMMARY_SPEC,
     spec_metadata_lines_from_payload,
     spec_metadata_payload,
 )
-from gabion.analysis.projection.projection_spec import ProjectionSpec
 from gabion.analysis.semantics.report_doc import ReportDoc
 from gabion.analysis.foundation.resume_codec import mapping_optional, sequence_optional
 from gabion.analysis.foundation.timeout_context import check_deadline
@@ -52,14 +47,13 @@ class CallClusterEntry:
     tests: tuple[str, ...]
     count: int
 
-
+# gabion:ambiguity_boundary gabion:grade_boundary kind=semantic_carrier_adapter name=call_clusters_payload_emission
 def build_call_clusters_payload(
     paths: Iterable[Path],
     *,
     root: Path,
     evidence_path: Path,
     config: object = None,
-    summary_spec: ProjectionSpec = CALL_CLUSTER_SUMMARY_SPEC,
 ) -> dict[str, JSONValue]:
     # dataflow-bundle: evidence_path, paths, root, config
     check_deadline(allow_frame_fallback=True)
@@ -109,29 +103,24 @@ def build_call_clusters_payload(
             }
         )
 
-    spec = summary_spec
-    if spec is CALL_CLUSTER_SUMMARY_SPEC:
-        projected = apply_execution_ops(
-            _call_cluster_summary_execution_ops(),
-            cluster_rows,
-        )
-    else:
-        projected = apply_spec(spec, cluster_rows)
+    projected = apply_execution_ops(
+        _call_cluster_summary_execution_ops(),
+        cluster_rows,
+    )
     ordered: list[CallClusterEntry] = []
     for row in projected:
         check_deadline()
-        identity = str(row.get("identity", "") or "")
-        cluster = clusters.get(identity)
-        if cluster is not None:
-            ordered.append(
-                CallClusterEntry(
-                    identity=identity,
-                    key=cluster["key"],
-                    display=str(cluster["display"]),
-                    tests=tuple(cluster["tests"]),
-                    count=int(cluster["count"]),
-                )
+        identity = str(row["identity"])
+        cluster = clusters[identity]
+        ordered.append(
+            CallClusterEntry(
+                identity=identity,
+                key=cluster["key"],
+                display=str(cluster["display"]),
+                tests=tuple(cluster["tests"]),
+                count=int(cluster["count"]),
             )
+        )
 
     summary = {
         "clusters": len(ordered),
@@ -150,7 +139,7 @@ def build_call_clusters_payload(
             for entry in ordered
         ],
     }
-    payload.update(spec_metadata_payload(spec))
+    payload.update(spec_metadata_payload(CALL_CLUSTER_SUMMARY_SPEC))
     return payload
 
 
