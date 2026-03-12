@@ -1,5 +1,5 @@
 ---
-doc_revision: 30
+doc_revision: 31
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -548,6 +548,9 @@ Current implementation status:
   canonical `policy_results` mapping normalizer instead of a fixed three-child
   projection helper, removing another suite-specific assumption from cached
   artifact reads
+- the hotspot-neighborhood queue no longer materializes a
+  `projection_fiber_semantics_summary` blob inside its own artifact; it now
+  carries only the direct semantic fields it actually uses
 - the shared projection-fiber summary decoder no longer accepts a top-level
   `policy_check` wrapper payload as a generic ingress shape; canonical summary
   decoding is now restricted to direct `policy_check` payloads,
@@ -617,6 +620,9 @@ Ratchet rules:
   every in-repo caller already passes an explicit artifact owner
 - runtime cache loaders must not preserve fixed suite-specific child-result
   projections once canonical cached payloads already store `policy_results`
+- queue/report artifacts must not materialize queue-owned semantic-summary
+  blobs when direct semantic fields and preview rows already discharge the same
+  reporting obligation
 - shared semantic-summary decoders must not preserve wrapper-only ingress
   branches once the canonical artifact paths are explicit
 - shared decoders must not retain retired suite-local embedding fallbacks once

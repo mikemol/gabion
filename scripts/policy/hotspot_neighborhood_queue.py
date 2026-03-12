@@ -13,7 +13,6 @@ from typing import Any
 from gabion.order_contract import ordered_or_sorted
 from gabion.tooling.runtime.projection_fiber_semantics_summary import (
     projection_fiber_semantics_summary_from_payload,
-    projection_fiber_semantics_summary_from_summary_payload,
 )
 
 ACTIVE_FAMILIES: tuple[str, ...] = (
@@ -227,12 +226,19 @@ def _equal_family_score(
 
 
 def _projection_fiber_semantic_previews(
-    summary: object,
+    *,
+    summary: object | None,
 ) -> list[dict[str, Any]]:
-    resolved_summary = projection_fiber_semantics_summary_from_summary_payload(summary)
-    if resolved_summary is None:
+    if summary is None:
         return []
-    normalized = [item.as_payload() for item in resolved_summary.semantic_previews]
+    semantic_previews = getattr(summary, "semantic_previews", None)
+    if not isinstance(semantic_previews, tuple):
+        return []
+    normalized = [
+        item.as_payload()
+        for item in semantic_previews
+        if hasattr(item, "as_payload")
+    ]
     return _sorted(
         normalized,
         key=lambda item: (
@@ -243,18 +249,6 @@ def _projection_fiber_semantic_previews(
             str(item.get("structural_path", "")),
         ),
     )
-
-
-def _projection_fiber_summary(
-    *,
-    payload: dict[str, Any],
-) -> object | None:
-    summary = projection_fiber_semantics_summary_from_payload(payload)
-    if summary is None:
-        return None
-    return summary.as_payload()
-
-
 def _projection_fiber_overlap(
     *,
     semantic_previews: list[dict[str, Any]],
@@ -305,10 +299,10 @@ def analyze(
     local_config = config if config is not None else QueueConfig()
     families = ACTIVE_FAMILIES
     counts_by_file = _file_family_counts(payload, families)
-    projection_fiber_summary = _projection_fiber_summary(
-        payload=payload,
+    projection_fiber_summary = projection_fiber_semantics_summary_from_payload(payload)
+    semantic_previews = _projection_fiber_semantic_previews(
+        summary=projection_fiber_summary,
     )
-    semantic_previews = _projection_fiber_semantic_previews(projection_fiber_summary)
     family_totals = _family_totals(counts_by_file=counts_by_file, families=families)
     seed_paths = _seed_paths(counts_by_file=counts_by_file, config=local_config)
 
@@ -451,6 +445,16 @@ def analyze(
 
     counts_payload = payload.get("counts")
     source_counts = counts_payload if isinstance(counts_payload, dict) else {}
+    projection_fiber_decision = (
+        dict(projection_fiber_summary.decision.items())
+        if projection_fiber_summary is not None
+        else {}
+    )
+    projection_fiber_semantic_bundle_count = (
+        projection_fiber_summary.compiled_projection_semantic_bundle_count
+        if projection_fiber_summary is not None
+        else 0
+    )
     return {
         "format_version": 1,
         "generated_at_utc": datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
@@ -460,7 +464,10 @@ def analyze(
             "rule_set_hash": payload.get("rule_set_hash"),
             "policy_results_hash": payload.get("policy_results_hash"),
             "changed_scope_hash": payload.get("changed_scope_hash"),
-            "projection_fiber_semantics_summary": projection_fiber_summary,
+            "projection_fiber_decision": projection_fiber_decision,
+            "projection_fiber_semantic_bundle_count": projection_fiber_semantic_bundle_count,
+            "projection_fiber_semantic_preview_count": len(semantic_previews),
+            "projection_fiber_semantic_previews": semantic_previews,
         },
         "config": {
             "active_families": list(families),
@@ -491,9 +498,15 @@ def analyze(
 def _markdown_summary(payload: dict[str, Any]) -> str:
     source = payload.get("source")
     source_mapping = source if isinstance(source, dict) else {}
-    semantics = projection_fiber_semantics_summary_from_summary_payload(
-        source_mapping.get("projection_fiber_semantics_summary")
+    semantics_decision = source_mapping.get("projection_fiber_decision")
+    semantics_decision_mapping = (
+        semantics_decision if isinstance(semantics_decision, dict) else {}
     )
+    semantics_bundle_count = _count_int(
+        source_mapping.get("projection_fiber_semantic_bundle_count")
+    )
+    semantic_previews = source_mapping.get("projection_fiber_semantic_previews")
+    semantic_preview_list = semantic_previews if isinstance(semantic_previews, list) else []
     lines = [
         "# Hotspot Neighborhood Queue",
         "",
@@ -501,18 +514,17 @@ def _markdown_summary(payload: dict[str, Any]) -> str:
         f"- neighborhoods: {payload.get('counts', {}).get('neighborhood_count', 0)}",
         f"- large_zone_backlog: {payload.get('counts', {}).get('large_zone_backlog_count', 0)}",
     ]
-    if semantics is not None:
+    if semantics_decision_mapping or semantics_bundle_count > 0 or semantic_preview_list:
         lines.extend(
             [
-                f"- projection_fiber_decision: {semantics.decision.get('rule_id', '')}",
+                f"- projection_fiber_decision: {semantics_decision_mapping.get('rule_id', '')}",
                 (
                     "- projection_fiber_semantic_bundles: "
-                    f"{semantics.compiled_projection_semantic_bundle_count}"
+                    f"{semantics_bundle_count}"
                 ),
             ]
         )
-        semantic_previews = [item.as_payload() for item in semantics.semantic_previews]
-        if semantic_previews:
+        if semantic_preview_list:
             lines.extend(
                 [
                     "",
@@ -522,7 +534,7 @@ def _markdown_summary(payload: dict[str, Any]) -> str:
                     "| --- | --- | --- | --- | --- |",
                 ]
             )
-            for item in semantic_previews:
+            for item in semantic_preview_list:
                 if not isinstance(item, dict):
                     continue
                 lines.append(

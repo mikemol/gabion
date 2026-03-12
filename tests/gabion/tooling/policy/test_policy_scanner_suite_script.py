@@ -93,7 +93,8 @@ def test_run_skips_semantic_queue_backfill_without_policy_check_owned_artifact(
     hotspot_payload = json.loads(
         (out.parent / "hotspot_neighborhood_queue.json").read_text(encoding="utf-8")
     )
-    assert "projection_fiber_semantics_summary" in hotspot_payload["source"]
+    assert "projection_fiber_decision" in hotspot_payload["source"]
+    assert "projection_fiber_semantic_previews" in hotspot_payload["source"]
 
 
 # gabion:evidence E:function_site::test_policy_scanner_suite_script.py::tests.gabion.tooling.policy.test_policy_scanner_suite_script.test_run_preserves_policy_check_owned_semantic_queue
@@ -291,7 +292,10 @@ def test_run_passes_in_memory_payload_to_hotspot_queue(
                     "format_version": 1,
                     "generated_at_utc": "2026-03-11T00:00:00Z",
                     "source": {
-                        "projection_fiber_semantics_summary": None,
+                        "projection_fiber_decision": {},
+                        "projection_fiber_semantic_bundle_count": 0,
+                        "projection_fiber_semantic_preview_count": 0,
+                        "projection_fiber_semantic_previews": [],
                     },
                     "counts": {"neighborhood_count": 0, "large_zone_backlog_count": 0},
                     "neighborhoods": [],

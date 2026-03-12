@@ -281,14 +281,14 @@ def test_run_reads_projection_fiber_summary_from_policy_results_payload(
 
     assert rc == 0
     payload = json.loads(out.read_text(encoding="utf-8"))
-    summary = payload["source"]["projection_fiber_semantics_summary"]
-    assert summary["decision"]["rule_id"] == "projection_fiber.convergence.ok"
-    assert summary["semantic_previews"][0]["path"] == "src/gabion/example.py"
+    source = payload["source"]
+    assert source["projection_fiber_decision"]["rule_id"] == "projection_fiber.convergence.ok"
+    assert source["projection_fiber_semantic_previews"][0]["path"] == "src/gabion/example.py"
 
 
-# gabion:evidence E:function_site::test_hotspot_neighborhood_queue.py::tests.gabion.tooling.policy.test_hotspot_neighborhood_queue.test_analyze_carries_projection_fiber_semantics_summary
+# gabion:evidence E:function_site::test_hotspot_neighborhood_queue.py::tests.gabion.tooling.policy.test_hotspot_neighborhood_queue.test_analyze_carries_projection_fiber_semantic_fields
 # gabion:behavior primary=desired
-def test_analyze_carries_projection_fiber_semantics_summary() -> None:
+def test_analyze_carries_projection_fiber_semantic_fields() -> None:
     payload = _payload()
     payload["policy_results"] = {
         "policy_check": {
@@ -340,18 +340,20 @@ def test_analyze_carries_projection_fiber_semantics_summary() -> None:
 
     source = queue["source"]
     assert source["source_generated_at_utc"] == "2026-03-09T00:00:00Z"
-    assert source["projection_fiber_semantics_summary"]["decision"]["rule_id"] == (
+    assert source["projection_fiber_decision"]["rule_id"] == (
         "projection_fiber.convergence.ok"
     )
-    assert source["projection_fiber_semantics_summary"]["semantic_previews"][0]["path"] == (
+    assert source["projection_fiber_semantic_bundle_count"] == 1
+    assert source["projection_fiber_semantic_preview_count"] == 1
+    assert source["projection_fiber_semantic_previews"][0]["path"] == (
         "src/gabion/example.py"
     )
     assert queue["counts"]["source_counts"]["branchless"] == 0
 
 
-# gabion:evidence E:function_site::test_hotspot_neighborhood_queue.py::tests.gabion.tooling.policy.test_hotspot_neighborhood_queue.test_markdown_summary_includes_projection_fiber_semantics_summary
+# gabion:evidence E:function_site::test_hotspot_neighborhood_queue.py::tests.gabion.tooling.policy.test_hotspot_neighborhood_queue.test_markdown_summary_includes_projection_fiber_semantic_fields
 # gabion:behavior primary=desired
-def test_markdown_summary_includes_projection_fiber_semantics_summary() -> None:
+def test_markdown_summary_includes_projection_fiber_semantic_fields() -> None:
     payload = _payload()
     payload["policy_results"] = {
         "policy_check": {
