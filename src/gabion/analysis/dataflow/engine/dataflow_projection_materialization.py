@@ -80,7 +80,7 @@ from gabion.analysis.indexed_scan.scanners.materialization.suite_order_relation 
 from gabion.analysis.indexed_scan.scanners.report_sections import (
     spec_row_span as _spec_row_span_impl,
 )
-from gabion.analysis.projection.projection_exec import apply_spec
+from gabion.analysis.projection.projection_exec_ingress import apply_spec
 from gabion.analysis.projection.projection_registry import (
     AMBIGUITY_SUMMARY_SPEC,
     AMBIGUITY_SUITE_AGG_SPEC,

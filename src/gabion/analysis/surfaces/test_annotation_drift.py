@@ -7,7 +7,7 @@ from typing import Iterable, Mapping
 from gabion.analysis.semantics import evidence_keys
 from gabion.analysis.surfaces import test_evidence, test_obsolescence
 from gabion.analysis.foundation.baseline_io import write_json
-from gabion.analysis.projection.projection_exec import apply_spec
+from gabion.analysis.projection.projection_exec_ingress import apply_spec
 from gabion.analysis.projection.projection_registry import (
     TEST_ANNOTATION_DRIFT_SPEC,
     spec_metadata_lines_from_payload,

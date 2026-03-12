@@ -1,5 +1,5 @@
 ---
-doc_revision: 80
+doc_revision: 81
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -725,13 +725,12 @@ Current implementation status:
   hotspot-queue helper contracts are pinned in hotspot-queue tests rather than
   indirectly through policy-scanner-suite wrapper tests
 - `projection_exec.py` still executes the legacy row pipeline as a
-  compatibility runtime, but semantic-only ops and semantic metadata are now
-  erased at execution ingress rather than being tolerated by dispatch
-  fallthrough; that normalization/erasure step now lives in a dedicated
+  compatibility runtime, but it now executes typed execution steps only:
+  `ProjectionSpec` application, semantic-only op erasure, and semantic-metadata
+  stripping now live entirely in the dedicated
   `projection_exec_ingress.py` adapter boundary, keeping the executor itself
   closer to a pure row runtime while compatibility work stays boundary-scoped
-  during semantic-fragment convergence, and the ingress adapter now hands the
-  executor typed execution-step params rather than dynamic param dicts
+  during semantic-fragment convergence
 
 Implementation rule:
 - policy DSL must consume canonical carrier rows rather than infer semantics
@@ -813,7 +812,7 @@ even if final symbol names vary:
 The following current surfaces are temporary adapters:
 
 - current `ProjectionSpec` JSON pipeline
-- current `projection_exec.py` runtime execution path
+- current `projection_exec_ingress.py` `ProjectionSpec` application boundary
 - current projection-fiber DSL rules when they operate as judgment-only without
   a canonical semantic carrier underneath
 

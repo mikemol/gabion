@@ -17,7 +17,7 @@ from gabion.analysis.dataflow.io.dataflow_parse_helpers import _ParseModuleStage
 from gabion.analysis.dataflow.io.dataflow_snapshot_io import (
     report_section_marker as _report_section_marker)
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue
-from gabion.analysis.projection.projection_exec import apply_spec
+from gabion.analysis.projection.projection_exec_ingress import apply_spec
 from gabion.analysis.projection.projection_normalize import spec_hash as projection_spec_hash
 from gabion.analysis.projection.projection_registry import REPORT_SECTION_LINES_SPEC
 from gabion.analysis.foundation.timeout_context import check_deadline

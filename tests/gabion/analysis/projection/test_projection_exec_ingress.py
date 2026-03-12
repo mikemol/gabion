@@ -8,7 +8,10 @@ from gabion.analysis.projection.projection_exec_protocol import (
     SortKey,
     SortExecutionOp,
 )
-from gabion.analysis.projection.projection_exec_ingress import execution_ops_from_spec
+from gabion.analysis.projection.projection_exec_ingress import (
+    apply_spec,
+    execution_ops_from_spec,
+)
 from gabion.analysis.projection.projection_spec import ProjectionOp, ProjectionSpec
 
 
@@ -88,3 +91,75 @@ def test_execution_ops_from_spec_erases_semantic_metadata_and_semantic_only_ops(
         op_name="project",
         fields=("id",),
     )
+
+
+def test_apply_spec_handles_invalid_and_semantic_only_ops_at_exec_ingress() -> None:
+    rows = [
+        {"group": ["a"], "value": 1},
+        {"group": ["a"], "value": 2},
+    ]
+
+    def keep(_row, params):
+        return int(params.get("threshold", 0)) <= 2
+
+    spec = ProjectionSpec(
+        spec_version=1,
+        name="demo",
+        domain="tests",
+        params={"threshold": 2},
+        pipeline=(
+            ProjectionOp("select", {"predicates": "keep"}),
+            ProjectionOp("select", {"predicates": {"bad": True}}),
+            ProjectionOp("select", {"predicates": [1, "missing", "keep"]}),
+            ProjectionOp("project", {"fields": 1}),
+            ProjectionOp("project", {"fields": "group"}),
+            ProjectionOp("count_by", {"fields": ["group", 5]}),
+            ProjectionOp("sort", {"by": {"field": "count", "order": 1}}),
+            ProjectionOp("sort", {"by": "bad"}),
+            ProjectionOp("limit", {"count": "bad"}),
+            ProjectionOp("reflect", {"surface": "projection_fiber"}),
+            ProjectionOp("custom", {"bad": True}),
+        ),
+    )
+
+    result = apply_spec(
+        spec,
+        rows,
+        op_registry={"keep": keep},
+    )
+    assert result == [{"group": ["a"], "count": 2}]
+
+
+def test_apply_spec_traverse_skips_when_field_invalid() -> None:
+    rows = [{"items": [1, 2, 3]}]
+    spec = ProjectionSpec(
+        spec_version=1,
+        name="traverse",
+        domain="tests",
+        pipeline=(ProjectionOp("traverse", {"field": 123}),),
+    )
+    assert apply_spec(spec, rows) == rows
+
+
+def test_apply_spec_erases_semantic_projection_compatibility_at_exec_ingress() -> None:
+    spec = ProjectionSpec(
+        spec_version=1,
+        name="semantic-compat",
+        domain="tests",
+        pipeline=(
+            ProjectionOp(
+                "project",
+                {
+                    "fields": ["id"],
+                    "quotient_face": "projection_fiber.frontier",
+                },
+            ),
+            ProjectionOp(
+                "reflect",
+                {"surface": "projection_fiber"},
+            ),
+        ),
+    )
+
+    rows = [{"id": 1, "status": "ok"}]
+    assert apply_spec(spec, rows) == [{"id": 1}]

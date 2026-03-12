@@ -4,21 +4,17 @@ from __future__ import annotations
 from functools import singledispatch
 import json
 from collections.abc import Callable, Iterable, Mapping
-from typing import cast
+from typing import Final, cast
 
-from gabion.analysis.projection.projection_exec_ingress import (
-    ExecutionProjectionOp,
-    execution_ops_from_spec,
-)
 from gabion.analysis.projection.projection_exec_protocol import (
     CountByExecutionOp,
+    ExecutionProjectionOp,
     LimitExecutionOp,
     ProjectExecutionOp,
     SelectExecutionOp,
     SortExecutionOp,
     TraverseExecutionOp,
 )
-from gabion.analysis.projection.projection_spec import ProjectionSpec
 from gabion.json_types import JSONValue
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.order_contract import OrderPolicy, sort_once
@@ -28,27 +24,30 @@ from gabion.runtime_shape_dispatch import (
 )
 
 Relation = list[dict[str, JSONValue]]
+PredicateRegistry = Mapping[
+    str,
+    Callable[[Mapping[str, JSONValue], Mapping[str, JSONValue]], bool],
+]
+_EMPTY_PREDICATE_REGISTRY: Final[PredicateRegistry] = {}
+_EMPTY_RUNTIME_PARAMS: Final[Mapping[str, JSONValue]] = {}
 
 
-def apply_spec(
-    spec: ProjectionSpec,
+def apply_execution_ops(
+    execution_ops: Iterable[ExecutionProjectionOp],
     rows: Iterable[Mapping[str, JSONValue]],
     *,
-    op_registry = None,
-    params_override = None,
+    op_registry: PredicateRegistry = _EMPTY_PREDICATE_REGISTRY,
+    runtime_params: Mapping[str, JSONValue] = _EMPTY_RUNTIME_PARAMS,
 ) -> Relation:
     check_deadline()
-    op_registry = op_registry or {}
-    params = _copy_json_mapping(spec.params)
-    if params_override:
-        params.update(params_override)
+    params = _copy_json_mapping(runtime_params)
 
     current: Relation = [
         dict(cast(Mapping[str, JSONValue], row))
         for row in rows
     ]
 
-    for execution_op in execution_ops_from_spec(spec):
+    for execution_op in execution_ops:
         check_deadline()
         current = _apply_normalized_execution_op(
             current,
@@ -64,7 +63,7 @@ def _apply_normalized_execution_op(
     rows: Relation,
     *,
     execution_op: ExecutionProjectionOp,
-    op_registry: Mapping[str, Callable[[Mapping[str, JSONValue], Mapping[str, JSONValue]], bool]],
+    op_registry: PredicateRegistry,
     runtime_params: Mapping[str, JSONValue],
 ) -> Relation:
     return _apply_execution_op(
@@ -80,7 +79,7 @@ def _apply_execution_op(
     execution_op: ExecutionProjectionOp,
     rows: Relation,
     *,
-    op_registry: Mapping[str, Callable[[Mapping[str, JSONValue], Mapping[str, JSONValue]], bool]],
+    op_registry: PredicateRegistry,
     runtime_params: Mapping[str, JSONValue],
 ) -> Relation:
     _ = execution_op, op_registry, runtime_params
@@ -92,7 +91,7 @@ def _apply_select_execution_op(
     execution_op: SelectExecutionOp,
     rows: Relation,
     *,
-    op_registry: Mapping[str, Callable[[Mapping[str, JSONValue], Mapping[str, JSONValue]], bool]],
+    op_registry: PredicateRegistry,
     runtime_params: Mapping[str, JSONValue],
 ) -> Relation:
     return _apply_select(
@@ -108,7 +107,7 @@ def _apply_project_execution_op(
     execution_op: ProjectExecutionOp,
     rows: Relation,
     *,
-    op_registry: Mapping[str, Callable[[Mapping[str, JSONValue], Mapping[str, JSONValue]], bool]],
+    op_registry: PredicateRegistry,
     runtime_params: Mapping[str, JSONValue],
 ) -> Relation:
     _ = op_registry, runtime_params
@@ -122,7 +121,7 @@ def _apply_count_by_execution_op(
     execution_op: CountByExecutionOp,
     rows: Relation,
     *,
-    op_registry: Mapping[str, Callable[[Mapping[str, JSONValue], Mapping[str, JSONValue]], bool]],
+    op_registry: PredicateRegistry,
     runtime_params: Mapping[str, JSONValue],
 ) -> Relation:
     _ = op_registry, runtime_params
@@ -136,7 +135,7 @@ def _apply_traverse_execution_op(
     execution_op: TraverseExecutionOp,
     rows: Relation,
     *,
-    op_registry: Mapping[str, Callable[[Mapping[str, JSONValue], Mapping[str, JSONValue]], bool]],
+    op_registry: PredicateRegistry,
     runtime_params: Mapping[str, JSONValue],
 ) -> Relation:
     _ = op_registry, runtime_params
@@ -150,7 +149,7 @@ def _apply_sort_execution_op(
     execution_op: SortExecutionOp,
     rows: Relation,
     *,
-    op_registry: Mapping[str, Callable[[Mapping[str, JSONValue], Mapping[str, JSONValue]], bool]],
+    op_registry: PredicateRegistry,
     runtime_params: Mapping[str, JSONValue],
 ) -> Relation:
     _ = op_registry, runtime_params
@@ -159,7 +158,7 @@ def _apply_sort_execution_op(
         check_deadline()
         current = sort_once(
             current,
-            source=f"apply_spec.sort[{key.field}]",
+            source=f"apply_execution_ops.sort[{key.field}]",
             policy=OrderPolicy.SORT,
             key=lambda row, name=key.field: _sort_value(row.get(name)),
             reverse=key.order == "desc",
@@ -172,7 +171,7 @@ def _apply_limit_execution_op(
     execution_op: LimitExecutionOp,
     rows: Relation,
     *,
-    op_registry: Mapping[str, Callable[[Mapping[str, JSONValue], Mapping[str, JSONValue]], bool]],
+    op_registry: PredicateRegistry,
     runtime_params: Mapping[str, JSONValue],
 ) -> Relation:
     _ = op_registry, runtime_params
@@ -206,7 +205,7 @@ def _apply_select(
     rows: Relation,
     select_params: SelectExecutionOp,
     *,
-    op_registry: Mapping[str, Callable[[Mapping[str, JSONValue], Mapping[str, JSONValue]], bool]],
+    op_registry: PredicateRegistry,
     runtime_params: Mapping[str, JSONValue],
 ) -> Relation:
     selected = rows
@@ -243,7 +242,7 @@ def _apply_count_by(rows: Relation, params: CountByExecutionOp) -> Relation:
         record["count"] = int(record.get("count", 0)) + 1
     ordered_group_keys = sort_once(
         counts,
-        source="apply_spec.count_by.group_keys",
+        source="apply_execution_ops.count_by.group_keys",
         policy=OrderPolicy.SORT,
         key=lambda key: tuple(_sort_value(cast(JSONValue, part)) for part in key),
     )

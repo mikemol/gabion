@@ -26,7 +26,7 @@ from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
 )
 from gabion.analysis.dataflow.engine.dataflow_bundle_merge import _merge_counts_by_knobs as _merge_counts_by_knobs_impl
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue, ParseFailureWitnesses
-from gabion.analysis.projection.projection_exec import apply_spec
+from gabion.analysis.projection.projection_exec_ingress import apply_spec
 from gabion.analysis.projection.projection_registry import LINT_FINDINGS_SPEC
 from gabion.analysis.projection.projection_spec import ProjectionSpec
 from gabion.analysis.foundation.resume_codec import (

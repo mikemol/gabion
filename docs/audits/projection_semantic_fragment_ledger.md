@@ -1,5 +1,5 @@
 ---
-doc_revision: 72
+doc_revision: 73
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_ledger
 doc_role: audit
@@ -118,11 +118,10 @@ As of the current correction unit, the stable landed slice is:
 Still adapter-only:
 
 - `projection_exec.py` remains the compatibility runtime for legacy row-shaped
-  `ProjectionSpec` execution, while semantic-op erasure/presentation
+  execution, but it now consumes typed execution-step params only;
+  `ProjectionSpec` application plus semantic-op erasure/presentation
   normalization now live in the dedicated `projection_exec_ingress.py`
-  `semantic_carrier_adapter` boundary instead of inside the executor itself,
-  and the executor now consumes typed execution-step params instead of
-  late-parsed dynamic param dicts
+  `semantic_carrier_adapter` boundary instead of inside the executor itself
 - only declared quotient-face slices are promoted through typed lowering
 - `semantic_carrier_adapter` boundaries remain temporary until RFC cutover
   criteria are satisfied
@@ -200,6 +199,7 @@ Still adapter-only:
 | `2026-03-11` | Projection history artifacts now classify registered specs by semantic/presentation/bridge lowering so the `ProjectionSpec` split is visible in ledger form. | `scripts/policy/build_projection_spec_history.py`; `artifacts/out/projection_spec_history_ledger.json`; `docs/audits/projection_spec_history_ledger.md`; `tests/gabion/tooling/policy/test_build_projection_spec_history.py` |
 | `2026-03-12` | The projection-fiber `reflect` op now compiles through the typed semantic-lowering path via a registered `projection_fiber_reflection` spec, and the lattice-convergence substrate no longer owns a direct reflect-plan compile branch outside the compiled semantic bundles. | `src/gabion/analysis/projection/projection_semantic_lowering.py`; `src/gabion/analysis/projection/projection_semantic_lowering_compile.py`; `src/gabion/analysis/projection/projection_registry.py`; `src/gabion/tooling/policy_substrate/lattice_convergence_semantic.py`; `tests/gabion/analysis/projection/test_projection_semantic_lowering.py`; `tests/gabion/analysis/projection/test_projection_semantic_lowering_compile.py`; `tests/gabion/tooling/runtime_policy/test_lattice_convergence_semantic.py`; `docs/projection_semantic_fragment_rfc.md#projection_semantic_fragment_rfc` |
 | `2026-03-12` | Legacy projection execution now erases semantic-only ops and semantic metadata at ingress through a dedicated `projection_exec_ingress.py` adapter, and that adapter now emits typed execution-step params so `projection_exec.py` no longer depends on either silent fallthrough or late dynamic param parsing to preserve compatibility for semantic-enriched authoring specs. | `src/gabion/analysis/projection/projection_exec.py`; `src/gabion/analysis/projection/projection_exec_ingress.py`; `src/gabion/analysis/projection/projection_exec_protocol.py`; `tests/gabion/analysis/projection/test_projection_exec_edges.py`; `tests/gabion/analysis/projection/test_projection_exec_ingress.py`; `docs/projection_semantic_fragment_rfc.md#projection_semantic_fragment_rfc` |
+| `2026-03-12` | `projection_exec.py` now exposes typed execution-step execution only, while `ProjectionSpec` application moved fully into `projection_exec_ingress.py`; call sites that still depend on the legacy authoring surface now target that explicit ingress adapter rather than the executor itself. | `src/gabion/analysis/projection/projection_exec.py`; `src/gabion/analysis/projection/projection_exec_ingress.py`; `src/gabion_governance/governance_audit_impl.py`; `src/gabion/analysis/dataflow/io/dataflow_reporting_helpers.py`; `tests/gabion/analysis/projection/test_projection_exec_edges.py`; `tests/gabion/analysis/projection/test_projection_exec_ingress.py`; `tests/gabion/analysis/projection/test_projection_spec.py`; `docs/projection_semantic_fragment_rfc.md#projection_semantic_fragment_rfc` |
 
 ## Queue Rows
 

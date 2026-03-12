@@ -3,7 +3,15 @@ from __future__ import annotations
 from gabion.analysis.projection.projection_exec import (
     _hashable,
     _sort_value,
-    apply_spec,
+    apply_execution_ops,
+)
+from gabion.analysis.projection.projection_exec_protocol import (
+    CountByExecutionOp,
+    ProjectExecutionOp,
+    SelectExecutionOp,
+    SortExecutionOp,
+    SortKey,
+    TraverseExecutionOp,
 )
 from gabion.analysis.projection.projection_normalize import (
     _extract_predicates,
@@ -18,7 +26,7 @@ from gabion.analysis.projection.projection_spec import ProjectionOp, ProjectionS
 
 
 # gabion:evidence E:function_site::projection_spec.py::gabion.analysis.projection_spec.spec_from_dict
-# gabion:behavior primary=verboten facets=edge,invalid
+# gabion:behavior primary=desired
 def test_spec_from_dict_handles_invalid_entries() -> None:
     payload = {
         "spec_version": "bad",
@@ -57,7 +65,7 @@ def test_normalize_pipeline_skips_empty_and_unknown_ops() -> None:
 
 
 # gabion:evidence E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize._normalize_fields::value E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize._normalize_limit::value E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize._normalize_sort_by::value E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize._normalize_value::value E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize._normalize_fields::stale_2cb8e760719e_6a522c1d
-# gabion:behavior primary=verboten facets=edge
+# gabion:behavior primary=allowed_unwanted facets=edge,noop
 def test_normalize_helpers_cover_branches() -> None:
     preds = _extract_predicates({"predicate": "one", "predicates": ["two", " "]})
     assert preds == ["one", "two", ""]
@@ -92,7 +100,7 @@ def test_normalize_helpers_cover_branches() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_projection_exec_edges.py::test_normalize_pipeline_stable_under_shuffled_upstream_order::projection_normalize.py::gabion.analysis.projection_normalize._normalize_pipeline
-# gabion:behavior primary=verboten facets=edge
+# gabion:behavior primary=desired facets=edge
 def test_normalize_pipeline_stable_under_shuffled_upstream_order() -> None:
     pipeline_a = (
         ProjectionOp("select", {"predicates": ["beta", "alpha", "beta"]}),
@@ -106,47 +114,50 @@ def test_normalize_pipeline_stable_under_shuffled_upstream_order() -> None:
     assert _normalize_pipeline(pipeline_a) == _normalize_pipeline(pipeline_b)
 
 
-# gabion:evidence E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec.apply_spec::params_override E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::value E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::stale_1581b2052cbd
-# gabion:behavior primary=verboten facets=edge,invalid
-def test_apply_spec_handles_invalid_and_semantic_only_ops_at_exec_ingress() -> None:
+# gabion:evidence E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec.apply_execution_ops::runtime_params E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::value
+# gabion:behavior primary=desired
+def test_apply_execution_ops_applies_typed_pipeline() -> None:
     rows = [
         {"group": ["a"], "value": 1},
         {"group": ["a"], "value": 2},
+        {"group": ["b"], "value": 3},
     ]
 
-    def keep(_row, params):
-        return int(params.get("threshold", 0)) <= 2
+    def keep(row, params):
+        return int(row.get("value", 0)) <= int(params.get("threshold", 0))
 
-    spec = ProjectionSpec(
-        spec_version=1,
-        name="demo",
-        domain="tests",
-        params={"threshold": 2},
-        pipeline=(
-            ProjectionOp("select", {"predicates": "keep"}),
-            ProjectionOp("select", {"predicates": {"bad": True}}),
-            ProjectionOp("select", {"predicates": [1, "missing", "keep"]}),
-            ProjectionOp("project", {"fields": 1}),
-            ProjectionOp("project", {"fields": "group"}),
-            ProjectionOp("count_by", {"fields": ["group", 5]}),
-            ProjectionOp("sort", {"by": {"field": "count", "order": 1}}),
-            ProjectionOp("sort", {"by": "bad"}),
-            ProjectionOp("limit", {"count": "bad"}),
-            ProjectionOp("reflect", {"surface": "projection_fiber"}),
-            ProjectionOp("custom", {"bad": True}),
+    result = apply_execution_ops(
+        (
+            SelectExecutionOp(
+                source_index=0,
+                op_name="select",
+                predicates=("keep",),
+            ),
+            ProjectExecutionOp(
+                source_index=1,
+                op_name="project",
+                fields=("group",),
+            ),
+            CountByExecutionOp(
+                source_index=2,
+                op_name="count_by",
+                fields=("group",),
+            ),
+            SortExecutionOp(
+                source_index=3,
+                op_name="sort",
+                keys=(SortKey(field="count", order="desc"),),
+            ),
         ),
-    )
-
-    result = apply_spec(
-        spec,
         rows,
         op_registry={"keep": keep},
+        runtime_params={"threshold": 2},
     )
     assert result == [{"group": ["a"], "count": 2}]
 
 
 # gabion:evidence E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::value E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::stale_f5d27306e19e
-# gabion:behavior primary=verboten facets=edge
+# gabion:behavior primary=desired facets=edge
 def test_sort_value_and_hashable_helpers() -> None:
     assert _sort_value(None) == (1, "")
     assert _sort_value(3) == (0, 3)
@@ -155,152 +166,103 @@ def test_sort_value_and_hashable_helpers() -> None:
     assert _hashable(2) == 2
 
 
-# gabion:evidence E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec.apply_spec::params_override E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::value E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::stale_bab431281bf2
-# gabion:behavior primary=verboten facets=edge
-def test_apply_spec_count_by_and_sort_edges() -> None:
+# gabion:evidence E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec.apply_execution_ops::runtime_params E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::value
+# gabion:behavior primary=desired facets=edge
+def test_apply_execution_ops_skips_empty_typed_ops() -> None:
     rows = [{"group": "a"}, {"group": "b"}]
-    spec = ProjectionSpec(
-        spec_version=1,
-        name="demo",
-        domain="tests",
-        pipeline=(
-            ProjectionOp("count_by", {"fields": "group"}),
-            ProjectionOp("count_by", {"fields": []}),
-            ProjectionOp("sort", {"by": ["bad", {"field": 1}]}),
+    result = apply_execution_ops(
+        (
+            CountByExecutionOp(
+                source_index=0,
+                op_name="count_by",
+                fields=(),
+            ),
+            SortExecutionOp(
+                source_index=1,
+                op_name="sort",
+                keys=(),
+            ),
         ),
+        rows,
     )
-    result = apply_spec(spec, rows)
-    assert {row["count"] for row in result} == {1}
+    assert result == rows
 
 
-# gabion:evidence E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec.apply_spec::params_override E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec.apply_spec::stale_e87e1ec18193
-# gabion:behavior primary=verboten facets=edge
-def test_apply_spec_traverse_flattens_sequences() -> None:
+# gabion:evidence E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec.apply_execution_ops::runtime_params
+# gabion:behavior primary=desired facets=edge
+def test_apply_execution_ops_traverse_flattens_sequences() -> None:
     rows = [
         {
             "suite": "s1",
             "candidates": [{"qual": "a"}, {"qual": "b"}],
         }
     ]
-    spec = ProjectionSpec(
-        spec_version=1,
-        name="traverse",
-        domain="tests",
-        pipeline=(
-            ProjectionOp(
-                "traverse",
-                {
-                    "field": "candidates",
-                    "merge": True,
-                    "prefix": "candidate_",
-                    "index": "candidate_index",
-                },
+    result = apply_execution_ops(
+        (
+            TraverseExecutionOp(
+                source_index=0,
+                op_name="traverse",
+                field="candidates",
+                merge=True,
+                prefix="candidate_",
+                index_field="candidate_index",
             ),
         ),
+        rows,
     )
-    result = apply_spec(spec, rows)
     assert result == [
         {"suite": "s1", "candidate_index": 0, "candidate_qual": "a"},
         {"suite": "s1", "candidate_index": 1, "candidate_qual": "b"},
     ]
 
 
-# gabion:evidence E:call_footprint::tests/test_projection_exec_edges.py::test_apply_spec_traverse_as_field_and_keep::projection_exec.py::gabion.analysis.projection_exec.apply_spec
-# gabion:behavior primary=verboten facets=edge
-def test_apply_spec_traverse_as_field_and_keep() -> None:
+# gabion:evidence E:call_footprint::tests/test_projection_exec_edges.py::test_apply_execution_ops_traverse_as_field_and_keep::projection_exec.py::gabion.analysis.projection_exec.apply_execution_ops
+# gabion:behavior primary=desired facets=edge
+def test_apply_execution_ops_traverse_as_field_and_keep() -> None:
     rows = [
         {
             "suite": "s2",
             "candidates": ["x", "y"],
         }
     ]
-    spec = ProjectionSpec(
-        spec_version=1,
-        name="traverse",
-        domain="tests",
-        pipeline=(
-            ProjectionOp(
-                "traverse",
-                {
-                    "field": "candidates",
-                    "merge": False,
-                    "as": "candidate",
-                    "keep": True,
-                },
+    result = apply_execution_ops(
+        (
+            TraverseExecutionOp(
+                source_index=0,
+                op_name="traverse",
+                field="candidates",
+                merge=False,
+                keep=True,
+                as_field="candidate",
             ),
         ),
+        rows,
     )
-    result = apply_spec(spec, rows)
     assert result == [
         {"suite": "s2", "candidates": ["x", "y"], "candidate": "x"},
         {"suite": "s2", "candidates": ["x", "y"], "candidate": "y"},
     ]
 
 
-# gabion:evidence E:call_footprint::tests/test_projection_exec_edges.py::test_apply_spec_traverse_handles_invalid_params::projection_exec.py::gabion.analysis.projection_exec.apply_spec
-# gabion:behavior primary=verboten facets=edge,invalid
-def test_apply_spec_traverse_handles_invalid_params() -> None:
+# gabion:evidence E:call_footprint::tests/test_projection_exec_edges.py::test_apply_execution_ops_traverse_stringifies_merged_non_string_keys::projection_exec.py::gabion.analysis.projection_exec.apply_execution_ops
+# gabion:behavior primary=desired facets=edge
+def test_apply_execution_ops_traverse_stringifies_merged_non_string_keys() -> None:
     rows = [
         {"items": [{"a": 1}, {1: "b"}], "other": 3},
         {"items": "not-list"},
     ]
-    spec = ProjectionSpec(
-        spec_version=1,
-        name="traverse",
-        domain="tests",
-        pipeline=(
-            ProjectionOp(
-                "traverse",
-                {
-                    "field": "items",
-                    "merge": "yes",
-                    "keep": "no",
-                    "prefix": 123,
-                    "as": 456,
-                    "index": 789,
-                },
+    result = apply_execution_ops(
+        (
+            TraverseExecutionOp(
+                source_index=0,
+                op_name="traverse",
+                field="items",
+                merge=True,
             ),
         ),
+        rows,
     )
-    result = apply_spec(spec, rows)
     assert result == [
         {"other": 3, "a": 1},
         {"other": 3, "1": "b"},
     ]
-
-
-# gabion:evidence E:call_footprint::tests/test_projection_exec_edges.py::test_apply_spec_traverse_skips_when_field_invalid::projection_exec.py::gabion.analysis.projection_exec.apply_spec
-# gabion:behavior primary=verboten facets=edge,invalid
-def test_apply_spec_traverse_skips_when_field_invalid() -> None:
-    rows = [{"items": [1, 2, 3]}]
-    spec = ProjectionSpec(
-        spec_version=1,
-        name="traverse",
-        domain="tests",
-        pipeline=(ProjectionOp("traverse", {"field": 123}),),
-    )
-    assert apply_spec(spec, rows) == rows
-
-
-def test_apply_spec_erases_semantic_projection_compatibility_at_exec_ingress() -> None:
-    spec = ProjectionSpec(
-        spec_version=1,
-        name="semantic-compat",
-        domain="tests",
-        pipeline=(
-            ProjectionOp(
-                "project",
-                {
-                    "fields": ["id"],
-                    "quotient_face": "projection_fiber.frontier",
-                },
-            ),
-            ProjectionOp(
-                "reflect",
-                {"surface": "projection_fiber"},
-            ),
-        ),
-    )
-
-    rows = [{"id": 1, "status": "ok"}]
-    assert apply_spec(spec, rows) == [{"id": 1}]

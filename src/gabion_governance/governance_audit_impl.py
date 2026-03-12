@@ -21,7 +21,7 @@ except ImportError:  # pragma: no cover - pyyaml is expected in managed environm
 from gabion.tooling.runtime.deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
 from gabion.analysis.aspf.aspf import Forest
 from gabion.analysis.foundation.timeout_context import check_deadline
-from gabion.analysis.projection.projection_exec import apply_spec
+from gabion.analysis.projection.projection_exec_ingress import apply_spec
 from gabion.analysis.projection.projection_normalize import normalize_spec, spec_canonical_json, spec_hash
 from gabion.analysis.projection.projection_spec import ProjectionOp, ProjectionSpec, spec_from_dict
 from gabion.analysis.semantics import evidence_keys

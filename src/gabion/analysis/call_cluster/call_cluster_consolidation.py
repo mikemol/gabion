@@ -11,7 +11,7 @@ from gabion.analysis.call_cluster.call_cluster_shared import (
     render_cluster_heading,
     sorted_unique_strings,
 )
-from gabion.analysis.projection.projection_exec import apply_spec
+from gabion.analysis.projection.projection_exec_ingress import apply_spec
 from gabion.analysis.projection.projection_registry import (
     CALL_CLUSTER_CONSOLIDATION_SPEC,
     spec_metadata_lines_from_payload,
