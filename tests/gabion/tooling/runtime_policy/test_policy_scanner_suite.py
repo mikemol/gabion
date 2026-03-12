@@ -99,6 +99,8 @@ def test_policy_scanner_suite_scan_and_cache(tmp_path: Path) -> None:
     assert second.cached is True
     cached_payload = json.loads(artifact_path.read_text(encoding="utf-8"))
     assert "counts" not in cached_payload
+    assert "decision" not in cached_payload
+    assert "generated_at_utc" not in cached_payload
     assert "policy_results" not in cached_payload
     assert isinstance(cached_payload.get("inventory_hash"), str)
     assert isinstance(cached_payload.get("rule_set_hash"), str)
@@ -949,6 +951,8 @@ def test_policy_scanner_suite_carries_external_policy_results(tmp_path: Path) ->
     assert "policy_results" not in persisted_payload
     assert "cached" not in persisted_payload
     assert "root" not in persisted_payload
+    assert "decision" not in persisted_payload
+    assert "generated_at_utc" not in persisted_payload
     assert "projection_fiber_semantics" not in persisted_payload
 
     cached_again = policy_scanner_suite.load_or_scan_policy_suite(

@@ -661,13 +661,14 @@ def _cache_payload(
     child_inputs_hash: str,
     changed_scope_hash: str,
 ) -> dict[str, object]:
-    payload = result.to_payload()
-    payload.pop("projection_fiber_semantics", None)
-    payload["inventory_hash"] = inventory_hash
-    payload["rule_set_hash"] = rule_set_hash
-    payload["child_inputs_hash"] = child_inputs_hash
-    payload["changed_scope_hash"] = changed_scope_hash
-    return payload
+    return {
+        "format_version": _FORMAT_VERSION,
+        "violations": result.violations_by_rule,
+        "inventory_hash": inventory_hash,
+        "rule_set_hash": rule_set_hash,
+        "child_inputs_hash": child_inputs_hash,
+        "changed_scope_hash": changed_scope_hash,
+    }
 
 
 def _empty_violations_payload() -> dict[str, list[dict[str, Any]]]:
