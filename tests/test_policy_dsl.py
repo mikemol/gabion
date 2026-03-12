@@ -7,7 +7,6 @@ from gabion.policy_dsl import PolicyDomain, evaluate_policy
 from gabion.policy_dsl.registry import build_registry
 from gabion.tooling.delta import delta_gate
 from gabion.tooling.governance import ambiguity_contract_policy_check as ambiguity_policy
-from gabion.tooling.runtime.policy_scanner_suite import policy_suite_decision
 
 
 def test_registry_rule_ids_are_unique_and_stable() -> None:
@@ -42,8 +41,15 @@ def test_delta_gate_value_helpers_remain_compatible() -> None:
 
 
 def test_scanner_result_uses_dsl_decision_shape() -> None:
-    decision = policy_suite_decision(
-        {"branchless": [{}], "defensive_fallback": [], "no_monkeypatch": []},
+    decision = evaluate_policy(
+        domain=PolicyDomain.POLICY_SCANNER,
+        data={
+            "counts": {
+                "branchless": 1,
+                "defensive_fallback": 0,
+                "no_monkeypatch": 0,
+            }
+        },
     )
     assert decision.rule_id == "scanner.branchless.blocking"
     assert decision.outcome.value == "block"
@@ -177,14 +183,14 @@ def test_migrated_modules_use_dsl_evaluator() -> None:
     ambiguity_source = Path(
         "src/gabion/tooling/governance/ambiguity_contract_policy_check.py"
     ).read_text(encoding="utf-8")
-    scanner_source = Path(
-        "src/gabion/tooling/runtime/policy_scanner_suite.py"
+    suite_wrapper_source = Path(
+        "scripts/policy/policy_scanner_suite.py"
     ).read_text(encoding="utf-8")
     delta_source = Path("src/gabion/tooling/delta/delta_gate.py").read_text(
         encoding="utf-8"
     )
     assert "evaluate_policy(" in ambiguity_source
-    assert "evaluate_policy(" in scanner_source
+    assert "evaluate_policy(" in suite_wrapper_source
     assert "compile_rules(" not in delta_source
     assert "first_match(" not in delta_source
 

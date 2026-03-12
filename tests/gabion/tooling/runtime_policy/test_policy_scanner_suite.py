@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from gabion.policy_dsl import PolicyDomain, evaluate_policy
 from gabion.tooling.runtime import policy_scanner_suite
 from gabion.tooling.runtime.projection_fiber_semantics_summary import (
     projection_fiber_decision_from_payload,
@@ -33,7 +34,15 @@ def _total_violations(result: dict[str, list[dict[str, object]]]) -> int:
 def _decision(
     result: dict[str, list[dict[str, object]]],
 ) -> object:
-    return policy_scanner_suite.policy_suite_decision(result)
+    return evaluate_policy(
+        domain=PolicyDomain.POLICY_SCANNER,
+        data={
+            "counts": {
+                rule: len(items)
+                for rule, items in result.items()
+            }
+        },
+    )
 
 
 def _scan_policy_suite(
@@ -47,6 +56,11 @@ def _scan_policy_suite(
         files=files,
         changed_paths=changed_paths,
     )
+
+
+def test_policy_scanner_suite_runtime_exports_scan_only() -> None:
+    assert policy_scanner_suite.__all__ == ["scan_policy_suite"]
+    assert not hasattr(policy_scanner_suite, "policy_suite_decision")
 
 
 # gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_scan_result_shape::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite

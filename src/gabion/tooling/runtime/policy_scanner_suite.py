@@ -6,8 +6,6 @@ import json
 from pathlib import Path
 import subprocess
 from typing import Any, Iterable
-from gabion.policy_dsl import PolicyDomain, evaluate_policy
-from gabion.policy_dsl.schema import PolicyDecision
 from gabion.tooling.policy_rules import (
     aspf_normalization_idempotence_rule,
     boundary_core_contract_rule,
@@ -170,21 +168,6 @@ def _boundary_scoped_candidate(
     if _BOUNDARY_MARKER in source:
         return (path,)
     return ()
-
-
-def policy_suite_decision(
-    violations_by_rule: dict[str, list[dict[str, Any]]],
-) -> PolicyDecision:
-    counts = dict(map(_rule_count_pair, violations_by_rule.items()))
-    return evaluate_policy(
-        domain=PolicyDomain.POLICY_SCANNER,
-        data={"counts": counts},
-    )
-
-
-def _rule_count_pair(item: tuple[str, list[dict[str, Any]]]) -> tuple[str, int]:
-    rule, items = item
-    return (rule, len(items))
 
 
 # gabion:decision_protocol
@@ -1101,6 +1084,5 @@ def _serialize_test_sleep_hygiene(violation: object) -> dict[str, object]:
 
 
 __all__ = [
-    "policy_suite_decision",
     "scan_policy_suite",
 ]

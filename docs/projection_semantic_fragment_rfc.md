@@ -1,5 +1,5 @@
 ---
-doc_revision: 74
+doc_revision: 75
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -704,6 +704,10 @@ Current implementation status:
   `FrontierWitness.as_payload()` in the canonical ASPF algebra, so the
   lattice-convergence substrate no longer imports the runtime policy-suite
   wrapper merely to validate or reuse a serializer contract
+- the runtime policy-scanner-suite module is now scan-only: it no longer
+  exports a suite-decision helper, and callers evaluate policy directly from
+  the canonical `violations_by_rule` map instead of routing that boundary
+  judgment back through the runtime scan surface
 - `projection_exec.py` still executes the legacy row pipeline unchanged; the
   lowering layer exists to let the authoring surface converge on the semantic
   fragment without widening semantic behavior in the legacy runtime

@@ -4,8 +4,22 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from gabion.policy_dsl import PolicyDomain, evaluate_policy
 from gabion.tooling.runtime import policy_scanner_suite as runtime_policy_scanner_suite
 from scripts.policy import hotspot_neighborhood_queue
+
+
+def _policy_suite_decision(
+    violations_by_rule: dict[str, list[dict[str, object]]],
+):
+    counts = {
+        rule: len(items)
+        for rule, items in violations_by_rule.items()
+    }
+    return evaluate_policy(
+        domain=PolicyDomain.POLICY_SCANNER,
+        data={"counts": counts},
+    )
 
 
 def run(
@@ -20,9 +34,7 @@ def run(
         base_sha=base_sha,
         head_sha=head_sha,
     )
-    decision = runtime_policy_scanner_suite.policy_suite_decision(
-        violations_by_rule,
-    )
+    decision = _policy_suite_decision(violations_by_rule)
     queue_json = out_dir / "hotspot_neighborhood_queue.json"
     queue_md = out_dir / "hotspot_neighborhood_queue.md"
     hotspot_neighborhood_queue.run_from_inputs(
