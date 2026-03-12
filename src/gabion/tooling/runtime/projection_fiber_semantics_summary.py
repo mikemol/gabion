@@ -51,14 +51,6 @@ class ProjectionFiberSemanticsSummary:
             ],
         }
 
-
-def projection_fiber_semantics_summary_from_policy_results(
-    policy_results: Mapping[str, Mapping[str, Any]],
-) -> ProjectionFiberSemanticsSummary | None:
-    return projection_fiber_semantics_summary_from_payload(
-        policy_results.get("policy_check")
-    )
-
 def projection_fiber_semantics_summary_from_payload(
     payload: object,
 ) -> ProjectionFiberSemanticsSummary | None:
@@ -70,8 +62,8 @@ def projection_fiber_semantics_summary_from_payload(
         return _summary_from_semantics_mapping(semantics_mapping)
     policy_results_mapping = _mapping(payload_mapping.get("policy_results"))
     if policy_results_mapping:
-        return projection_fiber_semantics_summary_from_policy_results(
-            policy_results_mapping
+        return projection_fiber_semantics_summary_from_payload(
+            policy_results_mapping.get("policy_check")
         )
     return None
 
@@ -262,5 +254,4 @@ __all__ = [
     "ProjectionFiberSemanticPreview",
     "ProjectionFiberSemanticsSummary",
     "projection_fiber_semantics_summary_from_payload",
-    "projection_fiber_semantics_summary_from_policy_results",
 ]

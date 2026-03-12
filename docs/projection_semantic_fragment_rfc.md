@@ -1,5 +1,5 @@
 ---
-doc_revision: 32
+doc_revision: 33
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -554,6 +554,9 @@ Current implementation status:
 - the shared projection-fiber summary helper no longer exposes an explicit
   parser for retired materialized-summary payloads; it now accepts only live
   canonical carriers (`projection_fiber_semantics` or `policy_results`)
+- the shared projection-fiber summary helper no longer exposes a separate
+  `...from_policy_results(...)` entrypoint; canonical decoding now lives behind
+  a single payload decoder that follows the live carrier shape directly
 - the shared projection-fiber summary decoder no longer accepts a top-level
   `policy_check` wrapper payload as a generic ingress shape; canonical summary
   decoding is now restricted to direct `policy_check` payloads,
@@ -628,6 +631,8 @@ Ratchet rules:
   reporting obligation
 - shared semantic-summary helpers must not preserve dedicated parsers for
   retired materialized-summary payloads once no live consumer emits that shape
+- shared semantic-summary helpers must not preserve redundant alias entrypoints
+  once only one canonical decode surface remains
 - shared semantic-summary decoders must not preserve wrapper-only ingress
   branches once the canonical artifact paths are explicit
 - shared decoders must not retain retired suite-local embedding fallbacks once
