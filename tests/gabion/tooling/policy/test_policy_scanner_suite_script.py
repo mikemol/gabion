@@ -521,18 +521,15 @@ def test_run_prints_nonempty_violation_families_from_runtime_result(
     assert "future render" in captured.out
 
 
-# gabion:evidence E:function_site::test_policy_scanner_suite_script.py::tests.gabion.tooling.policy.test_policy_scanner_suite_script.test_resolve_projection_fiber_semantics_preserve_preexisting_child_artifacts
+# gabion:evidence E:function_site::test_policy_scanner_suite_script.py::tests.gabion.tooling.policy.test_policy_scanner_suite_script.test_resolve_projection_fiber_semantics_reads_policy_check_artifact_only
 # gabion:behavior primary=desired
-def test_resolve_projection_fiber_semantics_preserve_preexisting_child_artifacts(
+def test_resolve_projection_fiber_semantics_reads_policy_check_artifact_only(
     tmp_path: Path,
-    monkeypatch: object,
 ) -> None:
     root = tmp_path
     out_dir = root / "artifacts/out"
     out_dir.mkdir(parents=True, exist_ok=True)
     policy_check_result = out_dir / "policy_check_result.json"
-    structural_hash_result = out_dir / "structural_hash_result.json"
-    deprecated_result = out_dir / "deprecated_nonerasability_result.json"
 
     policy_scanner_suite.policy_result_schema.write_policy_result(
         path=policy_check_result,
@@ -543,37 +540,6 @@ def test_resolve_projection_fiber_semantics_preserve_preexisting_child_artifacts
             baseline_mode="current_only",
             source_tool="tests.gabion.tooling.policy.test_policy_scanner_suite_script",
             input_scope={"root": str(root), "mode": "preserved"},
-        ),
-    )
-    policy_scanner_suite.policy_result_schema.write_policy_result(
-        path=structural_hash_result,
-        result=policy_scanner_suite.policy_result_schema.make_policy_result(
-            rule_id="structural_hash",
-            status="pass",
-            violations=[],
-            baseline_mode="current_only",
-            source_tool="tests.gabion.tooling.policy.test_policy_scanner_suite_script",
-            input_scope={"root": str(root), "mode": "preserved"},
-        ),
-    )
-    policy_scanner_suite.policy_result_schema.write_policy_result(
-        path=deprecated_result,
-        result=policy_scanner_suite.policy_result_schema.make_policy_result(
-            rule_id="deprecated_nonerasability",
-            status="skip",
-            violations=[
-                {
-                    "message": "baseline/current payload missing; rule skipped by child policy check",
-                    "render": "missing baseline=False current=False",
-                }
-            ],
-            baseline_mode="baseline_compare",
-            source_tool="scripts/policy/deprecated_nonerasability_policy_check.py",
-            input_scope={
-                "baseline": str(root / "out" / "deprecated_fibers_baseline.json"),
-                "current": str(root / "out" / "deprecated_fibers_current.json"),
-                "mode": "preserved",
-            },
         ),
     )
 
@@ -612,9 +578,9 @@ def test_resolve_projection_fiber_semantics_fail_closed_when_child_artifact_miss
     assert "rule_id=policy_check" in message
 
 
-# gabion:evidence E:function_site::test_policy_scanner_suite_script.py::tests.gabion.tooling.policy.test_policy_scanner_suite_script.test_resolve_projection_fiber_semantics_fail_closed_when_later_child_artifact_missing
+# gabion:evidence E:function_site::test_policy_scanner_suite_script.py::tests.gabion.tooling.policy.test_policy_scanner_suite_script.test_resolve_projection_fiber_semantics_ignores_unused_child_artifacts
 # gabion:behavior primary=desired
-def test_resolve_projection_fiber_semantics_fail_closed_when_later_child_artifact_missing(
+def test_resolve_projection_fiber_semantics_ignores_unused_child_artifacts(
     tmp_path: Path,
 ) -> None:
     root = tmp_path
@@ -631,26 +597,9 @@ def test_resolve_projection_fiber_semantics_fail_closed_when_later_child_artifac
             input_scope={"root": str(root)},
         ),
     )
-    policy_scanner_suite.policy_result_schema.write_policy_result(
-        path=out_dir / "structural_hash_result.json",
-        result=policy_scanner_suite.policy_result_schema.make_policy_result(
-            rule_id="structural_hash",
-            status="pass",
-            violations=[],
-            baseline_mode="current_only",
-            source_tool="tests.gabion.tooling.policy.test_policy_scanner_suite_script",
-            input_scope={"root": str(root)},
-        ),
-    )
-    try:
-        policy_scanner_suite._resolve_projection_fiber_semantics(out_dir=out_dir)
-    except RuntimeError as exc:
-        message = str(exc)
-    else:  # pragma: no cover
-        raise AssertionError("wrapper must fail closed when later child artifact is missing")
 
-    assert (
-        "required child-owned policy result artifact missing before wrapper invocation"
-        in message
+    projection_fiber_semantics = policy_scanner_suite._resolve_projection_fiber_semantics(
+        out_dir=out_dir
     )
-    assert "rule_id=deprecated_nonerasability" in message
+
+    assert projection_fiber_semantics is None

@@ -25,31 +25,22 @@ def _resolve_projection_fiber_semantics(
     *,
     out_dir: Path,
 ) -> dict[str, object] | None:
-    requirements: tuple[tuple[str, Path], ...] = (
-        ("policy_check", out_dir / "policy_check_result.json"),
-        ("structural_hash", out_dir / "structural_hash_result.json"),
-        ("deprecated_nonerasability", out_dir / "deprecated_nonerasability_result.json"),
+    policy_check_artifact = out_dir / "policy_check_result.json"
+    loaded = _load_required_child_artifact(
+        artifact=policy_check_artifact,
+        expected_rule_id="policy_check",
     )
-    projection_fiber_semantics: dict[str, object] | None = None
-    for rule_id, artifact in requirements:
-        loaded = _load_required_child_artifact(
-            artifact=artifact,
-            expected_rule_id=rule_id,
+    if loaded is None:
+        raise RuntimeError(
+            "required child-owned policy result artifact missing before wrapper invocation: "
+            f"rule_id=policy_check artifact={policy_check_artifact}"
         )
-        if loaded is None:
-            raise RuntimeError(
-                "required child-owned policy result artifact missing before wrapper invocation: "
-                f"rule_id={rule_id} artifact={artifact}"
-            )
-        if rule_id != "policy_check":
-            continue
-        raw_semantics = loaded.get("projection_fiber_semantics")
-        match raw_semantics:
-            case dict() as semantics_mapping if semantics_mapping:
-                projection_fiber_semantics = dict(semantics_mapping)
-            case _:
-                projection_fiber_semantics = None
-    return projection_fiber_semantics
+    raw_semantics = loaded.get("projection_fiber_semantics")
+    match raw_semantics:
+        case dict() as semantics_mapping if semantics_mapping:
+            return dict(semantics_mapping)
+        case _:
+            return None
 
 
 def run(
