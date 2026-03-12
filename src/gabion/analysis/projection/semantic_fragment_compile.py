@@ -159,6 +159,13 @@ def compile_projection_fiber_support_reflect_to_shacl(
     row: CanonicalWitnessedSemanticRow,
 ) -> CompiledShaclPlan:
     structural_identity = row["structural_identity"]
+    input_witness_kinds = _distinct_mapping_values(row["input_witnesses"], key="kind")
+    synthesized_witness_kinds = _distinct_mapping_values(
+        row["synthesized_witnesses"], key="kind"
+    )
+    boundary_kinds = _distinct_mapping_values(
+        row["boundary_trace"], key="boundary_kind"
+    )
     return {
         "plan_id": f"{structural_identity}:shacl:support_reflect",
         "source_structural_identity": structural_identity,
@@ -173,7 +180,7 @@ def compile_projection_fiber_support_reflect_to_shacl(
                 "focus_path": "input_witnesses.kind",
                 "severity": "Violation",
                 "required": True,
-                "expected_value": _support_context_value(_input_witness_kinds(row)),
+                "expected_value": _support_context_value(input_witness_kinds),
                 "message": "projection_fiber support reflection must preserve input witness kinds",
             },
             {
@@ -181,7 +188,7 @@ def compile_projection_fiber_support_reflect_to_shacl(
                 "focus_path": "synthesized_witnesses.kind",
                 "severity": "Violation",
                 "required": True,
-                "expected_value": _support_context_value(_synthesized_witness_kinds(row)),
+                "expected_value": _support_context_value(synthesized_witness_kinds),
                 "message": "projection_fiber support reflection must preserve synthesized witness kinds",
             },
             {
@@ -189,7 +196,7 @@ def compile_projection_fiber_support_reflect_to_shacl(
                 "focus_path": "boundary_trace.boundary_kind",
                 "severity": "Violation",
                 "required": True,
-                "expected_value": _support_context_value(_boundary_kinds(row)),
+                "expected_value": _support_context_value(boundary_kinds),
                 "message": "projection_fiber support reflection must preserve boundary kinds",
             },
         ],
@@ -204,6 +211,13 @@ def compile_projection_fiber_support_reflect_to_sparql(
     row: CanonicalWitnessedSemanticRow,
 ) -> CompiledSparqlPlan:
     structural_identity = row["structural_identity"]
+    input_witness_kinds = _distinct_mapping_values(row["input_witnesses"], key="kind")
+    synthesized_witness_kinds = _distinct_mapping_values(
+        row["synthesized_witnesses"], key="kind"
+    )
+    boundary_kinds = _distinct_mapping_values(
+        row["boundary_trace"], key="boundary_kind"
+    )
     return {
         "plan_id": f"{structural_identity}:sparql:support_reflect",
         "source_structural_identity": structural_identity,
@@ -224,17 +238,17 @@ def compile_projection_fiber_support_reflect_to_sparql(
             {
                 "subject": "?frontier",
                 "predicate": "gabion:inputWitnessKinds",
-                "object": _support_context_value(_input_witness_kinds(row)),
+                "object": _support_context_value(input_witness_kinds),
             },
             {
                 "subject": "?frontier",
                 "predicate": "gabion:synthesizedWitnessKinds",
-                "object": _support_context_value(_synthesized_witness_kinds(row)),
+                "object": _support_context_value(synthesized_witness_kinds),
             },
             {
                 "subject": "?frontier",
                 "predicate": "gabion:boundaryKinds",
-                "object": _support_context_value(_boundary_kinds(row)),
+                "object": _support_context_value(boundary_kinds),
             },
         ],
         "anti_join_filters": [
@@ -251,6 +265,14 @@ def compile_projection_fiber_wedge_to_sparql(
     row: CanonicalWitnessedSemanticRow,
 ) -> CompiledSparqlPlan:
     structural_identity = row["structural_identity"]
+    input_witness_kinds = _distinct_mapping_values(row["input_witnesses"], key="kind")
+    synthesized_witness_kinds = _distinct_mapping_values(
+        row["synthesized_witnesses"], key="kind"
+    )
+    boundary_kinds = _distinct_mapping_values(
+        row["boundary_trace"], key="boundary_kind"
+    )
+    transform_ops = _distinct_mapping_values(row["transform_trace"], key="op")
     return {
         "plan_id": f"{structural_identity}:sparql:wedge",
         "source_structural_identity": structural_identity,
@@ -272,22 +294,22 @@ def compile_projection_fiber_wedge_to_sparql(
             {
                 "subject": "?frontier",
                 "predicate": "gabion:inputWitnessKinds",
-                "object": _support_context_value(_input_witness_kinds(row)),
+                "object": _support_context_value(input_witness_kinds),
             },
             {
                 "subject": "?frontier",
                 "predicate": "gabion:synthesizedWitnessKinds",
-                "object": _support_context_value(_synthesized_witness_kinds(row)),
+                "object": _support_context_value(synthesized_witness_kinds),
             },
             {
                 "subject": "?frontier",
                 "predicate": "gabion:boundaryKinds",
-                "object": _support_context_value(_boundary_kinds(row)),
+                "object": _support_context_value(boundary_kinds),
             },
             {
                 "subject": "?frontier",
                 "predicate": "gabion:transformOps",
-                "object": _support_context_value(_transform_ops(row)),
+                "object": _support_context_value(transform_ops),
             },
         ],
         "anti_join_filters": [
@@ -350,6 +372,12 @@ def compile_projection_fiber_existential_image_to_sparql(
     row: CanonicalWitnessedSemanticRow,
 ) -> CompiledSparqlPlan:
     structural_identity = row["structural_identity"]
+    synthesized_witness_kinds = _distinct_mapping_values(
+        row["synthesized_witnesses"], key="kind"
+    )
+    boundary_kinds = _distinct_mapping_values(
+        row["boundary_trace"], key="boundary_kind"
+    )
     return {
         "plan_id": f"{structural_identity}:sparql:existential_image",
         "source_structural_identity": structural_identity,
@@ -370,12 +398,12 @@ def compile_projection_fiber_existential_image_to_sparql(
             {
                 "subject": "?frontier",
                 "predicate": "gabion:synthesizedWitnessKinds",
-                "object": _support_context_value(_synthesized_witness_kinds(row)),
+                "object": _support_context_value(synthesized_witness_kinds),
             },
             {
                 "subject": "?frontier",
                 "predicate": "gabion:boundaryKinds",
-                "object": _support_context_value(_boundary_kinds(row)),
+                "object": _support_context_value(boundary_kinds),
             },
             {
                 "subject": "?frontier",
@@ -395,6 +423,12 @@ def compile_projection_fiber_negate_to_sparql(
     row: CanonicalWitnessedSemanticRow,
 ) -> CompiledSparqlPlan:
     structural_identity = row["structural_identity"]
+    synthesized_witness_kinds = _distinct_mapping_values(
+        row["synthesized_witnesses"], key="kind"
+    )
+    boundary_kinds = _distinct_mapping_values(
+        row["boundary_trace"], key="boundary_kind"
+    )
     return {
         "plan_id": f"{structural_identity}:sparql:negate",
         "source_structural_identity": structural_identity,
@@ -415,12 +449,12 @@ def compile_projection_fiber_negate_to_sparql(
             {
                 "subject": "?frontier",
                 "predicate": "gabion:synthesizedWitnessKinds",
-                "object": _support_context_value(_synthesized_witness_kinds(row)),
+                "object": _support_context_value(synthesized_witness_kinds),
             },
             {
                 "subject": "?frontier",
                 "predicate": "gabion:boundaryKinds",
-                "object": _support_context_value(_boundary_kinds(row)),
+                "object": _support_context_value(boundary_kinds),
             },
             {
                 "subject": "?frontier",
@@ -520,34 +554,6 @@ def _witness_trace(row: CanonicalWitnessedSemanticRow) -> list[str]:
         *[str(item["kind"]) for item in row["input_witnesses"]],
         *[str(item["op"]) for item in row["transform_trace"]],
     ]
-
-@grade_boundary(
-    kind="semantic_carrier_adapter",
-    name="semantic_fragment_compile.input_witness_kinds",
-)
-def _input_witness_kinds(row: CanonicalWitnessedSemanticRow) -> tuple[str, ...]:
-    return _distinct_mapping_values(row["input_witnesses"], key="kind")
-
-@grade_boundary(
-    kind="semantic_carrier_adapter",
-    name="semantic_fragment_compile.synthesized_witness_kinds",
-)
-def _synthesized_witness_kinds(row: CanonicalWitnessedSemanticRow) -> tuple[str, ...]:
-    return _distinct_mapping_values(row["synthesized_witnesses"], key="kind")
-
-@grade_boundary(
-    kind="semantic_carrier_adapter",
-    name="semantic_fragment_compile.boundary_kinds",
-)
-def _boundary_kinds(row: CanonicalWitnessedSemanticRow) -> tuple[str, ...]:
-    return _distinct_mapping_values(row["boundary_trace"], key="boundary_kind")
-
-@grade_boundary(
-    kind="semantic_carrier_adapter",
-    name="semantic_fragment_compile.transform_ops",
-)
-def _transform_ops(row: CanonicalWitnessedSemanticRow) -> tuple[str, ...]:
-    return _distinct_mapping_values(row["transform_trace"], key="op")
 
 @grade_boundary(
     kind="semantic_carrier_adapter",
