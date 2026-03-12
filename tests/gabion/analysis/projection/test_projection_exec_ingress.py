@@ -8,8 +8,7 @@ from gabion.analysis.projection.projection_exec_protocol import (
     SortKey,
     SortExecutionOp,
 )
-from gabion.analysis.projection.projection_exec_ingress import apply_spec
-from gabion.analysis.projection.projection_exec_plan import execution_ops_from_spec
+from gabion.analysis.projection.projection_exec_plan import apply_spec, execution_ops_from_spec
 from gabion.analysis.projection.projection_spec import ProjectionOp, ProjectionSpec
 
 
