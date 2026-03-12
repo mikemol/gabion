@@ -582,6 +582,11 @@ Current implementation status:
   `_normalize_value(...)`, so the remaining temporary grading on
   `semantic_fragment.py` stays concentrated on the real row-closure,
   canonicalization, and stable-key materialization surfaces
+- and narrower again after that: the private `_normalize_object(...)` helper
+  seam is collapsed back into the row-closure and stable-unique callers, so
+  the remaining temporary grading on `semantic_fragment.py` stays concentrated
+  on the real row-closure, recursive canonicalization, and stable-key
+  materialization surfaces
 - whole-Gabion output boundaries are tightening too: `call_clusters` now owns
   its JSON emission shape at the carrier module, and the emitted wire payload
   preserves cluster `identity` rather than dropping part of the internal DTO at

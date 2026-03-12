@@ -126,22 +126,24 @@ def reflect_projection_fiber_witness(
         "transform_trace": [
             {
                 "op": SemanticOpKind.REFLECT,
-                "details": _normalize_object(
-                    {
+                "details": {
+                    key: _normalize_value(value)
+                    for key, value in {
                         "surface": "projection_fiber",
                         "carrier_kind": "frontier_witness",
                         "structural_path": context["structural_path"],
-                    }
-                ),
+                    }.items()
+                },
             },
             {
                 "op": SemanticOpKind.SYNTHESIZE_WITNESS,
-                "details": _normalize_object(
-                    {
+                "details": {
+                    key: _normalize_value(value)
+                    for key, value in {
                         "synthesized_witness_kind": "projection_fiber",
                         "boundary_crossing_present": bool(boundary_trace),
-                    }
-                ),
+                    }.items()
+                },
             },
         ],
         "obligation_state": obligation_state,
@@ -161,7 +163,10 @@ def close_canonical_semantic_row(
         "site_identity": row["site_identity"],
         "surface": row["surface"],
         "carrier_kind": row["carrier_kind"],
-        "payload": _normalize_object(row["payload"]),
+        "payload": {
+            key: _normalize_value(row["payload"][key])
+            for key in canonical_mapping_keys(row["payload"])
+        },
         "input_witnesses": _stable_unique_objects(row["input_witnesses"]),
         "synthesized_witnesses": _stable_unique_objects(row["synthesized_witnesses"]),
         "obligations": _stable_unique_objects(row["obligations"]),
@@ -169,7 +174,10 @@ def close_canonical_semantic_row(
         "transform_trace": [
             {
                 "op": item["op"],
-                "details": _normalize_object(item["details"]),
+                "details": {
+                    key: _normalize_value(item["details"][key])
+                    for key in canonical_mapping_keys(item["details"])
+                },
             }
             for item in row["transform_trace"]
         ],
@@ -336,16 +344,11 @@ def _obligation_payloads(witness: FrontierWitness) -> list[JSONObject]:
 def _stable_unique_objects(values: list[JSONObject]) -> list[JSONObject]:
     keyed: dict[str, JSONObject] = {}
     for value in values:
-        normalized = _normalize_object(value)
+        normalized = {
+            key: _normalize_value(value[key]) for key in canonical_mapping_keys(value)
+        }
         keyed[_stable_json_key(normalized)] = normalized
     return [keyed[key] for key in canonical_mapping_keys(keyed)]
-
-@grade_boundary(
-    kind="semantic_carrier_adapter",
-    name="semantic_fragment.normalize_object",
-)
-def _normalize_object(value: JSONObject) -> JSONObject:
-    return {key: _normalize_value(value[key]) for key in canonical_mapping_keys(value)}
 
 @grade_boundary(
     kind="semantic_carrier_adapter",
