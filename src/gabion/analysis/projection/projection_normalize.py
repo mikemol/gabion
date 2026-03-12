@@ -80,7 +80,6 @@ def normalize_spec(spec: ProjectionSpec) -> dict[str, JSONValue]:
         "pipeline": _normalize_pipeline(spec.pipeline),
     }
 
-
 def spec_canonical_json(spec: ProjectionSpec) -> str:
     payload = normalize_spec(spec)
     return json.dumps(payload, sort_keys=False, separators=(",", ":"))

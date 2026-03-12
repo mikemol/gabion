@@ -1,3 +1,4 @@
+# gabion:grade_boundary kind=semantic_carrier_adapter name=projection_exec
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -7,8 +8,16 @@ from collections.abc import Callable, Iterable, Mapping
 from typing import cast
 
 from gabion.analysis.foundation.resume_codec import str_list_from_sequence
-from gabion.analysis.projection.projection_normalize import normalize_spec
-from gabion.analysis.projection.projection_spec import ProjectionSpec
+from gabion.analysis.projection.projection_normalize import (
+    _extract_predicates,
+    _normalize_fields,
+    _normalize_group_fields,
+    _normalize_limit,
+    _normalize_predicates,
+    _normalize_sort_by,
+    _normalize_value,
+)
+from gabion.analysis.projection.projection_spec import ProjectionOp, ProjectionSpec
 from gabion.json_types import JSONValue
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.invariants import never
@@ -21,6 +30,13 @@ from gabion.runtime_shape_dispatch import (
 )
 
 Relation = list[dict[str, JSONValue]]
+
+
+@dataclass(frozen=True)
+class _NormalizedExecutionProjectionOp:
+    source_index: int
+    op_name: str
+    params: dict[str, JSONValue]
 
 
 @dataclass(frozen=True)
@@ -134,71 +150,222 @@ def apply_spec(
     *,
     op_registry = None,
     params_override = None,
-    normalize = None,
 ) -> Relation:
     check_deadline()
-    normalize_fn = normalize or normalize_spec
-    normalized = normalize_fn(spec)
-    params: dict[str, JSONValue] = {}
-    spec_params = normalized.get("params")
-    spec_params_map = json_mapping_optional(spec_params)
-    if spec_params_map is not None:
-        params.update(spec_params_map)
+    op_registry = op_registry or {}
+    params = _copy_json_mapping(spec.params)
     if params_override:
         params.update(params_override)
-    op_registry = op_registry or {}
 
     current: Relation = [
         dict(cast(Mapping[str, JSONValue], row))
         for row in rows
     ]
 
-    for op in normalized.get("pipeline") or []:
+    for index, op in enumerate(spec.pipeline):
         check_deadline()
-        op_map = json_mapping_optional(op)
-        if op_map is not None:
-            op_name = op_map.get("op")
-            params_payload = op_map.get("params")
-            params_map = json_mapping_optional(params_payload) or {}
-
-            if op_name == "select":
-                select_params = _select_params_from_map(params_map)
-                current = _apply_select(
-                    current,
-                    select_params,
-                    op_registry=op_registry,
-                    runtime_params=params,
-                )
-            elif op_name == "project":
-                project_params = _project_params_from_map(params_map)
-                if project_params.fields:
-                    current = _apply_project(current, project_params)
-            elif op_name == "count_by":
-                count_params = _count_by_params_from_map(params_map)
-                if count_params.fields:
-                    current = _apply_count_by(current, count_params)
-            elif op_name == "traverse":
-                traverse_params = _traverse_params_from_map(params_map)
-                if traverse_params.field:
-                    current = _apply_traverse(current, traverse_params)
-            elif op_name == "sort":
-                sort_params = _sort_params_from_map(params_map)
-                for key in reversed(sort_params.keys):
-                    check_deadline()
-                    current = sort_once(
-                        current,
-                        source=f"apply_spec.sort[{key.field}]",
-                        policy=OrderPolicy.SORT,
-                        key=lambda row, name=key.field: _sort_value(row.get(name)),
-                        reverse=key.order == "desc",
-                    )
-            elif op_name == "limit":
-                limit_params = _limit_params_from_map(params_map)
-                limit_count = int_optional(limit_params.count)
-                if limit_count is not None and limit_count >= 0:
-                    current = current[:limit_count]
+        normalized_op = _normalize_execution_projection_op(index=index, op=op)
+        if normalized_op.op_name == "":
+            continue
+        current = _apply_normalized_execution_op(
+            current,
+            normalized_op=normalized_op,
+            op_registry=op_registry,
+            runtime_params=params,
+        )
 
     return current
+
+
+def _apply_normalized_execution_op(
+    rows: Relation,
+    *,
+    normalized_op: _NormalizedExecutionProjectionOp,
+    op_registry: Mapping[str, Callable[[Mapping[str, JSONValue], Mapping[str, JSONValue]], bool]],
+    runtime_params: Mapping[str, JSONValue],
+) -> Relation:
+    return _apply_execution_op_from_map(
+        rows,
+        op_name=normalized_op.op_name,
+        params_map=normalized_op.params,
+        op_registry=op_registry,
+        runtime_params=runtime_params,
+    )
+
+
+def _apply_execution_op_from_map(
+    rows: Relation,
+    *,
+    op_name: object,
+    params_map: Mapping[str, JSONValue],
+    op_registry: Mapping[str, Callable[[Mapping[str, JSONValue], Mapping[str, JSONValue]], bool]],
+    runtime_params: Mapping[str, JSONValue],
+) -> Relation:
+    current = rows
+    if op_name == "select":
+        select_params = _select_params_from_map(params_map)
+        return _apply_select(
+            current,
+            select_params,
+            op_registry=op_registry,
+            runtime_params=runtime_params,
+        )
+    if op_name == "project":
+        project_params = _project_params_from_map(params_map)
+        if project_params.fields:
+            return _apply_project(current, project_params)
+        return current
+    if op_name == "count_by":
+        count_params = _count_by_params_from_map(params_map)
+        if count_params.fields:
+            return _apply_count_by(current, count_params)
+        return current
+    if op_name == "traverse":
+        traverse_params = _traverse_params_from_map(params_map)
+        if traverse_params.field:
+            return _apply_traverse(current, traverse_params)
+        return current
+    if op_name == "sort":
+        sort_params = _sort_params_from_map(params_map)
+        for key in reversed(sort_params.keys):
+            check_deadline()
+            current = sort_once(
+                current,
+                source=f"apply_spec.sort[{key.field}]",
+                policy=OrderPolicy.SORT,
+                key=lambda row, name=key.field: _sort_value(row.get(name)),
+                reverse=key.order == "desc",
+            )
+        return current
+    if op_name == "limit":
+        limit_params = _limit_params_from_map(params_map)
+        limit_count = int_optional(limit_params.count)
+        if limit_count is not None and limit_count >= 0:
+            return current[:limit_count]
+    return current
+
+
+def _normalize_execution_projection_op(
+    *,
+    index: int,
+    op: ProjectionOp,
+) -> _NormalizedExecutionProjectionOp:
+    op_name = str(op.op).strip()
+    if not op_name:
+        return _NormalizedExecutionProjectionOp(
+            source_index=index,
+            op_name="",
+            params={},
+        )
+    params = _copy_json_mapping(op.params)
+    if op_name == "select":
+        predicates = _normalize_predicates(_extract_predicates(params))
+        if not predicates:
+            return _NormalizedExecutionProjectionOp(
+                source_index=index,
+                op_name="",
+                params={},
+            )
+        return _NormalizedExecutionProjectionOp(
+            source_index=index,
+            op_name=op_name,
+            params={"predicates": predicates},
+        )
+    if op_name == "project":
+        fields = _normalize_fields(_mapping_value(params, "fields"))
+        if not fields:
+            return _NormalizedExecutionProjectionOp(
+                source_index=index,
+                op_name="",
+                params={},
+            )
+        return _NormalizedExecutionProjectionOp(
+            source_index=index,
+            op_name=op_name,
+            params={"fields": list(fields)},
+        )
+    if op_name == "count_by":
+        fields = _normalize_group_fields(
+            _mapping_value(params, "fields")
+            if "fields" in params
+            else _mapping_value(params, "field")
+        )
+        if not fields:
+            return _NormalizedExecutionProjectionOp(
+                source_index=index,
+                op_name="",
+                params={},
+            )
+        return _NormalizedExecutionProjectionOp(
+            source_index=index,
+            op_name=op_name,
+            params={"fields": list(fields)},
+        )
+    if op_name == "traverse":
+        field = _normalized_nonempty_string(_mapping_value(params, "field"))
+        if not field:
+            return _NormalizedExecutionProjectionOp(
+                source_index=index,
+                op_name="",
+                params={},
+            )
+        normalized_params: dict[str, JSONValue] = {"field": field}
+        for key in ("merge", "keep", "prefix", "as", "index"):
+            if key in params:
+                normalized_params[key] = _normalize_value(params[key])
+        return _NormalizedExecutionProjectionOp(
+            source_index=index,
+            op_name=op_name,
+            params=normalized_params,
+        )
+    if op_name == "sort":
+        by = _normalize_sort_by(_mapping_value(params, "by"))
+        if not by:
+            return _NormalizedExecutionProjectionOp(
+                source_index=index,
+                op_name="",
+                params={},
+            )
+        return _NormalizedExecutionProjectionOp(
+            source_index=index,
+            op_name=op_name,
+            params={"by": by},
+        )
+    if op_name == "limit":
+        count = _normalize_limit(_mapping_value(params, "count"))
+        if count is None:
+            return _NormalizedExecutionProjectionOp(
+                source_index=index,
+                op_name="",
+                params={},
+            )
+        return _NormalizedExecutionProjectionOp(
+            source_index=index,
+            op_name=op_name,
+            params={"count": count},
+        )
+    return _NormalizedExecutionProjectionOp(
+        source_index=index,
+        op_name="",
+        params={},
+    )
+
+
+def _normalized_nonempty_string(value: JSONValue) -> str:
+    match value:
+        case str() as text_value:
+            return text_value.strip()
+    return ""
+
+
+def _copy_json_mapping(params: Mapping[str, JSONValue]) -> dict[str, JSONValue]:
+    return {str(key): value for key, value in params.items()}
+
+
+def _mapping_value(params: Mapping[str, JSONValue], key: str) -> JSONValue:
+    if key in params:
+        return params[key]
+    return []
 
 
 def _sort_value(value: JSONValue) -> tuple[int, object]:
@@ -208,6 +375,8 @@ def _sort_value(value: JSONValue) -> tuple[int, object]:
         case int() | float() | str():
             return (0, value)
     return (0, str(value))
+
+
 def _hashable(value: JSONValue) -> object:
     try:
         hash(value)

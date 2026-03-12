@@ -1,8 +1,20 @@
 from __future__ import annotations
 
-from gabion.analysis.projection.projection_exec import apply_spec, _hashable, _sort_value
+from gabion.analysis.projection.projection_exec import (
+    _hashable,
+    _normalize_execution_projection_op,
+    _sort_value,
+    apply_spec,
+)
 from gabion.analysis.projection.projection_normalize import (
-    _extract_predicates, _normalize_fields, _normalize_group_fields, _normalize_limit, _normalize_pipeline, _normalize_sort_by, _normalize_value)
+    _extract_predicates,
+    _normalize_fields,
+    _normalize_group_fields,
+    _normalize_limit,
+    _normalize_pipeline,
+    _normalize_sort_by,
+    _normalize_value,
+)
 from gabion.analysis.projection.projection_spec import ProjectionOp, ProjectionSpec, spec_from_dict
 
 
@@ -97,7 +109,7 @@ def test_normalize_pipeline_stable_under_shuffled_upstream_order() -> None:
 
 # gabion:evidence E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec.apply_spec::params_override E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::value E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::stale_1581b2052cbd
 # gabion:behavior primary=verboten facets=edge,invalid
-def test_apply_spec_with_custom_normalizer_handles_invalid_ops() -> None:
+def test_apply_spec_handles_invalid_and_semantic_only_ops_at_exec_ingress() -> None:
     rows = [
         {"group": ["a"], "value": 1},
         {"group": ["a"], "value": 2},
@@ -106,29 +118,30 @@ def test_apply_spec_with_custom_normalizer_handles_invalid_ops() -> None:
     def keep(_row, params):
         return int(params.get("threshold", 0)) <= 2
 
-    def normalize(_spec):
-        return {
-            "params": {"threshold": 2},
-            "pipeline": [
-                "not-a-mapping",
-                {"op": "select", "params": {"predicates": "keep"}},
-                {"op": "select", "params": {"predicates": {"bad": True}}},
-                {"op": "select", "params": {"predicates": [1, "missing", "keep"]}},
-                {"op": "project", "params": {"fields": 1}},
-                {"op": "project", "params": {"fields": "group"}},
-                {"op": "count_by", "params": {"fields": ["group", 5]}},
-                {"op": "sort", "params": {"by": {"field": "count", "order": 1}}},
-                {"op": "sort", "params": {"by": "bad"}},
-                {"op": "limit", "params": {"count": "bad"}},
-                {"op": "custom", "params": "bad"},
-            ],
-        }
+    spec = ProjectionSpec(
+        spec_version=1,
+        name="demo",
+        domain="tests",
+        params={"threshold": 2},
+        pipeline=(
+            ProjectionOp("select", {"predicates": "keep"}),
+            ProjectionOp("select", {"predicates": {"bad": True}}),
+            ProjectionOp("select", {"predicates": [1, "missing", "keep"]}),
+            ProjectionOp("project", {"fields": 1}),
+            ProjectionOp("project", {"fields": "group"}),
+            ProjectionOp("count_by", {"fields": ["group", 5]}),
+            ProjectionOp("sort", {"by": {"field": "count", "order": 1}}),
+            ProjectionOp("sort", {"by": "bad"}),
+            ProjectionOp("limit", {"count": "bad"}),
+            ProjectionOp("reflect", {"surface": "projection_fiber"}),
+            ProjectionOp("custom", {"bad": True}),
+        ),
+    )
 
     result = apply_spec(
-        ProjectionSpec(spec_version=1, name="demo", domain="tests"),
+        spec,
         rows,
         op_registry={"keep": keep},
-        normalize=normalize,
     )
     assert result == [{"group": ["a"], "count": 2}]
 
@@ -147,21 +160,17 @@ def test_sort_value_and_hashable_helpers() -> None:
 # gabion:behavior primary=verboten facets=edge
 def test_apply_spec_count_by_and_sort_edges() -> None:
     rows = [{"group": "a"}, {"group": "b"}]
-
-    def normalize(_spec):
-        return {
-            "pipeline": [
-                {"op": "count_by", "params": {"fields": "group"}},
-                {"op": "count_by", "params": {"fields": []}},
-                {"op": "sort", "params": {"by": ["bad", {"field": 1}]}},
-            ]
-        }
-
-    result = apply_spec(
-        ProjectionSpec(spec_version=1, name="demo", domain="tests"),
-        rows,
-        normalize=normalize,
+    spec = ProjectionSpec(
+        spec_version=1,
+        name="demo",
+        domain="tests",
+        pipeline=(
+            ProjectionOp("count_by", {"fields": "group"}),
+            ProjectionOp("count_by", {"fields": []}),
+            ProjectionOp("sort", {"by": ["bad", {"field": 1}]}),
+        ),
     )
+    result = apply_spec(spec, rows)
     assert {row["count"] for row in result} == {1}
 
 
@@ -272,3 +281,55 @@ def test_apply_spec_traverse_skips_when_field_invalid() -> None:
         pipeline=(ProjectionOp("traverse", {"field": 123}),),
     )
     assert apply_spec(spec, rows) == rows
+
+
+def test_normalized_execution_projection_op_erases_semantic_metadata_and_semantic_only_ops() -> None:
+    project_op = _normalize_execution_projection_op(
+        index=0,
+        op=ProjectionOp(
+            "project",
+            {
+                "fields": ["id"],
+                "quotient_face": "projection_fiber.frontier",
+            },
+        ),
+    )
+    reflect_op = _normalize_execution_projection_op(
+        index=1,
+        op=ProjectionOp("reflect", {"surface": "projection_fiber"}),
+    )
+    custom_op = _normalize_execution_projection_op(
+        index=2,
+        op=ProjectionOp("custom", {"a": 1}),
+    )
+
+    assert project_op.op_name == "project"
+    assert project_op.params == {"fields": ["id"]}
+    assert reflect_op.op_name == ""
+    assert reflect_op.params == {}
+    assert custom_op.op_name == ""
+    assert custom_op.params == {}
+
+
+def test_apply_spec_erases_semantic_projection_compatibility_at_exec_ingress() -> None:
+    spec = ProjectionSpec(
+        spec_version=1,
+        name="semantic-compat",
+        domain="tests",
+        pipeline=(
+            ProjectionOp(
+                "project",
+                {
+                    "fields": ["id"],
+                    "quotient_face": "projection_fiber.frontier",
+                },
+            ),
+            ProjectionOp(
+                "reflect",
+                {"surface": "projection_fiber"},
+            ),
+        ),
+    )
+
+    rows = [{"id": 1, "status": "ok"}]
+    assert apply_spec(spec, rows) == [{"id": 1}]

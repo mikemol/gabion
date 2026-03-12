@@ -1,5 +1,5 @@
 ---
-doc_revision: 77
+doc_revision: 78
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -718,9 +718,14 @@ Current implementation status:
 - boundary coverage now follows actual ownership on the queue seam:
   hotspot-queue helper contracts are pinned in hotspot-queue tests rather than
   indirectly through policy-scanner-suite wrapper tests
-- `projection_exec.py` still executes the legacy row pipeline unchanged; the
-  lowering layer exists to let the authoring surface converge on the semantic
-  fragment without widening semantic behavior in the legacy runtime
+- `projection_exec.py` still executes the legacy row pipeline as a
+  compatibility runtime, but semantic-only ops and semantic metadata are now
+  erased at execution ingress rather than being tolerated by dispatch
+  fallthrough; the module is now explicitly marked as a temporary
+  `semantic_carrier_adapter` boundary so that compatibility work stays
+  boundary-scoped while the lowering layer lets the authoring surface converge
+  on the semantic fragment without widening semantic behavior in the legacy
+  runtime
 
 Implementation rule:
 - policy DSL must consume canonical carrier rows rather than infer semantics

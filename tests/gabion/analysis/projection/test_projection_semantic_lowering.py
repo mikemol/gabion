@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from gabion.analysis.projection.projection_exec import apply_spec
 from gabion.analysis.projection.projection_semantic_lowering import (
     BridgeProjectionKind,
     SemanticProjectionKind,
@@ -118,7 +117,7 @@ def test_lower_projection_spec_promotes_reflect_surface() -> None:
     assert lowered.bridge_ops == ()
 
 
-def test_project_quotient_face_metadata_is_lowered_without_changing_exec() -> None:
+def test_project_quotient_face_metadata_is_lowered() -> None:
     spec = ProjectionSpec(
         spec_version=1,
         name="demo",
@@ -137,11 +136,8 @@ def test_project_quotient_face_metadata_is_lowered_without_changing_exec() -> No
     lowered = lower_projection_spec_to_semantic_plan(spec)
     assert lowered.semantic_ops[0].params["quotient_face"] == "projection_fiber.frontier"
 
-    rows = [{"id": 1, "status": "ok"}]
-    assert apply_spec(spec, rows) == [{"id": 1}]
 
-
-def test_reflect_semantic_metadata_is_lowered_without_changing_exec() -> None:
+def test_reflect_semantic_metadata_is_lowered() -> None:
     spec = ProjectionSpec(
         spec_version=1,
         name="demo",
@@ -156,6 +152,3 @@ def test_reflect_semantic_metadata_is_lowered_without_changing_exec() -> None:
 
     lowered = lower_projection_spec_to_semantic_plan(spec)
     assert lowered.semantic_ops[0].params["surface"] == "projection_fiber"
-
-    rows = [{"id": 1, "status": "ok"}]
-    assert apply_spec(spec, rows) == rows
