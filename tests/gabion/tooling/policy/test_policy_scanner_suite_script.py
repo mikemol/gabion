@@ -109,11 +109,13 @@ def test_run_skips_semantic_queue_backfill_without_policy_check_owned_artifact(
 
     def _fake_external_child_inputs(
         *, root: Path, out: Path
-    ) -> policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs:
-        return policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs(
+    ) -> policy_scanner_suite.ExternalChildInputs:
+        return policy_scanner_suite.ExternalChildInputs(
             child_statuses={"policy_check": "pass"},
-            projection_fiber_semantics=dict(
-                policy_check_payload["projection_fiber_semantics"]
+            runtime_child_inputs=policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs(
+                projection_fiber_semantics=dict(
+                    policy_check_payload["projection_fiber_semantics"]
+                ),
             ),
         )
 
@@ -191,7 +193,7 @@ def test_run_preserves_policy_check_owned_semantic_queue(
 
     def _fake_external_child_inputs(
         *, root: Path, out: Path
-    ) -> policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs:
+    ) -> policy_scanner_suite.ExternalChildInputs:
         policy_check_result.write_text(
             json.dumps(policy_check_payload, indent=2) + "\n",
             encoding="utf-8",
@@ -230,10 +232,12 @@ def test_run_preserves_policy_check_owned_semantic_queue(
             encoding="utf-8",
         )
         queue_md.write_text("# Projection Semantic Fragment Queue\n", encoding="utf-8")
-        return policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs(
+        return policy_scanner_suite.ExternalChildInputs(
             child_statuses={"policy_check": "pass"},
-            projection_fiber_semantics=dict(
-                policy_check_payload["projection_fiber_semantics"]
+            runtime_child_inputs=policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs(
+                projection_fiber_semantics=dict(
+                    policy_check_payload["projection_fiber_semantics"]
+                ),
             ),
         )
 
@@ -281,15 +285,17 @@ def test_run_does_not_regenerate_missing_policy_check_owned_semantic_queue(
 
     def _fake_external_child_inputs(
         *, root: Path, out: Path
-    ) -> policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs:
+    ) -> policy_scanner_suite.ExternalChildInputs:
         policy_check_result.write_text(
             json.dumps(policy_check_payload, indent=2) + "\n",
             encoding="utf-8",
         )
-        return policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs(
+        return policy_scanner_suite.ExternalChildInputs(
             child_statuses={"policy_check": "pass"},
-            projection_fiber_semantics=dict(
-                policy_check_payload["projection_fiber_semantics"]
+            runtime_child_inputs=policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs(
+                projection_fiber_semantics=dict(
+                    policy_check_payload["projection_fiber_semantics"]
+                ),
             ),
         )
 
@@ -325,10 +331,12 @@ def test_run_passes_in_memory_payload_to_hotspot_queue(
 
     def _fake_external_child_inputs(
         *, root: Path, out: Path
-    ) -> policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs:
-        return policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs(
+    ) -> policy_scanner_suite.ExternalChildInputs:
+        return policy_scanner_suite.ExternalChildInputs(
             child_statuses={"policy_check": "pass"},
-            projection_fiber_semantics=None,
+            runtime_child_inputs=policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs(
+                projection_fiber_semantics=None,
+            ),
         )
 
     def _fake_run_from_payload(
@@ -456,7 +464,7 @@ def test_resolve_external_child_inputs_preserve_preexisting_child_artifacts(
         "structural_hash": "pass",
         "deprecated_nonerasability": "skip",
     }
-    assert child_inputs.projection_fiber_semantics is None
+    assert child_inputs.runtime_child_inputs.projection_fiber_semantics is None
 
 
 # gabion:evidence E:function_site::test_policy_scanner_suite_script.py::tests.gabion.tooling.policy.test_policy_scanner_suite_script.test_resolve_external_child_inputs_fail_closed_when_child_artifact_missing
@@ -556,4 +564,4 @@ def test_resolve_external_child_inputs_load_child_emitted_deprecated_skip(
         "structural_hash": "pass",
         "deprecated_nonerasability": "skip",
     }
-    assert child_inputs.projection_fiber_semantics is None
+    assert child_inputs.runtime_child_inputs.projection_fiber_semantics is None

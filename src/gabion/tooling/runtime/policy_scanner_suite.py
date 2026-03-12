@@ -218,17 +218,14 @@ class PolicySuiteResult:
 
 @dataclass(frozen=True)
 class PolicySuiteChildInputs:
-    child_statuses: dict[str, str]
     projection_fiber_semantics: dict[str, Any] | None
 
     @classmethod
     def empty(cls) -> "PolicySuiteChildInputs":
-        return cls(child_statuses={}, projection_fiber_semantics=None)
+        return cls(projection_fiber_semantics=None)
 
     def cache_identity_hash(self) -> str:
-        payload: dict[str, object] = {
-            "child_statuses": self.child_statuses,
-        }
+        payload: dict[str, object] = {}
         if self.projection_fiber_semantics is not None:
             payload["projection_fiber_semantics"] = self.projection_fiber_semantics
         return hashlib.sha256(

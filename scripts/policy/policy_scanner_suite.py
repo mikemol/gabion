@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 import os
 import subprocess
 import sys
@@ -10,6 +11,12 @@ from pathlib import Path
 from gabion.tooling.runtime import policy_result_schema
 from gabion.tooling.runtime import policy_scanner_suite as runtime_policy_scanner_suite
 from scripts.policy import hotspot_neighborhood_queue
+
+
+@dataclass(frozen=True)
+class ExternalChildInputs:
+    child_statuses: dict[str, str]
+    runtime_child_inputs: runtime_policy_scanner_suite.PolicySuiteChildInputs
 
 
 def _policy_result_status(payload: dict[str, object]) -> str | None:
@@ -43,7 +50,7 @@ def _load_preserved_policy_result(
 
 def _resolve_external_child_inputs(
     *, root: Path, out: Path
-) -> runtime_policy_scanner_suite.PolicySuiteChildInputs:
+) -> ExternalChildInputs:
     checks: tuple[tuple[str, list[str]], ...] = (
         (
             "policy_check",
@@ -122,9 +129,11 @@ def _resolve_external_child_inputs(
             "external policy result artifact missing after wrapper invocation: "
             f"rule_id={rule_id} returncode={completed.returncode} artifact={artifact}"
         )
-    return runtime_policy_scanner_suite.PolicySuiteChildInputs(
+    return ExternalChildInputs(
         child_statuses=child_statuses,
-        projection_fiber_semantics=projection_fiber_semantics,
+        runtime_child_inputs=runtime_policy_scanner_suite.PolicySuiteChildInputs(
+            projection_fiber_semantics=projection_fiber_semantics,
+        ),
     )
 
 
@@ -139,7 +148,7 @@ def run(
     result = runtime_policy_scanner_suite.load_or_scan_policy_suite(
         root=root,
         artifact_path=out,
-        child_inputs=child_inputs,
+        child_inputs=child_inputs.runtime_child_inputs,
         base_sha=base_sha,
         head_sha=head_sha,
     )
