@@ -1,5 +1,5 @@
 ---
-doc_revision: 101
+doc_revision: 102
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -554,6 +554,11 @@ Current implementation status:
   `projection_exec.py` is now retired as well; the executor keeps only
   function-local temporary grading on the concrete typed-execution surfaces
   still needed during the cutover window
+- the remaining planner-side temporary grading is now limited to the actual
+  top-level `ProjectionSpec` planning functions in `projection_exec_plan.py`;
+  helper-only seams for dict-copying and traverse/sort string normalization
+  have been collapsed back into that planner path rather than justified as
+  separate internal adapter surfaces
 - that substrate output now crosses a runtime-facing boundary: `policy_check
   --output` carries a `projection_fiber_semantics` payload with the lattice
   decision, semantic report, and compiled projection-semantic bundles, so the

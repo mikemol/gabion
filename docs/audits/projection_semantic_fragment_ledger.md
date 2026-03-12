@@ -1,5 +1,5 @@
 ---
-doc_revision: 93
+doc_revision: 94
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_ledger
 doc_role: audit
@@ -20,14 +20,14 @@ doc_requires:
 doc_reviewed_as_of:
   POLICY_SEED.md#policy_seed: 55
   glossary.md#contract: 44
-  docs/projection_semantic_fragment_rfc.md#projection_semantic_fragment_rfc: 101
+  docs/projection_semantic_fragment_rfc.md#projection_semantic_fragment_rfc: 102
   docs/ttl_kernel_semantics.md#ttl_kernel_semantics: 1
   docs/aspf_execution_fibration.md#aspf_execution_fibration: 7
   docs/audits/projection_spec_history_ledger.md: 1
 doc_review_notes:
   POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev55 (fix-forward correction units and artifact-backed continuation remain aligned with this ledger)."
   glossary.md#contract: "Reviewed glossary.md rev44 (witness/evidence/projection terms remain aligned with the semantic-fragment queue language)."
-  docs/projection_semantic_fragment_rfc.md#projection_semantic_fragment_rfc: "Reviewed the implementation RFC rev101 and kept the queue aligned with the generated continuation state: all currently declared `projection_fiber` semantic specs are now closed under typed lowering, and the last production `apply_spec(...)` convenience wrapper is retired from the planner path."
+  docs/projection_semantic_fragment_rfc.md#projection_semantic_fragment_rfc: "Reviewed the implementation RFC rev102 and kept the queue aligned with the generated continuation state: all currently declared `projection_fiber` semantic specs are now closed under typed lowering, the last production `apply_spec(...)` convenience wrapper is retired from the planner path, and planner helper-only adapter seams are collapsed back into the top-level planner surface."
   docs/ttl_kernel_semantics.md#ttl_kernel_semantics: "Reviewed the TTL explainer rev1 and kept SHACL/SPARQL realization language aligned with the ledger rows."
   docs/aspf_execution_fibration.md#aspf_execution_fibration: "Reviewed ASPF execution fibration rev7 and retained ASPF/global identity continuity as a non-negotiable bootstrap constraint."
   docs/audits/projection_spec_history_ledger.md: "Reviewed projection-spec history ledger rev1; legacy ProjectionSpec remains the compatibility surface referenced by queued cutover work."
@@ -231,6 +231,7 @@ Direct-carrier judgment now landed on at least one real consumer path:
 | `2026-03-12` | The planner-local production `apply_spec(...)` convenience wrapper is retired. Production code now exposes only pure `ProjectionSpec` planning plus typed execution, and tests compose those surfaces locally when they still need spec-shaped execution checks. | `src/gabion/analysis/projection/projection_exec_plan.py`; `tests/gabion/analysis/projection/test_projection_spec.py`; `tests/gabion/analysis/projection/test_projection_exec_ingress.py`; `docs/projection_semantic_fragment_rfc.md#projection_semantic_fragment_rfc` |
 | `2026-03-12` | The semantic-fragment and semantic-lowering stacks no longer rely on blanket module-level `semantic_carrier_adapter` markers. Their remaining temporary cutover grading is now function-local on the actual carrier planners/materializers, which lets the ambiguity gate see the real internal contract surfaces without restoring whole-module escapes. | `src/gabion/analysis/projection/semantic_fragment.py`; `src/gabion/analysis/projection/semantic_fragment_compile.py`; `src/gabion/analysis/projection/projection_semantic_lowering.py`; `src/gabion/analysis/projection/projection_semantic_lowering_compile.py`; `tests/gabion/analysis/projection/test_semantic_fragment.py`; `tests/gabion/analysis/projection/test_semantic_fragment_compile.py`; `tests/gabion/analysis/projection/test_projection_semantic_lowering.py`; `tests/gabion/analysis/projection/test_projection_semantic_lowering_compile.py`; `docs/projection_semantic_fragment_rfc.md#projection_semantic_fragment_rfc` |
 | `2026-03-12` | The broad module-level `semantic_carrier_adapter` marker on `projection_exec.py` is retired. The executor now keeps only function-local temporary grading on the concrete typed-execution helpers that still justify it during `PSF-007`, so production no longer treats the whole executor module as one blanket adapter surface. | `src/gabion/analysis/projection/projection_exec.py`; `tests/gabion/analysis/projection/test_projection_exec_edges.py`; `tests/gabion/analysis/projection/test_projection_spec.py`; `tests/gabion/analysis/projection/test_projection_exec_ingress.py`; `docs/projection_semantic_fragment_rfc.md#projection_semantic_fragment_rfc` |
+| `2026-03-12` | Planner helper-only adapter seams are now collapsed into the actual top-level `ProjectionSpec` planner path. `projection_exec_plan.py` no longer carries separate dict-copy or traverse/sort normalization helpers that would need their own temporary grading; only the real planner entrypoints remain cutover-classified during `PSF-007`. | `src/gabion/analysis/projection/projection_exec_plan.py`; `tests/gabion/analysis/projection/test_projection_spec.py`; `tests/gabion/analysis/projection/test_projection_exec_ingress.py`; `tests/gabion/analysis/projection/test_projection_exec_edges.py`; `docs/projection_semantic_fragment_rfc.md#projection_semantic_fragment_rfc` |
 
 ## Queue Rows
 
