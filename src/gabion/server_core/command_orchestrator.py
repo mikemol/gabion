@@ -1502,21 +1502,7 @@ def _apply_auxiliary_artifact_outputs(
             "clusters": clusters_payload.summary.clusters,
             "tests": clusters_payload.summary.tests,
         }
-        clusters_report_payload = {
-            "version": clusters_payload.version,
-            "summary": clusters_summary,
-            "clusters": [
-                {
-                    "key": entry.key,
-                    "display": entry.display,
-                    "tests": list(entry.tests),
-                    "count": entry.count,
-                }
-                for entry in clusters_payload.clusters
-            ],
-            "generated_by_spec_id": clusters_payload.generated_by_spec_id,
-            "generated_by_spec": clusters_payload.generated_by_spec,
-        }
+        clusters_report_payload = call_clusters.render_json_payload(clusters_payload)
         out_dir, artifact_dir = _output_dirs(report_root)
         report_json = json.dumps(
             clusters_report_payload,

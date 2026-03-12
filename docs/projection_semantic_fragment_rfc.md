@@ -1,5 +1,5 @@
 ---
-doc_revision: 108
+doc_revision: 109
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -558,6 +558,10 @@ Current implementation status:
   single-use `boundary_trace` and `obligation_state` projections now live
   directly at `reflect_projection_fiber_witness(...)` rather than behind
   separate temporary adapter-classified helpers
+- whole-Gabion output boundaries are tightening too: `call_clusters` now owns
+  its JSON emission shape at the carrier module, and the emitted wire payload
+  preserves cluster `identity` rather than dropping part of the internal DTO at
+  the output edge
 - the broad module-level `semantic_carrier_adapter` marker formerly attached to
   `projection_exec.py` is now retired as well; the executor keeps only
   function-local temporary grading on the concrete typed-execution surfaces

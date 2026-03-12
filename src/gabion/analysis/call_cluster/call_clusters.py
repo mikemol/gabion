@@ -171,6 +171,32 @@ def build_call_clusters_payload(
     )
 
 
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="call_clusters.render_json_payload",
+)
+def render_json_payload(payload: CallClustersPayload) -> dict[str, JSONValue]:
+    return {
+        "version": payload.version,
+        "summary": {
+            "clusters": payload.summary.clusters,
+            "tests": payload.summary.tests,
+        },
+        "clusters": [
+            {
+                "identity": entry.identity,
+                "key": entry.key,
+                "display": entry.display,
+                "tests": list(entry.tests),
+                "count": entry.count,
+            }
+            for entry in payload.clusters
+        ],
+        "generated_by_spec_id": payload.generated_by_spec_id,
+        "generated_by_spec": payload.generated_by_spec,
+    }
+
+
 def render_markdown(
     payload: CallClustersPayload,
 ) -> str:

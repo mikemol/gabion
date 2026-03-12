@@ -32,24 +32,7 @@ def _payload(
 def _emitted_payload(
     payload: call_clusters.CallClustersPayload,
 ) -> dict[str, object]:
-    return {
-        "version": payload.version,
-        "summary": {
-            "clusters": payload.summary.clusters,
-            "tests": payload.summary.tests,
-        },
-        "clusters": [
-            {
-                "key": entry.key,
-                "display": entry.display,
-                "tests": list(entry.tests),
-                "count": entry.count,
-            }
-            for entry in payload.clusters
-        ],
-        "generated_by_spec_id": payload.generated_by_spec_id,
-        "generated_by_spec": payload.generated_by_spec,
-    }
+    return call_clusters.render_json_payload(payload)
 
 
 # gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.build_call_clusters_payload
@@ -164,6 +147,37 @@ def test_call_clusters_render_uses_payload_spec_metadata() -> None:
     markdown = call_clusters.render_markdown(payload)
     assert "generated_by_spec_id: custom-spec-id" in markdown
     assert 'generated_by_spec: {"name":"custom","spec_version":99}' in markdown
+
+
+# gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.render_json_payload
+# gabion:behavior primary=desired
+def test_call_clusters_emitted_payload_preserves_identity() -> None:
+    payload = _payload(
+        clusters=1,
+        tests=2,
+        entries=(
+            call_clusters.CallClusterEntry(
+                identity="call-cluster-1",
+                key={"k": "call_cluster", "targets": ["pkg.mod:helper"]},
+                display="pkg.mod:helper",
+                tests=("tests/test_mod.py::test_one", "tests/test_mod.py::test_two"),
+                count=2,
+            ),
+        ),
+    )
+    wire_payload = call_clusters.render_json_payload(payload)
+    assert wire_payload["clusters"] == [
+        {
+            "identity": "call-cluster-1",
+            "key": {"k": "call_cluster", "targets": ["pkg.mod:helper"]},
+            "display": "pkg.mod:helper",
+            "tests": [
+                "tests/test_mod.py::test_one",
+                "tests/test_mod.py::test_two",
+            ],
+            "count": 2,
+        }
+    ]
 
 
 # gabion:evidence E:call_footprint::tests/test_call_clusters.py::test_call_clusters_payload_merges_repeated_cluster_identity::call_clusters.py::gabion.analysis.call_clusters.build_call_clusters_payload
