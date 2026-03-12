@@ -157,6 +157,16 @@ def reflect_projection_fiber_witness(
 def close_canonical_semantic_row(
     row: CanonicalWitnessedSemanticRow,
 ) -> CanonicalWitnessedSemanticRow:
+    def stable_objects(values: list[JSONObject]) -> list[JSONObject]:
+        keyed: dict[str, JSONObject] = {}
+        for value in values:
+            normalized = {
+                key: _normalize_value(value[key])
+                for key in canonical_mapping_keys(value)
+            }
+            keyed[_stable_json_key(normalized)] = normalized
+        return [keyed[key] for key in canonical_mapping_keys(keyed)]
+
     return {
         "row_id": row["row_id"],
         "structural_identity": row["structural_identity"],
@@ -167,10 +177,10 @@ def close_canonical_semantic_row(
             key: _normalize_value(row["payload"][key])
             for key in canonical_mapping_keys(row["payload"])
         },
-        "input_witnesses": _stable_unique_objects(row["input_witnesses"]),
-        "synthesized_witnesses": _stable_unique_objects(row["synthesized_witnesses"]),
-        "obligations": _stable_unique_objects(row["obligations"]),
-        "boundary_trace": _stable_unique_objects(row["boundary_trace"]),
+        "input_witnesses": stable_objects(row["input_witnesses"]),
+        "synthesized_witnesses": stable_objects(row["synthesized_witnesses"]),
+        "obligations": stable_objects(row["obligations"]),
+        "boundary_trace": stable_objects(row["boundary_trace"]),
         "transform_trace": [
             {
                 "op": item["op"],
@@ -336,19 +346,6 @@ def _obligation_payloads(witness: FrontierWitness) -> list[JSONObject]:
         ],
         *violation_payloads,
     ]
-
-@grade_boundary(
-    kind="semantic_carrier_adapter",
-    name="semantic_fragment.stable_unique_objects",
-)
-def _stable_unique_objects(values: list[JSONObject]) -> list[JSONObject]:
-    keyed: dict[str, JSONObject] = {}
-    for value in values:
-        normalized = {
-            key: _normalize_value(value[key]) for key in canonical_mapping_keys(value)
-        }
-        keyed[_stable_json_key(normalized)] = normalized
-    return [keyed[key] for key in canonical_mapping_keys(keyed)]
 
 @grade_boundary(
     kind="semantic_carrier_adapter",
