@@ -3,8 +3,8 @@ from __future__ import annotations
 """Projection/spec materialization owners extracted from the legacy monolith."""
 
 import ast
-from dataclasses import dataclass
 from collections.abc import Callable, Iterable, Mapping
+from dataclasses import dataclass
 from pathlib import Path
 
 from gabion.analysis.aspf.aspf import Alt, Forest, NodeId
@@ -80,9 +80,7 @@ from gabion.analysis.indexed_scan.scanners.materialization.suite_order_relation 
 from gabion.analysis.indexed_scan.scanners.report_sections import (
     spec_row_span as _spec_row_span_impl,
 )
-from gabion.analysis.projection.projection_exec_ingress import apply_spec
 from gabion.analysis.projection.projection_registry import (
-    AMBIGUITY_SUMMARY_SPEC,
     AMBIGUITY_SUITE_AGG_SPEC,
     AMBIGUITY_VIRTUAL_SET_SPEC,
     SUITE_ORDER_SPEC,
@@ -536,8 +534,6 @@ def _summarize_call_ambiguities(
         max_entries=max_entries,
         deps=_CallAmbiguitySummaryDeps(
             check_deadline_fn=check_deadline,
-            apply_spec_fn=apply_spec,
-            ambiguity_summary_spec=AMBIGUITY_SUMMARY_SPEC,
             spec_metadata_lines_from_payload_fn=spec_metadata_lines_from_payload,
             spec_metadata_payload_fn=spec_metadata_payload,
             sort_once_fn=sort_once,

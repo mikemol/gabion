@@ -170,8 +170,6 @@ def test_dedupe_emit_and_lint_call_ambiguities(tmp_path: Path) -> None:
 
     summary = da._summarize_call_ambiguities(
         [
-            "bad",
-            {"kind": "x", "site": "bad"},
             emitted[0],
             dict(emitted[0]),
         ],
@@ -179,6 +177,63 @@ def test_dedupe_emit_and_lint_call_ambiguities(tmp_path: Path) -> None:
     )
     assert any("Counts by witness kind" in line for line in summary)
     assert any("... " in line for line in summary)
+
+
+# gabion:evidence E:function_site::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._summarize_call_ambiguities
+# gabion:behavior primary=desired
+def test_summarize_call_ambiguities_uses_execution_ops(monkeypatch) -> None:
+    from gabion.analysis.indexed_scan.calls import call_ambiguity_summary
+    from gabion.analysis.dataflow.engine import (
+        dataflow_projection_materialization as projection_materialization,
+    )
+
+    seen: dict[str, object] = {}
+    monkeypatch.setattr(
+        call_ambiguity_summary,
+        "_ambiguity_summary_execution_ops",
+        lambda: ("typed-ambiguity-op",),
+    )
+
+    def _fake_apply_execution_ops(ops, rows):
+        seen["ops"] = ops
+        seen["rows"] = rows
+        return rows
+
+    monkeypatch.setattr(
+        call_ambiguity_summary,
+        "apply_execution_ops",
+        _fake_apply_execution_ops,
+    )
+
+    summary = projection_materialization._summarize_call_ambiguities(
+        [
+            {
+                "kind": "local_resolution_ambiguous",
+                "site": {
+                    "path": "mod.py",
+                    "function": "mod.helper",
+                    "span": [3, 2, 3, 8],
+                },
+                "candidate_count": 2,
+            }
+        ]
+    )
+
+    assert seen["ops"] == ("typed-ambiguity-op",)
+    assert seen["rows"] == [
+        {
+            "kind": "local_resolution_ambiguous",
+            "site_path": "mod.py",
+            "site_function": "mod.helper",
+            "span_line": 3,
+            "span_col": 2,
+            "span_end_line": 3,
+            "span_end_col": 8,
+            "candidate_count": 2,
+        }
+    ]
+    assert any("Counts by witness kind" in line for line in summary)
+    assert any("Top ambiguous sites:" in line for line in summary)
 
 
 # gabion:evidence E:call_footprint::tests/test_ambiguity_helpers.py::test_emit_call_ambiguities_uses_call_suite::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._emit_call_ambiguities::test_ambiguity_helpers.py::tests.test_ambiguity_helpers._make_function

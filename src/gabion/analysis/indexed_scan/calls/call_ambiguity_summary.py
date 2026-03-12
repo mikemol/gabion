@@ -1,21 +1,32 @@
 from __future__ import annotations
 
+from functools import cache
 from dataclasses import dataclass
 from typing import Callable, Mapping, cast
 
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue
-from gabion.invariants import never
+from gabion.analysis.projection.projection_exec import apply_execution_ops
+from gabion.analysis.projection.projection_exec_ingress import execution_ops_from_spec
+from gabion.analysis.projection.projection_registry import AMBIGUITY_SUMMARY_SPEC
+from gabion.invariants import grade_boundary, never
 
 
 @dataclass(frozen=True)
 class CallAmbiguitySummaryDeps:
     check_deadline_fn: Callable[[], None]
-    apply_spec_fn: Callable[..., list[dict[str, JSONValue]]]
-    ambiguity_summary_spec: object
     spec_metadata_lines_from_payload_fn: Callable[..., list[str]]
     spec_metadata_payload_fn: Callable[..., JSONObject]
     sort_once_fn: Callable[..., list[object]]
     format_span_fields_fn: Callable[..., str]
+
+
+@cache
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="ambiguity_summary_execution_ops",
+)
+def _ambiguity_summary_execution_ops():
+    return execution_ops_from_spec(AMBIGUITY_SUMMARY_SPEC)
 
 
 def summarize_call_ambiguities(
@@ -74,7 +85,10 @@ def summarize_call_ambiguities(
                 "candidate_count": candidate_count,
             }
         )
-    projected = deps.apply_spec_fn(deps.ambiguity_summary_spec, relation)
+    projected = apply_execution_ops(
+        _ambiguity_summary_execution_ops(),
+        relation,
+    )
     counts: dict[str, int] = {}
     for row in relation:
         deps.check_deadline_fn()
@@ -83,7 +97,7 @@ def summarize_call_ambiguities(
     lines: list[str] = []
     lines.extend(
         deps.spec_metadata_lines_from_payload_fn(
-            deps.spec_metadata_payload_fn(deps.ambiguity_summary_spec)
+            deps.spec_metadata_payload_fn(AMBIGUITY_SUMMARY_SPEC)
         )
     )
     lines.append("Counts by witness kind:")
