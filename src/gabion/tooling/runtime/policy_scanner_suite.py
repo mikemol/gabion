@@ -184,7 +184,8 @@ class PolicySuiteResult:
     inventory_hash: str
     rule_set_hash: str
     violations_by_rule: dict[str, list[dict[str, Any]]]
-    policy_results: dict[str, dict[str, Any]]
+    child_statuses: dict[str, str]
+    projection_fiber_semantics: dict[str, Any] | None
     cached: bool
 
     def total_violations(self) -> int:
@@ -216,11 +217,8 @@ class PolicySuiteResult:
                 "message": decision.message,
             },
         }
-        projection_fiber_semantics = _projection_fiber_semantics_payload(
-            self.policy_results,
-        )
-        if projection_fiber_semantics is not None:
-            payload["projection_fiber_semantics"] = projection_fiber_semantics
+        if self.projection_fiber_semantics is not None:
+            payload["projection_fiber_semantics"] = self.projection_fiber_semantics
         return payload
 
 
@@ -275,7 +273,10 @@ def load_or_scan_policy_suite(
                 inventory_hash=inventory_hash,
                 rule_set_hash=rule_set_hash,
                 violations_by_rule=violations,
-                policy_results=normalized_policy_results,
+                child_statuses=_policy_result_statuses(normalized_policy_results),
+                projection_fiber_semantics=_projection_fiber_semantics_payload(
+                    normalized_policy_results,
+                ),
                 cached=True,
             )
 
@@ -583,7 +584,10 @@ def scan_policy_suite(
         inventory_hash=inventory_hash,
         rule_set_hash=rule_set_hash,
         violations_by_rule=violations_by_rule,
-        policy_results=_normalized_policy_result_mapping(policy_results or {}),
+        child_statuses=_policy_result_statuses(policy_results or {}),
+        projection_fiber_semantics=_projection_fiber_semantics_payload(
+            policy_results or {},
+        ),
         cached=False,
     )
 
@@ -662,6 +666,17 @@ def _projection_fiber_semantics_payload(
     if not semantics_outcome.accepted:
         return None
     return semantics_outcome.mapping
+
+
+def _policy_result_statuses(
+    policy_results: Mapping[str, Mapping[str, Any]],
+) -> dict[str, str]:
+    statuses: dict[str, str] = {}
+    for rule_id, payload in policy_results.items():
+        status = str(payload.get("status", "") or "").strip()
+        if status:
+            statuses[str(rule_id)] = status
+    return statuses
 
 
 def _empty_violations_payload() -> dict[str, list[dict[str, Any]]]:

@@ -899,8 +899,9 @@ def test_policy_scanner_suite_carries_external_policy_results(tmp_path: Path) ->
         root=root,
         policy_results=policy_results,
     )
-    assert result.policy_results["policy_check"]["status"] == "pass"
-    semantics = result.policy_results["policy_check"]["projection_fiber_semantics"]
+    assert result.child_statuses["policy_check"] == "pass"
+    semantics = result.projection_fiber_semantics
+    assert semantics is not None
     assert semantics["report"]["compiled_projection_semantic_bundles"][0]["spec_name"] == (
         "projection_fiber_frontier"
     )
@@ -945,7 +946,7 @@ def test_policy_scanner_suite_carries_external_policy_results(tmp_path: Path) ->
         policy_results=policy_results,
     )
     assert cached_again.cached is True
-    assert cached_again.policy_results["policy_check"]["status"] == "pass"
+    assert cached_again.child_statuses["policy_check"] == "pass"
     cached_summary = projection_fiber_semantics_summary_from_payload(
         cached_again.to_payload()
     )

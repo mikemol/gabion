@@ -47,7 +47,8 @@ def test_scanner_payload_uses_dsl_decision_shape() -> None:
         inventory_hash="h1",
         rule_set_hash="r1",
         violations_by_rule={"branchless": [{}], "defensive_fallback": [], "no_monkeypatch": []},
-        policy_results={},
+        child_statuses={},
+        projection_fiber_semantics=None,
         cached=False,
     )
     payload = result.to_payload()
