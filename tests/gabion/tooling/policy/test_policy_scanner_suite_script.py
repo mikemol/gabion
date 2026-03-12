@@ -513,6 +513,7 @@ def test_run_prints_nonempty_violation_families_from_runtime_result(
 
     assert rc == 1
     captured = capsys.readouterr()
+    assert "projection-semantic-fragment queue:" not in captured.out
     assert "branchless violations:" in captured.out
     assert "future_rule_family violations:" in captured.out
     assert "future render" in captured.out

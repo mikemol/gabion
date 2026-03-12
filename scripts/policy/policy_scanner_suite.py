@@ -67,11 +67,6 @@ def run(
         f"severity={decision.severity.value}"
     )
     print(f"hotspot-neighborhood queue: {queue_json}")
-    semantic_queue_path = out_dir / "projection_semantic_fragment_queue.json"
-    print(
-        "projection-semantic-fragment queue: "
-        f"{semantic_queue_path if semantic_queue_path.exists() else '<not emitted by wrapper>'}"
-    )
     if total == 0:
         return 0
     for rule, items in result.violations_by_rule.items():
