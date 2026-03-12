@@ -57,9 +57,8 @@ def test_policy_scanner_suite_scan_and_cache(tmp_path: Path) -> None:
     )
     assert first.cached is False
     assert first.result.total_violations() > 0
-    decision = first.result.to_payload().get("decision")
-    assert isinstance(decision, dict)
-    assert decision.get("outcome") in {"block", "warn", "pass", "skip"}
+    decision = first.result.decision()
+    assert decision.outcome.value in {"block", "warn", "pass", "skip"}
     assert policy_scanner_suite.violations_for_rule(first.result, rule="branchless")
     branchless_violation = policy_scanner_suite.violations_for_rule(first.result, rule="branchless")[0]
     assert "lattice_witness" in branchless_violation
@@ -87,6 +86,7 @@ def test_policy_scanner_suite_scan_and_cache(tmp_path: Path) -> None:
     assert policy_scanner_suite.violations_for_rule(first.result, rule="test_subprocess_hygiene") == []
     assert policy_scanner_suite.violations_for_rule(first.result, rule="test_sleep_hygiene") == []
     first_payload = first.result.to_payload()
+    assert "decision" not in first_payload
     assert "root" not in first_payload
     assert "counts" not in first_payload
     assert "inventory_hash" not in first_payload

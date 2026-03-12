@@ -41,19 +41,19 @@ def test_delta_gate_value_helpers_remain_compatible() -> None:
     assert delta_gate.obsolescence_opaque_delta_value(payload) == 2
 
 
-def test_scanner_payload_uses_dsl_decision_shape() -> None:
+def test_scanner_result_uses_dsl_decision_shape() -> None:
     result = PolicySuiteResult(
         violations_by_rule={"branchless": [{}], "defensive_fallback": [], "no_monkeypatch": []},
         projection_fiber_semantics=None,
     )
     payload = result.to_payload()
-    decision = payload.get("decision")
+    decision = result.decision()
     assert "cached" not in payload
     assert "counts" not in payload
+    assert "decision" not in payload
     assert "root" not in payload
-    assert isinstance(decision, dict)
-    assert decision.get("rule_id") == "scanner.branchless.blocking"
-    assert decision.get("outcome") == "block"
+    assert decision.rule_id == "scanner.branchless.blocking"
+    assert decision.outcome.value == "block"
 
 
 def test_ambiguity_contract_run_uses_dsl_blocking_rule(monkeypatch: object, tmp_path: Path) -> None:

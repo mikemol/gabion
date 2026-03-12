@@ -1,5 +1,5 @@
 ---
-doc_revision: 49
+doc_revision: 50
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -618,6 +618,10 @@ Current implementation status:
   public suite payload shape and no longer stores duplicate derived
   `decision`/`generated_at_utc` fields; it now persists only cache metadata
   plus canonical `violations`
+- the outward `PolicySuiteResult` payload no longer emits a redundant derived
+  `decision`; callers that need the suite decision compute it from
+  `PolicySuiteResult.decision()`, keeping the serialized reporting carrier
+  closer to canonical `violations`
 - wrapper-owned policy-result synthesis has now been removed from the
   policy-suite path entirely: the deprecated-nonerasability child check emits
   its own canonical `skip` result when baseline/current inputs are absent, and

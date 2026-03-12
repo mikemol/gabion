@@ -194,17 +194,10 @@ class PolicySuiteResult:
         )
 
     def to_payload(self) -> dict[str, object]:
-        decision = self.decision()
         payload: dict[str, object] = {
             "format_version": _FORMAT_VERSION,
             "generated_at_utc": datetime.now(timezone.utc).isoformat(),
             "violations": self.violations_by_rule,
-            "decision": {
-                "rule_id": decision.rule_id,
-                "outcome": decision.outcome.value,
-                "severity": decision.severity.value,
-                "message": decision.message,
-            },
         }
         if self.projection_fiber_semantics is not None:
             payload["projection_fiber_semantics"] = self.projection_fiber_semantics
