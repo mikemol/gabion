@@ -123,20 +123,16 @@ def test_run_skips_semantic_queue_backfill_without_policy_check_owned_artifact(
         },
     }
 
-    def _fake_external_child_inputs(
+    def _fake_projection_fiber_semantics(
         *, out_dir: Path
-    ) -> policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs:
+    ) -> dict[str, object] | None:
         assert out_dir == root / "artifacts/out"
-        return policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs(
-            projection_fiber_semantics=dict(
-                policy_check_payload["projection_fiber_semantics"]
-            ),
-        )
+        return dict(policy_check_payload["projection_fiber_semantics"])
 
     monkeypatch.setattr(
         policy_scanner_suite,
-        "_resolve_external_child_inputs",
-        _fake_external_child_inputs,
+        "_resolve_projection_fiber_semantics",
+        _fake_projection_fiber_semantics,
     )
 
     rc = policy_scanner_suite.run(root=root, out_dir=out_dir)
@@ -205,9 +201,9 @@ def test_run_preserves_policy_check_owned_semantic_queue(
         },
     }
 
-    def _fake_external_child_inputs(
+    def _fake_projection_fiber_semantics(
         *, out_dir: Path
-    ) -> policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs:
+    ) -> dict[str, object] | None:
         assert out_dir == root / "artifacts/out"
         policy_check_result.write_text(
             json.dumps(policy_check_payload, indent=2) + "\n",
@@ -247,16 +243,12 @@ def test_run_preserves_policy_check_owned_semantic_queue(
             encoding="utf-8",
         )
         queue_md.write_text("# Projection Semantic Fragment Queue\n", encoding="utf-8")
-        return policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs(
-            projection_fiber_semantics=dict(
-                policy_check_payload["projection_fiber_semantics"]
-            ),
-        )
+        return dict(policy_check_payload["projection_fiber_semantics"])
 
     monkeypatch.setattr(
         policy_scanner_suite,
-        "_resolve_external_child_inputs",
-        _fake_external_child_inputs,
+        "_resolve_projection_fiber_semantics",
+        _fake_projection_fiber_semantics,
     )
 
     rc = policy_scanner_suite.run(root=root, out_dir=out_dir)
@@ -296,24 +288,20 @@ def test_run_does_not_regenerate_missing_policy_check_owned_semantic_queue(
         },
     }
 
-    def _fake_external_child_inputs(
+    def _fake_projection_fiber_semantics(
         *, out_dir: Path
-    ) -> policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs:
+    ) -> dict[str, object] | None:
         assert out_dir == root / "artifacts/out"
         policy_check_result.write_text(
             json.dumps(policy_check_payload, indent=2) + "\n",
             encoding="utf-8",
         )
-        return policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs(
-            projection_fiber_semantics=dict(
-                policy_check_payload["projection_fiber_semantics"]
-            ),
-        )
+        return dict(policy_check_payload["projection_fiber_semantics"])
 
     monkeypatch.setattr(
         policy_scanner_suite,
-        "_resolve_external_child_inputs",
-        _fake_external_child_inputs,
+        "_resolve_projection_fiber_semantics",
+        _fake_projection_fiber_semantics,
     )
 
     rc = policy_scanner_suite.run(root=root, out_dir=out_dir)
@@ -341,13 +329,11 @@ def test_run_passes_in_memory_payload_to_hotspot_queue(
         input_scope={"root": str(root)},
     )
 
-    def _fake_external_child_inputs(
+    def _fake_projection_fiber_semantics(
         *, out_dir: Path
-    ) -> policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs:
+    ) -> dict[str, object] | None:
         assert out_dir == root / "artifacts/out"
-        return policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs(
-            projection_fiber_semantics=None,
-        )
+        return None
 
     def _fake_run_from_payload(
         *,
@@ -386,8 +372,8 @@ def test_run_passes_in_memory_payload_to_hotspot_queue(
 
     monkeypatch.setattr(
         policy_scanner_suite,
-        "_resolve_external_child_inputs",
-        _fake_external_child_inputs,
+        "_resolve_projection_fiber_semantics",
+        _fake_projection_fiber_semantics,
     )
     monkeypatch.setattr(
         policy_scanner_suite.hotspot_neighborhood_queue,
@@ -421,13 +407,11 @@ def test_run_passes_minimal_boundary_shape_with_projection_fiber_semantics(
         "decision": {"rule_id": "projection_fiber.convergence.ok"},
     }
 
-    def _fake_external_child_inputs(
+    def _fake_projection_fiber_semantics(
         *, out_dir: Path
-    ) -> policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs:
+    ) -> dict[str, object] | None:
         assert out_dir == root / "artifacts/out"
-        return policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs(
-            projection_fiber_semantics=dict(projection_fiber_semantics)
-        )
+        return dict(projection_fiber_semantics)
 
     def _fake_scan_policy_suite(**_: object) -> object:
         return policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteResult(
@@ -452,8 +436,8 @@ def test_run_passes_minimal_boundary_shape_with_projection_fiber_semantics(
 
     monkeypatch.setattr(
         policy_scanner_suite,
-        "_resolve_external_child_inputs",
-        _fake_external_child_inputs,
+        "_resolve_projection_fiber_semantics",
+        _fake_projection_fiber_semantics,
     )
     monkeypatch.setattr(
         policy_scanner_suite.runtime_policy_scanner_suite,
@@ -477,9 +461,9 @@ def test_run_passes_minimal_boundary_shape_with_projection_fiber_semantics(
     assert not (out_dir / "policy_suite_results.json").exists()
 
 
-# gabion:evidence E:function_site::test_policy_scanner_suite_script.py::tests.gabion.tooling.policy.test_policy_scanner_suite_script.test_resolve_external_child_inputs_preserve_preexisting_child_artifacts
+# gabion:evidence E:function_site::test_policy_scanner_suite_script.py::tests.gabion.tooling.policy.test_policy_scanner_suite_script.test_resolve_projection_fiber_semantics_preserve_preexisting_child_artifacts
 # gabion:behavior primary=desired
-def test_resolve_external_child_inputs_preserve_preexisting_child_artifacts(
+def test_resolve_projection_fiber_semantics_preserve_preexisting_child_artifacts(
     tmp_path: Path,
     monkeypatch: object,
 ) -> None:
@@ -533,14 +517,16 @@ def test_resolve_external_child_inputs_preserve_preexisting_child_artifacts(
         ),
     )
 
-    child_inputs = policy_scanner_suite._resolve_external_child_inputs(out_dir=out_dir)
+    projection_fiber_semantics = policy_scanner_suite._resolve_projection_fiber_semantics(
+        out_dir=out_dir
+    )
 
-    assert child_inputs.projection_fiber_semantics is None
+    assert projection_fiber_semantics is None
 
 
-# gabion:evidence E:function_site::test_policy_scanner_suite_script.py::tests.gabion.tooling.policy.test_policy_scanner_suite_script.test_resolve_external_child_inputs_fail_closed_when_child_artifact_missing
+# gabion:evidence E:function_site::test_policy_scanner_suite_script.py::tests.gabion.tooling.policy.test_policy_scanner_suite_script.test_resolve_projection_fiber_semantics_fail_closed_when_child_artifact_missing
 # gabion:behavior primary=desired
-def test_resolve_external_child_inputs_fail_closed_when_child_artifact_missing(
+def test_resolve_projection_fiber_semantics_fail_closed_when_child_artifact_missing(
     tmp_path: Path,
     monkeypatch: object,
 ) -> None:
@@ -553,7 +539,7 @@ def test_resolve_external_child_inputs_fail_closed_when_child_artifact_missing(
     )
 
     try:
-        policy_scanner_suite._resolve_external_child_inputs(out_dir=out_dir)
+        policy_scanner_suite._resolve_projection_fiber_semantics(out_dir=out_dir)
     except RuntimeError as exc:
         message = str(exc)
     else:  # pragma: no cover
@@ -566,9 +552,9 @@ def test_resolve_external_child_inputs_fail_closed_when_child_artifact_missing(
     assert "rule_id=policy_check" in message
 
 
-# gabion:evidence E:function_site::test_policy_scanner_suite_script.py::tests.gabion.tooling.policy.test_policy_scanner_suite_script.test_resolve_external_child_inputs_fail_closed_when_later_child_artifact_missing
+# gabion:evidence E:function_site::test_policy_scanner_suite_script.py::tests.gabion.tooling.policy.test_policy_scanner_suite_script.test_resolve_projection_fiber_semantics_fail_closed_when_later_child_artifact_missing
 # gabion:behavior primary=desired
-def test_resolve_external_child_inputs_fail_closed_when_later_child_artifact_missing(
+def test_resolve_projection_fiber_semantics_fail_closed_when_later_child_artifact_missing(
     tmp_path: Path,
 ) -> None:
     root = tmp_path
@@ -597,7 +583,7 @@ def test_resolve_external_child_inputs_fail_closed_when_later_child_artifact_mis
         ),
     )
     try:
-        policy_scanner_suite._resolve_external_child_inputs(out_dir=out_dir)
+        policy_scanner_suite._resolve_projection_fiber_semantics(out_dir=out_dir)
     except RuntimeError as exc:
         message = str(exc)
     else:  # pragma: no cover

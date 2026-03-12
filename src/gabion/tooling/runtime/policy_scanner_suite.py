@@ -185,12 +185,6 @@ class PolicySuiteResult:
             data={"counts": counts},
         )
 
-
-@dataclass(frozen=True)
-class PolicySuiteChildInputs:
-    projection_fiber_semantics: dict[str, Any] | None
-
-
 def _rule_count_pair(item: tuple[str, list[dict[str, Any]]]) -> tuple[str, int]:
     rule, items = item
     return (rule, len(items))
@@ -201,7 +195,7 @@ def scan_policy_suite(
     *,
     root: Path,
     files: tuple[Path, ...] | None = None,
-    child_inputs: PolicySuiteChildInputs,
+    projection_fiber_semantics: dict[str, Any] | None,
     base_sha: str | None = None,
     head_sha: str | None = None,
     changed_paths: set[str] | None = None,
@@ -479,7 +473,7 @@ def scan_policy_suite(
     _drain(_iter_sort_violations_by_rule(violations_by_rule))
     return PolicySuiteResult(
         violations_by_rule=violations_by_rule,
-        projection_fiber_semantics=child_inputs.projection_fiber_semantics,
+        projection_fiber_semantics=projection_fiber_semantics,
     )
 
 
@@ -1114,7 +1108,6 @@ def _serialize_test_sleep_hygiene(violation: object) -> dict[str, object]:
 
 
 __all__ = [
-    "PolicySuiteChildInputs",
     "PolicySuiteResult",
     "scan_policy_suite",
 ]

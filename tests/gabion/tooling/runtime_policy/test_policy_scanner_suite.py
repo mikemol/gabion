@@ -26,23 +26,25 @@ def _total_violations(result: policy_scanner_suite.PolicySuiteResult) -> int:
     return sum(len(items) for items in result.violations_by_rule.values())
 
 
-def _empty_child_inputs() -> policy_scanner_suite.PolicySuiteChildInputs:
-    return policy_scanner_suite.PolicySuiteChildInputs(
-        projection_fiber_semantics=None,
-    )
+def _empty_projection_fiber_semantics() -> dict[str, object] | None:
+    return None
 
 
 def _scan_policy_suite(
     *,
     root: Path,
     files: tuple[Path, ...] | None = None,
-    child_inputs: policy_scanner_suite.PolicySuiteChildInputs | None = None,
+    projection_fiber_semantics: dict[str, object] | None = None,
     changed_paths: set[str] | None = None,
 ) -> policy_scanner_suite.PolicySuiteResult:
     return policy_scanner_suite.scan_policy_suite(
         root=root,
         files=files,
-        child_inputs=child_inputs or _empty_child_inputs(),
+        projection_fiber_semantics=(
+            projection_fiber_semantics
+            if projection_fiber_semantics is not None
+            else _empty_projection_fiber_semantics()
+        ),
         changed_paths=changed_paths,
     )
 
@@ -125,9 +127,9 @@ def test_policy_scanner_suite_scan_result_shape(tmp_path: Path) -> None:
     assert "rule_set_hash" not in first_payload
 
 
-def test_policy_scanner_suite_child_inputs_explicit_none() -> None:
-    child_inputs = _empty_child_inputs()
-    assert child_inputs.projection_fiber_semantics is None
+def test_policy_scanner_suite_projection_fiber_semantics_explicit_none() -> None:
+    projection_fiber_semantics = _empty_projection_fiber_semantics()
+    assert projection_fiber_semantics is None
 
 
 # gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_scan_with_explicit_nonstandard_files::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
@@ -809,11 +811,9 @@ def test_policy_scanner_suite_carries_external_policy_results(tmp_path: Path) ->
     }
     result = _scan_policy_suite(
         root=root,
-        child_inputs=policy_scanner_suite.PolicySuiteChildInputs(
-            projection_fiber_semantics=policy_results["policy_check"][
-                "projection_fiber_semantics"
-            ],
-        ),
+        projection_fiber_semantics=policy_results["policy_check"][
+            "projection_fiber_semantics"
+        ],
     )
     semantics = result.projection_fiber_semantics
     assert semantics is not None

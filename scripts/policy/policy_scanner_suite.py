@@ -21,10 +21,10 @@ def _load_required_child_artifact(
     return dict(loaded)
 
 
-def _resolve_external_child_inputs(
+def _resolve_projection_fiber_semantics(
     *,
     out_dir: Path,
-) -> runtime_policy_scanner_suite.PolicySuiteChildInputs:
+) -> dict[str, object] | None:
     requirements: tuple[tuple[str, Path], ...] = (
         ("policy_check", out_dir / "policy_check_result.json"),
         ("structural_hash", out_dir / "structural_hash_result.json"),
@@ -49,9 +49,7 @@ def _resolve_external_child_inputs(
                 projection_fiber_semantics = dict(semantics_mapping)
             case _:
                 projection_fiber_semantics = None
-    return runtime_policy_scanner_suite.PolicySuiteChildInputs(
-        projection_fiber_semantics=projection_fiber_semantics,
-    )
+    return projection_fiber_semantics
 
 
 def run(
@@ -61,10 +59,10 @@ def run(
     base_sha: str | None = None,
     head_sha: str | None = None,
 ) -> int:
-    child_inputs = _resolve_external_child_inputs(out_dir=out_dir)
+    projection_fiber_semantics = _resolve_projection_fiber_semantics(out_dir=out_dir)
     result = runtime_policy_scanner_suite.scan_policy_suite(
         root=root,
-        child_inputs=child_inputs,
+        projection_fiber_semantics=projection_fiber_semantics,
         base_sha=base_sha,
         head_sha=head_sha,
     )

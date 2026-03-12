@@ -1,5 +1,5 @@
 ---
-doc_revision: 62
+doc_revision: 63
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -579,31 +579,25 @@ Current implementation status:
   `policy_results` payloads in memory; it keeps only the direct
   `projection_fiber_semantics` carrier needed by downstream reporting
 - the runtime `PolicySuiteResult` carrier no longer retains wrapper child
-  statuses at all; wrapper console/status reporting now reads those statuses
-  from the boundary-owned `PolicySuiteChildInputs` bundle rather than from the
-  runtime semantic carrier
+  statuses at all, and wrapper orchestration no longer depends on any
+  child-status carrier once child-owned artifacts are validated
 - the runtime policy-scanner-suite load/scan boundary no longer accepts raw
-  child `policy_results` mappings; it now requires a typed child-input bundle
-  normalized once at wrapper ingress and keyed in cache state as
-  `child_inputs_hash`
-- the runtime `PolicySuiteChildInputs` bundle no longer carries wrapper child
-  statuses; it now carries only semantic child input
-  (`projection_fiber_semantics`), and the wrapper no longer transports any
-  separate child-status bundle after child-artifact validation
+  child `policy_results` mappings; wrapper ingress now normalizes child-owned
+  artifacts once into a direct `projection_fiber_semantics` boundary value
 - the policy-scanner-suite wrapper itself no longer traffics raw child result
   mappings after ingress validation; external child checks now resolve
-  directly to the typed `PolicySuiteChildInputs` bundle before any wrapper
-  orchestration continues
+  directly to `projection_fiber_semantics` before any wrapper orchestration
+  continues
 - the policy-scanner-suite wrapper no longer materializes a temporary
   `dict[rule_id, payload]` child-result rendezvous during ingress resolution;
   preserved or newly emitted child artifacts are normalized directly into
-  `PolicySuiteChildInputs` at the wrapper boundary
+  `projection_fiber_semantics` at the wrapper boundary
 - the runtime policy-scanner-suite module no longer exposes a raw child-result
-  parser at all; `PolicySuiteChildInputs` is now a pure typed carrier, and raw
-  child payload normalization lives only in the wrapper boundary helper
+  parser at all; raw child payload normalization lives only in the wrapper
+  boundary helper, while runtime consumes direct `projection_fiber_semantics`
 - the policy-scanner-suite wrapper no longer exposes separate raw child-payload
   peelers for `status` and `projection_fiber_semantics`; child artifact ingress
-  is now normalized through one typed boundary loader before wrapper
+  is now normalized through one boundary loader before wrapper
   orchestration continues
 - the outward-facing `PolicySuiteResult` carrier and payload no longer project
   cache identity hashes (`inventory_hash`, `rule_set_hash`); those no longer
@@ -655,9 +649,9 @@ Current implementation status:
   hotspot-neighborhood queue at the boundary instead of routing through
   runtime cache orchestration or publishing a suite-results compatibility file
 - the runtime `scan_policy_suite()` surface no longer manufactures an implicit
-  empty child-input bundle; callers must pass an explicit
-  `PolicySuiteChildInputs` carrier, even when projection-fiber semantics are
-  absent, so runtime orchestration no longer owns that boundary default
+  semantic-input default; callers must pass an explicit
+  `projection_fiber_semantics` argument, even when it is `None`, so runtime
+  orchestration no longer owns that boundary default
 - wrapper-owned policy-result synthesis has now been removed from the
   policy-suite path entirely: the deprecated-nonerasability child check emits
   its own canonical `skip` result when baseline/current inputs are absent, and
