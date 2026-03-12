@@ -193,15 +193,6 @@ class PolicySuiteResult:
             data={"counts": counts},
         )
 
-    def to_payload(self) -> dict[str, object]:
-        payload: dict[str, object] = {
-            "format_version": _FORMAT_VERSION,
-            "violations": self.violations_by_rule,
-        }
-        if self.projection_fiber_semantics is not None:
-            payload["projection_fiber_semantics"] = self.projection_fiber_semantics
-        return payload
-
 
 @dataclass(frozen=True)
 class PolicySuiteLoadOutcome:

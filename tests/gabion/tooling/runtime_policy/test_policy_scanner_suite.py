@@ -85,7 +85,10 @@ def test_policy_scanner_suite_scan_and_cache(tmp_path: Path) -> None:
     assert policy_scanner_suite.violations_for_rule(first.result, rule="fiber_normalization_contract") == []
     assert policy_scanner_suite.violations_for_rule(first.result, rule="test_subprocess_hygiene") == []
     assert policy_scanner_suite.violations_for_rule(first.result, rule="test_sleep_hygiene") == []
-    first_payload = first.result.to_payload()
+    first_payload = {
+        "format_version": 1,
+        "violations": first.result.violations_by_rule,
+    }
     assert "decision" not in first_payload
     assert "generated_at_utc" not in first_payload
     assert "root" not in first_payload
@@ -911,7 +914,11 @@ def test_policy_scanner_suite_carries_external_policy_results(tmp_path: Path) ->
     assert semantics["report"]["compiled_projection_semantic_bundles"][0]["spec_name"] == (
         "projection_fiber_frontier"
     )
-    payload = result.to_payload()
+    payload = {
+        "format_version": 1,
+        "violations": result.violations_by_rule,
+        "projection_fiber_semantics": semantics,
+    }
     assert "policy_results" not in payload
     assert "cached" not in payload
     assert "generated_at_utc" not in payload
@@ -968,7 +975,13 @@ def test_policy_scanner_suite_carries_external_policy_results(tmp_path: Path) ->
     )
     assert cached_again.cached is True
     cached_summary = projection_fiber_semantics_summary_from_payload(
-        cached_again.result.to_payload()
+        {
+            "format_version": 1,
+            "violations": cached_again.result.violations_by_rule,
+            "projection_fiber_semantics": (
+                cached_again.result.projection_fiber_semantics
+            ),
+        }
     )
     assert cached_summary is not None
     assert cached_summary.decision["rule_id"] == "projection_fiber.convergence.ok"

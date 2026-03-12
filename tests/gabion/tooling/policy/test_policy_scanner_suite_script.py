@@ -399,6 +399,21 @@ def test_run_passes_in_memory_payload_to_hotspot_queue(
     assert captured["markdown_out"] == out.parent / "hotspot_neighborhood_queue.md"
 
 
+def test_hotspot_source_payload_uses_minimal_boundary_shape() -> None:
+    result = policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteResult(
+        violations_by_rule={"branchless": [{"path": "src/gabion/example.py"}]},
+        projection_fiber_semantics={"decision": {"rule_id": "projection_fiber.convergence.ok"}},
+    )
+    payload = policy_scanner_suite._hotspot_source_payload(result)
+    assert payload == {
+        "format_version": 1,
+        "violations": {"branchless": [{"path": "src/gabion/example.py"}]},
+        "projection_fiber_semantics": {
+            "decision": {"rule_id": "projection_fiber.convergence.ok"}
+        },
+    }
+
+
 # gabion:evidence E:function_site::test_policy_scanner_suite_script.py::tests.gabion.tooling.policy.test_policy_scanner_suite_script.test_resolve_external_child_inputs_preserve_preexisting_child_artifacts
 # gabion:behavior primary=desired
 def test_resolve_external_child_inputs_preserve_preexisting_child_artifacts(

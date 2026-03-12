@@ -19,6 +19,18 @@ class ExternalChildInputs:
     runtime_child_inputs: runtime_policy_scanner_suite.PolicySuiteChildInputs
 
 
+def _hotspot_source_payload(
+    result: runtime_policy_scanner_suite.PolicySuiteResult,
+) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "format_version": 1,
+        "violations": result.violations_by_rule,
+    }
+    if result.projection_fiber_semantics is not None:
+        payload["projection_fiber_semantics"] = result.projection_fiber_semantics
+    return payload
+
+
 def _policy_result_status(payload: dict[str, object]) -> str | None:
     status = str(payload.get("status", "") or "").strip()
     return status or None
@@ -157,7 +169,7 @@ def run(
     queue_json = out.parent / "hotspot_neighborhood_queue.json"
     queue_md = out.parent / "hotspot_neighborhood_queue.md"
     hotspot_neighborhood_queue.run_from_payload(
-        payload=result.to_payload(),
+        payload=_hotspot_source_payload(result),
         out_path=queue_json,
         markdown_out=queue_md,
     )

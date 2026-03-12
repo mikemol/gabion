@@ -46,13 +46,7 @@ def test_scanner_result_uses_dsl_decision_shape() -> None:
         violations_by_rule={"branchless": [{}], "defensive_fallback": [], "no_monkeypatch": []},
         projection_fiber_semantics=None,
     )
-    payload = result.to_payload()
     decision = result.decision()
-    assert "cached" not in payload
-    assert "counts" not in payload
-    assert "decision" not in payload
-    assert "generated_at_utc" not in payload
-    assert "root" not in payload
     assert decision.rule_id == "scanner.branchless.blocking"
     assert decision.outcome.value == "block"
 

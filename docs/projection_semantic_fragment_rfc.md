@@ -1,5 +1,5 @@
 ---
-doc_revision: 51
+doc_revision: 52
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -626,6 +626,10 @@ Current implementation status:
   and the hotspot-neighborhood queue no longer copies a
   `source_generated_at_utc` field from that payload; queue artifacts now keep
   only their own generation timestamp plus direct source-derived content
+- the runtime `PolicySuiteResult` carrier no longer serializes itself via
+  `to_payload()`; boundary payload shaping for hotspot/report consumers now
+  lives at the wrapper edge, and the runtime carrier remains a typed in-memory
+  result only
 - wrapper-owned policy-result synthesis has now been removed from the
   policy-suite path entirely: the deprecated-nonerasability child check emits
   its own canonical `skip` result when baseline/current inputs are absent, and
