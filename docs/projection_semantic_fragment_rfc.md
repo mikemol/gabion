@@ -1,5 +1,5 @@
 ---
-doc_revision: 118
+doc_revision: 119
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -573,6 +573,10 @@ Current implementation status:
   carrier seam, so the remaining temporary grading on `semantic_fragment.py`
   stays concentrated on the real row-closure, canonicalization, and
   obligation materialization surfaces
+- and narrower again after that: `_synthesized_witness_payloads(...)` is
+  collapsed back into `reflect_projection_fiber_witness(...)`, so that
+  temporary work-growth grading stays on the real reflection carrier
+  entrypoint instead of on a second witness-assembly wrapper
 - the compile side is narrower too: `_input_witness_kinds(...)`,
   `_synthesized_witness_kinds(...)`, `_boundary_kinds(...)`, and
   `_transform_ops(...)` are now collapsed back into the already-graded

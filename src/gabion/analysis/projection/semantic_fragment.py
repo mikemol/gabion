@@ -72,7 +72,38 @@ def reflect_projection_fiber_witness(
         node_kind=context["node_kind"],
         surface="projection_fiber",
     )
-    synthesized_witnesses = _synthesized_witness_payloads(witness)
+    synthesized_witnesses = [
+        _join_payload(
+            kind="join",
+            left=witness.data_exec_join.left_ids,
+            right=witness.data_exec_join.right_ids,
+            result=witness.data_exec_join.result_ids,
+            deterministic=witness.data_exec_join.deterministic,
+        ),
+        _join_payload(
+            kind="meet",
+            left=witness.data_exec_meet.left_ids,
+            right=witness.data_exec_meet.right_ids,
+            result=witness.data_exec_meet.result_ids,
+            deterministic=witness.data_exec_meet.deterministic,
+        ),
+        _naturality_payload(
+            kind="eta_data_to_exec",
+            direction=witness.eta_data_to_exec.direction,
+            mapped_source=witness.eta_data_to_exec.mapped_source_site_ids,
+            mapped_target=witness.eta_data_to_exec.mapped_target_site_ids,
+            unmapped=witness.eta_data_to_exec.unmapped,
+            complete=witness.eta_data_to_exec.complete,
+        ),
+        _naturality_payload(
+            kind="eta_exec_to_data",
+            direction=witness.eta_exec_to_data.direction,
+            mapped_source=witness.eta_exec_to_data.mapped_source_site_ids,
+            mapped_target=witness.eta_exec_to_data.mapped_target_site_ids,
+            unmapped=witness.eta_exec_to_data.unmapped,
+            complete=witness.eta_exec_to_data.complete,
+        ),
+    ]
     boundary_trace = [
         {
             "kind": "boundary_crossing",
@@ -220,44 +251,6 @@ def _input_witness_payloads(witness: FrontierWitness) -> list[JSONObject]:
             "column": witness.exec_frontier_column,
             "ordinal": witness.exec_frontier_ordinal,
         },
-    ]
-
-@grade_boundary(
-    kind="semantic_carrier_adapter",
-    name="semantic_fragment.synthesized_witness_payloads",
-)
-def _synthesized_witness_payloads(witness: FrontierWitness) -> list[JSONObject]:
-    return [
-        _join_payload(
-            kind="join",
-            left=witness.data_exec_join.left_ids,
-            right=witness.data_exec_join.right_ids,
-            result=witness.data_exec_join.result_ids,
-            deterministic=witness.data_exec_join.deterministic,
-        ),
-        _join_payload(
-            kind="meet",
-            left=witness.data_exec_meet.left_ids,
-            right=witness.data_exec_meet.right_ids,
-            result=witness.data_exec_meet.result_ids,
-            deterministic=witness.data_exec_meet.deterministic,
-        ),
-        _naturality_payload(
-            kind="eta_data_to_exec",
-            direction=witness.eta_data_to_exec.direction,
-            mapped_source=witness.eta_data_to_exec.mapped_source_site_ids,
-            mapped_target=witness.eta_data_to_exec.mapped_target_site_ids,
-            unmapped=witness.eta_data_to_exec.unmapped,
-            complete=witness.eta_data_to_exec.complete,
-        ),
-        _naturality_payload(
-            kind="eta_exec_to_data",
-            direction=witness.eta_exec_to_data.direction,
-            mapped_source=witness.eta_exec_to_data.mapped_source_site_ids,
-            mapped_target=witness.eta_exec_to_data.mapped_target_site_ids,
-            unmapped=witness.eta_exec_to_data.unmapped,
-            complete=witness.eta_exec_to_data.complete,
-        ),
     ]
 
 def _join_payload(
