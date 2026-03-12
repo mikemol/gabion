@@ -545,6 +545,11 @@ Current implementation status:
   compiles through the semantic-lowering path, so further Phase 4 work must be
   justified by a new declared semantic authoring face rather than by widening
   legacy bridge behavior
+- the broad module-level `semantic_carrier_adapter` markers formerly attached
+  to the semantic-fragment and semantic-lowering modules are now retired; the
+  remaining temporary grade markers on that path are function-local and limited
+  to the actual carrier planners/materializers they still justify during
+  `PSF-007`
 - that substrate output now crosses a runtime-facing boundary: `policy_check
   --output` carries a `projection_fiber_semantics` payload with the lattice
   decision, semantic report, and compiled projection-semantic bundles, so the

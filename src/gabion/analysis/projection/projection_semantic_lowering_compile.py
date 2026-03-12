@@ -1,4 +1,3 @@
-# gabion:grade_boundary kind=semantic_carrier_adapter name=projection_semantic_lowering_compile
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -27,7 +26,7 @@ from gabion.analysis.projection.semantic_fragment_compile import (
     compile_projection_fiber_support_reflect_to_sparql,
     compile_projection_fiber_wedge_to_sparql,
 )
-from gabion.invariants import never
+from gabion.invariants import grade_boundary, never
 from gabion.json_types import JSONValue
 from gabion.order_contract import OrderPolicy, sort_once
 
@@ -73,7 +72,10 @@ class ProjectionSemanticCompiledPlanBundle:
             "compiled_sparql_plans": [item for item in self.compiled_sparql_plans],
         }
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering_compile.compile_projection_semantic_lowering_plan",
+)
 def compile_projection_semantic_lowering_plan(
     lowering_plan: ProjectionSemanticLoweringPlan,
     semantic_rows: tuple[CanonicalWitnessedSemanticRow, ...],
@@ -132,7 +134,10 @@ def compile_projection_semantic_lowering_plan(
         ),
     )
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering_compile.compile_semantic_projection_op",
+)
 def _compile_semantic_projection_op(
     *,
     lowering_plan: ProjectionSemanticLoweringPlan,
@@ -189,7 +194,10 @@ def _compile_semantic_projection_op(
         semantic_op=semantic_op.semantic_op.value,
     )
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering_compile.compile_quotient_face_semantic_op",
+)
 def _compile_quotient_face_semantic_op(
     *,
     lowering_plan: ProjectionSemanticLoweringPlan,
@@ -237,7 +245,10 @@ def _compile_quotient_face_semantic_op(
         )
     return tuple(bindings), tuple(shacl_plans), tuple(sparql_plans)
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering_compile.compile_reflect_semantic_op",
+)
 def _compile_reflect_semantic_op(
     *,
     semantic_op: SemanticProjectionOp,
@@ -256,7 +267,10 @@ def _compile_reflect_semantic_op(
         sparql_plans.append(compile_projection_fiber_reflect_to_sparql(row))
     return (), tuple(shacl_plans), tuple(sparql_plans)
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering_compile.compile_support_reflect_semantic_op",
+)
 def _compile_support_reflect_semantic_op(
     *,
     semantic_op: SemanticProjectionOp,
@@ -275,7 +289,10 @@ def _compile_support_reflect_semantic_op(
         sparql_plans.append(compile_projection_fiber_support_reflect_to_sparql(row))
     return (), tuple(shacl_plans), tuple(sparql_plans)
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering_compile.compile_wedge_semantic_op",
+)
 def _compile_wedge_semantic_op(
     *,
     semantic_op: SemanticProjectionOp,
@@ -292,7 +309,10 @@ def _compile_wedge_semantic_op(
         sparql_plans.append(compile_projection_fiber_wedge_to_sparql(row))
     return (), (), tuple(sparql_plans)
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering_compile.compile_reindex_semantic_op",
+)
 def _compile_reindex_semantic_op(
     *,
     semantic_op: SemanticProjectionOp,
@@ -309,7 +329,10 @@ def _compile_reindex_semantic_op(
         sparql_plans.append(compile_projection_fiber_reindex_to_sparql(row))
     return (), (), tuple(sparql_plans)
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering_compile.compile_existential_image_semantic_op",
+)
 def _compile_existential_image_semantic_op(
     *,
     semantic_op: SemanticProjectionOp,
@@ -328,7 +351,10 @@ def _compile_existential_image_semantic_op(
         )
     return (), (), tuple(sparql_plans)
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering_compile.compile_synthesize_witness_semantic_op",
+)
 def _compile_synthesize_witness_semantic_op(
     *,
     semantic_op: SemanticProjectionOp,
@@ -345,7 +371,10 @@ def _compile_synthesize_witness_semantic_op(
     _semantic_rows_for_surface(surface=surface, semantic_rows=semantic_rows)
     return (), (), ()
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering_compile.compile_negate_semantic_op",
+)
 def _compile_negate_semantic_op(
     *,
     semantic_op: SemanticProjectionOp,
@@ -362,14 +391,20 @@ def _compile_negate_semantic_op(
         sparql_plans.append(compile_projection_fiber_negate_to_sparql(row))
     return (), (), tuple(sparql_plans)
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering_compile.required_quotient_face",
+)
 def _required_quotient_face(params: dict[str, object]) -> str:
     quotient_face = params.get("quotient_face")
     if quotient_face is None:
         never("semantic projection op missing quotient_face")
     return _required_quotient_face_payload(quotient_face)
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering_compile.required_quotient_face_payload",
+)
 @singledispatch
 def _required_quotient_face_payload(value: object) -> str:
     never(
@@ -377,21 +412,30 @@ def _required_quotient_face_payload(value: object) -> str:
         value_type=type(value).__name__,
     )
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering_compile.required_quotient_face_from_str",
+)
 @_required_quotient_face_payload.register(str)
 def _required_quotient_face_from_str(value: str) -> str:
     if value:
         return value
     never("semantic projection op missing quotient_face")
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering_compile.required_field_tuple",
+)
 def _required_field_tuple(params: dict[str, object]) -> tuple[str, ...]:
     fields = params.get("fields")
     if fields is None:
         never("semantic projection op missing supported field list")
     return _required_field_tuple_payload(fields)
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering_compile.required_field_tuple_payload",
+)
 @singledispatch
 def _required_field_tuple_payload(value: object) -> tuple[str, ...]:
     never(
@@ -399,17 +443,26 @@ def _required_field_tuple_payload(value: object) -> tuple[str, ...]:
         value_type=type(value).__name__,
     )
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering_compile.required_field_tuple_from_list",
+)
 @_required_field_tuple_payload.register(list)
 def _required_field_tuple_from_list(value: list[JSONValue]) -> tuple[str, ...]:
     return _field_tuple_from_sequence(tuple(value))
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering_compile.required_field_tuple_from_tuple",
+)
 @_required_field_tuple_payload.register(tuple)
 def _required_field_tuple_from_tuple(value: tuple[object, ...]) -> tuple[str, ...]:
     return _field_tuple_from_sequence(value)
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering_compile.field_tuple_from_sequence",
+)
 def _field_tuple_from_sequence(values: tuple[object, ...]) -> tuple[str, ...]:
     normalized: list[str] = []
     for value in values:
@@ -417,7 +470,10 @@ def _field_tuple_from_sequence(values: tuple[object, ...]) -> tuple[str, ...]:
         normalized.append(_field_name_payload(value))
     return tuple(normalized)
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering_compile.field_name_payload",
+)
 @singledispatch
 def _field_name_payload(value: object) -> str:
     never(
@@ -425,21 +481,30 @@ def _field_name_payload(value: object) -> str:
         value_type=type(value).__name__,
     )
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering_compile.field_name_from_str",
+)
 @_field_name_payload.register(str)
 def _field_name_from_str(value: str) -> str:
     if value:
         return value
     never("semantic projection field value must be non-empty")
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering_compile.required_surface",
+)
 def _required_surface(params: dict[str, object]) -> str:
     surface = params.get("surface")
     if surface is None:
         never("semantic projection op missing surface")
     return _required_surface_payload(surface)
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering_compile.required_surface_payload",
+)
 @singledispatch
 def _required_surface_payload(value: object) -> str:
     never(
@@ -447,14 +512,20 @@ def _required_surface_payload(value: object) -> str:
         value_type=type(value).__name__,
     )
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering_compile.required_surface_from_str",
+)
 @_required_surface_payload.register(str)
 def _required_surface_from_str(value: str) -> str:
     if value:
         return value
     never("semantic projection op missing surface")
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering_compile.semantic_rows_for_quotient_face",
+)
 def _semantic_rows_for_quotient_face(
     *,
     quotient_face: str,
@@ -481,7 +552,10 @@ def _semantic_rows_for_quotient_face(
         quotient_face=quotient_face,
     )
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering_compile.semantic_rows_for_surface",
+)
 def _semantic_rows_for_surface(
     *,
     surface: str,

@@ -1,4 +1,3 @@
-# gabion:grade_boundary kind=semantic_carrier_adapter name=projection_semantic_lowering
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -9,7 +8,7 @@ from functools import singledispatch
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.analysis.projection.projection_normalize import spec_hash
 from gabion.analysis.projection.projection_spec import ProjectionOp, ProjectionSpec
-from gabion.invariants import never
+from gabion.invariants import grade_boundary, never
 from gabion.json_types import JSONValue
 
 
@@ -134,7 +133,10 @@ class _LoweredPresentationProjectionOp(_LoweredProjectionBase):
 class _LoweredBridgeProjectionOp(_LoweredProjectionBase):
     bridge_op: BridgeProjectionOp
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering.lower_projection_spec_to_semantic_plan",
+)
 def lower_projection_spec_to_semantic_plan(
     spec: ProjectionSpec,
 ) -> ProjectionSemanticLoweringPlan:
@@ -165,6 +167,10 @@ def lower_projection_spec_to_semantic_plan(
     )
 
 
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering.normalize_projection_op",
+)
 def _normalize_projection_op(
     *,
     index: int,
@@ -293,6 +299,10 @@ def _normalize_projection_op(
     )
 
 
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering.lower_projection_op",
+)
 def _lower_projection_op(normalized_op: _NormalizedProjectionOp) -> _LoweredProjectionBase:
     op_name = normalized_op.op_name
     params = normalized_op.params
@@ -471,6 +481,10 @@ def _lower_projection_op(normalized_op: _NormalizedProjectionOp) -> _LoweredProj
     )
 
 
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering.normalized_count_fields",
+)
 def _normalized_count_fields(params: Mapping[str, JSONValue]) -> tuple[str, ...]:
     if "fields" in params:
         return _normalized_string_values(params["fields"])
@@ -479,6 +493,10 @@ def _normalized_count_fields(params: Mapping[str, JSONValue]) -> tuple[str, ...]
     return ()
 
 
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering.normalized_predicates",
+)
 def _normalized_predicates(params: Mapping[str, JSONValue]) -> tuple[str, ...]:
     predicates: list[str] = []
     if "predicate" in params:
@@ -490,11 +508,19 @@ def _normalized_predicates(params: Mapping[str, JSONValue]) -> tuple[str, ...]:
     return tuple(predicates)
 
 
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering.normalized_string_values",
+)
 def _normalized_string_values(value: JSONValue) -> tuple[str, ...]:
     check_deadline()
     return _normalized_string_values_payload(value)
 
 
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering.normalized_string_sequence",
+)
 def _normalized_string_sequence(sequence_value: tuple[object, ...]) -> tuple[str, ...]:
     normalized: list[str] = []
     for entry in sequence_value:
@@ -507,6 +533,10 @@ def _normalized_string_sequence(sequence_value: tuple[object, ...]) -> tuple[str
     return tuple(normalized)
 
 
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering.normalized_nonempty_string",
+)
 def _normalized_nonempty_string(value: JSONValue) -> str:
     match value:
         case str() as text_value:
@@ -514,21 +544,37 @@ def _normalized_nonempty_string(value: JSONValue) -> str:
     return ""
 
 
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering.copy_json_mapping",
+)
 def _copy_json_mapping(params: Mapping[str, JSONValue]) -> dict[str, JSONValue]:
     return {str(key): value for key, value in params.items()}
 
 
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering.mapping_value",
+)
 def _mapping_value(params: Mapping[str, JSONValue], key: str) -> JSONValue:
     if key in params:
         return params[key]
     return []
 
 
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering.normalized_string_values_payload",
+)
 @singledispatch
 def _normalized_string_values_payload(value: JSONValue) -> tuple[str, ...]:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering.normalized_string_values_from_str",
+)
 @_normalized_string_values_payload.register(str)
 def _normalized_string_values_from_str(value: str) -> tuple[str, ...]:
     stripped = value.strip()
@@ -537,21 +583,37 @@ def _normalized_string_values_from_str(value: str) -> tuple[str, ...]:
     return ()
 
 
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering.normalized_string_values_from_list",
+)
 @_normalized_string_values_payload.register(list)
 def _normalized_string_values_from_list(value: list[JSONValue]) -> tuple[str, ...]:
     return _normalized_string_sequence(tuple(value))
 
 
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering.normalized_string_values_from_tuple",
+)
 @_normalized_string_values_payload.register(tuple)
 def _normalized_string_values_from_tuple(value: tuple[object, ...]) -> tuple[str, ...]:
     return _normalized_string_sequence(value)
 
 
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering.normalized_string_values_from_set",
+)
 @_normalized_string_values_payload.register(set)
 def _normalized_string_values_from_set(value: set[object]) -> tuple[str, ...]:
     return _normalized_string_sequence(tuple(value))
 
 
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering.empty_string_values",
+)
 def _empty_string_values(_value: object) -> tuple[str, ...]:
     return ()
 
@@ -560,11 +622,19 @@ for _runtime_type in (dict, int, float, bool, type(None)):
     _normalized_string_values_payload.register(_runtime_type)(_empty_string_values)
 
 
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering.limit_count_payload",
+)
 @singledispatch
 def _limit_count_payload(value: JSONValue) -> _LimitCountParseResult:
     never("unregistered runtime type", value_type=type(value).__name__)
 
 
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering.limit_count_from_int",
+)
 @_limit_count_payload.register(int)
 def _limit_count_from_int(value: int) -> _LimitCountParseResult:
     if value >= 0:
@@ -572,6 +642,10 @@ def _limit_count_from_int(value: int) -> _LimitCountParseResult:
     return _LimitCountParseResult(is_valid=False)
 
 
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_semantic_lowering.invalid_limit_count",
+)
 def _invalid_limit_count(_value: object) -> _LimitCountParseResult:
     return _LimitCountParseResult(is_valid=False)
 

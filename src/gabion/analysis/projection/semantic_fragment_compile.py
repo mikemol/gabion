@@ -1,12 +1,11 @@
 from __future__ import annotations
-# gabion:grade_boundary kind=semantic_carrier_adapter name=projection_semantic_fragment_compile
 
 import json
 from dataclasses import dataclass
 from functools import singledispatch
 from typing import TypedDict
 
-from gabion.invariants import never
+from gabion.invariants import grade_boundary, never
 from gabion.analysis.projection.semantic_fragment import (
     CanonicalWitnessedSemanticRow,
     SemanticOpKind,
@@ -60,7 +59,10 @@ class _ProjectionFiberQuotientFaceFieldPlan:
     select_var: str
     message: str
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="semantic_fragment_compile.compile_projection_fiber_reflect_to_shacl",
+)
 def compile_projection_fiber_reflect_to_shacl(
     row: CanonicalWitnessedSemanticRow,
 ) -> CompiledShaclPlan:
@@ -103,7 +105,10 @@ def compile_projection_fiber_reflect_to_shacl(
         "witness_trace": _witness_trace(row),
     }
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="semantic_fragment_compile.compile_projection_fiber_reflect_to_sparql",
+)
 def compile_projection_fiber_reflect_to_sparql(
     row: CanonicalWitnessedSemanticRow,
 ) -> CompiledSparqlPlan:
@@ -146,7 +151,10 @@ def compile_projection_fiber_reflect_to_sparql(
         "witness_trace": _witness_trace(row),
     }
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="semantic_fragment_compile.compile_projection_fiber_support_reflect_to_shacl",
+)
 def compile_projection_fiber_support_reflect_to_shacl(
     row: CanonicalWitnessedSemanticRow,
 ) -> CompiledShaclPlan:
@@ -188,7 +196,10 @@ def compile_projection_fiber_support_reflect_to_shacl(
         "witness_trace": _witness_trace(row),
     }
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="semantic_fragment_compile.compile_projection_fiber_support_reflect_to_sparql",
+)
 def compile_projection_fiber_support_reflect_to_sparql(
     row: CanonicalWitnessedSemanticRow,
 ) -> CompiledSparqlPlan:
@@ -232,7 +243,10 @@ def compile_projection_fiber_support_reflect_to_sparql(
         "witness_trace": _witness_trace(row),
     }
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="semantic_fragment_compile.compile_projection_fiber_wedge_to_sparql",
+)
 def compile_projection_fiber_wedge_to_sparql(
     row: CanonicalWitnessedSemanticRow,
 ) -> CompiledSparqlPlan:
@@ -282,7 +296,10 @@ def compile_projection_fiber_wedge_to_sparql(
         "witness_trace": _witness_trace(row),
     }
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="semantic_fragment_compile.compile_projection_fiber_reindex_to_sparql",
+)
 def compile_projection_fiber_reindex_to_sparql(
     row: CanonicalWitnessedSemanticRow,
 ) -> CompiledSparqlPlan:
@@ -325,7 +342,10 @@ def compile_projection_fiber_reindex_to_sparql(
         "witness_trace": _witness_trace(row),
     }
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="semantic_fragment_compile.compile_projection_fiber_existential_image_to_sparql",
+)
 def compile_projection_fiber_existential_image_to_sparql(
     row: CanonicalWitnessedSemanticRow,
 ) -> CompiledSparqlPlan:
@@ -367,7 +387,10 @@ def compile_projection_fiber_existential_image_to_sparql(
         "witness_trace": _witness_trace(row),
     }
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="semantic_fragment_compile.compile_projection_fiber_negate_to_sparql",
+)
 def compile_projection_fiber_negate_to_sparql(
     row: CanonicalWitnessedSemanticRow,
 ) -> CompiledSparqlPlan:
@@ -411,7 +434,10 @@ def compile_projection_fiber_negate_to_sparql(
         "witness_trace": _witness_trace(row),
     }
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="semantic_fragment_compile.compile_projection_fiber_quotient_face_to_shacl",
+)
 def compile_projection_fiber_quotient_face_to_shacl(
     row: CanonicalWitnessedSemanticRow,
     *,
@@ -447,7 +473,10 @@ def compile_projection_fiber_quotient_face_to_shacl(
         "witness_trace": _witness_trace(row),
     }
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="semantic_fragment_compile.compile_projection_fiber_quotient_face_to_sparql",
+)
 def compile_projection_fiber_quotient_face_to_sparql(
     row: CanonicalWitnessedSemanticRow,
     *,
@@ -482,30 +511,48 @@ def compile_projection_fiber_quotient_face_to_sparql(
         "witness_trace": _witness_trace(row),
     }
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="semantic_fragment_compile.witness_trace",
+)
 def _witness_trace(row: CanonicalWitnessedSemanticRow) -> list[str]:
     return [
         *[str(item["kind"]) for item in row["input_witnesses"]],
         *[str(item["op"]) for item in row["transform_trace"]],
     ]
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="semantic_fragment_compile.input_witness_kinds",
+)
 def _input_witness_kinds(row: CanonicalWitnessedSemanticRow) -> tuple[str, ...]:
     return _distinct_mapping_values(row["input_witnesses"], key="kind")
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="semantic_fragment_compile.synthesized_witness_kinds",
+)
 def _synthesized_witness_kinds(row: CanonicalWitnessedSemanticRow) -> tuple[str, ...]:
     return _distinct_mapping_values(row["synthesized_witnesses"], key="kind")
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="semantic_fragment_compile.boundary_kinds",
+)
 def _boundary_kinds(row: CanonicalWitnessedSemanticRow) -> tuple[str, ...]:
     return _distinct_mapping_values(row["boundary_trace"], key="boundary_kind")
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="semantic_fragment_compile.transform_ops",
+)
 def _transform_ops(row: CanonicalWitnessedSemanticRow) -> tuple[str, ...]:
     return _distinct_mapping_values(row["transform_trace"], key="op")
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="semantic_fragment_compile.distinct_mapping_values",
+)
 def _distinct_mapping_values(
     values: list[dict[str, object]],
     *,
@@ -521,16 +568,25 @@ def _distinct_mapping_values(
         )
     )
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="semantic_fragment_compile.support_context_value",
+)
 def _support_context_value(values: tuple[str, ...]) -> str:
     return json.dumps(list(values), separators=(",", ":"))
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="semantic_fragment_compile.normalized_support_context_value",
+)
 @singledispatch
 def _normalized_support_context_value(value: object) -> str:
     return ""
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="semantic_fragment_compile.normalized_support_context_value_from_str",
+)
 @_normalized_support_context_value.register(str)
 def _normalized_support_context_value_from_str(value: str) -> str:
     return value.strip()
@@ -556,7 +612,10 @@ _PROJECTION_FIBER_QUOTIENT_FACE_FIELDS: dict[str, tuple[str, ...]] = {
     ),
 }
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="semantic_fragment_compile.projection_fiber_quotient_face_field_plans",
+)
 def _projection_fiber_quotient_face_field_plans(
     *,
     row: CanonicalWitnessedSemanticRow,
@@ -582,7 +641,10 @@ def _projection_fiber_quotient_face_field_plans(
         for field in fields
     )
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="semantic_fragment_compile.projection_fiber_quotient_face_field_plan",
+)
 def _projection_fiber_quotient_face_field_plan(
     *,
     row: CanonicalWitnessedSemanticRow,

@@ -1,5 +1,4 @@
 from __future__ import annotations
-# gabion:grade_boundary kind=semantic_carrier_adapter name=projection_semantic_fragment
 
 from collections.abc import Iterable
 from typing import TYPE_CHECKING, TypedDict
@@ -10,6 +9,7 @@ from gabion.analysis.aspf.aspf_lattice_algebra import (
 )
 from gabion.analysis.foundation.artifact_ordering import canonical_mapping_keys
 from gabion.json_types import JSONObject, JSONValue
+from gabion.invariants import grade_boundary
 from gabion.runtime_shape_dispatch import json_list_optional, json_mapping_optional
 
 if TYPE_CHECKING:
@@ -56,7 +56,10 @@ class CanonicalWitnessedSemanticRow(TypedDict):
     transform_trace: list[SemanticTransformTrace]
     obligation_state: str
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="semantic_fragment.reflect_projection_fiber_witness",
+)
 def reflect_projection_fiber_witness(
     *,
     context: ProjectionFiberRequestContext,
@@ -120,7 +123,10 @@ def reflect_projection_fiber_witness(
     }
     return close_canonical_semantic_row(row)
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="semantic_fragment.close_canonical_semantic_row",
+)
 def close_canonical_semantic_row(
     row: CanonicalWitnessedSemanticRow,
 ) -> CanonicalWitnessedSemanticRow:
@@ -145,14 +151,20 @@ def close_canonical_semantic_row(
         "obligation_state": row["obligation_state"],
     }
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="semantic_fragment.transform_trace_payload",
+)
 def _transform_trace_payload(*, op: str, details: JSONObject) -> SemanticTransformTrace:
     return {
         "op": op,
         "details": _normalize_object(details),
     }
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="semantic_fragment.input_witness_payloads",
+)
 def _input_witness_payloads(witness: FrontierWitness) -> list[JSONObject]:
     return [
         {
@@ -181,7 +193,10 @@ def _input_witness_payloads(witness: FrontierWitness) -> list[JSONObject]:
         },
     ]
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="semantic_fragment.synthesized_witness_payloads",
+)
 def _synthesized_witness_payloads(witness: FrontierWitness) -> list[JSONObject]:
     return [
         _join_payload(
@@ -216,7 +231,10 @@ def _synthesized_witness_payloads(witness: FrontierWitness) -> list[JSONObject]:
         ),
     ]
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="semantic_fragment.join_payload",
+)
 def _join_payload(
     *,
     kind: str,
@@ -233,7 +251,10 @@ def _join_payload(
         "deterministic": deterministic,
     }
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="semantic_fragment.naturality_payload",
+)
 def _naturality_payload(
     *,
     kind: str,
@@ -260,7 +281,10 @@ def _naturality_payload(
         "complete": complete,
     }
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="semantic_fragment.obligation_payloads",
+)
 def _obligation_payloads(witness: FrontierWitness) -> list[JSONObject]:
     violation_payloads = (
         [
@@ -306,7 +330,10 @@ def _obligation_payloads(witness: FrontierWitness) -> list[JSONObject]:
         *violation_payloads,
     ]
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="semantic_fragment.boundary_trace_payloads",
+)
 def _boundary_trace_payloads(witness: FrontierWitness) -> list[JSONObject]:
     return [
         {
@@ -319,7 +346,10 @@ def _boundary_trace_payloads(witness: FrontierWitness) -> list[JSONObject]:
         for item in witness.boundary_crossings
     ]
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="semantic_fragment.obligation_state",
+)
 def _obligation_state(witness: FrontierWitness) -> str:
     intro_ids = {item.obligation_id for item in witness.obligations}
     erased_ids = {item.obligation_id for item in witness.erasures}
@@ -330,7 +360,10 @@ def _obligation_state(witness: FrontierWitness) -> str:
         return "erased"
     return "discharged"
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="semantic_fragment.stable_unique_objects",
+)
 def _stable_unique_objects(values: list[JSONObject]) -> list[JSONObject]:
     keyed: dict[str, JSONObject] = {}
     for value in values:
@@ -338,11 +371,17 @@ def _stable_unique_objects(values: list[JSONObject]) -> list[JSONObject]:
         keyed[_stable_json_key(normalized)] = normalized
     return [keyed[key] for key in canonical_mapping_keys(keyed)]
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="semantic_fragment.normalize_object",
+)
 def _normalize_object(value: JSONObject) -> JSONObject:
     return {key: _normalize_value(value[key]) for key in canonical_mapping_keys(value)}
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="semantic_fragment.normalize_value",
+)
 def _normalize_value(value: object) -> JSONValue:
     mapping_value = json_mapping_optional(value)
     if mapping_value is not None:
@@ -352,15 +391,24 @@ def _normalize_value(value: object) -> JSONValue:
         return _normalize_list(list_value)
     return value
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="semantic_fragment.normalize_mapping",
+)
 def _normalize_mapping(value: dict[str, JSONValue]) -> JSONValue:
     return {key: _normalize_value(value[key]) for key in canonical_mapping_keys(value)}
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="semantic_fragment.normalize_list",
+)
 def _normalize_list(value: list[JSONValue]) -> JSONValue:
     return [_normalize_value(item) for item in value]
 
-
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="semantic_fragment.stable_json_key",
+)
 def _stable_json_key(value: object) -> str:
     mapping_value = json_mapping_optional(value)
     if mapping_value is not None:
