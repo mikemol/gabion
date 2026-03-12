@@ -1,5 +1,5 @@
 ---
-doc_revision: 89
+doc_revision: 90
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -774,6 +774,10 @@ Current implementation status:
   `projection_exec_ingress.py` adapter boundary, keeping the executor itself
   closer to a pure row runtime while compatibility work stays boundary-scoped
   during semantic-fragment convergence
+- fixed-spec presentation consumers continue to peel away from that boundary:
+  `call_cluster_consolidation` now precomputes typed execution ops and executes
+  them directly, so that stable consolidation/report ordering path no longer
+  routes through `projection_exec_ingress.py` on every call
 
 Implementation rule:
 - policy DSL must consume canonical carrier rows rather than infer semantics

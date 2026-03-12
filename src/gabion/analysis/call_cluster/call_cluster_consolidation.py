@@ -1,5 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass
+from functools import cache
 from pathlib import Path
 from collections.abc import Iterable, Mapping
 
@@ -11,7 +12,8 @@ from gabion.analysis.call_cluster.call_cluster_shared import (
     render_cluster_heading,
     sorted_unique_strings,
 )
-from gabion.analysis.projection.projection_exec_ingress import apply_spec
+from gabion.analysis.projection.projection_exec import apply_execution_ops
+from gabion.analysis.projection.projection_exec_ingress import execution_ops_from_spec
 from gabion.analysis.projection.projection_registry import (
     CALL_CLUSTER_CONSOLIDATION_SPEC,
     spec_metadata_lines_from_payload,
@@ -21,9 +23,18 @@ from gabion.analysis.semantics.report_doc import ReportDoc
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.json_types import JSONValue
 from gabion.order_contract import sort_once
-from gabion.invariants import never
+from gabion.invariants import grade_boundary, never
 
 CONSOLIDATION_VERSION = 1
+
+
+@cache
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="call_cluster_consolidation_execution_ops",
+)
+def _call_cluster_consolidation_execution_ops():
+    return execution_ops_from_spec(CALL_CLUSTER_CONSOLIDATION_SPEC)
 
 
 @dataclass(frozen=True)
@@ -157,7 +168,10 @@ def build_call_cluster_consolidation_payload(
                 }
             )
 
-    ordered_plan = apply_spec(CALL_CLUSTER_CONSOLIDATION_SPEC, relation)
+    ordered_plan = apply_execution_ops(
+        _call_cluster_consolidation_execution_ops(),
+        relation,
+    )
     ordered_clusters = sort_once(
         eligible.values(),
         source="build_call_cluster_consolidation_payload.ordered_clusters",

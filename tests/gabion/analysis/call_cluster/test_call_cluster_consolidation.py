@@ -266,6 +266,103 @@ def test_call_cluster_consolidation_takes_call_cluster_branch_via_payload(
     assert payload["summary"]["tests"] == 0
 
 
+# gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.build_call_cluster_consolidation_payload
+# gabion:behavior primary=desired
+def test_call_cluster_consolidation_orders_plan_via_typed_execution_ops(
+    write_test_evidence_payload,
+    test_evidence_path: Path,
+) -> None:
+    cluster_one = [("alpha.py", "pkg.alpha")]
+    cluster_two = [("beta.py", "pkg.beta")]
+    write_test_evidence_payload(
+        test_evidence_path,
+        entries=[
+            {
+                "test_id": "tests/test_sample.py::test_b",
+                "file": "tests/test_sample.py",
+                "line": 20,
+                "evidence": [
+                    _call_footprint_display(
+                        test_id="tests/test_sample.py::test_b",
+                        file="tests/test_sample.py",
+                        targets=cluster_one,
+                    )
+                ],
+                "status": "mapped",
+            },
+            {
+                "test_id": "tests/test_sample.py::test_a",
+                "file": "tests/test_sample.py",
+                "line": 10,
+                "evidence": [
+                    _call_footprint_display(
+                        test_id="tests/test_sample.py::test_a",
+                        file="tests/test_sample.py",
+                        targets=cluster_one,
+                    )
+                ],
+                "status": "mapped",
+            },
+            {
+                "test_id": "tests/test_sample.py::test_c",
+                "file": "tests/test_sample.py",
+                "line": 30,
+                "evidence": [
+                    _call_footprint_display(
+                        test_id="tests/test_sample.py::test_c",
+                        file="tests/test_sample.py",
+                        targets=cluster_one,
+                    )
+                ],
+                "status": "mapped",
+            },
+            {
+                "test_id": "tests/test_sample.py::test_y",
+                "file": "tests/test_sample.py",
+                "line": 50,
+                "evidence": [
+                    _call_footprint_display(
+                        test_id="tests/test_sample.py::test_y",
+                        file="tests/test_sample.py",
+                        targets=cluster_two,
+                    )
+                ],
+                "status": "mapped",
+            },
+            {
+                "test_id": "tests/test_sample.py::test_x",
+                "file": "tests/test_sample.py",
+                "line": 40,
+                "evidence": [
+                    _call_footprint_display(
+                        test_id="tests/test_sample.py::test_x",
+                        file="tests/test_sample.py",
+                        targets=cluster_two,
+                    )
+                ],
+                "status": "mapped",
+            },
+        ],
+    )
+
+    payload = call_cluster_consolidation.build_call_cluster_consolidation_payload(
+        evidence_path=test_evidence_path,
+        min_cluster_size=2,
+    )
+
+    plan = payload["plan"]
+    assert [entry["cluster_count"] for entry in plan] == [3, 3, 3, 2, 2]
+    assert [entry["test_id"] for entry in plan[:3]] == [
+        "tests/test_sample.py::test_a",
+        "tests/test_sample.py::test_b",
+        "tests/test_sample.py::test_c",
+    ]
+    assert [entry["test_id"] for entry in plan[3:]] == [
+        "tests/test_sample.py::test_x",
+        "tests/test_sample.py::test_y",
+    ]
+
+
 # gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.render_markdown E:decision_surface/direct::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.render_markdown::stale_b48fa52912da
 # gabion:behavior primary=verboten facets=invalid
 def test_call_cluster_consolidation_render_handles_invalid_entries() -> None:
