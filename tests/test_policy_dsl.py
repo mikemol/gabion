@@ -4,9 +4,156 @@ from pathlib import Path
 
 from gabion.analysis import aspf_rule_engine
 from gabion.policy_dsl import PolicyDomain, evaluate_policy
-from gabion.policy_dsl.registry import build_registry
+from gabion.policy_dsl.compile import compile_document
+from gabion.policy_dsl.registry import _build_registry_for_root, build_registry
 from gabion.tooling.delta import delta_gate
 from gabion.tooling.governance import ambiguity_contract_policy_check as ambiguity_policy
+
+
+def test_compile_document_accepts_markdown_frontmatter_rules(tmp_path: Path) -> None:
+    path = tmp_path / "docs" / "policy_rules" / "sample.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        (
+            "---\n"
+            "doc_revision: 1\n"
+            "doc_id: sample_policy_rules\n"
+            "doc_role: policy\n"
+            "doc_scope: [repo, policy]\n"
+            "doc_authority: normative\n"
+            "rules:\n"
+            "  - rule_id: sample.blocking\n"
+            "    domain: ambiguity_contract\n"
+            "    severity: blocking\n"
+            "    predicate:\n"
+            "      op: always\n"
+            "    outcome:\n"
+            "      kind: block\n"
+            "      message: sample blocking rule\n"
+            "    evidence_contract: none\n"
+            "    playbook_anchor: sample-blocking\n"
+            "---\n\n"
+            "<a id=\"sample-blocking\"></a>\n"
+            "## sample\n"
+        ),
+        encoding="utf-8",
+    )
+    program, issues = compile_document(path)
+    assert issues == []
+    assert program is not None
+    assert program.rules[0].rule_id == "sample.blocking"
+    assert program.rules[0].outcome_details == {
+        "guidance": {
+            "playbook_ref": "docs/policy_rules/sample.md#sample-blocking",
+        }
+    }
+
+
+def test_compile_document_rejects_missing_markdown_playbook_anchor(tmp_path: Path) -> None:
+    path = tmp_path / "docs" / "policy_rules" / "missing_anchor.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        (
+            "---\n"
+            "rules:\n"
+            "  - rule_id: sample.blocking\n"
+            "    domain: ambiguity_contract\n"
+            "    severity: blocking\n"
+            "    predicate:\n"
+            "      op: always\n"
+            "    outcome:\n"
+            "      kind: block\n"
+            "      message: sample blocking rule\n"
+            "    evidence_contract: none\n"
+            "    playbook_anchor: sample-blocking\n"
+            "---\n\n"
+            "## sample\n"
+        ),
+        encoding="utf-8",
+    )
+    program, issues = compile_document(path)
+    assert program is None
+    assert [item.code for item in issues] == ["missing_playbook_anchor"]
+
+
+def test_compile_document_rejects_duplicate_markdown_body_anchors(tmp_path: Path) -> None:
+    path = tmp_path / "docs" / "policy_rules" / "duplicate_anchor.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        (
+            "---\n"
+            "rules:\n"
+            "  - rule_id: sample.blocking\n"
+            "    domain: ambiguity_contract\n"
+            "    severity: blocking\n"
+            "    predicate:\n"
+            "      op: always\n"
+            "    outcome:\n"
+            "      kind: block\n"
+            "      message: sample blocking rule\n"
+            "    evidence_contract: none\n"
+            "    playbook_anchor: sample-blocking\n"
+            "---\n\n"
+            "<a id=\"sample-blocking\"></a>\n"
+            "## sample\n\n"
+            "<a id=\"sample-blocking\"></a>\n"
+            "## sample again\n"
+        ),
+        encoding="utf-8",
+    )
+    program, issues = compile_document(path)
+    assert program is None
+    assert [item.code for item in issues] == ["duplicate_playbook_anchor"]
+
+
+def test_registry_rejects_duplicate_rule_ids_across_yaml_and_markdown(tmp_path: Path) -> None:
+    docs = tmp_path / "docs"
+    (docs / "policy_rules").mkdir(parents=True, exist_ok=True)
+    (docs / "policy_rules.yaml").write_text(
+        (
+            "rules:\n"
+            "  - rule_id: duplicate.rule\n"
+            "    domain: ambiguity_contract\n"
+            "    severity: blocking\n"
+            "    predicate:\n"
+            "      op: always\n"
+            "    outcome:\n"
+            "      kind: block\n"
+            "      message: duplicate from yaml\n"
+            "    evidence_contract: none\n"
+        ),
+        encoding="utf-8",
+    )
+    (docs / "policy_rules" / "duplicate.md").write_text(
+        (
+            "---\n"
+            "rules:\n"
+            "  - rule_id: duplicate.rule\n"
+            "    domain: ambiguity_contract\n"
+            "    severity: blocking\n"
+            "    predicate:\n"
+            "      op: always\n"
+            "    outcome:\n"
+            "      kind: block\n"
+            "      message: duplicate from markdown\n"
+            "    evidence_contract: none\n"
+            "    playbook_anchor: duplicate-rule\n"
+            "---\n\n"
+            "<a id=\"duplicate-rule\"></a>\n"
+            "## duplicate\n"
+        ),
+        encoding="utf-8",
+    )
+    try:
+        _build_registry_for_root(tmp_path)
+    except ValueError as exc:
+        assert exc.args[0] == "policy compile failed"
+        issues = exc.args[1]
+        assert len(issues) == 1
+        assert issues[0].code == "duplicate_rule_id_source"
+        assert issues[0].rule_id == "duplicate.rule"
+    else:  # pragma: no cover
+        raise AssertionError("expected duplicate rule source failure")
 
 
 def test_registry_rule_ids_are_unique_and_stable() -> None:
@@ -70,6 +217,32 @@ def test_ambiguity_contract_run_uses_dsl_blocking_rule(monkeypatch: object, tmp_
     assert exit_code == 1
 
 
+def test_ambiguity_contract_summary_rule_emits_playbook_guidance() -> None:
+    decision = evaluate_policy(
+        domain=PolicyDomain.AMBIGUITY_CONTRACT,
+        data={"new_violations": 1},
+    )
+    assert decision.rule_id == "ambiguity.new_violations"
+    assert decision.details == {
+        "guidance": {
+            "why": (
+                "new ambiguity-contract findings indicate semantic alternation or "
+                "structure loss has moved too deep into deterministic core"
+            ),
+            "prefer": (
+                "move the disputed carrier seam upstream, reify one strict internal "
+                "contract, and re-run the ambiguity gate before widening any "
+                "compatibility surface"
+            ),
+            "avoid": [
+                "do not silence the gate by marking more internal helpers as ambiguity boundaries",
+                "do not keep JSON-like or Mapping[str, object] carriers alive past true I/O seams",
+            ],
+            "playbook_ref": "docs/policy_rules/ambiguity_contract.md#ambiguity-new-violations",
+        }
+    }
+
+
 def test_aspf_rule_engine_classifies_two_cell() -> None:
     decision = aspf_rule_engine.classify_aspf_opportunity(
         {"witness": {"two_cell": True, "cofibration": False}}
@@ -100,11 +273,45 @@ def test_ambiguity_ast_event_rules_are_dsl_backed() -> None:
         data={"event": "runtime_isinstance_call"},
     )
     assert decision.rule_id == "ACP-003"
+    assert decision.details == {
+        "guidance": {
+            "why": (
+                "deterministic core is branching on runtime type alternatives instead "
+                "of receiving a normalized carrier or explicit decision result"
+            ),
+            "prefer": (
+                "normalize the input at ingress, or replace the branch surface with "
+                "a tagged DTO / decision protocol returned from the boundary"
+            ),
+            "avoid": [
+                "do not spread new isinstance ladders deeper through core helpers",
+                "do not replace the dynamic branch with a loose Any/object carrier",
+            ],
+            "playbook_ref": "docs/policy_rules/ambiguity_contract.md#acp-003",
+        }
+    }
     fallthrough_decision = evaluate_policy(
         domain=PolicyDomain.AMBIGUITY_CONTRACT_AST,
         data={"event": "match_fallthrough_without_never"},
     )
     assert fallthrough_decision.rule_id == "ACP-005"
+    assert fallthrough_decision.details == {
+        "guidance": {
+            "why": (
+                "a wildcard fallthrough is preserving latent alternation instead of "
+                "discharging an impossible state"
+            ),
+            "prefer": (
+                "exhaust the lawful variants structurally, then use never() on the "
+                "dead post-invariant path"
+            ),
+            "avoid": [
+                "do not leave pass/continue/return-None fallthrough branches in a supposedly exhausted match",
+                "do not add compatibility fallthroughs that merely postpone the impossible state",
+            ],
+            "playbook_ref": "docs/policy_rules/ambiguity_contract.md#acp-005",
+        }
+    }
     probe_recovery_decision = evaluate_policy(
         domain=PolicyDomain.AMBIGUITY_CONTRACT_AST,
         data={"event": "probe_state_recovery"},
@@ -127,6 +334,7 @@ def test_ambiguity_ast_event_rules_are_dsl_backed() -> None:
                 ),
                 "do not silence the site by inserting never() downstream of the structural probe",
             ],
+            "playbook_ref": "docs/policy_rules/ambiguity_contract.md#acp-006",
         }
     }
     nullable_contract_decision = evaluate_policy(
@@ -149,10 +357,11 @@ def test_ambiguity_ast_event_rules_are_dsl_backed() -> None:
                 "do not replace None with a custom sentinel or alternate magic value",
                 "do not add more is None or is not None branches deeper in deterministic core",
             ],
+            "playbook_ref": "docs/policy_rules/ambiguity_contract.md#acp-007",
         }
     }
 
-# gabion:evidence E:call_footprint::tests/test_policy_dsl.py::test_grade_monotonicity_summary_rules_are_dsl_backed::policy_rules.yaml::grade_monotonicity.new_violations::policy_rules.yaml::grade_monotonicity.ok
+# gabion:evidence E:call_footprint::tests/test_policy_dsl.py::test_grade_monotonicity_summary_rules_are_dsl_backed::grade_monotonicity.md::grade_monotonicity.new_violations::grade_monotonicity.md::grade_monotonicity.ok
 # gabion:behavior primary=desired
 def test_grade_monotonicity_summary_rules_are_dsl_backed() -> None:
     blocking = evaluate_policy(
@@ -160,11 +369,41 @@ def test_grade_monotonicity_summary_rules_are_dsl_backed() -> None:
         data={"new_violations": 1},
     )
     assert blocking.rule_id == "grade_monotonicity.new_violations"
+    assert blocking.details == {
+        "guidance": {
+            "why": (
+                "a downstream call edge has widened structure, decision work, or "
+                "complexity beyond its caller contract"
+            ),
+            "prefer": (
+                "move normalization and alternation to the earliest lawful seam, "
+                "then keep downstream edges monotone in structure and work"
+            ),
+            "avoid": [
+                (
+                    "do not reintroduce Optional, sentinel, or multi-shape carriers "
+                    "after a stricter caller has already normalized them"
+                ),
+                (
+                    "do not hide higher complexity behind an ordinary core edge "
+                    "without an explicit named boundary"
+                ),
+            ],
+            "playbook_ref": "docs/policy_rules/grade_monotonicity.md#grade-monotonicity-new-violations",
+        }
+    }
     clean = evaluate_policy(
         domain=PolicyDomain.GRADE_MONOTONICITY,
         data={"new_violations": 0},
     )
     assert clean.rule_id == "grade_monotonicity.ok"
+
+
+def test_grade_monotonicity_violation_guidance_uses_playbook_refs() -> None:
+    from gabion.tooling.policy_substrate import grade_monotonicity_semantic as grade_semantic
+
+    spec = grade_semantic._VIOLATION_SPECS["GMP-001"]
+    assert spec["guidance"]["playbook_ref"] == "docs/policy_rules/grade_monotonicity.md#gmp-001"
 
 
 def test_governance_adapter_emits_baseline_missing_rule() -> None:

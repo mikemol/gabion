@@ -72,6 +72,7 @@ _VIOLATION_SPECS = {
             "avoid": [
                 "do not reintroduce Optional or sentinel-bearing contracts downstream",
             ],
+            "playbook_ref": "docs/policy_rules/grade_monotonicity.md#gmp-001",
         },
     },
     "GMP-002": {
@@ -80,6 +81,7 @@ _VIOLATION_SPECS = {
             "why": "the callee accepts more runtime type alternatives than the caller contract allows",
             "prefer": "push type alternation to a boundary normalizer or explicit decision protocol",
             "avoid": ["do not widen a strict caller contract back to Any, object, or new unions"],
+            "playbook_ref": "docs/policy_rules/grade_monotonicity.md#gmp-002",
         },
     },
     "GMP-003": {
@@ -88,6 +90,7 @@ _VIOLATION_SPECS = {
             "why": "the callee accepts additional payload shapes that the caller had already normalized away",
             "prefer": "convert legacy or multi-shape carriers once and keep a single downstream payload shape",
             "avoid": ["do not accept dict/list/tuple shape alternation after normalization"],
+            "playbook_ref": "docs/policy_rules/grade_monotonicity.md#gmp-003",
         },
     },
     "GMP-004": {
@@ -96,6 +99,7 @@ _VIOLATION_SPECS = {
             "why": "the callee performs more imperative runtime classification than the caller",
             "prefer": "move shape and type dispatch to ingress and keep the core branch surface explicit",
             "avoid": ["do not add probe-then-recover locals or deeper classification cascades"],
+            "playbook_ref": "docs/policy_rules/grade_monotonicity.md#gmp-004",
         },
     },
     "GMP-005": {
@@ -104,6 +108,7 @@ _VIOLATION_SPECS = {
             "why": "the call edge moves from a more discharged contract to a less explicit one",
             "prefer": "keep decision protocols and invariant discharge at least as explicit downstream",
             "avoid": ["do not call raw-ingress style helpers from a stricter decision or invariant-discharged caller"],
+            "playbook_ref": "docs/policy_rules/grade_monotonicity.md#gmp-005",
         },
     },
     "GMP-006": {
@@ -115,6 +120,7 @@ _VIOLATION_SPECS = {
                 "core edges cardinality-nondecreasing"
             ),
             "avoid": ["do not introduce unmarked fan-out or materialization in ordinary call chains"],
+            "playbook_ref": "docs/policy_rules/grade_monotonicity.md#gmp-006",
         },
     },
     "GMP-007": {
@@ -123,6 +129,7 @@ _VIOLATION_SPECS = {
             "why": "the edge increases asymptotic work relative to the caller grade",
             "prefer": "concentrate budgeted complexity at named boundaries with an explicit reason",
             "avoid": ["do not hide higher-complexity helpers behind ordinary core edges"],
+            "playbook_ref": "docs/policy_rules/grade_monotonicity.md#gmp-007",
         },
     },
 }

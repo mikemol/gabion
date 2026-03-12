@@ -62,16 +62,7 @@ class Violation:
         lines = [
             f"{self.path}:{self.line}:{self.column}: [{self.rule_id}] [{self.qualname}] {self.message}"
         ]
-        guidance = _guidance_payload(self.details)
-        if guidance is None:
-            return lines[0]
-        why = _str_optional(guidance.get("why"))
-        prefer = _str_optional(guidance.get("prefer"))
-        if why is not None:
-            lines.append(f"      why: {why}")
-        if prefer is not None:
-            lines.append(f"      prefer: {prefer}")
-        lines.extend(_render_avoid_guidance_lines(guidance.get("avoid")))
+        lines.extend(_render_guidance_lines(_guidance_payload(self.details)))
         return "\n".join(lines)
 
 
@@ -479,9 +470,26 @@ def _guidance_payload(details: Mapping[str, object]) -> dict[object, object] | N
     direct_guidance = _dict_optional(details)
     if direct_guidance is None:
         return None
-    if any(key in direct_guidance for key in ("why", "prefer", "avoid")):
+    if any(key in direct_guidance for key in ("why", "prefer", "avoid", "playbook_ref")):
         return direct_guidance
     return None
+
+
+def _render_guidance_lines(guidance: Mapping[object, object] | None) -> list[str]:
+    if guidance is None:
+        return []
+    lines: list[str] = []
+    why = _str_optional(guidance.get("why"))
+    prefer = _str_optional(guidance.get("prefer"))
+    playbook = _str_optional(guidance.get("playbook_ref"))
+    if why is not None:
+        lines.append(f"      why: {why}")
+    if prefer is not None:
+        lines.append(f"      prefer: {prefer}")
+    if playbook is not None:
+        lines.append(f"      playbook: {playbook}")
+    lines.extend(_render_avoid_guidance_lines(guidance.get("avoid")))
+    return lines
 
 
 def _render_avoid_guidance_lines(raw_avoid: object) -> list[str]:
@@ -917,11 +925,15 @@ def run(root: Path, baseline: Path | None, baseline_write: bool) -> int:
     if ambiguity_decision.outcome is PolicyOutcomeKind.BLOCK:
         blocked = True
         print(f"{ambiguity_decision.message}:")
+        for line in _render_guidance_lines(_guidance_payload(dict(ambiguity_decision.details))):
+            print(line)
         for item in sorted(new_ast_violations, key=lambda v: (v.rule_id, v.path, v.line, v.column)):
             print(f"  - {item.render()}")
     if grade_decision.outcome is PolicyOutcomeKind.BLOCK:
         blocked = True
         print(f"{grade_decision.message}:")
+        for line in _render_guidance_lines(_guidance_payload(dict(grade_decision.details))):
+            print(line)
         for item in sorted(new_grade_violations, key=lambda v: (v.rule_id, v.path, v.line, v.column)):
             print(f"  - {item.render()}")
     if blocked:

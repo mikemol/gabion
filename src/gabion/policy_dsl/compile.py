@@ -1,28 +1,135 @@
 from __future__ import annotations
 
+import re
 from importlib import import_module
 from pathlib import Path
 from typing import Any, Mapping
 
+from gabion.frontmatter import parse_strict_yaml_frontmatter
+
 from .ir import IRProgram, IRRule, IRTransform
 from .schema import CompileIssue, EvidenceContract, PolicyDomain, PolicyOutcomeKind, PolicySeverity, RuleIdentity, RuleSchema
+
+_PLAYBOOK_ANCHOR_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
+_MARKDOWN_ANCHOR_RE = re.compile(r'<a\s+id="(?P<anchor>[a-z0-9][a-z0-9_-]*)"\s*></a>')
 
 
 def _yaml_module():
     return import_module("yaml")
 
 
-def _load_document(path: Path) -> object:
+def _document_ref(path: Path) -> str:
+    if "docs" in path.parts:
+        docs_index = path.parts.index("docs")
+        return Path(*path.parts[docs_index:]).as_posix()
+    return path.as_posix()
+
+
+def _markdown_anchor_names(body: str) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    anchors = [match.group("anchor") for match in _MARKDOWN_ANCHOR_RE.finditer(body)]
+    seen: set[str] = set()
+    duplicates: set[str] = set()
+    for anchor in anchors:
+        if anchor in seen:
+            duplicates.add(anchor)
+        seen.add(anchor)
+    return tuple(anchors), tuple(sorted(duplicates))
+
+
+def _load_markdown_document(path: Path, *, text: str) -> tuple[object | None, list[CompileIssue]]:
+    frontmatter, body = parse_strict_yaml_frontmatter(
+        text,
+        require_parser=True,
+    )
+    anchors, duplicate_anchors = _markdown_anchor_names(body)
+    issues: list[CompileIssue] = []
+    for anchor in duplicate_anchors:
+        issues.append(
+            CompileIssue(
+                code="duplicate_playbook_anchor",
+                message=f"markdown rule document defines duplicate anchor: {anchor}",
+            )
+        )
+    rules = frontmatter.get("rules")
+    if rules is None:
+        return frontmatter, issues
+    if not isinstance(rules, list):
+        return frontmatter, issues
+    anchor_set = set(anchors)
+    seen_rule_anchors: set[str] = set()
+    normalized_rules: list[object] = []
+    for item in rules:
+        if not isinstance(item, Mapping):
+            normalized_rules.append(item)
+            continue
+        normalized_rule = dict(item)
+        playbook_anchor = str(normalized_rule.pop("playbook_anchor", "")).strip()
+        if playbook_anchor:
+            rule_id = str(normalized_rule.get("rule_id", "")).strip() or None
+            if not _PLAYBOOK_ANCHOR_RE.fullmatch(playbook_anchor):
+                issues.append(
+                    CompileIssue(
+                        code="invalid_playbook_anchor",
+                        message="playbook_anchor must be a non-empty slug",
+                        rule_id=rule_id,
+                    )
+                )
+            elif playbook_anchor in seen_rule_anchors:
+                issues.append(
+                    CompileIssue(
+                        code="duplicate_playbook_anchor_reference",
+                        message=(
+                            f"playbook_anchor {playbook_anchor} must be unique within "
+                            "a markdown rule document"
+                        ),
+                        rule_id=rule_id,
+                    )
+                )
+            elif playbook_anchor not in anchor_set:
+                issues.append(
+                    CompileIssue(
+                        code="missing_playbook_anchor",
+                        message=(
+                            f"playbook_anchor {playbook_anchor} must match an <a id> "
+                            "anchor in the markdown body"
+                        ),
+                        rule_id=rule_id,
+                    )
+                )
+            seen_rule_anchors.add(playbook_anchor)
+            raw_outcome = normalized_rule.get("outcome")
+            if isinstance(raw_outcome, Mapping):
+                outcome = dict(raw_outcome)
+                raw_guidance = outcome.get("guidance")
+                guidance = dict(raw_guidance) if isinstance(raw_guidance, Mapping) else {}
+                if "playbook_ref" not in guidance:
+                    guidance["playbook_ref"] = f"{_document_ref(path)}#{playbook_anchor}"
+                outcome["guidance"] = guidance
+                normalized_rule["outcome"] = outcome
+        normalized_rules.append(normalized_rule)
+    normalized_frontmatter = dict(frontmatter)
+    normalized_frontmatter["rules"] = normalized_rules
+    return normalized_frontmatter, issues
+
+
+def _load_document(path: Path) -> tuple[object | None, list[CompileIssue]]:
     suffix = path.suffix.lower()
     text = path.read_text(encoding="utf-8")
     if suffix == ".json":
         import json
 
-        return json.loads(text)
+        return json.loads(text), []
     if suffix in {".yaml", ".yml"}:
         yaml = _yaml_module()
-        return yaml.safe_load(text)
-    raise ValueError(f"unsupported policy document suffix: {suffix}")
+        return yaml.safe_load(text), []
+    if suffix == ".md":
+        return _load_markdown_document(path, text=text)
+    return None, [
+        CompileIssue(
+            code="unsupported_document_suffix",
+            message=f"unsupported policy document suffix: {suffix}",
+        )
+    ]
 
 
 def _compile_rule(raw: Mapping[str, Any], *, index: int) -> tuple[IRRule | None, list[CompileIssue]]:
@@ -158,7 +265,9 @@ def compile_rules(raw_rules: list[Mapping[str, Any]]) -> tuple[IRProgram | None,
 
 
 def compile_document(path: Path) -> tuple[IRProgram | None, list[CompileIssue]]:
-    payload = _load_document(path)
+    payload, load_issues = _load_document(path)
+    if load_issues:
+        return None, load_issues
     if not isinstance(payload, Mapping):
         return None, [CompileIssue(code="invalid_root", message="policy document root must be an object")]
     rules = payload.get("rules")

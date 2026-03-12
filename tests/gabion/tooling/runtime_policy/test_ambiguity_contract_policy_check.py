@@ -97,10 +97,12 @@ def test_ambiguity_contract_collect_violations_respects_boundaries(tmp_path: Pat
     rendered_probe = probe_recovery_violations[0].render()
     assert "why:" in rendered_probe
     assert "prefer:" in rendered_probe
+    assert "playbook:" in rendered_probe
     assert "avoid:" in rendered_probe
     rendered_nullable = nullable_contract_violations[0].render()
     assert "nullable contract leaked past ingress" in rendered_nullable
     assert "do not replace None with a custom sentinel" in rendered_nullable
+    assert "docs/policy_rules/ambiguity_contract.md#acp-007" in rendered_nullable
 
 
 def test_ambiguity_contract_ignores_boundary_dispatch_and_reducer_patterns(
@@ -218,6 +220,17 @@ def test_ambiguity_contract_baseline_io_and_run_paths(tmp_path: Path) -> None:
     assert "ast" in payload
     assert "grade" in payload
     assert "witness_rows" in payload["grade"]
+    assert (
+        payload["decisions"]["ambiguity_contract"]["details"]["guidance"]["playbook_ref"]
+        == "docs/policy_rules/ambiguity_contract.md#ambiguity-new-violations"
+    )
+    nullable_violation = next(
+        item for item in payload["ast"]["violations"] if item["rule_id"] == "ACP-007"
+    )
+    assert (
+        nullable_violation["details"]["guidance"]["playbook_ref"]
+        == "docs/policy_rules/ambiguity_contract.md#acp-007"
+    )
     assert policy.run(root=root, baseline=None, baseline_write=False) == 0
     assert policy.run(root=root, baseline=baseline, baseline_write=False) == 0
 
@@ -245,6 +258,44 @@ def test_ambiguity_contract_baseline_io_and_run_paths(tmp_path: Path) -> None:
     non_list = tmp_path / "non_list.json"
     non_list.write_text("{\"violations\": {}}\n", encoding="utf-8")
     assert policy._load_baseline(non_list) == set()
+
+
+def test_ambiguity_contract_run_renders_top_level_playbook_guidance(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    violation = policy.Violation(
+        rule_id="ACP-006",
+        path="src/gabion/example.py",
+        line=1,
+        column=1,
+        qualname="f",
+        message="downstream ambiguity recovery after structural probe",
+        details={
+            "guidance": {
+                "why": "stores unresolved ambiguity for later recovery",
+                "prefer": "move the dispatch to ingress",
+                "avoid": ["do not keep provisional matched_* locals"],
+                "playbook_ref": "docs/policy_rules/ambiguity_contract.md#acp-006",
+            }
+        },
+    )
+    empty_grade_report = policy.SemanticGradeMonotonicityReport(
+        witnesses=(),
+        violations=(),
+        callable_grades=(),
+    )
+    monkeypatch.setattr(policy, "collect_violations", lambda batch: [violation])
+    monkeypatch.setattr(policy, "collect_grade_monotonicity", lambda batch: empty_grade_report)
+
+    exit_code = policy.run(root=tmp_path, baseline=None, baseline_write=False)
+    captured = capsys.readouterr().out
+
+    assert exit_code == 1
+    assert "ambiguity contract policy violations:" in captured
+    assert "playbook: docs/policy_rules/ambiguity_contract.md#ambiguity-new-violations" in captured
+    assert "playbook: docs/policy_rules/ambiguity_contract.md#acp-006" in captured
 
 
 # gabion:evidence E:call_footprint::tests/test_ambiguity_contract_policy_check.py::test_ambiguity_contract_main_and_module_entrypoint::ambiguity_contract_policy_check.py::gabion.tooling.ambiguity_contract_policy_check.main
