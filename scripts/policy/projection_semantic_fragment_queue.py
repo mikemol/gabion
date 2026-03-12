@@ -10,7 +10,11 @@ from typing import Any, Mapping
 
 from gabion.order_contract import ordered_or_sorted
 from gabion.tooling.runtime.projection_fiber_semantics_summary import (
-    projection_fiber_semantics_summary_from_payload,
+    projection_fiber_decision_from_payload,
+    projection_fiber_semantic_bundle_count_from_payload,
+    projection_fiber_semantic_previews_from_payload,
+    projection_fiber_semantic_row_count_from_payload,
+    projection_fiber_semantic_spec_names_from_payload,
 )
 
 _FORMAT_VERSION = 1
@@ -111,28 +115,18 @@ def analyze(
 def _current_state(
     payload: Mapping[str, object],
 ) -> ProjectionSemanticFragmentCurrentState:
-    summary = projection_fiber_semantics_summary_from_payload(payload)
-    if summary is None:
-        return ProjectionSemanticFragmentCurrentState(
-            decision={},
-            semantic_row_count=0,
-            compiled_projection_semantic_bundle_count=0,
-            compiled_projection_semantic_spec_names=(),
-            semantic_preview_count=0,
-            semantic_previews=(),
-        )
     semantic_previews = tuple(
-        _preview_payload(item.as_payload())
-        for item in summary.semantic_previews
+        _preview_payload(item)
+        for item in projection_fiber_semantic_previews_from_payload(payload)
     )
     return ProjectionSemanticFragmentCurrentState(
-        decision=dict(summary.decision.items()),
-        semantic_row_count=summary.semantic_row_count,
+        decision=projection_fiber_decision_from_payload(payload),
+        semantic_row_count=projection_fiber_semantic_row_count_from_payload(payload),
         compiled_projection_semantic_bundle_count=(
-            summary.compiled_projection_semantic_bundle_count
+            projection_fiber_semantic_bundle_count_from_payload(payload)
         ),
         compiled_projection_semantic_spec_names=(
-            summary.compiled_projection_semantic_spec_names
+            projection_fiber_semantic_spec_names_from_payload(payload)
         ),
         semantic_preview_count=len(semantic_previews),
         semantic_previews=semantic_previews[:_MAX_SEMANTIC_PREVIEW_SAMPLES],

@@ -1,5 +1,5 @@
 ---
-doc_revision: 71
+doc_revision: 72
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -571,6 +571,10 @@ Current implementation status:
   input shape; canonical payload decoding now goes through
   `projection_fiber_semantics` or an explicit
   summary-payload parser where a materialized summary is already owned locally
+- queue/report consumers no longer depend on a `ProjectionFiberSemanticsSummary`
+  bridge object just to read canonical semantic fields; hotspot and semantic
+  fragment queues now consume direct helper projections over the live
+  `projection_fiber_semantics` carrier
 - policy-scanner-suite runtime payloads now surface semantic context, when
   needed, as a direct top-level `projection_fiber_semantics` carrier rather
   than nested child `policy_results`, and queue/report consumers no longer

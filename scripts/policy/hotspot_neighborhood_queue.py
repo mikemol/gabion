@@ -12,7 +12,9 @@ from typing import Any
 
 from gabion.order_contract import ordered_or_sorted
 from gabion.tooling.runtime.projection_fiber_semantics_summary import (
-    projection_fiber_semantics_summary_from_payload,
+    projection_fiber_decision_from_payload,
+    projection_fiber_semantic_bundle_count_from_payload,
+    projection_fiber_semantic_previews_from_payload,
 )
 
 ACTIVE_FAMILIES: tuple[str, ...] = (
@@ -225,30 +227,6 @@ def _equal_family_score(
     return score
 
 
-def _projection_fiber_semantic_previews(
-    *,
-    summary: object | None,
-) -> list[dict[str, Any]]:
-    if summary is None:
-        return []
-    semantic_previews = getattr(summary, "semantic_previews", None)
-    if not isinstance(semantic_previews, tuple):
-        return []
-    normalized = [
-        item.as_payload()
-        for item in semantic_previews
-        if hasattr(item, "as_payload")
-    ]
-    return _sorted(
-        normalized,
-        key=lambda item: (
-            str(item.get("spec_name", "")),
-            str(item.get("quotient_face", "")),
-            str(item.get("path", "")),
-            str(item.get("qualname", "")),
-            str(item.get("structural_path", "")),
-        ),
-    )
 def _projection_fiber_overlap(
     *,
     semantic_previews: list[dict[str, Any]],
@@ -299,10 +277,7 @@ def analyze(
     local_config = config if config is not None else QueueConfig()
     families = ACTIVE_FAMILIES
     counts_by_file = _file_family_counts(payload, families)
-    projection_fiber_summary = projection_fiber_semantics_summary_from_payload(payload)
-    semantic_previews = _projection_fiber_semantic_previews(
-        summary=projection_fiber_summary,
-    )
+    semantic_previews = list(projection_fiber_semantic_previews_from_payload(payload))
     family_totals = _family_totals(counts_by_file=counts_by_file, families=families)
     seed_paths = _seed_paths(counts_by_file=counts_by_file, config=local_config)
 
@@ -443,22 +418,14 @@ def analyze(
             "ring_1_scope exceeds max file threshold; retained as large-zone backlog"
         )
 
-    projection_fiber_decision = (
-        dict(projection_fiber_summary.decision.items())
-        if projection_fiber_summary is not None
-        else {}
-    )
-    projection_fiber_semantic_bundle_count = (
-        projection_fiber_summary.compiled_projection_semantic_bundle_count
-        if projection_fiber_summary is not None
-        else 0
-    )
     return {
         "format_version": 1,
         "generated_at_utc": datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
         "source": {
-            "projection_fiber_decision": projection_fiber_decision,
-            "projection_fiber_semantic_bundle_count": projection_fiber_semantic_bundle_count,
+            "projection_fiber_decision": projection_fiber_decision_from_payload(payload),
+            "projection_fiber_semantic_bundle_count": (
+                projection_fiber_semantic_bundle_count_from_payload(payload)
+            ),
             "projection_fiber_semantic_preview_count": len(semantic_previews),
             "projection_fiber_semantic_previews": semantic_previews,
         },

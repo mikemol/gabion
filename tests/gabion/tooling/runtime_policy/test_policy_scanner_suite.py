@@ -5,7 +5,11 @@ from pathlib import Path
 
 from gabion.tooling.runtime import policy_scanner_suite
 from gabion.tooling.runtime.projection_fiber_semantics_summary import (
-    projection_fiber_semantics_summary_from_payload,
+    projection_fiber_decision_from_payload,
+    projection_fiber_semantic_bundle_count_from_payload,
+    projection_fiber_semantic_previews_from_payload,
+    projection_fiber_semantic_row_count_from_payload,
+    projection_fiber_semantic_spec_names_from_payload,
 )
 
 
@@ -806,15 +810,15 @@ def test_policy_scanner_suite_runtime_result_excludes_external_projection_semant
     assert "root" not in payload
     assert payload["projection_fiber_semantics"] == projection_fiber_semantics
     assert "projection_fiber_semantics_summary" not in payload
-    summary = projection_fiber_semantics_summary_from_payload(payload)
-    assert summary is not None
-    assert summary.decision["rule_id"] == "projection_fiber.convergence.ok"
-    assert summary.semantic_row_count == 1
-    assert summary.compiled_projection_semantic_bundle_count == 1
-    assert list(summary.compiled_projection_semantic_spec_names) == [
+    assert projection_fiber_decision_from_payload(payload)["rule_id"] == (
+        "projection_fiber.convergence.ok"
+    )
+    assert projection_fiber_semantic_row_count_from_payload(payload) == 1
+    assert projection_fiber_semantic_bundle_count_from_payload(payload) == 1
+    assert list(projection_fiber_semantic_spec_names_from_payload(payload)) == [
         "projection_fiber_frontier"
     ]
-    assert [item.as_payload() for item in summary.semantic_previews] == [
+    assert list(projection_fiber_semantic_previews_from_payload(payload)) == [
         {
             "spec_name": "projection_fiber_frontier",
             "quotient_face": "projection_fiber.frontier",
@@ -828,8 +832,8 @@ def test_policy_scanner_suite_runtime_result_excludes_external_projection_semant
     ]
 
 
-def test_projection_fiber_semantics_summary_requires_canonical_payload_shape() -> None:
-    assert projection_fiber_semantics_summary_from_payload(
+def test_projection_fiber_semantic_helpers_require_canonical_payload_shape() -> None:
+    assert projection_fiber_decision_from_payload(
         {
             "projection_fiber_semantics_summary": {
                 "decision": {"rule_id": "projection_fiber.convergence.ok"},
@@ -852,8 +856,8 @@ def test_projection_fiber_semantics_summary_requires_canonical_payload_shape() -
                 ],
             }
         }
-    ) is None
-    assert projection_fiber_semantics_summary_from_payload(
+    ) == {}
+    assert projection_fiber_semantic_row_count_from_payload(
         {
             "policy_results": {
                 "policy_check": {
@@ -867,8 +871,8 @@ def test_projection_fiber_semantics_summary_requires_canonical_payload_shape() -
                 }
             }
         }
-    ) is None
-    assert projection_fiber_semantics_summary_from_payload(
+    ) == 0
+    assert projection_fiber_semantic_bundle_count_from_payload(
         {
             "policy_check": {
                 "projection_fiber_semantics": {
@@ -880,4 +884,6 @@ def test_projection_fiber_semantics_summary_requires_canonical_payload_shape() -
                 }
             }
         }
-    ) is None
+    ) == 0
+    assert projection_fiber_semantic_spec_names_from_payload({}) == ()
+    assert projection_fiber_semantic_previews_from_payload({}) == ()

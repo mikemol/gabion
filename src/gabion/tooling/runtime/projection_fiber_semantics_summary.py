@@ -1,80 +1,53 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any, Mapping
 
 
-@dataclass(frozen=True)
-class ProjectionFiberSemanticPreview:
-    spec_name: str
-    quotient_face: str
-    source_structural_identity: str
-    path: str
-    qualname: str
-    structural_path: str
-    obligation_state: str
-    complete: bool
-
-    def as_payload(self) -> dict[str, Any]:
-        return {
-            "spec_name": self.spec_name,
-            "quotient_face": self.quotient_face,
-            "source_structural_identity": self.source_structural_identity,
-            "path": self.path,
-            "qualname": self.qualname,
-            "structural_path": self.structural_path,
-            "obligation_state": self.obligation_state,
-            "complete": self.complete,
-        }
-
-
-@dataclass(frozen=True)
-class ProjectionFiberSemanticsSummary:
-    decision: dict[str, Any]
-    semantic_row_count: int
-    compiled_projection_semantic_bundle_count: int
-    compiled_projection_semantic_spec_names: tuple[str, ...]
-    semantic_previews: tuple[ProjectionFiberSemanticPreview, ...]
-
-    def as_payload(self) -> dict[str, Any]:
-        return {
-            "decision": self.decision,
-            "semantic_row_count": self.semantic_row_count,
-            "compiled_projection_semantic_bundle_count": (
-                self.compiled_projection_semantic_bundle_count
-            ),
-            "compiled_projection_semantic_spec_names": list(
-                self.compiled_projection_semantic_spec_names
-            ),
-            "semantic_previews": [
-                item.as_payload() for item in self.semantic_previews
-            ],
-        }
-
-def projection_fiber_semantics_summary_from_payload(
+def projection_fiber_decision_from_payload(
     payload: object,
-) -> ProjectionFiberSemanticsSummary | None:
-    payload_mapping = _mapping(payload)
-    if not payload_mapping:
-        return None
-    semantics_mapping = _mapping(payload_mapping.get("projection_fiber_semantics"))
-    if semantics_mapping:
-        return _summary_from_semantics_mapping(semantics_mapping)
-    return None
+) -> dict[str, Any]:
+    components = _canonical_semantics_components(payload)
+    if components is None:
+        return {}
+    decision_mapping, _report_mapping = components
+    return dict(decision_mapping.items())
 
 
-def _summary_from_semantics_mapping(
-    semantics_mapping: Mapping[str, object],
-) -> ProjectionFiberSemanticsSummary | None:
-    decision_mapping = _mapping(semantics_mapping.get("decision"))
-    report_mapping = _mapping(semantics_mapping.get("report"))
-    if not decision_mapping or not report_mapping:
-        return None
+def projection_fiber_semantic_row_count_from_payload(
+    payload: object,
+) -> int:
+    components = _canonical_semantics_components(payload)
+    if components is None:
+        return 0
+    _decision_mapping, report_mapping = components
     semantic_rows = _list_of_mappings(report_mapping.get("semantic_rows"))
+    return len(semantic_rows)
+
+
+def projection_fiber_semantic_bundle_count_from_payload(
+    payload: object,
+) -> int:
+    components = _canonical_semantics_components(payload)
+    if components is None:
+        return 0
+    _decision_mapping, report_mapping = components
     compiled_projection_semantic_bundles = _list_of_mappings(
         report_mapping.get("compiled_projection_semantic_bundles")
     )
-    spec_names = tuple(
+    return len(compiled_projection_semantic_bundles)
+
+
+def projection_fiber_semantic_spec_names_from_payload(
+    payload: object,
+) -> tuple[str, ...]:
+    components = _canonical_semantics_components(payload)
+    if components is None:
+        return ()
+    _decision_mapping, report_mapping = components
+    compiled_projection_semantic_bundles = _list_of_mappings(
+        report_mapping.get("compiled_projection_semantic_bundles")
+    )
+    return tuple(
         sorted(
             {
                 item
@@ -86,27 +59,48 @@ def _summary_from_semantics_mapping(
             }
         )
     )
-    return ProjectionFiberSemanticsSummary(
-        decision=dict(decision_mapping.items()),
-        semantic_row_count=len(semantic_rows),
-        compiled_projection_semantic_bundle_count=len(
-            compiled_projection_semantic_bundles
-        ),
-        compiled_projection_semantic_spec_names=spec_names,
-        semantic_previews=_projection_fiber_semantic_previews(
-            semantic_rows=semantic_rows,
-            compiled_projection_semantic_bundles=compiled_projection_semantic_bundles,
-        ),
+
+
+def projection_fiber_semantic_previews_from_payload(
+    payload: object,
+) -> tuple[dict[str, Any], ...]:
+    components = _canonical_semantics_components(payload)
+    if components is None:
+        return ()
+    _decision_mapping, report_mapping = components
+    semantic_rows = _list_of_mappings(report_mapping.get("semantic_rows"))
+    compiled_projection_semantic_bundles = _list_of_mappings(
+        report_mapping.get("compiled_projection_semantic_bundles")
     )
+    return _projection_fiber_semantic_previews(
+        semantic_rows=semantic_rows,
+        compiled_projection_semantic_bundles=compiled_projection_semantic_bundles,
+    )
+
+
+def _canonical_semantics_components(
+    payload: object,
+) -> tuple[dict[str, Any], dict[str, Any]] | None:
+    payload_mapping = _mapping(payload)
+    if not payload_mapping:
+        return None
+    semantics_mapping = _mapping(payload_mapping.get("projection_fiber_semantics"))
+    if not semantics_mapping:
+        return None
+    decision_mapping = _mapping(semantics_mapping.get("decision"))
+    report_mapping = _mapping(semantics_mapping.get("report"))
+    if not decision_mapping or not report_mapping:
+        return None
+    return decision_mapping, report_mapping
 
 
 def _projection_fiber_semantic_previews(
     *,
     semantic_rows: tuple[dict[str, Any], ...],
     compiled_projection_semantic_bundles: tuple[dict[str, Any], ...],
-) -> tuple[ProjectionFiberSemanticPreview, ...]:
+) -> tuple[dict[str, Any], ...]:
     rows_by_structural_identity = _semantic_rows_by_structural_identity(semantic_rows)
-    previews: list[ProjectionFiberSemanticPreview] = []
+    previews: list[dict[str, Any]] = []
     seen: set[tuple[str, str, str]] = set()
     for bundle_mapping in compiled_projection_semantic_bundles:
         spec_name = _projection_semantic_spec_name(bundle_mapping)
@@ -140,30 +134,33 @@ def _projection_fiber_semantic_previews(
             row_mapping = rows_by_structural_identity.get(source_structural_identity, {})
             row_payload = _mapping(row_mapping.get("payload"))
             previews.append(
-                ProjectionFiberSemanticPreview(
-                    spec_name=spec_name,
-                    quotient_face=quotient_face,
-                    source_structural_identity=source_structural_identity,
-                    path=_mapping_string(row_payload, key="path"),
-                    qualname=_mapping_string(row_payload, key="qualname"),
-                    structural_path=_mapping_string(row_payload, key="structural_path"),
-                    obligation_state=_mapping_string(
+                {
+                    "spec_name": spec_name,
+                    "quotient_face": quotient_face,
+                    "source_structural_identity": source_structural_identity,
+                    "path": _mapping_string(row_payload, key="path"),
+                    "qualname": _mapping_string(row_payload, key="qualname"),
+                    "structural_path": _mapping_string(
+                        row_payload,
+                        key="structural_path",
+                    ),
+                    "obligation_state": _mapping_string(
                         row_mapping,
                         key="obligation_state",
                     ),
-                    complete=_mapping_bool(row_payload, key="complete"),
-                )
+                    "complete": _mapping_bool(row_payload, key="complete"),
+                }
             )
     return tuple(
         sorted(
             previews,
             key=lambda item: (
-                item.spec_name,
-                item.quotient_face,
-                item.path,
-                item.qualname,
-                item.structural_path,
-                item.source_structural_identity,
+                str(item.get("spec_name", "")),
+                str(item.get("quotient_face", "")),
+                str(item.get("path", "")),
+                str(item.get("qualname", "")),
+                str(item.get("structural_path", "")),
+                str(item.get("source_structural_identity", "")),
             ),
         )
     )
@@ -246,7 +243,9 @@ def _list_of_mappings(value: object) -> tuple[dict[str, Any], ...]:
 
 
 __all__ = [
-    "ProjectionFiberSemanticPreview",
-    "ProjectionFiberSemanticsSummary",
-    "projection_fiber_semantics_summary_from_payload",
+    "projection_fiber_decision_from_payload",
+    "projection_fiber_semantic_bundle_count_from_payload",
+    "projection_fiber_semantic_previews_from_payload",
+    "projection_fiber_semantic_row_count_from_payload",
+    "projection_fiber_semantic_spec_names_from_payload",
 ]
