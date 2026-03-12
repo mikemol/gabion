@@ -365,3 +365,59 @@ def test_compute_lint_lines_uses_injected_projector() -> None:
 
     assert seen == ["project"]
     assert lines == ["mod.py:2:3: GABION_TEST injected"]
+
+
+# gabion:evidence E:function_site::dataflow_lint_helpers.py::gabion.analysis.dataflow.engine.dataflow_lint_helpers._project_lint_rows_from_forest
+# gabion:behavior primary=desired
+def test_project_lint_rows_from_forest_uses_execution_ops(monkeypatch) -> None:
+    from gabion.analysis.dataflow.engine import dataflow_lint_helpers
+
+    seen: dict[str, object] = {}
+    monkeypatch.setattr(
+        dataflow_lint_helpers,
+        "_lint_findings_execution_ops",
+        lambda: ("typed-lint-op",),
+    )
+
+    def _fake_apply_execution_ops(ops, relation):
+        seen["ops"] = ops
+        seen["relation"] = relation
+        return relation
+
+    monkeypatch.setattr(
+        dataflow_lint_helpers,
+        "apply_execution_ops",
+        _fake_apply_execution_ops,
+    )
+    monkeypatch.setattr(
+        dataflow_lint_helpers,
+        "_materialize_projection_spec_rows",
+        lambda **_kwargs: None,
+    )
+
+    projected = dataflow_lint_helpers._project_lint_rows_from_forest(
+        forest=object(),
+        relation_fn=lambda _forest: [
+            {
+                "path": "mod.py",
+                "line": 2,
+                "col": 3,
+                "code": "GABION_TEST",
+                "message": "typed",
+                "sources": ["bundle_evidence"],
+            }
+        ],
+    )
+
+    assert seen["ops"] == ("typed-lint-op",)
+    assert seen["relation"] == [
+        {
+            "path": "mod.py",
+            "line": 2,
+            "col": 3,
+            "code": "GABION_TEST",
+            "message": "typed",
+            "sources": ["bundle_evidence"],
+        }
+    ]
+    assert projected == seen["relation"]

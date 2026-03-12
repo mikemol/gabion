@@ -1,5 +1,5 @@
 ---
-doc_revision: 92
+doc_revision: 93
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -784,6 +784,9 @@ Current implementation status:
 - the fixed-spec `test_obsolescence` summary path now precomputes typed
   execution ops and executes them directly, so that stable stale/active
   summary counting no longer routes through `projection_exec_ingress.py`
+- the fixed-spec `LINT_FINDINGS_SPEC` path now precomputes typed execution
+  ops and executes them directly, so stable lint-row projection no longer
+  routes through `projection_exec_ingress.py`
 
 Implementation rule:
 - policy DSL must consume canonical carrier rows rather than infer semantics

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from dataclasses import dataclass
+from functools import cache
 from pathlib import Path
 from typing import Any, Mapping, cast
 
@@ -26,18 +27,27 @@ from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
 )
 from gabion.analysis.dataflow.engine.dataflow_bundle_merge import _merge_counts_by_knobs as _merge_counts_by_knobs_impl
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue, ParseFailureWitnesses
-from gabion.analysis.projection.projection_exec_ingress import apply_spec
+from gabion.analysis.projection.projection_exec import apply_execution_ops
+from gabion.analysis.projection.projection_exec_ingress import execution_ops_from_spec
 from gabion.analysis.projection.projection_registry import LINT_FINDINGS_SPEC
-from gabion.analysis.projection.projection_spec import ProjectionSpec
 from gabion.analysis.foundation.resume_codec import (
     iter_int_tuple4_from_sequence, mapping_default_empty, mapping_optional, sequence_optional)
 from gabion.analysis.foundation.timeout_context import check_deadline
-from gabion.invariants import never
+from gabion.invariants import grade_boundary, never
 from gabion.order_contract import sort_once
 
 _NEVER_STATUS_ORDER = {"VIOLATION": 0, "OBLIGATION": 1, "PROVEN_UNREACHABLE": 2}
 
 _analysis_collection_resume_path_key = _resume_analysis_collection_resume_path_key
+
+
+@cache
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="lint_findings_execution_ops",
+)
+def _lint_findings_execution_ops():
+    return execution_ops_from_spec(LINT_FINDINGS_SPEC)
 
 def _analysis_index_by_qual_and_transitive_callers(
     *,
@@ -340,15 +350,14 @@ def _project_lint_rows_from_forest(
     *,
     forest,
     relation_fn: Callable[[object], list[dict[str, JSONValue]]] = _lint_relation_from_forest,
-    apply_spec_fn: Callable[
-        [ProjectionSpec, list[dict[str, JSONValue]]],
-        list[dict[str, JSONValue]],
-    ] = apply_spec,
 ) -> list[dict[str, JSONValue]]:
     relation = relation_fn(forest)
     if not relation:
         return []
-    projected = apply_spec_fn(LINT_FINDINGS_SPEC, relation)
+    projected = apply_execution_ops(
+        _lint_findings_execution_ops(),
+        relation,
+    )
 
     def _row_to_file_site(row: Mapping[str, JSONValue]):
         path = str(row.get("path", "") or "")
