@@ -258,10 +258,6 @@ def _join_payload(
         "deterministic": deterministic,
     }
 
-@grade_boundary(
-    kind="semantic_carrier_adapter",
-    name="semantic_fragment.naturality_payload",
-)
 def _naturality_payload(
     *,
     kind: str,
