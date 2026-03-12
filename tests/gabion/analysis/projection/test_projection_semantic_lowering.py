@@ -117,6 +117,29 @@ def test_lower_projection_spec_promotes_reflect_surface() -> None:
     assert lowered.bridge_ops == ()
 
 
+def test_lower_projection_spec_promotes_support_reflect_surface() -> None:
+    spec = ProjectionSpec(
+        spec_version=1,
+        name="demo",
+        domain="projection_fiber",
+        pipeline=(
+            ProjectionOp(
+                op="support_reflect",
+                params={"surface": "projection_fiber"},
+            ),
+        ),
+    )
+
+    lowered = lower_projection_spec_to_semantic_plan(spec)
+
+    assert len(lowered.semantic_ops) == 1
+    semantic_op = lowered.semantic_ops[0]
+    assert semantic_op.semantic_op is SemanticProjectionKind.SUPPORT_REFLECT
+    assert semantic_op.params["surface"] == "projection_fiber"
+    assert lowered.presentation_ops == ()
+    assert lowered.bridge_ops == ()
+
+
 def test_project_quotient_face_metadata_is_lowered() -> None:
     spec = ProjectionSpec(
         spec_version=1,

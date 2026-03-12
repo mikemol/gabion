@@ -1,5 +1,5 @@
 ---
-doc_revision: 82
+doc_revision: 83
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -483,9 +483,10 @@ Current implementation status:
   classifies current pipeline ops into semantic, presentation, and bridge
   buckets before any execution-path cutover
 - `project` ops with declared `quotient_face` metadata and the explicit
-  `reflect(surface=projection_fiber)` op now promote into semantic ops in v1;
-  `sort`, `limit`, and `count_by` remain presentation, while `select`,
-  `traverse`, and unknown ops remain bridge/compatibility surfaces
+  `reflect(surface=projection_fiber)` and
+  `support_reflect(surface=projection_fiber)` ops now promote into semantic
+  ops in v1; `sort`, `limit`, and `count_by` remain presentation, while
+  `select`, `traverse`, and unknown ops remain bridge/compatibility surfaces
 - the `projection_fiber.frontier` and
   `projection_fiber.reflective_boundary` faces now compile through to typed
   SHACL/SPARQL plans against canonical semantic rows, proving the
@@ -496,11 +497,16 @@ Current implementation status:
   lowering/compiler path via a registered `projection_fiber_reflection`
   `ProjectionSpec`, and the substrate report flattens its top-level reflect
   plans from those compiled bundles rather than bypassing lowering
+- `support_reflect(surface=projection_fiber)` now compiles through that same
+  typed lowering/compiler path via a registered
+  `projection_fiber_support_reflection` `ProjectionSpec`, so support/history
+  context is now emitted as an explicit semantic-plan bundle instead of staying
+  implicit inside raw canonical rows
 - the first real consumer of that bridge is the lattice-convergence substrate
   report, which now emits compiled semantic-plan bundles for the registered
-  frontier, reflection, and reflective-boundary specs alongside the raw
-  semantic rows and top-level reflect plans derived from the same typed bundle
-  output
+  frontier, reflection, support-reflection, and reflective-boundary specs
+  alongside the raw semantic rows and top-level reflect plans derived from the
+  same typed bundle output
 - that substrate output now crosses a runtime-facing boundary: `policy_check
   --output` carries a `projection_fiber_semantics` payload with the lattice
   decision, semantic report, and compiled projection-semantic bundles, so the

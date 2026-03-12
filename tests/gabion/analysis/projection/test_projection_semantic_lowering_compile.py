@@ -94,6 +94,21 @@ def _lowered_projection_fiber_reflection_plan():
     return lower_projection_spec_to_semantic_plan(spec)
 
 
+def _lowered_projection_fiber_support_reflection_plan():
+    spec = ProjectionSpec(
+        spec_version=1,
+        name="projection_fiber_support_reflection",
+        domain="projection_fiber",
+        pipeline=(
+            ProjectionOp(
+                op="support_reflect",
+                params={"surface": "projection_fiber"},
+            ),
+        ),
+    )
+    return lower_projection_spec_to_semantic_plan(spec)
+
+
 def test_projection_semantic_lowering_compilation_is_deterministic() -> None:
     row = _row()
     lowering_plan = _lowered_projection_fiber_frontier_plan()
@@ -171,3 +186,25 @@ def test_projection_semantic_lowering_compiles_reflection_surface() -> None:
     assert sparql_plan["surface"] == "projection_fiber"
     assert shacl_plan["source_structural_identity"] == row["structural_identity"]
     assert sparql_plan["source_structural_identity"] == row["structural_identity"]
+
+
+def test_projection_semantic_lowering_compiles_support_reflection_surface() -> None:
+    row = _row()
+    lowering_plan = _lowered_projection_fiber_support_reflection_plan()
+
+    compiled = compile_projection_semantic_lowering_plan(lowering_plan, (row,))
+
+    assert compiled.bindings == ()
+    shacl_plan = compiled.compiled_shacl_plans[0]
+    sparql_plan = compiled.compiled_sparql_plans[0]
+
+    assert shacl_plan["semantic_op"] == "support_reflect"
+    assert sparql_plan["semantic_op"] == "support_reflect"
+    assert shacl_plan["surface"] == "projection_fiber"
+    assert sparql_plan["surface"] == "projection_fiber"
+    assert shacl_plan["constraints"][0]["focus_path"] == "input_witnesses.kind"
+    assert sparql_plan["select_vars"] == [
+        "?inputWitnessKinds",
+        "?synthesizedWitnessKinds",
+        "?boundaryKinds",
+    ]

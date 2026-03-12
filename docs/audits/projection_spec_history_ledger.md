@@ -29,7 +29,7 @@ doc_role: audit
 
 ## PS-ERA-01: ProjectionSpec Core Calculus
 - status: `in_progress`
-- date_window: `2026-02-09` -> `2026-03-11`
+- date_window: `2026-02-09` -> `2026-03-12`
 
 ### Intent At The Time
 - ProjectionSpec remains unchanged — only the base carrier improves. (in/in-30.md:488)
@@ -48,11 +48,11 @@ doc_role: audit
 - `d77dc91d` `2026-02-09` docflow: enforce SPPF axis tags + GH ref gate (GH-82)
 - `1a86872a` `2026-02-10` analysis: projection spec carrier + proof mode
 - `358a4207` `2026-02-10` docs: in-30 SuiteSite adoption tracking
-- `d5d98bc3` `2026-03-08` CU-D2AJ dispatch-lift projection and semantic coverage loaders
-- `2de45e25` `2026-03-09` snapshot: stage entire worktree
-- `e13c54b0` `2026-03-10` Force majeure: continue projection substrate and policy convergence
-- `fbfc5801` `2026-03-10` Docs: reconcile ProjectionSpec CF state and SPPF tracking
-- `368404e0` `2026-03-11` Add tests for projection fiber semantics and related functionalities
+- `12bafdc7` `2026-03-12` Type projection execution steps
+- `6a7592ce` `2026-03-12` Erase semantic ops at projection exec ingress
+- `aece7d9f` `2026-03-12` Promote reflect through typed projection lowering
+- `bc006434` `2026-03-12` Extract projection exec ingress adapter
+- `fa174d91` `2026-03-12` Split ProjectionSpec ingress from executor
 
 ### What Drifted
 - `[PROVISIONAL]` `src/gabion/analysis/projection/projection_registry.py` ( M)
@@ -65,7 +65,7 @@ doc_role: audit
 
 ## PS-ERA-02: Quotient And Internment Formalization
 - status: `implemented`
-- date_window: `2026-02-09` -> `2026-03-10`
+- date_window: `2026-02-09` -> `2026-03-12`
 
 ### Intent At The Time
 - ProjectionSpec remains unchanged — only the base carrier improves. (in/in-30.md:488)
@@ -82,11 +82,11 @@ doc_role: audit
 - `d77dc91d` `2026-02-09` docflow: enforce SPPF axis tags + GH ref gate (GH-82)
 - `1a86872a` `2026-02-10` analysis: projection spec carrier + proof mode
 - `358a4207` `2026-02-10` docs: in-30 SuiteSite adoption tracking
-- `6c242c04` `2026-03-06` docs(docflow): clear warning packets via semantic anchor refresh
 - `6f150437` `2026-03-07` CU-PM0-B3 global marker purge batch 3
 - `5cf21c86` `2026-03-08` Eliminate *_or_none/_or_empty helper family and streamify timeout progress
 - `2de45e25` `2026-03-09` snapshot: stage entire worktree
 - `fbfc5801` `2026-03-10` Docs: reconcile ProjectionSpec CF state and SPPF tracking
+- `fa174d91` `2026-03-12` Split ProjectionSpec ingress from executor
 
 ### What Drifted
 - No provisional workspace-only delta for this era.
@@ -99,7 +99,7 @@ doc_role: audit
 
 ## PS-ERA-03: WS5 Dataflow Projection Ownerization
 - status: `implemented`
-- date_window: `2026-03-02` -> `2026-03-11`
+- date_window: `2026-03-02` -> `2026-03-12`
 
 ### Intent At The Time
 - | `DFD-037` | duplicate reporting projection materialization/span rendering helpers still present in indexed boundary module | strict coverage checkpoint (`97.50%`) + reporting hotspot family ownership hard-cut follow-up | yes | `CU-06C` | mitigated | `src/gabion/analysis/dataflow_indexed_file_scan.py`; `src/gabion/analysis/dataflow_reporting_helpers.py`; `tests/gabion/analysis/test_dataflow_report_helpers.py`; `tests/gabion/analysis/test_report_markdown_module.py` | codex | 2026-03-22 | keep monolith as thin boundary wrapper for `_materialize_projection_spec_rows` and `_format_span_fields`, with owner logic centralized in `dataflow_reporting_helpers` | (docs/audits/dataflow_runtime_debt_ledger.md:90)
@@ -120,11 +120,11 @@ doc_role: audit
 - `03effc7d` `2026-03-02` test(policy): close scanner-suite branch arcs (CU-04E)
 - `09d170b5` `2026-03-02` analysis(ambiguity): collapse pass-through wrappers to alias exports (CU-06D)
 - `11c88688` `2026-03-02` analysis(indexed-scan): extract resume-state owner and expand owner tests (CU-04)
-- `5cf21c86` `2026-03-08` Eliminate *_or_none/_or_empty helper family and streamify timeout progress
 - `d58caa76` `2026-03-08` CU-D2T batch strict-dispatch payload lift
 - `2de45e25` `2026-03-09` snapshot: stage entire worktree
 - `e13c54b0` `2026-03-10` Force majeure: continue projection substrate and policy convergence
 - `203a3273` `2026-03-11` analysis: tighten normalization decision helpers
+- `fa174d91` `2026-03-12` Split ProjectionSpec ingress from executor
 
 ### What Drifted
 - No provisional workspace-only delta for this era.
@@ -176,7 +176,7 @@ doc_role: audit
 - Preserve rule_id/witness drift checks so policy decisions stay DSL-owned.
 
 ## PS-ERA-05: Fiber-First Lattice Cutover
-- status: `in_progress`
+- status: `implemented`
 - date_window: `2026-02-25` -> `2026-03-12`
 
 ### Intent At The Time
@@ -195,14 +195,14 @@ doc_role: audit
 - `d03ba757` `2026-02-27` docs: remove stale ASPF action-plan CLI and artifact surfaces
 - `e3f92c4b` `2026-02-27` docs: propagate re-internment metadata across governance dependents
 - `776ebde9` `2026-03-03` refactor: split import DAG into submodules and rewrite paths
-- `6ba58c52` `2026-03-12` Keep suite semantics boundary-owned
-- `9aace3ea` `2026-03-12` Retire single-field suite child input carrier
-- `a800876b` `2026-03-12` Make suite runtime surface scan-only
+- `a843a313` `2026-03-12` Drop suite runtime file override
+- `aece7d9f` `2026-03-12` Promote reflect through typed projection lowering
 - `b0b6735e` `2026-03-12` Require explicit policy suite child inputs
 - `dde0d399` `2026-03-12` Retire policy suite result carrier
+- `f158353e` `2026-03-12` Move suite changed-path discovery to wrapper
 
 ### What Drifted
-- `[PROVISIONAL]` `src/gabion/tooling/policy_substrate/lattice_convergence_semantic.py` ( M)
+- No provisional workspace-only delta for this era.
 
 ### What Remains
 - No explicit completion gap recorded for this era.
@@ -230,14 +230,14 @@ doc_role: audit
 - `6b38b878` `2026-02-17` docs(in-32): emphasize non-normative status and implementation boundary
 - `d595634e` `2026-02-23` Refresh in/ doc dependency reviews and cadence note
 - `dde38f18` `2026-02-23` Merge PR #225: Add governance loop matrix doc and matrix-drift audit check
-- `e80da852` `2026-03-11` Hide policy suite cache identity
 - `0c516ec4` `2026-03-12` Ratchet suite wrapper prerequisites
 - `6ba58c52` `2026-03-12` Keep suite semantics boundary-owned
 - `a800876b` `2026-03-12` Make suite runtime surface scan-only
+- `aece7d9f` `2026-03-12` Promote reflect through typed projection lowering
 - `dde0d399` `2026-03-12` Retire policy suite result carrier
 
 ### What Drifted
-- `[PROVISIONAL]` `src/gabion/tooling/policy_substrate/lattice_convergence_semantic.py` ( M)
+- No provisional workspace-only delta for this era.
 
 ### What Remains
 - Workflow policy gate stack still reports unresolved workflow/lock-in failures.
@@ -285,6 +285,7 @@ doc_role: audit
 | projection_fiber_frontier | projection_fiber | mixed | 1 | 1 | 0 | projection_fiber.frontier |
 | projection_fiber_reflection | projection_fiber | semantic_promoted | 1 | 0 | 0 |  |
 | projection_fiber_reflective_boundary | projection_fiber | mixed | 1 | 1 | 0 | projection_fiber.reflective_boundary |
+| projection_fiber_support_reflection | projection_fiber | semantic_promoted | 1 | 0 | 0 |  |
 | quotient_demotion_incidents | quotient_demotion_incidents | presentation_only | 0 | 0 | 0 |  |
 | quotient_promotion_decision | quotient_promotion_decision | presentation_only | 0 | 0 | 0 |  |
 | quotient_protocol_readiness | quotient_protocol_readiness | presentation_only | 0 | 0 | 0 |  |
