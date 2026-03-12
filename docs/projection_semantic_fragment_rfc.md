@@ -1,5 +1,5 @@
 ---
-doc_revision: 63
+doc_revision: 64
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -599,6 +599,9 @@ Current implementation status:
   peelers for `status` and `projection_fiber_semantics`; child artifact ingress
   is now normalized through one boundary loader before wrapper
   orchestration continues
+- the policy-scanner-suite wrapper no longer carries its own closed
+  policy-rule family registry just to print violations; console rendering now
+  follows the runtime result's own `violations_by_rule` families directly
 - the outward-facing `PolicySuiteResult` carrier and payload no longer project
   cache identity hashes (`inventory_hash`, `rule_set_hash`); those no longer
   appear on the public carrier at all

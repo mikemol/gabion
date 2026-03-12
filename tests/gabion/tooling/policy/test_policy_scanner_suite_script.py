@@ -461,6 +461,66 @@ def test_run_passes_minimal_boundary_shape_with_projection_fiber_semantics(
     assert not (out_dir / "policy_suite_results.json").exists()
 
 
+def test_run_prints_nonempty_violation_families_from_runtime_result(
+    tmp_path: Path,
+    monkeypatch: object,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    root = tmp_path
+    out_dir = root / "artifacts/out"
+
+    def _fake_projection_fiber_semantics(*, out_dir: Path) -> dict[str, object] | None:
+        assert out_dir == root / "artifacts/out"
+        return None
+
+    def _fake_scan_policy_suite(**_: object) -> object:
+        return policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteResult(
+            violations_by_rule={
+                "branchless": [{"render": "branchless render"}],
+                "future_rule_family": [{"render": "future render"}],
+            },
+            projection_fiber_semantics=None,
+        )
+
+    def _fake_run_from_payload(
+        *,
+        payload: dict[str, object],
+        out_path: Path,
+        markdown_out: Path | None = None,
+        config: object | None = None,
+    ) -> int:
+        _ = payload, config
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text("{}\n", encoding="utf-8")
+        if markdown_out is not None:
+            markdown_out.write_text("# Hotspot Neighborhood Queue\n", encoding="utf-8")
+        return 0
+
+    monkeypatch.setattr(
+        policy_scanner_suite,
+        "_resolve_projection_fiber_semantics",
+        _fake_projection_fiber_semantics,
+    )
+    monkeypatch.setattr(
+        policy_scanner_suite.runtime_policy_scanner_suite,
+        "scan_policy_suite",
+        _fake_scan_policy_suite,
+    )
+    monkeypatch.setattr(
+        policy_scanner_suite.hotspot_neighborhood_queue,
+        "run_from_payload",
+        _fake_run_from_payload,
+    )
+
+    rc = policy_scanner_suite.run(root=root, out_dir=out_dir)
+
+    assert rc == 1
+    captured = capsys.readouterr()
+    assert "branchless violations:" in captured.out
+    assert "future_rule_family violations:" in captured.out
+    assert "future render" in captured.out
+
+
 # gabion:evidence E:function_site::test_policy_scanner_suite_script.py::tests.gabion.tooling.policy.test_policy_scanner_suite_script.test_resolve_projection_fiber_semantics_preserve_preexisting_child_artifacts
 # gabion:behavior primary=desired
 def test_resolve_projection_fiber_semantics_preserve_preexisting_child_artifacts(

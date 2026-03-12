@@ -95,29 +95,7 @@ def run(
     )
     if total == 0:
         return 0
-    for rule in (
-        "no_monkeypatch",
-        "branchless",
-        "defensive_fallback",
-        "fiber_loop_structure_contract",
-        "fiber_filter_processor_contract",
-        "fiber_return_shape_contract",
-        "fiber_scalar_sentinel_contract",
-        "fiber_type_dispatch_contract",
-        "no_anonymous_tuple",
-        "no_mutable_dict",
-        "no_scalar_conversion_boundary",
-        "no_legacy_monolith_import",
-        "orchestrator_primitive_barrel",
-        "typing_surface",
-        "runtime_narrowing_boundary",
-        "aspf_normalization_idempotence",
-        "boundary_core_contract",
-        "fiber_normalization_contract",
-        "test_subprocess_hygiene",
-        "test_sleep_hygiene",
-    ):
-        items = list(result.violations_by_rule.get(rule, []))
+    for rule, items in result.violations_by_rule.items():
         if not items:
             continue
         print(f"{rule} violations:")
