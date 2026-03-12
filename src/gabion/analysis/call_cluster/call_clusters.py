@@ -7,9 +7,10 @@ from pathlib import Path
 from collections.abc import Iterable, Mapping
 
 from gabion.analysis.semantics import evidence_keys
-from gabion.analysis.foundation.baseline_io import parse_spec_metadata
+from gabion.analysis.foundation.baseline_io import ParsedSpecMetadata, parse_spec_metadata
 from gabion.analysis.surfaces import test_evidence_suggestions
 from gabion.analysis.call_cluster.call_cluster_shared import (
+    ClusterIdentity,
     cluster_identity_from_key,
     render_cluster_heading,
     render_string_codeblock,
@@ -19,7 +20,6 @@ from gabion.analysis.projection.projection_exec import apply_execution_ops
 from gabion.analysis.projection.projection_exec_plan import execution_ops_from_spec
 from gabion.analysis.projection.projection_registry import (
     CALL_CLUSTER_SUMMARY_SPEC,
-    spec_metadata_lines_from_payload,
     spec_metadata_payload,
 )
 from gabion.analysis.semantics.report_doc import ReportDoc
@@ -39,9 +39,7 @@ def _call_cluster_summary_execution_ops():
 
 @dataclass(frozen=True)
 class CallClusterEntry:
-    identity: str
-    key: dict[str, JSONValue]
-    display: str
+    cluster: ClusterIdentity
     tests: tuple[str, ...]
     count: int
 
@@ -57,15 +55,12 @@ class CallClustersPayload:
     version: int
     summary: CallClustersSummary
     clusters: tuple[CallClusterEntry, ...]
-    generated_by_spec_id: str
-    generated_by_spec: dict[str, JSONValue]
+    generated_by: ParsedSpecMetadata
 
 
 @dataclass
 class _CallClusterAccumulator:
-    identity: str
-    key: dict[str, JSONValue]
-    display: str
+    cluster: ClusterIdentity
     tests: list[str]
 
 
@@ -102,9 +97,7 @@ def build_call_clusters_payload(
         cluster = clusters.get(identity)
         if cluster is None:
             cluster = _CallClusterAccumulator(
-                identity=metadata.identity,
-                key=dict(metadata.key),
-                display=metadata.display,
+                cluster=metadata,
                 tests=[],
             )
             clusters[identity] = cluster
@@ -120,15 +113,13 @@ def build_call_clusters_payload(
         count = len(tests)
         cluster_rows.append(
             {
-                "identity": cluster.identity,
-                "display": cluster.display,
+                "identity": cluster.cluster.identity,
+                "display": cluster.cluster.display,
                 "count": count,
             }
         )
-        clusters[cluster.identity] = _CallClusterAccumulator(
-            identity=cluster.identity,
-            key=cluster.key,
-            display=cluster.display,
+        clusters[cluster.cluster.identity] = _CallClusterAccumulator(
+            cluster=cluster.cluster,
             tests=list(tests),
         )
 
@@ -148,9 +139,7 @@ def build_call_clusters_payload(
         cluster = clusters[cluster_identity]
         ordered.append(
             CallClusterEntry(
-                identity=cluster_identity,
-                key=cluster.key,
-                display=cluster.display,
+                cluster=cluster.cluster,
                 tests=tuple(cluster.tests),
                 count=len(cluster.tests),
             )
@@ -165,8 +154,7 @@ def build_call_clusters_payload(
         version=CALL_CLUSTER_VERSION,
         summary=summary,
         clusters=tuple(ordered),
-        generated_by_spec_id=metadata.spec_id,
-        generated_by_spec=metadata.spec,
+        generated_by=metadata,
     )
 
 
@@ -183,16 +171,16 @@ def render_json_payload(payload: CallClustersPayload) -> dict[str, JSONValue]:
         },
         "clusters": [
             {
-                "identity": entry.identity,
-                "key": entry.key,
-                "display": entry.display,
+                "identity": entry.cluster.identity,
+                "key": entry.cluster.key,
+                "display": entry.cluster.display,
                 "tests": list(entry.tests),
                 "count": entry.count,
             }
             for entry in payload.clusters
         ],
-        "generated_by_spec_id": payload.generated_by_spec_id,
-        "generated_by_spec": payload.generated_by_spec,
+        "generated_by_spec_id": payload.generated_by.spec_id,
+        "generated_by_spec": payload.generated_by.spec,
     }
 
 
@@ -207,10 +195,10 @@ def render_markdown(
         doc = ReportDoc("out_call_clusters")
         doc.lines(
             [
-                f"generated_by_spec_id: {payload.generated_by_spec_id}",
+                f"generated_by_spec_id: {payload.generated_by.spec_id}",
                 "generated_by_spec: "
                 + json.dumps(
-                    payload.generated_by_spec,
+                    payload.generated_by.spec,
                     sort_keys=False,
                     separators=(",", ":"),
                 ),
@@ -234,7 +222,11 @@ def render_markdown(
         doc.section("Call clusters")
         for entry in payload.clusters:
             check_deadline()
-            render_cluster_heading(doc, display=entry.display, count=entry.count)
+            render_cluster_heading(
+                doc,
+                display=entry.cluster.display,
+                count=entry.count,
+            )
             if entry.tests:
                 render_string_codeblock(doc, entry.tests)
         return doc.emit()

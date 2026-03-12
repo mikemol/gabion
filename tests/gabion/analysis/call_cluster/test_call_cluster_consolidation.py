@@ -3,7 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from gabion.analysis.call_cluster import call_cluster_consolidation
+from gabion.analysis.call_cluster import call_cluster_consolidation, call_cluster_shared
+from gabion.analysis.foundation.baseline_io import ParsedSpecMetadata
 from gabion.analysis.semantics import evidence_keys
 
 
@@ -14,6 +15,23 @@ def _call_footprint_display(*, test_id: str, file: str, targets: list[tuple[str,
         targets=[{"path": path, "qual": qual} for path, qual in targets],
     )
     return evidence_keys.render_display(evidence_keys.normalize_key(key))
+
+
+def _generated_by(
+    *,
+    spec_id: str = "call_cluster_consolidation",
+    spec_payload: dict[str, object] | None = None,
+) -> ParsedSpecMetadata:
+    return ParsedSpecMetadata(
+        spec_id=spec_id,
+        spec={
+            str(key): value
+            for key, value in (spec_payload or {
+                "name": "call_cluster_consolidation",
+                "spec_version": 1,
+            }).items()
+        },
+    )
 
 
 def _payload(
@@ -27,10 +45,6 @@ def _payload(
     generated_by_spec_id: str = "call_cluster_consolidation",
     generated_by_spec: dict[str, object] | None = None,
 ) -> call_cluster_consolidation.CallClusterConsolidationPayload:
-    spec_payload = generated_by_spec or {
-        "name": "call_cluster_consolidation",
-        "spec_version": 1,
-    }
     return call_cluster_consolidation.CallClusterConsolidationPayload(
         version=call_cluster_consolidation.CONSOLIDATION_VERSION,
         summary=call_cluster_consolidation.ConsolidationSummary(
@@ -41,8 +55,10 @@ def _payload(
         ),
         clusters=cluster_entries,
         plan=plan_entries,
-        generated_by_spec_id=generated_by_spec_id,
-        generated_by_spec={str(key): value for key, value in spec_payload.items()},
+        generated_by=_generated_by(
+            spec_id=generated_by_spec_id,
+            spec_payload=generated_by_spec,
+        ),
     )
 
 
@@ -456,23 +472,27 @@ def test_call_cluster_consolidation_emitted_payload_preserves_identity() -> None
         replacements=2,
         cluster_entries=(
             call_cluster_consolidation.ClusterSummary(
-                identity="call-cluster-1",
-                key={"k": "call_cluster", "targets": ["pkg.mod:helper"]},
-                display="pkg.mod:helper",
+                cluster=call_cluster_shared.ClusterIdentity(
+                    identity="call-cluster-1",
+                    key={"k": "call_cluster", "targets": ["pkg.mod:helper"]},
+                    display="pkg.mod:helper",
+                ),
                 tests=("tests/test_mod.py::test_one", "tests/test_mod.py::test_two"),
+                count=2,
             ),
         ),
         plan_entries=(
             call_cluster_consolidation.ConsolidationPlanEntry(
-                cluster_identity="call-cluster-1",
-                cluster_display="pkg.mod:helper",
+                cluster=call_cluster_shared.ClusterIdentity(
+                    identity="call-cluster-1",
+                    key={"k": "call_cluster", "targets": ["pkg.mod:helper"]},
+                    display="pkg.mod:helper",
+                ),
                 cluster_count=2,
                 test_id="tests/test_mod.py::test_one",
                 file="tests/test_mod.py",
                 line=10,
                 replace=("E:call_footprint::pkg.mod::helper",),
-                replacement_key={"k": "call_cluster", "targets": ["pkg.mod:helper"]},
-                replacement_display="pkg.mod:helper",
             ),
         ),
     )

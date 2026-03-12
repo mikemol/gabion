@@ -2,7 +2,25 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from gabion.analysis.call_cluster import call_clusters
+from gabion.analysis.call_cluster import call_cluster_shared, call_clusters
+from gabion.analysis.foundation.baseline_io import ParsedSpecMetadata
+
+
+def _generated_by(
+    *,
+    spec_id: str = "call_cluster_summary",
+    spec_payload: dict[str, object] | None = None,
+) -> ParsedSpecMetadata:
+    return ParsedSpecMetadata(
+        spec_id=spec_id,
+        spec={
+            str(key): value
+            for key, value in (spec_payload or {
+                "name": "call_cluster_summary",
+                "spec_version": 1,
+            }).items()
+        },
+    )
 
 
 def _payload(
@@ -13,19 +31,14 @@ def _payload(
     generated_by_spec_id: str = "call_cluster_summary",
     generated_by_spec: dict[str, object] | None = None,
 ) -> call_clusters.CallClustersPayload:
-    spec_payload = generated_by_spec or {
-        "name": "call_cluster_summary",
-        "spec_version": 1,
-    }
     return call_clusters.CallClustersPayload(
         version=call_clusters.CALL_CLUSTER_VERSION,
         summary=call_clusters.CallClustersSummary(clusters=clusters, tests=tests),
         clusters=entries,
-        generated_by_spec_id=generated_by_spec_id,
-        generated_by_spec={
-            str(key): value
-            for key, value in spec_payload.items()
-        },
+        generated_by=_generated_by(
+            spec_id=generated_by_spec_id,
+            spec_payload=generated_by_spec,
+        ),
     )
 
 
@@ -75,7 +88,7 @@ def test_call_clusters_payload_and_render(
     assert payload.summary.tests == 1
     assert payload.clusters
     cluster = payload.clusters[0]
-    assert cluster.key["k"] == "call_cluster"
+    assert cluster.cluster.key["k"] == "call_cluster"
     assert cluster.count == 1
     markdown = call_clusters.render_markdown(payload)
     assert "generated_by_spec_id" in markdown
@@ -157,9 +170,11 @@ def test_call_clusters_emitted_payload_preserves_identity() -> None:
         tests=2,
         entries=(
             call_clusters.CallClusterEntry(
-                identity="call-cluster-1",
-                key={"k": "call_cluster", "targets": ["pkg.mod:helper"]},
-                display="pkg.mod:helper",
+                cluster=call_cluster_shared.ClusterIdentity(
+                    identity="call-cluster-1",
+                    key={"k": "call_cluster", "targets": ["pkg.mod:helper"]},
+                    display="pkg.mod:helper",
+                ),
                 tests=("tests/test_mod.py::test_one", "tests/test_mod.py::test_two"),
                 count=2,
             ),
@@ -259,6 +274,14 @@ def test_call_clusters_payload_uses_execution_ops_for_default_summary_spec(
         "_call_cluster_summary_execution_ops",
         lambda: ("typed-summary-op",),
     )
+    monkeypatch.setattr(
+        call_clusters.test_evidence_suggestions,
+        "collect_call_footprints",
+        lambda entries, **kwargs: {
+            entry.test_id: (("mod.py", "mod.helper"),)
+            for entry in entries
+        },
+    )
 
     def _fake_apply_execution_ops(ops, rows):
         seen["ops"] = ops
@@ -283,6 +306,7 @@ def test_call_clusters_payload_uses_execution_ops_for_default_summary_spec(
     assert len(rows) == 1
     assert rows[0]["count"] == 1
     assert payload.summary.clusters == 1
+    assert payload.clusters[0].cluster.identity
 
 
 # gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.build_call_clusters_payload E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.load_test_evidence
@@ -337,9 +361,11 @@ def test_call_clusters_render_handles_empty_tests_list() -> None:
             clusters=1,
             entries=(
                 call_clusters.CallClusterEntry(
-                    identity="cluster-1",
-                    key={"k": "call_cluster"},
-                    display="Cluster",
+                    cluster=call_cluster_shared.ClusterIdentity(
+                        identity="cluster-1",
+                        key={"k": "call_cluster"},
+                        display="Cluster",
+                    ),
                     tests=(),
                     count=0,
                 ),

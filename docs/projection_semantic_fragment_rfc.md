@@ -1,5 +1,5 @@
 ---
-doc_revision: 112
+doc_revision: 113
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -562,6 +562,11 @@ Current implementation status:
   its JSON emission shape at the carrier module, and the emitted wire payload
   preserves cluster `identity` rather than dropping part of the internal DTO at
   the output edge
+- the same call-cluster path is stricter internally now: repeated
+  `identity`/`key`/`display` triples are collapsed onto `ClusterIdentity`, and
+  spec provenance stays on parsed metadata carriers until the final
+  render/write edge instead of lingering as loose dict payloads in the middle
+  of the data fiber
 - the broad module-level `semantic_carrier_adapter` marker formerly attached to
   `projection_exec.py` is now retired as well; the executor keeps only
   function-local temporary grading on the concrete typed-execution surfaces
@@ -942,6 +947,9 @@ The current call-cluster paths are the concrete example: `test_evidence.json`
 is normalized once at file ingress into a strict `TestEvidenceDocument`,
 `call_clusters` and `call_cluster_consolidation` both stay on internal DTOs
 after that point, and only the server/file emission edges serialize JSON.
+Within those DTOs, repeated structural carriers such as cluster identity and
+spec provenance should stay reified as internal dataclasses rather than being
+flattened back into loose mapping fields before output.
 When multiple consumers depend on that same file carrier, they must share that
 one loader boundary rather than each re-claiming a duplicate ingress seam for
 the same JSON source.

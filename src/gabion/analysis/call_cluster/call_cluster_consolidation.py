@@ -7,9 +7,14 @@ from pathlib import Path
 
 from gabion.analysis.semantics import evidence_keys
 from gabion.analysis.surfaces import test_evidence_suggestions
-from gabion.analysis.foundation.baseline_io import parse_spec_metadata, write_json
+from gabion.analysis.foundation.baseline_io import (
+    ParsedSpecMetadata,
+    parse_spec_metadata,
+    write_json,
+)
 from gabion.analysis.foundation.resume_codec import sequence_optional
 from gabion.analysis.call_cluster.call_cluster_shared import (
+    ClusterIdentity,
     cluster_identity_from_key,
     render_cluster_heading,
     sorted_unique_strings,
@@ -41,21 +46,14 @@ class ConsolidationEntry:
     file: str
     line: int
     replace: tuple[str, ...]
-    cluster_identity: str
-    cluster_display: str
-    cluster_key: dict[str, JSONValue]
+    cluster: ClusterIdentity
 
 
 @dataclass(frozen=True)
 class ClusterSummary:
-    identity: str
-    key: dict[str, JSONValue]
-    display: str
+    cluster: ClusterIdentity
     tests: tuple[str, ...]
-
-    @property
-    def count(self) -> int:
-        return len(self.tests)
+    count: int
 
 
 @dataclass(frozen=True)
@@ -68,15 +66,12 @@ class ConsolidationSummary:
 
 @dataclass(frozen=True)
 class ConsolidationPlanEntry:
-    cluster_identity: str
-    cluster_display: str
+    cluster: ClusterIdentity
     cluster_count: int
     test_id: str
     file: str
     line: int
     replace: tuple[str, ...]
-    replacement_key: dict[str, JSONValue]
-    replacement_display: str
 
 
 @dataclass(frozen=True)
@@ -85,15 +80,12 @@ class CallClusterConsolidationPayload:
     summary: ConsolidationSummary
     clusters: tuple[ClusterSummary, ...]
     plan: tuple[ConsolidationPlanEntry, ...]
-    generated_by_spec_id: str
-    generated_by_spec: dict[str, JSONValue]
+    generated_by: ParsedSpecMetadata
 
 
 @dataclass
 class _ClusterAccumulator:
-    identity: str
-    key: dict[str, JSONValue]
-    display: str
+    cluster: ClusterIdentity
     tests: list[str]
 
 
@@ -148,13 +140,10 @@ def build_call_cluster_consolidation_payload(
             )
         )
         cluster_identity = metadata.identity
-        cluster_display = metadata.display
         cluster = clusters.get(cluster_identity)
         if cluster is None:
             cluster = _ClusterAccumulator(
-                identity=cluster_identity,
-                key=dict(metadata.key),
-                display=cluster_display,
+                cluster=metadata,
                 tests=[],
             )
             clusters[cluster_identity] = cluster
@@ -169,9 +158,7 @@ def build_call_cluster_consolidation_payload(
                 file=entry.file,
                 line=entry.line,
                 replace=tuple(replace_tokens),
-                cluster_identity=cluster_identity,
-                cluster_display=cluster_display,
-                cluster_key=dict(metadata.key),
+                cluster=metadata,
             )
         )
 
@@ -184,15 +171,14 @@ def build_call_cluster_consolidation_payload(
         )
         cluster_summaries.append(
             ClusterSummary(
-                identity=cluster.identity,
-                key=cluster.key,
-                display=cluster.display,
+                cluster=cluster.cluster,
                 tests=tests,
+                count=len(tests),
             )
         )
 
     eligible = {
-        summary.identity: summary
+        summary.cluster.identity: summary
         for summary in cluster_summaries
         if summary.count >= min_cluster_size
     }
@@ -201,19 +187,22 @@ def build_call_cluster_consolidation_payload(
     plan_by_identity: dict[tuple[str, str], ConsolidationEntry] = {}
     for entry in plan:
         check_deadline()
-        summary = eligible.get(entry.cluster_identity)
+        summary = eligible.get(entry.cluster.identity)
         if summary is not None:
-            plan_by_identity[(entry.cluster_identity, entry.test_id)] = entry
+            plan_by_identity[(entry.cluster.identity, entry.test_id)] = entry
             relation.append(
                 {
-                    "cluster_identity": entry.cluster_identity,
-                    "cluster_display": entry.cluster_display,
+                    "cluster_identity": entry.cluster.identity,
+                    "cluster_display": entry.cluster.display,
                     "cluster_count": summary.count,
                     "test_id": entry.test_id,
                     "file": entry.file,
                     "line": entry.line,
                     "replace": list(entry.replace),
-                    "with": {"key": entry.cluster_key, "display": entry.cluster_display},
+                    "with": {
+                        "key": entry.cluster.key,
+                        "display": entry.cluster.display,
+                    },
                 }
             )
 
@@ -224,7 +213,7 @@ def build_call_cluster_consolidation_payload(
     ordered_clusters = sort_once(
         eligible.values(),
         source="build_call_cluster_consolidation_payload.ordered_clusters",
-        key=lambda item: (-item.count, item.display, item.identity),
+        key=lambda item: (-item.count, item.cluster.display, item.cluster.identity),
     )
 
     ordered_plan: list[ConsolidationPlanEntry] = []
@@ -259,15 +248,12 @@ def build_call_cluster_consolidation_payload(
         source_entry = plan_by_identity[(cluster_identity, test_id)]
         ordered_plan.append(
             ConsolidationPlanEntry(
-                cluster_identity=cluster_identity,
-                cluster_display=source_entry.cluster_display,
+                cluster=source_entry.cluster,
                 cluster_count=cluster_count,
                 test_id=test_id,
                 file=source_entry.file,
                 line=source_entry.line,
                 replace=source_entry.replace,
-                replacement_key=source_entry.cluster_key,
-                replacement_display=source_entry.cluster_display,
             )
         )
 
@@ -284,8 +270,7 @@ def build_call_cluster_consolidation_payload(
         ),
         clusters=tuple(ordered_clusters),
         plan=tuple(ordered_plan),
-        generated_by_spec_id=metadata.spec_id,
-        generated_by_spec=metadata.spec,
+        generated_by=metadata,
     )
 
 
@@ -306,9 +291,9 @@ def render_json_payload(
         },
         "clusters": [
             {
-                "identity": cluster.identity,
-                "key": cluster.key,
-                "display": cluster.display,
+                "identity": cluster.cluster.identity,
+                "key": cluster.cluster.key,
+                "display": cluster.cluster.display,
                 "tests": list(cluster.tests),
                 "count": cluster.count,
             }
@@ -316,22 +301,22 @@ def render_json_payload(
         ],
         "plan": [
             {
-                "cluster_identity": entry.cluster_identity,
-                "cluster_display": entry.cluster_display,
+                "cluster_identity": entry.cluster.identity,
+                "cluster_display": entry.cluster.display,
                 "cluster_count": entry.cluster_count,
                 "test_id": entry.test_id,
                 "file": entry.file,
                 "line": entry.line,
                 "replace": list(entry.replace),
                 "with": {
-                    "key": entry.replacement_key,
-                    "display": entry.replacement_display,
+                    "key": entry.cluster.key,
+                    "display": entry.cluster.display,
                 },
             }
             for entry in payload.plan
         ],
-        "generated_by_spec_id": payload.generated_by_spec_id,
-        "generated_by_spec": payload.generated_by_spec,
+        "generated_by_spec_id": payload.generated_by.spec_id,
+        "generated_by_spec": payload.generated_by.spec,
     }
 
 
@@ -346,10 +331,10 @@ def render_markdown(
         doc = ReportDoc("out_call_cluster_consolidation")
         doc.lines(
             [
-                f"generated_by_spec_id: {payload.generated_by_spec_id}",
+                f"generated_by_spec_id: {payload.generated_by.spec_id}",
                 "generated_by_spec: "
                 + json.dumps(
-                    payload.generated_by_spec,
+                    payload.generated_by.spec,
                     sort_keys=False,
                     separators=(",", ":"),
                 ),
@@ -373,26 +358,30 @@ def render_markdown(
             doc.line("No consolidation candidates.")
             return doc.emit()
 
-        cluster_index = {cluster.identity: cluster for cluster in payload.clusters}
+        cluster_index = {cluster.cluster.identity: cluster for cluster in payload.clusters}
         doc.line("Consolidation plan:")
         current_cluster = ""
         current_lines: list[str] = []
 
         for entry in payload.plan:
             check_deadline()
-            if entry.cluster_identity != current_cluster:
+            if entry.cluster.identity != current_cluster:
                 if current_lines:
                     doc.codeblock("\n".join(current_lines))
                     current_lines = []
-                current_cluster = entry.cluster_identity
-                if entry.cluster_identity not in cluster_index:
+                current_cluster = entry.cluster.identity
+                if entry.cluster.identity not in cluster_index:
                     never("consolidation plan identity must exist in cluster summary")
-                cluster = cluster_index[entry.cluster_identity]
-                render_cluster_heading(doc, display=cluster.display, count=cluster.count)
+                cluster = cluster_index[entry.cluster.identity]
+                render_cluster_heading(
+                    doc,
+                    display=cluster.cluster.display,
+                    count=cluster.count,
+                )
             replace_tokens = ", ".join(entry.replace)
             current_lines.append(
                 f"{entry.test_id} ({entry.file}:{entry.line}) replace "
-                f"[{replace_tokens}] -> {entry.replacement_display}"
+                f"[{replace_tokens}] -> {entry.cluster.display}"
             )
         if current_lines:
             doc.codeblock("\n".join(current_lines))
