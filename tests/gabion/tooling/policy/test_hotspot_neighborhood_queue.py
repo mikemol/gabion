@@ -243,6 +243,80 @@ def test_run_from_inputs_writes_json_and_markdown_outputs(tmp_path: Path) -> Non
     assert "# Hotspot Neighborhood Queue" in markdown
 
 
+def test_run_from_inputs_reads_projection_fiber_semantics_from_source_artifact(
+    tmp_path: Path,
+) -> None:
+    source_artifact = tmp_path / "artifacts/out/policy_check_result.json"
+    out = tmp_path / "artifacts/out/hotspot_neighborhood_queue.json"
+    md = tmp_path / "artifacts/out/hotspot_neighborhood_queue.md"
+    source_artifact.parent.mkdir(parents=True, exist_ok=True)
+    payload = hotspot_neighborhood_queue.policy_result_schema.make_policy_result(
+        rule_id="policy_check",
+        status="pass",
+        violations=[],
+        baseline_mode="current_only",
+        source_tool="tests.gabion.tooling.policy.test_hotspot_neighborhood_queue",
+        input_scope={"root": str(tmp_path)},
+    )
+    payload["projection_fiber_semantics"] = {
+        "decision": {"rule_id": "projection_fiber.convergence.ok"},
+        "report": {
+            "semantic_rows": [
+                {
+                    "structural_identity": "row-1",
+                    "obligation_state": "discharged",
+                    "payload": {
+                        "path": "src/gabion/server_core/a.py",
+                        "qualname": "server_core.a",
+                        "structural_path": "server_core.a::branch[0]",
+                        "complete": True,
+                    },
+                }
+            ],
+            "compiled_projection_semantic_bundles": [
+                {
+                    "spec_name": "projection_fiber_frontier",
+                    "bindings": [
+                        {
+                            "quotient_face": "projection_fiber.frontier",
+                            "source_structural_identity": "row-1",
+                        }
+                    ],
+                }
+            ],
+        },
+    }
+    hotspot_neighborhood_queue.policy_result_schema.write_policy_result(
+        path=source_artifact,
+        result=payload,
+    )
+
+    rc = hotspot_neighborhood_queue.run_from_inputs(
+        violations_by_rule=_payload()["violations"],
+        projection_fiber_source_artifact_path=source_artifact,
+        out_path=out,
+        markdown_out=md,
+        config=hotspot_neighborhood_queue.QueueConfig(
+            min_seed_families=5,
+            min_seed_total=5,
+            ring2_similarity_threshold=0.99,
+            ring2_min_total=5,
+            ring2_limit=4,
+            ring2_weight=0.35,
+        ),
+    )
+
+    assert rc == 0
+    queue_payload = json.loads(out.read_text(encoding="utf-8"))
+    assert queue_payload["source"]["projection_fiber_decision"]["rule_id"] == (
+        "projection_fiber.convergence.ok"
+    )
+    assert queue_payload["source"]["projection_fiber_semantic_preview_count"] == 1
+    assert queue_payload["source"]["projection_fiber_semantic_previews"][0]["path"] == (
+        "src/gabion/server_core/a.py"
+    )
+
+
 def test_run_reads_projection_fiber_summary_from_policy_results_payload(
     tmp_path: Path,
 ) -> None:

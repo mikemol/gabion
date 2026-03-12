@@ -1,5 +1,5 @@
 ---
-doc_revision: 72
+doc_revision: 73
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -575,6 +575,10 @@ Current implementation status:
   bridge object just to read canonical semantic fields; hotspot and semantic
   fragment queues now consume direct helper projections over the live
   `projection_fiber_semantics` carrier
+- the suite wrapper no longer peels `projection_fiber_semantics` out of
+  `policy_check_result.json` just to hand it to the hotspot queue; the queue
+  now owns that last child-artifact read when invoked from canonical
+  wrapper/runtime inputs
 - policy-scanner-suite runtime payloads now surface semantic context, when
   needed, as a direct top-level `projection_fiber_semantics` carrier rather
   than nested child `policy_results`, and queue/report consumers no longer

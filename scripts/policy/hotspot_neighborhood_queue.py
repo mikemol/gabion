@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from gabion.order_contract import ordered_or_sorted
+from gabion.tooling.runtime import policy_result_schema
 from gabion.tooling.runtime.projection_fiber_semantics_summary import (
     projection_fiber_decision_from_payload,
     projection_fiber_semantic_bundle_count_from_payload,
@@ -650,7 +651,7 @@ def run_from_payload(
 def run_from_inputs(
     *,
     violations_by_rule: dict[str, list[dict[str, Any]]],
-    projection_fiber_semantics: dict[str, Any] | None = None,
+    projection_fiber_source_artifact_path: Path | None = None,
     out_path: Path,
     markdown_out: Path | None = None,
     config: QueueConfig | None = None,
@@ -659,14 +660,36 @@ def run_from_inputs(
         "format_version": 1,
         "violations": violations_by_rule,
     }
-    if projection_fiber_semantics is not None:
-        payload["projection_fiber_semantics"] = projection_fiber_semantics
+    if projection_fiber_source_artifact_path is not None:
+        projection_fiber_semantics = _load_projection_fiber_semantics(
+            artifact_path=projection_fiber_source_artifact_path,
+        )
+        if projection_fiber_semantics is not None:
+            payload["projection_fiber_semantics"] = projection_fiber_semantics
     return run_from_payload(
         payload=payload,
         out_path=out_path,
         markdown_out=markdown_out,
         config=config,
     )
+
+
+def _load_projection_fiber_semantics(
+    *,
+    artifact_path: Path,
+) -> dict[str, Any] | None:
+    loaded = policy_result_schema.load_policy_result(artifact_path)
+    if loaded is None or str(loaded.get("rule_id", "") or "").strip() != "policy_check":
+        raise RuntimeError(
+            "required child-owned policy result artifact missing before hotspot queue invocation: "
+            f"rule_id=policy_check artifact={artifact_path}"
+        )
+    raw_semantics = loaded.get("projection_fiber_semantics")
+    match raw_semantics:
+        case dict() as semantics_mapping if semantics_mapping:
+            return dict(semantics_mapping)
+        case _:
+            return None
 
 
 def main(argv: list[str] | None = None) -> int:

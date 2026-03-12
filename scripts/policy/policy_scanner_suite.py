@@ -4,29 +4,8 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from gabion.tooling.runtime import policy_result_schema
 from gabion.tooling.runtime import policy_scanner_suite as runtime_policy_scanner_suite
 from scripts.policy import hotspot_neighborhood_queue
-
-
-def _load_projection_fiber_semantics(
-    *,
-    out_dir: Path,
-) -> dict[str, object] | None:
-    artifact = out_dir / "policy_check_result.json"
-    loaded = policy_result_schema.load_policy_result(artifact)
-    if loaded is None or str(loaded.get("rule_id", "") or "").strip() != "policy_check":
-        raise RuntimeError(
-            "required child-owned policy result artifact missing before wrapper invocation: "
-            f"rule_id=policy_check artifact={artifact}"
-        )
-    raw_semantics = loaded.get("projection_fiber_semantics")
-    match raw_semantics:
-        case dict() as semantics_mapping if semantics_mapping:
-            return dict(semantics_mapping)
-        case _:
-            return None
-
 
 def run(
     *,
@@ -35,7 +14,6 @@ def run(
     base_sha: str | None = None,
     head_sha: str | None = None,
 ) -> int:
-    projection_fiber_semantics = _load_projection_fiber_semantics(out_dir=out_dir)
     result = runtime_policy_scanner_suite.scan_policy_suite(
         root=root,
         base_sha=base_sha,
@@ -46,7 +24,7 @@ def run(
     queue_md = out_dir / "hotspot_neighborhood_queue.md"
     hotspot_neighborhood_queue.run_from_inputs(
         violations_by_rule=result.violations_by_rule,
-        projection_fiber_semantics=projection_fiber_semantics,
+        projection_fiber_source_artifact_path=out_dir / "policy_check_result.json",
         out_path=queue_json,
         markdown_out=queue_md,
     )

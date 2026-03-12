@@ -31,13 +31,16 @@ def test_run_emits_hotspot_queue_without_projection_semantic_fragment_artifacts(
         encoding="utf-8",
     )
 
-    policy_check_payload = policy_scanner_suite.policy_result_schema.make_policy_result(
-        rule_id="policy_check",
-        status="pass",
-        violations=[],
-        baseline_mode="current_only",
-        source_tool="tests.gabion.tooling.policy.test_policy_scanner_suite_script",
-        input_scope={"root": str(root)},
+    out_dir.mkdir(parents=True, exist_ok=True)
+    policy_check_payload = (
+        policy_scanner_suite.hotspot_neighborhood_queue.policy_result_schema.make_policy_result(
+            rule_id="policy_check",
+            status="pass",
+            violations=[],
+            baseline_mode="current_only",
+            source_tool="tests.gabion.tooling.policy.test_policy_scanner_suite_script",
+            input_scope={"root": str(root)},
+        )
     )
     policy_check_payload["projection_fiber_semantics"] = {
         "decision": {
@@ -71,17 +74,9 @@ def test_run_emits_hotspot_queue_without_projection_semantic_fragment_artifacts(
             ],
         },
     }
-
-    def _fake_projection_fiber_semantics(
-        *, out_dir: Path
-    ) -> dict[str, object] | None:
-        assert out_dir == root / "artifacts/out"
-        return dict(policy_check_payload["projection_fiber_semantics"])
-
-    monkeypatch.setattr(
-        policy_scanner_suite,
-        "_load_projection_fiber_semantics",
-        _fake_projection_fiber_semantics,
+    policy_scanner_suite.hotspot_neighborhood_queue.policy_result_schema.write_policy_result(
+        path=out_dir / "policy_check_result.json",
+        result=policy_check_payload,
     )
 
     rc = policy_scanner_suite.run(root=root, out_dir=out_dir)
@@ -107,31 +102,18 @@ def test_run_passes_canonical_inputs_to_hotspot_queue(
     out_dir = root / "artifacts/out"
     captured: dict[str, object] = {}
 
-    policy_check_payload = policy_scanner_suite.policy_result_schema.make_policy_result(
-        rule_id="policy_check",
-        status="pass",
-        violations=[],
-        baseline_mode="current_only",
-        source_tool="tests.gabion.tooling.policy.test_policy_scanner_suite_script",
-        input_scope={"root": str(root)},
-    )
-
-    def _fake_projection_fiber_semantics(
-        *, out_dir: Path
-    ) -> dict[str, object] | None:
-        assert out_dir == root / "artifacts/out"
-        return None
-
     def _fake_run_from_inputs(
         *,
         violations_by_rule: dict[str, list[dict[str, object]]],
-        projection_fiber_semantics: dict[str, object] | None = None,
+        projection_fiber_source_artifact_path: Path | None = None,
         out_path: Path,
         markdown_out: Path | None = None,
         config: object | None = None,
     ) -> int:
         captured["violations_by_rule"] = violations_by_rule
-        captured["projection_fiber_semantics"] = projection_fiber_semantics
+        captured["projection_fiber_source_artifact_path"] = (
+            projection_fiber_source_artifact_path
+        )
         captured["out_path"] = out_path
         captured["markdown_out"] = markdown_out
         out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -160,11 +142,6 @@ def test_run_passes_canonical_inputs_to_hotspot_queue(
         return 0
 
     monkeypatch.setattr(
-        policy_scanner_suite,
-        "_load_projection_fiber_semantics",
-        _fake_projection_fiber_semantics,
-    )
-    monkeypatch.setattr(
         policy_scanner_suite.hotspot_neighborhood_queue,
         "run_from_inputs",
         _fake_run_from_inputs,
@@ -178,28 +155,21 @@ def test_run_passes_canonical_inputs_to_hotspot_queue(
         isinstance(items, list) and not items
         for items in captured["violations_by_rule"].values()
     )
-    assert captured["projection_fiber_semantics"] is None
+    assert captured["projection_fiber_source_artifact_path"] == (
+        out_dir / "policy_check_result.json"
+    )
     assert captured["out_path"] == out_dir / "hotspot_neighborhood_queue.json"
     assert captured["markdown_out"] == out_dir / "hotspot_neighborhood_queue.md"
     assert not (out_dir / "policy_suite_results.json").exists()
 
 
-def test_run_passes_minimal_boundary_shape_with_projection_fiber_semantics(
+def test_run_passes_minimal_boundary_shape_with_projection_fiber_source_artifact(
     tmp_path: Path,
     monkeypatch: object,
 ) -> None:
     root = tmp_path
     out_dir = root / "artifacts/out"
     captured: dict[str, object] = {}
-    projection_fiber_semantics = {
-        "decision": {"rule_id": "projection_fiber.convergence.ok"},
-    }
-
-    def _fake_projection_fiber_semantics(
-        *, out_dir: Path
-    ) -> dict[str, object] | None:
-        assert out_dir == root / "artifacts/out"
-        return dict(projection_fiber_semantics)
 
     def _fake_scan_policy_suite(**_: object) -> object:
         return policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteResult(
@@ -209,25 +179,22 @@ def test_run_passes_minimal_boundary_shape_with_projection_fiber_semantics(
     def _fake_run_from_inputs(
         *,
         violations_by_rule: dict[str, list[dict[str, object]]],
-        projection_fiber_semantics: dict[str, object] | None = None,
+        projection_fiber_source_artifact_path: Path | None = None,
         out_path: Path,
         markdown_out: Path | None = None,
         config: object | None = None,
     ) -> int:
         _ = config
         captured["violations_by_rule"] = violations_by_rule
-        captured["projection_fiber_semantics"] = projection_fiber_semantics
+        captured["projection_fiber_source_artifact_path"] = (
+            projection_fiber_source_artifact_path
+        )
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text("{}\n", encoding="utf-8")
         if markdown_out is not None:
             markdown_out.write_text("# Hotspot Neighborhood Queue\n", encoding="utf-8")
         return 0
 
-    monkeypatch.setattr(
-        policy_scanner_suite,
-        "_load_projection_fiber_semantics",
-        _fake_projection_fiber_semantics,
-    )
     monkeypatch.setattr(
         policy_scanner_suite.runtime_policy_scanner_suite,
         "scan_policy_suite",
@@ -245,7 +212,9 @@ def test_run_passes_minimal_boundary_shape_with_projection_fiber_semantics(
     assert captured["violations_by_rule"] == {
         "branchless": [{"path": "src/gabion/example.py"}]
     }
-    assert captured["projection_fiber_semantics"] == projection_fiber_semantics
+    assert captured["projection_fiber_source_artifact_path"] == (
+        out_dir / "policy_check_result.json"
+    )
     assert not (out_dir / "policy_suite_results.json").exists()
 
 
@@ -256,10 +225,6 @@ def test_run_prints_nonempty_violation_families_from_runtime_result(
 ) -> None:
     root = tmp_path
     out_dir = root / "artifacts/out"
-
-    def _fake_projection_fiber_semantics(*, out_dir: Path) -> dict[str, object] | None:
-        assert out_dir == root / "artifacts/out"
-        return None
 
     def _fake_scan_policy_suite(**_: object) -> object:
         return policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteResult(
@@ -272,23 +237,18 @@ def test_run_prints_nonempty_violation_families_from_runtime_result(
     def _fake_run_from_inputs(
         *,
         violations_by_rule: dict[str, list[dict[str, object]]],
-        projection_fiber_semantics: dict[str, object] | None = None,
+        projection_fiber_source_artifact_path: Path | None = None,
         out_path: Path,
         markdown_out: Path | None = None,
         config: object | None = None,
     ) -> int:
-        _ = violations_by_rule, projection_fiber_semantics, config
+        _ = violations_by_rule, projection_fiber_source_artifact_path, config
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text("{}\n", encoding="utf-8")
         if markdown_out is not None:
             markdown_out.write_text("# Hotspot Neighborhood Queue\n", encoding="utf-8")
         return 0
 
-    monkeypatch.setattr(
-        policy_scanner_suite,
-        "_load_projection_fiber_semantics",
-        _fake_projection_fiber_semantics,
-    )
     monkeypatch.setattr(
         policy_scanner_suite.runtime_policy_scanner_suite,
         "scan_policy_suite",
@@ -310,9 +270,9 @@ def test_run_prints_nonempty_violation_families_from_runtime_result(
     assert "future render" in captured.out
 
 
-# gabion:evidence E:function_site::test_policy_scanner_suite_script.py::tests.gabion.tooling.policy.test_policy_scanner_suite_script.test_load_projection_fiber_semantics_reads_policy_check_artifact
+# gabion:evidence E:function_site::test_policy_scanner_suite_script.py::tests.gabion.tooling.policy.test_policy_scanner_suite_script.test_hotspot_queue_load_projection_fiber_semantics_reads_policy_check_artifact
 # gabion:behavior primary=desired
-def test_load_projection_fiber_semantics_reads_policy_check_artifact(
+def test_hotspot_queue_load_projection_fiber_semantics_reads_policy_check_artifact(
     monkeypatch: object,
 ) -> None:
     projection_fiber_semantics = {
@@ -323,7 +283,7 @@ def test_load_projection_fiber_semantics_reads_policy_check_artifact(
         },
     }
     monkeypatch.setattr(
-        policy_scanner_suite.policy_result_schema,
+        policy_scanner_suite.hotspot_neighborhood_queue.policy_result_schema,
         "load_policy_result",
         lambda artifact: {
             "rule_id": "policy_check",
@@ -332,67 +292,67 @@ def test_load_projection_fiber_semantics_reads_policy_check_artifact(
         },
     )
 
-    assert policy_scanner_suite._load_projection_fiber_semantics(
-        out_dir=Path("artifacts/out"),
+    assert policy_scanner_suite.hotspot_neighborhood_queue._load_projection_fiber_semantics(
+        artifact_path=Path("artifacts/out/policy_check_result.json"),
     ) == projection_fiber_semantics
 
 
-# gabion:evidence E:function_site::test_policy_scanner_suite_script.py::tests.gabion.tooling.policy.test_policy_scanner_suite_script.test_load_projection_fiber_semantics_fail_closed_when_child_artifact_missing
+# gabion:evidence E:function_site::test_policy_scanner_suite_script.py::tests.gabion.tooling.policy.test_policy_scanner_suite_script.test_hotspot_queue_load_projection_fiber_semantics_fail_closed_when_child_artifact_missing
 # gabion:behavior primary=desired
-def test_load_projection_fiber_semantics_fail_closed_when_child_artifact_missing(
+def test_hotspot_queue_load_projection_fiber_semantics_fail_closed_when_child_artifact_missing(
     tmp_path: Path,
     monkeypatch: object,
 ) -> None:
     root = tmp_path
-    out_dir = root / "artifacts/out"
+    artifact = root / "artifacts/out/policy_check_result.json"
     monkeypatch.setattr(
-        policy_scanner_suite.policy_result_schema,
+        policy_scanner_suite.hotspot_neighborhood_queue.policy_result_schema,
         "load_policy_result",
         lambda path: None,
     )
 
-    try:
-        policy_scanner_suite._load_projection_fiber_semantics(out_dir=out_dir)
-    except RuntimeError as exc:
-        message = str(exc)
-    else:  # pragma: no cover
-        raise AssertionError("wrapper must fail closed when a child artifact is missing")
+    with pytest.raises(RuntimeError) as excinfo:
+        policy_scanner_suite.hotspot_neighborhood_queue._load_projection_fiber_semantics(
+            artifact_path=artifact
+        )
 
     assert (
-        "required child-owned policy result artifact missing before wrapper invocation"
-        in message
+        "required child-owned policy result artifact missing before hotspot queue invocation"
+        in str(excinfo.value)
     )
-    assert "rule_id=policy_check" in message
+    assert "rule_id=policy_check" in str(excinfo.value)
 
 
-# gabion:evidence E:function_site::test_policy_scanner_suite_script.py::tests.gabion.tooling.policy.test_policy_scanner_suite_script.test_load_projection_fiber_semantics_fail_closed_when_rule_id_mismatches
+# gabion:evidence E:function_site::test_policy_scanner_suite_script.py::tests.gabion.tooling.policy.test_policy_scanner_suite_script.test_hotspot_queue_load_projection_fiber_semantics_fail_closed_when_rule_id_mismatches
 # gabion:behavior primary=desired
-def test_load_projection_fiber_semantics_fail_closed_when_rule_id_mismatches(
+def test_hotspot_queue_load_projection_fiber_semantics_fail_closed_when_rule_id_mismatches(
     monkeypatch: object,
 ) -> None:
     monkeypatch.setattr(
-        policy_scanner_suite.policy_result_schema,
+        policy_scanner_suite.hotspot_neighborhood_queue.policy_result_schema,
         "load_policy_result",
         lambda artifact: {"rule_id": "custom_rule", "status": "skip"},
     )
 
     with pytest.raises(RuntimeError) as excinfo:
-        policy_scanner_suite._load_projection_fiber_semantics(out_dir=Path("artifacts/out"))
+        policy_scanner_suite.hotspot_neighborhood_queue._load_projection_fiber_semantics(
+            artifact_path=Path("artifacts/out/policy_check_result.json")
+        )
 
     assert "rule_id=policy_check" in str(excinfo.value)
 
 
-# gabion:evidence E:function_site::test_policy_scanner_suite_script.py::tests.gabion.tooling.policy.test_policy_scanner_suite_script.test_load_projection_fiber_semantics_returns_none_when_policy_check_payload_has_no_semantics
+# gabion:evidence E:function_site::test_policy_scanner_suite_script.py::tests.gabion.tooling.policy.test_policy_scanner_suite_script.test_hotspot_queue_load_projection_fiber_semantics_returns_none_when_policy_check_payload_has_no_semantics
 # gabion:behavior primary=desired
-def test_load_projection_fiber_semantics_returns_none_when_policy_check_payload_has_no_semantics(
+def test_hotspot_queue_load_projection_fiber_semantics_returns_none_when_policy_check_payload_has_no_semantics(
     tmp_path: Path,
 ) -> None:
     root = tmp_path
     out_dir = root / "artifacts/out"
     out_dir.mkdir(parents=True, exist_ok=True)
-    policy_scanner_suite.policy_result_schema.write_policy_result(
+    policy_scanner_suite.hotspot_neighborhood_queue.policy_result_schema.write_policy_result(
         path=out_dir / "policy_check_result.json",
-        result=policy_scanner_suite.policy_result_schema.make_policy_result(
+        result=policy_scanner_suite.hotspot_neighborhood_queue.policy_result_schema.make_policy_result(
             rule_id="policy_check",
             status="pass",
             violations=[],
@@ -402,8 +362,10 @@ def test_load_projection_fiber_semantics_returns_none_when_policy_check_payload_
         ),
     )
 
-    projection_fiber_semantics = policy_scanner_suite._load_projection_fiber_semantics(
-        out_dir=out_dir
+    projection_fiber_semantics = (
+        policy_scanner_suite.hotspot_neighborhood_queue._load_projection_fiber_semantics(
+            artifact_path=out_dir / "policy_check_result.json"
+        )
     )
 
     assert projection_fiber_semantics is None
