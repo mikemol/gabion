@@ -176,10 +176,6 @@ def close_canonical_semantic_row(
         "obligation_state": row["obligation_state"],
     }
 
-@grade_boundary(
-    kind="semantic_carrier_adapter",
-    name="semantic_fragment.input_witness_payloads",
-)
 def _input_witness_payloads(witness: FrontierWitness) -> list[JSONObject]:
     return [
         {
