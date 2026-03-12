@@ -2,94 +2,55 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
 from pathlib import Path
 
 from gabion.tooling.runtime import policy_result_schema
 from gabion.tooling.runtime import policy_scanner_suite as runtime_policy_scanner_suite
 from scripts.policy import hotspot_neighborhood_queue
 
-
-@dataclass(frozen=True)
-class ExternalChildInputs:
-    child_statuses: dict[str, str]
-    runtime_child_inputs: runtime_policy_scanner_suite.PolicySuiteChildInputs
-
-
-@dataclass(frozen=True)
-class ExternalChildArtifact:
-    status: str | None
-    projection_fiber_semantics: dict[str, object] | None
-
-
-@dataclass(frozen=True)
-class ExternalChildRequirement:
-    rule_id: str
-    artifact: Path
-
-
-def _load_external_child_artifact(
-    *, artifact: Path, expected_rule_id: str
-) -> ExternalChildArtifact | None:
+def _load_required_child_artifact(
+    *,
+    artifact: Path,
+    expected_rule_id: str,
+) -> dict[str, object] | None:
     loaded = policy_result_schema.load_policy_result(artifact)
     if loaded is None:
         return None
     if str(loaded.get("rule_id", "") or "").strip() != expected_rule_id:
         return None
-    status_raw = str(loaded.get("status", "") or "").strip()
+    return dict(loaded)
+
+
+def _resolve_external_child_inputs(
+    *,
+    out_dir: Path,
+) -> runtime_policy_scanner_suite.PolicySuiteChildInputs:
+    requirements: tuple[tuple[str, Path], ...] = (
+        ("policy_check", out_dir / "policy_check_result.json"),
+        ("structural_hash", out_dir / "structural_hash_result.json"),
+        ("deprecated_nonerasability", out_dir / "deprecated_nonerasability_result.json"),
+    )
     projection_fiber_semantics: dict[str, object] | None = None
-    if expected_rule_id == "policy_check":
+    for rule_id, artifact in requirements:
+        loaded = _load_required_child_artifact(
+            artifact=artifact,
+            expected_rule_id=rule_id,
+        )
+        if loaded is None:
+            raise RuntimeError(
+                "required child-owned policy result artifact missing before wrapper invocation: "
+                f"rule_id={rule_id} artifact={artifact}"
+            )
+        if rule_id != "policy_check":
+            continue
         raw_semantics = loaded.get("projection_fiber_semantics")
         match raw_semantics:
             case dict() as semantics_mapping if semantics_mapping:
                 projection_fiber_semantics = dict(semantics_mapping)
             case _:
                 projection_fiber_semantics = None
-    return ExternalChildArtifact(
-        status=status_raw or None,
+    return runtime_policy_scanner_suite.PolicySuiteChildInputs(
         projection_fiber_semantics=projection_fiber_semantics,
-    )
-
-
-def _resolve_external_child_inputs(
-    *, out_dir: Path
-) -> ExternalChildInputs:
-    requirements: tuple[ExternalChildRequirement, ...] = (
-        ExternalChildRequirement(
-            rule_id="policy_check",
-            artifact=out_dir / "policy_check_result.json",
-        ),
-        ExternalChildRequirement(
-            rule_id="structural_hash",
-            artifact=out_dir / "structural_hash_result.json",
-        ),
-        ExternalChildRequirement(
-            rule_id="deprecated_nonerasability",
-            artifact=out_dir / "deprecated_nonerasability_result.json",
-        ),
-    )
-    child_statuses: dict[str, str] = {}
-    projection_fiber_semantics: dict[str, object] | None = None
-    for requirement in requirements:
-        preserved = _load_external_child_artifact(
-            artifact=requirement.artifact,
-            expected_rule_id=requirement.rule_id,
-        )
-        if preserved is None:
-            raise RuntimeError(
-                "required child-owned policy result artifact missing before wrapper invocation: "
-                f"rule_id={requirement.rule_id} artifact={requirement.artifact}"
-            )
-        if preserved.status is not None:
-            child_statuses[requirement.rule_id] = preserved.status
-        projection_fiber_semantics = (
-            preserved.projection_fiber_semantics or projection_fiber_semantics
-        )
-    return ExternalChildInputs(
-        child_statuses=child_statuses,
-        runtime_child_inputs=runtime_policy_scanner_suite.PolicySuiteChildInputs(
-            projection_fiber_semantics=projection_fiber_semantics,
-        ),
     )
 
 
@@ -103,7 +64,7 @@ def run(
     child_inputs = _resolve_external_child_inputs(out_dir=out_dir)
     result = runtime_policy_scanner_suite.scan_policy_suite(
         root=root,
-        child_inputs=child_inputs.runtime_child_inputs,
+        child_inputs=child_inputs,
         base_sha=base_sha,
         head_sha=head_sha,
     )
@@ -135,9 +96,6 @@ def run(
         f"{semantic_queue_path if semantic_queue_path.exists() else '<not emitted by wrapper>'}"
     )
     if total == 0:
-        for rule_id in ("policy_check", "structural_hash", "deprecated_nonerasability"):
-            status = str(child_inputs.child_statuses.get(rule_id, "unknown"))
-            print(f"{rule_id} status: {status}")
         return 0
     for rule in (
         "no_monkeypatch",

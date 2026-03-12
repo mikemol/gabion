@@ -16,7 +16,7 @@ def test_main_requires_explicit_out() -> None:
     assert excinfo.value.code == 2
 
 
-def test_load_external_child_artifact_normalizes_boundary_payload(
+def test_load_required_child_artifact_normalizes_boundary_payload(
     monkeypatch: object,
 ) -> None:
     policy_check_payload = {
@@ -40,28 +40,26 @@ def test_load_external_child_artifact_normalizes_boundary_payload(
         else custom_payload,
     )
 
-    assert policy_scanner_suite._load_external_child_artifact(
+    assert policy_scanner_suite._load_required_child_artifact(
         artifact=Path("policy_check_result.json"),
         expected_rule_id="policy_check",
-    ) == policy_scanner_suite.ExternalChildArtifact(
-        status="pass",
-        projection_fiber_semantics={
+    ) == {
+        "rule_id": "policy_check",
+        "status": "pass",
+        "projection_fiber_semantics": {
             "decision": {"rule_id": "projection_fiber.convergence.ok"},
             "report": {
                 "semantic_rows": [],
                 "compiled_projection_semantic_bundles": [],
             },
         },
-    )
-    assert policy_scanner_suite._load_external_child_artifact(
+    }
+    assert policy_scanner_suite._load_required_child_artifact(
         artifact=Path("custom_rule_result.json"),
         expected_rule_id="custom_rule",
-    ) == policy_scanner_suite.ExternalChildArtifact(
-        status="skip",
-        projection_fiber_semantics=None,
-    )
+    ) == {"rule_id": "custom_rule", "status": "skip"}
     assert (
-        policy_scanner_suite._load_external_child_artifact(
+        policy_scanner_suite._load_required_child_artifact(
             artifact=Path("custom_rule_result.json"),
             expected_rule_id="policy_check",
         )
@@ -127,14 +125,11 @@ def test_run_skips_semantic_queue_backfill_without_policy_check_owned_artifact(
 
     def _fake_external_child_inputs(
         *, out_dir: Path
-    ) -> policy_scanner_suite.ExternalChildInputs:
+    ) -> policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs:
         assert out_dir == root / "artifacts/out"
-        return policy_scanner_suite.ExternalChildInputs(
-            child_statuses={"policy_check": "pass"},
-            runtime_child_inputs=policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs(
-                projection_fiber_semantics=dict(
-                    policy_check_payload["projection_fiber_semantics"]
-                ),
+        return policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs(
+            projection_fiber_semantics=dict(
+                policy_check_payload["projection_fiber_semantics"]
             ),
         )
 
@@ -212,7 +207,7 @@ def test_run_preserves_policy_check_owned_semantic_queue(
 
     def _fake_external_child_inputs(
         *, out_dir: Path
-    ) -> policy_scanner_suite.ExternalChildInputs:
+    ) -> policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs:
         assert out_dir == root / "artifacts/out"
         policy_check_result.write_text(
             json.dumps(policy_check_payload, indent=2) + "\n",
@@ -252,12 +247,9 @@ def test_run_preserves_policy_check_owned_semantic_queue(
             encoding="utf-8",
         )
         queue_md.write_text("# Projection Semantic Fragment Queue\n", encoding="utf-8")
-        return policy_scanner_suite.ExternalChildInputs(
-            child_statuses={"policy_check": "pass"},
-            runtime_child_inputs=policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs(
-                projection_fiber_semantics=dict(
-                    policy_check_payload["projection_fiber_semantics"]
-                ),
+        return policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs(
+            projection_fiber_semantics=dict(
+                policy_check_payload["projection_fiber_semantics"]
             ),
         )
 
@@ -306,18 +298,15 @@ def test_run_does_not_regenerate_missing_policy_check_owned_semantic_queue(
 
     def _fake_external_child_inputs(
         *, out_dir: Path
-    ) -> policy_scanner_suite.ExternalChildInputs:
+    ) -> policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs:
         assert out_dir == root / "artifacts/out"
         policy_check_result.write_text(
             json.dumps(policy_check_payload, indent=2) + "\n",
             encoding="utf-8",
         )
-        return policy_scanner_suite.ExternalChildInputs(
-            child_statuses={"policy_check": "pass"},
-            runtime_child_inputs=policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs(
-                projection_fiber_semantics=dict(
-                    policy_check_payload["projection_fiber_semantics"]
-                ),
+        return policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs(
+            projection_fiber_semantics=dict(
+                policy_check_payload["projection_fiber_semantics"]
             ),
         )
 
@@ -354,13 +343,10 @@ def test_run_passes_in_memory_payload_to_hotspot_queue(
 
     def _fake_external_child_inputs(
         *, out_dir: Path
-    ) -> policy_scanner_suite.ExternalChildInputs:
+    ) -> policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs:
         assert out_dir == root / "artifacts/out"
-        return policy_scanner_suite.ExternalChildInputs(
-            child_statuses={"policy_check": "pass"},
-            runtime_child_inputs=policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs(
-                projection_fiber_semantics=None,
-            ),
+        return policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs(
+            projection_fiber_semantics=None,
         )
 
     def _fake_run_from_payload(
@@ -437,13 +423,10 @@ def test_run_passes_minimal_boundary_shape_with_projection_fiber_semantics(
 
     def _fake_external_child_inputs(
         *, out_dir: Path
-    ) -> policy_scanner_suite.ExternalChildInputs:
+    ) -> policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs:
         assert out_dir == root / "artifacts/out"
-        return policy_scanner_suite.ExternalChildInputs(
-            child_statuses={"policy_check": "pass"},
-            runtime_child_inputs=policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs(
-                projection_fiber_semantics=dict(projection_fiber_semantics)
-            ),
+        return policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs(
+            projection_fiber_semantics=dict(projection_fiber_semantics)
         )
 
     def _fake_scan_policy_suite(**_: object) -> object:
@@ -552,12 +535,7 @@ def test_resolve_external_child_inputs_preserve_preexisting_child_artifacts(
 
     child_inputs = policy_scanner_suite._resolve_external_child_inputs(out_dir=out_dir)
 
-    assert child_inputs.child_statuses == {
-        "policy_check": "pass",
-        "structural_hash": "pass",
-        "deprecated_nonerasability": "skip",
-    }
-    assert child_inputs.runtime_child_inputs.projection_fiber_semantics is None
+    assert child_inputs.projection_fiber_semantics is None
 
 
 # gabion:evidence E:function_site::test_policy_scanner_suite_script.py::tests.gabion.tooling.policy.test_policy_scanner_suite_script.test_resolve_external_child_inputs_fail_closed_when_child_artifact_missing

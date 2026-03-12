@@ -1,5 +1,5 @@
 ---
-doc_revision: 61
+doc_revision: 62
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -588,8 +588,8 @@ Current implementation status:
   `child_inputs_hash`
 - the runtime `PolicySuiteChildInputs` bundle no longer carries wrapper child
   statuses; it now carries only semantic child input
-  (`projection_fiber_semantics`), while wrapper-local status reporting is owned
-  by a separate boundary-only `ExternalChildInputs` bundle
+  (`projection_fiber_semantics`), and the wrapper no longer transports any
+  separate child-status bundle after child-artifact validation
 - the policy-scanner-suite wrapper itself no longer traffics raw child result
   mappings after ingress validation; external child checks now resolve
   directly to the typed `PolicySuiteChildInputs` bundle before any wrapper
