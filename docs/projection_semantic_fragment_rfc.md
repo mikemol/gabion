@@ -1,5 +1,5 @@
 ---
-doc_revision: 115
+doc_revision: 116
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -576,10 +576,11 @@ Current implementation status:
   function-local temporary grading on the concrete typed-execution surfaces
   still needed during the cutover window
 - the remaining planner-side temporary grading is now limited to the actual
-  top-level `ProjectionSpec` planning functions in `projection_exec_plan.py`;
-  helper-only seams for dict-copying and traverse/sort string normalization
-  have been collapsed back into that planner path rather than justified as
-  separate internal adapter surfaces
+  top-level `ProjectionSpec` planning entrypoint in `projection_exec_plan.py`;
+  the former internal per-op classification helper is now collapsed back into
+  that entrypoint, and helper-only seams for dict-copying and traverse/sort
+  string normalization have already been collapsed into the same planner path
+  rather than justified as separate internal adapter surfaces
 - the executor-side temporary grading is now narrower too: `projection_exec.py`
   no longer carries a separate normalized-op relay or runtime-params copy seam,
   and the remaining temporary grading on that path is concentrated on the real
