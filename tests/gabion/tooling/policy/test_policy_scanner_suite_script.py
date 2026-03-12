@@ -99,7 +99,7 @@ def test_run_emits_hotspot_queue_without_projection_semantic_fragment_artifacts(
     assert "projection_fiber_semantic_previews" in hotspot_payload["source"]
 
 
-def test_run_passes_in_memory_payload_to_hotspot_queue(
+def test_run_passes_canonical_inputs_to_hotspot_queue(
     tmp_path: Path,
     monkeypatch: object,
 ) -> None:
@@ -122,14 +122,16 @@ def test_run_passes_in_memory_payload_to_hotspot_queue(
         assert out_dir == root / "artifacts/out"
         return None
 
-    def _fake_run_from_payload(
+    def _fake_run_from_inputs(
         *,
-        payload: dict[str, object],
+        violations_by_rule: dict[str, list[dict[str, object]]],
+        projection_fiber_semantics: dict[str, object] | None = None,
         out_path: Path,
         markdown_out: Path | None = None,
         config: object | None = None,
     ) -> int:
-        captured["payload"] = payload
+        captured["violations_by_rule"] = violations_by_rule
+        captured["projection_fiber_semantics"] = projection_fiber_semantics
         captured["out_path"] = out_path
         captured["markdown_out"] = markdown_out
         out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -164,20 +166,19 @@ def test_run_passes_in_memory_payload_to_hotspot_queue(
     )
     monkeypatch.setattr(
         policy_scanner_suite.hotspot_neighborhood_queue,
-        "run_from_payload",
-        _fake_run_from_payload,
+        "run_from_inputs",
+        _fake_run_from_inputs,
     )
 
     rc = policy_scanner_suite.run(root=root, out_dir=out_dir)
 
     assert rc == 0
-    payload = captured["payload"]
-    assert isinstance(payload, dict)
-    assert "decision" not in payload
-    assert "counts" not in payload
-    assert "generated_at_utc" not in payload
-    assert "policy_results" not in payload
-    assert "projection_fiber_semantics" not in payload
+    assert isinstance(captured["violations_by_rule"], dict)
+    assert all(
+        isinstance(items, list) and not items
+        for items in captured["violations_by_rule"].values()
+    )
+    assert captured["projection_fiber_semantics"] is None
     assert captured["out_path"] == out_dir / "hotspot_neighborhood_queue.json"
     assert captured["markdown_out"] == out_dir / "hotspot_neighborhood_queue.md"
     assert not (out_dir / "policy_suite_results.json").exists()
@@ -205,15 +206,17 @@ def test_run_passes_minimal_boundary_shape_with_projection_fiber_semantics(
             violations_by_rule={"branchless": [{"path": "src/gabion/example.py"}]},
         )
 
-    def _fake_run_from_payload(
+    def _fake_run_from_inputs(
         *,
-        payload: dict[str, object],
+        violations_by_rule: dict[str, list[dict[str, object]]],
+        projection_fiber_semantics: dict[str, object] | None = None,
         out_path: Path,
         markdown_out: Path | None = None,
         config: object | None = None,
     ) -> int:
         _ = config
-        captured["payload"] = payload
+        captured["violations_by_rule"] = violations_by_rule
+        captured["projection_fiber_semantics"] = projection_fiber_semantics
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text("{}\n", encoding="utf-8")
         if markdown_out is not None:
@@ -232,18 +235,17 @@ def test_run_passes_minimal_boundary_shape_with_projection_fiber_semantics(
     )
     monkeypatch.setattr(
         policy_scanner_suite.hotspot_neighborhood_queue,
-        "run_from_payload",
-        _fake_run_from_payload,
+        "run_from_inputs",
+        _fake_run_from_inputs,
     )
 
     rc = policy_scanner_suite.run(root=root, out_dir=out_dir)
 
     assert rc == 1
-    assert captured["payload"] == {
-        "format_version": 1,
-        "violations": {"branchless": [{"path": "src/gabion/example.py"}]},
-        "projection_fiber_semantics": projection_fiber_semantics,
+    assert captured["violations_by_rule"] == {
+        "branchless": [{"path": "src/gabion/example.py"}]
     }
+    assert captured["projection_fiber_semantics"] == projection_fiber_semantics
     assert not (out_dir / "policy_suite_results.json").exists()
 
 
@@ -267,14 +269,15 @@ def test_run_prints_nonempty_violation_families_from_runtime_result(
             },
         )
 
-    def _fake_run_from_payload(
+    def _fake_run_from_inputs(
         *,
-        payload: dict[str, object],
+        violations_by_rule: dict[str, list[dict[str, object]]],
+        projection_fiber_semantics: dict[str, object] | None = None,
         out_path: Path,
         markdown_out: Path | None = None,
         config: object | None = None,
     ) -> int:
-        _ = payload, config
+        _ = violations_by_rule, projection_fiber_semantics, config
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text("{}\n", encoding="utf-8")
         if markdown_out is not None:
@@ -293,8 +296,8 @@ def test_run_prints_nonempty_violation_families_from_runtime_result(
     )
     monkeypatch.setattr(
         policy_scanner_suite.hotspot_neighborhood_queue,
-        "run_from_payload",
-        _fake_run_from_payload,
+        "run_from_inputs",
+        _fake_run_from_inputs,
     )
 
     rc = policy_scanner_suite.run(root=root, out_dir=out_dir)

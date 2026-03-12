@@ -215,6 +215,34 @@ def test_run_from_payload_writes_json_and_markdown_outputs(tmp_path: Path) -> No
     assert "# Hotspot Neighborhood Queue" in markdown
 
 
+def test_run_from_inputs_writes_json_and_markdown_outputs(tmp_path: Path) -> None:
+    out = tmp_path / "artifacts/out/hotspot_neighborhood_queue.json"
+    md = tmp_path / "artifacts/out/hotspot_neighborhood_queue.md"
+    payload = _payload()
+
+    rc = hotspot_neighborhood_queue.run_from_inputs(
+        violations_by_rule=payload["violations"],
+        out_path=out,
+        markdown_out=md,
+        config=hotspot_neighborhood_queue.QueueConfig(
+            min_seed_families=5,
+            min_seed_total=5,
+            ring2_similarity_threshold=0.99,
+            ring2_min_total=5,
+            ring2_limit=4,
+            ring2_weight=0.35,
+        ),
+    )
+
+    assert rc == 0
+    assert out.exists()
+    assert md.exists()
+    queue_payload = json.loads(out.read_text(encoding="utf-8"))
+    assert queue_payload["counts"]["neighborhood_count"] >= 1
+    markdown = md.read_text(encoding="utf-8")
+    assert "# Hotspot Neighborhood Queue" in markdown
+
+
 def test_run_reads_projection_fiber_summary_from_policy_results_payload(
     tmp_path: Path,
 ) -> None:

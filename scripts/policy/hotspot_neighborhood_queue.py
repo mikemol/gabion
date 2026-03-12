@@ -680,6 +680,28 @@ def run_from_payload(
     )
 
 
+def run_from_inputs(
+    *,
+    violations_by_rule: dict[str, list[dict[str, Any]]],
+    projection_fiber_semantics: dict[str, Any] | None = None,
+    out_path: Path,
+    markdown_out: Path | None = None,
+    config: QueueConfig | None = None,
+) -> int:
+    payload: dict[str, Any] = {
+        "format_version": 1,
+        "violations": violations_by_rule,
+    }
+    if projection_fiber_semantics is not None:
+        payload["projection_fiber_semantics"] = projection_fiber_semantics
+    return run_from_payload(
+        payload=payload,
+        out_path=out_path,
+        markdown_out=markdown_out,
+        config=config,
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Build geometric hotspot neighborhood queue from a source artifact payload."

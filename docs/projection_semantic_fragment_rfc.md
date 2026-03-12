@@ -1,5 +1,5 @@
 ---
-doc_revision: 70
+doc_revision: 71
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -656,6 +656,10 @@ Current implementation status:
   it now loads `projection_fiber_semantics` directly from
   `policy_check_result.json`, and wrapper coverage is hotspot-only because the
   wrapper never reads or writes projection-semantic-fragment queue files
+- the hotspot-neighborhood queue now owns the last minimal payload-assembly
+  step for this seam too; the policy-scanner-suite wrapper passes canonical
+  `violations_by_rule` plus optional `projection_fiber_semantics` directly to
+  the queue helper instead of hand-assembling another wrapper-local payload map
 - the wrapper no longer prints status for the projection-semantic-fragment
   queue it does not emit or own; its console surface is now limited to the
   hotspot-neighborhood queue plus the actual scan decision/violations it still

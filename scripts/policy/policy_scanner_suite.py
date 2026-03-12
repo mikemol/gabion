@@ -44,14 +44,9 @@ def run(
     decision = result.decision()
     queue_json = out_dir / "hotspot_neighborhood_queue.json"
     queue_md = out_dir / "hotspot_neighborhood_queue.md"
-    payload: dict[str, object] = {
-        "format_version": 1,
-        "violations": result.violations_by_rule,
-    }
-    if projection_fiber_semantics is not None:
-        payload["projection_fiber_semantics"] = projection_fiber_semantics
-    hotspot_neighborhood_queue.run_from_payload(
-        payload=payload,
+    hotspot_neighborhood_queue.run_from_inputs(
+        violations_by_rule=result.violations_by_rule,
+        projection_fiber_semantics=projection_fiber_semantics,
         out_path=queue_json,
         markdown_out=queue_md,
     )
