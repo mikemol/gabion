@@ -103,21 +103,25 @@ def reflect_projection_fiber_witness(
         "obligations": _obligation_payloads(witness),
         "boundary_trace": boundary_trace,
         "transform_trace": [
-            _transform_trace_payload(
-                op=SemanticOpKind.REFLECT,
-                details={
-                    "surface": "projection_fiber",
-                    "carrier_kind": "frontier_witness",
-                    "structural_path": context["structural_path"],
-                },
-            ),
-            _transform_trace_payload(
-                op=SemanticOpKind.SYNTHESIZE_WITNESS,
-                details={
-                    "synthesized_witness_kind": "projection_fiber",
-                    "boundary_crossing_present": bool(boundary_trace),
-                },
-            ),
+            {
+                "op": SemanticOpKind.REFLECT,
+                "details": _normalize_object(
+                    {
+                        "surface": "projection_fiber",
+                        "carrier_kind": "frontier_witness",
+                        "structural_path": context["structural_path"],
+                    }
+                ),
+            },
+            {
+                "op": SemanticOpKind.SYNTHESIZE_WITNESS,
+                "details": _normalize_object(
+                    {
+                        "synthesized_witness_kind": "projection_fiber",
+                        "boundary_crossing_present": bool(boundary_trace),
+                    }
+                ),
+            },
         ],
         "obligation_state": _obligation_state(witness),
     }
@@ -142,23 +146,13 @@ def close_canonical_semantic_row(
         "obligations": _stable_unique_objects(row["obligations"]),
         "boundary_trace": _stable_unique_objects(row["boundary_trace"]),
         "transform_trace": [
-            _transform_trace_payload(
-                op=item["op"],
-                details=_normalize_object(item["details"]),
-            )
+            {
+                "op": item["op"],
+                "details": _normalize_object(item["details"]),
+            }
             for item in row["transform_trace"]
         ],
         "obligation_state": row["obligation_state"],
-    }
-
-@grade_boundary(
-    kind="semantic_carrier_adapter",
-    name="semantic_fragment.transform_trace_payload",
-)
-def _transform_trace_payload(*, op: str, details: JSONObject) -> SemanticTransformTrace:
-    return {
-        "op": op,
-        "details": _normalize_object(details),
     }
 
 @grade_boundary(

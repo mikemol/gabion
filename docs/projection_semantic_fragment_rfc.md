@@ -1,5 +1,5 @@
 ---
-doc_revision: 106
+doc_revision: 107
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -550,6 +550,10 @@ Current implementation status:
   remaining temporary grade markers on that path are function-local and limited
   to the actual carrier planners/materializers they still justify during
   `PSF-007`
+- helper-only carrier seams continue to collapse as well: the semantic-fragment
+  path no longer carries a dedicated transform-trace adapter helper, and that
+  normalization now lives directly at the real reflection/closure carrier
+  surfaces instead of being justified as a separate internal adapter
 - the broad module-level `semantic_carrier_adapter` marker formerly attached to
   `projection_exec.py` is now retired as well; the executor keeps only
   function-local temporary grading on the concrete typed-execution surfaces
