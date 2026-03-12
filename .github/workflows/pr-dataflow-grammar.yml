@@ -100,7 +100,14 @@ jobs:
               break
           PY
       - name: Policy scanner suite
-        run: .venv/bin/python scripts/policy/policy_scanner_suite.py --root . --out artifacts/out/policy_suite_results.json
+        run: |
+          .venv/bin/python scripts/policy/policy_check.py --workflows --output artifacts/out/policy_check_result.json
+          .venv/bin/python scripts/policy/structural_hash_policy_check.py --root . --output artifacts/out/structural_hash_result.json
+          .venv/bin/python scripts/policy/deprecated_nonerasability_policy_check.py \
+            --baseline out/deprecated_fibers_baseline.json \
+            --current out/deprecated_fibers_current.json \
+            --output artifacts/out/deprecated_nonerasability_result.json
+          .venv/bin/python scripts/policy/policy_scanner_suite.py --root . --out artifacts/out/policy_suite_results.json
       - name: Governance PR template fields
         env:
           GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -212,6 +219,9 @@ jobs:
             artifacts/audit_reports/impact_selection.json
             artifacts/out/changed_lines.json
             artifacts/out/evidence_index_meta.json
+            artifacts/out/policy_check_result.json
+            artifacts/out/structural_hash_result.json
+            artifacts/out/deprecated_nonerasability_result.json
             artifacts/out/policy_suite_results.json
       - name: Comment on PR with impact selection
         if: github.event.pull_request.head.repo.full_name == github.repository

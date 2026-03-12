@@ -1,5 +1,5 @@
 ---
-doc_revision: 56
+doc_revision: 57
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -645,6 +645,11 @@ Current implementation status:
   itself; `policy_check_result.json` is now a preserve-only child-owned
   artifact on this path, and the wrapper fails closed if that fast-path result
   is missing
+- the policy-scanner-suite wrapper no longer invokes any child policy check at
+  all; `structural_hash_result.json` and
+  `deprecated_nonerasability_result.json` are now explicit child-owned inputs
+  on this path too, and CI/workflow entrypoints materialize them before the
+  wrapper runs
 - wrapper-owned policy-result synthesis has now been removed from the
   policy-suite path entirely: the deprecated-nonerasability child check emits
   its own canonical `skip` result when baseline/current inputs are absent, and

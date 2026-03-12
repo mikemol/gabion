@@ -3,9 +3,6 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
-import os
-import subprocess
-import sys
 from pathlib import Path
 
 from gabion.tooling.runtime import policy_result_schema
@@ -26,10 +23,9 @@ class ExternalChildArtifact:
 
 
 @dataclass(frozen=True)
-class ExternalChildCheck:
+class ExternalChildRequirement:
     rule_id: str
-    command: list[str]
-    preserve_only: bool = False
+    artifact: Path
 
 
 def _load_external_child_artifact(
@@ -58,88 +54,37 @@ def _load_external_child_artifact(
 def _resolve_external_child_inputs(
     *, root: Path, out: Path
 ) -> ExternalChildInputs:
-    checks: tuple[ExternalChildCheck, ...] = (
-        ExternalChildCheck(
+    _ = root
+    requirements: tuple[ExternalChildRequirement, ...] = (
+        ExternalChildRequirement(
             rule_id="policy_check",
-            command=[
-                "scripts/policy/policy_check.py",
-                "--workflows",
-                "--output",
-                str(out.parent / "policy_check_result.json"),
-            ],
-            preserve_only=True,
+            artifact=out.parent / "policy_check_result.json",
         ),
-        ExternalChildCheck(
+        ExternalChildRequirement(
             rule_id="structural_hash",
-            command=[
-                "scripts/policy/structural_hash_policy_check.py",
-                "--root",
-                str(root),
-                "--output",
-                str(out.parent / "structural_hash_result.json"),
-            ],
+            artifact=out.parent / "structural_hash_result.json",
         ),
-        ExternalChildCheck(
+        ExternalChildRequirement(
             rule_id="deprecated_nonerasability",
-            command=[
-                "scripts/policy/deprecated_nonerasability_policy_check.py",
-                "--baseline",
-                str(root / "out" / "deprecated_fibers_baseline.json"),
-                "--current",
-                str(root / "out" / "deprecated_fibers_current.json"),
-                "--output",
-                str(out.parent / "deprecated_nonerasability_result.json"),
-            ],
+            artifact=out.parent / "deprecated_nonerasability_result.json",
         ),
-    )
-    env = os.environ.copy()
-    existing_pythonpath = str(env.get("PYTHONPATH", "") or "").strip()
-    root_pythonpath = str(root)
-    env["PYTHONPATH"] = (
-        root_pythonpath
-        if not existing_pythonpath
-        else f"{root_pythonpath}:{existing_pythonpath}"
     )
     child_statuses: dict[str, str] = {}
     projection_fiber_semantics: dict[str, object] | None = None
-    for check in checks:
-        artifact = Path(check.command[-1])
+    for requirement in requirements:
         preserved = _load_external_child_artifact(
-            artifact=artifact,
-            expected_rule_id=check.rule_id,
+            artifact=requirement.artifact,
+            expected_rule_id=requirement.rule_id,
         )
-        if preserved is not None:
-            if preserved.status is not None:
-                child_statuses[check.rule_id] = preserved.status
-            projection_fiber_semantics = (
-                preserved.projection_fiber_semantics or projection_fiber_semantics
-            )
-            continue
-        if check.preserve_only:
+        if preserved is None:
             raise RuntimeError(
                 "required child-owned policy result artifact missing before wrapper invocation: "
-                f"rule_id={check.rule_id} artifact={artifact}"
+                f"rule_id={requirement.rule_id} artifact={requirement.artifact}"
             )
-        completed = subprocess.run(
-            [sys.executable, *check.command],
-            cwd=root,
-            env=env,
-            check=False,
-        )
-        loaded = _load_external_child_artifact(
-            artifact=artifact,
-            expected_rule_id=check.rule_id,
-        )
-        if loaded is not None:
-            if loaded.status is not None:
-                child_statuses[check.rule_id] = loaded.status
-            projection_fiber_semantics = (
-                loaded.projection_fiber_semantics or projection_fiber_semantics
-            )
-            continue
-        raise RuntimeError(
-            "external policy result artifact missing after wrapper invocation: "
-            f"rule_id={check.rule_id} returncode={completed.returncode} artifact={artifact}"
+        if preserved.status is not None:
+            child_statuses[requirement.rule_id] = preserved.status
+        projection_fiber_semantics = (
+            preserved.projection_fiber_semantics or projection_fiber_semantics
         )
     return ExternalChildInputs(
         child_statuses=child_statuses,

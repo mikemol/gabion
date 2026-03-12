@@ -218,6 +218,18 @@ jobs:
         run: |
           .venv/bin/python -m scripts.misc.extract_test_behavior --root . --tests tests --out out/test_behavior.json
           git diff --exit-code out/test_behavior.json
+      - name: Policy check workflows
+        run: |
+          .venv/bin/python scripts/policy/policy_check.py --workflows --output artifacts/out/policy_check_result.json
+      - name: Structural hash policy check
+        run: |
+          .venv/bin/python scripts/policy/structural_hash_policy_check.py --root . --output artifacts/out/structural_hash_result.json
+      - name: Deprecated nonerasability policy check
+        run: |
+          .venv/bin/python scripts/policy/deprecated_nonerasability_policy_check.py \
+            --baseline out/deprecated_fibers_baseline.json \
+            --current out/deprecated_fibers_current.json \
+            --output artifacts/out/deprecated_nonerasability_result.json
       - name: Policy scanner suite
         env:
           BEFORE_SHA: ${{ github.event.before }}
@@ -320,6 +332,9 @@ jobs:
             artifacts/out/governance_telemetry.json
             artifacts/out/governance_telemetry_history.json
             artifacts/out/controller_drift_gate_history.json
+            artifacts/out/policy_check_result.json
+            artifacts/out/structural_hash_result.json
+            artifacts/out/deprecated_nonerasability_result.json
             artifacts/out/policy_suite_results.json
             artifacts/out/docflow_warning_doc_packets.json
             artifacts/out/docflow_warning_doc_packet_summary.json

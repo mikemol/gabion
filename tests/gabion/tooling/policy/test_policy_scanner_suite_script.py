@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -545,11 +544,6 @@ def test_resolve_external_child_inputs_preserve_preexisting_child_artifacts(
         ),
     )
 
-    def _fake_run(args: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
-        raise AssertionError("wrapper must preserve preexisting child-owned artifacts")
-
-    monkeypatch.setattr(policy_scanner_suite.subprocess, "run", _fake_run)
-
     child_inputs = policy_scanner_suite._resolve_external_child_inputs(root=root, out=out)
 
     assert child_inputs.child_statuses == {
@@ -568,13 +562,6 @@ def test_resolve_external_child_inputs_fail_closed_when_child_artifact_missing(
 ) -> None:
     root = tmp_path
     out = root / "artifacts/out/policy_suite_results.json"
-    observed: list[object] = []
-
-    def _fake_run(*args: object, **kwargs: object) -> subprocess.CompletedProcess[object]:
-        observed.append((args, kwargs))
-        return subprocess.CompletedProcess(args[0], returncode=1)
-
-    monkeypatch.setattr(policy_scanner_suite.subprocess, "run", _fake_run)
     monkeypatch.setattr(
         policy_scanner_suite.policy_result_schema,
         "load_policy_result",
@@ -593,14 +580,12 @@ def test_resolve_external_child_inputs_fail_closed_when_child_artifact_missing(
         in message
     )
     assert "rule_id=policy_check" in message
-    assert observed == []
 
 
-# gabion:evidence E:function_site::test_policy_scanner_suite_script.py::tests.gabion.tooling.policy.test_policy_scanner_suite_script.test_resolve_external_child_inputs_load_child_emitted_deprecated_skip
+# gabion:evidence E:function_site::test_policy_scanner_suite_script.py::tests.gabion.tooling.policy.test_policy_scanner_suite_script.test_resolve_external_child_inputs_fail_closed_when_later_child_artifact_missing
 # gabion:behavior primary=desired
-def test_resolve_external_child_inputs_load_child_emitted_deprecated_skip(
+def test_resolve_external_child_inputs_fail_closed_when_later_child_artifact_missing(
     tmp_path: Path,
-    monkeypatch: object,
 ) -> None:
     root = tmp_path
     out = root / "artifacts/out/policy_suite_results.json"
@@ -627,39 +612,15 @@ def test_resolve_external_child_inputs_load_child_emitted_deprecated_skip(
             input_scope={"root": str(root)},
         ),
     )
+    try:
+        policy_scanner_suite._resolve_external_child_inputs(root=root, out=out)
+    except RuntimeError as exc:
+        message = str(exc)
+    else:  # pragma: no cover
+        raise AssertionError("wrapper must fail closed when later child artifact is missing")
 
-    def _fake_run(args: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
-        if "deprecated_nonerasability_policy_check.py" in str(args[1]):
-            policy_scanner_suite.policy_result_schema.write_policy_result(
-                path=out.parent / "deprecated_nonerasability_result.json",
-                result=policy_scanner_suite.policy_result_schema.make_policy_result(
-                    rule_id="deprecated_nonerasability",
-                    status="skip",
-                    violations=[
-                        {
-                            "message": "baseline/current payload missing; rule skipped by child policy check",
-                            "render": "missing baseline=False current=False",
-                        }
-                    ],
-                    baseline_mode="baseline_compare",
-                    source_tool=(
-                        "scripts/policy/deprecated_nonerasability_policy_check.py"
-                    ),
-                    input_scope={
-                        "baseline": str(root / "out" / "deprecated_fibers_baseline.json"),
-                        "current": str(root / "out" / "deprecated_fibers_current.json"),
-                    },
-                ),
-            )
-        return subprocess.CompletedProcess(args, returncode=0)
-
-    monkeypatch.setattr(policy_scanner_suite.subprocess, "run", _fake_run)
-
-    child_inputs = policy_scanner_suite._resolve_external_child_inputs(root=root, out=out)
-
-    assert child_inputs.child_statuses == {
-        "policy_check": "pass",
-        "structural_hash": "pass",
-        "deprecated_nonerasability": "skip",
-    }
-    assert child_inputs.runtime_child_inputs.projection_fiber_semantics is None
+    assert (
+        "required child-owned policy result artifact missing before wrapper invocation"
+        in message
+    )
+    assert "rule_id=deprecated_nonerasability" in message
