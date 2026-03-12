@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Mapping
-from typing import Final
-
-from gabion.analysis.projection.projection_exec import apply_execution_ops
+from collections.abc import Mapping
 from gabion.analysis.projection.projection_exec_protocol import (
     CountByExecutionOp,
     ExecutionProjectionOp,
@@ -27,32 +24,6 @@ from gabion.analysis.projection.projection_spec import ProjectionOp, ProjectionS
 from gabion.json_types import JSONValue
 from gabion.invariants import grade_boundary
 from gabion.runtime_shape_dispatch import str_optional
-
-PredicateRegistry = Mapping[
-    str,
-    Callable[[Mapping[str, JSONValue], Mapping[str, JSONValue]], bool],
-]
-_EMPTY_PREDICATE_REGISTRY: Final[PredicateRegistry] = {}
-_EMPTY_PARAMS_OVERRIDE: Final[Mapping[str, JSONValue]] = {}
-
-
-def apply_spec(
-    spec: ProjectionSpec,
-    rows: Iterable[Mapping[str, JSONValue]],
-    *,
-    op_registry: PredicateRegistry = _EMPTY_PREDICATE_REGISTRY,
-    params_override: Mapping[str, JSONValue] = _EMPTY_PARAMS_OVERRIDE,
-) -> list[dict[str, JSONValue]]:
-    return apply_execution_ops(
-        execution_ops_from_spec(spec),
-        rows,
-        op_registry=op_registry,
-        runtime_params=_merged_runtime_params(
-            spec.params,
-            params_override,
-        ),
-    )
-
 
 @grade_boundary(
     kind="semantic_carrier_adapter",
@@ -152,19 +123,6 @@ def _execution_projection_op_from_op(
 )
 def _copy_json_mapping(params: Mapping[str, JSONValue]) -> dict[str, JSONValue]:
     return {str(key): value for key, value in params.items()}
-
-
-@grade_boundary(
-    kind="semantic_carrier_adapter",
-    name="projection_exec_plan.merged_runtime_params",
-)
-def _merged_runtime_params(
-    spec_params: Mapping[str, JSONValue],
-    params_override: Mapping[str, JSONValue],
-) -> dict[str, JSONValue]:
-    runtime_params = _copy_json_mapping(spec_params)
-    runtime_params.update(_copy_json_mapping(params_override))
-    return runtime_params
 
 
 def _mapping_value(params: Mapping[str, JSONValue], key: str) -> JSONValue:

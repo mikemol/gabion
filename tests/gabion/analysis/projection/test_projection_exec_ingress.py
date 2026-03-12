@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from gabion.analysis.projection.projection_exec import apply_execution_ops
 from gabion.analysis.projection.projection_exec_protocol import (
     CountByExecutionOp,
     LimitExecutionOp,
@@ -8,8 +9,26 @@ from gabion.analysis.projection.projection_exec_protocol import (
     SortKey,
     SortExecutionOp,
 )
-from gabion.analysis.projection.projection_exec_plan import apply_spec, execution_ops_from_spec
+from gabion.analysis.projection.projection_exec_plan import execution_ops_from_spec
 from gabion.analysis.projection.projection_spec import ProjectionOp, ProjectionSpec
+
+
+def _apply_spec(
+    spec: ProjectionSpec,
+    rows,
+    *,
+    op_registry=None,
+    params_override=None,
+):
+    runtime_params = dict(spec.params)
+    if params_override:
+        runtime_params.update(params_override)
+    return apply_execution_ops(
+        execution_ops_from_spec(spec),
+        rows,
+        op_registry=op_registry or {},
+        runtime_params=runtime_params,
+    )
 
 
 def test_execution_ops_from_spec_normalizes_presentation_ops() -> None:
@@ -119,7 +138,7 @@ def test_apply_spec_handles_invalid_and_semantic_only_ops_at_exec_ingress() -> N
         ),
     )
 
-    result = apply_spec(
+    result = _apply_spec(
         spec,
         rows,
         op_registry={"keep": keep},
@@ -135,7 +154,7 @@ def test_apply_spec_traverse_skips_when_field_invalid() -> None:
         domain="tests",
         pipeline=(ProjectionOp("traverse", {"field": 123}),),
     )
-    assert apply_spec(spec, rows) == rows
+    assert _apply_spec(spec, rows) == rows
 
 
 def test_apply_spec_erases_semantic_projection_compatibility_at_exec_ingress() -> None:
@@ -159,4 +178,4 @@ def test_apply_spec_erases_semantic_projection_compatibility_at_exec_ingress() -
     )
 
     rows = [{"id": 1, "status": "ok"}]
-    assert apply_spec(spec, rows) == [{"id": 1}]
+    assert _apply_spec(spec, rows) == [{"id": 1}]

@@ -2,11 +2,30 @@ from __future__ import annotations
 
 import random
 
-from gabion.analysis.projection.projection_exec_plan import apply_spec
+from gabion.analysis.projection.projection_exec import apply_execution_ops
+from gabion.analysis.projection.projection_exec_plan import execution_ops_from_spec
 from gabion.analysis.projection.projection_normalize import (
     _normalize_predicates, normalize_spec, spec_canonical_json, spec_hash)
 from gabion.analysis.projection.projection_spec import (
     ProjectionOp, ProjectionSpec, spec_from_dict, spec_to_dict)
+
+
+def _apply_spec(
+    spec: ProjectionSpec,
+    rows,
+    *,
+    op_registry=None,
+    params_override=None,
+):
+    runtime_params = dict(spec.params)
+    if params_override:
+        runtime_params.update(params_override)
+    return apply_execution_ops(
+        execution_ops_from_spec(spec),
+        rows,
+        op_registry=op_registry or {},
+        runtime_params=runtime_params,
+    )
 
 
 # gabion:evidence E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize.normalize_spec::spec E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize._normalize_value::value E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize._normalize_value::stale_ccd4e210ab6e
@@ -71,7 +90,7 @@ def test_spec_canonical_json_is_byte_stable_for_shuffled_params() -> None:
         assert encoded == baseline
 
 
-# gabion:evidence E:decision_surface/direct::projection_exec_plan.py::gabion.analysis.projection.projection_exec_plan.apply_spec::params_override E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::value
+# gabion:evidence E:decision_surface/direct::projection_exec_plan.py::gabion.analysis.projection.projection_exec_plan.execution_ops_from_spec::spec E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec.apply_execution_ops::runtime_params E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::value
 # gabion:behavior primary=desired
 def test_select_fusion_equivalence() -> None:
     rows = [{"value": 1}, {"value": 2}, {"value": 3}, {"value": 4}]
@@ -100,13 +119,13 @@ def test_select_fusion_equivalence() -> None:
         ),
     )
     registry = {"is_even": is_even, "lt_three": lt_three}
-    assert apply_spec(spec, rows, op_registry=registry) == apply_spec(
+    assert _apply_spec(spec, rows, op_registry=registry) == _apply_spec(
         fused, rows, op_registry=registry
     )
     assert spec_hash(spec) == spec_hash(fused)
 
 
-# gabion:evidence E:decision_surface/direct::projection_exec_plan.py::gabion.analysis.projection.projection_exec_plan.apply_spec::params_override E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize.normalize_spec::spec E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::value E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize._normalize_value::value
+# gabion:evidence E:decision_surface/direct::projection_exec_plan.py::gabion.analysis.projection.projection_exec_plan.execution_ops_from_spec::spec E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec.apply_execution_ops::runtime_params E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize.normalize_spec::spec E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::value E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize._normalize_value::value
 # gabion:behavior primary=desired
 def test_sort_canonicalization_equivalence() -> None:
     rows = [{"a": 2, "b": 2}, {"a": 1, "b": 3}, {"a": 1, "b": 2}]
@@ -128,10 +147,10 @@ def test_sort_canonicalization_equivalence() -> None:
         ),
     )
     assert normalize_spec(spec_list) == normalize_spec(spec_dict)
-    assert apply_spec(spec_list, rows) == apply_spec(spec_dict, rows)
+    assert _apply_spec(spec_list, rows) == _apply_spec(spec_dict, rows)
 
 
-# gabion:evidence E:decision_surface/direct::projection_exec_plan.py::gabion.analysis.projection.projection_exec_plan.apply_spec::params_override E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize.normalize_spec::spec E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::value E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize._normalize_value::value
+# gabion:evidence E:decision_surface/direct::projection_exec_plan.py::gabion.analysis.projection.projection_exec_plan.execution_ops_from_spec::spec E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec.apply_execution_ops::runtime_params E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize.normalize_spec::spec E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::value E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize._normalize_value::value
 # gabion:behavior primary=allowed_unwanted facets=noop
 def test_noop_select_elided() -> None:
     rows = [{"value": 1}, {"value": 2}]
@@ -143,10 +162,10 @@ def test_noop_select_elided() -> None:
     )
     normalized = normalize_spec(spec)
     assert normalized["pipeline"] == []
-    assert apply_spec(spec, rows) == rows
+    assert _apply_spec(spec, rows) == rows
 
 
-# gabion:evidence E:decision_surface/direct::projection_exec_plan.py::gabion.analysis.projection.projection_exec_plan.apply_spec::params_override E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize.normalize_spec::spec E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::value E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize._normalize_value::value
+# gabion:evidence E:decision_surface/direct::projection_exec_plan.py::gabion.analysis.projection.projection_exec_plan.execution_ops_from_spec::spec E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec.apply_execution_ops::runtime_params E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize.normalize_spec::spec E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::value E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize._normalize_value::value
 # gabion:behavior primary=desired
 def test_limit_roundtrip_and_desc_normalization() -> None:
     rows = [{"value": 1}, {"value": 2}, {"value": 3}]
@@ -164,10 +183,10 @@ def test_limit_roundtrip_and_desc_normalization() -> None:
     normalized = normalize_spec(roundtrip)
     by = normalized["pipeline"][0]["params"]["by"][0]
     assert by["order"] == "desc"
-    assert apply_spec(roundtrip, rows) == [{"value": 3}, {"value": 2}]
+    assert _apply_spec(roundtrip, rows) == [{"value": 3}, {"value": 2}]
 
 
-# gabion:evidence E:decision_surface/direct::projection_exec_plan.py::gabion.analysis.projection.projection_exec_plan.apply_spec::params_override E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::value
+# gabion:evidence E:decision_surface/direct::projection_exec_plan.py::gabion.analysis.projection.projection_exec_plan.execution_ops_from_spec::spec E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec.apply_execution_ops::runtime_params E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::value
 # gabion:behavior primary=desired
 def test_count_by_groups_rows() -> None:
     rows = [
@@ -184,7 +203,7 @@ def test_count_by_groups_rows() -> None:
             ProjectionOp("sort", {"by": ["class"]}),
         ),
     )
-    result = apply_spec(spec, rows)
+    result = _apply_spec(spec, rows)
     assert result == [
         {"class": "a", "count": 2},
         {"class": "b", "count": 1},
@@ -265,7 +284,7 @@ def test_normalize_select_predicates_stable_under_permuted_discovery_order() -> 
     assert normalize_spec(spec_a)["pipeline"] == normalize_spec(spec_b)["pipeline"]
 
 
-# gabion:evidence E:call_footprint::tests/test_projection_spec.py::test_count_by_output_stable_under_permuted_discovery_order::projection_exec_plan.py::gabion.analysis.projection.projection_exec_plan.apply_spec
+# gabion:evidence E:call_footprint::tests/test_projection_spec.py::test_count_by_output_stable_under_permuted_discovery_order::projection_exec_plan.py::gabion.analysis.projection.projection_exec_plan.execution_ops_from_spec E:call_footprint::tests/test_projection_spec.py::test_count_by_output_stable_under_permuted_discovery_order::projection_exec.py::gabion.analysis.projection.projection_exec.apply_execution_ops
 # gabion:behavior primary=desired
 def test_count_by_output_stable_under_permuted_discovery_order() -> None:
     spec = ProjectionSpec(
@@ -287,7 +306,7 @@ def test_count_by_output_stable_under_permuted_discovery_order() -> None:
         {"class": "b", "value": 3},
     ]
 
-    assert apply_spec(spec, rows_a) == apply_spec(spec, rows_b) == [
+    assert _apply_spec(spec, rows_a) == _apply_spec(spec, rows_b) == [
         {"class": "a", "count": 2},
         {"class": "b", "count": 2},
     ]
@@ -295,7 +314,7 @@ def test_count_by_output_stable_under_permuted_discovery_order() -> None:
 
 
 
-# gabion:evidence E:call_footprint::tests/test_projection_spec.py::test_count_by_accepts_legacy_single_field_param::projection_exec_plan.py::gabion.analysis.projection.projection_exec_plan.apply_spec
+# gabion:evidence E:call_footprint::tests/test_projection_spec.py::test_count_by_accepts_legacy_single_field_param::projection_exec_plan.py::gabion.analysis.projection.projection_exec_plan.execution_ops_from_spec E:call_footprint::tests/test_projection_spec.py::test_count_by_accepts_legacy_single_field_param::projection_exec.py::gabion.analysis.projection.projection_exec.apply_execution_ops
 # gabion:behavior primary=allowed_unwanted facets=legacy
 def test_count_by_accepts_legacy_single_field_param() -> None:
     spec = ProjectionSpec(
@@ -305,13 +324,13 @@ def test_count_by_accepts_legacy_single_field_param() -> None:
         pipeline=(ProjectionOp("count_by", {"field": "class"}),),
     )
     rows = [{"class": "b"}, {"class": "a"}, {"class": "b"}]
-    assert apply_spec(spec, rows) == [
+    assert _apply_spec(spec, rows) == [
         {"class": "a", "count": 1},
         {"class": "b", "count": 2},
     ]
 
 
-# gabion:evidence E:call_footprint::tests/test_projection_spec.py::test_traverse_stringifies_merged_non_string_keys::projection_exec_plan.py::gabion.analysis.projection.projection_exec_plan.apply_spec
+# gabion:evidence E:call_footprint::tests/test_projection_spec.py::test_traverse_stringifies_merged_non_string_keys::projection_exec_plan.py::gabion.analysis.projection.projection_exec_plan.execution_ops_from_spec E:call_footprint::tests/test_projection_spec.py::test_traverse_stringifies_merged_non_string_keys::projection_exec.py::gabion.analysis.projection.projection_exec.apply_execution_ops
 # gabion:behavior primary=desired
 def test_traverse_stringifies_merged_non_string_keys() -> None:
     spec = ProjectionSpec(
@@ -326,10 +345,10 @@ def test_traverse_stringifies_merged_non_string_keys() -> None:
         ),
     )
     rows = [{"items": [{1: "x", "name": "first"}]}]
-    assert apply_spec(spec, rows) == [{"idx": 0, "item_1": "x", "item_name": "first"}]
+    assert _apply_spec(spec, rows) == [{"idx": 0, "item_1": "x", "item_name": "first"}]
 
 
-# gabion:evidence E:call_footprint::tests/test_projection_spec.py::test_apply_spec_params_override_replaces_normalized_params::projection_exec_plan.py::gabion.analysis.projection.projection_exec_plan.apply_spec
+# gabion:evidence E:call_footprint::tests/test_projection_spec.py::test_apply_spec_params_override_replaces_normalized_params::projection_exec_plan.py::gabion.analysis.projection.projection_exec_plan.execution_ops_from_spec E:call_footprint::tests/test_projection_spec.py::test_apply_spec_params_override_replaces_normalized_params::projection_exec.py::gabion.analysis.projection.projection_exec.apply_execution_ops
 # gabion:behavior primary=desired
 def test_apply_spec_params_override_replaces_normalized_params() -> None:
     rows = [{"value": 1}, {"value": 3}, {"value": 5}]
@@ -344,7 +363,7 @@ def test_apply_spec_params_override_replaces_normalized_params() -> None:
         pipeline=(ProjectionOp("select", {"predicate": "above_threshold"}),),
         params={"threshold": 4},
     )
-    result = apply_spec(
+    result = _apply_spec(
         spec,
         rows,
         op_registry={"above_threshold": above_threshold},

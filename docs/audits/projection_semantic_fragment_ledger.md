@@ -1,5 +1,5 @@
 ---
-doc_revision: 92
+doc_revision: 93
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_ledger
 doc_role: audit
@@ -20,14 +20,14 @@ doc_requires:
 doc_reviewed_as_of:
   POLICY_SEED.md#policy_seed: 55
   glossary.md#contract: 44
-  docs/projection_semantic_fragment_rfc.md#projection_semantic_fragment_rfc: 100
+  docs/projection_semantic_fragment_rfc.md#projection_semantic_fragment_rfc: 101
   docs/ttl_kernel_semantics.md#ttl_kernel_semantics: 1
   docs/aspf_execution_fibration.md#aspf_execution_fibration: 7
   docs/audits/projection_spec_history_ledger.md: 1
 doc_review_notes:
   POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev55 (fix-forward correction units and artifact-backed continuation remain aligned with this ledger)."
   glossary.md#contract: "Reviewed glossary.md rev44 (witness/evidence/projection terms remain aligned with the semantic-fragment queue language)."
-  docs/projection_semantic_fragment_rfc.md#projection_semantic_fragment_rfc: "Reviewed the implementation RFC rev100 and kept the queue aligned with the generated continuation state: all currently declared `projection_fiber` semantic specs are now closed under typed lowering, leaving `PSF-007` as the only live queue row."
+  docs/projection_semantic_fragment_rfc.md#projection_semantic_fragment_rfc: "Reviewed the implementation RFC rev101 and kept the queue aligned with the generated continuation state: all currently declared `projection_fiber` semantic specs are now closed under typed lowering, and the last production `apply_spec(...)` convenience wrapper is retired from the planner path."
   docs/ttl_kernel_semantics.md#ttl_kernel_semantics: "Reviewed the TTL explainer rev1 and kept SHACL/SPARQL realization language aligned with the ledger rows."
   docs/aspf_execution_fibration.md#aspf_execution_fibration: "Reviewed ASPF execution fibration rev7 and retained ASPF/global identity continuity as a non-negotiable bootstrap constraint."
   docs/audits/projection_spec_history_ledger.md: "Reviewed projection-spec history ledger rev1; legacy ProjectionSpec remains the compatibility surface referenced by queued cutover work."
@@ -122,9 +122,9 @@ Still adapter-only:
 
 - `projection_exec.py` remains the compatibility runtime for legacy row-shaped
   execution, but it now consumes typed execution-step params only;
-  `ProjectionSpec` planning plus the remaining convenience `apply_spec(...)`
-  helper now live in `projection_exec_plan.py`, and no dedicated
-  `projection_exec_ingress.py` module remains on the production path
+  `ProjectionSpec` planning now lives in `projection_exec_plan.py`, and neither
+  a dedicated `projection_exec_ingress.py` module nor a production
+  `apply_spec(...)` convenience wrapper remain on the production path
 - only declared quotient-face slices are promoted through typed lowering
 - `semantic_carrier_adapter` boundaries remain temporary until RFC cutover
   criteria are satisfied
@@ -225,9 +225,10 @@ Direct-carrier judgment now landed on at least one real consumer path:
 | `2026-03-12` | Pure `ProjectionSpec` -> typed execution-op planning now lives in a dedicated internal planner module, and fixed-spec internal consumers import that planner directly rather than depending on `projection_exec_ingress.py`; helper-local `semantic_carrier_adapter` markers used only to justify that import path are retired, while the planner itself remains a temporary grade-only adapter-classified surface during the cutover window. | `src/gabion/analysis/projection/projection_exec_plan.py`; `src/gabion/analysis/projection/projection_exec_ingress.py`; `src/gabion/analysis/call_cluster/call_clusters.py`; `src/gabion/analysis/call_cluster/call_cluster_consolidation.py`; `src/gabion/analysis/indexed_scan/calls/call_ambiguity_summary.py`; `src/gabion/analysis/surfaces/test_obsolescence.py`; `src/gabion/analysis/dataflow/engine/dataflow_lint_helpers.py`; `src/gabion_governance/governance_audit_impl.py`; `docs/projection_semantic_fragment_rfc.md#projection_semantic_fragment_rfc` |
 | `2026-03-12` | The fixed-spec `AMBIGUITY_SUMMARY_SPEC` summary path now precomputes typed execution ops and executes them directly, so stable ambiguity-summary projection no longer routes through `projection_exec_ingress.py` as a per-call `ProjectionSpec` adapter. | `src/gabion/analysis/indexed_scan/calls/call_ambiguity_summary.py`; `src/gabion/analysis/dataflow/engine/dataflow_projection_materialization.py`; `tests/gabion/analysis/misc_s3/test_ambiguity_helpers.py`; `src/gabion/analysis/projection/projection_exec.py`; `src/gabion/analysis/projection/projection_exec_ingress.py`; `docs/projection_semantic_fragment_rfc.md#projection_semantic_fragment_rfc` |
 | `2026-03-12` | Internal docflow invariants now normalize ingress-only select specs into typed predicate matchers, and governance compliance/violation evaluation applies those matchers directly instead of routing docflow invariant checks through `projection_exec_ingress.py`. | `src/gabion_governance/docflow_audit/contracts.py`; `src/gabion_governance/governance_audit_impl.py`; `src/gabion/tooling/governance/governance_audit.py`; `tests/gabion/tooling/docflow/test_docflow_compliance_rows.py`; `tests/gabion/tooling/docflow/test_docflow_class_fixture_rows.py`; `tests/gabion/tooling/governance/test_docflow_domain_service.py`; `tests/gabion/tooling/governance/test_governance_audit_composition_integration.py`; `docs/projection_semantic_fragment_rfc.md#projection_semantic_fragment_rfc` |
-| `2026-03-12` | The dedicated `projection_exec_ingress.py` module is retired. The remaining `apply_spec(...)` compatibility helper now lives alongside internal planning in `projection_exec_plan.py`, so production code no longer carries a faux ingress boundary module and only tests still exercise the convenience helper directly. | `src/gabion/analysis/projection/projection_exec_plan.py`; `tests/gabion/analysis/projection/test_projection_spec.py`; `tests/gabion/analysis/projection/test_projection_exec_ingress.py`; `docs/projection_semantic_fragment_rfc.md#projection_semantic_fragment_rfc` |
+| `2026-03-12` | The dedicated `projection_exec_ingress.py` module is retired. `ProjectionSpec` planning now lives alongside typed execution in `projection_exec_plan.py`, so production code no longer carries a faux ingress boundary module and tests are the only remaining site that still compose spec planning with execution. | `src/gabion/analysis/projection/projection_exec_plan.py`; `tests/gabion/analysis/projection/test_projection_spec.py`; `tests/gabion/analysis/projection/test_projection_exec_ingress.py`; `docs/projection_semantic_fragment_rfc.md#projection_semantic_fragment_rfc` |
 | `2026-03-12` | The first real policy-consumer cutover is landed: `projection_fiber.convergence.blocking` now judges canonical `semantic_rows` directly, and the legacy `projection.unmapped_intro` transform no longer exists in the projection-fiber policy registry. | `docs/projection_fiber_rules.yaml`; `tests/test_policy_dsl.py`; `scripts/policy/projection_semantic_fragment_queue.py`; `tests/gabion/tooling/policy/test_projection_semantic_fragment_queue.py`; `docs/projection_semantic_fragment_rfc.md#projection_semantic_fragment_rfc` |
 | `2026-03-12` | The queue ratchet now closes `PSF-004` when the compiled semantic bundle set covers all declared `projection_fiber` semantic specs. With the current fast-path artifact, Phase 4 lowering is closed over the registered authoring set and only `PSF-007` remains live. | `scripts/policy/projection_semantic_fragment_queue.py`; `tests/gabion/tooling/policy/test_projection_semantic_fragment_queue.py`; `artifacts/out/projection_semantic_fragment_queue.json`; `docs/projection_semantic_fragment_rfc.md#projection_semantic_fragment_rfc` |
+| `2026-03-12` | The planner-local production `apply_spec(...)` convenience wrapper is retired. Production code now exposes only pure `ProjectionSpec` planning plus typed execution, and tests compose those surfaces locally when they still need spec-shaped execution checks. | `src/gabion/analysis/projection/projection_exec_plan.py`; `tests/gabion/analysis/projection/test_projection_spec.py`; `tests/gabion/analysis/projection/test_projection_exec_ingress.py`; `docs/projection_semantic_fragment_rfc.md#projection_semantic_fragment_rfc` |
 
 ## Queue Rows
 
@@ -251,8 +252,8 @@ Direct-carrier judgment now landed on at least one real consumer path:
   derived directly from `policy_check_result.json` when available, while this
   ledger records stable queue IDs, evidence links, and cutover intent.
 - Fixed-spec presentation consumers should precompute typed execution ops and
-  execute them directly; `apply_spec(...)` remains only for real dynamic
-  authoring surfaces during the compatibility window.
+  execute them directly; production code should not reintroduce a convenience
+  `ProjectionSpec` execution wrapper on top of the planner/executor split.
 - Pure `ProjectionSpec` -> typed execution-op planning is internal
   normalization, not a DTO/ambiguity boundary; internal consumers should
   import that planner directly instead of depending on a dedicated ingress

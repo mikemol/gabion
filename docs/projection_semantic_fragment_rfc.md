@@ -1,5 +1,5 @@
 ---
-doc_revision: 100
+doc_revision: 101
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -774,10 +774,10 @@ Current implementation status:
   indirectly through policy-scanner-suite wrapper tests
 - `projection_exec.py` still executes the legacy row pipeline as a
   compatibility runtime, but it now executes typed execution steps only:
-  pure `ProjectionSpec` planning plus the remaining convenience
-  `apply_spec(...)` helper now live in `projection_exec_plan.py`, so
-  production code no longer carries a dedicated `projection_exec_ingress.py`
-  adapter module at all
+  pure `ProjectionSpec` planning now lives in `projection_exec_plan.py`, the
+  dedicated `projection_exec_ingress.py` adapter module is gone, and
+  production code no longer carries a convenience `apply_spec(...)` wrapper at
+  all
 - fixed-spec presentation consumers continue to peel away from that boundary:
   `call_cluster_consolidation` now precomputes typed execution ops and executes
   them directly, so that stable consolidation/report ordering path no longer
@@ -884,8 +884,6 @@ even if final symbol names vary:
 The following current surfaces are temporary adapters:
 
 - current `ProjectionSpec` JSON pipeline
-- current planner-local `ProjectionSpec` compatibility application helper in
-  `projection_exec_plan.py`
 - current projection-fiber DSL rules when they operate as judgment-only without
   a canonical semantic carrier underneath
 
@@ -893,13 +891,13 @@ During the compatibility window, stable local reporting specs should follow the
 same Phase 5 ratchet as registered fixed-spec consumers: if a boundary owns a
 non-dynamic `ProjectionSpec` literal and no custom authoring surface is
 required, that boundary should precompute typed execution ops rather than
-re-entering planner-local `apply_spec(...)`.
+compose planner output back through a production convenience wrapper.
 
 Pure `ProjectionSpec` -> typed execution-op planning is internal normalization,
 not a DTO or ambiguity boundary. That planner now lives in
 `projection_exec_plan.py`, and stable in-repo consumers should import it
 directly rather than routing through any dedicated ingress module just to
-compile or apply a fixed local `ProjectionSpec`. During the remaining
+compile a fixed local `ProjectionSpec`. During the remaining
 compatibility window, that planner may still carry a temporary grade-only
 adapter classification so monotonicity accounting remains explicit until
 `ProjectionSpec` retirement is complete.
