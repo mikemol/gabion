@@ -1,5 +1,5 @@
 ---
-doc_revision: 31
+doc_revision: 32
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -551,6 +551,9 @@ Current implementation status:
 - the hotspot-neighborhood queue no longer materializes a
   `projection_fiber_semantics_summary` blob inside its own artifact; it now
   carries only the direct semantic fields it actually uses
+- the shared projection-fiber summary helper no longer exposes an explicit
+  parser for retired materialized-summary payloads; it now accepts only live
+  canonical carriers (`projection_fiber_semantics` or `policy_results`)
 - the shared projection-fiber summary decoder no longer accepts a top-level
   `policy_check` wrapper payload as a generic ingress shape; canonical summary
   decoding is now restricted to direct `policy_check` payloads,
@@ -623,6 +626,8 @@ Ratchet rules:
 - queue/report artifacts must not materialize queue-owned semantic-summary
   blobs when direct semantic fields and preview rows already discharge the same
   reporting obligation
+- shared semantic-summary helpers must not preserve dedicated parsers for
+  retired materialized-summary payloads once no live consumer emits that shape
 - shared semantic-summary decoders must not preserve wrapper-only ingress
   branches once the canonical artifact paths are explicit
 - shared decoders must not retain retired suite-local embedding fallbacks once

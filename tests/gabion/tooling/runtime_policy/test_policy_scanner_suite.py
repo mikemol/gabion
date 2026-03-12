@@ -6,7 +6,6 @@ from pathlib import Path
 from gabion.tooling.runtime import policy_scanner_suite
 from gabion.tooling.runtime.projection_fiber_semantics_summary import (
     projection_fiber_semantics_summary_from_payload,
-    projection_fiber_semantics_summary_from_summary_payload,
 )
 
 
@@ -926,29 +925,29 @@ def test_policy_scanner_suite_carries_external_policy_results(tmp_path: Path) ->
 
 
 def test_projection_fiber_semantics_summary_requires_canonical_payload_shape() -> None:
-    summary_payload = {
-        "decision": {"rule_id": "projection_fiber.convergence.ok"},
-        "semantic_row_count": 1,
-        "compiled_projection_semantic_bundle_count": 1,
-        "compiled_projection_semantic_spec_names": [
-            "projection_fiber_frontier"
-        ],
-        "semantic_previews": [
-            {
-                "spec_name": "projection_fiber_frontier",
-                "quotient_face": "projection_fiber.frontier",
-                "source_structural_identity": "row-1",
-                "path": "src/gabion/example.py",
-                "qualname": "example.frontier",
-                "structural_path": "example.frontier::branch[0]",
-                "obligation_state": "discharged",
-                "complete": True,
-            }
-        ],
-    }
-
     assert projection_fiber_semantics_summary_from_payload(
-        {"projection_fiber_semantics_summary": summary_payload}
+        {
+            "projection_fiber_semantics_summary": {
+                "decision": {"rule_id": "projection_fiber.convergence.ok"},
+                "semantic_row_count": 1,
+                "compiled_projection_semantic_bundle_count": 1,
+                "compiled_projection_semantic_spec_names": [
+                    "projection_fiber_frontier"
+                ],
+                "semantic_previews": [
+                    {
+                        "spec_name": "projection_fiber_frontier",
+                        "quotient_face": "projection_fiber.frontier",
+                        "source_structural_identity": "row-1",
+                        "path": "src/gabion/example.py",
+                        "qualname": "example.frontier",
+                        "structural_path": "example.frontier::branch[0]",
+                        "obligation_state": "discharged",
+                        "complete": True,
+                    }
+                ],
+            }
+        }
     ) is None
     assert projection_fiber_semantics_summary_from_payload(
         {
@@ -963,6 +962,3 @@ def test_projection_fiber_semantics_summary_requires_canonical_payload_shape() -
             }
         }
     ) is None
-    summary = projection_fiber_semantics_summary_from_summary_payload(summary_payload)
-    assert summary is not None
-    assert summary.decision["rule_id"] == "projection_fiber.convergence.ok"

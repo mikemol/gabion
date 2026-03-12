@@ -59,16 +59,6 @@ def projection_fiber_semantics_summary_from_policy_results(
         policy_results.get("policy_check")
     )
 
-
-def projection_fiber_semantics_summary_from_summary_payload(
-    payload: Mapping[str, object] | object,
-) -> ProjectionFiberSemanticsSummary | None:
-    summary_mapping = _mapping(payload)
-    if not summary_mapping:
-        return None
-    return _summary_from_summary_mapping(summary_mapping)
-
-
 def projection_fiber_semantics_summary_from_payload(
     payload: object,
 ) -> ProjectionFiberSemanticsSummary | None:
@@ -84,52 +74,6 @@ def projection_fiber_semantics_summary_from_payload(
             policy_results_mapping
         )
     return None
-
-
-def _summary_from_summary_mapping(
-    summary_mapping: Mapping[str, object],
-) -> ProjectionFiberSemanticsSummary:
-    decision = _mapping(summary_mapping.get("decision"))
-    semantic_previews = tuple(
-        ProjectionFiberSemanticPreview(
-            spec_name=_mapping_string(item, key="spec_name"),
-            quotient_face=_mapping_string(item, key="quotient_face"),
-            source_structural_identity=_mapping_string(
-                item,
-                key="source_structural_identity",
-            ),
-            path=_mapping_string(item, key="path"),
-            qualname=_mapping_string(item, key="qualname"),
-            structural_path=_mapping_string(item, key="structural_path"),
-            obligation_state=_mapping_string(item, key="obligation_state"),
-            complete=_mapping_bool(item, key="complete"),
-        )
-        for item in _list_of_mappings(summary_mapping.get("semantic_previews"))
-    )
-    explicit_spec_names = _string_list(
-        summary_mapping.get("compiled_projection_semantic_spec_names")
-    )
-    if explicit_spec_names:
-        spec_names = tuple(sorted(set(explicit_spec_names)))
-    else:
-        spec_names = tuple(
-            sorted(
-                {
-                    item.spec_name
-                    for item in semantic_previews
-                    if item.spec_name
-                }
-            )
-        )
-    return ProjectionFiberSemanticsSummary(
-        decision=dict(decision.items()),
-        semantic_row_count=_int_value(summary_mapping.get("semantic_row_count")),
-        compiled_projection_semantic_bundle_count=_int_value(
-            summary_mapping.get("compiled_projection_semantic_bundle_count")
-        ),
-        compiled_projection_semantic_spec_names=spec_names,
-        semantic_previews=semantic_previews,
-    )
 
 
 def _summary_from_semantics_mapping(
@@ -314,29 +258,9 @@ def _list_of_mappings(value: object) -> tuple[dict[str, Any], ...]:
     return tuple(_mapping(item) for item in value if isinstance(item, Mapping))
 
 
-def _string_list(value: object) -> tuple[str, ...]:
-    if not isinstance(value, list):
-        return ()
-    return tuple(
-        normalized
-        for item in value
-        if isinstance(item, str)
-        if (normalized := item.strip())
-    )
-
-
-def _int_value(value: object) -> int:
-    if isinstance(value, bool):
-        return 0
-    if isinstance(value, int):
-        return value
-    return 0
-
-
 __all__ = [
     "ProjectionFiberSemanticPreview",
     "ProjectionFiberSemanticsSummary",
     "projection_fiber_semantics_summary_from_payload",
     "projection_fiber_semantics_summary_from_policy_results",
-    "projection_fiber_semantics_summary_from_summary_payload",
 ]
