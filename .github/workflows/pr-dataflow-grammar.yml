@@ -107,7 +107,7 @@ jobs:
             --baseline out/deprecated_fibers_baseline.json \
             --current out/deprecated_fibers_current.json \
             --output artifacts/out/deprecated_nonerasability_result.json
-          .venv/bin/python scripts/policy/policy_scanner_suite.py --root . --out artifacts/out/policy_suite_results.json
+          .venv/bin/python scripts/policy/policy_scanner_suite.py --root . --out-dir artifacts/out
       - name: Governance PR template fields
         env:
           GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -222,7 +222,8 @@ jobs:
             artifacts/out/policy_check_result.json
             artifacts/out/structural_hash_result.json
             artifacts/out/deprecated_nonerasability_result.json
-            artifacts/out/policy_suite_results.json
+            artifacts/out/hotspot_neighborhood_queue.json
+            artifacts/out/hotspot_neighborhood_queue.md
       - name: Comment on PR with impact selection
         if: github.event.pull_request.head.repo.full_name == github.repository
         env:

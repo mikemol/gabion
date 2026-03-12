@@ -3,14 +3,11 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
-import json
 from pathlib import Path
 
 from gabion.tooling.runtime import policy_result_schema
 from gabion.tooling.runtime import policy_scanner_suite as runtime_policy_scanner_suite
 from scripts.policy import hotspot_neighborhood_queue
-
-_POLICY_SUITE_COMPAT_FORMAT_VERSION = 1
 
 
 @dataclass(frozen=True)
@@ -55,21 +52,20 @@ def _load_external_child_artifact(
 
 
 def _resolve_external_child_inputs(
-    *, root: Path, out: Path
+    *, out_dir: Path
 ) -> ExternalChildInputs:
-    _ = root
     requirements: tuple[ExternalChildRequirement, ...] = (
         ExternalChildRequirement(
             rule_id="policy_check",
-            artifact=out.parent / "policy_check_result.json",
+            artifact=out_dir / "policy_check_result.json",
         ),
         ExternalChildRequirement(
             rule_id="structural_hash",
-            artifact=out.parent / "structural_hash_result.json",
+            artifact=out_dir / "structural_hash_result.json",
         ),
         ExternalChildRequirement(
             rule_id="deprecated_nonerasability",
-            artifact=out.parent / "deprecated_nonerasability_result.json",
+            artifact=out_dir / "deprecated_nonerasability_result.json",
         ),
     )
     child_statuses: dict[str, str] = {}
@@ -97,47 +93,23 @@ def _resolve_external_child_inputs(
     )
 
 
-def _compat_policy_suite_payload(
-    *,
-    result: runtime_policy_scanner_suite.PolicySuiteResult,
-) -> dict[str, object]:
-    return {
-        "format_version": _POLICY_SUITE_COMPAT_FORMAT_VERSION,
-        "violations": result.violations_by_rule,
-    }
-
-
-def _write_compat_policy_suite_artifact(
-    *,
-    out: Path,
-    result: runtime_policy_scanner_suite.PolicySuiteResult,
-) -> None:
-    payload = _compat_policy_suite_payload(result=result)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(
-        json.dumps(payload, indent=2, sort_keys=False) + "\n",
-        encoding="utf-8",
-    )
-
-
 def run(
     *,
     root: Path,
-    out: Path,
+    out_dir: Path,
     base_sha: str | None = None,
     head_sha: str | None = None,
 ) -> int:
-    child_inputs = _resolve_external_child_inputs(root=root, out=out)
+    child_inputs = _resolve_external_child_inputs(out_dir=out_dir)
     result = runtime_policy_scanner_suite.scan_policy_suite(
         root=root,
         child_inputs=child_inputs.runtime_child_inputs,
         base_sha=base_sha,
         head_sha=head_sha,
     )
-    _write_compat_policy_suite_artifact(out=out, result=result)
     decision = result.decision()
-    queue_json = out.parent / "hotspot_neighborhood_queue.json"
-    queue_md = out.parent / "hotspot_neighborhood_queue.md"
+    queue_json = out_dir / "hotspot_neighborhood_queue.json"
+    queue_md = out_dir / "hotspot_neighborhood_queue.md"
     payload: dict[str, object] = {
         "format_version": 1,
         "violations": result.violations_by_rule,
@@ -150,14 +122,14 @@ def run(
         markdown_out=queue_md,
     )
     total = sum(len(items) for items in result.violations_by_rule.values())
-    print(f"policy-suite scan: total_violations={total} out={out}")
+    print(f"policy-suite scan: total_violations={total} out_dir={out_dir}")
     print(
         "policy-suite decision: "
         f"rule_id={decision.rule_id} outcome={decision.outcome.value} "
         f"severity={decision.severity.value}"
     )
     print(f"hotspot-neighborhood queue: {queue_json}")
-    semantic_queue_path = out.parent / "projection_semantic_fragment_queue.json"
+    semantic_queue_path = out_dir / "projection_semantic_fragment_queue.json"
     print(
         "projection-semantic-fragment queue: "
         f"{semantic_queue_path if semantic_queue_path.exists() else '<not emitted by wrapper>'}"
@@ -201,13 +173,13 @@ def run(
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", default=".")
-    parser.add_argument("--out", required=True)
+    parser.add_argument("--out-dir", required=True)
     parser.add_argument("--base-sha", default=None)
     parser.add_argument("--head-sha", default=None)
     args = parser.parse_args(argv)
     return run(
         root=Path(args.root).resolve(),
-        out=Path(args.out).resolve(),
+        out_dir=Path(args.out_dir).resolve(),
         base_sha=str(args.base_sha).strip() or None,
         head_sha=str(args.head_sha).strip() or None,
     )

@@ -76,7 +76,7 @@ def test_run_skips_semantic_queue_backfill_without_policy_check_owned_artifact(
     monkeypatch: object,
 ) -> None:
     root = tmp_path
-    out = root / "artifacts/out/policy_suite_results.json"
+    out_dir = root / "artifacts/out"
     source = root / "src/gabion/branch_sample.py"
     source.parent.mkdir(parents=True, exist_ok=True)
     source.write_text(
@@ -126,8 +126,9 @@ def test_run_skips_semantic_queue_backfill_without_policy_check_owned_artifact(
     }
 
     def _fake_external_child_inputs(
-        *, root: Path, out: Path
+        *, out_dir: Path
     ) -> policy_scanner_suite.ExternalChildInputs:
+        assert out_dir == root / "artifacts/out"
         return policy_scanner_suite.ExternalChildInputs(
             child_statuses={"policy_check": "pass"},
             runtime_child_inputs=policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs(
@@ -143,16 +144,16 @@ def test_run_skips_semantic_queue_backfill_without_policy_check_owned_artifact(
         _fake_external_child_inputs,
     )
 
-    rc = policy_scanner_suite.run(root=root, out=out)
+    rc = policy_scanner_suite.run(root=root, out_dir=out_dir)
 
     assert rc == 1
-    assert out.exists()
-    assert (out.parent / "hotspot_neighborhood_queue.json").exists()
-    assert (out.parent / "hotspot_neighborhood_queue.md").exists()
-    assert not (out.parent / "projection_semantic_fragment_queue.json").exists()
-    assert not (out.parent / "projection_semantic_fragment_queue.md").exists()
+    assert not (out_dir / "policy_suite_results.json").exists()
+    assert (out_dir / "hotspot_neighborhood_queue.json").exists()
+    assert (out_dir / "hotspot_neighborhood_queue.md").exists()
+    assert not (out_dir / "projection_semantic_fragment_queue.json").exists()
+    assert not (out_dir / "projection_semantic_fragment_queue.md").exists()
     hotspot_payload = json.loads(
-        (out.parent / "hotspot_neighborhood_queue.json").read_text(encoding="utf-8")
+        (out_dir / "hotspot_neighborhood_queue.json").read_text(encoding="utf-8")
     )
     assert "projection_fiber_decision" in hotspot_payload["source"]
     assert "projection_fiber_semantic_previews" in hotspot_payload["source"]
@@ -165,11 +166,11 @@ def test_run_preserves_policy_check_owned_semantic_queue(
     monkeypatch: object,
 ) -> None:
     root = tmp_path
-    out = root / "artifacts/out/policy_suite_results.json"
-    out.parent.mkdir(parents=True, exist_ok=True)
-    queue_json = out.parent / "projection_semantic_fragment_queue.json"
-    queue_md = out.parent / "projection_semantic_fragment_queue.md"
-    policy_check_result = out.parent / "policy_check_result.json"
+    out_dir = root / "artifacts/out"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    queue_json = out_dir / "projection_semantic_fragment_queue.json"
+    queue_md = out_dir / "projection_semantic_fragment_queue.md"
+    policy_check_result = out_dir / "policy_check_result.json"
 
     policy_check_payload = {
         "rule_id": "policy_check",
@@ -210,8 +211,9 @@ def test_run_preserves_policy_check_owned_semantic_queue(
     }
 
     def _fake_external_child_inputs(
-        *, root: Path, out: Path
+        *, out_dir: Path
     ) -> policy_scanner_suite.ExternalChildInputs:
+        assert out_dir == root / "artifacts/out"
         policy_check_result.write_text(
             json.dumps(policy_check_payload, indent=2) + "\n",
             encoding="utf-8",
@@ -265,12 +267,13 @@ def test_run_preserves_policy_check_owned_semantic_queue(
         _fake_external_child_inputs,
     )
 
-    rc = policy_scanner_suite.run(root=root, out=out)
+    rc = policy_scanner_suite.run(root=root, out_dir=out_dir)
 
     assert rc == 0
     queue_payload = json.loads(queue_json.read_text(encoding="utf-8"))
     assert queue_payload["source_artifact"] == str(policy_check_result)
-    assert (out.parent / "hotspot_neighborhood_queue.json").exists()
+    assert (out_dir / "hotspot_neighborhood_queue.json").exists()
+    assert not (out_dir / "policy_suite_results.json").exists()
 
 
 # gabion:evidence E:function_site::test_policy_scanner_suite_script.py::tests.gabion.tooling.policy.test_policy_scanner_suite_script.test_run_does_not_regenerate_missing_policy_check_owned_semantic_queue
@@ -280,9 +283,9 @@ def test_run_does_not_regenerate_missing_policy_check_owned_semantic_queue(
     monkeypatch: object,
 ) -> None:
     root = tmp_path
-    out = root / "artifacts/out/policy_suite_results.json"
-    out.parent.mkdir(parents=True, exist_ok=True)
-    policy_check_result = out.parent / "policy_check_result.json"
+    out_dir = root / "artifacts/out"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    policy_check_result = out_dir / "policy_check_result.json"
 
     policy_check_payload = {
         "rule_id": "policy_check",
@@ -302,8 +305,9 @@ def test_run_does_not_regenerate_missing_policy_check_owned_semantic_queue(
     }
 
     def _fake_external_child_inputs(
-        *, root: Path, out: Path
+        *, out_dir: Path
     ) -> policy_scanner_suite.ExternalChildInputs:
+        assert out_dir == root / "artifacts/out"
         policy_check_result.write_text(
             json.dumps(policy_check_payload, indent=2) + "\n",
             encoding="utf-8",
@@ -323,11 +327,12 @@ def test_run_does_not_regenerate_missing_policy_check_owned_semantic_queue(
         _fake_external_child_inputs,
     )
 
-    rc = policy_scanner_suite.run(root=root, out=out)
+    rc = policy_scanner_suite.run(root=root, out_dir=out_dir)
 
     assert rc == 0
-    assert not (out.parent / "projection_semantic_fragment_queue.json").exists()
-    assert not (out.parent / "projection_semantic_fragment_queue.md").exists()
+    assert not (out_dir / "projection_semantic_fragment_queue.json").exists()
+    assert not (out_dir / "projection_semantic_fragment_queue.md").exists()
+    assert not (out_dir / "policy_suite_results.json").exists()
 
 
 def test_run_passes_in_memory_payload_to_hotspot_queue(
@@ -335,7 +340,7 @@ def test_run_passes_in_memory_payload_to_hotspot_queue(
     monkeypatch: object,
 ) -> None:
     root = tmp_path
-    out = root / "artifacts/out/policy_suite_results.json"
+    out_dir = root / "artifacts/out"
     captured: dict[str, object] = {}
 
     policy_check_payload = policy_scanner_suite.policy_result_schema.make_policy_result(
@@ -348,8 +353,9 @@ def test_run_passes_in_memory_payload_to_hotspot_queue(
     )
 
     def _fake_external_child_inputs(
-        *, root: Path, out: Path
+        *, out_dir: Path
     ) -> policy_scanner_suite.ExternalChildInputs:
+        assert out_dir == root / "artifacts/out"
         return policy_scanner_suite.ExternalChildInputs(
             child_statuses={"policy_check": "pass"},
             runtime_child_inputs=policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs(
@@ -403,10 +409,9 @@ def test_run_passes_in_memory_payload_to_hotspot_queue(
         _fake_run_from_payload,
     )
 
-    rc = policy_scanner_suite.run(root=root, out=out)
+    rc = policy_scanner_suite.run(root=root, out_dir=out_dir)
 
     assert rc == 0
-    persisted_payload = json.loads(out.read_text(encoding="utf-8"))
     payload = captured["payload"]
     assert isinstance(payload, dict)
     assert "decision" not in payload
@@ -414,33 +419,9 @@ def test_run_passes_in_memory_payload_to_hotspot_queue(
     assert "generated_at_utc" not in payload
     assert "policy_results" not in payload
     assert "projection_fiber_semantics" not in payload
-    assert captured["out_path"] == out.parent / "hotspot_neighborhood_queue.json"
-    assert captured["markdown_out"] == out.parent / "hotspot_neighborhood_queue.md"
-    assert persisted_payload == {
-        "format_version": 1,
-        "violations": {
-            "no_monkeypatch": [],
-            "branchless": [],
-            "defensive_fallback": [],
-            "fiber_loop_structure_contract": [],
-            "fiber_filter_processor_contract": [],
-            "fiber_return_shape_contract": [],
-            "fiber_scalar_sentinel_contract": [],
-            "fiber_type_dispatch_contract": [],
-            "no_anonymous_tuple": [],
-            "no_mutable_dict": [],
-            "no_scalar_conversion_boundary": [],
-            "no_legacy_monolith_import": [],
-            "orchestrator_primitive_barrel": [],
-            "typing_surface": [],
-            "runtime_narrowing_boundary": [],
-            "aspf_normalization_idempotence": [],
-            "boundary_core_contract": [],
-            "fiber_normalization_contract": [],
-            "test_subprocess_hygiene": [],
-            "test_sleep_hygiene": [],
-        },
-    }
+    assert captured["out_path"] == out_dir / "hotspot_neighborhood_queue.json"
+    assert captured["markdown_out"] == out_dir / "hotspot_neighborhood_queue.md"
+    assert not (out_dir / "policy_suite_results.json").exists()
 
 
 def test_run_passes_minimal_boundary_shape_with_projection_fiber_semantics(
@@ -448,15 +429,16 @@ def test_run_passes_minimal_boundary_shape_with_projection_fiber_semantics(
     monkeypatch: object,
 ) -> None:
     root = tmp_path
-    out = root / "artifacts/out/policy_suite_results.json"
+    out_dir = root / "artifacts/out"
     captured: dict[str, object] = {}
     projection_fiber_semantics = {
         "decision": {"rule_id": "projection_fiber.convergence.ok"},
     }
 
     def _fake_external_child_inputs(
-        *, root: Path, out: Path
+        *, out_dir: Path
     ) -> policy_scanner_suite.ExternalChildInputs:
+        assert out_dir == root / "artifacts/out"
         return policy_scanner_suite.ExternalChildInputs(
             child_statuses={"policy_check": "pass"},
             runtime_child_inputs=policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs(
@@ -501,7 +483,7 @@ def test_run_passes_minimal_boundary_shape_with_projection_fiber_semantics(
         _fake_run_from_payload,
     )
 
-    rc = policy_scanner_suite.run(root=root, out=out)
+    rc = policy_scanner_suite.run(root=root, out_dir=out_dir)
 
     assert rc == 1
     assert captured["payload"] == {
@@ -509,10 +491,7 @@ def test_run_passes_minimal_boundary_shape_with_projection_fiber_semantics(
         "violations": {"branchless": [{"path": "src/gabion/example.py"}]},
         "projection_fiber_semantics": projection_fiber_semantics,
     }
-    assert json.loads(out.read_text(encoding="utf-8")) == {
-        "format_version": 1,
-        "violations": {"branchless": [{"path": "src/gabion/example.py"}]},
-    }
+    assert not (out_dir / "policy_suite_results.json").exists()
 
 
 # gabion:evidence E:function_site::test_policy_scanner_suite_script.py::tests.gabion.tooling.policy.test_policy_scanner_suite_script.test_resolve_external_child_inputs_preserve_preexisting_child_artifacts
@@ -522,11 +501,11 @@ def test_resolve_external_child_inputs_preserve_preexisting_child_artifacts(
     monkeypatch: object,
 ) -> None:
     root = tmp_path
-    out = root / "artifacts/out/policy_suite_results.json"
-    out.parent.mkdir(parents=True, exist_ok=True)
-    policy_check_result = out.parent / "policy_check_result.json"
-    structural_hash_result = out.parent / "structural_hash_result.json"
-    deprecated_result = out.parent / "deprecated_nonerasability_result.json"
+    out_dir = root / "artifacts/out"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    policy_check_result = out_dir / "policy_check_result.json"
+    structural_hash_result = out_dir / "structural_hash_result.json"
+    deprecated_result = out_dir / "deprecated_nonerasability_result.json"
 
     policy_scanner_suite.policy_result_schema.write_policy_result(
         path=policy_check_result,
@@ -571,7 +550,7 @@ def test_resolve_external_child_inputs_preserve_preexisting_child_artifacts(
         ),
     )
 
-    child_inputs = policy_scanner_suite._resolve_external_child_inputs(root=root, out=out)
+    child_inputs = policy_scanner_suite._resolve_external_child_inputs(out_dir=out_dir)
 
     assert child_inputs.child_statuses == {
         "policy_check": "pass",
@@ -588,7 +567,7 @@ def test_resolve_external_child_inputs_fail_closed_when_child_artifact_missing(
     monkeypatch: object,
 ) -> None:
     root = tmp_path
-    out = root / "artifacts/out/policy_suite_results.json"
+    out_dir = root / "artifacts/out"
     monkeypatch.setattr(
         policy_scanner_suite.policy_result_schema,
         "load_policy_result",
@@ -596,7 +575,7 @@ def test_resolve_external_child_inputs_fail_closed_when_child_artifact_missing(
     )
 
     try:
-        policy_scanner_suite._resolve_external_child_inputs(root=root, out=out)
+        policy_scanner_suite._resolve_external_child_inputs(out_dir=out_dir)
     except RuntimeError as exc:
         message = str(exc)
     else:  # pragma: no cover
@@ -615,10 +594,10 @@ def test_resolve_external_child_inputs_fail_closed_when_later_child_artifact_mis
     tmp_path: Path,
 ) -> None:
     root = tmp_path
-    out = root / "artifacts/out/policy_suite_results.json"
-    out.parent.mkdir(parents=True, exist_ok=True)
+    out_dir = root / "artifacts/out"
+    out_dir.mkdir(parents=True, exist_ok=True)
     policy_scanner_suite.policy_result_schema.write_policy_result(
-        path=out.parent / "policy_check_result.json",
+        path=out_dir / "policy_check_result.json",
         result=policy_scanner_suite.policy_result_schema.make_policy_result(
             rule_id="policy_check",
             status="pass",
@@ -629,7 +608,7 @@ def test_resolve_external_child_inputs_fail_closed_when_later_child_artifact_mis
         ),
     )
     policy_scanner_suite.policy_result_schema.write_policy_result(
-        path=out.parent / "structural_hash_result.json",
+        path=out_dir / "structural_hash_result.json",
         result=policy_scanner_suite.policy_result_schema.make_policy_result(
             rule_id="structural_hash",
             status="pass",
@@ -640,7 +619,7 @@ def test_resolve_external_child_inputs_fail_closed_when_later_child_artifact_mis
         ),
     )
     try:
-        policy_scanner_suite._resolve_external_child_inputs(root=root, out=out)
+        policy_scanner_suite._resolve_external_child_inputs(out_dir=out_dir)
     except RuntimeError as exc:
         message = str(exc)
     else:  # pragma: no cover

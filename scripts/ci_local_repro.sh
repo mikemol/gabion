@@ -723,11 +723,11 @@ run_checks_job() {
   if [ -n "${scanner_base:-}" ] && [ -n "${scanner_head:-}" ]; then
     observed checks_policy_scanner_suite "$PYTHON_BIN" scripts/policy/policy_scanner_suite.py \
       --root . \
-      --out artifacts/out/policy_suite_results.json \
+      --out-dir artifacts/out \
       --base-sha "$scanner_base" \
       --head-sha "$scanner_head"
   else
-    observed checks_policy_scanner_suite "$PYTHON_BIN" scripts/policy/policy_scanner_suite.py --root . --out artifacts/out/policy_suite_results.json
+    observed checks_policy_scanner_suite "$PYTHON_BIN" scripts/policy/policy_scanner_suite.py --root . --out-dir artifacts/out
   fi
 
   step "checks: controller drift audit (advisory, ratchet-ready)"
@@ -981,7 +981,7 @@ run_pr_dataflow_job() {
   step "pr-dataflow: policy scanner suite"
   observed pr_dataflow_policy_scanner_suite "$PYTHON_BIN" scripts/policy/policy_scanner_suite.py \
     --root . \
-    --out artifacts/out/policy_suite_results.json \
+    --out-dir artifacts/out \
     --base-sha "$pr_base" \
     --head-sha "$pr_head"
 

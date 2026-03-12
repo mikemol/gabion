@@ -78,7 +78,7 @@ clauses:
         job: checks
         step: Policy scanner suite
     expected_artifacts:
-      - artifacts/out/policy_scanner_suite.json
+      - artifacts/out/hotspot_neighborhood_queue.json
   NCI-FIBER-TRACE-BOUNDARY:
     status: partial
     enforcing_modules:
@@ -92,7 +92,7 @@ clauses:
         job: checks
         step: Policy scanner suite
     expected_artifacts:
-      - artifacts/out/policy_suite_results.json
+      - artifacts/out/hotspot_neighborhood_queue.json
   NCI-BASELINE-RATCHET:
     status: partial
     enforcing_modules:

@@ -235,7 +235,7 @@ jobs:
           BEFORE_SHA: ${{ github.event.before }}
           AFTER_SHA: ${{ github.event.after || github.sha }}
         run: |
-          args=(--root . --out artifacts/out/policy_suite_results.json)
+          args=(--root . --out-dir artifacts/out)
           if [ -n "${BEFORE_SHA:-}" ] && [ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ] && [ -n "${AFTER_SHA:-}" ]; then
             args+=(--base-sha "$BEFORE_SHA" --head-sha "$AFTER_SHA")
           fi
@@ -335,7 +335,8 @@ jobs:
             artifacts/out/policy_check_result.json
             artifacts/out/structural_hash_result.json
             artifacts/out/deprecated_nonerasability_result.json
-            artifacts/out/policy_suite_results.json
+            artifacts/out/hotspot_neighborhood_queue.json
+            artifacts/out/hotspot_neighborhood_queue.md
             artifacts/out/docflow_warning_doc_packets.json
             artifacts/out/docflow_warning_doc_packet_summary.json
             artifacts/out/docflow_packet_enforcement.json

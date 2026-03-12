@@ -1,5 +1,5 @@
 ---
-doc_revision: 59
+doc_revision: 60
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -618,9 +618,9 @@ Current implementation status:
 - the outward `PolicySuiteResult` payload no longer projects a redundant
   `counts` summary; downstream reporting derives family totals directly from
   canonical `violations`, so one more wrapper-era summary field is removed
-- the persisted `policy_suite_results.json` compatibility artifact is now
-  boundary-owned rather than runtime-cached, and it no longer reuses the
-  public suite payload shape or stores duplicate derived fields
+- the retired `policy_suite_results.json` compatibility artifact is gone
+  entirely; the wrapper now publishes only its hotspot-neighborhood queue
+  artifacts, and no wrapper-owned mirror of suite violations remains on disk
 - the outward `PolicySuiteResult` payload no longer emits a redundant derived
   `decision`; callers that need the suite decision compute it from
   `PolicySuiteResult.decision()`, keeping the serialized reporting carrier
@@ -651,9 +651,9 @@ Current implementation status:
   wrapper runs
 - the active policy-scanner-suite wrapper path no longer depends on
   the retired runtime cache/load surface; it now calls `scan_policy_suite()`
-  directly and writes the thin
-  `policy_suite_results.json` compatibility artifact at the boundary instead of
-  routing through runtime cache orchestration
+  directly, consumes only child-owned result artifacts, and writes only the
+  hotspot-neighborhood queue at the boundary instead of routing through
+  runtime cache orchestration or publishing a suite-results compatibility file
 - wrapper-owned policy-result synthesis has now been removed from the
   policy-suite path entirely: the deprecated-nonerasability child check emits
   its own canonical `skip` result when baseline/current inputs are absent, and
