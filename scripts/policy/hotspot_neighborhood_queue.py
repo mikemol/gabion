@@ -443,8 +443,6 @@ def analyze(
             "ring_1_scope exceeds max file threshold; retained as large-zone backlog"
         )
 
-    counts_payload = payload.get("counts")
-    source_counts = counts_payload if isinstance(counts_payload, dict) else {}
     projection_fiber_decision = (
         dict(projection_fiber_summary.decision.items())
         if projection_fiber_summary is not None
@@ -479,7 +477,7 @@ def analyze(
         },
         "counts": {
             "source_counts": {
-                family: _count_int(source_counts.get(family))
+                family: int(family_totals.get(family, 0))
                 for family in families
             },
             "seed_count": len(seed_paths),

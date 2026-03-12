@@ -1,5 +1,5 @@
 ---
-doc_revision: 47
+doc_revision: 48
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -611,6 +611,9 @@ Current implementation status:
 - the runtime `PolicySuiteResult` carrier no longer owns or projects `root`;
   repository-root provenance remains a wrapper/cache concern rather than part
   of the outward suite semantic/reporting carrier
+- the outward `PolicySuiteResult` payload no longer projects a redundant
+  `counts` summary; downstream reporting derives family totals directly from
+  canonical `violations`, so one more wrapper-era summary field is removed
 - wrapper-owned policy-result synthesis has now been removed from the
   policy-suite path entirely: the deprecated-nonerasability child check emits
   its own canonical `skip` result when baseline/current inputs are absent, and

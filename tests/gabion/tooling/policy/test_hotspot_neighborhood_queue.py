@@ -17,13 +17,6 @@ def _payload() -> dict[str, object]:
     return {
         "format_version": 1,
         "generated_at_utc": "2026-03-09T00:00:00Z",
-        "counts": {
-            "branchless": 0,
-            "fiber_filter_processor_contract": 0,
-            "fiber_loop_structure_contract": 0,
-            "defensive_fallback": 0,
-            "fiber_scalar_sentinel_contract": 0,
-        },
         "violations": {
             "branchless": [
                 _violation("src/gabion/server_core/a.py", "a"),
@@ -181,7 +174,8 @@ def test_run_writes_json_and_markdown_outputs(tmp_path: Path) -> None:
     assert "rule_set_hash" not in payload["source"]
     assert "policy_results_hash" not in payload["source"]
     assert "changed_scope_hash" not in payload["source"]
-    assert payload["counts"]["source_counts"]["branchless"] == 0
+    assert payload["counts"]["source_counts"]["branchless"] == 21
+    assert payload["counts"]["source_counts"]["fiber_filter_processor_contract"] == 10
     assert payload["counts"]["neighborhood_count"] >= 1
     markdown = md.read_text(encoding="utf-8")
     assert "# Hotspot Neighborhood Queue" in markdown
@@ -334,7 +328,7 @@ def test_analyze_carries_projection_fiber_semantic_fields() -> None:
     assert source["projection_fiber_semantic_previews"][0]["path"] == (
         "src/gabion/example.py"
     )
-    assert queue["counts"]["source_counts"]["branchless"] == 0
+    assert queue["counts"]["source_counts"]["branchless"] == 21
 
 
 # gabion:evidence E:function_site::test_hotspot_neighborhood_queue.py::tests.gabion.tooling.policy.test_hotspot_neighborhood_queue.test_markdown_summary_includes_projection_fiber_semantic_fields

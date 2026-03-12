@@ -194,12 +194,10 @@ class PolicySuiteResult:
         )
 
     def to_payload(self) -> dict[str, object]:
-        counts = dict(map(_rule_count_pair, self.violations_by_rule.items()))
         decision = self.decision()
         payload: dict[str, object] = {
             "format_version": _FORMAT_VERSION,
             "generated_at_utc": datetime.now(timezone.utc).isoformat(),
-            "counts": counts,
             "violations": self.violations_by_rule,
             "decision": {
                 "rule_id": decision.rule_id,

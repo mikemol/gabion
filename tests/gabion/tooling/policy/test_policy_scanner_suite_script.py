@@ -390,6 +390,7 @@ def test_run_passes_in_memory_payload_to_hotspot_queue(
     assert rc == 0
     payload = captured["payload"]
     assert isinstance(payload, dict)
+    assert "counts" not in payload
     assert "policy_results" not in payload
     assert "projection_fiber_semantics" not in payload
     assert captured["out_path"] == out.parent / "hotspot_neighborhood_queue.json"

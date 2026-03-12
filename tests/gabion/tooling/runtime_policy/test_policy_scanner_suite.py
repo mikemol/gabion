@@ -88,6 +88,7 @@ def test_policy_scanner_suite_scan_and_cache(tmp_path: Path) -> None:
     assert policy_scanner_suite.violations_for_rule(first.result, rule="test_sleep_hygiene") == []
     first_payload = first.result.to_payload()
     assert "root" not in first_payload
+    assert "counts" not in first_payload
     assert "inventory_hash" not in first_payload
     assert "rule_set_hash" not in first_payload
 
@@ -97,6 +98,7 @@ def test_policy_scanner_suite_scan_and_cache(tmp_path: Path) -> None:
     )
     assert second.cached is True
     cached_payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    assert "counts" not in cached_payload
     assert "policy_results" not in cached_payload
     assert isinstance(cached_payload.get("inventory_hash"), str)
     assert isinstance(cached_payload.get("rule_set_hash"), str)

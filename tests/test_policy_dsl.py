@@ -49,6 +49,7 @@ def test_scanner_payload_uses_dsl_decision_shape() -> None:
     payload = result.to_payload()
     decision = payload.get("decision")
     assert "cached" not in payload
+    assert "counts" not in payload
     assert "root" not in payload
     assert isinstance(decision, dict)
     assert decision.get("rule_id") == "scanner.branchless.blocking"
