@@ -4,7 +4,6 @@ from collections import deque
 import itertools
 import json
 from pathlib import Path
-import subprocess
 from typing import Any, Iterable
 from gabion.tooling.policy_rules import (
     aspf_normalization_idempotence_rule,
@@ -45,57 +44,6 @@ _TEST_SUBPROCESS_HYGIENE_ALLOWLIST = Path("docs/policy/test_subprocess_hygiene_a
 _TEST_SLEEP_HYGIENE_ALLOWLIST = Path("docs/policy/test_sleep_hygiene_allowlist.txt")
 
 _BOUNDARY_MARKER = "gabion:boundary_normalization_module"
-
-
-def _changed_paths_from_git(
-    *,
-    root: Path,
-    base_sha: str | None,
-    head_sha: str | None,
-) -> set[str] | None:
-    if base_sha and head_sha:
-        command = ["git", "diff", "--name-only", f"{base_sha}..{head_sha}"]
-    else:
-        command = ["git", "diff", "--name-only", "HEAD"]
-    try:
-        completed = subprocess.run(
-            command,
-            cwd=root,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-    except (subprocess.CalledProcessError, OSError):
-        return None
-    changed = set(_iter_nonempty_stripped_lines(completed.stdout))
-    if base_sha and head_sha:
-        return changed
-
-    # Include untracked files for local touched+new checks.
-    try:
-        untracked = subprocess.run(
-            ["git", "ls-files", "--others", "--exclude-standard"],
-            cwd=root,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-    except (subprocess.CalledProcessError, OSError):
-        return changed
-    changed.update(_iter_nonempty_stripped_lines(untracked.stdout))
-    return changed
-
-
-def _iter_nonempty_stripped_lines(payload: str) -> Iterable[str]:
-    for line in payload.splitlines():
-        yield from _strip_default_empty(line)
-
-
-def _strip_default_empty(line: str) -> tuple[str, ...]:
-    stripped = line.strip()
-    if stripped:
-        return (stripped,)
-    return ()
 
 
 def _boundary_scoped_files(
@@ -153,25 +101,14 @@ def scan_policy_suite(
     *,
     root: Path,
     files: tuple[Path, ...] | None = None,
-    base_sha: str | None = None,
-    head_sha: str | None = None,
     changed_paths: set[str] | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
     resolved_root = root.resolve()
     inventory = files if files is not None else _inventory_files(resolved_root)
-    resolved_changed_paths = (
-        changed_paths
-        if changed_paths is not None
-        else _changed_paths_from_git(
-            root=resolved_root,
-            base_sha=base_sha,
-            head_sha=head_sha,
-        )
-    )
     boundary_scope_files = _boundary_scoped_files(
         root=resolved_root,
         inventory=inventory,
-        changed_paths=resolved_changed_paths,
+        changed_paths=changed_paths,
     )
     src_inventory = tuple(
         path for path in inventory if path.relative_to(resolved_root).as_posix().startswith("src/gabion/")

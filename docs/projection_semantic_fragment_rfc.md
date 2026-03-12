@@ -696,6 +696,9 @@ Current implementation status:
 - hotspot-neighborhood queue/report boundary helpers should name child-owned
   artifact ingress after the owning artifact itself (`policy_check_result.json`)
   rather than after derived semantic payloads like `projection_fiber_semantics`
+- policy-scanner-suite runtime scanning should consume explicit `changed_paths`
+  only; any `git diff` or untracked-file discovery belongs to the wrapper
+  boundary rather than the runtime scan surface
 - the runtime `scan_policy_suite()` surface no longer accepts
   `projection_fiber_semantics` at all; the wrapper resolves that child-owned
   semantic carrier at ingress and passes it directly to downstream reporting,

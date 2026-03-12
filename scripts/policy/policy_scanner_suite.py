@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+import subprocess
+from typing import Iterable
 
 from gabion.policy_dsl import PolicyDomain, evaluate_policy
 from gabion.tooling.runtime import policy_scanner_suite as runtime_policy_scanner_suite
@@ -22,6 +24,51 @@ def _policy_suite_decision(
     )
 
 
+def _changed_paths_from_git(
+    *,
+    root: Path,
+    base_sha: str | None,
+    head_sha: str | None,
+) -> set[str] | None:
+    if base_sha and head_sha:
+        command = ["git", "diff", "--name-only", f"{base_sha}..{head_sha}"]
+    else:
+        command = ["git", "diff", "--name-only", "HEAD"]
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=root,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (subprocess.CalledProcessError, OSError):
+        return None
+    changed = set(_iter_nonempty_stripped_lines(completed.stdout))
+    if base_sha and head_sha:
+        return changed
+
+    try:
+        untracked = subprocess.run(
+            ["git", "ls-files", "--others", "--exclude-standard"],
+            cwd=root,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (subprocess.CalledProcessError, OSError):
+        return changed
+    changed.update(_iter_nonempty_stripped_lines(untracked.stdout))
+    return changed
+
+
+def _iter_nonempty_stripped_lines(payload: str) -> Iterable[str]:
+    for line in payload.splitlines():
+        stripped = line.strip()
+        if stripped:
+            yield stripped
+
+
 def run(
     *,
     root: Path,
@@ -29,10 +76,14 @@ def run(
     base_sha: str | None = None,
     head_sha: str | None = None,
 ) -> int:
-    violations_by_rule = runtime_policy_scanner_suite.scan_policy_suite(
+    changed_paths = _changed_paths_from_git(
         root=root,
         base_sha=base_sha,
         head_sha=head_sha,
+    )
+    violations_by_rule = runtime_policy_scanner_suite.scan_policy_suite(
+        root=root,
+        changed_paths=changed_paths,
     )
     decision = _policy_suite_decision(violations_by_rule)
     queue_json = out_dir / "hotspot_neighborhood_queue.json"

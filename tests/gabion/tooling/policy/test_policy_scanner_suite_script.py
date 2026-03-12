@@ -159,6 +159,83 @@ def test_run_passes_canonical_inputs_to_hotspot_queue(
     assert not (out_dir / "policy_suite_results.json").exists()
 
 
+def test_run_resolves_changed_paths_at_wrapper_boundary(
+    tmp_path: Path,
+    monkeypatch: object,
+) -> None:
+    root = tmp_path
+    out_dir = root / "artifacts/out"
+    captured: dict[str, object] = {}
+
+    def _fake_changed_paths_from_git(
+        *,
+        root: Path,
+        base_sha: str | None,
+        head_sha: str | None,
+    ) -> set[str] | None:
+        captured["root"] = root
+        captured["base_sha"] = base_sha
+        captured["head_sha"] = head_sha
+        return {"src/gabion/example_boundary.py"}
+
+    def _fake_scan_policy_suite(
+        *,
+        root: Path,
+        files: tuple[Path, ...] | None = None,
+        changed_paths: set[str] | None = None,
+    ) -> dict[str, list[dict[str, object]]]:
+        captured["scan_root"] = root
+        captured["files"] = files
+        captured["changed_paths"] = changed_paths
+        return {}
+
+    def _fake_run_from_inputs(
+        *,
+        violations_by_rule: dict[str, list[dict[str, object]]],
+        policy_check_result_path: Path | None = None,
+        out_path: Path,
+        markdown_out: Path | None = None,
+        config: object | None = None,
+    ) -> int:
+        _ = violations_by_rule, policy_check_result_path, config
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text("{}\n", encoding="utf-8")
+        if markdown_out is not None:
+            markdown_out.write_text("# Hotspot Neighborhood Queue\n", encoding="utf-8")
+        return 0
+
+    monkeypatch.setattr(
+        policy_scanner_suite,
+        "_changed_paths_from_git",
+        _fake_changed_paths_from_git,
+    )
+    monkeypatch.setattr(
+        policy_scanner_suite.runtime_policy_scanner_suite,
+        "scan_policy_suite",
+        _fake_scan_policy_suite,
+    )
+    monkeypatch.setattr(
+        policy_scanner_suite.hotspot_neighborhood_queue,
+        "run_from_inputs",
+        _fake_run_from_inputs,
+    )
+
+    rc = policy_scanner_suite.run(
+        root=root,
+        out_dir=out_dir,
+        base_sha="base123",
+        head_sha="head456",
+    )
+
+    assert rc == 0
+    assert captured["root"] == root
+    assert captured["base_sha"] == "base123"
+    assert captured["head_sha"] == "head456"
+    assert captured["scan_root"] == root
+    assert captured["files"] is None
+    assert captured["changed_paths"] == {"src/gabion/example_boundary.py"}
+
+
 def test_run_passes_minimal_boundary_shape_with_policy_check_result_path(
     tmp_path: Path,
     monkeypatch: object,
