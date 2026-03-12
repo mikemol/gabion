@@ -29,6 +29,59 @@ def test_policy_check_requires_ci_script_entrypoints() -> None:
     assert any("scripts/ci/ci_controller_drift_gate.py" in error for error in errors)
 
 
+# gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_policy_check_requires_policy_check_output_before_policy_scanner_suite
+# gabion:behavior primary=desired
+def test_policy_check_requires_policy_check_output_before_policy_scanner_suite() -> None:
+    errors: list[str] = []
+    policy_check._check_policy_scanner_suite_entrypoints(
+        {
+            "jobs": {
+                "checks": {
+                    "steps": [
+                        {"run": ".venv/bin/python scripts/policy/policy_scanner_suite.py --root . --out-dir artifacts/out"},
+                    ]
+                }
+            }
+        },
+        Path(".github/workflows/ci.yml"),
+        errors,
+    )
+    assert errors == [
+        (
+            ".github/workflows/ci.yml: workflow must invoke "
+            "scripts/policy/policy_check.py --workflows --output "
+            "artifacts/out/policy_check_result.json before "
+            "scripts/policy/policy_scanner_suite.py"
+        )
+    ]
+
+
+# gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_policy_check_accepts_policy_check_output_before_policy_scanner_suite
+# gabion:behavior primary=desired
+def test_policy_check_accepts_policy_check_output_before_policy_scanner_suite() -> None:
+    errors: list[str] = []
+    policy_check._check_policy_scanner_suite_entrypoints(
+        {
+            "jobs": {
+                "checks": {
+                    "steps": [
+                        {
+                            "run": (
+                                ".venv/bin/python scripts/policy/policy_check.py "
+                                "--workflows --output artifacts/out/policy_check_result.json"
+                            )
+                        },
+                        {"run": ".venv/bin/python scripts/policy/policy_scanner_suite.py --root . --out-dir artifacts/out"},
+                    ]
+                }
+            }
+        },
+        Path(".github/workflows/ci.yml"),
+        errors,
+    )
+    assert errors == []
+
+
 # gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_policy_check_workflow_reason_code_classification
 # gabion:behavior primary=desired
 def test_policy_check_workflow_reason_code_classification() -> None:
@@ -50,6 +103,12 @@ def test_policy_check_workflow_reason_code_classification() -> None:
         )
         == "WF57_DENSE_CORE_LOCKIN"
     )
+    assert (
+        policy_check._workflow_reason_code(
+            ".github/workflows/ci.yml: workflow must invoke scripts/policy/policy_check.py --workflows --output artifacts/out/policy_check_result.json before scripts/policy/policy_scanner_suite.py"
+        )
+        == "WF57_ENTRYPOINT_MISSING"
+    )
 
 
 # gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_policy_check_writes_workflow_governance_artifacts
@@ -58,6 +117,7 @@ def test_policy_check_writes_workflow_governance_artifacts(tmp_path: Path) -> No
     policy_check._write_workflow_governance_artifacts(
         errors=[
             ".github/workflows/ci.yml: ci workflow must invoke scripts/policy/policy_scanner_suite.py",
+            ".github/workflows/pr-dataflow-grammar.yml: workflow must invoke scripts/policy/policy_check.py --workflows --output artifacts/out/policy_check_result.json before scripts/policy/policy_scanner_suite.py",
             ".github/workflows/release-pypi.yml:publish: release-pypi workflow must verify tag equals main/next/release",
         ],
         output_root=tmp_path,
@@ -71,7 +131,7 @@ def test_policy_check_writes_workflow_governance_artifacts(tmp_path: Path) -> No
     decision_payload = json.loads(
         (tmp_path / "quotient_promotion_decision.json").read_text(encoding="utf-8")
     )
-    assert len(violations_payload["violations"]) == 2
+    assert len(violations_payload["violations"]) == 3
     assert {item["reason_code"] for item in violations_payload["violations"]} == {
         "WF53_RELEASE_TAG_PROVENANCE",
         "WF57_ENTRYPOINT_MISSING",

@@ -1144,6 +1144,17 @@ def _check_policy_scanner_suite_entrypoints(doc, path, errors):
             steps.extend(raw_steps)
     if not _step_run_contains_any(steps, {"scripts/policy/policy_scanner_suite.py"}):
         errors.append(f"{path}: workflow must invoke scripts/policy/policy_scanner_suite.py")
+    required_policy_check_tokens = {
+        "scripts/policy/policy_check.py",
+        "--workflows",
+        "artifacts/out/policy_check_result.json",
+    }
+    if not _step_run_contains_tokens(steps, required_policy_check_tokens):
+        errors.append(
+            f"{path}: workflow must invoke scripts/policy/policy_check.py --workflows "
+            "--output artifacts/out/policy_check_result.json before "
+            "scripts/policy/policy_scanner_suite.py"
+        )
     deprecated_scanner_tokens = {
         "scripts/no_monkeypatch_policy_check.py",
         "scripts/branchless_policy_check.py",

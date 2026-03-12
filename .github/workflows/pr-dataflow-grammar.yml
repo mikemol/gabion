@@ -102,11 +102,6 @@ jobs:
       - name: Policy scanner suite
         run: |
           .venv/bin/python scripts/policy/policy_check.py --workflows --output artifacts/out/policy_check_result.json
-          .venv/bin/python scripts/policy/structural_hash_policy_check.py --root . --output artifacts/out/structural_hash_result.json
-          .venv/bin/python scripts/policy/deprecated_nonerasability_policy_check.py \
-            --baseline out/deprecated_fibers_baseline.json \
-            --current out/deprecated_fibers_current.json \
-            --output artifacts/out/deprecated_nonerasability_result.json
           .venv/bin/python scripts/policy/policy_scanner_suite.py --root . --out-dir artifacts/out
       - name: Governance PR template fields
         env:
@@ -220,8 +215,6 @@ jobs:
             artifacts/out/changed_lines.json
             artifacts/out/evidence_index_meta.json
             artifacts/out/policy_check_result.json
-            artifacts/out/structural_hash_result.json
-            artifacts/out/deprecated_nonerasability_result.json
             artifacts/out/hotspot_neighborhood_queue.json
             artifacts/out/hotspot_neighborhood_queue.md
       - name: Comment on PR with impact selection

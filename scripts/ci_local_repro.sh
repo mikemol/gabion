@@ -716,6 +716,11 @@ run_checks_job() {
   observed checks_git_diff_test_evidence git diff --exit-code out/test_evidence.json
   observed checks_git_diff_test_behavior git diff --exit-code out/test_behavior.json
 
+  step "checks: policy_check --workflows --output artifacts/out/policy_check_result.json"
+  observed checks_policy_workflows_output "$PYTHON_BIN" scripts/policy/policy_check.py \
+    --workflows \
+    --output artifacts/out/policy_check_result.json
+
   step "checks: policy scanner suite"
   local scanner_base scanner_head
   scanner_base="$(resolve_pr_base_sha || true)"
@@ -977,6 +982,11 @@ run_pr_dataflow_job() {
   else
     step "pr-dataflow: stage CI verification skipped (enable with --verify-pr-stage-ci)"
   fi
+
+  step "pr-dataflow: policy_check --workflows --output artifacts/out/policy_check_result.json"
+  observed pr_dataflow_policy_check_workflows_output "$PYTHON_BIN" scripts/policy/policy_check.py \
+    --workflows \
+    --output artifacts/out/policy_check_result.json
 
   step "pr-dataflow: policy scanner suite"
   observed pr_dataflow_policy_scanner_suite "$PYTHON_BIN" scripts/policy/policy_scanner_suite.py \
