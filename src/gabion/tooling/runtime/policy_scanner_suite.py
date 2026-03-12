@@ -181,8 +181,6 @@ def _boundary_scoped_candidate(
 @dataclass(frozen=True)
 class PolicySuiteResult:
     root: Path
-    inventory_hash: str
-    rule_set_hash: str
     violations_by_rule: dict[str, list[dict[str, Any]]]
     child_statuses: dict[str, str]
     projection_fiber_semantics: dict[str, Any] | None
@@ -205,8 +203,6 @@ class PolicySuiteResult:
             "format_version": _FORMAT_VERSION,
             "generated_at_utc": datetime.now(timezone.utc).isoformat(),
             "root": str(self.root),
-            "inventory_hash": self.inventory_hash,
-            "rule_set_hash": self.rule_set_hash,
             "cached": self.cached,
             "counts": counts,
             "violations": self.violations_by_rule,
@@ -288,8 +284,6 @@ def load_or_scan_policy_suite(
             violations = _violations_from_payload(cached_payload)
             return PolicySuiteResult(
                 root=resolved_root,
-                inventory_hash=inventory_hash,
-                rule_set_hash=rule_set_hash,
                 violations_by_rule=violations,
                 child_statuses=dict(normalized_child_inputs.child_statuses),
                 projection_fiber_semantics=normalized_child_inputs.projection_fiber_semantics,
@@ -304,9 +298,13 @@ def load_or_scan_policy_suite(
         head_sha=head_sha,
         changed_paths=changed_paths,
     )
-    payload = _cache_payload(result)
-    payload["child_inputs_hash"] = child_inputs_hash
-    payload["changed_scope_hash"] = changed_scope_hash
+    payload = _cache_payload(
+        result,
+        inventory_hash=inventory_hash,
+        rule_set_hash=rule_set_hash,
+        child_inputs_hash=child_inputs_hash,
+        changed_scope_hash=changed_scope_hash,
+    )
     artifact_path.parent.mkdir(parents=True, exist_ok=True)
     artifact_path.write_text(json.dumps(payload, indent=2, sort_keys=False) + "\n", encoding="utf-8")
     return result
@@ -598,8 +596,6 @@ def scan_policy_suite(
     _drain(_iter_sort_violations_by_rule(violations_by_rule))
     return PolicySuiteResult(
         root=resolved_root,
-        inventory_hash=inventory_hash,
-        rule_set_hash=rule_set_hash,
         violations_by_rule=violations_by_rule,
         child_statuses=dict(resolved_child_inputs.child_statuses),
         projection_fiber_semantics=resolved_child_inputs.projection_fiber_semantics,
@@ -664,9 +660,20 @@ def _violations_from_payload(payload: Mapping[str, Any]) -> dict[str, list[dict[
             return _empty_violations_payload()
 
 
-def _cache_payload(result: PolicySuiteResult) -> dict[str, object]:
+def _cache_payload(
+    result: PolicySuiteResult,
+    *,
+    inventory_hash: str,
+    rule_set_hash: str,
+    child_inputs_hash: str,
+    changed_scope_hash: str,
+) -> dict[str, object]:
     payload = result.to_payload()
     payload.pop("projection_fiber_semantics", None)
+    payload["inventory_hash"] = inventory_hash
+    payload["rule_set_hash"] = rule_set_hash
+    payload["child_inputs_hash"] = child_inputs_hash
+    payload["changed_scope_hash"] = changed_scope_hash
     return payload
 
 

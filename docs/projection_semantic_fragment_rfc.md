@@ -1,5 +1,5 @@
 ---
-doc_revision: 40
+doc_revision: 41
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -590,6 +590,9 @@ Current implementation status:
 - the runtime policy-scanner-suite module no longer exposes a raw child-result
   parser at all; `PolicySuiteChildInputs` is now a pure typed carrier, and raw
   child payload normalization lives only in the wrapper boundary helper
+- the outward-facing `PolicySuiteResult` carrier and payload no longer project
+  cache identity hashes (`inventory_hash`, `rule_set_hash`); those now remain
+  artifact-only cache metadata instead of public reporting surface
 - wrapper-owned policy-result synthesis has now been removed from the
   policy-suite path entirely: the deprecated-nonerasability child check emits
   its own canonical `skip` result when baseline/current inputs are absent, and

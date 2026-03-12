@@ -86,16 +86,19 @@ def test_policy_scanner_suite_scan_and_cache(tmp_path: Path) -> None:
     assert policy_scanner_suite.violations_for_rule(first, rule="fiber_normalization_contract") == []
     assert policy_scanner_suite.violations_for_rule(first, rule="test_subprocess_hygiene") == []
     assert policy_scanner_suite.violations_for_rule(first, rule="test_sleep_hygiene") == []
+    first_payload = first.to_payload()
+    assert "inventory_hash" not in first_payload
+    assert "rule_set_hash" not in first_payload
 
     second = policy_scanner_suite.load_or_scan_policy_suite(
         root=root,
         artifact_path=artifact_path,
     )
     assert second.cached is True
-    assert second.inventory_hash == first.inventory_hash
-    assert second.rule_set_hash == first.rule_set_hash
     cached_payload = json.loads(artifact_path.read_text(encoding="utf-8"))
     assert "policy_results" not in cached_payload
+    assert isinstance(cached_payload.get("inventory_hash"), str)
+    assert isinstance(cached_payload.get("rule_set_hash"), str)
 
 
 # gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_cache_invalidation_and_payload_normalization::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
@@ -151,7 +154,8 @@ def test_policy_scanner_suite_cache_invalidation_and_payload_normalization(
         artifact_path=artifact_path,
     )
     assert invalidated.cached is False
-    assert invalidated.inventory_hash != baseline.inventory_hash
+    invalidated_payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    assert invalidated_payload["inventory_hash"] != payload["inventory_hash"]
 
 
 # gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_private_cache_and_payload_branches::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite

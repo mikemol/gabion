@@ -44,8 +44,6 @@ def test_delta_gate_value_helpers_remain_compatible() -> None:
 def test_scanner_payload_uses_dsl_decision_shape() -> None:
     result = PolicySuiteResult(
         root=Path(".").resolve(),
-        inventory_hash="h1",
-        rule_set_hash="r1",
         violations_by_rule={"branchless": [{}], "defensive_fallback": [], "no_monkeypatch": []},
         child_statuses={},
         projection_fiber_semantics=None,
