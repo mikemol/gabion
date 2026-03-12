@@ -73,7 +73,28 @@ def reflect_projection_fiber_witness(
         surface="projection_fiber",
     )
     synthesized_witnesses = _synthesized_witness_payloads(witness)
-    boundary_trace = _boundary_trace_payloads(witness)
+    boundary_trace = [
+        {
+            "kind": "boundary_crossing",
+            "crossing_id": item.crossing_id,
+            "branch_site_id": item.branch_site_id,
+            "branch_site_identity": item.branch_site_identity,
+            "boundary_kind": item.boundary_kind,
+        }
+        for item in witness.boundary_crossings
+    ]
+    intro_ids = {item.obligation_id for item in witness.obligations}
+    erased_ids = {item.obligation_id for item in witness.erasures}
+    unresolved_obligations = intro_ids - erased_ids
+    obligation_state = (
+        "unresolved"
+        if witness.violation is not None
+        or not witness.complete
+        or unresolved_obligations
+        else "erased"
+        if intro_ids
+        else "discharged"
+    )
     row: CanonicalWitnessedSemanticRow = {
         "row_id": structural_identity,
         "structural_identity": structural_identity,
@@ -123,7 +144,7 @@ def reflect_projection_fiber_witness(
                 ),
             },
         ],
-        "obligation_state": _obligation_state(witness),
+        "obligation_state": obligation_state,
     }
     return close_canonical_semantic_row(row)
 
@@ -323,36 +344,6 @@ def _obligation_payloads(witness: FrontierWitness) -> list[JSONObject]:
         ],
         *violation_payloads,
     ]
-
-@grade_boundary(
-    kind="semantic_carrier_adapter",
-    name="semantic_fragment.boundary_trace_payloads",
-)
-def _boundary_trace_payloads(witness: FrontierWitness) -> list[JSONObject]:
-    return [
-        {
-            "kind": "boundary_crossing",
-            "crossing_id": item.crossing_id,
-            "branch_site_id": item.branch_site_id,
-            "branch_site_identity": item.branch_site_identity,
-            "boundary_kind": item.boundary_kind,
-        }
-        for item in witness.boundary_crossings
-    ]
-
-@grade_boundary(
-    kind="semantic_carrier_adapter",
-    name="semantic_fragment.obligation_state",
-)
-def _obligation_state(witness: FrontierWitness) -> str:
-    intro_ids = {item.obligation_id for item in witness.obligations}
-    erased_ids = {item.obligation_id for item in witness.erasures}
-    unresolved = intro_ids - erased_ids
-    if witness.violation is not None or not witness.complete or unresolved:
-        return "unresolved"
-    if intro_ids and not unresolved:
-        return "erased"
-    return "discharged"
 
 @grade_boundary(
     kind="semantic_carrier_adapter",
