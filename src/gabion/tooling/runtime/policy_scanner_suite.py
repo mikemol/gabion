@@ -183,9 +183,6 @@ class PolicySuiteResult:
     violations_by_rule: dict[str, list[dict[str, Any]]]
     projection_fiber_semantics: dict[str, Any] | None
 
-    def total_violations(self) -> int:
-        return sum(_iter_rule_violation_counts(self.violations_by_rule.values()))
-
     def decision(self) -> PolicyDecision:
         counts = dict(map(_rule_count_pair, self.violations_by_rule.items()))
         return evaluate_policy(
@@ -215,11 +212,6 @@ class PolicySuiteChildInputs:
         return hashlib.sha256(
             json.dumps(payload, sort_keys=True).encode("utf-8")
         ).hexdigest()
-
-
-def _iter_rule_violation_counts(values: Iterable[list[dict[str, Any]]]) -> Iterable[int]:
-    for items in values:
-        yield len(items)
 
 
 def _rule_count_pair(item: tuple[str, list[dict[str, Any]]]) -> tuple[str, int]:

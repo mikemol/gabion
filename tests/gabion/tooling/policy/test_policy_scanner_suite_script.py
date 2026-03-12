@@ -418,18 +418,74 @@ def test_run_passes_in_memory_payload_to_hotspot_queue(
     assert captured["markdown_out"] == out.parent / "hotspot_neighborhood_queue.md"
 
 
-def test_hotspot_source_payload_uses_minimal_boundary_shape() -> None:
-    result = policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteResult(
-        violations_by_rule={"branchless": [{"path": "src/gabion/example.py"}]},
-        projection_fiber_semantics={"decision": {"rule_id": "projection_fiber.convergence.ok"}},
+def test_run_passes_minimal_boundary_shape_with_projection_fiber_semantics(
+    tmp_path: Path,
+    monkeypatch: object,
+) -> None:
+    root = tmp_path
+    out = root / "artifacts/out/policy_suite_results.json"
+    captured: dict[str, object] = {}
+    projection_fiber_semantics = {
+        "decision": {"rule_id": "projection_fiber.convergence.ok"},
+    }
+
+    def _fake_external_child_inputs(
+        *, root: Path, out: Path
+    ) -> policy_scanner_suite.ExternalChildInputs:
+        return policy_scanner_suite.ExternalChildInputs(
+            child_statuses={"policy_check": "pass"},
+            runtime_child_inputs=policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs(
+                projection_fiber_semantics=dict(projection_fiber_semantics)
+            ),
+        )
+
+    def _fake_load_or_scan_policy_suite(**_: object) -> object:
+        return policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteLoadOutcome(
+            result=policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteResult(
+                violations_by_rule={"branchless": [{"path": "src/gabion/example.py"}]},
+                projection_fiber_semantics=dict(projection_fiber_semantics),
+            ),
+            cached=False,
+        )
+
+    def _fake_run_from_payload(
+        *,
+        payload: dict[str, object],
+        out_path: Path,
+        markdown_out: Path | None = None,
+        config: object | None = None,
+    ) -> int:
+        _ = config
+        captured["payload"] = payload
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text("{}\n", encoding="utf-8")
+        if markdown_out is not None:
+            markdown_out.write_text("# Hotspot Neighborhood Queue\n", encoding="utf-8")
+        return 0
+
+    monkeypatch.setattr(
+        policy_scanner_suite,
+        "_resolve_external_child_inputs",
+        _fake_external_child_inputs,
     )
-    payload = policy_scanner_suite._hotspot_source_payload(result)
-    assert payload == {
+    monkeypatch.setattr(
+        policy_scanner_suite.runtime_policy_scanner_suite,
+        "load_or_scan_policy_suite",
+        _fake_load_or_scan_policy_suite,
+    )
+    monkeypatch.setattr(
+        policy_scanner_suite.hotspot_neighborhood_queue,
+        "run_from_payload",
+        _fake_run_from_payload,
+    )
+
+    rc = policy_scanner_suite.run(root=root, out=out)
+
+    assert rc == 1
+    assert captured["payload"] == {
         "format_version": 1,
         "violations": {"branchless": [{"path": "src/gabion/example.py"}]},
-        "projection_fiber_semantics": {
-            "decision": {"rule_id": "projection_fiber.convergence.ok"}
-        },
+        "projection_fiber_semantics": projection_fiber_semantics,
     }
 
 

@@ -22,6 +22,10 @@ def _violations(
     return list(result.violations_by_rule.get(rule, []))
 
 
+def _total_violations(result: policy_scanner_suite.PolicySuiteResult) -> int:
+    return sum(len(items) for items in result.violations_by_rule.values())
+
+
 # gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_scan_and_cache::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
 # gabion:behavior primary=desired
 def test_policy_scanner_suite_scan_and_cache(tmp_path: Path) -> None:
@@ -64,7 +68,7 @@ def test_policy_scanner_suite_scan_and_cache(tmp_path: Path) -> None:
         artifact_path=artifact_path,
     )
     assert first.cached is False
-    assert first.result.total_violations() > 0
+    assert _total_violations(first.result) > 0
     decision = first.result.decision()
     assert decision.outcome.value in {"block", "warn", "pass", "skip"}
     assert _violations(first.result, rule="branchless")
@@ -242,7 +246,7 @@ def test_policy_scanner_suite_scan_with_explicit_nonstandard_files(tmp_path: Pat
         root=root,
         files=(external_file.resolve(),),
     )
-    assert result.total_violations() == 0
+    assert _total_violations(result) == 0
 
 
 # gabion:behavior primary=desired

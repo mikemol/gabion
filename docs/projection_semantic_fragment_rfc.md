@@ -1,5 +1,5 @@
 ---
-doc_revision: 54
+doc_revision: 55
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -637,6 +637,10 @@ Current implementation status:
 - the runtime policy-scanner-suite module no longer exposes a redundant
   `violations_for_rule(...)` accessor; wrapper/report consumers now read
   `violations_by_rule` directly from the typed result carrier
+- the runtime `PolicySuiteResult` carrier no longer exposes a trivial
+  `total_violations()` accessor, and the wrapper no longer carries a dedicated
+  `_hotspot_source_payload(...)` helper; both totals and hotspot payloads are
+  now derived directly from canonical `violations`
 - wrapper-owned policy-result synthesis has now been removed from the
   policy-suite path entirely: the deprecated-nonerasability child check emits
   its own canonical `skip` result when baseline/current inputs are absent, and

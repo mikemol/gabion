@@ -25,18 +25,6 @@ class ExternalChildArtifact:
     projection_fiber_semantics: dict[str, object] | None
 
 
-def _hotspot_source_payload(
-    result: runtime_policy_scanner_suite.PolicySuiteResult,
-) -> dict[str, object]:
-    payload: dict[str, object] = {
-        "format_version": 1,
-        "violations": result.violations_by_rule,
-    }
-    if result.projection_fiber_semantics is not None:
-        payload["projection_fiber_semantics"] = result.projection_fiber_semantics
-    return payload
-
-
 def _load_external_child_artifact(
     *, artifact: Path, expected_rule_id: str
 ) -> ExternalChildArtifact | None:
@@ -167,12 +155,18 @@ def run(
     decision = result.decision()
     queue_json = out.parent / "hotspot_neighborhood_queue.json"
     queue_md = out.parent / "hotspot_neighborhood_queue.md"
+    payload: dict[str, object] = {
+        "format_version": 1,
+        "violations": result.violations_by_rule,
+    }
+    if result.projection_fiber_semantics is not None:
+        payload["projection_fiber_semantics"] = result.projection_fiber_semantics
     hotspot_neighborhood_queue.run_from_payload(
-        payload=_hotspot_source_payload(result),
+        payload=payload,
         out_path=queue_json,
         markdown_out=queue_md,
     )
-    total = result.total_violations()
+    total = sum(len(items) for items in result.violations_by_rule.values())
     print(f"policy-suite scan: cached={outcome.cached} total_violations={total} out={out}")
     print(
         "policy-suite decision: "
