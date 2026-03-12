@@ -1,135 +1,33 @@
 # gabion:grade_boundary kind=semantic_carrier_adapter name=projection_exec
 from __future__ import annotations
 
-from dataclasses import dataclass
 from functools import singledispatch
 import json
 from collections.abc import Callable, Iterable, Mapping
 from typing import cast
 
-from gabion.analysis.foundation.resume_codec import str_list_from_sequence
 from gabion.analysis.projection.projection_exec_ingress import (
     ExecutionProjectionOp,
     execution_ops_from_spec,
 )
+from gabion.analysis.projection.projection_exec_protocol import (
+    CountByExecutionOp,
+    LimitExecutionOp,
+    ProjectExecutionOp,
+    SelectExecutionOp,
+    SortExecutionOp,
+    TraverseExecutionOp,
+)
 from gabion.analysis.projection.projection_spec import ProjectionSpec
 from gabion.json_types import JSONValue
 from gabion.analysis.foundation.timeout_context import check_deadline
-from gabion.invariants import never
 from gabion.order_contract import OrderPolicy, sort_once
 from gabion.runtime_shape_dispatch import (
-    int_optional,
     json_list_optional,
     json_mapping_optional,
-    str_optional,
 )
 
 Relation = list[dict[str, JSONValue]]
-
-
-@dataclass(frozen=True)
-class SelectParams:
-    predicates: tuple[str, ...]
-
-
-@dataclass(frozen=True)
-class ProjectParams:
-    fields: tuple[str, ...]
-
-
-@dataclass(frozen=True)
-class CountByParams:
-    fields: tuple[str, ...]
-
-
-@dataclass(frozen=True)
-class TraverseParams:
-    field: str
-    merge: bool = True
-    keep: bool = False
-    prefix: str = ""
-    as_field: str = ""
-    index_field: str = ""
-
-
-@dataclass(frozen=True)
-class SortKey:
-    field: str
-    order: str = "asc"
-
-
-@dataclass(frozen=True)
-class SortParams:
-    keys: tuple[SortKey, ...]
-
-
-@dataclass(frozen=True)
-class LimitParams:
-    count: object = None
-
-
-@singledispatch
-def _string_sequence_payload(value: JSONValue) -> tuple[str, ...]:
-    never("unregistered runtime type", value_type=type(value).__name__)
-
-
-@_string_sequence_payload.register(str)
-def _sd_reg_1(value: str) -> tuple[str, ...]:
-    return (value,)
-
-
-@_string_sequence_payload.register(list)
-def _sd_reg_2(value: list[JSONValue]) -> tuple[str, ...]:
-    return tuple(str_list_from_sequence(value))
-
-
-@_string_sequence_payload.register(tuple)
-def _sd_reg_3(value: tuple[object, ...]) -> tuple[str, ...]:
-    return tuple(str_list_from_sequence(value))
-
-
-@_string_sequence_payload.register(set)
-def _sd_reg_4(value: set[object]) -> tuple[str, ...]:
-    return tuple(str_list_from_sequence(value))
-
-
-def _none_string_sequence(value: JSONValue) -> tuple[str, ...]:
-    _ = value
-    return ()
-
-
-for _runtime_type in (dict, int, float, bool, type(None)):
-    _string_sequence_payload.register(_runtime_type)(_none_string_sequence)
-
-
-@singledispatch
-def _sort_entries_payload(value: JSONValue) -> tuple[Mapping[str, JSONValue], ...]:
-    never("unregistered runtime type", value_type=type(value).__name__)
-
-
-@_sort_entries_payload.register(dict)
-def _sd_reg_5(value: dict[str, JSONValue]) -> tuple[Mapping[str, JSONValue], ...]:
-    return (value,)
-
-
-@_sort_entries_payload.register(list)
-def _sd_reg_6(value: list[JSONValue]) -> tuple[Mapping[str, JSONValue], ...]:
-    entries: list[Mapping[str, JSONValue]] = []
-    for entry in value:
-        check_deadline()
-        entry_map = json_mapping_optional(entry)
-        if entry_map is not None:
-            entries.append(entry_map)
-    return tuple(entries)
-
-
-def _none_sort_entries(value: JSONValue) -> tuple[Mapping[str, JSONValue], ...]:
-    _ = value
-    return ()
-
-
-for _runtime_type in (str, int, float, bool, tuple, set, type(None)):
-    _sort_entries_payload.register(_runtime_type)(_none_sort_entries)
 
 
 def apply_spec(
@@ -169,65 +67,118 @@ def _apply_normalized_execution_op(
     op_registry: Mapping[str, Callable[[Mapping[str, JSONValue], Mapping[str, JSONValue]], bool]],
     runtime_params: Mapping[str, JSONValue],
 ) -> Relation:
-    return _apply_execution_op_from_map(
+    return _apply_execution_op(
+        execution_op,
         rows,
-        op_name=execution_op.op_name,
-        params_map=execution_op.params,
         op_registry=op_registry,
         runtime_params=runtime_params,
     )
 
 
-def _apply_execution_op_from_map(
+@singledispatch
+def _apply_execution_op(
+    execution_op: ExecutionProjectionOp,
     rows: Relation,
     *,
-    op_name: object,
-    params_map: Mapping[str, JSONValue],
     op_registry: Mapping[str, Callable[[Mapping[str, JSONValue], Mapping[str, JSONValue]], bool]],
     runtime_params: Mapping[str, JSONValue],
 ) -> Relation:
+    _ = execution_op, op_registry, runtime_params
+    return rows
+
+
+@_apply_execution_op.register
+def _apply_select_execution_op(
+    execution_op: SelectExecutionOp,
+    rows: Relation,
+    *,
+    op_registry: Mapping[str, Callable[[Mapping[str, JSONValue], Mapping[str, JSONValue]], bool]],
+    runtime_params: Mapping[str, JSONValue],
+) -> Relation:
+    return _apply_select(
+        rows,
+        execution_op,
+        op_registry=op_registry,
+        runtime_params=runtime_params,
+    )
+
+
+@_apply_execution_op.register
+def _apply_project_execution_op(
+    execution_op: ProjectExecutionOp,
+    rows: Relation,
+    *,
+    op_registry: Mapping[str, Callable[[Mapping[str, JSONValue], Mapping[str, JSONValue]], bool]],
+    runtime_params: Mapping[str, JSONValue],
+) -> Relation:
+    _ = op_registry, runtime_params
+    if execution_op.fields:
+        return _apply_project(rows, execution_op)
+    return rows
+
+
+@_apply_execution_op.register
+def _apply_count_by_execution_op(
+    execution_op: CountByExecutionOp,
+    rows: Relation,
+    *,
+    op_registry: Mapping[str, Callable[[Mapping[str, JSONValue], Mapping[str, JSONValue]], bool]],
+    runtime_params: Mapping[str, JSONValue],
+) -> Relation:
+    _ = op_registry, runtime_params
+    if execution_op.fields:
+        return _apply_count_by(rows, execution_op)
+    return rows
+
+
+@_apply_execution_op.register
+def _apply_traverse_execution_op(
+    execution_op: TraverseExecutionOp,
+    rows: Relation,
+    *,
+    op_registry: Mapping[str, Callable[[Mapping[str, JSONValue], Mapping[str, JSONValue]], bool]],
+    runtime_params: Mapping[str, JSONValue],
+) -> Relation:
+    _ = op_registry, runtime_params
+    if execution_op.field:
+        return _apply_traverse(rows, execution_op)
+    return rows
+
+
+@_apply_execution_op.register
+def _apply_sort_execution_op(
+    execution_op: SortExecutionOp,
+    rows: Relation,
+    *,
+    op_registry: Mapping[str, Callable[[Mapping[str, JSONValue], Mapping[str, JSONValue]], bool]],
+    runtime_params: Mapping[str, JSONValue],
+) -> Relation:
+    _ = op_registry, runtime_params
     current = rows
-    if op_name == "select":
-        select_params = _select_params_from_map(params_map)
-        return _apply_select(
+    for key in reversed(execution_op.keys):
+        check_deadline()
+        current = sort_once(
             current,
-            select_params,
-            op_registry=op_registry,
-            runtime_params=runtime_params,
+            source=f"apply_spec.sort[{key.field}]",
+            policy=OrderPolicy.SORT,
+            key=lambda row, name=key.field: _sort_value(row.get(name)),
+            reverse=key.order == "desc",
         )
-    if op_name == "project":
-        project_params = _project_params_from_map(params_map)
-        if project_params.fields:
-            return _apply_project(current, project_params)
-        return current
-    if op_name == "count_by":
-        count_params = _count_by_params_from_map(params_map)
-        if count_params.fields:
-            return _apply_count_by(current, count_params)
-        return current
-    if op_name == "traverse":
-        traverse_params = _traverse_params_from_map(params_map)
-        if traverse_params.field:
-            return _apply_traverse(current, traverse_params)
-        return current
-    if op_name == "sort":
-        sort_params = _sort_params_from_map(params_map)
-        for key in reversed(sort_params.keys):
-            check_deadline()
-            current = sort_once(
-                current,
-                source=f"apply_spec.sort[{key.field}]",
-                policy=OrderPolicy.SORT,
-                key=lambda row, name=key.field: _sort_value(row.get(name)),
-                reverse=key.order == "desc",
-            )
-        return current
-    if op_name == "limit":
-        limit_params = _limit_params_from_map(params_map)
-        limit_count = int_optional(limit_params.count)
-        if limit_count is not None and limit_count >= 0:
-            return current[:limit_count]
     return current
+
+
+@_apply_execution_op.register
+def _apply_limit_execution_op(
+    execution_op: LimitExecutionOp,
+    rows: Relation,
+    *,
+    op_registry: Mapping[str, Callable[[Mapping[str, JSONValue], Mapping[str, JSONValue]], bool]],
+    runtime_params: Mapping[str, JSONValue],
+) -> Relation:
+    _ = op_registry, runtime_params
+    if execution_op.count >= 0:
+        return rows[:execution_op.count]
+    return rows
 
 
 def _copy_json_mapping(params: Mapping[str, JSONValue]) -> dict[str, JSONValue]:
@@ -251,20 +202,9 @@ def _hashable(value: JSONValue) -> object:
     return value
 
 
-def _select_params_from_map(params_map: Mapping[str, JSONValue]) -> SelectParams:
-    predicates = params_map.get("predicates", [])
-    predicate_values = _string_sequence_payload(predicates)
-    names: list[str] = []
-    for name in predicate_values:
-        predicate_name = str_optional(name)
-        if predicate_name is not None:
-            names.append(predicate_name)
-    return SelectParams(predicates=tuple(names))
-
-
 def _apply_select(
     rows: Relation,
-    select_params: SelectParams,
+    select_params: SelectExecutionOp,
     *,
     op_registry: Mapping[str, Callable[[Mapping[str, JSONValue], Mapping[str, JSONValue]], bool]],
     runtime_params: Mapping[str, JSONValue],
@@ -278,15 +218,7 @@ def _apply_select(
     return selected
 
 
-def _project_params_from_map(params_map: Mapping[str, JSONValue]) -> ProjectParams:
-    fields = params_map.get("fields", [])
-    field_values = _string_sequence_payload(fields)
-    normalized_fields_list = [field_text.strip() for field_text in field_values if field_text.strip()]
-    normalized_fields = tuple(normalized_fields_list)
-    return ProjectParams(fields=normalized_fields)
-
-
-def _apply_project(rows: Relation, params: ProjectParams) -> Relation:
+def _apply_project(rows: Relation, params: ProjectExecutionOp) -> Relation:
     projected: Relation = []
     for row in rows:
         check_deadline()
@@ -294,15 +226,7 @@ def _apply_project(rows: Relation, params: ProjectParams) -> Relation:
     return projected
 
 
-def _count_by_params_from_map(params_map: Mapping[str, JSONValue]) -> CountByParams:
-    fields = params_map.get("fields", params_map.get("field"))
-    field_values = _string_sequence_payload(fields)
-    normalized_fields_list = [field_text.strip() for field_text in field_values if field_text.strip()]
-    normalized_fields = tuple(normalized_fields_list)
-    return CountByParams(fields=normalized_fields)
-
-
-def _apply_count_by(rows: Relation, params: CountByParams) -> Relation:
+def _apply_count_by(rows: Relation, params: CountByExecutionOp) -> Relation:
     counts: dict[tuple[object, ...], dict[str, JSONValue]] = {}
     for row in rows:
         check_deadline()
@@ -326,45 +250,7 @@ def _apply_count_by(rows: Relation, params: CountByParams) -> Relation:
     return [counts[key] for key in ordered_group_keys]
 
 
-def _traverse_params_from_map(params_map: Mapping[str, JSONValue]) -> TraverseParams:
-    field = params_map.get("field")
-    field_name = str_optional(field)
-    if field_name is None or not field_name.strip():
-        return TraverseParams(field="")
-    field = field_name.strip()
-    merge = True
-    merge_raw = params_map.get("merge", True)
-    match merge_raw:
-        case bool() as merge_bool:
-            merge = merge_bool
-    keep = False
-    keep_raw = params_map.get("keep", False)
-    match keep_raw:
-        case bool() as keep_bool:
-            keep = keep_bool
-    prefix = params_map.get("prefix", "")
-    prefix = str_optional(prefix) or ""
-    as_field = params_map.get("as", field)
-    as_field_text = str_optional(as_field)
-    as_field = as_field_text if as_field_text and as_field_text.strip() else field
-    index_field = params_map.get("index")
-    index_field_text = str_optional(index_field)
-    index_field = (
-        index_field_text
-        if index_field_text and index_field_text.strip()
-        else ""
-    )
-    return TraverseParams(
-        field=field,
-        merge=merge,
-        keep=keep,
-        prefix=prefix,
-        as_field=as_field,
-        index_field=index_field,
-    )
-
-
-def _apply_traverse(rows: Relation, params: TraverseParams) -> Relation:
+def _apply_traverse(rows: Relation, params: TraverseExecutionOp) -> Relation:
     traversed: Relation = []
     for row in rows:
         check_deadline()
@@ -389,31 +275,3 @@ def _apply_traverse(rows: Relation, params: TraverseParams) -> Relation:
                     out[params.as_field] = element
                 traversed.append(out)
     return traversed
-
-
-def _sort_params_from_map(params_map: Mapping[str, JSONValue]) -> SortParams:
-    by = params_map.get("by", [])
-    by_entries = _sort_entries_payload(by)
-    keys: list[SortKey] = []
-    for entry in by_entries:
-        check_deadline()
-        field_text = str_optional(entry.get("field"))
-        if field_text is not None:
-            order_raw = str_optional(entry.get("order", "asc"))
-            normalized_order = (order_raw or "asc").strip().lower() or "asc"
-            keys.append(
-                SortKey(
-                    field=field_text,
-                    order=normalized_order,
-                )
-            )
-    return SortParams(keys=tuple(keys))
-
-
-def _limit_params_from_map(params_map: Mapping[str, JSONValue]) -> LimitParams:
-    count = params_map.get("count")
-    try:
-        limit = int(count) if count is not None else None
-    except (TypeError, ValueError):
-        limit = None
-    return LimitParams(count=limit)

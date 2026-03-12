@@ -1,5 +1,5 @@
 ---
-doc_revision: 79
+doc_revision: 80
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -730,7 +730,8 @@ Current implementation status:
   fallthrough; that normalization/erasure step now lives in a dedicated
   `projection_exec_ingress.py` adapter boundary, keeping the executor itself
   closer to a pure row runtime while compatibility work stays boundary-scoped
-  during semantic-fragment convergence
+  during semantic-fragment convergence, and the ingress adapter now hands the
+  executor typed execution-step params rather than dynamic param dicts
 
 Implementation rule:
 - policy DSL must consume canonical carrier rows rather than infer semantics
