@@ -17,6 +17,7 @@ from gabion.analysis.projection.semantic_fragment_compile import (
     CompiledShaclPlan,
     CompiledSparqlPlan,
     compile_projection_fiber_existential_image_to_sparql,
+    compile_projection_fiber_negate_to_sparql,
     compile_projection_fiber_reflect_to_shacl,
     compile_projection_fiber_reflect_to_sparql,
     compile_projection_fiber_quotient_face_to_shacl,
@@ -175,6 +176,11 @@ def _compile_semantic_projection_op(
         )
     if semantic_op.semantic_op is SemanticProjectionKind.EXISTENTIAL_IMAGE:
         return _compile_existential_image_semantic_op(
+            semantic_op=semantic_op,
+            semantic_rows=semantic_rows,
+        )
+    if semantic_op.semantic_op is SemanticProjectionKind.NEGATE:
+        return _compile_negate_semantic_op(
             semantic_op=semantic_op,
             semantic_rows=semantic_rows,
         )
@@ -338,6 +344,23 @@ def _compile_synthesize_witness_semantic_op(
     # materialize executable SHACL/SPARQL ownership for witness invention.
     _semantic_rows_for_surface(surface=surface, semantic_rows=semantic_rows)
     return (), (), ()
+
+
+def _compile_negate_semantic_op(
+    *,
+    semantic_op: SemanticProjectionOp,
+    semantic_rows: tuple[CanonicalWitnessedSemanticRow, ...],
+) -> tuple[
+    tuple[CompiledProjectionSemanticBinding, ...],
+    tuple[CompiledShaclPlan, ...],
+    tuple[CompiledSparqlPlan, ...],
+]:
+    surface = _required_surface(semantic_op.params)
+    sparql_plans: list[CompiledSparqlPlan] = []
+    for row in _semantic_rows_for_surface(surface=surface, semantic_rows=semantic_rows):
+        check_deadline()
+        sparql_plans.append(compile_projection_fiber_negate_to_sparql(row))
+    return (), (), tuple(sparql_plans)
 
 
 def _required_quotient_face(params: dict[str, object]) -> str:

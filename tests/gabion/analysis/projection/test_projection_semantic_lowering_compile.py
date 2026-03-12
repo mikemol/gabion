@@ -169,6 +169,21 @@ def _lowered_projection_fiber_witness_synthesis_plan():
     return lower_projection_spec_to_semantic_plan(spec)
 
 
+def _lowered_projection_fiber_negated_existential_image_plan():
+    spec = ProjectionSpec(
+        spec_version=1,
+        name="projection_fiber_negated_existential_image",
+        domain="projection_fiber",
+        pipeline=(
+            ProjectionOp(
+                op="negate",
+                params={"surface": "projection_fiber"},
+            ),
+        ),
+    )
+    return lower_projection_spec_to_semantic_plan(spec)
+
+
 def test_projection_semantic_lowering_compilation_is_deterministic() -> None:
     row = _row()
     lowering_plan = _lowered_projection_fiber_frontier_plan()
@@ -342,3 +357,26 @@ def test_projection_semantic_lowering_acknowledges_witness_synthesis_surface() -
     assert compiled.bindings == ()
     assert compiled.compiled_shacl_plans == ()
     assert compiled.compiled_sparql_plans == ()
+
+
+def test_projection_semantic_lowering_compiles_negated_existential_image_surface() -> None:
+    row = _row()
+    lowering_plan = _lowered_projection_fiber_negated_existential_image_plan()
+
+    compiled = compile_projection_semantic_lowering_plan(lowering_plan, (row,))
+
+    assert compiled.bindings == ()
+    assert compiled.compiled_shacl_plans == ()
+    sparql_plan = compiled.compiled_sparql_plans[0]
+
+    assert sparql_plan["semantic_op"] == "negate"
+    assert sparql_plan["surface"] == "projection_fiber"
+    assert sparql_plan["source_structural_identity"] == row["structural_identity"]
+    assert sparql_plan["select_vars"] == [
+        "?synthesizedWitnessKinds",
+        "?boundaryKinds",
+        "?obligationState",
+    ]
+    assert sparql_plan["anti_join_filters"] == [
+        f"NOT EXISTS satisfied existential image for {row['structural_identity']}"
+    ]

@@ -6,6 +6,7 @@ from gabion.analysis.projection.projection_registry import (
     PROJECTION_FIBER_CONTEXT_WEDGE_SPEC,
     PROJECTION_FIBER_EXISTENTIAL_IMAGE_SPEC,
     PROJECTION_FIBER_FRONTIER_SPEC,
+    PROJECTION_FIBER_NEGATED_EXISTENTIAL_IMAGE_SPEC,
     PROJECTION_FIBER_REINDEX_SPEC,
     PROJECTION_FIBER_REFLECTION_SPEC,
     PROJECTION_FIBER_REFLECTIVE_BOUNDARY_SPEC,
@@ -132,3 +133,11 @@ def test_projection_fiber_witness_synthesis_spec_is_registered_with_declared_sur
     synthesize_op = PROJECTION_FIBER_WITNESS_SYNTHESIS_SPEC.pipeline[0]
     assert synthesize_op.op == "synthesize_witness"
     assert synthesize_op.params["surface"] == "projection_fiber"
+
+
+def test_projection_fiber_negated_existential_image_spec_is_registered_with_declared_surface() -> None:
+    specs = build_registered_specs()
+    assert PROJECTION_FIBER_NEGATED_EXISTENTIAL_IMAGE_SPEC in specs.values()
+    negate_op = PROJECTION_FIBER_NEGATED_EXISTENTIAL_IMAGE_SPEC.pipeline[0]
+    assert negate_op.op == "negate"
+    assert negate_op.params["surface"] == "projection_fiber"

@@ -285,6 +285,7 @@ doc_role: audit
 | projection_fiber_context_wedge | projection_fiber | semantic_promoted | 1 | 0 | 0 |  |
 | projection_fiber_existential_image | projection_fiber | semantic_promoted | 1 | 0 | 0 |  |
 | projection_fiber_frontier | projection_fiber | mixed | 1 | 1 | 0 | projection_fiber.frontier |
+| projection_fiber_negated_existential_image | projection_fiber | semantic_promoted | 1 | 0 | 0 |  |
 | projection_fiber_reflection | projection_fiber | semantic_promoted | 1 | 0 | 0 |  |
 | projection_fiber_reflective_boundary | projection_fiber | mixed | 1 | 1 | 0 | projection_fiber.reflective_boundary |
 | projection_fiber_reindex | projection_fiber | semantic_promoted | 1 | 0 | 0 |  |

@@ -698,6 +698,21 @@ PROJECTION_FIBER_WITNESS_SYNTHESIS_SPEC = ProjectionSpec(
 )
 
 
+PROJECTION_FIBER_NEGATED_EXISTENTIAL_IMAGE_SPEC = ProjectionSpec(
+    spec_version=1,
+    name="projection_fiber_negated_existential_image",
+    domain="projection_fiber",
+    pipeline=(
+        ProjectionOp(
+            "negate",
+            {
+                "surface": "projection_fiber",
+            },
+        ),
+    ),
+)
+
+
 WL_REFINEMENT_SPEC = ProjectionSpec(
     spec_version=1,
     name="wl_refinement",
@@ -785,6 +800,7 @@ def iter_projection_fiber_semantic_specs() -> Iterable[ProjectionSpec]:
         PROJECTION_FIBER_REINDEX_SPEC,
         PROJECTION_FIBER_EXISTENTIAL_IMAGE_SPEC,
         PROJECTION_FIBER_WITNESS_SYNTHESIS_SPEC,
+        PROJECTION_FIBER_NEGATED_EXISTENTIAL_IMAGE_SPEC,
     )
 
 

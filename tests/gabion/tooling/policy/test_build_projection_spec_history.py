@@ -290,3 +290,13 @@ def test_summary_and_hotspot_rankings_match_inventory(tmp_path: Path) -> None:
     assert witness_synthesis_row["presentation_op_count"] == 0
     assert witness_synthesis_row["bridge_op_count"] == 0
     assert witness_synthesis_row["quotient_faces"] == []
+    negated_existential_image_row = next(
+        item
+        for item in rows
+        if item["spec_name"] == "projection_fiber_negated_existential_image"
+    )
+    assert negated_existential_image_row["lowering_status"] == "semantic_promoted"
+    assert negated_existential_image_row["semantic_op_count"] == 1
+    assert negated_existential_image_row["presentation_op_count"] == 0
+    assert negated_existential_image_row["bridge_op_count"] == 0
+    assert negated_existential_image_row["quotient_faces"] == []

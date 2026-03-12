@@ -27,6 +27,7 @@ class SemanticProjectionKind(str, Enum):
     REINDEX = "reindex"
     EXISTENTIAL_IMAGE = "existential_image"
     SUPPORT_REFLECT = "support_reflect"
+    NEGATE = "negate"
 
 
 class BridgeProjectionKind(str, Enum):
@@ -276,6 +277,15 @@ def _normalize_projection_op(
             op_name=op_name,
             params={"surface": surface},
         )
+    if op_name == "negate":
+        surface = _normalized_nonempty_string(_mapping_value(params, "surface"))
+        if not surface:
+            never("negate projection op missing surface")
+        return _NormalizedProjectionOp(
+            source_index=index,
+            op_name=op_name,
+            params={"surface": surface},
+        )
     return _NormalizedProjectionOp(
         source_index=index,
         op_name=op_name,
@@ -402,6 +412,22 @@ def _lower_projection_op(normalized_op: _NormalizedProjectionOp) -> _LoweredProj
                 source_index=normalized_op.source_index,
                 source_op=op_name,
                 semantic_op=SemanticProjectionKind.EXISTENTIAL_IMAGE,
+                params={"surface": surface},
+            ),
+        )
+    if op_name == "negate":
+        surface = _normalized_nonempty_string(_mapping_value(params, "surface"))
+        if surface != "projection_fiber":
+            never(
+                "unsupported negate semantic surface",
+                surface=surface or "<missing>",
+            )
+        return _LoweredSemanticProjectionOp(
+            layer=ProjectionOpLayer.SEMANTIC,
+            semantic_op=SemanticProjectionOp(
+                source_index=normalized_op.source_index,
+                source_op=op_name,
+                semantic_op=SemanticProjectionKind.NEGATE,
                 params={"surface": surface},
             ),
         )

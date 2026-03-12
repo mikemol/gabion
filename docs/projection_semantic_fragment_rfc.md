@@ -1,5 +1,5 @@
 ---
-doc_revision: 88
+doc_revision: 89
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -522,6 +522,12 @@ Current implementation status:
   SPARQL existential-image planning over the canonical synthesized-witness,
   boundary, and obligation-state context already carried on projection-fiber
   rows
+- `negate(surface=projection_fiber)` now compiles through that same typed
+  lowering/compiler path via a registered
+  `projection_fiber_negated_existential_image` `ProjectionSpec`; in v1 it
+  realizes SPARQL anti-join/`NOT EXISTS` planning over that same canonical
+  synthesized-witness, boundary, and obligation-state context as the negated
+  existential-image side of the TTL adjoint package
 - `synthesize_witness(surface=projection_fiber)` now compiles through that same
   typed lowering path via a registered `projection_fiber_witness_synthesis`
   `ProjectionSpec`; because witness invention stays semantic-core-only in v1,
@@ -530,7 +536,8 @@ Current implementation status:
 - the first real consumer of that bridge is the lattice-convergence substrate
   report, which now emits compiled semantic-plan bundles for the registered
   frontier, reflection, support-reflection, context-wedge, reindex,
-  existential-image, witness-synthesis, and reflective-boundary specs
+  existential-image, negated-existential-image, witness-synthesis, and
+  reflective-boundary specs
   alongside the raw semantic rows and top-level reflect plans derived from the
   same typed bundle output
 - that substrate output now crosses a runtime-facing boundary: `policy_check
