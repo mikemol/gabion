@@ -1,5 +1,5 @@
 ---
-doc_revision: 99
+doc_revision: 100
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -540,6 +540,11 @@ Current implementation status:
   reflective-boundary specs
   alongside the raw semantic rows and top-level reflect plans derived from the
   same typed bundle output
+- the declared `projection_fiber` semantic-spec set is currently closed under
+  typed lowering: every registered `projection_fiber_*` authoring face now
+  compiles through the semantic-lowering path, so further Phase 4 work must be
+  justified by a new declared semantic authoring face rather than by widening
+  legacy bridge behavior
 - that substrate output now crosses a runtime-facing boundary: `policy_check
   --output` carries a `projection_fiber_semantics` payload with the lattice
   decision, semantic report, and compiled projection-semantic bundles, so the

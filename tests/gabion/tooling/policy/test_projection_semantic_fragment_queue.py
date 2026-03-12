@@ -3,6 +3,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from gabion.analysis.projection.projection_registry import (
+    iter_projection_fiber_semantic_specs,
+)
 from scripts.policy import projection_semantic_fragment_queue
 
 
@@ -149,3 +152,34 @@ def test_analyze_marks_semantic_op_expansion_landed_when_witness_synthesis_is_pr
     items = {item["queue_id"]: item for item in queue["items"]}
     assert items["PSF-005"]["status"] == "landed"
     assert queue["next_queue_ids"] == ["PSF-004", "PSF-007"]
+
+
+def test_analyze_marks_friendly_surface_convergence_landed_when_all_declared_specs_compile() -> None:
+    payload = _policy_check_payload()
+    report = payload["projection_fiber_semantics"]["report"]
+    report["compiled_projection_semantic_bundles"] = [
+        {
+            "spec_name": str(spec.name),
+            "bindings": [
+                {
+                    "quotient_face": "projection_fiber.frontier",
+                    "source_structural_identity": "row-1",
+                }
+            ]
+            if str(spec.name) == "projection_fiber_frontier"
+            else [],
+            "compiled_shacl_plans": [],
+            "compiled_sparql_plans": [],
+        }
+        for spec in iter_projection_fiber_semantic_specs()
+    ]
+
+    queue = projection_semantic_fragment_queue.analyze(
+        payload=payload,
+        source_artifact="artifacts/out/policy_check_result.json",
+    ).as_payload()
+
+    items = {item["queue_id"]: item for item in queue["items"]}
+    assert items["PSF-004"]["status"] == "landed"
+    assert items["PSF-005"]["status"] == "landed"
+    assert queue["next_queue_ids"] == ["PSF-007"]

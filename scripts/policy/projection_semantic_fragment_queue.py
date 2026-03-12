@@ -9,6 +9,9 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
+from gabion.analysis.projection.projection_registry import (
+    iter_projection_fiber_semantic_specs,
+)
 from gabion.policy_dsl.registry import build_registry
 from gabion.policy_dsl.schema import PolicyDomain
 from gabion.order_contract import ordered_or_sorted
@@ -23,6 +26,14 @@ from gabion.tooling.runtime.projection_fiber_semantics_summary import (
 _FORMAT_VERSION = 1
 _DEFAULT_SOURCE_ARTIFACT = "artifacts/out/policy_check_result.json"
 _MAX_SEMANTIC_PREVIEW_SAMPLES = 20
+
+
+@lru_cache(maxsize=1)
+def _declared_projection_fiber_semantic_spec_names() -> tuple[str, ...]:
+    return tuple(
+        str(spec.name)
+        for spec in iter_projection_fiber_semantic_specs()
+    )
 
 
 def _sorted[T](values: list[T], *, key=None) -> list[T]:
@@ -181,6 +192,10 @@ def _queue_items(
     bundle_count = current_state.compiled_projection_semantic_bundle_count
     preview_count = current_state.semantic_preview_count
     semantic_lowering_landed = bundle_count > 0 and bool(spec_names)
+    declared_spec_names = _declared_projection_fiber_semantic_spec_names()
+    friendly_surface_convergence_landed = semantic_lowering_landed and all(
+        name in spec_names for name in declared_spec_names
+    )
     policy_direct_carrier_judgment_landed = (
         _projection_fiber_policy_direct_carrier_judgment_landed()
     )
@@ -266,14 +281,22 @@ def _queue_items(
         ProjectionSemanticFragmentQueueItem(
             queue_id="PSF-004",
             phase="Phase 4",
-            status="in_progress" if semantic_lowering_landed else "queued",
+            status=(
+                "landed"
+                if friendly_surface_convergence_landed
+                else "in_progress" if semantic_lowering_landed else "queued"
+            ),
             title="Friendly-surface convergence via typed ProjectionSpec lowering",
             summary=(
                 f"Typed lowering exists for {spec_names_summary}, projection_exec remains the compatibility runtime, and the projection history ledger now records per-spec lowering status."
                 if semantic_lowering_landed
                 else "Friendly-surface lowering has not yet been anchored to a canonical semantic path."
             ),
-            next_action="Promote additional declared semantic ops through lowering without adding new semantic behavior directly to projection_exec.",
+            next_action=(
+                "Keep the declared projection_fiber semantic-spec set closed under typed lowering; add new authoring faces as semantic ops first and preserve projection history alignment."
+                if friendly_surface_convergence_landed
+                else "Promote additional declared semantic ops through lowering without adding new semantic behavior directly to projection_exec."
+            ),
             evidence_links=(
                 "src/gabion/analysis/projection/projection_registry.py",
                 "scripts/policy/build_projection_spec_history.py",
