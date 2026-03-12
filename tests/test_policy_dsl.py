@@ -46,7 +46,6 @@ def test_scanner_payload_uses_dsl_decision_shape() -> None:
         root=Path(".").resolve(),
         violations_by_rule={"branchless": [{}], "defensive_fallback": [], "no_monkeypatch": []},
         projection_fiber_semantics=None,
-        cached=False,
     )
     payload = result.to_payload()
     decision = payload.get("decision")

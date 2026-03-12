@@ -183,7 +183,6 @@ class PolicySuiteResult:
     root: Path
     violations_by_rule: dict[str, list[dict[str, Any]]]
     projection_fiber_semantics: dict[str, Any] | None
-    cached: bool
 
     def total_violations(self) -> int:
         return sum(_iter_rule_violation_counts(self.violations_by_rule.values()))
@@ -214,6 +213,12 @@ class PolicySuiteResult:
         if self.projection_fiber_semantics is not None:
             payload["projection_fiber_semantics"] = self.projection_fiber_semantics
         return payload
+
+
+@dataclass(frozen=True)
+class PolicySuiteLoadOutcome:
+    result: PolicySuiteResult
+    cached: bool
 
 
 @dataclass(frozen=True)
@@ -251,7 +256,7 @@ def load_or_scan_policy_suite(
     child_inputs: PolicySuiteChildInputs | None = None,
     base_sha: str | None = None,
     head_sha: str | None = None,
-) -> PolicySuiteResult:
+) -> PolicySuiteLoadOutcome:
     resolved_root = root.resolve()
     files = _inventory_files(resolved_root)
     inventory_hash = _inventory_hash(files, resolved_root)
@@ -277,10 +282,12 @@ def load_or_scan_policy_suite(
             and str(cached_payload.get("changed_scope_hash", "")) == changed_scope_hash
         ):
             violations = _violations_from_payload(cached_payload)
-            return PolicySuiteResult(
-                root=resolved_root,
-                violations_by_rule=violations,
-                projection_fiber_semantics=normalized_child_inputs.projection_fiber_semantics,
+            return PolicySuiteLoadOutcome(
+                result=PolicySuiteResult(
+                    root=resolved_root,
+                    violations_by_rule=violations,
+                    projection_fiber_semantics=normalized_child_inputs.projection_fiber_semantics,
+                ),
                 cached=True,
             )
 
@@ -301,7 +308,7 @@ def load_or_scan_policy_suite(
     )
     artifact_path.parent.mkdir(parents=True, exist_ok=True)
     artifact_path.write_text(json.dumps(payload, indent=2, sort_keys=False) + "\n", encoding="utf-8")
-    return result
+    return PolicySuiteLoadOutcome(result=result, cached=False)
 
 
 # gabion:decision_protocol
@@ -592,7 +599,6 @@ def scan_policy_suite(
         root=resolved_root,
         violations_by_rule=violations_by_rule,
         projection_fiber_semantics=resolved_child_inputs.projection_fiber_semantics,
-        cached=False,
     )
 
 
@@ -1371,6 +1377,7 @@ def _serialize_test_sleep_hygiene(violation: object) -> dict[str, object]:
 
 
 __all__ = [
+    "PolicySuiteLoadOutcome",
     "PolicySuiteResult",
     "load_or_scan_policy_suite",
     "scan_policy_suite",

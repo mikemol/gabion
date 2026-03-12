@@ -145,13 +145,14 @@ def run(
     head_sha: str | None = None,
 ) -> int:
     child_inputs = _resolve_external_child_inputs(root=root, out=out)
-    result = runtime_policy_scanner_suite.load_or_scan_policy_suite(
+    outcome = runtime_policy_scanner_suite.load_or_scan_policy_suite(
         root=root,
         artifact_path=out,
         child_inputs=child_inputs.runtime_child_inputs,
         base_sha=base_sha,
         head_sha=head_sha,
     )
+    result = outcome.result
     decision = result.decision()
     queue_json = out.parent / "hotspot_neighborhood_queue.json"
     queue_md = out.parent / "hotspot_neighborhood_queue.md"
@@ -161,7 +162,7 @@ def run(
         markdown_out=queue_md,
     )
     total = result.total_violations()
-    print(f"policy-suite scan: cached={result.cached} total_violations={total} out={out}")
+    print(f"policy-suite scan: cached={outcome.cached} total_violations={total} out={out}")
     print(
         "policy-suite decision: "
         f"rule_id={decision.rule_id} outcome={decision.outcome.value} "
