@@ -23,10 +23,7 @@ from gabion.tooling.runtime.deadline_runtime import DeadlineBudget, deadline_sco
 from gabion.analysis.aspf.aspf import Forest
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.analysis.projection.projection_exec import apply_execution_ops
-from gabion.analysis.projection.projection_exec_ingress import (
-    apply_spec,
-    execution_ops_from_spec,
-)
+from gabion.analysis.projection.projection_exec_ingress import execution_ops_from_spec
 from gabion.analysis.projection.projection_normalize import normalize_spec, spec_canonical_json, spec_hash
 from gabion.analysis.projection.projection_spec import ProjectionOp, ProjectionSpec, spec_from_dict
 from gabion.analysis.semantics import evidence_keys
@@ -51,6 +48,7 @@ from gabion_governance.docflow_audit import (
     DocflowAuditContext,
     DocflowInvariant,
     DocflowObligationResult,
+    DocflowPredicateMatcher,
     run_docflow_domain,
 )
 from gabion_governance.docflow_audit.contracts import (
@@ -362,19 +360,115 @@ def _format_doc_ref(doc_id: str, rev: int | None) -> str:
     return f"{doc_id}@{rev}" if rev is not None else doc_id
 
 
-def _make_invariant_spec(name: str, predicates: list[str]) -> ProjectionSpec:
-    ops = [
-        ProjectionOp(
-            op="select",
-            params={"predicates": predicates},
+_DOCFLOW_PREDICATE_NAMES = frozenset(
+    {
+        "missing_frontmatter",
+        "missing_required_field",
+        "invalid_field_type",
+        "missing_governance_ref",
+        "missing_explicit_ref",
+        "review_pin_mismatch",
+        "missing_review_note",
+        "commutation_unreciprocated",
+        "evidence_row",
+        "evidence_kind",
+        "evidence_id",
+        "evidence_source",
+        "missing_loop_entry",
+        "missing_matrix_gate_entry",
+        "implication_matrix_conflict",
+    }
+)
+
+
+def _normalize_docflow_predicates(predicates: Iterable[str]) -> tuple[str, ...]:
+    cleaned: dict[str, None] = {}
+    for predicate in predicates:
+        normalized = str(predicate).strip()
+        if not normalized:
+            continue
+        cleaned.setdefault(normalized, None)
+    return tuple(str(value) for value in _sorted(cleaned))
+
+
+def _copy_docflow_matcher_params(
+    params: Mapping[str, JSONValue] | None = None,
+) -> dict[str, JSONValue]:
+    return {
+        str(key): value
+        for key, value in (params or {}).items()
+    }
+
+
+def _parse_docflow_predicate_matcher(
+    *,
+    predicates: Iterable[str],
+    params: Mapping[str, JSONValue] | None = None,
+) -> DocflowPredicateMatcher | None:
+    normalized = _normalize_docflow_predicates(predicates)
+    if not normalized:
+        return None
+    if any(predicate not in _DOCFLOW_PREDICATE_NAMES for predicate in normalized):
+        return None
+    return DocflowPredicateMatcher(
+        predicates=normalized,
+        params=_copy_docflow_matcher_params(params),
+    )
+
+
+def _make_invariant_matcher(
+    name: str,
+    predicates: Iterable[str],
+    *,
+    params: Mapping[str, JSONValue] | None = None,
+) -> DocflowPredicateMatcher:
+    matcher = _parse_docflow_predicate_matcher(
+        predicates=predicates,
+        params=params,
+    )
+    if matcher is None:
+        never(
+            "invalid internal docflow invariant matcher",
+            name=name,
+            predicates=list(predicates),
         )
-    ]
-    return ProjectionSpec(
-        spec_version=1,
-        name=name,
-        domain="docflow",
-        pipeline=tuple(ops),
-        params={},
+    return matcher
+
+
+def _matcher_from_spec(spec: ProjectionSpec) -> DocflowPredicateMatcher | None:
+    payload = normalize_spec(spec)
+    pipeline = payload.get("pipeline")
+    if not isinstance(pipeline, list):
+        return None
+    predicates: list[str] = []
+    for entry in pipeline:
+        check_deadline()
+        if not isinstance(entry, dict):
+            return None
+        if str(entry.get("op", "") or "") != "select":
+            return None
+        raw_params = entry.get("params", {})
+        if not isinstance(raw_params, dict):
+            return None
+        params = {str(key): raw_params[key] for key in raw_params}
+        raw_predicates = params.get("predicates", [])
+        match raw_predicates:
+            case str() as predicate if predicate.strip():
+                predicates.append(predicate.strip())
+            case list() as predicate_list:
+                for raw_value in predicate_list:
+                    check_deadline()
+                    text = str(raw_value).strip()
+                    if text:
+                        predicates.append(text)
+            case _:
+                return None
+    raw_matcher_params = payload.get("params", {})
+    if not isinstance(raw_matcher_params, dict):
+        return None
+    return _parse_docflow_predicate_matcher(
+        predicates=predicates,
+        params={str(key): raw_matcher_params[key] for key in raw_matcher_params},
     )
 
 
@@ -686,82 +780,67 @@ _DOCFLOW_EVIDENCE_PREDICATES = frozenset(
 
 
 def _invariant_uses_evidence_rows(invariant: DocflowInvariant) -> bool:
-    raw_predicates = getattr(invariant.spec, "predicates", None)
-    if isinstance(raw_predicates, tuple):
-        predicates = [str(predicate) for predicate in raw_predicates]
-    elif isinstance(raw_predicates, list):
-        predicates = [str(predicate) for predicate in raw_predicates]
-    else:
-        predicates = []
-        for op in invariant.spec.pipeline:
-            if str(op.op) != "select":
-                continue
-            params = op.params
-            raw = params.get("predicates") if isinstance(params, Mapping) else None
-            if isinstance(raw, list):
-                predicates.extend(str(predicate) for predicate in raw)
-            elif isinstance(raw, tuple):
-                predicates.extend(str(predicate) for predicate in raw)
-            elif isinstance(raw, str):
-                predicates.append(raw)
-    return any(predicate in _DOCFLOW_EVIDENCE_PREDICATES for predicate in predicates)
+    return any(
+        predicate in _DOCFLOW_EVIDENCE_PREDICATES
+        for predicate in invariant.matcher.predicates
+    )
 
 
 DOCFLOW_AUDIT_INVARIANTS = [
     DocflowInvariant(
         name="docflow:missing_frontmatter",
         kind="never",
-        spec=_make_invariant_spec("docflow:missing_frontmatter", ["missing_frontmatter"]),
+        matcher=_make_invariant_matcher("docflow:missing_frontmatter", ["missing_frontmatter"]),
     ),
     DocflowInvariant(
         name="docflow:missing_required_field",
         kind="never",
-        spec=_make_invariant_spec("docflow:missing_required_field", ["missing_required_field"]),
+        matcher=_make_invariant_matcher("docflow:missing_required_field", ["missing_required_field"]),
     ),
     DocflowInvariant(
         name="docflow:invalid_field_type",
         kind="never",
-        spec=_make_invariant_spec("docflow:invalid_field_type", ["invalid_field_type"]),
+        matcher=_make_invariant_matcher("docflow:invalid_field_type", ["invalid_field_type"]),
     ),
     DocflowInvariant(
         name="docflow:missing_governance_ref",
         kind="never",
-        spec=_make_invariant_spec("docflow:missing_governance_ref", ["missing_governance_ref"]),
+        matcher=_make_invariant_matcher("docflow:missing_governance_ref", ["missing_governance_ref"]),
     ),
     DocflowInvariant(
         name="docflow:missing_explicit_reference",
         kind="never",
-        spec=_make_invariant_spec("docflow:missing_explicit_reference", ["missing_explicit_ref"]),
+        matcher=_make_invariant_matcher("docflow:missing_explicit_reference", ["missing_explicit_ref"]),
     ),
     DocflowInvariant(
         name="docflow:review_pin_mismatch",
         kind="never",
-        spec=_make_invariant_spec("docflow:review_pin_mismatch", ["review_pin_mismatch"]),
+        matcher=_make_invariant_matcher("docflow:review_pin_mismatch", ["review_pin_mismatch"]),
     ),
     DocflowInvariant(
         name="docflow:missing_review_note",
         kind="never",
-        spec=_make_invariant_spec("docflow:missing_review_note", ["missing_review_note"]),
+        matcher=_make_invariant_matcher("docflow:missing_review_note", ["missing_review_note"]),
     ),
     DocflowInvariant(
         name="docflow:commutation_unreciprocated",
         kind="never",
-        spec=_make_invariant_spec("docflow:commutation_unreciprocated", ["commutation_unreciprocated"]),
+        matcher=_make_invariant_matcher("docflow:commutation_unreciprocated", ["commutation_unreciprocated"]),
     ),
     DocflowInvariant(
         name="docflow:missing_governance_control_loop",
         kind="never",
-        spec=_make_invariant_spec("docflow:missing_governance_control_loop", ["missing_loop_entry"]),
+        matcher=_make_invariant_matcher("docflow:missing_governance_control_loop", ["missing_loop_entry"]),
     ),
     DocflowInvariant(
         name="docflow:governance_loop_matrix_drift",
         kind="never",
-        spec=_make_invariant_spec("docflow:governance_loop_matrix_drift", ["missing_matrix_gate_entry"]),
+        matcher=_make_invariant_matcher("docflow:governance_loop_matrix_drift", ["missing_matrix_gate_entry"]),
     ),
     DocflowInvariant(
         name="docflow:implication_matrix_conflict",
         kind="never",
-        spec=_make_invariant_spec("docflow:implication_matrix_conflict", ["implication_matrix_conflict"]),
+        matcher=_make_invariant_matcher("docflow:implication_matrix_conflict", ["implication_matrix_conflict"]),
     ),
 ]
 
@@ -2230,6 +2309,35 @@ def _format_docflow_violation(row: Mapping[str, JSONValue]) -> str:
     return f"{path}: docflow invariant violation"
 
 
+def _match_docflow_rows(
+    rows: Iterable[dict[str, object]],
+    *,
+    matcher: DocflowPredicateMatcher,
+    op_registry: Mapping[
+        str,
+        Callable[[Mapping[str, JSONValue], Mapping[str, JSONValue]], bool],
+    ],
+) -> list[dict[str, object]]:
+    matched = list(rows)
+    for predicate_name in matcher.predicates:
+        check_deadline()
+        predicate = op_registry.get(predicate_name)
+        if predicate is None:
+            never(
+                "unknown docflow invariant predicate",
+                predicate=predicate_name,
+            )
+        matched = [
+            row
+            for row in matched
+            if predicate(
+                cast(Mapping[str, JSONValue], row),
+                matcher.params,
+            )
+        ]
+    return matched
+
+
 def _docflow_compliance_rows(
     rows: list[dict[str, object]],
     *,
@@ -2395,9 +2503,9 @@ def _docflow_compliance_rows(
     for invariant in invariants:
         check_deadline()
         rows_to_match = rows if _invariant_uses_evidence_rows(invariant) else non_evidence_rows
-        matched = apply_spec(
-            invariant.spec,
+        matched = _match_docflow_rows(
             rows_to_match,
+            matcher=invariant.matcher,
             op_registry=op_registry,
         )
         evidence_matched = [
@@ -3801,9 +3909,9 @@ def _evaluate_docflow_invariants(
     for invariant in invariants:
         check_deadline()
         rows_to_match = rows if _invariant_uses_evidence_rows(invariant) else non_evidence_rows
-        matched = apply_spec(
-            invariant.spec,
+        matched = _match_docflow_rows(
             rows_to_match,
+            matcher=invariant.matcher,
             op_registry=op_registry,
         )
         if invariant.kind == "never":
@@ -3818,7 +3926,10 @@ def _evaluate_docflow_invariants(
 
 def _parse_docflow_invariant_entry(entry: object) -> DocflowInvariant | None:
     if isinstance(entry, dict):
-        kind = str(entry.get("kind", "never") or "never").strip().lower()
+        kind_raw = str(entry.get("kind", "never") or "never").strip().lower()
+        if kind_raw not in {"cover", "never", "require"}:
+            return None
+        kind = cast(Literal["cover", "never", "require"], kind_raw)
         status_raw = str(entry.get("status", "active") or "active").strip().lower()
         status = status_raw if status_raw in {"active", "proposed"} else "active"
         cover_kind = entry.get("cover_evidence_kind")
@@ -3855,14 +3966,13 @@ def _parse_docflow_invariant_entry(entry: object) -> DocflowInvariant | None:
                 )
             if predicates:
                 name = str(entry.get("name") or "docflow:cover")
-                spec = ProjectionSpec(
-                    spec_version=1,
-                    name=name,
-                    domain="docflow",
-                    pipeline=(ProjectionOp(op="select", params={"predicates": predicates}),),
+                matcher = _parse_docflow_predicate_matcher(
+                    predicates=predicates,
                     params=params,
                 )
-                return DocflowInvariant(name=name, kind="cover", spec=spec, status=status)
+                if matcher is None:
+                    return None
+                return DocflowInvariant(name=name, kind="cover", matcher=matcher, status=status)
         spec_payload = entry.get("spec")
         spec_json = entry.get("spec_json")
         spec_data: dict[str, JSONValue] | None = None
@@ -3876,8 +3986,11 @@ def _parse_docflow_invariant_entry(entry: object) -> DocflowInvariant | None:
         if spec_data is None:
             return None
         spec = spec_from_dict(spec_data)
+        matcher = _matcher_from_spec(spec)
+        if matcher is None:
+            return None
         name = str(entry.get("name") or spec.name or "docflow:custom")
-        return DocflowInvariant(name=name, kind=kind, spec=spec, status=status)
+        return DocflowInvariant(name=name, kind=kind, matcher=matcher, status=status)
     if isinstance(entry, str):
         entry = entry.strip()
         if entry.startswith("{") and entry.endswith("}"):
@@ -3886,7 +3999,14 @@ def _parse_docflow_invariant_entry(entry: object) -> DocflowInvariant | None:
             except Exception:
                 return None
             spec = spec_from_dict(spec_data)
-            return DocflowInvariant(name=str(spec.name or "docflow:inline"), kind="never", spec=spec)
+            matcher = _matcher_from_spec(spec)
+            if matcher is None:
+                return None
+            return DocflowInvariant(
+                name=str(spec.name or "docflow:inline"),
+                kind="never",
+                matcher=matcher,
+            )
     return None
 
 
@@ -3903,11 +4023,14 @@ def _parse_inline_docflow_invariants(rel: str, body: str) -> list[DocflowInvaria
                 continue
             predicates = [part.strip() for part in raw_pred.split(",") if part.strip()]
             name = f"docflow:{rel}:{lineno}:{kind}"
+            matcher = _parse_docflow_predicate_matcher(predicates=predicates)
+            if matcher is None:
+                continue
             invariants.append(
                 DocflowInvariant(
                     name=name,
-                    kind=kind,
-                    spec=_make_invariant_spec(name, predicates),
+                    kind=cast(Literal["never", "require"], kind),
+                    matcher=matcher,
                     status="active",
                 )
             )

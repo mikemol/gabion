@@ -9,7 +9,7 @@ from gabion_governance.docflow_audit import (
     DocflowObligationResult,
     run_docflow_domain,
 )
-from gabion_governance.governance_audit_impl import _make_invariant_spec
+from gabion_governance.governance_audit_impl import _make_invariant_matcher
 
 
 # gabion:behavior primary=desired
@@ -17,7 +17,7 @@ def test_run_docflow_domain_combines_context_and_obligation_signals() -> None:
     invariant = DocflowInvariant(
         name="docflow:test",
         kind="never",
-        spec=_make_invariant_spec("docflow:test", ["missing_frontmatter"]),
+        matcher=_make_invariant_matcher("docflow:test", ["missing_frontmatter"]),
     )
 
     def _build_context(*_args, **_kwargs) -> DocflowAuditContext:

@@ -29,7 +29,7 @@ def _never_invariant(name: str, predicate: str) -> audit_tools.DocflowInvariant:
     return audit_tools.DocflowInvariant(
         name=name,
         kind="never",
-        spec=audit_tools._make_invariant_spec(name, [predicate]),
+        matcher=audit_tools._make_invariant_matcher(name, [predicate]),
         status="active",
     )
 

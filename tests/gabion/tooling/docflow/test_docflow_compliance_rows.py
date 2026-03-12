@@ -1,24 +1,16 @@
 from __future__ import annotations
 
+import json
+
 from gabion.tooling.governance import governance_audit as impl
+from gabion_governance import governance_audit_impl as impl_core
 
 
-def _spec(name: str, predicate: str, **params: object):
-    return impl.spec_from_dict(
-        {
-            "spec_version": 1,
-            "name": name,
-            "domain": "docflow",
-            "pipeline": [
-                {
-                    "op": "select",
-                    "params": {
-                        "predicates": [predicate],
-                    },
-                }
-            ],
-            "params": params,
-        }
+def _matcher(name: str, predicate: str, **params: object):
+    return impl._make_invariant_matcher(
+        name,
+        [predicate],
+        params=params,
     )
 
 
@@ -46,37 +38,37 @@ def test_docflow_compliance_rows_dispatches_cover_never_require_active_and_propo
         impl.DocflowInvariant(
             name="cover-active",
             kind="cover",
-            spec=_spec("cover-active", "evidence_source", evidence_source="covered-source"),
+            matcher=_matcher("cover-active", "evidence_source", evidence_source="covered-source"),
             status="active",
         ),
         impl.DocflowInvariant(
             name="cover-proposed",
             kind="cover",
-            spec=_spec("cover-proposed", "evidence_source", evidence_source="proposed-source"),
+            matcher=_matcher("cover-proposed", "evidence_source", evidence_source="proposed-source"),
             status="proposed",
         ),
         impl.DocflowInvariant(
             name="never-active",
             kind="never",
-            spec=impl._make_invariant_spec("never-active", ["missing_frontmatter"]),
+            matcher=impl._make_invariant_matcher("never-active", ["missing_frontmatter"]),
             status="active",
         ),
         impl.DocflowInvariant(
             name="never-proposed",
             kind="never",
-            spec=impl._make_invariant_spec("never-proposed", ["missing_frontmatter"]),
+            matcher=impl._make_invariant_matcher("never-proposed", ["missing_frontmatter"]),
             status="proposed",
         ),
         impl.DocflowInvariant(
             name="require-active",
             kind="require",
-            spec=impl._make_invariant_spec("require-active", ["missing_frontmatter"]),
+            matcher=impl._make_invariant_matcher("require-active", ["missing_frontmatter"]),
             status="active",
         ),
         impl.DocflowInvariant(
             name="require-proposed",
             kind="require",
-            spec=impl._make_invariant_spec("require-proposed", ["missing_governance_ref"]),
+            matcher=impl._make_invariant_matcher("require-proposed", ["missing_governance_ref"]),
             status="proposed",
         ),
     ]
@@ -155,3 +147,56 @@ def test_docflow_compliance_rows_dispatches_cover_never_require_active_and_propo
             "evidence_source": "proposed-source",
         }
     ]
+
+
+# gabion:behavior primary=desired
+def test_parse_docflow_invariant_entry_normalizes_select_only_spec_json_to_matcher() -> None:
+    entry = {
+        "name": "docflow:custom",
+        "kind": "require",
+        "spec_json": json.dumps(
+            {
+                "spec_version": 1,
+                "name": "docflow:custom",
+                "domain": "docflow",
+                "pipeline": [
+                    {
+                        "op": "select",
+                        "params": {"predicates": ["missing_frontmatter"]},
+                    }
+                ],
+                "params": {"evidence_source": "docs"},
+            }
+        ),
+    }
+
+    invariant = impl_core._parse_docflow_invariant_entry(entry)
+
+    assert invariant is not None
+    assert invariant.kind == "require"
+    assert invariant.matcher.predicates == ("missing_frontmatter",)
+    assert dict(invariant.matcher.params) == {"evidence_source": "docs"}
+
+
+# gabion:behavior primary=verboten facets=projection_leakage
+def test_parse_docflow_invariant_entry_rejects_nonselect_spec_json() -> None:
+    entry = {
+        "name": "docflow:bad",
+        "kind": "never",
+        "spec_json": json.dumps(
+            {
+                "spec_version": 1,
+                "name": "docflow:bad",
+                "domain": "docflow",
+                "pipeline": [
+                    {
+                        "op": "project",
+                        "params": {"fields": ["path"]},
+                    }
+                ],
+                "params": {},
+            }
+        ),
+    }
+
+    assert impl_core._parse_docflow_invariant_entry(entry) is None

@@ -50,7 +50,7 @@ _sppf_sync_check = _impl._sppf_sync_check
 _sppf_status_triplet_violations = _impl._sppf_status_triplet_violations
 _emit_docflow_compliance = _impl._emit_docflow_compliance
 _format_docflow_violation = _impl._format_docflow_violation
-_make_invariant_spec = _impl._make_invariant_spec
+_make_invariant_matcher = _impl._make_invariant_matcher
 _audit_gas_limit = _impl._audit_gas_limit
 _extract_doc_body_notions_with_anchors = _impl._extract_doc_body_notions_with_anchors
 _build_doc_implication_lattice = _impl._build_doc_implication_lattice
@@ -84,7 +84,7 @@ __all__ = [
     "_load_docflow_docs",
     "_evaluate_docflow_invariants",
     "_format_docflow_violation",
-    "_make_invariant_spec",
+    "_make_invariant_matcher",
     "_extract_doc_body_notions_with_anchors",
     "_build_doc_implication_lattice",
     "_compose_doc_dependency_matrices",

@@ -1,5 +1,5 @@
 ---
-doc_revision: 94
+doc_revision: 95
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -790,6 +790,10 @@ Current implementation status:
 - the fixed-spec `AMBIGUITY_SUMMARY_SPEC` path now precomputes typed
   execution ops and executes them directly, so stable ambiguity-summary
   projection no longer routes through `projection_exec_ingress.py`
+- internal docflow invariants now normalize ingress-only select specs into
+  typed predicate matchers, and governance compliance/violation evaluation
+  applies those matchers directly instead of routing internal docflow checks
+  through `projection_exec_ingress.py`
 
 Implementation rule:
 - policy DSL must consume canonical carrier rows rather than infer semantics

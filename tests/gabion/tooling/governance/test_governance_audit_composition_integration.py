@@ -98,17 +98,12 @@ def test_emit_docflow_canonicality_uses_execution_ops(
         seen["runtime_params"] = runtime_params
         return [{"term": "bundle", "count": 1}]
 
-    def _fail_apply_spec(*_args, **_kwargs):
-        raise AssertionError(
-            "fixed docflow canonicality spec should use typed execution ops"
-        )
-
     monkeypatch.setattr(
         governance_audit_impl,
         "apply_execution_ops",
         _fake_apply_execution_ops,
     )
-    monkeypatch.setattr(governance_audit_impl, "apply_spec", _fail_apply_spec)
+    assert not hasattr(governance_audit_impl, "apply_spec")
 
     governance_audit_impl._emit_docflow_canonicality(
         root=tmp_path,

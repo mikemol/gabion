@@ -1,10 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Mapping, TypeAlias
-
-if TYPE_CHECKING:
-    from gabion.analysis.projection.projection_spec import ProjectionSpec
+from typing import Literal, Mapping, TypeAlias
 
 FrontmatterScalar: TypeAlias = str | int
 FrontmatterValue: TypeAlias = FrontmatterScalar | list[str] | dict[str, FrontmatterScalar]
@@ -20,11 +17,21 @@ class Doc:
 
 
 @dataclass(frozen=True)
+class DocflowPredicateMatcher:
+    predicates: tuple[str, ...]
+    params: Mapping[str, JSONValue]
+
+
+DocflowInvariantKind: TypeAlias = Literal["cover", "never", "require"]
+DocflowInvariantStatus: TypeAlias = Literal["active", "proposed"]
+
+
+@dataclass(frozen=True)
 class DocflowInvariant:
     name: str
-    kind: str
-    spec: ProjectionSpec
-    status: str = "active"
+    kind: DocflowInvariantKind
+    matcher: DocflowPredicateMatcher
+    status: DocflowInvariantStatus = "active"
 
 
 @dataclass(frozen=True)
