@@ -19,7 +19,7 @@ from gabion.analysis.dataflow.io.dataflow_snapshot_io import (
     report_section_marker as _report_section_marker)
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue
 from gabion.analysis.projection.projection_exec import apply_execution_ops
-from gabion.analysis.projection.projection_exec_ingress import execution_ops_from_spec
+from gabion.analysis.projection.projection_exec_plan import execution_ops_from_spec
 from gabion.analysis.projection.projection_normalize import spec_hash as projection_spec_hash
 from gabion.analysis.projection.projection_registry import REPORT_SECTION_LINES_SPEC
 from gabion.analysis.foundation.timeout_context import check_deadline
@@ -29,11 +29,12 @@ from gabion.runtime_shape_dispatch import (
     json_mapping_optional as _json_mapping_optional,
     str_optional as _str_optional,
 )
-from gabion.invariants import never
+from gabion.invariants import decision_protocol, never
 
 _FORBID_RAW_SORTED_ENV = "GABION_FORBID_RAW_SORTED"
 
 
+@decision_protocol
 @cache
 def _report_section_lines_execution_ops():
     return execution_ops_from_spec(REPORT_SECTION_LINES_SPEC)

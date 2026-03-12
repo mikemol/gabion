@@ -11,15 +11,13 @@ from gabion.analysis.semantics import evidence_keys
 from gabion.analysis.foundation.baseline_io import (
     attach_spec_metadata, load_json, parse_version)
 from gabion.analysis.projection.projection_exec import apply_execution_ops
-from gabion.analysis.projection.projection_exec_ingress import (
-    execution_ops_from_spec,
-)
+from gabion.analysis.projection.projection_exec_plan import execution_ops_from_spec
 from gabion.analysis.projection.projection_spec import ProjectionSpec
 from gabion.analysis.projection.projection_registry import (
     TEST_OBSOLESCENCE_SUMMARY_SPEC, spec_metadata_lines_from_payload)
 from gabion.analysis.semantics.report_doc import ReportDoc
 from gabion.analysis.foundation.timeout_context import check_deadline
-from gabion.invariants import grade_boundary, never
+from gabion.invariants import decision_protocol, never
 from gabion.order_contract import sort_once
 
 _NONE_TYPE = type(None)
@@ -294,11 +292,8 @@ _STALE_CLASS_ORDER = [
 _STALE_CLASS_RANK = {name: idx for idx, name in enumerate(_STALE_CLASS_ORDER)}
 
 
+@decision_protocol
 @cache
-@grade_boundary(
-    kind="semantic_carrier_adapter",
-    name="test_obsolescence_summary_execution_ops",
-)
 def _test_obsolescence_summary_execution_ops():
     return execution_ops_from_spec(TEST_OBSOLESCENCE_SUMMARY_SPEC)
 

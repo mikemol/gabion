@@ -1,5 +1,5 @@
 ---
-doc_revision: 97
+doc_revision: 98
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -889,6 +889,15 @@ same Phase 5 ratchet as registered fixed-spec consumers: if a boundary owns a
 non-dynamic `ProjectionSpec` literal and no custom authoring surface is
 required, that boundary should precompute typed execution ops rather than
 re-enter the temporary `projection_exec_ingress.py` adapter.
+
+Pure `ProjectionSpec` -> typed execution-op planning is internal normalization,
+not a DTO or ambiguity boundary. That planner should live outside
+`projection_exec_ingress.py`, and stable in-repo consumers should import the
+planner directly rather than depending on a boundary-marked ingress module just
+to compile a fixed local `ProjectionSpec`. During the remaining compatibility
+window, that planner may still carry a temporary grade-only adapter
+classification so monotonicity accounting remains explicit until
+`ProjectionSpec` retirement is complete.
 
 The policy DSL remains a judgment surface. It is not promoted to semantic
 construction ownership by this RFC.

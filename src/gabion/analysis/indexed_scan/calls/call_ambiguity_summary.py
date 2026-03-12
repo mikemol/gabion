@@ -6,9 +6,9 @@ from typing import Callable, Mapping, cast
 
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue
 from gabion.analysis.projection.projection_exec import apply_execution_ops
-from gabion.analysis.projection.projection_exec_ingress import execution_ops_from_spec
+from gabion.analysis.projection.projection_exec_plan import execution_ops_from_spec
 from gabion.analysis.projection.projection_registry import AMBIGUITY_SUMMARY_SPEC
-from gabion.invariants import grade_boundary, never
+from gabion.invariants import decision_protocol, never
 
 
 @dataclass(frozen=True)
@@ -20,11 +20,8 @@ class CallAmbiguitySummaryDeps:
     format_span_fields_fn: Callable[..., str]
 
 
+@decision_protocol
 @cache
-@grade_boundary(
-    kind="semantic_carrier_adapter",
-    name="ambiguity_summary_execution_ops",
-)
 def _ambiguity_summary_execution_ops():
     return execution_ops_from_spec(AMBIGUITY_SUMMARY_SPEC)
 

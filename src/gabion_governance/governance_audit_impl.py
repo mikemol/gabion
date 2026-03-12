@@ -23,7 +23,7 @@ from gabion.tooling.runtime.deadline_runtime import DeadlineBudget, deadline_sco
 from gabion.analysis.aspf.aspf import Forest
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.analysis.projection.projection_exec import apply_execution_ops
-from gabion.analysis.projection.projection_exec_ingress import execution_ops_from_spec
+from gabion.analysis.projection.projection_exec_plan import execution_ops_from_spec
 from gabion.analysis.projection.projection_normalize import normalize_spec, spec_canonical_json, spec_hash
 from gabion.analysis.projection.projection_spec import ProjectionOp, ProjectionSpec, spec_from_dict
 from gabion.analysis.semantics import evidence_keys
@@ -31,7 +31,7 @@ from gabion.analysis.semantics.impact_index import build_impact_index
 from gabion.governance_paths import GOVERNANCE_PATHS
 from gabion.analysis.semantics.obligation_registry import (
     evaluate_obligations, summarize_obligations)
-from gabion.invariants import grade_boundary, never
+from gabion.invariants import decision_protocol, never
 from gabion.order_contract import ordered_or_sorted
 from gabion.tooling.governance.governance_rules import load_governance_rules
 from gabion_governance.compliance_render import render_compliance
@@ -3736,11 +3736,8 @@ def _docflow_canonicality_spec() -> ProjectionSpec:
     )
 
 
+@decision_protocol
 @cache
-@grade_boundary(
-    kind="semantic_carrier_adapter",
-    name="docflow_canonicality_execution_ops",
-)
 def _docflow_canonicality_execution_ops():
     return execution_ops_from_spec(_docflow_canonicality_spec())
 

@@ -9,7 +9,7 @@ from gabion.analysis.semantics import evidence_keys
 from gabion.analysis.surfaces import test_evidence, test_obsolescence
 from gabion.analysis.foundation.baseline_io import write_json
 from gabion.analysis.projection.projection_exec import apply_execution_ops
-from gabion.analysis.projection.projection_exec_ingress import execution_ops_from_spec
+from gabion.analysis.projection.projection_exec_plan import execution_ops_from_spec
 from gabion.analysis.projection.projection_registry import (
     TEST_ANNOTATION_DRIFT_SPEC,
     spec_metadata_lines_from_payload,
@@ -19,10 +19,12 @@ from gabion.analysis.semantics.report_doc import ReportDoc
 from gabion.analysis.foundation.resume_codec import mapping_optional, sequence_optional
 from gabion.json_types import JSONValue
 from gabion.analysis.foundation.timeout_context import check_deadline
+from gabion.invariants import decision_protocol
 
 DRIFT_VERSION = 1
 
 
+@decision_protocol
 @cache
 def _test_annotation_drift_execution_ops():
     return execution_ops_from_spec(TEST_ANNOTATION_DRIFT_SPEC)

@@ -15,7 +15,7 @@ from gabion.analysis.call_cluster.call_cluster_shared import (
     sorted_unique_strings,
 )
 from gabion.analysis.projection.projection_exec import apply_execution_ops
-from gabion.analysis.projection.projection_exec_ingress import execution_ops_from_spec
+from gabion.analysis.projection.projection_exec_plan import execution_ops_from_spec
 from gabion.analysis.projection.projection_registry import (
     CALL_CLUSTER_SUMMARY_SPEC,
     spec_metadata_lines_from_payload,
@@ -25,16 +25,12 @@ from gabion.analysis.semantics.report_doc import ReportDoc
 from gabion.analysis.foundation.resume_codec import mapping_optional, sequence_optional
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.json_types import JSONValue
-from gabion.invariants import grade_boundary
-
+from gabion.invariants import decision_protocol
 CALL_CLUSTER_VERSION = 1
 
 
+@decision_protocol
 @cache
-@grade_boundary(
-    kind="semantic_carrier_adapter",
-    name="call_cluster_summary_execution_ops",
-)
 def _call_cluster_summary_execution_ops():
     return execution_ops_from_spec(CALL_CLUSTER_SUMMARY_SPEC)
 
