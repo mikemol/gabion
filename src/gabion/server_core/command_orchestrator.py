@@ -1521,15 +1521,21 @@ def _apply_auxiliary_artifact_outputs(
             )
         )
         report_md = call_cluster_consolidation.render_markdown(consolidation_payload)
+        consolidation_report_payload = call_cluster_consolidation.render_json_payload(
+            consolidation_payload
+        )
         out_dir, artifact_dir = _output_dirs(report_root)
         report_json = (
-            json.dumps(consolidation_payload, indent=2, sort_keys=False) + "\n"
+            json.dumps(consolidation_report_payload, indent=2, sort_keys=False) + "\n"
         )
         (artifact_dir / "call_cluster_consolidation.json").write_text(report_json)
         (out_dir / "call_cluster_consolidation.md").write_text(report_md)
-        response["call_cluster_consolidation_summary"] = consolidation_payload.get(
-            "summary", {}
-        )
+        response["call_cluster_consolidation_summary"] = {
+            "clusters": consolidation_payload.summary.clusters,
+            "tests": consolidation_payload.summary.tests,
+            "replacements": consolidation_payload.summary.replacements,
+            "min_cluster_size": consolidation_payload.summary.min_cluster_size,
+        }
     _emit_annotation_drift_outputs(
         response=response,
         root=root,

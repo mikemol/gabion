@@ -5538,6 +5538,69 @@ def test_execute_command_emits_call_clusters_payload_from_dto(tmp_path: Path) ->
     assert payload["clusters"] == []
 
 
+# gabion:evidence E:function_site::server_core/command_orchestrator.py::gabion.server_core.command_orchestrator._emit_analysis_reports
+# gabion:behavior primary=desired
+def test_execute_command_emits_call_cluster_consolidation_payload_from_dto(
+    tmp_path: Path,
+) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    _write_minimal_test_evidence_payload(tmp_path)
+    config_path = tmp_path / "gabion.toml"
+    config_path.write_text(
+        "[decision]\n"
+        "tier1 = [\"decision_param\"]\n",
+        encoding="utf-8",
+    )
+    baseline_path = tmp_path / "baseline.txt"
+    server.write_baseline(baseline_path, [])
+    analysis = _empty_analysis_result()
+
+    result = _execute_with_deps(
+        _DummyNotifyingServer(str(tmp_path)),
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "config": str(config_path),
+                "paths": [str(module_path)],
+                "report": str(tmp_path / "report.md"),
+                "baseline": str(baseline_path),
+                "emit_test_evidence_suggestions": False,
+                "emit_call_clusters": False,
+                "emit_call_cluster_consolidation": True,
+                "emit_semantic_coverage_map": False,
+                "obsolescence_mode": {"kind": "off"},
+                "annotation_drift_mode": {"kind": "off"},
+                "ambiguity_mode": {"kind": "off"},
+                "taint_mode": {"kind": "off"},
+            }
+        ),
+        analyze_paths_fn=lambda *_args, **_kwargs: analysis,
+        collection_semantic_progress_fn=lambda *_args, **_kwargs: {},
+    )
+
+    assert result["exit_code"] == 0
+    assert result["call_cluster_consolidation_summary"] == {
+        "clusters": 0,
+        "tests": 0,
+        "replacements": 0,
+        "min_cluster_size": 2,
+    }
+    payload_path = tmp_path / "artifacts" / "out" / "call_cluster_consolidation.json"
+    markdown_path = tmp_path / "out" / "call_cluster_consolidation.md"
+    assert payload_path.exists()
+    assert markdown_path.exists()
+    payload = json.loads(payload_path.read_text(encoding="utf-8"))
+    assert payload["summary"] == {
+        "clusters": 0,
+        "tests": 0,
+        "replacements": 0,
+        "min_cluster_size": 2,
+    }
+    assert payload["clusters"] == []
+    assert payload["plan"] == []
+
+
 # gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator.execute_command_total
 # gabion:behavior primary=verboten facets=edge
 def test_execute_command_emits_taint_state_delta_and_lifecycle_artifacts(

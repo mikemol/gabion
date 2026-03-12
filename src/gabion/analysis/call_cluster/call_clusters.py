@@ -69,7 +69,6 @@ class _CallClusterAccumulator:
     tests: list[str]
 
 
-# gabion:ambiguity_boundary
 @grade_boundary(
     kind="semantic_carrier_adapter",
     name="call_clusters.build_call_clusters_payload",

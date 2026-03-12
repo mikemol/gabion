@@ -4,6 +4,7 @@ from gabion.analysis.foundation.timeout_context import check_deadline
 import ast
 from collections import defaultdict
 from dataclasses import dataclass
+from functools import singledispatch
 from pathlib import Path
 from typing import Callable, Iterable, Mapping, Sequence
 
@@ -16,7 +17,7 @@ from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import (
     ParentAnnotator, _alt_input, _build_function_index, _build_symbol_table, _collect_class_index, _enclosing_scopes, _is_test_path, _module_name, _paramset_key, _resolve_callee)
 from gabion.analysis.dataflow.engine.dataflow_ingest_helpers import _iter_paths
 from gabion.analysis.foundation.json_types import JSONObject
-from gabion.invariants import require_not_none
+from gabion.invariants import grade_boundary, require_not_none
 from gabion.analysis.semantics.report_doc import ReportDoc
 from gabion.order_contract import sort_once
 from gabion.invariants import never
@@ -43,6 +44,89 @@ class TestEvidenceEntry:
     line: int
     evidence: tuple[str, ...]
     status: str
+
+    @classmethod
+    # gabion:ambiguity_boundary
+    def from_payload(cls, payload: object) -> TestEvidenceEntry | None:
+        carrier = _entry_mapping_carrier(payload)
+        if not carrier.is_mapping:
+            return None
+        test_id = str(carrier.mapping.get("test_id", "") or "").strip()
+        if not test_id:
+            return None
+        file_path = str(carrier.mapping.get("file", "") or "").strip()
+        line = int(carrier.mapping.get("line", 0) or 0)
+        evidence = _normalize_evidence_list(carrier.mapping.get("evidence", []))
+        raw_status = carrier.mapping.get("status")
+        status = str(raw_status).strip() if raw_status is not None else ""
+        if not status:
+            status = "mapped" if evidence else "unmapped"
+        return cls(
+            test_id=test_id,
+            file=file_path,
+            line=line,
+            evidence=tuple(evidence),
+            status=status,
+        )
+
+
+@dataclass(frozen=True)
+class TestEvidenceDocument:
+    schema_version: int
+    tests: tuple[TestEvidenceEntry, ...]
+
+
+_NONE_TYPE = type(None)
+
+
+@dataclass(frozen=True)
+class _TestsListCarrier:
+    is_list: bool
+    values: list[object]
+
+
+@singledispatch
+def _tests_list_carrier(value: object) -> _TestsListCarrier:
+    raise ValueError("test evidence payload must be an object")
+
+
+@_tests_list_carrier.register(list)
+def _sd_reg_3(value: list[object]) -> _TestsListCarrier:
+    return _TestsListCarrier(is_list=True, values=value)
+
+
+def _non_tests_list_carrier(value: object) -> _TestsListCarrier:
+    _ = value
+    return _TestsListCarrier(is_list=False, values=[])
+
+
+for _runtime_type in (tuple, set, dict, str, int, float, bool, _NONE_TYPE):
+    _tests_list_carrier.register(_runtime_type)(_non_tests_list_carrier)
+
+
+@dataclass(frozen=True)
+class _EntryMappingCarrier:
+    is_mapping: bool
+    mapping: Mapping[str, object]
+
+
+@singledispatch
+def _entry_mapping_carrier(value: object) -> _EntryMappingCarrier:
+    raise ValueError("test evidence entry payload must be an object")
+
+
+@_entry_mapping_carrier.register(dict)
+def _sd_reg_4(value: dict[str, object]) -> _EntryMappingCarrier:
+    return _EntryMappingCarrier(is_mapping=True, mapping=value)
+
+
+def _non_entry_mapping_carrier(value: object) -> _EntryMappingCarrier:
+    _ = value
+    return _EntryMappingCarrier(is_mapping=False, mapping={})
+
+
+for _runtime_type in (list, tuple, set, str, int, float, bool, _NONE_TYPE):
+    _entry_mapping_carrier.register(_runtime_type)(_non_entry_mapping_carrier)
 
 
 @dataclass(frozen=True)
@@ -86,50 +170,53 @@ class _GraphSuggestion:
     derived_from: tuple[dict[str, str], ...]
 
 
-def load_test_evidence(path: str) -> list[TestEvidenceEntry]:
-    check_deadline()
-    payload = load_json(path)
+@singledispatch
+def test_evidence_document_from_value(value: object) -> TestEvidenceDocument:
+    raise ValueError("test evidence payload must be an object")
+
+
+@test_evidence_document_from_value.register
+def _sd_reg_1(value: TestEvidenceDocument) -> TestEvidenceDocument:
+    return value
+
+
+# gabion:ambiguity_boundary
+@test_evidence_document_from_value.register(dict)
+def _sd_reg_2(value: dict[str, object]) -> TestEvidenceDocument:
     parse_version(
-        payload,
+        value,
         expected=(1, 2),
         field="schema_version",
         error_context="test evidence",
     )
-    tests_payload = payload.get("tests", [])
-    match tests_payload:
-        case list() as tests:
-            pass
-        case _:
-            tests = []
-            never("unreachable wildcard match fall-through")
-    if tests_payload is not tests:
+    tests_carrier = _tests_list_carrier(value.get("tests", []))
+    if not tests_carrier.is_list:
         raise ValueError("test evidence payload is missing tests list")
     entries: list[TestEvidenceEntry] = []
-    for entry in tests:
-        match entry:
-            case dict() as entry_data:
-                test_id = str(entry_data.get("test_id", "") or "").strip()
-                if test_id:
-                    file_path = str(entry_data.get("file", "") or "").strip()
-                    line = int(entry_data.get("line", 0) or 0)
-                    evidence = _normalize_evidence_list(entry_data.get("evidence", []))
-                    raw_status = entry_data.get("status")
-                    status = str(raw_status).strip() if raw_status is not None else ""
-                    if not status:
-                        status = "mapped" if evidence else "unmapped"
-                    entries.append(
-                        TestEvidenceEntry(
-                            test_id=test_id,
-                            file=file_path,
-                            line=line,
-                            evidence=tuple(evidence),
-                            status=status,
-                        )
-                    )
-            case _:
-                pass
-                never("unreachable wildcard match fall-through")
-    return sort_once(entries, key=lambda item: item.test_id, source = 'src/gabion/analysis/test_evidence_suggestions.py:145')
+    for entry in tests_carrier.values:
+        normalized = TestEvidenceEntry.from_payload(entry)
+        if normalized is not None:
+            entries.append(normalized)
+    return TestEvidenceDocument(
+        schema_version=int(value.get("schema_version", 0) or 0),
+        tests=tuple(
+            sort_once(
+                entries,
+                key=lambda item: item.test_id,
+                source="test_evidence_suggestions.test_evidence_document_from_value.tests",
+            )
+        ),
+    )
+
+
+def load_test_evidence(path: str) -> list[TestEvidenceEntry]:
+    with grade_boundary(
+        kind="semantic_carrier_adapter",
+        name="test_evidence_suggestions.load_test_evidence",
+    ):
+        check_deadline()
+        document = test_evidence_document_from_value(load_json(path))
+        return list(document.tests)
 
 
 def suggest_evidence(

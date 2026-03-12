@@ -285,6 +285,50 @@ def test_call_clusters_payload_uses_execution_ops_for_default_summary_spec(
     assert payload.summary.clusters == 1
 
 
+# gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.build_call_clusters_payload E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.load_test_evidence
+# gabion:behavior primary=desired
+def test_call_clusters_payload_uses_test_evidence_loader_boundary(
+    tmp_path: Path,
+    write_test_evidence_payload,
+    test_evidence_path: Path,
+    monkeypatch,
+) -> None:
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / "test_boundary.py").write_text("def test_boundary():\n    assert True\n")
+
+    write_test_evidence_payload(
+        test_evidence_path,
+        entries=[
+            {
+                "test_id": "tests/test_boundary.py::test_boundary",
+                "file": "tests/test_boundary.py",
+                "line": 1,
+                "evidence": [],
+                "status": "unmapped",
+            }
+        ],
+    )
+
+    monkeypatch.setattr(
+        call_clusters.test_evidence_suggestions,
+        "collect_call_footprints",
+        lambda entries, **kwargs: {
+            entry.test_id: ()
+            for entry in entries
+        },
+    )
+
+    payload = call_clusters.build_call_clusters_payload(
+        [tests_dir],
+        root=tmp_path,
+        evidence_path=test_evidence_path,
+    )
+
+    assert payload.summary.clusters == 0
+    assert payload.summary.tests == 0
+
+
 # gabion:evidence E:call_footprint::tests/test_call_clusters.py::test_call_clusters_render_handles_empty_tests_list::call_clusters.py::gabion.analysis.call_clusters.render_markdown
 # gabion:behavior primary=verboten facets=empty
 def test_call_clusters_render_handles_empty_tests_list() -> None:

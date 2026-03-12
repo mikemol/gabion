@@ -12,20 +12,7 @@ from tests.gabion.analysis.evidence.evidence_suggestions_edges_cases import *  #
 
 
 def _entries_from_payload(payload: dict[str, object]) -> list[test_evidence_suggestions.TestEvidenceEntry]:
-    tests = payload.get("tests", [])
-    entries: list[test_evidence_suggestions.TestEvidenceEntry] = []
-    for entry in tests:
-        evidence = tuple(item.get("display") for item in entry.get("evidence", []) if isinstance(item, dict))
-        entries.append(
-            test_evidence_suggestions.TestEvidenceEntry(
-                test_id=entry["test_id"],
-                file=entry["file"],
-                line=entry["line"],
-                evidence=tuple(item for item in evidence if item),
-                status=entry["status"],
-            )
-        )
-    return entries
+    return list(test_evidence_suggestions.test_evidence_document_from_value(payload).tests)
 
 
 # gabion:behavior primary=desired
@@ -403,3 +390,22 @@ def test_load_test_evidence_payload_rejects_non_object(tmp_path: Path) -> None:
     path.write_text(json.dumps([1, 2, 3]))
     with pytest.raises(ValueError):
         test_evidence_suggestions.load_test_evidence(str(path))
+
+
+# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.test_evidence_document_from_value
+# gabion:behavior primary=desired
+def test_test_evidence_document_from_value_accepts_existing_document() -> None:
+    document = test_evidence_suggestions.TestEvidenceDocument(
+        schema_version=2,
+        tests=(
+            test_evidence_suggestions.TestEvidenceEntry(
+                test_id="tests/test_policy_check.py::test_policy_check_runs",
+                file="tests/test_policy_check.py",
+                line=5,
+                evidence=(),
+                status="unmapped",
+            ),
+        ),
+    )
+
+    assert test_evidence_suggestions.test_evidence_document_from_value(document) is document

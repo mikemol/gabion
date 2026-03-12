@@ -1,5 +1,5 @@
 ---
-doc_revision: 109
+doc_revision: 112
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -938,9 +938,13 @@ Internal JSON-shaped payload builders are also not ambiguity boundaries.
 If a report path remains inside Gabion, it should keep a strict carrier/DTO
 until the final whole-Gabion render/write emission point rather than
 normalizing into a loose mapping in the middle of the data fiber.
-The current `call_clusters` path is the concrete example: it keeps a strict
-DTO through summary build and markdown render, and only the server/file
-emission edge serializes JSON.
+The current call-cluster paths are the concrete example: `test_evidence.json`
+is normalized once at file ingress into a strict `TestEvidenceDocument`,
+`call_clusters` and `call_cluster_consolidation` both stay on internal DTOs
+after that point, and only the server/file emission edges serialize JSON.
+When multiple consumers depend on that same file carrier, they must share that
+one loader boundary rather than each re-claiming a duplicate ingress seam for
+the same JSON source.
 
 The policy DSL remains a judgment surface. It is not promoted to semantic
 construction ownership by this RFC.

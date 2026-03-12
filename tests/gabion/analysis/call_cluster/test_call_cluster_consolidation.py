@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from gabion.analysis.call_cluster import call_cluster_consolidation
@@ -13,6 +14,42 @@ def _call_footprint_display(*, test_id: str, file: str, targets: list[tuple[str,
         targets=[{"path": path, "qual": qual} for path, qual in targets],
     )
     return evidence_keys.render_display(evidence_keys.normalize_key(key))
+
+
+def _payload(
+    *,
+    clusters: int = 0,
+    tests: int = 0,
+    replacements: int = 0,
+    min_cluster_size: int = 2,
+    cluster_entries: tuple[call_cluster_consolidation.ClusterSummary, ...] = (),
+    plan_entries: tuple[call_cluster_consolidation.ConsolidationPlanEntry, ...] = (),
+    generated_by_spec_id: str = "call_cluster_consolidation",
+    generated_by_spec: dict[str, object] | None = None,
+) -> call_cluster_consolidation.CallClusterConsolidationPayload:
+    spec_payload = generated_by_spec or {
+        "name": "call_cluster_consolidation",
+        "spec_version": 1,
+    }
+    return call_cluster_consolidation.CallClusterConsolidationPayload(
+        version=call_cluster_consolidation.CONSOLIDATION_VERSION,
+        summary=call_cluster_consolidation.ConsolidationSummary(
+            clusters=clusters,
+            tests=tests,
+            replacements=replacements,
+            min_cluster_size=min_cluster_size,
+        ),
+        clusters=cluster_entries,
+        plan=plan_entries,
+        generated_by_spec_id=generated_by_spec_id,
+        generated_by_spec={str(key): value for key, value in spec_payload.items()},
+    )
+
+
+def _emitted_payload(
+    payload: call_cluster_consolidation.CallClusterConsolidationPayload,
+) -> dict[str, object]:
+    return call_cluster_consolidation.render_json_payload(payload)
 
 
 # gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.build_call_cluster_consolidation_payload
@@ -78,12 +115,13 @@ def test_call_cluster_consolidation_payload_and_render(
         evidence_path=evidence_path,
         min_cluster_size=2,
     )
-    summary = payload.get("summary", {})
-    assert summary.get("clusters") == 1
-    assert summary.get("tests") == 2
-    assert payload.get("clusters") and payload.get("plan")
+    assert payload.summary.clusters == 1
+    assert payload.summary.tests == 2
+    assert payload.clusters
+    assert payload.plan
 
     markdown = call_cluster_consolidation.render_markdown(payload)
+    assert "generated_by_spec_id" in markdown
     assert "Consolidation plan" in markdown
     assert "E:call_cluster" in markdown
 
@@ -91,7 +129,7 @@ def test_call_cluster_consolidation_payload_and_render(
 # gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.render_markdown E:decision_surface/direct::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.render_markdown::stale_d3f9e19479c9
 # gabion:behavior primary=verboten facets=empty
 def test_call_cluster_consolidation_render_empty() -> None:
-    payload = {"summary": {}, "clusters": [], "plan": []}
+    payload = _payload()
     markdown = call_cluster_consolidation.render_markdown(payload)
     assert "No consolidation candidates" in markdown
 
@@ -131,9 +169,9 @@ def test_call_cluster_consolidation_skips_unparseable_and_empty_targets(
         evidence_path=evidence_path,
         min_cluster_size=2,
     )
-    assert payload["summary"]["clusters"] == 0
-    assert payload["summary"]["tests"] == 0
-    assert payload["plan"] == []
+    assert payload.summary.clusters == 0
+    assert payload.summary.tests == 0
+    assert payload.plan == ()
 
 
 # gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.build_call_cluster_consolidation_payload E:decision_surface/direct::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.build_call_cluster_consolidation_payload::stale_0ac9f5d3d039_0e8f5b26
@@ -169,8 +207,8 @@ def test_call_cluster_consolidation_skips_multiple_target_sets(
         evidence_path=evidence_path,
         min_cluster_size=2,
     )
-    assert payload["summary"]["clusters"] == 0
-    assert payload["summary"]["tests"] == 0
+    assert payload.summary.clusters == 0
+    assert payload.summary.tests == 0
 
 
 # gabion:evidence E:call_footprint::tests/test_call_cluster_consolidation.py::test_call_cluster_consolidation_accepts_call_cluster_tokens_in_evidence::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.build_call_cluster_consolidation_payload::evidence_keys.py::gabion.analysis.evidence_keys.make_call_cluster_key::evidence_keys.py::gabion.analysis.evidence_keys.normalize_key::evidence_keys.py::gabion.analysis.evidence_keys.render_display
@@ -200,8 +238,8 @@ def test_call_cluster_consolidation_accepts_call_cluster_tokens_in_evidence(
         evidence_path=evidence_path,
         min_cluster_size=2,
     )
-    assert payload["summary"]["clusters"] == 0
-    assert payload["summary"]["tests"] == 0
+    assert payload.summary.clusters == 0
+    assert payload.summary.tests == 0
 
 
 # gabion:evidence E:call_footprint::tests/test_call_cluster_consolidation.py::test_call_cluster_consolidation_ignores_non_cluster_kinds_with_targets::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.build_call_cluster_consolidation_payload::evidence_keys.py::gabion.analysis.evidence_keys.render_display
@@ -233,8 +271,8 @@ def test_call_cluster_consolidation_ignores_non_cluster_kinds_with_targets(
         evidence_path=evidence_path,
         min_cluster_size=2,
     )
-    assert payload["summary"]["clusters"] == 0
-    assert payload["summary"]["tests"] == 0
+    assert payload.summary.clusters == 0
+    assert payload.summary.tests == 0
 
 
 # gabion:evidence E:call_footprint::tests/test_call_cluster_consolidation.py::test_call_cluster_consolidation_takes_call_cluster_branch_via_payload::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.build_call_cluster_consolidation_payload::evidence_keys.py::gabion.analysis.evidence_keys.make_call_cluster_key::evidence_keys.py::gabion.analysis.evidence_keys.render_display
@@ -262,8 +300,8 @@ def test_call_cluster_consolidation_takes_call_cluster_branch_via_payload(
         evidence_path=test_evidence_path,
         min_cluster_size=2,
     )
-    assert payload["summary"]["clusters"] == 0
-    assert payload["summary"]["tests"] == 0
+    assert payload.summary.clusters == 0
+    assert payload.summary.tests == 0
 
 
 # gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.build_call_cluster_consolidation_payload
@@ -350,111 +388,104 @@ def test_call_cluster_consolidation_orders_plan_via_typed_execution_ops(
         min_cluster_size=2,
     )
 
-    plan = payload["plan"]
-    assert [entry["cluster_count"] for entry in plan] == [3, 3, 3, 2, 2]
-    assert [entry["test_id"] for entry in plan[:3]] == [
+    plan = payload.plan
+    assert [entry.cluster_count for entry in plan] == [3, 3, 3, 2, 2]
+    assert [entry.test_id for entry in plan[:3]] == [
         "tests/test_sample.py::test_a",
         "tests/test_sample.py::test_b",
         "tests/test_sample.py::test_c",
     ]
-    assert [entry["test_id"] for entry in plan[3:]] == [
+    assert [entry.test_id for entry in plan[3:]] == [
         "tests/test_sample.py::test_x",
         "tests/test_sample.py::test_y",
     ]
 
 
-# gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.render_markdown E:decision_surface/direct::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.render_markdown::stale_b48fa52912da
-# gabion:behavior primary=verboten facets=invalid
-def test_call_cluster_consolidation_render_handles_invalid_entries() -> None:
-    payload = {
-        "summary": {"clusters": 1},
-        "clusters": ["bad", {"identity": "cluster-1", "display": "Cluster", "count": 1}],
-        "plan": [
-            "bad",
-            {
-                "cluster_identity": "cluster-1",
-                "cluster_display": "Cluster",
-                "cluster_count": 1,
-                "test_id": "tests/test_sample.py::test_one",
-                "file": "tests/test_sample.py",
-                "line": 12,
-                "replace": "E:call_footprint::sample.py::pkg.fn",
-                "with": "not-a-mapping",
-            },
-        ],
+# gabion:evidence E:function_site::server_core/command_orchestrator.py::gabion.server_core.command_orchestrator._emit_analysis_reports
+# gabion:behavior primary=desired
+def test_call_cluster_consolidation_emitted_payload_shape() -> None:
+    payload = _payload()
+    assert _emitted_payload(payload) == {
+        "version": call_cluster_consolidation.CONSOLIDATION_VERSION,
+        "summary": {
+            "clusters": 0,
+            "tests": 0,
+            "replacements": 0,
+            "min_cluster_size": 2,
+        },
+        "clusters": [],
+        "plan": [],
+        "generated_by_spec_id": "call_cluster_consolidation",
+        "generated_by_spec": {
+            "name": "call_cluster_consolidation",
+            "spec_version": 1,
+        },
     }
+
+
+# gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.render_markdown
+# gabion:behavior primary=desired
+def test_call_cluster_consolidation_render_uses_payload_spec_metadata() -> None:
+    payload = _payload(
+        generated_by_spec_id="custom-spec-id",
+        generated_by_spec={"name": "custom", "spec_version": 99},
+    )
     markdown = call_cluster_consolidation.render_markdown(payload)
-    assert "Cluster: Cluster" in markdown
-    assert "replace [E:call_footprint::sample.py::pkg.fn]" in markdown
-
-
-# gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation._targets_signature
-# gabion:behavior primary=verboten facets=invalid
-def test_call_cluster_consolidation_targets_signature_filters_invalid() -> None:
-    assert call_cluster_consolidation._targets_signature(None) == ()
-    targets = [
-        "skip",
-        {"path": "", "qual": "q"},
-        {"path": "p", "qual": ""},
-        {"path": "p", "qual": "q"},
-    ]
-    assert call_cluster_consolidation._targets_signature(targets) == (("p", "q"),)
+    assert "generated_by_spec_id: custom-spec-id" in markdown
+    assert 'generated_by_spec: {"name":"custom","spec_version":99}' in markdown
 
 
 # gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.write_call_cluster_consolidation
 # gabion:behavior primary=desired
 def test_call_cluster_consolidation_write_creates_file(tmp_path: Path) -> None:
-    payload = {"summary": {}, "clusters": [], "plan": []}
+    payload = _payload()
     output_path = tmp_path / "nested" / "call_cluster_consolidation.json"
     call_cluster_consolidation.write_call_cluster_consolidation(
         payload, output_path=output_path
     )
     assert output_path.exists()
+    assert json.loads(output_path.read_text(encoding="utf-8")) == _emitted_payload(payload)
 
 
-# gabion:evidence E:call_footprint::tests/test_call_cluster_consolidation.py::test_call_cluster_consolidation_render_accepts_non_list_clusters::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.render_markdown
+# gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.render_json_payload
 # gabion:behavior primary=desired
-def test_call_cluster_consolidation_render_accepts_non_list_clusters() -> None:
-    markdown = call_cluster_consolidation.render_markdown(
-        {
-            "summary": {"clusters": 1},
-            "clusters": {"unexpected": True},
-            "plan": [
-                {
-                    "cluster_identity": "cluster-1",
-                    "cluster_display": "Cluster",
-                    "cluster_count": 1,
-                    "test_id": "tests/test_sample.py::test_one",
-                    "file": "tests/test_sample.py",
-                    "line": 12,
-                    "replace": [],
-                    "with": {"display": "Cluster"},
-                }
-            ],
-        }
+def test_call_cluster_consolidation_emitted_payload_preserves_identity() -> None:
+    payload = _payload(
+        clusters=1,
+        tests=2,
+        replacements=2,
+        cluster_entries=(
+            call_cluster_consolidation.ClusterSummary(
+                identity="call-cluster-1",
+                key={"k": "call_cluster", "targets": ["pkg.mod:helper"]},
+                display="pkg.mod:helper",
+                tests=("tests/test_mod.py::test_one", "tests/test_mod.py::test_two"),
+            ),
+        ),
+        plan_entries=(
+            call_cluster_consolidation.ConsolidationPlanEntry(
+                cluster_identity="call-cluster-1",
+                cluster_display="pkg.mod:helper",
+                cluster_count=2,
+                test_id="tests/test_mod.py::test_one",
+                file="tests/test_mod.py",
+                line=10,
+                replace=("E:call_footprint::pkg.mod::helper",),
+                replacement_key={"k": "call_cluster", "targets": ["pkg.mod:helper"]},
+                replacement_display="pkg.mod:helper",
+            ),
+        ),
     )
-    assert "Cluster: Cluster (count: 1)" in markdown
-
-
-# gabion:evidence E:call_footprint::tests/test_call_cluster_consolidation.py::test_call_cluster_consolidation_render_skips_empty_cluster_identity::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.render_markdown
-# gabion:behavior primary=verboten facets=empty
-def test_call_cluster_consolidation_render_skips_empty_cluster_identity() -> None:
-    markdown = call_cluster_consolidation.render_markdown(
+    wire_payload = call_cluster_consolidation.render_json_payload(payload)
+    assert wire_payload["clusters"] == [
         {
-            "summary": {"clusters": 1},
-            "clusters": [{"identity": "", "display": "ignored", "count": 2}],
-            "plan": [
-                {
-                    "cluster_identity": "cluster-x",
-                    "cluster_display": "fallback",
-                    "cluster_count": 2,
-                    "test_id": "tests/test_sample.py::test_one",
-                    "file": "tests/test_sample.py",
-                    "line": 12,
-                    "replace": [],
-                    "with": {"display": "fallback"},
-                }
+            "identity": "call-cluster-1",
+            "key": {"k": "call_cluster", "targets": ["pkg.mod:helper"]},
+            "display": "pkg.mod:helper",
+            "tests": [
+                "tests/test_mod.py::test_one",
+                "tests/test_mod.py::test_two",
             ],
+            "count": 2,
         }
-    )
-    assert "Cluster: fallback (count: 2)" in markdown
+    ]
