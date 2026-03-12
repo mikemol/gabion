@@ -231,33 +231,6 @@ class PolicySuiteChildInputs:
     def empty(cls) -> "PolicySuiteChildInputs":
         return cls(child_statuses={}, projection_fiber_semantics=None)
 
-    @classmethod
-    def from_policy_results(
-        cls,
-        payload: Mapping[str, Mapping[str, Any]] | object,
-    ) -> "PolicySuiteChildInputs":
-        items_outcome = _mapping_items_outcome(payload)
-        if not items_outcome.available:
-            return cls.empty()
-        statuses: dict[str, str] = {}
-        projection_fiber_semantics: dict[str, Any] | None = None
-        for candidate in map(_policy_result_candidate, items_outcome.items):
-            if not candidate.include:
-                continue
-            status = str(candidate.mapping.get("status", "") or "").strip()
-            if status:
-                statuses[candidate.key] = status
-            if candidate.key == "policy_check":
-                semantics_outcome = _mapping_copy_outcome(
-                    candidate.mapping.get("projection_fiber_semantics"),
-                )
-                if semantics_outcome.accepted:
-                    projection_fiber_semantics = semantics_outcome.mapping
-        return cls(
-            child_statuses=statuses,
-            projection_fiber_semantics=projection_fiber_semantics,
-        )
-
     def cache_identity_hash(self) -> str:
         payload: dict[str, object] = {
             "child_statuses": self.child_statuses,
@@ -828,53 +801,6 @@ def _str_optional(item: object) -> str | None:
 
 def _is_not_none(value: object) -> bool:
     return value is not None
-
-
-@dataclass(frozen=True)
-class _MappingItemsOutcome:
-    available: bool
-    items: tuple[tuple[object, object], ...]
-
-
-def _mapping_items_outcome(
-    payload: Mapping[str, Mapping[str, Any]] | object,
-) -> _MappingItemsOutcome:
-    try:
-        items = payload.items()  # type: ignore[attr-defined]
-    except AttributeError:
-        return _MappingItemsOutcome(available=False, items=())
-    return _MappingItemsOutcome(available=True, items=tuple(items))
-
-
-@dataclass(frozen=True)
-class _PolicyResultCandidate:
-    key: str
-    mapping: dict[str, Any]
-    include: bool
-
-
-def _policy_result_candidate(item: tuple[object, object]) -> _PolicyResultCandidate:
-    key, value = item
-    outcome = _mapping_copy_outcome(value)
-    return _PolicyResultCandidate(
-        key=str(key),
-        mapping=outcome.mapping,
-        include=outcome.accepted,
-    )
-
-
-@dataclass(frozen=True)
-class _MappingCopyOutcome:
-    accepted: bool
-    mapping: dict[str, Any]
-
-
-def _mapping_copy_outcome(value: object) -> _MappingCopyOutcome:
-    try:
-        mapping = dict(value.items())  # type: ignore[attr-defined]
-    except (AttributeError, TypeError, ValueError):
-        return _MappingCopyOutcome(accepted=False, mapping={})
-    return _MappingCopyOutcome(accepted=True, mapping=mapping)
 
 
 def _filter_baseline_violations(

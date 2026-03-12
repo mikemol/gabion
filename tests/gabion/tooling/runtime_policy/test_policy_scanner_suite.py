@@ -190,12 +190,12 @@ def test_policy_scanner_suite_private_cache_and_payload_branches(
     assert normalized["orchestrator_primitive_barrel"] == []
     assert normalized["fiber_loop_structure_contract"] == []
 
-    child_inputs = policy_scanner_suite.PolicySuiteChildInputs.from_policy_results(
-        {
-            "policy_check": {"rule_id": "policy_check", "status": "pass"},
-            "custom_rule": {"rule_id": "custom_rule", "status": "pass"},
-            "broken_rule": "bad-shape",
-        }
+    child_inputs = policy_scanner_suite.PolicySuiteChildInputs(
+        child_statuses={
+            "policy_check": "pass",
+            "custom_rule": "pass",
+        },
+        projection_fiber_semantics=None,
     )
     assert child_inputs.child_statuses == {
         "policy_check": "pass",
@@ -898,8 +898,11 @@ def test_policy_scanner_suite_carries_external_policy_results(tmp_path: Path) ->
     }
     result = policy_scanner_suite.scan_policy_suite(
         root=root,
-        child_inputs=policy_scanner_suite.PolicySuiteChildInputs.from_policy_results(
-            policy_results
+        child_inputs=policy_scanner_suite.PolicySuiteChildInputs(
+            child_statuses={"policy_check": "pass"},
+            projection_fiber_semantics=policy_results["policy_check"][
+                "projection_fiber_semantics"
+            ],
         ),
     )
     assert result.child_statuses["policy_check"] == "pass"
@@ -936,8 +939,11 @@ def test_policy_scanner_suite_carries_external_policy_results(tmp_path: Path) ->
     cached = policy_scanner_suite.load_or_scan_policy_suite(
         root=root,
         artifact_path=artifact_path,
-        child_inputs=policy_scanner_suite.PolicySuiteChildInputs.from_policy_results(
-            policy_results
+        child_inputs=policy_scanner_suite.PolicySuiteChildInputs(
+            child_statuses={"policy_check": "pass"},
+            projection_fiber_semantics=policy_results["policy_check"][
+                "projection_fiber_semantics"
+            ],
         ),
     )
     assert cached.cached is False
@@ -948,8 +954,11 @@ def test_policy_scanner_suite_carries_external_policy_results(tmp_path: Path) ->
     cached_again = policy_scanner_suite.load_or_scan_policy_suite(
         root=root,
         artifact_path=artifact_path,
-        child_inputs=policy_scanner_suite.PolicySuiteChildInputs.from_policy_results(
-            policy_results
+        child_inputs=policy_scanner_suite.PolicySuiteChildInputs(
+            child_statuses={"policy_check": "pass"},
+            projection_fiber_semantics=policy_results["policy_check"][
+                "projection_fiber_semantics"
+            ],
         ),
     )
     assert cached_again.cached is True

@@ -12,6 +12,43 @@ from gabion.tooling.runtime import policy_scanner_suite as runtime_policy_scanne
 from scripts.policy import hotspot_neighborhood_queue
 
 
+def _child_inputs_from_policy_results(
+    payload: object,
+) -> runtime_policy_scanner_suite.PolicySuiteChildInputs:
+    try:
+        items = tuple(payload.items())  # type: ignore[attr-defined]
+    except AttributeError:
+        return runtime_policy_scanner_suite.PolicySuiteChildInputs.empty()
+
+    child_statuses: dict[str, str] = {}
+    projection_fiber_semantics: dict[str, object] | None = None
+    for key, value in items:
+        try:
+            mapping = dict(value.items())  # type: ignore[attr-defined]
+        except (AttributeError, TypeError, ValueError):
+            continue
+        status = str(mapping.get("status", "") or "").strip()
+        if status:
+            child_statuses[str(key)] = status
+        if str(key) != "policy_check":
+            continue
+        try:
+            raw_projection_fiber_semantics = mapping["projection_fiber_semantics"]
+            projection_fiber_semantics = dict(
+                raw_projection_fiber_semantics.items()  # type: ignore[union-attr]
+            )
+            if not projection_fiber_semantics:
+                projection_fiber_semantics = None
+        except KeyError:
+            projection_fiber_semantics = None
+        except (AttributeError, TypeError, ValueError):
+            projection_fiber_semantics = None
+    return runtime_policy_scanner_suite.PolicySuiteChildInputs(
+        child_statuses=child_statuses,
+        projection_fiber_semantics=projection_fiber_semantics,
+    )
+
+
 def _load_preserved_policy_result(
     *, artifact: Path, expected_rule_id: str
 ) -> dict[str, object] | None:
@@ -91,9 +128,7 @@ def _resolve_external_child_inputs(
             "external policy result artifact missing after wrapper invocation: "
             f"rule_id={rule_id} returncode={completed.returncode} artifact={artifact}"
         )
-    return runtime_policy_scanner_suite.PolicySuiteChildInputs.from_policy_results(
-        results,
-    )
+    return _child_inputs_from_policy_results(results)
 
 
 def run(

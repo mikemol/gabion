@@ -17,6 +17,38 @@ def test_main_requires_explicit_out() -> None:
     assert excinfo.value.code == 2
 
 
+def test_child_inputs_from_policy_results_normalizes_boundary_payload() -> None:
+    child_inputs = policy_scanner_suite._child_inputs_from_policy_results(
+        {
+            "policy_check": {
+                "rule_id": "policy_check",
+                "status": "pass",
+                "projection_fiber_semantics": {
+                    "decision": {"rule_id": "projection_fiber.convergence.ok"},
+                    "report": {
+                        "semantic_rows": [],
+                        "compiled_projection_semantic_bundles": [],
+                    },
+                },
+            },
+            "custom_rule": {"rule_id": "custom_rule", "status": "skip"},
+            "broken_rule": "bad-shape",
+        }
+    )
+
+    assert child_inputs.child_statuses == {
+        "policy_check": "pass",
+        "custom_rule": "skip",
+    }
+    assert child_inputs.projection_fiber_semantics == {
+        "decision": {"rule_id": "projection_fiber.convergence.ok"},
+        "report": {
+            "semantic_rows": [],
+            "compiled_projection_semantic_bundles": [],
+        },
+    }
+
+
 # gabion:evidence E:function_site::test_policy_scanner_suite_script.py::tests.gabion.tooling.policy.test_policy_scanner_suite_script.test_run_skips_semantic_queue_backfill_without_policy_check_owned_artifact
 # gabion:behavior primary=desired
 def test_run_skips_semantic_queue_backfill_without_policy_check_owned_artifact(
@@ -76,10 +108,8 @@ def test_run_skips_semantic_queue_backfill_without_policy_check_owned_artifact(
     def _fake_external_child_inputs(
         *, root: Path, out: Path
     ) -> policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs:
-        return (
-            policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs.from_policy_results(
-                {"policy_check": policy_check_payload}
-            )
+        return policy_scanner_suite._child_inputs_from_policy_results(
+            {"policy_check": policy_check_payload}
         )
 
     monkeypatch.setattr(
@@ -195,10 +225,8 @@ def test_run_preserves_policy_check_owned_semantic_queue(
             encoding="utf-8",
         )
         queue_md.write_text("# Projection Semantic Fragment Queue\n", encoding="utf-8")
-        return (
-            policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs.from_policy_results(
-                {"policy_check": policy_check_payload}
-            )
+        return policy_scanner_suite._child_inputs_from_policy_results(
+            {"policy_check": policy_check_payload}
         )
 
     monkeypatch.setattr(
@@ -250,10 +278,8 @@ def test_run_does_not_regenerate_missing_policy_check_owned_semantic_queue(
             json.dumps(policy_check_payload, indent=2) + "\n",
             encoding="utf-8",
         )
-        return (
-            policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs.from_policy_results(
-                {"policy_check": policy_check_payload}
-            )
+        return policy_scanner_suite._child_inputs_from_policy_results(
+            {"policy_check": policy_check_payload}
         )
 
     monkeypatch.setattr(
@@ -289,10 +315,8 @@ def test_run_passes_in_memory_payload_to_hotspot_queue(
     def _fake_external_child_inputs(
         *, root: Path, out: Path
     ) -> policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs:
-        return (
-            policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs.from_policy_results(
-                {"policy_check": policy_check_payload}
-            )
+        return policy_scanner_suite._child_inputs_from_policy_results(
+            {"policy_check": policy_check_payload}
         )
 
     def _fake_run_from_payload(
