@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import cache
 from pathlib import Path
 from typing import Iterable, Mapping
 
 from gabion.analysis.semantics import evidence_keys
 from gabion.analysis.surfaces import test_evidence, test_obsolescence
 from gabion.analysis.foundation.baseline_io import write_json
-from gabion.analysis.projection.projection_exec_ingress import apply_spec
+from gabion.analysis.projection.projection_exec import apply_execution_ops
+from gabion.analysis.projection.projection_exec_ingress import execution_ops_from_spec
 from gabion.analysis.projection.projection_registry import (
     TEST_ANNOTATION_DRIFT_SPEC,
     spec_metadata_lines_from_payload,
@@ -19,6 +21,11 @@ from gabion.json_types import JSONValue
 from gabion.analysis.foundation.timeout_context import check_deadline
 
 DRIFT_VERSION = 1
+
+
+@cache
+def _test_annotation_drift_execution_ops():
+    return execution_ops_from_spec(TEST_ANNOTATION_DRIFT_SPEC)
 
 
 @dataclass(frozen=True)
@@ -65,7 +72,7 @@ def build_annotation_drift_payload(
                 }
             )
 
-    projected = apply_spec(TEST_ANNOTATION_DRIFT_SPEC, relation)
+    projected = apply_execution_ops(_test_annotation_drift_execution_ops(), relation)
     summary = _summarize(projected)
     payload: dict[str, JSONValue] = {
         "version": DRIFT_VERSION,

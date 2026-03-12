@@ -799,6 +799,9 @@ Ratchet rules:
 - no new semantic behavior may land directly in the legacy row-pipeline layer
 - new semantic features must land as semantic ops first, presentation second
 - legacy `ProjectionSpec` shaping remains adapter-only after cutover begins
+- fixed-spec presentation consumers must precompute typed execution ops and
+  execute them directly rather than routing stable authoring surfaces back
+  through `projection_exec_ingress.py` on every call
 - slower wrappers must consume valid preexisting child-owned canonical
   artifacts rather than rerunning the child checks that already own those
   artifacts

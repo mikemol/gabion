@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import os
 from collections.abc import Callable, Iterable, Mapping
+from functools import cache
 from pathlib import Path
 from typing import cast
 
@@ -17,7 +18,8 @@ from gabion.analysis.dataflow.io.dataflow_parse_helpers import _ParseModuleStage
 from gabion.analysis.dataflow.io.dataflow_snapshot_io import (
     report_section_marker as _report_section_marker)
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue
-from gabion.analysis.projection.projection_exec_ingress import apply_spec
+from gabion.analysis.projection.projection_exec import apply_execution_ops
+from gabion.analysis.projection.projection_exec_ingress import execution_ops_from_spec
 from gabion.analysis.projection.projection_normalize import spec_hash as projection_spec_hash
 from gabion.analysis.projection.projection_registry import REPORT_SECTION_LINES_SPEC
 from gabion.analysis.foundation.timeout_context import check_deadline
@@ -30,6 +32,11 @@ from gabion.runtime_shape_dispatch import (
 from gabion.invariants import never
 
 _FORBID_RAW_SORTED_ENV = "GABION_FORBID_RAW_SORTED"
+
+
+@cache
+def _report_section_lines_execution_ops():
+    return execution_ops_from_spec(REPORT_SECTION_LINES_SPEC)
 
 
 def parse_witness_contract_violations() -> list[str]:
@@ -242,7 +249,7 @@ def project_report_section_lines(
     )
     if not relation:
         return []
-    projected = apply_spec(REPORT_SECTION_LINES_SPEC, relation)
+    projected = apply_execution_ops(_report_section_lines_execution_ops(), relation)
     _materialize_projection_spec_rows(
         spec=REPORT_SECTION_LINES_SPEC,
         projected=projected,
