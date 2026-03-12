@@ -222,6 +222,53 @@ class PolicySuiteResult:
         return payload
 
 
+@dataclass(frozen=True)
+class PolicySuiteChildInputs:
+    child_statuses: dict[str, str]
+    projection_fiber_semantics: dict[str, Any] | None
+
+    @classmethod
+    def empty(cls) -> "PolicySuiteChildInputs":
+        return cls(child_statuses={}, projection_fiber_semantics=None)
+
+    @classmethod
+    def from_policy_results(
+        cls,
+        payload: Mapping[str, Mapping[str, Any]] | object,
+    ) -> "PolicySuiteChildInputs":
+        items_outcome = _mapping_items_outcome(payload)
+        if not items_outcome.available:
+            return cls.empty()
+        statuses: dict[str, str] = {}
+        projection_fiber_semantics: dict[str, Any] | None = None
+        for candidate in map(_policy_result_candidate, items_outcome.items):
+            if not candidate.include:
+                continue
+            status = str(candidate.mapping.get("status", "") or "").strip()
+            if status:
+                statuses[candidate.key] = status
+            if candidate.key == "policy_check":
+                semantics_outcome = _mapping_copy_outcome(
+                    candidate.mapping.get("projection_fiber_semantics"),
+                )
+                if semantics_outcome.accepted:
+                    projection_fiber_semantics = semantics_outcome.mapping
+        return cls(
+            child_statuses=statuses,
+            projection_fiber_semantics=projection_fiber_semantics,
+        )
+
+    def cache_identity_hash(self) -> str:
+        payload: dict[str, object] = {
+            "child_statuses": self.child_statuses,
+        }
+        if self.projection_fiber_semantics is not None:
+            payload["projection_fiber_semantics"] = self.projection_fiber_semantics
+        return hashlib.sha256(
+            json.dumps(payload, sort_keys=True).encode("utf-8")
+        ).hexdigest()
+
+
 def _iter_rule_violation_counts(values: Iterable[list[dict[str, Any]]]) -> Iterable[int]:
     for items in values:
         yield len(items)
@@ -237,7 +284,7 @@ def load_or_scan_policy_suite(
     *,
     root: Path,
     artifact_path: Path,
-    policy_results: Mapping[str, Mapping[str, Any]] | None = None,
+    child_inputs: PolicySuiteChildInputs | None = None,
     base_sha: str | None = None,
     head_sha: str | None = None,
 ) -> PolicySuiteResult:
@@ -255,16 +302,14 @@ def load_or_scan_policy_suite(
         )
     ).hexdigest()
     rule_set_hash = _rule_set_hash()
-    normalized_policy_results = _normalized_policy_result_mapping(
-        policy_results or {},
-    )
-    policy_results_hash = hashlib.sha256(json.dumps(normalized_policy_results, sort_keys=True).encode("utf-8")).hexdigest()
+    normalized_child_inputs = child_inputs or PolicySuiteChildInputs.empty()
+    child_inputs_hash = normalized_child_inputs.cache_identity_hash()
     cached_payload = _load_cached_payload(artifact_path)
     if cached_payload is not None:
         if (
             str(cached_payload.get("inventory_hash", "")) == inventory_hash
             and str(cached_payload.get("rule_set_hash", "")) == rule_set_hash
-            and str(cached_payload.get("policy_results_hash", "")) == policy_results_hash
+            and str(cached_payload.get("child_inputs_hash", "")) == child_inputs_hash
             and str(cached_payload.get("changed_scope_hash", "")) == changed_scope_hash
         ):
             violations = _violations_from_payload(cached_payload)
@@ -273,23 +318,21 @@ def load_or_scan_policy_suite(
                 inventory_hash=inventory_hash,
                 rule_set_hash=rule_set_hash,
                 violations_by_rule=violations,
-                child_statuses=_policy_result_statuses(normalized_policy_results),
-                projection_fiber_semantics=_projection_fiber_semantics_payload(
-                    normalized_policy_results,
-                ),
+                child_statuses=dict(normalized_child_inputs.child_statuses),
+                projection_fiber_semantics=normalized_child_inputs.projection_fiber_semantics,
                 cached=True,
             )
 
     result = scan_policy_suite(
         root=resolved_root,
         files=files,
-        policy_results=normalized_policy_results,
+        child_inputs=normalized_child_inputs,
         base_sha=base_sha,
         head_sha=head_sha,
         changed_paths=changed_paths,
     )
     payload = _cache_payload(result)
-    payload["policy_results_hash"] = policy_results_hash
+    payload["child_inputs_hash"] = child_inputs_hash
     payload["changed_scope_hash"] = changed_scope_hash
     artifact_path.parent.mkdir(parents=True, exist_ok=True)
     artifact_path.write_text(json.dumps(payload, indent=2, sort_keys=False) + "\n", encoding="utf-8")
@@ -301,12 +344,13 @@ def scan_policy_suite(
     *,
     root: Path,
     files: tuple[Path, ...] | None = None,
-    policy_results: Mapping[str, Mapping[str, Any]] | None = None,
+    child_inputs: PolicySuiteChildInputs | None = None,
     base_sha: str | None = None,
     head_sha: str | None = None,
     changed_paths: set[str] | None = None,
 ) -> PolicySuiteResult:
     resolved_root = root.resolve()
+    resolved_child_inputs = child_inputs or PolicySuiteChildInputs.empty()
     inventory = files if files is not None else _inventory_files(resolved_root)
     resolved_changed_paths = (
         changed_paths
@@ -584,10 +628,8 @@ def scan_policy_suite(
         inventory_hash=inventory_hash,
         rule_set_hash=rule_set_hash,
         violations_by_rule=violations_by_rule,
-        child_statuses=_policy_result_statuses(policy_results or {}),
-        projection_fiber_semantics=_projection_fiber_semantics_payload(
-            policy_results or {},
-        ),
+        child_statuses=dict(resolved_child_inputs.child_statuses),
+        projection_fiber_semantics=resolved_child_inputs.projection_fiber_semantics,
         cached=False,
     )
 
@@ -653,30 +695,6 @@ def _cache_payload(result: PolicySuiteResult) -> dict[str, object]:
     payload = result.to_payload()
     payload.pop("projection_fiber_semantics", None)
     return payload
-
-
-def _projection_fiber_semantics_payload(
-    policy_results: Mapping[str, Mapping[str, Any]],
-) -> dict[str, Any] | None:
-    policy_check = policy_results.get("policy_check")
-    if not policy_check:
-        return None
-    semantics = policy_check.get("projection_fiber_semantics")
-    semantics_outcome = _mapping_copy_outcome(semantics)
-    if not semantics_outcome.accepted:
-        return None
-    return semantics_outcome.mapping
-
-
-def _policy_result_statuses(
-    policy_results: Mapping[str, Mapping[str, Any]],
-) -> dict[str, str]:
-    statuses: dict[str, str] = {}
-    for rule_id, payload in policy_results.items():
-        status = str(payload.get("status", "") or "").strip()
-        if status:
-            statuses[str(rule_id)] = status
-    return statuses
 
 
 def _empty_violations_payload() -> dict[str, list[dict[str, Any]]]:
@@ -811,15 +829,6 @@ def _str_optional(item: object) -> str | None:
 def _is_not_none(value: object) -> bool:
     return value is not None
 
-def _normalized_policy_result_mapping(
-    payload: Mapping[str, Mapping[str, Any]] | object,
-) -> dict[str, dict[str, Any]]:
-    items_outcome = _mapping_items_outcome(payload)
-    if not items_outcome.available:
-        return {}
-    candidates = map(_policy_result_candidate, items_outcome.items)
-    return _policy_result_candidates_to_mapping(candidates)
-
 
 @dataclass(frozen=True)
 class _MappingItemsOutcome:
@@ -866,24 +875,6 @@ def _mapping_copy_outcome(value: object) -> _MappingCopyOutcome:
     except (AttributeError, TypeError, ValueError):
         return _MappingCopyOutcome(accepted=False, mapping={})
     return _MappingCopyOutcome(accepted=True, mapping=mapping)
-
-
-def _policy_result_candidates_to_mapping(
-    candidates: Iterable[_PolicyResultCandidate],
-) -> dict[str, dict[str, Any]]:
-    included_candidates = filter(_policy_result_candidate_included, candidates)
-    pairs = map(_policy_result_candidate_pair, included_candidates)
-    return dict(pairs)
-
-
-def _policy_result_candidate_included(candidate: _PolicyResultCandidate) -> bool:
-    return candidate.include
-
-
-def _policy_result_candidate_pair(
-    candidate: _PolicyResultCandidate,
-) -> tuple[str, dict[str, Any]]:
-    return (candidate.key, candidate.mapping)
 
 
 def _filter_baseline_violations(

@@ -1,5 +1,5 @@
 ---
-doc_revision: 37
+doc_revision: 38
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -579,6 +579,10 @@ Current implementation status:
   `policy_results` payloads in memory; it keeps only explicit child status
   fields plus the direct `projection_fiber_semantics` carrier needed by
   downstream reporting
+- the runtime policy-scanner-suite load/scan boundary no longer accepts raw
+  child `policy_results` mappings; it now requires a typed child-input bundle
+  normalized once at wrapper ingress and keyed in cache state as
+  `child_inputs_hash`
 - wrapper-owned policy-result synthesis has now been removed from the
   policy-suite path entirely: the deprecated-nonerasability child check emits
   its own canonical `skip` result when baseline/current inputs are absent, and

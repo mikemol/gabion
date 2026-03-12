@@ -99,10 +99,13 @@ def run(
     head_sha: str | None = None,
 ) -> int:
     policy_results = _run_external_policy_results(root=root, out=out)
+    child_inputs = policy_scanner_suite.PolicySuiteChildInputs.from_policy_results(
+        policy_results,
+    )
     result = policy_scanner_suite.load_or_scan_policy_suite(
         root=root,
         artifact_path=out,
-        policy_results=policy_results,
+        child_inputs=child_inputs,
         base_sha=base_sha,
         head_sha=head_sha,
     )
