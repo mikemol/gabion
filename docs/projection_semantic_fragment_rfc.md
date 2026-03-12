@@ -1,5 +1,5 @@
 ---
-doc_revision: 60
+doc_revision: 61
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -654,6 +654,10 @@ Current implementation status:
   directly, consumes only child-owned result artifacts, and writes only the
   hotspot-neighborhood queue at the boundary instead of routing through
   runtime cache orchestration or publishing a suite-results compatibility file
+- the runtime `scan_policy_suite()` surface no longer manufactures an implicit
+  empty child-input bundle; callers must pass an explicit
+  `PolicySuiteChildInputs` carrier, even when projection-fiber semantics are
+  absent, so runtime orchestration no longer owns that boundary default
 - wrapper-owned policy-result synthesis has now been removed from the
   policy-suite path entirely: the deprecated-nonerasability child check emits
   its own canonical `skip` result when baseline/current inputs are absent, and

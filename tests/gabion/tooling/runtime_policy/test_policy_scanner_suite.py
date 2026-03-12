@@ -26,6 +26,27 @@ def _total_violations(result: policy_scanner_suite.PolicySuiteResult) -> int:
     return sum(len(items) for items in result.violations_by_rule.values())
 
 
+def _empty_child_inputs() -> policy_scanner_suite.PolicySuiteChildInputs:
+    return policy_scanner_suite.PolicySuiteChildInputs(
+        projection_fiber_semantics=None,
+    )
+
+
+def _scan_policy_suite(
+    *,
+    root: Path,
+    files: tuple[Path, ...] | None = None,
+    child_inputs: policy_scanner_suite.PolicySuiteChildInputs | None = None,
+    changed_paths: set[str] | None = None,
+) -> policy_scanner_suite.PolicySuiteResult:
+    return policy_scanner_suite.scan_policy_suite(
+        root=root,
+        files=files,
+        child_inputs=child_inputs or _empty_child_inputs(),
+        changed_paths=changed_paths,
+    )
+
+
 # gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_scan_result_shape::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
 # gabion:behavior primary=desired
 def test_policy_scanner_suite_scan_result_shape(tmp_path: Path) -> None:
@@ -62,7 +83,7 @@ def test_policy_scanner_suite_scan_result_shape(tmp_path: Path) -> None:
     _write(root / "src/gabion/bad_syntax.py", "def broken(:\n")
     _write(root / "src/gabion/__pycache__/ignored.py", "def ignored():\n    return 1\n")
 
-    result = policy_scanner_suite.scan_policy_suite(root=root)
+    result = _scan_policy_suite(root=root)
     assert _total_violations(result) > 0
     decision = result.decision()
     assert decision.outcome.value in {"block", "warn", "pass", "skip"}
@@ -104,8 +125,8 @@ def test_policy_scanner_suite_scan_result_shape(tmp_path: Path) -> None:
     assert "rule_set_hash" not in first_payload
 
 
-def test_policy_scanner_suite_child_inputs_empty() -> None:
-    child_inputs = policy_scanner_suite.PolicySuiteChildInputs.empty()
+def test_policy_scanner_suite_child_inputs_explicit_none() -> None:
+    child_inputs = _empty_child_inputs()
     assert child_inputs.projection_fiber_semantics is None
 
 
@@ -116,7 +137,7 @@ def test_policy_scanner_suite_scan_with_explicit_nonstandard_files(tmp_path: Pat
     external_file = root / "external.py"
     _write(external_file, "def utility():\n    return 1\n")
 
-    result = policy_scanner_suite.scan_policy_suite(
+    result = _scan_policy_suite(
         root=root,
         files=(external_file.resolve(),),
     )
@@ -140,7 +161,7 @@ def test_policy_scanner_suite_flags_fiber_type_dispatch_contract(
         )
         + "\n",
     )
-    result = policy_scanner_suite.scan_policy_suite(root=root)
+    result = _scan_policy_suite(root=root)
     violations = _violations(
         result,
         rule="fiber_type_dispatch_contract",
@@ -170,7 +191,7 @@ def test_policy_scanner_suite_flags_fiber_loop_structure_contract(
         )
         + "\n",
     )
-    result = policy_scanner_suite.scan_policy_suite(root=root)
+    result = _scan_policy_suite(root=root)
     violations = _violations(
         result,
         rule="fiber_loop_structure_contract",
@@ -201,7 +222,7 @@ def test_policy_scanner_suite_flags_fiber_filter_processor_contract(
         )
         + "\n",
     )
-    result = policy_scanner_suite.scan_policy_suite(root=root)
+    result = _scan_policy_suite(root=root)
     violations = _violations(
         result,
         rule="fiber_filter_processor_contract",
@@ -231,7 +252,7 @@ def test_policy_scanner_suite_flags_fiber_return_shape_contract(
         )
         + "\n",
     )
-    result = policy_scanner_suite.scan_policy_suite(root=root)
+    result = _scan_policy_suite(root=root)
     violations = _violations(
         result,
         rule="fiber_return_shape_contract",
@@ -250,7 +271,7 @@ def test_policy_scanner_suite_flags_retired_monolith_module_file(tmp_path: Path)
         root / "src/gabion/analysis/legacy_dataflow_monolith.py",
         "def retired():\n    return 1\n",
     )
-    result = policy_scanner_suite.scan_policy_suite(root=root)
+    result = _scan_policy_suite(root=root)
     violations = _violations(result, rule="no_legacy_monolith_import")
     assert violations
     assert any(item["kind"] == "module_present" for item in violations)
@@ -274,7 +295,7 @@ def test_policy_scanner_suite_flags_all_legacy_monolith_import_forms(tmp_path: P
             ]
         ),
     )
-    result = policy_scanner_suite.scan_policy_suite(root=root)
+    result = _scan_policy_suite(root=root)
     violations = _violations(result, rule="no_legacy_monolith_import")
     assert len(violations) >= 4
     kinds = {str(item.get("kind", "")) for item in violations}
@@ -417,7 +438,7 @@ def test_policy_scanner_suite_respects_branch_and_fallback_baselines(tmp_path: P
         + "\n",
     )
 
-    result = policy_scanner_suite.scan_policy_suite(root=root)
+    result = _scan_policy_suite(root=root)
     assert _violations(result, rule="branchless") == []
     assert _violations(result, rule="defensive_fallback") == []
     assert _violations(result, rule="fiber_loop_structure_contract") == []
@@ -447,7 +468,7 @@ def test_policy_scanner_suite_flags_wide_orchestrator_primitive_barrel(tmp_path:
         root / "src/gabion/server_core/command_orchestrator_primitives.py",
         "\n".join(["x = 1"] * 2401),
     )
-    result = policy_scanner_suite.scan_policy_suite(root=root)
+    result = _scan_policy_suite(root=root)
     violations = _violations(result, rule="orchestrator_primitive_barrel")
     assert violations
     assert any(item.get("kind") == "line_threshold" for item in violations)
@@ -461,7 +482,7 @@ def test_policy_scanner_suite_flags_typing_surface_and_respects_baseline_and_wai
         root / "src/gabion/analysis/core/sample.py",
         "from typing import Any\n\ndef normalize(payload: dict[str, object], raw: Any, marker: object) -> None:\n    return None\n",
     )
-    result = policy_scanner_suite.scan_policy_suite(root=root)
+    result = _scan_policy_suite(root=root)
     violations = _violations(result, rule="typing_surface")
     assert len(violations) == 3
 
@@ -471,7 +492,7 @@ def test_policy_scanner_suite_flags_typing_surface_and_respects_baseline_and_wai
         json.dumps({"version": 1, "violations": violations}, indent=2) + "\n",
         encoding="utf-8",
     )
-    with_baseline = policy_scanner_suite.scan_policy_suite(root=root)
+    with_baseline = _scan_policy_suite(root=root)
     assert _violations(with_baseline, rule="typing_surface") == []
 
     baseline_path.write_text(json.dumps({"version": 1, "violations": []}, indent=2) + "\n", encoding="utf-8")
@@ -498,7 +519,7 @@ def test_policy_scanner_suite_flags_typing_surface_and_respects_baseline_and_wai
         + "\n",
         encoding="utf-8",
     )
-    with_waiver = policy_scanner_suite.scan_policy_suite(root=root)
+    with_waiver = _scan_policy_suite(root=root)
     waiver_violations = _violations(with_waiver, rule="typing_surface")
     assert len(waiver_violations) == 2
 
@@ -516,7 +537,7 @@ def test_policy_scanner_suite_flags_invalid_typing_surface_waiver_metadata(tmp_p
         encoding="utf-8",
     )
 
-    result = policy_scanner_suite.scan_policy_suite(root=root)
+    result = _scan_policy_suite(root=root)
     violations = _violations(result, rule="typing_surface")
     assert any(item.get("kind") == "invalid_waiver" for item in violations)
 
@@ -528,7 +549,7 @@ def test_policy_scanner_suite_flags_runtime_narrowing_boundary_and_respects_base
         root / "src/gabion/analysis/core/sample.py",
         "from typing import cast\n\ndef normalize(payload: object) -> str:\n    if isinstance(payload, str):\n        return payload\n    return cast(str, payload)\n",
     )
-    result = policy_scanner_suite.scan_policy_suite(root=root)
+    result = _scan_policy_suite(root=root)
     violations = _violations(result, rule="runtime_narrowing_boundary")
     assert len(violations) == 2
 
@@ -538,7 +559,7 @@ def test_policy_scanner_suite_flags_runtime_narrowing_boundary_and_respects_base
         json.dumps({"version": 1, "violations": violations}, indent=2) + "\n",
         encoding="utf-8",
     )
-    with_baseline = policy_scanner_suite.scan_policy_suite(root=root)
+    with_baseline = _scan_policy_suite(root=root)
     assert _violations(with_baseline, rule="runtime_narrowing_boundary") == []
 
     baseline_path.write_text(json.dumps({"version": 1, "violations": []}, indent=2) + "\n", encoding="utf-8")
@@ -565,7 +586,7 @@ def test_policy_scanner_suite_flags_runtime_narrowing_boundary_and_respects_base
         + "\n",
         encoding="utf-8",
     )
-    with_waiver = policy_scanner_suite.scan_policy_suite(root=root)
+    with_waiver = _scan_policy_suite(root=root)
     waiver_violations = _violations(with_waiver, rule="runtime_narrowing_boundary")
     assert len(waiver_violations) == 1
 
@@ -581,7 +602,7 @@ def test_policy_scanner_suite_flags_invalid_runtime_narrowing_boundary_waiver_me
         encoding="utf-8",
     )
 
-    result = policy_scanner_suite.scan_policy_suite(root=root)
+    result = _scan_policy_suite(root=root)
     violations = _violations(result, rule="runtime_narrowing_boundary")
     assert any(item.get("kind") == "invalid_waiver" for item in violations)
 
@@ -628,7 +649,7 @@ def test_policy_scanner_suite_flags_duplicate_pre_core_normalization_on_same_can
         json.dumps(trace_payload, indent=2) + "\n",
     )
 
-    result = policy_scanner_suite.scan_policy_suite(root=root)
+    result = _scan_policy_suite(root=root)
     violations = _violations(
         result, rule="aspf_normalization_idempotence"
     )
@@ -663,7 +684,7 @@ def test_policy_scanner_suite_flags_invalid_aspf_baseline_payload(
         + "\n",
     )
 
-    result = policy_scanner_suite.scan_policy_suite(root=root)
+    result = _scan_policy_suite(root=root)
     violations = _violations(
         result,
         rule="aspf_normalization_idempotence",
@@ -695,7 +716,7 @@ def test_policy_scanner_suite_serializes_fiber_normalization_diagnostics(
         + "\n",
     )
 
-    result = policy_scanner_suite.scan_policy_suite(root=root)
+    result = _scan_policy_suite(root=root)
     violations = _violations(
         result, rule="fiber_normalization_contract"
     )
@@ -729,12 +750,12 @@ def test_policy_scanner_suite_scopes_boundary_core_rule_to_changed_paths(
         "def run_core(value: str) -> str:\n    return value\n",
     )
     _write(root / "src/gabion/unrelated.py", "def ok():\n    return 1\n")
-    unscoped_result = policy_scanner_suite.scan_policy_suite(root=root)
+    unscoped_result = _scan_policy_suite(root=root)
     assert _violations(
         unscoped_result,
         rule="boundary_core_contract",
     )
-    scoped_result = policy_scanner_suite.scan_policy_suite(
+    scoped_result = _scan_policy_suite(
         root=root,
         changed_paths={"src/gabion/unrelated.py"},
     )
@@ -786,7 +807,7 @@ def test_policy_scanner_suite_carries_external_policy_results(tmp_path: Path) ->
             },
         },
     }
-    result = policy_scanner_suite.scan_policy_suite(
+    result = _scan_policy_suite(
         root=root,
         child_inputs=policy_scanner_suite.PolicySuiteChildInputs(
             projection_fiber_semantics=policy_results["policy_check"][

@@ -190,10 +190,6 @@ class PolicySuiteResult:
 class PolicySuiteChildInputs:
     projection_fiber_semantics: dict[str, Any] | None
 
-    @classmethod
-    def empty(cls) -> "PolicySuiteChildInputs":
-        return cls(projection_fiber_semantics=None)
-
 
 def _rule_count_pair(item: tuple[str, list[dict[str, Any]]]) -> tuple[str, int]:
     rule, items = item
@@ -205,13 +201,12 @@ def scan_policy_suite(
     *,
     root: Path,
     files: tuple[Path, ...] | None = None,
-    child_inputs: PolicySuiteChildInputs | None = None,
+    child_inputs: PolicySuiteChildInputs,
     base_sha: str | None = None,
     head_sha: str | None = None,
     changed_paths: set[str] | None = None,
 ) -> PolicySuiteResult:
     resolved_root = root.resolve()
-    resolved_child_inputs = child_inputs or PolicySuiteChildInputs.empty()
     inventory = files if files is not None else _inventory_files(resolved_root)
     resolved_changed_paths = (
         changed_paths
@@ -484,7 +479,7 @@ def scan_policy_suite(
     _drain(_iter_sort_violations_by_rule(violations_by_rule))
     return PolicySuiteResult(
         violations_by_rule=violations_by_rule,
-        projection_fiber_semantics=resolved_child_inputs.projection_fiber_semantics,
+        projection_fiber_semantics=child_inputs.projection_fiber_semantics,
     )
 
 
@@ -1119,6 +1114,7 @@ def _serialize_test_sleep_hygiene(violation: object) -> dict[str, object]:
 
 
 __all__ = [
+    "PolicySuiteChildInputs",
     "PolicySuiteResult",
     "scan_policy_suite",
 ]
