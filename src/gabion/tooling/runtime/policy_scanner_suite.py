@@ -180,7 +180,6 @@ def _boundary_scoped_candidate(
 
 @dataclass(frozen=True)
 class PolicySuiteResult:
-    root: Path
     violations_by_rule: dict[str, list[dict[str, Any]]]
     projection_fiber_semantics: dict[str, Any] | None
 
@@ -200,7 +199,6 @@ class PolicySuiteResult:
         payload: dict[str, object] = {
             "format_version": _FORMAT_VERSION,
             "generated_at_utc": datetime.now(timezone.utc).isoformat(),
-            "root": str(self.root),
             "counts": counts,
             "violations": self.violations_by_rule,
             "decision": {
@@ -284,7 +282,6 @@ def load_or_scan_policy_suite(
             violations = _violations_from_payload(cached_payload)
             return PolicySuiteLoadOutcome(
                 result=PolicySuiteResult(
-                    root=resolved_root,
                     violations_by_rule=violations,
                     projection_fiber_semantics=normalized_child_inputs.projection_fiber_semantics,
                 ),
@@ -596,7 +593,6 @@ def scan_policy_suite(
 
     _drain(_iter_sort_violations_by_rule(violations_by_rule))
     return PolicySuiteResult(
-        root=resolved_root,
         violations_by_rule=violations_by_rule,
         projection_fiber_semantics=resolved_child_inputs.projection_fiber_semantics,
     )

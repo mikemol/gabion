@@ -87,6 +87,7 @@ def test_policy_scanner_suite_scan_and_cache(tmp_path: Path) -> None:
     assert policy_scanner_suite.violations_for_rule(first.result, rule="test_subprocess_hygiene") == []
     assert policy_scanner_suite.violations_for_rule(first.result, rule="test_sleep_hygiene") == []
     first_payload = first.result.to_payload()
+    assert "root" not in first_payload
     assert "inventory_hash" not in first_payload
     assert "rule_set_hash" not in first_payload
 
@@ -908,6 +909,7 @@ def test_policy_scanner_suite_carries_external_policy_results(tmp_path: Path) ->
     payload = result.to_payload()
     assert "policy_results" not in payload
     assert "cached" not in payload
+    assert "root" not in payload
     assert payload["projection_fiber_semantics"] == semantics
     assert "projection_fiber_semantics_summary" not in payload
     summary = projection_fiber_semantics_summary_from_payload(payload)
@@ -944,6 +946,7 @@ def test_policy_scanner_suite_carries_external_policy_results(tmp_path: Path) ->
     persisted_payload = json.loads(artifact_path.read_text(encoding="utf-8"))
     assert "policy_results" not in persisted_payload
     assert "cached" not in persisted_payload
+    assert "root" not in persisted_payload
     assert "projection_fiber_semantics" not in persisted_payload
 
     cached_again = policy_scanner_suite.load_or_scan_policy_suite(

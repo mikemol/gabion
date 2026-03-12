@@ -43,13 +43,13 @@ def test_delta_gate_value_helpers_remain_compatible() -> None:
 
 def test_scanner_payload_uses_dsl_decision_shape() -> None:
     result = PolicySuiteResult(
-        root=Path(".").resolve(),
         violations_by_rule={"branchless": [{}], "defensive_fallback": [], "no_monkeypatch": []},
         projection_fiber_semantics=None,
     )
     payload = result.to_payload()
     decision = payload.get("decision")
     assert "cached" not in payload
+    assert "root" not in payload
     assert isinstance(decision, dict)
     assert decision.get("rule_id") == "scanner.branchless.blocking"
     assert decision.get("outcome") == "block"

@@ -1,5 +1,5 @@
 ---
-doc_revision: 46
+doc_revision: 47
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -576,9 +576,8 @@ Current implementation status:
   than nested child `policy_results`, and queue/report consumers no longer
   follow the wrapper-only `policy_results.policy_check` semantic path
 - the runtime `PolicySuiteResult` carrier no longer retains full child-owned
-  `policy_results` payloads in memory; it keeps only explicit child status
-  fields plus the direct `projection_fiber_semantics` carrier needed by
-  downstream reporting
+  `policy_results` payloads in memory; it keeps only the direct
+  `projection_fiber_semantics` carrier needed by downstream reporting
 - the runtime `PolicySuiteResult` carrier no longer retains wrapper child
   statuses at all; wrapper console/status reporting now reads those statuses
   from the boundary-owned `PolicySuiteChildInputs` bundle rather than from the
@@ -609,6 +608,9 @@ Current implementation status:
   all; `cached` now lives only on the separate load outcome returned by
   `load_or_scan_policy_suite()`, and the outward payload remains free of that
   wrapper/runtime concern
+- the runtime `PolicySuiteResult` carrier no longer owns or projects `root`;
+  repository-root provenance remains a wrapper/cache concern rather than part
+  of the outward suite semantic/reporting carrier
 - wrapper-owned policy-result synthesis has now been removed from the
   policy-suite path entirely: the deprecated-nonerasability child check emits
   its own canonical `skip` result when baseline/current inputs are absent, and
