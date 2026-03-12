@@ -68,6 +68,10 @@ def compile_projection_fiber_reflect_to_shacl(
 ) -> CompiledShaclPlan:
     structural_identity = row["structural_identity"]
     payload = row["payload"]
+    witness_trace = [
+        *[str(item["kind"]) for item in row["input_witnesses"]],
+        *[str(item["op"]) for item in row["transform_trace"]],
+    ]
     return {
         "plan_id": f"{structural_identity}:shacl:reflect",
         "source_structural_identity": structural_identity,
@@ -102,7 +106,7 @@ def compile_projection_fiber_reflect_to_shacl(
                 "message": "projection_fiber rows must preserve obligation state on the canonical carrier",
             },
         ],
-        "witness_trace": _witness_trace(row),
+        "witness_trace": witness_trace,
     }
 
 @grade_boundary(
@@ -114,6 +118,10 @@ def compile_projection_fiber_reflect_to_sparql(
 ) -> CompiledSparqlPlan:
     structural_identity = row["structural_identity"]
     payload = row["payload"]
+    witness_trace = [
+        *[str(item["kind"]) for item in row["input_witnesses"]],
+        *[str(item["op"]) for item in row["transform_trace"]],
+    ]
     return {
         "plan_id": f"{structural_identity}:sparql:reflect",
         "source_structural_identity": structural_identity,
@@ -148,7 +156,7 @@ def compile_projection_fiber_reflect_to_sparql(
             if row["obligation_state"] == "discharged"
             else f"ALLOW unresolved obligation for {structural_identity}"
         ],
-        "witness_trace": _witness_trace(row),
+        "witness_trace": witness_trace,
     }
 
 @grade_boundary(
@@ -159,6 +167,10 @@ def compile_projection_fiber_support_reflect_to_shacl(
     row: CanonicalWitnessedSemanticRow,
 ) -> CompiledShaclPlan:
     structural_identity = row["structural_identity"]
+    witness_trace = [
+        *[str(item["kind"]) for item in row["input_witnesses"]],
+        *[str(item["op"]) for item in row["transform_trace"]],
+    ]
     input_witness_kinds = _distinct_mapping_values(row["input_witnesses"], key="kind")
     synthesized_witness_kinds = _distinct_mapping_values(
         row["synthesized_witnesses"], key="kind"
@@ -200,7 +212,7 @@ def compile_projection_fiber_support_reflect_to_shacl(
                 "message": "projection_fiber support reflection must preserve boundary kinds",
             },
         ],
-        "witness_trace": _witness_trace(row),
+        "witness_trace": witness_trace,
     }
 
 @grade_boundary(
@@ -211,6 +223,10 @@ def compile_projection_fiber_support_reflect_to_sparql(
     row: CanonicalWitnessedSemanticRow,
 ) -> CompiledSparqlPlan:
     structural_identity = row["structural_identity"]
+    witness_trace = [
+        *[str(item["kind"]) for item in row["input_witnesses"]],
+        *[str(item["op"]) for item in row["transform_trace"]],
+    ]
     input_witness_kinds = _distinct_mapping_values(row["input_witnesses"], key="kind")
     synthesized_witness_kinds = _distinct_mapping_values(
         row["synthesized_witnesses"], key="kind"
@@ -254,7 +270,7 @@ def compile_projection_fiber_support_reflect_to_sparql(
         "anti_join_filters": [
             f"NOT EXISTS missing support context for {structural_identity}"
         ],
-        "witness_trace": _witness_trace(row),
+        "witness_trace": witness_trace,
     }
 
 @grade_boundary(
@@ -265,6 +281,10 @@ def compile_projection_fiber_wedge_to_sparql(
     row: CanonicalWitnessedSemanticRow,
 ) -> CompiledSparqlPlan:
     structural_identity = row["structural_identity"]
+    witness_trace = [
+        *[str(item["kind"]) for item in row["input_witnesses"]],
+        *[str(item["op"]) for item in row["transform_trace"]],
+    ]
     input_witness_kinds = _distinct_mapping_values(row["input_witnesses"], key="kind")
     synthesized_witness_kinds = _distinct_mapping_values(
         row["synthesized_witnesses"], key="kind"
@@ -315,7 +335,7 @@ def compile_projection_fiber_wedge_to_sparql(
         "anti_join_filters": [
             f"NOT EXISTS missing wedge context for {structural_identity}"
         ],
-        "witness_trace": _witness_trace(row),
+        "witness_trace": witness_trace,
     }
 
 @grade_boundary(
@@ -327,6 +347,10 @@ def compile_projection_fiber_reindex_to_sparql(
 ) -> CompiledSparqlPlan:
     structural_identity = row["structural_identity"]
     payload = row["payload"]
+    witness_trace = [
+        *[str(item["kind"]) for item in row["input_witnesses"]],
+        *[str(item["op"]) for item in row["transform_trace"]],
+    ]
     return {
         "plan_id": f"{structural_identity}:sparql:reindex",
         "source_structural_identity": structural_identity,
@@ -361,7 +385,7 @@ def compile_projection_fiber_reindex_to_sparql(
             },
         ],
         "anti_join_filters": [],
-        "witness_trace": _witness_trace(row),
+        "witness_trace": witness_trace,
     }
 
 @grade_boundary(
@@ -372,6 +396,10 @@ def compile_projection_fiber_existential_image_to_sparql(
     row: CanonicalWitnessedSemanticRow,
 ) -> CompiledSparqlPlan:
     structural_identity = row["structural_identity"]
+    witness_trace = [
+        *[str(item["kind"]) for item in row["input_witnesses"]],
+        *[str(item["op"]) for item in row["transform_trace"]],
+    ]
     synthesized_witness_kinds = _distinct_mapping_values(
         row["synthesized_witnesses"], key="kind"
     )
@@ -412,7 +440,7 @@ def compile_projection_fiber_existential_image_to_sparql(
             },
         ],
         "anti_join_filters": [],
-        "witness_trace": _witness_trace(row),
+        "witness_trace": witness_trace,
     }
 
 @grade_boundary(
@@ -423,6 +451,10 @@ def compile_projection_fiber_negate_to_sparql(
     row: CanonicalWitnessedSemanticRow,
 ) -> CompiledSparqlPlan:
     structural_identity = row["structural_identity"]
+    witness_trace = [
+        *[str(item["kind"]) for item in row["input_witnesses"]],
+        *[str(item["op"]) for item in row["transform_trace"]],
+    ]
     synthesized_witness_kinds = _distinct_mapping_values(
         row["synthesized_witnesses"], key="kind"
     )
@@ -465,7 +497,7 @@ def compile_projection_fiber_negate_to_sparql(
         "anti_join_filters": [
             f"NOT EXISTS satisfied existential image for {structural_identity}"
         ],
-        "witness_trace": _witness_trace(row),
+        "witness_trace": witness_trace,
     }
 
 @grade_boundary(
@@ -480,6 +512,10 @@ def compile_projection_fiber_quotient_face_to_shacl(
     spec_identity: str,
 ) -> CompiledShaclPlan:
     structural_identity = row["structural_identity"]
+    witness_trace = [
+        *[str(item["kind"]) for item in row["input_witnesses"]],
+        *[str(item["op"]) for item in row["transform_trace"]],
+    ]
     field_plans = _projection_fiber_quotient_face_field_plans(
         row=row,
         quotient_face=quotient_face,
@@ -504,7 +540,7 @@ def compile_projection_fiber_quotient_face_to_shacl(
             }
             for field, plan in field_plans
         ],
-        "witness_trace": _witness_trace(row),
+        "witness_trace": witness_trace,
     }
 
 @grade_boundary(
@@ -519,6 +555,10 @@ def compile_projection_fiber_quotient_face_to_sparql(
     spec_identity: str,
 ) -> CompiledSparqlPlan:
     structural_identity = row["structural_identity"]
+    witness_trace = [
+        *[str(item["kind"]) for item in row["input_witnesses"]],
+        *[str(item["op"]) for item in row["transform_trace"]],
+    ]
     field_plans = _projection_fiber_quotient_face_field_plans(
         row=row,
         quotient_face=quotient_face,
@@ -542,18 +582,8 @@ def compile_projection_fiber_quotient_face_to_sparql(
         "anti_join_filters": [
             f"NOT EXISTS missing quotient_face field for {structural_identity}"
         ],
-        "witness_trace": _witness_trace(row),
+        "witness_trace": witness_trace,
     }
-
-@grade_boundary(
-    kind="semantic_carrier_adapter",
-    name="semantic_fragment_compile.witness_trace",
-)
-def _witness_trace(row: CanonicalWitnessedSemanticRow) -> list[str]:
-    return [
-        *[str(item["kind"]) for item in row["input_witnesses"]],
-        *[str(item["op"]) for item in row["transform_trace"]],
-    ]
 
 @grade_boundary(
     kind="semantic_carrier_adapter",
