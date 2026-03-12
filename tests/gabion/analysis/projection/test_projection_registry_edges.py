@@ -7,6 +7,7 @@ from gabion.analysis.projection.projection_registry import (
     PROJECTION_FIBER_REFLECTION_SPEC,
     PROJECTION_FIBER_REFLECTIVE_BOUNDARY_SPEC,
     PROJECTION_FIBER_SUPPORT_REFLECTION_SPEC,
+    PROJECTION_FIBER_WITNESS_SYNTHESIS_SPEC,
     WL_REFINEMENT_SPEC,
     _projection_registry_gas_limit,
     build_registered_specs,
@@ -96,3 +97,11 @@ def test_projection_fiber_support_reflection_spec_is_registered_with_declared_su
     reflect_op = PROJECTION_FIBER_SUPPORT_REFLECTION_SPEC.pipeline[0]
     assert reflect_op.op == "support_reflect"
     assert reflect_op.params["surface"] == "projection_fiber"
+
+
+def test_projection_fiber_witness_synthesis_spec_is_registered_with_declared_surface() -> None:
+    specs = build_registered_specs()
+    assert PROJECTION_FIBER_WITNESS_SYNTHESIS_SPEC in specs.values()
+    synthesize_op = PROJECTION_FIBER_WITNESS_SYNTHESIS_SPEC.pipeline[0]
+    assert synthesize_op.op == "synthesize_witness"
+    assert synthesize_op.params["surface"] == "projection_fiber"

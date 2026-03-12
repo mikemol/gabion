@@ -150,6 +150,11 @@ def _compile_semantic_projection_op(
             semantic_op=semantic_op,
             semantic_rows=semantic_rows,
         )
+    if semantic_op.semantic_op is SemanticProjectionKind.SYNTHESIZE_WITNESS:
+        return _compile_synthesize_witness_semantic_op(
+            semantic_op=semantic_op,
+            semantic_rows=semantic_rows,
+        )
     if semantic_op.semantic_op is SemanticProjectionKind.SUPPORT_REFLECT:
         return _compile_support_reflect_semantic_op(
             semantic_op=semantic_op,
@@ -245,6 +250,23 @@ def _compile_support_reflect_semantic_op(
         shacl_plans.append(compile_projection_fiber_support_reflect_to_shacl(row))
         sparql_plans.append(compile_projection_fiber_support_reflect_to_sparql(row))
     return (), tuple(shacl_plans), tuple(sparql_plans)
+
+
+def _compile_synthesize_witness_semantic_op(
+    *,
+    semantic_op: SemanticProjectionOp,
+    semantic_rows: tuple[CanonicalWitnessedSemanticRow, ...],
+) -> tuple[
+    tuple[CompiledProjectionSemanticBinding, ...],
+    tuple[CompiledShaclPlan, ...],
+    tuple[CompiledSparqlPlan, ...],
+]:
+    surface = _required_surface(semantic_op.params)
+    # Witness synthesis remains semantic-core-only in v1: the compiler
+    # acknowledges the op at the typed lowering boundary but does not
+    # materialize executable SHACL/SPARQL ownership for witness invention.
+    _semantic_rows_for_surface(surface=surface, semantic_rows=semantic_rows)
+    return (), (), ()
 
 
 def _required_quotient_face(params: dict[str, object]) -> str:

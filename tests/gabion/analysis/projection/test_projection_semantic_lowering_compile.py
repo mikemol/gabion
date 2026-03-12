@@ -109,6 +109,21 @@ def _lowered_projection_fiber_support_reflection_plan():
     return lower_projection_spec_to_semantic_plan(spec)
 
 
+def _lowered_projection_fiber_witness_synthesis_plan():
+    spec = ProjectionSpec(
+        spec_version=1,
+        name="projection_fiber_witness_synthesis",
+        domain="projection_fiber",
+        pipeline=(
+            ProjectionOp(
+                op="synthesize_witness",
+                params={"surface": "projection_fiber"},
+            ),
+        ),
+    )
+    return lower_projection_spec_to_semantic_plan(spec)
+
+
 def test_projection_semantic_lowering_compilation_is_deterministic() -> None:
     row = _row()
     lowering_plan = _lowered_projection_fiber_frontier_plan()
@@ -208,3 +223,14 @@ def test_projection_semantic_lowering_compiles_support_reflection_surface() -> N
         "?synthesizedWitnessKinds",
         "?boundaryKinds",
     ]
+
+
+def test_projection_semantic_lowering_acknowledges_witness_synthesis_surface() -> None:
+    row = _row()
+    lowering_plan = _lowered_projection_fiber_witness_synthesis_plan()
+
+    compiled = compile_projection_semantic_lowering_plan(lowering_plan, (row,))
+
+    assert compiled.bindings == ()
+    assert compiled.compiled_shacl_plans == ()
+    assert compiled.compiled_sparql_plans == ()

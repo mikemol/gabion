@@ -1,5 +1,5 @@
 ---
-doc_revision: 84
+doc_revision: 85
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -484,7 +484,8 @@ Current implementation status:
   buckets before any execution-path cutover
 - `project` ops with declared `quotient_face` metadata and the explicit
   `reflect(surface=projection_fiber)` and
-  `support_reflect(surface=projection_fiber)` ops now promote into semantic
+  `support_reflect(surface=projection_fiber)` and
+  `synthesize_witness(surface=projection_fiber)` ops now promote into semantic
   ops in v1; `sort`, `limit`, and `count_by` remain presentation, while
   `select`, `traverse`, and unknown ops remain bridge/compatibility surfaces
 - the `projection_fiber.frontier` and
@@ -502,11 +503,16 @@ Current implementation status:
   `projection_fiber_support_reflection` `ProjectionSpec`, so support/history
   context is now emitted as an explicit semantic-plan bundle instead of staying
   implicit inside raw canonical rows
+- `synthesize_witness(surface=projection_fiber)` now compiles through that same
+  typed lowering path via a registered `projection_fiber_witness_synthesis`
+  `ProjectionSpec`; because witness invention stays semantic-core-only in v1,
+  the compiler acknowledges that bundle without projecting SHACL/SPARQL
+  execution ownership for witness synthesis itself
 - the first real consumer of that bridge is the lattice-convergence substrate
   report, which now emits compiled semantic-plan bundles for the registered
-  frontier, reflection, support-reflection, and reflective-boundary specs
-  alongside the raw semantic rows and top-level reflect plans derived from the
-  same typed bundle output
+  frontier, reflection, support-reflection, witness-synthesis, and
+  reflective-boundary specs alongside the raw semantic rows and top-level
+  reflect plans derived from the same typed bundle output
 - that substrate output now crosses a runtime-facing boundary: `policy_check
   --output` carries a `projection_fiber_semantics` payload with the lattice
   decision, semantic report, and compiled projection-semantic bundles, so the

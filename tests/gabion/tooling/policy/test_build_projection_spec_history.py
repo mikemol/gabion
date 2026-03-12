@@ -258,3 +258,11 @@ def test_summary_and_hotspot_rankings_match_inventory(tmp_path: Path) -> None:
     assert support_reflection_row["presentation_op_count"] == 0
     assert support_reflection_row["bridge_op_count"] == 0
     assert support_reflection_row["quotient_faces"] == []
+    witness_synthesis_row = next(
+        item for item in rows if item["spec_name"] == "projection_fiber_witness_synthesis"
+    )
+    assert witness_synthesis_row["lowering_status"] == "semantic_promoted"
+    assert witness_synthesis_row["semantic_op_count"] == 1
+    assert witness_synthesis_row["presentation_op_count"] == 0
+    assert witness_synthesis_row["bridge_op_count"] == 0
+    assert witness_synthesis_row["quotient_faces"] == []

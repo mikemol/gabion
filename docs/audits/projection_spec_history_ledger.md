@@ -48,8 +48,8 @@ doc_role: audit
 - `d77dc91d` `2026-02-09` docflow: enforce SPPF axis tags + GH ref gate (GH-82)
 - `1a86872a` `2026-02-10` analysis: projection spec carrier + proof mode
 - `358a4207` `2026-02-10` docs: in-30 SuiteSite adoption tracking
-- `12bafdc7` `2026-03-12` Type projection execution steps
 - `6a7592ce` `2026-03-12` Erase semantic ops at projection exec ingress
+- `aba32d7a` `2026-03-12` Promote support_reflect through typed lowering
 - `aece7d9f` `2026-03-12` Promote reflect through typed projection lowering
 - `bc006434` `2026-03-12` Extract projection exec ingress adapter
 - `fa174d91` `2026-03-12` Split ProjectionSpec ingress from executor
@@ -160,8 +160,8 @@ doc_role: audit
 - `1e7f3b5e` `2026-02-23` Hard-cut governance audit scripts into gabion CLI subcommands
 - `650c67db` `2026-02-23` Add governance control-loop registry and docflow enforcement
 - `76c103ae` `2026-02-23` Canonicalize governance loop doc and fix agent drift checks
-- `e80da852` `2026-03-11` Hide policy suite cache identity
 - `0c516ec4` `2026-03-12` Ratchet suite wrapper prerequisites
+- `31f20c3a` `2026-03-12` Move projection policy to semantic-row judgment
 - `6ba58c52` `2026-03-12` Keep suite semantics boundary-owned
 - `a800876b` `2026-03-12` Make suite runtime surface scan-only
 - `dde0d399` `2026-03-12` Retire policy suite result carrier
@@ -230,7 +230,7 @@ doc_role: audit
 - `6b38b878` `2026-02-17` docs(in-32): emphasize non-normative status and implementation boundary
 - `d595634e` `2026-02-23` Refresh in/ doc dependency reviews and cadence note
 - `dde38f18` `2026-02-23` Merge PR #225: Add governance loop matrix doc and matrix-drift audit check
-- `0c516ec4` `2026-03-12` Ratchet suite wrapper prerequisites
+- `31f20c3a` `2026-03-12` Move projection policy to semantic-row judgment
 - `6ba58c52` `2026-03-12` Keep suite semantics boundary-owned
 - `a800876b` `2026-03-12` Make suite runtime surface scan-only
 - `aece7d9f` `2026-03-12` Promote reflect through typed projection lowering
@@ -286,6 +286,7 @@ doc_role: audit
 | projection_fiber_reflection | projection_fiber | semantic_promoted | 1 | 0 | 0 |  |
 | projection_fiber_reflective_boundary | projection_fiber | mixed | 1 | 1 | 0 | projection_fiber.reflective_boundary |
 | projection_fiber_support_reflection | projection_fiber | semantic_promoted | 1 | 0 | 0 |  |
+| projection_fiber_witness_synthesis | projection_fiber | semantic_promoted | 1 | 0 | 0 |  |
 | quotient_demotion_incidents | quotient_demotion_incidents | presentation_only | 0 | 0 | 0 |  |
 | quotient_promotion_decision | quotient_promotion_decision | presentation_only | 0 | 0 | 0 |  |
 | quotient_protocol_readiness | quotient_protocol_readiness | presentation_only | 0 | 0 | 0 |  |

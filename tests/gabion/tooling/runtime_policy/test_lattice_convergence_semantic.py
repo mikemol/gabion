@@ -193,7 +193,7 @@ def test_semantic_lattice_convergence_emits_canonical_semantic_rows_for_real_wit
     assert isinstance(compiled_projection_bundles, list)
     assert len(shacl_plans) == 1
     assert len(sparql_plans) == 1
-    assert len(compiled_projection_bundles) == 4
+    assert len(compiled_projection_bundles) == 5
     assert shacl_plans[0]["source_structural_identity"] == semantic_row["structural_identity"]
     assert sparql_plans[0]["source_structural_identity"] == semantic_row["structural_identity"]
     assert shacl_plans[0]["semantic_op"] == "reflect"
@@ -204,6 +204,7 @@ def test_semantic_lattice_convergence_emits_canonical_semantic_rows_for_real_wit
         "projection_fiber_reflection",
         "projection_fiber_reflective_boundary",
         "projection_fiber_support_reflection",
+        "projection_fiber_witness_synthesis",
     }
     frontier_bundle = bundles_by_name["projection_fiber_frontier"]
     assert len(frontier_bundle["bindings"]) == 1
@@ -240,6 +241,10 @@ def test_semantic_lattice_convergence_emits_canonical_semantic_rows_for_real_wit
     assert support_reflection_bundle["bindings"] == []
     assert support_reflection_bundle["compiled_shacl_plans"][0]["semantic_op"] == "support_reflect"
     assert support_reflection_bundle["compiled_sparql_plans"][0]["semantic_op"] == "support_reflect"
+    witness_synthesis_bundle = bundles_by_name["projection_fiber_witness_synthesis"]
+    assert witness_synthesis_bundle["bindings"] == []
+    assert witness_synthesis_bundle["compiled_shacl_plans"] == []
+    assert witness_synthesis_bundle["compiled_sparql_plans"] == []
     assert payload["witness_rows"] == []
 
 

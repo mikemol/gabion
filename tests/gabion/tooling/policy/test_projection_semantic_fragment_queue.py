@@ -125,3 +125,27 @@ def test_run_writes_json_and_markdown_outputs(tmp_path: Path) -> None:
     assert payload["current_state"]["semantic_row_count"] == 1
     assert payload["items"][3]["queue_id"] == "PSF-004"
     assert markdown_out.exists()
+
+
+def test_analyze_marks_semantic_op_expansion_landed_when_witness_synthesis_is_present() -> None:
+    payload = _policy_check_payload()
+    report = payload["projection_fiber_semantics"]["report"]
+    compiled_bundles = list(report["compiled_projection_semantic_bundles"])
+    compiled_bundles.append(
+        {
+            "spec_name": "projection_fiber_witness_synthesis",
+            "bindings": [],
+            "compiled_shacl_plans": [],
+            "compiled_sparql_plans": [],
+        }
+    )
+    report["compiled_projection_semantic_bundles"] = compiled_bundles
+
+    queue = projection_semantic_fragment_queue.analyze(
+        payload=payload,
+        source_artifact="artifacts/out/policy_check_result.json",
+    ).as_payload()
+
+    items = {item["queue_id"]: item for item in queue["items"]}
+    assert items["PSF-005"]["status"] == "landed"
+    assert queue["next_queue_ids"] == ["PSF-004", "PSF-007"]

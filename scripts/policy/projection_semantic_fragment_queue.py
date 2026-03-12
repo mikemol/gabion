@@ -184,6 +184,7 @@ def _queue_items(
     policy_direct_carrier_judgment_landed = (
         _projection_fiber_policy_direct_carrier_judgment_landed()
     )
+    semantic_op_expansion_landed = "projection_fiber_witness_synthesis" in spec_names
     items = (
         ProjectionSemanticFragmentQueueItem(
             queue_id="PSF-001",
@@ -270,12 +271,22 @@ def _queue_items(
         ProjectionSemanticFragmentQueueItem(
             queue_id="PSF-005",
             phase="Phase 4",
-            status="queued",
+            status="landed" if semantic_op_expansion_landed else "queued",
             title="Expand the semantic op set beyond declared quotient-face slices",
-            summary="The reflect + declared quotient_face projection_fiber slices are executable today; the remaining RFC ops are still design-only.",
-            next_action="Add the next smallest lawful semantic op on top of the same carrier instead of widening generic row-shaping operators.",
+            summary=(
+                "The typed lowering path now includes a semantic-core-only synthesize_witness bundle alongside reflect/support-reflect and declared quotient-face slices."
+                if semantic_op_expansion_landed
+                else "The reflect + declared quotient_face projection_fiber slices are executable today; the remaining RFC ops are still design-only."
+            ),
+            next_action=(
+                "Preserve semantic-op growth through explicit typed operators; do not widen generic bridge transforms in place of lawful semantic ops."
+                if semantic_op_expansion_landed
+                else "Add the next smallest lawful semantic op on top of the same carrier instead of widening generic row-shaping operators."
+            ),
             evidence_links=(
-                "src/gabion/analysis/projection/semantic_fragment.py",
+                "src/gabion/analysis/projection/projection_registry.py",
+                "src/gabion/analysis/projection/projection_semantic_lowering.py",
+                "src/gabion/analysis/projection/projection_semantic_lowering_compile.py",
                 "docs/projection_semantic_fragment_rfc.md",
                 "docs/ttl_kernel_semantics.md",
             ),
