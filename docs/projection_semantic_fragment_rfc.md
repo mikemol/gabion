@@ -1,5 +1,5 @@
 ---
-doc_revision: 58
+doc_revision: 59
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -606,22 +606,21 @@ Current implementation status:
   is now normalized through one typed boundary loader before wrapper
   orchestration continues
 - the outward-facing `PolicySuiteResult` carrier and payload no longer project
-  cache identity hashes (`inventory_hash`, `rule_set_hash`); those now remain
-  artifact-only cache metadata instead of public reporting surface
-- the runtime `PolicySuiteResult` carrier no longer owns cache-hit state at
-  all; `cached` now lives only on the separate load outcome returned by
-  `load_or_scan_policy_suite()`, and the outward payload remains free of that
-  wrapper/runtime concern
+  cache identity hashes (`inventory_hash`, `rule_set_hash`); those no longer
+  appear on the public carrier at all
+- the runtime policy-scanner-suite module no longer exposes a cache/load API;
+  `load_or_scan_policy_suite()`, `PolicySuiteLoadOutcome`, and the
+  cache-normalization helpers are gone, and direct `scan_policy_suite()` is the
+  only remaining runtime orchestration surface
 - the runtime `PolicySuiteResult` carrier no longer owns or projects `root`;
   repository-root provenance remains a wrapper/cache concern rather than part
   of the outward suite semantic/reporting carrier
 - the outward `PolicySuiteResult` payload no longer projects a redundant
   `counts` summary; downstream reporting derives family totals directly from
   canonical `violations`, so one more wrapper-era summary field is removed
-- the persisted `policy_suite_results.json` cache artifact no longer reuses the
-  public suite payload shape and no longer stores duplicate derived
-  `decision`/`generated_at_utc` fields; it now persists only cache metadata
-  plus canonical `violations`
+- the persisted `policy_suite_results.json` compatibility artifact is now
+  boundary-owned rather than runtime-cached, and it no longer reuses the
+  public suite payload shape or stores duplicate derived fields
 - the outward `PolicySuiteResult` payload no longer emits a redundant derived
   `decision`; callers that need the suite decision compute it from
   `PolicySuiteResult.decision()`, keeping the serialized reporting carrier
@@ -651,10 +650,10 @@ Current implementation status:
   on this path too, and CI/workflow entrypoints materialize them before the
   wrapper runs
 - the active policy-scanner-suite wrapper path no longer depends on
-  `load_or_scan_policy_suite()` or `PolicySuiteLoadOutcome`; it now calls
-  `scan_policy_suite()` directly and writes the thin
+  the retired runtime cache/load surface; it now calls `scan_policy_suite()`
+  directly and writes the thin
   `policy_suite_results.json` compatibility artifact at the boundary instead of
-  routing through the runtime cache/load surface
+  routing through runtime cache orchestration
 - wrapper-owned policy-result synthesis has now been removed from the
   policy-suite path entirely: the deprecated-nonerasability child check emits
   its own canonical `skip` result when baseline/current inputs are absent, and

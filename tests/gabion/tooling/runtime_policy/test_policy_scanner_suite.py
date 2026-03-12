@@ -26,9 +26,9 @@ def _total_violations(result: policy_scanner_suite.PolicySuiteResult) -> int:
     return sum(len(items) for items in result.violations_by_rule.values())
 
 
-# gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_scan_and_cache::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
+# gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_scan_result_shape::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
 # gabion:behavior primary=desired
-def test_policy_scanner_suite_scan_and_cache(tmp_path: Path) -> None:
+def test_policy_scanner_suite_scan_result_shape(tmp_path: Path) -> None:
     root = tmp_path
     _write(
         root / "tests/test_no_monkeypatch_sample.py",
@@ -62,44 +62,39 @@ def test_policy_scanner_suite_scan_and_cache(tmp_path: Path) -> None:
     _write(root / "src/gabion/bad_syntax.py", "def broken(:\n")
     _write(root / "src/gabion/__pycache__/ignored.py", "def ignored():\n    return 1\n")
 
-    artifact_path = root / "artifacts/out/policy_suite_results.json"
-    first = policy_scanner_suite.load_or_scan_policy_suite(
-        root=root,
-        artifact_path=artifact_path,
-    )
-    assert first.cached is False
-    assert _total_violations(first.result) > 0
-    decision = first.result.decision()
+    result = policy_scanner_suite.scan_policy_suite(root=root)
+    assert _total_violations(result) > 0
+    decision = result.decision()
     assert decision.outcome.value in {"block", "warn", "pass", "skip"}
-    assert _violations(first.result, rule="branchless")
-    branchless_violation = _violations(first.result, rule="branchless")[0]
+    assert _violations(result, rule="branchless")
+    branchless_violation = _violations(result, rule="branchless")[0]
     assert "lattice_witness" in branchless_violation
     assert "recombination_frontier" not in branchless_violation
     assert branchless_violation["lattice_witness"]["complete"] in {True, False}
     assert "obligations" in branchless_violation["lattice_witness"]
     assert "boundary_crossings" in branchless_violation["lattice_witness"]
-    assert _violations(first.result, rule="defensive_fallback")
-    assert _violations(first.result, rule="fiber_loop_structure_contract")
-    assert _violations(first.result, rule="fiber_filter_processor_contract")
-    assert _violations(first.result, rule="fiber_return_shape_contract")
-    assert _violations(first.result, rule="fiber_scalar_sentinel_contract")
-    assert _violations(first.result, rule="fiber_type_dispatch_contract")
-    assert _violations(first.result, rule="no_anonymous_tuple")
-    assert _violations(first.result, rule="no_mutable_dict")
-    assert _violations(first.result, rule="no_scalar_conversion_boundary")
-    assert _violations(first.result, rule="no_monkeypatch")
-    assert _violations(first.result, rule="no_legacy_monolith_import")
-    assert _violations(first.result, rule="orchestrator_primitive_barrel") == []
-    assert _violations(first.result, rule="typing_surface")
-    assert _violations(first.result, rule="runtime_narrowing_boundary")
-    assert _violations(first.result, rule="aspf_normalization_idempotence") == []
-    assert _violations(first.result, rule="boundary_core_contract") == []
-    assert _violations(first.result, rule="fiber_normalization_contract") == []
-    assert _violations(first.result, rule="test_subprocess_hygiene") == []
-    assert _violations(first.result, rule="test_sleep_hygiene") == []
+    assert _violations(result, rule="defensive_fallback")
+    assert _violations(result, rule="fiber_loop_structure_contract")
+    assert _violations(result, rule="fiber_filter_processor_contract")
+    assert _violations(result, rule="fiber_return_shape_contract")
+    assert _violations(result, rule="fiber_scalar_sentinel_contract")
+    assert _violations(result, rule="fiber_type_dispatch_contract")
+    assert _violations(result, rule="no_anonymous_tuple")
+    assert _violations(result, rule="no_mutable_dict")
+    assert _violations(result, rule="no_scalar_conversion_boundary")
+    assert _violations(result, rule="no_monkeypatch")
+    assert _violations(result, rule="no_legacy_monolith_import")
+    assert _violations(result, rule="orchestrator_primitive_barrel") == []
+    assert _violations(result, rule="typing_surface")
+    assert _violations(result, rule="runtime_narrowing_boundary")
+    assert _violations(result, rule="aspf_normalization_idempotence") == []
+    assert _violations(result, rule="boundary_core_contract") == []
+    assert _violations(result, rule="fiber_normalization_contract") == []
+    assert _violations(result, rule="test_subprocess_hygiene") == []
+    assert _violations(result, rule="test_sleep_hygiene") == []
     first_payload = {
         "format_version": 1,
-        "violations": first.result.violations_by_rule,
+        "violations": result.violations_by_rule,
     }
     assert "decision" not in first_payload
     assert "generated_at_utc" not in first_payload
@@ -108,131 +103,10 @@ def test_policy_scanner_suite_scan_and_cache(tmp_path: Path) -> None:
     assert "inventory_hash" not in first_payload
     assert "rule_set_hash" not in first_payload
 
-    second = policy_scanner_suite.load_or_scan_policy_suite(
-        root=root,
-        artifact_path=artifact_path,
-    )
-    assert second.cached is True
-    cached_payload = json.loads(artifact_path.read_text(encoding="utf-8"))
-    assert "counts" not in cached_payload
-    assert "decision" not in cached_payload
-    assert "generated_at_utc" not in cached_payload
-    assert "policy_results" not in cached_payload
-    assert isinstance(cached_payload.get("inventory_hash"), str)
-    assert isinstance(cached_payload.get("rule_set_hash"), str)
 
-
-# gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_cache_invalidation_and_payload_normalization::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
-# gabion:behavior primary=desired
-def test_policy_scanner_suite_cache_invalidation_and_payload_normalization(
-    tmp_path: Path,
-) -> None:
-    root = tmp_path
-    _write(root / "src/gabion/a.py", "def f(x):\n    if x:\n        return 1\n    return 0\n")
-    _write(root / "tests/test_a.py", "def test_a(monkeypatch):\n    assert monkeypatch is not None\n")
-    artifact_path = root / "artifacts/out/policy_suite_results.json"
-
-    baseline = policy_scanner_suite.load_or_scan_policy_suite(
-        root=root,
-        artifact_path=artifact_path,
-    )
-    payload = json.loads(artifact_path.read_text(encoding="utf-8"))
-    payload["violations"] = "bad-shape"
-    artifact_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-
-    normalized = policy_scanner_suite.load_or_scan_policy_suite(
-        root=root,
-        artifact_path=artifact_path,
-    )
-    assert normalized.cached is True
-    assert normalized.result.violations_by_rule["branchless"] == []
-    assert normalized.result.violations_by_rule["defensive_fallback"] == []
-    assert normalized.result.violations_by_rule["fiber_loop_structure_contract"] == []
-    assert normalized.result.violations_by_rule["fiber_filter_processor_contract"] == []
-    assert normalized.result.violations_by_rule["fiber_return_shape_contract"] == []
-    assert normalized.result.violations_by_rule["fiber_scalar_sentinel_contract"] == []
-    assert normalized.result.violations_by_rule["fiber_type_dispatch_contract"] == []
-    assert normalized.result.violations_by_rule["no_anonymous_tuple"] == []
-    assert normalized.result.violations_by_rule["no_mutable_dict"] == []
-    assert normalized.result.violations_by_rule["no_scalar_conversion_boundary"] == []
-    assert normalized.result.violations_by_rule["no_monkeypatch"] == []
-    assert normalized.result.violations_by_rule["no_legacy_monolith_import"] == []
-    assert normalized.result.violations_by_rule["orchestrator_primitive_barrel"] == []
-    assert normalized.result.violations_by_rule["typing_surface"] == []
-    assert normalized.result.violations_by_rule["runtime_narrowing_boundary"] == []
-    assert normalized.result.violations_by_rule["aspf_normalization_idempotence"] == []
-    assert normalized.result.violations_by_rule["boundary_core_contract"] == []
-    assert normalized.result.violations_by_rule["fiber_normalization_contract"] == []
-    assert normalized.result.violations_by_rule["test_subprocess_hygiene"] == []
-    assert normalized.result.violations_by_rule["test_sleep_hygiene"] == []
-
-    _write(
-        root / "src/gabion/new_file.py",
-        "def f():\n    if True:\n        return 1\n    return 0\n",
-    )
-    invalidated = policy_scanner_suite.load_or_scan_policy_suite(
-        root=root,
-        artifact_path=artifact_path,
-    )
-    assert invalidated.cached is False
-    invalidated_payload = json.loads(artifact_path.read_text(encoding="utf-8"))
-    assert invalidated_payload["inventory_hash"] != payload["inventory_hash"]
-
-
-# gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_private_cache_and_payload_branches::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
-# gabion:behavior primary=desired
-def test_policy_scanner_suite_private_cache_and_payload_branches(
-    tmp_path: Path,
-) -> None:
-    broken_path = tmp_path / "broken.json"
-    broken_path.write_text("{bad", encoding="utf-8")
-    assert policy_scanner_suite._load_cached_payload(broken_path) is None
-
-    wrong_format_path = tmp_path / "wrong_format.json"
-    wrong_format_path.write_text(
-        json.dumps({"format_version": 999, "violations": {}}),
-        encoding="utf-8",
-    )
-    assert policy_scanner_suite._load_cached_payload(wrong_format_path) is None
-
-    normalized = policy_scanner_suite._violations_from_payload(
-        {
-            "violations": {
-                "no_monkeypatch": {"bad": "shape"},
-                "branchless": [],
-                "defensive_fallback": [],
-                "fiber_loop_structure_contract": [],
-                "fiber_filter_processor_contract": [],
-                "fiber_return_shape_contract": [],
-                "fiber_scalar_sentinel_contract": [],
-                "no_anonymous_tuple": [],
-                "no_mutable_dict": [],
-                "no_scalar_conversion_boundary": [],
-            }
-        }
-    )
-    assert normalized["no_monkeypatch"] == []
-    assert normalized["orchestrator_primitive_barrel"] == []
-    assert normalized["fiber_loop_structure_contract"] == []
-
-    child_inputs = policy_scanner_suite.PolicySuiteChildInputs(
-        projection_fiber_semantics=None,
-    )
+def test_policy_scanner_suite_child_inputs_empty() -> None:
+    child_inputs = policy_scanner_suite.PolicySuiteChildInputs.empty()
     assert child_inputs.projection_fiber_semantics is None
-    assert normalized["fiber_filter_processor_contract"] == []
-    assert normalized["fiber_return_shape_contract"] == []
-    assert normalized["fiber_scalar_sentinel_contract"] == []
-    assert normalized["fiber_type_dispatch_contract"] == []
-    assert normalized["no_anonymous_tuple"] == []
-    assert normalized["no_mutable_dict"] == []
-    assert normalized["no_scalar_conversion_boundary"] == []
-    assert normalized["typing_surface"] == []
-    assert normalized["runtime_narrowing_boundary"] == []
-    assert normalized["aspf_normalization_idempotence"] == []
-    assert normalized["boundary_core_contract"] == []
-    assert normalized["fiber_normalization_contract"] == []
-    assert normalized["test_subprocess_hygiene"] == []
-    assert normalized["test_sleep_hygiene"] == []
 
 
 # gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_scan_with_explicit_nonstandard_files::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
@@ -877,7 +751,6 @@ def test_policy_scanner_suite_scopes_boundary_core_rule_to_changed_paths(
 # gabion:behavior primary=desired
 def test_policy_scanner_suite_carries_external_policy_results(tmp_path: Path) -> None:
     root = tmp_path
-    artifact_path = root / "artifacts/out/policy_suite_results.json"
     policy_results = {
         "policy_check": {
             "rule_id": "policy_check",
@@ -957,46 +830,6 @@ def test_policy_scanner_suite_carries_external_policy_results(tmp_path: Path) ->
             "complete": True,
         }
     ]
-
-    cached = policy_scanner_suite.load_or_scan_policy_suite(
-        root=root,
-        artifact_path=artifact_path,
-        child_inputs=policy_scanner_suite.PolicySuiteChildInputs(
-            projection_fiber_semantics=policy_results["policy_check"][
-                "projection_fiber_semantics"
-            ],
-        ),
-    )
-    assert cached.cached is False
-    persisted_payload = json.loads(artifact_path.read_text(encoding="utf-8"))
-    assert "policy_results" not in persisted_payload
-    assert "cached" not in persisted_payload
-    assert "root" not in persisted_payload
-    assert "decision" not in persisted_payload
-    assert "generated_at_utc" not in persisted_payload
-    assert "projection_fiber_semantics" not in persisted_payload
-
-    cached_again = policy_scanner_suite.load_or_scan_policy_suite(
-        root=root,
-        artifact_path=artifact_path,
-        child_inputs=policy_scanner_suite.PolicySuiteChildInputs(
-            projection_fiber_semantics=policy_results["policy_check"][
-                "projection_fiber_semantics"
-            ],
-        ),
-    )
-    assert cached_again.cached is True
-    cached_summary = projection_fiber_semantics_summary_from_payload(
-        {
-            "format_version": 1,
-            "violations": cached_again.result.violations_by_rule,
-            "projection_fiber_semantics": (
-                cached_again.result.projection_fiber_semantics
-            ),
-        }
-    )
-    assert cached_summary is not None
-    assert cached_summary.decision["rule_id"] == "projection_fiber.convergence.ok"
 
 
 def test_projection_fiber_semantics_summary_requires_canonical_payload_shape() -> None:

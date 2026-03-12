@@ -2,13 +2,11 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass
-from datetime import datetime, timezone
-import hashlib
 import itertools
 import json
 from pathlib import Path
 import subprocess
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable
 from gabion.policy_dsl import PolicyDomain, evaluate_policy
 from gabion.policy_dsl.schema import PolicyDecision
 from gabion.tooling.policy_rules import (
@@ -38,10 +36,7 @@ from gabion.tooling.policy_rules.fiber_diagnostics import (
     to_payload_counterfactual as _fiber_counterfactual_payload,
     to_payload_trace as _fiber_trace_payload,
 )
-from gabion.tooling.runtime import policy_result_schema
 from gabion.tooling.runtime.policy_scan_batch import build_policy_scan_batch
-
-_FORMAT_VERSION = 1
 _BRANCHLESS_BASELINE = Path("baselines/branchless_policy_baseline.json")
 _DEFENSIVE_BASELINE = Path("baselines/defensive_fallback_policy_baseline.json")
 _TYPING_SURFACE_BASELINE = Path("baselines/typing_surface_policy_baseline.json")
@@ -192,12 +187,6 @@ class PolicySuiteResult:
 
 
 @dataclass(frozen=True)
-class PolicySuiteLoadOutcome:
-    result: PolicySuiteResult
-    cached: bool
-
-
-@dataclass(frozen=True)
 class PolicySuiteChildInputs:
     projection_fiber_semantics: dict[str, Any] | None
 
@@ -205,80 +194,10 @@ class PolicySuiteChildInputs:
     def empty(cls) -> "PolicySuiteChildInputs":
         return cls(projection_fiber_semantics=None)
 
-    def cache_identity_hash(self) -> str:
-        payload: dict[str, object] = {}
-        if self.projection_fiber_semantics is not None:
-            payload["projection_fiber_semantics"] = self.projection_fiber_semantics
-        return hashlib.sha256(
-            json.dumps(payload, sort_keys=True).encode("utf-8")
-        ).hexdigest()
-
 
 def _rule_count_pair(item: tuple[str, list[dict[str, Any]]]) -> tuple[str, int]:
     rule, items = item
     return (rule, len(items))
-
-
-# gabion:decision_protocol
-def load_or_scan_policy_suite(
-    *,
-    root: Path,
-    artifact_path: Path,
-    child_inputs: PolicySuiteChildInputs | None = None,
-    base_sha: str | None = None,
-    head_sha: str | None = None,
-) -> PolicySuiteLoadOutcome:
-    resolved_root = root.resolve()
-    files = _inventory_files(resolved_root)
-    inventory_hash = _inventory_hash(files, resolved_root)
-    changed_paths = _changed_paths_from_git(
-        root=resolved_root,
-        base_sha=base_sha,
-        head_sha=head_sha,
-    )
-    changed_scope_hash = hashlib.sha256(
-        json.dumps(sorted(changed_paths) if changed_paths is not None else ["<all>"]).encode(
-            "utf-8"
-        )
-    ).hexdigest()
-    rule_set_hash = _rule_set_hash()
-    normalized_child_inputs = child_inputs or PolicySuiteChildInputs.empty()
-    child_inputs_hash = normalized_child_inputs.cache_identity_hash()
-    cached_payload = _load_cached_payload(artifact_path)
-    if cached_payload is not None:
-        if (
-            str(cached_payload.get("inventory_hash", "")) == inventory_hash
-            and str(cached_payload.get("rule_set_hash", "")) == rule_set_hash
-            and str(cached_payload.get("child_inputs_hash", "")) == child_inputs_hash
-            and str(cached_payload.get("changed_scope_hash", "")) == changed_scope_hash
-        ):
-            violations = _violations_from_payload(cached_payload)
-            return PolicySuiteLoadOutcome(
-                result=PolicySuiteResult(
-                    violations_by_rule=violations,
-                    projection_fiber_semantics=normalized_child_inputs.projection_fiber_semantics,
-                ),
-                cached=True,
-            )
-
-    result = scan_policy_suite(
-        root=resolved_root,
-        files=files,
-        child_inputs=normalized_child_inputs,
-        base_sha=base_sha,
-        head_sha=head_sha,
-        changed_paths=changed_paths,
-    )
-    payload = _cache_payload(
-        result,
-        inventory_hash=inventory_hash,
-        rule_set_hash=rule_set_hash,
-        child_inputs_hash=child_inputs_hash,
-        changed_scope_hash=changed_scope_hash,
-    )
-    artifact_path.parent.mkdir(parents=True, exist_ok=True)
-    artifact_path.write_text(json.dumps(payload, indent=2, sort_keys=False) + "\n", encoding="utf-8")
-    return PolicySuiteLoadOutcome(result=result, cached=False)
 
 
 # gabion:decision_protocol
@@ -334,8 +253,6 @@ def scan_policy_suite(
         target_globs=(),
         files=boundary_scope_files,
     )
-    inventory_hash = _inventory_hash(inventory, resolved_root)
-    rule_set_hash = _rule_set_hash()
     branchless_allowed = _load_rule_baseline_keys(
         module=branchless_rule,
         baseline_path=resolved_root / _BRANCHLESS_BASELINE,
@@ -591,103 +508,6 @@ def _violation_sort_key(item: dict[str, Any]) -> tuple[str, str, int, str]:
     )
 
 
-def _load_cached_payload(path: Path) -> dict[str, object] | None:
-    payload: dict[str, object] | None = None
-    if path.exists():
-        try:
-            raw_payload = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            raw_payload = None
-        match raw_payload:
-            case dict() as payload_dict:
-                format_version = int(payload_dict.get("format_version", 0) or 0)
-                if format_version == _FORMAT_VERSION:
-                    payload = payload_dict
-            case _:
-                pass
-    return payload
-
-
-def _violations_from_payload(payload: Mapping[str, Any]) -> dict[str, list[dict[str, Any]]]:
-    violations_raw = payload.get("violations")
-    match violations_raw:
-        case dict() as raw_mapping:
-            pairs = map(
-                lambda rule: (
-                    rule,
-                    _normalized_violation_items(raw_mapping.get(rule)),
-                ),
-                _POLICY_RULE_IDS,
-            )
-            return dict(pairs)
-        case _:
-            return _empty_violations_payload()
-
-
-def _cache_payload(
-    result: PolicySuiteResult,
-    *,
-    inventory_hash: str,
-    rule_set_hash: str,
-    child_inputs_hash: str,
-    changed_scope_hash: str,
-) -> dict[str, object]:
-    return {
-        "format_version": _FORMAT_VERSION,
-        "violations": result.violations_by_rule,
-        "inventory_hash": inventory_hash,
-        "rule_set_hash": rule_set_hash,
-        "child_inputs_hash": child_inputs_hash,
-        "changed_scope_hash": changed_scope_hash,
-    }
-
-
-def _empty_violations_payload() -> dict[str, list[dict[str, Any]]]:
-    return {
-        "no_monkeypatch": [],
-        "branchless": [],
-        "defensive_fallback": [],
-        "fiber_loop_structure_contract": [],
-        "fiber_filter_processor_contract": [],
-        "fiber_return_shape_contract": [],
-        "fiber_scalar_sentinel_contract": [],
-        "fiber_type_dispatch_contract": [],
-        "no_anonymous_tuple": [],
-        "no_mutable_dict": [],
-        "no_scalar_conversion_boundary": [],
-        "no_legacy_monolith_import": [],
-        "orchestrator_primitive_barrel": [],
-        "typing_surface": [],
-        "runtime_narrowing_boundary": [],
-        "aspf_normalization_idempotence": [],
-        "boundary_core_contract": [],
-        "fiber_normalization_contract": [],
-        "test_subprocess_hygiene": [],
-        "test_sleep_hygiene": [],
-    }
-
-
-def _normalized_violation_items(raw_items: object) -> list[dict[str, Any]]:
-    match raw_items:
-        case list() as items:
-            return list(_iter_normalized_violation_items(items))
-        case _:
-            return []
-
-
-def _iter_normalized_violation_items(items: list[object]) -> Iterable[dict[str, Any]]:
-    for item in items:
-        yield from _normalized_violation_item(item)
-
-
-def _normalized_violation_item(item: object) -> tuple[dict[str, Any], ...]:
-    match item:
-        case dict() as mapping:
-            return (dict(mapping),)
-        case _:
-            return ()
-
-
 def _inventory_files(root: Path) -> tuple[Path, ...]:
     patterns = ("src/gabion/**/*.py", "tests/**/*.py")
     per_pattern_paths = map(lambda pattern: sorted(root.glob(pattern)), patterns)
@@ -701,50 +521,6 @@ def _is_inventory_file(path: Path) -> bool:
     if not path.is_file():
         return False
     return "__pycache__" not in path.parts
-
-
-def _inventory_hash(files: Iterable[Path], root: Path) -> str:
-    digest = hashlib.sha256()
-    digest.update(b"".join(map(lambda path: _inventory_hash_chunk(path, root), files)))
-    return digest.hexdigest()
-
-
-def _inventory_hash_chunk(path: Path, root: Path) -> bytes:
-    stat = path.stat()
-    rel = path.relative_to(root).as_posix()
-    return (
-        rel.encode("utf-8")
-        + str(int(stat.st_mtime_ns)).encode("utf-8")
-        + str(int(stat.st_size)).encode("utf-8")
-    )
-
-
-def _rule_set_hash() -> str:
-    material = "|".join(
-        [
-            "no_monkeypatch:v3",
-            "branchless:v6",
-            "defensive_fallback:v4",
-            "fiber_loop_structure_contract:v2",
-            "fiber_filter_processor_contract:v2",
-            "fiber_return_shape_contract:v1",
-            "fiber_scalar_sentinel_contract:v2",
-            "fiber_type_dispatch_contract:v2",
-            "no_anonymous_tuple:v1",
-            "no_mutable_dict:v1",
-            "no_scalar_conversion_boundary:v1",
-            "no_legacy_monolith_import:v2",
-            "orchestrator_primitive_barrel:v2",
-            "typing_surface:v4",
-            "runtime_narrowing_boundary:v4",
-            "aspf_normalization_idempotence:v4",
-            "boundary_core_contract:v3",
-            "fiber_normalization_contract:v3",
-            "test_subprocess_hygiene:v4",
-            "test_sleep_hygiene:v3",
-        ]
-    )
-    return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
 
 def _load_rule_baseline_keys(*, module: object, baseline_path: Path) -> set[str]:
@@ -1343,8 +1119,6 @@ def _serialize_test_sleep_hygiene(violation: object) -> dict[str, object]:
 
 
 __all__ = [
-    "PolicySuiteLoadOutcome",
     "PolicySuiteResult",
-    "load_or_scan_policy_suite",
     "scan_policy_suite",
 ]
