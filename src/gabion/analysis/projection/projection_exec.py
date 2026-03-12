@@ -43,7 +43,7 @@ def apply_execution_ops(
     runtime_params: Mapping[str, JSONValue] = _EMPTY_RUNTIME_PARAMS,
 ) -> Relation:
     check_deadline()
-    params = _copy_json_mapping(runtime_params)
+    params = {str(key): value for key, value in runtime_params.items()}
 
     current: Relation = [
         dict(cast(Mapping[str, JSONValue], row))
@@ -52,32 +52,14 @@ def apply_execution_ops(
 
     for execution_op in execution_ops:
         check_deadline()
-        current = _apply_normalized_execution_op(
+        current = _apply_execution_op(
+            execution_op,
             current,
-            execution_op=execution_op,
             op_registry=op_registry,
             runtime_params=params,
         )
 
     return current
-
-@grade_boundary(
-    kind="semantic_carrier_adapter",
-    name="projection_exec.apply_normalized_execution_op",
-)
-def _apply_normalized_execution_op(
-    rows: Relation,
-    *,
-    execution_op: ExecutionProjectionOp,
-    op_registry: PredicateRegistry,
-    runtime_params: Mapping[str, JSONValue],
-) -> Relation:
-    return _apply_execution_op(
-        execution_op,
-        rows,
-        op_registry=op_registry,
-        runtime_params=runtime_params,
-    )
 
 @grade_boundary(
     kind="semantic_carrier_adapter",
@@ -205,13 +187,6 @@ def _apply_limit_execution_op(
     if execution_op.count >= 0:
         return rows[:execution_op.count]
     return rows
-
-@grade_boundary(
-    kind="semantic_carrier_adapter",
-    name="projection_exec.copy_json_mapping",
-)
-def _copy_json_mapping(params: Mapping[str, JSONValue]) -> dict[str, JSONValue]:
-    return {str(key): value for key, value in params.items()}
 
 @grade_boundary(
     kind="semantic_carrier_adapter",

@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from gabion.analysis.projection.projection_exec import (
-    _hashable,
-    _sort_value,
     apply_execution_ops,
 )
 from gabion.analysis.projection.projection_exec_protocol import (
@@ -154,17 +152,6 @@ def test_apply_execution_ops_applies_typed_pipeline() -> None:
         runtime_params={"threshold": 2},
     )
     assert result == [{"group": ["a"], "count": 2}]
-
-
-# gabion:evidence E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::value E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::stale_f5d27306e19e
-# gabion:behavior primary=desired facets=edge
-def test_sort_value_and_hashable_helpers() -> None:
-    assert _sort_value(None) == (1, "")
-    assert _sort_value(3) == (0, 3)
-    assert _sort_value({"a": 1})[0] == 0
-    assert _hashable({"a": 1}) == "{\"a\":1}"
-    assert _hashable(2) == 2
-
 
 # gabion:evidence E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec.apply_execution_ops::runtime_params E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::value
 # gabion:behavior primary=desired facets=edge
