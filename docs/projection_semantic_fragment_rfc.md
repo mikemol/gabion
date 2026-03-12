@@ -563,6 +563,11 @@ Current implementation status:
   graded carrier seam, so the remaining temporary grading on
   `semantic_fragment.py` stays concentrated on the real row-closure and
   canonicalization surfaces
+- and narrower again after that: `_join_payload(...)` is now treated as an
+  ordinary internal join/meet witness-shaping helper rather than a graded
+  carrier seam, so the remaining temporary grading on `semantic_fragment.py`
+  stays concentrated on the real row-closure, canonicalization, and
+  naturality/obligation materialization surfaces
 - whole-Gabion output boundaries are tightening too: `call_clusters` now owns
   its JSON emission shape at the carrier module, and the emitted wire payload
   preserves cluster `identity` rather than dropping part of the internal DTO at

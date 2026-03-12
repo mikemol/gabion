@@ -242,10 +242,6 @@ def _synthesized_witness_payloads(witness: FrontierWitness) -> list[JSONObject]:
         ),
     ]
 
-@grade_boundary(
-    kind="semantic_carrier_adapter",
-    name="semantic_fragment.join_payload",
-)
 def _join_payload(
     *,
     kind: str,
