@@ -44,28 +44,6 @@ _ASPF_NORMALIZATION_IDEMPOTENCE_BASELINE = Path("baselines/aspf_normalization_id
 _TEST_SUBPROCESS_HYGIENE_ALLOWLIST = Path("docs/policy/test_subprocess_hygiene_allowlist.txt")
 _TEST_SLEEP_HYGIENE_ALLOWLIST = Path("docs/policy/test_sleep_hygiene_allowlist.txt")
 
-_POLICY_RULE_IDS = (
-    "no_monkeypatch",
-    "branchless",
-    "defensive_fallback",
-    "fiber_loop_structure_contract",
-    "fiber_filter_processor_contract",
-    "fiber_return_shape_contract",
-    "fiber_scalar_sentinel_contract",
-    "fiber_type_dispatch_contract",
-    "no_anonymous_tuple",
-    "no_mutable_dict",
-    "no_scalar_conversion_boundary",
-    "no_legacy_monolith_import",
-    "orchestrator_primitive_barrel",
-    "typing_surface",
-    "runtime_narrowing_boundary",
-    "aspf_normalization_idempotence",
-    "boundary_core_contract",
-    "fiber_normalization_contract",
-    "test_subprocess_hygiene",
-    "test_sleep_hygiene",
-)
 _BOUNDARY_MARKER = "gabion:boundary_normalization_module"
 
 

@@ -39,7 +39,7 @@ def run(
     queue_md = out_dir / "hotspot_neighborhood_queue.md"
     hotspot_neighborhood_queue.run_from_inputs(
         violations_by_rule=violations_by_rule,
-        projection_fiber_source_artifact_path=out_dir / "policy_check_result.json",
+        policy_check_result_path=out_dir / "policy_check_result.json",
         out_path=queue_json,
         markdown_out=queue_md,
     )

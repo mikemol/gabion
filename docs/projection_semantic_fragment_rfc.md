@@ -693,6 +693,9 @@ Current implementation status:
   directly, consumes only child-owned result artifacts, and writes only the
   hotspot-neighborhood queue at the boundary instead of routing through
   runtime cache orchestration or publishing a suite-results compatibility file
+- hotspot-neighborhood queue/report boundary helpers should name child-owned
+  artifact ingress after the owning artifact itself (`policy_check_result.json`)
+  rather than after derived semantic payloads like `projection_fiber_semantics`
 - the runtime `scan_policy_suite()` surface no longer accepts
   `projection_fiber_semantics` at all; the wrapper resolves that child-owned
   semantic carrier at ingress and passes it directly to downstream reporting,

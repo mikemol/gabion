@@ -105,15 +105,13 @@ def test_run_passes_canonical_inputs_to_hotspot_queue(
     def _fake_run_from_inputs(
         *,
         violations_by_rule: dict[str, list[dict[str, object]]],
-        projection_fiber_source_artifact_path: Path | None = None,
+        policy_check_result_path: Path | None = None,
         out_path: Path,
         markdown_out: Path | None = None,
         config: object | None = None,
     ) -> int:
         captured["violations_by_rule"] = violations_by_rule
-        captured["projection_fiber_source_artifact_path"] = (
-            projection_fiber_source_artifact_path
-        )
+        captured["policy_check_result_path"] = policy_check_result_path
         captured["out_path"] = out_path
         captured["markdown_out"] = markdown_out
         out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -155,15 +153,13 @@ def test_run_passes_canonical_inputs_to_hotspot_queue(
         isinstance(items, list) and not items
         for items in captured["violations_by_rule"].values()
     )
-    assert captured["projection_fiber_source_artifact_path"] == (
-        out_dir / "policy_check_result.json"
-    )
+    assert captured["policy_check_result_path"] == (out_dir / "policy_check_result.json")
     assert captured["out_path"] == out_dir / "hotspot_neighborhood_queue.json"
     assert captured["markdown_out"] == out_dir / "hotspot_neighborhood_queue.md"
     assert not (out_dir / "policy_suite_results.json").exists()
 
 
-def test_run_passes_minimal_boundary_shape_with_projection_fiber_source_artifact(
+def test_run_passes_minimal_boundary_shape_with_policy_check_result_path(
     tmp_path: Path,
     monkeypatch: object,
 ) -> None:
@@ -177,16 +173,14 @@ def test_run_passes_minimal_boundary_shape_with_projection_fiber_source_artifact
     def _fake_run_from_inputs(
         *,
         violations_by_rule: dict[str, list[dict[str, object]]],
-        projection_fiber_source_artifact_path: Path | None = None,
+        policy_check_result_path: Path | None = None,
         out_path: Path,
         markdown_out: Path | None = None,
         config: object | None = None,
     ) -> int:
         _ = config
         captured["violations_by_rule"] = violations_by_rule
-        captured["projection_fiber_source_artifact_path"] = (
-            projection_fiber_source_artifact_path
-        )
+        captured["policy_check_result_path"] = policy_check_result_path
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text("{}\n", encoding="utf-8")
         if markdown_out is not None:
@@ -210,9 +204,7 @@ def test_run_passes_minimal_boundary_shape_with_projection_fiber_source_artifact
     assert captured["violations_by_rule"] == {
         "branchless": [{"path": "src/gabion/example.py"}]
     }
-    assert captured["projection_fiber_source_artifact_path"] == (
-        out_dir / "policy_check_result.json"
-    )
+    assert captured["policy_check_result_path"] == (out_dir / "policy_check_result.json")
     assert not (out_dir / "policy_suite_results.json").exists()
 
 
@@ -233,12 +225,12 @@ def test_run_prints_nonempty_violation_families_from_runtime_result(
     def _fake_run_from_inputs(
         *,
         violations_by_rule: dict[str, list[dict[str, object]]],
-        projection_fiber_source_artifact_path: Path | None = None,
+        policy_check_result_path: Path | None = None,
         out_path: Path,
         markdown_out: Path | None = None,
         config: object | None = None,
     ) -> int:
-        _ = violations_by_rule, projection_fiber_source_artifact_path, config
+        _ = violations_by_rule, policy_check_result_path, config
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text("{}\n", encoding="utf-8")
         if markdown_out is not None:

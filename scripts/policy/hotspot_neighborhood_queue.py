@@ -651,7 +651,7 @@ def run_from_payload(
 def run_from_inputs(
     *,
     violations_by_rule: dict[str, list[dict[str, Any]]],
-    projection_fiber_source_artifact_path: Path | None = None,
+    policy_check_result_path: Path | None = None,
     out_path: Path,
     markdown_out: Path | None = None,
     config: QueueConfig | None = None,
@@ -660,9 +660,9 @@ def run_from_inputs(
         "format_version": 1,
         "violations": violations_by_rule,
     }
-    if projection_fiber_source_artifact_path is not None:
-        projection_fiber_semantics = _load_projection_fiber_semantics(
-            artifact_path=projection_fiber_source_artifact_path,
+    if policy_check_result_path is not None:
+        projection_fiber_semantics = _load_projection_fiber_semantics_from_policy_check_result(
+            artifact_path=policy_check_result_path,
         )
         if projection_fiber_semantics is not None:
             payload["projection_fiber_semantics"] = projection_fiber_semantics
@@ -674,7 +674,7 @@ def run_from_inputs(
     )
 
 
-def _load_projection_fiber_semantics(
+def _load_projection_fiber_semantics_from_policy_check_result(
     *,
     artifact_path: Path,
 ) -> dict[str, Any] | None:

@@ -243,7 +243,7 @@ def test_run_from_inputs_writes_json_and_markdown_outputs(tmp_path: Path) -> Non
     assert "# Hotspot Neighborhood Queue" in markdown
 
 
-def test_run_from_inputs_reads_projection_fiber_semantics_from_source_artifact(
+def test_run_from_inputs_reads_projection_fiber_semantics_from_policy_check_result(
     tmp_path: Path,
 ) -> None:
     source_artifact = tmp_path / "artifacts/out/policy_check_result.json"
@@ -293,7 +293,7 @@ def test_run_from_inputs_reads_projection_fiber_semantics_from_source_artifact(
 
     rc = hotspot_neighborhood_queue.run_from_inputs(
         violations_by_rule=_payload()["violations"],
-        projection_fiber_source_artifact_path=source_artifact,
+        policy_check_result_path=source_artifact,
         out_path=out,
         markdown_out=md,
         config=hotspot_neighborhood_queue.QueueConfig(
@@ -317,7 +317,7 @@ def test_run_from_inputs_reads_projection_fiber_semantics_from_source_artifact(
     )
 
 
-def test_load_projection_fiber_semantics_reads_policy_check_artifact(
+def test_load_projection_fiber_semantics_from_policy_check_result_reads_policy_check_artifact(
     monkeypatch: object,
 ) -> None:
     projection_fiber_semantics = {
@@ -337,12 +337,12 @@ def test_load_projection_fiber_semantics_reads_policy_check_artifact(
         },
     )
 
-    assert hotspot_neighborhood_queue._load_projection_fiber_semantics(
+    assert hotspot_neighborhood_queue._load_projection_fiber_semantics_from_policy_check_result(
         artifact_path=Path("artifacts/out/policy_check_result.json"),
     ) == projection_fiber_semantics
 
 
-def test_load_projection_fiber_semantics_fail_closed_when_child_artifact_missing(
+def test_load_projection_fiber_semantics_from_policy_check_result_fail_closed_when_child_artifact_missing(
     tmp_path: Path,
     monkeypatch: object,
 ) -> None:
@@ -354,7 +354,7 @@ def test_load_projection_fiber_semantics_fail_closed_when_child_artifact_missing
     )
 
     with pytest.raises(RuntimeError) as excinfo:
-        hotspot_neighborhood_queue._load_projection_fiber_semantics(
+        hotspot_neighborhood_queue._load_projection_fiber_semantics_from_policy_check_result(
             artifact_path=artifact
         )
 
@@ -365,7 +365,7 @@ def test_load_projection_fiber_semantics_fail_closed_when_child_artifact_missing
     assert "rule_id=policy_check" in str(excinfo.value)
 
 
-def test_load_projection_fiber_semantics_fail_closed_when_rule_id_mismatches(
+def test_load_projection_fiber_semantics_from_policy_check_result_fail_closed_when_rule_id_mismatches(
     monkeypatch: object,
 ) -> None:
     monkeypatch.setattr(
@@ -375,14 +375,14 @@ def test_load_projection_fiber_semantics_fail_closed_when_rule_id_mismatches(
     )
 
     with pytest.raises(RuntimeError) as excinfo:
-        hotspot_neighborhood_queue._load_projection_fiber_semantics(
+        hotspot_neighborhood_queue._load_projection_fiber_semantics_from_policy_check_result(
             artifact_path=Path("artifacts/out/policy_check_result.json")
         )
 
     assert "rule_id=policy_check" in str(excinfo.value)
 
 
-def test_load_projection_fiber_semantics_returns_none_when_policy_check_payload_has_no_semantics(
+def test_load_projection_fiber_semantics_from_policy_check_result_returns_none_when_policy_check_payload_has_no_semantics(
     tmp_path: Path,
 ) -> None:
     out_dir = tmp_path / "artifacts/out"
@@ -399,8 +399,10 @@ def test_load_projection_fiber_semantics_returns_none_when_policy_check_payload_
         ),
     )
 
-    projection_fiber_semantics = hotspot_neighborhood_queue._load_projection_fiber_semantics(
-        artifact_path=out_dir / "policy_check_result.json"
+    projection_fiber_semantics = (
+        hotspot_neighborhood_queue._load_projection_fiber_semantics_from_policy_check_result(
+            artifact_path=out_dir / "policy_check_result.json"
+        )
     )
 
     assert projection_fiber_semantics is None
