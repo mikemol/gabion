@@ -544,9 +544,10 @@ Current implementation status:
   artifact path instead of baking in `policy_suite_results.json`, so the
   compatibility wrapper no longer projects that artifact name as an implicit
   ownership contract
-- the runtime policy-scanner-suite cache loader now normalizes only the
-  canonical `policy_results` payload it persists itself, rather than carrying
-  a wrapper-era top-level child-result compatibility branch
+- the runtime policy-scanner-suite cache loader now reuses the generic
+  canonical `policy_results` mapping normalizer instead of a fixed three-child
+  projection helper, removing another suite-specific assumption from cached
+  artifact reads
 - the shared projection-fiber summary decoder no longer accepts a top-level
   `policy_check` wrapper payload as a generic ingress shape; canonical summary
   decoding is now restricted to direct `policy_check` payloads,
@@ -614,8 +615,8 @@ Ratchet rules:
   input contract is intentionally generic and explicit
 - runtime/wrapper APIs must not preserve suite-era default artifact paths once
   every in-repo caller already passes an explicit artifact owner
-- runtime cache loaders must not preserve wrapper-era top-level child-result
-  normalization once canonical cached payloads already store `policy_results`
+- runtime cache loaders must not preserve fixed suite-specific child-result
+  projections once canonical cached payloads already store `policy_results`
 - shared semantic-summary decoders must not preserve wrapper-only ingress
   branches once the canonical artifact paths are explicit
 - shared decoders must not retain retired suite-local embedding fallbacks once

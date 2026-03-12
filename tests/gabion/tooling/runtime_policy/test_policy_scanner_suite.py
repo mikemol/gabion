@@ -188,6 +188,18 @@ def test_policy_scanner_suite_private_cache_and_payload_branches(
     assert normalized["no_monkeypatch"] == []
     assert normalized["orchestrator_primitive_barrel"] == []
     assert normalized["fiber_loop_structure_contract"] == []
+
+    generic_policy_results = policy_scanner_suite._normalized_policy_result_mapping(
+        {
+            "policy_check": {"rule_id": "policy_check", "status": "pass"},
+            "custom_rule": {"rule_id": "custom_rule", "status": "pass"},
+            "broken_rule": "bad-shape",
+        }
+    )
+    assert generic_policy_results == {
+        "policy_check": {"rule_id": "policy_check", "status": "pass"},
+        "custom_rule": {"rule_id": "custom_rule", "status": "pass"},
+    }
     assert normalized["fiber_filter_processor_contract"] == []
     assert normalized["fiber_return_shape_contract"] == []
     assert normalized["fiber_scalar_sentinel_contract"] == []
