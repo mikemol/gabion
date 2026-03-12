@@ -6,6 +6,10 @@ from typing import Mapping
 from gabion.json_types import JSONValue
 
 
+class FrontmatterParseError(ValueError):
+    pass
+
+
 def _yaml_module():
     return import_module("yaml")
 
@@ -24,6 +28,8 @@ def parse_strict_yaml_frontmatter(
             end = index
             break
     if end is None:
+        if require_parser:
+            raise FrontmatterParseError("unterminated YAML frontmatter")
         return {}, text
     raw = lines[1:end]
     body = "\n".join(lines[end + 1 :])
@@ -35,9 +41,15 @@ def parse_strict_yaml_frontmatter(
         return {}, body
     try:
         parsed = yaml.safe_load("\n".join(raw))
-    except Exception:
+    except Exception as exc:
+        if require_parser:
+            raise FrontmatterParseError("invalid YAML frontmatter") from exc
         parsed = None
+    if parsed is None:
+        return {}, body
     if not isinstance(parsed, Mapping):
+        if require_parser:
+            raise FrontmatterParseError("frontmatter root must be a mapping")
         return {}, body
     normalized: dict[str, JSONValue] = {}
     for key, value in parsed.items():

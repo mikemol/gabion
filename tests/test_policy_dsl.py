@@ -76,6 +76,32 @@ def test_compile_document_rejects_missing_markdown_playbook_anchor(tmp_path: Pat
     assert [item.code for item in issues] == ["missing_playbook_anchor"]
 
 
+def test_compile_document_rejects_blank_markdown_playbook_anchor(tmp_path: Path) -> None:
+    path = tmp_path / "docs" / "policy_rules" / "blank_anchor.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        (
+            "---\n"
+            "rules:\n"
+            "  - rule_id: sample.blocking\n"
+            "    domain: ambiguity_contract\n"
+            "    severity: blocking\n"
+            "    predicate:\n"
+            "      op: always\n"
+            "    outcome:\n"
+            "      kind: block\n"
+            "      message: sample blocking rule\n"
+            "    evidence_contract: none\n"
+            "    playbook_anchor: \"   \"\n"
+            "---\n\n"
+        ),
+        encoding="utf-8",
+    )
+    program, issues = compile_document(path)
+    assert program is None
+    assert [item.code for item in issues] == ["invalid_playbook_anchor"]
+
+
 def test_compile_document_rejects_duplicate_markdown_body_anchors(tmp_path: Path) -> None:
     path = tmp_path / "docs" / "policy_rules" / "duplicate_anchor.md"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -104,6 +130,53 @@ def test_compile_document_rejects_duplicate_markdown_body_anchors(tmp_path: Path
     program, issues = compile_document(path)
     assert program is None
     assert [item.code for item in issues] == ["duplicate_playbook_anchor"]
+
+
+def test_compile_document_rejects_non_mapping_rule_entries(tmp_path: Path) -> None:
+    path = tmp_path / "docs" / "policy_rules" / "bad_rules.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        (
+            "---\n"
+            "rules:\n"
+            "  - rule_id: sample.blocking\n"
+            "    domain: ambiguity_contract\n"
+            "    severity: blocking\n"
+            "    predicate:\n"
+            "      op: always\n"
+            "    outcome:\n"
+            "      kind: block\n"
+            "      message: sample blocking rule\n"
+            "    evidence_contract: none\n"
+            "    playbook_anchor: sample-blocking\n"
+            "  - not-a-mapping\n"
+            "---\n\n"
+            "<a id=\"sample-blocking\"></a>\n"
+            "## sample\n"
+        ),
+        encoding="utf-8",
+    )
+    program, issues = compile_document(path)
+    assert program is None
+    assert [item.code for item in issues] == ["invalid_rule"]
+
+
+def test_compile_document_rejects_invalid_markdown_frontmatter(tmp_path: Path) -> None:
+    path = tmp_path / "docs" / "policy_rules" / "bad_frontmatter.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        (
+            "---\n"
+            "rules:\n"
+            "  - rule_id: sample.blocking\n"
+            "    domain ambiguity_contract\n"
+            "---\n"
+        ),
+        encoding="utf-8",
+    )
+    program, issues = compile_document(path)
+    assert program is None
+    assert [item.code for item in issues] == ["invalid_frontmatter"]
 
 
 def test_registry_rejects_duplicate_rule_ids_across_yaml_and_markdown(tmp_path: Path) -> None:

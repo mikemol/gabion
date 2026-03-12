@@ -5,7 +5,7 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any, Mapping
 
-from gabion.frontmatter import parse_strict_yaml_frontmatter
+from gabion.frontmatter import FrontmatterParseError, parse_strict_yaml_frontmatter
 
 from .ir import IRProgram, IRRule, IRTransform
 from .schema import CompileIssue, EvidenceContract, PolicyDomain, PolicyOutcomeKind, PolicySeverity, RuleIdentity, RuleSchema
@@ -37,10 +37,18 @@ def _markdown_anchor_names(body: str) -> tuple[tuple[str, ...], tuple[str, ...]]
 
 
 def _load_markdown_document(path: Path, *, text: str) -> tuple[object | None, list[CompileIssue]]:
-    frontmatter, body = parse_strict_yaml_frontmatter(
-        text,
-        require_parser=True,
-    )
+    try:
+        frontmatter, body = parse_strict_yaml_frontmatter(
+            text,
+            require_parser=True,
+        )
+    except FrontmatterParseError as exc:
+        return None, [
+            CompileIssue(
+                code="invalid_frontmatter",
+                message=str(exc),
+            )
+        ]
     anchors, duplicate_anchors = _markdown_anchor_names(body)
     issues: list[CompileIssue] = []
     for anchor in duplicate_anchors:
@@ -63,10 +71,13 @@ def _load_markdown_document(path: Path, *, text: str) -> tuple[object | None, li
             normalized_rules.append(item)
             continue
         normalized_rule = dict(item)
-        playbook_anchor = str(normalized_rule.pop("playbook_anchor", "")).strip()
-        if playbook_anchor:
+        raw_playbook_anchor = normalized_rule.pop("playbook_anchor", None)
+        playbook_anchor = (
+            None if raw_playbook_anchor is None else str(raw_playbook_anchor).strip()
+        )
+        if playbook_anchor is not None:
             rule_id = str(normalized_rule.get("rule_id", "")).strip() or None
-            if not _PLAYBOOK_ANCHOR_RE.fullmatch(playbook_anchor):
+            if not playbook_anchor or not _PLAYBOOK_ANCHOR_RE.fullmatch(playbook_anchor):
                 issues.append(
                     CompileIssue(
                         code="invalid_playbook_anchor",
@@ -273,7 +284,20 @@ def compile_document(path: Path) -> tuple[IRProgram | None, list[CompileIssue]]:
     rules = payload.get("rules")
     if not isinstance(rules, list):
         return None, [CompileIssue(code="invalid_rules", message="policy document must define rules: []")]
-    normalized = [dict(item) for item in rules if isinstance(item, Mapping)]
+    normalized: list[dict[str, Any]] = []
+    rule_issues: list[CompileIssue] = []
+    for index, item in enumerate(rules):
+        if not isinstance(item, Mapping):
+            rule_issues.append(
+                CompileIssue(
+                    code="invalid_rule",
+                    message=f"rule entry at index {index} must be an object",
+                )
+            )
+            continue
+        normalized.append(dict(item))
+    if rule_issues:
+        return None, rule_issues
     program, issues = compile_rules(normalized)
     if issues:
         return None, issues
