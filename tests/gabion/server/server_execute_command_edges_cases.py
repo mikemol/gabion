@@ -5488,6 +5488,56 @@ def test_execute_command_feature_output_and_branch_coverage_bundle(tmp_path: Pat
     assert isinstance(result.get("semantic_coverage_map_summary"), dict)
 
 
+# gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_emits_call_clusters_payload_from_dto::server.py::gabion.server.execute_command_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout
+# gabion:behavior primary=desired
+def test_execute_command_emits_call_clusters_payload_from_dto(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    _write_minimal_test_evidence_payload(tmp_path)
+    config_path = tmp_path / "gabion.toml"
+    config_path.write_text(
+        "[decision]\n"
+        "tier1 = [\"decision_param\"]\n",
+        encoding="utf-8",
+    )
+    baseline_path = tmp_path / "baseline.txt"
+    server.write_baseline(baseline_path, [])
+    analysis = _empty_analysis_result()
+
+    result = _execute_with_deps(
+        _DummyNotifyingServer(str(tmp_path)),
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "config": str(config_path),
+                "paths": [str(module_path)],
+                "report": str(tmp_path / "report.md"),
+                "baseline": str(baseline_path),
+                "emit_test_evidence_suggestions": False,
+                "emit_call_clusters": True,
+                "emit_call_cluster_consolidation": False,
+                "emit_semantic_coverage_map": False,
+                "obsolescence_mode": {"kind": "off"},
+                "annotation_drift_mode": {"kind": "off"},
+                "ambiguity_mode": {"kind": "off"},
+                "taint_mode": {"kind": "off"},
+            }
+        ),
+        analyze_paths_fn=lambda *_args, **_kwargs: analysis,
+        collection_semantic_progress_fn=lambda *_args, **_kwargs: {},
+    )
+
+    assert result["exit_code"] == 0
+    assert result["call_clusters_summary"] == {"clusters": 0, "tests": 0}
+    call_clusters_json = tmp_path / "artifacts" / "out" / "call_clusters.json"
+    call_clusters_md = tmp_path / "out" / "call_clusters.md"
+    assert call_clusters_json.exists()
+    assert call_clusters_md.exists()
+    payload = json.loads(call_clusters_json.read_text(encoding="utf-8"))
+    assert payload["summary"] == {"clusters": 0, "tests": 0}
+    assert payload["clusters"] == []
+
+
 # gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator.execute_command_total
 # gabion:behavior primary=verboten facets=edge
 def test_execute_command_emits_taint_state_delta_and_lifecycle_artifacts(

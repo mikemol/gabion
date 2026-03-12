@@ -1,5 +1,5 @@
 ---
-doc_revision: 104
+doc_revision: 106
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -802,10 +802,11 @@ Current implementation status:
   them directly, so that stable consolidation/report ordering path no longer
   routes through `projection_exec_ingress.py` on every call
 - the `call_clusters` summary path now runs through a single fixed typed
-  execution-op plan, and its JSON payload builder is marked as the real
-  whole-Gabion emission boundary; the internal custom `summary_spec`
-  override seam is gone, so cluster-summary materialization no longer needs a
-  local fallback for missing cluster identity
+  execution-op plan, and its cluster-summary materialization stays in a strict
+  internal DTO until the final whole-Gabion output edge; the internal custom
+  `summary_spec` override seam is gone, `render_markdown(...)` is the explicit
+  markdown/file output carrier adapter on that path, and JSON serialization now
+  happens only in server-side emission
 - the fixed-spec `test_obsolescence` summary path now precomputes typed
   execution ops and executes them directly, so that stable stale/active
   summary counting no longer routes through `projection_exec_ingress.py`
@@ -920,6 +921,14 @@ compile a fixed local `ProjectionSpec`. During the remaining
 compatibility window, that planner may still carry a temporary grade-only
 adapter classification so monotonicity accounting remains explicit until
 `ProjectionSpec` retirement is complete.
+
+Internal JSON-shaped payload builders are also not ambiguity boundaries.
+If a report path remains inside Gabion, it should keep a strict carrier/DTO
+until the final whole-Gabion render/write emission point rather than
+normalizing into a loose mapping in the middle of the data fiber.
+The current `call_clusters` path is the concrete example: it keeps a strict
+DTO through summary build and markdown render, and only the server/file
+emission edge serializes JSON.
 
 The policy DSL remains a judgment surface. It is not promoted to semantic
 construction ownership by this RFC.

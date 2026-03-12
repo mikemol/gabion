@@ -1498,11 +1498,34 @@ def _apply_auxiliary_artifact_outputs(
             config=config,
         )
         report_md = call_clusters.render_markdown(clusters_payload)
+        clusters_summary = {
+            "clusters": clusters_payload.summary.clusters,
+            "tests": clusters_payload.summary.tests,
+        }
+        clusters_report_payload = {
+            "version": clusters_payload.version,
+            "summary": clusters_summary,
+            "clusters": [
+                {
+                    "key": entry.key,
+                    "display": entry.display,
+                    "tests": list(entry.tests),
+                    "count": entry.count,
+                }
+                for entry in clusters_payload.clusters
+            ],
+            "generated_by_spec_id": clusters_payload.generated_by_spec_id,
+            "generated_by_spec": clusters_payload.generated_by_spec,
+        }
         out_dir, artifact_dir = _output_dirs(report_root)
-        report_json = json.dumps(clusters_payload, indent=2, sort_keys=False) + "\n"
+        report_json = json.dumps(
+            clusters_report_payload,
+            indent=2,
+            sort_keys=False,
+        ) + "\n"
         (artifact_dir / "call_clusters.json").write_text(report_json)
         (out_dir / "call_clusters.md").write_text(report_md)
-        response["call_clusters_summary"] = clusters_payload.get("summary", {})
+        response["call_clusters_summary"] = clusters_summary
     if emit_call_cluster_consolidation:
         report_root = Path(root)
         evidence_path = report_root / "out" / "test_evidence.json"

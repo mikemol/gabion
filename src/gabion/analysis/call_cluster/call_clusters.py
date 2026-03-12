@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
 from collections.abc import Iterable, Mapping
 
 from gabion.analysis.semantics import evidence_keys
+from gabion.analysis.foundation.baseline_io import parse_spec_metadata
 from gabion.analysis.surfaces import test_evidence_suggestions
-from gabion.analysis.foundation.baseline_io import write_json
 from gabion.analysis.call_cluster.call_cluster_shared import (
     cluster_identity_from_key,
     render_cluster_heading,
@@ -22,10 +23,11 @@ from gabion.analysis.projection.projection_registry import (
     spec_metadata_payload,
 )
 from gabion.analysis.semantics.report_doc import ReportDoc
-from gabion.analysis.foundation.resume_codec import mapping_optional, sequence_optional
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.json_types import JSONValue
-from gabion.invariants import decision_protocol
+from gabion.invariants import decision_protocol, grade_boundary, never
+
+
 CALL_CLUSTER_VERSION = 1
 
 
@@ -38,19 +40,47 @@ def _call_cluster_summary_execution_ops():
 @dataclass(frozen=True)
 class CallClusterEntry:
     identity: str
-    key: dict[str, object]
+    key: dict[str, JSONValue]
     display: str
     tests: tuple[str, ...]
     count: int
 
-# gabion:ambiguity_boundary gabion:grade_boundary kind=semantic_carrier_adapter name=call_clusters_payload_emission
+
+@dataclass(frozen=True)
+class CallClustersSummary:
+    clusters: int
+    tests: int
+
+
+@dataclass(frozen=True)
+class CallClustersPayload:
+    version: int
+    summary: CallClustersSummary
+    clusters: tuple[CallClusterEntry, ...]
+    generated_by_spec_id: str
+    generated_by_spec: dict[str, JSONValue]
+
+
+@dataclass
+class _CallClusterAccumulator:
+    identity: str
+    key: dict[str, JSONValue]
+    display: str
+    tests: list[str]
+
+
+# gabion:ambiguity_boundary
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="call_clusters.build_call_clusters_payload",
+)
 def build_call_clusters_payload(
     paths: Iterable[Path],
     *,
     root: Path,
     evidence_path: Path,
     config: object = None,
-) -> dict[str, JSONValue]:
+) -> CallClustersPayload:
     # dataflow-bundle: evidence_path, paths, root, config
     check_deadline(allow_frame_fallback=True)
     entries = test_evidence_suggestions.load_test_evidence(str(evidence_path))
@@ -60,7 +90,7 @@ def build_call_clusters_payload(
         paths=paths,
         config=config,
     )
-    clusters: dict[str, dict[str, object]] = {}
+    clusters: dict[str, _CallClusterAccumulator] = {}
     for entry in entries:
         check_deadline()
         targets = footprints.get(entry.test_id)
@@ -72,31 +102,35 @@ def build_call_clusters_payload(
         identity = metadata.identity
         cluster = clusters.get(identity)
         if cluster is None:
-            cluster = {
-                "identity": metadata.identity,
-                "key": metadata.key,
-                "display": metadata.display,
-                "tests": [],
-            }
+            cluster = _CallClusterAccumulator(
+                identity=metadata.identity,
+                key=dict(metadata.key),
+                display=metadata.display,
+                tests=[],
+            )
             clusters[identity] = cluster
-        cluster["tests"].append(entry.test_id)
+        cluster.tests.append(entry.test_id)
 
     cluster_rows: list[dict[str, JSONValue]] = []
     for cluster in clusters.values():
         check_deadline()
         tests = sorted_unique_strings(
-            cluster["tests"],
+            cluster.tests,
             source="build_call_clusters_payload.cluster.tests",
         )
-        cluster["tests"] = tests
         count = len(tests)
-        cluster["count"] = count
         cluster_rows.append(
             {
-                "identity": cluster["identity"],
-                "display": cluster["display"],
+                "identity": cluster.identity,
+                "display": cluster.display,
                 "count": count,
             }
+        )
+        clusters[cluster.identity] = _CallClusterAccumulator(
+            identity=cluster.identity,
+            key=cluster.key,
+            display=cluster.display,
+            tests=list(tests),
         )
 
     projected = apply_execution_ops(
@@ -106,74 +140,76 @@ def build_call_clusters_payload(
     ordered: list[CallClusterEntry] = []
     for row in projected:
         check_deadline()
-        identity = str(row["identity"])
-        cluster = clusters[identity]
+        match row["identity"]:
+            case str() as identity if identity:
+                cluster_identity = identity
+            case impossible_identity:
+                _ = impossible_identity
+                never("projected call cluster row must carry string identity")
+        cluster = clusters[cluster_identity]
         ordered.append(
             CallClusterEntry(
-                identity=identity,
-                key=cluster["key"],
-                display=str(cluster["display"]),
-                tests=tuple(cluster["tests"]),
-                count=int(cluster["count"]),
+                identity=cluster_identity,
+                key=cluster.key,
+                display=cluster.display,
+                tests=tuple(cluster.tests),
+                count=len(cluster.tests),
             )
         )
 
-    summary = {
-        "clusters": len(ordered),
-        "tests": len({test for entry in ordered for test in entry.tests}),
-    }
-    payload: dict[str, JSONValue] = {
-        "version": CALL_CLUSTER_VERSION,
-        "summary": summary,
-        "clusters": [
-            {
-                "key": entry.key,
-                "display": entry.display,
-                "tests": list(entry.tests),
-                "count": entry.count,
-            }
-            for entry in ordered
-        ],
-    }
-    payload.update(spec_metadata_payload(CALL_CLUSTER_SUMMARY_SPEC))
-    return payload
+    summary = CallClustersSummary(
+        clusters=len(ordered),
+        tests=len({test for entry in ordered for test in entry.tests}),
+    )
+    metadata = parse_spec_metadata(spec_metadata_payload(CALL_CLUSTER_SUMMARY_SPEC))
+    return CallClustersPayload(
+        version=CALL_CLUSTER_VERSION,
+        summary=summary,
+        clusters=tuple(ordered),
+        generated_by_spec_id=metadata.spec_id,
+        generated_by_spec=metadata.spec,
+    )
 
 
 def render_markdown(
-    payload: Mapping[str, JSONValue],
+    payload: CallClustersPayload,
 ) -> str:
-    check_deadline(allow_frame_fallback=True)
-    summary = mapping_optional(payload.get("summary", {}))
-    clusters = sequence_optional(payload.get("clusters", []))
-    doc = ReportDoc("out_call_clusters")
-    doc.lines(spec_metadata_lines_from_payload(payload))
-    doc.section("Summary")
-    doc.codeblock(summary or {})
-    doc.line()
-    if clusters is None or not clusters:
-        doc.line("No call clusters found.")
+    with grade_boundary(
+        kind="semantic_carrier_adapter",
+        name="call_clusters.render_markdown",
+    ):
+        check_deadline(allow_frame_fallback=True)
+        doc = ReportDoc("out_call_clusters")
+        doc.lines(
+            [
+                f"generated_by_spec_id: {payload.generated_by_spec_id}",
+                "generated_by_spec: "
+                + json.dumps(
+                    payload.generated_by_spec,
+                    sort_keys=False,
+                    separators=(",", ":"),
+                ),
+            ]
+        )
+        doc.section("Summary")
+        doc.codeblock(
+            json.dumps(
+                {
+                    "clusters": payload.summary.clusters,
+                    "tests": payload.summary.tests,
+                },
+                indent=2,
+                sort_keys=False,
+            )
+        )
+        doc.line()
+        if not payload.clusters:
+            doc.line("No call clusters found.")
+            return doc.emit()
+        doc.section("Call clusters")
+        for entry in payload.clusters:
+            check_deadline()
+            render_cluster_heading(doc, display=entry.display, count=entry.count)
+            if entry.tests:
+                render_string_codeblock(doc, entry.tests)
         return doc.emit()
-    doc.section("Call clusters")
-    for entry in clusters:
-        check_deadline()
-        entry_mapping = mapping_optional(entry)
-        if entry_mapping is not None:
-            display = str(entry_mapping.get("display", "") or "")
-            count = entry_mapping.get("count", 0)
-            render_cluster_heading(doc, display=display, count=count)
-            tests = sequence_optional(entry_mapping.get("tests", []))
-            if tests:
-                render_string_codeblock(
-                    doc,
-                    [str(test_value) for test_value in tests],
-                )
-    return doc.emit()
-
-
-def write_call_clusters(
-    payload: Mapping[str, JSONValue],
-    *,
-    output_path: Path,
-) -> None:
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    write_json(output_path, payload)

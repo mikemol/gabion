@@ -5,6 +5,53 @@ from pathlib import Path
 from gabion.analysis.call_cluster import call_clusters
 
 
+def _payload(
+    *,
+    clusters: int = 0,
+    tests: int = 0,
+    entries: tuple[call_clusters.CallClusterEntry, ...] = (),
+    generated_by_spec_id: str = "call_cluster_summary",
+    generated_by_spec: dict[str, object] | None = None,
+) -> call_clusters.CallClustersPayload:
+    spec_payload = generated_by_spec or {
+        "name": "call_cluster_summary",
+        "spec_version": 1,
+    }
+    return call_clusters.CallClustersPayload(
+        version=call_clusters.CALL_CLUSTER_VERSION,
+        summary=call_clusters.CallClustersSummary(clusters=clusters, tests=tests),
+        clusters=entries,
+        generated_by_spec_id=generated_by_spec_id,
+        generated_by_spec={
+            str(key): value
+            for key, value in spec_payload.items()
+        },
+    )
+
+
+def _emitted_payload(
+    payload: call_clusters.CallClustersPayload,
+) -> dict[str, object]:
+    return {
+        "version": payload.version,
+        "summary": {
+            "clusters": payload.summary.clusters,
+            "tests": payload.summary.tests,
+        },
+        "clusters": [
+            {
+                "key": entry.key,
+                "display": entry.display,
+                "tests": list(entry.tests),
+                "count": entry.count,
+            }
+            for entry in payload.clusters
+        ],
+        "generated_by_spec_id": payload.generated_by_spec_id,
+        "generated_by_spec": payload.generated_by_spec,
+    }
+
+
 # gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.build_call_clusters_payload
 # gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.render_markdown E:decision_surface/direct::call_clusters.py::gabion.analysis.call_clusters.render_markdown::stale_f2f22f585967_a8050d05
 # gabion:behavior primary=desired
@@ -41,12 +88,12 @@ def test_call_clusters_payload_and_render(
         root=tmp_path,
         evidence_path=evidence_path,
     )
-    assert payload["summary"]["clusters"] == 1
-    assert payload["summary"]["tests"] == 1
-    assert payload["clusters"]
-    cluster = payload["clusters"][0]
-    assert cluster["key"]["k"] == "call_cluster"
-    assert cluster["count"] == 1
+    assert payload.summary.clusters == 1
+    assert payload.summary.tests == 1
+    assert payload.clusters
+    cluster = payload.clusters[0]
+    assert cluster.key["k"] == "call_cluster"
+    assert cluster.count == 1
     markdown = call_clusters.render_markdown(payload)
     assert "generated_by_spec_id" in markdown
 
@@ -79,47 +126,41 @@ def test_call_clusters_payload_handles_empty_targets(
         root=tmp_path,
         evidence_path=evidence_path,
     )
-    assert payload["summary"]["clusters"] == 0
-    assert payload["summary"]["tests"] == 0
+    assert payload.summary.clusters == 0
+    assert payload.summary.tests == 0
 
 
 # gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.render_markdown E:decision_surface/direct::call_clusters.py::gabion.analysis.call_clusters.render_markdown::stale_2aeab116568e
 # gabion:behavior primary=verboten facets=empty
 def test_call_clusters_render_empty() -> None:
-    payload = {"summary": {"clusters": 0, "tests": 0}, "clusters": []}
+    payload = _payload()
     markdown = call_clusters.render_markdown(payload)
     assert "No call clusters found." in markdown
 
 
-# gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.render_markdown E:decision_surface/direct::call_clusters.py::gabion.analysis.call_clusters.render_markdown::stale_99c8ea44bd19
+# gabion:evidence E:function_site::server_core/command_orchestrator.py::gabion.server_core.command_orchestrator._emit_analysis_reports
 # gabion:behavior primary=desired
-def test_call_clusters_render_skips_non_mapping() -> None:
-    payload = {
-        "summary": {"clusters": 1, "tests": 1},
-        "clusters": ["bad", {"display": "E:call_cluster", "count": 2, "tests": ["t1"]}],
+def test_call_clusters_emitted_payload_shape() -> None:
+    payload = _payload()
+    assert _emitted_payload(payload) == {
+        "version": call_clusters.CALL_CLUSTER_VERSION,
+        "summary": {"clusters": 0, "tests": 0},
+        "clusters": [],
+        "generated_by_spec_id": "call_cluster_summary",
+        "generated_by_spec": {
+            "name": "call_cluster_summary",
+            "spec_version": 1,
+        },
     }
-    markdown = call_clusters.render_markdown(payload)
-    assert "Cluster: E:call_cluster" in markdown
-
-
-# gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.write_call_clusters
-# gabion:behavior primary=desired
-def test_call_clusters_write_creates_file(tmp_path: Path) -> None:
-    payload = {"summary": {"clusters": 0, "tests": 0}, "clusters": []}
-    output_path = tmp_path / "nested" / "call_clusters.json"
-    call_clusters.write_call_clusters(payload, output_path=output_path)
-    assert output_path.read_text(encoding="utf-8").strip().startswith("{")
 
 
 # gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.render_markdown E:decision_surface/direct::call_clusters.py::gabion.analysis.call_clusters.render_markdown::stale_18bb6454e9b7
 # gabion:behavior primary=desired
 def test_call_clusters_render_uses_payload_spec_metadata() -> None:
-    payload = {
-        "summary": {"clusters": 0, "tests": 0},
-        "clusters": [],
-        "generated_by_spec_id": "custom-spec-id",
-        "generated_by_spec": {"name": "custom", "spec_version": 99},
-    }
+    payload = _payload(
+        generated_by_spec_id="custom-spec-id",
+        generated_by_spec={"name": "custom", "spec_version": 99},
+    )
     markdown = call_clusters.render_markdown(payload)
     assert "generated_by_spec_id: custom-spec-id" in markdown
     assert 'generated_by_spec: {"name":"custom","spec_version":99}' in markdown
@@ -165,8 +206,8 @@ def test_call_clusters_payload_merges_repeated_cluster_identity(
         root=tmp_path,
         evidence_path=evidence_path,
     )
-    assert payload["summary"]["clusters"] == 1
-    assert payload["summary"]["tests"] == 2
+    assert payload.summary.clusters == 1
+    assert payload.summary.tests == 2
 
 
 # gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.build_call_clusters_payload
@@ -227,16 +268,24 @@ def test_call_clusters_payload_uses_execution_ops_for_default_summary_spec(
     assert isinstance(rows, list)
     assert len(rows) == 1
     assert rows[0]["count"] == 1
-    assert payload["summary"]["clusters"] == 1
+    assert payload.summary.clusters == 1
 
 
 # gabion:evidence E:call_footprint::tests/test_call_clusters.py::test_call_clusters_render_handles_empty_tests_list::call_clusters.py::gabion.analysis.call_clusters.render_markdown
 # gabion:behavior primary=verboten facets=empty
 def test_call_clusters_render_handles_empty_tests_list() -> None:
     markdown = call_clusters.render_markdown(
-        {
-            "summary": {"clusters": 1, "tests": 0},
-            "clusters": [{"display": "Cluster", "count": 0, "tests": []}],
-        }
+        _payload(
+            clusters=1,
+            entries=(
+                call_clusters.CallClusterEntry(
+                    identity="cluster-1",
+                    key={"k": "call_cluster"},
+                    display="Cluster",
+                    tests=(),
+                    count=0,
+                ),
+            ),
+        )
     )
     assert "Cluster: Cluster (count: 0)" in markdown
