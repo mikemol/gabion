@@ -19,6 +19,12 @@ class ExternalChildInputs:
     runtime_child_inputs: runtime_policy_scanner_suite.PolicySuiteChildInputs
 
 
+@dataclass(frozen=True)
+class ExternalChildArtifact:
+    status: str | None
+    projection_fiber_semantics: dict[str, object] | None
+
+
 def _hotspot_source_payload(
     result: runtime_policy_scanner_suite.PolicySuiteResult,
 ) -> dict[str, object]:
@@ -31,33 +37,27 @@ def _hotspot_source_payload(
     return payload
 
 
-def _policy_result_status(payload: dict[str, object]) -> str | None:
-    status = str(payload.get("status", "") or "").strip()
-    return status or None
-
-
-def _policy_check_projection_fiber_semantics(
-    payload: dict[str, object],
-) -> dict[str, object] | None:
-    if str(payload.get("rule_id", "") or "").strip() != "policy_check":
-        return None
-    raw_semantics = payload.get("projection_fiber_semantics")
-    match raw_semantics:
-        case dict() as semantics_mapping if semantics_mapping:
-            return dict(semantics_mapping)
-        case _:
-            return None
-
-
-def _load_preserved_policy_result(
+def _load_external_child_artifact(
     *, artifact: Path, expected_rule_id: str
-) -> dict[str, object] | None:
+) -> ExternalChildArtifact | None:
     loaded = policy_result_schema.load_policy_result(artifact)
     if loaded is None:
         return None
     if str(loaded.get("rule_id", "") or "").strip() != expected_rule_id:
         return None
-    return loaded
+    status_raw = str(loaded.get("status", "") or "").strip()
+    projection_fiber_semantics: dict[str, object] | None = None
+    if expected_rule_id == "policy_check":
+        raw_semantics = loaded.get("projection_fiber_semantics")
+        match raw_semantics:
+            case dict() as semantics_mapping if semantics_mapping:
+                projection_fiber_semantics = dict(semantics_mapping)
+            case _:
+                projection_fiber_semantics = None
+    return ExternalChildArtifact(
+        status=status_raw or None,
+        projection_fiber_semantics=projection_fiber_semantics,
+    )
 
 
 def _resolve_external_child_inputs(
@@ -108,17 +108,15 @@ def _resolve_external_child_inputs(
     projection_fiber_semantics: dict[str, object] | None = None
     for rule_id, command in checks:
         artifact = Path(command[-1])
-        preserved = _load_preserved_policy_result(
+        preserved = _load_external_child_artifact(
             artifact=artifact,
             expected_rule_id=rule_id,
         )
         if preserved is not None:
-            status = _policy_result_status(preserved)
-            if status is not None:
-                child_statuses[rule_id] = status
+            if preserved.status is not None:
+                child_statuses[rule_id] = preserved.status
             projection_fiber_semantics = (
-                _policy_check_projection_fiber_semantics(preserved)
-                or projection_fiber_semantics
+                preserved.projection_fiber_semantics or projection_fiber_semantics
             )
             continue
         completed = subprocess.run(
@@ -127,14 +125,15 @@ def _resolve_external_child_inputs(
             env=env,
             check=False,
         )
-        loaded = policy_result_schema.load_policy_result(artifact)
+        loaded = _load_external_child_artifact(
+            artifact=artifact,
+            expected_rule_id=rule_id,
+        )
         if loaded is not None:
-            status = _policy_result_status(loaded)
-            if status is not None:
-                child_statuses[rule_id] = status
+            if loaded.status is not None:
+                child_statuses[rule_id] = loaded.status
             projection_fiber_semantics = (
-                _policy_check_projection_fiber_semantics(loaded)
-                or projection_fiber_semantics
+                loaded.projection_fiber_semantics or projection_fiber_semantics
             )
             continue
         raise RuntimeError(

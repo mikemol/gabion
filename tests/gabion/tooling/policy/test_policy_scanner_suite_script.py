@@ -17,7 +17,9 @@ def test_main_requires_explicit_out() -> None:
     assert excinfo.value.code == 2
 
 
-def test_policy_result_status_and_projection_fiber_semantics_normalize_boundary_payload() -> None:
+def test_load_external_child_artifact_normalizes_boundary_payload(
+    monkeypatch: object,
+) -> None:
     policy_check_payload = {
         "rule_id": "policy_check",
         "status": "pass",
@@ -29,23 +31,40 @@ def test_policy_result_status_and_projection_fiber_semantics_normalize_boundary_
             },
         },
     }
-    assert policy_scanner_suite._policy_result_status(policy_check_payload) == "pass"
-    assert policy_scanner_suite._policy_result_status(
-        {"rule_id": "custom_rule", "status": "skip"}
-    ) == "skip"
-    assert policy_scanner_suite._policy_result_status({"rule_id": "broken_rule"}) is None
-    assert policy_scanner_suite._policy_check_projection_fiber_semantics(
-        policy_check_payload
-    ) == {
-        "decision": {"rule_id": "projection_fiber.convergence.ok"},
-        "report": {
-            "semantic_rows": [],
-            "compiled_projection_semantic_bundles": [],
+    custom_payload = {"rule_id": "custom_rule", "status": "skip"}
+
+    monkeypatch.setattr(
+        policy_scanner_suite.policy_result_schema,
+        "load_policy_result",
+        lambda artifact: policy_check_payload
+        if artifact.name == "policy_check_result.json"
+        else custom_payload,
+    )
+
+    assert policy_scanner_suite._load_external_child_artifact(
+        artifact=Path("policy_check_result.json"),
+        expected_rule_id="policy_check",
+    ) == policy_scanner_suite.ExternalChildArtifact(
+        status="pass",
+        projection_fiber_semantics={
+            "decision": {"rule_id": "projection_fiber.convergence.ok"},
+            "report": {
+                "semantic_rows": [],
+                "compiled_projection_semantic_bundles": [],
+            },
         },
-    }
+    )
+    assert policy_scanner_suite._load_external_child_artifact(
+        artifact=Path("custom_rule_result.json"),
+        expected_rule_id="custom_rule",
+    ) == policy_scanner_suite.ExternalChildArtifact(
+        status="skip",
+        projection_fiber_semantics=None,
+    )
     assert (
-        policy_scanner_suite._policy_check_projection_fiber_semantics(
-            {"rule_id": "custom_rule", "projection_fiber_semantics": {"ignored": True}}
+        policy_scanner_suite._load_external_child_artifact(
+            artifact=Path("custom_rule_result.json"),
+            expected_rule_id="policy_check",
         )
         is None
     )
