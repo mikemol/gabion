@@ -185,6 +185,20 @@ def _queue_items(
         _projection_fiber_policy_direct_carrier_judgment_landed()
     )
     semantic_op_expansion_landed = "projection_fiber_witness_synthesis" in spec_names
+    semantic_expansion_spec_names = tuple(
+        name
+        for name in spec_names
+        if name
+        not in {
+            "projection_fiber_frontier",
+            "projection_fiber_reflective_boundary",
+        }
+    )
+    semantic_expansion_summary = (
+        ", ".join(semantic_expansion_spec_names)
+        if semantic_expansion_spec_names
+        else "<none>"
+    )
     items = (
         ProjectionSemanticFragmentQueueItem(
             queue_id="PSF-001",
@@ -274,7 +288,8 @@ def _queue_items(
             status="landed" if semantic_op_expansion_landed else "queued",
             title="Expand the semantic op set beyond declared quotient-face slices",
             summary=(
-                "The typed lowering path now includes a semantic-core-only synthesize_witness bundle alongside reflect/support-reflect and declared quotient-face slices."
+                "The typed lowering path now includes non-quotient semantic bundles for "
+                f"{semantic_expansion_summary} alongside the declared quotient-face slices."
                 if semantic_op_expansion_landed
                 else "The reflect + declared quotient_face projection_fiber slices are executable today; the remaining RFC ops are still design-only."
             ),

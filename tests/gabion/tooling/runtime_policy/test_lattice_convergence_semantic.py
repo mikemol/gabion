@@ -193,7 +193,7 @@ def test_semantic_lattice_convergence_emits_canonical_semantic_rows_for_real_wit
     assert isinstance(compiled_projection_bundles, list)
     assert len(shacl_plans) == 1
     assert len(sparql_plans) == 1
-    assert len(compiled_projection_bundles) == 7
+    assert len(compiled_projection_bundles) == 8
     assert shacl_plans[0]["source_structural_identity"] == semantic_row["structural_identity"]
     assert sparql_plans[0]["source_structural_identity"] == semantic_row["structural_identity"]
     assert shacl_plans[0]["semantic_op"] == "reflect"
@@ -201,6 +201,7 @@ def test_semantic_lattice_convergence_emits_canonical_semantic_rows_for_real_wit
     bundles_by_name = {bundle["spec_name"]: bundle for bundle in compiled_projection_bundles}
     assert set(bundles_by_name) == {
         "projection_fiber_context_wedge",
+        "projection_fiber_existential_image",
         "projection_fiber_frontier",
         "projection_fiber_reindex",
         "projection_fiber_reflection",
@@ -251,6 +252,13 @@ def test_semantic_lattice_convergence_emits_canonical_semantic_rows_for_real_wit
     assert reindex_bundle["bindings"] == []
     assert reindex_bundle["compiled_shacl_plans"] == []
     assert reindex_bundle["compiled_sparql_plans"][0]["semantic_op"] == "reindex"
+    existential_image_bundle = bundles_by_name["projection_fiber_existential_image"]
+    assert existential_image_bundle["bindings"] == []
+    assert existential_image_bundle["compiled_shacl_plans"] == []
+    assert (
+        existential_image_bundle["compiled_sparql_plans"][0]["semantic_op"]
+        == "existential_image"
+    )
     witness_synthesis_bundle = bundles_by_name["projection_fiber_witness_synthesis"]
     assert witness_synthesis_bundle["bindings"] == []
     assert witness_synthesis_bundle["compiled_shacl_plans"] == []

@@ -326,6 +326,48 @@ def compile_projection_fiber_reindex_to_sparql(
     }
 
 
+def compile_projection_fiber_existential_image_to_sparql(
+    row: CanonicalWitnessedSemanticRow,
+) -> CompiledSparqlPlan:
+    structural_identity = row["structural_identity"]
+    return {
+        "plan_id": f"{structural_identity}:sparql:existential_image",
+        "source_structural_identity": structural_identity,
+        "source_site_identity": row["site_identity"],
+        "surface": row["surface"],
+        "semantic_op": SemanticOpKind.EXISTENTIAL_IMAGE,
+        "select_vars": [
+            "?synthesizedWitnessKinds",
+            "?boundaryKinds",
+            "?obligationState",
+        ],
+        "where_patterns": [
+            {
+                "subject": "?frontier",
+                "predicate": "gabion:structuralIdentity",
+                "object": structural_identity,
+            },
+            {
+                "subject": "?frontier",
+                "predicate": "gabion:synthesizedWitnessKinds",
+                "object": _support_context_value(_synthesized_witness_kinds(row)),
+            },
+            {
+                "subject": "?frontier",
+                "predicate": "gabion:boundaryKinds",
+                "object": _support_context_value(_boundary_kinds(row)),
+            },
+            {
+                "subject": "?frontier",
+                "predicate": "gabion:obligationState",
+                "object": row["obligation_state"],
+            },
+        ],
+        "anti_join_filters": [],
+        "witness_trace": _witness_trace(row),
+    }
+
+
 def compile_projection_fiber_quotient_face_to_shacl(
     row: CanonicalWitnessedSemanticRow,
     *,
@@ -581,6 +623,7 @@ __all__ = [
     "CompiledSparqlPlan",
     "compile_projection_fiber_quotient_face_to_shacl",
     "compile_projection_fiber_quotient_face_to_sparql",
+    "compile_projection_fiber_existential_image_to_sparql",
     "compile_projection_fiber_reindex_to_sparql",
     "compile_projection_fiber_reflect_to_shacl",
     "compile_projection_fiber_reflect_to_sparql",
