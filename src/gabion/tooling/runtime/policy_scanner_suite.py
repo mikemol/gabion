@@ -41,7 +41,6 @@ from gabion.tooling.policy_rules.fiber_diagnostics import (
 from gabion.tooling.runtime import policy_result_schema
 from gabion.tooling.runtime.policy_scan_batch import build_policy_scan_batch
 
-_POLICY_ARTIFACT = Path("artifacts/out/policy_suite_results.json")
 _FORMAT_VERSION = 1
 _BRANCHLESS_BASELINE = Path("baselines/branchless_policy_baseline.json")
 _DEFENSIVE_BASELINE = Path("baselines/defensive_fallback_policy_baseline.json")
@@ -255,7 +254,7 @@ def _rule_count_pair(item: tuple[str, list[dict[str, Any]]]) -> tuple[str, int]:
 def load_or_scan_policy_suite(
     *,
     root: Path,
-    artifact_path: Path = _POLICY_ARTIFACT,
+    artifact_path: Path,
     policy_results: Mapping[str, Mapping[str, Any]] | None = None,
     base_sha: str | None = None,
     head_sha: str | None = None,
@@ -908,133 +907,12 @@ def _lattice_witness_payload(violation: object) -> dict[str, object]:
     witness = getattr(violation, "lattice_witness", None)
     if witness is None:
         return {}
-    return {
-        "branch_site_id": getattr(witness, "branch_site_id", ""),
-        "branch_site_identity": getattr(witness, "branch_site_identity", ""),
-        "branch_line": int(getattr(witness, "branch_line", 0)),
-        "branch_column": int(getattr(witness, "branch_column", 0)),
-        "branch_node_kind": getattr(witness, "branch_node_kind", ""),
-        "required_symbols": list(getattr(witness, "required_symbols", ())),
-        "unresolved_symbols": list(getattr(witness, "unresolved_symbols", ())),
-        "data_anchor_site_id": getattr(witness, "data_anchor_site_id", ""),
-        "data_anchor_site_identity": getattr(witness, "data_anchor_site_identity", ""),
-        "data_anchor_line": int(getattr(witness, "data_anchor_line", 0)),
-        "data_anchor_column": int(getattr(witness, "data_anchor_column", 0)),
-        "data_anchor_ordinal": int(getattr(witness, "data_anchor_ordinal", 0)),
-        "data_upstream_site_ids": list(getattr(witness, "data_upstream_site_ids", ())),
-        "data_upstream_site_identities": list(
-            getattr(witness, "data_upstream_site_identities", ())
-        ),
-        "data_upstream_edge_ids": list(getattr(witness, "data_upstream_edge_ids", ())),
-        "exec_frontier_site_id": getattr(
-            witness, "exec_frontier_site_id", ""
-        ),
-        "exec_frontier_site_identity": getattr(
-            witness, "exec_frontier_site_identity", ""
-        ),
-        "exec_frontier_line": int(
-            getattr(witness, "exec_frontier_line", 0)
-        ),
-        "exec_frontier_column": int(
-            getattr(witness, "exec_frontier_column", 0)
-        ),
-        "exec_frontier_ordinal": int(
-            getattr(witness, "exec_frontier_ordinal", 0)
-        ),
-        "exec_upstream_site_ids": list(
-            getattr(witness, "exec_upstream_site_ids", ())
-        ),
-        "exec_upstream_site_identities": list(
-            getattr(witness, "exec_upstream_site_identities", ())
-        ),
-        "exec_upstream_edge_ids": list(
-            getattr(witness, "exec_upstream_edge_ids", ())
-        ),
-        "bundle_event_count": int(getattr(witness, "bundle_event_count", 0)),
-        "bundle_edge_count": int(getattr(witness, "bundle_edge_count", 0)),
-        "execution_event_count": int(
-            getattr(witness, "execution_event_count", 0)
-        ),
-        "execution_edge_count": int(getattr(witness, "execution_edge_count", 0)),
-        "data_exec_join": _join_meet_payload(getattr(witness, "data_exec_join", None)),
-        "data_exec_meet": _join_meet_payload(getattr(witness, "data_exec_meet", None)),
-        "eta_data_to_exec": _naturality_payload(getattr(witness, "eta_data_to_exec", None)),
-        "eta_exec_to_data": _naturality_payload(getattr(witness, "eta_exec_to_data", None)),
-        "obligations": [
-            {
-                "obligation_id": str(getattr(item, "obligation_id", "")),
-                "source_kind": str(getattr(item, "source_kind", "")),
-                "source_site_id": str(getattr(item, "source_site_id", "")),
-                "source_site_identity": str(getattr(item, "source_site_identity", "")),
-                "reason": str(getattr(item, "reason", "")),
-                "introduced_by": str(getattr(item, "introduced_by", "")),
-            }
-            for item in getattr(witness, "obligations", ())
-        ],
-        "erasures": [
-            {
-                "obligation_id": str(getattr(item, "obligation_id", "")),
-                "erased_by": str(getattr(item, "erased_by", "")),
-                "reason": str(getattr(item, "reason", "")),
-            }
-            for item in getattr(witness, "erasures", ())
-        ],
-        "boundary_crossings": [
-            {
-                "crossing_id": str(getattr(item, "crossing_id", "")),
-                "branch_site_id": str(getattr(item, "branch_site_id", "")),
-                "branch_site_identity": str(getattr(item, "branch_site_identity", "")),
-                "boundary_kind": str(getattr(item, "boundary_kind", "")),
-            }
-            for item in getattr(witness, "boundary_crossings", ())
-        ],
-        "violation": _violation_payload(getattr(witness, "violation", None)),
-        "complete": bool(getattr(witness, "complete", False)),
-    }
-
-
-def _join_meet_payload(witness: object) -> dict[str, object]:
-    if witness is None:
-        return {}
-    return {
-        "left_ids": list(getattr(witness, "left_ids", ())),
-        "right_ids": list(getattr(witness, "right_ids", ())),
-        "result_ids": list(getattr(witness, "result_ids", ())),
-        "deterministic": bool(getattr(witness, "deterministic", False)),
-    }
-
-
-def _naturality_payload(witness: object) -> dict[str, object]:
-    if witness is None:
-        return {}
-    return {
-        "direction": str(getattr(witness, "direction", "")),
-        "mapped_source_site_ids": list(getattr(witness, "mapped_source_site_ids", ())),
-        "mapped_target_site_ids": list(getattr(witness, "mapped_target_site_ids", ())),
-        "unmapped": [
-            {
-                "source_kind": str(getattr(item, "source_kind", "")),
-                "source_site_id": str(getattr(item, "source_site_id", "")),
-                "source_site_identity": str(getattr(item, "source_site_identity", "")),
-                "reason": str(getattr(item, "reason", "")),
-            }
-            for item in getattr(witness, "unmapped", ())
-        ],
-        "complete": bool(getattr(witness, "complete", False)),
-    }
-
-
-def _violation_payload(violation: object) -> dict[str, object] | None:
-    if violation is None:
-        return None
-    return {
-        "violation_id": str(getattr(violation, "violation_id", "")),
-        "boundary_crossing_id": str(getattr(violation, "boundary_crossing_id", "")),
-        "unresolved_obligation_ids": list(
-            getattr(violation, "unresolved_obligation_ids", ())
-        ),
-        "reason": str(getattr(violation, "reason", "")),
-    }
+    serializer = getattr(witness, "as_payload", None)
+    if callable(serializer):
+        payload = serializer()
+        if isinstance(payload, dict):
+            return payload
+    return {}
 
 
 def _serialize_no_monkeypatch(violation: object) -> dict[str, object]:

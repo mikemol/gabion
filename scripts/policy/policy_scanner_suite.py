@@ -11,6 +11,17 @@ from gabion.tooling.runtime import policy_result_schema, policy_scanner_suite
 from scripts.policy import hotspot_neighborhood_queue
 
 
+def _load_preserved_policy_result(
+    *, artifact: Path, expected_rule_id: str
+) -> dict[str, object] | None:
+    loaded = policy_result_schema.load_policy_result(artifact)
+    if loaded is None:
+        return None
+    if str(loaded.get("rule_id", "") or "").strip() != expected_rule_id:
+        return None
+    return loaded
+
+
 def _run_external_policy_results(*, root: Path, out: Path) -> dict[str, dict[str, object]]:
     checks: tuple[tuple[str, list[str]], ...] = (
         (
@@ -55,43 +66,27 @@ def _run_external_policy_results(*, root: Path, out: Path) -> dict[str, dict[str
         else f"{root_pythonpath}:{existing_pythonpath}"
     )
     for rule_id, command in checks:
-        if rule_id == "deprecated_nonerasability":
-            baseline = Path(command[2])
-            current = Path(command[4])
-            if not baseline.exists() or not current.exists():
-                results[rule_id] = policy_result_schema.make_policy_result(
-                    rule_id=rule_id,
-                    status="skip",
-                    violations=[
-                        {
-                            "message": "baseline/current payload missing; rule skipped in suite aggregation",
-                            "render": f"missing baseline={baseline.exists()} current={current.exists()}",
-                        }
-                    ],
-                    baseline_mode="baseline_compare",
-                    source_tool="scripts/policy/policy_scanner_suite.py",
-                    input_scope={"baseline": str(baseline), "current": str(current)},
-                )
-                continue
+        artifact = Path(command[-1])
+        preserved = _load_preserved_policy_result(
+            artifact=artifact,
+            expected_rule_id=rule_id,
+        )
+        if preserved is not None:
+            results[rule_id] = preserved
+            continue
         completed = subprocess.run(
             [sys.executable, *command],
             cwd=root,
             env=env,
             check=False,
         )
-        artifact = Path(command[-1])
         loaded = policy_result_schema.load_policy_result(artifact)
         if loaded is not None:
             results[rule_id] = loaded
             continue
-        status = "pass" if completed.returncode == 0 else "fail"
-        results[rule_id] = policy_result_schema.make_policy_result(
-            rule_id=rule_id,
-            status=status,
-            violations=[{"message": f"fallback result from return code {completed.returncode}", "render": f"returncode={completed.returncode}"}] if completed.returncode != 0 else [],
-            baseline_mode="fallback",
-            source_tool="scripts/policy/policy_scanner_suite.py",
-            input_scope={"command": command[:-2]},
+        raise RuntimeError(
+            "external policy result artifact missing after wrapper invocation: "
+            f"rule_id={rule_id} returncode={completed.returncode} artifact={artifact}"
         )
     return results
 
@@ -114,8 +109,8 @@ def run(
     decision = result.decision()
     queue_json = out.parent / "hotspot_neighborhood_queue.json"
     queue_md = out.parent / "hotspot_neighborhood_queue.md"
-    hotspot_neighborhood_queue.run(
-        policy_suite_path=out,
+    hotspot_neighborhood_queue.run_from_payload(
+        payload=result.to_payload(),
         out_path=queue_json,
         markdown_out=queue_md,
     )
@@ -127,6 +122,11 @@ def run(
         f"severity={decision.severity.value}"
     )
     print(f"hotspot-neighborhood queue: {queue_json}")
+    semantic_queue_path = out.parent / "projection_semantic_fragment_queue.json"
+    print(
+        "projection-semantic-fragment queue: "
+        f"{semantic_queue_path if semantic_queue_path.exists() else '<not emitted by wrapper>'}"
+    )
     if total == 0:
         for rule_id in ("policy_check", "structural_hash", "deprecated_nonerasability"):
             status = str(result.policy_results.get(rule_id, {}).get("status", "unknown"))
@@ -166,7 +166,7 @@ def run(
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", default=".")
-    parser.add_argument("--out", default="artifacts/out/policy_suite_results.json")
+    parser.add_argument("--out", required=True)
     parser.add_argument("--base-sha", default=None)
     parser.add_argument("--head-sha", default=None)
     args = parser.parse_args(argv)
