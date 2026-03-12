@@ -14,6 +14,14 @@ def _write(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
+def _violations(
+    result: policy_scanner_suite.PolicySuiteResult,
+    *,
+    rule: str,
+) -> list[dict[str, object]]:
+    return list(result.violations_by_rule.get(rule, []))
+
+
 # gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_scan_and_cache::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
 # gabion:behavior primary=desired
 def test_policy_scanner_suite_scan_and_cache(tmp_path: Path) -> None:
@@ -59,32 +67,32 @@ def test_policy_scanner_suite_scan_and_cache(tmp_path: Path) -> None:
     assert first.result.total_violations() > 0
     decision = first.result.decision()
     assert decision.outcome.value in {"block", "warn", "pass", "skip"}
-    assert policy_scanner_suite.violations_for_rule(first.result, rule="branchless")
-    branchless_violation = policy_scanner_suite.violations_for_rule(first.result, rule="branchless")[0]
+    assert _violations(first.result, rule="branchless")
+    branchless_violation = _violations(first.result, rule="branchless")[0]
     assert "lattice_witness" in branchless_violation
     assert "recombination_frontier" not in branchless_violation
     assert branchless_violation["lattice_witness"]["complete"] in {True, False}
     assert "obligations" in branchless_violation["lattice_witness"]
     assert "boundary_crossings" in branchless_violation["lattice_witness"]
-    assert policy_scanner_suite.violations_for_rule(first.result, rule="defensive_fallback")
-    assert policy_scanner_suite.violations_for_rule(first.result, rule="fiber_loop_structure_contract")
-    assert policy_scanner_suite.violations_for_rule(first.result, rule="fiber_filter_processor_contract")
-    assert policy_scanner_suite.violations_for_rule(first.result, rule="fiber_return_shape_contract")
-    assert policy_scanner_suite.violations_for_rule(first.result, rule="fiber_scalar_sentinel_contract")
-    assert policy_scanner_suite.violations_for_rule(first.result, rule="fiber_type_dispatch_contract")
-    assert policy_scanner_suite.violations_for_rule(first.result, rule="no_anonymous_tuple")
-    assert policy_scanner_suite.violations_for_rule(first.result, rule="no_mutable_dict")
-    assert policy_scanner_suite.violations_for_rule(first.result, rule="no_scalar_conversion_boundary")
-    assert policy_scanner_suite.violations_for_rule(first.result, rule="no_monkeypatch")
-    assert policy_scanner_suite.violations_for_rule(first.result, rule="no_legacy_monolith_import")
-    assert policy_scanner_suite.violations_for_rule(first.result, rule="orchestrator_primitive_barrel") == []
-    assert policy_scanner_suite.violations_for_rule(first.result, rule="typing_surface")
-    assert policy_scanner_suite.violations_for_rule(first.result, rule="runtime_narrowing_boundary")
-    assert policy_scanner_suite.violations_for_rule(first.result, rule="aspf_normalization_idempotence") == []
-    assert policy_scanner_suite.violations_for_rule(first.result, rule="boundary_core_contract") == []
-    assert policy_scanner_suite.violations_for_rule(first.result, rule="fiber_normalization_contract") == []
-    assert policy_scanner_suite.violations_for_rule(first.result, rule="test_subprocess_hygiene") == []
-    assert policy_scanner_suite.violations_for_rule(first.result, rule="test_sleep_hygiene") == []
+    assert _violations(first.result, rule="defensive_fallback")
+    assert _violations(first.result, rule="fiber_loop_structure_contract")
+    assert _violations(first.result, rule="fiber_filter_processor_contract")
+    assert _violations(first.result, rule="fiber_return_shape_contract")
+    assert _violations(first.result, rule="fiber_scalar_sentinel_contract")
+    assert _violations(first.result, rule="fiber_type_dispatch_contract")
+    assert _violations(first.result, rule="no_anonymous_tuple")
+    assert _violations(first.result, rule="no_mutable_dict")
+    assert _violations(first.result, rule="no_scalar_conversion_boundary")
+    assert _violations(first.result, rule="no_monkeypatch")
+    assert _violations(first.result, rule="no_legacy_monolith_import")
+    assert _violations(first.result, rule="orchestrator_primitive_barrel") == []
+    assert _violations(first.result, rule="typing_surface")
+    assert _violations(first.result, rule="runtime_narrowing_boundary")
+    assert _violations(first.result, rule="aspf_normalization_idempotence") == []
+    assert _violations(first.result, rule="boundary_core_contract") == []
+    assert _violations(first.result, rule="fiber_normalization_contract") == []
+    assert _violations(first.result, rule="test_subprocess_hygiene") == []
+    assert _violations(first.result, rule="test_sleep_hygiene") == []
     first_payload = {
         "format_version": 1,
         "violations": first.result.violations_by_rule,
@@ -255,7 +263,7 @@ def test_policy_scanner_suite_flags_fiber_type_dispatch_contract(
         + "\n",
     )
     result = policy_scanner_suite.scan_policy_suite(root=root)
-    violations = policy_scanner_suite.violations_for_rule(
+    violations = _violations(
         result,
         rule="fiber_type_dispatch_contract",
     )
@@ -285,7 +293,7 @@ def test_policy_scanner_suite_flags_fiber_loop_structure_contract(
         + "\n",
     )
     result = policy_scanner_suite.scan_policy_suite(root=root)
-    violations = policy_scanner_suite.violations_for_rule(
+    violations = _violations(
         result,
         rule="fiber_loop_structure_contract",
     )
@@ -316,7 +324,7 @@ def test_policy_scanner_suite_flags_fiber_filter_processor_contract(
         + "\n",
     )
     result = policy_scanner_suite.scan_policy_suite(root=root)
-    violations = policy_scanner_suite.violations_for_rule(
+    violations = _violations(
         result,
         rule="fiber_filter_processor_contract",
     )
@@ -346,7 +354,7 @@ def test_policy_scanner_suite_flags_fiber_return_shape_contract(
         + "\n",
     )
     result = policy_scanner_suite.scan_policy_suite(root=root)
-    violations = policy_scanner_suite.violations_for_rule(
+    violations = _violations(
         result,
         rule="fiber_return_shape_contract",
     )
@@ -365,7 +373,7 @@ def test_policy_scanner_suite_flags_retired_monolith_module_file(tmp_path: Path)
         "def retired():\n    return 1\n",
     )
     result = policy_scanner_suite.scan_policy_suite(root=root)
-    violations = policy_scanner_suite.violations_for_rule(result, rule="no_legacy_monolith_import")
+    violations = _violations(result, rule="no_legacy_monolith_import")
     assert violations
     assert any(item["kind"] == "module_present" for item in violations)
 
@@ -389,7 +397,7 @@ def test_policy_scanner_suite_flags_all_legacy_monolith_import_forms(tmp_path: P
         ),
     )
     result = policy_scanner_suite.scan_policy_suite(root=root)
-    violations = policy_scanner_suite.violations_for_rule(result, rule="no_legacy_monolith_import")
+    violations = _violations(result, rule="no_legacy_monolith_import")
     assert len(violations) >= 4
     kinds = {str(item.get("kind", "")) for item in violations}
     assert "import" in kinds
@@ -532,26 +540,26 @@ def test_policy_scanner_suite_respects_branch_and_fallback_baselines(tmp_path: P
     )
 
     result = policy_scanner_suite.scan_policy_suite(root=root)
-    assert policy_scanner_suite.violations_for_rule(result, rule="branchless") == []
-    assert policy_scanner_suite.violations_for_rule(result, rule="defensive_fallback") == []
-    assert policy_scanner_suite.violations_for_rule(result, rule="fiber_loop_structure_contract") == []
-    assert policy_scanner_suite.violations_for_rule(result, rule="fiber_filter_processor_contract") == []
-    assert policy_scanner_suite.violations_for_rule(result, rule="fiber_return_shape_contract") == []
-    assert policy_scanner_suite.violations_for_rule(result, rule="fiber_scalar_sentinel_contract") == []
-    assert policy_scanner_suite.violations_for_rule(result, rule="fiber_type_dispatch_contract") == []
-    assert policy_scanner_suite.violations_for_rule(result, rule="no_anonymous_tuple") == []
-    assert policy_scanner_suite.violations_for_rule(result, rule="no_mutable_dict") == []
-    assert policy_scanner_suite.violations_for_rule(result, rule="no_scalar_conversion_boundary") == []
-    assert policy_scanner_suite.violations_for_rule(result, rule="no_monkeypatch") == []
-    assert policy_scanner_suite.violations_for_rule(result, rule="no_legacy_monolith_import") == []
-    assert policy_scanner_suite.violations_for_rule(result, rule="orchestrator_primitive_barrel") == []
-    assert policy_scanner_suite.violations_for_rule(result, rule="typing_surface") == []
-    assert policy_scanner_suite.violations_for_rule(result, rule="runtime_narrowing_boundary") == []
-    assert policy_scanner_suite.violations_for_rule(result, rule="aspf_normalization_idempotence") == []
-    assert policy_scanner_suite.violations_for_rule(result, rule="boundary_core_contract") == []
-    assert policy_scanner_suite.violations_for_rule(result, rule="fiber_normalization_contract") == []
-    assert policy_scanner_suite.violations_for_rule(result, rule="test_subprocess_hygiene") == []
-    assert policy_scanner_suite.violations_for_rule(result, rule="test_sleep_hygiene") == []
+    assert _violations(result, rule="branchless") == []
+    assert _violations(result, rule="defensive_fallback") == []
+    assert _violations(result, rule="fiber_loop_structure_contract") == []
+    assert _violations(result, rule="fiber_filter_processor_contract") == []
+    assert _violations(result, rule="fiber_return_shape_contract") == []
+    assert _violations(result, rule="fiber_scalar_sentinel_contract") == []
+    assert _violations(result, rule="fiber_type_dispatch_contract") == []
+    assert _violations(result, rule="no_anonymous_tuple") == []
+    assert _violations(result, rule="no_mutable_dict") == []
+    assert _violations(result, rule="no_scalar_conversion_boundary") == []
+    assert _violations(result, rule="no_monkeypatch") == []
+    assert _violations(result, rule="no_legacy_monolith_import") == []
+    assert _violations(result, rule="orchestrator_primitive_barrel") == []
+    assert _violations(result, rule="typing_surface") == []
+    assert _violations(result, rule="runtime_narrowing_boundary") == []
+    assert _violations(result, rule="aspf_normalization_idempotence") == []
+    assert _violations(result, rule="boundary_core_contract") == []
+    assert _violations(result, rule="fiber_normalization_contract") == []
+    assert _violations(result, rule="test_subprocess_hygiene") == []
+    assert _violations(result, rule="test_sleep_hygiene") == []
 
 
 # gabion:behavior primary=desired
@@ -562,7 +570,7 @@ def test_policy_scanner_suite_flags_wide_orchestrator_primitive_barrel(tmp_path:
         "\n".join(["x = 1"] * 2401),
     )
     result = policy_scanner_suite.scan_policy_suite(root=root)
-    violations = policy_scanner_suite.violations_for_rule(result, rule="orchestrator_primitive_barrel")
+    violations = _violations(result, rule="orchestrator_primitive_barrel")
     assert violations
     assert any(item.get("kind") == "line_threshold" for item in violations)
 
@@ -576,7 +584,7 @@ def test_policy_scanner_suite_flags_typing_surface_and_respects_baseline_and_wai
         "from typing import Any\n\ndef normalize(payload: dict[str, object], raw: Any, marker: object) -> None:\n    return None\n",
     )
     result = policy_scanner_suite.scan_policy_suite(root=root)
-    violations = policy_scanner_suite.violations_for_rule(result, rule="typing_surface")
+    violations = _violations(result, rule="typing_surface")
     assert len(violations) == 3
 
     baseline_path = root / "baselines/typing_surface_policy_baseline.json"
@@ -586,7 +594,7 @@ def test_policy_scanner_suite_flags_typing_surface_and_respects_baseline_and_wai
         encoding="utf-8",
     )
     with_baseline = policy_scanner_suite.scan_policy_suite(root=root)
-    assert policy_scanner_suite.violations_for_rule(with_baseline, rule="typing_surface") == []
+    assert _violations(with_baseline, rule="typing_surface") == []
 
     baseline_path.write_text(json.dumps({"version": 1, "violations": []}, indent=2) + "\n", encoding="utf-8")
     waivers_path = root / "baselines/typing_surface_policy_waivers.json"
@@ -613,7 +621,7 @@ def test_policy_scanner_suite_flags_typing_surface_and_respects_baseline_and_wai
         encoding="utf-8",
     )
     with_waiver = policy_scanner_suite.scan_policy_suite(root=root)
-    waiver_violations = policy_scanner_suite.violations_for_rule(with_waiver, rule="typing_surface")
+    waiver_violations = _violations(with_waiver, rule="typing_surface")
     assert len(waiver_violations) == 2
 
 
@@ -631,7 +639,7 @@ def test_policy_scanner_suite_flags_invalid_typing_surface_waiver_metadata(tmp_p
     )
 
     result = policy_scanner_suite.scan_policy_suite(root=root)
-    violations = policy_scanner_suite.violations_for_rule(result, rule="typing_surface")
+    violations = _violations(result, rule="typing_surface")
     assert any(item.get("kind") == "invalid_waiver" for item in violations)
 
 
@@ -643,7 +651,7 @@ def test_policy_scanner_suite_flags_runtime_narrowing_boundary_and_respects_base
         "from typing import cast\n\ndef normalize(payload: object) -> str:\n    if isinstance(payload, str):\n        return payload\n    return cast(str, payload)\n",
     )
     result = policy_scanner_suite.scan_policy_suite(root=root)
-    violations = policy_scanner_suite.violations_for_rule(result, rule="runtime_narrowing_boundary")
+    violations = _violations(result, rule="runtime_narrowing_boundary")
     assert len(violations) == 2
 
     baseline_path = root / "baselines/runtime_narrowing_boundary_policy_baseline.json"
@@ -653,7 +661,7 @@ def test_policy_scanner_suite_flags_runtime_narrowing_boundary_and_respects_base
         encoding="utf-8",
     )
     with_baseline = policy_scanner_suite.scan_policy_suite(root=root)
-    assert policy_scanner_suite.violations_for_rule(with_baseline, rule="runtime_narrowing_boundary") == []
+    assert _violations(with_baseline, rule="runtime_narrowing_boundary") == []
 
     baseline_path.write_text(json.dumps({"version": 1, "violations": []}, indent=2) + "\n", encoding="utf-8")
     waivers_path = root / "baselines/runtime_narrowing_boundary_policy_waivers.json"
@@ -680,7 +688,7 @@ def test_policy_scanner_suite_flags_runtime_narrowing_boundary_and_respects_base
         encoding="utf-8",
     )
     with_waiver = policy_scanner_suite.scan_policy_suite(root=root)
-    waiver_violations = policy_scanner_suite.violations_for_rule(with_waiver, rule="runtime_narrowing_boundary")
+    waiver_violations = _violations(with_waiver, rule="runtime_narrowing_boundary")
     assert len(waiver_violations) == 1
 
 
@@ -696,7 +704,7 @@ def test_policy_scanner_suite_flags_invalid_runtime_narrowing_boundary_waiver_me
     )
 
     result = policy_scanner_suite.scan_policy_suite(root=root)
-    violations = policy_scanner_suite.violations_for_rule(result, rule="runtime_narrowing_boundary")
+    violations = _violations(result, rule="runtime_narrowing_boundary")
     assert any(item.get("kind") == "invalid_waiver" for item in violations)
 
 
@@ -743,7 +751,7 @@ def test_policy_scanner_suite_flags_duplicate_pre_core_normalization_on_same_can
     )
 
     result = policy_scanner_suite.scan_policy_suite(root=root)
-    violations = policy_scanner_suite.violations_for_rule(
+    violations = _violations(
         result, rule="aspf_normalization_idempotence"
     )
     assert len(violations) == 1
@@ -778,7 +786,7 @@ def test_policy_scanner_suite_flags_invalid_aspf_baseline_payload(
     )
 
     result = policy_scanner_suite.scan_policy_suite(root=root)
-    violations = policy_scanner_suite.violations_for_rule(
+    violations = _violations(
         result,
         rule="aspf_normalization_idempotence",
     )
@@ -810,7 +818,7 @@ def test_policy_scanner_suite_serializes_fiber_normalization_diagnostics(
     )
 
     result = policy_scanner_suite.scan_policy_suite(root=root)
-    violations = policy_scanner_suite.violations_for_rule(
+    violations = _violations(
         result, rule="fiber_normalization_contract"
     )
     assert len(violations) == 1
@@ -844,7 +852,7 @@ def test_policy_scanner_suite_scopes_boundary_core_rule_to_changed_paths(
     )
     _write(root / "src/gabion/unrelated.py", "def ok():\n    return 1\n")
     unscoped_result = policy_scanner_suite.scan_policy_suite(root=root)
-    assert policy_scanner_suite.violations_for_rule(
+    assert _violations(
         unscoped_result,
         rule="boundary_core_contract",
     )
@@ -853,7 +861,7 @@ def test_policy_scanner_suite_scopes_boundary_core_rule_to_changed_paths(
         changed_paths={"src/gabion/unrelated.py"},
     )
     assert (
-        policy_scanner_suite.violations_for_rule(
+        _violations(
             scoped_result,
             rule="boundary_core_contract",
         )

@@ -599,10 +599,6 @@ def _violation_sort_key(item: dict[str, Any]) -> tuple[str, str, int, str]:
     )
 
 
-def violations_for_rule(result: PolicySuiteResult, *, rule: str) -> list[dict[str, Any]]:
-    return list(result.violations_by_rule.get(rule, []))
-
-
 def _load_cached_payload(path: Path) -> dict[str, object] | None:
     payload: dict[str, object] | None = None
     if path.exists():
@@ -1359,5 +1355,4 @@ __all__ = [
     "PolicySuiteResult",
     "load_or_scan_policy_suite",
     "scan_policy_suite",
-    "violations_for_rule",
 ]

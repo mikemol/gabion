@@ -213,7 +213,7 @@ def run(
         "test_subprocess_hygiene",
         "test_sleep_hygiene",
     ):
-        items = runtime_policy_scanner_suite.violations_for_rule(result, rule=rule)
+        items = list(result.violations_by_rule.get(rule, []))
         if not items:
             continue
         print(f"{rule} violations:")
