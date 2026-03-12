@@ -317,6 +317,95 @@ def test_run_from_inputs_reads_projection_fiber_semantics_from_source_artifact(
     )
 
 
+def test_load_projection_fiber_semantics_reads_policy_check_artifact(
+    monkeypatch: object,
+) -> None:
+    projection_fiber_semantics = {
+        "decision": {"rule_id": "projection_fiber.convergence.ok"},
+        "report": {
+            "semantic_rows": [],
+            "compiled_projection_semantic_bundles": [],
+        },
+    }
+    monkeypatch.setattr(
+        hotspot_neighborhood_queue.policy_result_schema,
+        "load_policy_result",
+        lambda artifact: {
+            "rule_id": "policy_check",
+            "status": "pass",
+            "projection_fiber_semantics": projection_fiber_semantics,
+        },
+    )
+
+    assert hotspot_neighborhood_queue._load_projection_fiber_semantics(
+        artifact_path=Path("artifacts/out/policy_check_result.json"),
+    ) == projection_fiber_semantics
+
+
+def test_load_projection_fiber_semantics_fail_closed_when_child_artifact_missing(
+    tmp_path: Path,
+    monkeypatch: object,
+) -> None:
+    artifact = tmp_path / "artifacts/out/policy_check_result.json"
+    monkeypatch.setattr(
+        hotspot_neighborhood_queue.policy_result_schema,
+        "load_policy_result",
+        lambda path: None,
+    )
+
+    with pytest.raises(RuntimeError) as excinfo:
+        hotspot_neighborhood_queue._load_projection_fiber_semantics(
+            artifact_path=artifact
+        )
+
+    assert (
+        "required child-owned policy result artifact missing before hotspot queue invocation"
+        in str(excinfo.value)
+    )
+    assert "rule_id=policy_check" in str(excinfo.value)
+
+
+def test_load_projection_fiber_semantics_fail_closed_when_rule_id_mismatches(
+    monkeypatch: object,
+) -> None:
+    monkeypatch.setattr(
+        hotspot_neighborhood_queue.policy_result_schema,
+        "load_policy_result",
+        lambda artifact: {"rule_id": "custom_rule", "status": "skip"},
+    )
+
+    with pytest.raises(RuntimeError) as excinfo:
+        hotspot_neighborhood_queue._load_projection_fiber_semantics(
+            artifact_path=Path("artifacts/out/policy_check_result.json")
+        )
+
+    assert "rule_id=policy_check" in str(excinfo.value)
+
+
+def test_load_projection_fiber_semantics_returns_none_when_policy_check_payload_has_no_semantics(
+    tmp_path: Path,
+) -> None:
+    out_dir = tmp_path / "artifacts/out"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    hotspot_neighborhood_queue.policy_result_schema.write_policy_result(
+        path=out_dir / "policy_check_result.json",
+        result=hotspot_neighborhood_queue.policy_result_schema.make_policy_result(
+            rule_id="policy_check",
+            status="pass",
+            violations=[],
+            baseline_mode="current_only",
+            source_tool="tests.gabion.tooling.policy.test_hotspot_neighborhood_queue",
+            input_scope={"root": str(tmp_path)},
+        ),
+    )
+
+    projection_fiber_semantics = hotspot_neighborhood_queue._load_projection_fiber_semantics(
+        artifact_path=out_dir / "policy_check_result.json"
+    )
+
+    assert projection_fiber_semantics is None
+
+
 def test_run_reads_projection_fiber_summary_from_policy_results_payload(
     tmp_path: Path,
 ) -> None:
