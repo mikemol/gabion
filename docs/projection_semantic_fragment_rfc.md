@@ -1,5 +1,5 @@
 ---
-doc_revision: 35
+doc_revision: 36
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -558,19 +558,23 @@ Current implementation status:
   carries only the direct semantic fields it actually uses
 - the shared projection-fiber summary helper no longer exposes an explicit
   parser for retired materialized-summary payloads; it now accepts only live
-  canonical carriers (`projection_fiber_semantics` or `policy_results`)
+  canonical carriers (`projection_fiber_semantics`)
 - the shared projection-fiber summary helper no longer exposes a separate
   `...from_policy_results(...)` entrypoint; canonical decoding now lives behind
   a single payload decoder that follows the live carrier shape directly
 - the shared projection-fiber summary decoder no longer accepts a top-level
   `policy_check` wrapper payload as a generic ingress shape; canonical summary
   decoding is now restricted to direct `policy_check` payloads,
-  `policy_results.policy_check`, or explicit summary payload parsing
+  direct `projection_fiber_semantics`, or explicit summary payload parsing
 - the shared projection-fiber summary decoder no longer accepts the retired
   top-level `projection_fiber_semantics_summary` suite embedding as a generic
   input shape; canonical payload decoding now goes through
-  `projection_fiber_semantics`, `policy_results.policy_check`, or an explicit
+  `projection_fiber_semantics` or an explicit
   summary-payload parser where a materialized summary is already owned locally
+- policy-scanner-suite runtime payloads now surface semantic context, when
+  needed, as a direct top-level `projection_fiber_semantics` carrier rather
+  than nested child `policy_results`, and queue/report consumers no longer
+  follow the wrapper-only `policy_results.policy_check` semantic path
 - wrapper-owned policy-result synthesis has now been removed from the
   policy-suite path entirely: the deprecated-nonerasability child check emits
   its own canonical `skip` result when baseline/current inputs are absent, and
@@ -632,6 +636,9 @@ Ratchet rules:
 - wrapper cache artifacts must not persist child-owned canonical policy
   results once those results are already explicit boundary inputs; cache only
   the wrapper-owned scan output plus the hashes needed to validate reuse
+- runtime aggregate payloads must not preserve child-result nesting for
+  semantic carriers once the same semantic data can be surfaced directly on
+  the payload boundary
 - queue/report artifacts must not materialize queue-owned semantic-summary
   blobs when direct semantic fields and preview rows already discharge the same
   reporting obligation

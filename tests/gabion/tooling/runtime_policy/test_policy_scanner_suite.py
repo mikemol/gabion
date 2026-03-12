@@ -905,6 +905,8 @@ def test_policy_scanner_suite_carries_external_policy_results(tmp_path: Path) ->
         "projection_fiber_frontier"
     )
     payload = result.to_payload()
+    assert "policy_results" not in payload
+    assert payload["projection_fiber_semantics"] == semantics
     assert "projection_fiber_semantics_summary" not in payload
     summary = projection_fiber_semantics_summary_from_payload(payload)
     assert summary is not None
@@ -935,6 +937,7 @@ def test_policy_scanner_suite_carries_external_policy_results(tmp_path: Path) ->
     assert cached.cached is False
     persisted_payload = json.loads(artifact_path.read_text(encoding="utf-8"))
     assert "policy_results" not in persisted_payload
+    assert "projection_fiber_semantics" not in persisted_payload
 
     cached_again = policy_scanner_suite.load_or_scan_policy_suite(
         root=root,
@@ -972,6 +975,21 @@ def test_projection_fiber_semantics_summary_requires_canonical_payload_shape() -
                         "complete": True,
                     }
                 ],
+            }
+        }
+    ) is None
+    assert projection_fiber_semantics_summary_from_payload(
+        {
+            "policy_results": {
+                "policy_check": {
+                    "projection_fiber_semantics": {
+                        "decision": {"rule_id": "projection_fiber.convergence.ok"},
+                        "report": {
+                            "semantic_rows": [],
+                            "compiled_projection_semantic_bundles": [],
+                        },
+                    }
+                }
             }
         }
     ) is None

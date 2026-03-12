@@ -200,7 +200,7 @@ class PolicySuiteResult:
     def to_payload(self) -> dict[str, object]:
         counts = dict(map(_rule_count_pair, self.violations_by_rule.items()))
         decision = self.decision()
-        return {
+        payload: dict[str, object] = {
             "format_version": _FORMAT_VERSION,
             "generated_at_utc": datetime.now(timezone.utc).isoformat(),
             "root": str(self.root),
@@ -215,8 +215,13 @@ class PolicySuiteResult:
                 "severity": decision.severity.value,
                 "message": decision.message,
             },
-            "policy_results": self.policy_results,
         }
+        projection_fiber_semantics = _projection_fiber_semantics_payload(
+            self.policy_results,
+        )
+        if projection_fiber_semantics is not None:
+            payload["projection_fiber_semantics"] = projection_fiber_semantics
+        return payload
 
 
 def _iter_rule_violation_counts(values: Iterable[list[dict[str, Any]]]) -> Iterable[int]:
@@ -642,8 +647,21 @@ def _violations_from_payload(payload: Mapping[str, Any]) -> dict[str, list[dict[
 
 def _cache_payload(result: PolicySuiteResult) -> dict[str, object]:
     payload = result.to_payload()
-    payload.pop("policy_results", None)
+    payload.pop("projection_fiber_semantics", None)
     return payload
+
+
+def _projection_fiber_semantics_payload(
+    policy_results: Mapping[str, Mapping[str, Any]],
+) -> dict[str, Any] | None:
+    policy_check = policy_results.get("policy_check")
+    if not policy_check:
+        return None
+    semantics = policy_check.get("projection_fiber_semantics")
+    semantics_outcome = _mapping_copy_outcome(semantics)
+    if not semantics_outcome.accepted:
+        return None
+    return semantics_outcome.mapping
 
 
 def _empty_violations_payload() -> dict[str, list[dict[str, Any]]]:

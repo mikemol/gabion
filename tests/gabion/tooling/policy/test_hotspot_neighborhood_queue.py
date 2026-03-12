@@ -229,40 +229,33 @@ def test_run_reads_projection_fiber_summary_from_policy_results_payload(
     md = tmp_path / "artifacts/out/hotspot_neighborhood_queue.md"
     source_artifact.parent.mkdir(parents=True, exist_ok=True)
     payload = _payload()
-    payload["policy_results"] = {
-        "policy_check": {
-            "rule_id": "policy_check",
-            "status": "pass",
-            "violations": [],
-            "projection_fiber_semantics": {
-                "decision": {"rule_id": "projection_fiber.convergence.ok"},
-                "report": {
-                    "semantic_rows": [
+    payload["projection_fiber_semantics"] = {
+        "decision": {"rule_id": "projection_fiber.convergence.ok"},
+        "report": {
+            "semantic_rows": [
+                {
+                    "structural_identity": "row-1",
+                    "obligation_state": "discharged",
+                    "payload": {
+                        "path": "src/gabion/example.py",
+                        "qualname": "example.frontier",
+                        "structural_path": "example.frontier::branch[0]",
+                        "complete": True,
+                    },
+                }
+            ],
+            "compiled_projection_semantic_bundles": [
+                {
+                    "spec_name": "projection_fiber_frontier",
+                    "bindings": [
                         {
-                            "structural_identity": "row-1",
-                            "obligation_state": "discharged",
-                            "payload": {
-                                "path": "src/gabion/example.py",
-                                "qualname": "example.frontier",
-                                "structural_path": "example.frontier::branch[0]",
-                                "complete": True,
-                            },
+                            "quotient_face": "projection_fiber.frontier",
+                            "source_structural_identity": "row-1",
                         }
                     ],
-                    "compiled_projection_semantic_bundles": [
-                        {
-                            "spec_name": "projection_fiber_frontier",
-                            "bindings": [
-                                {
-                                    "quotient_face": "projection_fiber.frontier",
-                                    "source_structural_identity": "row-1",
-                                }
-                            ],
-                        }
-                    ],
-                },
-            },
-        }
+                }
+            ],
+        },
     }
     source_artifact.write_text(
         json.dumps(
@@ -290,40 +283,33 @@ def test_run_reads_projection_fiber_summary_from_policy_results_payload(
 # gabion:behavior primary=desired
 def test_analyze_carries_projection_fiber_semantic_fields() -> None:
     payload = _payload()
-    payload["policy_results"] = {
-        "policy_check": {
-            "rule_id": "policy_check",
-            "status": "pass",
-            "violations": [],
-            "projection_fiber_semantics": {
-                "decision": {"rule_id": "projection_fiber.convergence.ok"},
-                "report": {
-                    "semantic_rows": [
+    payload["projection_fiber_semantics"] = {
+        "decision": {"rule_id": "projection_fiber.convergence.ok"},
+        "report": {
+            "semantic_rows": [
+                {
+                    "structural_identity": "row-1",
+                    "obligation_state": "discharged",
+                    "payload": {
+                        "path": "src/gabion/example.py",
+                        "qualname": "example.frontier",
+                        "structural_path": "example.frontier::branch[0]",
+                        "complete": True,
+                    },
+                }
+            ],
+            "compiled_projection_semantic_bundles": [
+                {
+                    "spec_name": "projection_fiber_frontier",
+                    "bindings": [
                         {
-                            "structural_identity": "row-1",
-                            "obligation_state": "discharged",
-                            "payload": {
-                                "path": "src/gabion/example.py",
-                                "qualname": "example.frontier",
-                                "structural_path": "example.frontier::branch[0]",
-                                "complete": True,
-                            },
+                            "quotient_face": "projection_fiber.frontier",
+                            "source_structural_identity": "row-1",
                         }
                     ],
-                    "compiled_projection_semantic_bundles": [
-                        {
-                            "spec_name": "projection_fiber_frontier",
-                            "bindings": [
-                                {
-                                    "quotient_face": "projection_fiber.frontier",
-                                    "source_structural_identity": "row-1",
-                                }
-                            ],
-                        }
-                    ],
-                },
-            },
-        }
+                }
+            ],
+        },
     }
 
     queue = hotspot_neighborhood_queue.analyze(
@@ -355,40 +341,33 @@ def test_analyze_carries_projection_fiber_semantic_fields() -> None:
 # gabion:behavior primary=desired
 def test_markdown_summary_includes_projection_fiber_semantic_fields() -> None:
     payload = _payload()
-    payload["policy_results"] = {
-        "policy_check": {
-            "rule_id": "policy_check",
-            "status": "pass",
-            "violations": [],
-            "projection_fiber_semantics": {
-                "decision": {"rule_id": "projection_fiber.convergence.ok"},
-                "report": {
-                    "semantic_rows": [
+    payload["projection_fiber_semantics"] = {
+        "decision": {"rule_id": "projection_fiber.convergence.ok"},
+        "report": {
+            "semantic_rows": [
+                {
+                    "structural_identity": "row-1",
+                    "obligation_state": "discharged",
+                    "payload": {
+                        "path": "src/gabion/example.py",
+                        "qualname": "example.frontier",
+                        "structural_path": "example.frontier::branch[0]",
+                        "complete": True,
+                    },
+                }
+            ],
+            "compiled_projection_semantic_bundles": [
+                {
+                    "spec_name": "projection_fiber_frontier",
+                    "bindings": [
                         {
-                            "structural_identity": "row-1",
-                            "obligation_state": "discharged",
-                            "payload": {
-                                "path": "src/gabion/example.py",
-                                "qualname": "example.frontier",
-                                "structural_path": "example.frontier::branch[0]",
-                                "complete": True,
-                            },
+                            "quotient_face": "projection_fiber.frontier",
+                            "source_structural_identity": "row-1",
                         }
                     ],
-                    "compiled_projection_semantic_bundles": [
-                        {
-                            "spec_name": "projection_fiber_frontier",
-                            "bindings": [
-                                {
-                                    "quotient_face": "projection_fiber.frontier",
-                                    "source_structural_identity": "row-1",
-                                }
-                            ],
-                        }
-                    ],
-                },
-            },
-        }
+                }
+            ],
+        },
     }
     queue = hotspot_neighborhood_queue.analyze(
         payload=payload,
