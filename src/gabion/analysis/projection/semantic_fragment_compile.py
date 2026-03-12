@@ -516,10 +516,23 @@ def compile_projection_fiber_quotient_face_to_shacl(
         *[str(item["kind"]) for item in row["input_witnesses"]],
         *[str(item["op"]) for item in row["transform_trace"]],
     ]
-    field_plans = _projection_fiber_quotient_face_field_plans(
-        row=row,
-        quotient_face=quotient_face,
-        fields=fields,
+    supported_fields = _PROJECTION_FIBER_QUOTIENT_FACE_FIELDS.get(quotient_face)
+    if supported_fields is None:
+        never(
+            "unsupported quotient face for projection fiber compilation",
+            quotient_face=quotient_face,
+        )
+    field_plans = tuple(
+        (
+            field,
+            _projection_fiber_quotient_face_field_plan(
+                row=row,
+                quotient_face=quotient_face,
+                field=field,
+                supported_fields=supported_fields,
+            ),
+        )
+        for field in fields
     )
     return {
         "plan_id": f"{spec_identity}:{structural_identity}:shacl:{quotient_face}",
@@ -559,10 +572,23 @@ def compile_projection_fiber_quotient_face_to_sparql(
         *[str(item["kind"]) for item in row["input_witnesses"]],
         *[str(item["op"]) for item in row["transform_trace"]],
     ]
-    field_plans = _projection_fiber_quotient_face_field_plans(
-        row=row,
-        quotient_face=quotient_face,
-        fields=fields,
+    supported_fields = _PROJECTION_FIBER_QUOTIENT_FACE_FIELDS.get(quotient_face)
+    if supported_fields is None:
+        never(
+            "unsupported quotient face for projection fiber compilation",
+            quotient_face=quotient_face,
+        )
+    field_plans = tuple(
+        (
+            field,
+            _projection_fiber_quotient_face_field_plan(
+                row=row,
+                quotient_face=quotient_face,
+                field=field,
+                supported_fields=supported_fields,
+            ),
+        )
+        for field in fields
     )
     return {
         "plan_id": f"{spec_identity}:{structural_identity}:sparql:{quotient_face}",
@@ -647,35 +673,6 @@ _PROJECTION_FIBER_QUOTIENT_FACE_FIELDS: dict[str, tuple[str, ...]] = {
         "obligation_state",
     ),
 }
-
-@grade_boundary(
-    kind="semantic_carrier_adapter",
-    name="semantic_fragment_compile.projection_fiber_quotient_face_field_plans",
-)
-def _projection_fiber_quotient_face_field_plans(
-    *,
-    row: CanonicalWitnessedSemanticRow,
-    quotient_face: str,
-    fields: tuple[str, ...],
-) -> tuple[tuple[str, _ProjectionFiberQuotientFaceFieldPlan], ...]:
-    supported_fields = _PROJECTION_FIBER_QUOTIENT_FACE_FIELDS.get(quotient_face)
-    if supported_fields is None:
-        never(
-            "unsupported quotient face for projection fiber compilation",
-            quotient_face=quotient_face,
-        )
-    return tuple(
-        (
-            field,
-            _projection_fiber_quotient_face_field_plan(
-                row=row,
-                quotient_face=quotient_face,
-                field=field,
-                supported_fields=supported_fields,
-            ),
-        )
-        for field in fields
-    )
 
 @grade_boundary(
     kind="semantic_carrier_adapter",

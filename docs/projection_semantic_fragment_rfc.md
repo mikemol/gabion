@@ -1,5 +1,5 @@
 ---
-doc_revision: 120
+doc_revision: 121
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -584,6 +584,11 @@ Current implementation status:
   grading stays concentrated on `_distinct_mapping_values(...)`,
   support-context serialization, and the real compile surfaces rather than on
   forwarding wrappers
+- and narrower again after that: the quotient-face field-plan forwarding
+  wrapper is now collapsed back into the already-graded
+  `compile_projection_fiber_quotient_face_*` entrypoints, so temporary grading
+  stays concentrated on the remaining per-field classifier plus the real
+  compile surfaces rather than on a second quotient-face assembly seam
 - and narrower again after that: `_obligation_payloads(...)` is now treated as
   an ordinary internal obligation-state shaping helper rather than a graded
   carrier seam, so the remaining temporary grading on `semantic_fragment.py`
