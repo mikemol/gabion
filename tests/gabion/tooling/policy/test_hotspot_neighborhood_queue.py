@@ -17,10 +17,6 @@ def _payload() -> dict[str, object]:
     return {
         "format_version": 1,
         "generated_at_utc": "2026-03-09T00:00:00Z",
-        "inventory_hash": "inv",
-        "rule_set_hash": "rules",
-        "policy_results_hash": "policy",
-        "changed_scope_hash": "scope",
         "counts": {
             "branchless": 0,
             "fiber_filter_processor_contract": 0,
@@ -181,6 +177,10 @@ def test_run_writes_json_and_markdown_outputs(tmp_path: Path) -> None:
     assert md.exists()
     payload = json.loads(out.read_text(encoding="utf-8"))
     assert payload["source"]["source_generated_at_utc"] == "2026-03-09T00:00:00Z"
+    assert "inventory_hash" not in payload["source"]
+    assert "rule_set_hash" not in payload["source"]
+    assert "policy_results_hash" not in payload["source"]
+    assert "changed_scope_hash" not in payload["source"]
     assert payload["counts"]["source_counts"]["branchless"] == 0
     assert payload["counts"]["neighborhood_count"] >= 1
     markdown = md.read_text(encoding="utf-8")

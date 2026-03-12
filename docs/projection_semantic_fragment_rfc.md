@@ -1,5 +1,5 @@
 ---
-doc_revision: 33
+doc_revision: 34
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -534,6 +534,11 @@ Current implementation status:
   `source_generated_at_utc` and `source_counts` metadata rather than
   `policy_suite_*` fields, so emitted queue payloads no longer project
   suite-era ownership language after ingress has already been generalized
+- the hotspot-neighborhood queue artifact no longer projects
+  policy-scanner-suite cache hashes (`inventory_hash`, `rule_set_hash`,
+  `policy_results_hash`, `changed_scope_hash`) into its own source metadata;
+  those wrapper cache internals are now treated as non-contractual provenance
+  and no longer widen the queue/reporting surface
 - hotspot-neighborhood queue analysis now consumes one normalized source
   payload only; the separate `policy_check` supplement path was removed once
   the canonical source payload already carried `policy_results.policy_check`
