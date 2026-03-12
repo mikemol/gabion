@@ -284,10 +284,6 @@ def _naturality_payload(
         "complete": complete,
     }
 
-@grade_boundary(
-    kind="semantic_carrier_adapter",
-    name="semantic_fragment.obligation_payloads",
-)
 def _obligation_payloads(witness: FrontierWitness) -> list[JSONObject]:
     violation_payloads = (
         [
