@@ -169,7 +169,7 @@ def run(
     )
     if total == 0:
         for rule_id in ("policy_check", "structural_hash", "deprecated_nonerasability"):
-            status = str(result.child_statuses.get(rule_id, "unknown"))
+            status = str(child_inputs.child_statuses.get(rule_id, "unknown"))
             print(f"{rule_id} status: {status}")
         return 0
     for rule in (

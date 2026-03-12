@@ -182,7 +182,6 @@ def _boundary_scoped_candidate(
 class PolicySuiteResult:
     root: Path
     violations_by_rule: dict[str, list[dict[str, Any]]]
-    child_statuses: dict[str, str]
     projection_fiber_semantics: dict[str, Any] | None
     cached: bool
 
@@ -285,7 +284,6 @@ def load_or_scan_policy_suite(
             return PolicySuiteResult(
                 root=resolved_root,
                 violations_by_rule=violations,
-                child_statuses=dict(normalized_child_inputs.child_statuses),
                 projection_fiber_semantics=normalized_child_inputs.projection_fiber_semantics,
                 cached=True,
             )
@@ -597,7 +595,6 @@ def scan_policy_suite(
     return PolicySuiteResult(
         root=resolved_root,
         violations_by_rule=violations_by_rule,
-        child_statuses=dict(resolved_child_inputs.child_statuses),
         projection_fiber_semantics=resolved_child_inputs.projection_fiber_semantics,
         cached=False,
     )

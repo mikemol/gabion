@@ -45,7 +45,6 @@ def test_scanner_payload_uses_dsl_decision_shape() -> None:
     result = PolicySuiteResult(
         root=Path(".").resolve(),
         violations_by_rule={"branchless": [{}], "defensive_fallback": [], "no_monkeypatch": []},
-        child_statuses={},
         projection_fiber_semantics=None,
         cached=False,
     )
