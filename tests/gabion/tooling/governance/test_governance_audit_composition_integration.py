@@ -38,3 +38,92 @@ def test_status_consistency_command_preserves_markdown_json_shape(tmp_path: Path
     assert ("## Violations" in markdown) is (violation_count > 0)
     assert ("## Warnings" in markdown) is (warning_count > 0)
     assert ("No issues detected." in markdown) is (violation_count == 0 and warning_count == 0)
+
+
+# gabion:behavior primary=desired
+def test_emit_docflow_canonicality_uses_execution_ops(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    json_output = tmp_path / "docflow_canonicality.json"
+    md_output = tmp_path / "docflow_canonicality.md"
+    entries = [
+        {
+            "term": "bundle",
+            "heading": "Bundle",
+            "candidate": False,
+            "anchor_present": True,
+            "explicit_without_requires": True,
+            "requires_without_explicit": False,
+            "implicit_docs": [],
+            "requires_docs": [],
+        }
+    ]
+    signal_rows = [
+        {
+            "row_kind": "canonicality_signal",
+            "term": "bundle",
+            "signal": "explicit_without_requires",
+            "doc": "glossary.md#bundle",
+        }
+    ]
+    summary = {
+        "total_terms": 1,
+        "candidates": 0,
+        "ambiguous": 1,
+        "no_induced_meaning": 0,
+    }
+
+    seen: dict[str, object] = {}
+    monkeypatch.setattr(
+        governance_audit_impl,
+        "_load_docflow_docs",
+        lambda **_kwargs: {},
+    )
+    monkeypatch.setattr(
+        governance_audit_impl,
+        "_docflow_canonicality_entries",
+        lambda **_kwargs: (entries, signal_rows, summary),
+    )
+    monkeypatch.setattr(
+        governance_audit_impl,
+        "_docflow_canonicality_execution_ops",
+        lambda: ("typed-canonicality-op",),
+    )
+
+    def _fake_apply_execution_ops(ops, rows, *, op_registry, runtime_params=None):
+        seen["ops"] = ops
+        seen["rows"] = rows
+        seen["op_registry"] = op_registry
+        seen["runtime_params"] = runtime_params
+        return [{"term": "bundle", "count": 1}]
+
+    def _fail_apply_spec(*_args, **_kwargs):
+        raise AssertionError(
+            "fixed docflow canonicality spec should use typed execution ops"
+        )
+
+    monkeypatch.setattr(
+        governance_audit_impl,
+        "apply_execution_ops",
+        _fake_apply_execution_ops,
+    )
+    monkeypatch.setattr(governance_audit_impl, "apply_spec", _fail_apply_spec)
+
+    governance_audit_impl._emit_docflow_canonicality(
+        root=tmp_path,
+        extra_paths=None,
+        json_output=json_output,
+        md_output=md_output,
+    )
+
+    assert seen["ops"] == ("typed-canonicality-op",)
+    assert seen["rows"] == signal_rows
+    op_registry = seen["op_registry"]
+    assert isinstance(op_registry, dict)
+    assert "canonicality_is_ambiguous" in op_registry
+    assert seen["runtime_params"] is None
+
+    payload = json.loads(json_output.read_text(encoding="utf-8"))
+    assert payload["projection_summary"] == [{"count": 1, "term": "bundle"}]
+    assert payload["convergence"]["matched"] is True

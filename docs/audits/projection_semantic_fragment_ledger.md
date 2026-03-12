@@ -249,6 +249,10 @@ Direct-carrier judgment now landed on at least one real consumer path:
 - Fixed-spec presentation consumers should precompute typed execution ops and
   execute them directly; `apply_spec(...)` remains only for real dynamic
   authoring surfaces during the compatibility window.
+- Fixed local governance/report `ProjectionSpec` literals should either be
+  promoted to reusable semantic carriers or precompute typed execution ops at
+  their owning boundary; stable one-off reporting specs should not re-enter
+  the temporary `ProjectionSpec` adapter.
 - Slower aggregate artifacts should not carry duplicate semantic-summary
   projections once the same summary is derivable from `policy_results` or a
   faster semantic artifact; keep one canonical summary derivation path.

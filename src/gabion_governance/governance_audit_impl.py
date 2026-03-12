@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+from functools import cache
 import json
 import os
 import re
@@ -21,7 +22,11 @@ except ImportError:  # pragma: no cover - pyyaml is expected in managed environm
 from gabion.tooling.runtime.deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
 from gabion.analysis.aspf.aspf import Forest
 from gabion.analysis.foundation.timeout_context import check_deadline
-from gabion.analysis.projection.projection_exec_ingress import apply_spec
+from gabion.analysis.projection.projection_exec import apply_execution_ops
+from gabion.analysis.projection.projection_exec_ingress import (
+    apply_spec,
+    execution_ops_from_spec,
+)
 from gabion.analysis.projection.projection_normalize import normalize_spec, spec_canonical_json, spec_hash
 from gabion.analysis.projection.projection_spec import ProjectionOp, ProjectionSpec, spec_from_dict
 from gabion.analysis.semantics import evidence_keys
@@ -29,7 +34,7 @@ from gabion.analysis.semantics.impact_index import build_impact_index
 from gabion.governance_paths import GOVERNANCE_PATHS
 from gabion.analysis.semantics.obligation_registry import (
     evaluate_obligations, summarize_obligations)
-from gabion.invariants import never
+from gabion.invariants import grade_boundary, never
 from gabion.order_contract import ordered_or_sorted
 from gabion.tooling.governance.governance_rules import load_governance_rules
 from gabion_governance.compliance_render import render_compliance
@@ -3608,6 +3613,30 @@ def _canonicality_predicates() -> dict[str, Callable[[Mapping[str, JSONValue], M
     return {"canonicality_is_ambiguous": _is_ambiguous}
 
 
+@cache
+def _docflow_canonicality_spec() -> ProjectionSpec:
+    return ProjectionSpec(
+        spec_version=1,
+        name="docflow_canonicality_ambiguity",
+        domain="docflow_canonicality",
+        pipeline=(
+            ProjectionOp("select", {"predicates": ["canonicality_is_ambiguous"]}),
+            ProjectionOp("project", {"fields": ["term", "signal", "doc"]}),
+            ProjectionOp("count_by", {"fields": ["term"]}),
+            ProjectionOp("sort", {"by": ["term"]}),
+        ),
+    )
+
+
+@cache
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="docflow_canonicality_execution_ops",
+)
+def _docflow_canonicality_execution_ops():
+    return execution_ops_from_spec(_docflow_canonicality_spec())
+
+
 def _render_docflow_canonicality_md(
     entries: list[dict[str, object]],
     summary: dict[str, object],
@@ -3702,19 +3731,13 @@ def _emit_docflow_canonicality(
     docs = _load_docflow_docs(root=root, extra_paths=extra_paths)
     entries, signal_rows, summary = _docflow_canonicality_entries(docs=docs)
 
-    spec = ProjectionSpec(
-        spec_version=1,
-        name="docflow_canonicality_ambiguity",
-        domain="docflow_canonicality",
-        pipeline=(
-            ProjectionOp("select", {"predicates": ["canonicality_is_ambiguous"]}),
-            ProjectionOp("project", {"fields": ["term", "signal", "doc"]}),
-            ProjectionOp("count_by", {"fields": ["term"]}),
-            ProjectionOp("sort", {"by": ["term"]}),
-        ),
-    )
+    spec = _docflow_canonicality_spec()
     op_registry = _canonicality_predicates()
-    projection_rows = apply_spec(spec, signal_rows, op_registry=op_registry)
+    projection_rows = apply_execution_ops(
+        _docflow_canonicality_execution_ops(),
+        signal_rows,
+        op_registry=op_registry,
+    )
     projection_terms = {row.get("term") for row in projection_rows if row.get("term")}
     docflow_terms = {
         entry.get("term")

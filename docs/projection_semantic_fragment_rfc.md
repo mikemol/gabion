@@ -878,6 +878,12 @@ The following current surfaces are temporary adapters:
 - current projection-fiber DSL rules when they operate as judgment-only without
   a canonical semantic carrier underneath
 
+During the compatibility window, stable local reporting specs should follow the
+same Phase 5 ratchet as registered fixed-spec consumers: if a boundary owns a
+non-dynamic `ProjectionSpec` literal and no custom authoring surface is
+required, that boundary should precompute typed execution ops rather than
+re-enter the temporary `projection_exec_ingress.py` adapter.
+
 The policy DSL remains a judgment surface. It is not promoted to semantic
 construction ownership by this RFC.
 
