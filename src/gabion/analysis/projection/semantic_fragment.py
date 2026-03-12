@@ -354,25 +354,14 @@ def _normalize_object(value: JSONObject) -> JSONObject:
 def _normalize_value(value: object) -> JSONValue:
     mapping_value = json_mapping_optional(value)
     if mapping_value is not None:
-        return _normalize_mapping(mapping_value)
+        return {
+            key: _normalize_value(mapping_value[key])
+            for key in canonical_mapping_keys(mapping_value)
+        }
     list_value = json_list_optional(value)
     if list_value is not None:
-        return _normalize_list(list_value)
+        return [_normalize_value(item) for item in list_value]
     return value
-
-@grade_boundary(
-    kind="semantic_carrier_adapter",
-    name="semantic_fragment.normalize_mapping",
-)
-def _normalize_mapping(value: dict[str, JSONValue]) -> JSONValue:
-    return {key: _normalize_value(value[key]) for key in canonical_mapping_keys(value)}
-
-@grade_boundary(
-    kind="semantic_carrier_adapter",
-    name="semantic_fragment.normalize_list",
-)
-def _normalize_list(value: list[JSONValue]) -> JSONValue:
-    return [_normalize_value(item) for item in value]
 
 @grade_boundary(
     kind="semantic_carrier_adapter",
