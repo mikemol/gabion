@@ -73,13 +73,19 @@ def test_run_skips_semantic_queue_backfill_without_policy_check_owned_artifact(
         },
     }
 
-    def _fake_external_policy_results(*, root: Path, out: Path) -> dict[str, dict[str, object]]:
-        return {"policy_check": policy_check_payload}
+    def _fake_external_child_inputs(
+        *, root: Path, out: Path
+    ) -> policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs:
+        return (
+            policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs.from_policy_results(
+                {"policy_check": policy_check_payload}
+            )
+        )
 
     monkeypatch.setattr(
         policy_scanner_suite,
-        "_run_external_policy_results",
-        _fake_external_policy_results,
+        "_resolve_external_child_inputs",
+        _fake_external_child_inputs,
     )
 
     rc = policy_scanner_suite.run(root=root, out=out)
@@ -148,7 +154,9 @@ def test_run_preserves_policy_check_owned_semantic_queue(
         },
     }
 
-    def _fake_external_policy_results(*, root: Path, out: Path) -> dict[str, dict[str, object]]:
+    def _fake_external_child_inputs(
+        *, root: Path, out: Path
+    ) -> policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs:
         policy_check_result.write_text(
             json.dumps(policy_check_payload, indent=2) + "\n",
             encoding="utf-8",
@@ -187,14 +195,16 @@ def test_run_preserves_policy_check_owned_semantic_queue(
             encoding="utf-8",
         )
         queue_md.write_text("# Projection Semantic Fragment Queue\n", encoding="utf-8")
-        return {
-            "policy_check": policy_check_payload,
-        }
+        return (
+            policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs.from_policy_results(
+                {"policy_check": policy_check_payload}
+            )
+        )
 
     monkeypatch.setattr(
         policy_scanner_suite,
-        "_run_external_policy_results",
-        _fake_external_policy_results,
+        "_resolve_external_child_inputs",
+        _fake_external_child_inputs,
     )
 
     rc = policy_scanner_suite.run(root=root, out=out)
@@ -233,19 +243,23 @@ def test_run_does_not_regenerate_missing_policy_check_owned_semantic_queue(
         },
     }
 
-    def _fake_external_policy_results(*, root: Path, out: Path) -> dict[str, dict[str, object]]:
+    def _fake_external_child_inputs(
+        *, root: Path, out: Path
+    ) -> policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs:
         policy_check_result.write_text(
             json.dumps(policy_check_payload, indent=2) + "\n",
             encoding="utf-8",
         )
-        return {
-            "policy_check": policy_check_payload,
-        }
+        return (
+            policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs.from_policy_results(
+                {"policy_check": policy_check_payload}
+            )
+        )
 
     monkeypatch.setattr(
         policy_scanner_suite,
-        "_run_external_policy_results",
-        _fake_external_policy_results,
+        "_resolve_external_child_inputs",
+        _fake_external_child_inputs,
     )
 
     rc = policy_scanner_suite.run(root=root, out=out)
@@ -272,8 +286,14 @@ def test_run_passes_in_memory_payload_to_hotspot_queue(
         input_scope={"root": str(root)},
     )
 
-    def _fake_external_policy_results(*, root: Path, out: Path) -> dict[str, dict[str, object]]:
-        return {"policy_check": policy_check_payload}
+    def _fake_external_child_inputs(
+        *, root: Path, out: Path
+    ) -> policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs:
+        return (
+            policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteChildInputs.from_policy_results(
+                {"policy_check": policy_check_payload}
+            )
+        )
 
     def _fake_run_from_payload(
         *,
@@ -312,8 +332,8 @@ def test_run_passes_in_memory_payload_to_hotspot_queue(
 
     monkeypatch.setattr(
         policy_scanner_suite,
-        "_run_external_policy_results",
-        _fake_external_policy_results,
+        "_resolve_external_child_inputs",
+        _fake_external_child_inputs,
     )
     monkeypatch.setattr(
         policy_scanner_suite.hotspot_neighborhood_queue,
@@ -332,9 +352,9 @@ def test_run_passes_in_memory_payload_to_hotspot_queue(
     assert captured["markdown_out"] == out.parent / "hotspot_neighborhood_queue.md"
 
 
-# gabion:evidence E:function_site::test_policy_scanner_suite_script.py::tests.gabion.tooling.policy.test_policy_scanner_suite_script.test_external_policy_results_preserve_preexisting_child_artifacts
+# gabion:evidence E:function_site::test_policy_scanner_suite_script.py::tests.gabion.tooling.policy.test_policy_scanner_suite_script.test_resolve_external_child_inputs_preserve_preexisting_child_artifacts
 # gabion:behavior primary=desired
-def test_external_policy_results_preserve_preexisting_child_artifacts(
+def test_resolve_external_child_inputs_preserve_preexisting_child_artifacts(
     tmp_path: Path,
     monkeypatch: object,
 ) -> None:
@@ -393,16 +413,19 @@ def test_external_policy_results_preserve_preexisting_child_artifacts(
 
     monkeypatch.setattr(policy_scanner_suite.subprocess, "run", _fake_run)
 
-    results = policy_scanner_suite._run_external_policy_results(root=root, out=out)
+    child_inputs = policy_scanner_suite._resolve_external_child_inputs(root=root, out=out)
 
-    assert results["policy_check"]["input_scope"]["mode"] == "preserved"
-    assert results["structural_hash"]["input_scope"]["mode"] == "preserved"
-    assert results["deprecated_nonerasability"]["input_scope"]["mode"] == "preserved"
+    assert child_inputs.child_statuses == {
+        "policy_check": "pass",
+        "structural_hash": "pass",
+        "deprecated_nonerasability": "skip",
+    }
+    assert child_inputs.projection_fiber_semantics is None
 
 
-# gabion:evidence E:function_site::test_policy_scanner_suite_script.py::tests.gabion.tooling.policy.test_policy_scanner_suite_script.test_external_policy_results_fail_closed_when_child_artifact_missing
+# gabion:evidence E:function_site::test_policy_scanner_suite_script.py::tests.gabion.tooling.policy.test_policy_scanner_suite_script.test_resolve_external_child_inputs_fail_closed_when_child_artifact_missing
 # gabion:behavior primary=desired
-def test_external_policy_results_fail_closed_when_child_artifact_missing(
+def test_resolve_external_child_inputs_fail_closed_when_child_artifact_missing(
     tmp_path: Path,
     monkeypatch: object,
 ) -> None:
@@ -421,7 +444,7 @@ def test_external_policy_results_fail_closed_when_child_artifact_missing(
     )
 
     try:
-        policy_scanner_suite._run_external_policy_results(root=root, out=out)
+        policy_scanner_suite._resolve_external_child_inputs(root=root, out=out)
     except RuntimeError as exc:
         message = str(exc)
     else:  # pragma: no cover
@@ -431,9 +454,9 @@ def test_external_policy_results_fail_closed_when_child_artifact_missing(
     assert "rule_id=policy_check" in message
 
 
-# gabion:evidence E:function_site::test_policy_scanner_suite_script.py::tests.gabion.tooling.policy.test_policy_scanner_suite_script.test_external_policy_results_load_child_emitted_deprecated_skip
+# gabion:evidence E:function_site::test_policy_scanner_suite_script.py::tests.gabion.tooling.policy.test_policy_scanner_suite_script.test_resolve_external_child_inputs_load_child_emitted_deprecated_skip
 # gabion:behavior primary=desired
-def test_external_policy_results_load_child_emitted_deprecated_skip(
+def test_resolve_external_child_inputs_load_child_emitted_deprecated_skip(
     tmp_path: Path,
     monkeypatch: object,
 ) -> None:
@@ -490,11 +513,11 @@ def test_external_policy_results_load_child_emitted_deprecated_skip(
 
     monkeypatch.setattr(policy_scanner_suite.subprocess, "run", _fake_run)
 
-    results = policy_scanner_suite._run_external_policy_results(root=root, out=out)
+    child_inputs = policy_scanner_suite._resolve_external_child_inputs(root=root, out=out)
 
-    assert results["policy_check"]["status"] == "pass"
-    assert results["structural_hash"]["status"] == "pass"
-    assert results["deprecated_nonerasability"]["status"] == "skip"
-    assert results["deprecated_nonerasability"]["source_tool"] == (
-        "scripts/policy/deprecated_nonerasability_policy_check.py"
-    )
+    assert child_inputs.child_statuses == {
+        "policy_check": "pass",
+        "structural_hash": "pass",
+        "deprecated_nonerasability": "skip",
+    }
+    assert child_inputs.projection_fiber_semantics is None

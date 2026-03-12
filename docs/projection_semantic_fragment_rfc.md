@@ -1,5 +1,5 @@
 ---
-doc_revision: 38
+doc_revision: 39
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -583,6 +583,10 @@ Current implementation status:
   child `policy_results` mappings; it now requires a typed child-input bundle
   normalized once at wrapper ingress and keyed in cache state as
   `child_inputs_hash`
+- the policy-scanner-suite wrapper itself no longer traffics raw child result
+  mappings after ingress validation; external child checks now resolve
+  directly to the typed `PolicySuiteChildInputs` bundle before any wrapper
+  orchestration continues
 - wrapper-owned policy-result synthesis has now been removed from the
   policy-suite path entirely: the deprecated-nonerasability child check emits
   its own canonical `skip` result when baseline/current inputs are absent, and

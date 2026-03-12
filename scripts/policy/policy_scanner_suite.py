@@ -7,7 +7,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-from gabion.tooling.runtime import policy_result_schema, policy_scanner_suite
+from gabion.tooling.runtime import policy_result_schema
+from gabion.tooling.runtime import policy_scanner_suite as runtime_policy_scanner_suite
 from scripts.policy import hotspot_neighborhood_queue
 
 
@@ -22,7 +23,9 @@ def _load_preserved_policy_result(
     return loaded
 
 
-def _run_external_policy_results(*, root: Path, out: Path) -> dict[str, dict[str, object]]:
+def _resolve_external_child_inputs(
+    *, root: Path, out: Path
+) -> runtime_policy_scanner_suite.PolicySuiteChildInputs:
     checks: tuple[tuple[str, list[str]], ...] = (
         (
             "policy_check",
@@ -88,7 +91,9 @@ def _run_external_policy_results(*, root: Path, out: Path) -> dict[str, dict[str
             "external policy result artifact missing after wrapper invocation: "
             f"rule_id={rule_id} returncode={completed.returncode} artifact={artifact}"
         )
-    return results
+    return runtime_policy_scanner_suite.PolicySuiteChildInputs.from_policy_results(
+        results,
+    )
 
 
 def run(
@@ -98,11 +103,8 @@ def run(
     base_sha: str | None = None,
     head_sha: str | None = None,
 ) -> int:
-    policy_results = _run_external_policy_results(root=root, out=out)
-    child_inputs = policy_scanner_suite.PolicySuiteChildInputs.from_policy_results(
-        policy_results,
-    )
-    result = policy_scanner_suite.load_or_scan_policy_suite(
+    child_inputs = _resolve_external_child_inputs(root=root, out=out)
+    result = runtime_policy_scanner_suite.load_or_scan_policy_suite(
         root=root,
         artifact_path=out,
         child_inputs=child_inputs,
@@ -157,7 +159,7 @@ def run(
         "test_subprocess_hygiene",
         "test_sleep_hygiene",
     ):
-        items = policy_scanner_suite.violations_for_rule(result, rule=rule)
+        items = runtime_policy_scanner_suite.violations_for_rule(result, rule=rule)
         if not items:
             continue
         print(f"{rule} violations:")
