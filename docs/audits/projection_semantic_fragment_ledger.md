@@ -1,5 +1,5 @@
 ---
-doc_revision: 73
+doc_revision: 74
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_ledger
 doc_role: audit
@@ -190,6 +190,7 @@ Still adapter-only:
 | `2026-03-12` | The runtime policy scanner no longer returns a `PolicySuiteResult` compatibility carrier; `scan_policy_suite()` now returns the canonical `violations_by_rule` mapping directly, and suite-decision evaluation is an explicit helper over that map. | `src/gabion/tooling/runtime/policy_scanner_suite.py`; `scripts/policy/policy_scanner_suite.py`; `tests/gabion/tooling/runtime_policy/test_policy_scanner_suite.py`; `tests/gabion/tooling/policy/test_policy_scanner_suite_script.py`; `tests/test_policy_dsl.py`; `docs/projection_semantic_fragment_rfc.md#projection_semantic_fragment_rfc` |
 | `2026-03-12` | The runtime policy-scanner-suite module is now scan-only: it no longer exports a wrapper-only suite-decision helper, and callers evaluate policy directly from the canonical `violations_by_rule` map instead of routing that judgment back through the runtime scan surface. | `src/gabion/tooling/runtime/policy_scanner_suite.py`; `scripts/policy/policy_scanner_suite.py`; `tests/gabion/tooling/runtime_policy/test_policy_scanner_suite.py`; `tests/test_policy_dsl.py`; `docs/projection_semantic_fragment_rfc.md#projection_semantic_fragment_rfc` |
 | `2026-03-12` | Hotspot-queue helper coverage no longer lives in suite-wrapper tests; the fail-closed `policy_check_result.json` semantic-ingress contract is now tested in hotspot-owned queue tests, keeping wrapper coverage limited to wrapper behavior. | `tests/gabion/tooling/policy/test_hotspot_neighborhood_queue.py`; `tests/gabion/tooling/policy/test_policy_scanner_suite_script.py`; `docs/projection_semantic_fragment_rfc.md#projection_semantic_fragment_rfc` |
+| `2026-03-12` | The runtime policy-scanner-suite scan surface no longer accepts a test-only explicit file-inventory override; `scan_policy_suite()` now always derives its canonical repo inventory internally and narrows only through explicit `changed_paths`, matching the remaining real wrapper call path. | `src/gabion/tooling/runtime/policy_scanner_suite.py`; `tests/gabion/tooling/runtime_policy/test_policy_scanner_suite.py`; `tests/gabion/tooling/policy/test_policy_scanner_suite_script.py`; `docs/projection_semantic_fragment_rfc.md#projection_semantic_fragment_rfc` |
 | `2026-03-11` | The runtime policy-scanner-suite module no longer exposes any cache/load API at all; `load_or_scan_policy_suite()`, `PolicySuiteLoadOutcome`, and the cache-normalization helpers were removed once the wrapper path stopped depending on them, leaving `scan_policy_suite()` as the only runtime orchestration surface. | `src/gabion/tooling/runtime/policy_scanner_suite.py`; `tests/gabion/tooling/runtime_policy/test_policy_scanner_suite.py`; `docs/projection_semantic_fragment_rfc.md#projection_semantic_fragment_rfc` |
 | `2026-03-11` | The policy-scanner-suite wrapper no longer exposes separate raw child-payload peelers for status and `projection_fiber_semantics`; child artifact ingress is now normalized through one typed loader before wrapper orchestration continues. | `scripts/policy/policy_scanner_suite.py`; `tests/gabion/tooling/policy/test_policy_scanner_suite_script.py`; `docs/projection_semantic_fragment_rfc.md#projection_semantic_fragment_rfc` |
 | `2026-03-11` | The policy-scanner-suite wrapper no longer materializes a temporary `dict[rule_id, payload]` child-result rendezvous during ingress resolution; preserved and newly emitted child artifacts are normalized directly into `PolicySuiteChildInputs` at the wrapper boundary. | `scripts/policy/policy_scanner_suite.py`; `tests/gabion/tooling/policy/test_policy_scanner_suite_script.py`; `docs/projection_semantic_fragment_rfc.md#projection_semantic_fragment_rfc` |
@@ -233,6 +234,9 @@ Still adapter-only:
   the payload boundary.
 - Slower wrappers must not regenerate continuation artifacts owned by the
   faster semantic path. Preserve or consume them, but do not re-emit them.
+- Runtime scan surfaces should not preserve test-only inventory override
+  parameters once the actual wrapper path always scans the canonical repo
+  inventory and scopes through explicit changed-path inputs.
 - Slower wrappers must consume valid preexisting child-owned canonical
   artifacts rather than rerunning the child checks that already own those
   artifacts.

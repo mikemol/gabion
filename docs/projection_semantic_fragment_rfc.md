@@ -1,5 +1,5 @@
 ---
-doc_revision: 81
+doc_revision: 82
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -721,6 +721,10 @@ Current implementation status:
   exports a suite-decision helper, and callers evaluate policy directly from
   the canonical `violations_by_rule` map instead of routing that boundary
   judgment back through the runtime scan surface
+- the runtime policy-scanner-suite scan surface no longer accepts a
+  test-only explicit file-inventory override; it now scans its canonical repo
+  inventory and scopes only via explicit `changed_paths`, which matches the
+  remaining real wrapper call path
 - boundary coverage now follows actual ownership on the queue seam:
   hotspot-queue helper contracts are pinned in hotspot-queue tests rather than
   indirectly through policy-scanner-suite wrapper tests

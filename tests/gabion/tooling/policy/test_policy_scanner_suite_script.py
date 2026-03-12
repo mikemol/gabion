@@ -181,11 +181,9 @@ def test_run_resolves_changed_paths_at_wrapper_boundary(
     def _fake_scan_policy_suite(
         *,
         root: Path,
-        files: tuple[Path, ...] | None = None,
         changed_paths: set[str] | None = None,
     ) -> dict[str, list[dict[str, object]]]:
         captured["scan_root"] = root
-        captured["files"] = files
         captured["changed_paths"] = changed_paths
         return {}
 
@@ -232,7 +230,6 @@ def test_run_resolves_changed_paths_at_wrapper_boundary(
     assert captured["base_sha"] == "base123"
     assert captured["head_sha"] == "head456"
     assert captured["scan_root"] == root
-    assert captured["files"] is None
     assert captured["changed_paths"] == {"src/gabion/example_boundary.py"}
 
 

@@ -100,11 +100,10 @@ def _boundary_scoped_candidate(
 def scan_policy_suite(
     *,
     root: Path,
-    files: tuple[Path, ...] | None = None,
     changed_paths: set[str] | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
     resolved_root = root.resolve()
-    inventory = files if files is not None else _inventory_files(resolved_root)
+    inventory = _inventory_files(resolved_root)
     boundary_scope_files = _boundary_scoped_files(
         root=resolved_root,
         inventory=inventory,

@@ -48,12 +48,10 @@ def _decision(
 def _scan_policy_suite(
     *,
     root: Path,
-    files: tuple[Path, ...] | None = None,
     changed_paths: set[str] | None = None,
 ) -> dict[str, list[dict[str, object]]]:
     return policy_scanner_suite.scan_policy_suite(
         root=root,
-        files=files,
         changed_paths=changed_paths,
     )
 
@@ -140,17 +138,14 @@ def test_policy_scanner_suite_scan_result_shape(tmp_path: Path) -> None:
     assert "inventory_hash" not in first_payload
     assert "rule_set_hash" not in first_payload
 
-# gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_scan_with_explicit_nonstandard_files::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
+# gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_ignores_nonstandard_files_by_default::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
 # gabion:behavior primary=desired
-def test_policy_scanner_suite_scan_with_explicit_nonstandard_files(tmp_path: Path) -> None:
+def test_policy_scanner_suite_ignores_nonstandard_files_by_default(tmp_path: Path) -> None:
     root = tmp_path
     external_file = root / "external.py"
     _write(external_file, "def utility():\n    return 1\n")
 
-    result = _scan_policy_suite(
-        root=root,
-        files=(external_file.resolve(),),
-    )
+    result = _scan_policy_suite(root=root)
     assert _total_violations(result) == 0
 
 
