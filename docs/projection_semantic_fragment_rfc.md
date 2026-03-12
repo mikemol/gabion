@@ -1,5 +1,5 @@
 ---
-doc_revision: 55
+doc_revision: 56
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -641,6 +641,10 @@ Current implementation status:
   `total_violations()` accessor, and the wrapper no longer carries a dedicated
   `_hotspot_source_payload(...)` helper; both totals and hotspot payloads are
   now derived directly from canonical `violations`
+- the policy-scanner-suite wrapper no longer invokes `policy_check.py`
+  itself; `policy_check_result.json` is now a preserve-only child-owned
+  artifact on this path, and the wrapper fails closed if that fast-path result
+  is missing
 - wrapper-owned policy-result synthesis has now been removed from the
   policy-suite path entirely: the deprecated-nonerasability child check emits
   its own canonical `skip` result when baseline/current inputs are absent, and

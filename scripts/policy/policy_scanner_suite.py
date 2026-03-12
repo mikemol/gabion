@@ -25,6 +25,13 @@ class ExternalChildArtifact:
     projection_fiber_semantics: dict[str, object] | None
 
 
+@dataclass(frozen=True)
+class ExternalChildCheck:
+    rule_id: str
+    command: list[str]
+    preserve_only: bool = False
+
+
 def _load_external_child_artifact(
     *, artifact: Path, expected_rule_id: str
 ) -> ExternalChildArtifact | None:
@@ -51,19 +58,20 @@ def _load_external_child_artifact(
 def _resolve_external_child_inputs(
     *, root: Path, out: Path
 ) -> ExternalChildInputs:
-    checks: tuple[tuple[str, list[str]], ...] = (
-        (
-            "policy_check",
-            [
+    checks: tuple[ExternalChildCheck, ...] = (
+        ExternalChildCheck(
+            rule_id="policy_check",
+            command=[
                 "scripts/policy/policy_check.py",
                 "--workflows",
                 "--output",
                 str(out.parent / "policy_check_result.json"),
             ],
+            preserve_only=True,
         ),
-        (
-            "structural_hash",
-            [
+        ExternalChildCheck(
+            rule_id="structural_hash",
+            command=[
                 "scripts/policy/structural_hash_policy_check.py",
                 "--root",
                 str(root),
@@ -71,9 +79,9 @@ def _resolve_external_child_inputs(
                 str(out.parent / "structural_hash_result.json"),
             ],
         ),
-        (
-            "deprecated_nonerasability",
-            [
+        ExternalChildCheck(
+            rule_id="deprecated_nonerasability",
+            command=[
                 "scripts/policy/deprecated_nonerasability_policy_check.py",
                 "--baseline",
                 str(root / "out" / "deprecated_fibers_baseline.json"),
@@ -94,39 +102,44 @@ def _resolve_external_child_inputs(
     )
     child_statuses: dict[str, str] = {}
     projection_fiber_semantics: dict[str, object] | None = None
-    for rule_id, command in checks:
-        artifact = Path(command[-1])
+    for check in checks:
+        artifact = Path(check.command[-1])
         preserved = _load_external_child_artifact(
             artifact=artifact,
-            expected_rule_id=rule_id,
+            expected_rule_id=check.rule_id,
         )
         if preserved is not None:
             if preserved.status is not None:
-                child_statuses[rule_id] = preserved.status
+                child_statuses[check.rule_id] = preserved.status
             projection_fiber_semantics = (
                 preserved.projection_fiber_semantics or projection_fiber_semantics
             )
             continue
+        if check.preserve_only:
+            raise RuntimeError(
+                "required child-owned policy result artifact missing before wrapper invocation: "
+                f"rule_id={check.rule_id} artifact={artifact}"
+            )
         completed = subprocess.run(
-            [sys.executable, *command],
+            [sys.executable, *check.command],
             cwd=root,
             env=env,
             check=False,
         )
         loaded = _load_external_child_artifact(
             artifact=artifact,
-            expected_rule_id=rule_id,
+            expected_rule_id=check.rule_id,
         )
         if loaded is not None:
             if loaded.status is not None:
-                child_statuses[rule_id] = loaded.status
+                child_statuses[check.rule_id] = loaded.status
             projection_fiber_semantics = (
                 loaded.projection_fiber_semantics or projection_fiber_semantics
             )
             continue
         raise RuntimeError(
             "external policy result artifact missing after wrapper invocation: "
-            f"rule_id={rule_id} returncode={completed.returncode} artifact={artifact}"
+            f"rule_id={check.rule_id} returncode={completed.returncode} artifact={artifact}"
         )
     return ExternalChildInputs(
         child_statuses=child_statuses,

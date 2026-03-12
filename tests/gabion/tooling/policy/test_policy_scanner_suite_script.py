@@ -568,12 +568,13 @@ def test_resolve_external_child_inputs_fail_closed_when_child_artifact_missing(
 ) -> None:
     root = tmp_path
     out = root / "artifacts/out/policy_suite_results.json"
+    observed: list[object] = []
 
-    monkeypatch.setattr(
-        policy_scanner_suite.subprocess,
-        "run",
-        lambda *args, **kwargs: subprocess.CompletedProcess(args[0], returncode=1),
-    )
+    def _fake_run(*args: object, **kwargs: object) -> subprocess.CompletedProcess[object]:
+        observed.append((args, kwargs))
+        return subprocess.CompletedProcess(args[0], returncode=1)
+
+    monkeypatch.setattr(policy_scanner_suite.subprocess, "run", _fake_run)
     monkeypatch.setattr(
         policy_scanner_suite.policy_result_schema,
         "load_policy_result",
@@ -587,8 +588,12 @@ def test_resolve_external_child_inputs_fail_closed_when_child_artifact_missing(
     else:  # pragma: no cover
         raise AssertionError("wrapper must fail closed when a child artifact is missing")
 
-    assert "external policy result artifact missing after wrapper invocation" in message
+    assert (
+        "required child-owned policy result artifact missing before wrapper invocation"
+        in message
+    )
     assert "rule_id=policy_check" in message
+    assert observed == []
 
 
 # gabion:evidence E:function_site::test_policy_scanner_suite_script.py::tests.gabion.tooling.policy.test_policy_scanner_suite_script.test_resolve_external_child_inputs_load_child_emitted_deprecated_skip
