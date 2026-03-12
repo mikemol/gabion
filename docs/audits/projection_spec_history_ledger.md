@@ -29,7 +29,7 @@ doc_role: audit
 
 ## PS-ERA-01: ProjectionSpec Core Calculus
 - status: `in_progress`
-- date_window: `2026-02-09` -> `2026-03-10`
+- date_window: `2026-02-09` -> `2026-03-11`
 
 ### Intent At The Time
 - ProjectionSpec remains unchanged — only the base carrier improves. (in/in-30.md:488)
@@ -48,11 +48,11 @@ doc_role: audit
 - `d77dc91d` `2026-02-09` docflow: enforce SPPF axis tags + GH ref gate (GH-82)
 - `1a86872a` `2026-02-10` analysis: projection spec carrier + proof mode
 - `358a4207` `2026-02-10` docs: in-30 SuiteSite adoption tracking
-- `5cf21c86` `2026-03-08` Eliminate *_or_none/_or_empty helper family and streamify timeout progress
 - `d5d98bc3` `2026-03-08` CU-D2AJ dispatch-lift projection and semantic coverage loaders
 - `2de45e25` `2026-03-09` snapshot: stage entire worktree
 - `e13c54b0` `2026-03-10` Force majeure: continue projection substrate and policy convergence
 - `fbfc5801` `2026-03-10` Docs: reconcile ProjectionSpec CF state and SPPF tracking
+- `368404e0` `2026-03-11` Add tests for projection fiber semantics and related functionalities
 
 ### What Drifted
 - `[PROVISIONAL]` `src/gabion/analysis/projection/projection_registry.py` ( M)
@@ -136,8 +136,8 @@ doc_role: audit
 - Prevent compatibility wrapper drift by keeping projection/reporting helper ownership centralized.
 
 ## PS-ERA-04: Policy DSL Convergence
-- status: `in_progress`
-- date_window: `2026-02-21` -> `2026-03-11`
+- status: `implemented`
+- date_window: `2026-02-21` -> `2026-03-12`
 
 ### Intent At The Time
 - Governance gates, ambiguity contract checks, policy scanner decision summaries, and ASPF opportunity classification now share the typed policy DSL in `src/gabion/policy_dsl/` with shared declarations in `docs/policy_rules.yaml` and `docs/aspf_opportunity_rules.yaml`. Scripts remain orchestration wrappers. (docs/enforceable_rules_cheat_sheet.md:220)
@@ -160,14 +160,14 @@ doc_role: audit
 - `1e7f3b5e` `2026-02-23` Hard-cut governance audit scripts into gabion CLI subcommands
 - `650c67db` `2026-02-23` Add governance control-loop registry and docflow enforcement
 - `76c103ae` `2026-02-23` Canonicalize governance loop doc and fix agent drift checks
-- `d814f25f` `2026-03-10` CF07: execute projection-fiber transforms in policy DSL
-- `e13c54b0` `2026-03-10` Force majeure: continue projection substrate and policy convergence
-- `f74f5dee` `2026-03-10` CU-CF06 projection-fiber row-level obligation semantics
-- `27a41c43` `2026-03-11` policy: enforce graded edge monotonicity
-- `a50d9569` `2026-03-11` policy: emit workflow governance artifacts
+- `e80da852` `2026-03-11` Hide policy suite cache identity
+- `0c516ec4` `2026-03-12` Ratchet suite wrapper prerequisites
+- `6ba58c52` `2026-03-12` Keep suite semantics boundary-owned
+- `a800876b` `2026-03-12` Make suite runtime surface scan-only
+- `dde0d399` `2026-03-12` Retire policy suite result carrier
 
 ### What Drifted
-- `[PROVISIONAL]` `scripts/policy/policy_check.py` ( M)
+- No provisional workspace-only delta for this era.
 
 ### What Remains
 - No explicit completion gap recorded for this era.
@@ -177,7 +177,7 @@ doc_role: audit
 
 ## PS-ERA-05: Fiber-First Lattice Cutover
 - status: `in_progress`
-- date_window: `2026-02-25` -> `2026-03-11`
+- date_window: `2026-02-25` -> `2026-03-12`
 
 ### Intent At The Time
 - ## Policy DSL ownership (docs/aspf_execution_fibration.md:154)
@@ -195,16 +195,14 @@ doc_role: audit
 - `d03ba757` `2026-02-27` docs: remove stale ASPF action-plan CLI and artifact surfaces
 - `e3f92c4b` `2026-02-27` docs: propagate re-internment metadata across governance dependents
 - `776ebde9` `2026-03-03` refactor: split import DAG into submodules and rewrite paths
-- `b7e11e40` `2026-03-10` CF11 hard-cut lattice recombination frontier bridge
-- `d814f25f` `2026-03-10` CF07: execute projection-fiber transforms in policy DSL
-- `e13c54b0` `2026-03-10` Force majeure: continue projection substrate and policy convergence
-- `f74f5dee` `2026-03-10` CU-CF06 projection-fiber row-level obligation semantics
-- `27a41c43` `2026-03-11` policy: enforce graded edge monotonicity
+- `6ba58c52` `2026-03-12` Keep suite semantics boundary-owned
+- `9aace3ea` `2026-03-12` Retire single-field suite child input carrier
+- `a800876b` `2026-03-12` Make suite runtime surface scan-only
+- `b0b6735e` `2026-03-12` Require explicit policy suite child inputs
+- `dde0d399` `2026-03-12` Retire policy suite result carrier
 
 ### What Drifted
-- `[PROVISIONAL]` `src/gabion/analysis/aspf/aspf_lattice_algebra.py` ( M)
 - `[PROVISIONAL]` `src/gabion/tooling/policy_substrate/lattice_convergence_semantic.py` ( M)
-- `[PROVISIONAL]` `src/gabion/tooling/runtime/policy_scanner_suite.py` ( M)
 
 ### What Remains
 - No explicit completion gap recorded for this era.
@@ -214,7 +212,7 @@ doc_role: audit
 
 ## PS-ERA-06: Integrated Substrate Completion
 - status: `in_progress`
-- date_window: `2026-02-12` -> `2026-03-11`
+- date_window: `2026-02-12` -> `2026-03-12`
 
 ### Intent At The Time
 - - removal_condition: `docs/governance_rules.yaml` is rewritten to native DSL schema. (docs/policy_dsl_migration_notes.md:12)
@@ -232,15 +230,13 @@ doc_role: audit
 - `6b38b878` `2026-02-17` docs(in-32): emphasize non-normative status and implementation boundary
 - `d595634e` `2026-02-23` Refresh in/ doc dependency reviews and cadence note
 - `dde38f18` `2026-02-23` Merge PR #225: Add governance loop matrix doc and matrix-drift audit check
-- `d814f25f` `2026-03-10` CF07: execute projection-fiber transforms in policy DSL
-- `f74f5dee` `2026-03-10` CU-CF06 projection-fiber row-level obligation semantics
-- `fbfc5801` `2026-03-10` Docs: reconcile ProjectionSpec CF state and SPPF tracking
-- `27a41c43` `2026-03-11` policy: enforce graded edge monotonicity
-- `a50d9569` `2026-03-11` policy: emit workflow governance artifacts
+- `e80da852` `2026-03-11` Hide policy suite cache identity
+- `0c516ec4` `2026-03-12` Ratchet suite wrapper prerequisites
+- `6ba58c52` `2026-03-12` Keep suite semantics boundary-owned
+- `a800876b` `2026-03-12` Make suite runtime surface scan-only
+- `dde0d399` `2026-03-12` Retire policy suite result carrier
 
 ### What Drifted
-- `[PROVISIONAL]` `scripts/policy/policy_check.py` ( M)
-- `[PROVISIONAL]` `src/gabion/analysis/aspf/aspf_lattice_algebra.py` ( M)
 - `[PROVISIONAL]` `src/gabion/tooling/policy_substrate/lattice_convergence_semantic.py` ( M)
 
 ### What Remains
@@ -287,6 +283,7 @@ doc_role: audit
 | lint_findings | lint_findings | presentation_only | 0 | 2 | 0 |  |
 | never_invariants_section | never_invariants | presentation_plus_bridge | 0 | 2 | 1 |  |
 | projection_fiber_frontier | projection_fiber | mixed | 1 | 1 | 0 | projection_fiber.frontier |
+| projection_fiber_reflection | projection_fiber | semantic_promoted | 1 | 0 | 0 |  |
 | projection_fiber_reflective_boundary | projection_fiber | mixed | 1 | 1 | 0 | projection_fiber.reflective_boundary |
 | quotient_demotion_incidents | quotient_demotion_incidents | presentation_only | 0 | 0 | 0 |  |
 | quotient_promotion_decision | quotient_promotion_decision | presentation_only | 0 | 0 | 0 |  |

@@ -21,8 +21,6 @@ from gabion.analysis.projection.projection_semantic_lowering_compile import (
 from gabion.analysis.projection.semantic_fragment_compile import (
     CompiledShaclPlan,
     CompiledSparqlPlan,
-    compile_projection_fiber_reflect_to_shacl,
-    compile_projection_fiber_reflect_to_sparql,
 )
 from gabion.analysis.projection.semantic_fragment import (
     CanonicalWitnessedSemanticRow,
@@ -564,6 +562,21 @@ def materialize_semantic_lattice_convergence(
             ),
         )
     )
+    compiled_projection_semantic_bundles = tuple(
+        _sorted(
+            [
+                compile_projection_semantic_lowering_plan(
+                    lowering_plan,
+                    ordered_semantic_rows,
+                )
+                for lowering_plan in _projection_fiber_semantic_lowering_plans()
+            ],
+            key=lambda item: (
+                item.spec_name,
+                item.spec_identity,
+            ),
+        )
+    )
     return SemanticLatticeConvergenceReport(
         corpus=tuple(_sorted(corpus or _CANONICAL_CORPUS)),
         evaluated_request_count=len(ordered_requests),
@@ -572,7 +585,12 @@ def materialize_semantic_lattice_convergence(
         semantic_rows=ordered_semantic_rows,
         compiled_shacl_plans=tuple(
             _sorted(
-                [compile_projection_fiber_reflect_to_shacl(item) for item in ordered_semantic_rows],
+                [
+                    plan
+                    for bundle in compiled_projection_semantic_bundles
+                    for plan in bundle.compiled_shacl_plans
+                    if plan["semantic_op"] == "reflect"
+                ],
                 key=lambda item: (
                     item["source_structural_identity"],
                     item["plan_id"],
@@ -581,28 +599,19 @@ def materialize_semantic_lattice_convergence(
         ),
         compiled_sparql_plans=tuple(
             _sorted(
-                [compile_projection_fiber_reflect_to_sparql(item) for item in ordered_semantic_rows],
+                [
+                    plan
+                    for bundle in compiled_projection_semantic_bundles
+                    for plan in bundle.compiled_sparql_plans
+                    if plan["semantic_op"] == "reflect"
+                ],
                 key=lambda item: (
                     item["source_structural_identity"],
                     item["plan_id"],
                 ),
             )
         ),
-        compiled_projection_semantic_bundles=tuple(
-            _sorted(
-                [
-                    compile_projection_semantic_lowering_plan(
-                        lowering_plan,
-                        ordered_semantic_rows,
-                    )
-                    for lowering_plan in _projection_fiber_semantic_lowering_plans()
-                ],
-                key=lambda item: (
-                    item.spec_name,
-                    item.spec_identity,
-                ),
-            )
-        ),
+        compiled_projection_semantic_bundles=compiled_projection_semantic_bundles,
     )
 
 

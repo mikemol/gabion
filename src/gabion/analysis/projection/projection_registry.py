@@ -608,6 +608,21 @@ PROJECTION_FIBER_REFLECTIVE_BOUNDARY_SPEC = ProjectionSpec(
 )
 
 
+PROJECTION_FIBER_REFLECTION_SPEC = ProjectionSpec(
+    spec_version=1,
+    name="projection_fiber_reflection",
+    domain="projection_fiber",
+    pipeline=(
+        ProjectionOp(
+            "reflect",
+            {
+                "surface": "projection_fiber",
+            },
+        ),
+    ),
+)
+
+
 WL_REFINEMENT_SPEC = ProjectionSpec(
     spec_version=1,
     name="wl_refinement",
@@ -689,6 +704,7 @@ def iter_projection_fiber_semantic_specs() -> Iterable[ProjectionSpec]:
     return (
         PROJECTION_FIBER_FRONTIER_SPEC,
         PROJECTION_FIBER_REFLECTIVE_BOUNDARY_SPEC,
+        PROJECTION_FIBER_REFLECTION_SPEC,
     )
 
 

@@ -193,7 +193,7 @@ def test_semantic_lattice_convergence_emits_canonical_semantic_rows_for_real_wit
     assert isinstance(compiled_projection_bundles, list)
     assert len(shacl_plans) == 1
     assert len(sparql_plans) == 1
-    assert len(compiled_projection_bundles) == 2
+    assert len(compiled_projection_bundles) == 3
     assert shacl_plans[0]["source_structural_identity"] == semantic_row["structural_identity"]
     assert sparql_plans[0]["source_structural_identity"] == semantic_row["structural_identity"]
     assert shacl_plans[0]["semantic_op"] == "reflect"
@@ -201,6 +201,7 @@ def test_semantic_lattice_convergence_emits_canonical_semantic_rows_for_real_wit
     bundles_by_name = {bundle["spec_name"]: bundle for bundle in compiled_projection_bundles}
     assert set(bundles_by_name) == {
         "projection_fiber_frontier",
+        "projection_fiber_reflection",
         "projection_fiber_reflective_boundary",
     }
     frontier_bundle = bundles_by_name["projection_fiber_frontier"]
@@ -208,6 +209,18 @@ def test_semantic_lattice_convergence_emits_canonical_semantic_rows_for_real_wit
     assert frontier_bundle["bindings"][0]["quotient_face"] == "projection_fiber.frontier"
     assert frontier_bundle["compiled_shacl_plans"][0]["semantic_op"] == "quotient_face"
     assert frontier_bundle["compiled_sparql_plans"][0]["semantic_op"] == "quotient_face"
+    reflection_bundle = bundles_by_name["projection_fiber_reflection"]
+    assert reflection_bundle["bindings"] == []
+    assert reflection_bundle["compiled_shacl_plans"][0]["semantic_op"] == "reflect"
+    assert reflection_bundle["compiled_sparql_plans"][0]["semantic_op"] == "reflect"
+    assert (
+        reflection_bundle["compiled_shacl_plans"][0]["source_structural_identity"]
+        == semantic_row["structural_identity"]
+    )
+    assert (
+        reflection_bundle["compiled_sparql_plans"][0]["source_structural_identity"]
+        == semantic_row["structural_identity"]
+    )
     reflective_boundary_bundle = bundles_by_name["projection_fiber_reflective_boundary"]
     assert len(reflective_boundary_bundle["bindings"]) == 1
     assert (

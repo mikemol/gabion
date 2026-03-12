@@ -7,6 +7,7 @@ from functools import singledispatch
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.analysis.projection.projection_semantic_lowering import (
     ProjectionSemanticLoweringPlan,
+    SemanticProjectionOp,
     SemanticProjectionKind,
 )
 from gabion.analysis.projection.semantic_fragment import (
@@ -15,6 +16,8 @@ from gabion.analysis.projection.semantic_fragment import (
 from gabion.analysis.projection.semantic_fragment_compile import (
     CompiledShaclPlan,
     CompiledSparqlPlan,
+    compile_projection_fiber_reflect_to_shacl,
+    compile_projection_fiber_reflect_to_sparql,
     compile_projection_fiber_quotient_face_to_shacl,
     compile_projection_fiber_quotient_face_to_sparql,
 )
@@ -75,43 +78,14 @@ def compile_projection_semantic_lowering_plan(
     sparql_plans: list[CompiledSparqlPlan] = []
     for semantic_op in lowering_plan.semantic_ops:
         check_deadline()
-        if semantic_op.semantic_op is not SemanticProjectionKind.QUOTIENT_FACE:
-            never(
-                "unsupported semantic projection op for lowering compilation",
-                semantic_op=semantic_op.semantic_op.value,
-            )
-        quotient_face = _required_quotient_face(semantic_op.params)
-        fields = _required_field_tuple(semantic_op.params)
-        for row in _semantic_rows_for_quotient_face(
-            quotient_face=quotient_face,
+        op_bindings, op_shacl_plans, op_sparql_plans = _compile_semantic_projection_op(
+            lowering_plan=lowering_plan,
+            semantic_op=semantic_op,
             semantic_rows=semantic_rows,
-        ):
-            check_deadline()
-            shacl_plan = compile_projection_fiber_quotient_face_to_shacl(
-                row,
-                quotient_face=quotient_face,
-                fields=fields,
-                spec_identity=lowering_plan.spec_identity,
-            )
-            sparql_plan = compile_projection_fiber_quotient_face_to_sparql(
-                row,
-                quotient_face=quotient_face,
-                fields=fields,
-                spec_identity=lowering_plan.spec_identity,
-            )
-            shacl_plans.append(shacl_plan)
-            sparql_plans.append(sparql_plan)
-            bindings.append(
-                CompiledProjectionSemanticBinding(
-                    source_index=semantic_op.source_index,
-                    source_op=semantic_op.source_op,
-                    semantic_op=semantic_op.semantic_op.value,
-                    quotient_face=quotient_face,
-                    source_structural_identity=row["structural_identity"],
-                    shacl_plan_id=shacl_plan["plan_id"],
-                    sparql_plan_id=sparql_plan["plan_id"],
-                )
-            )
+        )
+        bindings.extend(op_bindings)
+        shacl_plans.extend(op_shacl_plans)
+        sparql_plans.extend(op_sparql_plans)
     return ProjectionSemanticCompiledPlanBundle(
         spec_identity=lowering_plan.spec_identity,
         spec_name=lowering_plan.spec_name,
@@ -151,6 +125,100 @@ def compile_projection_semantic_lowering_plan(
             )
         ),
     )
+
+
+def _compile_semantic_projection_op(
+    *,
+    lowering_plan: ProjectionSemanticLoweringPlan,
+    semantic_op: SemanticProjectionOp,
+    semantic_rows: tuple[CanonicalWitnessedSemanticRow, ...],
+) -> tuple[
+    tuple[CompiledProjectionSemanticBinding, ...],
+    tuple[CompiledShaclPlan, ...],
+    tuple[CompiledSparqlPlan, ...],
+]:
+    if semantic_op.semantic_op is SemanticProjectionKind.QUOTIENT_FACE:
+        return _compile_quotient_face_semantic_op(
+            lowering_plan=lowering_plan,
+            semantic_op=semantic_op,
+            semantic_rows=semantic_rows,
+        )
+    if semantic_op.semantic_op is SemanticProjectionKind.REFLECT:
+        return _compile_reflect_semantic_op(
+            semantic_op=semantic_op,
+            semantic_rows=semantic_rows,
+        )
+    never(
+        "unsupported semantic projection op for lowering compilation",
+        semantic_op=semantic_op.semantic_op.value,
+    )
+
+
+def _compile_quotient_face_semantic_op(
+    *,
+    lowering_plan: ProjectionSemanticLoweringPlan,
+    semantic_op: SemanticProjectionOp,
+    semantic_rows: tuple[CanonicalWitnessedSemanticRow, ...],
+) -> tuple[
+    tuple[CompiledProjectionSemanticBinding, ...],
+    tuple[CompiledShaclPlan, ...],
+    tuple[CompiledSparqlPlan, ...],
+]:
+    quotient_face = _required_quotient_face(semantic_op.params)
+    fields = _required_field_tuple(semantic_op.params)
+    bindings: list[CompiledProjectionSemanticBinding] = []
+    shacl_plans: list[CompiledShaclPlan] = []
+    sparql_plans: list[CompiledSparqlPlan] = []
+    for row in _semantic_rows_for_quotient_face(
+        quotient_face=quotient_face,
+        semantic_rows=semantic_rows,
+    ):
+        check_deadline()
+        shacl_plan = compile_projection_fiber_quotient_face_to_shacl(
+            row,
+            quotient_face=quotient_face,
+            fields=fields,
+            spec_identity=lowering_plan.spec_identity,
+        )
+        sparql_plan = compile_projection_fiber_quotient_face_to_sparql(
+            row,
+            quotient_face=quotient_face,
+            fields=fields,
+            spec_identity=lowering_plan.spec_identity,
+        )
+        shacl_plans.append(shacl_plan)
+        sparql_plans.append(sparql_plan)
+        bindings.append(
+            CompiledProjectionSemanticBinding(
+                source_index=semantic_op.source_index,
+                source_op=semantic_op.source_op,
+                semantic_op=semantic_op.semantic_op.value,
+                quotient_face=quotient_face,
+                source_structural_identity=row["structural_identity"],
+                shacl_plan_id=shacl_plan["plan_id"],
+                sparql_plan_id=sparql_plan["plan_id"],
+            )
+        )
+    return tuple(bindings), tuple(shacl_plans), tuple(sparql_plans)
+
+
+def _compile_reflect_semantic_op(
+    *,
+    semantic_op: SemanticProjectionOp,
+    semantic_rows: tuple[CanonicalWitnessedSemanticRow, ...],
+) -> tuple[
+    tuple[CompiledProjectionSemanticBinding, ...],
+    tuple[CompiledShaclPlan, ...],
+    tuple[CompiledSparqlPlan, ...],
+]:
+    surface = _required_surface(semantic_op.params)
+    shacl_plans: list[CompiledShaclPlan] = []
+    sparql_plans: list[CompiledSparqlPlan] = []
+    for row in _semantic_rows_for_surface(surface=surface, semantic_rows=semantic_rows):
+        check_deadline()
+        shacl_plans.append(compile_projection_fiber_reflect_to_shacl(row))
+        sparql_plans.append(compile_projection_fiber_reflect_to_sparql(row))
+    return (), tuple(shacl_plans), tuple(sparql_plans)
 
 
 def _required_quotient_face(params: dict[str, object]) -> str:
@@ -223,6 +291,28 @@ def _field_name_from_str(value: str) -> str:
     never("semantic projection field value must be non-empty")
 
 
+def _required_surface(params: dict[str, object]) -> str:
+    surface = params.get("surface")
+    if surface is None:
+        never("semantic projection op missing surface")
+    return _required_surface_payload(surface)
+
+
+@singledispatch
+def _required_surface_payload(value: object) -> str:
+    never(
+        "unsupported surface payload",
+        value_type=type(value).__name__,
+    )
+
+
+@_required_surface_payload.register(str)
+def _required_surface_from_str(value: str) -> str:
+    if value:
+        return value
+    never("semantic projection op missing surface")
+
+
 def _semantic_rows_for_quotient_face(
     *,
     quotient_face: str,
@@ -247,6 +337,30 @@ def _semantic_rows_for_quotient_face(
     never(
         "unsupported quotient face for semantic lowering compilation",
         quotient_face=quotient_face,
+    )
+
+
+def _semantic_rows_for_surface(
+    *,
+    surface: str,
+    semantic_rows: tuple[CanonicalWitnessedSemanticRow, ...],
+) -> tuple[CanonicalWitnessedSemanticRow, ...]:
+    if surface == "projection_fiber":
+        return tuple(
+            sort_once(
+                [
+                    row
+                    for row in semantic_rows
+                    if row["surface"] == surface
+                ],
+                source="compile_projection_semantic_lowering_plan.surface_rows",
+                policy=OrderPolicy.SORT,
+                key=lambda row: row["structural_identity"],
+            )
+        )
+    never(
+        "unsupported semantic surface for lowering compilation",
+        surface=surface,
     )
 
 

@@ -4,6 +4,7 @@ import pytest
 
 from gabion.analysis.projection.projection_registry import (
     PROJECTION_FIBER_FRONTIER_SPEC,
+    PROJECTION_FIBER_REFLECTION_SPEC,
     PROJECTION_FIBER_REFLECTIVE_BOUNDARY_SPEC,
     WL_REFINEMENT_SPEC,
     _projection_registry_gas_limit,
@@ -78,3 +79,11 @@ def test_projection_fiber_reflective_boundary_spec_is_registered_with_declared_q
     project_op = PROJECTION_FIBER_REFLECTIVE_BOUNDARY_SPEC.pipeline[0]
     assert project_op.op == "project"
     assert project_op.params["quotient_face"] == "projection_fiber.reflective_boundary"
+
+
+def test_projection_fiber_reflection_spec_is_registered_with_declared_surface() -> None:
+    specs = build_registered_specs()
+    assert PROJECTION_FIBER_REFLECTION_SPEC in specs.values()
+    reflect_op = PROJECTION_FIBER_REFLECTION_SPEC.pipeline[0]
+    assert reflect_op.op == "reflect"
+    assert reflect_op.params["surface"] == "projection_fiber"

@@ -1,5 +1,5 @@
 ---
-doc_revision: 68
+doc_revision: 69
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_ledger
 doc_role: audit
@@ -192,6 +192,7 @@ Still adapter-only:
 | `2026-03-11` | The runtime policy-scanner-suite module no longer exposes a raw child-result parser; `PolicySuiteChildInputs` is now a pure typed carrier, and raw child-payload normalization lives only in the wrapper boundary helper. | `src/gabion/tooling/runtime/policy_scanner_suite.py`; `scripts/policy/policy_scanner_suite.py`; `tests/gabion/tooling/runtime_policy/test_policy_scanner_suite.py`; `tests/gabion/tooling/policy/test_policy_scanner_suite_script.py`; `docs/projection_semantic_fragment_rfc.md#projection_semantic_fragment_rfc` |
 | `2026-03-11` | The outward-facing `PolicySuiteResult` carrier and payload no longer project cache identity hashes (`inventory_hash`, `rule_set_hash`); those now remain artifact-only metadata used for cache validation rather than public reporting surface. | `src/gabion/tooling/runtime/policy_scanner_suite.py`; `tests/gabion/tooling/runtime_policy/test_policy_scanner_suite.py`; `tests/test_policy_dsl.py`; `docs/projection_semantic_fragment_rfc.md#projection_semantic_fragment_rfc` |
 | `2026-03-11` | Projection history artifacts now classify registered specs by semantic/presentation/bridge lowering so the `ProjectionSpec` split is visible in ledger form. | `scripts/policy/build_projection_spec_history.py`; `artifacts/out/projection_spec_history_ledger.json`; `docs/audits/projection_spec_history_ledger.md`; `tests/gabion/tooling/policy/test_build_projection_spec_history.py` |
+| `2026-03-12` | The projection-fiber `reflect` op now compiles through the typed semantic-lowering path via a registered `projection_fiber_reflection` spec, and the lattice-convergence substrate no longer owns a direct reflect-plan compile branch outside the compiled semantic bundles. | `src/gabion/analysis/projection/projection_semantic_lowering.py`; `src/gabion/analysis/projection/projection_semantic_lowering_compile.py`; `src/gabion/analysis/projection/projection_registry.py`; `src/gabion/tooling/policy_substrate/lattice_convergence_semantic.py`; `tests/gabion/analysis/projection/test_projection_semantic_lowering.py`; `tests/gabion/analysis/projection/test_projection_semantic_lowering_compile.py`; `tests/gabion/tooling/runtime_policy/test_lattice_convergence_semantic.py`; `docs/projection_semantic_fragment_rfc.md#projection_semantic_fragment_rfc` |
 
 ## Queue Rows
 
@@ -247,6 +248,9 @@ Still adapter-only:
   same semantic decision, bundle-count, spec-name, and preview fields are
   available from direct canonical helper projections over the live
   `projection_fiber_semantics` carrier.
+- Semantic runtime consumers must not keep direct op-specific compile branches
+  once the same semantic op can be expressed as a registered typed lowering
+  spec and compiled through the shared lowering/compiler path.
 - Wrappers must not peel child-owned semantic carriers out of canonical child
   artifacts merely to pass them into queue/report consumers; once a queue
   consumer owns that child-artifact boundary, the wrapper should pass only the

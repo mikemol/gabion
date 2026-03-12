@@ -20,6 +20,7 @@ class ProjectionOpLayer(str, Enum):
 
 
 class SemanticProjectionKind(str, Enum):
+    REFLECT = "reflect"
     QUOTIENT_FACE = "quotient_face"
 
 
@@ -216,6 +217,15 @@ def _normalize_projection_op(
                 params={"count": count_parse.count},
             )
         return _NormalizedProjectionOp(source_index=index, op_name="", params={})
+    if op_name == "reflect":
+        surface = _normalized_nonempty_string(_mapping_value(params, "surface"))
+        if not surface:
+            never("reflect projection op missing surface")
+        return _NormalizedProjectionOp(
+            source_index=index,
+            op_name=op_name,
+            params={"surface": surface},
+        )
     return _NormalizedProjectionOp(
         source_index=index,
         op_name=op_name,
@@ -247,6 +257,22 @@ def _lower_projection_op(normalized_op: _NormalizedProjectionOp) -> _LoweredProj
                 source_index=normalized_op.source_index,
                 source_op=op_name,
                 params=_copy_json_mapping(params),
+            ),
+        )
+    if op_name == "reflect":
+        surface = _normalized_nonempty_string(_mapping_value(params, "surface"))
+        if surface != "projection_fiber":
+            never(
+                "unsupported reflect semantic surface",
+                surface=surface or "<missing>",
+            )
+        return _LoweredSemanticProjectionOp(
+            layer=ProjectionOpLayer.SEMANTIC,
+            semantic_op=SemanticProjectionOp(
+                source_index=normalized_op.source_index,
+                source_op=op_name,
+                semantic_op=SemanticProjectionKind.REFLECT,
+                params={"surface": surface},
             ),
         )
     if op_name in {"sort", "limit", "count_by"}:
