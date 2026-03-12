@@ -16,7 +16,7 @@ def test_main_requires_explicit_out() -> None:
     assert excinfo.value.code == 2
 
 
-def test_load_required_child_artifact_normalizes_boundary_payload(
+def test_load_policy_check_payload_normalizes_boundary_payload(
     monkeypatch: object,
 ) -> None:
     policy_check_payload = {
@@ -30,19 +30,14 @@ def test_load_required_child_artifact_normalizes_boundary_payload(
             },
         },
     }
-    custom_payload = {"rule_id": "custom_rule", "status": "skip"}
-
     monkeypatch.setattr(
         policy_scanner_suite.policy_result_schema,
         "load_policy_result",
-        lambda artifact: policy_check_payload
-        if artifact.name == "policy_check_result.json"
-        else custom_payload,
+        lambda artifact: policy_check_payload,
     )
 
-    assert policy_scanner_suite._load_required_child_artifact(
-        artifact=Path("policy_check_result.json"),
-        expected_rule_id="policy_check",
+    assert policy_scanner_suite._load_policy_check_payload(
+        out_dir=Path("artifacts/out"),
     ) == {
         "rule_id": "policy_check",
         "status": "pass",
@@ -54,17 +49,21 @@ def test_load_required_child_artifact_normalizes_boundary_payload(
             },
         },
     }
-    assert policy_scanner_suite._load_required_child_artifact(
-        artifact=Path("custom_rule_result.json"),
-        expected_rule_id="custom_rule",
-    ) == {"rule_id": "custom_rule", "status": "skip"}
-    assert (
-        policy_scanner_suite._load_required_child_artifact(
-            artifact=Path("custom_rule_result.json"),
-            expected_rule_id="policy_check",
-        )
-        is None
+
+
+def test_load_policy_check_payload_fail_closed_when_rule_id_mismatches(
+    monkeypatch: object,
+) -> None:
+    monkeypatch.setattr(
+        policy_scanner_suite.policy_result_schema,
+        "load_policy_result",
+        lambda artifact: {"rule_id": "custom_rule", "status": "skip"},
     )
+
+    with pytest.raises(RuntimeError) as excinfo:
+        policy_scanner_suite._load_policy_check_payload(out_dir=Path("artifacts/out"))
+
+    assert "rule_id=policy_check" in str(excinfo.value)
 
 
 # gabion:evidence E:function_site::test_policy_scanner_suite_script.py::tests.gabion.tooling.policy.test_policy_scanner_suite_script.test_run_skips_semantic_queue_backfill_without_policy_check_owned_artifact

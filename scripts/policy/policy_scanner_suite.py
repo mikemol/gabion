@@ -8,16 +8,14 @@ from gabion.tooling.runtime import policy_result_schema
 from gabion.tooling.runtime import policy_scanner_suite as runtime_policy_scanner_suite
 from scripts.policy import hotspot_neighborhood_queue
 
-def _load_required_child_artifact(
-    *,
-    artifact: Path,
-    expected_rule_id: str,
-) -> dict[str, object] | None:
+def _load_policy_check_payload(*, out_dir: Path) -> dict[str, object]:
+    artifact = out_dir / "policy_check_result.json"
     loaded = policy_result_schema.load_policy_result(artifact)
-    if loaded is None:
-        return None
-    if str(loaded.get("rule_id", "") or "").strip() != expected_rule_id:
-        return None
+    if loaded is None or str(loaded.get("rule_id", "") or "").strip() != "policy_check":
+        raise RuntimeError(
+            "required child-owned policy result artifact missing before wrapper invocation: "
+            f"rule_id=policy_check artifact={artifact}"
+        )
     return dict(loaded)
 
 
@@ -25,16 +23,7 @@ def _resolve_projection_fiber_semantics(
     *,
     out_dir: Path,
 ) -> dict[str, object] | None:
-    policy_check_artifact = out_dir / "policy_check_result.json"
-    loaded = _load_required_child_artifact(
-        artifact=policy_check_artifact,
-        expected_rule_id="policy_check",
-    )
-    if loaded is None:
-        raise RuntimeError(
-            "required child-owned policy result artifact missing before wrapper invocation: "
-            f"rule_id=policy_check artifact={policy_check_artifact}"
-        )
+    loaded = _load_policy_check_payload(out_dir=out_dir)
     raw_semantics = loaded.get("projection_fiber_semantics")
     match raw_semantics:
         case dict() as semantics_mapping if semantics_mapping:

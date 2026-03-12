@@ -1,5 +1,5 @@
 ---
-doc_revision: 67
+doc_revision: 68
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -647,6 +647,10 @@ Current implementation status:
   all; the remaining child checks stay owned by their own workflow steps, but
   the wrapper now consumes only `policy_check_result.json` because that is the
   only child artifact it still semantically reads
+- the wrapper no longer preserves a generic child-artifact loader for that
+  seam; it now loads only the canonical `policy_check_result.json` payload
+  directly, so the wrapper boundary matches its single remaining child-owned
+  prerequisite instead of keeping a dead generic ingress shape
 - workflow and local-repro orchestration now ratchet that narrower contract:
   policy-scanner-suite entrypoints must materialize
   `artifacts/out/policy_check_result.json` before invoking the wrapper, and
