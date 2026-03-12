@@ -518,14 +518,62 @@ def test_guardrail_and_opaque_evidence() -> None:
 
 # gabion:evidence E:function_site::test_obsolescence.py::gabion.analysis.test_obsolescence._summarize_candidates
 # gabion:behavior primary=desired
-def test_summarize_candidates_handles_bad_counts() -> None:
-    def apply(_spec, _relation):
-        return [{"class": "unmapped", "count": "bad"}]
+def test_summarize_candidates_handles_bad_counts(monkeypatch) -> None:
+    monkeypatch.setattr(
+        test_obsolescence,
+        "_test_obsolescence_summary_execution_ops",
+        lambda: ("typed-summary-op",),
+    )
+    monkeypatch.setattr(
+        test_obsolescence,
+        "apply_execution_ops",
+        lambda _ops, _relation: [{"class": "unmapped", "count": "bad"}],
+    )
 
     summary = test_obsolescence._summarize_candidates(
-        [{"class": "unmapped"}], {"unmapped": 0}, apply=apply
+        [{"class": "unmapped"}], {"unmapped": 0}
     )
     assert summary["unmapped"] == 0
+
+
+# gabion:evidence E:function_site::test_obsolescence.py::gabion.analysis.test_obsolescence._summarize_candidates
+# gabion:behavior primary=desired
+def test_summarize_candidates_uses_execution_ops_for_default_summary(
+    monkeypatch,
+) -> None:
+    seen: dict[str, object] = {}
+    monkeypatch.setattr(
+        test_obsolescence,
+        "_test_obsolescence_summary_execution_ops",
+        lambda: ("typed-summary-op",),
+    )
+
+    def _fake_apply_execution_ops(ops, relation):
+        seen["ops"] = ops
+        seen["relation"] = relation
+        return [{"class": "obsolete_candidate", "count": 1}]
+
+    monkeypatch.setattr(
+        test_obsolescence,
+        "apply_execution_ops",
+        _fake_apply_execution_ops,
+    )
+
+    summary = test_obsolescence._summarize_candidates(
+        [{"class": "obsolete_candidate"}],
+        {"obsolete_candidate": 0},
+    )
+
+    assert seen["ops"] == ("typed-summary-op",)
+    relation = seen["relation"]
+    assert isinstance(relation, list)
+    assert relation == [
+        {
+            "class": "obsolete_candidate",
+            "class_rank": 0,
+        }
+    ]
+    assert summary["obsolete_candidate"] == 1
 
 
 # gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_opaque_key E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.key_identity::stale_3290faf8acae
@@ -591,14 +639,26 @@ def test_render_markdown_handles_empty_guardrail_and_suffix_parts(
 
 # gabion:evidence E:call_footprint::tests/test_test_obsolescence.py::test_summarize_candidates_ignores_unknown_rows_and_bad_input_types::test_obsolescence.py::gabion.analysis.test_obsolescence._summarize_candidates
 # gabion:behavior primary=desired
-def test_summarize_candidates_ignores_unknown_rows_and_bad_input_types() -> None:
-    def apply(_spec, _relation):
-        return [{"class": "custom", "count": 4}, {"class": "obsolete_candidate", "count": "bad"}]
+def test_summarize_candidates_ignores_unknown_rows_and_bad_input_types(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        test_obsolescence,
+        "_test_obsolescence_summary_execution_ops",
+        lambda: ("typed-summary-op",),
+    )
+    monkeypatch.setattr(
+        test_obsolescence,
+        "apply_execution_ops",
+        lambda _ops, _relation: [
+            {"class": "custom", "count": 4},
+            {"class": "obsolete_candidate", "count": "bad"},
+        ],
+    )
 
     summary = test_obsolescence._summarize_candidates(
         [{"class": "obsolete_candidate"}],
         {"obsolete_candidate": 0},
-        apply=apply,
     )
     assert summary["obsolete_candidate"] == 0
 

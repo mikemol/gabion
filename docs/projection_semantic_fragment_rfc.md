@@ -1,5 +1,5 @@
 ---
-doc_revision: 91
+doc_revision: 92
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -781,6 +781,9 @@ Current implementation status:
 - the fixed-spec `call_clusters` summary path now precomputes typed execution
   ops and executes them directly, while explicit custom `summary_spec`
   overrides remain on the temporary `ProjectionSpec` compatibility boundary
+- the fixed-spec `test_obsolescence` summary path now precomputes typed
+  execution ops and executes them directly, so that stable stale/active
+  summary counting no longer routes through `projection_exec_ingress.py`
 
 Implementation rule:
 - policy DSL must consume canonical carrier rows rather than infer semantics

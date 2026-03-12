@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from functools import cache
 from functools import singledispatch
 from pathlib import Path
 from typing import Callable, Mapping
@@ -9,13 +10,16 @@ from gabion.json_types import JSONValue
 from gabion.analysis.semantics import evidence_keys
 from gabion.analysis.foundation.baseline_io import (
     attach_spec_metadata, load_json, parse_version)
-from gabion.analysis.projection.projection_exec_ingress import apply_spec
+from gabion.analysis.projection.projection_exec import apply_execution_ops
+from gabion.analysis.projection.projection_exec_ingress import (
+    execution_ops_from_spec,
+)
 from gabion.analysis.projection.projection_spec import ProjectionSpec
 from gabion.analysis.projection.projection_registry import (
     TEST_OBSOLESCENCE_SUMMARY_SPEC, spec_metadata_lines_from_payload)
 from gabion.analysis.semantics.report_doc import ReportDoc
 from gabion.analysis.foundation.timeout_context import check_deadline
-from gabion.invariants import never
+from gabion.invariants import grade_boundary, never
 from gabion.order_contract import sort_once
 
 _NONE_TYPE = type(None)
@@ -288,6 +292,15 @@ _STALE_CLASS_ORDER = [
     "unmapped",
 ]
 _STALE_CLASS_RANK = {name: idx for idx, name in enumerate(_STALE_CLASS_ORDER)}
+
+
+@cache
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="test_obsolescence_summary_execution_ops",
+)
+def _test_obsolescence_summary_execution_ops():
+    return execution_ops_from_spec(TEST_OBSOLESCENCE_SUMMARY_SPEC)
 
 # gabion:ambiguity_boundary
 def load_test_evidence(
@@ -770,8 +783,6 @@ def render_json_payload(
 def _summarize_candidates(
     candidates: list[dict[str, object]],
     class_rank: dict[str, int],
-    *,
-    apply: Callable[[ProjectionSpec, list[dict[str, object]]], list[dict[str, object]]] = apply_spec,
 ) -> dict[str, int]:
     check_deadline()
     relation: list[dict[str, object]] = []
@@ -783,7 +794,10 @@ def _summarize_candidates(
                 "class_rank": class_rank.get(class_name, 99),
             }
         )
-    summary_rows = apply(TEST_OBSOLESCENCE_SUMMARY_SPEC, relation)
+    summary_rows = apply_execution_ops(
+        _test_obsolescence_summary_execution_ops(),
+        relation,
+    )
     summary = {
         "redundant_by_evidence": 0,
         "equivalent_witness": 0,
