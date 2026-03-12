@@ -1,5 +1,5 @@
 ---
-doc_revision: 90
+doc_revision: 91
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -778,6 +778,9 @@ Current implementation status:
   `call_cluster_consolidation` now precomputes typed execution ops and executes
   them directly, so that stable consolidation/report ordering path no longer
   routes through `projection_exec_ingress.py` on every call
+- the fixed-spec `call_clusters` summary path now precomputes typed execution
+  ops and executes them directly, while explicit custom `summary_spec`
+  overrides remain on the temporary `ProjectionSpec` compatibility boundary
 
 Implementation rule:
 - policy DSL must consume canonical carrier rows rather than infer semantics

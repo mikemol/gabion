@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import cache
 from pathlib import Path
 from collections.abc import Iterable, Mapping
 
@@ -14,7 +15,11 @@ from gabion.analysis.call_cluster.call_cluster_shared import (
     sorted_unique_strings,
 )
 from gabion.analysis.dataflow.engine.dataflow_contracts import AuditConfig
-from gabion.analysis.projection.projection_exec_ingress import apply_spec
+from gabion.analysis.projection.projection_exec import apply_execution_ops
+from gabion.analysis.projection.projection_exec_ingress import (
+    apply_spec,
+    execution_ops_from_spec,
+)
 from gabion.analysis.projection.projection_registry import (
     CALL_CLUSTER_SUMMARY_SPEC,
     spec_metadata_lines_from_payload,
@@ -25,8 +30,18 @@ from gabion.analysis.semantics.report_doc import ReportDoc
 from gabion.analysis.foundation.resume_codec import mapping_optional, sequence_optional
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.json_types import JSONValue
+from gabion.invariants import grade_boundary
 
 CALL_CLUSTER_VERSION = 1
+
+
+@cache
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="call_cluster_summary_execution_ops",
+)
+def _call_cluster_summary_execution_ops():
+    return execution_ops_from_spec(CALL_CLUSTER_SUMMARY_SPEC)
 
 
 @dataclass(frozen=True)
@@ -95,7 +110,13 @@ def build_call_clusters_payload(
         )
 
     spec = summary_spec
-    projected = apply_spec(spec, cluster_rows)
+    if spec is CALL_CLUSTER_SUMMARY_SPEC:
+        projected = apply_execution_ops(
+            _call_cluster_summary_execution_ops(),
+            cluster_rows,
+        )
+    else:
+        projected = apply_spec(spec, cluster_rows)
     ordered: list[CallClusterEntry] = []
     for row in projected:
         check_deadline()
