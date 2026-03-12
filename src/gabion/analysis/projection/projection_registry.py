@@ -653,6 +653,21 @@ PROJECTION_FIBER_CONTEXT_WEDGE_SPEC = ProjectionSpec(
 )
 
 
+PROJECTION_FIBER_REINDEX_SPEC = ProjectionSpec(
+    spec_version=1,
+    name="projection_fiber_reindex",
+    domain="projection_fiber",
+    pipeline=(
+        ProjectionOp(
+            "reindex",
+            {
+                "surface": "projection_fiber",
+            },
+        ),
+    ),
+)
+
+
 PROJECTION_FIBER_WITNESS_SYNTHESIS_SPEC = ProjectionSpec(
     spec_version=1,
     name="projection_fiber_witness_synthesis",
@@ -752,6 +767,7 @@ def iter_projection_fiber_semantic_specs() -> Iterable[ProjectionSpec]:
         PROJECTION_FIBER_REFLECTION_SPEC,
         PROJECTION_FIBER_SUPPORT_REFLECTION_SPEC,
         PROJECTION_FIBER_CONTEXT_WEDGE_SPEC,
+        PROJECTION_FIBER_REINDEX_SPEC,
         PROJECTION_FIBER_WITNESS_SYNTHESIS_SPEC,
     )
 

@@ -124,6 +124,21 @@ def _lowered_projection_fiber_context_wedge_plan():
     return lower_projection_spec_to_semantic_plan(spec)
 
 
+def _lowered_projection_fiber_reindex_plan():
+    spec = ProjectionSpec(
+        spec_version=1,
+        name="projection_fiber_reindex",
+        domain="projection_fiber",
+        pipeline=(
+            ProjectionOp(
+                op="reindex",
+                params={"surface": "projection_fiber"},
+            ),
+        ),
+    )
+    return lower_projection_spec_to_semantic_plan(spec)
+
+
 def _lowered_projection_fiber_witness_synthesis_plan():
     spec = ProjectionSpec(
         spec_version=1,
@@ -259,6 +274,27 @@ def test_projection_semantic_lowering_compiles_context_wedge_surface() -> None:
         "?boundaryKinds",
         "?transformOps",
     ]
+
+
+def test_projection_semantic_lowering_compiles_reindex_surface() -> None:
+    row = _row()
+    lowering_plan = _lowered_projection_fiber_reindex_plan()
+
+    compiled = compile_projection_semantic_lowering_plan(lowering_plan, (row,))
+
+    assert compiled.bindings == ()
+    assert compiled.compiled_shacl_plans == ()
+    sparql_plan = compiled.compiled_sparql_plans[0]
+
+    assert sparql_plan["semantic_op"] == "reindex"
+    assert sparql_plan["surface"] == "projection_fiber"
+    assert sparql_plan["source_structural_identity"] == row["structural_identity"]
+    assert sparql_plan["select_vars"] == [
+        "?siteIdentity",
+        "?dataAnchorSiteIdentity",
+        "?execFrontierSiteIdentity",
+    ]
+    assert sparql_plan["anti_join_filters"] == []
 
 
 def test_projection_semantic_lowering_acknowledges_witness_synthesis_surface() -> None:

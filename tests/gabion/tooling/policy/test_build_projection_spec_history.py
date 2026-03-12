@@ -266,6 +266,14 @@ def test_summary_and_hotspot_rankings_match_inventory(tmp_path: Path) -> None:
     assert context_wedge_row["presentation_op_count"] == 0
     assert context_wedge_row["bridge_op_count"] == 0
     assert context_wedge_row["quotient_faces"] == []
+    reindex_row = next(
+        item for item in rows if item["spec_name"] == "projection_fiber_reindex"
+    )
+    assert reindex_row["lowering_status"] == "semantic_promoted"
+    assert reindex_row["semantic_op_count"] == 1
+    assert reindex_row["presentation_op_count"] == 0
+    assert reindex_row["bridge_op_count"] == 0
+    assert reindex_row["quotient_faces"] == []
     witness_synthesis_row = next(
         item for item in rows if item["spec_name"] == "projection_fiber_witness_synthesis"
     )

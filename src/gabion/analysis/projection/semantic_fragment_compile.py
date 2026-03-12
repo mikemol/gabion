@@ -283,6 +283,49 @@ def compile_projection_fiber_wedge_to_sparql(
     }
 
 
+def compile_projection_fiber_reindex_to_sparql(
+    row: CanonicalWitnessedSemanticRow,
+) -> CompiledSparqlPlan:
+    structural_identity = row["structural_identity"]
+    payload = row["payload"]
+    return {
+        "plan_id": f"{structural_identity}:sparql:reindex",
+        "source_structural_identity": structural_identity,
+        "source_site_identity": row["site_identity"],
+        "surface": row["surface"],
+        "semantic_op": SemanticOpKind.REINDEX,
+        "select_vars": [
+            "?siteIdentity",
+            "?dataAnchorSiteIdentity",
+            "?execFrontierSiteIdentity",
+        ],
+        "where_patterns": [
+            {
+                "subject": "?frontier",
+                "predicate": "gabion:structuralIdentity",
+                "object": structural_identity,
+            },
+            {
+                "subject": "?frontier",
+                "predicate": "gabion:siteIdentity",
+                "object": row["site_identity"],
+            },
+            {
+                "subject": "?frontier",
+                "predicate": "gabion:dataAnchorSiteIdentity",
+                "object": str(payload["data_anchor_site_identity"]),
+            },
+            {
+                "subject": "?frontier",
+                "predicate": "gabion:execFrontierSiteIdentity",
+                "object": str(payload["exec_frontier_site_identity"]),
+            },
+        ],
+        "anti_join_filters": [],
+        "witness_trace": _witness_trace(row),
+    }
+
+
 def compile_projection_fiber_quotient_face_to_shacl(
     row: CanonicalWitnessedSemanticRow,
     *,
@@ -538,6 +581,7 @@ __all__ = [
     "CompiledSparqlPlan",
     "compile_projection_fiber_quotient_face_to_shacl",
     "compile_projection_fiber_quotient_face_to_sparql",
+    "compile_projection_fiber_reindex_to_sparql",
     "compile_projection_fiber_reflect_to_shacl",
     "compile_projection_fiber_reflect_to_sparql",
     "compile_projection_fiber_support_reflect_to_shacl",

@@ -5,6 +5,7 @@ import pytest
 from gabion.analysis.projection.projection_registry import (
     PROJECTION_FIBER_CONTEXT_WEDGE_SPEC,
     PROJECTION_FIBER_FRONTIER_SPEC,
+    PROJECTION_FIBER_REINDEX_SPEC,
     PROJECTION_FIBER_REFLECTION_SPEC,
     PROJECTION_FIBER_REFLECTIVE_BOUNDARY_SPEC,
     PROJECTION_FIBER_SUPPORT_REFLECTION_SPEC,
@@ -106,6 +107,14 @@ def test_projection_fiber_context_wedge_spec_is_registered_with_declared_surface
     wedge_op = PROJECTION_FIBER_CONTEXT_WEDGE_SPEC.pipeline[0]
     assert wedge_op.op == "wedge"
     assert wedge_op.params["surface"] == "projection_fiber"
+
+
+def test_projection_fiber_reindex_spec_is_registered_with_declared_surface() -> None:
+    specs = build_registered_specs()
+    assert PROJECTION_FIBER_REINDEX_SPEC in specs.values()
+    reindex_op = PROJECTION_FIBER_REINDEX_SPEC.pipeline[0]
+    assert reindex_op.op == "reindex"
+    assert reindex_op.params["surface"] == "projection_fiber"
 
 
 def test_projection_fiber_witness_synthesis_spec_is_registered_with_declared_surface() -> None:

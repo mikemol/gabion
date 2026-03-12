@@ -1,5 +1,5 @@
 ---
-doc_revision: 86
+doc_revision: 87
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -486,6 +486,7 @@ Current implementation status:
   `reflect(surface=projection_fiber)` and
   `support_reflect(surface=projection_fiber)` and
   `wedge(surface=projection_fiber)` and
+  `reindex(surface=projection_fiber)` and
   `synthesize_witness(surface=projection_fiber)` ops now promote into semantic
   ops in v1; `sort`, `limit`, and `count_by` remain presentation, while
   `select`, `traverse`, and unknown ops remain bridge/compatibility surfaces
@@ -509,6 +510,11 @@ Current implementation status:
   `ProjectionSpec`; in v1 it realizes SPARQL context-composition planning from
   canonical input/synthesized/boundary/transform context without widening raw
   row transforms or inventing a second support-context carrier
+- `reindex(surface=projection_fiber)` now compiles through that same typed
+  lowering/compiler path via a registered `projection_fiber_reindex`
+  `ProjectionSpec`; in v1 it realizes SPARQL query-algebra reindexing over the
+  canonical branch, data-anchor, and execution-frontier identities already
+  carried on projection-fiber rows
 - `synthesize_witness(surface=projection_fiber)` now compiles through that same
   typed lowering path via a registered `projection_fiber_witness_synthesis`
   `ProjectionSpec`; because witness invention stays semantic-core-only in v1,
@@ -516,7 +522,7 @@ Current implementation status:
   execution ownership for witness synthesis itself
 - the first real consumer of that bridge is the lattice-convergence substrate
   report, which now emits compiled semantic-plan bundles for the registered
-  frontier, reflection, support-reflection, context-wedge,
+  frontier, reflection, support-reflection, context-wedge, reindex,
   witness-synthesis, and reflective-boundary specs alongside the raw semantic
   rows and top-level reflect plans derived from the same typed bundle output
 - that substrate output now crosses a runtime-facing boundary: `policy_check
