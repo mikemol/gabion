@@ -1,5 +1,5 @@
 ---
-doc_revision: 114
+doc_revision: 115
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -567,6 +567,10 @@ Current implementation status:
   spec provenance stays on parsed metadata carriers until the final
   render/write edge instead of lingering as loose dict payloads in the middle
   of the data fiber
+- those call-cluster DTOs now also keep iterable carriers authoritative: the
+  internal cluster/plan carriers no longer persist per-entry count scalars, and
+  count values are derived only where ordering or output emission actually
+  needs them
 - the broad module-level `semantic_carrier_adapter` marker formerly attached to
   `projection_exec.py` is now retired as well; the executor keeps only
   function-local temporary grading on the concrete typed-execution surfaces

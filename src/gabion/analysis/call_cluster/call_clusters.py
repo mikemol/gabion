@@ -41,7 +41,6 @@ def _call_cluster_summary_execution_ops():
 class CallClusterEntry:
     cluster: ClusterIdentity
     tests: tuple[str, ...]
-    count: int
 
 
 @dataclass(frozen=True)
@@ -141,7 +140,6 @@ def build_call_clusters_payload(
             CallClusterEntry(
                 cluster=cluster.cluster,
                 tests=tuple(cluster.tests),
-                count=len(cluster.tests),
             )
         )
 
@@ -175,7 +173,7 @@ def render_json_payload(payload: CallClustersPayload) -> dict[str, JSONValue]:
                 "key": entry.cluster.key,
                 "display": entry.cluster.display,
                 "tests": list(entry.tests),
-                "count": entry.count,
+                "count": len(entry.tests),
             }
             for entry in payload.clusters
         ],
@@ -225,7 +223,7 @@ def render_markdown(
             render_cluster_heading(
                 doc,
                 display=entry.cluster.display,
-                count=entry.count,
+                count=len(entry.tests),
             )
             if entry.tests:
                 render_string_codeblock(doc, entry.tests)

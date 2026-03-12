@@ -53,7 +53,6 @@ class ConsolidationEntry:
 class ClusterSummary:
     cluster: ClusterIdentity
     tests: tuple[str, ...]
-    count: int
 
 
 @dataclass(frozen=True)
@@ -67,7 +66,6 @@ class ConsolidationSummary:
 @dataclass(frozen=True)
 class ConsolidationPlanEntry:
     cluster: ClusterIdentity
-    cluster_count: int
     test_id: str
     file: str
     line: int
@@ -173,14 +171,13 @@ def build_call_cluster_consolidation_payload(
             ClusterSummary(
                 cluster=cluster.cluster,
                 tests=tests,
-                count=len(tests),
             )
         )
 
     eligible = {
         summary.cluster.identity: summary
         for summary in cluster_summaries
-        if summary.count >= min_cluster_size
+        if len(summary.tests) >= min_cluster_size
     }
 
     relation: list[dict[str, JSONValue]] = []
@@ -194,7 +191,7 @@ def build_call_cluster_consolidation_payload(
                 {
                     "cluster_identity": entry.cluster.identity,
                     "cluster_display": entry.cluster.display,
-                    "cluster_count": summary.count,
+                    "cluster_count": len(summary.tests),
                     "test_id": entry.test_id,
                     "file": entry.file,
                     "line": entry.line,
@@ -213,7 +210,7 @@ def build_call_cluster_consolidation_payload(
     ordered_clusters = sort_once(
         eligible.values(),
         source="build_call_cluster_consolidation_payload.ordered_clusters",
-        key=lambda item: (-item.count, item.cluster.display, item.cluster.identity),
+        key=lambda item: (-len(item.tests), item.cluster.display, item.cluster.identity),
     )
 
     ordered_plan: list[ConsolidationPlanEntry] = []
@@ -249,7 +246,6 @@ def build_call_cluster_consolidation_payload(
         ordered_plan.append(
             ConsolidationPlanEntry(
                 cluster=source_entry.cluster,
-                cluster_count=cluster_count,
                 test_id=test_id,
                 file=source_entry.file,
                 line=source_entry.line,
@@ -281,6 +277,10 @@ def build_call_cluster_consolidation_payload(
 def render_json_payload(
     payload: CallClusterConsolidationPayload,
 ) -> dict[str, JSONValue]:
+    cluster_counts = {
+        cluster.cluster.identity: len(cluster.tests)
+        for cluster in payload.clusters
+    }
     return {
         "version": payload.version,
         "summary": {
@@ -295,7 +295,7 @@ def render_json_payload(
                 "key": cluster.cluster.key,
                 "display": cluster.cluster.display,
                 "tests": list(cluster.tests),
-                "count": cluster.count,
+                "count": len(cluster.tests),
             }
             for cluster in payload.clusters
         ],
@@ -303,7 +303,7 @@ def render_json_payload(
             {
                 "cluster_identity": entry.cluster.identity,
                 "cluster_display": entry.cluster.display,
-                "cluster_count": entry.cluster_count,
+                "cluster_count": cluster_counts[entry.cluster.identity],
                 "test_id": entry.test_id,
                 "file": entry.file,
                 "line": entry.line,
@@ -376,7 +376,7 @@ def render_markdown(
                 render_cluster_heading(
                     doc,
                     display=cluster.cluster.display,
-                    count=cluster.count,
+                    count=len(cluster.tests),
                 )
             replace_tokens = ", ".join(entry.replace)
             current_lines.append(

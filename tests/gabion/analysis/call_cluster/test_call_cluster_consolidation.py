@@ -405,7 +405,11 @@ def test_call_cluster_consolidation_orders_plan_via_typed_execution_ops(
     )
 
     plan = payload.plan
-    assert [entry.cluster_count for entry in plan] == [3, 3, 3, 2, 2]
+    cluster_counts = {
+        cluster.cluster.identity: len(cluster.tests)
+        for cluster in payload.clusters
+    }
+    assert [cluster_counts[entry.cluster.identity] for entry in plan] == [3, 3, 3, 2, 2]
     assert [entry.test_id for entry in plan[:3]] == [
         "tests/test_sample.py::test_a",
         "tests/test_sample.py::test_b",
@@ -478,7 +482,6 @@ def test_call_cluster_consolidation_emitted_payload_preserves_identity() -> None
                     display="pkg.mod:helper",
                 ),
                 tests=("tests/test_mod.py::test_one", "tests/test_mod.py::test_two"),
-                count=2,
             ),
         ),
         plan_entries=(
@@ -488,7 +491,6 @@ def test_call_cluster_consolidation_emitted_payload_preserves_identity() -> None
                     key={"k": "call_cluster", "targets": ["pkg.mod:helper"]},
                     display="pkg.mod:helper",
                 ),
-                cluster_count=2,
                 test_id="tests/test_mod.py::test_one",
                 file="tests/test_mod.py",
                 line=10,

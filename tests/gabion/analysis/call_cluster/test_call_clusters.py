@@ -89,7 +89,7 @@ def test_call_clusters_payload_and_render(
     assert payload.clusters
     cluster = payload.clusters[0]
     assert cluster.cluster.key["k"] == "call_cluster"
-    assert cluster.count == 1
+    assert len(cluster.tests) == 1
     markdown = call_clusters.render_markdown(payload)
     assert "generated_by_spec_id" in markdown
 
@@ -176,7 +176,6 @@ def test_call_clusters_emitted_payload_preserves_identity() -> None:
                     display="pkg.mod:helper",
                 ),
                 tests=("tests/test_mod.py::test_one", "tests/test_mod.py::test_two"),
-                count=2,
             ),
         ),
     )
@@ -367,7 +366,6 @@ def test_call_clusters_render_handles_empty_tests_list() -> None:
                         display="Cluster",
                     ),
                     tests=(),
-                    count=0,
                 ),
             ),
         )
