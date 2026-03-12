@@ -1,5 +1,5 @@
 ---
-doc_revision: 69
+doc_revision: 70
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -651,6 +651,11 @@ Current implementation status:
   seam; it now loads only the canonical `policy_check_result.json` payload
   directly, so the wrapper boundary matches its single remaining child-owned
   prerequisite instead of keeping a dead generic ingress shape
+- the wrapper no longer preserves a whole-payload policy-check helper or
+  queue-preservation test contract for projection-semantic-fragment artifacts;
+  it now loads `projection_fiber_semantics` directly from
+  `policy_check_result.json`, and wrapper coverage is hotspot-only because the
+  wrapper never reads or writes projection-semantic-fragment queue files
 - the wrapper no longer prints status for the projection-semantic-fragment
   queue it does not emit or own; its console surface is now limited to the
   hotspot-neighborhood queue plus the actual scan decision/violations it still
