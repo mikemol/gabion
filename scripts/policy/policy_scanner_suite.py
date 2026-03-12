@@ -3,11 +3,14 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
+import json
 from pathlib import Path
 
 from gabion.tooling.runtime import policy_result_schema
 from gabion.tooling.runtime import policy_scanner_suite as runtime_policy_scanner_suite
 from scripts.policy import hotspot_neighborhood_queue
+
+_POLICY_SUITE_COMPAT_FORMAT_VERSION = 1
 
 
 @dataclass(frozen=True)
@@ -94,6 +97,29 @@ def _resolve_external_child_inputs(
     )
 
 
+def _compat_policy_suite_payload(
+    *,
+    result: runtime_policy_scanner_suite.PolicySuiteResult,
+) -> dict[str, object]:
+    return {
+        "format_version": _POLICY_SUITE_COMPAT_FORMAT_VERSION,
+        "violations": result.violations_by_rule,
+    }
+
+
+def _write_compat_policy_suite_artifact(
+    *,
+    out: Path,
+    result: runtime_policy_scanner_suite.PolicySuiteResult,
+) -> None:
+    payload = _compat_policy_suite_payload(result=result)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(
+        json.dumps(payload, indent=2, sort_keys=False) + "\n",
+        encoding="utf-8",
+    )
+
+
 def run(
     *,
     root: Path,
@@ -102,14 +128,13 @@ def run(
     head_sha: str | None = None,
 ) -> int:
     child_inputs = _resolve_external_child_inputs(root=root, out=out)
-    outcome = runtime_policy_scanner_suite.load_or_scan_policy_suite(
+    result = runtime_policy_scanner_suite.scan_policy_suite(
         root=root,
-        artifact_path=out,
         child_inputs=child_inputs.runtime_child_inputs,
         base_sha=base_sha,
         head_sha=head_sha,
     )
-    result = outcome.result
+    _write_compat_policy_suite_artifact(out=out, result=result)
     decision = result.decision()
     queue_json = out.parent / "hotspot_neighborhood_queue.json"
     queue_md = out.parent / "hotspot_neighborhood_queue.md"
@@ -125,7 +150,7 @@ def run(
         markdown_out=queue_md,
     )
     total = sum(len(items) for items in result.violations_by_rule.values())
-    print(f"policy-suite scan: cached={outcome.cached} total_violations={total} out={out}")
+    print(f"policy-suite scan: total_violations={total} out={out}")
     print(
         "policy-suite decision: "
         f"rule_id={decision.rule_id} outcome={decision.outcome.value} "

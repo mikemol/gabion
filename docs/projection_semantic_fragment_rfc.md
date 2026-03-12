@@ -1,5 +1,5 @@
 ---
-doc_revision: 57
+doc_revision: 58
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -650,6 +650,11 @@ Current implementation status:
   `deprecated_nonerasability_result.json` are now explicit child-owned inputs
   on this path too, and CI/workflow entrypoints materialize them before the
   wrapper runs
+- the active policy-scanner-suite wrapper path no longer depends on
+  `load_or_scan_policy_suite()` or `PolicySuiteLoadOutcome`; it now calls
+  `scan_policy_suite()` directly and writes the thin
+  `policy_suite_results.json` compatibility artifact at the boundary instead of
+  routing through the runtime cache/load surface
 - wrapper-owned policy-result synthesis has now been removed from the
   policy-suite path entirely: the deprecated-nonerasability child check emits
   its own canonical `skip` result when baseline/current inputs are absent, and

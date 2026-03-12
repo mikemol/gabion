@@ -406,6 +406,7 @@ def test_run_passes_in_memory_payload_to_hotspot_queue(
     rc = policy_scanner_suite.run(root=root, out=out)
 
     assert rc == 0
+    persisted_payload = json.loads(out.read_text(encoding="utf-8"))
     payload = captured["payload"]
     assert isinstance(payload, dict)
     assert "decision" not in payload
@@ -415,6 +416,31 @@ def test_run_passes_in_memory_payload_to_hotspot_queue(
     assert "projection_fiber_semantics" not in payload
     assert captured["out_path"] == out.parent / "hotspot_neighborhood_queue.json"
     assert captured["markdown_out"] == out.parent / "hotspot_neighborhood_queue.md"
+    assert persisted_payload == {
+        "format_version": 1,
+        "violations": {
+            "no_monkeypatch": [],
+            "branchless": [],
+            "defensive_fallback": [],
+            "fiber_loop_structure_contract": [],
+            "fiber_filter_processor_contract": [],
+            "fiber_return_shape_contract": [],
+            "fiber_scalar_sentinel_contract": [],
+            "fiber_type_dispatch_contract": [],
+            "no_anonymous_tuple": [],
+            "no_mutable_dict": [],
+            "no_scalar_conversion_boundary": [],
+            "no_legacy_monolith_import": [],
+            "orchestrator_primitive_barrel": [],
+            "typing_surface": [],
+            "runtime_narrowing_boundary": [],
+            "aspf_normalization_idempotence": [],
+            "boundary_core_contract": [],
+            "fiber_normalization_contract": [],
+            "test_subprocess_hygiene": [],
+            "test_sleep_hygiene": [],
+        },
+    }
 
 
 def test_run_passes_minimal_boundary_shape_with_projection_fiber_semantics(
@@ -438,13 +464,10 @@ def test_run_passes_minimal_boundary_shape_with_projection_fiber_semantics(
             ),
         )
 
-    def _fake_load_or_scan_policy_suite(**_: object) -> object:
-        return policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteLoadOutcome(
-            result=policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteResult(
-                violations_by_rule={"branchless": [{"path": "src/gabion/example.py"}]},
-                projection_fiber_semantics=dict(projection_fiber_semantics),
-            ),
-            cached=False,
+    def _fake_scan_policy_suite(**_: object) -> object:
+        return policy_scanner_suite.runtime_policy_scanner_suite.PolicySuiteResult(
+            violations_by_rule={"branchless": [{"path": "src/gabion/example.py"}]},
+            projection_fiber_semantics=dict(projection_fiber_semantics),
         )
 
     def _fake_run_from_payload(
@@ -469,8 +492,8 @@ def test_run_passes_minimal_boundary_shape_with_projection_fiber_semantics(
     )
     monkeypatch.setattr(
         policy_scanner_suite.runtime_policy_scanner_suite,
-        "load_or_scan_policy_suite",
-        _fake_load_or_scan_policy_suite,
+        "scan_policy_suite",
+        _fake_scan_policy_suite,
     )
     monkeypatch.setattr(
         policy_scanner_suite.hotspot_neighborhood_queue,
@@ -485,6 +508,10 @@ def test_run_passes_minimal_boundary_shape_with_projection_fiber_semantics(
         "format_version": 1,
         "violations": {"branchless": [{"path": "src/gabion/example.py"}]},
         "projection_fiber_semantics": projection_fiber_semantics,
+    }
+    assert json.loads(out.read_text(encoding="utf-8")) == {
+        "format_version": 1,
+        "violations": {"branchless": [{"path": "src/gabion/example.py"}]},
     }
 
 
