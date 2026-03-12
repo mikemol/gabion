@@ -26,6 +26,15 @@ from gabion.tooling.runtime.projection_fiber_semantics_summary import (
 _FORMAT_VERSION = 1
 _DEFAULT_SOURCE_ARTIFACT = "artifacts/out/policy_check_result.json"
 _MAX_SEMANTIC_PREVIEW_SAMPLES = 20
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_PHASE5_PROJECTION_ADAPTER_FILES = (
+    "src/gabion/analysis/projection/projection_exec.py",
+    "src/gabion/analysis/projection/projection_exec_plan.py",
+    "src/gabion/analysis/projection/semantic_fragment.py",
+    "src/gabion/analysis/projection/semantic_fragment_compile.py",
+    "src/gabion/analysis/projection/projection_semantic_lowering.py",
+    "src/gabion/analysis/projection/projection_semantic_lowering_compile.py",
+)
 
 
 @lru_cache(maxsize=1)
@@ -144,6 +153,23 @@ def _predicate_reads_semantic_rows(predicate: Mapping[str, Any]) -> bool:
     return False
 
 
+@lru_cache(maxsize=1)
+def _legacy_projection_exec_ingress_retired() -> bool:
+    return not (
+        _REPO_ROOT / "src/gabion/analysis/projection/projection_exec_ingress.py"
+    ).exists()
+
+
+@lru_cache(maxsize=1)
+def _remaining_phase5_projection_adapter_markers() -> int:
+    total = 0
+    for relative_path in _PHASE5_PROJECTION_ADAPTER_FILES:
+        total += (_REPO_ROOT / relative_path).read_text(encoding="utf-8").count(
+            "semantic_carrier_adapter"
+        )
+    return total
+
+
 def analyze(
     *,
     payload: Mapping[str, object],
@@ -213,6 +239,24 @@ def _queue_items(
         ", ".join(semantic_expansion_spec_names)
         if semantic_expansion_spec_names
         else "<none>"
+    )
+    phase5_cutover_criteria_met = (
+        row_count > 0
+        and semantic_lowering_landed
+        and preview_count > 0
+        and policy_direct_carrier_judgment_landed
+    )
+    legacy_projection_exec_ingress_retired = _legacy_projection_exec_ingress_retired()
+    remaining_phase5_adapter_markers = _remaining_phase5_projection_adapter_markers()
+    phase5_landed = (
+        phase5_cutover_criteria_met
+        and legacy_projection_exec_ingress_retired
+        and remaining_phase5_adapter_markers == 0
+    )
+    phase5_in_progress = (
+        phase5_cutover_criteria_met
+        and legacy_projection_exec_ingress_retired
+        and remaining_phase5_adapter_markers > 0
     )
     items = (
         ProjectionSemanticFragmentQueueItem(
@@ -353,12 +397,39 @@ def _queue_items(
         ProjectionSemanticFragmentQueueItem(
             queue_id="PSF-007",
             phase="Phase 5",
-            status="queued",
+            status=(
+                "landed"
+                if phase5_landed
+                else "in_progress" if phase5_in_progress else "queued"
+            ),
             title="Cut over legacy adapters and retire semantic_carrier_adapter boundaries",
-            summary="The semantic fragment is still intentionally adapter-scoped while the canonical path converges.",
-            next_action="Use the RFC cutover criteria and ratchet rules to remove temporary adapter status only after end-to-end semantic paths are stable.",
+            summary=(
+                "Phase 5 cutover criteria are satisfied for at least one end-to-end path, "
+                "projection_exec_ingress.py is retired, and no temporary "
+                "semantic_carrier_adapter markers remain on the core projection path."
+                if phase5_landed
+                else (
+                    "Phase 5 cutover criteria are satisfied for at least one end-to-end path, "
+                    "projection_exec_ingress.py is retired, and "
+                    f"{remaining_phase5_adapter_markers} temporary semantic_carrier_adapter "
+                    "marker(s) remain on the core projection path."
+                )
+                if phase5_in_progress
+                else "The semantic fragment has not yet satisfied the RFC Phase 5 cutover criteria on a stable end-to-end path."
+            ),
+            next_action=(
+                "Keep the core projection path free of new temporary adapter grading and remove the remaining function-local semantic_carrier_adapter markers."
+                if phase5_landed
+                else (
+                    "Use the RFC cutover criteria and ratchet rules to keep shrinking the remaining "
+                    "function-local semantic_carrier_adapter markers until the core projection path is fully cut over."
+                )
+                if phase5_in_progress
+                else "Use the RFC cutover criteria and ratchet rules to remove temporary adapter status only after end-to-end semantic paths are stable."
+            ),
             evidence_links=(
                 "src/gabion/analysis/projection/projection_exec.py",
+                "src/gabion/analysis/projection/projection_exec_plan.py",
                 "src/gabion/analysis/projection/semantic_fragment.py",
                 "docs/projection_semantic_fragment_rfc.md",
             ),

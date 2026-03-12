@@ -72,6 +72,7 @@ def test_analyze_emits_landed_and_active_queue_rows() -> None:
     assert items["PSF-004"]["status"] == "in_progress"
     assert items["PSF-005"]["status"] == "queued"
     assert items["PSF-006"]["status"] == "landed"
+    assert items["PSF-007"]["status"] == "in_progress"
     assert queue["next_queue_ids"] == ["PSF-004", "PSF-005", "PSF-007"]
 
 
@@ -89,6 +90,7 @@ def test_markdown_summary_lists_queue_and_semantic_preview_context() -> None:
     assert "compiled_specs: `projection_fiber_frontier`" in markdown
     assert "| PSF-004 | Phase 4 | in_progress | Friendly-surface convergence via typed ProjectionSpec lowering |" in markdown
     assert "| PSF-006 | Phase 4 | landed | Move policy and authoring consumers toward direct canonical-carrier judgment |" in markdown
+    assert "| PSF-007 | Phase 5 | in_progress | Cut over legacy adapters and retire semantic_carrier_adapter boundaries |" in markdown
     assert "## Semantic Previews" in markdown
     assert "src/gabion/example.py" in markdown
 
@@ -183,3 +185,25 @@ def test_analyze_marks_friendly_surface_convergence_landed_when_all_declared_spe
     assert items["PSF-004"]["status"] == "landed"
     assert items["PSF-005"]["status"] == "landed"
     assert queue["next_queue_ids"] == ["PSF-007"]
+
+
+def test_analyze_marks_phase5_landed_when_adapter_markers_are_retired(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        projection_semantic_fragment_queue,
+        "_remaining_phase5_projection_adapter_markers",
+        lambda: 0,
+    )
+    monkeypatch.setattr(
+        projection_semantic_fragment_queue,
+        "_legacy_projection_exec_ingress_retired",
+        lambda: True,
+    )
+    queue = projection_semantic_fragment_queue.analyze(
+        payload=_policy_check_payload(),
+        source_artifact="artifacts/out/policy_check_result.json",
+    ).as_payload()
+
+    items = {item["queue_id"]: item for item in queue["items"]}
+    assert items["PSF-007"]["status"] == "landed"

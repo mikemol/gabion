@@ -1,5 +1,5 @@
 ---
-doc_revision: 113
+doc_revision: 114
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -581,6 +581,11 @@ Current implementation status:
   and the remaining temporary grading on that path is concentrated on the real
   typed execution surfaces plus the still-explicit sort/canonical-group-
   reference helpers they depend on
+- the machine continuation queue now treats `PSF-007` as real cutover work
+  instead of a hardcoded placeholder: once the RFC Phase 5 cutover criteria are
+  satisfied and `projection_exec_ingress.py` is retired, the queue advances to
+  `in_progress`, and it lands only after the remaining function-local
+  `semantic_carrier_adapter` markers are gone from the core projection path
 - that substrate output now crosses a runtime-facing boundary: `policy_check
   --output` carries a `projection_fiber_semantics` payload with the lattice
   decision, semantic report, and compiled projection-semantic bundles, so the
