@@ -1403,6 +1403,52 @@ class InvariantWorkstreamsProjection:
 
 
 @dataclass(frozen=True)
+class InvariantLedgerTargetDocAlignment:
+    target_doc_id: str
+    target_doc_path: str
+    alignment_status: str
+    object_reference_present: bool
+    summary_present: bool
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "target_doc_id": self.target_doc_id,
+            "target_doc_path": self.target_doc_path,
+            "alignment_status": self.alignment_status,
+            "object_reference_present": self.object_reference_present,
+            "summary_present": self.summary_present,
+        }
+
+
+@dataclass(frozen=True)
+class InvariantLedgerAlignmentSummary:
+    target_doc_count: int
+    reflected_target_doc_count: int
+    append_pending_existing_target_doc_count: int
+    append_pending_new_target_doc_count: int
+    missing_target_doc_count: int
+    ambiguous_target_doc_count: int
+    unassigned_target_doc_count: int
+    dominant_alignment_status: str
+    recommended_doc_alignment_action: str
+    misaligned_target_doc_ids: tuple[str, ...]
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "target_doc_count": self.target_doc_count,
+            "reflected_target_doc_count": self.reflected_target_doc_count,
+            "append_pending_existing_target_doc_count": self.append_pending_existing_target_doc_count,
+            "append_pending_new_target_doc_count": self.append_pending_new_target_doc_count,
+            "missing_target_doc_count": self.missing_target_doc_count,
+            "ambiguous_target_doc_count": self.ambiguous_target_doc_count,
+            "unassigned_target_doc_count": self.unassigned_target_doc_count,
+            "dominant_alignment_status": self.dominant_alignment_status,
+            "recommended_doc_alignment_action": self.recommended_doc_alignment_action,
+            "misaligned_target_doc_ids": list(self.misaligned_target_doc_ids),
+        }
+
+
+@dataclass(frozen=True)
 class InvariantLedgerProjection:
     object_id: str
     title: str
@@ -1414,6 +1460,8 @@ class InvariantLedgerProjection:
     recommended_ledger_action: str
     summary: str
     current_snapshot: Mapping[str, object]
+    target_doc_alignments: tuple[InvariantLedgerTargetDocAlignment, ...] = ()
+    alignment_summary: InvariantLedgerAlignmentSummary | None = None
 
     def as_payload(self) -> dict[str, object]:
         return {
@@ -1427,6 +1475,12 @@ class InvariantLedgerProjection:
             "recommended_ledger_action": self.recommended_ledger_action,
             "summary": self.summary,
             "current_snapshot": dict(self.current_snapshot),
+            "target_doc_alignments": [
+                item.as_payload() for item in self.target_doc_alignments
+            ],
+            "alignment_summary": (
+                None if self.alignment_summary is None else self.alignment_summary.as_payload()
+            ),
         }
 
 
@@ -2304,53 +2358,17 @@ def compare_invariant_workstreams(
 
 def build_invariant_ledger_projections(
     workstreams: InvariantWorkstreamsProjection,
+    *,
+    root: Path | None = None,
 ) -> InvariantLedgerProjections:
+    doc_paths_by_id = None if root is None else _doc_id_paths(root)
+
     def _ledger_items() -> Iterator[InvariantLedgerProjection]:
         for workstream in workstreams.iter_workstreams():
-            recommended_cut = workstream.recommended_cut()
-            recommended_ready_cut = workstream.recommended_ready_cut()
-            recommended_coverage_gap_cut = workstream.recommended_coverage_gap_cut()
-            summary = (
-                f"{workstream.object_id.wire()} is {workstream.status} with "
-                f"{workstream.touchsite_count} touchsites; dominant blocker "
-                f"{workstream.dominant_blocker_class()}; recommended cut "
-                f"{recommended_cut.object_id.wire() if recommended_cut is not None else '<none>'}."
-            )
-            yield InvariantLedgerProjection(
-                object_id=workstream.object_id.wire(),
-                title=workstream.title,
-                status=workstream.status,
-                target_doc_ids=workstream.doc_ids,
-                target_policy_ids=workstream.policy_ids,
-                dominant_blocker_class=workstream.dominant_blocker_class(),
-                recommended_remediation_family=workstream.recommended_remediation_family(),
-                recommended_ledger_action=_recommended_ledger_action_for_status(
-                    workstream.status
-                ),
-                summary=summary,
-                current_snapshot={
-                    "touchsite_count": workstream.touchsite_count,
-                    "collapsible_touchsite_count": workstream.collapsible_touchsite_count,
-                    "surviving_touchsite_count": workstream.surviving_touchsite_count,
-                    "policy_signal_count": workstream.policy_signal_count,
-                    "coverage_count": workstream.coverage_count,
-                    "diagnostic_count": workstream.diagnostic_count,
-                    "recommended_cut_object_id": (
-                        None
-                        if recommended_cut is None
-                        else recommended_cut.object_id.wire()
-                    ),
-                    "recommended_ready_cut_object_id": (
-                        None
-                        if recommended_ready_cut is None
-                        else recommended_ready_cut.object_id.wire()
-                    ),
-                    "recommended_coverage_gap_cut_object_id": (
-                        None
-                        if recommended_coverage_gap_cut is None
-                        else recommended_coverage_gap_cut.object_id.wire()
-                    ),
-                },
+            yield _ledger_projection_for_workstream(
+                workstream=workstream,
+                root=root,
+                doc_paths_by_id=doc_paths_by_id,
             )
 
     return InvariantLedgerProjections(
@@ -2445,6 +2463,207 @@ def _doc_id_paths(root: Path) -> dict[str, tuple[Path, ...]]:
         doc_id: tuple(_sorted(paths, key=lambda item: str(item)))
         for doc_id, paths in grouped.items()
     }
+
+
+def _current_target_doc_alignments(
+    *,
+    root: Path,
+    doc_paths_by_id: Mapping[str, tuple[Path, ...]],
+    object_id: str,
+    target_doc_ids: tuple[str, ...],
+    summary: str,
+) -> tuple[InvariantLedgerTargetDocAlignment, ...]:
+    alignments: list[InvariantLedgerTargetDocAlignment] = []
+    normalized_doc_ids = target_doc_ids or ("<unassigned>",)
+    for target_doc_id in normalized_doc_ids:
+        if target_doc_id == "<unassigned>":
+            alignments.append(
+                InvariantLedgerTargetDocAlignment(
+                    target_doc_id=target_doc_id,
+                    target_doc_path="",
+                    alignment_status="unassigned_target_doc",
+                    object_reference_present=False,
+                    summary_present=False,
+                )
+            )
+            continue
+        resolved_paths = doc_paths_by_id.get(target_doc_id, ())
+        if not resolved_paths:
+            alignments.append(
+                InvariantLedgerTargetDocAlignment(
+                    target_doc_id=target_doc_id,
+                    target_doc_path="",
+                    alignment_status="missing_target_doc",
+                    object_reference_present=False,
+                    summary_present=False,
+                )
+            )
+            continue
+        if len(resolved_paths) > 1:
+            alignments.append(
+                InvariantLedgerTargetDocAlignment(
+                    target_doc_id=target_doc_id,
+                    target_doc_path="",
+                    alignment_status="ambiguous_target_doc",
+                    object_reference_present=False,
+                    summary_present=False,
+                )
+            )
+            continue
+        target_path = resolved_paths[0]
+        text = target_path.read_text(encoding="utf-8")
+        object_reference_present = object_id in text
+        summary_present = summary in text
+        if summary_present:
+            alignment_status = "projection_reflected"
+        elif object_reference_present:
+            alignment_status = "append_pending_existing_object"
+        else:
+            alignment_status = "append_pending_new_object"
+        alignments.append(
+            InvariantLedgerTargetDocAlignment(
+                target_doc_id=target_doc_id,
+                target_doc_path=str(target_path.relative_to(root)),
+                alignment_status=alignment_status,
+                object_reference_present=object_reference_present,
+                summary_present=summary_present,
+            )
+        )
+    return tuple(
+        _sorted(alignments, key=lambda item: (item.target_doc_id, item.alignment_status))
+    )
+
+
+def _recommended_doc_alignment_action(
+    *,
+    status_counts: Mapping[str, int],
+) -> str:
+    if status_counts.get("missing_target_doc", 0) > 0:
+        return "repair_missing_target_doc"
+    if status_counts.get("ambiguous_target_doc", 0) > 0:
+        return "repair_ambiguous_target_doc"
+    if status_counts.get("unassigned_target_doc", 0) > 0:
+        return "assign_target_doc"
+    if status_counts.get("append_pending_new_object", 0) > 0:
+        return "append_new_ledger_entry"
+    if status_counts.get("append_pending_existing_object", 0) > 0:
+        return "append_existing_ledger_entry"
+    return "none"
+
+
+def _dominant_doc_alignment_status(
+    *,
+    status_counts: Mapping[str, int],
+) -> str:
+    priorities = (
+        "missing_target_doc",
+        "ambiguous_target_doc",
+        "unassigned_target_doc",
+        "append_pending_new_object",
+        "append_pending_existing_object",
+        "projection_reflected",
+    )
+    for status in priorities:
+        if status_counts.get(status, 0) > 0:
+            return status
+    return "none"
+
+
+def _alignment_summary(
+    alignments: tuple[InvariantLedgerTargetDocAlignment, ...],
+) -> InvariantLedgerAlignmentSummary:
+    status_counts: dict[str, int] = defaultdict(int)
+    misaligned_target_doc_ids = [
+        item.target_doc_id
+        for item in alignments
+        if item.alignment_status != "projection_reflected"
+    ]
+    for item in alignments:
+        status_counts[item.alignment_status] += 1
+    return InvariantLedgerAlignmentSummary(
+        target_doc_count=len(alignments),
+        reflected_target_doc_count=status_counts.get("projection_reflected", 0),
+        append_pending_existing_target_doc_count=status_counts.get(
+            "append_pending_existing_object", 0
+        ),
+        append_pending_new_target_doc_count=status_counts.get(
+            "append_pending_new_object", 0
+        ),
+        missing_target_doc_count=status_counts.get("missing_target_doc", 0),
+        ambiguous_target_doc_count=status_counts.get("ambiguous_target_doc", 0),
+        unassigned_target_doc_count=status_counts.get("unassigned_target_doc", 0),
+        dominant_alignment_status=_dominant_doc_alignment_status(
+            status_counts=status_counts
+        ),
+        recommended_doc_alignment_action=_recommended_doc_alignment_action(
+            status_counts=status_counts
+        ),
+        misaligned_target_doc_ids=tuple(_sorted(misaligned_target_doc_ids)),
+    )
+
+
+def _ledger_projection_for_workstream(
+    *,
+    workstream: InvariantWorkstreamProjection,
+    root: Path | None,
+    doc_paths_by_id: Mapping[str, tuple[Path, ...]] | None,
+) -> InvariantLedgerProjection:
+    recommended_cut = workstream.recommended_cut()
+    recommended_ready_cut = workstream.recommended_ready_cut()
+    recommended_coverage_gap_cut = workstream.recommended_coverage_gap_cut()
+    summary = (
+        f"{workstream.object_id.wire()} is {workstream.status} with "
+        f"{workstream.touchsite_count} touchsites; dominant blocker "
+        f"{workstream.dominant_blocker_class()}; recommended cut "
+        f"{recommended_cut.object_id.wire() if recommended_cut is not None else '<none>'}."
+    )
+    target_doc_alignments: tuple[InvariantLedgerTargetDocAlignment, ...] = ()
+    alignment_summary: InvariantLedgerAlignmentSummary | None = None
+    if root is not None and doc_paths_by_id is not None:
+        target_doc_alignments = _current_target_doc_alignments(
+            root=root,
+            doc_paths_by_id=doc_paths_by_id,
+            object_id=workstream.object_id.wire(),
+            target_doc_ids=workstream.doc_ids,
+            summary=summary,
+        )
+        alignment_summary = _alignment_summary(target_doc_alignments)
+    return InvariantLedgerProjection(
+        object_id=workstream.object_id.wire(),
+        title=workstream.title,
+        status=workstream.status,
+        target_doc_ids=workstream.doc_ids,
+        target_policy_ids=workstream.policy_ids,
+        dominant_blocker_class=workstream.dominant_blocker_class(),
+        recommended_remediation_family=workstream.recommended_remediation_family(),
+        recommended_ledger_action=_recommended_ledger_action_for_status(
+            workstream.status
+        ),
+        summary=summary,
+        current_snapshot={
+            "touchsite_count": workstream.touchsite_count,
+            "collapsible_touchsite_count": workstream.collapsible_touchsite_count,
+            "surviving_touchsite_count": workstream.surviving_touchsite_count,
+            "policy_signal_count": workstream.policy_signal_count,
+            "coverage_count": workstream.coverage_count,
+            "diagnostic_count": workstream.diagnostic_count,
+            "recommended_cut_object_id": (
+                None if recommended_cut is None else recommended_cut.object_id.wire()
+            ),
+            "recommended_ready_cut_object_id": (
+                None
+                if recommended_ready_cut is None
+                else recommended_ready_cut.object_id.wire()
+            ),
+            "recommended_coverage_gap_cut_object_id": (
+                None
+                if recommended_coverage_gap_cut is None
+                else recommended_coverage_gap_cut.object_id.wire()
+            ),
+        },
+        target_doc_alignments=target_doc_alignments,
+        alignment_summary=alignment_summary,
+    )
 
 
 def build_invariant_ledger_alignments(

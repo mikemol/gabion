@@ -95,6 +95,8 @@ def test_policy_check_output_carries_projection_fiber_semantics_on_pass(
         assert "recommended_ledger_action" in ledger
         assert "summary" in ledger
         assert "current_snapshot" in ledger
+        assert "target_doc_alignments" in ledger
+        assert "alignment_summary" in ledger
     assert (tmp_path / "projection_semantic_fragment_queue.md").exists()
 
 

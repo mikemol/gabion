@@ -131,7 +131,10 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
     graph = invariant_graph.build_invariant_graph(REPO_ROOT)
     projection = invariant_graph.build_psf_phase5_projection(graph)
     workstreams = invariant_graph.build_invariant_workstreams(graph)
-    ledgers = invariant_graph.build_invariant_ledger_projections(workstreams)
+    ledgers = invariant_graph.build_invariant_ledger_projections(
+        workstreams,
+        root=REPO_ROOT,
+    )
 
     assert not hasattr(invariant_graph, "_PHASE5_SURVIVING_TOUCHSITE_BOUNDARY_NAMES")
     assert projection["queue_id"] == "PSF-007"
@@ -223,6 +226,13 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
     assert "projection_semantic_fragment_ledger" in psf_ledger["target_doc_ids"]
     assert psf_ledger["recommended_ledger_action"] == "record_progress_state"
     assert psf_ledger["current_snapshot"]["recommended_cut_object_id"] == "PSF-007-TP-005"
+    assert psf_ledger["alignment_summary"]["target_doc_count"] == 2
+    assert psf_ledger["alignment_summary"]["recommended_doc_alignment_action"] in {
+        "append_existing_ledger_entry",
+        "append_new_ledger_entry",
+        "none",
+    }
+    assert len(psf_ledger["target_doc_alignments"]) == 2
 
 
 def test_workstream_projection_surfaces_policy_and_diagnostic_remediation_families() -> None:
@@ -1302,6 +1312,9 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
         "- PSF-007-SQ-001 :: readiness=coverage_gap :: touchsites=4 :: collapsible=0 :: surviving=4 :: uncovered=4"
         in workstream_output
     )
+    assert "ledger_alignment_summary: target_docs=2 ::" in workstream_output
+    assert "recommended_doc_alignment_action:" in workstream_output
+    assert "misaligned_target_doc_ids:" in workstream_output
 
     assert (
         invariant_graph_runtime.main(
@@ -1319,6 +1332,9 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
     assert "target_doc_ids: projection_semantic_fragment_ledger, projection_semantic_fragment_rfc" in ledger_output
     assert "recommended_ledger_action: record_progress_state" in ledger_output
     assert "current_snapshot: touchsites=73 :: surviving=26" in ledger_output
+    assert "alignment_summary: target_docs=2 ::" in ledger_output
+    assert "recommended_doc_alignment_action:" in ledger_output
+    assert "target_doc_alignments:" in ledger_output
 
     assert (
         invariant_graph_runtime.main(

@@ -1805,7 +1805,7 @@ def _write_invariant_graph_artifact(
     )
     write_invariant_ledger_projections(
         output_path.parent / "invariant_ledger_projections.json",
-        build_invariant_ledger_projections(workstreams),
+        build_invariant_ledger_projections(workstreams, root=REPO_ROOT),
     )
 
 
