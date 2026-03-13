@@ -565,6 +565,66 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
             },
         ],
     }
+    assert workstreams_payload["repo_next_actions"][
+        "recommended_followup_cross_class_tradeoff"
+    ] == {
+        "frontier_followup_family": "governance_orphan_resolution",
+        "frontier_followup_class": "governance",
+        "frontier_action_kind": "diagnostic_resolution",
+        "frontier_object_id": None,
+        "frontier_diagnostic_code": "unmatched_policy_signal",
+        "frontier_target_doc_id": None,
+        "frontier_utility_score": 1190,
+        "frontier_utility_reason": (
+            "governance_orphan:seed_new_owner+owner_option_tradeoff:100"
+            "+governance_priority:GMP-001:10"
+        ),
+        "runner_up_followup_family": "structural_cut",
+        "runner_up_followup_class": "code",
+        "runner_up_action_kind": "touchpoint_cut",
+        "runner_up_object_id": "PSF-007-TP-005",
+        "runner_up_diagnostic_code": None,
+        "runner_up_target_doc_id": None,
+        "runner_up_utility_score": 700,
+        "runner_up_utility_reason": "code:ready_structural",
+        "margin_score": 490,
+        "margin_reason": (
+            "governance_orphan:seed_new_owner+owner_option_tradeoff:100"
+            "+governance_priority:GMP-001:10->code:ready_structural"
+        ),
+        "margin_components": [
+            {
+                "kind": "governance_orphan_base",
+                "score": 900,
+                "rationale": "governance_orphan",
+            },
+            {
+                "kind": "owner_resolution_bonus",
+                "score": 100,
+                "rationale": "seed_new_owner",
+            },
+            {
+                "kind": "owner_option_tradeoff_bonus",
+                "score": 100,
+                "rationale": "uncontested_best_option",
+            },
+            {
+                "kind": "governance_priority_bonus",
+                "score": 90,
+                "rationale": "governance_priority:GMP-001:10",
+            },
+            {
+                "kind": "runner_up_offset:code_touchpoint_base",
+                "score": -450,
+                "rationale": "code:touchpoint_cut",
+            },
+            {
+                "kind": "runner_up_offset:readiness_bonus",
+                "score": -250,
+                "rationale": "readiness:ready_structural",
+            },
+        ],
+    }
     ranked_repo_followups = workstreams_payload["repo_next_actions"]["ranked_followups"]
     assert ranked_repo_followups[0] == recommended_followup
     assert ranked_repo_followups[1]["followup_family"] == "governance_orphan_resolution"
@@ -2935,6 +2995,10 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
     )
     assert (
         "recommended_repo_followup_frontier_tradeoff: governance_orphan_resolution:governance:1250:governance_orphan:seed_new_owner+owner_option_tradeoff:100+governance_priority:GMP-001:10+lane_breadth:7+lane:governance_orphan_resolution :: runner_up=structural_cut:code:715:code:ready_structural+lane_breadth:1+lane:structural_cut :: margin=535:governance_orphan:seed_new_owner+owner_option_tradeoff:100+governance_priority:GMP-001:10+lane_breadth:7+lane:governance_orphan_resolution->code:ready_structural+lane_breadth:1+lane:structural_cut :: margin_components=best_followup_utility_gap:490:governance_orphan:seed_new_owner+owner_option_tradeoff:100+governance_priority:GMP-001:10->code:ready_structural | lane_breadth_bonus_gap:30:lane_breadth:7->lane_breadth:1 | lane_class_bonus_gap:15:lane_class:governance->lane_class:code"
+        in summary_output
+    )
+    assert (
+        "recommended_repo_followup_cross_class_tradeoff: governance_orphan_resolution:governance:diagnostic_resolution:unmatched_policy_signal:1190:governance_orphan:seed_new_owner+owner_option_tradeoff:100+governance_priority:GMP-001:10 :: runner_up=structural_cut:code:touchpoint_cut:PSF-007-TP-005:700:code:ready_structural :: margin=490:governance_orphan:seed_new_owner+owner_option_tradeoff:100+governance_priority:GMP-001:10->code:ready_structural :: margin_components=governance_orphan_base:900:governance_orphan | owner_resolution_bonus:100:seed_new_owner | owner_option_tradeoff_bonus:100:uncontested_best_option | governance_priority_bonus:90:governance_priority:GMP-001:10 | runner_up_offset:code_touchpoint_base:-450:code:touchpoint_cut | runner_up_offset:readiness_bonus:-250:readiness:ready_structural"
         in summary_output
     )
     assert "repo_followup_lanes:" in summary_output

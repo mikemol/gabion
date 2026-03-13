@@ -240,6 +240,9 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
     recommended_repo_followup_frontier_tradeoff = (
         workstreams.recommended_repo_followup_frontier_tradeoff()
     )
+    recommended_repo_followup_cross_class_tradeoff = (
+        workstreams.recommended_repo_followup_cross_class_tradeoff()
+    )
     repo_followup_lanes = workstreams.repo_followup_lanes()
     repo_diagnostic_lanes = workstreams.repo_diagnostic_lanes()
     print(f"root: {graph.root}")
@@ -794,6 +797,58 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
                 ),
                 margin_components=_format_score_components(
                     recommended_repo_followup_frontier_tradeoff.margin_components
+                ),
+            )
+        )
+    if recommended_repo_followup_cross_class_tradeoff is None:
+        print("recommended_repo_followup_cross_class_tradeoff: <none>")
+    else:
+        print(
+            "recommended_repo_followup_cross_class_tradeoff: {frontier_family}:{frontier_class}:{frontier_action}:{frontier_target}:{frontier_utility} :: runner_up={runner_up_family}:{runner_up_class}:{runner_up_action}:{runner_up_target}:{runner_up_utility} :: margin={margin} :: margin_components={margin_components}".format(
+                frontier_family=(
+                    recommended_repo_followup_cross_class_tradeoff.frontier_followup_family
+                ),
+                frontier_class=(
+                    recommended_repo_followup_cross_class_tradeoff.frontier_followup_class
+                ),
+                frontier_action=(
+                    recommended_repo_followup_cross_class_tradeoff.frontier_action_kind
+                ),
+                frontier_target=(
+                    recommended_repo_followup_cross_class_tradeoff.frontier_object_id
+                    or recommended_repo_followup_cross_class_tradeoff.frontier_diagnostic_code
+                    or recommended_repo_followup_cross_class_tradeoff.frontier_target_doc_id
+                    or "<none>"
+                ),
+                frontier_utility=(
+                    f"{recommended_repo_followup_cross_class_tradeoff.frontier_utility_score}:"
+                    f"{recommended_repo_followup_cross_class_tradeoff.frontier_utility_reason}"
+                ),
+                runner_up_family=(
+                    recommended_repo_followup_cross_class_tradeoff.runner_up_followup_family
+                ),
+                runner_up_class=(
+                    recommended_repo_followup_cross_class_tradeoff.runner_up_followup_class
+                ),
+                runner_up_action=(
+                    recommended_repo_followup_cross_class_tradeoff.runner_up_action_kind
+                ),
+                runner_up_target=(
+                    recommended_repo_followup_cross_class_tradeoff.runner_up_object_id
+                    or recommended_repo_followup_cross_class_tradeoff.runner_up_diagnostic_code
+                    or recommended_repo_followup_cross_class_tradeoff.runner_up_target_doc_id
+                    or "<none>"
+                ),
+                runner_up_utility=(
+                    f"{recommended_repo_followup_cross_class_tradeoff.runner_up_utility_score}:"
+                    f"{recommended_repo_followup_cross_class_tradeoff.runner_up_utility_reason}"
+                ),
+                margin=(
+                    f"{recommended_repo_followup_cross_class_tradeoff.margin_score}:"
+                    f"{recommended_repo_followup_cross_class_tradeoff.margin_reason}"
+                ),
+                margin_components=_format_score_components(
+                    recommended_repo_followup_cross_class_tradeoff.margin_components
                 ),
             )
         )
