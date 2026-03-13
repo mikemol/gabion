@@ -3,7 +3,7 @@ from __future__ import annotations
 import ast
 from collections import defaultdict, deque
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 import json
 from pathlib import Path
@@ -673,6 +673,10 @@ class InvariantRepoDiagnosticLane:
     count: int
     node_ids: tuple[str, ...]
     policy_ids: tuple[str, ...]
+    rel_path: str
+    qualname: str
+    line: int
+    column: int
 
     def as_payload(self) -> dict[str, object]:
         return {
@@ -683,6 +687,10 @@ class InvariantRepoDiagnosticLane:
             "count": self.count,
             "node_ids": list(self.node_ids),
             "policy_ids": list(self.policy_ids),
+            "rel_path": self.rel_path,
+            "qualname": self.qualname,
+            "line": self.line,
+            "column": self.column,
         }
 
 
@@ -1345,6 +1353,11 @@ class InvariantWorkstreamsProjection:
     generated_at_utc: str
     workstreams: ReplayableStream[InvariantWorkstreamProjection]
     diagnostics: tuple[InvariantGraphDiagnostic, ...] = ()
+    node_lookup: Mapping[str, InvariantGraphNode] = field(
+        default_factory=dict,
+        repr=False,
+        compare=False,
+    )
 
     def iter_workstreams(self) -> Iterator[InvariantWorkstreamProjection]:
         return iter(self.workstreams)
@@ -1375,43 +1388,79 @@ class InvariantWorkstreamsProjection:
 
     def ranked_repo_followups(self) -> tuple[InvariantRepoFollowupAction, ...]:
         actions: list[InvariantRepoFollowupAction] = []
-        diagnostic_summary = self.diagnostic_summary()
-        if diagnostic_summary.unmatched_policy_signal_count > 0:
-            actions.append(
-                InvariantRepoFollowupAction(
-                    followup_family="governance_orphan_resolution",
-                    action_kind="diagnostic_resolution",
-                    priority_rank=0,
-                    object_id=None,
-                    owner_object_id=None,
-                    diagnostic_code="unmatched_policy_signal",
-                    target_doc_id=None,
-                    title="resolve unmatched policy signal ownership",
-                    blocker_class="policy_orphan",
-                    readiness_class=None,
-                    alignment_status=None,
-                    recommended_action="attribute_policy_signals_to_owned_workstreams",
-                    count=diagnostic_summary.unmatched_policy_signal_count,
+        for lane in self.repo_diagnostic_lanes():
+            if lane.diagnostic_code == "unmatched_policy_signal":
+                title = f"resolve {lane.title} ownership"
+                if lane.rel_path:
+                    title = (
+                        f"{title} at {lane.rel_path}"
+                        + (f"::{lane.qualname}" if lane.qualname else "")
+                    )
+                actions.append(
+                    InvariantRepoFollowupAction(
+                        followup_family="governance_orphan_resolution",
+                        action_kind="diagnostic_resolution",
+                        priority_rank=0,
+                        object_id=None,
+                        owner_object_id=None,
+                        diagnostic_code=lane.diagnostic_code,
+                        target_doc_id=None,
+                        title=title,
+                        blocker_class="policy_orphan",
+                        readiness_class=None,
+                        alignment_status=None,
+                        recommended_action=lane.recommended_action,
+                        count=lane.count,
+                    )
                 )
-            )
-        if diagnostic_summary.unresolved_blocking_dependency_count > 0:
-            actions.append(
-                InvariantRepoFollowupAction(
-                    followup_family="dependency_resolution",
-                    action_kind="diagnostic_resolution",
-                    priority_rank=10,
-                    object_id=None,
-                    owner_object_id=None,
-                    diagnostic_code="unresolved_blocking_dependency",
-                    target_doc_id=None,
-                    title="resolve unresolved blocking dependencies",
-                    blocker_class="dependency_orphan",
-                    readiness_class=None,
-                    alignment_status=None,
-                    recommended_action="resolve_or_reassign_blocking_dependencies",
-                    count=diagnostic_summary.unresolved_blocking_dependency_count,
+            elif lane.diagnostic_code == "unresolved_blocking_dependency":
+                title = "resolve unresolved blocking dependencies"
+                if lane.rel_path:
+                    title = (
+                        f"{title} at {lane.rel_path}"
+                        + (f"::{lane.qualname}" if lane.qualname else "")
+                    )
+                actions.append(
+                    InvariantRepoFollowupAction(
+                        followup_family="dependency_resolution",
+                        action_kind="diagnostic_resolution",
+                        priority_rank=10,
+                        object_id=None,
+                        owner_object_id=None,
+                        diagnostic_code=lane.diagnostic_code,
+                        target_doc_id=None,
+                        title=title,
+                        blocker_class="dependency_orphan",
+                        readiness_class=None,
+                        alignment_status=None,
+                        recommended_action=lane.recommended_action,
+                        count=lane.count,
+                    )
                 )
-            )
+            else:
+                title = lane.title
+                if lane.rel_path:
+                    title = (
+                        f"{title} at {lane.rel_path}"
+                        + (f"::{lane.qualname}" if lane.qualname else "")
+                    )
+                actions.append(
+                    InvariantRepoFollowupAction(
+                        followup_family="diagnostic_backlog",
+                        action_kind="diagnostic_resolution",
+                        priority_rank=20,
+                        object_id=None,
+                        owner_object_id=None,
+                        diagnostic_code=lane.diagnostic_code,
+                        target_doc_id=None,
+                        title=title,
+                        blocker_class="diagnostic_backlog",
+                        readiness_class=None,
+                        alignment_status=None,
+                        recommended_action=lane.recommended_action,
+                        count=lane.count,
+                    )
+                )
         for workstream in self.iter_workstreams():
             for followup in workstream.ranked_followups():
                 actions.append(
@@ -1436,8 +1485,9 @@ class InvariantWorkstreamsProjection:
                 actions,
                 key=lambda item: (
                     item.priority_rank,
-                    item.count,
+                    -item.count,
                     item.followup_family,
+                    item.title,
                     item.object_id or "",
                     item.target_doc_id or "",
                     item.diagnostic_code or "",
@@ -1510,12 +1560,17 @@ class InvariantWorkstreamsProjection:
 
     def repo_diagnostic_lanes(self) -> tuple[InvariantRepoDiagnosticLane, ...]:
         grouped: defaultdict[
-            tuple[str, str, str, str],
+            tuple[str, str, str, str, str, str],
             list[InvariantGraphDiagnostic],
         ] = defaultdict(list)
         for diagnostic in self.diagnostics:
+            node = self.node_lookup.get(diagnostic.node_id)
+            rel_path = "" if node is None else node.rel_path
+            qualname = "" if node is None else node.qualname
             if diagnostic.code == "unmatched_policy_signal":
-                title = diagnostic.message.split(" did not resolve", 1)[0].strip() or diagnostic.code
+                title = "" if node is None else node.title
+                if not title:
+                    title = diagnostic.message.split(" did not resolve", 1)[0].strip() or diagnostic.code
                 recommended_action = "attribute_policy_signals_to_owned_workstreams"
             elif diagnostic.code == "unresolved_blocking_dependency":
                 title = diagnostic.code
@@ -1529,18 +1584,39 @@ class InvariantWorkstreamsProjection:
                     diagnostic.severity,
                     title,
                     recommended_action,
+                    rel_path,
+                    qualname,
                 )
             ].append(diagnostic)
         lanes = []
-        for (diagnostic_code, severity, title, recommended_action), diagnostics in grouped.items():
-            policy_ids = (
-                (title.split(":", 1)[1],)
-                if diagnostic_code == "unmatched_policy_signal" and ":" in title
-                else ()
+        for (
+            diagnostic_code,
+            severity,
+            title,
+            recommended_action,
+            rel_path,
+            qualname,
+        ), diagnostics in grouped.items():
+            node_ids = tuple(_sorted([item.node_id for item in diagnostics]))
+            nodes = [
+                self.node_lookup[item.node_id]
+                for item in diagnostics
+                if item.node_id in self.node_lookup
+            ]
+            policy_ids = tuple(
+                _sorted(
+                    list(
+                        {
+                            policy_id
+                            for node in nodes
+                            for policy_id in node.policy_ids
+                            if policy_id
+                        }
+                    )
+                )
             )
-            node_ids = tuple(
-                _sorted([item.node_id for item in diagnostics])
-            )
+            line = min((node.line for node in nodes if node.line > 0), default=0)
+            column = min((node.column for node in nodes if node.column > 0), default=0)
             lanes.append(
                 InvariantRepoDiagnosticLane(
                     diagnostic_code=diagnostic_code,
@@ -1550,6 +1626,10 @@ class InvariantWorkstreamsProjection:
                     count=len(diagnostics),
                     node_ids=node_ids,
                     policy_ids=policy_ids,
+                    rel_path=rel_path,
+                    qualname=qualname,
+                    line=line,
+                    column=column,
                 )
             )
         return tuple(
@@ -1558,6 +1638,9 @@ class InvariantWorkstreamsProjection:
                 key=lambda item: (
                     item.severity,
                     item.diagnostic_code,
+                    -item.count,
+                    item.rel_path,
+                    item.qualname,
                     item.title,
                 ),
             )
@@ -4673,8 +4756,12 @@ def _add_policy_signal_node(
     target_node_id: str,
     count: int,
     message: str,
+    rel_path: str = "",
+    qualname: str = "",
+    line: int = 0,
+    column: int = 0,
 ) -> None:
-    target_suffix = target_node_id or "orphan"
+    target_suffix = target_node_id or f"orphan:{rel_path}:{qualname}"
     node_id = f"policy_signal:{stable_hash(domain, rule_id, target_suffix)}"
     title = f"{domain}:{rule_id}"
     node = _synthetic_node(
@@ -4686,6 +4773,10 @@ def _add_policy_signal_node(
         reasoning_summary=f"{count} aggregated violation(s): {message}",
         reasoning_control=f"policy_signal.{domain}.{rule_id}",
         node_kind="policy_signal",
+        rel_path=rel_path,
+        qualname=qualname,
+        line=line,
+        column=column,
     )
     _add_node(state, node, replace=True)
     _link_node_refs(state, node)
@@ -4699,7 +4790,11 @@ def _add_policy_signal_node(
                 code="unmatched_policy_signal",
                 node_id=node_id,
                 raw_dependency="",
-                message=f"{title} did not resolve to a graph touchsite or work item.",
+                message=(
+                    f"{title} at {rel_path}::{qualname} did not resolve to a graph touchsite or work item."
+                    if rel_path
+                    else f"{title} did not resolve to a graph touchsite or work item."
+                ),
             )
         )
 
@@ -4729,19 +4824,54 @@ def _join_policy_signals(state: _InvariantGraphBuildState) -> None:
                 index=index,
                 violation=raw_violation,
             )
+            rel_path = _normalize_rel_path(state.root, raw_violation.get("path"))
+            qualname = str(raw_violation.get("qualname", "")).strip()
             aggregate_key = (domain, rule_id, target_node_id)
             entry = aggregates.setdefault(
                 aggregate_key,
                 {
                     "count": 0,
                     "message": str(raw_violation.get("message", "")).strip(),
+                    "source_counts": defaultdict(int),
+                    "source_lines": {},
+                    "source_columns": {},
                 },
             )
             entry["count"] = int(entry["count"]) + 1
+            source_key = (rel_path, qualname)
+            cast(defaultdict[tuple[str, str], int], entry["source_counts"])[source_key] += 1
+            line = int(raw_violation.get("line", 0) or 0)
+            column = int(raw_violation.get("column", 0) or 0)
+            existing_line = cast(dict[tuple[str, str], int], entry["source_lines"]).get(
+                source_key,
+                0,
+            )
+            existing_column = cast(
+                dict[tuple[str, str], int],
+                entry["source_columns"],
+            ).get(source_key, 0)
+            cast(dict[tuple[str, str], int], entry["source_lines"])[source_key] = (
+                min(existing_line, line) if existing_line > 0 and line > 0 else existing_line or line
+            )
+            cast(dict[tuple[str, str], int], entry["source_columns"])[source_key] = (
+                min(existing_column, column)
+                if existing_column > 0 and column > 0
+                else existing_column or column
+            )
     for (domain, rule_id, target_node_id), data in _sorted(
         list(aggregates.items()),
         key=lambda item: item[0],
     ):
+        source_counts = cast(defaultdict[tuple[str, str], int], data["source_counts"])
+        source_lines = cast(dict[tuple[str, str], int], data["source_lines"])
+        source_columns = cast(dict[tuple[str, str], int], data["source_columns"])
+        dominant_source = ("", "")
+        if source_counts:
+            dominant_source = _sorted(
+                list(source_counts),
+                key=lambda item: (-source_counts[item], item[0], item[1]),
+            )[0]
+        rel_path, qualname = dominant_source
         _add_policy_signal_node(
             state,
             domain=domain,
@@ -4749,6 +4879,10 @@ def _join_policy_signals(state: _InvariantGraphBuildState) -> None:
             target_node_id=target_node_id,
             count=int(data["count"]),
             message=str(data["message"]),
+            rel_path=rel_path,
+            qualname=qualname,
+            line=source_lines.get(dominant_source, 0),
+            column=source_columns.get(dominant_source, 0),
         )
 
 
@@ -5300,6 +5434,7 @@ def build_invariant_workstreams(
         root=graph.root,
         generated_at_utc=generated_at_utc,
         diagnostics=graph.diagnostics,
+        node_lookup=node_by_id,
         workstreams=_stream_from_iterable(
             lambda: (
                 _workstream_projection(root_object_id)

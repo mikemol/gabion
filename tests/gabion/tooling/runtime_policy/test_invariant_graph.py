@@ -156,7 +156,8 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
             }
         ],
     }
-    assert workstreams_payload["repo_next_actions"]["recommended_followup"] == {
+    recommended_followup = workstreams_payload["repo_next_actions"]["recommended_followup"]
+    assert recommended_followup == {
         "followup_family": "governance_orphan_resolution",
         "action_kind": "diagnostic_resolution",
         "priority_rank": 0,
@@ -164,12 +165,12 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         "owner_object_id": None,
         "diagnostic_code": "unmatched_policy_signal",
         "target_doc_id": None,
-        "title": "resolve unmatched policy signal ownership",
+        "title": "resolve grade:GMP-001 ownership at src/gabion/analysis/dataflow/io/dataflow_reporting.py::gabion.analysis.dataflow.io.dataflow_reporting._append_report_tail_sections",
         "blocker_class": "policy_orphan",
         "readiness_class": None,
         "alignment_status": None,
         "recommended_action": "attribute_policy_signals_to_owned_workstreams",
-        "count": 7,
+        "count": 1,
     }
     assert workstreams_payload["repo_next_actions"]["dominant_followup_class"] == (
         "governance"
@@ -192,21 +193,9 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         "recommended_action": None,
         "count": 1,
     }
-    assert workstreams_payload["repo_next_actions"]["recommended_human_followup"] == {
-        "followup_family": "governance_orphan_resolution",
-        "action_kind": "diagnostic_resolution",
-        "priority_rank": 0,
-        "object_id": None,
-        "owner_object_id": None,
-        "diagnostic_code": "unmatched_policy_signal",
-        "target_doc_id": None,
-        "title": "resolve unmatched policy signal ownership",
-        "blocker_class": "policy_orphan",
-        "readiness_class": None,
-        "alignment_status": None,
-        "recommended_action": "attribute_policy_signals_to_owned_workstreams",
-        "count": 7,
-    }
+    assert workstreams_payload["repo_next_actions"]["recommended_human_followup"] == (
+        recommended_followup
+    )
     ranked_repo_followups = workstreams_payload["repo_next_actions"]["ranked_followups"]
     assert ranked_repo_followups[0] == {
         "followup_family": "governance_orphan_resolution",
@@ -216,28 +205,34 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         "owner_object_id": None,
         "diagnostic_code": "unmatched_policy_signal",
         "target_doc_id": None,
-        "title": "resolve unmatched policy signal ownership",
+        "title": "resolve grade:GMP-001 ownership at src/gabion/analysis/dataflow/io/dataflow_reporting.py::gabion.analysis.dataflow.io.dataflow_reporting._append_report_tail_sections",
         "blocker_class": "policy_orphan",
         "readiness_class": None,
         "alignment_status": None,
         "recommended_action": "attribute_policy_signals_to_owned_workstreams",
-        "count": 7,
-    }
-    assert ranked_repo_followups[1] == {
-        "followup_family": "structural_cut",
-        "action_kind": "touchpoint_cut",
-        "priority_rank": 100,
-        "object_id": "PSF-007-TP-005",
-        "owner_object_id": "PSF-007",
-        "diagnostic_code": None,
-        "target_doc_id": None,
-        "title": "projection_exec_plan.py planning surfaces",
-        "blocker_class": "ready_structural",
-        "readiness_class": "ready_structural",
-        "alignment_status": None,
-        "recommended_action": None,
         "count": 1,
     }
+    assert ranked_repo_followups[1]["followup_family"] == "governance_orphan_resolution"
+    assert ranked_repo_followups[1]["diagnostic_code"] == "unmatched_policy_signal"
+    assert ranked_repo_followups[1]["title"].startswith("resolve grade:GMP-")
+    assert any(
+        item == {
+            "followup_family": "structural_cut",
+            "action_kind": "touchpoint_cut",
+            "priority_rank": 100,
+            "object_id": "PSF-007-TP-005",
+            "owner_object_id": "PSF-007",
+            "diagnostic_code": None,
+            "target_doc_id": None,
+            "title": "projection_exec_plan.py planning surfaces",
+            "blocker_class": "ready_structural",
+            "readiness_class": "ready_structural",
+            "alignment_status": None,
+            "recommended_action": None,
+            "count": 1,
+        }
+        for item in ranked_repo_followups
+    )
     assert any(
         item["followup_family"] == "documentation_alignment"
         and item["target_doc_id"] == "projection_semantic_fragment_ledger"
@@ -248,7 +243,7 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
     assert repo_followup_lanes[0] == {
         "followup_family": "governance_orphan_resolution",
         "followup_class": "governance",
-        "action_count": 1,
+        "action_count": 7,
         "best_followup": {
             "followup_family": "governance_orphan_resolution",
             "action_kind": "diagnostic_resolution",
@@ -257,12 +252,12 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
             "owner_object_id": None,
             "diagnostic_code": "unmatched_policy_signal",
             "target_doc_id": None,
-            "title": "resolve unmatched policy signal ownership",
+            "title": "resolve grade:GMP-001 ownership at src/gabion/analysis/dataflow/io/dataflow_reporting.py::gabion.analysis.dataflow.io.dataflow_reporting._append_report_tail_sections",
             "blocker_class": "policy_orphan",
             "readiness_class": None,
             "alignment_status": None,
             "recommended_action": "attribute_policy_signals_to_owned_workstreams",
-            "count": 7,
+            "count": 1,
         },
     }
     assert repo_followup_lanes[1]["followup_family"] == "structural_cut"
@@ -274,17 +269,19 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
     )
     repo_diagnostic_lanes = workstreams_payload["repo_next_actions"]["diagnostic_lanes"]
     assert len(repo_diagnostic_lanes) == 7
-    assert repo_diagnostic_lanes[0] == {
-        "diagnostic_code": "unmatched_policy_signal",
-        "severity": "warning",
-        "title": "grade:GMP-001",
-        "recommended_action": "attribute_policy_signals_to_owned_workstreams",
-        "count": 1,
-        "node_ids": [
-            "policy_signal:b44a09c4612a0f70ee325fc584b3eff24e1db63f042e393bfe2669843ff7745a"
-        ],
-        "policy_ids": ["GMP-001"],
-    }
+    assert repo_diagnostic_lanes[0]["diagnostic_code"] == "unmatched_policy_signal"
+    assert repo_diagnostic_lanes[0]["severity"] == "warning"
+    assert repo_diagnostic_lanes[0]["title"] == "grade:GMP-001"
+    assert repo_diagnostic_lanes[0]["recommended_action"] == (
+        "attribute_policy_signals_to_owned_workstreams"
+    )
+    assert repo_diagnostic_lanes[0]["count"] == 1
+    assert repo_diagnostic_lanes[0]["policy_ids"] == ["GMP-001"]
+    assert repo_diagnostic_lanes[0]["rel_path"].startswith("src/gabion/")
+    assert repo_diagnostic_lanes[0]["qualname"].startswith("gabion.")
+    assert repo_diagnostic_lanes[0]["line"] > 0
+    assert repo_diagnostic_lanes[0]["column"] > 0
+    assert len(repo_diagnostic_lanes[0]["node_ids"]) == 1
     assert repo_diagnostic_lanes[-1]["title"] == "grade:GMP-007"
     assert all(
         lane["recommended_action"] == "attribute_policy_signals_to_owned_workstreams"
@@ -1511,7 +1508,7 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
     assert "next_human_followup_family: governance_orphan_resolution" in summary_output
     assert "diagnostic_summary: unmatched_policy_signals=7 :: unresolved_dependencies=0" in summary_output
     assert (
-        "recommended_repo_followup: governance_orphan_resolution :: diagnostic=unmatched_policy_signal :: count=7 :: action=attribute_policy_signals_to_owned_workstreams"
+        "recommended_repo_followup: governance_orphan_resolution :: diagnostic=unmatched_policy_signal :: count=1 :: action=attribute_policy_signals_to_owned_workstreams"
         in summary_output
     )
     assert (
@@ -1519,17 +1516,17 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
         in summary_output
     )
     assert (
-        "recommended_repo_human_followup: governance_orphan_resolution :: diagnostic=unmatched_policy_signal :: count=7 :: action=attribute_policy_signals_to_owned_workstreams"
+        "recommended_repo_human_followup: governance_orphan_resolution :: diagnostic=unmatched_policy_signal :: count=1 :: action=attribute_policy_signals_to_owned_workstreams"
         in summary_output
     )
     assert "repo_followup_lanes:" in summary_output
     assert (
-        "- governance_orphan_resolution :: class=governance :: actions=1 :: best=diagnostic_resolution::unmatched_policy_signal"
+        "- governance_orphan_resolution :: class=governance :: actions=7 :: best=diagnostic_resolution::unmatched_policy_signal"
         in summary_output
     )
     assert "repo_diagnostic_lanes:" in summary_output
     assert (
-        "- grade:GMP-001 :: code=unmatched_policy_signal :: severity=warning :: count=1 :: policy_ids=GMP-001 :: action=attribute_policy_signals_to_owned_workstreams"
+        "- grade:GMP-001 :: code=unmatched_policy_signal :: severity=warning :: count=1 :: source=src/gabion/analysis/dataflow/io/dataflow_reporting.py::gabion.analysis.dataflow.io.dataflow_reporting._append_report_tail_sections :: policy_ids=GMP-001 :: action=attribute_policy_signals_to_owned_workstreams"
         in summary_output
     )
 

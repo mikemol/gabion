@@ -236,11 +236,16 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
     for lane in repo_diagnostic_lanes:
         policy_ids = ", ".join(lane.policy_ids) if lane.policy_ids else "<none>"
         print(
-            "- {title} :: code={code} :: severity={severity} :: count={count} :: policy_ids={policy_ids} :: action={action}".format(
+            "- {title} :: code={code} :: severity={severity} :: count={count} :: source={source} :: policy_ids={policy_ids} :: action={action}".format(
                 title=lane.title,
                 code=lane.diagnostic_code,
                 severity=lane.severity,
                 count=lane.count,
+                source=(
+                    f"{lane.rel_path}::{lane.qualname}"
+                    if lane.rel_path
+                    else "<none>"
+                ),
                 policy_ids=policy_ids,
                 action=lane.recommended_action,
             )
