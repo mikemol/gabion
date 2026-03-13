@@ -158,9 +158,10 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
         print("recommended_repo_followup: <none>")
     elif recommended_repo_followup.diagnostic_code is not None:
         print(
-            "recommended_repo_followup: {family} :: diagnostic={diagnostic} :: count={count} :: action={action}".format(
+            "recommended_repo_followup: {family} :: diagnostic={diagnostic} :: owner={owner} :: count={count} :: action={action}".format(
                 family=recommended_repo_followup.followup_family,
                 diagnostic=recommended_repo_followup.diagnostic_code,
+                owner=recommended_repo_followup.owner_object_id or "<none>",
                 count=recommended_repo_followup.count,
                 action=recommended_repo_followup.recommended_action or "none",
             )
@@ -203,9 +204,10 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
         print("recommended_repo_human_followup: <none>")
     elif recommended_repo_human_followup.diagnostic_code is not None:
         print(
-            "recommended_repo_human_followup: {family} :: diagnostic={diagnostic} :: count={count} :: action={action}".format(
+            "recommended_repo_human_followup: {family} :: diagnostic={diagnostic} :: owner={owner} :: count={count} :: action={action}".format(
                 family=recommended_repo_human_followup.followup_family,
                 diagnostic=recommended_repo_human_followup.diagnostic_code,
+                owner=recommended_repo_human_followup.owner_object_id or "<none>",
                 count=recommended_repo_human_followup.count,
                 action=recommended_repo_human_followup.recommended_action or "none",
             )
@@ -236,7 +238,7 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
     for lane in repo_diagnostic_lanes:
         policy_ids = ", ".join(lane.policy_ids) if lane.policy_ids else "<none>"
         print(
-            "- {title} :: code={code} :: severity={severity} :: count={count} :: source={source} :: policy_ids={policy_ids} :: action={action}".format(
+            "- {title} :: code={code} :: severity={severity} :: count={count} :: source={source} :: policy_ids={policy_ids} :: owner_status={owner_status} :: owner={owner} :: action={action}".format(
                 title=lane.title,
                 code=lane.diagnostic_code,
                 severity=lane.severity,
@@ -247,6 +249,8 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
                     else "<none>"
                 ),
                 policy_ids=policy_ids,
+                owner_status=lane.candidate_owner_status,
+                owner=lane.candidate_owner_object_id or "<none>",
                 action=lane.recommended_action,
             )
         )

@@ -677,6 +677,9 @@ class InvariantRepoDiagnosticLane:
     qualname: str
     line: int
     column: int
+    candidate_owner_status: str
+    candidate_owner_object_id: str | None
+    candidate_owner_object_ids: tuple[str, ...]
 
     def as_payload(self) -> dict[str, object]:
         return {
@@ -691,6 +694,9 @@ class InvariantRepoDiagnosticLane:
             "qualname": self.qualname,
             "line": self.line,
             "column": self.column,
+            "candidate_owner_status": self.candidate_owner_status,
+            "candidate_owner_object_id": self.candidate_owner_object_id,
+            "candidate_owner_object_ids": list(self.candidate_owner_object_ids),
         }
 
 
@@ -1386,6 +1392,67 @@ class InvariantWorkstreamsProjection:
             buckets=buckets,
         )
 
+    def _repo_diagnostic_candidate_owner_ids(
+        self,
+        *,
+        rel_path: str,
+        exact_only: bool = False,
+    ) -> tuple[str, ...]:
+        if not rel_path:
+            return ()
+        exact_matches: set[str] = set()
+        family_matches: set[str] = set()
+        diagnostic_parent = Path(rel_path).parent.as_posix()
+        for workstream in self.iter_workstreams():
+            exact_match = False
+            family_match = False
+            for touchpoint in workstream.iter_touchpoints():
+                if touchpoint.rel_path:
+                    if touchpoint.rel_path == rel_path:
+                        exact_match = True
+                    elif Path(touchpoint.rel_path).parent.as_posix() == diagnostic_parent:
+                        family_match = True
+                for touchsite in touchpoint.iter_touchsites():
+                    if touchsite.rel_path:
+                        if touchsite.rel_path == rel_path:
+                            exact_match = True
+                        elif (
+                            Path(touchsite.rel_path).parent.as_posix()
+                            == diagnostic_parent
+                        ):
+                            family_match = True
+            if exact_match:
+                exact_matches.add(workstream.object_id.wire())
+            elif family_match:
+                family_matches.add(workstream.object_id.wire())
+        if exact_matches:
+            return tuple(_sorted(list(exact_matches)))
+        if exact_only:
+            return ()
+        if family_matches:
+            return tuple(_sorted(list(family_matches)))
+        return ()
+
+    def _repo_diagnostic_candidate_owner_status(
+        self,
+        *,
+        rel_path: str,
+        candidate_owner_object_ids: tuple[str, ...],
+    ) -> str:
+        if not candidate_owner_object_ids:
+            return "unassigned"
+        exact_owner_object_ids = self._repo_diagnostic_candidate_owner_ids(
+            rel_path=rel_path,
+            exact_only=True,
+        )
+        if exact_owner_object_ids:
+            if len(exact_owner_object_ids) == 1:
+                return "exact_path_owner"
+            return "ambiguous_exact_path_owner"
+        if len(candidate_owner_object_ids) == 1:
+            return "path_family_owner"
+        return "ambiguous_path_family_owner"
+
     def ranked_repo_followups(self) -> tuple[InvariantRepoFollowupAction, ...]:
         actions: list[InvariantRepoFollowupAction] = []
         for lane in self.repo_diagnostic_lanes():
@@ -1402,7 +1469,7 @@ class InvariantWorkstreamsProjection:
                         action_kind="diagnostic_resolution",
                         priority_rank=0,
                         object_id=None,
-                        owner_object_id=None,
+                        owner_object_id=lane.candidate_owner_object_id,
                         diagnostic_code=lane.diagnostic_code,
                         target_doc_id=None,
                         title=title,
@@ -1617,6 +1684,13 @@ class InvariantWorkstreamsProjection:
             )
             line = min((node.line for node in nodes if node.line > 0), default=0)
             column = min((node.column for node in nodes if node.column > 0), default=0)
+            candidate_owner_object_ids = self._repo_diagnostic_candidate_owner_ids(
+                rel_path=rel_path
+            )
+            candidate_owner_status = self._repo_diagnostic_candidate_owner_status(
+                rel_path=rel_path,
+                candidate_owner_object_ids=candidate_owner_object_ids,
+            )
             lanes.append(
                 InvariantRepoDiagnosticLane(
                     diagnostic_code=diagnostic_code,
@@ -1630,6 +1704,13 @@ class InvariantWorkstreamsProjection:
                     qualname=qualname,
                     line=line,
                     column=column,
+                    candidate_owner_status=candidate_owner_status,
+                    candidate_owner_object_id=(
+                        candidate_owner_object_ids[0]
+                        if len(candidate_owner_object_ids) == 1
+                        else None
+                    ),
+                    candidate_owner_object_ids=candidate_owner_object_ids,
                 )
             )
         return tuple(

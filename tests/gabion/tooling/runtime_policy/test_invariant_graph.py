@@ -281,6 +281,9 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
     assert repo_diagnostic_lanes[0]["qualname"].startswith("gabion.")
     assert repo_diagnostic_lanes[0]["line"] > 0
     assert repo_diagnostic_lanes[0]["column"] > 0
+    assert repo_diagnostic_lanes[0]["candidate_owner_status"] == "unassigned"
+    assert repo_diagnostic_lanes[0]["candidate_owner_object_id"] is None
+    assert repo_diagnostic_lanes[0]["candidate_owner_object_ids"] == []
     assert len(repo_diagnostic_lanes[0]["node_ids"]) == 1
     assert repo_diagnostic_lanes[-1]["title"] == "grade:GMP-007"
     assert all(
@@ -681,6 +684,155 @@ def test_workstream_projection_surfaces_policy_and_diagnostic_remediation_famili
     assert payload["next_actions"]["remediation_lanes"][1]["best_cut"]["object_id"] == (
         "WS-SYNTH-TP-POLICY"
     )
+
+
+def test_repo_diagnostic_lane_attributes_candidate_owner_from_exact_path() -> None:
+    space = PolicyQueueIdentitySpace()
+    workstream_id = space.workstream_id("WS-OWNER")
+    subqueue_id = space.subqueue_id("WS-OWNER-SQ-001")
+    touchpoint_id = space.touchpoint_id("WS-OWNER-TP-001")
+    touchsite = invariant_graph.InvariantTouchsiteProjection(
+        object_id=space.touchsite_id("WS-OWNER-TS-001"),
+        touchpoint_id=touchpoint_id,
+        subqueue_id=subqueue_id,
+        title="owner touchsite",
+        status="in_progress",
+        rel_path="src/gabion/sample_owner.py",
+        qualname="owner_touchsite",
+        boundary_name="owner_touchsite",
+        line=12,
+        column=1,
+        node_kind="marker_callsite",
+        site_identity=space.site_ref_id("site.owner"),
+        structural_identity=space.structural_ref_id("struct.owner"),
+        seam_class="surviving_carrier_seam",
+        touchpoint_marker_identity="tp.owner",
+        touchpoint_structural_identity=space.structural_ref_id("tp.struct.owner"),
+        subqueue_marker_identity="sq.owner",
+        subqueue_structural_identity=space.structural_ref_id("sq.struct.owner"),
+        policy_signal_count=0,
+        coverage_count=0,
+        diagnostic_count=0,
+        object_ids=(),
+    )
+    workstream = invariant_graph.InvariantWorkstreamProjection(
+        object_id=workstream_id,
+        title="owner workstream",
+        status="in_progress",
+        site_identity=space.site_ref_id("ws.owner.site"),
+        structural_identity=space.structural_ref_id("ws.owner.struct"),
+        marker_identity="ws.owner.marker",
+        reasoning_summary="owner",
+        reasoning_control="owner.control",
+        blocking_dependencies=(),
+        object_ids=(),
+        doc_ids=(),
+        policy_ids=(),
+        touchsite_count=1,
+        collapsible_touchsite_count=0,
+        surviving_touchsite_count=1,
+        policy_signal_count=0,
+        coverage_count=0,
+        diagnostic_count=0,
+        subqueues=_stream_from_items(
+            (
+                invariant_graph.InvariantSubqueueProjection(
+                    object_id=subqueue_id,
+                    title="owner subqueue",
+                    status="in_progress",
+                    site_identity=space.site_ref_id("sq.owner.site"),
+                    structural_identity=space.structural_ref_id("sq.owner.struct"),
+                    marker_identity="sq.owner.marker",
+                    reasoning_summary="owner",
+                    reasoning_control="owner",
+                    blocking_dependencies=(),
+                    object_ids=(),
+                    touchpoint_ids=(touchpoint_id,),
+                    touchsite_count=1,
+                    collapsible_touchsite_count=0,
+                    surviving_touchsite_count=1,
+                    policy_signal_count=0,
+                    coverage_count=0,
+                    diagnostic_count=0,
+                ),
+            )
+        ),
+        touchpoints=_stream_from_items(
+            (
+                invariant_graph.InvariantTouchpointProjection(
+                    object_id=touchpoint_id,
+                    subqueue_id=subqueue_id,
+                    title="owner touchpoint",
+                    status="in_progress",
+                    rel_path="src/gabion/sample_owner.py",
+                    site_identity=space.site_ref_id("tp.owner.site"),
+                    structural_identity=space.structural_ref_id("tp.owner.struct"),
+                    marker_identity="tp.owner.marker",
+                    reasoning_summary="owner",
+                    reasoning_control="owner",
+                    blocking_dependencies=(),
+                    object_ids=(),
+                    touchsite_count=1,
+                    collapsible_touchsite_count=0,
+                    surviving_touchsite_count=1,
+                    policy_signal_count=0,
+                    coverage_count=0,
+                    diagnostic_count=0,
+                    touchsites=_stream_from_items((touchsite,)),
+                ),
+            )
+        ),
+    )
+    node = invariant_graph.InvariantGraphNode(
+        node_id="policy_signal:owner",
+        node_kind="policy_signal",
+        title="grade:GMP-SYNTH",
+        marker_name="never",
+        marker_kind="policy_signal",
+        marker_id="policy-signal-owner",
+        site_identity="site.synthetic.owner",
+        structural_identity="struct.synthetic.owner",
+        object_ids=(),
+        doc_ids=(),
+        policy_ids=("GMP-SYNTH",),
+        invariant_ids=(),
+        reasoning_summary="owner signal",
+        reasoning_control="owner.signal",
+        blocking_dependencies=(),
+        rel_path="src/gabion/sample_owner.py",
+        qualname="gabion.sample_owner.emit_signal",
+        line=12,
+        column=3,
+        ast_node_kind="Call",
+        seam_class="policy_signal",
+        source_marker_node_id="policy_signal:owner",
+        status_hint="warning",
+    )
+    diagnostics = (
+        invariant_graph.InvariantGraphDiagnostic(
+            diagnostic_id="diag-owner",
+            severity="warning",
+            code="unmatched_policy_signal",
+            node_id=node.node_id,
+            raw_dependency="",
+            message="grade:GMP-SYNTH did not resolve to an owned workstream",
+        ),
+    )
+    projection = invariant_graph.InvariantWorkstreamsProjection(
+        root=str(REPO_ROOT),
+        generated_at_utc="2026-03-13T00:00:00+00:00",
+        workstreams=_stream_from_items((workstream,)),
+        diagnostics=diagnostics,
+        node_lookup={node.node_id: node},
+    )
+
+    lane = projection.repo_diagnostic_lanes()[0]
+    assert lane.candidate_owner_status == "exact_path_owner"
+    assert lane.candidate_owner_object_id == "WS-OWNER"
+    assert lane.candidate_owner_object_ids == ("WS-OWNER",)
+    followup = projection.recommended_repo_followup()
+    assert followup is not None
+    assert followup.owner_object_id == "WS-OWNER"
 
 
 def test_runtime_invariant_graph_cli_build_summary_trace_and_blockers(
@@ -1508,7 +1660,7 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
     assert "next_human_followup_family: governance_orphan_resolution" in summary_output
     assert "diagnostic_summary: unmatched_policy_signals=7 :: unresolved_dependencies=0" in summary_output
     assert (
-        "recommended_repo_followup: governance_orphan_resolution :: diagnostic=unmatched_policy_signal :: count=1 :: action=attribute_policy_signals_to_owned_workstreams"
+        "recommended_repo_followup: governance_orphan_resolution :: diagnostic=unmatched_policy_signal :: owner=<none> :: count=1 :: action=attribute_policy_signals_to_owned_workstreams"
         in summary_output
     )
     assert (
@@ -1516,7 +1668,7 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
         in summary_output
     )
     assert (
-        "recommended_repo_human_followup: governance_orphan_resolution :: diagnostic=unmatched_policy_signal :: count=1 :: action=attribute_policy_signals_to_owned_workstreams"
+        "recommended_repo_human_followup: governance_orphan_resolution :: diagnostic=unmatched_policy_signal :: owner=<none> :: count=1 :: action=attribute_policy_signals_to_owned_workstreams"
         in summary_output
     )
     assert "repo_followup_lanes:" in summary_output
@@ -1526,7 +1678,7 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
     )
     assert "repo_diagnostic_lanes:" in summary_output
     assert (
-        "- grade:GMP-001 :: code=unmatched_policy_signal :: severity=warning :: count=1 :: source=src/gabion/analysis/dataflow/io/dataflow_reporting.py::gabion.analysis.dataflow.io.dataflow_reporting._append_report_tail_sections :: policy_ids=GMP-001 :: action=attribute_policy_signals_to_owned_workstreams"
+        "- grade:GMP-001 :: code=unmatched_policy_signal :: severity=warning :: count=1 :: source=src/gabion/analysis/dataflow/io/dataflow_reporting.py::gabion.analysis.dataflow.io.dataflow_reporting._append_report_tail_sections :: policy_ids=GMP-001 :: owner_status=unassigned :: owner=<none> :: action=attribute_policy_signals_to_owned_workstreams"
         in summary_output
     )
 
