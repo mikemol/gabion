@@ -1,5 +1,5 @@
 ---
-doc_revision: 121
+doc_revision: 122
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -641,6 +641,12 @@ Current implementation status:
   satisfied and `projection_exec_ingress.py` is retired, the queue advances to
   `in_progress`, and it lands only after the remaining function-local
   `semantic_carrier_adapter` markers are gone from the core projection path
+- that same Phase 5 continuation surface is now structurally decomposed too:
+  the queue artifact carries tooling-owned `@todo_decorator`-backed subqueues
+  plus file-level touchpoints, and every remaining live
+  `semantic_carrier_adapter` touchsite is cross-referenced by canonical
+  site/structural identity so the cutover can be traced mechanically rather
+  than only by prose/count deltas
 - that substrate output now crosses a runtime-facing boundary: `policy_check
   --output` carries a `projection_fiber_semantics` payload with the lattice
   decision, semantic report, and compiled projection-semantic bundles, so the

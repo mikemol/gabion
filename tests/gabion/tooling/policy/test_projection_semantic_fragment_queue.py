@@ -74,6 +74,42 @@ def test_analyze_emits_landed_and_active_queue_rows() -> None:
     assert items["PSF-006"]["status"] == "landed"
     assert items["PSF-007"]["status"] == "in_progress"
     assert queue["next_queue_ids"] == ["PSF-004", "PSF-005", "PSF-007"]
+    phase5_structure = queue["phase5_structure"]
+    assert phase5_structure["queue_id"] == "PSF-007"
+    assert phase5_structure["remaining_touchsite_count"] == 73
+    assert phase5_structure["collapsible_touchsite_count"] > 0
+    assert phase5_structure["surviving_touchsite_count"] > 0
+    subqueue_ids = [item["subqueue_id"] for item in phase5_structure["subqueues"]]
+    assert subqueue_ids == [
+        "PSF-007-SQ-001",
+        "PSF-007-SQ-002",
+        "PSF-007-SQ-003",
+        "PSF-007-SQ-004",
+        "PSF-007-SQ-005",
+    ]
+    touchpoint_ids = [item["touchpoint_id"] for item in phase5_structure["touchpoints"]]
+    assert touchpoint_ids == [
+        "PSF-007-TP-001",
+        "PSF-007-TP-002",
+        "PSF-007-TP-003",
+        "PSF-007-TP-004",
+        "PSF-007-TP-005",
+        "PSF-007-TP-006",
+    ]
+    assert sum(item["touchsite_count"] for item in phase5_structure["touchpoints"]) == 73
+    runtime_touchpoint = next(
+        item
+        for item in phase5_structure["touchpoints"]
+        if item["touchpoint_id"] == "PSF-007-TP-006"
+    )
+    runtime_touchsite = next(
+        item
+        for item in runtime_touchpoint["touchsites"]
+        if item["boundary_name"] == "projection_exec.apply_execution_ops"
+    )
+    assert runtime_touchsite["site_identity"]
+    assert runtime_touchsite["structural_identity"]
+    assert runtime_touchsite["touchpoint_structural_identity"] == runtime_touchpoint["structural_identity"]
 
 
 # gabion:evidence E:function_site::test_projection_semantic_fragment_queue.py::tests.gabion.tooling.policy.test_projection_semantic_fragment_queue.test_markdown_summary_lists_queue_and_semantic_preview_context
@@ -91,6 +127,10 @@ def test_markdown_summary_lists_queue_and_semantic_preview_context() -> None:
     assert "| PSF-004 | Phase 4 | in_progress | Friendly-surface convergence via typed ProjectionSpec lowering |" in markdown
     assert "| PSF-006 | Phase 4 | landed | Move policy and authoring consumers toward direct canonical-carrier judgment |" in markdown
     assert "| PSF-007 | Phase 5 | in_progress | Cut over legacy adapters and retire semantic_carrier_adapter boundaries |" in markdown
+    assert "## Phase 5 Structure" in markdown
+    assert "| PSF-007-SQ-005 | 2 | 10 |" in markdown
+    assert "| PSF-007-TP-006 | PSF-007-SQ-005 | src/gabion/analysis/projection/projection_exec.py | 9 |" in markdown
+    assert "| PSF-007-TP-006 | apply_execution_ops | projection_exec.apply_execution_ops | surviving_carrier_seam |" in markdown
     assert "## Semantic Previews" in markdown
     assert "src/gabion/example.py" in markdown
 
