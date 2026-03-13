@@ -630,6 +630,30 @@ class InvariantScoreComponent:
 
 
 @dataclass(frozen=True)
+class InvariantRepoFollowupCohortMember:
+    followup_family: str
+    followup_class: str
+    action_kind: str
+    object_id: str | None
+    diagnostic_code: str | None
+    target_doc_id: str | None
+    title: str
+    utility_score: int
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "followup_family": self.followup_family,
+            "followup_class": self.followup_class,
+            "action_kind": self.action_kind,
+            "object_id": self.object_id,
+            "diagnostic_code": self.diagnostic_code,
+            "target_doc_id": self.target_doc_id,
+            "title": self.title,
+            "utility_score": self.utility_score,
+        }
+
+
+@dataclass(frozen=True)
 class InvariantRepoFollowupAction:
     followup_family: str
     action_kind: str
@@ -662,6 +686,7 @@ class InvariantRepoFollowupAction:
     utility_components: tuple[InvariantScoreComponent, ...]
     selection_certainty_kind: str
     cofrontier_followup_count: int
+    cofrontier_followup_cohort: tuple[InvariantRepoFollowupCohortMember, ...]
     selection_scope_kind: str
     selection_scope_id: str | None
     runner_up_followup_family: str | None
@@ -718,6 +743,9 @@ class InvariantRepoFollowupAction:
             ],
             "selection_certainty_kind": self.selection_certainty_kind,
             "cofrontier_followup_count": self.cofrontier_followup_count,
+            "cofrontier_followup_cohort": [
+                item.as_payload() for item in self.cofrontier_followup_cohort
+            ],
             "selection_scope_kind": self.selection_scope_kind,
             "selection_scope_id": self.selection_scope_id,
             "runner_up_followup_family": self.runner_up_followup_family,
@@ -2212,6 +2240,25 @@ class InvariantWorkstreamsProjection:
             )
         return tuple(components)
 
+    def _repo_followup_cohort_members(
+        self,
+        *,
+        cofrontier_followups: tuple[InvariantRepoFollowupAction, ...],
+    ) -> tuple[InvariantRepoFollowupCohortMember, ...]:
+        return tuple(
+            InvariantRepoFollowupCohortMember(
+                followup_family=item.followup_family,
+                followup_class=self._repo_followup_class(item),
+                action_kind=item.action_kind,
+                object_id=item.object_id,
+                diagnostic_code=item.diagnostic_code,
+                target_doc_id=item.target_doc_id,
+                title=item.title,
+                utility_score=item.utility_score,
+            )
+            for item in cofrontier_followups
+        )
+
     def ranked_repo_followups(self) -> tuple[InvariantRepoFollowupAction, ...]:
         return self._ranked_repo_followups
 
@@ -2304,6 +2351,7 @@ class InvariantWorkstreamsProjection:
                         utility_components=(),
                         selection_certainty_kind="ranked_unique",
                         cofrontier_followup_count=1,
+                        cofrontier_followup_cohort=(),
                         selection_scope_kind="singleton",
                         selection_scope_id=None,
                         runner_up_followup_family=None,
@@ -2360,6 +2408,7 @@ class InvariantWorkstreamsProjection:
                         utility_components=(),
                         selection_certainty_kind="ranked_unique",
                         cofrontier_followup_count=1,
+                        cofrontier_followup_cohort=(),
                         selection_scope_kind="singleton",
                         selection_scope_id=None,
                         runner_up_followup_family=None,
@@ -2416,6 +2465,7 @@ class InvariantWorkstreamsProjection:
                         utility_components=(),
                         selection_certainty_kind="ranked_unique",
                         cofrontier_followup_count=1,
+                        cofrontier_followup_cohort=(),
                         selection_scope_kind="singleton",
                         selection_scope_id=None,
                         runner_up_followup_family=None,
@@ -2467,6 +2517,7 @@ class InvariantWorkstreamsProjection:
                         utility_components=(),
                         selection_certainty_kind="ranked_unique",
                         cofrontier_followup_count=1,
+                        cofrontier_followup_cohort=(),
                         selection_scope_kind="singleton",
                         selection_scope_id=None,
                         runner_up_followup_family=None,
@@ -2526,6 +2577,9 @@ class InvariantWorkstreamsProjection:
             )
             cofrontier_followups = tuple(
                 item for item in ranked_actions if item.utility_score == action.utility_score
+            )
+            cofrontier_followup_cohort = self._repo_followup_cohort_members(
+                cofrontier_followups=cofrontier_followups,
             )
             selection_certainty_kind = (
                 "frontier_plateau"
@@ -2601,6 +2655,7 @@ class InvariantWorkstreamsProjection:
                         ),
                         selection_certainty_kind=selection_certainty_kind,
                         cofrontier_followup_count=cofrontier_followup_count,
+                        cofrontier_followup_cohort=cofrontier_followup_cohort,
                         selection_scope_kind=selection_scope_kind,
                         selection_scope_id=selection_scope_id,
                         selection_rank=index,
@@ -2641,6 +2696,7 @@ class InvariantWorkstreamsProjection:
                     frontier_choice_margin_components=frontier_choice_margin_components,
                     selection_certainty_kind=selection_certainty_kind,
                     cofrontier_followup_count=cofrontier_followup_count,
+                    cofrontier_followup_cohort=cofrontier_followup_cohort,
                     selection_scope_kind=selection_scope_kind,
                     selection_scope_id=selection_scope_id,
                     selection_rank=index,

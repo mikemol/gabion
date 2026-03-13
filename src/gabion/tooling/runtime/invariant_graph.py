@@ -172,6 +172,39 @@ def _format_owner_resolution_options(options: object) -> str:
     return " || ".join(parts) if parts else "none"
 
 
+def _format_repo_followup_cohort(cohort: object) -> str:
+    if not isinstance(cohort, (list, tuple)) or not cohort:
+        return "none"
+    parts: list[str] = []
+    for item in cohort:
+        if isinstance(item, dict):
+            followup_family = str(item.get("followup_family", "followup"))
+            action_kind = str(item.get("action_kind", "action"))
+            object_id = item.get("object_id")
+            diagnostic_code = item.get("diagnostic_code")
+            target_doc_id = item.get("target_doc_id")
+            title = str(item.get("title", ""))
+            utility_score = int(item.get("utility_score", 0))
+        else:
+            followup_family = str(getattr(item, "followup_family", "followup"))
+            action_kind = str(getattr(item, "action_kind", "action"))
+            object_id = getattr(item, "object_id", None)
+            diagnostic_code = getattr(item, "diagnostic_code", None)
+            target_doc_id = getattr(item, "target_doc_id", None)
+            title = str(getattr(item, "title", ""))
+            utility_score = int(getattr(item, "utility_score", 0))
+        if diagnostic_code is not None:
+            label = f"{followup_family}:{action_kind}:{diagnostic_code}:{title}"
+        elif object_id is not None:
+            label = f"{followup_family}:{action_kind}:{object_id}:{title}"
+        elif target_doc_id is not None:
+            label = f"{followup_family}:{action_kind}:{target_doc_id}:{title}"
+        else:
+            label = f"{followup_family}:{action_kind}:{title}"
+        parts.append(f"{label}@{utility_score}")
+    return " || ".join(parts) if parts else "none"
+
+
 def _workstream_by_object_id(
     *,
     graph: InvariantGraph,
@@ -312,6 +345,14 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
                 ),
             )
         )
+        print(
+            "recommended_repo_followup_cohort: {count} :: {cohort}".format(
+                count=len(recommended_repo_followup.cofrontier_followup_cohort),
+                cohort=_format_repo_followup_cohort(
+                    recommended_repo_followup.cofrontier_followup_cohort
+                ),
+            )
+        )
     elif recommended_repo_followup.action_kind == "doc_alignment":
         print(
             "recommended_repo_followup: {family} :: owner={owner} :: target_doc={target_doc} :: alignment={alignment} :: action={action} :: utility={utility} :: utility_components={utility_components} :: certainty={certainty} :: scope={scope} :: runner_up_followup={runner_up_followup} :: frontier_choice_margin={frontier_choice_margin} :: frontier_choice_margin_components={frontier_choice_margin_components} :: rank={rank} :: opportunity={opportunity} :: opportunity_components={opportunity_components}".format(
@@ -362,6 +403,14 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
                 ),
                 opportunity_components=_format_score_components(
                     recommended_repo_followup.opportunity_cost_components
+                ),
+            )
+        )
+        print(
+            "recommended_repo_followup_cohort: {count} :: {cohort}".format(
+                count=len(recommended_repo_followup.cofrontier_followup_cohort),
+                cohort=_format_repo_followup_cohort(
+                    recommended_repo_followup.cofrontier_followup_cohort
                 ),
             )
         )
@@ -416,6 +465,14 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
                 ),
                 opportunity_components=_format_score_components(
                     recommended_repo_followup.opportunity_cost_components
+                ),
+            )
+        )
+        print(
+            "recommended_repo_followup_cohort: {count} :: {cohort}".format(
+                count=len(recommended_repo_followup.cofrontier_followup_cohort),
+                cohort=_format_repo_followup_cohort(
+                    recommended_repo_followup.cofrontier_followup_cohort
                 ),
             )
         )
