@@ -680,6 +680,237 @@ def _frontier_decision_mode(
 
 
 @dataclass(frozen=True)
+class InvariantWorkstreamCutTradeoff:
+    frontier_cut_kind: str
+    frontier_object_id: str
+    frontier_title: str
+    frontier_readiness_class: str
+    frontier_touchsite_count: int
+    frontier_surviving_touchsite_count: int
+    runner_up_cut_kind: str
+    runner_up_object_id: str
+    runner_up_title: str
+    runner_up_readiness_class: str
+    runner_up_touchsite_count: int
+    runner_up_surviving_touchsite_count: int
+    margin_kind: str
+    margin_score: int
+    margin_reason: str
+    margin_components: tuple[InvariantScoreComponent, ...]
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "frontier_cut_kind": self.frontier_cut_kind,
+            "frontier_object_id": self.frontier_object_id,
+            "frontier_title": self.frontier_title,
+            "frontier_readiness_class": self.frontier_readiness_class,
+            "frontier_touchsite_count": self.frontier_touchsite_count,
+            "frontier_surviving_touchsite_count": self.frontier_surviving_touchsite_count,
+            "runner_up_cut_kind": self.runner_up_cut_kind,
+            "runner_up_object_id": self.runner_up_object_id,
+            "runner_up_title": self.runner_up_title,
+            "runner_up_readiness_class": self.runner_up_readiness_class,
+            "runner_up_touchsite_count": self.runner_up_touchsite_count,
+            "runner_up_surviving_touchsite_count": self.runner_up_surviving_touchsite_count,
+            "margin_kind": self.margin_kind,
+            "margin_score": self.margin_score,
+            "margin_reason": self.margin_reason,
+            "margin_components": [
+                item.as_payload() for item in self.margin_components
+            ],
+        }
+
+
+@dataclass(frozen=True)
+class InvariantWorkstreamCutFrontierExplanation:
+    frontier_cut_kind: str
+    frontier_object_id: str
+    frontier_title: str
+    frontier_readiness_class: str
+    frontier_touchsite_count: int
+    frontier_surviving_touchsite_count: int
+    same_kind_tradeoff: InvariantWorkstreamCutTradeoff | None
+    cross_kind_tradeoff: InvariantWorkstreamCutTradeoff | None
+    recommendation_rationale_kind: str
+    recommendation_rationale_reason: str
+    recommendation_rationale_components: tuple[InvariantScoreComponent, ...]
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "frontier_cut_kind": self.frontier_cut_kind,
+            "frontier_object_id": self.frontier_object_id,
+            "frontier_title": self.frontier_title,
+            "frontier_readiness_class": self.frontier_readiness_class,
+            "frontier_touchsite_count": self.frontier_touchsite_count,
+            "frontier_surviving_touchsite_count": self.frontier_surviving_touchsite_count,
+            "same_kind_tradeoff": (
+                None if self.same_kind_tradeoff is None else self.same_kind_tradeoff.as_payload()
+            ),
+            "cross_kind_tradeoff": (
+                None
+                if self.cross_kind_tradeoff is None
+                else self.cross_kind_tradeoff.as_payload()
+            ),
+            "recommendation_rationale_kind": self.recommendation_rationale_kind,
+            "recommendation_rationale_reason": self.recommendation_rationale_reason,
+            "recommendation_rationale_components": [
+                item.as_payload() for item in self.recommendation_rationale_components
+            ],
+        }
+
+
+@dataclass(frozen=True)
+class InvariantWorkstreamCutDecisionProtocol:
+    frontier_cut_kind: str
+    frontier_object_id: str
+    frontier_title: str
+    frontier_readiness_class: str
+    frontier_touchsite_count: int
+    frontier_surviving_touchsite_count: int
+    decision_mode: str
+    decision_reason: str
+    same_kind_pressure: str
+    cross_kind_pressure: str
+    decision_components: tuple[InvariantScoreComponent, ...]
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "frontier_cut_kind": self.frontier_cut_kind,
+            "frontier_object_id": self.frontier_object_id,
+            "frontier_title": self.frontier_title,
+            "frontier_readiness_class": self.frontier_readiness_class,
+            "frontier_touchsite_count": self.frontier_touchsite_count,
+            "frontier_surviving_touchsite_count": self.frontier_surviving_touchsite_count,
+            "decision_mode": self.decision_mode,
+            "decision_reason": self.decision_reason,
+            "same_kind_pressure": self.same_kind_pressure,
+            "cross_kind_pressure": self.cross_kind_pressure,
+            "decision_components": [
+                item.as_payload() for item in self.decision_components
+            ],
+        }
+
+
+def _cut_tradeoff_components(
+    *,
+    frontier: InvariantCutCandidate,
+    runner_up: InvariantCutCandidate,
+) -> tuple[InvariantScoreComponent, ...]:
+    components: list[InvariantScoreComponent] = []
+
+    readiness_gap = max(
+        0,
+        _READINESS_PRIORITY.get(runner_up.readiness_class, 99)
+        - _READINESS_PRIORITY.get(frontier.readiness_class, 99),
+    )
+    if readiness_gap > 0:
+        components.append(
+            InvariantScoreComponent(
+                kind="readiness_priority_gap",
+                score=readiness_gap,
+                rationale=f"{frontier.readiness_class}->{runner_up.readiness_class}",
+            )
+        )
+
+    cut_kind_gap = max(
+        0,
+        _CUT_KIND_PRIORITY.get(runner_up.cut_kind, 99)
+        - _CUT_KIND_PRIORITY.get(frontier.cut_kind, 99),
+    )
+    if cut_kind_gap > 0:
+        components.append(
+            InvariantScoreComponent(
+                kind="cut_kind_priority_gap",
+                score=cut_kind_gap,
+                rationale=f"{frontier.cut_kind}->{runner_up.cut_kind}",
+            )
+        )
+
+    count_specs = (
+        ("touchsite_count_gap", frontier.touchsite_count, runner_up.touchsite_count),
+        (
+            "surviving_touchsite_count_gap",
+            frontier.surviving_touchsite_count,
+            runner_up.surviving_touchsite_count,
+        ),
+        ("policy_signal_count_gap", frontier.policy_signal_count, runner_up.policy_signal_count),
+        ("diagnostic_count_gap", frontier.diagnostic_count, runner_up.diagnostic_count),
+        (
+            "uncovered_touchsite_count_gap",
+            frontier.uncovered_touchsite_count,
+            runner_up.uncovered_touchsite_count,
+        ),
+    )
+    for kind, frontier_value, runner_up_value in count_specs:
+        gap = max(0, runner_up_value - frontier_value)
+        if gap <= 0:
+            continue
+        components.append(
+            InvariantScoreComponent(
+                kind=kind,
+                score=gap,
+                rationale=f"{frontier_value}->{runner_up_value}",
+            )
+        )
+
+    if components:
+        return tuple(components)
+    return (
+        InvariantScoreComponent(
+            kind="identity_tiebreak",
+            score=1,
+            rationale=(
+                f"{encode_policy_queue_identity(frontier.object_id)}->"
+                f"{encode_policy_queue_identity(runner_up.object_id)}"
+            ),
+        ),
+    )
+
+
+def _cut_tradeoff(
+    *,
+    frontier: InvariantCutCandidate,
+    runner_up: InvariantCutCandidate,
+) -> InvariantWorkstreamCutTradeoff:
+    components = _cut_tradeoff_components(frontier=frontier, runner_up=runner_up)
+    lead_component = components[0]
+    return InvariantWorkstreamCutTradeoff(
+        frontier_cut_kind=frontier.cut_kind,
+        frontier_object_id=encode_policy_queue_identity(frontier.object_id),
+        frontier_title=frontier.title,
+        frontier_readiness_class=frontier.readiness_class,
+        frontier_touchsite_count=frontier.touchsite_count,
+        frontier_surviving_touchsite_count=frontier.surviving_touchsite_count,
+        runner_up_cut_kind=runner_up.cut_kind,
+        runner_up_object_id=encode_policy_queue_identity(runner_up.object_id),
+        runner_up_title=runner_up.title,
+        runner_up_readiness_class=runner_up.readiness_class,
+        runner_up_touchsite_count=runner_up.touchsite_count,
+        runner_up_surviving_touchsite_count=runner_up.surviving_touchsite_count,
+        margin_kind=lead_component.kind,
+        margin_score=lead_component.score,
+        margin_reason=lead_component.rationale,
+        margin_components=components,
+    )
+
+
+def _cut_tradeoff_pressure(
+    tradeoff: InvariantWorkstreamCutTradeoff | None,
+) -> str:
+    if tradeoff is None:
+        return "none"
+    if tradeoff.margin_kind == "identity_tiebreak":
+        return "blocking"
+    if tradeoff.margin_kind in {"readiness_priority_gap", "cut_kind_priority_gap"}:
+        return "low"
+    if tradeoff.margin_score <= 1:
+        return "high"
+    if tradeoff.margin_score <= 3:
+        return "moderate"
+    return "low"
+
+
+@dataclass(frozen=True)
 class InvariantRepoFollowupCohortMember:
     followup_family: str
     followup_class: str
@@ -1503,17 +1734,178 @@ class InvariantWorkstreamProjection:
     def recommended_diagnostic_blocked_cut(self) -> InvariantCutCandidate | None:
         return self._recommended_cut_for_readiness("diagnostic_blocked")
 
+    def ranked_cuts(self) -> tuple[InvariantCutCandidate, ...]:
+        return self._ranked_cuts
+
+    @cached_property
+    def _ranked_cuts(self) -> tuple[InvariantCutCandidate, ...]:
+        return tuple(
+            _sorted(
+                [
+                    *self.ranked_touchpoint_cuts(),
+                    *self.ranked_subqueue_cuts(),
+                ],
+                key=_cut_sort_key,
+            )
+        )
+
     def recommended_cut(self) -> InvariantCutCandidate | None:
-        candidates: list[InvariantCutCandidate] = []
-        touchpoint_cuts = self.ranked_touchpoint_cuts()
-        subqueue_cuts = self.ranked_subqueue_cuts()
-        if touchpoint_cuts:
-            candidates.append(touchpoint_cuts[0])
-        if subqueue_cuts:
-            candidates.append(subqueue_cuts[0])
-        if not candidates:
+        ranked_cuts = self.ranked_cuts()
+        if not ranked_cuts:
             return None
-        return _sorted(candidates, key=_cut_sort_key)[0]
+        return ranked_cuts[0]
+
+    def recommended_cut_same_kind_tradeoff(
+        self,
+    ) -> InvariantWorkstreamCutTradeoff | None:
+        return self._recommended_cut_same_kind_tradeoff
+
+    @cached_property
+    def _recommended_cut_same_kind_tradeoff(
+        self,
+    ) -> InvariantWorkstreamCutTradeoff | None:
+        frontier = self.recommended_cut()
+        if frontier is None:
+            return None
+        runner_up = next(
+            (
+                item
+                for item in self.ranked_cuts()
+                if item.object_id != frontier.object_id
+                and item.cut_kind == frontier.cut_kind
+            ),
+            None,
+        )
+        if runner_up is None:
+            return None
+        return _cut_tradeoff(frontier=frontier, runner_up=runner_up)
+
+    def recommended_cut_cross_kind_tradeoff(
+        self,
+    ) -> InvariantWorkstreamCutTradeoff | None:
+        return self._recommended_cut_cross_kind_tradeoff
+
+    @cached_property
+    def _recommended_cut_cross_kind_tradeoff(
+        self,
+    ) -> InvariantWorkstreamCutTradeoff | None:
+        frontier = self.recommended_cut()
+        if frontier is None:
+            return None
+        runner_up = next(
+            (
+                item
+                for item in self.ranked_cuts()
+                if item.cut_kind != frontier.cut_kind
+            ),
+            None,
+        )
+        if runner_up is None:
+            return None
+        return _cut_tradeoff(frontier=frontier, runner_up=runner_up)
+
+    def recommended_cut_frontier_explanation(
+        self,
+    ) -> InvariantWorkstreamCutFrontierExplanation | None:
+        return self._recommended_cut_frontier_explanation
+
+    @cached_property
+    def _recommended_cut_frontier_explanation(
+        self,
+    ) -> InvariantWorkstreamCutFrontierExplanation | None:
+        frontier = self.recommended_cut()
+        if frontier is None:
+            return None
+        same_kind_tradeoff = self.recommended_cut_same_kind_tradeoff()
+        cross_kind_tradeoff = self.recommended_cut_cross_kind_tradeoff()
+        same_kind_pressure = _cut_tradeoff_pressure(same_kind_tradeoff)
+        cross_kind_pressure = _cut_tradeoff_pressure(cross_kind_tradeoff)
+        return InvariantWorkstreamCutFrontierExplanation(
+            frontier_cut_kind=frontier.cut_kind,
+            frontier_object_id=encode_policy_queue_identity(frontier.object_id),
+            frontier_title=frontier.title,
+            frontier_readiness_class=frontier.readiness_class,
+            frontier_touchsite_count=frontier.touchsite_count,
+            frontier_surviving_touchsite_count=frontier.surviving_touchsite_count,
+            same_kind_tradeoff=same_kind_tradeoff,
+            cross_kind_tradeoff=cross_kind_tradeoff,
+            recommendation_rationale_kind=(
+                f"same_kind_{same_kind_pressure}__cross_kind_{cross_kind_pressure}"
+            ),
+            recommendation_rationale_reason=(
+                f"same_kind_pressure:{same_kind_pressure}:"
+                f"{None if same_kind_tradeoff is None else same_kind_tradeoff.margin_kind}"
+                f"|cross_kind_pressure:{cross_kind_pressure}:"
+                f"{None if cross_kind_tradeoff is None else cross_kind_tradeoff.margin_kind}"
+            ),
+            recommendation_rationale_components=(
+                InvariantScoreComponent(
+                    kind="same_kind_pressure",
+                    score=0 if same_kind_tradeoff is None else same_kind_tradeoff.margin_score,
+                    rationale=same_kind_pressure,
+                ),
+                InvariantScoreComponent(
+                    kind="cross_kind_pressure",
+                    score=0 if cross_kind_tradeoff is None else cross_kind_tradeoff.margin_score,
+                    rationale=cross_kind_pressure,
+                ),
+            ),
+        )
+
+    def recommended_cut_decision_protocol(
+        self,
+    ) -> InvariantWorkstreamCutDecisionProtocol | None:
+        return self._recommended_cut_decision_protocol
+
+    @cached_property
+    def _recommended_cut_decision_protocol(
+        self,
+    ) -> InvariantWorkstreamCutDecisionProtocol | None:
+        explanation = self.recommended_cut_frontier_explanation()
+        if explanation is None:
+            return None
+        same_kind_pressure = _cut_tradeoff_pressure(explanation.same_kind_tradeoff)
+        cross_kind_pressure = _cut_tradeoff_pressure(explanation.cross_kind_tradeoff)
+        return InvariantWorkstreamCutDecisionProtocol(
+            frontier_cut_kind=explanation.frontier_cut_kind,
+            frontier_object_id=explanation.frontier_object_id,
+            frontier_title=explanation.frontier_title,
+            frontier_readiness_class=explanation.frontier_readiness_class,
+            frontier_touchsite_count=explanation.frontier_touchsite_count,
+            frontier_surviving_touchsite_count=explanation.frontier_surviving_touchsite_count,
+            decision_mode=_frontier_decision_mode(
+                same_class_pressure=same_kind_pressure,
+                cross_class_pressure=cross_kind_pressure,
+            ),
+            decision_reason=(
+                f"same_kind_pressure:{same_kind_pressure}:"
+                f"{None if explanation.same_kind_tradeoff is None else explanation.same_kind_tradeoff.margin_kind}"
+                f"|cross_kind_pressure:{cross_kind_pressure}:"
+                f"{None if explanation.cross_kind_tradeoff is None else explanation.cross_kind_tradeoff.margin_kind}"
+            ),
+            same_kind_pressure=same_kind_pressure,
+            cross_kind_pressure=cross_kind_pressure,
+            decision_components=(
+                InvariantScoreComponent(
+                    kind="same_kind_pressure",
+                    score=(
+                        0
+                        if explanation.same_kind_tradeoff is None
+                        else explanation.same_kind_tradeoff.margin_score
+                    ),
+                    rationale=same_kind_pressure,
+                ),
+                InvariantScoreComponent(
+                    kind="cross_kind_pressure",
+                    score=(
+                        0
+                        if explanation.cross_kind_tradeoff is None
+                        else explanation.cross_kind_tradeoff.margin_score
+                    ),
+                    rationale=cross_kind_pressure,
+                ),
+            ),
+        )
 
     def dominant_doc_alignment_status(self) -> str:
         if self.doc_alignment_summary is None:
@@ -1852,6 +2244,10 @@ class InvariantWorkstreamProjection:
         recommended_coverage_gap_cut = self.recommended_coverage_gap_cut()
         recommended_policy_blocked_cut = self.recommended_policy_blocked_cut()
         recommended_diagnostic_blocked_cut = self.recommended_diagnostic_blocked_cut()
+        recommended_cut_frontier_explanation = (
+            self.recommended_cut_frontier_explanation()
+        )
+        recommended_cut_decision_protocol = self.recommended_cut_decision_protocol()
         health_summary = self.health_summary()
         remediation_lanes = self.remediation_lanes()
         documentation_followup_lane = self.documentation_followup_lane()
@@ -1921,6 +2317,16 @@ class InvariantWorkstreamProjection:
                     recommended_diagnostic_blocked_cut.as_payload()
                     if recommended_diagnostic_blocked_cut is not None
                     else None
+                ),
+                "recommended_cut_frontier_explanation": (
+                    None
+                    if recommended_cut_frontier_explanation is None
+                    else recommended_cut_frontier_explanation.as_payload()
+                ),
+                "recommended_cut_decision_protocol": (
+                    None
+                    if recommended_cut_decision_protocol is None
+                    else recommended_cut_decision_protocol.as_payload()
                 ),
                 "remediation_lanes": [
                     item.as_payload() for item in remediation_lanes
@@ -4394,6 +4800,32 @@ class InvariantWorkstreamsProjection:
                                                 None
                                                 if workstream.recommended_diagnostic_blocked_cut() is None
                                                 else workstream.recommended_diagnostic_blocked_cut().as_payload()
+                                            ),
+                                        ),
+                                        scalar(
+                                            identity=ArtifactSourceRef(
+                                                rel_path="<synthetic>",
+                                                qualname="recommended_cut_frontier_explanation",
+                                            ),
+                                            key="recommended_cut_frontier_explanation",
+                                            title="recommended_cut_frontier_explanation",
+                                            value=(
+                                                None
+                                                if workstream.recommended_cut_frontier_explanation() is None
+                                                else workstream.recommended_cut_frontier_explanation().as_payload()
+                                            ),
+                                        ),
+                                        scalar(
+                                            identity=ArtifactSourceRef(
+                                                rel_path="<synthetic>",
+                                                qualname="recommended_cut_decision_protocol",
+                                            ),
+                                            key="recommended_cut_decision_protocol",
+                                            title="recommended_cut_decision_protocol",
+                                            value=(
+                                                None
+                                                if workstream.recommended_cut_decision_protocol() is None
+                                                else workstream.recommended_cut_decision_protocol().as_payload()
                                             ),
                                         ),
                                         bullet_list(

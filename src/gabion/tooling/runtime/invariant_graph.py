@@ -1395,6 +1395,10 @@ def _print_workstream(*, graph: InvariantGraph, root: Path, object_id: str) -> i
     recommended_coverage_gap_cut = workstream.recommended_coverage_gap_cut()
     recommended_policy_blocked_cut = workstream.recommended_policy_blocked_cut()
     recommended_diagnostic_blocked_cut = workstream.recommended_diagnostic_blocked_cut()
+    recommended_cut_frontier_explanation = (
+        workstream.recommended_cut_frontier_explanation()
+    )
+    recommended_cut_decision_protocol = workstream.recommended_cut_decision_protocol()
     if recommended_cut is None:
         print("recommended_cut: <none>")
     else:
@@ -1448,6 +1452,61 @@ def _print_workstream(*, graph: InvariantGraph, root: Path, object_id: str) -> i
                 object_id=recommended_diagnostic_blocked_cut.object_id.wire(),
                 touchsites=recommended_diagnostic_blocked_cut.touchsite_count,
                 diagnostics=recommended_diagnostic_blocked_cut.diagnostic_count,
+            )
+        )
+    if recommended_cut_frontier_explanation is None:
+        print("recommended_cut_frontier_explanation: <none>")
+    else:
+        same_kind_tradeoff = recommended_cut_frontier_explanation.same_kind_tradeoff
+        cross_kind_tradeoff = recommended_cut_frontier_explanation.cross_kind_tradeoff
+        print(
+            "recommended_cut_frontier_explanation: frontier={frontier_kind}::{frontier_object_id}::{frontier_readiness} :: same_kind={same_kind_object_id}:{same_kind_margin_kind}:{same_kind_margin_score} :: cross_kind={cross_kind_object_id}:{cross_kind_margin_kind}:{cross_kind_margin_score} :: rationale={rationale_kind}".format(
+                frontier_kind=recommended_cut_frontier_explanation.frontier_cut_kind,
+                frontier_object_id=recommended_cut_frontier_explanation.frontier_object_id,
+                frontier_readiness=recommended_cut_frontier_explanation.frontier_readiness_class,
+                same_kind_object_id=(
+                    "<none>"
+                    if same_kind_tradeoff is None
+                    else same_kind_tradeoff.runner_up_object_id
+                ),
+                same_kind_margin_kind=(
+                    "none"
+                    if same_kind_tradeoff is None
+                    else same_kind_tradeoff.margin_kind
+                ),
+                same_kind_margin_score=(
+                    "none"
+                    if same_kind_tradeoff is None
+                    else same_kind_tradeoff.margin_score
+                ),
+                cross_kind_object_id=(
+                    "<none>"
+                    if cross_kind_tradeoff is None
+                    else cross_kind_tradeoff.runner_up_object_id
+                ),
+                cross_kind_margin_kind=(
+                    "none"
+                    if cross_kind_tradeoff is None
+                    else cross_kind_tradeoff.margin_kind
+                ),
+                cross_kind_margin_score=(
+                    "none"
+                    if cross_kind_tradeoff is None
+                    else cross_kind_tradeoff.margin_score
+                ),
+                rationale_kind=recommended_cut_frontier_explanation.recommendation_rationale_kind,
+            )
+        )
+    if recommended_cut_decision_protocol is None:
+        print("recommended_cut_decision_protocol: <none>")
+    else:
+        print(
+            "recommended_cut_decision_protocol: {cut_kind} :: {object_id} :: mode={mode} :: pressure=same_kind:{same_kind}|cross_kind:{cross_kind}".format(
+                cut_kind=recommended_cut_decision_protocol.frontier_cut_kind,
+                object_id=recommended_cut_decision_protocol.frontier_object_id,
+                mode=recommended_cut_decision_protocol.decision_mode,
+                same_kind=recommended_cut_decision_protocol.same_kind_pressure,
+                cross_kind=recommended_cut_decision_protocol.cross_kind_pressure,
             )
         )
     recommended_followup = workstream.recommended_followup()

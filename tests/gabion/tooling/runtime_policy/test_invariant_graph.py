@@ -1036,6 +1036,117 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
     assert psf["next_actions"]["recommended_cut"]["object_id"] == "PSF-007-TP-005"
     assert psf["next_actions"]["recommended_cut"]["cut_kind"] == "touchpoint_cut"
     assert psf["next_actions"]["recommended_cut"]["touchsite_count"] == 1
+    assert psf["next_actions"]["recommended_cut_frontier_explanation"] == {
+        "frontier_cut_kind": "touchpoint_cut",
+        "frontier_object_id": "PSF-007-TP-005",
+        "frontier_title": "projection_exec_plan.py planning surfaces",
+        "frontier_readiness_class": "ready_structural",
+        "frontier_touchsite_count": 1,
+        "frontier_surviving_touchsite_count": 1,
+        "same_kind_tradeoff": {
+            "frontier_cut_kind": "touchpoint_cut",
+            "frontier_object_id": "PSF-007-TP-005",
+            "frontier_title": "projection_exec_plan.py planning surfaces",
+            "frontier_readiness_class": "ready_structural",
+            "frontier_touchsite_count": 1,
+            "frontier_surviving_touchsite_count": 1,
+            "runner_up_cut_kind": "touchpoint_cut",
+            "runner_up_object_id": "PSF-007-TP-001",
+            "runner_up_title": "semantic_fragment.py canonicalization surfaces",
+            "runner_up_readiness_class": "coverage_gap",
+            "runner_up_touchsite_count": 4,
+            "runner_up_surviving_touchsite_count": 4,
+            "margin_kind": "readiness_priority_gap",
+            "margin_score": 1,
+            "margin_reason": "ready_structural->coverage_gap",
+            "margin_components": [
+                {
+                    "kind": "readiness_priority_gap",
+                    "score": 1,
+                    "rationale": "ready_structural->coverage_gap",
+                },
+                {"kind": "touchsite_count_gap", "score": 3, "rationale": "1->4"},
+                {
+                    "kind": "surviving_touchsite_count_gap",
+                    "score": 3,
+                    "rationale": "1->4",
+                },
+                {
+                    "kind": "uncovered_touchsite_count_gap",
+                    "score": 4,
+                    "rationale": "0->4",
+                },
+            ],
+        },
+        "cross_kind_tradeoff": {
+            "frontier_cut_kind": "touchpoint_cut",
+            "frontier_object_id": "PSF-007-TP-005",
+            "frontier_title": "projection_exec_plan.py planning surfaces",
+            "frontier_readiness_class": "ready_structural",
+            "frontier_touchsite_count": 1,
+            "frontier_surviving_touchsite_count": 1,
+            "runner_up_cut_kind": "subqueue_cut",
+            "runner_up_object_id": "PSF-007-SQ-001",
+            "runner_up_title": "Semantic row closure and canonicalization",
+            "runner_up_readiness_class": "coverage_gap",
+            "runner_up_touchsite_count": 4,
+            "runner_up_surviving_touchsite_count": 4,
+            "margin_kind": "readiness_priority_gap",
+            "margin_score": 1,
+            "margin_reason": "ready_structural->coverage_gap",
+            "margin_components": [
+                {
+                    "kind": "readiness_priority_gap",
+                    "score": 1,
+                    "rationale": "ready_structural->coverage_gap",
+                },
+                {
+                    "kind": "cut_kind_priority_gap",
+                    "score": 1,
+                    "rationale": "touchpoint_cut->subqueue_cut",
+                },
+                {"kind": "touchsite_count_gap", "score": 3, "rationale": "1->4"},
+                {
+                    "kind": "surviving_touchsite_count_gap",
+                    "score": 3,
+                    "rationale": "1->4",
+                },
+                {
+                    "kind": "uncovered_touchsite_count_gap",
+                    "score": 4,
+                    "rationale": "0->4",
+                },
+            ],
+        },
+        "recommendation_rationale_kind": "same_kind_low__cross_kind_low",
+        "recommendation_rationale_reason": (
+            "same_kind_pressure:low:readiness_priority_gap"
+            "|cross_kind_pressure:low:readiness_priority_gap"
+        ),
+        "recommendation_rationale_components": [
+            {"kind": "same_kind_pressure", "score": 1, "rationale": "low"},
+            {"kind": "cross_kind_pressure", "score": 1, "rationale": "low"},
+        ],
+    }
+    assert psf["next_actions"]["recommended_cut_decision_protocol"] == {
+        "frontier_cut_kind": "touchpoint_cut",
+        "frontier_object_id": "PSF-007-TP-005",
+        "frontier_title": "projection_exec_plan.py planning surfaces",
+        "frontier_readiness_class": "ready_structural",
+        "frontier_touchsite_count": 1,
+        "frontier_surviving_touchsite_count": 1,
+        "decision_mode": "frontier_hold",
+        "decision_reason": (
+            "same_kind_pressure:low:readiness_priority_gap"
+            "|cross_kind_pressure:low:readiness_priority_gap"
+        ),
+        "same_kind_pressure": "low",
+        "cross_kind_pressure": "low",
+        "decision_components": [
+            {"kind": "same_kind_pressure", "score": 1, "rationale": "low"},
+            {"kind": "cross_kind_pressure", "score": 1, "rationale": "low"},
+        ],
+    }
     assert psf["next_actions"]["recommended_ready_cut"]["object_id"] == "PSF-007-TP-005"
     assert psf["next_actions"]["recommended_ready_cut"]["readiness_class"] == (
         "ready_structural"
@@ -3308,6 +3419,14 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
     assert "dominant_blocker_class: coverage_gap" in workstream_output
     assert "recommended_remediation_family: structural_cut" in workstream_output
     assert "recommended_cut: touchpoint_cut :: PSF-007-TP-005 :: touchsites=1 :: surviving=1" in workstream_output
+    assert (
+        "recommended_cut_frontier_explanation: frontier=touchpoint_cut::PSF-007-TP-005::ready_structural :: same_kind=PSF-007-TP-001:readiness_priority_gap:1 :: cross_kind=PSF-007-SQ-001:readiness_priority_gap:1 :: rationale=same_kind_low__cross_kind_low"
+        in workstream_output
+    )
+    assert (
+        "recommended_cut_decision_protocol: touchpoint_cut :: PSF-007-TP-005 :: mode=frontier_hold :: pressure=same_kind:low|cross_kind:low"
+        in workstream_output
+    )
     assert (
         "recommended_ready_cut: touchpoint_cut :: PSF-007-TP-005 :: touchsites=1 :: uncovered=0"
         in workstream_output
