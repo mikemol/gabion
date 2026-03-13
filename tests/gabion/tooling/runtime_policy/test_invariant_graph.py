@@ -249,6 +249,15 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
                     "src/gabion/analysis/dataflow/io"
                 ).format(index=f"{value:03d}"),
                 "utility_score": 1100,
+                "selection_rank": value,
+                "selection_reason": (
+                    "frontier_tiebreak_winner"
+                    if value == 1
+                    else (
+                        "title:seed ownership for grade:GMP-{index} from "
+                        "src/gabion/analysis/dataflow/io"
+                    ).format(index=f"{value:03d}")
+                ),
             }
             for value in range(1, 8)
         ],
@@ -326,6 +335,8 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
                 "target_doc_id": None,
                 "title": "projection_exec_plan.py planning surfaces",
                 "utility_score": 700,
+                "selection_rank": 1,
+                "selection_reason": "frontier_tiebreak_winner",
             }
         ],
         "selection_scope_kind": "singleton",
@@ -2818,11 +2829,11 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
     )
     assert "recommended_repo_followup_cohort: 7 ::" in summary_output
     assert (
-        "governance_orphan_resolution:diagnostic_resolution:unmatched_policy_signal:seed ownership for grade:GMP-001 from src/gabion/analysis/dataflow/io@1100"
+        "governance_orphan_resolution:diagnostic_resolution:unmatched_policy_signal:seed ownership for grade:GMP-001 from src/gabion/analysis/dataflow/io@1100:rank=1:frontier_tiebreak_winner"
         in summary_output
     )
     assert (
-        "governance_orphan_resolution:diagnostic_resolution:unmatched_policy_signal:seed ownership for grade:GMP-007 from src/gabion/analysis/dataflow/io@1100"
+        "governance_orphan_resolution:diagnostic_resolution:unmatched_policy_signal:seed ownership for grade:GMP-007 from src/gabion/analysis/dataflow/io@1100:rank=7:title:seed ownership for grade:GMP-007 from src/gabion/analysis/dataflow/io"
         in summary_output
     )
     assert (

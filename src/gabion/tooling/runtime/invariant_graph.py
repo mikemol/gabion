@@ -185,6 +185,8 @@ def _format_repo_followup_cohort(cohort: object) -> str:
             target_doc_id = item.get("target_doc_id")
             title = str(item.get("title", ""))
             utility_score = int(item.get("utility_score", 0))
+            selection_rank = int(item.get("selection_rank", 0))
+            selection_reason = str(item.get("selection_reason", "none"))
         else:
             followup_family = str(getattr(item, "followup_family", "followup"))
             action_kind = str(getattr(item, "action_kind", "action"))
@@ -193,6 +195,8 @@ def _format_repo_followup_cohort(cohort: object) -> str:
             target_doc_id = getattr(item, "target_doc_id", None)
             title = str(getattr(item, "title", ""))
             utility_score = int(getattr(item, "utility_score", 0))
+            selection_rank = int(getattr(item, "selection_rank", 0))
+            selection_reason = str(getattr(item, "selection_reason", "none"))
         if diagnostic_code is not None:
             label = f"{followup_family}:{action_kind}:{diagnostic_code}:{title}"
         elif object_id is not None:
@@ -201,7 +205,9 @@ def _format_repo_followup_cohort(cohort: object) -> str:
             label = f"{followup_family}:{action_kind}:{target_doc_id}:{title}"
         else:
             label = f"{followup_family}:{action_kind}:{title}"
-        parts.append(f"{label}@{utility_score}")
+        parts.append(
+            f"{label}@{utility_score}:rank={selection_rank}:{selection_reason}"
+        )
     return " || ".join(parts) if parts else "none"
 
 

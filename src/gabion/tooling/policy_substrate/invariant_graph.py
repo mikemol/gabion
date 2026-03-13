@@ -639,6 +639,8 @@ class InvariantRepoFollowupCohortMember:
     target_doc_id: str | None
     title: str
     utility_score: int
+    selection_rank: int
+    selection_reason: str
 
     def as_payload(self) -> dict[str, object]:
         return {
@@ -650,6 +652,8 @@ class InvariantRepoFollowupCohortMember:
             "target_doc_id": self.target_doc_id,
             "title": self.title,
             "utility_score": self.utility_score,
+            "selection_rank": self.selection_rank,
+            "selection_reason": self.selection_reason,
         }
 
 
@@ -2245,6 +2249,7 @@ class InvariantWorkstreamsProjection:
         *,
         cofrontier_followups: tuple[InvariantRepoFollowupAction, ...],
     ) -> tuple[InvariantRepoFollowupCohortMember, ...]:
+        frontier_followup = cofrontier_followups[0]
         return tuple(
             InvariantRepoFollowupCohortMember(
                 followup_family=item.followup_family,
@@ -2255,9 +2260,49 @@ class InvariantWorkstreamsProjection:
                 target_doc_id=item.target_doc_id,
                 title=item.title,
                 utility_score=item.utility_score,
+                selection_rank=index,
+                selection_reason=self._repo_followup_cohort_selection_reason(
+                    frontier_followup=frontier_followup,
+                    followup=item,
+                    selection_rank=index,
+                ),
             )
-            for item in cofrontier_followups
+            for index, item in enumerate(cofrontier_followups, start=1)
         )
+
+    def _repo_followup_cohort_selection_reason(
+        self,
+        *,
+        frontier_followup: InvariantRepoFollowupAction,
+        followup: InvariantRepoFollowupAction,
+        selection_rank: int,
+    ) -> str:
+        if selection_rank == 1:
+            return "frontier_tiebreak_winner"
+        if followup.priority_rank != frontier_followup.priority_rank:
+            return f"priority_rank:{followup.priority_rank}"
+        if (followup.owner_resolution_score or 0) != (
+            frontier_followup.owner_resolution_score or 0
+        ):
+            return (
+                "owner_resolution_score:"
+                f"{followup.owner_resolution_score or 0}"
+            )
+        if followup.count != frontier_followup.count:
+            return f"count:{followup.count}"
+        if followup.followup_family != frontier_followup.followup_family:
+            return f"followup_family:{followup.followup_family}"
+        if followup.title != frontier_followup.title:
+            return f"title:{followup.title}"
+        if (followup.object_id or "") != (frontier_followup.object_id or ""):
+            return f"object_id:{followup.object_id or '<none>'}"
+        if (followup.target_doc_id or "") != (frontier_followup.target_doc_id or ""):
+            return f"target_doc_id:{followup.target_doc_id or '<none>'}"
+        if (followup.diagnostic_code or "") != (
+            frontier_followup.diagnostic_code or ""
+        ):
+            return f"diagnostic_code:{followup.diagnostic_code or '<none>'}"
+        return "cofrontier_peer"
 
     def ranked_repo_followups(self) -> tuple[InvariantRepoFollowupAction, ...]:
         return self._ranked_repo_followups
