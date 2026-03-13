@@ -740,6 +740,9 @@ class InvariantRepoDiagnosticLane:
     candidate_owner_seed_path: str | None
     candidate_owner_seed_object_id: str | None
     candidate_owner_options: tuple["InvariantOwnerCandidateOption", ...]
+    runner_up_candidate_owner_option: "InvariantOwnerCandidateOption" | None
+    candidate_owner_choice_margin_score: int | None
+    candidate_owner_choice_margin_reason: str | None
 
     def as_payload(self) -> dict[str, object]:
         return {
@@ -762,6 +765,13 @@ class InvariantRepoDiagnosticLane:
             "candidate_owner_options": [
                 item.as_payload() for item in self.candidate_owner_options
             ],
+            "runner_up_candidate_owner_option": (
+                None
+                if self.runner_up_candidate_owner_option is None
+                else self.runner_up_candidate_owner_option.as_payload()
+            ),
+            "candidate_owner_choice_margin_score": self.candidate_owner_choice_margin_score,
+            "candidate_owner_choice_margin_reason": self.candidate_owner_choice_margin_reason,
         }
 
 
@@ -2446,6 +2456,14 @@ class InvariantWorkstreamsProjection:
                 candidate_owner_object_ids=candidate_owner_object_ids,
                 candidate_owner_seed_path=candidate_owner_seed_path,
             )
+            best_candidate_owner_option = (
+                candidate_owner_options[0] if candidate_owner_options else None
+            )
+            runner_up_candidate_owner_option = (
+                candidate_owner_options[1]
+                if len(candidate_owner_options) > 1
+                else None
+            )
             recommended_action = _base_recommended_action
             if diagnostic_code == "unmatched_policy_signal":
                 if candidate_owner_status in {"exact_path_owner", "path_family_owner"}:
@@ -2477,6 +2495,32 @@ class InvariantWorkstreamsProjection:
                     candidate_owner_seed_path=candidate_owner_seed_path,
                     candidate_owner_seed_object_id=candidate_owner_seed_object_id,
                     candidate_owner_options=candidate_owner_options,
+                    runner_up_candidate_owner_option=runner_up_candidate_owner_option,
+                    candidate_owner_choice_margin_score=(
+                        None
+                        if best_candidate_owner_option is None
+                        else (
+                            best_candidate_owner_option.score
+                            if runner_up_candidate_owner_option is None
+                            else max(
+                                0,
+                                best_candidate_owner_option.score
+                                - runner_up_candidate_owner_option.score,
+                            )
+                        )
+                    ),
+                    candidate_owner_choice_margin_reason=(
+                        None
+                        if best_candidate_owner_option is None
+                        else (
+                            "uncontested_best_option"
+                            if runner_up_candidate_owner_option is None
+                            else (
+                                f"{best_candidate_owner_option.rationale}->"
+                                f"{runner_up_candidate_owner_option.rationale}"
+                            )
+                        )
+                    ),
                 )
             )
         return tuple(

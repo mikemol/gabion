@@ -383,8 +383,9 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
     for lane in repo_diagnostic_lanes:
         policy_ids = ", ".join(lane.policy_ids) if lane.policy_ids else "<none>"
         best_option = lane.candidate_owner_options[0] if lane.candidate_owner_options else None
+        runner_up_option = lane.runner_up_candidate_owner_option
         print(
-            "- {title} :: code={code} :: severity={severity} :: count={count} :: source={source} :: policy_ids={policy_ids} :: owner_status={owner_status} :: owner={owner} :: seed={seed} :: seed_object={seed_object} :: best_option={best_option} :: best_option_components={best_option_components} :: action={action}".format(
+            "- {title} :: code={code} :: severity={severity} :: count={count} :: source={source} :: policy_ids={policy_ids} :: owner_status={owner_status} :: owner={owner} :: seed={seed} :: seed_object={seed_object} :: best_option={best_option} :: best_option_components={best_option_components} :: runner_up_option={runner_up_option} :: runner_up_components={runner_up_components} :: choice_margin={choice_margin} :: action={action}".format(
                 title=lane.title,
                 code=lane.diagnostic_code,
                 severity=lane.severity,
@@ -408,6 +409,28 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
                     "none"
                     if best_option is None
                     else _format_score_components(best_option.score_components)
+                ),
+                runner_up_option=(
+                    "<none>"
+                    if runner_up_option is None
+                    else (
+                        f"{runner_up_option.resolution_kind}:"
+                        f"{runner_up_option.object_id}:"
+                        f"{runner_up_option.score}"
+                    )
+                ),
+                runner_up_components=(
+                    "none"
+                    if runner_up_option is None
+                    else _format_score_components(runner_up_option.score_components)
+                ),
+                choice_margin=(
+                    "none"
+                    if lane.candidate_owner_choice_margin_score is None
+                    else (
+                        f"{lane.candidate_owner_choice_margin_score}:"
+                        f"{lane.candidate_owner_choice_margin_reason}"
+                    )
                 ),
                 action=lane.recommended_action,
             )
