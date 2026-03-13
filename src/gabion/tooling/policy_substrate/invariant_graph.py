@@ -5,6 +5,7 @@ from collections import defaultdict, deque
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
+from functools import cached_property
 import json
 from pathlib import Path
 from typing import cast
@@ -821,7 +822,27 @@ class InvariantWorkstreamProjection:
     def iter_touchpoints(self) -> Iterator[InvariantTouchpointProjection]:
         return iter(self.touchpoints)
 
+    @cached_property
+    def _subqueue_cache(self) -> tuple[InvariantSubqueueProjection, ...]:
+        return tuple(self.iter_subqueues())
+
+    @cached_property
+    def _touchpoint_cache(self) -> tuple[InvariantTouchpointProjection, ...]:
+        return tuple(self.iter_touchpoints())
+
+    @cached_property
+    def _touchsite_cache(self) -> tuple[InvariantTouchsiteProjection, ...]:
+        return tuple(
+            touchsite
+            for touchpoint in self._touchpoint_cache
+            for touchsite in touchpoint.iter_touchsites()
+        )
+
     def ranked_touchpoint_cuts(self) -> tuple[InvariantCutCandidate, ...]:
+        return self._ranked_touchpoint_cuts
+
+    @cached_property
+    def _ranked_touchpoint_cuts(self) -> tuple[InvariantCutCandidate, ...]:
         candidates = [
             InvariantCutCandidate(
                 cut_kind="touchpoint_cut",
@@ -853,17 +874,21 @@ class InvariantWorkstreamProjection:
                     touchsite.object_id for touchsite in touchpoint.iter_touchsites()
                 ),
             )
-            for touchpoint in self.iter_touchpoints()
+            for touchpoint in self._touchpoint_cache
             if touchpoint.touchsite_count > 0
         ]
         return tuple(_sorted(candidates, key=_cut_sort_key))
 
     def ranked_subqueue_cuts(self) -> tuple[InvariantCutCandidate, ...]:
+        return self._ranked_subqueue_cuts
+
+    @cached_property
+    def _ranked_subqueue_cuts(self) -> tuple[InvariantCutCandidate, ...]:
         touchpoint_groups: defaultdict[str, list[InvariantTouchpointProjection]] = defaultdict(list)
-        for touchpoint in self.iter_touchpoints():
+        for touchpoint in self._touchpoint_cache:
             touchpoint_groups[touchpoint.subqueue_id.wire()].append(touchpoint)
         candidates = []
-        for subqueue in self.iter_subqueues():
+        for subqueue in self._subqueue_cache:
             if subqueue.touchsite_count <= 0:
                 continue
             touchsites = tuple(
@@ -984,6 +1009,10 @@ class InvariantWorkstreamProjection:
         return priority.get(lane.alignment_status, 49)
 
     def ranked_followups(self) -> tuple[InvariantFollowupAction, ...]:
+        return self._ranked_followups
+
+    @cached_property
+    def _ranked_followups(self) -> tuple[InvariantFollowupAction, ...]:
         actions: list[InvariantFollowupAction] = []
         for lane in self.remediation_lanes():
             if lane.best_cut is None:
@@ -1049,12 +1078,11 @@ class InvariantWorkstreamProjection:
         return ranked_followups[0]
 
     def health_summary(self) -> InvariantWorkstreamHealthSummary:
-        touchpoints = tuple(self.iter_touchpoints())
-        touchsites = tuple(
-            touchsite
-            for touchpoint in touchpoints
-            for touchsite in touchpoint.iter_touchsites()
-        )
+        return self._health_summary
+
+    @cached_property
+    def _health_summary(self) -> InvariantWorkstreamHealthSummary:
+        touchsites = self._touchsite_cache
         touchsite_blocker_classes = tuple(
             _touchsite_blocker_class(touchsite) for touchsite in touchsites
         )
@@ -1133,6 +1161,10 @@ class InvariantWorkstreamProjection:
         )
 
     def dominant_blocker_class(self) -> str:
+        return self._dominant_blocker_class
+
+    @cached_property
+    def _dominant_blocker_class(self) -> str:
         health_summary = self.health_summary()
         blocked_counts = (
             ("diagnostic_blocked", health_summary.diagnostic_blocked_touchsite_count),
@@ -1159,6 +1191,10 @@ class InvariantWorkstreamProjection:
         return "none"
 
     def recommended_remediation_family(self) -> str:
+        return self._recommended_remediation_family
+
+    @cached_property
+    def _recommended_remediation_family(self) -> str:
         if self.recommended_ready_cut() is not None:
             return "structural_cut"
         if self.recommended_diagnostic_blocked_cut() is not None:
@@ -1170,6 +1206,10 @@ class InvariantWorkstreamProjection:
         return "none"
 
     def remediation_lanes(self) -> tuple[InvariantRemediationLane, ...]:
+        return self._remediation_lanes
+
+    @cached_property
+    def _remediation_lanes(self) -> tuple[InvariantRemediationLane, ...]:
         health_summary = self.health_summary()
         touchpoint_cuts = self.ranked_touchpoint_cuts()
         subqueue_cuts = self.ranked_subqueue_cuts()
@@ -1236,6 +1276,10 @@ class InvariantWorkstreamProjection:
         return tuple(lanes)
 
     def documentation_followup_lane(self) -> InvariantDocumentationFollowupLane | None:
+        return self._documentation_followup_lane
+
+    @cached_property
+    def _documentation_followup_lane(self) -> InvariantDocumentationFollowupLane | None:
         if self.doc_alignment_summary is None:
             return None
         if self.doc_alignment_summary.recommended_doc_alignment_action == "none":
@@ -1368,7 +1412,15 @@ class InvariantWorkstreamsProjection:
     def iter_workstreams(self) -> Iterator[InvariantWorkstreamProjection]:
         return iter(self.workstreams)
 
+    @cached_property
+    def _workstream_cache(self) -> tuple[InvariantWorkstreamProjection, ...]:
+        return tuple(self.iter_workstreams())
+
     def diagnostic_summary(self) -> InvariantDiagnosticSummary:
+        return self._diagnostic_summary
+
+    @cached_property
+    def _diagnostic_summary(self) -> InvariantDiagnosticSummary:
         bucket_counts: defaultdict[tuple[str, str], int] = defaultdict(int)
         unmatched_policy_signal_count = 0
         unresolved_blocking_dependency_count = 0
@@ -1454,6 +1506,10 @@ class InvariantWorkstreamsProjection:
         return "ambiguous_path_family_owner"
 
     def ranked_repo_followups(self) -> tuple[InvariantRepoFollowupAction, ...]:
+        return self._ranked_repo_followups
+
+    @cached_property
+    def _ranked_repo_followups(self) -> tuple[InvariantRepoFollowupAction, ...]:
         actions: list[InvariantRepoFollowupAction] = []
         for lane in self.repo_diagnostic_lanes():
             if lane.diagnostic_code == "unmatched_policy_signal":
@@ -1563,6 +1619,10 @@ class InvariantWorkstreamsProjection:
         )
 
     def recommended_repo_followup(self) -> InvariantRepoFollowupAction | None:
+        return self._recommended_repo_followup
+
+    @cached_property
+    def _recommended_repo_followup(self) -> InvariantRepoFollowupAction | None:
         ranked = self.ranked_repo_followups()
         if not ranked:
             return None
@@ -1576,6 +1636,10 @@ class InvariantWorkstreamsProjection:
         return "code"
 
     def repo_followup_lanes(self) -> tuple[InvariantRepoFollowupLane, ...]:
+        return self._repo_followup_lanes
+
+    @cached_property
+    def _repo_followup_lanes(self) -> tuple[InvariantRepoFollowupLane, ...]:
         grouped: defaultdict[tuple[str, str], list[InvariantRepoFollowupAction]] = defaultdict(list)
         for followup in self.ranked_repo_followups():
             followup_class = self._repo_followup_class(followup)
@@ -1626,6 +1690,10 @@ class InvariantWorkstreamsProjection:
         return recommended.followup_family
 
     def repo_diagnostic_lanes(self) -> tuple[InvariantRepoDiagnosticLane, ...]:
+        return self._repo_diagnostic_lanes
+
+    @cached_property
+    def _repo_diagnostic_lanes(self) -> tuple[InvariantRepoDiagnosticLane, ...]:
         grouped: defaultdict[
             tuple[str, str, str, str, str, str],
             list[InvariantGraphDiagnostic],
@@ -1728,7 +1796,7 @@ class InvariantWorkstreamsProjection:
         )
 
     def as_payload(self) -> dict[str, object]:
-        workstreams = tuple(self.iter_workstreams())
+        workstreams = self._workstream_cache
         diagnostic_summary = self.diagnostic_summary()
         recommended_repo_followup = self.recommended_repo_followup()
         recommended_repo_code_followup = self.recommended_repo_code_followup()
@@ -1777,28 +1845,8 @@ class InvariantWorkstreamsProjection:
         }
 
     def artifact_document(self) -> ArtifactUnit:
-        workstreams = tuple(self.iter_workstreams())
-        diagnostic_summary = self.diagnostic_summary()
-        recommended_repo_followup = self.recommended_repo_followup()
-        recommended_repo_code_followup = self.recommended_repo_code_followup()
-        recommended_repo_human_followup = self.recommended_repo_human_followup()
-        ranked_repo_followups = self.ranked_repo_followups()
-        repo_followup_lanes = self.repo_followup_lanes()
-        repo_diagnostic_lanes = self.repo_diagnostic_lanes()
-
         def _workstream_items() -> Iterator[ArtifactUnit]:
-            for workstream in workstreams:
-                recommended_cut = workstream.recommended_cut()
-                recommended_ready_cut = workstream.recommended_ready_cut()
-                recommended_coverage_gap_cut = workstream.recommended_coverage_gap_cut()
-                recommended_policy_blocked_cut = workstream.recommended_policy_blocked_cut()
-                recommended_diagnostic_blocked_cut = (
-                    workstream.recommended_diagnostic_blocked_cut()
-                )
-                remediation_lanes = workstream.remediation_lanes()
-                ranked_touchpoint_cuts = workstream.ranked_touchpoint_cuts()
-                ranked_subqueue_cuts = workstream.ranked_subqueue_cuts()
-                health_summary = workstream.health_summary()
+            for workstream in self._workstream_cache:
                 yield list_item(
                     identity=workstream.object_id,
                     title=workstream.object_id.wire(),
@@ -1930,8 +1978,8 @@ class InvariantWorkstreamsProjection:
                                 identity=workstream.object_id,
                                 key="health_summary",
                                 title="health_summary",
-                                children=lambda health_summary=health_summary: iter(
-                                    _payload_to_units(health_summary.as_payload())
+                                children=lambda workstream=workstream: iter(
+                                    _payload_to_units(workstream.health_summary().as_payload())
                                 ),
                             ),
                             bullet_list(
@@ -1960,17 +2008,7 @@ class InvariantWorkstreamsProjection:
                                 identity=workstream.object_id,
                                 key="next_actions",
                                 title="next_actions",
-                                children=lambda recommended_cut=recommended_cut,
-                                recommended_ready_cut=recommended_ready_cut,
-                                recommended_coverage_gap_cut=recommended_coverage_gap_cut,
-                                recommended_policy_blocked_cut=recommended_policy_blocked_cut,
-                                recommended_diagnostic_blocked_cut=recommended_diagnostic_blocked_cut,
-                                remediation_lanes=remediation_lanes,
-                                documentation_followup_lane=workstream.documentation_followup_lane(),
-                                recommended_followup=workstream.recommended_followup(),
-                                ranked_followups=workstream.ranked_followups(),
-                                ranked_touchpoint_cuts=ranked_touchpoint_cuts,
-                                ranked_subqueue_cuts=ranked_subqueue_cuts: iter(
+                                children=lambda workstream=workstream: iter(
                                     (
                                         scalar(
                                             identity=ArtifactSourceRef(
@@ -2035,8 +2073,8 @@ class InvariantWorkstreamsProjection:
                                             title="recommended_followup",
                                             value=(
                                                 None
-                                                if recommended_followup is None
-                                                else recommended_followup.as_payload()
+                                                if workstream.recommended_followup() is None
+                                                else workstream.recommended_followup().as_payload()
                                             ),
                                         ),
                                         bullet_list(
@@ -2065,8 +2103,8 @@ class InvariantWorkstreamsProjection:
                                             title="recommended_cut",
                                             value=(
                                                 None
-                                                if recommended_cut is None
-                                                else recommended_cut.as_payload()
+                                                if workstream.recommended_cut() is None
+                                                else workstream.recommended_cut().as_payload()
                                             ),
                                         ),
                                         scalar(
@@ -2078,8 +2116,8 @@ class InvariantWorkstreamsProjection:
                                             title="recommended_ready_cut",
                                             value=(
                                                 None
-                                                if recommended_ready_cut is None
-                                                else recommended_ready_cut.as_payload()
+                                                if workstream.recommended_ready_cut() is None
+                                                else workstream.recommended_ready_cut().as_payload()
                                             ),
                                         ),
                                         scalar(
@@ -2091,8 +2129,8 @@ class InvariantWorkstreamsProjection:
                                             title="recommended_coverage_gap_cut",
                                             value=(
                                                 None
-                                                if recommended_coverage_gap_cut is None
-                                                else recommended_coverage_gap_cut.as_payload()
+                                                if workstream.recommended_coverage_gap_cut() is None
+                                                else workstream.recommended_coverage_gap_cut().as_payload()
                                             ),
                                         ),
                                         scalar(
@@ -2104,8 +2142,8 @@ class InvariantWorkstreamsProjection:
                                             title="recommended_policy_blocked_cut",
                                             value=(
                                                 None
-                                                if recommended_policy_blocked_cut is None
-                                                else recommended_policy_blocked_cut.as_payload()
+                                                if workstream.recommended_policy_blocked_cut() is None
+                                                else workstream.recommended_policy_blocked_cut().as_payload()
                                             ),
                                         ),
                                         scalar(
@@ -2117,8 +2155,8 @@ class InvariantWorkstreamsProjection:
                                             title="recommended_diagnostic_blocked_cut",
                                             value=(
                                                 None
-                                                if recommended_diagnostic_blocked_cut is None
-                                                else recommended_diagnostic_blocked_cut.as_payload()
+                                                if workstream.recommended_diagnostic_blocked_cut() is None
+                                                else workstream.recommended_diagnostic_blocked_cut().as_payload()
                                             ),
                                         ),
                                         bullet_list(
@@ -2127,7 +2165,7 @@ class InvariantWorkstreamsProjection:
                                                 qualname="ranked_followups",
                                             ),
                                             key="ranked_followups",
-                                            children=lambda ranked_followups=ranked_followups: (
+                                            children=lambda workstream=workstream: (
                                                 list_item(
                                                     identity=ArtifactSourceRef(
                                                         rel_path="<synthetic>",
@@ -2141,7 +2179,7 @@ class InvariantWorkstreamsProjection:
                                                         _payload_to_units(item.as_payload())
                                                     ),
                                                 )
-                                                for item in ranked_followups
+                                                for item in workstream.ranked_followups()
                                             ),
                                         ),
                                         bullet_list(
@@ -2150,7 +2188,7 @@ class InvariantWorkstreamsProjection:
                                                 qualname="remediation_lanes",
                                             ),
                                             key="remediation_lanes",
-                                            children=lambda remediation_lanes=remediation_lanes: (
+                                            children=lambda workstream=workstream: (
                                                 list_item(
                                                     identity=ArtifactSourceRef(
                                                         rel_path="<synthetic>",
@@ -2160,7 +2198,7 @@ class InvariantWorkstreamsProjection:
                                                         _payload_to_units(item.as_payload())
                                                     ),
                                                 )
-                                                for item in remediation_lanes
+                                                for item in workstream.remediation_lanes()
                                             ),
                                         ),
                                         bullet_list(
@@ -2169,18 +2207,18 @@ class InvariantWorkstreamsProjection:
                                                 qualname="documentation_followup_lanes",
                                             ),
                                             key="documentation_followup_lanes",
-                                            children=lambda documentation_followup_lane=documentation_followup_lane: iter(
+                                            children=lambda workstream=workstream: iter(
                                                 ()
-                                                if documentation_followup_lane is None
+                                                if workstream.documentation_followup_lane() is None
                                                 else (
                                                     list_item(
                                                         identity=ArtifactSourceRef(
                                                             rel_path="<synthetic>",
-                                                            qualname=documentation_followup_lane.followup_family,
+                                                            qualname=workstream.documentation_followup_lane().followup_family,
                                                         ),
-                                                        children=lambda documentation_followup_lane=documentation_followup_lane: iter(
+                                                        children=lambda workstream=workstream: iter(
                                                             _payload_to_units(
-                                                                documentation_followup_lane.as_payload()
+                                                                workstream.documentation_followup_lane().as_payload()
                                                             )
                                                         ),
                                                     ),
@@ -2193,14 +2231,14 @@ class InvariantWorkstreamsProjection:
                                                 qualname="ranked_touchpoint_cuts",
                                             ),
                                             key="ranked_touchpoint_cuts",
-                                            children=lambda ranked_touchpoint_cuts=ranked_touchpoint_cuts: (
+                                            children=lambda workstream=workstream: (
                                                 list_item(
                                                     identity=item.object_id,
                                                     children=lambda item=item: iter(
                                                         _payload_to_units(item.as_payload())
                                                     ),
                                                 )
-                                                for item in ranked_touchpoint_cuts
+                                                for item in workstream.ranked_touchpoint_cuts()
                                             ),
                                         ),
                                         bullet_list(
@@ -2209,14 +2247,14 @@ class InvariantWorkstreamsProjection:
                                                 qualname="ranked_subqueue_cuts",
                                             ),
                                             key="ranked_subqueue_cuts",
-                                            children=lambda ranked_subqueue_cuts=ranked_subqueue_cuts: (
+                                            children=lambda workstream=workstream: (
                                                 list_item(
                                                     identity=item.object_id,
                                                     children=lambda item=item: iter(
                                                         _payload_to_units(item.as_payload())
                                                     ),
                                                 )
-                                                for item in ranked_subqueue_cuts
+                                                for item in workstream.ranked_subqueue_cuts()
                                             ),
                                         ),
                                     )
@@ -2260,8 +2298,8 @@ class InvariantWorkstreamsProjection:
                         ),
                         key="diagnostic_summary",
                         title="diagnostic_summary",
-                        children=lambda diagnostic_summary=diagnostic_summary: iter(
-                            _payload_to_units(diagnostic_summary.as_payload())
+                        children=lambda self=self: iter(
+                            _payload_to_units(self.diagnostic_summary().as_payload())
                         ),
                     ),
                     section(
@@ -2271,12 +2309,7 @@ class InvariantWorkstreamsProjection:
                         ),
                         key="repo_next_actions",
                         title="repo_next_actions",
-                        children=lambda recommended_repo_followup=recommended_repo_followup,
-                        recommended_repo_code_followup=recommended_repo_code_followup,
-                        recommended_repo_human_followup=recommended_repo_human_followup,
-                        ranked_repo_followups=ranked_repo_followups,
-                        repo_followup_lanes=repo_followup_lanes,
-                        repo_diagnostic_lanes=repo_diagnostic_lanes: iter(
+                        children=lambda self=self: iter(
                             (
                                 scalar(
                                     identity=ArtifactSourceRef(
@@ -2305,8 +2338,8 @@ class InvariantWorkstreamsProjection:
                                     title="recommended_followup",
                                     value=(
                                         None
-                                        if recommended_repo_followup is None
-                                        else recommended_repo_followup.as_payload()
+                                        if self.recommended_repo_followup() is None
+                                        else self.recommended_repo_followup().as_payload()
                                     ),
                                 ),
                                 scalar(
@@ -2318,8 +2351,8 @@ class InvariantWorkstreamsProjection:
                                     title="recommended_code_followup",
                                     value=(
                                         None
-                                        if recommended_repo_code_followup is None
-                                        else recommended_repo_code_followup.as_payload()
+                                        if self.recommended_repo_code_followup() is None
+                                        else self.recommended_repo_code_followup().as_payload()
                                     ),
                                 ),
                                 scalar(
@@ -2331,8 +2364,8 @@ class InvariantWorkstreamsProjection:
                                     title="recommended_human_followup",
                                     value=(
                                         None
-                                        if recommended_repo_human_followup is None
-                                        else recommended_repo_human_followup.as_payload()
+                                        if self.recommended_repo_human_followup() is None
+                                        else self.recommended_repo_human_followup().as_payload()
                                     ),
                                 ),
                                 bullet_list(
@@ -2341,7 +2374,7 @@ class InvariantWorkstreamsProjection:
                                         qualname="ranked_followups",
                                     ),
                                     key="ranked_followups",
-                                    children=lambda ranked_repo_followups=ranked_repo_followups: (
+                                    children=lambda self=self: (
                                         list_item(
                                             identity=ArtifactSourceRef(
                                                 rel_path="<synthetic>",
@@ -2356,7 +2389,7 @@ class InvariantWorkstreamsProjection:
                                                 _payload_to_units(item.as_payload())
                                             ),
                                         )
-                                        for item in ranked_repo_followups
+                                        for item in self.ranked_repo_followups()
                                     ),
                                 ),
                                 bullet_list(
@@ -2365,7 +2398,7 @@ class InvariantWorkstreamsProjection:
                                         qualname="followup_lanes",
                                     ),
                                     key="followup_lanes",
-                                    children=lambda repo_followup_lanes=repo_followup_lanes: (
+                                    children=lambda self=self: (
                                         list_item(
                                             identity=ArtifactSourceRef(
                                                 rel_path="<synthetic>",
@@ -2375,7 +2408,7 @@ class InvariantWorkstreamsProjection:
                                                 _payload_to_units(item.as_payload())
                                             ),
                                         )
-                                        for item in repo_followup_lanes
+                                        for item in self.repo_followup_lanes()
                                     ),
                                 ),
                                 bullet_list(
@@ -2384,7 +2417,7 @@ class InvariantWorkstreamsProjection:
                                         qualname="diagnostic_lanes",
                                     ),
                                     key="diagnostic_lanes",
-                                    children=lambda repo_diagnostic_lanes=repo_diagnostic_lanes: (
+                                    children=lambda self=self: (
                                         list_item(
                                             identity=ArtifactSourceRef(
                                                 rel_path="<synthetic>",
@@ -2394,7 +2427,7 @@ class InvariantWorkstreamsProjection:
                                                 _payload_to_units(item.as_payload())
                                             ),
                                         )
-                                        for item in repo_diagnostic_lanes
+                                        for item in self.repo_diagnostic_lanes()
                                     ),
                                 ),
                             )
@@ -2404,7 +2437,7 @@ class InvariantWorkstreamsProjection:
                         identity=ArtifactSourceRef(rel_path="<synthetic>", qualname="counts"),
                         key="counts",
                         title="counts",
-                        children=lambda: iter(
+                        children=lambda self=self: iter(
                             (
                                 scalar(
                                     identity=ArtifactSourceRef(
@@ -2413,7 +2446,7 @@ class InvariantWorkstreamsProjection:
                                     ),
                                     key="workstream_count",
                                     title="workstream_count",
-                                    value=len(workstreams),
+                                    value=len(self._workstream_cache),
                                 ),
                                 scalar(
                                     identity=ArtifactSourceRef(
@@ -2422,7 +2455,7 @@ class InvariantWorkstreamsProjection:
                                     ),
                                     key="diagnostic_count",
                                     title="diagnostic_count",
-                                    value=diagnostic_summary.diagnostic_count,
+                                    value=self.diagnostic_summary().diagnostic_count,
                                 ),
                             )
                         ),
@@ -5491,12 +5524,9 @@ def build_invariant_workstreams(
         )
         if root is None or doc_paths_by_id is None:
             return workstream
-        recommended_cut = workstream.recommended_cut()
         summary = (
             f"{workstream.object_id.wire()} is {workstream.status} with "
-            f"{workstream.touchsite_count} touchsites; dominant blocker "
-            f"{workstream.dominant_blocker_class()}; recommended cut "
-            f"{recommended_cut.object_id.wire() if recommended_cut is not None else '<none>'}."
+            f"{workstream.touchsite_count} touchsites."
         )
         return replace(
             workstream,

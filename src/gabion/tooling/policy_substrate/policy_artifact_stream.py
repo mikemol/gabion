@@ -477,6 +477,118 @@ def render_json_value(unit: ArtifactUnit) -> object:
     return _json_value(unit)
 
 
+def _write_json_indent(handle, level: int) -> None:
+    handle.write(" " * level)
+
+
+def _write_json_scalar(handle, value: object) -> None:
+    json.dump(value, handle)
+
+
+def _iter_prefixed[T](first: T, iterator: Iterator[T]) -> Iterator[T]:
+    yield first
+    yield from iterator
+
+
+def _write_json_object_items(
+    handle,
+    items: Iterator[ArtifactUnit],
+    *,
+    indent: int,
+) -> None:
+    first = next(items, None)
+    if first is None:
+        handle.write("{}")
+        return
+    handle.write("{\n")
+    current = first
+    while current is not None:
+        _write_json_indent(handle, indent + 2)
+        json.dump(current.key, handle)
+        handle.write(": ")
+        _write_json_unit(handle, current, indent=indent + 2)
+        current = next(items, None)
+        if current is not None:
+            handle.write(",")
+        handle.write("\n")
+    _write_json_indent(handle, indent)
+    handle.write("}")
+
+
+def _write_json_object(handle, unit: ArtifactUnit, *, indent: int) -> None:
+    _write_json_object_items(
+        handle,
+        (child for child in unit if child.key),
+        indent=indent,
+    )
+
+
+def _write_json_array(
+    handle,
+    items: Iterable[ArtifactUnit],
+    *,
+    indent: int,
+) -> None:
+    iterator = iter(items)
+    first = next(iterator, None)
+    if first is None:
+        handle.write("[]")
+        return
+    handle.write("[\n")
+    current = first
+    while current is not None:
+        _write_json_indent(handle, indent + 2)
+        _write_json_unit(handle, current, indent=indent + 2)
+        current = next(iterator, None)
+        if current is not None:
+            handle.write(",")
+        handle.write("\n")
+    _write_json_indent(handle, indent)
+    handle.write("]")
+
+
+def _write_json_lazy(handle, unit: ArtifactUnit, *, indent: int) -> None:
+    iterator = iter(unit)
+    first = next(iterator, None)
+    if first is None:
+        handle.write("null")
+        return
+    second = next(iterator, None)
+    if second is None:
+        _write_json_unit(handle, first, indent=indent)
+        return
+    _write_json_array(
+        handle,
+        _iter_prefixed(first, _iter_prefixed(second, iterator)),
+        indent=indent,
+    )
+
+
+def _write_json_unit(handle, unit: ArtifactUnit, *, indent: int) -> None:
+    match unit.kind:
+        case ArtifactUnitKind.DOCUMENT | ArtifactUnitKind.SECTION | ArtifactUnitKind.ROW:
+            _write_json_object(handle, unit, indent=indent)
+        case ArtifactUnitKind.PARAGRAPH | ArtifactUnitKind.SCALAR | ArtifactUnitKind.CELL:
+            _write_json_scalar(handle, unit.value)
+        case ArtifactUnitKind.BULLET_LIST | ArtifactUnitKind.TABLE:
+            _write_json_array(handle, iter(unit), indent=indent)
+        case ArtifactUnitKind.LIST_ITEM:
+            iterator = iter(unit)
+            first = next(iterator, None)
+            if first is None:
+                _write_json_scalar(handle, unit.value)
+                return
+            _write_json_object_items(
+                handle,
+                (child for child in _iter_prefixed(first, iterator) if child.key),
+                indent=indent,
+            )
+        case ArtifactUnitKind.LAZY:
+            _write_json_lazy(handle, unit, indent=indent)
+        case _:
+            handle.write("null")
+
+
 def write_markdown(path: Path, unit: ArtifactUnit) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temp_path = path.with_suffix(f"{path.suffix}.tmp")
@@ -491,7 +603,7 @@ def write_json(path: Path, unit: ArtifactUnit) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temp_path = path.with_suffix(f"{path.suffix}.tmp")
     with temp_path.open("w", encoding="utf-8") as handle:
-        json.dump(render_json_value(unit), handle, indent=2)
+        _write_json_unit(handle, unit, indent=0)
         handle.write("\n")
     temp_path.replace(path)
 
