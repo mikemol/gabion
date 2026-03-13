@@ -217,7 +217,7 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
         print("recommended_repo_followup: <none>")
     elif recommended_repo_followup.diagnostic_code is not None:
         print(
-            "recommended_repo_followup: {family} :: diagnostic={diagnostic} :: owner={owner} :: seed={seed} :: seed_object={seed_object} :: owner_kind={owner_kind} :: owner_score={owner_score} :: owner_options={owner_options} :: runner_up_owner={runner_up_owner} :: runner_up_kind={runner_up_kind} :: runner_up_score={runner_up_score} :: owner_choice_margin={owner_choice_margin} :: owner_choice_margin_components={owner_choice_margin_components} :: count={count} :: action={action} :: utility={utility} :: utility_components={utility_components}".format(
+            "recommended_repo_followup: {family} :: diagnostic={diagnostic} :: owner={owner} :: seed={seed} :: seed_object={seed_object} :: owner_kind={owner_kind} :: owner_score={owner_score} :: owner_options={owner_options} :: runner_up_owner={runner_up_owner} :: runner_up_kind={runner_up_kind} :: runner_up_score={runner_up_score} :: owner_choice_margin={owner_choice_margin} :: owner_choice_margin_components={owner_choice_margin_components} :: owner_option_tradeoff={owner_option_tradeoff} :: owner_option_tradeoff_components={owner_option_tradeoff_components} :: count={count} :: action={action} :: utility={utility} :: utility_components={utility_components}".format(
                 family=recommended_repo_followup.followup_family,
                 diagnostic=recommended_repo_followup.diagnostic_code,
                 owner=recommended_repo_followup.owner_object_id or "<none>",
@@ -253,6 +253,17 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
                 ),
                 owner_choice_margin_components=_format_score_components(
                     recommended_repo_followup.owner_choice_margin_components
+                ),
+                owner_option_tradeoff=(
+                    "none"
+                    if recommended_repo_followup.owner_option_tradeoff_score is None
+                    else (
+                        f"{recommended_repo_followup.owner_option_tradeoff_score}:"
+                        f"{recommended_repo_followup.owner_option_tradeoff_reason}"
+                    )
+                ),
+                owner_option_tradeoff_components=_format_score_components(
+                    recommended_repo_followup.owner_option_tradeoff_components
                 ),
                 count=recommended_repo_followup.count,
                 action=recommended_repo_followup.recommended_action or "none",
@@ -320,7 +331,7 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
         print("recommended_repo_human_followup: <none>")
     elif recommended_repo_human_followup.diagnostic_code is not None:
         print(
-            "recommended_repo_human_followup: {family} :: diagnostic={diagnostic} :: owner={owner} :: seed={seed} :: seed_object={seed_object} :: owner_kind={owner_kind} :: owner_score={owner_score} :: owner_options={owner_options} :: runner_up_owner={runner_up_owner} :: runner_up_kind={runner_up_kind} :: runner_up_score={runner_up_score} :: owner_choice_margin={owner_choice_margin} :: owner_choice_margin_components={owner_choice_margin_components} :: count={count} :: action={action} :: utility={utility} :: utility_components={utility_components}".format(
+            "recommended_repo_human_followup: {family} :: diagnostic={diagnostic} :: owner={owner} :: seed={seed} :: seed_object={seed_object} :: owner_kind={owner_kind} :: owner_score={owner_score} :: owner_options={owner_options} :: runner_up_owner={runner_up_owner} :: runner_up_kind={runner_up_kind} :: runner_up_score={runner_up_score} :: owner_choice_margin={owner_choice_margin} :: owner_choice_margin_components={owner_choice_margin_components} :: owner_option_tradeoff={owner_option_tradeoff} :: owner_option_tradeoff_components={owner_option_tradeoff_components} :: count={count} :: action={action} :: utility={utility} :: utility_components={utility_components}".format(
                 family=recommended_repo_human_followup.followup_family,
                 diagnostic=recommended_repo_human_followup.diagnostic_code,
                 owner=recommended_repo_human_followup.owner_object_id or "<none>",
@@ -358,6 +369,18 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
                 ),
                 owner_choice_margin_components=_format_score_components(
                     recommended_repo_human_followup.owner_choice_margin_components
+                ),
+                owner_option_tradeoff=(
+                    "none"
+                    if recommended_repo_human_followup.owner_option_tradeoff_score
+                    is None
+                    else (
+                        f"{recommended_repo_human_followup.owner_option_tradeoff_score}:"
+                        f"{recommended_repo_human_followup.owner_option_tradeoff_reason}"
+                    )
+                ),
+                owner_option_tradeoff_components=_format_score_components(
+                    recommended_repo_human_followup.owner_option_tradeoff_components
                 ),
                 count=recommended_repo_human_followup.count,
                 action=recommended_repo_human_followup.recommended_action or "none",

@@ -654,6 +654,9 @@ class InvariantRepoFollowupAction:
     owner_choice_margin_score: int | None
     owner_choice_margin_reason: str | None
     owner_choice_margin_components: tuple[InvariantScoreComponent, ...]
+    owner_option_tradeoff_score: int | None
+    owner_option_tradeoff_reason: str | None
+    owner_option_tradeoff_components: tuple[InvariantScoreComponent, ...]
     utility_score: int
     utility_reason: str
     utility_components: tuple[InvariantScoreComponent, ...]
@@ -687,6 +690,11 @@ class InvariantRepoFollowupAction:
             "owner_choice_margin_reason": self.owner_choice_margin_reason,
             "owner_choice_margin_components": [
                 item.as_payload() for item in self.owner_choice_margin_components
+            ],
+            "owner_option_tradeoff_score": self.owner_option_tradeoff_score,
+            "owner_option_tradeoff_reason": self.owner_option_tradeoff_reason,
+            "owner_option_tradeoff_components": [
+                item.as_payload() for item in self.owner_option_tradeoff_components
             ],
             "utility_score": self.utility_score,
             "utility_reason": self.utility_reason,
@@ -1938,19 +1946,62 @@ class InvariantWorkstreamsProjection:
             )
         return tuple(components)
 
+    def _owner_option_tradeoff(
+        self,
+        options: tuple[InvariantOwnerCandidateOption, ...],
+    ) -> tuple[int | None, str | None, tuple[InvariantScoreComponent, ...]]:
+        if not options:
+            return None, None, ()
+        best_option = options[0]
+        if len(options) == 1:
+            return (
+                best_option.score,
+                "uncontested_best_option",
+                best_option.score_components,
+            )
+        if len(options) == 2:
+            runner_up_option = options[1]
+            return (
+                runner_up_option.opportunity_cost_score,
+                runner_up_option.opportunity_cost_reason,
+                self._owner_choice_margin_components(
+                    best_option=best_option,
+                    runner_up_option=runner_up_option,
+                ),
+            )
+        tradeoff_components = tuple(
+            InvariantScoreComponent(
+                kind="owner_option_gap_bonus",
+                score=option.opportunity_cost_score,
+                rationale=option.opportunity_cost_reason or option.rationale,
+            )
+            for option in options[1:]
+            if option.opportunity_cost_score > 0
+        )
+        tradeoff_score = sum(component.score for component in tradeoff_components)
+        if tradeoff_score <= 0:
+            return 0, "cofrontier_options", ()
+        return (
+            tradeoff_score,
+            "aggregate_owner_option_gap",
+            tradeoff_components,
+        )
+
     def _repo_followup_utility(
         self,
         followup: InvariantRepoFollowupAction,
     ) -> tuple[int, str, tuple[InvariantScoreComponent, ...]]:
         if followup.diagnostic_code == "unmatched_policy_signal":
             owner_score = followup.owner_resolution_score or 0
-            owner_choice_margin = followup.owner_choice_margin_score or 0
-            score = 900 + owner_score + owner_choice_margin
+            owner_option_tradeoff = followup.owner_option_tradeoff_score or 0
+            score = 900 + owner_score + owner_option_tradeoff
             reason = "governance_orphan"
             if followup.owner_resolution_kind is not None:
                 reason = f"{reason}:{followup.owner_resolution_kind}"
-            if owner_choice_margin > 0:
-                reason = f"{reason}+owner_choice_margin:{owner_choice_margin}"
+            if owner_option_tradeoff > 0:
+                reason = (
+                    f"{reason}+owner_option_tradeoff:{owner_option_tradeoff}"
+                )
             return (
                 score,
                 reason,
@@ -1968,11 +2019,11 @@ class InvariantWorkstreamsProjection:
                         ),
                     ),
                     InvariantScoreComponent(
-                        kind="owner_choice_margin_bonus",
-                        score=owner_choice_margin,
+                        kind="owner_option_tradeoff_bonus",
+                        score=owner_option_tradeoff,
                         rationale=(
-                            followup.owner_choice_margin_reason
-                            or "owner_choice_margin:none"
+                            followup.owner_option_tradeoff_reason
+                            or "owner_option_tradeoff:none"
                         ),
                     ),
                 ),
@@ -2106,6 +2157,11 @@ class InvariantWorkstreamsProjection:
                     else None
                 )
                 runner_up_option = lane.runner_up_candidate_owner_option
+                (
+                    owner_option_tradeoff_score,
+                    owner_option_tradeoff_reason,
+                    owner_option_tradeoff_components,
+                ) = self._owner_option_tradeoff(lane.candidate_owner_options)
                 if (
                     best_option is not None
                     and best_option.resolution_kind == "attach_existing_owner"
@@ -2169,6 +2225,11 @@ class InvariantWorkstreamsProjection:
                         owner_choice_margin_components=(
                             lane.candidate_owner_choice_margin_components
                         ),
+                        owner_option_tradeoff_score=owner_option_tradeoff_score,
+                        owner_option_tradeoff_reason=owner_option_tradeoff_reason,
+                        owner_option_tradeoff_components=(
+                            owner_option_tradeoff_components
+                        ),
                         utility_score=0,
                         utility_reason="",
                         utility_components=(),
@@ -2207,6 +2268,9 @@ class InvariantWorkstreamsProjection:
                         owner_choice_margin_score=None,
                         owner_choice_margin_reason=None,
                         owner_choice_margin_components=(),
+                        owner_option_tradeoff_score=None,
+                        owner_option_tradeoff_reason=None,
+                        owner_option_tradeoff_components=(),
                         utility_score=0,
                         utility_reason="",
                         utility_components=(),
@@ -2245,6 +2309,9 @@ class InvariantWorkstreamsProjection:
                         owner_choice_margin_score=None,
                         owner_choice_margin_reason=None,
                         owner_choice_margin_components=(),
+                        owner_option_tradeoff_score=None,
+                        owner_option_tradeoff_reason=None,
+                        owner_option_tradeoff_components=(),
                         utility_score=0,
                         utility_reason="",
                         utility_components=(),
@@ -2278,6 +2345,9 @@ class InvariantWorkstreamsProjection:
                         owner_choice_margin_score=None,
                         owner_choice_margin_reason=None,
                         owner_choice_margin_components=(),
+                        owner_option_tradeoff_score=None,
+                        owner_option_tradeoff_reason=None,
+                        owner_option_tradeoff_components=(),
                         utility_score=0,
                         utility_reason="",
                         utility_components=(),
