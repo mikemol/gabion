@@ -2068,7 +2068,18 @@ class InvariantWorkstreamsProjection:
         if followup.diagnostic_code == "unmatched_policy_signal":
             owner_score = followup.owner_resolution_score or 0
             owner_option_tradeoff = followup.owner_option_tradeoff_score or 0
-            score = 900 + owner_score + owner_option_tradeoff
+            governance_priority_identity = self._governance_priority_identity(
+                followup.policy_ids
+            )
+            governance_priority_bonus = self._governance_priority_bonus(
+                followup.policy_ids
+            )
+            score = (
+                900
+                + owner_score
+                + owner_option_tradeoff
+                + governance_priority_bonus
+            )
             reason = "governance_orphan"
             if followup.owner_resolution_kind is not None:
                 reason = f"{reason}:{followup.owner_resolution_kind}"
@@ -2076,30 +2087,59 @@ class InvariantWorkstreamsProjection:
                 reason = (
                     f"{reason}+owner_option_tradeoff:{owner_option_tradeoff}"
                 )
+            if (
+                governance_priority_bonus > 0
+                and governance_priority_identity is not None
+            ):
+                priority_rank, policy_id = governance_priority_identity
+                reason = (
+                    f"{reason}+governance_priority:{policy_id}:{priority_rank}"
+                )
             return (
                 score,
                 reason,
-                (
-                    InvariantScoreComponent(
-                        kind="governance_orphan_base",
-                        score=900,
-                        rationale="governance_orphan",
-                    ),
-                    InvariantScoreComponent(
-                        kind="owner_resolution_bonus",
-                        score=owner_score,
-                        rationale=(
-                            followup.owner_resolution_kind or "owner_resolution:none"
+                tuple(
+                    component
+                    for component in (
+                        InvariantScoreComponent(
+                            kind="governance_orphan_base",
+                            score=900,
+                            rationale="governance_orphan",
                         ),
-                    ),
-                    InvariantScoreComponent(
-                        kind="owner_option_tradeoff_bonus",
-                        score=owner_option_tradeoff,
-                        rationale=(
-                            followup.owner_option_tradeoff_reason
-                            or "owner_option_tradeoff:none"
+                        InvariantScoreComponent(
+                            kind="owner_resolution_bonus",
+                            score=owner_score,
+                            rationale=(
+                                followup.owner_resolution_kind or "owner_resolution:none"
+                            ),
                         ),
-                    ),
+                        InvariantScoreComponent(
+                            kind="owner_option_tradeoff_bonus",
+                            score=owner_option_tradeoff,
+                            rationale=(
+                                followup.owner_option_tradeoff_reason
+                                or "owner_option_tradeoff:none"
+                            ),
+                        ),
+                        (
+                            InvariantScoreComponent(
+                                kind="governance_priority_bonus",
+                                score=governance_priority_bonus,
+                                rationale=(
+                                    "governance_priority:none"
+                                    if governance_priority_identity is None
+                                    else (
+                                        "governance_priority:"
+                                        f"{governance_priority_identity[1]}:"
+                                        f"{governance_priority_identity[0]}"
+                                    )
+                                ),
+                            )
+                            if governance_priority_bonus > 0
+                            else None
+                        ),
+                    )
+                    if component is not None
                 ),
             )
         if followup.diagnostic_code == "unresolved_blocking_dependency":
@@ -2350,6 +2390,16 @@ class InvariantWorkstreamsProjection:
                 key=lambda item: (item[0], item[1]),
             )[0]
         )
+
+    def _governance_priority_bonus(
+        self,
+        policy_ids: tuple[str, ...],
+    ) -> int:
+        governance_priority_identity = self._governance_priority_identity(policy_ids)
+        if governance_priority_identity is None:
+            return 0
+        priority_rank, _ = governance_priority_identity
+        return max(0, 100 - priority_rank)
 
     @cached_property
     def _ranked_repo_followups(self) -> tuple[InvariantRepoFollowupAction, ...]:
