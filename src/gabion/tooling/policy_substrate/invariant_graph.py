@@ -672,6 +672,9 @@ class InvariantRepoFollowupLane:
     strongest_utility_reason: str
     lane_utility_score: int
     lane_utility_reason: str
+    selection_rank: int
+    opportunity_cost_score: int
+    opportunity_cost_reason: str
     best_followup: InvariantRepoFollowupAction
 
     def as_payload(self) -> dict[str, object]:
@@ -685,6 +688,9 @@ class InvariantRepoFollowupLane:
             "strongest_utility_reason": self.strongest_utility_reason,
             "lane_utility_score": self.lane_utility_score,
             "lane_utility_reason": self.lane_utility_reason,
+            "selection_rank": self.selection_rank,
+            "opportunity_cost_score": self.opportunity_cost_score,
+            "opportunity_cost_reason": self.opportunity_cost_reason,
             "best_followup": self.best_followup.as_payload(),
         }
 
@@ -2054,21 +2060,40 @@ class InvariantWorkstreamsProjection:
                     followup_family=followup_family,
                     items=tuple(items),
                 )[1],
+                selection_rank=0,
+                opportunity_cost_score=0,
+                opportunity_cost_reason="",
                 best_followup=items[0],
             )
             for (followup_class, followup_family), items in grouped.items()
         ]
+        ranked_lanes = _sorted(
+            lanes,
+            key=lambda item: (
+                -item.lane_utility_score,
+                item.best_followup.priority_rank,
+                item.action_count,
+                item.followup_class,
+                item.followup_family,
+            ),
+        )
+        top_score = ranked_lanes[0].lane_utility_score if ranked_lanes else 0
         return tuple(
-            _sorted(
-                lanes,
-                key=lambda item: (
-                    -item.lane_utility_score,
-                    item.best_followup.priority_rank,
-                    item.action_count,
-                    item.followup_class,
-                    item.followup_family,
+            replace(
+                lane,
+                selection_rank=index,
+                opportunity_cost_score=max(0, top_score - lane.lane_utility_score),
+                opportunity_cost_reason=(
+                    "frontier"
+                    if index == 1
+                    else (
+                        f"deferred_by:{ranked_lanes[0].followup_family}"
+                        if ranked_lanes
+                        else "none"
+                    )
                 ),
             )
+            for index, lane in enumerate(ranked_lanes, start=1)
         )
 
     def recommended_repo_code_followup(self) -> InvariantRepoFollowupAction | None:

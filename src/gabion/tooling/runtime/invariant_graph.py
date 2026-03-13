@@ -252,36 +252,48 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
         print("recommended_repo_followup_lane: <none>")
     else:
         print(
-            "recommended_repo_followup_lane: {family} :: class={klass} :: utility={utility}".format(
+            "recommended_repo_followup_lane: {family} :: class={klass} :: rank={rank} :: utility={utility} :: opportunity={opportunity}".format(
                 family=recommended_repo_followup_lane.followup_family,
                 klass=recommended_repo_followup_lane.followup_class,
+                rank=recommended_repo_followup_lane.selection_rank,
                 utility=(
                     f"{recommended_repo_followup_lane.lane_utility_score}:{recommended_repo_followup_lane.lane_utility_reason}"
                 ),
+                opportunity=(
+                    f"{recommended_repo_followup_lane.opportunity_cost_score}:{recommended_repo_followup_lane.opportunity_cost_reason}"
+                )
             )
         )
     if recommended_repo_code_followup_lane is None:
         print("recommended_repo_code_followup_lane: <none>")
     else:
         print(
-            "recommended_repo_code_followup_lane: {family} :: class={klass} :: utility={utility}".format(
+            "recommended_repo_code_followup_lane: {family} :: class={klass} :: rank={rank} :: utility={utility} :: opportunity={opportunity}".format(
                 family=recommended_repo_code_followup_lane.followup_family,
                 klass=recommended_repo_code_followup_lane.followup_class,
+                rank=recommended_repo_code_followup_lane.selection_rank,
                 utility=(
                     f"{recommended_repo_code_followup_lane.lane_utility_score}:{recommended_repo_code_followup_lane.lane_utility_reason}"
                 ),
+                opportunity=(
+                    f"{recommended_repo_code_followup_lane.opportunity_cost_score}:{recommended_repo_code_followup_lane.opportunity_cost_reason}"
+                )
             )
         )
     if recommended_repo_human_followup_lane is None:
         print("recommended_repo_human_followup_lane: <none>")
     else:
         print(
-            "recommended_repo_human_followup_lane: {family} :: class={klass} :: utility={utility}".format(
+            "recommended_repo_human_followup_lane: {family} :: class={klass} :: rank={rank} :: utility={utility} :: opportunity={opportunity}".format(
                 family=recommended_repo_human_followup_lane.followup_family,
                 klass=recommended_repo_human_followup_lane.followup_class,
+                rank=recommended_repo_human_followup_lane.selection_rank,
                 utility=(
                     f"{recommended_repo_human_followup_lane.lane_utility_score}:{recommended_repo_human_followup_lane.lane_utility_reason}"
                 ),
+                opportunity=(
+                    f"{recommended_repo_human_followup_lane.opportunity_cost_score}:{recommended_repo_human_followup_lane.opportunity_cost_reason}"
+                )
             )
         )
     print("repo_followup_lanes:")
@@ -289,7 +301,7 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
         best = lane.best_followup
         target = best.object_id or best.target_doc_id or best.diagnostic_code or "<none>"
         print(
-            "- {family} :: class={klass} :: actions={actions} :: best={action_kind}::{target} :: owner_strength={owner_strength} :: utility={utility} :: lane_utility={lane_utility}".format(
+            "- {family} :: class={klass} :: actions={actions} :: best={action_kind}::{target} :: owner_strength={owner_strength} :: utility={utility} :: lane_utility={lane_utility} :: rank={rank} :: opportunity={opportunity}".format(
                 family=lane.followup_family,
                 klass=lane.followup_class,
                 actions=lane.action_count,
@@ -304,6 +316,8 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
                 ),
                 utility=f"{lane.strongest_utility_score}:{lane.strongest_utility_reason}",
                 lane_utility=f"{lane.lane_utility_score}:{lane.lane_utility_reason}",
+                rank=lane.selection_rank,
+                opportunity=f"{lane.opportunity_cost_score}:{lane.opportunity_cost_reason}",
             )
         )
     print("repo_diagnostic_lanes:")
