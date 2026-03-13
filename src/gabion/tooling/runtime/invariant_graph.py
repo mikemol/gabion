@@ -10,17 +10,21 @@ from gabion.tooling.policy_substrate.invariant_graph import (
     InvariantGraph,
     blocker_chains,
     build_invariant_graph,
+    build_invariant_ledger_alignments,
     build_invariant_ledger_delta_projections,
     build_invariant_ledger_projections,
     build_invariant_workstreams,
     compare_invariant_ledger_projections,
     compare_invariant_workstreams,
     load_invariant_graph,
+    load_invariant_ledger_alignments,
     load_invariant_ledger_deltas,
     load_invariant_ledger_projections,
     load_invariant_workstreams,
     trace_nodes,
     write_invariant_graph,
+    write_invariant_ledger_alignments,
+    write_invariant_ledger_alignments_markdown,
     write_invariant_ledger_deltas,
     write_invariant_ledger_deltas_markdown,
     write_invariant_ledger_projections,
@@ -33,6 +37,12 @@ _DEFAULT_LEDGER_ARTIFACT = Path("artifacts/out/invariant_ledger_projections.json
 _DEFAULT_LEDGER_DELTAS_ARTIFACT = Path("artifacts/out/invariant_ledger_deltas.json")
 _DEFAULT_LEDGER_DELTAS_MARKDOWN_ARTIFACT = Path(
     "artifacts/out/invariant_ledger_deltas.md"
+)
+_DEFAULT_LEDGER_ALIGNMENTS_ARTIFACT = Path(
+    "artifacts/out/invariant_ledger_alignments.json"
+)
+_DEFAULT_LEDGER_ALIGNMENTS_MARKDOWN_ARTIFACT = Path(
+    "artifacts/out/invariant_ledger_alignments.md"
 )
 
 
@@ -480,10 +490,13 @@ def _print_blast_radius(
 
 def _print_compare(
     *,
+    root: Path,
     before_workstreams_artifact: Path,
     after_workstreams_artifact: Path,
     ledger_deltas_artifact: Path,
     ledger_deltas_markdown_artifact: Path,
+    ledger_alignments_artifact: Path,
+    ledger_alignments_markdown_artifact: Path,
     object_id: str | None,
 ) -> int:
     before_payload = load_invariant_workstreams(before_workstreams_artifact)
@@ -586,8 +599,33 @@ def _print_compare(
         ledger_deltas_markdown_artifact,
         ledger_delta_projections,
     )
+    ledger_alignments = build_invariant_ledger_alignments(
+        root=root,
+        ledger_deltas=ledger_delta_projections,
+    )
+    write_invariant_ledger_alignments(
+        ledger_alignments_artifact,
+        ledger_alignments,
+    )
+    write_invariant_ledger_alignments_markdown(
+        ledger_alignments_markdown_artifact,
+        ledger_alignments,
+    )
     print(f"ledger_delta_artifact: {ledger_deltas_artifact}")
     print(f"ledger_delta_markdown_artifact: {ledger_deltas_markdown_artifact}")
+    alignment_payload = ledger_alignments.as_payload()
+    status_counts = alignment_payload.get("counts", {}).get("status_counts", {})
+    print("ledger_alignment_counts:")
+    if isinstance(status_counts, dict):
+        for key, value in _sorted(
+            [(str(key), int(value)) for key, value in status_counts.items()],
+            key=lambda item: item[0],
+        ):
+            print(f"- {key}: {value}")
+    print(f"ledger_alignment_artifact: {ledger_alignments_artifact}")
+    print(
+        f"ledger_alignment_markdown_artifact: {ledger_alignments_markdown_artifact}"
+    )
     return 0
 
 
@@ -684,6 +722,39 @@ def _print_ledger_deltas(
     return 0
 
 
+def _print_ledger_alignments(
+    *,
+    ledger_alignments_artifact: Path,
+    object_id: str | None,
+    doc_id: str | None,
+    status: str | None,
+) -> int:
+    payload = load_invariant_ledger_alignments(ledger_alignments_artifact)
+    alignments = payload.get("alignments", [])
+    if not isinstance(alignments, list):
+        print("invalid invariant ledger alignments payload")
+        return 1
+    filtered = [
+        item
+        for item in alignments
+        if isinstance(item, dict)
+        and (object_id is None or str(item.get("object_id", "")) == object_id)
+        and (doc_id is None or str(item.get("target_doc_id", "")) == doc_id)
+        and (status is None or str(item.get("alignment_status", "")) == status)
+    ]
+    if not filtered:
+        print("no ledger alignments available")
+        return 1
+    for item in filtered:
+        print(f"object_id: {item.get('object_id', '')}")
+        print(f"title: {item.get('title', '')}")
+        print(f"target_doc_id: {item.get('target_doc_id', '')}")
+        print(f"target_doc_path: {item.get('target_doc_path', '')}")
+        print(f"alignment_status: {item.get('alignment_status', '')}")
+        print(f"summary: {item.get('summary', '')}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", default=".")
@@ -703,6 +774,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--ledger-deltas-markdown-artifact",
         default=str(_DEFAULT_LEDGER_DELTAS_MARKDOWN_ARTIFACT),
+    )
+    parser.add_argument(
+        "--ledger-alignments-artifact",
+        default=str(_DEFAULT_LEDGER_ALIGNMENTS_ARTIFACT),
+    )
+    parser.add_argument(
+        "--ledger-alignments-markdown-artifact",
+        default=str(_DEFAULT_LEDGER_ALIGNMENTS_MARKDOWN_ARTIFACT),
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -729,11 +808,21 @@ def main(argv: list[str] | None = None) -> int:
         default=str(_DEFAULT_LEDGER_DELTAS_ARTIFACT),
     )
 
+    ledger_alignments_parser = subparsers.add_parser("ledger-alignments")
+    ledger_alignments_parser.add_argument("--object-id", default=None)
+    ledger_alignments_parser.add_argument("--doc-id", default=None)
+    ledger_alignments_parser.add_argument("--status", default=None)
+    ledger_alignments_parser.add_argument(
+        "--ledger-alignments-artifact",
+        default=str(_DEFAULT_LEDGER_ALIGNMENTS_ARTIFACT),
+    )
+
     blast_radius_parser = subparsers.add_parser("blast-radius")
     blast_radius_parser.add_argument("--id", required=True)
     blast_radius_parser.add_argument("--impact-artifact", default=None)
 
     compare_parser = subparsers.add_parser("compare")
+    compare_parser.add_argument("--root", default=".")
     compare_parser.add_argument("--before-workstreams-artifact", required=True)
     compare_parser.add_argument("--after-workstreams-artifact", required=True)
     compare_parser.add_argument("--object-id", default=None)
@@ -745,6 +834,14 @@ def main(argv: list[str] | None = None) -> int:
         "--ledger-deltas-markdown-artifact",
         default=str(_DEFAULT_LEDGER_DELTAS_MARKDOWN_ARTIFACT),
     )
+    compare_parser.add_argument(
+        "--ledger-alignments-artifact",
+        default=str(_DEFAULT_LEDGER_ALIGNMENTS_ARTIFACT),
+    )
+    compare_parser.add_argument(
+        "--ledger-alignments-markdown-artifact",
+        default=str(_DEFAULT_LEDGER_ALIGNMENTS_MARKDOWN_ARTIFACT),
+    )
 
     args = parser.parse_args(argv)
     root = Path(args.root).resolve()
@@ -754,6 +851,10 @@ def main(argv: list[str] | None = None) -> int:
     ledger_deltas_artifact = Path(args.ledger_deltas_artifact).resolve()
     ledger_deltas_markdown_artifact = Path(
         args.ledger_deltas_markdown_artifact
+    ).resolve()
+    ledger_alignments_artifact = Path(args.ledger_alignments_artifact).resolve()
+    ledger_alignments_markdown_artifact = Path(
+        args.ledger_alignments_markdown_artifact
     ).resolve()
 
     if args.command == "build":
@@ -796,6 +897,13 @@ def main(argv: list[str] | None = None) -> int:
             object_id=None if args.object_id is None else str(args.object_id),
             doc_id=None if args.doc_id is None else str(args.doc_id),
         )
+    if args.command == "ledger-alignments":
+        return _print_ledger_alignments(
+            ledger_alignments_artifact=ledger_alignments_artifact,
+            object_id=None if args.object_id is None else str(args.object_id),
+            doc_id=None if args.doc_id is None else str(args.doc_id),
+            status=None if args.status is None else str(args.status),
+        )
     if args.command == "blast-radius":
         impact_artifact = (
             Path(args.impact_artifact).resolve()
@@ -809,6 +917,7 @@ def main(argv: list[str] | None = None) -> int:
         )
     if args.command == "compare":
         return _print_compare(
+            root=root,
             before_workstreams_artifact=Path(
                 str(args.before_workstreams_artifact)
             ).resolve(),
@@ -817,6 +926,8 @@ def main(argv: list[str] | None = None) -> int:
             ).resolve(),
             ledger_deltas_artifact=ledger_deltas_artifact,
             ledger_deltas_markdown_artifact=ledger_deltas_markdown_artifact,
+            ledger_alignments_artifact=ledger_alignments_artifact,
+            ledger_alignments_markdown_artifact=ledger_alignments_markdown_artifact,
             object_id=None if args.object_id is None else str(args.object_id),
         )
     return 1

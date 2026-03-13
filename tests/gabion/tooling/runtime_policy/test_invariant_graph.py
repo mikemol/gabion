@@ -957,14 +957,107 @@ def test_build_invariant_ledger_delta_projections_groups_append_targets() -> Non
     assert grouped[0][1][0].object_id == "WS-REDUCE"
 
 
+def test_build_invariant_ledger_alignments_detects_append_pending_existing_object(
+    tmp_path: Path,
+) -> None:
+    before_payload = _synthetic_workstreams_payload(
+        [
+            {
+                "object_id": "WS-REDUCE",
+                "title": "reduce stream",
+                "doc_ids": ["ledger.reduce"],
+                "status": "in_progress",
+                "touchsite_count": 2,
+                "surviving_touchsite_count": 1,
+                "touchpoints": [{"touchsites": [{"object_id": "TS-1"}, {"object_id": "TS-2"}]}],
+                "health_summary": {
+                    "ready_touchsite_count": 0,
+                    "coverage_gap_touchsite_count": 2,
+                    "policy_blocked_touchsite_count": 0,
+                    "diagnostic_blocked_touchsite_count": 0,
+                },
+                "next_actions": {
+                    "dominant_blocker_class": "coverage_gap",
+                    "recommended_cut": {"object_id": "TP-BEFORE"},
+                },
+            }
+        ]
+    )
+    after_payload = _synthetic_workstreams_payload(
+        [
+            {
+                "object_id": "WS-REDUCE",
+                "title": "reduce stream",
+                "doc_ids": ["ledger.reduce"],
+                "status": "in_progress",
+                "touchsite_count": 1,
+                "surviving_touchsite_count": 1,
+                "touchpoints": [{"touchsites": [{"object_id": "TS-1"}]}],
+                "health_summary": {
+                    "ready_touchsite_count": 1,
+                    "coverage_gap_touchsite_count": 0,
+                    "policy_blocked_touchsite_count": 0,
+                    "diagnostic_blocked_touchsite_count": 0,
+                },
+                "next_actions": {
+                    "dominant_blocker_class": "ready_structural",
+                    "recommended_cut": {"object_id": "TP-AFTER"},
+                },
+            }
+        ]
+    )
+    projections = invariant_graph.build_invariant_ledger_delta_projections(
+        root=str(tmp_path),
+        before_workstreams_artifact=str(tmp_path / "before.json"),
+        after_workstreams_artifact=str(tmp_path / "after.json"),
+        before_payload=before_payload,
+        after_payload=after_payload,
+    )
+    doc_path = tmp_path / "docs" / "ledger_reduce.md"
+    doc_path.parent.mkdir(parents=True, exist_ok=True)
+    doc_path.write_text(
+        "---\n"
+        "doc_revision: 1\n"
+        "doc_id: ledger.reduce\n"
+        "---\n\n"
+        "# Ledger\n\n"
+        "Existing object reference: `WS-REDUCE`.\n",
+        encoding="utf-8",
+    )
+
+    alignments = invariant_graph.build_invariant_ledger_alignments(
+        root=tmp_path,
+        ledger_deltas=projections,
+    )
+    payload = alignments.as_payload()
+    assert payload["counts"]["alignment_count"] == 1
+    assert payload["counts"]["status_counts"]["append_pending_existing_object"] == 1
+    assert payload["alignments"][0]["target_doc_path"] == "docs/ledger_reduce.md"
+    assert payload["alignments"][0]["object_reference_present"] is True
+    assert payload["alignments"][0]["summary_present"] is False
+
+
 def test_runtime_invariant_graph_cli_compare_reports_workstream_drift(
     tmp_path: Path,
     capsys,
 ) -> None:
+    doc_path = tmp_path / "docs" / "ledger_reduce.md"
+    doc_path.parent.mkdir(parents=True, exist_ok=True)
+    doc_path.write_text(
+        "---\n"
+        "doc_revision: 1\n"
+        "doc_id: ledger.reduce\n"
+        "---\n\n"
+        "# Ledger\n\n"
+        "Existing object reference: `WS-REDUCE`.\n",
+        encoding="utf-8",
+    )
     before_artifact = tmp_path / "before_workstreams.json"
     after_artifact = tmp_path / "after_workstreams.json"
     ledger_deltas_artifact = tmp_path / "ledger_deltas.json"
     ledger_deltas_markdown_artifact = tmp_path / "ledger_deltas.md"
+    ledger_alignments_artifact = tmp_path / "ledger_alignments.json"
+    ledger_alignments_markdown_artifact = tmp_path / "ledger_alignments.md"
     _write_json(
         before_artifact,
         _synthetic_workstreams_payload(
@@ -1024,6 +1117,8 @@ def test_runtime_invariant_graph_cli_compare_reports_workstream_drift(
         invariant_graph_runtime.main(
             [
                 "compare",
+                "--root",
+                str(tmp_path),
                 "--before-workstreams-artifact",
                 str(before_artifact),
                 "--after-workstreams-artifact",
@@ -1032,6 +1127,10 @@ def test_runtime_invariant_graph_cli_compare_reports_workstream_drift(
                 str(ledger_deltas_artifact),
                 "--ledger-deltas-markdown-artifact",
                 str(ledger_deltas_markdown_artifact),
+                "--ledger-alignments-artifact",
+                str(ledger_alignments_artifact),
+                "--ledger-alignments-markdown-artifact",
+                str(ledger_alignments_markdown_artifact),
             ]
         )
         == 0
@@ -1058,16 +1157,42 @@ def test_runtime_invariant_graph_cli_compare_reports_workstream_drift(
         f"ledger_delta_markdown_artifact: {ledger_deltas_markdown_artifact}"
         in compare_output
     )
+    assert "ledger_alignment_counts:" in compare_output
+    assert "- append_pending_existing_object: 1" in compare_output
+    assert f"ledger_alignment_artifact: {ledger_alignments_artifact}" in compare_output
+    assert (
+        f"ledger_alignment_markdown_artifact: {ledger_alignments_markdown_artifact}"
+        in compare_output
+    )
     ledger_deltas_payload = json.loads(
         ledger_deltas_artifact.read_text(encoding="utf-8")
     )
     assert ledger_deltas_payload["counts"]["delta_count"] == 1
     assert ledger_deltas_payload["deltas"][0]["append_entry"]["object_id"] == "WS-REDUCE"
+    ledger_alignments_payload = json.loads(
+        ledger_alignments_artifact.read_text(encoding="utf-8")
+    )
+    assert (
+        ledger_alignments_payload["counts"]["status_counts"][
+            "append_pending_existing_object"
+        ]
+        == 1
+    )
+    assert (
+        ledger_alignments_payload["alignments"][0]["target_doc_path"]
+        == "docs/ledger_reduce.md"
+    )
     markdown_output = ledger_deltas_markdown_artifact.read_text(encoding="utf-8")
     assert "# Invariant Ledger Deltas" in markdown_output
     assert "## ledger.reduce" in markdown_output
     assert "### WS-REDUCE :: reduced" in markdown_output
     assert "reduce stream reduced: touchsites 2->1" in markdown_output
+    alignment_markdown_output = ledger_alignments_markdown_artifact.read_text(
+        encoding="utf-8"
+    )
+    assert "# Invariant Ledger Alignments" in alignment_markdown_output
+    assert "## ledger.reduce" in alignment_markdown_output
+    assert "### WS-REDUCE :: append_pending_existing_object" in alignment_markdown_output
 
 
 def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(

@@ -14,6 +14,7 @@ from gabion.analysis.aspf.aspf_lattice_algebra import (
     canonical_structural_identity,
 )
 from gabion.analysis.foundation.marker_protocol import SemanticLinkKind
+from gabion.frontmatter import parse_strict_yaml_frontmatter
 from gabion.order_contract import ordered_or_sorted
 from gabion.tooling.policy_substrate.invariant_marker_scan import (
     InvariantMarkerScanNode,
@@ -1730,6 +1731,130 @@ class InvariantLedgerDeltaProjections:
 
 
 @dataclass(frozen=True)
+class InvariantLedgerAlignment:
+    object_id: str
+    title: str
+    target_doc_id: str
+    target_doc_path: str
+    classification: str
+    recommended_ledger_action: str
+    alignment_status: str
+    summary: str
+    object_reference_present: bool
+    summary_present: bool
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "object_id": self.object_id,
+            "title": self.title,
+            "target_doc_id": self.target_doc_id,
+            "target_doc_path": self.target_doc_path,
+            "classification": self.classification,
+            "recommended_ledger_action": self.recommended_ledger_action,
+            "alignment_status": self.alignment_status,
+            "summary": self.summary,
+            "object_reference_present": self.object_reference_present,
+            "summary_present": self.summary_present,
+        }
+
+
+@dataclass(frozen=True)
+class InvariantLedgerAlignments:
+    root: str
+    generated_at_utc: str
+    alignments: ReplayableStream[InvariantLedgerAlignment]
+
+    def iter_alignments(self) -> Iterator[InvariantLedgerAlignment]:
+        return iter(self.alignments)
+
+    def as_payload(self) -> dict[str, object]:
+        alignments = tuple(self.iter_alignments())
+        status_counts: dict[str, int] = defaultdict(int)
+        for item in alignments:
+            status_counts[item.alignment_status] += 1
+        return {
+            "format_version": _FORMAT_VERSION,
+            "generated_at_utc": self.generated_at_utc,
+            "root": self.root,
+            "alignments": [item.as_payload() for item in alignments],
+            "counts": {
+                "alignment_count": len(alignments),
+                "status_counts": dict(
+                    _sorted(list(status_counts.items()), key=lambda item: item[0])
+                ),
+            },
+        }
+
+    def artifact_document(self) -> ArtifactUnit:
+        def _alignment_items() -> Iterator[ArtifactUnit]:
+            for alignment in self.iter_alignments():
+                yield list_item(
+                    identity=ArtifactSourceRef(
+                        rel_path="<synthetic>",
+                        qualname=f"{alignment.target_doc_id}:{alignment.object_id}",
+                    ),
+                    title=f"{alignment.target_doc_id} :: {alignment.object_id}",
+                    children=lambda alignment=alignment: iter(
+                        _payload_to_units(alignment.as_payload())
+                    ),
+                )
+
+        return document(
+            identity=ArtifactSourceRef(
+                rel_path="<synthetic>",
+                qualname="invariant_ledger_alignments",
+            ),
+            children=lambda: iter(
+                (
+                    scalar(
+                        identity=ArtifactSourceRef(
+                            rel_path="<synthetic>",
+                            qualname="format_version",
+                        ),
+                        key="format_version",
+                        title="format_version",
+                        value=_FORMAT_VERSION,
+                    ),
+                    scalar(
+                        identity=ArtifactSourceRef(
+                            rel_path="<synthetic>",
+                            qualname="generated_at_utc",
+                        ),
+                        key="generated_at_utc",
+                        title="generated_at_utc",
+                        value=self.generated_at_utc,
+                    ),
+                    scalar(
+                        identity=ArtifactSourceRef(rel_path="<synthetic>", qualname="root"),
+                        key="root",
+                        title="root",
+                        value=self.root,
+                    ),
+                    bullet_list(
+                        identity=ArtifactSourceRef(
+                            rel_path="<synthetic>",
+                            qualname="alignments",
+                        ),
+                        key="alignments",
+                        children=_alignment_items,
+                    ),
+                    section(
+                        identity=ArtifactSourceRef(
+                            rel_path="<synthetic>",
+                            qualname="counts",
+                        ),
+                        key="counts",
+                        title="counts",
+                        children=lambda: iter(
+                            _payload_to_units(self.as_payload()["counts"])
+                        ),
+                    ),
+                )
+            ),
+        )
+
+
+@dataclass(frozen=True)
 class InvariantWorkstreamDrift:
     object_id: str
     classification: str
@@ -1947,6 +2072,64 @@ def _ledger_delta_markdown_units(
                                         )
                                         for policy_id in delta.target_policy_ids
                                     ),
+                                ),
+                            )
+                        ),
+                    ),
+                )
+            ),
+        )
+
+
+def _ledger_alignment_markdown_units(
+    *,
+    alignments: tuple[InvariantLedgerAlignment, ...],
+) -> Iterator[ArtifactUnit]:
+    for alignment in alignments:
+        identity = ArtifactSourceRef(
+            rel_path="<synthetic>",
+            qualname=f"{alignment.target_doc_id}:{alignment.object_id}",
+        )
+        yield section(
+            identity=identity,
+            key=alignment.object_id,
+            title=f"{alignment.object_id} :: {alignment.alignment_status}",
+            children=lambda alignment=alignment, identity=identity: iter(
+                (
+                    paragraph(
+                        identity=identity,
+                        value=alignment.summary,
+                    ),
+                    bullet_list(
+                        identity=identity,
+                        key="alignment",
+                        title="alignment",
+                        children=lambda alignment=alignment, identity=identity: iter(
+                            (
+                                list_item(
+                                    identity=identity,
+                                    title="target_doc_path",
+                                    value=alignment.target_doc_path,
+                                ),
+                                list_item(
+                                    identity=identity,
+                                    title="classification",
+                                    value=alignment.classification,
+                                ),
+                                list_item(
+                                    identity=identity,
+                                    title="recommended_ledger_action",
+                                    value=alignment.recommended_ledger_action,
+                                ),
+                                list_item(
+                                    identity=identity,
+                                    title="object_reference_present",
+                                    value=alignment.object_reference_present,
+                                ),
+                                list_item(
+                                    identity=identity,
+                                    title="summary_present",
+                                    value=alignment.summary_present,
                                 ),
                             )
                         ),
@@ -2240,6 +2423,111 @@ def build_invariant_ledger_delta_projections(
         before_workstreams_artifact=before_workstreams_artifact,
         after_workstreams_artifact=after_workstreams_artifact,
         deltas=_stream_from_iterable(lambda: iter(deltas)),
+    )
+
+
+def _doc_id_paths(root: Path) -> dict[str, tuple[Path, ...]]:
+    grouped: defaultdict[str, list[Path]] = defaultdict(list)
+    for path in root.rglob("*.md"):
+        rel_parts = path.relative_to(root).parts
+        if not rel_parts:
+            continue
+        if rel_parts[0] in {"artifacts", "out", ".git", ".venv", "__pycache__"}:
+            continue
+        frontmatter, _body = parse_strict_yaml_frontmatter(
+            path.read_text(encoding="utf-8"),
+            require_parser=False,
+        )
+        doc_id = frontmatter.get("doc_id")
+        if isinstance(doc_id, str) and doc_id:
+            grouped[doc_id].append(path)
+    return {
+        doc_id: tuple(_sorted(paths, key=lambda item: str(item)))
+        for doc_id, paths in grouped.items()
+    }
+
+
+def build_invariant_ledger_alignments(
+    *,
+    root: Path,
+    ledger_deltas: InvariantLedgerDeltaProjections,
+) -> InvariantLedgerAlignments:
+    doc_paths_by_id = _doc_id_paths(root)
+
+    def _alignment_items() -> Iterator[InvariantLedgerAlignment]:
+        for delta in ledger_deltas.iter_deltas():
+            target_doc_ids = delta.target_doc_ids or ("<unassigned>",)
+            for target_doc_id in target_doc_ids:
+                if target_doc_id == "<unassigned>":
+                    yield InvariantLedgerAlignment(
+                        object_id=delta.object_id,
+                        title=delta.title,
+                        target_doc_id=target_doc_id,
+                        target_doc_path="",
+                        classification=delta.classification,
+                        recommended_ledger_action=delta.recommended_ledger_action,
+                        alignment_status="unassigned_target_doc",
+                        summary=delta.summary,
+                        object_reference_present=False,
+                        summary_present=False,
+                    )
+                    continue
+                resolved_paths = doc_paths_by_id.get(target_doc_id, ())
+                if not resolved_paths:
+                    yield InvariantLedgerAlignment(
+                        object_id=delta.object_id,
+                        title=delta.title,
+                        target_doc_id=target_doc_id,
+                        target_doc_path="",
+                        classification=delta.classification,
+                        recommended_ledger_action=delta.recommended_ledger_action,
+                        alignment_status="missing_target_doc",
+                        summary=delta.summary,
+                        object_reference_present=False,
+                        summary_present=False,
+                    )
+                    continue
+                if len(resolved_paths) > 1:
+                    yield InvariantLedgerAlignment(
+                        object_id=delta.object_id,
+                        title=delta.title,
+                        target_doc_id=target_doc_id,
+                        target_doc_path="",
+                        classification=delta.classification,
+                        recommended_ledger_action=delta.recommended_ledger_action,
+                        alignment_status="ambiguous_target_doc",
+                        summary=delta.summary,
+                        object_reference_present=False,
+                        summary_present=False,
+                    )
+                    continue
+                target_path = resolved_paths[0]
+                text = target_path.read_text(encoding="utf-8")
+                object_reference_present = delta.object_id in text
+                summary_present = delta.summary in text
+                if summary_present:
+                    alignment_status = "delta_reflected"
+                elif object_reference_present:
+                    alignment_status = "append_pending_existing_object"
+                else:
+                    alignment_status = "append_pending_new_object"
+                yield InvariantLedgerAlignment(
+                    object_id=delta.object_id,
+                    title=delta.title,
+                    target_doc_id=target_doc_id,
+                    target_doc_path=str(target_path.relative_to(root)),
+                    classification=delta.classification,
+                    recommended_ledger_action=delta.recommended_ledger_action,
+                    alignment_status=alignment_status,
+                    summary=delta.summary,
+                    object_reference_present=object_reference_present,
+                    summary_present=summary_present,
+                )
+
+    return InvariantLedgerAlignments(
+        root=str(root),
+        generated_at_utc=datetime.now(timezone.utc).isoformat(),
+        alignments=_stream_from_iterable(_alignment_items),
     )
 
 
@@ -4038,6 +4326,13 @@ def load_invariant_ledger_deltas(path: Path) -> Mapping[str, object]:
     return payload
 
 
+def load_invariant_ledger_alignments(path: Path) -> Mapping[str, object]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, Mapping):
+        raise ValueError("invariant ledger alignments payload must be a mapping")
+    return payload
+
+
 def write_invariant_workstreams(
     path: Path,
     workstreams: InvariantWorkstreamsProjection,
@@ -4066,6 +4361,44 @@ def write_invariant_ledger_deltas_markdown(
     write_markdown(path, ledger_deltas.markdown_document())
 
 
+def write_invariant_ledger_alignments(
+    path: Path,
+    ledger_alignments: InvariantLedgerAlignments,
+) -> None:
+    write_json(path, ledger_alignments.artifact_document())
+
+
+def write_invariant_ledger_alignments_markdown(
+    path: Path,
+    ledger_alignments: InvariantLedgerAlignments,
+) -> None:
+    def _doc_sections() -> Iterator[ArtifactUnit]:
+        grouped: defaultdict[str, list[InvariantLedgerAlignment]] = defaultdict(list)
+        for item in ledger_alignments.iter_alignments():
+            grouped[item.target_doc_id].append(item)
+        for doc_id, items in _sorted(list(grouped.items()), key=lambda item: item[0]):
+            yield section(
+                identity=ArtifactSourceRef(rel_path="<synthetic>", qualname=doc_id),
+                key=doc_id,
+                title=doc_id,
+                children=lambda items=tuple(
+                    _sorted(items, key=lambda item: (item.object_id, item.alignment_status))
+                ): _ledger_alignment_markdown_units(alignments=items),
+            )
+
+    write_markdown(
+        path,
+        document(
+            identity=ArtifactSourceRef(
+                rel_path="<synthetic>",
+                qualname="invariant_ledger_alignment_markdown",
+            ),
+            title="Invariant Ledger Alignments",
+            children=_doc_sections,
+        ),
+    )
+
+
 def load_invariant_graph(path: Path) -> InvariantGraph:
     payload = json.loads(path.read_text(encoding="utf-8"))
     return InvariantGraph.from_payload(payload)
@@ -4087,12 +4420,15 @@ __all__ = [
     "InvariantGraphEdge",
     "InvariantLedgerDelta",
     "InvariantLedgerDeltaProjections",
+    "InvariantLedgerAlignment",
+    "InvariantLedgerAlignments",
     "InvariantLedgerProjection",
     "InvariantLedgerProjections",
     "InvariantGraphNode",
     "InvariantWorkstreamDrift",
     "blocker_chains",
     "build_invariant_graph",
+    "build_invariant_ledger_alignments",
     "build_invariant_ledger_delta_projections",
     "build_invariant_ledger_projections",
     "build_invariant_workstreams",
@@ -4100,11 +4436,14 @@ __all__ = [
     "compare_invariant_ledger_projections",
     "compare_invariant_workstreams",
     "load_invariant_workstreams",
+    "load_invariant_ledger_alignments",
     "load_invariant_ledger_deltas",
     "load_invariant_ledger_projections",
     "load_invariant_graph",
     "trace_nodes",
     "write_invariant_graph",
+    "write_invariant_ledger_alignments",
+    "write_invariant_ledger_alignments_markdown",
     "write_invariant_ledger_deltas",
     "write_invariant_ledger_deltas_markdown",
     "write_invariant_ledger_projections",
