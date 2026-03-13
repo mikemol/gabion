@@ -1896,10 +1896,13 @@ class InvariantWorkstreamsProjection:
     ) -> tuple[int, str, tuple[InvariantScoreComponent, ...]]:
         if followup.diagnostic_code == "unmatched_policy_signal":
             owner_score = followup.owner_resolution_score or 0
-            score = 900 + owner_score
+            owner_choice_margin = followup.owner_choice_margin_score or 0
+            score = 900 + owner_score + owner_choice_margin
             reason = "governance_orphan"
             if followup.owner_resolution_kind is not None:
                 reason = f"{reason}:{followup.owner_resolution_kind}"
+            if owner_choice_margin > 0:
+                reason = f"{reason}+owner_choice_margin:{owner_choice_margin}"
             return (
                 score,
                 reason,
@@ -1914,6 +1917,14 @@ class InvariantWorkstreamsProjection:
                         score=owner_score,
                         rationale=(
                             followup.owner_resolution_kind or "owner_resolution:none"
+                        ),
+                    ),
+                    InvariantScoreComponent(
+                        kind="owner_choice_margin_bonus",
+                        score=owner_choice_margin,
+                        rationale=(
+                            followup.owner_choice_margin_reason
+                            or "owner_choice_margin:none"
                         ),
                     ),
                 ),
