@@ -1,5 +1,5 @@
 ---
-doc_revision: 2
+doc_revision: 3
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: grade_monotonicity_policy_rules
 doc_role: policy
@@ -80,6 +80,7 @@ Reference: [Shift-Ambiguity-Left Protocol](../shift_ambiguity_left_protocol.md#s
 ## `GMP-001`
 
 Meaning: a callee accepts nullable or sentinel-bearing carriers after a stricter caller.
+Priority: 10
 
 Preferred response:
 - normalize nullability once at ingress
@@ -92,6 +93,7 @@ Avoid:
 ## `GMP-002`
 
 Meaning: a callee widens the runtime type domain beyond the caller contract.
+Priority: 20
 
 Preferred response:
 - make type alternation explicit at the boundary
@@ -104,6 +106,7 @@ Avoid:
 ## `GMP-003`
 
 Meaning: a callee widens structural payload shape after normalization.
+Priority: 30
 
 Preferred response:
 - keep one internal DTO/carrier shape
@@ -116,6 +119,7 @@ Avoid:
 ## `GMP-004`
 
 Meaning: a callee reintroduces imperative runtime classification work.
+Priority: 40
 
 Preferred response:
 - move the branch to ingress or an explicit decision protocol
@@ -127,6 +131,7 @@ Avoid:
 ## `GMP-005`
 
 Meaning: a callee regresses protocol discharge level.
+Priority: 50
 
 Preferred response:
 - keep invariant discharge and decision-protocol explicitness monotone downstream
@@ -138,6 +143,7 @@ Avoid:
 ## `GMP-006`
 
 Meaning: a callee expands output cardinality without an explicit named boundary.
+Priority: 60
 
 Preferred response:
 - make the fan-out/materialization boundary explicit
@@ -150,6 +156,7 @@ Avoid:
 ## `GMP-007`
 
 Meaning: a callee expands work growth without an explicit named boundary.
+Priority: 70
 
 Preferred response:
 - concentrate budgeted complexity at named boundaries with a stated reason

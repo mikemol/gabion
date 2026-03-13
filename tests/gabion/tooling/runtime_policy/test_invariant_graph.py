@@ -255,7 +255,7 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
                 "selection_reason": (
                     "frontier_tiebreak_winner"
                     if value == 1
-                    else f"policy_ids:GMP-{value:03d}"
+                    else f"governance_priority:GMP-{value:03d}:{value * 10}"
                 ),
             }
             for value in range(1, 8)
@@ -2834,7 +2834,7 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
         in summary_output
     )
     assert (
-        "governance_orphan_resolution:diagnostic_resolution:unmatched_policy_signal:seed ownership for grade:GMP-007 from src/gabion/analysis/dataflow/io@1100:rank=7:policy_ids:GMP-007"
+        "governance_orphan_resolution:diagnostic_resolution:unmatched_policy_signal:seed ownership for grade:GMP-007 from src/gabion/analysis/dataflow/io@1100:rank=7:governance_priority:GMP-007:70"
         in summary_output
     )
     assert (

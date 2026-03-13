@@ -77,6 +77,7 @@ class _PlaybookGuidance:
     why: str
     prefer: tuple[str, ...]
     avoid: tuple[str, ...]
+    priority_rank: int | None = None
 
     def as_payload(self, *, playbook_ref: str) -> dict[str, object]:
         payload: dict[str, object] = {
@@ -147,11 +148,17 @@ def _parse_playbook_section(lines: list[str]) -> _PlaybookGuidance | None:
     meaning: str | None = None
     preferred: list[str] = []
     avoid: list[str] = []
+    priority_rank: int | None = None
     index = 0
     while index < len(lines):
         stripped = lines[index].strip()
         if stripped.startswith("Meaning:"):
             meaning = stripped.removeprefix("Meaning:").strip()
+            index += 1
+            continue
+        if stripped.startswith("Priority:"):
+            raw_priority = stripped.removeprefix("Priority:").strip()
+            priority_rank = int(raw_priority)
             index += 1
             continue
         if stripped == "Preferred response:":
@@ -169,6 +176,7 @@ def _parse_playbook_section(lines: list[str]) -> _PlaybookGuidance | None:
         why=meaning,
         prefer=tuple(preferred),
         avoid=tuple(avoid),
+        priority_rank=priority_rank,
     )
 
 
@@ -194,6 +202,13 @@ def _violation_guidance(rule_id: str) -> dict[str, object]:
     return guidance.as_payload(
         playbook_ref=f"{_GRADE_MONOTONICITY_PLAYBOOK_RELATIVE_PATH}#{rule_id.lower()}"
     )
+
+
+def grade_monotonicity_governance_priority_rank(rule_id: str) -> int | None:
+    guidance = _grade_playbook_guidance_by_rule().get(rule_id)
+    if guidance is None:
+        return None
+    return guidance.priority_rank
 
 
 @dataclass(frozen=True)

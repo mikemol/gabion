@@ -330,3 +330,24 @@ def test_grade_monotonicity_protocol_discharge_uses_explicit_marker(tmp_path: Pa
     protocol_grade = grade_by_qual["gabion.analysis.protocol.protocol"]
     assert int(protocol_grade.protocol_discharge_level) == 3
     assert protocol_grade.runtime_classification_count >= 1
+
+
+def test_grade_monotonicity_governance_priority_ranks_follow_playbook() -> None:
+    assert (
+        grade_monotonicity_semantic.grade_monotonicity_governance_priority_rank(
+            "GMP-001"
+        )
+        == 10
+    )
+    assert (
+        grade_monotonicity_semantic.grade_monotonicity_governance_priority_rank(
+            "GMP-007"
+        )
+        == 70
+    )
+    assert (
+        grade_monotonicity_semantic.grade_monotonicity_governance_priority_rank(
+            "grade_monotonicity.new_violations"
+        )
+        is None
+    )

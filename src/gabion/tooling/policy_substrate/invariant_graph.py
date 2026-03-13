@@ -21,6 +21,9 @@ from gabion.tooling.policy_substrate.invariant_marker_scan import (
     InvariantMarkerScanNode,
     scan_invariant_markers,
 )
+from gabion.tooling.policy_substrate.grade_monotonicity_semantic import (
+    grade_monotonicity_governance_priority_rank,
+)
 from gabion.tooling.policy_substrate.policy_artifact_stream import (
     ArtifactColumn,
     ArtifactSourceRef,
@@ -71,6 +74,7 @@ _FORMAT_VERSION = 1
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 _AMBIGUITY_ARTIFACT = Path("artifacts/out/ambiguity_contract_policy_check.json")
 _TEST_EVIDENCE_ARTIFACT = Path("out/test_evidence.json")
+_DEFAULT_GOVERNANCE_PRIORITY_RANK = 999
 
 
 def _sorted[T](values: list[T], *, key=None) -> list[T]:
@@ -2284,6 +2288,18 @@ class InvariantWorkstreamsProjection:
     ) -> str:
         if selection_rank == 1:
             return "frontier_tiebreak_winner"
+        followup_governance_priority = self._governance_priority_identity(
+            followup.policy_ids
+        )
+        frontier_governance_priority = self._governance_priority_identity(
+            frontier_followup.policy_ids
+        )
+        if (
+            followup_governance_priority != frontier_governance_priority
+            and followup_governance_priority is not None
+        ):
+            priority_rank, policy_id = followup_governance_priority
+            return f"governance_priority:{policy_id}:{priority_rank}"
         if followup.policy_ids != frontier_followup.policy_ids and followup.policy_ids:
             return "policy_ids:" + ",".join(followup.policy_ids)
         if followup.priority_rank != frontier_followup.priority_rank:
@@ -2313,6 +2329,27 @@ class InvariantWorkstreamsProjection:
 
     def ranked_repo_followups(self) -> tuple[InvariantRepoFollowupAction, ...]:
         return self._ranked_repo_followups
+
+    def _governance_priority_identity(
+        self,
+        policy_ids: tuple[str, ...],
+    ) -> tuple[int, str] | None:
+        ranked_policy_ids = [
+            (priority_rank, policy_id)
+            for policy_id in policy_ids
+            if (
+                priority_rank := grade_monotonicity_governance_priority_rank(policy_id)
+            )
+            is not None
+        ]
+        if not ranked_policy_ids:
+            return None
+        return tuple(
+            _sorted(
+                ranked_policy_ids,
+                key=lambda item: (item[0], item[1]),
+            )[0]
+        )
 
     @cached_property
     def _ranked_repo_followups(self) -> tuple[InvariantRepoFollowupAction, ...]:
@@ -2610,6 +2647,16 @@ class InvariantWorkstreamsProjection:
                 key=lambda item: (
                     -item.utility_score,
                     item.priority_rank,
+                    (
+                        self._governance_priority_identity(item.policy_ids)[0]
+                        if self._governance_priority_identity(item.policy_ids) is not None
+                        else _DEFAULT_GOVERNANCE_PRIORITY_RANK
+                    ),
+                    (
+                        self._governance_priority_identity(item.policy_ids)[1]
+                        if self._governance_priority_identity(item.policy_ids) is not None
+                        else ""
+                    ),
                     -(item.owner_resolution_score or 0),
                     -item.count,
                     item.followup_family,
