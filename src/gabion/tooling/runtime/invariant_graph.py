@@ -243,6 +243,9 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
     recommended_repo_followup_frontier_explanation = (
         workstreams.recommended_repo_followup_frontier_explanation()
     )
+    recommended_repo_followup_decision_protocol = (
+        workstreams.recommended_repo_followup_decision_protocol()
+    )
     recommended_repo_followup_frontier_triad = (
         workstreams.recommended_repo_followup_frontier_triad()
     )
@@ -887,6 +890,47 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
                 ),
                 rationale_components=_format_score_components(
                     recommended_repo_followup_frontier_explanation.recommendation_rationale_components
+                ),
+            )
+        )
+    if recommended_repo_followup_decision_protocol is None:
+        print("recommended_repo_followup_decision_protocol: <none>")
+    else:
+        print(
+            "recommended_repo_followup_decision_protocol: {frontier_family}:{frontier_class}:{frontier_action}:{frontier_target}:{frontier_policy_ids}:{frontier_utility} :: mode={mode} :: pressure=same_class:{same_class_pressure}|cross_class:{cross_class_pressure} :: reason={reason} :: components={components}".format(
+                frontier_family=(
+                    recommended_repo_followup_decision_protocol.frontier_followup_family
+                ),
+                frontier_class=(
+                    recommended_repo_followup_decision_protocol.frontier_followup_class
+                ),
+                frontier_action=(
+                    recommended_repo_followup_decision_protocol.frontier_action_kind
+                ),
+                frontier_target=(
+                    recommended_repo_followup_decision_protocol.frontier_object_id
+                    or recommended_repo_followup_decision_protocol.frontier_diagnostic_code
+                    or recommended_repo_followup_decision_protocol.frontier_target_doc_id
+                    or "<none>"
+                ),
+                frontier_policy_ids=",".join(
+                    recommended_repo_followup_decision_protocol.frontier_policy_ids
+                )
+                or "<none>",
+                frontier_utility=(
+                    f"{recommended_repo_followup_decision_protocol.frontier_utility_score}:"
+                    f"{recommended_repo_followup_decision_protocol.frontier_utility_reason}"
+                ),
+                mode=recommended_repo_followup_decision_protocol.decision_mode,
+                same_class_pressure=(
+                    recommended_repo_followup_decision_protocol.same_class_pressure
+                ),
+                cross_class_pressure=(
+                    recommended_repo_followup_decision_protocol.cross_class_pressure
+                ),
+                reason=recommended_repo_followup_decision_protocol.decision_reason,
+                components=_format_score_components(
+                    recommended_repo_followup_decision_protocol.decision_components
                 ),
             )
         )

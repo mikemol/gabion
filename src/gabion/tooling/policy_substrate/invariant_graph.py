@@ -645,6 +645,40 @@ def _margin_strength(score: int | None) -> str:
     return "strong"
 
 
+def _margin_pressure(score: int | None) -> str:
+    if score is None:
+        return "unknown"
+    if score <= 0:
+        return "blocking"
+    if score < 25:
+        return "high"
+    if score < 100:
+        return "moderate"
+    return "low"
+
+
+def _frontier_decision_mode(
+    same_class_pressure: str,
+    cross_class_pressure: str,
+) -> str:
+    if same_class_pressure in {"blocking", "high"} and cross_class_pressure in {
+        "blocking",
+        "high",
+    }:
+        return "frontier_contested"
+    if cross_class_pressure in {"blocking", "high"}:
+        return "frontier_watch_cross_class"
+    if same_class_pressure in {"blocking", "high"}:
+        return "frontier_watch_same_class"
+    if same_class_pressure == "moderate" and cross_class_pressure == "moderate":
+        return "frontier_watch_balanced"
+    if cross_class_pressure == "moderate":
+        return "frontier_hold_with_cross_class_watch"
+    if same_class_pressure == "moderate":
+        return "frontier_hold_with_same_class_watch"
+    return "frontier_hold"
+
+
 @dataclass(frozen=True)
 class InvariantRepoFollowupCohortMember:
     followup_family: str
@@ -1139,6 +1173,44 @@ class InvariantRepoFollowupFrontierExplanation:
             "recommendation_rationale_reason": self.recommendation_rationale_reason,
             "recommendation_rationale_components": [
                 item.as_payload() for item in self.recommendation_rationale_components
+            ],
+        }
+
+
+@dataclass(frozen=True)
+class InvariantRepoFollowupDecisionProtocol:
+    frontier_followup_family: str
+    frontier_followup_class: str
+    frontier_action_kind: str
+    frontier_object_id: str | None
+    frontier_diagnostic_code: str | None
+    frontier_target_doc_id: str | None
+    frontier_policy_ids: tuple[str, ...]
+    frontier_utility_score: int
+    frontier_utility_reason: str
+    decision_mode: str
+    decision_reason: str
+    same_class_pressure: str
+    cross_class_pressure: str
+    decision_components: tuple[InvariantScoreComponent, ...]
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "frontier_followup_family": self.frontier_followup_family,
+            "frontier_followup_class": self.frontier_followup_class,
+            "frontier_action_kind": self.frontier_action_kind,
+            "frontier_object_id": self.frontier_object_id,
+            "frontier_diagnostic_code": self.frontier_diagnostic_code,
+            "frontier_target_doc_id": self.frontier_target_doc_id,
+            "frontier_policy_ids": list(self.frontier_policy_ids),
+            "frontier_utility_score": self.frontier_utility_score,
+            "frontier_utility_reason": self.frontier_utility_reason,
+            "decision_mode": self.decision_mode,
+            "decision_reason": self.decision_reason,
+            "same_class_pressure": self.same_class_pressure,
+            "cross_class_pressure": self.cross_class_pressure,
+            "decision_components": [
+                item.as_payload() for item in self.decision_components
             ],
         }
 
@@ -3535,6 +3607,60 @@ class InvariantWorkstreamsProjection:
             ),
         )
 
+    def recommended_repo_followup_decision_protocol(
+        self,
+    ) -> InvariantRepoFollowupDecisionProtocol | None:
+        return self._recommended_repo_followup_decision_protocol
+
+    @cached_property
+    def _recommended_repo_followup_decision_protocol(
+        self,
+    ) -> InvariantRepoFollowupDecisionProtocol | None:
+        explanation = self.recommended_repo_followup_frontier_explanation()
+        if explanation is None:
+            return None
+        same_class_pressure = _margin_pressure(explanation.same_class_margin_score)
+        cross_class_pressure = _margin_pressure(explanation.cross_class_margin_score)
+        return InvariantRepoFollowupDecisionProtocol(
+            frontier_followup_family=explanation.frontier_followup_family,
+            frontier_followup_class=explanation.frontier_followup_class,
+            frontier_action_kind=explanation.frontier_action_kind,
+            frontier_object_id=explanation.frontier_object_id,
+            frontier_diagnostic_code=explanation.frontier_diagnostic_code,
+            frontier_target_doc_id=explanation.frontier_target_doc_id,
+            frontier_policy_ids=explanation.frontier_policy_ids,
+            frontier_utility_score=explanation.frontier_utility_score,
+            frontier_utility_reason=explanation.frontier_utility_reason,
+            decision_mode=_frontier_decision_mode(
+                same_class_pressure=same_class_pressure,
+                cross_class_pressure=cross_class_pressure,
+            ),
+            decision_reason=(
+                f"same_class_pressure:{same_class_pressure}:"
+                f"{explanation.same_class_margin_score}"
+                f"|cross_class_pressure:{cross_class_pressure}:"
+                f"{explanation.cross_class_margin_score}"
+            ),
+            same_class_pressure=same_class_pressure,
+            cross_class_pressure=cross_class_pressure,
+            decision_components=(
+                InvariantScoreComponent(
+                    kind="same_class_pressure",
+                    score=0
+                    if explanation.same_class_margin_score is None
+                    else explanation.same_class_margin_score,
+                    rationale=same_class_pressure,
+                ),
+                InvariantScoreComponent(
+                    kind="cross_class_pressure",
+                    score=0
+                    if explanation.cross_class_margin_score is None
+                    else explanation.cross_class_margin_score,
+                    rationale=cross_class_pressure,
+                ),
+            ),
+        )
+
     def recommended_repo_followup_frontier_tradeoff(
         self,
     ) -> InvariantRepoFrontierTradeoff | None:
@@ -3855,6 +3981,9 @@ class InvariantWorkstreamsProjection:
         recommended_repo_followup_frontier_explanation = (
             self.recommended_repo_followup_frontier_explanation()
         )
+        recommended_repo_followup_decision_protocol = (
+            self.recommended_repo_followup_decision_protocol()
+        )
         recommended_repo_followup_frontier_triad = (
             self.recommended_repo_followup_frontier_triad()
         )
@@ -3915,6 +4044,11 @@ class InvariantWorkstreamsProjection:
                     None
                     if recommended_repo_followup_frontier_explanation is None
                     else recommended_repo_followup_frontier_explanation.as_payload()
+                ),
+                "recommended_followup_decision_protocol": (
+                    None
+                    if recommended_repo_followup_decision_protocol is None
+                    else recommended_repo_followup_decision_protocol.as_payload()
                 ),
                 "recommended_followup_frontier_triad": (
                     None

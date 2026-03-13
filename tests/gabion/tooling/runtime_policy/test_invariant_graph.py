@@ -677,6 +677,40 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         ],
     }
     assert workstreams_payload["repo_next_actions"][
+        "recommended_followup_decision_protocol"
+    ] == {
+        "frontier_followup_family": "governance_orphan_resolution",
+        "frontier_followup_class": "governance",
+        "frontier_action_kind": "diagnostic_resolution",
+        "frontier_object_id": None,
+        "frontier_diagnostic_code": "unmatched_policy_signal",
+        "frontier_target_doc_id": None,
+        "frontier_policy_ids": ["GMP-001"],
+        "frontier_utility_score": 1190,
+        "frontier_utility_reason": (
+            "governance_orphan:seed_new_owner+owner_option_tradeoff:100"
+            "+governance_priority:GMP-001:10"
+        ),
+        "decision_mode": "frontier_watch_same_class",
+        "decision_reason": (
+            "same_class_pressure:high:10|cross_class_pressure:low:490"
+        ),
+        "same_class_pressure": "high",
+        "cross_class_pressure": "low",
+        "decision_components": [
+            {
+                "kind": "same_class_pressure",
+                "score": 10,
+                "rationale": "high",
+            },
+            {
+                "kind": "cross_class_pressure",
+                "score": 490,
+                "rationale": "low",
+            },
+        ],
+    }
+    assert workstreams_payload["repo_next_actions"][
         "recommended_followup_frontier_triad"
     ] == {
         "frontier_followup_family": "governance_orphan_resolution",
@@ -3209,6 +3243,10 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
     )
     assert (
         "recommended_repo_followup_frontier_explanation: frontier=governance_orphan_resolution:governance:diagnostic_resolution:unmatched_policy_signal:GMP-001:1190:governance_orphan:seed_new_owner+owner_option_tradeoff:100+governance_priority:GMP-001:10 :: same_class=unmatched_policy_signal:1180:governance_orphan:seed_new_owner+owner_option_tradeoff:100+governance_priority:GMP-002:20:10:governance_orphan:seed_new_owner+owner_option_tradeoff:100+governance_priority:GMP-001:10->governance_orphan:seed_new_owner+owner_option_tradeoff:100+governance_priority:GMP-002:20:governance_orphan_base:900:governance_orphan | owner_resolution_bonus:100:seed_new_owner | owner_option_tradeoff_bonus:100:uncontested_best_option | governance_priority_bonus:90:governance_priority:GMP-001:10 | runner_up_offset:governance_orphan_base:-900:governance_orphan | runner_up_offset:owner_resolution_bonus:-100:seed_new_owner | runner_up_offset:owner_option_tradeoff_bonus:-100:uncontested_best_option | runner_up_offset:governance_priority_bonus:-80:governance_priority:GMP-002:20 :: cross_class=PSF-007-TP-005:700:code:ready_structural:490:governance_orphan:seed_new_owner+owner_option_tradeoff:100+governance_priority:GMP-001:10->code:ready_structural:governance_orphan_base:900:governance_orphan | owner_resolution_bonus:100:seed_new_owner | owner_option_tradeoff_bonus:100:uncontested_best_option | governance_priority_bonus:90:governance_priority:GMP-001:10 | runner_up_offset:code_touchpoint_base:-450:code:touchpoint_cut | runner_up_offset:readiness_bonus:-250:readiness:ready_structural :: rationale=same_class_weak__cross_class_strong:same_class_margin:weak:10|cross_class_margin:strong:490:same_class_margin_strength:10:weak | cross_class_margin_strength:490:strong"
+        in summary_output
+    )
+    assert (
+        "recommended_repo_followup_decision_protocol: governance_orphan_resolution:governance:diagnostic_resolution:unmatched_policy_signal:GMP-001:1190:governance_orphan:seed_new_owner+owner_option_tradeoff:100+governance_priority:GMP-001:10 :: mode=frontier_watch_same_class :: pressure=same_class:high|cross_class:low :: reason=same_class_pressure:high:10|cross_class_pressure:low:490 :: components=same_class_pressure:10:high | cross_class_pressure:490:low"
         in summary_output
     )
     assert (
