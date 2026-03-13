@@ -165,11 +165,12 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         "owner_object_id": None,
         "diagnostic_code": "unmatched_policy_signal",
         "target_doc_id": None,
-        "title": "resolve grade:GMP-001 ownership at src/gabion/analysis/dataflow/io/dataflow_reporting.py::gabion.analysis.dataflow.io.dataflow_reporting._append_report_tail_sections",
+        "title": "seed ownership for grade:GMP-001 from src/gabion/analysis/dataflow/io",
         "blocker_class": "policy_orphan",
         "readiness_class": None,
         "alignment_status": None,
-        "recommended_action": "attribute_policy_signals_to_owned_workstreams",
+        "recommended_action": "seed_owned_workstream_from_source_family",
+        "owner_seed_path": "src/gabion/analysis/dataflow/io",
         "count": 1,
     }
     assert workstreams_payload["repo_next_actions"]["dominant_followup_class"] == (
@@ -191,6 +192,7 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         "readiness_class": "ready_structural",
         "alignment_status": None,
         "recommended_action": None,
+        "owner_seed_path": None,
         "count": 1,
     }
     assert workstreams_payload["repo_next_actions"]["recommended_human_followup"] == (
@@ -205,16 +207,17 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         "owner_object_id": None,
         "diagnostic_code": "unmatched_policy_signal",
         "target_doc_id": None,
-        "title": "resolve grade:GMP-001 ownership at src/gabion/analysis/dataflow/io/dataflow_reporting.py::gabion.analysis.dataflow.io.dataflow_reporting._append_report_tail_sections",
+        "title": "seed ownership for grade:GMP-001 from src/gabion/analysis/dataflow/io",
         "blocker_class": "policy_orphan",
         "readiness_class": None,
         "alignment_status": None,
-        "recommended_action": "attribute_policy_signals_to_owned_workstreams",
+        "recommended_action": "seed_owned_workstream_from_source_family",
+        "owner_seed_path": "src/gabion/analysis/dataflow/io",
         "count": 1,
     }
     assert ranked_repo_followups[1]["followup_family"] == "governance_orphan_resolution"
     assert ranked_repo_followups[1]["diagnostic_code"] == "unmatched_policy_signal"
-    assert ranked_repo_followups[1]["title"].startswith("resolve grade:GMP-")
+    assert ranked_repo_followups[1]["title"].startswith("seed ownership for grade:GMP-")
     assert any(
         item == {
             "followup_family": "structural_cut",
@@ -229,6 +232,7 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
             "readiness_class": "ready_structural",
             "alignment_status": None,
             "recommended_action": None,
+            "owner_seed_path": None,
             "count": 1,
         }
         for item in ranked_repo_followups
@@ -252,11 +256,12 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
             "owner_object_id": None,
             "diagnostic_code": "unmatched_policy_signal",
             "target_doc_id": None,
-            "title": "resolve grade:GMP-001 ownership at src/gabion/analysis/dataflow/io/dataflow_reporting.py::gabion.analysis.dataflow.io.dataflow_reporting._append_report_tail_sections",
+            "title": "seed ownership for grade:GMP-001 from src/gabion/analysis/dataflow/io",
             "blocker_class": "policy_orphan",
             "readiness_class": None,
             "alignment_status": None,
-            "recommended_action": "attribute_policy_signals_to_owned_workstreams",
+            "recommended_action": "seed_owned_workstream_from_source_family",
+            "owner_seed_path": "src/gabion/analysis/dataflow/io",
             "count": 1,
         },
     }
@@ -273,7 +278,7 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
     assert repo_diagnostic_lanes[0]["severity"] == "warning"
     assert repo_diagnostic_lanes[0]["title"] == "grade:GMP-001"
     assert repo_diagnostic_lanes[0]["recommended_action"] == (
-        "attribute_policy_signals_to_owned_workstreams"
+        "seed_owned_workstream_from_source_family"
     )
     assert repo_diagnostic_lanes[0]["count"] == 1
     assert repo_diagnostic_lanes[0]["policy_ids"] == ["GMP-001"]
@@ -281,13 +286,16 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
     assert repo_diagnostic_lanes[0]["qualname"].startswith("gabion.")
     assert repo_diagnostic_lanes[0]["line"] > 0
     assert repo_diagnostic_lanes[0]["column"] > 0
-    assert repo_diagnostic_lanes[0]["candidate_owner_status"] == "unassigned"
+    assert repo_diagnostic_lanes[0]["candidate_owner_status"] == "source_family_seed_owner"
     assert repo_diagnostic_lanes[0]["candidate_owner_object_id"] is None
     assert repo_diagnostic_lanes[0]["candidate_owner_object_ids"] == []
+    assert repo_diagnostic_lanes[0]["candidate_owner_seed_path"] == (
+        "src/gabion/analysis/dataflow/io"
+    )
     assert len(repo_diagnostic_lanes[0]["node_ids"]) == 1
     assert repo_diagnostic_lanes[-1]["title"] == "grade:GMP-007"
     assert all(
-        lane["recommended_action"] == "attribute_policy_signals_to_owned_workstreams"
+        lane["recommended_action"] == "seed_owned_workstream_from_source_family"
         for lane in repo_diagnostic_lanes
     )
     projected_ids = [
@@ -830,9 +838,12 @@ def test_repo_diagnostic_lane_attributes_candidate_owner_from_exact_path() -> No
     assert lane.candidate_owner_status == "exact_path_owner"
     assert lane.candidate_owner_object_id == "WS-OWNER"
     assert lane.candidate_owner_object_ids == ("WS-OWNER",)
+    assert lane.candidate_owner_seed_path == "src/gabion"
+    assert lane.recommended_action == "attach_policy_signals_to_candidate_owner"
     followup = projection.recommended_repo_followup()
     assert followup is not None
     assert followup.owner_object_id == "WS-OWNER"
+    assert followup.owner_seed_path == "src/gabion"
 
 
 def test_runtime_invariant_graph_cli_build_summary_trace_and_blockers(
@@ -1660,7 +1671,7 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
     assert "next_human_followup_family: governance_orphan_resolution" in summary_output
     assert "diagnostic_summary: unmatched_policy_signals=7 :: unresolved_dependencies=0" in summary_output
     assert (
-        "recommended_repo_followup: governance_orphan_resolution :: diagnostic=unmatched_policy_signal :: owner=<none> :: count=1 :: action=attribute_policy_signals_to_owned_workstreams"
+        "recommended_repo_followup: governance_orphan_resolution :: diagnostic=unmatched_policy_signal :: owner=<none> :: seed=src/gabion/analysis/dataflow/io :: count=1 :: action=seed_owned_workstream_from_source_family"
         in summary_output
     )
     assert (
@@ -1668,7 +1679,7 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
         in summary_output
     )
     assert (
-        "recommended_repo_human_followup: governance_orphan_resolution :: diagnostic=unmatched_policy_signal :: owner=<none> :: count=1 :: action=attribute_policy_signals_to_owned_workstreams"
+        "recommended_repo_human_followup: governance_orphan_resolution :: diagnostic=unmatched_policy_signal :: owner=<none> :: seed=src/gabion/analysis/dataflow/io :: count=1 :: action=seed_owned_workstream_from_source_family"
         in summary_output
     )
     assert "repo_followup_lanes:" in summary_output
@@ -1678,7 +1689,7 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
     )
     assert "repo_diagnostic_lanes:" in summary_output
     assert (
-        "- grade:GMP-001 :: code=unmatched_policy_signal :: severity=warning :: count=1 :: source=src/gabion/analysis/dataflow/io/dataflow_reporting.py::gabion.analysis.dataflow.io.dataflow_reporting._append_report_tail_sections :: policy_ids=GMP-001 :: owner_status=unassigned :: owner=<none> :: action=attribute_policy_signals_to_owned_workstreams"
+        "- grade:GMP-001 :: code=unmatched_policy_signal :: severity=warning :: count=1 :: source=src/gabion/analysis/dataflow/io/dataflow_reporting.py::gabion.analysis.dataflow.io.dataflow_reporting._append_report_tail_sections :: policy_ids=GMP-001 :: owner_status=source_family_seed_owner :: owner=<none> :: seed=src/gabion/analysis/dataflow/io :: action=seed_owned_workstream_from_source_family"
         in summary_output
     )
 
