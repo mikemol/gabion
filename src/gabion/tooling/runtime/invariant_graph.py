@@ -131,14 +131,55 @@ def _workstream_by_object_id(
     return None
 
 
-def _print_summary(*, graph: InvariantGraph) -> None:
+def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
     payload = graph.as_payload()
     counts = payload.get("counts", {})
+    workstreams = build_invariant_workstreams(graph, root=root)
+    diagnostic_summary = workstreams.diagnostic_summary()
+    recommended_repo_followup = workstreams.recommended_repo_followup()
     print(f"root: {graph.root}")
     print(f"workstreams: {len(graph.workstream_root_ids)}")
     print(f"nodes: {counts.get('node_count', 0)}")
     print(f"edges: {counts.get('edge_count', 0)}")
     print(f"diagnostics: {counts.get('diagnostic_count', 0)}")
+    print(
+        "diagnostic_summary: unmatched_policy_signals={signals} :: unresolved_dependencies={dependencies}".format(
+            signals=diagnostic_summary.unmatched_policy_signal_count,
+            dependencies=diagnostic_summary.unresolved_blocking_dependency_count,
+        )
+    )
+    if recommended_repo_followup is None:
+        print("recommended_repo_followup: <none>")
+    elif recommended_repo_followup.diagnostic_code is not None:
+        print(
+            "recommended_repo_followup: {family} :: diagnostic={diagnostic} :: count={count} :: action={action}".format(
+                family=recommended_repo_followup.followup_family,
+                diagnostic=recommended_repo_followup.diagnostic_code,
+                count=recommended_repo_followup.count,
+                action=recommended_repo_followup.recommended_action or "none",
+            )
+        )
+    elif recommended_repo_followup.action_kind == "doc_alignment":
+        print(
+            "recommended_repo_followup: {family} :: owner={owner} :: target_doc={target_doc} :: alignment={alignment} :: action={action}".format(
+                family=recommended_repo_followup.followup_family,
+                owner=recommended_repo_followup.owner_object_id or "<none>",
+                target_doc=recommended_repo_followup.target_doc_id or "<none>",
+                alignment=recommended_repo_followup.alignment_status or "none",
+                action=recommended_repo_followup.recommended_action or "none",
+            )
+        )
+    else:
+        print(
+            "recommended_repo_followup: {family} :: owner={owner} :: {action_kind} :: {object_id} :: count={count} :: blocker={blocker}".format(
+                family=recommended_repo_followup.followup_family,
+                owner=recommended_repo_followup.owner_object_id or "<none>",
+                action_kind=recommended_repo_followup.action_kind,
+                object_id=recommended_repo_followup.object_id or "<none>",
+                count=recommended_repo_followup.count,
+                blocker=recommended_repo_followup.readiness_class or "none",
+            )
+        )
     node_kind_counts = counts.get("node_kind_counts", {})
     if isinstance(node_kind_counts, dict):
         print("node kinds:")
@@ -396,6 +437,54 @@ def _print_workstream(*, graph: InvariantGraph, root: Path, object_id: str) -> i
                 diagnostics=recommended_diagnostic_blocked_cut.diagnostic_count,
             )
         )
+    recommended_followup = workstream.recommended_followup()
+    if recommended_followup is None:
+        print("recommended_followup: <none>")
+    elif recommended_followup.action_kind == "doc_alignment":
+        print(
+            "recommended_followup: {family} :: target_doc={target_doc} :: alignment={alignment} :: action={action}".format(
+                family=recommended_followup.followup_family,
+                target_doc=recommended_followup.target_doc_id or "<none>",
+                alignment=recommended_followup.alignment_status or "none",
+                action=recommended_followup.recommended_action or "none",
+            )
+        )
+    else:
+        print(
+            "recommended_followup: {family} :: {action_kind} :: {object_id} :: touchsites={touchsites} :: blocker={blocker}".format(
+                family=recommended_followup.followup_family,
+                action_kind=recommended_followup.action_kind,
+                object_id=recommended_followup.object_id or "<none>",
+                touchsites=recommended_followup.touchsite_count,
+                blocker=recommended_followup.readiness_class or "none",
+            )
+        )
+    print("ranked_followups:")
+    ranked_followups = workstream.ranked_followups()
+    if not ranked_followups:
+        print("- <none>")
+    else:
+        for item in ranked_followups:
+            if item.action_kind == "doc_alignment":
+                print(
+                    "- {family} :: target_doc={target_doc} :: alignment={alignment} :: action={action}".format(
+                        family=item.followup_family,
+                        target_doc=item.target_doc_id or "<none>",
+                        alignment=item.alignment_status or "none",
+                        action=item.recommended_action or "none",
+                    )
+                )
+            else:
+                print(
+                    "- {family} :: {action_kind} :: {object_id} :: readiness={readiness} :: touchsites={touchsites} :: surviving={surviving}".format(
+                        family=item.followup_family,
+                        action_kind=item.action_kind,
+                        object_id=item.object_id or "<none>",
+                        readiness=item.readiness_class or "none",
+                        touchsites=item.touchsite_count,
+                        surviving=item.surviving_touchsite_count,
+                    )
+                )
     print("remediation_lanes:")
     remediation_lanes = workstream.remediation_lanes()
     if not remediation_lanes:
@@ -987,7 +1076,10 @@ def main(argv: list[str] | None = None) -> int:
         print(str(artifact))
         return 0
     if args.command == "summary":
-        _print_summary(graph=_load_or_build_graph(root=root, artifact=artifact))
+        _print_summary(
+            graph=_load_or_build_graph(root=root, artifact=artifact),
+            root=root,
+        )
         return 0
     if args.command == "trace":
         return _print_trace(

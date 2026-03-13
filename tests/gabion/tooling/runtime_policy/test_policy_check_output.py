@@ -81,6 +81,11 @@ def test_policy_check_output_carries_projection_fiber_semantics_on_pass(
     assert invariant_workstreams_payload["format_version"] == 1
     assert invariant_ledger_payload["format_version"] == 1
     assert invariant_workstreams_payload["counts"]["workstream_count"] >= 1
+    assert "diagnostic_summary" in invariant_workstreams_payload
+    assert "repo_next_actions" in invariant_workstreams_payload
+    assert "diagnostic_count" in invariant_workstreams_payload["counts"]
+    assert "recommended_followup" in invariant_workstreams_payload["repo_next_actions"]
+    assert "ranked_followups" in invariant_workstreams_payload["repo_next_actions"]
     assert invariant_ledger_payload["counts"]["ledger_count"] >= 1
     for workstream in invariant_workstreams_payload["workstreams"]:
         assert "next_actions" in workstream
@@ -95,7 +100,9 @@ def test_policy_check_output_carries_projection_fiber_semantics_on_pass(
         assert "next_human_followup_family" in workstream["next_actions"]
         assert "recommended_doc_followup_target_doc_id" in workstream["next_actions"]
         assert "misaligned_target_doc_ids" in workstream["next_actions"]
+        assert "recommended_followup" in workstream["next_actions"]
         assert "documentation_followup_lanes" in workstream["next_actions"]
+        assert "ranked_followups" in workstream["next_actions"]
         assert "remediation_lanes" in workstream["next_actions"]
     for ledger in invariant_ledger_payload["ledgers"]:
         assert "target_doc_ids" in ledger

@@ -432,6 +432,13 @@ def _touchsite_blocker_class(touchsite: InvariantTouchsiteProjection) -> str:
     )
 
 
+def _cut_priority_rank(candidate: InvariantCutCandidate) -> int:
+    return (
+        _READINESS_PRIORITY.get(candidate.readiness_class, 99) * 2
+        + _CUT_KIND_PRIORITY.get(candidate.cut_kind, 99)
+    )
+
+
 def _cut_sort_key(candidate: InvariantCutCandidate) -> tuple[int, int, int, int, int, str]:
     return (
         _READINESS_PRIORITY.get(candidate.readiness_class, 99),
@@ -538,6 +545,106 @@ class InvariantDocumentationFollowupLane:
             "misaligned_target_doc_ids": list(self.misaligned_target_doc_ids),
             "recommended_action": self.recommended_action,
             "best_target_doc_id": self.best_target_doc_id,
+        }
+
+
+@dataclass(frozen=True)
+class InvariantFollowupAction:
+    followup_family: str
+    action_kind: str
+    priority_rank: int
+    object_id: str | None
+    owner_object_id: str | None
+    target_doc_id: str | None
+    title: str
+    blocker_class: str | None
+    readiness_class: str | None
+    alignment_status: str | None
+    recommended_action: str | None
+    touchsite_count: int
+    collapsible_touchsite_count: int
+    surviving_touchsite_count: int
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "followup_family": self.followup_family,
+            "action_kind": self.action_kind,
+            "priority_rank": self.priority_rank,
+            "object_id": self.object_id,
+            "owner_object_id": self.owner_object_id,
+            "target_doc_id": self.target_doc_id,
+            "title": self.title,
+            "blocker_class": self.blocker_class,
+            "readiness_class": self.readiness_class,
+            "alignment_status": self.alignment_status,
+            "recommended_action": self.recommended_action,
+            "touchsite_count": self.touchsite_count,
+            "collapsible_touchsite_count": self.collapsible_touchsite_count,
+            "surviving_touchsite_count": self.surviving_touchsite_count,
+        }
+
+
+@dataclass(frozen=True)
+class InvariantDiagnosticBucket:
+    code: str
+    severity: str
+    count: int
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "code": self.code,
+            "severity": self.severity,
+            "count": self.count,
+        }
+
+
+@dataclass(frozen=True)
+class InvariantDiagnosticSummary:
+    diagnostic_count: int
+    unmatched_policy_signal_count: int
+    unresolved_blocking_dependency_count: int
+    buckets: tuple[InvariantDiagnosticBucket, ...]
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "diagnostic_count": self.diagnostic_count,
+            "unmatched_policy_signal_count": self.unmatched_policy_signal_count,
+            "unresolved_blocking_dependency_count": self.unresolved_blocking_dependency_count,
+            "buckets": [item.as_payload() for item in self.buckets],
+        }
+
+
+@dataclass(frozen=True)
+class InvariantRepoFollowupAction:
+    followup_family: str
+    action_kind: str
+    priority_rank: int
+    object_id: str | None
+    owner_object_id: str | None
+    diagnostic_code: str | None
+    target_doc_id: str | None
+    title: str
+    blocker_class: str | None
+    readiness_class: str | None
+    alignment_status: str | None
+    recommended_action: str | None
+    count: int
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "followup_family": self.followup_family,
+            "action_kind": self.action_kind,
+            "priority_rank": self.priority_rank,
+            "object_id": self.object_id,
+            "owner_object_id": self.owner_object_id,
+            "diagnostic_code": self.diagnostic_code,
+            "target_doc_id": self.target_doc_id,
+            "title": self.title,
+            "blocker_class": self.blocker_class,
+            "readiness_class": self.readiness_class,
+            "alignment_status": self.alignment_status,
+            "recommended_action": self.recommended_action,
+            "count": self.count,
         }
 
 
@@ -811,6 +918,84 @@ class InvariantWorkstreamProjection:
             return None
         return lane.best_target_doc_id
 
+    def _documentation_followup_priority_rank(
+        self,
+        lane: InvariantDocumentationFollowupLane,
+    ) -> int:
+        priority = {
+            "missing_target_doc": 20,
+            "ambiguous_target_doc": 21,
+            "unassigned_target_doc": 22,
+            "append_pending_new_object": 23,
+            "append_pending_existing_object": 24,
+        }
+        return priority.get(lane.alignment_status, 49)
+
+    def ranked_followups(self) -> tuple[InvariantFollowupAction, ...]:
+        actions: list[InvariantFollowupAction] = []
+        for lane in self.remediation_lanes():
+            if lane.best_cut is None:
+                continue
+            actions.append(
+                InvariantFollowupAction(
+                    followup_family=lane.remediation_family,
+                    action_kind=lane.best_cut.cut_kind,
+                    priority_rank=_cut_priority_rank(lane.best_cut),
+                    object_id=lane.best_cut.object_id.wire(),
+                    owner_object_id=lane.best_cut.owner_object_id.wire(),
+                    target_doc_id=None,
+                    title=lane.best_cut.title,
+                    blocker_class=lane.blocker_class,
+                    readiness_class=lane.best_cut.readiness_class,
+                    alignment_status=None,
+                    recommended_action=None,
+                    touchsite_count=lane.best_cut.touchsite_count,
+                    collapsible_touchsite_count=lane.best_cut.collapsible_touchsite_count,
+                    surviving_touchsite_count=lane.best_cut.surviving_touchsite_count,
+                )
+            )
+        documentation_followup_lane = self.documentation_followup_lane()
+        if documentation_followup_lane is not None:
+            actions.append(
+                InvariantFollowupAction(
+                    followup_family=documentation_followup_lane.followup_family,
+                    action_kind="doc_alignment",
+                    priority_rank=self._documentation_followup_priority_rank(
+                        documentation_followup_lane
+                    ),
+                    object_id=None,
+                    owner_object_id=self.object_id.wire(),
+                    target_doc_id=documentation_followup_lane.best_target_doc_id,
+                    title=documentation_followup_lane.best_target_doc_id or "<none>",
+                    blocker_class=None,
+                    readiness_class=None,
+                    alignment_status=documentation_followup_lane.alignment_status,
+                    recommended_action=documentation_followup_lane.recommended_action,
+                    touchsite_count=self.touchsite_count,
+                    collapsible_touchsite_count=self.collapsible_touchsite_count,
+                    surviving_touchsite_count=self.surviving_touchsite_count,
+                )
+            )
+        return tuple(
+            _sorted(
+                actions,
+                key=lambda item: (
+                    item.priority_rank,
+                    item.touchsite_count,
+                    item.surviving_touchsite_count,
+                    item.followup_family,
+                    item.object_id or "",
+                    item.target_doc_id or "",
+                ),
+            )
+        )
+
+    def recommended_followup(self) -> InvariantFollowupAction | None:
+        ranked_followups = self.ranked_followups()
+        if not ranked_followups:
+            return None
+        return ranked_followups[0]
+
     def health_summary(self) -> InvariantWorkstreamHealthSummary:
         touchpoints = tuple(self.iter_touchpoints())
         touchsites = tuple(
@@ -1028,6 +1213,8 @@ class InvariantWorkstreamProjection:
         health_summary = self.health_summary()
         remediation_lanes = self.remediation_lanes()
         documentation_followup_lane = self.documentation_followup_lane()
+        ranked_followups = self.ranked_followups()
+        recommended_followup = self.recommended_followup()
         return {
             "object_id": self.object_id.wire(),
             "title": self.title,
@@ -1065,6 +1252,11 @@ class InvariantWorkstreamProjection:
                 "recommended_doc_followup_target_doc_id": (
                     self.recommended_doc_followup_target_doc_id()
                 ),
+                "recommended_followup": (
+                    None
+                    if recommended_followup is None
+                    else recommended_followup.as_payload()
+                ),
                 "recommended_cut": (
                     recommended_cut.as_payload() if recommended_cut is not None else None
                 ),
@@ -1096,6 +1288,9 @@ class InvariantWorkstreamProjection:
                     if documentation_followup_lane is None
                     else [documentation_followup_lane.as_payload()]
                 ),
+                "ranked_followups": [
+                    item.as_payload() for item in ranked_followups
+                ],
                 "ranked_touchpoint_cuts": [
                     item.as_payload() for item in ranked_touchpoint_cuts
                 ],
@@ -1111,25 +1306,148 @@ class InvariantWorkstreamsProjection:
     root: str
     generated_at_utc: str
     workstreams: ReplayableStream[InvariantWorkstreamProjection]
+    diagnostics: tuple[InvariantGraphDiagnostic, ...] = ()
 
     def iter_workstreams(self) -> Iterator[InvariantWorkstreamProjection]:
         return iter(self.workstreams)
 
+    def diagnostic_summary(self) -> InvariantDiagnosticSummary:
+        bucket_counts: defaultdict[tuple[str, str], int] = defaultdict(int)
+        unmatched_policy_signal_count = 0
+        unresolved_blocking_dependency_count = 0
+        for diagnostic in self.diagnostics:
+            bucket_counts[(diagnostic.code, diagnostic.severity)] += 1
+            if diagnostic.code == "unmatched_policy_signal":
+                unmatched_policy_signal_count += 1
+            if diagnostic.code == "unresolved_blocking_dependency":
+                unresolved_blocking_dependency_count += 1
+        buckets = tuple(
+            InvariantDiagnosticBucket(code=code, severity=severity, count=count)
+            for (code, severity), count in _sorted(
+                list(bucket_counts.items()),
+                key=lambda item: (item[0][0], item[0][1]),
+            )
+        )
+        return InvariantDiagnosticSummary(
+            diagnostic_count=len(self.diagnostics),
+            unmatched_policy_signal_count=unmatched_policy_signal_count,
+            unresolved_blocking_dependency_count=unresolved_blocking_dependency_count,
+            buckets=buckets,
+        )
+
+    def ranked_repo_followups(self) -> tuple[InvariantRepoFollowupAction, ...]:
+        actions: list[InvariantRepoFollowupAction] = []
+        diagnostic_summary = self.diagnostic_summary()
+        if diagnostic_summary.unmatched_policy_signal_count > 0:
+            actions.append(
+                InvariantRepoFollowupAction(
+                    followup_family="governance_orphan_resolution",
+                    action_kind="diagnostic_resolution",
+                    priority_rank=0,
+                    object_id=None,
+                    owner_object_id=None,
+                    diagnostic_code="unmatched_policy_signal",
+                    target_doc_id=None,
+                    title="resolve unmatched policy signal ownership",
+                    blocker_class="policy_orphan",
+                    readiness_class=None,
+                    alignment_status=None,
+                    recommended_action="attribute_policy_signals_to_owned_workstreams",
+                    count=diagnostic_summary.unmatched_policy_signal_count,
+                )
+            )
+        if diagnostic_summary.unresolved_blocking_dependency_count > 0:
+            actions.append(
+                InvariantRepoFollowupAction(
+                    followup_family="dependency_resolution",
+                    action_kind="diagnostic_resolution",
+                    priority_rank=10,
+                    object_id=None,
+                    owner_object_id=None,
+                    diagnostic_code="unresolved_blocking_dependency",
+                    target_doc_id=None,
+                    title="resolve unresolved blocking dependencies",
+                    blocker_class="dependency_orphan",
+                    readiness_class=None,
+                    alignment_status=None,
+                    recommended_action="resolve_or_reassign_blocking_dependencies",
+                    count=diagnostic_summary.unresolved_blocking_dependency_count,
+                )
+            )
+        for workstream in self.iter_workstreams():
+            for followup in workstream.ranked_followups():
+                actions.append(
+                    InvariantRepoFollowupAction(
+                        followup_family=followup.followup_family,
+                        action_kind=followup.action_kind,
+                        priority_rank=100 + followup.priority_rank,
+                        object_id=followup.object_id,
+                        owner_object_id=workstream.object_id.wire(),
+                        diagnostic_code=None,
+                        target_doc_id=followup.target_doc_id,
+                        title=followup.title,
+                        blocker_class=followup.blocker_class,
+                        readiness_class=followup.readiness_class,
+                        alignment_status=followup.alignment_status,
+                        recommended_action=followup.recommended_action,
+                        count=followup.touchsite_count,
+                    )
+                )
+        return tuple(
+            _sorted(
+                actions,
+                key=lambda item: (
+                    item.priority_rank,
+                    item.count,
+                    item.followup_family,
+                    item.object_id or "",
+                    item.target_doc_id or "",
+                    item.diagnostic_code or "",
+                ),
+            )
+        )
+
+    def recommended_repo_followup(self) -> InvariantRepoFollowupAction | None:
+        ranked = self.ranked_repo_followups()
+        if not ranked:
+            return None
+        return ranked[0]
+
     def as_payload(self) -> dict[str, object]:
         workstreams = tuple(self.iter_workstreams())
+        diagnostic_summary = self.diagnostic_summary()
+        recommended_repo_followup = self.recommended_repo_followup()
+        ranked_repo_followups = self.ranked_repo_followups()
         return {
             "format_version": _FORMAT_VERSION,
             "generated_at_utc": self.generated_at_utc,
             "root": self.root,
             "workstreams": [item.as_payload() for item in workstreams],
+            "diagnostic_summary": diagnostic_summary.as_payload(),
+            "repo_next_actions": {
+                "recommended_followup": (
+                    None
+                    if recommended_repo_followup is None
+                    else recommended_repo_followup.as_payload()
+                ),
+                "ranked_followups": [
+                    item.as_payload() for item in ranked_repo_followups
+                ],
+            },
             "counts": {
                 "workstream_count": len(workstreams),
+                "diagnostic_count": diagnostic_summary.diagnostic_count,
             },
         }
 
     def artifact_document(self) -> ArtifactUnit:
+        workstreams = tuple(self.iter_workstreams())
+        diagnostic_summary = self.diagnostic_summary()
+        recommended_repo_followup = self.recommended_repo_followup()
+        ranked_repo_followups = self.ranked_repo_followups()
+
         def _workstream_items() -> Iterator[ArtifactUnit]:
-            for workstream in self.iter_workstreams():
+            for workstream in workstreams:
                 recommended_cut = workstream.recommended_cut()
                 recommended_ready_cut = workstream.recommended_ready_cut()
                 recommended_coverage_gap_cut = workstream.recommended_coverage_gap_cut()
@@ -1309,6 +1627,8 @@ class InvariantWorkstreamsProjection:
                                 recommended_diagnostic_blocked_cut=recommended_diagnostic_blocked_cut,
                                 remediation_lanes=remediation_lanes,
                                 documentation_followup_lane=workstream.documentation_followup_lane(),
+                                recommended_followup=workstream.recommended_followup(),
+                                ranked_followups=workstream.ranked_followups(),
                                 ranked_touchpoint_cuts=ranked_touchpoint_cuts,
                                 ranked_subqueue_cuts=ranked_subqueue_cuts: iter(
                                     (
@@ -1365,6 +1685,19 @@ class InvariantWorkstreamsProjection:
                                             key="recommended_doc_followup_target_doc_id",
                                             title="recommended_doc_followup_target_doc_id",
                                             value=workstream.recommended_doc_followup_target_doc_id(),
+                                        ),
+                                        scalar(
+                                            identity=ArtifactSourceRef(
+                                                rel_path="<synthetic>",
+                                                qualname="recommended_followup",
+                                            ),
+                                            key="recommended_followup",
+                                            title="recommended_followup",
+                                            value=(
+                                                None
+                                                if recommended_followup is None
+                                                else recommended_followup.as_payload()
+                                            ),
                                         ),
                                         bullet_list(
                                             identity=ArtifactSourceRef(
@@ -1446,6 +1779,29 @@ class InvariantWorkstreamsProjection:
                                                 None
                                                 if recommended_diagnostic_blocked_cut is None
                                                 else recommended_diagnostic_blocked_cut.as_payload()
+                                            ),
+                                        ),
+                                        bullet_list(
+                                            identity=ArtifactSourceRef(
+                                                rel_path="<synthetic>",
+                                                qualname="ranked_followups",
+                                            ),
+                                            key="ranked_followups",
+                                            children=lambda ranked_followups=ranked_followups: (
+                                                list_item(
+                                                    identity=ArtifactSourceRef(
+                                                        rel_path="<synthetic>",
+                                                        qualname=(
+                                                            item.object_id
+                                                            or item.target_doc_id
+                                                            or item.followup_family
+                                                        ),
+                                                    ),
+                                                    children=lambda item=item: iter(
+                                                        _payload_to_units(item.as_payload())
+                                                    ),
+                                                )
+                                                for item in ranked_followups
                                             ),
                                         ),
                                         bullet_list(
@@ -1558,6 +1914,67 @@ class InvariantWorkstreamsProjection:
                         children=_workstream_items,
                     ),
                     section(
+                        identity=ArtifactSourceRef(
+                            rel_path="<synthetic>",
+                            qualname="diagnostic_summary",
+                        ),
+                        key="diagnostic_summary",
+                        title="diagnostic_summary",
+                        children=lambda diagnostic_summary=diagnostic_summary: iter(
+                            _payload_to_units(diagnostic_summary.as_payload())
+                        ),
+                    ),
+                    section(
+                        identity=ArtifactSourceRef(
+                            rel_path="<synthetic>",
+                            qualname="repo_next_actions",
+                        ),
+                        key="repo_next_actions",
+                        title="repo_next_actions",
+                        children=lambda recommended_repo_followup=recommended_repo_followup,
+                        ranked_repo_followups=ranked_repo_followups: iter(
+                            (
+                                scalar(
+                                    identity=ArtifactSourceRef(
+                                        rel_path="<synthetic>",
+                                        qualname="recommended_followup",
+                                    ),
+                                    key="recommended_followup",
+                                    title="recommended_followup",
+                                    value=(
+                                        None
+                                        if recommended_repo_followup is None
+                                        else recommended_repo_followup.as_payload()
+                                    ),
+                                ),
+                                bullet_list(
+                                    identity=ArtifactSourceRef(
+                                        rel_path="<synthetic>",
+                                        qualname="ranked_followups",
+                                    ),
+                                    key="ranked_followups",
+                                    children=lambda ranked_repo_followups=ranked_repo_followups: (
+                                        list_item(
+                                            identity=ArtifactSourceRef(
+                                                rel_path="<synthetic>",
+                                                qualname=(
+                                                    item.object_id
+                                                    or item.target_doc_id
+                                                    or item.diagnostic_code
+                                                    or item.followup_family
+                                                ),
+                                            ),
+                                            children=lambda item=item: iter(
+                                                _payload_to_units(item.as_payload())
+                                            ),
+                                        )
+                                        for item in ranked_repo_followups
+                                    ),
+                                ),
+                            )
+                        ),
+                    ),
+                    section(
                         identity=ArtifactSourceRef(rel_path="<synthetic>", qualname="counts"),
                         key="counts",
                         title="counts",
@@ -1570,7 +1987,16 @@ class InvariantWorkstreamsProjection:
                                     ),
                                     key="workstream_count",
                                     title="workstream_count",
-                                    value=sum(1 for _ in self.iter_workstreams()),
+                                    value=len(workstreams),
+                                ),
+                                scalar(
+                                    identity=ArtifactSourceRef(
+                                        rel_path="<synthetic>",
+                                        qualname="diagnostic_count",
+                                    ),
+                                    key="diagnostic_count",
+                                    title="diagnostic_count",
+                                    value=diagnostic_summary.diagnostic_count,
                                 ),
                             )
                         ),
@@ -1684,8 +2110,10 @@ class InvariantLedgerProjections:
         }
 
     def artifact_document(self) -> ArtifactUnit:
+        ledgers = tuple(self.iter_ledgers())
+
         def _ledger_items() -> Iterator[ArtifactUnit]:
-            for ledger in self.iter_ledgers():
+            for ledger in ledgers:
                 yield list_item(
                     identity=ArtifactSourceRef(rel_path="<synthetic>", qualname=ledger.object_id),
                     title=ledger.object_id,
@@ -1747,7 +2175,7 @@ class InvariantLedgerProjections:
                                     ),
                                     key="ledger_count",
                                     title="ledger_count",
-                                    value=sum(1 for _ in self.iter_ledgers()),
+                                    value=len(ledgers),
                                 ),
                             )
                         ),
@@ -1834,8 +2262,10 @@ class InvariantLedgerDeltaProjections:
         }
 
     def artifact_document(self) -> ArtifactUnit:
+        deltas = tuple(self.iter_deltas())
+
         def _delta_items() -> Iterator[ArtifactUnit]:
-            for delta in self.iter_deltas():
+            for delta in deltas:
                 yield list_item(
                     identity=ArtifactSourceRef(rel_path="<synthetic>", qualname=delta.object_id),
                     title=delta.object_id,
@@ -1915,7 +2345,7 @@ class InvariantLedgerDeltaProjections:
                                     ),
                                     key="delta_count",
                                     title="delta_count",
-                                    value=sum(1 for _ in self.iter_deltas()),
+                                    value=len(deltas),
                                 ),
                             )
                         ),
@@ -2018,8 +2448,13 @@ class InvariantLedgerAlignments:
         }
 
     def artifact_document(self) -> ArtifactUnit:
+        alignments = tuple(self.iter_alignments())
+        status_counts: dict[str, int] = defaultdict(int)
+        for item in alignments:
+            status_counts[item.alignment_status] += 1
+
         def _alignment_items() -> Iterator[ArtifactUnit]:
-            for alignment in self.iter_alignments():
+            for alignment in alignments:
                 yield list_item(
                     identity=ArtifactSourceRef(
                         rel_path="<synthetic>",
@@ -2077,8 +2512,18 @@ class InvariantLedgerAlignments:
                         ),
                         key="counts",
                         title="counts",
-                        children=lambda: iter(
-                            _payload_to_units(self.as_payload()["counts"])
+                        children=lambda alignments=alignments: iter(
+                            _payload_to_units(
+                                {
+                                    "alignment_count": len(alignments),
+                                    "status_counts": dict(
+                                        _sorted(
+                                            list(status_counts.items()),
+                                            key=lambda item: item[0],
+                                        )
+                                    ),
+                                }
+                            )
                         ),
                     ),
                 )
@@ -4592,6 +5037,7 @@ def build_invariant_workstreams(
     return InvariantWorkstreamsProjection(
         root=graph.root,
         generated_at_utc=generated_at_utc,
+        diagnostics=graph.diagnostics,
         workstreams=_stream_from_iterable(
             lambda: (
                 _workstream_projection(root_object_id)

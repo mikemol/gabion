@@ -144,6 +144,70 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
     assert len(projection["subqueues"]) == 5
     assert len(projection["touchpoints"]) == 6
     workstreams_payload = workstreams.as_payload()
+    assert workstreams_payload["diagnostic_summary"] == {
+        "diagnostic_count": 7,
+        "unmatched_policy_signal_count": 7,
+        "unresolved_blocking_dependency_count": 0,
+        "buckets": [
+            {
+                "code": "unmatched_policy_signal",
+                "severity": "warning",
+                "count": 7,
+            }
+        ],
+    }
+    assert workstreams_payload["repo_next_actions"]["recommended_followup"] == {
+        "followup_family": "governance_orphan_resolution",
+        "action_kind": "diagnostic_resolution",
+        "priority_rank": 0,
+        "object_id": None,
+        "owner_object_id": None,
+        "diagnostic_code": "unmatched_policy_signal",
+        "target_doc_id": None,
+        "title": "resolve unmatched policy signal ownership",
+        "blocker_class": "policy_orphan",
+        "readiness_class": None,
+        "alignment_status": None,
+        "recommended_action": "attribute_policy_signals_to_owned_workstreams",
+        "count": 7,
+    }
+    ranked_repo_followups = workstreams_payload["repo_next_actions"]["ranked_followups"]
+    assert ranked_repo_followups[0] == {
+        "followup_family": "governance_orphan_resolution",
+        "action_kind": "diagnostic_resolution",
+        "priority_rank": 0,
+        "object_id": None,
+        "owner_object_id": None,
+        "diagnostic_code": "unmatched_policy_signal",
+        "target_doc_id": None,
+        "title": "resolve unmatched policy signal ownership",
+        "blocker_class": "policy_orphan",
+        "readiness_class": None,
+        "alignment_status": None,
+        "recommended_action": "attribute_policy_signals_to_owned_workstreams",
+        "count": 7,
+    }
+    assert ranked_repo_followups[1] == {
+        "followup_family": "structural_cut",
+        "action_kind": "touchpoint_cut",
+        "priority_rank": 100,
+        "object_id": "PSF-007-TP-005",
+        "owner_object_id": "PSF-007",
+        "diagnostic_code": None,
+        "target_doc_id": None,
+        "title": "projection_exec_plan.py planning surfaces",
+        "blocker_class": "ready_structural",
+        "readiness_class": "ready_structural",
+        "alignment_status": None,
+        "recommended_action": None,
+        "count": 1,
+    }
+    assert any(
+        item["followup_family"] == "documentation_alignment"
+        and item["target_doc_id"] == "projection_semantic_fragment_ledger"
+        and item["recommended_action"] == "append_existing_ledger_entry"
+        for item in ranked_repo_followups
+    )
     projected_ids = [
         str(item.get("object_id", ""))
         for item in workstreams_payload.get("workstreams", [])
@@ -210,6 +274,22 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
     assert psf["next_actions"]["recommended_doc_followup_target_doc_id"] == (
         "projection_semantic_fragment_ledger"
     )
+    assert psf["next_actions"]["recommended_followup"] == {
+        "followup_family": "structural_cut",
+        "action_kind": "touchpoint_cut",
+        "priority_rank": 0,
+        "object_id": "PSF-007-TP-005",
+        "owner_object_id": "PSF-007-SQ-005",
+        "target_doc_id": None,
+        "title": "projection_exec_plan.py planning surfaces",
+        "blocker_class": "ready_structural",
+        "readiness_class": "ready_structural",
+        "alignment_status": None,
+        "recommended_action": None,
+        "touchsite_count": 1,
+        "collapsible_touchsite_count": 0,
+        "surviving_touchsite_count": 1,
+    }
     assert psf["next_actions"]["misaligned_target_doc_ids"] == [
         "projection_semantic_fragment_ledger",
         "projection_semantic_fragment_rfc",
@@ -244,6 +324,56 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
     assert psf["next_actions"]["remediation_lanes"][1]["best_cut"]["object_id"] == (
         "PSF-007-TP-001"
     )
+    assert psf["next_actions"]["ranked_followups"] == [
+        {
+            "followup_family": "structural_cut",
+            "action_kind": "touchpoint_cut",
+            "priority_rank": 0,
+            "object_id": "PSF-007-TP-005",
+            "owner_object_id": "PSF-007-SQ-005",
+            "target_doc_id": None,
+            "title": "projection_exec_plan.py planning surfaces",
+            "blocker_class": "ready_structural",
+            "readiness_class": "ready_structural",
+            "alignment_status": None,
+            "recommended_action": None,
+            "touchsite_count": 1,
+            "collapsible_touchsite_count": 0,
+            "surviving_touchsite_count": 1,
+        },
+        {
+            "followup_family": "coverage_gap",
+            "action_kind": "touchpoint_cut",
+            "priority_rank": 2,
+            "object_id": "PSF-007-TP-001",
+            "owner_object_id": "PSF-007-SQ-001",
+            "target_doc_id": None,
+            "title": "semantic_fragment.py canonicalization surfaces",
+            "blocker_class": "coverage_gap",
+            "readiness_class": "coverage_gap",
+            "alignment_status": None,
+            "recommended_action": None,
+            "touchsite_count": 4,
+            "collapsible_touchsite_count": 0,
+            "surviving_touchsite_count": 4,
+        },
+        {
+            "followup_family": "documentation_alignment",
+            "action_kind": "doc_alignment",
+            "priority_rank": 24,
+            "object_id": None,
+            "owner_object_id": "PSF-007",
+            "target_doc_id": "projection_semantic_fragment_ledger",
+            "title": "projection_semantic_fragment_ledger",
+            "blocker_class": None,
+            "readiness_class": None,
+            "alignment_status": "append_pending_existing_object",
+            "recommended_action": "append_existing_ledger_entry",
+            "touchsite_count": 73,
+            "collapsible_touchsite_count": 47,
+            "surviving_touchsite_count": 26,
+        },
+    ]
     assert psf["next_actions"]["ranked_touchpoint_cuts"][0]["object_id"] == "PSF-007-TP-005"
     assert psf["next_actions"]["ranked_touchpoint_cuts"][0]["readiness_class"] == (
         "ready_structural"
@@ -1289,6 +1419,25 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
                 str(REPO_ROOT),
                 "--artifact",
                 str(artifact),
+                "summary",
+            ]
+        )
+        == 0
+    )
+    summary_output = capsys.readouterr().out
+    assert "diagnostic_summary: unmatched_policy_signals=7 :: unresolved_dependencies=0" in summary_output
+    assert (
+        "recommended_repo_followup: governance_orphan_resolution :: diagnostic=unmatched_policy_signal :: count=7 :: action=attribute_policy_signals_to_owned_workstreams"
+        in summary_output
+    )
+
+    assert (
+        invariant_graph_runtime.main(
+            [
+                "--root",
+                str(REPO_ROOT),
+                "--artifact",
+                str(artifact),
                 "--workstreams-artifact",
                 str(workstreams_artifact),
                 "--ledger-artifact",
@@ -1355,10 +1504,27 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
         "recommended_doc_followup_target_doc_id: projection_semantic_fragment_ledger"
         in workstream_output
     )
+    assert (
+        "recommended_followup: structural_cut :: touchpoint_cut :: PSF-007-TP-005 :: touchsites=1 :: blocker=ready_structural"
+        in workstream_output
+    )
     assert "misaligned_target_doc_ids:" in workstream_output
     assert "documentation_followup_lanes:" in workstream_output
     assert (
         "- documentation_alignment :: alignment=append_pending_existing_object :: target_docs=2 :: misaligned=2 :: best=projection_semantic_fragment_ledger :: action=append_existing_ledger_entry"
+        in workstream_output
+    )
+    assert "ranked_followups:" in workstream_output
+    assert (
+        "- structural_cut :: touchpoint_cut :: PSF-007-TP-005 :: readiness=ready_structural :: touchsites=1 :: surviving=1"
+        in workstream_output
+    )
+    assert (
+        "- coverage_gap :: touchpoint_cut :: PSF-007-TP-001 :: readiness=coverage_gap :: touchsites=4 :: surviving=4"
+        in workstream_output
+    )
+    assert (
+        "- documentation_alignment :: target_doc=projection_semantic_fragment_ledger :: alignment=append_pending_existing_object :: action=append_existing_ledger_entry"
         in workstream_output
     )
 
