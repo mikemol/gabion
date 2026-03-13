@@ -472,11 +472,18 @@ def test_grade_monotonicity_summary_rules_are_dsl_backed() -> None:
     assert clean.rule_id == "grade_monotonicity.ok"
 
 
-def test_grade_monotonicity_violation_guidance_uses_playbook_refs() -> None:
+def test_grade_monotonicity_violation_guidance_uses_markdown_playbooks() -> None:
     from gabion.tooling.policy_substrate import grade_monotonicity_semantic as grade_semantic
 
-    spec = grade_semantic._VIOLATION_SPECS["GMP-001"]
-    assert spec["guidance"]["playbook_ref"] == "docs/policy_rules/grade_monotonicity.md#gmp-001"
+    guidance = grade_semantic._violation_guidance("GMP-001")
+    assert guidance == {
+        "why": "a callee accepts nullable or sentinel-bearing carriers after a stricter caller.",
+        "prefer": "normalize nullability once at ingress; keep downstream callees strict",
+        "avoid": [
+            "do not reintroduce Optional or sentinel-bearing contracts downstream",
+        ],
+        "playbook_ref": "docs/policy_rules/grade_monotonicity.md#gmp-001",
+    }
 
 
 def test_governance_adapter_emits_baseline_missing_rule() -> None:

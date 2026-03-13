@@ -350,3 +350,7 @@ def test_ambiguity_contract_gate_blocks_on_grade_monotonicity_violation(tmp_path
     assert artifact["grade"]["violation_count"] >= 1
     assert artifact["decisions"]["grade_monotonicity"]["rule_id"] == "grade_monotonicity.new_violations"
     assert artifact["decisions"]["grade_monotonicity"]["outcome"] == "block"
+    grade_violation = artifact["grade"]["violations"][0]
+    assert grade_violation["details"]["guidance"]["playbook_ref"].startswith(
+        "docs/policy_rules/grade_monotonicity.md#gmp-"
+    )

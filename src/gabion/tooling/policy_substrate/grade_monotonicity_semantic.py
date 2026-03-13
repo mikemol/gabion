@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import re
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Iterable
 
@@ -18,6 +19,7 @@ from gabion.analysis.projection.decision_flow import (
     build_decision_tables,
     detect_repeated_guard_bundles,
 )
+from gabion.frontmatter import parse_strict_yaml_frontmatter
 from gabion.order_contract import sort_once
 from gabion.tooling.policy_substrate.dataflow_fibration import (
     CallEdgeGradeWitness,
@@ -42,6 +44,7 @@ _BOUNDARY_NORMALIZATION_COMMENT = "gabion:boundary_normalization"
 _BOUNDARY_NORMALIZATION_MODULE_COMMENT = "gabion:boundary_normalization_module"
 _REDUCER_NAMES = frozenset({"sum", "all", "any", "max", "min", "len", "reduce"})
 _MATERIALIZER_NAMES = frozenset({"list", "tuple", "set", "dict", "sorted"})
+_MARKDOWN_ANCHOR_RE = re.compile(r'<a\s+id="(?P<anchor>[a-z0-9][a-z0-9_-]*)"\s*></a>')
 _SHAPE_TYPE_NAMES = frozenset(
     {
         "dict",
@@ -57,82 +60,140 @@ _SHAPE_TYPE_NAMES = frozenset(
         "json",
     }
 )
-_VIOLATION_SPECS = {
-    "GMP-001": {
-        "message": "callee expands nullable contract beyond caller",
-        "guidance": {
-            "why": (
-                "a stricter caller is delegating to a callee that still accepts nullable "
-                "or sentinel-bearing carriers"
-            ),
-            "prefer": (
-                "normalize nullability at ingress and pass only strict carriers into "
-                "downstream callees"
-            ),
-            "avoid": [
-                "do not reintroduce Optional or sentinel-bearing contracts downstream",
-            ],
-            "playbook_ref": "docs/policy_rules/grade_monotonicity.md#gmp-001",
-        },
-    },
-    "GMP-002": {
-        "message": "callee expands runtime type domain beyond caller",
-        "guidance": {
-            "why": "the callee accepts more runtime type alternatives than the caller contract allows",
-            "prefer": "push type alternation to a boundary normalizer or explicit decision protocol",
-            "avoid": ["do not widen a strict caller contract back to Any, object, or new unions"],
-            "playbook_ref": "docs/policy_rules/grade_monotonicity.md#gmp-002",
-        },
-    },
-    "GMP-003": {
-        "message": "callee expands structural shape domain beyond caller",
-        "guidance": {
-            "why": "the callee accepts additional payload shapes that the caller had already normalized away",
-            "prefer": "convert legacy or multi-shape carriers once and keep a single downstream payload shape",
-            "avoid": ["do not accept dict/list/tuple shape alternation after normalization"],
-            "playbook_ref": "docs/policy_rules/grade_monotonicity.md#gmp-003",
-        },
-    },
-    "GMP-004": {
-        "message": "callee reintroduces runtime classification work",
-        "guidance": {
-            "why": "the callee performs more imperative runtime classification than the caller",
-            "prefer": "move shape and type dispatch to ingress and keep the core branch surface explicit",
-            "avoid": ["do not add probe-then-recover locals or deeper classification cascades"],
-            "playbook_ref": "docs/policy_rules/grade_monotonicity.md#gmp-004",
-        },
-    },
-    "GMP-005": {
-        "message": "callee regresses protocol discharge level",
-        "guidance": {
-            "why": "the call edge moves from a more discharged contract to a less explicit one",
-            "prefer": "keep decision protocols and invariant discharge at least as explicit downstream",
-            "avoid": ["do not call raw-ingress style helpers from a stricter decision or invariant-discharged caller"],
-            "playbook_ref": "docs/policy_rules/grade_monotonicity.md#gmp-005",
-        },
-    },
-    "GMP-006": {
-        "message": "callee expands output cardinality without an explicit boundary",
-        "guidance": {
-            "why": "the edge increases output multiplicity beyond the caller grade",
-            "prefer": (
-                "mark aggregation or materialization boundaries explicitly and keep ordinary "
-                "core edges cardinality-nondecreasing"
-            ),
-            "avoid": ["do not introduce unmarked fan-out or materialization in ordinary call chains"],
-            "playbook_ref": "docs/policy_rules/grade_monotonicity.md#gmp-006",
-        },
-    },
-    "GMP-007": {
-        "message": "callee expands work growth without an explicit boundary",
-        "guidance": {
-            "why": "the edge increases asymptotic work relative to the caller grade",
-            "prefer": "concentrate budgeted complexity at named boundaries with an explicit reason",
-            "avoid": ["do not hide higher-complexity helpers behind ordinary core edges"],
-            "playbook_ref": "docs/policy_rules/grade_monotonicity.md#gmp-007",
-        },
-    },
+_GRADE_MONOTONICITY_PLAYBOOK_RELATIVE_PATH = "docs/policy_rules/grade_monotonicity.md"
+_VIOLATION_MESSAGES = {
+    "GMP-001": "callee expands nullable contract beyond caller",
+    "GMP-002": "callee expands runtime type domain beyond caller",
+    "GMP-003": "callee expands structural shape domain beyond caller",
+    "GMP-004": "callee reintroduces runtime classification work",
+    "GMP-005": "callee regresses protocol discharge level",
+    "GMP-006": "callee expands output cardinality without an explicit boundary",
+    "GMP-007": "callee expands work growth without an explicit boundary",
 }
+
+
+@dataclass(frozen=True)
+class _PlaybookGuidance:
+    why: str
+    prefer: tuple[str, ...]
+    avoid: tuple[str, ...]
+
+    def as_payload(self, *, playbook_ref: str) -> dict[str, object]:
+        payload: dict[str, object] = {
+            "why": self.why,
+            "playbook_ref": playbook_ref,
+        }
+        if self.prefer:
+            payload["prefer"] = "; ".join(self.prefer)
+        if self.avoid:
+            payload["avoid"] = list(self.avoid)
+        return payload
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[4]
+
+
+@lru_cache(maxsize=1)
+def _grade_playbook_guidance_by_rule() -> dict[str, _PlaybookGuidance]:
+    text = (_repo_root() / _GRADE_MONOTONICITY_PLAYBOOK_RELATIVE_PATH).read_text(
+        encoding="utf-8"
+    )
+    _, body = parse_strict_yaml_frontmatter(text, require_parser=True)
+    sections = _playbook_sections(body)
+    guidance_by_rule: dict[str, _PlaybookGuidance] = {}
+    missing_anchors: list[str] = []
+    for rule_id in sorted(_VIOLATION_MESSAGES):
+        anchor = rule_id.lower()
+        section = sections.get(anchor)
+        if section is None:
+            missing_anchors.append(anchor)
+            continue
+        guidance_by_rule[rule_id] = section
+    if missing_anchors:
+        raise ValueError(
+            "missing grade-monotonicity playbook anchors: "
+            + ", ".join(missing_anchors)
+        )
+    return guidance_by_rule
+
+
+def _playbook_sections(body: str) -> dict[str, _PlaybookGuidance]:
+    sections: dict[str, _PlaybookGuidance] = {}
+    current_anchor: str | None = None
+    current_lines: list[str] = []
+
+    def _flush() -> None:
+        if current_anchor is None:
+            return
+        section = _parse_playbook_section(current_lines)
+        if section is not None:
+            sections[current_anchor] = section
+
+    for raw_line in body.splitlines():
+        match = _MARKDOWN_ANCHOR_RE.fullmatch(raw_line.strip())
+        if match is not None:
+            _flush()
+            current_anchor = match.group("anchor")
+            current_lines = []
+            continue
+        if current_anchor is not None:
+            current_lines.append(raw_line)
+    _flush()
+    return sections
+
+
+def _parse_playbook_section(lines: list[str]) -> _PlaybookGuidance | None:
+    meaning: str | None = None
+    preferred: list[str] = []
+    avoid: list[str] = []
+    index = 0
+    while index < len(lines):
+        stripped = lines[index].strip()
+        if stripped.startswith("Meaning:"):
+            meaning = stripped.removeprefix("Meaning:").strip()
+            index += 1
+            continue
+        if stripped == "Preferred response:":
+            bullets, index = _consume_bullet_block(lines, start=index + 1)
+            preferred.extend(bullets)
+            continue
+        if stripped == "Avoid:":
+            bullets, index = _consume_bullet_block(lines, start=index + 1)
+            avoid.extend(bullets)
+            continue
+        index += 1
+    if meaning is None:
+        return None
+    return _PlaybookGuidance(
+        why=meaning,
+        prefer=tuple(preferred),
+        avoid=tuple(avoid),
+    )
+
+
+def _consume_bullet_block(
+    lines: list[str], *, start: int
+) -> tuple[list[str], int]:
+    items: list[str] = []
+    index = start
+    while index < len(lines):
+        stripped = lines[index].strip()
+        if not stripped:
+            index += 1
+            continue
+        if not stripped.startswith("- "):
+            break
+        items.append(stripped.removeprefix("- ").strip())
+        index += 1
+    return items, index
+
+
+def _violation_guidance(rule_id: str) -> dict[str, object]:
+    guidance = _grade_playbook_guidance_by_rule()[rule_id]
+    return guidance.as_payload(
+        playbook_ref=f"{_GRADE_MONOTONICITY_PLAYBOOK_RELATIVE_PATH}#{rule_id.lower()}"
+    )
 
 
 @dataclass(frozen=True)
@@ -1080,9 +1141,8 @@ def _build_violation(
     rule_id: str,
     witness: CallEdgeGradeWitness,
 ) -> GradeMonotonicityViolation:
-    spec = _VIOLATION_SPECS[rule_id]
     message = (
-        f"{spec['message']} "
+        f"{_VIOLATION_MESSAGES[rule_id]} "
         f"({witness.caller_qualname} -> {witness.callee_qualname})"
     )
     violation_id = canonical_structural_identity(
@@ -1093,7 +1153,7 @@ def _build_violation(
         surface="grade_monotonicity",
     )
     details = {
-        "guidance": dict(spec["guidance"]),
+        "guidance": _violation_guidance(rule_id),
         "edge_resolution_status": witness.edge_resolution_status,
         "edge_resolution_phase": witness.edge_resolution_phase,
         "edge_structural_identity": witness.edge_structural_identity,

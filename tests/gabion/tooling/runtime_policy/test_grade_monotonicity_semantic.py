@@ -63,6 +63,17 @@ def test_grade_monotonicity_looser_callee_fails_on_ambiguity_axes(tmp_path: Path
     assert "GMP-001" in witness.failure_rule_ids
     assert witness.caller_grade.nullable_domain_cardinality == 1
     assert witness.callee_grade.nullable_domain_cardinality == 2
+    nullable_violation = next(
+        item for item in report.violations if item.rule_id == "GMP-001"
+    )
+    assert nullable_violation.details["guidance"] == {
+        "why": "a callee accepts nullable or sentinel-bearing carriers after a stricter caller.",
+        "prefer": "normalize nullability once at ingress; keep downstream callees strict",
+        "avoid": [
+            "do not reintroduce Optional or sentinel-bearing contracts downstream",
+        ],
+        "playbook_ref": "docs/policy_rules/grade_monotonicity.md#gmp-001",
+    }
 
 
 # gabion:evidence E:call_footprint::tests/test_grade_monotonicity_semantic.py::test_grade_monotonicity_boundary_marker_allows_cost_escalation::grade_monotonicity_semantic.py::gabion.tooling.policy_substrate.grade_monotonicity_semantic.collect_grade_monotonicity

@@ -1,5 +1,5 @@
 ---
-doc_revision: 1
+doc_revision: 2
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: grade_monotonicity_policy_rules
 doc_role: policy
@@ -85,6 +85,9 @@ Preferred response:
 - normalize nullability once at ingress
 - keep downstream callees strict
 
+Avoid:
+- do not reintroduce Optional or sentinel-bearing contracts downstream
+
 <a id="gmp-002"></a>
 ## `GMP-002`
 
@@ -93,6 +96,9 @@ Meaning: a callee widens the runtime type domain beyond the caller contract.
 Preferred response:
 - make type alternation explicit at the boundary
 - pass one accepted internal variant downstream
+
+Avoid:
+- do not widen a strict caller contract back to `Any`, `object`, or new unions
 
 <a id="gmp-003"></a>
 ## `GMP-003`
@@ -103,6 +109,9 @@ Preferred response:
 - keep one internal DTO/carrier shape
 - convert legacy shapes only once
 
+Avoid:
+- do not accept `dict`/`list`/`tuple` shape alternation after normalization
+
 <a id="gmp-004"></a>
 ## `GMP-004`
 
@@ -111,6 +120,9 @@ Meaning: a callee reintroduces imperative runtime classification work.
 Preferred response:
 - move the branch to ingress or an explicit decision protocol
 
+Avoid:
+- do not add probe-then-recover locals or deeper classification cascades
+
 <a id="gmp-005"></a>
 ## `GMP-005`
 
@@ -118,6 +130,9 @@ Meaning: a callee regresses protocol discharge level.
 
 Preferred response:
 - keep invariant discharge and decision-protocol explicitness monotone downstream
+
+Avoid:
+- do not call raw-ingress-style helpers from a stricter decision or invariant-discharged caller
 
 <a id="gmp-006"></a>
 ## `GMP-006`
@@ -128,6 +143,9 @@ Preferred response:
 - make the fan-out/materialization boundary explicit
 - keep ordinary core edges cardinality-stable
 
+Avoid:
+- do not introduce unmarked fan-out or materialization in ordinary call chains
+
 <a id="gmp-007"></a>
 ## `GMP-007`
 
@@ -136,3 +154,6 @@ Meaning: a callee expands work growth without an explicit named boundary.
 Preferred response:
 - concentrate budgeted complexity at named boundaries with a stated reason
 - keep ordinary core edges from hiding asymptotic growth
+
+Avoid:
+- do not hide higher-complexity helpers behind ordinary core edges
