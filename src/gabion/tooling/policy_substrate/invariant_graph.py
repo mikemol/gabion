@@ -662,6 +662,8 @@ class InvariantRepoFollowupAction:
     utility_components: tuple[InvariantScoreComponent, ...]
     selection_certainty_kind: str
     cofrontier_followup_count: int
+    selection_scope_kind: str
+    selection_scope_id: str | None
     runner_up_followup_family: str | None
     runner_up_followup_class: str | None
     runner_up_followup_object_id: str | None
@@ -716,6 +718,8 @@ class InvariantRepoFollowupAction:
             ],
             "selection_certainty_kind": self.selection_certainty_kind,
             "cofrontier_followup_count": self.cofrontier_followup_count,
+            "selection_scope_kind": self.selection_scope_kind,
+            "selection_scope_id": self.selection_scope_id,
             "runner_up_followup_family": self.runner_up_followup_family,
             "runner_up_followup_class": self.runner_up_followup_class,
             "runner_up_followup_object_id": self.runner_up_followup_object_id,
@@ -2300,6 +2304,8 @@ class InvariantWorkstreamsProjection:
                         utility_components=(),
                         selection_certainty_kind="ranked_unique",
                         cofrontier_followup_count=1,
+                        selection_scope_kind="singleton",
+                        selection_scope_id=None,
                         runner_up_followup_family=None,
                         runner_up_followup_class=None,
                         runner_up_followup_object_id=None,
@@ -2354,6 +2360,8 @@ class InvariantWorkstreamsProjection:
                         utility_components=(),
                         selection_certainty_kind="ranked_unique",
                         cofrontier_followup_count=1,
+                        selection_scope_kind="singleton",
+                        selection_scope_id=None,
                         runner_up_followup_family=None,
                         runner_up_followup_class=None,
                         runner_up_followup_object_id=None,
@@ -2408,6 +2416,8 @@ class InvariantWorkstreamsProjection:
                         utility_components=(),
                         selection_certainty_kind="ranked_unique",
                         cofrontier_followup_count=1,
+                        selection_scope_kind="singleton",
+                        selection_scope_id=None,
                         runner_up_followup_family=None,
                         runner_up_followup_class=None,
                         runner_up_followup_object_id=None,
@@ -2457,6 +2467,8 @@ class InvariantWorkstreamsProjection:
                         utility_components=(),
                         selection_certainty_kind="ranked_unique",
                         cofrontier_followup_count=1,
+                        selection_scope_kind="singleton",
+                        selection_scope_id=None,
                         runner_up_followup_family=None,
                         runner_up_followup_class=None,
                         runner_up_followup_object_id=None,
@@ -2512,6 +2524,9 @@ class InvariantWorkstreamsProjection:
             cofrontier_followup_count = sum(
                 1 for item in ranked_actions if item.utility_score == action.utility_score
             )
+            cofrontier_followups = tuple(
+                item for item in ranked_actions if item.utility_score == action.utility_score
+            )
             selection_certainty_kind = (
                 "frontier_plateau"
                 if index == 1 and cofrontier_followup_count > 1
@@ -2523,6 +2538,11 @@ class InvariantWorkstreamsProjection:
                         if cofrontier_followup_count > 1
                         else "ranked_unique"
                     )
+                )
+            )
+            selection_scope_kind, selection_scope_id = (
+                self._repo_followup_selection_scope(
+                    cofrontier_followups=cofrontier_followups,
                 )
             )
             frontier_choice_margin_score = (
@@ -2581,6 +2601,8 @@ class InvariantWorkstreamsProjection:
                         ),
                         selection_certainty_kind=selection_certainty_kind,
                         cofrontier_followup_count=cofrontier_followup_count,
+                        selection_scope_kind=selection_scope_kind,
+                        selection_scope_id=selection_scope_id,
                         selection_rank=index,
                         opportunity_cost_score=0,
                         opportunity_cost_reason="frontier",
@@ -2619,6 +2641,8 @@ class InvariantWorkstreamsProjection:
                     frontier_choice_margin_components=frontier_choice_margin_components,
                     selection_certainty_kind=selection_certainty_kind,
                     cofrontier_followup_count=cofrontier_followup_count,
+                    selection_scope_kind=selection_scope_kind,
+                    selection_scope_id=selection_scope_id,
                     selection_rank=index,
                     opportunity_cost_score=opportunity_cost_score,
                     opportunity_cost_reason=(
@@ -2657,6 +2681,36 @@ class InvariantWorkstreamsProjection:
         if followup.action_kind == "doc_alignment":
             return "documentation"
         return "code"
+
+    @staticmethod
+    def _repo_followup_selection_scope(
+        *,
+        cofrontier_followups: tuple[InvariantRepoFollowupAction, ...],
+    ) -> tuple[str, str | None]:
+        if len(cofrontier_followups) <= 1:
+            return ("singleton", None)
+        owner_resolution_kinds = {
+            item.owner_resolution_kind
+            for item in cofrontier_followups
+            if item.owner_resolution_kind is not None
+        }
+        owner_resolution_targets = {
+            item.owner_object_id or item.owner_seed_object_id
+            for item in cofrontier_followups
+            if (item.owner_object_id or item.owner_seed_object_id) is not None
+        }
+        if len(owner_resolution_kinds) == 1 and len(owner_resolution_targets) == 1:
+            return (
+                "shared_owner_resolution_surface",
+                (
+                    f"{next(iter(owner_resolution_kinds))}:"
+                    f"{next(iter(owner_resolution_targets))}"
+                ),
+            )
+        followup_families = {item.followup_family for item in cofrontier_followups}
+        if len(followup_families) == 1:
+            return ("shared_followup_family", next(iter(followup_families)))
+        return ("mixed_plateau", None)
 
     def _repo_followup_lane_utility(
         self,
