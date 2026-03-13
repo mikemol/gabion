@@ -679,6 +679,28 @@ def _frontier_decision_mode(
     return "frontier_hold"
 
 
+def _cut_frontier_stability_kind(
+    same_kind_pressure: str,
+    cross_kind_pressure: str,
+) -> str:
+    if same_kind_pressure in {"blocking", "high"} and cross_kind_pressure in {
+        "blocking",
+        "high",
+    }:
+        return "same_kind_and_cross_kind_contested"
+    if cross_kind_pressure in {"blocking", "high"}:
+        return "cross_kind_contested"
+    if same_kind_pressure in {"blocking", "high"}:
+        return "same_kind_contested"
+    if same_kind_pressure == "moderate" and cross_kind_pressure == "moderate":
+        return "balanced_watch"
+    if cross_kind_pressure == "moderate":
+        return "cross_kind_watch"
+    if same_kind_pressure == "moderate":
+        return "same_kind_watch"
+    return "stable_frontier"
+
+
 @dataclass(frozen=True)
 class InvariantWorkstreamCutTradeoff:
     frontier_cut_kind: str
@@ -787,6 +809,38 @@ class InvariantWorkstreamCutDecisionProtocol:
             "cross_kind_pressure": self.cross_kind_pressure,
             "decision_components": [
                 item.as_payload() for item in self.decision_components
+            ],
+        }
+
+
+@dataclass(frozen=True)
+class InvariantWorkstreamCutFrontierStability:
+    frontier_cut_kind: str
+    frontier_object_id: str
+    frontier_title: str
+    frontier_readiness_class: str
+    frontier_touchsite_count: int
+    frontier_surviving_touchsite_count: int
+    stability_kind: str
+    stability_reason: str
+    same_kind_pressure: str
+    cross_kind_pressure: str
+    stability_components: tuple[InvariantScoreComponent, ...]
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "frontier_cut_kind": self.frontier_cut_kind,
+            "frontier_object_id": self.frontier_object_id,
+            "frontier_title": self.frontier_title,
+            "frontier_readiness_class": self.frontier_readiness_class,
+            "frontier_touchsite_count": self.frontier_touchsite_count,
+            "frontier_surviving_touchsite_count": self.frontier_surviving_touchsite_count,
+            "stability_kind": self.stability_kind,
+            "stability_reason": self.stability_reason,
+            "same_kind_pressure": self.same_kind_pressure,
+            "cross_kind_pressure": self.cross_kind_pressure,
+            "stability_components": [
+                item.as_payload() for item in self.stability_components
             ],
         }
 
@@ -1907,6 +1961,59 @@ class InvariantWorkstreamProjection:
             ),
         )
 
+    def recommended_cut_frontier_stability(
+        self,
+    ) -> InvariantWorkstreamCutFrontierStability | None:
+        return self._recommended_cut_frontier_stability
+
+    @cached_property
+    def _recommended_cut_frontier_stability(
+        self,
+    ) -> InvariantWorkstreamCutFrontierStability | None:
+        explanation = self.recommended_cut_frontier_explanation()
+        if explanation is None:
+            return None
+        same_kind_pressure = _cut_tradeoff_pressure(explanation.same_kind_tradeoff)
+        cross_kind_pressure = _cut_tradeoff_pressure(explanation.cross_kind_tradeoff)
+        return InvariantWorkstreamCutFrontierStability(
+            frontier_cut_kind=explanation.frontier_cut_kind,
+            frontier_object_id=explanation.frontier_object_id,
+            frontier_title=explanation.frontier_title,
+            frontier_readiness_class=explanation.frontier_readiness_class,
+            frontier_touchsite_count=explanation.frontier_touchsite_count,
+            frontier_surviving_touchsite_count=explanation.frontier_surviving_touchsite_count,
+            stability_kind=_cut_frontier_stability_kind(
+                same_kind_pressure=same_kind_pressure,
+                cross_kind_pressure=cross_kind_pressure,
+            ),
+            stability_reason=(
+                f"same_kind_pressure:{same_kind_pressure}"
+                f"|cross_kind_pressure:{cross_kind_pressure}"
+            ),
+            same_kind_pressure=same_kind_pressure,
+            cross_kind_pressure=cross_kind_pressure,
+            stability_components=(
+                InvariantScoreComponent(
+                    kind="same_kind_pressure",
+                    score=(
+                        0
+                        if explanation.same_kind_tradeoff is None
+                        else explanation.same_kind_tradeoff.margin_score
+                    ),
+                    rationale=same_kind_pressure,
+                ),
+                InvariantScoreComponent(
+                    kind="cross_kind_pressure",
+                    score=(
+                        0
+                        if explanation.cross_kind_tradeoff is None
+                        else explanation.cross_kind_tradeoff.margin_score
+                    ),
+                    rationale=cross_kind_pressure,
+                ),
+            ),
+        )
+
     def dominant_doc_alignment_status(self) -> str:
         if self.doc_alignment_summary is None:
             return "none"
@@ -2248,6 +2355,9 @@ class InvariantWorkstreamProjection:
             self.recommended_cut_frontier_explanation()
         )
         recommended_cut_decision_protocol = self.recommended_cut_decision_protocol()
+        recommended_cut_frontier_stability = (
+            self.recommended_cut_frontier_stability()
+        )
         health_summary = self.health_summary()
         remediation_lanes = self.remediation_lanes()
         documentation_followup_lane = self.documentation_followup_lane()
@@ -2327,6 +2437,11 @@ class InvariantWorkstreamProjection:
                     None
                     if recommended_cut_decision_protocol is None
                     else recommended_cut_decision_protocol.as_payload()
+                ),
+                "recommended_cut_frontier_stability": (
+                    None
+                    if recommended_cut_frontier_stability is None
+                    else recommended_cut_frontier_stability.as_payload()
                 ),
                 "remediation_lanes": [
                     item.as_payload() for item in remediation_lanes
@@ -4826,6 +4941,19 @@ class InvariantWorkstreamsProjection:
                                                 None
                                                 if workstream.recommended_cut_decision_protocol() is None
                                                 else workstream.recommended_cut_decision_protocol().as_payload()
+                                            ),
+                                        ),
+                                        scalar(
+                                            identity=ArtifactSourceRef(
+                                                rel_path="<synthetic>",
+                                                qualname="recommended_cut_frontier_stability",
+                                            ),
+                                            key="recommended_cut_frontier_stability",
+                                            title="recommended_cut_frontier_stability",
+                                            value=(
+                                                None
+                                                if workstream.recommended_cut_frontier_stability() is None
+                                                else workstream.recommended_cut_frontier_stability().as_payload()
                                             ),
                                         ),
                                         bullet_list(

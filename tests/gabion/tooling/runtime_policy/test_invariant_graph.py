@@ -1147,6 +1147,22 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
             {"kind": "cross_kind_pressure", "score": 1, "rationale": "low"},
         ],
     }
+    assert psf["next_actions"]["recommended_cut_frontier_stability"] == {
+        "frontier_cut_kind": "touchpoint_cut",
+        "frontier_object_id": "PSF-007-TP-005",
+        "frontier_title": "projection_exec_plan.py planning surfaces",
+        "frontier_readiness_class": "ready_structural",
+        "frontier_touchsite_count": 1,
+        "frontier_surviving_touchsite_count": 1,
+        "stability_kind": "stable_frontier",
+        "stability_reason": "same_kind_pressure:low|cross_kind_pressure:low",
+        "same_kind_pressure": "low",
+        "cross_kind_pressure": "low",
+        "stability_components": [
+            {"kind": "same_kind_pressure", "score": 1, "rationale": "low"},
+            {"kind": "cross_kind_pressure", "score": 1, "rationale": "low"},
+        ],
+    }
     assert psf["next_actions"]["recommended_ready_cut"]["object_id"] == "PSF-007-TP-005"
     assert psf["next_actions"]["recommended_ready_cut"]["readiness_class"] == (
         "ready_structural"
@@ -3425,6 +3441,10 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
     )
     assert (
         "recommended_cut_decision_protocol: touchpoint_cut :: PSF-007-TP-005 :: mode=frontier_hold :: pressure=same_kind:low|cross_kind:low"
+        in workstream_output
+    )
+    assert (
+        "recommended_cut_frontier_stability: touchpoint_cut :: PSF-007-TP-005 :: kind=stable_frontier :: pressure=same_kind:low|cross_kind:low"
         in workstream_output
     )
     assert (

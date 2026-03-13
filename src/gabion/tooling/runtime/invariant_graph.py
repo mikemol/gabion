@@ -1399,6 +1399,7 @@ def _print_workstream(*, graph: InvariantGraph, root: Path, object_id: str) -> i
         workstream.recommended_cut_frontier_explanation()
     )
     recommended_cut_decision_protocol = workstream.recommended_cut_decision_protocol()
+    recommended_cut_frontier_stability = workstream.recommended_cut_frontier_stability()
     if recommended_cut is None:
         print("recommended_cut: <none>")
     else:
@@ -1507,6 +1508,18 @@ def _print_workstream(*, graph: InvariantGraph, root: Path, object_id: str) -> i
                 mode=recommended_cut_decision_protocol.decision_mode,
                 same_kind=recommended_cut_decision_protocol.same_kind_pressure,
                 cross_kind=recommended_cut_decision_protocol.cross_kind_pressure,
+            )
+        )
+    if recommended_cut_frontier_stability is None:
+        print("recommended_cut_frontier_stability: <none>")
+    else:
+        print(
+            "recommended_cut_frontier_stability: {cut_kind} :: {object_id} :: kind={kind} :: pressure=same_kind:{same_kind}|cross_kind:{cross_kind}".format(
+                cut_kind=recommended_cut_frontier_stability.frontier_cut_kind,
+                object_id=recommended_cut_frontier_stability.frontier_object_id,
+                kind=recommended_cut_frontier_stability.stability_kind,
+                same_kind=recommended_cut_frontier_stability.same_kind_pressure,
+                cross_kind=recommended_cut_frontier_stability.cross_kind_pressure,
             )
         )
     recommended_followup = workstream.recommended_followup()
