@@ -208,6 +208,36 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
     assert workstreams_payload["repo_next_actions"]["recommended_human_followup"] == (
         recommended_followup
     )
+    assert workstreams_payload["repo_next_actions"]["recommended_followup_lane"] == {
+        "followup_family": "governance_orphan_resolution",
+        "followup_class": "governance",
+        "action_count": 7,
+        "strongest_owner_resolution_kind": "seed_new_owner",
+        "strongest_owner_resolution_score": 100,
+        "strongest_utility_score": 1000,
+        "strongest_utility_reason": "governance_orphan:seed_new_owner",
+        "lane_utility_score": 1060,
+        "lane_utility_reason": (
+            "governance_orphan:seed_new_owner+lane_breadth:7+lane:governance_orphan_resolution"
+        ),
+        "best_followup": recommended_followup,
+    }
+    assert workstreams_payload["repo_next_actions"]["recommended_code_followup_lane"] == {
+        "followup_family": "structural_cut",
+        "followup_class": "code",
+        "action_count": 1,
+        "strongest_owner_resolution_kind": None,
+        "strongest_owner_resolution_score": None,
+        "strongest_utility_score": 700,
+        "strongest_utility_reason": "code:ready_structural",
+        "lane_utility_score": 715,
+        "lane_utility_reason": "code:ready_structural+lane_breadth:1+lane:structural_cut",
+        "best_followup": workstreams_payload["repo_next_actions"]["recommended_code_followup"],
+    }
+    assert (
+        workstreams_payload["repo_next_actions"]["recommended_human_followup_lane"]
+        == workstreams_payload["repo_next_actions"]["recommended_followup_lane"]
+    )
     ranked_repo_followups = workstreams_payload["repo_next_actions"]["ranked_followups"]
     assert ranked_repo_followups[0] == {
         "followup_family": "governance_orphan_resolution",
@@ -272,6 +302,10 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         "strongest_owner_resolution_score": 100,
         "strongest_utility_score": 1000,
         "strongest_utility_reason": "governance_orphan:seed_new_owner",
+        "lane_utility_score": 1060,
+        "lane_utility_reason": (
+            "governance_orphan:seed_new_owner+lane_breadth:7+lane:governance_orphan_resolution"
+        ),
         "best_followup": {
             "followup_family": "governance_orphan_resolution",
             "action_kind": "diagnostic_resolution",
@@ -2105,9 +2139,21 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
         "recommended_repo_human_followup: governance_orphan_resolution :: diagnostic=unmatched_policy_signal :: owner=<none> :: seed=src/gabion/analysis/dataflow/io :: seed_object=WS-SEED:gabion.analysis.dataflow.io :: count=1 :: action=seed_owned_workstream_from_source_family :: utility=1000:governance_orphan:seed_new_owner"
         in summary_output
     )
+    assert (
+        "recommended_repo_followup_lane: governance_orphan_resolution :: class=governance :: utility=1060:governance_orphan:seed_new_owner+lane_breadth:7+lane:governance_orphan_resolution"
+        in summary_output
+    )
+    assert (
+        "recommended_repo_code_followup_lane: structural_cut :: class=code :: utility=715:code:ready_structural+lane_breadth:1+lane:structural_cut"
+        in summary_output
+    )
+    assert (
+        "recommended_repo_human_followup_lane: governance_orphan_resolution :: class=governance :: utility=1060:governance_orphan:seed_new_owner+lane_breadth:7+lane:governance_orphan_resolution"
+        in summary_output
+    )
     assert "repo_followup_lanes:" in summary_output
     assert (
-        "- governance_orphan_resolution :: class=governance :: actions=7 :: best=diagnostic_resolution::unmatched_policy_signal :: owner_strength=seed_new_owner:100 :: utility=1000:governance_orphan:seed_new_owner"
+        "- governance_orphan_resolution :: class=governance :: actions=7 :: best=diagnostic_resolution::unmatched_policy_signal :: owner_strength=seed_new_owner:100 :: utility=1000:governance_orphan:seed_new_owner :: lane_utility=1060:governance_orphan:seed_new_owner+lane_breadth:7+lane:governance_orphan_resolution"
         in summary_output
     )
     assert "repo_diagnostic_lanes:" in summary_output

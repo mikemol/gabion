@@ -139,6 +139,11 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
     recommended_repo_followup = workstreams.recommended_repo_followup()
     recommended_repo_code_followup = workstreams.recommended_repo_code_followup()
     recommended_repo_human_followup = workstreams.recommended_repo_human_followup()
+    recommended_repo_followup_lane = workstreams.recommended_repo_followup_lane()
+    recommended_repo_code_followup_lane = workstreams.recommended_repo_code_followup_lane()
+    recommended_repo_human_followup_lane = (
+        workstreams.recommended_repo_human_followup_lane()
+    )
     repo_followup_lanes = workstreams.repo_followup_lanes()
     repo_diagnostic_lanes = workstreams.repo_diagnostic_lanes()
     print(f"root: {graph.root}")
@@ -243,12 +248,48 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
                 ),
             )
         )
+    if recommended_repo_followup_lane is None:
+        print("recommended_repo_followup_lane: <none>")
+    else:
+        print(
+            "recommended_repo_followup_lane: {family} :: class={klass} :: utility={utility}".format(
+                family=recommended_repo_followup_lane.followup_family,
+                klass=recommended_repo_followup_lane.followup_class,
+                utility=(
+                    f"{recommended_repo_followup_lane.lane_utility_score}:{recommended_repo_followup_lane.lane_utility_reason}"
+                ),
+            )
+        )
+    if recommended_repo_code_followup_lane is None:
+        print("recommended_repo_code_followup_lane: <none>")
+    else:
+        print(
+            "recommended_repo_code_followup_lane: {family} :: class={klass} :: utility={utility}".format(
+                family=recommended_repo_code_followup_lane.followup_family,
+                klass=recommended_repo_code_followup_lane.followup_class,
+                utility=(
+                    f"{recommended_repo_code_followup_lane.lane_utility_score}:{recommended_repo_code_followup_lane.lane_utility_reason}"
+                ),
+            )
+        )
+    if recommended_repo_human_followup_lane is None:
+        print("recommended_repo_human_followup_lane: <none>")
+    else:
+        print(
+            "recommended_repo_human_followup_lane: {family} :: class={klass} :: utility={utility}".format(
+                family=recommended_repo_human_followup_lane.followup_family,
+                klass=recommended_repo_human_followup_lane.followup_class,
+                utility=(
+                    f"{recommended_repo_human_followup_lane.lane_utility_score}:{recommended_repo_human_followup_lane.lane_utility_reason}"
+                ),
+            )
+        )
     print("repo_followup_lanes:")
     for lane in repo_followup_lanes:
         best = lane.best_followup
         target = best.object_id or best.target_doc_id or best.diagnostic_code or "<none>"
         print(
-            "- {family} :: class={klass} :: actions={actions} :: best={action_kind}::{target} :: owner_strength={owner_strength} :: utility={utility}".format(
+            "- {family} :: class={klass} :: actions={actions} :: best={action_kind}::{target} :: owner_strength={owner_strength} :: utility={utility} :: lane_utility={lane_utility}".format(
                 family=lane.followup_family,
                 klass=lane.followup_class,
                 actions=lane.action_count,
@@ -262,6 +303,7 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
                     )
                 ),
                 utility=f"{lane.strongest_utility_score}:{lane.strongest_utility_reason}",
+                lane_utility=f"{lane.lane_utility_score}:{lane.lane_utility_reason}",
             )
         )
     print("repo_diagnostic_lanes:")

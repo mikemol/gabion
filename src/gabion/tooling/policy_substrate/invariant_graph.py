@@ -670,6 +670,8 @@ class InvariantRepoFollowupLane:
     strongest_owner_resolution_score: int | None
     strongest_utility_score: int
     strongest_utility_reason: str
+    lane_utility_score: int
+    lane_utility_reason: str
     best_followup: InvariantRepoFollowupAction
 
     def as_payload(self) -> dict[str, object]:
@@ -681,6 +683,8 @@ class InvariantRepoFollowupLane:
             "strongest_owner_resolution_score": self.strongest_owner_resolution_score,
             "strongest_utility_score": self.strongest_utility_score,
             "strongest_utility_reason": self.strongest_utility_reason,
+            "lane_utility_score": self.lane_utility_score,
+            "lane_utility_reason": self.lane_utility_reason,
             "best_followup": self.best_followup.as_payload(),
         }
 
@@ -1980,6 +1984,48 @@ class InvariantWorkstreamsProjection:
             return "documentation"
         return "code"
 
+    def _repo_followup_lane_utility(
+        self,
+        *,
+        followup_class: str,
+        followup_family: str,
+        items: tuple[InvariantRepoFollowupAction, ...],
+    ) -> tuple[int, str]:
+        best_followup = items[0]
+        breadth_bonus = min(len(items), 9) * 5
+        class_bonus = {
+            "governance": 25,
+            "code": 10,
+            "documentation": 5,
+        }.get(followup_class, 0)
+        utility_score = best_followup.utility_score + breadth_bonus + class_bonus
+        utility_reason = (
+            f"{best_followup.utility_reason}+lane_breadth:{len(items)}+lane:{followup_family}"
+        )
+        return (utility_score, utility_reason)
+
+    def recommended_repo_followup_lane(self) -> InvariantRepoFollowupLane | None:
+        return self._recommended_repo_followup_lane
+
+    @cached_property
+    def _recommended_repo_followup_lane(self) -> InvariantRepoFollowupLane | None:
+        lanes = self.repo_followup_lanes()
+        if not lanes:
+            return None
+        return lanes[0]
+
+    def recommended_repo_code_followup_lane(self) -> InvariantRepoFollowupLane | None:
+        for lane in self.repo_followup_lanes():
+            if lane.followup_class == "code":
+                return lane
+        return None
+
+    def recommended_repo_human_followup_lane(self) -> InvariantRepoFollowupLane | None:
+        for lane in self.repo_followup_lanes():
+            if lane.followup_class != "code":
+                return lane
+        return None
+
     def repo_followup_lanes(self) -> tuple[InvariantRepoFollowupLane, ...]:
         return self._repo_followup_lanes
 
@@ -1998,6 +2044,16 @@ class InvariantWorkstreamsProjection:
                 strongest_owner_resolution_score=items[0].owner_resolution_score,
                 strongest_utility_score=items[0].utility_score,
                 strongest_utility_reason=items[0].utility_reason,
+                lane_utility_score=self._repo_followup_lane_utility(
+                    followup_class=followup_class,
+                    followup_family=followup_family,
+                    items=tuple(items),
+                )[0],
+                lane_utility_reason=self._repo_followup_lane_utility(
+                    followup_class=followup_class,
+                    followup_family=followup_family,
+                    items=tuple(items),
+                )[1],
                 best_followup=items[0],
             )
             for (followup_class, followup_family), items in grouped.items()
@@ -2006,7 +2062,7 @@ class InvariantWorkstreamsProjection:
             _sorted(
                 lanes,
                 key=lambda item: (
-                    -item.strongest_utility_score,
+                    -item.lane_utility_score,
                     item.best_followup.priority_rank,
                     item.action_count,
                     item.followup_class,
@@ -2176,6 +2232,9 @@ class InvariantWorkstreamsProjection:
         recommended_repo_followup = self.recommended_repo_followup()
         recommended_repo_code_followup = self.recommended_repo_code_followup()
         recommended_repo_human_followup = self.recommended_repo_human_followup()
+        recommended_repo_followup_lane = self.recommended_repo_followup_lane()
+        recommended_repo_code_followup_lane = self.recommended_repo_code_followup_lane()
+        recommended_repo_human_followup_lane = self.recommended_repo_human_followup_lane()
         ranked_repo_followups = self.ranked_repo_followups()
         repo_followup_lanes = self.repo_followup_lanes()
         repo_diagnostic_lanes = self.repo_diagnostic_lanes()
@@ -2202,6 +2261,21 @@ class InvariantWorkstreamsProjection:
                     None
                     if recommended_repo_human_followup is None
                     else recommended_repo_human_followup.as_payload()
+                ),
+                "recommended_followup_lane": (
+                    None
+                    if recommended_repo_followup_lane is None
+                    else recommended_repo_followup_lane.as_payload()
+                ),
+                "recommended_code_followup_lane": (
+                    None
+                    if recommended_repo_code_followup_lane is None
+                    else recommended_repo_code_followup_lane.as_payload()
+                ),
+                "recommended_human_followup_lane": (
+                    None
+                    if recommended_repo_human_followup_lane is None
+                    else recommended_repo_human_followup_lane.as_payload()
                 ),
                 "ranked_followups": [
                     item.as_payload() for item in ranked_repo_followups
@@ -2741,6 +2815,45 @@ class InvariantWorkstreamsProjection:
                                         None
                                         if self.recommended_repo_human_followup() is None
                                         else self.recommended_repo_human_followup().as_payload()
+                                    ),
+                                ),
+                                scalar(
+                                    identity=ArtifactSourceRef(
+                                        rel_path="<synthetic>",
+                                        qualname="recommended_followup_lane",
+                                    ),
+                                    key="recommended_followup_lane",
+                                    title="recommended_followup_lane",
+                                    value=(
+                                        None
+                                        if self.recommended_repo_followup_lane() is None
+                                        else self.recommended_repo_followup_lane().as_payload()
+                                    ),
+                                ),
+                                scalar(
+                                    identity=ArtifactSourceRef(
+                                        rel_path="<synthetic>",
+                                        qualname="recommended_code_followup_lane",
+                                    ),
+                                    key="recommended_code_followup_lane",
+                                    title="recommended_code_followup_lane",
+                                    value=(
+                                        None
+                                        if self.recommended_repo_code_followup_lane() is None
+                                        else self.recommended_repo_code_followup_lane().as_payload()
+                                    ),
+                                ),
+                                scalar(
+                                    identity=ArtifactSourceRef(
+                                        rel_path="<synthetic>",
+                                        qualname="recommended_human_followup_lane",
+                                    ),
+                                    key="recommended_human_followup_lane",
+                                    title="recommended_human_followup_lane",
+                                    value=(
+                                        None
+                                        if self.recommended_repo_human_followup_lane() is None
+                                        else self.recommended_repo_human_followup_lane().as_payload()
                                     ),
                                 ),
                                 bullet_list(
