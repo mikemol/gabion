@@ -180,7 +180,7 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
         print("recommended_repo_followup: <none>")
     elif recommended_repo_followup.diagnostic_code is not None:
         print(
-            "recommended_repo_followup: {family} :: diagnostic={diagnostic} :: owner={owner} :: seed={seed} :: seed_object={seed_object} :: count={count} :: action={action} :: utility={utility}".format(
+            "recommended_repo_followup: {family} :: diagnostic={diagnostic} :: owner={owner} :: seed={seed} :: seed_object={seed_object} :: count={count} :: action={action} :: utility={utility} :: utility_components={utility_components}".format(
                 family=recommended_repo_followup.followup_family,
                 diagnostic=recommended_repo_followup.diagnostic_code,
                 owner=recommended_repo_followup.owner_object_id or "<none>",
@@ -191,11 +191,14 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
                 utility=(
                     f"{recommended_repo_followup.utility_score}:{recommended_repo_followup.utility_reason}"
                 ),
+                utility_components=_format_score_components(
+                    recommended_repo_followup.utility_components
+                ),
             )
         )
     elif recommended_repo_followup.action_kind == "doc_alignment":
         print(
-            "recommended_repo_followup: {family} :: owner={owner} :: target_doc={target_doc} :: alignment={alignment} :: action={action} :: utility={utility}".format(
+            "recommended_repo_followup: {family} :: owner={owner} :: target_doc={target_doc} :: alignment={alignment} :: action={action} :: utility={utility} :: utility_components={utility_components}".format(
                 family=recommended_repo_followup.followup_family,
                 owner=recommended_repo_followup.owner_object_id or "<none>",
                 target_doc=recommended_repo_followup.target_doc_id or "<none>",
@@ -204,11 +207,14 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
                 utility=(
                     f"{recommended_repo_followup.utility_score}:{recommended_repo_followup.utility_reason}"
                 ),
+                utility_components=_format_score_components(
+                    recommended_repo_followup.utility_components
+                ),
             )
         )
     else:
         print(
-            "recommended_repo_followup: {family} :: owner={owner} :: {action_kind} :: {object_id} :: count={count} :: blocker={blocker} :: utility={utility}".format(
+            "recommended_repo_followup: {family} :: owner={owner} :: {action_kind} :: {object_id} :: count={count} :: blocker={blocker} :: utility={utility} :: utility_components={utility_components}".format(
                 family=recommended_repo_followup.followup_family,
                 owner=recommended_repo_followup.owner_object_id or "<none>",
                 action_kind=recommended_repo_followup.action_kind,
@@ -218,13 +224,16 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
                 utility=(
                     f"{recommended_repo_followup.utility_score}:{recommended_repo_followup.utility_reason}"
                 ),
+                utility_components=_format_score_components(
+                    recommended_repo_followup.utility_components
+                ),
             )
         )
     if recommended_repo_code_followup is None:
         print("recommended_repo_code_followup: <none>")
     else:
         print(
-            "recommended_repo_code_followup: {family} :: owner={owner} :: {action_kind} :: {object_id} :: count={count} :: blocker={blocker} :: utility={utility}".format(
+            "recommended_repo_code_followup: {family} :: owner={owner} :: {action_kind} :: {object_id} :: count={count} :: blocker={blocker} :: utility={utility} :: utility_components={utility_components}".format(
                 family=recommended_repo_code_followup.followup_family,
                 owner=recommended_repo_code_followup.owner_object_id or "<none>",
                 action_kind=recommended_repo_code_followup.action_kind,
@@ -234,13 +243,16 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
                 utility=(
                     f"{recommended_repo_code_followup.utility_score}:{recommended_repo_code_followup.utility_reason}"
                 ),
+                utility_components=_format_score_components(
+                    recommended_repo_code_followup.utility_components
+                ),
             )
         )
     if recommended_repo_human_followup is None:
         print("recommended_repo_human_followup: <none>")
     elif recommended_repo_human_followup.diagnostic_code is not None:
         print(
-            "recommended_repo_human_followup: {family} :: diagnostic={diagnostic} :: owner={owner} :: seed={seed} :: seed_object={seed_object} :: count={count} :: action={action} :: utility={utility}".format(
+            "recommended_repo_human_followup: {family} :: diagnostic={diagnostic} :: owner={owner} :: seed={seed} :: seed_object={seed_object} :: count={count} :: action={action} :: utility={utility} :: utility_components={utility_components}".format(
                 family=recommended_repo_human_followup.followup_family,
                 diagnostic=recommended_repo_human_followup.diagnostic_code,
                 owner=recommended_repo_human_followup.owner_object_id or "<none>",
@@ -251,17 +263,23 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
                 utility=(
                     f"{recommended_repo_human_followup.utility_score}:{recommended_repo_human_followup.utility_reason}"
                 ),
+                utility_components=_format_score_components(
+                    recommended_repo_human_followup.utility_components
+                ),
             )
         )
     else:
         print(
-            "recommended_repo_human_followup: {family} :: target_doc={target_doc} :: alignment={alignment} :: action={action} :: utility={utility}".format(
+            "recommended_repo_human_followup: {family} :: target_doc={target_doc} :: alignment={alignment} :: action={action} :: utility={utility} :: utility_components={utility_components}".format(
                 family=recommended_repo_human_followup.followup_family,
                 target_doc=recommended_repo_human_followup.target_doc_id or "<none>",
                 alignment=recommended_repo_human_followup.alignment_status or "none",
                 action=recommended_repo_human_followup.recommended_action or "none",
                 utility=(
                     f"{recommended_repo_human_followup.utility_score}:{recommended_repo_human_followup.utility_reason}"
+                ),
+                utility_components=_format_score_components(
+                    recommended_repo_human_followup.utility_components
                 ),
             )
         )

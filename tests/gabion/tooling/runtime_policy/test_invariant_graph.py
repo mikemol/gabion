@@ -176,6 +176,18 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         "owner_resolution_score": 100,
         "utility_score": 1000,
         "utility_reason": "governance_orphan:seed_new_owner",
+        "utility_components": [
+            {
+                "kind": "governance_orphan_base",
+                "score": 900,
+                "rationale": "governance_orphan",
+            },
+            {
+                "kind": "owner_resolution_bonus",
+                "score": 100,
+                "rationale": "seed_new_owner",
+            },
+        ],
         "count": 1,
     }
     assert workstreams_payload["repo_next_actions"]["dominant_followup_class"] == (
@@ -203,6 +215,18 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         "owner_resolution_score": None,
         "utility_score": 700,
         "utility_reason": "code:ready_structural",
+        "utility_components": [
+            {
+                "kind": "code_touchpoint_base",
+                "score": 450,
+                "rationale": "code:touchpoint_cut",
+            },
+            {
+                "kind": "readiness_bonus",
+                "score": 250,
+                "rationale": "readiness:ready_structural",
+            },
+        ],
         "count": 1,
     }
     assert workstreams_payload["repo_next_actions"]["recommended_human_followup"] == (
@@ -316,6 +340,18 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         "owner_resolution_score": 100,
         "utility_score": 1000,
         "utility_reason": "governance_orphan:seed_new_owner",
+        "utility_components": [
+            {
+                "kind": "governance_orphan_base",
+                "score": 900,
+                "rationale": "governance_orphan",
+            },
+            {
+                "kind": "owner_resolution_bonus",
+                "score": 100,
+                "rationale": "seed_new_owner",
+            },
+        ],
         "count": 1,
     }
     assert ranked_repo_followups[1]["followup_family"] == "governance_orphan_resolution"
@@ -341,6 +377,18 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
             "owner_resolution_score": None,
             "utility_score": 700,
             "utility_reason": "code:ready_structural",
+            "utility_components": [
+                {
+                    "kind": "code_touchpoint_base",
+                    "score": 450,
+                    "rationale": "code:touchpoint_cut",
+                },
+                {
+                    "kind": "readiness_bonus",
+                    "score": 250,
+                    "rationale": "readiness:ready_structural",
+                },
+            ],
             "count": 1,
         }
         for item in ranked_repo_followups
@@ -404,6 +452,18 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
             "owner_resolution_score": 100,
             "utility_score": 1000,
             "utility_reason": "governance_orphan:seed_new_owner",
+            "utility_components": [
+                {
+                    "kind": "governance_orphan_base",
+                    "score": 900,
+                    "rationale": "governance_orphan",
+                },
+                {
+                    "kind": "owner_resolution_bonus",
+                    "score": 100,
+                    "rationale": "seed_new_owner",
+                },
+            ],
             "count": 1,
         },
     }
@@ -1374,11 +1434,35 @@ def test_ranked_repo_followups_prefers_stronger_owner_resolution_score() -> None
     assert ranked[0].owner_resolution_score == 300
     assert ranked[0].utility_score == 1200
     assert ranked[0].utility_reason == "governance_orphan:attach_existing_owner"
+    assert ranked[0].utility_components == (
+        invariant_graph.InvariantScoreComponent(
+            kind="governance_orphan_base",
+            score=900,
+            rationale="governance_orphan",
+        ),
+        invariant_graph.InvariantScoreComponent(
+            kind="owner_resolution_bonus",
+            score=300,
+            rationale="attach_existing_owner",
+        ),
+    )
     assert ranked[1].diagnostic_code == "unmatched_policy_signal"
     assert ranked[1].owner_object_id is None
     assert ranked[1].owner_resolution_score == 100
     assert ranked[1].utility_score == 1000
     assert ranked[1].utility_reason == "governance_orphan:seed_new_owner"
+    assert ranked[1].utility_components == (
+        invariant_graph.InvariantScoreComponent(
+            kind="governance_orphan_base",
+            score=900,
+            rationale="governance_orphan",
+        ),
+        invariant_graph.InvariantScoreComponent(
+            kind="owner_resolution_bonus",
+            score=100,
+            rationale="seed_new_owner",
+        ),
+    )
     assert projection.recommended_repo_followup() == ranked[0]
 
 
@@ -2207,15 +2291,15 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
     assert "next_human_followup_family: governance_orphan_resolution" in summary_output
     assert "diagnostic_summary: unmatched_policy_signals=7 :: unresolved_dependencies=0" in summary_output
     assert (
-        "recommended_repo_followup: governance_orphan_resolution :: diagnostic=unmatched_policy_signal :: owner=<none> :: seed=src/gabion/analysis/dataflow/io :: seed_object=WS-SEED:gabion.analysis.dataflow.io :: count=1 :: action=seed_owned_workstream_from_source_family :: utility=1000:governance_orphan:seed_new_owner"
+        "recommended_repo_followup: governance_orphan_resolution :: diagnostic=unmatched_policy_signal :: owner=<none> :: seed=src/gabion/analysis/dataflow/io :: seed_object=WS-SEED:gabion.analysis.dataflow.io :: count=1 :: action=seed_owned_workstream_from_source_family :: utility=1000:governance_orphan:seed_new_owner :: utility_components=governance_orphan_base:900:governance_orphan | owner_resolution_bonus:100:seed_new_owner"
         in summary_output
     )
     assert (
-        "recommended_repo_code_followup: structural_cut :: owner=PSF-007 :: touchpoint_cut :: PSF-007-TP-005 :: count=1 :: blocker=ready_structural :: utility=700:code:ready_structural"
+        "recommended_repo_code_followup: structural_cut :: owner=PSF-007 :: touchpoint_cut :: PSF-007-TP-005 :: count=1 :: blocker=ready_structural :: utility=700:code:ready_structural :: utility_components=code_touchpoint_base:450:code:touchpoint_cut | readiness_bonus:250:readiness:ready_structural"
         in summary_output
     )
     assert (
-        "recommended_repo_human_followup: governance_orphan_resolution :: diagnostic=unmatched_policy_signal :: owner=<none> :: seed=src/gabion/analysis/dataflow/io :: seed_object=WS-SEED:gabion.analysis.dataflow.io :: count=1 :: action=seed_owned_workstream_from_source_family :: utility=1000:governance_orphan:seed_new_owner"
+        "recommended_repo_human_followup: governance_orphan_resolution :: diagnostic=unmatched_policy_signal :: owner=<none> :: seed=src/gabion/analysis/dataflow/io :: seed_object=WS-SEED:gabion.analysis.dataflow.io :: count=1 :: action=seed_owned_workstream_from_source_family :: utility=1000:governance_orphan:seed_new_owner :: utility_components=governance_orphan_base:900:governance_orphan | owner_resolution_bonus:100:seed_new_owner"
         in summary_output
     )
     assert (

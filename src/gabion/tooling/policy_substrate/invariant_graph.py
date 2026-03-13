@@ -649,6 +649,7 @@ class InvariantRepoFollowupAction:
     owner_resolution_score: int | None
     utility_score: int
     utility_reason: str
+    utility_components: tuple[InvariantScoreComponent, ...]
     count: int
 
     def as_payload(self) -> dict[str, object]:
@@ -671,6 +672,9 @@ class InvariantRepoFollowupAction:
             "owner_resolution_score": self.owner_resolution_score,
             "utility_score": self.utility_score,
             "utility_reason": self.utility_reason,
+            "utility_components": [
+                item.as_payload() for item in self.utility_components
+            ],
             "count": self.count,
         }
 
@@ -1784,17 +1788,55 @@ class InvariantWorkstreamsProjection:
     def _repo_followup_utility(
         self,
         followup: InvariantRepoFollowupAction,
-    ) -> tuple[int, str]:
+    ) -> tuple[int, str, tuple[InvariantScoreComponent, ...]]:
         if followup.diagnostic_code == "unmatched_policy_signal":
-            score = 900 + (followup.owner_resolution_score or 0)
+            owner_score = followup.owner_resolution_score or 0
+            score = 900 + owner_score
             reason = "governance_orphan"
             if followup.owner_resolution_kind is not None:
                 reason = f"{reason}:{followup.owner_resolution_kind}"
-            return (score, reason)
+            return (
+                score,
+                reason,
+                (
+                    InvariantScoreComponent(
+                        kind="governance_orphan_base",
+                        score=900,
+                        rationale="governance_orphan",
+                    ),
+                    InvariantScoreComponent(
+                        kind="owner_resolution_bonus",
+                        score=owner_score,
+                        rationale=(
+                            followup.owner_resolution_kind or "owner_resolution:none"
+                        ),
+                    ),
+                ),
+            )
         if followup.diagnostic_code == "unresolved_blocking_dependency":
-            return (850, "dependency_orphan")
+            return (
+                850,
+                "dependency_orphan",
+                (
+                    InvariantScoreComponent(
+                        kind="dependency_orphan_base",
+                        score=850,
+                        rationale="dependency_orphan",
+                    ),
+                ),
+            )
         if followup.action_kind == "diagnostic_resolution":
-            return (800, "diagnostic_backlog")
+            return (
+                800,
+                "diagnostic_backlog",
+                (
+                    InvariantScoreComponent(
+                        kind="diagnostic_backlog_base",
+                        score=800,
+                        rationale="diagnostic_backlog",
+                    ),
+                ),
+            )
         if followup.action_kind == "touchpoint_cut":
             readiness = followup.readiness_class or "none"
             score_map = {
@@ -1803,7 +1845,24 @@ class InvariantWorkstreamsProjection:
                 "diagnostic_blocked": 500,
                 "coverage_gap": 480,
             }
-            return (score_map.get(readiness, 450), f"code:{readiness}")
+            score = score_map.get(readiness, 450)
+            base_score = 450
+            return (
+                score,
+                f"code:{readiness}",
+                (
+                    InvariantScoreComponent(
+                        kind="code_touchpoint_base",
+                        score=base_score,
+                        rationale="code:touchpoint_cut",
+                    ),
+                    InvariantScoreComponent(
+                        kind="readiness_bonus",
+                        score=score - base_score,
+                        rationale=f"readiness:{readiness}",
+                    ),
+                ),
+            )
         if followup.action_kind == "subqueue_cut":
             readiness = followup.readiness_class or "none"
             score_map = {
@@ -1812,7 +1871,24 @@ class InvariantWorkstreamsProjection:
                 "diagnostic_blocked": 480,
                 "coverage_gap": 460,
             }
-            return (score_map.get(readiness, 430), f"code:{readiness}")
+            score = score_map.get(readiness, 430)
+            base_score = 430
+            return (
+                score,
+                f"code:{readiness}",
+                (
+                    InvariantScoreComponent(
+                        kind="code_subqueue_base",
+                        score=base_score,
+                        rationale="code:subqueue_cut",
+                    ),
+                    InvariantScoreComponent(
+                        kind="readiness_bonus",
+                        score=score - base_score,
+                        rationale=f"readiness:{readiness}",
+                    ),
+                ),
+            )
         if followup.action_kind == "doc_alignment":
             alignment = followup.alignment_status or "none"
             score_map = {
@@ -1822,8 +1898,35 @@ class InvariantWorkstreamsProjection:
                 "ambiguous_target_doc": 360,
                 "unassigned_target_doc": 340,
             }
-            return (score_map.get(alignment, 320), f"documentation:{alignment}")
-        return (250, followup.followup_family)
+            score = score_map.get(alignment, 320)
+            base_score = 320
+            return (
+                score,
+                f"documentation:{alignment}",
+                (
+                    InvariantScoreComponent(
+                        kind="documentation_alignment_base",
+                        score=base_score,
+                        rationale="documentation",
+                    ),
+                    InvariantScoreComponent(
+                        kind="alignment_bonus",
+                        score=score - base_score,
+                        rationale=f"alignment:{alignment}",
+                    ),
+                ),
+            )
+        return (
+            250,
+            followup.followup_family,
+            (
+                InvariantScoreComponent(
+                    kind="generic_followup_base",
+                    score=250,
+                    rationale=followup.followup_family,
+                ),
+            ),
+        )
 
     def ranked_repo_followups(self) -> tuple[InvariantRepoFollowupAction, ...]:
         return self._ranked_repo_followups
@@ -1882,6 +1985,7 @@ class InvariantWorkstreamsProjection:
                         ),
                         utility_score=0,
                         utility_reason="",
+                        utility_components=(),
                         count=lane.count,
                     )
                 )
@@ -1912,6 +2016,7 @@ class InvariantWorkstreamsProjection:
                         owner_resolution_score=None,
                         utility_score=0,
                         utility_reason="",
+                        utility_components=(),
                         count=lane.count,
                     )
                 )
@@ -1942,6 +2047,7 @@ class InvariantWorkstreamsProjection:
                         owner_resolution_score=None,
                         utility_score=0,
                         utility_reason="",
+                        utility_components=(),
                         count=lane.count,
                     )
                 )
@@ -1967,17 +2073,24 @@ class InvariantWorkstreamsProjection:
                         owner_resolution_score=None,
                         utility_score=0,
                         utility_reason="",
+                        utility_components=(),
                         count=followup.touchsite_count,
                     )
                 )
-        actions = [
-            replace(
-                action,
-                utility_score=self._repo_followup_utility(action)[0],
-                utility_reason=self._repo_followup_utility(action)[1],
+        scored_actions: list[InvariantRepoFollowupAction] = []
+        for action in actions:
+            utility_score, utility_reason, utility_components = (
+                self._repo_followup_utility(action)
             )
-            for action in actions
-        ]
+            scored_actions.append(
+                replace(
+                    action,
+                    utility_score=utility_score,
+                    utility_reason=utility_reason,
+                    utility_components=utility_components,
+                )
+            )
+        actions = scored_actions
         return tuple(
             _sorted(
                 actions,
