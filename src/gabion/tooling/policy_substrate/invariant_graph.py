@@ -617,6 +617,8 @@ class InvariantWorkstreamProjection:
     reasoning_control: str
     blocking_dependencies: tuple[str, ...]
     object_ids: tuple[str, ...]
+    doc_ids: tuple[str, ...]
+    policy_ids: tuple[str, ...]
     touchsite_count: int
     collapsible_touchsite_count: int
     surviving_touchsite_count: int
@@ -963,6 +965,8 @@ class InvariantWorkstreamProjection:
             "reasoning_control": self.reasoning_control,
             "blocking_dependencies": list(self.blocking_dependencies),
             "object_ids": list(self.object_ids),
+            "doc_ids": list(self.doc_ids),
+            "policy_ids": list(self.policy_ids),
             "touchsite_count": self.touchsite_count,
             "collapsible_touchsite_count": self.collapsible_touchsite_count,
             "surviving_touchsite_count": self.surviving_touchsite_count,
@@ -1125,6 +1129,34 @@ class InvariantWorkstreamsProjection:
                                         value=object_id,
                                     )
                                     for object_id in workstream.object_ids
+                                ),
+                            ),
+                            bullet_list(
+                                identity=workstream.object_id,
+                                key="doc_ids",
+                                children=lambda workstream=workstream: (
+                                    list_item(
+                                        identity=ArtifactSourceRef(
+                                            rel_path="<synthetic>",
+                                            qualname=doc_id,
+                                        ),
+                                        value=doc_id,
+                                    )
+                                    for doc_id in workstream.doc_ids
+                                ),
+                            ),
+                            bullet_list(
+                                identity=workstream.object_id,
+                                key="policy_ids",
+                                children=lambda workstream=workstream: (
+                                    list_item(
+                                        identity=ArtifactSourceRef(
+                                            rel_path="<synthetic>",
+                                            qualname=policy_id,
+                                        ),
+                                        value=policy_id,
+                                    )
+                                    for policy_id in workstream.policy_ids
                                 ),
                             ),
                             scalar(identity=workstream.object_id, key="touchsite_count", title="touchsite_count", value=workstream.touchsite_count),
@@ -1368,6 +1400,157 @@ class InvariantWorkstreamsProjection:
 
 
 @dataclass(frozen=True)
+class InvariantLedgerProjection:
+    object_id: str
+    title: str
+    status: str
+    target_doc_ids: tuple[str, ...]
+    target_policy_ids: tuple[str, ...]
+    dominant_blocker_class: str
+    recommended_remediation_family: str
+    recommended_ledger_action: str
+    summary: str
+    current_snapshot: Mapping[str, object]
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "object_id": self.object_id,
+            "title": self.title,
+            "status": self.status,
+            "target_doc_ids": list(self.target_doc_ids),
+            "target_policy_ids": list(self.target_policy_ids),
+            "dominant_blocker_class": self.dominant_blocker_class,
+            "recommended_remediation_family": self.recommended_remediation_family,
+            "recommended_ledger_action": self.recommended_ledger_action,
+            "summary": self.summary,
+            "current_snapshot": dict(self.current_snapshot),
+        }
+
+
+@dataclass(frozen=True)
+class InvariantLedgerProjections:
+    root: str
+    generated_at_utc: str
+    ledgers: ReplayableStream[InvariantLedgerProjection]
+
+    def iter_ledgers(self) -> Iterator[InvariantLedgerProjection]:
+        return iter(self.ledgers)
+
+    def as_payload(self) -> dict[str, object]:
+        ledgers = tuple(self.iter_ledgers())
+        return {
+            "format_version": _FORMAT_VERSION,
+            "generated_at_utc": self.generated_at_utc,
+            "root": self.root,
+            "ledgers": [item.as_payload() for item in ledgers],
+            "counts": {
+                "ledger_count": len(ledgers),
+            },
+        }
+
+    def artifact_document(self) -> ArtifactUnit:
+        def _ledger_items() -> Iterator[ArtifactUnit]:
+            for ledger in self.iter_ledgers():
+                yield list_item(
+                    identity=ArtifactSourceRef(rel_path="<synthetic>", qualname=ledger.object_id),
+                    title=ledger.object_id,
+                    children=lambda ledger=ledger: iter(_payload_to_units(ledger.as_payload())),
+                )
+
+        return document(
+            identity=ArtifactSourceRef(
+                rel_path="<synthetic>",
+                qualname="invariant_ledger_projections",
+            ),
+            children=lambda: iter(
+                (
+                    scalar(
+                        identity=ArtifactSourceRef(
+                            rel_path="<synthetic>",
+                            qualname="format_version",
+                        ),
+                        key="format_version",
+                        title="format_version",
+                        value=_FORMAT_VERSION,
+                    ),
+                    scalar(
+                        identity=ArtifactSourceRef(
+                            rel_path="<synthetic>",
+                            qualname="generated_at_utc",
+                        ),
+                        key="generated_at_utc",
+                        title="generated_at_utc",
+                        value=self.generated_at_utc,
+                    ),
+                    scalar(
+                        identity=ArtifactSourceRef(rel_path="<synthetic>", qualname="root"),
+                        key="root",
+                        title="root",
+                        value=self.root,
+                    ),
+                    bullet_list(
+                        identity=ArtifactSourceRef(
+                            rel_path="<synthetic>",
+                            qualname="ledgers",
+                        ),
+                        key="ledgers",
+                        children=_ledger_items,
+                    ),
+                    section(
+                        identity=ArtifactSourceRef(
+                            rel_path="<synthetic>",
+                            qualname="counts",
+                        ),
+                        key="counts",
+                        title="counts",
+                        children=lambda: iter(
+                            (
+                                scalar(
+                                    identity=ArtifactSourceRef(
+                                        rel_path="<synthetic>",
+                                        qualname="ledger_count",
+                                    ),
+                                    key="ledger_count",
+                                    title="ledger_count",
+                                    value=sum(1 for _ in self.iter_ledgers()),
+                                ),
+                            )
+                        ),
+                    ),
+                )
+            ),
+        )
+
+
+@dataclass(frozen=True)
+class InvariantLedgerDelta:
+    object_id: str
+    target_doc_ids: tuple[str, ...]
+    target_policy_ids: tuple[str, ...]
+    classification: str
+    recommended_ledger_action: str
+    summary: str
+    before_status: str
+    after_status: str
+    before_recommended_cut_object_id: str | None
+    after_recommended_cut_object_id: str | None
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "object_id": self.object_id,
+            "target_doc_ids": list(self.target_doc_ids),
+            "target_policy_ids": list(self.target_policy_ids),
+            "classification": self.classification,
+            "recommended_ledger_action": self.recommended_ledger_action,
+            "summary": self.summary,
+            "before_status": self.before_status,
+            "after_status": self.after_status,
+            "before_recommended_cut_object_id": self.before_recommended_cut_object_id,
+            "after_recommended_cut_object_id": self.after_recommended_cut_object_id,
+        }
+
+
+@dataclass(frozen=True)
 class InvariantWorkstreamDrift:
     object_id: str
     classification: str
@@ -1475,9 +1658,57 @@ def _health_summary_payload(workstream_payload: Mapping[str, object]) -> Mapping
     return health_summary
 
 
+def _doc_ids_payload(workstream_payload: Mapping[str, object]) -> tuple[str, ...]:
+    doc_ids = workstream_payload.get("doc_ids", [])
+    if not isinstance(doc_ids, list):
+        return ()
+    return tuple(_sorted([str(item) for item in doc_ids if isinstance(item, str)]))
+
+
+def _policy_ids_payload(workstream_payload: Mapping[str, object]) -> tuple[str, ...]:
+    policy_ids = workstream_payload.get("policy_ids", [])
+    if not isinstance(policy_ids, list):
+        return ()
+    return tuple(_sorted([str(item) for item in policy_ids if isinstance(item, str)]))
+
+
+def _title_payload(workstream_payload: Mapping[str, object]) -> str:
+    title = workstream_payload.get("title")
+    if isinstance(title, str) and title:
+        return title
+    object_id = workstream_payload.get("object_id")
+    return object_id if isinstance(object_id, str) else ""
+
+
 def _int_field(payload: Mapping[str, object], key: str) -> int:
     value = payload.get(key, 0)
     return int(value) if isinstance(value, int) else 0
+
+
+def _recommended_ledger_action_for_status(status: str) -> str:
+    if status == "landed":
+        return "record_landed_state"
+    if status == "in_progress":
+        return "record_progress_state"
+    if status == "queued":
+        return "record_queued_state"
+    return "record_state"
+
+
+def _recommended_ledger_action_for_classification(classification: str) -> str:
+    if classification == "stable":
+        return "no_ledger_change"
+    if classification == "reduced":
+        return "append_reduction_delta"
+    if classification == "widened":
+        return "append_widening_delta"
+    if classification == "relocated":
+        return "append_relocation_delta"
+    if classification == "introduced":
+        return "append_introduction_delta"
+    if classification == "retired":
+        return "append_retirement_delta"
+    return "append_delta"
 
 
 def compare_invariant_workstreams(
@@ -1641,6 +1872,110 @@ def compare_invariant_workstreams(
             )
         )
     return tuple(_sorted(drifts, key=lambda item: (item.object_id, item.classification)))
+
+
+def build_invariant_ledger_projections(
+    workstreams: InvariantWorkstreamsProjection,
+) -> InvariantLedgerProjections:
+    def _ledger_items() -> Iterator[InvariantLedgerProjection]:
+        for workstream in workstreams.iter_workstreams():
+            recommended_cut = workstream.recommended_cut()
+            recommended_ready_cut = workstream.recommended_ready_cut()
+            recommended_coverage_gap_cut = workstream.recommended_coverage_gap_cut()
+            summary = (
+                f"{workstream.object_id.wire()} is {workstream.status} with "
+                f"{workstream.touchsite_count} touchsites; dominant blocker "
+                f"{workstream.dominant_blocker_class()}; recommended cut "
+                f"{recommended_cut.object_id.wire() if recommended_cut is not None else '<none>'}."
+            )
+            yield InvariantLedgerProjection(
+                object_id=workstream.object_id.wire(),
+                title=workstream.title,
+                status=workstream.status,
+                target_doc_ids=workstream.doc_ids,
+                target_policy_ids=workstream.policy_ids,
+                dominant_blocker_class=workstream.dominant_blocker_class(),
+                recommended_remediation_family=workstream.recommended_remediation_family(),
+                recommended_ledger_action=_recommended_ledger_action_for_status(
+                    workstream.status
+                ),
+                summary=summary,
+                current_snapshot={
+                    "touchsite_count": workstream.touchsite_count,
+                    "collapsible_touchsite_count": workstream.collapsible_touchsite_count,
+                    "surviving_touchsite_count": workstream.surviving_touchsite_count,
+                    "policy_signal_count": workstream.policy_signal_count,
+                    "coverage_count": workstream.coverage_count,
+                    "diagnostic_count": workstream.diagnostic_count,
+                    "recommended_cut_object_id": (
+                        None
+                        if recommended_cut is None
+                        else recommended_cut.object_id.wire()
+                    ),
+                    "recommended_ready_cut_object_id": (
+                        None
+                        if recommended_ready_cut is None
+                        else recommended_ready_cut.object_id.wire()
+                    ),
+                    "recommended_coverage_gap_cut_object_id": (
+                        None
+                        if recommended_coverage_gap_cut is None
+                        else recommended_coverage_gap_cut.object_id.wire()
+                    ),
+                },
+            )
+
+    return InvariantLedgerProjections(
+        root=workstreams.root,
+        generated_at_utc=workstreams.generated_at_utc,
+        ledgers=_stream_from_iterable(_ledger_items),
+    )
+
+
+def compare_invariant_ledger_projections(
+    before_payload: Mapping[str, object],
+    after_payload: Mapping[str, object],
+) -> tuple[InvariantLedgerDelta, ...]:
+    before_by_object_id = _workstream_payloads_by_object_id(before_payload)
+    after_by_object_id = _workstream_payloads_by_object_id(after_payload)
+    deltas: list[InvariantLedgerDelta] = []
+    for drift in compare_invariant_workstreams(before_payload, after_payload):
+        target_payload = after_by_object_id.get(drift.object_id) or before_by_object_id.get(
+            drift.object_id
+        )
+        if target_payload is None:
+            target_doc_ids = ()
+            target_policy_ids = ()
+            title = drift.object_id
+        else:
+            target_doc_ids = _doc_ids_payload(target_payload)
+            target_policy_ids = _policy_ids_payload(target_payload)
+            title = _title_payload(target_payload)
+        summary = (
+            f"{title or drift.object_id} {drift.classification}: touchsites "
+            f"{drift.before_touchsite_count}->{drift.after_touchsite_count}, "
+            f"dominant blocker {drift.before_dominant_blocker_class}->"
+            f"{drift.after_dominant_blocker_class}, recommended cut "
+            f"{drift.before_recommended_cut_object_id or '<none>'}->"
+            f"{drift.after_recommended_cut_object_id or '<none>'}."
+        )
+        deltas.append(
+            InvariantLedgerDelta(
+                object_id=drift.object_id,
+                target_doc_ids=target_doc_ids,
+                target_policy_ids=target_policy_ids,
+                classification=drift.classification,
+                recommended_ledger_action=_recommended_ledger_action_for_classification(
+                    drift.classification
+                ),
+                summary=summary,
+                before_status=drift.before_status,
+                after_status=drift.after_status,
+                before_recommended_cut_object_id=drift.before_recommended_cut_object_id,
+                after_recommended_cut_object_id=drift.after_recommended_cut_object_id,
+            )
+        )
+    return tuple(_sorted(deltas, key=lambda item: (item.object_id, item.classification)))
 
 
 def _payload_to_units(payload: Mapping[str, object]) -> tuple[ArtifactUnit, ...]:
@@ -3257,6 +3592,8 @@ def build_invariant_workstreams(graph: InvariantGraph) -> InvariantWorkstreamsPr
             reasoning_control=root_node.reasoning_control,
             blocking_dependencies=root_node.blocking_dependencies,
             object_ids=root_node.object_ids,
+            doc_ids=root_node.doc_ids,
+            policy_ids=root_node.policy_ids,
             touchsite_count=len(touchsite_nodes),
             collapsible_touchsite_count=sum(
                 1
@@ -3422,11 +3759,25 @@ def load_invariant_workstreams(path: Path) -> Mapping[str, object]:
     return payload
 
 
+def load_invariant_ledger_projections(path: Path) -> Mapping[str, object]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, Mapping):
+        raise ValueError("invariant ledger projections payload must be a mapping")
+    return payload
+
+
 def write_invariant_workstreams(
     path: Path,
     workstreams: InvariantWorkstreamsProjection,
 ) -> None:
     write_json(path, workstreams.artifact_document())
+
+
+def write_invariant_ledger_projections(
+    path: Path,
+    ledger_projections: InvariantLedgerProjections,
+) -> None:
+    write_json(path, ledger_projections.artifact_document())
 
 
 def load_invariant_graph(path: Path) -> InvariantGraph:
@@ -3448,16 +3799,23 @@ __all__ = [
     "InvariantGraph",
     "InvariantGraphDiagnostic",
     "InvariantGraphEdge",
+    "InvariantLedgerDelta",
+    "InvariantLedgerProjection",
+    "InvariantLedgerProjections",
     "InvariantGraphNode",
     "InvariantWorkstreamDrift",
     "blocker_chains",
     "build_invariant_graph",
+    "build_invariant_ledger_projections",
     "build_invariant_workstreams",
     "build_psf_phase5_projection",
+    "compare_invariant_ledger_projections",
     "compare_invariant_workstreams",
     "load_invariant_workstreams",
+    "load_invariant_ledger_projections",
     "load_invariant_graph",
     "trace_nodes",
     "write_invariant_graph",
+    "write_invariant_ledger_projections",
     "write_invariant_workstreams",
 ]

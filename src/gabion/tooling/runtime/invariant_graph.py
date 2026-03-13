@@ -9,17 +9,22 @@ from gabion.tooling.policy_substrate.invariant_graph import (
     InvariantGraph,
     blocker_chains,
     build_invariant_graph,
+    build_invariant_ledger_projections,
     build_invariant_workstreams,
+    compare_invariant_ledger_projections,
     compare_invariant_workstreams,
     load_invariant_graph,
+    load_invariant_ledger_projections,
     load_invariant_workstreams,
     trace_nodes,
     write_invariant_graph,
+    write_invariant_ledger_projections,
     write_invariant_workstreams,
 )
 
 _DEFAULT_ARTIFACT = Path("artifacts/out/invariant_graph.json")
 _DEFAULT_WORKSTREAMS_ARTIFACT = Path("artifacts/out/invariant_workstreams.json")
+_DEFAULT_LEDGER_ARTIFACT = Path("artifacts/out/invariant_ledger_projections.json")
 
 
 def _sorted[T](values: list[T], *, key=None) -> list[T]:
@@ -523,6 +528,77 @@ def _print_compare(
                 removed=len(item.removed_touchsite_ids),
             )
         )
+    ledger_deltas = compare_invariant_ledger_projections(before_payload, after_payload)
+    if object_id is not None:
+        ledger_deltas = tuple(
+            item for item in ledger_deltas if item.object_id == object_id
+        )
+    print("ledger_deltas:")
+    for item in ledger_deltas:
+        print(
+            "- {object_id} :: {classification} :: action={action} :: docs={docs}".format(
+                object_id=item.object_id,
+                classification=item.classification,
+                action=item.recommended_ledger_action,
+                docs=(
+                    "<none>"
+                    if not item.target_doc_ids
+                    else ",".join(item.target_doc_ids)
+                ),
+            )
+        )
+        print(f"  summary: {item.summary}")
+    return 0
+
+
+def _print_ledger(*, ledger_artifact: Path, object_id: str | None) -> int:
+    payload = load_invariant_ledger_projections(ledger_artifact)
+    ledgers = payload.get("ledgers", [])
+    if not isinstance(ledgers, list):
+        print("invalid invariant ledger projections payload")
+        return 1
+    filtered = [
+        item
+        for item in ledgers
+        if isinstance(item, dict)
+        and (
+            object_id is None
+            or str(item.get("object_id", "")) == object_id
+        )
+    ]
+    if not filtered:
+        if object_id is None:
+            print("no ledger projections available")
+        else:
+            print(f"no ledger projection for object_id: {object_id}")
+        return 1
+    for item in filtered:
+        print(f"object_id: {item.get('object_id', '')}")
+        print(f"title: {item.get('title', '')}")
+        print(f"status: {item.get('status', '')}")
+        doc_ids = item.get("target_doc_ids", [])
+        if isinstance(doc_ids, list):
+            print(
+                "target_doc_ids: "
+                + (", ".join(str(value) for value in doc_ids) if doc_ids else "<none>")
+            )
+        print(
+            f"recommended_ledger_action: {item.get('recommended_ledger_action', '')}"
+        )
+        print(f"summary: {item.get('summary', '')}")
+        current_snapshot = item.get("current_snapshot", {})
+        if isinstance(current_snapshot, dict):
+            recommended_cut = current_snapshot.get("recommended_cut_object_id")
+            print(
+                "current_snapshot: touchsites={touchsites} :: surviving={surviving} :: "
+                "coverage={coverage} :: diagnostics={diagnostics} :: recommended_cut={recommended_cut}".format(
+                    touchsites=current_snapshot.get("touchsite_count", 0),
+                    surviving=current_snapshot.get("surviving_touchsite_count", 0),
+                    coverage=current_snapshot.get("coverage_count", 0),
+                    diagnostics=current_snapshot.get("diagnostic_count", 0),
+                    recommended_cut=recommended_cut or "<none>",
+                )
+            )
     return 0
 
 
@@ -533,6 +609,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--workstreams-artifact",
         default=str(_DEFAULT_WORKSTREAMS_ARTIFACT),
+    )
+    parser.add_argument(
+        "--ledger-artifact",
+        default=str(_DEFAULT_LEDGER_ARTIFACT),
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -548,6 +628,9 @@ def main(argv: list[str] | None = None) -> int:
     workstream_parser = subparsers.add_parser("workstream")
     workstream_parser.add_argument("--object-id", required=True)
 
+    ledger_parser = subparsers.add_parser("ledger")
+    ledger_parser.add_argument("--object-id", default=None)
+
     blast_radius_parser = subparsers.add_parser("blast-radius")
     blast_radius_parser.add_argument("--id", required=True)
     blast_radius_parser.add_argument("--impact-artifact", default=None)
@@ -561,11 +644,17 @@ def main(argv: list[str] | None = None) -> int:
     root = Path(args.root).resolve()
     artifact = Path(args.artifact).resolve()
     workstreams_artifact = Path(args.workstreams_artifact).resolve()
+    ledger_artifact = Path(args.ledger_artifact).resolve()
 
     if args.command == "build":
         graph = build_invariant_graph(root)
+        workstreams = build_invariant_workstreams(graph)
         write_invariant_graph(artifact, graph)
-        write_invariant_workstreams(workstreams_artifact, build_invariant_workstreams(graph))
+        write_invariant_workstreams(workstreams_artifact, workstreams)
+        write_invariant_ledger_projections(
+            ledger_artifact,
+            build_invariant_ledger_projections(workstreams),
+        )
         print(str(artifact))
         return 0
     if args.command == "summary":
@@ -585,6 +674,11 @@ def main(argv: list[str] | None = None) -> int:
         return _print_workstream(
             graph=_load_or_build_graph(root=root, artifact=artifact),
             object_id=str(args.object_id),
+        )
+    if args.command == "ledger":
+        return _print_ledger(
+            ledger_artifact=ledger_artifact,
+            object_id=None if args.object_id is None else str(args.object_id),
         )
     if args.command == "blast-radius":
         impact_artifact = (

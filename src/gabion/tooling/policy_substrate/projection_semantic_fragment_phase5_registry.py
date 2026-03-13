@@ -123,6 +123,7 @@ def _todo_metadata(
     expiry="PSF-007 closure",
     links=[
         {"kind": "object_id", "value": "PSF-007"},
+        {"kind": "doc_id", "value": "projection_semantic_fragment_ledger"},
         {"kind": "doc_id", "value": "projection_semantic_fragment_rfc"},
     ],
 )

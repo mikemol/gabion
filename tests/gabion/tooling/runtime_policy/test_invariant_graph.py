@@ -131,6 +131,7 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
     graph = invariant_graph.build_invariant_graph(REPO_ROOT)
     projection = invariant_graph.build_psf_phase5_projection(graph)
     workstreams = invariant_graph.build_invariant_workstreams(graph)
+    ledgers = invariant_graph.build_invariant_ledger_projections(workstreams)
 
     assert not hasattr(invariant_graph, "_PHASE5_SURVIVING_TOUCHSITE_BOUNDARY_NAMES")
     assert projection["queue_id"] == "PSF-007"
@@ -153,6 +154,7 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
     )
     assert prf["status"] == "landed"
     assert prf["touchsite_count"] == 0
+    assert prf["doc_ids"] == ["policy_rule_frontmatter_migration_ledger"]
     psf = next(
         item
         for item in workstreams_payload["workstreams"]
@@ -161,6 +163,8 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
     assert psf["touchsite_count"] == 73
     assert psf["collapsible_touchsite_count"] == 47
     assert psf["surviving_touchsite_count"] == 26
+    assert "projection_semantic_fragment_ledger" in psf["doc_ids"]
+    assert "projection_semantic_fragment_rfc" in psf["doc_ids"]
     assert psf["health_summary"]["covered_touchsite_count"] == 3
     assert psf["health_summary"]["uncovered_touchsite_count"] == 70
     assert psf["health_summary"]["governed_touchsite_count"] == 0
@@ -210,6 +214,15 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
     assert psf["next_actions"]["ranked_subqueue_cuts"][0]["readiness_class"] == (
         "coverage_gap"
     )
+    ledger_payload = ledgers.as_payload()
+    psf_ledger = next(
+        item
+        for item in ledger_payload["ledgers"]
+        if isinstance(item, dict) and item.get("object_id") == "PSF-007"
+    )
+    assert "projection_semantic_fragment_ledger" in psf_ledger["target_doc_ids"]
+    assert psf_ledger["recommended_ledger_action"] == "record_progress_state"
+    assert psf_ledger["current_snapshot"]["recommended_cut_object_id"] == "PSF-007-TP-005"
 
 
 def test_workstream_projection_surfaces_policy_and_diagnostic_remediation_families() -> None:
@@ -278,6 +291,8 @@ def test_workstream_projection_surfaces_policy_and_diagnostic_remediation_famili
         reasoning_control="synthetic.control",
         blocking_dependencies=(),
         object_ids=(),
+        doc_ids=(),
+        policy_ids=(),
         touchsite_count=2,
         collapsible_touchsite_count=0,
         surviving_touchsite_count=2,
@@ -422,14 +437,28 @@ def test_runtime_invariant_graph_cli_build_summary_trace_and_blockers(
     _disable_phase5_enricher(monkeypatch)
     root = _sample_repo(tmp_path)
     artifact = tmp_path / "artifacts/out/invariant_graph.json"
+    workstreams_artifact = tmp_path / "artifacts/out/invariant_workstreams.json"
+    ledger_artifact = tmp_path / "artifacts/out/invariant_ledger_projections.json"
 
     assert (
         invariant_graph_runtime.main(
-            ["--root", str(root), "--artifact", str(artifact), "build"]
+            [
+                "--root",
+                str(root),
+                "--artifact",
+                str(artifact),
+                "--workstreams-artifact",
+                str(workstreams_artifact),
+                "--ledger-artifact",
+                str(ledger_artifact),
+                "build",
+            ]
         )
         == 0
     )
     assert artifact.exists()
+    assert workstreams_artifact.exists()
+    assert ledger_artifact.exists()
 
     assert (
         invariant_graph_runtime.main(
@@ -518,10 +547,22 @@ def test_runtime_invariant_graph_cli_blast_radius_flags_impacted_tests(
         encoding="utf-8",
     )
     artifact = tmp_path / "artifacts/out/invariant_graph.json"
+    workstreams_artifact = tmp_path / "artifacts/out/invariant_workstreams.json"
+    ledger_artifact = tmp_path / "artifacts/out/invariant_ledger_projections.json"
 
     assert (
         invariant_graph_runtime.main(
-            ["--root", str(root), "--artifact", str(artifact), "build"]
+            [
+                "--root",
+                str(root),
+                "--artifact",
+                str(artifact),
+                "--workstreams-artifact",
+                str(workstreams_artifact),
+                "--ledger-artifact",
+                str(ledger_artifact),
+                "build",
+            ]
         )
         == 0
     )
@@ -663,6 +704,8 @@ def test_compare_invariant_workstreams_classifies_reduced_and_relocated() -> Non
         [
             {
                 "object_id": "WS-REDUCE",
+                "title": "reduce stream",
+                "doc_ids": ["ledger.reduce"],
                 "status": "in_progress",
                 "touchsite_count": 2,
                 "surviving_touchsite_count": 1,
@@ -687,6 +730,8 @@ def test_compare_invariant_workstreams_classifies_reduced_and_relocated() -> Non
             },
             {
                 "object_id": "WS-RELOCATE",
+                "title": "relocate stream",
+                "doc_ids": ["ledger.relocate"],
                 "status": "in_progress",
                 "touchsite_count": 1,
                 "surviving_touchsite_count": 1,
@@ -714,6 +759,8 @@ def test_compare_invariant_workstreams_classifies_reduced_and_relocated() -> Non
         [
             {
                 "object_id": "WS-REDUCE",
+                "title": "reduce stream",
+                "doc_ids": ["ledger.reduce"],
                 "status": "in_progress",
                 "touchsite_count": 1,
                 "surviving_touchsite_count": 1,
@@ -737,6 +784,8 @@ def test_compare_invariant_workstreams_classifies_reduced_and_relocated() -> Non
             },
             {
                 "object_id": "WS-RELOCATE",
+                "title": "relocate stream",
+                "doc_ids": ["ledger.relocate"],
                 "status": "in_progress",
                 "touchsite_count": 1,
                 "surviving_touchsite_count": 1,
@@ -778,6 +827,67 @@ def test_compare_invariant_workstreams_classifies_reduced_and_relocated() -> Non
     assert by_object_id["WS-RELOCATE"].removed_touchsite_ids == ("TS-OLD",)
 
 
+def test_compare_invariant_ledger_projections_synthesizes_doc_targets_and_actions() -> None:
+    before_payload = _synthetic_workstreams_payload(
+        [
+            {
+                "object_id": "WS-REDUCE",
+                "title": "reduce stream",
+                "doc_ids": ["ledger.reduce"],
+                "status": "in_progress",
+                "touchsite_count": 2,
+                "surviving_touchsite_count": 1,
+                "touchpoints": [{"touchsites": [{"object_id": "TS-1"}, {"object_id": "TS-2"}]}],
+                "health_summary": {
+                    "ready_touchsite_count": 0,
+                    "coverage_gap_touchsite_count": 2,
+                    "policy_blocked_touchsite_count": 0,
+                    "diagnostic_blocked_touchsite_count": 0,
+                },
+                "next_actions": {
+                    "dominant_blocker_class": "coverage_gap",
+                    "recommended_cut": {"object_id": "TP-BEFORE"},
+                },
+            }
+        ]
+    )
+    after_payload = _synthetic_workstreams_payload(
+        [
+            {
+                "object_id": "WS-REDUCE",
+                "title": "reduce stream",
+                "doc_ids": ["ledger.reduce"],
+                "status": "in_progress",
+                "touchsite_count": 1,
+                "surviving_touchsite_count": 1,
+                "touchpoints": [{"touchsites": [{"object_id": "TS-1"}]}],
+                "health_summary": {
+                    "ready_touchsite_count": 1,
+                    "coverage_gap_touchsite_count": 0,
+                    "policy_blocked_touchsite_count": 0,
+                    "diagnostic_blocked_touchsite_count": 0,
+                },
+                "next_actions": {
+                    "dominant_blocker_class": "ready_structural",
+                    "recommended_cut": {"object_id": "TP-AFTER"},
+                },
+            }
+        ]
+    )
+
+    deltas = invariant_graph.compare_invariant_ledger_projections(
+        before_payload,
+        after_payload,
+    )
+    assert len(deltas) == 1
+    delta = deltas[0]
+    assert delta.object_id == "WS-REDUCE"
+    assert delta.target_doc_ids == ("ledger.reduce",)
+    assert delta.classification == "reduced"
+    assert delta.recommended_ledger_action == "append_reduction_delta"
+    assert "recommended cut TP-BEFORE->TP-AFTER" in delta.summary
+
+
 def test_runtime_invariant_graph_cli_compare_reports_workstream_drift(
     tmp_path: Path,
     capsys,
@@ -790,6 +900,8 @@ def test_runtime_invariant_graph_cli_compare_reports_workstream_drift(
             [
                 {
                     "object_id": "WS-REDUCE",
+                    "title": "reduce stream",
+                    "doc_ids": ["ledger.reduce"],
                     "status": "in_progress",
                     "touchsite_count": 2,
                     "surviving_touchsite_count": 1,
@@ -816,6 +928,8 @@ def test_runtime_invariant_graph_cli_compare_reports_workstream_drift(
             [
                 {
                     "object_id": "WS-REDUCE",
+                    "title": "reduce stream",
+                    "doc_ids": ["ledger.reduce"],
                     "status": "in_progress",
                     "touchsite_count": 1,
                     "surviving_touchsite_count": 1,
@@ -858,6 +972,12 @@ def test_runtime_invariant_graph_cli_compare_reports_workstream_drift(
         "  blocker_deltas: ready=+1 :: coverage_gap=-2 :: policy=+0 :: diagnostic=+0"
         in compare_output
     )
+    assert "ledger_deltas:" in compare_output
+    assert (
+        "- WS-REDUCE :: reduced :: action=append_reduction_delta :: docs=ledger.reduce"
+        in compare_output
+    )
+    assert "summary: reduce stream reduced: touchsites 2->1" in compare_output
 
 
 def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
@@ -865,10 +985,22 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
     capsys,
 ) -> None:
     artifact = tmp_path / "artifacts/out/invariant_graph.json"
+    workstreams_artifact = tmp_path / "artifacts/out/invariant_workstreams.json"
+    ledger_artifact = tmp_path / "artifacts/out/invariant_ledger_projections.json"
 
     assert (
         invariant_graph_runtime.main(
-            ["--root", str(REPO_ROOT), "--artifact", str(artifact), "build"]
+            [
+                "--root",
+                str(REPO_ROOT),
+                "--artifact",
+                str(artifact),
+                "--workstreams-artifact",
+                str(workstreams_artifact),
+                "--ledger-artifact",
+                str(ledger_artifact),
+                "build",
+            ]
         )
         == 0
     )
@@ -897,6 +1029,10 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
                 str(REPO_ROOT),
                 "--artifact",
                 str(artifact),
+                "--workstreams-artifact",
+                str(workstreams_artifact),
+                "--ledger-artifact",
+                str(ledger_artifact),
                 "workstream",
                 "--object-id",
                 "PSF-007",
@@ -951,6 +1087,23 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
         "- PSF-007-SQ-001 :: readiness=coverage_gap :: touchsites=4 :: collapsible=0 :: surviving=4 :: uncovered=4"
         in workstream_output
     )
+
+    assert (
+        invariant_graph_runtime.main(
+            [
+                "--ledger-artifact",
+                str(ledger_artifact),
+                "ledger",
+                "--object-id",
+                "PSF-007",
+            ]
+        )
+        == 0
+    )
+    ledger_output = capsys.readouterr().out
+    assert "target_doc_ids: projection_semantic_fragment_ledger, projection_semantic_fragment_rfc" in ledger_output
+    assert "recommended_ledger_action: record_progress_state" in ledger_output
+    assert "current_snapshot: touchsites=73 :: surviving=26" in ledger_output
 
     assert (
         invariant_graph_runtime.main(

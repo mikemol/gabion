@@ -70,19 +70,31 @@ def test_policy_check_output_carries_projection_fiber_semantics_on_pass(
     invariant_workstreams_payload = json.loads(
         (tmp_path / "invariant_workstreams.json").read_text(encoding="utf-8")
     )
+    invariant_ledger_payload = json.loads(
+        (tmp_path / "invariant_ledger_projections.json").read_text(encoding="utf-8")
+    )
     assert queue_payload["source_artifact"] == str(output)
     assert queue_payload["current_state"]["decision"]["rule_id"] == (
         "projection_fiber.convergence.ok"
     )
     assert invariant_graph_payload["format_version"] == 1
     assert invariant_workstreams_payload["format_version"] == 1
+    assert invariant_ledger_payload["format_version"] == 1
     assert invariant_workstreams_payload["counts"]["workstream_count"] >= 1
+    assert invariant_ledger_payload["counts"]["ledger_count"] >= 1
     for workstream in invariant_workstreams_payload["workstreams"]:
         assert "next_actions" in workstream
         assert "health_summary" in workstream
+        assert "doc_ids" in workstream
+        assert "policy_ids" in workstream
         assert "dominant_blocker_class" in workstream["next_actions"]
         assert "recommended_remediation_family" in workstream["next_actions"]
         assert "remediation_lanes" in workstream["next_actions"]
+    for ledger in invariant_ledger_payload["ledgers"]:
+        assert "target_doc_ids" in ledger
+        assert "recommended_ledger_action" in ledger
+        assert "summary" in ledger
+        assert "current_snapshot" in ledger
     assert (tmp_path / "projection_semantic_fragment_queue.md").exists()
 
 
@@ -163,3 +175,4 @@ def test_policy_check_workflows_output_emits_invariant_graph_artifact(
     assert result == 0
     assert (tmp_path / "invariant_graph.json").exists()
     assert (tmp_path / "invariant_workstreams.json").exists()
+    assert (tmp_path / "invariant_ledger_projections.json").exists()
