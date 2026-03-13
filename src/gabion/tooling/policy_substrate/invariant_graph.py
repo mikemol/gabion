@@ -822,6 +822,38 @@ class InvariantRepoFollowupLane:
 
 
 @dataclass(frozen=True)
+class InvariantRepoFrontierTradeoff:
+    frontier_followup_family: str
+    frontier_followup_class: str
+    runner_up_followup_family: str
+    runner_up_followup_class: str
+    frontier_lane_utility_score: int
+    frontier_lane_utility_reason: str
+    runner_up_lane_utility_score: int
+    runner_up_lane_utility_reason: str
+    margin_score: int
+    margin_reason: str
+    margin_components: tuple[InvariantScoreComponent, ...]
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "frontier_followup_family": self.frontier_followup_family,
+            "frontier_followup_class": self.frontier_followup_class,
+            "runner_up_followup_family": self.runner_up_followup_family,
+            "runner_up_followup_class": self.runner_up_followup_class,
+            "frontier_lane_utility_score": self.frontier_lane_utility_score,
+            "frontier_lane_utility_reason": self.frontier_lane_utility_reason,
+            "runner_up_lane_utility_score": self.runner_up_lane_utility_score,
+            "runner_up_lane_utility_reason": self.runner_up_lane_utility_reason,
+            "margin_score": self.margin_score,
+            "margin_reason": self.margin_reason,
+            "margin_components": [
+                item.as_payload() for item in self.margin_components
+            ],
+        }
+
+
+@dataclass(frozen=True)
 class InvariantRepoDiagnosticLane:
     diagnostic_code: str
     severity: str
@@ -3017,6 +3049,40 @@ class InvariantWorkstreamsProjection:
                 return lane
         return None
 
+    def recommended_repo_followup_frontier_tradeoff(
+        self,
+    ) -> InvariantRepoFrontierTradeoff | None:
+        return self._recommended_repo_followup_frontier_tradeoff
+
+    @cached_property
+    def _recommended_repo_followup_frontier_tradeoff(
+        self,
+    ) -> InvariantRepoFrontierTradeoff | None:
+        lanes = self.repo_followup_lanes()
+        if len(lanes) < 2:
+            return None
+        frontier_lane = lanes[0]
+        runner_up_lane = lanes[1]
+        return InvariantRepoFrontierTradeoff(
+            frontier_followup_family=frontier_lane.followup_family,
+            frontier_followup_class=frontier_lane.followup_class,
+            runner_up_followup_family=runner_up_lane.followup_family,
+            runner_up_followup_class=runner_up_lane.followup_class,
+            frontier_lane_utility_score=frontier_lane.lane_utility_score,
+            frontier_lane_utility_reason=frontier_lane.lane_utility_reason,
+            runner_up_lane_utility_score=runner_up_lane.lane_utility_score,
+            runner_up_lane_utility_reason=runner_up_lane.lane_utility_reason,
+            margin_score=max(
+                0,
+                frontier_lane.lane_utility_score - runner_up_lane.lane_utility_score,
+            ),
+            margin_reason=(
+                f"{frontier_lane.lane_utility_reason}"
+                f"->{runner_up_lane.lane_utility_reason}"
+            ),
+            margin_components=runner_up_lane.opportunity_cost_components,
+        )
+
     def repo_followup_lanes(self) -> tuple[InvariantRepoFollowupLane, ...]:
         return self._repo_followup_lanes
 
@@ -3297,6 +3363,9 @@ class InvariantWorkstreamsProjection:
         recommended_repo_followup_lane = self.recommended_repo_followup_lane()
         recommended_repo_code_followup_lane = self.recommended_repo_code_followup_lane()
         recommended_repo_human_followup_lane = self.recommended_repo_human_followup_lane()
+        recommended_repo_followup_frontier_tradeoff = (
+            self.recommended_repo_followup_frontier_tradeoff()
+        )
         ranked_repo_followups = self.ranked_repo_followups()
         repo_followup_lanes = self.repo_followup_lanes()
         repo_diagnostic_lanes = self.repo_diagnostic_lanes()
@@ -3338,6 +3407,11 @@ class InvariantWorkstreamsProjection:
                     None
                     if recommended_repo_human_followup_lane is None
                     else recommended_repo_human_followup_lane.as_payload()
+                ),
+                "recommended_followup_frontier_tradeoff": (
+                    None
+                    if recommended_repo_followup_frontier_tradeoff is None
+                    else recommended_repo_followup_frontier_tradeoff.as_payload()
                 ),
                 "ranked_followups": [
                     item.as_payload() for item in ranked_repo_followups

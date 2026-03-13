@@ -237,6 +237,9 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
     recommended_repo_human_followup_lane = (
         workstreams.recommended_repo_human_followup_lane()
     )
+    recommended_repo_followup_frontier_tradeoff = (
+        workstreams.recommended_repo_followup_frontier_tradeoff()
+    )
     repo_followup_lanes = workstreams.repo_followup_lanes()
     repo_diagnostic_lanes = workstreams.repo_diagnostic_lanes()
     print(f"root: {graph.root}")
@@ -757,6 +760,40 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
                 ),
                 opportunity_components=_format_score_components(
                     recommended_repo_human_followup_lane.opportunity_cost_components
+                ),
+            )
+        )
+    if recommended_repo_followup_frontier_tradeoff is None:
+        print("recommended_repo_followup_frontier_tradeoff: <none>")
+    else:
+        print(
+            "recommended_repo_followup_frontier_tradeoff: {frontier_family}:{frontier_class}:{frontier_utility} :: runner_up={runner_up_family}:{runner_up_class}:{runner_up_utility} :: margin={margin} :: margin_components={margin_components}".format(
+                frontier_family=(
+                    recommended_repo_followup_frontier_tradeoff.frontier_followup_family
+                ),
+                frontier_class=(
+                    recommended_repo_followup_frontier_tradeoff.frontier_followup_class
+                ),
+                frontier_utility=(
+                    f"{recommended_repo_followup_frontier_tradeoff.frontier_lane_utility_score}:"
+                    f"{recommended_repo_followup_frontier_tradeoff.frontier_lane_utility_reason}"
+                ),
+                runner_up_family=(
+                    recommended_repo_followup_frontier_tradeoff.runner_up_followup_family
+                ),
+                runner_up_class=(
+                    recommended_repo_followup_frontier_tradeoff.runner_up_followup_class
+                ),
+                runner_up_utility=(
+                    f"{recommended_repo_followup_frontier_tradeoff.runner_up_lane_utility_score}:"
+                    f"{recommended_repo_followup_frontier_tradeoff.runner_up_lane_utility_reason}"
+                ),
+                margin=(
+                    f"{recommended_repo_followup_frontier_tradeoff.margin_score}:"
+                    f"{recommended_repo_followup_frontier_tradeoff.margin_reason}"
+                ),
+                margin_components=_format_score_components(
+                    recommended_repo_followup_frontier_tradeoff.margin_components
                 ),
             )
         )
