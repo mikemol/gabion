@@ -633,6 +633,8 @@ class InvariantRepoFollowupAction:
     owner_seed_object_id: str | None
     owner_resolution_kind: str | None
     owner_resolution_score: int | None
+    utility_score: int
+    utility_reason: str
     count: int
 
     def as_payload(self) -> dict[str, object]:
@@ -653,6 +655,8 @@ class InvariantRepoFollowupAction:
             "owner_seed_object_id": self.owner_seed_object_id,
             "owner_resolution_kind": self.owner_resolution_kind,
             "owner_resolution_score": self.owner_resolution_score,
+            "utility_score": self.utility_score,
+            "utility_reason": self.utility_reason,
             "count": self.count,
         }
 
@@ -664,6 +668,8 @@ class InvariantRepoFollowupLane:
     action_count: int
     strongest_owner_resolution_kind: str | None
     strongest_owner_resolution_score: int | None
+    strongest_utility_score: int
+    strongest_utility_reason: str
     best_followup: InvariantRepoFollowupAction
 
     def as_payload(self) -> dict[str, object]:
@@ -673,6 +679,8 @@ class InvariantRepoFollowupLane:
             "action_count": self.action_count,
             "strongest_owner_resolution_kind": self.strongest_owner_resolution_kind,
             "strongest_owner_resolution_score": self.strongest_owner_resolution_score,
+            "strongest_utility_score": self.strongest_utility_score,
+            "strongest_utility_reason": self.strongest_utility_reason,
             "best_followup": self.best_followup.as_payload(),
         }
 
@@ -1741,6 +1749,50 @@ class InvariantWorkstreamsProjection:
             )
         )
 
+    def _repo_followup_utility(
+        self,
+        followup: InvariantRepoFollowupAction,
+    ) -> tuple[int, str]:
+        if followup.diagnostic_code == "unmatched_policy_signal":
+            score = 900 + (followup.owner_resolution_score or 0)
+            reason = "governance_orphan"
+            if followup.owner_resolution_kind is not None:
+                reason = f"{reason}:{followup.owner_resolution_kind}"
+            return (score, reason)
+        if followup.diagnostic_code == "unresolved_blocking_dependency":
+            return (850, "dependency_orphan")
+        if followup.action_kind == "diagnostic_resolution":
+            return (800, "diagnostic_backlog")
+        if followup.action_kind == "touchpoint_cut":
+            readiness = followup.readiness_class or "none"
+            score_map = {
+                "ready_structural": 700,
+                "policy_blocked": 520,
+                "diagnostic_blocked": 500,
+                "coverage_gap": 480,
+            }
+            return (score_map.get(readiness, 450), f"code:{readiness}")
+        if followup.action_kind == "subqueue_cut":
+            readiness = followup.readiness_class or "none"
+            score_map = {
+                "ready_structural": 680,
+                "policy_blocked": 500,
+                "diagnostic_blocked": 480,
+                "coverage_gap": 460,
+            }
+            return (score_map.get(readiness, 430), f"code:{readiness}")
+        if followup.action_kind == "doc_alignment":
+            alignment = followup.alignment_status or "none"
+            score_map = {
+                "missing_target_doc": 420,
+                "append_pending_new_object": 390,
+                "append_pending_existing_object": 380,
+                "ambiguous_target_doc": 360,
+                "unassigned_target_doc": 340,
+            }
+            return (score_map.get(alignment, 320), f"documentation:{alignment}")
+        return (250, followup.followup_family)
+
     def ranked_repo_followups(self) -> tuple[InvariantRepoFollowupAction, ...]:
         return self._ranked_repo_followups
 
@@ -1796,6 +1848,8 @@ class InvariantWorkstreamsProjection:
                         owner_resolution_score=(
                             best_option.score if best_option is not None else None
                         ),
+                        utility_score=0,
+                        utility_reason="",
                         count=lane.count,
                     )
                 )
@@ -1824,6 +1878,8 @@ class InvariantWorkstreamsProjection:
                         owner_seed_object_id=None,
                         owner_resolution_kind=None,
                         owner_resolution_score=None,
+                        utility_score=0,
+                        utility_reason="",
                         count=lane.count,
                     )
                 )
@@ -1852,6 +1908,8 @@ class InvariantWorkstreamsProjection:
                         owner_seed_object_id=None,
                         owner_resolution_kind=None,
                         owner_resolution_score=None,
+                        utility_score=0,
+                        utility_reason="",
                         count=lane.count,
                     )
                 )
@@ -1875,13 +1933,24 @@ class InvariantWorkstreamsProjection:
                         owner_seed_object_id=None,
                         owner_resolution_kind=None,
                         owner_resolution_score=None,
+                        utility_score=0,
+                        utility_reason="",
                         count=followup.touchsite_count,
                     )
                 )
+        actions = [
+            replace(
+                action,
+                utility_score=self._repo_followup_utility(action)[0],
+                utility_reason=self._repo_followup_utility(action)[1],
+            )
+            for action in actions
+        ]
         return tuple(
             _sorted(
                 actions,
                 key=lambda item: (
+                    -item.utility_score,
                     item.priority_rank,
                     -(item.owner_resolution_score or 0),
                     -item.count,
@@ -1927,6 +1996,8 @@ class InvariantWorkstreamsProjection:
                 action_count=len(items),
                 strongest_owner_resolution_kind=items[0].owner_resolution_kind,
                 strongest_owner_resolution_score=items[0].owner_resolution_score,
+                strongest_utility_score=items[0].utility_score,
+                strongest_utility_reason=items[0].utility_reason,
                 best_followup=items[0],
             )
             for (followup_class, followup_family), items in grouped.items()
@@ -1935,6 +2006,7 @@ class InvariantWorkstreamsProjection:
             _sorted(
                 lanes,
                 key=lambda item: (
+                    -item.strongest_utility_score,
                     item.best_followup.priority_rank,
                     item.action_count,
                     item.followup_class,

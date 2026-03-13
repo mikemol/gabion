@@ -158,7 +158,7 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
         print("recommended_repo_followup: <none>")
     elif recommended_repo_followup.diagnostic_code is not None:
         print(
-            "recommended_repo_followup: {family} :: diagnostic={diagnostic} :: owner={owner} :: seed={seed} :: seed_object={seed_object} :: count={count} :: action={action}".format(
+            "recommended_repo_followup: {family} :: diagnostic={diagnostic} :: owner={owner} :: seed={seed} :: seed_object={seed_object} :: count={count} :: action={action} :: utility={utility}".format(
                 family=recommended_repo_followup.followup_family,
                 diagnostic=recommended_repo_followup.diagnostic_code,
                 owner=recommended_repo_followup.owner_object_id or "<none>",
@@ -166,47 +166,59 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
                 seed_object=recommended_repo_followup.owner_seed_object_id or "<none>",
                 count=recommended_repo_followup.count,
                 action=recommended_repo_followup.recommended_action or "none",
+                utility=(
+                    f"{recommended_repo_followup.utility_score}:{recommended_repo_followup.utility_reason}"
+                ),
             )
         )
     elif recommended_repo_followup.action_kind == "doc_alignment":
         print(
-            "recommended_repo_followup: {family} :: owner={owner} :: target_doc={target_doc} :: alignment={alignment} :: action={action}".format(
+            "recommended_repo_followup: {family} :: owner={owner} :: target_doc={target_doc} :: alignment={alignment} :: action={action} :: utility={utility}".format(
                 family=recommended_repo_followup.followup_family,
                 owner=recommended_repo_followup.owner_object_id or "<none>",
                 target_doc=recommended_repo_followup.target_doc_id or "<none>",
                 alignment=recommended_repo_followup.alignment_status or "none",
                 action=recommended_repo_followup.recommended_action or "none",
+                utility=(
+                    f"{recommended_repo_followup.utility_score}:{recommended_repo_followup.utility_reason}"
+                ),
             )
         )
     else:
         print(
-            "recommended_repo_followup: {family} :: owner={owner} :: {action_kind} :: {object_id} :: count={count} :: blocker={blocker}".format(
+            "recommended_repo_followup: {family} :: owner={owner} :: {action_kind} :: {object_id} :: count={count} :: blocker={blocker} :: utility={utility}".format(
                 family=recommended_repo_followup.followup_family,
                 owner=recommended_repo_followup.owner_object_id or "<none>",
                 action_kind=recommended_repo_followup.action_kind,
                 object_id=recommended_repo_followup.object_id or "<none>",
                 count=recommended_repo_followup.count,
                 blocker=recommended_repo_followup.readiness_class or "none",
+                utility=(
+                    f"{recommended_repo_followup.utility_score}:{recommended_repo_followup.utility_reason}"
+                ),
             )
         )
     if recommended_repo_code_followup is None:
         print("recommended_repo_code_followup: <none>")
     else:
         print(
-            "recommended_repo_code_followup: {family} :: owner={owner} :: {action_kind} :: {object_id} :: count={count} :: blocker={blocker}".format(
+            "recommended_repo_code_followup: {family} :: owner={owner} :: {action_kind} :: {object_id} :: count={count} :: blocker={blocker} :: utility={utility}".format(
                 family=recommended_repo_code_followup.followup_family,
                 owner=recommended_repo_code_followup.owner_object_id or "<none>",
                 action_kind=recommended_repo_code_followup.action_kind,
                 object_id=recommended_repo_code_followup.object_id or "<none>",
                 count=recommended_repo_code_followup.count,
                 blocker=recommended_repo_code_followup.readiness_class or "none",
+                utility=(
+                    f"{recommended_repo_code_followup.utility_score}:{recommended_repo_code_followup.utility_reason}"
+                ),
             )
         )
     if recommended_repo_human_followup is None:
         print("recommended_repo_human_followup: <none>")
     elif recommended_repo_human_followup.diagnostic_code is not None:
         print(
-            "recommended_repo_human_followup: {family} :: diagnostic={diagnostic} :: owner={owner} :: seed={seed} :: seed_object={seed_object} :: count={count} :: action={action}".format(
+            "recommended_repo_human_followup: {family} :: diagnostic={diagnostic} :: owner={owner} :: seed={seed} :: seed_object={seed_object} :: count={count} :: action={action} :: utility={utility}".format(
                 family=recommended_repo_human_followup.followup_family,
                 diagnostic=recommended_repo_human_followup.diagnostic_code,
                 owner=recommended_repo_human_followup.owner_object_id or "<none>",
@@ -214,15 +226,21 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
                 seed_object=recommended_repo_human_followup.owner_seed_object_id or "<none>",
                 count=recommended_repo_human_followup.count,
                 action=recommended_repo_human_followup.recommended_action or "none",
+                utility=(
+                    f"{recommended_repo_human_followup.utility_score}:{recommended_repo_human_followup.utility_reason}"
+                ),
             )
         )
     else:
         print(
-            "recommended_repo_human_followup: {family} :: target_doc={target_doc} :: alignment={alignment} :: action={action}".format(
+            "recommended_repo_human_followup: {family} :: target_doc={target_doc} :: alignment={alignment} :: action={action} :: utility={utility}".format(
                 family=recommended_repo_human_followup.followup_family,
                 target_doc=recommended_repo_human_followup.target_doc_id or "<none>",
                 alignment=recommended_repo_human_followup.alignment_status or "none",
                 action=recommended_repo_human_followup.recommended_action or "none",
+                utility=(
+                    f"{recommended_repo_human_followup.utility_score}:{recommended_repo_human_followup.utility_reason}"
+                ),
             )
         )
     print("repo_followup_lanes:")
@@ -230,7 +248,7 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
         best = lane.best_followup
         target = best.object_id or best.target_doc_id or best.diagnostic_code or "<none>"
         print(
-            "- {family} :: class={klass} :: actions={actions} :: best={action_kind}::{target} :: owner_strength={owner_strength}".format(
+            "- {family} :: class={klass} :: actions={actions} :: best={action_kind}::{target} :: owner_strength={owner_strength} :: utility={utility}".format(
                 family=lane.followup_family,
                 klass=lane.followup_class,
                 actions=lane.action_count,
@@ -243,6 +261,7 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
                         f"{lane.strongest_owner_resolution_kind}:{lane.strongest_owner_resolution_score}"
                     )
                 ),
+                utility=f"{lane.strongest_utility_score}:{lane.strongest_utility_reason}",
             )
         )
     print("repo_diagnostic_lanes:")
