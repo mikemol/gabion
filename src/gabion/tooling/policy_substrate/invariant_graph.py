@@ -630,6 +630,7 @@ class InvariantRepoFollowupAction:
     alignment_status: str | None
     recommended_action: str | None
     owner_seed_path: str | None
+    owner_seed_object_id: str | None
     count: int
 
     def as_payload(self) -> dict[str, object]:
@@ -647,6 +648,7 @@ class InvariantRepoFollowupAction:
             "alignment_status": self.alignment_status,
             "recommended_action": self.recommended_action,
             "owner_seed_path": self.owner_seed_path,
+            "owner_seed_object_id": self.owner_seed_object_id,
             "count": self.count,
         }
 
@@ -684,6 +686,7 @@ class InvariantRepoDiagnosticLane:
     candidate_owner_object_id: str | None
     candidate_owner_object_ids: tuple[str, ...]
     candidate_owner_seed_path: str | None
+    candidate_owner_seed_object_id: str | None
 
     def as_payload(self) -> dict[str, object]:
         return {
@@ -702,6 +705,7 @@ class InvariantRepoDiagnosticLane:
             "candidate_owner_object_id": self.candidate_owner_object_id,
             "candidate_owner_object_ids": list(self.candidate_owner_object_ids),
             "candidate_owner_seed_path": self.candidate_owner_seed_path,
+            "candidate_owner_seed_object_id": self.candidate_owner_seed_object_id,
         }
 
 
@@ -1497,6 +1501,19 @@ class InvariantWorkstreamsProjection:
             return None
         return parent
 
+    def _repo_diagnostic_candidate_owner_seed_object_id(
+        self,
+        *,
+        seed_path: str | None,
+    ) -> str | None:
+        if seed_path is None:
+            return None
+        seed_token = seed_path.removeprefix("src/").replace("/", ".")
+        if not seed_token:
+            return None
+        identity_space = PolicyQueueIdentitySpace()
+        return identity_space.workstream_id(f"WS-SEED:{seed_token}").wire()
+
     def _repo_diagnostic_candidate_owner_status(
         self,
         *,
@@ -1555,6 +1572,7 @@ class InvariantWorkstreamsProjection:
                         alignment_status=None,
                         recommended_action=lane.recommended_action,
                         owner_seed_path=lane.candidate_owner_seed_path,
+                        owner_seed_object_id=lane.candidate_owner_seed_object_id,
                         count=lane.count,
                     )
                 )
@@ -1580,6 +1598,7 @@ class InvariantWorkstreamsProjection:
                         alignment_status=None,
                         recommended_action=lane.recommended_action,
                         owner_seed_path=None,
+                        owner_seed_object_id=None,
                         count=lane.count,
                     )
                 )
@@ -1605,6 +1624,7 @@ class InvariantWorkstreamsProjection:
                         alignment_status=None,
                         recommended_action=lane.recommended_action,
                         owner_seed_path=None,
+                        owner_seed_object_id=None,
                         count=lane.count,
                     )
                 )
@@ -1625,6 +1645,7 @@ class InvariantWorkstreamsProjection:
                         alignment_status=followup.alignment_status,
                         recommended_action=followup.recommended_action,
                         owner_seed_path=None,
+                        owner_seed_object_id=None,
                         count=followup.touchsite_count,
                     )
                 )
@@ -1783,6 +1804,11 @@ class InvariantWorkstreamsProjection:
             candidate_owner_seed_path = self._repo_diagnostic_candidate_owner_seed_path(
                 rel_path=rel_path
             )
+            candidate_owner_seed_object_id = (
+                self._repo_diagnostic_candidate_owner_seed_object_id(
+                    seed_path=candidate_owner_seed_path
+                )
+            )
             candidate_owner_status = self._repo_diagnostic_candidate_owner_status(
                 rel_path=rel_path,
                 candidate_owner_object_ids=candidate_owner_object_ids,
@@ -1815,6 +1841,7 @@ class InvariantWorkstreamsProjection:
                     ),
                     candidate_owner_object_ids=candidate_owner_object_ids,
                     candidate_owner_seed_path=candidate_owner_seed_path,
+                    candidate_owner_seed_object_id=candidate_owner_seed_object_id,
                 )
             )
         return tuple(

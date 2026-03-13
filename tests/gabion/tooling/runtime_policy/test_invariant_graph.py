@@ -171,6 +171,7 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         "alignment_status": None,
         "recommended_action": "seed_owned_workstream_from_source_family",
         "owner_seed_path": "src/gabion/analysis/dataflow/io",
+        "owner_seed_object_id": "WS-SEED:gabion.analysis.dataflow.io",
         "count": 1,
     }
     assert workstreams_payload["repo_next_actions"]["dominant_followup_class"] == (
@@ -193,6 +194,7 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         "alignment_status": None,
         "recommended_action": None,
         "owner_seed_path": None,
+        "owner_seed_object_id": None,
         "count": 1,
     }
     assert workstreams_payload["repo_next_actions"]["recommended_human_followup"] == (
@@ -213,6 +215,7 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         "alignment_status": None,
         "recommended_action": "seed_owned_workstream_from_source_family",
         "owner_seed_path": "src/gabion/analysis/dataflow/io",
+        "owner_seed_object_id": "WS-SEED:gabion.analysis.dataflow.io",
         "count": 1,
     }
     assert ranked_repo_followups[1]["followup_family"] == "governance_orphan_resolution"
@@ -233,6 +236,7 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
             "alignment_status": None,
             "recommended_action": None,
             "owner_seed_path": None,
+            "owner_seed_object_id": None,
             "count": 1,
         }
         for item in ranked_repo_followups
@@ -262,6 +266,7 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
             "alignment_status": None,
             "recommended_action": "seed_owned_workstream_from_source_family",
             "owner_seed_path": "src/gabion/analysis/dataflow/io",
+            "owner_seed_object_id": "WS-SEED:gabion.analysis.dataflow.io",
             "count": 1,
         },
     }
@@ -291,6 +296,9 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
     assert repo_diagnostic_lanes[0]["candidate_owner_object_ids"] == []
     assert repo_diagnostic_lanes[0]["candidate_owner_seed_path"] == (
         "src/gabion/analysis/dataflow/io"
+    )
+    assert repo_diagnostic_lanes[0]["candidate_owner_seed_object_id"] == (
+        "WS-SEED:gabion.analysis.dataflow.io"
     )
     assert len(repo_diagnostic_lanes[0]["node_ids"]) == 1
     assert repo_diagnostic_lanes[-1]["title"] == "grade:GMP-007"
@@ -839,11 +847,13 @@ def test_repo_diagnostic_lane_attributes_candidate_owner_from_exact_path() -> No
     assert lane.candidate_owner_object_id == "WS-OWNER"
     assert lane.candidate_owner_object_ids == ("WS-OWNER",)
     assert lane.candidate_owner_seed_path == "src/gabion"
+    assert lane.candidate_owner_seed_object_id == "WS-SEED:gabion"
     assert lane.recommended_action == "attach_policy_signals_to_candidate_owner"
     followup = projection.recommended_repo_followup()
     assert followup is not None
     assert followup.owner_object_id == "WS-OWNER"
     assert followup.owner_seed_path == "src/gabion"
+    assert followup.owner_seed_object_id == "WS-SEED:gabion"
 
 
 def test_runtime_invariant_graph_cli_build_summary_trace_and_blockers(
@@ -1671,7 +1681,7 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
     assert "next_human_followup_family: governance_orphan_resolution" in summary_output
     assert "diagnostic_summary: unmatched_policy_signals=7 :: unresolved_dependencies=0" in summary_output
     assert (
-        "recommended_repo_followup: governance_orphan_resolution :: diagnostic=unmatched_policy_signal :: owner=<none> :: seed=src/gabion/analysis/dataflow/io :: count=1 :: action=seed_owned_workstream_from_source_family"
+        "recommended_repo_followup: governance_orphan_resolution :: diagnostic=unmatched_policy_signal :: owner=<none> :: seed=src/gabion/analysis/dataflow/io :: seed_object=WS-SEED:gabion.analysis.dataflow.io :: count=1 :: action=seed_owned_workstream_from_source_family"
         in summary_output
     )
     assert (
@@ -1679,7 +1689,7 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
         in summary_output
     )
     assert (
-        "recommended_repo_human_followup: governance_orphan_resolution :: diagnostic=unmatched_policy_signal :: owner=<none> :: seed=src/gabion/analysis/dataflow/io :: count=1 :: action=seed_owned_workstream_from_source_family"
+        "recommended_repo_human_followup: governance_orphan_resolution :: diagnostic=unmatched_policy_signal :: owner=<none> :: seed=src/gabion/analysis/dataflow/io :: seed_object=WS-SEED:gabion.analysis.dataflow.io :: count=1 :: action=seed_owned_workstream_from_source_family"
         in summary_output
     )
     assert "repo_followup_lanes:" in summary_output
@@ -1689,7 +1699,7 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
     )
     assert "repo_diagnostic_lanes:" in summary_output
     assert (
-        "- grade:GMP-001 :: code=unmatched_policy_signal :: severity=warning :: count=1 :: source=src/gabion/analysis/dataflow/io/dataflow_reporting.py::gabion.analysis.dataflow.io.dataflow_reporting._append_report_tail_sections :: policy_ids=GMP-001 :: owner_status=source_family_seed_owner :: owner=<none> :: seed=src/gabion/analysis/dataflow/io :: action=seed_owned_workstream_from_source_family"
+        "- grade:GMP-001 :: code=unmatched_policy_signal :: severity=warning :: count=1 :: source=src/gabion/analysis/dataflow/io/dataflow_reporting.py::gabion.analysis.dataflow.io.dataflow_reporting._append_report_tail_sections :: policy_ids=GMP-001 :: owner_status=source_family_seed_owner :: owner=<none> :: seed=src/gabion/analysis/dataflow/io :: seed_object=WS-SEED:gabion.analysis.dataflow.io :: action=seed_owned_workstream_from_source_family"
         in summary_output
     )
 
