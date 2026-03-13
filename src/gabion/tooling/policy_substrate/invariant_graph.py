@@ -637,6 +637,7 @@ class InvariantRepoFollowupCohortMember:
     object_id: str | None
     diagnostic_code: str | None
     target_doc_id: str | None
+    policy_ids: tuple[str, ...]
     title: str
     utility_score: int
     selection_rank: int
@@ -650,6 +651,7 @@ class InvariantRepoFollowupCohortMember:
             "object_id": self.object_id,
             "diagnostic_code": self.diagnostic_code,
             "target_doc_id": self.target_doc_id,
+            "policy_ids": list(self.policy_ids),
             "title": self.title,
             "utility_score": self.utility_score,
             "selection_rank": self.selection_rank,
@@ -666,6 +668,7 @@ class InvariantRepoFollowupAction:
     owner_object_id: str | None
     diagnostic_code: str | None
     target_doc_id: str | None
+    policy_ids: tuple[str, ...]
     title: str
     blocker_class: str | None
     readiness_class: str | None
@@ -715,6 +718,7 @@ class InvariantRepoFollowupAction:
             "owner_object_id": self.owner_object_id,
             "diagnostic_code": self.diagnostic_code,
             "target_doc_id": self.target_doc_id,
+            "policy_ids": list(self.policy_ids),
             "title": self.title,
             "blocker_class": self.blocker_class,
             "readiness_class": self.readiness_class,
@@ -2258,6 +2262,7 @@ class InvariantWorkstreamsProjection:
                 object_id=item.object_id,
                 diagnostic_code=item.diagnostic_code,
                 target_doc_id=item.target_doc_id,
+                policy_ids=item.policy_ids,
                 title=item.title,
                 utility_score=item.utility_score,
                 selection_rank=index,
@@ -2279,6 +2284,8 @@ class InvariantWorkstreamsProjection:
     ) -> str:
         if selection_rank == 1:
             return "frontier_tiebreak_winner"
+        if followup.policy_ids != frontier_followup.policy_ids and followup.policy_ids:
+            return "policy_ids:" + ",".join(followup.policy_ids)
         if followup.priority_rank != frontier_followup.priority_rank:
             return f"priority_rank:{followup.priority_rank}"
         if (followup.owner_resolution_score or 0) != (
@@ -2352,6 +2359,7 @@ class InvariantWorkstreamsProjection:
                         owner_object_id=lane.candidate_owner_object_id,
                         diagnostic_code=lane.diagnostic_code,
                         target_doc_id=None,
+                        policy_ids=lane.policy_ids,
                         title=title,
                         blocker_class="policy_orphan",
                         readiness_class=None,
@@ -2429,6 +2437,7 @@ class InvariantWorkstreamsProjection:
                         owner_object_id=None,
                         diagnostic_code=lane.diagnostic_code,
                         target_doc_id=None,
+                        policy_ids=lane.policy_ids,
                         title=title,
                         blocker_class="dependency_orphan",
                         readiness_class=None,
@@ -2486,6 +2495,7 @@ class InvariantWorkstreamsProjection:
                         owner_object_id=None,
                         diagnostic_code=lane.diagnostic_code,
                         target_doc_id=None,
+                        policy_ids=lane.policy_ids,
                         title=title,
                         blocker_class="diagnostic_backlog",
                         readiness_class=None,
@@ -2538,6 +2548,7 @@ class InvariantWorkstreamsProjection:
                         owner_object_id=workstream.object_id.wire(),
                         diagnostic_code=None,
                         target_doc_id=followup.target_doc_id,
+                        policy_ids=(),
                         title=followup.title,
                         blocker_class=followup.blocker_class,
                         readiness_class=followup.readiness_class,
@@ -2602,6 +2613,7 @@ class InvariantWorkstreamsProjection:
                     -(item.owner_resolution_score or 0),
                     -item.count,
                     item.followup_family,
+                    item.policy_ids,
                     item.title,
                     item.object_id or "",
                     item.target_doc_id or "",

@@ -165,6 +165,7 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         "owner_object_id": None,
         "diagnostic_code": "unmatched_policy_signal",
         "target_doc_id": None,
+        "policy_ids": ["GMP-001"],
         "title": "seed ownership for grade:GMP-001 from src/gabion/analysis/dataflow/io",
         "blocker_class": "policy_orphan",
         "readiness_class": None,
@@ -244,6 +245,7 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
                 "object_id": None,
                 "diagnostic_code": "unmatched_policy_signal",
                 "target_doc_id": None,
+                "policy_ids": [f"GMP-{value:03d}"],
                 "title": (
                     "seed ownership for grade:GMP-{index} from "
                     "src/gabion/analysis/dataflow/io"
@@ -253,10 +255,7 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
                 "selection_reason": (
                     "frontier_tiebreak_winner"
                     if value == 1
-                    else (
-                        "title:seed ownership for grade:GMP-{index} from "
-                        "src/gabion/analysis/dataflow/io"
-                    ).format(index=f"{value:03d}")
+                    else f"policy_ids:GMP-{value:03d}"
                 ),
             }
             for value in range(1, 8)
@@ -290,6 +289,7 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         "owner_object_id": "PSF-007",
         "diagnostic_code": None,
         "target_doc_id": None,
+        "policy_ids": [],
         "title": "projection_exec_plan.py planning surfaces",
         "blocker_class": "ready_structural",
         "readiness_class": "ready_structural",
@@ -333,6 +333,7 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
                 "object_id": "PSF-007-TP-005",
                 "diagnostic_code": None,
                 "target_doc_id": None,
+                "policy_ids": [],
                 "title": "projection_exec_plan.py planning surfaces",
                 "utility_score": 700,
                 "selection_rank": 1,
@@ -2833,7 +2834,7 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
         in summary_output
     )
     assert (
-        "governance_orphan_resolution:diagnostic_resolution:unmatched_policy_signal:seed ownership for grade:GMP-007 from src/gabion/analysis/dataflow/io@1100:rank=7:title:seed ownership for grade:GMP-007 from src/gabion/analysis/dataflow/io"
+        "governance_orphan_resolution:diagnostic_resolution:unmatched_policy_signal:seed ownership for grade:GMP-007 from src/gabion/analysis/dataflow/io@1100:rank=7:policy_ids:GMP-007"
         in summary_output
     )
     assert (
