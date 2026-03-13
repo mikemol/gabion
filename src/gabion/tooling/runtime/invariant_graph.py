@@ -10,7 +10,9 @@ from gabion.tooling.policy_substrate.invariant_graph import (
     blocker_chains,
     build_invariant_graph,
     build_invariant_workstreams,
+    compare_invariant_workstreams,
     load_invariant_graph,
+    load_invariant_workstreams,
     trace_nodes,
     write_invariant_graph,
     write_invariant_workstreams,
@@ -462,6 +464,68 @@ def _print_blast_radius(
     return 0
 
 
+def _print_compare(
+    *,
+    before_workstreams_artifact: Path,
+    after_workstreams_artifact: Path,
+    object_id: str | None,
+) -> int:
+    before_payload = load_invariant_workstreams(before_workstreams_artifact)
+    after_payload = load_invariant_workstreams(after_workstreams_artifact)
+    drifts = compare_invariant_workstreams(before_payload, after_payload)
+    if object_id is not None:
+        drifts = tuple(item for item in drifts if item.object_id == object_id)
+        if not drifts:
+            print(f"no workstream drift for object_id: {object_id}")
+            return 1
+    print(f"before: {before_workstreams_artifact}")
+    print(f"after: {after_workstreams_artifact}")
+    classification_counts: dict[str, int] = {}
+    for item in drifts:
+        classification_counts[item.classification] = (
+            classification_counts.get(item.classification, 0) + 1
+        )
+    print("classification_counts:")
+    for key, value in _sorted(
+        list(classification_counts.items()),
+        key=lambda item: item[0],
+    ):
+        print(f"- {key}: {value}")
+    print("workstream_drifts:")
+    for item in drifts:
+        print(
+            "- {object_id} :: {classification} :: touchsites={before}->{after} ({delta:+d}) :: surviving={before_surviving}->{after_surviving} ({surviving_delta:+d}) :: dominant={before_blocker}->{after_blocker} :: recommended={before_cut}->{after_cut}".format(
+                object_id=item.object_id,
+                classification=item.classification,
+                before=item.before_touchsite_count,
+                after=item.after_touchsite_count,
+                delta=item.touchsite_delta,
+                before_surviving=item.before_surviving_touchsite_count,
+                after_surviving=item.after_surviving_touchsite_count,
+                surviving_delta=item.surviving_touchsite_delta,
+                before_blocker=item.before_dominant_blocker_class,
+                after_blocker=item.after_dominant_blocker_class,
+                before_cut=item.before_recommended_cut_object_id or "<none>",
+                after_cut=item.after_recommended_cut_object_id or "<none>",
+            )
+        )
+        print(
+            "  blocker_deltas: ready={ready:+d} :: coverage_gap={coverage:+d} :: policy={policy:+d} :: diagnostic={diagnostic:+d}".format(
+                ready=item.blocker_deltas.get("ready_touchsite_count", 0),
+                coverage=item.blocker_deltas.get("coverage_gap_touchsite_count", 0),
+                policy=item.blocker_deltas.get("policy_blocked_touchsite_count", 0),
+                diagnostic=item.blocker_deltas.get("diagnostic_blocked_touchsite_count", 0),
+            )
+        )
+        print(
+            "  touchsite_identity_delta: added={added} :: removed={removed}".format(
+                added=len(item.added_touchsite_ids),
+                removed=len(item.removed_touchsite_ids),
+            )
+        )
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", default=".")
@@ -487,6 +551,11 @@ def main(argv: list[str] | None = None) -> int:
     blast_radius_parser = subparsers.add_parser("blast-radius")
     blast_radius_parser.add_argument("--id", required=True)
     blast_radius_parser.add_argument("--impact-artifact", default=None)
+
+    compare_parser = subparsers.add_parser("compare")
+    compare_parser.add_argument("--before-workstreams-artifact", required=True)
+    compare_parser.add_argument("--after-workstreams-artifact", required=True)
+    compare_parser.add_argument("--object-id", default=None)
 
     args = parser.parse_args(argv)
     root = Path(args.root).resolve()
@@ -527,6 +596,16 @@ def main(argv: list[str] | None = None) -> int:
             graph=_load_or_build_graph(root=root, artifact=artifact),
             raw_id=str(args.id),
             impact_artifact=impact_artifact,
+        )
+    if args.command == "compare":
+        return _print_compare(
+            before_workstreams_artifact=Path(
+                str(args.before_workstreams_artifact)
+            ).resolve(),
+            after_workstreams_artifact=Path(
+                str(args.after_workstreams_artifact)
+            ).resolve(),
+            object_id=None if args.object_id is None else str(args.object_id),
         )
     return 1
 

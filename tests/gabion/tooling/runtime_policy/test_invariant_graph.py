@@ -16,6 +16,11 @@ def _write(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
+def _write_json(path: Path, payload: object) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
 def _disable_phase5_enricher(monkeypatch) -> None:
     monkeypatch.setattr(invariant_graph, "iter_phase5_queues", lambda: ())
     monkeypatch.setattr(invariant_graph, "iter_phase5_subqueues", lambda: ())
@@ -64,6 +69,16 @@ def _sample_repo(tmp_path: Path) -> Path:
 
 def _stream_from_items(items):
     return ReplayableStream(factory=lambda items=tuple(items): iter(items))
+
+
+def _synthetic_workstreams_payload(workstreams: list[dict[str, object]]) -> dict[str, object]:
+    return {
+        "format_version": 1,
+        "generated_at_utc": "2026-03-13T00:00:00+00:00",
+        "root": str(REPO_ROOT),
+        "workstreams": workstreams,
+        "counts": {"workstream_count": len(workstreams)},
+    }
 
 
 def test_build_invariant_graph_scans_decorated_symbols_and_marker_callsites(
@@ -641,6 +656,208 @@ def test_build_invariant_graph_fails_closed_on_declared_workstream_dependency(
 
     with pytest.raises(ValueError, match="declared workstream blocking dependency"):
         invariant_graph.build_invariant_graph(root)
+
+
+def test_compare_invariant_workstreams_classifies_reduced_and_relocated() -> None:
+    before_payload = _synthetic_workstreams_payload(
+        [
+            {
+                "object_id": "WS-REDUCE",
+                "status": "in_progress",
+                "touchsite_count": 2,
+                "surviving_touchsite_count": 1,
+                "touchpoints": [
+                    {
+                        "touchsites": [
+                            {"object_id": "TS-1"},
+                            {"object_id": "TS-2"},
+                        ]
+                    }
+                ],
+                "health_summary": {
+                    "ready_touchsite_count": 0,
+                    "coverage_gap_touchsite_count": 2,
+                    "policy_blocked_touchsite_count": 0,
+                    "diagnostic_blocked_touchsite_count": 0,
+                },
+                "next_actions": {
+                    "dominant_blocker_class": "coverage_gap",
+                    "recommended_cut": {"object_id": "TP-REDUCE-1"},
+                },
+            },
+            {
+                "object_id": "WS-RELOCATE",
+                "status": "in_progress",
+                "touchsite_count": 1,
+                "surviving_touchsite_count": 1,
+                "touchpoints": [
+                    {
+                        "touchsites": [
+                            {"object_id": "TS-OLD"},
+                        ]
+                    }
+                ],
+                "health_summary": {
+                    "ready_touchsite_count": 0,
+                    "coverage_gap_touchsite_count": 1,
+                    "policy_blocked_touchsite_count": 0,
+                    "diagnostic_blocked_touchsite_count": 0,
+                },
+                "next_actions": {
+                    "dominant_blocker_class": "coverage_gap",
+                    "recommended_cut": {"object_id": "TP-OLD"},
+                },
+            },
+        ]
+    )
+    after_payload = _synthetic_workstreams_payload(
+        [
+            {
+                "object_id": "WS-REDUCE",
+                "status": "in_progress",
+                "touchsite_count": 1,
+                "surviving_touchsite_count": 1,
+                "touchpoints": [
+                    {
+                        "touchsites": [
+                            {"object_id": "TS-1"},
+                        ]
+                    }
+                ],
+                "health_summary": {
+                    "ready_touchsite_count": 1,
+                    "coverage_gap_touchsite_count": 0,
+                    "policy_blocked_touchsite_count": 0,
+                    "diagnostic_blocked_touchsite_count": 0,
+                },
+                "next_actions": {
+                    "dominant_blocker_class": "ready_structural",
+                    "recommended_cut": {"object_id": "TP-REDUCE-2"},
+                },
+            },
+            {
+                "object_id": "WS-RELOCATE",
+                "status": "in_progress",
+                "touchsite_count": 1,
+                "surviving_touchsite_count": 1,
+                "touchpoints": [
+                    {
+                        "touchsites": [
+                            {"object_id": "TS-NEW"},
+                        ]
+                    }
+                ],
+                "health_summary": {
+                    "ready_touchsite_count": 0,
+                    "coverage_gap_touchsite_count": 0,
+                    "policy_blocked_touchsite_count": 1,
+                    "diagnostic_blocked_touchsite_count": 0,
+                },
+                "next_actions": {
+                    "dominant_blocker_class": "policy_blocked",
+                    "recommended_cut": {"object_id": "TP-NEW"},
+                },
+            },
+        ]
+    )
+
+    drifts = invariant_graph.compare_invariant_workstreams(before_payload, after_payload)
+    by_object_id = {item.object_id: item for item in drifts}
+
+    assert by_object_id["WS-REDUCE"].classification == "reduced"
+    assert by_object_id["WS-REDUCE"].touchsite_delta == -1
+    assert by_object_id["WS-REDUCE"].blocker_deltas["coverage_gap_touchsite_count"] == -2
+    assert by_object_id["WS-REDUCE"].blocker_deltas["ready_touchsite_count"] == 1
+    assert by_object_id["WS-REDUCE"].removed_touchsite_ids == ("TS-2",)
+
+    assert by_object_id["WS-RELOCATE"].classification == "relocated"
+    assert by_object_id["WS-RELOCATE"].touchsite_delta == 0
+    assert by_object_id["WS-RELOCATE"].before_dominant_blocker_class == "coverage_gap"
+    assert by_object_id["WS-RELOCATE"].after_dominant_blocker_class == "policy_blocked"
+    assert by_object_id["WS-RELOCATE"].added_touchsite_ids == ("TS-NEW",)
+    assert by_object_id["WS-RELOCATE"].removed_touchsite_ids == ("TS-OLD",)
+
+
+def test_runtime_invariant_graph_cli_compare_reports_workstream_drift(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    before_artifact = tmp_path / "before_workstreams.json"
+    after_artifact = tmp_path / "after_workstreams.json"
+    _write_json(
+        before_artifact,
+        _synthetic_workstreams_payload(
+            [
+                {
+                    "object_id": "WS-REDUCE",
+                    "status": "in_progress",
+                    "touchsite_count": 2,
+                    "surviving_touchsite_count": 1,
+                    "touchpoints": [
+                        {"touchsites": [{"object_id": "TS-1"}, {"object_id": "TS-2"}]}
+                    ],
+                    "health_summary": {
+                        "ready_touchsite_count": 0,
+                        "coverage_gap_touchsite_count": 2,
+                        "policy_blocked_touchsite_count": 0,
+                        "diagnostic_blocked_touchsite_count": 0,
+                    },
+                    "next_actions": {
+                        "dominant_blocker_class": "coverage_gap",
+                        "recommended_cut": {"object_id": "TP-BEFORE"},
+                    },
+                }
+            ]
+        ),
+    )
+    _write_json(
+        after_artifact,
+        _synthetic_workstreams_payload(
+            [
+                {
+                    "object_id": "WS-REDUCE",
+                    "status": "in_progress",
+                    "touchsite_count": 1,
+                    "surviving_touchsite_count": 1,
+                    "touchpoints": [{"touchsites": [{"object_id": "TS-1"}]}],
+                    "health_summary": {
+                        "ready_touchsite_count": 1,
+                        "coverage_gap_touchsite_count": 0,
+                        "policy_blocked_touchsite_count": 0,
+                        "diagnostic_blocked_touchsite_count": 0,
+                    },
+                    "next_actions": {
+                        "dominant_blocker_class": "ready_structural",
+                        "recommended_cut": {"object_id": "TP-AFTER"},
+                    },
+                }
+            ]
+        ),
+    )
+
+    assert (
+        invariant_graph_runtime.main(
+            [
+                "compare",
+                "--before-workstreams-artifact",
+                str(before_artifact),
+                "--after-workstreams-artifact",
+                str(after_artifact),
+            ]
+        )
+        == 0
+    )
+    compare_output = capsys.readouterr().out
+    assert "classification_counts:" in compare_output
+    assert "- reduced: 1" in compare_output
+    assert (
+        "- WS-REDUCE :: reduced :: touchsites=2->1 (-1) :: surviving=1->1 (+0) :: dominant=coverage_gap->ready_structural :: recommended=TP-BEFORE->TP-AFTER"
+        in compare_output
+    )
+    assert (
+        "  blocker_deltas: ready=+1 :: coverage_gap=-2 :: policy=+0 :: diagnostic=+0"
+        in compare_output
+    )
 
 
 def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(

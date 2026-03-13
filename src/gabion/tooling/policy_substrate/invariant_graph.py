@@ -1367,6 +1367,282 @@ class InvariantWorkstreamsProjection:
         )
 
 
+@dataclass(frozen=True)
+class InvariantWorkstreamDrift:
+    object_id: str
+    classification: str
+    before_status: str
+    after_status: str
+    before_touchsite_count: int
+    after_touchsite_count: int
+    touchsite_delta: int
+    before_surviving_touchsite_count: int
+    after_surviving_touchsite_count: int
+    surviving_touchsite_delta: int
+    before_dominant_blocker_class: str
+    after_dominant_blocker_class: str
+    before_recommended_cut_object_id: str | None
+    after_recommended_cut_object_id: str | None
+    blocker_deltas: Mapping[str, int]
+    added_touchsite_ids: tuple[str, ...]
+    removed_touchsite_ids: tuple[str, ...]
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "object_id": self.object_id,
+            "classification": self.classification,
+            "before_status": self.before_status,
+            "after_status": self.after_status,
+            "before_touchsite_count": self.before_touchsite_count,
+            "after_touchsite_count": self.after_touchsite_count,
+            "touchsite_delta": self.touchsite_delta,
+            "before_surviving_touchsite_count": self.before_surviving_touchsite_count,
+            "after_surviving_touchsite_count": self.after_surviving_touchsite_count,
+            "surviving_touchsite_delta": self.surviving_touchsite_delta,
+            "before_dominant_blocker_class": self.before_dominant_blocker_class,
+            "after_dominant_blocker_class": self.after_dominant_blocker_class,
+            "before_recommended_cut_object_id": self.before_recommended_cut_object_id,
+            "after_recommended_cut_object_id": self.after_recommended_cut_object_id,
+            "blocker_deltas": dict(self.blocker_deltas),
+            "added_touchsite_ids": list(self.added_touchsite_ids),
+            "removed_touchsite_ids": list(self.removed_touchsite_ids),
+        }
+
+
+def _workstream_payloads_by_object_id(
+    payload: Mapping[str, object],
+) -> dict[str, Mapping[str, object]]:
+    workstreams = payload.get("workstreams", [])
+    if not isinstance(workstreams, list):
+        return {}
+    mapping: dict[str, Mapping[str, object]] = {}
+    for item in workstreams:
+        if not isinstance(item, Mapping):
+            continue
+        object_id = item.get("object_id")
+        if isinstance(object_id, str) and object_id:
+            mapping[object_id] = item
+    return mapping
+
+
+def _extract_touchsite_ids(workstream_payload: Mapping[str, object]) -> tuple[str, ...]:
+    touchpoints = workstream_payload.get("touchpoints", [])
+    if not isinstance(touchpoints, list):
+        return ()
+    touchsite_ids: list[str] = []
+    for touchpoint in touchpoints:
+        if not isinstance(touchpoint, Mapping):
+            continue
+        touchsites = touchpoint.get("touchsites", [])
+        if not isinstance(touchsites, list):
+            continue
+        for touchsite in touchsites:
+            if not isinstance(touchsite, Mapping):
+                continue
+            object_id = touchsite.get("object_id")
+            if isinstance(object_id, str) and object_id:
+                touchsite_ids.append(object_id)
+    return tuple(_sorted(touchsite_ids))
+
+
+def _recommended_cut_object_id(workstream_payload: Mapping[str, object]) -> str | None:
+    next_actions = workstream_payload.get("next_actions")
+    if not isinstance(next_actions, Mapping):
+        return None
+    recommended_cut = next_actions.get("recommended_cut")
+    if not isinstance(recommended_cut, Mapping):
+        return None
+    object_id = recommended_cut.get("object_id")
+    if not isinstance(object_id, str) or not object_id:
+        return None
+    return object_id
+
+
+def _dominant_blocker_class_payload(workstream_payload: Mapping[str, object]) -> str:
+    next_actions = workstream_payload.get("next_actions")
+    if not isinstance(next_actions, Mapping):
+        return "none"
+    dominant = next_actions.get("dominant_blocker_class")
+    if not isinstance(dominant, str) or not dominant:
+        return "none"
+    return dominant
+
+
+def _health_summary_payload(workstream_payload: Mapping[str, object]) -> Mapping[str, object]:
+    health_summary = workstream_payload.get("health_summary")
+    if not isinstance(health_summary, Mapping):
+        return {}
+    return health_summary
+
+
+def _int_field(payload: Mapping[str, object], key: str) -> int:
+    value = payload.get(key, 0)
+    return int(value) if isinstance(value, int) else 0
+
+
+def compare_invariant_workstreams(
+    before_payload: Mapping[str, object],
+    after_payload: Mapping[str, object],
+) -> tuple[InvariantWorkstreamDrift, ...]:
+    before_by_object_id = _workstream_payloads_by_object_id(before_payload)
+    after_by_object_id = _workstream_payloads_by_object_id(after_payload)
+    object_ids = _sorted(
+        list(set(before_by_object_id.keys()) | set(after_by_object_id.keys()))
+    )
+    blocker_keys = (
+        "ready_touchsite_count",
+        "coverage_gap_touchsite_count",
+        "policy_blocked_touchsite_count",
+        "diagnostic_blocked_touchsite_count",
+    )
+    drifts: list[InvariantWorkstreamDrift] = []
+    for object_id in object_ids:
+        before = before_by_object_id.get(object_id)
+        after = after_by_object_id.get(object_id)
+        if before is None:
+            after_health = _health_summary_payload(after or {})
+            after_touchsite_ids = _extract_touchsite_ids(after or {})
+            drifts.append(
+                InvariantWorkstreamDrift(
+                    object_id=object_id,
+                    classification="introduced",
+                    before_status="missing",
+                    after_status=str((after or {}).get("status", "")),
+                    before_touchsite_count=0,
+                    after_touchsite_count=_int_field(after or {}, "touchsite_count"),
+                    touchsite_delta=_int_field(after or {}, "touchsite_count"),
+                    before_surviving_touchsite_count=0,
+                    after_surviving_touchsite_count=_int_field(
+                        after or {}, "surviving_touchsite_count"
+                    ),
+                    surviving_touchsite_delta=_int_field(
+                        after or {}, "surviving_touchsite_count"
+                    ),
+                    before_dominant_blocker_class="none",
+                    after_dominant_blocker_class=_dominant_blocker_class_payload(after or {}),
+                    before_recommended_cut_object_id=None,
+                    after_recommended_cut_object_id=_recommended_cut_object_id(after or {}),
+                    blocker_deltas={
+                        key: _int_field(after_health, key) for key in blocker_keys
+                    },
+                    added_touchsite_ids=after_touchsite_ids,
+                    removed_touchsite_ids=(),
+                )
+            )
+            continue
+        if after is None:
+            before_health = _health_summary_payload(before)
+            before_touchsite_ids = _extract_touchsite_ids(before)
+            drifts.append(
+                InvariantWorkstreamDrift(
+                    object_id=object_id,
+                    classification="retired",
+                    before_status=str(before.get("status", "")),
+                    after_status="missing",
+                    before_touchsite_count=_int_field(before, "touchsite_count"),
+                    after_touchsite_count=0,
+                    touchsite_delta=-_int_field(before, "touchsite_count"),
+                    before_surviving_touchsite_count=_int_field(
+                        before, "surviving_touchsite_count"
+                    ),
+                    after_surviving_touchsite_count=0,
+                    surviving_touchsite_delta=-_int_field(
+                        before, "surviving_touchsite_count"
+                    ),
+                    before_dominant_blocker_class=_dominant_blocker_class_payload(before),
+                    after_dominant_blocker_class="none",
+                    before_recommended_cut_object_id=_recommended_cut_object_id(before),
+                    after_recommended_cut_object_id=None,
+                    blocker_deltas={
+                        key: -_int_field(before_health, key) for key in blocker_keys
+                    },
+                    added_touchsite_ids=(),
+                    removed_touchsite_ids=before_touchsite_ids,
+                )
+            )
+            continue
+
+        before_health = _health_summary_payload(before)
+        after_health = _health_summary_payload(after)
+        before_touchsite_ids = set(_extract_touchsite_ids(before))
+        after_touchsite_ids = set(_extract_touchsite_ids(after))
+        added_touchsite_ids = tuple(_sorted(list(after_touchsite_ids - before_touchsite_ids)))
+        removed_touchsite_ids = tuple(
+            _sorted(list(before_touchsite_ids - after_touchsite_ids))
+        )
+        touchsite_delta = _int_field(after, "touchsite_count") - _int_field(
+            before, "touchsite_count"
+        )
+        surviving_touchsite_delta = _int_field(
+            after, "surviving_touchsite_count"
+        ) - _int_field(before, "surviving_touchsite_count")
+        blocker_deltas = {
+            key: _int_field(after_health, key) - _int_field(before_health, key)
+            for key in blocker_keys
+        }
+        blocking_pressure_deltas = (
+            blocker_deltas["coverage_gap_touchsite_count"],
+            blocker_deltas["policy_blocked_touchsite_count"],
+            blocker_deltas["diagnostic_blocked_touchsite_count"],
+        )
+        delta_vector = (
+            touchsite_delta,
+            surviving_touchsite_delta,
+            *blocker_deltas.values(),
+        )
+        if (
+            delta_vector == (0, 0, 0, 0, 0, 0)
+            and not added_touchsite_ids
+            and not removed_touchsite_ids
+            and _dominant_blocker_class_payload(before)
+            == _dominant_blocker_class_payload(after)
+            and _recommended_cut_object_id(before) == _recommended_cut_object_id(after)
+        ):
+            classification = "stable"
+        elif (
+            touchsite_delta <= 0
+            and surviving_touchsite_delta <= 0
+            and any(value < 0 for value in blocking_pressure_deltas)
+            and not any(value > 0 for value in blocking_pressure_deltas)
+        ):
+            classification = "reduced"
+        elif (
+            touchsite_delta >= 0
+            and surviving_touchsite_delta >= 0
+            and any(value > 0 for value in blocking_pressure_deltas)
+            and not any(value < 0 for value in blocking_pressure_deltas)
+        ):
+            classification = "widened"
+        else:
+            classification = "relocated"
+        drifts.append(
+            InvariantWorkstreamDrift(
+                object_id=object_id,
+                classification=classification,
+                before_status=str(before.get("status", "")),
+                after_status=str(after.get("status", "")),
+                before_touchsite_count=_int_field(before, "touchsite_count"),
+                after_touchsite_count=_int_field(after, "touchsite_count"),
+                touchsite_delta=touchsite_delta,
+                before_surviving_touchsite_count=_int_field(
+                    before, "surviving_touchsite_count"
+                ),
+                after_surviving_touchsite_count=_int_field(
+                    after, "surviving_touchsite_count"
+                ),
+                surviving_touchsite_delta=surviving_touchsite_delta,
+                before_dominant_blocker_class=_dominant_blocker_class_payload(before),
+                after_dominant_blocker_class=_dominant_blocker_class_payload(after),
+                before_recommended_cut_object_id=_recommended_cut_object_id(before),
+                after_recommended_cut_object_id=_recommended_cut_object_id(after),
+                blocker_deltas=blocker_deltas,
+                added_touchsite_ids=added_touchsite_ids,
+                removed_touchsite_ids=removed_touchsite_ids,
+            )
+        )
+    return tuple(_sorted(drifts, key=lambda item: (item.object_id, item.classification)))
+
+
 def _payload_to_units(payload: Mapping[str, object]) -> tuple[ArtifactUnit, ...]:
     units: list[ArtifactUnit] = []
     for key, value in payload.items():
@@ -3173,10 +3449,12 @@ __all__ = [
     "InvariantGraphDiagnostic",
     "InvariantGraphEdge",
     "InvariantGraphNode",
+    "InvariantWorkstreamDrift",
     "blocker_chains",
     "build_invariant_graph",
     "build_invariant_workstreams",
     "build_psf_phase5_projection",
+    "compare_invariant_workstreams",
     "load_invariant_workstreams",
     "load_invariant_graph",
     "trace_nodes",
