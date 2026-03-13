@@ -616,6 +616,20 @@ class InvariantDiagnosticSummary:
 
 
 @dataclass(frozen=True)
+class InvariantScoreComponent:
+    kind: str
+    score: int
+    rationale: str
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "kind": self.kind,
+            "score": self.score,
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
 class InvariantRepoFollowupAction:
     followup_family: str
     action_kind: str
@@ -672,9 +686,11 @@ class InvariantRepoFollowupLane:
     strongest_utility_reason: str
     lane_utility_score: int
     lane_utility_reason: str
+    lane_utility_components: tuple[InvariantScoreComponent, ...]
     selection_rank: int
     opportunity_cost_score: int
     opportunity_cost_reason: str
+    opportunity_cost_components: tuple[InvariantScoreComponent, ...]
     best_followup: InvariantRepoFollowupAction
 
     def as_payload(self) -> dict[str, object]:
@@ -688,9 +704,15 @@ class InvariantRepoFollowupLane:
             "strongest_utility_reason": self.strongest_utility_reason,
             "lane_utility_score": self.lane_utility_score,
             "lane_utility_reason": self.lane_utility_reason,
+            "lane_utility_components": [
+                item.as_payload() for item in self.lane_utility_components
+            ],
             "selection_rank": self.selection_rank,
             "opportunity_cost_score": self.opportunity_cost_score,
             "opportunity_cost_reason": self.opportunity_cost_reason,
+            "opportunity_cost_components": [
+                item.as_payload() for item in self.opportunity_cost_components
+            ],
             "best_followup": self.best_followup.as_payload(),
         }
 
@@ -1996,7 +2018,7 @@ class InvariantWorkstreamsProjection:
         followup_class: str,
         followup_family: str,
         items: tuple[InvariantRepoFollowupAction, ...],
-    ) -> tuple[int, str]:
+    ) -> tuple[int, str, tuple[InvariantScoreComponent, ...]]:
         best_followup = items[0]
         breadth_bonus = min(len(items), 9) * 5
         class_bonus = {
@@ -2004,11 +2026,64 @@ class InvariantWorkstreamsProjection:
             "code": 10,
             "documentation": 5,
         }.get(followup_class, 0)
+        utility_components = (
+            InvariantScoreComponent(
+                kind="best_followup_utility",
+                score=best_followup.utility_score,
+                rationale=best_followup.utility_reason,
+            ),
+            InvariantScoreComponent(
+                kind="lane_breadth_bonus",
+                score=breadth_bonus,
+                rationale=f"lane_breadth:{len(items)}",
+            ),
+            InvariantScoreComponent(
+                kind="lane_class_bonus",
+                score=class_bonus,
+                rationale=f"lane_class:{followup_class}",
+            ),
+        )
         utility_score = best_followup.utility_score + breadth_bonus + class_bonus
         utility_reason = (
             f"{best_followup.utility_reason}+lane_breadth:{len(items)}+lane:{followup_family}"
         )
-        return (utility_score, utility_reason)
+        return (utility_score, utility_reason, utility_components)
+
+    def _repo_followup_lane_opportunity_components(
+        self,
+        *,
+        frontier_lane: InvariantRepoFollowupLane,
+        lane: InvariantRepoFollowupLane,
+    ) -> tuple[InvariantScoreComponent, ...]:
+        if frontier_lane.followup_family == lane.followup_family:
+            return ()
+        frontier_by_kind = {
+            item.kind: item for item in frontier_lane.lane_utility_components
+        }
+        lane_by_kind = {item.kind: item for item in lane.lane_utility_components}
+        components: list[InvariantScoreComponent] = []
+        for kind in (
+            "best_followup_utility",
+            "lane_breadth_bonus",
+            "lane_class_bonus",
+        ):
+            frontier_component = frontier_by_kind.get(kind)
+            lane_component = lane_by_kind.get(kind)
+            if frontier_component is None or lane_component is None:
+                continue
+            gap = max(0, frontier_component.score - lane_component.score)
+            if gap == 0:
+                continue
+            components.append(
+                InvariantScoreComponent(
+                    kind=f"{kind}_gap",
+                    score=gap,
+                    rationale=(
+                        f"{frontier_component.rationale}->{lane_component.rationale}"
+                    ),
+                )
+            )
+        return tuple(components)
 
     def recommended_repo_followup_lane(self) -> InvariantRepoFollowupLane | None:
         return self._recommended_repo_followup_lane
@@ -2041,32 +2116,35 @@ class InvariantWorkstreamsProjection:
         for followup in self.ranked_repo_followups():
             followup_class = self._repo_followup_class(followup)
             grouped[(followup_class, followup.followup_family)].append(followup)
-        lanes = [
-            InvariantRepoFollowupLane(
-                followup_family=followup_family,
-                followup_class=followup_class,
-                action_count=len(items),
-                strongest_owner_resolution_kind=items[0].owner_resolution_kind,
-                strongest_owner_resolution_score=items[0].owner_resolution_score,
-                strongest_utility_score=items[0].utility_score,
-                strongest_utility_reason=items[0].utility_reason,
-                lane_utility_score=self._repo_followup_lane_utility(
+        lanes: list[InvariantRepoFollowupLane] = []
+        for (followup_class, followup_family), grouped_items in grouped.items():
+            items = tuple(grouped_items)
+            lane_utility_score, lane_utility_reason, lane_utility_components = (
+                self._repo_followup_lane_utility(
                     followup_class=followup_class,
                     followup_family=followup_family,
-                    items=tuple(items),
-                )[0],
-                lane_utility_reason=self._repo_followup_lane_utility(
-                    followup_class=followup_class,
-                    followup_family=followup_family,
-                    items=tuple(items),
-                )[1],
-                selection_rank=0,
-                opportunity_cost_score=0,
-                opportunity_cost_reason="",
-                best_followup=items[0],
+                    items=items,
+                )
             )
-            for (followup_class, followup_family), items in grouped.items()
-        ]
+            lanes.append(
+                InvariantRepoFollowupLane(
+                    followup_family=followup_family,
+                    followup_class=followup_class,
+                    action_count=len(items),
+                    strongest_owner_resolution_kind=items[0].owner_resolution_kind,
+                    strongest_owner_resolution_score=items[0].owner_resolution_score,
+                    strongest_utility_score=items[0].utility_score,
+                    strongest_utility_reason=items[0].utility_reason,
+                    lane_utility_score=lane_utility_score,
+                    lane_utility_reason=lane_utility_reason,
+                    lane_utility_components=lane_utility_components,
+                    selection_rank=0,
+                    opportunity_cost_score=0,
+                    opportunity_cost_reason="",
+                    opportunity_cost_components=(),
+                    best_followup=items[0],
+                )
+            )
         ranked_lanes = _sorted(
             lanes,
             key=lambda item: (
@@ -2077,7 +2155,8 @@ class InvariantWorkstreamsProjection:
                 item.followup_family,
             ),
         )
-        top_score = ranked_lanes[0].lane_utility_score if ranked_lanes else 0
+        frontier_lane = ranked_lanes[0] if ranked_lanes else None
+        top_score = frontier_lane.lane_utility_score if frontier_lane is not None else 0
         return tuple(
             replace(
                 lane,
@@ -2090,6 +2169,14 @@ class InvariantWorkstreamsProjection:
                         f"deferred_by:{ranked_lanes[0].followup_family}"
                         if ranked_lanes
                         else "none"
+                    )
+                ),
+                opportunity_cost_components=(
+                    ()
+                    if frontier_lane is None
+                    else self._repo_followup_lane_opportunity_components(
+                        frontier_lane=frontier_lane,
+                        lane=lane,
                     )
                 ),
             )

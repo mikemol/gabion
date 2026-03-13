@@ -118,6 +118,23 @@ def _load_impacted_tests(path: Path | None) -> tuple[str, ...]:
     return tuple(_sorted([str(item) for item in impacted_tests if isinstance(item, str)]))
 
 
+def _format_score_components(components: object) -> str:
+    if not isinstance(components, (list, tuple)) or not components:
+        return "none"
+    parts: list[str] = []
+    for item in components:
+        if isinstance(item, dict):
+            kind = str(item.get("kind", "component"))
+            score = int(item.get("score", 0))
+            rationale = str(item.get("rationale", ""))
+        else:
+            kind = str(getattr(item, "kind", "component"))
+            score = int(getattr(item, "score", 0))
+            rationale = str(getattr(item, "rationale", ""))
+        parts.append(f"{kind}:{score}:{rationale}")
+    return " | ".join(parts) if parts else "none"
+
+
 def _workstream_by_object_id(
     *,
     graph: InvariantGraph,
@@ -252,48 +269,66 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
         print("recommended_repo_followup_lane: <none>")
     else:
         print(
-            "recommended_repo_followup_lane: {family} :: class={klass} :: rank={rank} :: utility={utility} :: opportunity={opportunity}".format(
+            "recommended_repo_followup_lane: {family} :: class={klass} :: rank={rank} :: utility={utility} :: utility_components={utility_components} :: opportunity={opportunity} :: opportunity_components={opportunity_components}".format(
                 family=recommended_repo_followup_lane.followup_family,
                 klass=recommended_repo_followup_lane.followup_class,
                 rank=recommended_repo_followup_lane.selection_rank,
                 utility=(
                     f"{recommended_repo_followup_lane.lane_utility_score}:{recommended_repo_followup_lane.lane_utility_reason}"
                 ),
+                utility_components=_format_score_components(
+                    recommended_repo_followup_lane.lane_utility_components
+                ),
                 opportunity=(
                     f"{recommended_repo_followup_lane.opportunity_cost_score}:{recommended_repo_followup_lane.opportunity_cost_reason}"
-                )
+                ),
+                opportunity_components=_format_score_components(
+                    recommended_repo_followup_lane.opportunity_cost_components
+                ),
             )
         )
     if recommended_repo_code_followup_lane is None:
         print("recommended_repo_code_followup_lane: <none>")
     else:
         print(
-            "recommended_repo_code_followup_lane: {family} :: class={klass} :: rank={rank} :: utility={utility} :: opportunity={opportunity}".format(
+            "recommended_repo_code_followup_lane: {family} :: class={klass} :: rank={rank} :: utility={utility} :: utility_components={utility_components} :: opportunity={opportunity} :: opportunity_components={opportunity_components}".format(
                 family=recommended_repo_code_followup_lane.followup_family,
                 klass=recommended_repo_code_followup_lane.followup_class,
                 rank=recommended_repo_code_followup_lane.selection_rank,
                 utility=(
                     f"{recommended_repo_code_followup_lane.lane_utility_score}:{recommended_repo_code_followup_lane.lane_utility_reason}"
                 ),
+                utility_components=_format_score_components(
+                    recommended_repo_code_followup_lane.lane_utility_components
+                ),
                 opportunity=(
                     f"{recommended_repo_code_followup_lane.opportunity_cost_score}:{recommended_repo_code_followup_lane.opportunity_cost_reason}"
-                )
+                ),
+                opportunity_components=_format_score_components(
+                    recommended_repo_code_followup_lane.opportunity_cost_components
+                ),
             )
         )
     if recommended_repo_human_followup_lane is None:
         print("recommended_repo_human_followup_lane: <none>")
     else:
         print(
-            "recommended_repo_human_followup_lane: {family} :: class={klass} :: rank={rank} :: utility={utility} :: opportunity={opportunity}".format(
+            "recommended_repo_human_followup_lane: {family} :: class={klass} :: rank={rank} :: utility={utility} :: utility_components={utility_components} :: opportunity={opportunity} :: opportunity_components={opportunity_components}".format(
                 family=recommended_repo_human_followup_lane.followup_family,
                 klass=recommended_repo_human_followup_lane.followup_class,
                 rank=recommended_repo_human_followup_lane.selection_rank,
                 utility=(
                     f"{recommended_repo_human_followup_lane.lane_utility_score}:{recommended_repo_human_followup_lane.lane_utility_reason}"
                 ),
+                utility_components=_format_score_components(
+                    recommended_repo_human_followup_lane.lane_utility_components
+                ),
                 opportunity=(
                     f"{recommended_repo_human_followup_lane.opportunity_cost_score}:{recommended_repo_human_followup_lane.opportunity_cost_reason}"
-                )
+                ),
+                opportunity_components=_format_score_components(
+                    recommended_repo_human_followup_lane.opportunity_cost_components
+                ),
             )
         )
     print("repo_followup_lanes:")
@@ -301,7 +336,7 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
         best = lane.best_followup
         target = best.object_id or best.target_doc_id or best.diagnostic_code or "<none>"
         print(
-            "- {family} :: class={klass} :: actions={actions} :: best={action_kind}::{target} :: owner_strength={owner_strength} :: utility={utility} :: lane_utility={lane_utility} :: rank={rank} :: opportunity={opportunity}".format(
+            "- {family} :: class={klass} :: actions={actions} :: best={action_kind}::{target} :: owner_strength={owner_strength} :: utility={utility} :: lane_utility={lane_utility} :: lane_components={lane_components} :: rank={rank} :: opportunity={opportunity} :: opportunity_components={opportunity_components}".format(
                 family=lane.followup_family,
                 klass=lane.followup_class,
                 actions=lane.action_count,
@@ -316,8 +351,14 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
                 ),
                 utility=f"{lane.strongest_utility_score}:{lane.strongest_utility_reason}",
                 lane_utility=f"{lane.lane_utility_score}:{lane.lane_utility_reason}",
+                lane_components=_format_score_components(
+                    lane.lane_utility_components
+                ),
                 rank=lane.selection_rank,
                 opportunity=f"{lane.opportunity_cost_score}:{lane.opportunity_cost_reason}",
+                opportunity_components=_format_score_components(
+                    lane.opportunity_cost_components
+                ),
             )
         )
     print("repo_diagnostic_lanes:")

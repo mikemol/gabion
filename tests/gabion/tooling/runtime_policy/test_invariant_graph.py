@@ -220,9 +220,27 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         "lane_utility_reason": (
             "governance_orphan:seed_new_owner+lane_breadth:7+lane:governance_orphan_resolution"
         ),
+        "lane_utility_components": [
+            {
+                "kind": "best_followup_utility",
+                "score": 1000,
+                "rationale": "governance_orphan:seed_new_owner",
+            },
+            {
+                "kind": "lane_breadth_bonus",
+                "score": 35,
+                "rationale": "lane_breadth:7",
+            },
+            {
+                "kind": "lane_class_bonus",
+                "score": 25,
+                "rationale": "lane_class:governance",
+            },
+        ],
         "selection_rank": 1,
         "opportunity_cost_score": 0,
         "opportunity_cost_reason": "frontier",
+        "opportunity_cost_components": [],
         "best_followup": recommended_followup,
     }
     assert workstreams_payload["repo_next_actions"]["recommended_code_followup_lane"] == {
@@ -235,9 +253,43 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         "strongest_utility_reason": "code:ready_structural",
         "lane_utility_score": 715,
         "lane_utility_reason": "code:ready_structural+lane_breadth:1+lane:structural_cut",
+        "lane_utility_components": [
+            {
+                "kind": "best_followup_utility",
+                "score": 700,
+                "rationale": "code:ready_structural",
+            },
+            {
+                "kind": "lane_breadth_bonus",
+                "score": 5,
+                "rationale": "lane_breadth:1",
+            },
+            {
+                "kind": "lane_class_bonus",
+                "score": 10,
+                "rationale": "lane_class:code",
+            },
+        ],
         "selection_rank": 2,
         "opportunity_cost_score": 345,
         "opportunity_cost_reason": "deferred_by:governance_orphan_resolution",
+        "opportunity_cost_components": [
+            {
+                "kind": "best_followup_utility_gap",
+                "score": 300,
+                "rationale": "governance_orphan:seed_new_owner->code:ready_structural",
+            },
+            {
+                "kind": "lane_breadth_bonus_gap",
+                "score": 30,
+                "rationale": "lane_breadth:7->lane_breadth:1",
+            },
+            {
+                "kind": "lane_class_bonus_gap",
+                "score": 15,
+                "rationale": "lane_class:governance->lane_class:code",
+            },
+        ],
         "best_followup": workstreams_payload["repo_next_actions"]["recommended_code_followup"],
     }
     assert (
@@ -312,9 +364,27 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         "lane_utility_reason": (
             "governance_orphan:seed_new_owner+lane_breadth:7+lane:governance_orphan_resolution"
         ),
+        "lane_utility_components": [
+            {
+                "kind": "best_followup_utility",
+                "score": 1000,
+                "rationale": "governance_orphan:seed_new_owner",
+            },
+            {
+                "kind": "lane_breadth_bonus",
+                "score": 35,
+                "rationale": "lane_breadth:7",
+            },
+            {
+                "kind": "lane_class_bonus",
+                "score": 25,
+                "rationale": "lane_class:governance",
+            },
+        ],
         "selection_rank": 1,
         "opportunity_cost_score": 0,
         "opportunity_cost_reason": "frontier",
+        "opportunity_cost_components": [],
         "best_followup": {
             "followup_family": "governance_orphan_resolution",
             "action_kind": "diagnostic_resolution",
@@ -2149,20 +2219,20 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
         in summary_output
     )
     assert (
-        "recommended_repo_followup_lane: governance_orphan_resolution :: class=governance :: rank=1 :: utility=1060:governance_orphan:seed_new_owner+lane_breadth:7+lane:governance_orphan_resolution :: opportunity=0:frontier"
+        "recommended_repo_followup_lane: governance_orphan_resolution :: class=governance :: rank=1 :: utility=1060:governance_orphan:seed_new_owner+lane_breadth:7+lane:governance_orphan_resolution :: utility_components=best_followup_utility:1000:governance_orphan:seed_new_owner | lane_breadth_bonus:35:lane_breadth:7 | lane_class_bonus:25:lane_class:governance :: opportunity=0:frontier :: opportunity_components=none"
         in summary_output
     )
     assert (
-        "recommended_repo_code_followup_lane: structural_cut :: class=code :: rank=2 :: utility=715:code:ready_structural+lane_breadth:1+lane:structural_cut :: opportunity=345:deferred_by:governance_orphan_resolution"
+        "recommended_repo_code_followup_lane: structural_cut :: class=code :: rank=2 :: utility=715:code:ready_structural+lane_breadth:1+lane:structural_cut :: utility_components=best_followup_utility:700:code:ready_structural | lane_breadth_bonus:5:lane_breadth:1 | lane_class_bonus:10:lane_class:code :: opportunity=345:deferred_by:governance_orphan_resolution :: opportunity_components=best_followup_utility_gap:300:governance_orphan:seed_new_owner->code:ready_structural | lane_breadth_bonus_gap:30:lane_breadth:7->lane_breadth:1 | lane_class_bonus_gap:15:lane_class:governance->lane_class:code"
         in summary_output
     )
     assert (
-        "recommended_repo_human_followup_lane: governance_orphan_resolution :: class=governance :: rank=1 :: utility=1060:governance_orphan:seed_new_owner+lane_breadth:7+lane:governance_orphan_resolution :: opportunity=0:frontier"
+        "recommended_repo_human_followup_lane: governance_orphan_resolution :: class=governance :: rank=1 :: utility=1060:governance_orphan:seed_new_owner+lane_breadth:7+lane:governance_orphan_resolution :: utility_components=best_followup_utility:1000:governance_orphan:seed_new_owner | lane_breadth_bonus:35:lane_breadth:7 | lane_class_bonus:25:lane_class:governance :: opportunity=0:frontier :: opportunity_components=none"
         in summary_output
     )
     assert "repo_followup_lanes:" in summary_output
     assert (
-        "- governance_orphan_resolution :: class=governance :: actions=7 :: best=diagnostic_resolution::unmatched_policy_signal :: owner_strength=seed_new_owner:100 :: utility=1000:governance_orphan:seed_new_owner :: lane_utility=1060:governance_orphan:seed_new_owner+lane_breadth:7+lane:governance_orphan_resolution :: rank=1 :: opportunity=0:frontier"
+        "- governance_orphan_resolution :: class=governance :: actions=7 :: best=diagnostic_resolution::unmatched_policy_signal :: owner_strength=seed_new_owner:100 :: utility=1000:governance_orphan:seed_new_owner :: lane_utility=1060:governance_orphan:seed_new_owner+lane_breadth:7+lane:governance_orphan_resolution :: lane_components=best_followup_utility:1000:governance_orphan:seed_new_owner | lane_breadth_bonus:35:lane_breadth:7 | lane_class_bonus:25:lane_class:governance :: rank=1 :: opportunity=0:frontier :: opportunity_components=none"
         in summary_output
     )
     assert "repo_diagnostic_lanes:" in summary_output
