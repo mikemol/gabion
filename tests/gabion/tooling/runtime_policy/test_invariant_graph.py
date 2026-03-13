@@ -118,22 +118,23 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
     assert projection["surviving_touchsite_count"] == 26
     assert len(projection["subqueues"]) == 5
     assert len(projection["touchpoints"]) == 6
+    workstreams_payload = workstreams.as_payload()
     projected_ids = [
         str(item.get("object_id", ""))
-        for item in workstreams.get("workstreams", [])
+        for item in workstreams_payload.get("workstreams", [])
         if isinstance(item, dict)
     ]
     assert projected_ids == ["PRF", "PSF-007"]
     prf = next(
         item
-        for item in workstreams["workstreams"]
+        for item in workstreams_payload["workstreams"]
         if isinstance(item, dict) and item.get("object_id") == "PRF"
     )
     assert prf["status"] == "landed"
     assert prf["touchsite_count"] == 0
     psf = next(
         item
-        for item in workstreams["workstreams"]
+        for item in workstreams_payload["workstreams"]
         if isinstance(item, dict) and item.get("object_id") == "PSF-007"
     )
     assert psf["touchsite_count"] == 73

@@ -7,13 +7,42 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
 from pathlib import Path
+from typing import cast
 
-from gabion.analysis.aspf.aspf_lattice_algebra import canonical_structural_identity
+from gabion.analysis.aspf.aspf_lattice_algebra import (
+    ReplayableStream,
+    canonical_structural_identity,
+)
 from gabion.analysis.foundation.marker_protocol import SemanticLinkKind
 from gabion.order_contract import ordered_or_sorted
 from gabion.tooling.policy_substrate.invariant_marker_scan import (
     InvariantMarkerScanNode,
     scan_invariant_markers,
+)
+from gabion.tooling.policy_substrate.policy_artifact_stream import (
+    ArtifactColumn,
+    ArtifactSourceRef,
+    ArtifactUnit,
+    bullet_list,
+    cell,
+    document,
+    list_item,
+    render_json_value,
+    row,
+    scalar,
+    section,
+    table,
+    write_json,
+)
+from gabion.tooling.policy_substrate.policy_queue_identity import (
+    PolicyQueueIdentitySpace,
+    SiteReferenceId,
+    StructuralReferenceId,
+    SubqueueId,
+    TouchpointId,
+    TouchsiteId,
+    WorkstreamId,
+    encode_policy_queue_identity,
 )
 from gabion.tooling.policy_substrate.policy_rule_frontmatter_migration_registry import (
     PolicyRuleFrontmatterMigrationQueueDefinition,
@@ -46,6 +75,10 @@ def _sorted[T](values: list[T], *, key=None) -> list[T]:
         source="tooling.policy_substrate.invariant_graph",
         key=key,
     )
+
+
+def _stream_from_iterable[T](factory) -> ReplayableStream[T]:
+    return ReplayableStream(factory=factory)
 
 
 @dataclass(frozen=True)
@@ -268,6 +301,425 @@ class InvariantGraph:
             edges=edges,
             diagnostics=diagnostics,
         )
+
+
+@dataclass(frozen=True)
+class InvariantTouchsiteProjection:
+    object_id: TouchsiteId
+    touchpoint_id: TouchpointId
+    subqueue_id: SubqueueId
+    title: str
+    status: str
+    rel_path: str
+    qualname: str
+    boundary_name: str
+    line: int
+    column: int
+    node_kind: str
+    site_identity: SiteReferenceId
+    structural_identity: StructuralReferenceId
+    seam_class: str
+    touchpoint_marker_identity: str
+    touchpoint_structural_identity: StructuralReferenceId
+    subqueue_marker_identity: str
+    subqueue_structural_identity: StructuralReferenceId
+    policy_signal_count: int
+    coverage_count: int
+    diagnostic_count: int
+    object_ids: tuple[str, ...]
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "object_id": self.object_id.wire(),
+            "touchpoint_id": self.touchpoint_id.wire(),
+            "subqueue_id": self.subqueue_id.wire(),
+            "title": self.title,
+            "status": self.status,
+            "rel_path": self.rel_path,
+            "qualname": self.qualname,
+            "boundary_name": self.boundary_name,
+            "line": self.line,
+            "column": self.column,
+            "node_kind": self.node_kind,
+            "site_identity": self.site_identity.wire(),
+            "structural_identity": self.structural_identity.wire(),
+            "seam_class": self.seam_class,
+            "touchpoint_marker_identity": self.touchpoint_marker_identity,
+            "touchpoint_structural_identity": self.touchpoint_structural_identity.wire(),
+            "subqueue_marker_identity": self.subqueue_marker_identity,
+            "subqueue_structural_identity": self.subqueue_structural_identity.wire(),
+            "policy_signal_count": self.policy_signal_count,
+            "coverage_count": self.coverage_count,
+            "diagnostic_count": self.diagnostic_count,
+            "object_ids": list(self.object_ids),
+        }
+
+
+@dataclass(frozen=True)
+class InvariantTouchpointProjection:
+    object_id: TouchpointId
+    subqueue_id: SubqueueId
+    title: str
+    status: str
+    rel_path: str
+    site_identity: SiteReferenceId
+    structural_identity: StructuralReferenceId
+    marker_identity: str
+    reasoning_summary: str
+    reasoning_control: str
+    blocking_dependencies: tuple[str, ...]
+    object_ids: tuple[str, ...]
+    touchsite_count: int
+    collapsible_touchsite_count: int
+    surviving_touchsite_count: int
+    policy_signal_count: int
+    coverage_count: int
+    diagnostic_count: int
+    touchsites: ReplayableStream[InvariantTouchsiteProjection]
+
+    def iter_touchsites(self) -> Iterator[InvariantTouchsiteProjection]:
+        return iter(self.touchsites)
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "object_id": self.object_id.wire(),
+            "subqueue_id": self.subqueue_id.wire(),
+            "title": self.title,
+            "status": self.status,
+            "rel_path": self.rel_path,
+            "site_identity": self.site_identity.wire(),
+            "structural_identity": self.structural_identity.wire(),
+            "marker_identity": self.marker_identity,
+            "reasoning_summary": self.reasoning_summary,
+            "reasoning_control": self.reasoning_control,
+            "blocking_dependencies": list(self.blocking_dependencies),
+            "object_ids": list(self.object_ids),
+            "touchsite_count": self.touchsite_count,
+            "collapsible_touchsite_count": self.collapsible_touchsite_count,
+            "surviving_touchsite_count": self.surviving_touchsite_count,
+            "policy_signal_count": self.policy_signal_count,
+            "coverage_count": self.coverage_count,
+            "diagnostic_count": self.diagnostic_count,
+            "touchsites": [item.as_payload() for item in self.iter_touchsites()],
+        }
+
+
+@dataclass(frozen=True)
+class InvariantSubqueueProjection:
+    object_id: SubqueueId
+    title: str
+    status: str
+    site_identity: SiteReferenceId
+    structural_identity: StructuralReferenceId
+    marker_identity: str
+    reasoning_summary: str
+    reasoning_control: str
+    blocking_dependencies: tuple[str, ...]
+    object_ids: tuple[str, ...]
+    touchpoint_ids: tuple[TouchpointId, ...]
+    touchsite_count: int
+    collapsible_touchsite_count: int
+    surviving_touchsite_count: int
+    policy_signal_count: int
+    coverage_count: int
+    diagnostic_count: int
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "object_id": self.object_id.wire(),
+            "title": self.title,
+            "status": self.status,
+            "site_identity": self.site_identity.wire(),
+            "structural_identity": self.structural_identity.wire(),
+            "marker_identity": self.marker_identity,
+            "reasoning_summary": self.reasoning_summary,
+            "reasoning_control": self.reasoning_control,
+            "blocking_dependencies": list(self.blocking_dependencies),
+            "object_ids": list(self.object_ids),
+            "touchpoint_ids": [item.wire() for item in self.touchpoint_ids],
+            "touchsite_count": self.touchsite_count,
+            "collapsible_touchsite_count": self.collapsible_touchsite_count,
+            "surviving_touchsite_count": self.surviving_touchsite_count,
+            "policy_signal_count": self.policy_signal_count,
+            "coverage_count": self.coverage_count,
+            "diagnostic_count": self.diagnostic_count,
+        }
+
+
+@dataclass(frozen=True)
+class InvariantWorkstreamProjection:
+    object_id: WorkstreamId
+    title: str
+    status: str
+    site_identity: SiteReferenceId
+    structural_identity: StructuralReferenceId
+    marker_identity: str
+    reasoning_summary: str
+    reasoning_control: str
+    blocking_dependencies: tuple[str, ...]
+    object_ids: tuple[str, ...]
+    touchsite_count: int
+    collapsible_touchsite_count: int
+    surviving_touchsite_count: int
+    policy_signal_count: int
+    coverage_count: int
+    diagnostic_count: int
+    subqueues: ReplayableStream[InvariantSubqueueProjection]
+    touchpoints: ReplayableStream[InvariantTouchpointProjection]
+
+    def iter_subqueues(self) -> Iterator[InvariantSubqueueProjection]:
+        return iter(self.subqueues)
+
+    def iter_touchpoints(self) -> Iterator[InvariantTouchpointProjection]:
+        return iter(self.touchpoints)
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "object_id": self.object_id.wire(),
+            "title": self.title,
+            "status": self.status,
+            "site_identity": self.site_identity.wire(),
+            "structural_identity": self.structural_identity.wire(),
+            "marker_identity": self.marker_identity,
+            "reasoning_summary": self.reasoning_summary,
+            "reasoning_control": self.reasoning_control,
+            "blocking_dependencies": list(self.blocking_dependencies),
+            "object_ids": list(self.object_ids),
+            "touchsite_count": self.touchsite_count,
+            "collapsible_touchsite_count": self.collapsible_touchsite_count,
+            "surviving_touchsite_count": self.surviving_touchsite_count,
+            "policy_signal_count": self.policy_signal_count,
+            "coverage_count": self.coverage_count,
+            "diagnostic_count": self.diagnostic_count,
+            "subqueues": [item.as_payload() for item in self.iter_subqueues()],
+            "touchpoints": [item.as_payload() for item in self.iter_touchpoints()],
+        }
+
+
+@dataclass(frozen=True)
+class InvariantWorkstreamsProjection:
+    root: str
+    generated_at_utc: str
+    workstreams: ReplayableStream[InvariantWorkstreamProjection]
+
+    def iter_workstreams(self) -> Iterator[InvariantWorkstreamProjection]:
+        return iter(self.workstreams)
+
+    def as_payload(self) -> dict[str, object]:
+        workstreams = tuple(self.iter_workstreams())
+        return {
+            "format_version": _FORMAT_VERSION,
+            "generated_at_utc": self.generated_at_utc,
+            "root": self.root,
+            "workstreams": [item.as_payload() for item in workstreams],
+            "counts": {
+                "workstream_count": len(workstreams),
+            },
+        }
+
+    def artifact_document(self) -> ArtifactUnit:
+        def _workstream_items() -> Iterator[ArtifactUnit]:
+            for workstream in self.iter_workstreams():
+                yield list_item(
+                    identity=workstream.object_id,
+                    title=workstream.object_id.wire(),
+                    children=lambda workstream=workstream: iter(
+                        (
+                            scalar(
+                                identity=workstream.object_id,
+                                key="object_id",
+                                title="object_id",
+                                value=workstream.object_id.wire(),
+                            ),
+                            scalar(
+                                identity=workstream.site_identity,
+                                key="title",
+                                title="title",
+                                value=workstream.title,
+                            ),
+                            scalar(
+                                identity=workstream.object_id,
+                                key="status",
+                                title="status",
+                                value=workstream.status,
+                            ),
+                            scalar(
+                                identity=workstream.site_identity,
+                                key="site_identity",
+                                title="site_identity",
+                                value=workstream.site_identity.wire(),
+                            ),
+                            scalar(
+                                identity=workstream.structural_identity,
+                                key="structural_identity",
+                                title="structural_identity",
+                                value=workstream.structural_identity.wire(),
+                            ),
+                            scalar(
+                                identity=workstream.object_id,
+                                key="marker_identity",
+                                title="marker_identity",
+                                value=workstream.marker_identity,
+                            ),
+                            scalar(
+                                identity=workstream.object_id,
+                                key="reasoning_summary",
+                                title="reasoning_summary",
+                                value=workstream.reasoning_summary,
+                            ),
+                            scalar(
+                                identity=workstream.object_id,
+                                key="reasoning_control",
+                                title="reasoning_control",
+                                value=workstream.reasoning_control,
+                            ),
+                            bullet_list(
+                                identity=workstream.object_id,
+                                key="blocking_dependencies",
+                                children=lambda workstream=workstream: (
+                                    list_item(
+                                        identity=ArtifactSourceRef(
+                                            rel_path="<synthetic>",
+                                            qualname=dependency,
+                                        ),
+                                        value=dependency,
+                                    )
+                                    for dependency in workstream.blocking_dependencies
+                                ),
+                            ),
+                            bullet_list(
+                                identity=workstream.object_id,
+                                key="object_ids",
+                                children=lambda workstream=workstream: (
+                                    list_item(
+                                        identity=ArtifactSourceRef(
+                                            rel_path="<synthetic>",
+                                            qualname=object_id,
+                                        ),
+                                        value=object_id,
+                                    )
+                                    for object_id in workstream.object_ids
+                                ),
+                            ),
+                            scalar(identity=workstream.object_id, key="touchsite_count", title="touchsite_count", value=workstream.touchsite_count),
+                            scalar(identity=workstream.object_id, key="collapsible_touchsite_count", title="collapsible_touchsite_count", value=workstream.collapsible_touchsite_count),
+                            scalar(identity=workstream.object_id, key="surviving_touchsite_count", title="surviving_touchsite_count", value=workstream.surviving_touchsite_count),
+                            scalar(identity=workstream.object_id, key="policy_signal_count", title="policy_signal_count", value=workstream.policy_signal_count),
+                            scalar(identity=workstream.object_id, key="coverage_count", title="coverage_count", value=workstream.coverage_count),
+                            scalar(identity=workstream.object_id, key="diagnostic_count", title="diagnostic_count", value=workstream.diagnostic_count),
+                            bullet_list(
+                                identity=workstream.object_id,
+                                key="subqueues",
+                                children=lambda workstream=workstream: (
+                                    list_item(
+                                        identity=subqueue.object_id,
+                                        children=lambda subqueue=subqueue: iter(_payload_to_units(subqueue.as_payload())),
+                                    )
+                                    for subqueue in workstream.iter_subqueues()
+                                ),
+                            ),
+                            bullet_list(
+                                identity=workstream.object_id,
+                                key="touchpoints",
+                                children=lambda workstream=workstream: (
+                                    list_item(
+                                        identity=touchpoint.object_id,
+                                        children=lambda touchpoint=touchpoint: iter(_payload_to_units(touchpoint.as_payload())),
+                                    )
+                                    for touchpoint in workstream.iter_touchpoints()
+                                ),
+                            ),
+                        )
+                    ),
+                )
+
+        return document(
+            identity=ArtifactSourceRef(rel_path="<synthetic>", qualname="invariant_workstreams"),
+            children=lambda: iter(
+                (
+                    scalar(
+                        identity=ArtifactSourceRef(rel_path="<synthetic>", qualname="format_version"),
+                        key="format_version",
+                        title="format_version",
+                        value=_FORMAT_VERSION,
+                    ),
+                    scalar(
+                        identity=ArtifactSourceRef(rel_path="<synthetic>", qualname="generated_at_utc"),
+                        key="generated_at_utc",
+                        title="generated_at_utc",
+                        value=self.generated_at_utc,
+                    ),
+                    scalar(
+                        identity=ArtifactSourceRef(rel_path="<synthetic>", qualname="root"),
+                        key="root",
+                        title="root",
+                        value=self.root,
+                    ),
+                    bullet_list(
+                        identity=ArtifactSourceRef(rel_path="<synthetic>", qualname="workstreams"),
+                        key="workstreams",
+                        children=_workstream_items,
+                    ),
+                    section(
+                        identity=ArtifactSourceRef(rel_path="<synthetic>", qualname="counts"),
+                        key="counts",
+                        title="counts",
+                        children=lambda: iter(
+                            (
+                                scalar(
+                                    identity=ArtifactSourceRef(
+                                        rel_path="<synthetic>",
+                                        qualname="workstream_count",
+                                    ),
+                                    key="workstream_count",
+                                    title="workstream_count",
+                                    value=sum(1 for _ in self.iter_workstreams()),
+                                ),
+                            )
+                        ),
+                    ),
+                )
+            ),
+        )
+
+
+def _payload_to_units(payload: Mapping[str, object]) -> tuple[ArtifactUnit, ...]:
+    units: list[ArtifactUnit] = []
+    for key, value in payload.items():
+        if isinstance(value, Mapping):
+            units.append(
+                section(
+                    identity=ArtifactSourceRef(rel_path="<synthetic>", qualname=str(key)),
+                    key=str(key),
+                    title=str(key),
+                    children=lambda value=value: iter(_payload_to_units(value)),
+                )
+            )
+            continue
+        if isinstance(value, list):
+            units.append(
+                bullet_list(
+                    identity=ArtifactSourceRef(rel_path="<synthetic>", qualname=str(key)),
+                    key=str(key),
+                    children=lambda value=value: (
+                        list_item(
+                            identity=ArtifactSourceRef(rel_path="<synthetic>", qualname=str(key)),
+                            value=item,
+                        )
+                        for item in value
+                    ),
+                )
+            )
+            continue
+        units.append(
+            scalar(
+                identity=ArtifactSourceRef(rel_path="<synthetic>", qualname=str(key)),
+                key=str(key),
+                title=str(key),
+                value=cast(object, value),
+            )
+        )
+    return tuple(units)
 
 
 def _synthetic_identity(
@@ -1583,225 +2035,296 @@ def _workstream_test_case_ids(graph: InvariantGraph, node_ids: set[str]) -> tupl
     return tuple(_sorted(list(test_case_ids)))
 
 
-def build_invariant_workstreams(graph: InvariantGraph) -> dict[str, object]:
+def build_invariant_workstreams(graph: InvariantGraph) -> InvariantWorkstreamsProjection:
     node_by_id = graph.node_by_id()
     edges_from = graph.edges_from()
-    workstreams: list[dict[str, object]] = []
-    for root_object_id in graph.workstream_root_ids:
-        root_node_id = _synthetic_ref_node_id("object_id", root_object_id)
-        root_node = node_by_id[root_node_id]
-        subqueue_nodes = [
-            node_by_id[edge.target_id]
-            for edge in edges_from.get(root_node_id, ())
-            if edge.edge_kind == "contains" and edge.target_id in node_by_id
-        ]
-        subqueue_payloads: list[dict[str, object]] = []
-        touchpoint_payloads: list[dict[str, object]] = []
-        touchsite_payloads: list[dict[str, object]] = []
-        for subqueue_node in subqueue_nodes:
-            touchpoint_nodes = [
+    edges_to = graph.edges_to()
+    identity_space = PolicyQueueIdentitySpace()
+    generated_at_utc = datetime.now(timezone.utc).isoformat()
+    diagnostics_by_node_id: dict[str, tuple[InvariantGraphDiagnostic, ...]] = {}
+    for diagnostic in graph.diagnostics:
+        diagnostics_by_node_id.setdefault(diagnostic.node_id, tuple())
+    if graph.diagnostics:
+        grouped_diagnostics: defaultdict[str, list[InvariantGraphDiagnostic]] = defaultdict(list)
+        for diagnostic in graph.diagnostics:
+            grouped_diagnostics[diagnostic.node_id].append(diagnostic)
+        diagnostics_by_node_id = {
+            node_id: tuple(items) for node_id, items in grouped_diagnostics.items()
+        }
+    descendant_cache: dict[str, tuple[str, ...]] = {}
+
+    def _descendants(node_id: str) -> tuple[str, ...]:
+        cached = descendant_cache.get(node_id)
+        if cached is not None:
+            return cached
+        pending = deque([node_id])
+        seen: set[str] = set()
+        while pending:
+            current = pending.popleft()
+            if current in seen:
+                continue
+            seen.add(current)
+            for edge in edges_from.get(current, ()):
+                if edge.edge_kind != "contains" or edge.target_id not in node_by_id:
+                    continue
+                pending.append(edge.target_id)
+        resolved = tuple(_sorted(list(seen)))
+        descendant_cache[node_id] = resolved
+        return resolved
+
+    def _signal_ids(node_ids: Iterable[str]) -> tuple[str, ...]:
+        signal_ids = {
+            edge.source_id
+            for node_id in node_ids
+            for edge in edges_to.get(node_id, ())
+            if edge.edge_kind == "blocks"
+            and node_by_id.get(edge.source_id, None) is not None
+            and node_by_id[edge.source_id].node_kind == "policy_signal"
+        }
+        return tuple(_sorted(list(signal_ids)))
+
+    def _test_case_ids(node_ids: Iterable[str]) -> tuple[str, ...]:
+        test_case_ids = {
+            edge.target_id
+            for node_id in node_ids
+            for edge in edges_from.get(node_id, ())
+            if edge.edge_kind == "covered_by"
+            and node_by_id.get(edge.target_id, None) is not None
+            and node_by_id[edge.target_id].node_kind == "test_case"
+        }
+        return tuple(_sorted(list(test_case_ids)))
+
+    def _diagnostic_count(node_ids: Iterable[str]) -> int:
+        return sum(len(diagnostics_by_node_id.get(node_id, ())) for node_id in node_ids)
+
+    def _site_ref(token: str) -> SiteReferenceId:
+        return identity_space.site_ref_id(token)
+
+    def _structural_ref(token: str) -> StructuralReferenceId:
+        return identity_space.structural_ref_id(token)
+
+    def _touchsite_projection(
+        *,
+        node: InvariantGraphNode,
+        touchpoint_node: InvariantGraphNode,
+        subqueue_node: InvariantGraphNode,
+    ) -> InvariantTouchsiteProjection:
+        return InvariantTouchsiteProjection(
+            object_id=identity_space.touchsite_id(_primary_object_id(node)),
+            touchpoint_id=identity_space.touchpoint_id(_primary_object_id(touchpoint_node)),
+            subqueue_id=identity_space.subqueue_id(_primary_object_id(subqueue_node)),
+            title=node.title,
+            status=_status_for_projection(node, touchsite_count=1),
+            rel_path=node.rel_path,
+            qualname=node.qualname,
+            boundary_name=node.title,
+            line=node.line,
+            column=node.column,
+            node_kind=node.ast_node_kind,
+            site_identity=_site_ref(node.site_identity),
+            structural_identity=_structural_ref(node.structural_identity),
+            seam_class=node.seam_class,
+            touchpoint_marker_identity=touchpoint_node.marker_id,
+            touchpoint_structural_identity=_structural_ref(
+                touchpoint_node.structural_identity
+            ),
+            subqueue_marker_identity=subqueue_node.marker_id,
+            subqueue_structural_identity=_structural_ref(subqueue_node.structural_identity),
+            policy_signal_count=len(_signal_ids((node.node_id,))),
+            coverage_count=len(_test_case_ids((node.node_id,))),
+            diagnostic_count=_diagnostic_count((node.node_id,)),
+            object_ids=node.object_ids,
+        )
+
+    def _touchpoint_projection(
+        *,
+        touchpoint_node: InvariantGraphNode,
+        subqueue_node: InvariantGraphNode,
+    ) -> InvariantTouchpointProjection:
+        touchpoint_descendants = set(_descendants(touchpoint_node.node_id))
+        touchsites = _sorted(
+            [
+                node_by_id[node_id]
+                for node_id in touchpoint_descendants
+                if node_by_id[node_id].node_kind == "synthetic_touchsite"
+            ],
+            key=lambda item: (
+                item.rel_path,
+                item.line,
+                item.column,
+                item.qualname,
+            ),
+        )
+
+        def _iter_touchsites() -> Iterator[InvariantTouchsiteProjection]:
+            for node in touchsites:
+                yield _touchsite_projection(
+                    node=node,
+                    touchpoint_node=touchpoint_node,
+                    subqueue_node=subqueue_node,
+                )
+
+        return InvariantTouchpointProjection(
+            object_id=identity_space.touchpoint_id(_primary_object_id(touchpoint_node)),
+            subqueue_id=identity_space.subqueue_id(_primary_object_id(subqueue_node)),
+            title=touchpoint_node.title,
+            status=_status_for_projection(
+                touchpoint_node,
+                touchsite_count=len(touchsites),
+            ),
+            rel_path=touchpoint_node.rel_path,
+            site_identity=_site_ref(touchpoint_node.site_identity),
+            structural_identity=_structural_ref(touchpoint_node.structural_identity),
+            marker_identity=touchpoint_node.marker_id,
+            reasoning_summary=touchpoint_node.reasoning_summary,
+            reasoning_control=touchpoint_node.reasoning_control,
+            blocking_dependencies=touchpoint_node.blocking_dependencies,
+            object_ids=touchpoint_node.object_ids,
+            touchsite_count=len(touchsites),
+            collapsible_touchsite_count=sum(
+                1 for node in touchsites if node.seam_class == "collapsible_helper_seam"
+            ),
+            surviving_touchsite_count=sum(
+                1 for node in touchsites if node.seam_class == "surviving_carrier_seam"
+            ),
+            policy_signal_count=len(_signal_ids(touchpoint_descendants)),
+            coverage_count=len(_test_case_ids(touchpoint_descendants)),
+            diagnostic_count=_diagnostic_count(touchpoint_descendants),
+            touchsites=_stream_from_iterable(_iter_touchsites),
+        )
+
+    def _subqueue_projection(
+        *,
+        subqueue_node: InvariantGraphNode,
+    ) -> InvariantSubqueueProjection:
+        touchpoint_nodes = _sorted(
+            [
                 node_by_id[edge.target_id]
                 for edge in edges_from.get(subqueue_node.node_id, ())
                 if edge.edge_kind == "contains" and edge.target_id in node_by_id
-            ]
-            subqueue_descendants = set(_descendant_node_ids(graph, subqueue_node.node_id))
-            subqueue_touchsites = [
-                node_by_id[node_id]
-                for node_id in subqueue_descendants
-                if node_by_id[node_id].node_kind == "synthetic_touchsite"
-            ]
-            subqueue_payloads.append(
-                {
-                    "object_id": _primary_object_id(subqueue_node),
-                    "title": subqueue_node.title,
-                    "status": _status_for_projection(
-                        subqueue_node,
-                        touchsite_count=len(subqueue_touchsites),
-                    ),
-                    "site_identity": subqueue_node.site_identity,
-                    "structural_identity": subqueue_node.structural_identity,
-                    "marker_identity": subqueue_node.marker_id,
-                    "reasoning_summary": subqueue_node.reasoning_summary,
-                    "reasoning_control": subqueue_node.reasoning_control,
-                    "blocking_dependencies": list(subqueue_node.blocking_dependencies),
-                    "object_ids": list(subqueue_node.object_ids),
-                    "touchpoint_ids": [
-                        _primary_object_id(node) for node in touchpoint_nodes
-                    ],
-                    "touchsite_count": len(subqueue_touchsites),
-                    "collapsible_touchsite_count": sum(
-                        1
-                        for node in subqueue_touchsites
-                        if node.seam_class == "collapsible_helper_seam"
-                    ),
-                    "surviving_touchsite_count": sum(
-                        1
-                        for node in subqueue_touchsites
-                        if node.seam_class == "surviving_carrier_seam"
-                    ),
-                    "policy_signal_count": len(
-                        _workstream_signal_ids(graph, subqueue_descendants)
-                    ),
-                    "coverage_count": len(
-                        _workstream_test_case_ids(graph, subqueue_descendants)
-                    ),
-                    "diagnostic_count": sum(
-                        1
-                        for diagnostic in graph.diagnostics
-                        if diagnostic.node_id in subqueue_descendants
-                    ),
-                }
-            )
-            for touchpoint_node in touchpoint_nodes:
-                touchpoint_descendants = set(_descendant_node_ids(graph, touchpoint_node.node_id))
-                touchsites = [
-                    node_by_id[node_id]
-                    for node_id in touchpoint_descendants
-                    if node_by_id[node_id].node_kind == "synthetic_touchsite"
-                ]
-                touchpoint_payloads.append(
-                    {
-                        "object_id": _primary_object_id(touchpoint_node),
-                        "subqueue_id": _primary_object_id(subqueue_node),
-                        "title": touchpoint_node.title,
-                        "status": _status_for_projection(
-                            touchpoint_node,
-                            touchsite_count=len(touchsites),
-                        ),
-                        "rel_path": touchpoint_node.rel_path,
-                        "site_identity": touchpoint_node.site_identity,
-                        "structural_identity": touchpoint_node.structural_identity,
-                        "marker_identity": touchpoint_node.marker_id,
-                        "reasoning_summary": touchpoint_node.reasoning_summary,
-                        "reasoning_control": touchpoint_node.reasoning_control,
-                        "blocking_dependencies": list(touchpoint_node.blocking_dependencies),
-                        "object_ids": list(touchpoint_node.object_ids),
-                        "touchsite_count": len(touchsites),
-                        "collapsible_touchsite_count": sum(
-                            1
-                            for node in touchsites
-                            if node.seam_class == "collapsible_helper_seam"
-                        ),
-                        "surviving_touchsite_count": sum(
-                            1
-                            for node in touchsites
-                            if node.seam_class == "surviving_carrier_seam"
-                        ),
-                        "policy_signal_count": len(
-                            _workstream_signal_ids(graph, touchpoint_descendants)
-                        ),
-                        "coverage_count": len(
-                            _workstream_test_case_ids(graph, touchpoint_descendants)
-                        ),
-                        "diagnostic_count": sum(
-                            1
-                            for diagnostic in graph.diagnostics
-                            if diagnostic.node_id in touchpoint_descendants
-                        ),
-                        "touchsites": [
-                            {
-                                "object_id": _primary_object_id(node),
-                                "touchpoint_id": _primary_object_id(touchpoint_node),
-                                "subqueue_id": _primary_object_id(subqueue_node),
-                                "title": node.title,
-                                "status": _status_for_projection(node, touchsite_count=1),
-                                "rel_path": node.rel_path,
-                                "qualname": node.qualname,
-                                "boundary_name": node.title,
-                                "line": node.line,
-                                "column": node.column,
-                                "node_kind": node.ast_node_kind,
-                                "site_identity": node.site_identity,
-                                "structural_identity": node.structural_identity,
-                                "seam_class": node.seam_class,
-                                "touchpoint_marker_identity": touchpoint_node.marker_id,
-                                "touchpoint_structural_identity": touchpoint_node.structural_identity,
-                                "subqueue_marker_identity": subqueue_node.marker_id,
-                                "subqueue_structural_identity": subqueue_node.structural_identity,
-                                "policy_signal_count": len(
-                                    _workstream_signal_ids(graph, {node.node_id})
-                                ),
-                                "coverage_count": len(
-                                    _workstream_test_case_ids(graph, {node.node_id})
-                                ),
-                                "diagnostic_count": sum(
-                                    1
-                                    for diagnostic in graph.diagnostics
-                                    if diagnostic.node_id == node.node_id
-                                ),
-                                "object_ids": list(node.object_ids),
-                            }
-                            for node in _sorted(
-                                touchsites,
-                                key=lambda item: (
-                                    item.rel_path,
-                                    item.line,
-                                    item.column,
-                                    item.qualname,
-                                ),
-                            )
-                        ],
-                    }
-                )
-                touchsite_payloads.extend(touchpoint_payloads[-1]["touchsites"])
-        root_descendants = set(_descendant_node_ids(graph, root_node_id))
+            ],
+            key=lambda item: _primary_object_id(item),
+        )
+        subqueue_descendants = set(_descendants(subqueue_node.node_id))
+        subqueue_touchsites = [
+            node_by_id[node_id]
+            for node_id in subqueue_descendants
+            if node_by_id[node_id].node_kind == "synthetic_touchsite"
+        ]
+        return InvariantSubqueueProjection(
+            object_id=identity_space.subqueue_id(_primary_object_id(subqueue_node)),
+            title=subqueue_node.title,
+            status=_status_for_projection(
+                subqueue_node,
+                touchsite_count=len(subqueue_touchsites),
+            ),
+            site_identity=_site_ref(subqueue_node.site_identity),
+            structural_identity=_structural_ref(subqueue_node.structural_identity),
+            marker_identity=subqueue_node.marker_id,
+            reasoning_summary=subqueue_node.reasoning_summary,
+            reasoning_control=subqueue_node.reasoning_control,
+            blocking_dependencies=subqueue_node.blocking_dependencies,
+            object_ids=subqueue_node.object_ids,
+            touchpoint_ids=tuple(
+                identity_space.touchpoint_id(_primary_object_id(node))
+                for node in touchpoint_nodes
+            ),
+            touchsite_count=len(subqueue_touchsites),
+            collapsible_touchsite_count=sum(
+                1
+                for node in subqueue_touchsites
+                if node.seam_class == "collapsible_helper_seam"
+            ),
+            surviving_touchsite_count=sum(
+                1
+                for node in subqueue_touchsites
+                if node.seam_class == "surviving_carrier_seam"
+            ),
+            policy_signal_count=len(_signal_ids(subqueue_descendants)),
+            coverage_count=len(_test_case_ids(subqueue_descendants)),
+            diagnostic_count=_diagnostic_count(subqueue_descendants),
+        )
+
+    def _workstream_projection(root_object_id: str) -> InvariantWorkstreamProjection:
+        root_node_id = _synthetic_ref_node_id("object_id", root_object_id)
+        root_node = node_by_id[root_node_id]
+        subqueue_nodes = _sorted(
+            [
+                node_by_id[edge.target_id]
+                for edge in edges_from.get(root_node_id, ())
+                if edge.edge_kind == "contains" and edge.target_id in node_by_id
+            ],
+            key=lambda item: _primary_object_id(item),
+        )
+        root_descendants = set(_descendants(root_node_id))
         touchsite_nodes = [
             node_by_id[node_id]
             for node_id in root_descendants
             if node_by_id[node_id].node_kind == "synthetic_touchsite"
         ]
-        workstreams.append(
-            {
-                "object_id": root_object_id,
-                "title": root_node.title,
-                "status": _status_for_projection(
-                    root_node,
-                    touchsite_count=len(touchsite_nodes),
-                ),
-                "site_identity": root_node.site_identity,
-                "structural_identity": root_node.structural_identity,
-                "marker_identity": root_node.marker_id,
-                "reasoning_summary": root_node.reasoning_summary,
-                "reasoning_control": root_node.reasoning_control,
-                "blocking_dependencies": list(root_node.blocking_dependencies),
-                "object_ids": list(root_node.object_ids),
-                "touchsite_count": len(touchsite_nodes),
-                "collapsible_touchsite_count": sum(
-                    1
-                    for node in touchsite_nodes
-                    if node.seam_class == "collapsible_helper_seam"
-                ),
-                "surviving_touchsite_count": sum(
-                    1
-                    for node in touchsite_nodes
-                    if node.seam_class == "surviving_carrier_seam"
-                ),
-                "policy_signal_count": len(_workstream_signal_ids(graph, root_descendants)),
-                "coverage_count": len(_workstream_test_case_ids(graph, root_descendants)),
-                "diagnostic_count": sum(
-                    1
-                    for diagnostic in graph.diagnostics
-                    if diagnostic.node_id in root_descendants
-                ),
-                "subqueues": _sorted(
-                    subqueue_payloads,
-                    key=lambda item: str(item["object_id"]),
-                ),
-                "touchpoints": _sorted(
-                    touchpoint_payloads,
-                    key=lambda item: str(item["object_id"]),
-                ),
-            }
+
+        def _iter_subqueues() -> Iterator[InvariantSubqueueProjection]:
+            for subqueue_node in subqueue_nodes:
+                yield _subqueue_projection(subqueue_node=subqueue_node)
+
+        def _iter_touchpoints() -> Iterator[InvariantTouchpointProjection]:
+            for subqueue_node in subqueue_nodes:
+                touchpoint_nodes = _sorted(
+                    [
+                        node_by_id[edge.target_id]
+                        for edge in edges_from.get(subqueue_node.node_id, ())
+                        if edge.edge_kind == "contains" and edge.target_id in node_by_id
+                    ],
+                    key=lambda item: _primary_object_id(item),
+                )
+                for touchpoint_node in touchpoint_nodes:
+                    yield _touchpoint_projection(
+                        touchpoint_node=touchpoint_node,
+                        subqueue_node=subqueue_node,
+                    )
+
+        return InvariantWorkstreamProjection(
+            object_id=identity_space.workstream_id(root_object_id),
+            title=root_node.title,
+            status=_status_for_projection(
+                root_node,
+                touchsite_count=len(touchsite_nodes),
+            ),
+            site_identity=_site_ref(root_node.site_identity),
+            structural_identity=_structural_ref(root_node.structural_identity),
+            marker_identity=root_node.marker_id,
+            reasoning_summary=root_node.reasoning_summary,
+            reasoning_control=root_node.reasoning_control,
+            blocking_dependencies=root_node.blocking_dependencies,
+            object_ids=root_node.object_ids,
+            touchsite_count=len(touchsite_nodes),
+            collapsible_touchsite_count=sum(
+                1
+                for node in touchsite_nodes
+                if node.seam_class == "collapsible_helper_seam"
+            ),
+            surviving_touchsite_count=sum(
+                1
+                for node in touchsite_nodes
+                if node.seam_class == "surviving_carrier_seam"
+            ),
+            policy_signal_count=len(_signal_ids(root_descendants)),
+            coverage_count=len(_test_case_ids(root_descendants)),
+            diagnostic_count=_diagnostic_count(root_descendants),
+            subqueues=_stream_from_iterable(_iter_subqueues),
+            touchpoints=_stream_from_iterable(_iter_touchpoints),
         )
-    return {
-        "format_version": _FORMAT_VERSION,
-        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
-        "root": graph.root,
-        "workstreams": _sorted(workstreams, key=lambda item: str(item["object_id"])),
-        "counts": {
-            "workstream_count": len(workstreams),
-        },
-    }
+
+    return InvariantWorkstreamsProjection(
+        root=graph.root,
+        generated_at_utc=generated_at_utc,
+        workstreams=_stream_from_iterable(
+            lambda: (
+                _workstream_projection(root_object_id)
+                for root_object_id in _sorted(list(graph.workstream_root_ids))
+            )
+        ),
+    )
 
 
 def build_psf_phase5_projection(
@@ -1813,104 +2336,79 @@ def build_psf_phase5_projection(
     workstream = next(
         (
             item
-            for item in workstreams.get("workstreams", [])
-            if isinstance(item, Mapping) and str(item.get("object_id", "")) == queue_object_id
+            for item in workstreams.iter_workstreams()
+            if item.object_id.wire() == queue_object_id
         ),
         None,
     )
-    if not isinstance(workstream, Mapping):
+    if workstream is None:
         raise KeyError(queue_object_id)
     return {
         "queue_id": queue_object_id,
-        "title": str(workstream.get("title", "")),
-        "remaining_touchsite_count": int(workstream.get("touchsite_count", 0)),
-        "collapsible_touchsite_count": int(
-            workstream.get("collapsible_touchsite_count", 0)
-        ),
-        "surviving_touchsite_count": int(
-            workstream.get("surviving_touchsite_count", 0)
-        ),
+        "title": workstream.title,
+        "remaining_touchsite_count": workstream.touchsite_count,
+        "collapsible_touchsite_count": workstream.collapsible_touchsite_count,
+        "surviving_touchsite_count": workstream.surviving_touchsite_count,
         "subqueues": [
             {
-                "subqueue_id": str(item.get("object_id", "")),
-                "title": str(item.get("title", "")),
-                "site_identity": str(item.get("site_identity", "")),
-                "structural_identity": str(item.get("structural_identity", "")),
-                "marker_identity": str(item.get("marker_identity", "")),
-                "marker_reason": str(item.get("reasoning_summary", "")),
-                "reasoning_summary": str(item.get("reasoning_summary", "")),
-                "reasoning_control": str(item.get("reasoning_control", "")),
-                "blocking_dependencies": list(item.get("blocking_dependencies", [])),
-                "object_ids": list(item.get("object_ids", [])),
-                "touchpoint_ids": list(item.get("touchpoint_ids", [])),
-                "touchsite_count": int(item.get("touchsite_count", 0)),
-                "collapsible_touchsite_count": int(
-                    item.get("collapsible_touchsite_count", 0)
-                ),
-                "surviving_touchsite_count": int(
-                    item.get("surviving_touchsite_count", 0)
-                ),
+                "subqueue_id": item.object_id.wire(),
+                "title": item.title,
+                "site_identity": item.site_identity.wire(),
+                "structural_identity": item.structural_identity.wire(),
+                "marker_identity": item.marker_identity,
+                "marker_reason": item.reasoning_summary,
+                "reasoning_summary": item.reasoning_summary,
+                "reasoning_control": item.reasoning_control,
+                "blocking_dependencies": list(item.blocking_dependencies),
+                "object_ids": list(item.object_ids),
+                "touchpoint_ids": [touchpoint_id.wire() for touchpoint_id in item.touchpoint_ids],
+                "touchsite_count": item.touchsite_count,
+                "collapsible_touchsite_count": item.collapsible_touchsite_count,
+                "surviving_touchsite_count": item.surviving_touchsite_count,
             }
-            for item in workstream.get("subqueues", [])
-            if isinstance(item, Mapping)
+            for item in workstream.iter_subqueues()
         ],
         "touchpoints": [
             {
-                "touchpoint_id": str(item.get("object_id", "")),
-                "subqueue_id": str(item.get("subqueue_id", "")),
-                "title": str(item.get("title", "")),
-                "rel_path": str(item.get("rel_path", "")),
-                "site_identity": str(item.get("site_identity", "")),
-                "structural_identity": str(item.get("structural_identity", "")),
-                "marker_identity": str(item.get("marker_identity", "")),
-                "marker_reason": str(item.get("reasoning_summary", "")),
-                "reasoning_summary": str(item.get("reasoning_summary", "")),
-                "reasoning_control": str(item.get("reasoning_control", "")),
-                "blocking_dependencies": list(item.get("blocking_dependencies", [])),
-                "object_ids": list(item.get("object_ids", [])),
-                "touchsite_count": int(item.get("touchsite_count", 0)),
-                "collapsible_touchsite_count": int(
-                    item.get("collapsible_touchsite_count", 0)
-                ),
-                "surviving_touchsite_count": int(
-                    item.get("surviving_touchsite_count", 0)
-                ),
+                "touchpoint_id": item.object_id.wire(),
+                "subqueue_id": item.subqueue_id.wire(),
+                "title": item.title,
+                "rel_path": item.rel_path,
+                "site_identity": item.site_identity.wire(),
+                "structural_identity": item.structural_identity.wire(),
+                "marker_identity": item.marker_identity,
+                "marker_reason": item.reasoning_summary,
+                "reasoning_summary": item.reasoning_summary,
+                "reasoning_control": item.reasoning_control,
+                "blocking_dependencies": list(item.blocking_dependencies),
+                "object_ids": list(item.object_ids),
+                "touchsite_count": item.touchsite_count,
+                "collapsible_touchsite_count": item.collapsible_touchsite_count,
+                "surviving_touchsite_count": item.surviving_touchsite_count,
                 "touchsites": [
                     {
-                        "touchsite_id": str(touchsite.get("object_id", "")),
-                        "touchpoint_id": str(touchsite.get("touchpoint_id", "")),
-                        "subqueue_id": str(touchsite.get("subqueue_id", "")),
-                        "rel_path": str(touchsite.get("rel_path", "")),
-                        "qualname": str(touchsite.get("qualname", "")),
-                        "boundary_name": str(touchsite.get("boundary_name", "")),
-                        "line": int(touchsite.get("line", 0)),
-                        "column": int(touchsite.get("column", 0)),
-                        "node_kind": str(touchsite.get("node_kind", "")),
-                        "site_identity": str(touchsite.get("site_identity", "")),
-                        "structural_identity": str(
-                            touchsite.get("structural_identity", "")
-                        ),
-                        "seam_class": str(touchsite.get("seam_class", "")),
-                        "touchpoint_marker_identity": str(
-                            touchsite.get("touchpoint_marker_identity", "")
-                        ),
-                        "touchpoint_structural_identity": str(
-                            touchsite.get("touchpoint_structural_identity", "")
-                        ),
-                        "subqueue_marker_identity": str(
-                            touchsite.get("subqueue_marker_identity", "")
-                        ),
-                        "subqueue_structural_identity": str(
-                            touchsite.get("subqueue_structural_identity", "")
-                        ),
-                        "object_ids": list(touchsite.get("object_ids", [])),
+                        "touchsite_id": touchsite.object_id.wire(),
+                        "touchpoint_id": touchsite.touchpoint_id.wire(),
+                        "subqueue_id": touchsite.subqueue_id.wire(),
+                        "rel_path": touchsite.rel_path,
+                        "qualname": touchsite.qualname,
+                        "boundary_name": touchsite.boundary_name,
+                        "line": touchsite.line,
+                        "column": touchsite.column,
+                        "node_kind": touchsite.node_kind,
+                        "site_identity": touchsite.site_identity.wire(),
+                        "structural_identity": touchsite.structural_identity.wire(),
+                        "seam_class": touchsite.seam_class,
+                        "touchpoint_marker_identity": touchsite.touchpoint_marker_identity,
+                        "touchpoint_structural_identity": touchsite.touchpoint_structural_identity.wire(),
+                        "subqueue_marker_identity": touchsite.subqueue_marker_identity,
+                        "subqueue_structural_identity": touchsite.subqueue_structural_identity.wire(),
+                        "object_ids": list(touchsite.object_ids),
                     }
-                    for touchsite in item.get("touchsites", [])
-                    if isinstance(touchsite, Mapping)
+                    for touchsite in item.iter_touchsites()
                 ],
             }
-            for item in workstream.get("touchpoints", [])
-            if isinstance(item, Mapping)
+            for item in workstream.iter_touchpoints()
         ],
     }
 
@@ -1964,9 +2462,11 @@ def load_invariant_workstreams(path: Path) -> Mapping[str, object]:
     return payload
 
 
-def write_invariant_workstreams(path: Path, workstreams: Mapping[str, object]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(workstreams, indent=2) + "\n", encoding="utf-8")
+def write_invariant_workstreams(
+    path: Path,
+    workstreams: InvariantWorkstreamsProjection,
+) -> None:
+    write_json(path, workstreams.artifact_document())
 
 
 def load_invariant_graph(path: Path) -> InvariantGraph:
@@ -1976,7 +2476,12 @@ def load_invariant_graph(path: Path) -> InvariantGraph:
 
 def write_invariant_graph(path: Path, graph: InvariantGraph) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(graph.as_payload(), indent=2) + "\n", encoding="utf-8")
+    temp_path = path.with_suffix(f"{path.suffix}.tmp")
+    temp_path.write_text(
+        json.dumps(graph.as_payload(), indent=2) + "\n",
+        encoding="utf-8",
+    )
+    temp_path.replace(path)
 
 
 __all__ = [

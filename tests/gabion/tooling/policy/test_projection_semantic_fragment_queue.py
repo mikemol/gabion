@@ -123,16 +123,22 @@ def test_markdown_summary_lists_queue_and_semantic_preview_context() -> None:
 
     markdown = projection_semantic_fragment_queue._markdown_summary(queue)
     assert "# Projection Semantic Fragment Queue" in markdown
-    assert "decision_rule: `projection_fiber.convergence.ok`" in markdown
-    assert "compiled_specs: `projection_fiber_frontier`" in markdown
-    assert "| PSF-004 | Phase 4 | in_progress | Friendly-surface convergence via typed ProjectionSpec lowering |" in markdown
-    assert "| PSF-006 | Phase 4 | landed | Move policy and authoring consumers toward direct canonical-carrier judgment |" in markdown
-    assert "| PSF-007 | Phase 5 | in_progress | Cut over legacy adapters and retire semantic_carrier_adapter boundaries |" in markdown
-    assert "## Phase 5 Structure" in markdown
-    assert "| PSF-007-SQ-005 | 2 | 10 |" in markdown
-    assert "| PSF-007-TP-006 | PSF-007-SQ-005 | src/gabion/analysis/projection/projection_exec.py | 9 |" in markdown
-    assert "| PSF-007-TP-006 | apply_execution_ops | projection_exec.apply_execution_ops | surviving_carrier_seam |" in markdown
-    assert "## Semantic Previews" in markdown
+    assert "## current_state" in markdown
+    assert "- rule_id: `projection_fiber.convergence.ok`" in markdown
+    assert "### compiled_projection_semantic_spec_names" in markdown
+    assert "- `projection_fiber_frontier`" in markdown
+    assert "## items" in markdown
+    assert "- status: `in_progress`" in markdown
+    assert "Friendly-surface convergence via typed ProjectionSpec lowering" in markdown
+    assert "Move policy and authoring consumers toward direct canonical-carrier judgment" in markdown
+    assert "Cut over legacy adapters and retire semantic_carrier_adapter boundaries" in markdown
+    assert "## phase5_structure" in markdown
+    assert "- subqueue_id: `PSF-007-SQ-005`" in markdown
+    assert "- touchpoint_id: `PSF-007-TP-006`" in markdown
+    assert "- rel_path: `src/gabion/analysis/projection/projection_exec.py`" in markdown
+    assert "- boundary_name: `projection_exec.apply_execution_ops`" in markdown
+    assert "- seam_class: `surviving_carrier_seam`" in markdown
+    assert "### semantic_previews" in markdown
     assert "src/gabion/example.py" in markdown
 
 
@@ -233,13 +239,24 @@ def test_analyze_marks_phase5_landed_when_adapter_markers_are_retired(
 ) -> None:
     monkeypatch.setattr(
         projection_semantic_fragment_queue,
-        "_remaining_phase5_projection_adapter_markers",
-        lambda: 0,
+        "_legacy_projection_exec_ingress_retired",
+        lambda: True,
+    )
+    live_structure = projection_semantic_fragment_queue._phase5_structure(
+        "artifacts/out/policy_check_result.json"
     )
     monkeypatch.setattr(
         projection_semantic_fragment_queue,
-        "_legacy_projection_exec_ingress_retired",
-        lambda: True,
+        "_phase5_structure",
+        lambda source_artifact: projection_semantic_fragment_queue.ProjectionSemanticFragmentPhase5Structure(
+            queue_id=live_structure.queue_id,
+            title=live_structure.title,
+            remaining_touchsite_count=0,
+            collapsible_touchsite_count=0,
+            surviving_touchsite_count=0,
+            subqueues=live_structure.subqueues,
+            touchpoints=live_structure.touchpoints,
+        ),
     )
     queue = projection_semantic_fragment_queue.analyze(
         payload=_policy_check_payload(),

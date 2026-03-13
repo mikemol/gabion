@@ -18,6 +18,24 @@ from gabion.order_contract import ordered_or_sorted
 from gabion.tooling.policy_substrate.invariant_graph import (
     build_invariant_graph,
     build_psf_phase5_projection,
+    load_invariant_workstreams,
+)
+from gabion.tooling.policy_substrate.policy_artifact_stream import (
+    ArtifactSourceRef,
+    mapping_document,
+    render_markdown,
+    write_json,
+    write_markdown,
+)
+from gabion.tooling.policy_substrate.policy_queue_identity import (
+    PolicyQueueIdentitySpace,
+    SiteReferenceId,
+    StructuralReferenceId,
+    SubqueueId,
+    TouchpointId,
+    TouchsiteId,
+    WorkstreamId,
+    encode_policy_queue_identity,
 )
 from gabion.tooling.runtime.projection_fiber_semantics_summary import (
     projection_fiber_decision_from_payload,
@@ -117,52 +135,56 @@ class ProjectionSemanticFragmentQueue:
 
 @dataclass(frozen=True)
 class ProjectionSemanticFragmentPhase5Touchsite:
-    touchsite_id: str
-    touchpoint_id: str
-    subqueue_id: str
+    touchsite_id: TouchsiteId
+    touchpoint_id: TouchpointId
+    subqueue_id: SubqueueId
     rel_path: str
     qualname: str
     boundary_name: str
     line: int
     column: int
     node_kind: str
-    site_identity: str
-    structural_identity: str
+    site_identity: SiteReferenceId
+    structural_identity: StructuralReferenceId
     seam_class: str
     touchpoint_marker_identity: str
-    touchpoint_structural_identity: str
+    touchpoint_structural_identity: StructuralReferenceId
     subqueue_marker_identity: str
-    subqueue_structural_identity: str
+    subqueue_structural_identity: StructuralReferenceId
 
     def as_payload(self) -> dict[str, object]:
         return {
-            "touchsite_id": self.touchsite_id,
-            "touchpoint_id": self.touchpoint_id,
-            "subqueue_id": self.subqueue_id,
+            "touchsite_id": encode_policy_queue_identity(self.touchsite_id),
+            "touchpoint_id": encode_policy_queue_identity(self.touchpoint_id),
+            "subqueue_id": encode_policy_queue_identity(self.subqueue_id),
             "rel_path": self.rel_path,
             "qualname": self.qualname,
             "boundary_name": self.boundary_name,
             "line": self.line,
             "column": self.column,
             "node_kind": self.node_kind,
-            "site_identity": self.site_identity,
-            "structural_identity": self.structural_identity,
+            "site_identity": encode_policy_queue_identity(self.site_identity),
+            "structural_identity": encode_policy_queue_identity(self.structural_identity),
             "seam_class": self.seam_class,
             "touchpoint_marker_identity": self.touchpoint_marker_identity,
-            "touchpoint_structural_identity": self.touchpoint_structural_identity,
+            "touchpoint_structural_identity": encode_policy_queue_identity(
+                self.touchpoint_structural_identity
+            ),
             "subqueue_marker_identity": self.subqueue_marker_identity,
-            "subqueue_structural_identity": self.subqueue_structural_identity,
+            "subqueue_structural_identity": encode_policy_queue_identity(
+                self.subqueue_structural_identity
+            ),
         }
 
 
 @dataclass(frozen=True)
 class ProjectionSemanticFragmentPhase5Touchpoint:
-    touchpoint_id: str
-    subqueue_id: str
+    touchpoint_id: TouchpointId
+    subqueue_id: SubqueueId
     title: str
     rel_path: str
-    site_identity: str
-    structural_identity: str
+    site_identity: SiteReferenceId
+    structural_identity: StructuralReferenceId
     marker_identity: str
     marker_reason: str
     reasoning_summary: str
@@ -176,12 +198,12 @@ class ProjectionSemanticFragmentPhase5Touchpoint:
 
     def as_payload(self) -> dict[str, object]:
         return {
-            "touchpoint_id": self.touchpoint_id,
-            "subqueue_id": self.subqueue_id,
+            "touchpoint_id": encode_policy_queue_identity(self.touchpoint_id),
+            "subqueue_id": encode_policy_queue_identity(self.subqueue_id),
             "title": self.title,
             "rel_path": self.rel_path,
-            "site_identity": self.site_identity,
-            "structural_identity": self.structural_identity,
+            "site_identity": encode_policy_queue_identity(self.site_identity),
+            "structural_identity": encode_policy_queue_identity(self.structural_identity),
             "marker_identity": self.marker_identity,
             "marker_reason": self.marker_reason,
             "reasoning_summary": self.reasoning_summary,
@@ -197,34 +219,36 @@ class ProjectionSemanticFragmentPhase5Touchpoint:
 
 @dataclass(frozen=True)
 class ProjectionSemanticFragmentPhase5Subqueue:
-    subqueue_id: str
+    subqueue_id: SubqueueId
     title: str
-    site_identity: str
-    structural_identity: str
+    site_identity: SiteReferenceId
+    structural_identity: StructuralReferenceId
     marker_identity: str
     marker_reason: str
     reasoning_summary: str
     reasoning_control: str
     blocking_dependencies: tuple[str, ...]
     object_ids: tuple[str, ...]
-    touchpoint_ids: tuple[str, ...]
+    touchpoint_ids: tuple[TouchpointId, ...]
     touchsite_count: int
     collapsible_touchsite_count: int
     surviving_touchsite_count: int
 
     def as_payload(self) -> dict[str, object]:
         return {
-            "subqueue_id": self.subqueue_id,
+            "subqueue_id": encode_policy_queue_identity(self.subqueue_id),
             "title": self.title,
-            "site_identity": self.site_identity,
-            "structural_identity": self.structural_identity,
+            "site_identity": encode_policy_queue_identity(self.site_identity),
+            "structural_identity": encode_policy_queue_identity(self.structural_identity),
             "marker_identity": self.marker_identity,
             "marker_reason": self.marker_reason,
             "reasoning_summary": self.reasoning_summary,
             "reasoning_control": self.reasoning_control,
             "blocking_dependencies": list(self.blocking_dependencies),
             "object_ids": list(self.object_ids),
-            "touchpoint_ids": list(self.touchpoint_ids),
+            "touchpoint_ids": [
+                encode_policy_queue_identity(item) for item in self.touchpoint_ids
+            ],
             "touchsite_count": self.touchsite_count,
             "collapsible_touchsite_count": self.collapsible_touchsite_count,
             "surviving_touchsite_count": self.surviving_touchsite_count,
@@ -233,7 +257,7 @@ class ProjectionSemanticFragmentPhase5Subqueue:
 
 @dataclass(frozen=True)
 class ProjectionSemanticFragmentPhase5Structure:
-    queue_id: str
+    queue_id: WorkstreamId
     title: str
     remaining_touchsite_count: int
     collapsible_touchsite_count: int
@@ -243,7 +267,7 @@ class ProjectionSemanticFragmentPhase5Structure:
 
     def as_payload(self) -> dict[str, object]:
         return {
-            "queue_id": self.queue_id,
+            "queue_id": encode_policy_queue_identity(self.queue_id),
             "title": self.title,
             "remaining_touchsite_count": self.remaining_touchsite_count,
             "collapsible_touchsite_count": self.collapsible_touchsite_count,
@@ -295,20 +319,144 @@ def _legacy_projection_exec_ingress_retired() -> bool:
     ).exists()
 
 
-@lru_cache(maxsize=1)
-def _remaining_phase5_projection_adapter_markers() -> int:
-    return _phase5_structure().remaining_touchsite_count
-
-
-@lru_cache(maxsize=1)
-def _phase5_structure() -> ProjectionSemanticFragmentPhase5Structure:
-    projection = build_psf_phase5_projection(build_invariant_graph(_REPO_ROOT))
+@lru_cache(maxsize=8)
+def _phase5_structure(source_artifact: str) -> ProjectionSemanticFragmentPhase5Structure:
+    identity_space = PolicyQueueIdentitySpace()
+    source_path = Path(source_artifact)
+    workstreams_artifact = source_path.parent / "invariant_workstreams.json"
+    if workstreams_artifact.exists():
+        loaded_projection = load_invariant_workstreams(workstreams_artifact)
+        workstreams = loaded_projection.get("workstreams", [])
+        raw_workstream = next(
+            (
+                item
+                for item in workstreams
+                if isinstance(item, Mapping)
+                and str(item.get("object_id", "")) == "PSF-007"
+            ),
+            None,
+        )
+        if not isinstance(raw_workstream, Mapping):
+            raise KeyError("PSF-007")
+        projection = {
+            "title": str(raw_workstream.get("title", "")),
+            "remaining_touchsite_count": int(raw_workstream.get("touchsite_count", 0)),
+            "collapsible_touchsite_count": int(
+                raw_workstream.get("collapsible_touchsite_count", 0)
+            ),
+            "surviving_touchsite_count": int(
+                raw_workstream.get("surviving_touchsite_count", 0)
+            ),
+            "subqueues": [
+                {
+                    "subqueue_id": str(item.get("object_id", "")),
+                    "title": str(item.get("title", "")),
+                    "site_identity": str(item.get("site_identity", "")),
+                    "structural_identity": str(item.get("structural_identity", "")),
+                    "marker_identity": str(item.get("marker_identity", "")),
+                    "marker_reason": str(item.get("reasoning_summary", "")),
+                    "reasoning_summary": str(item.get("reasoning_summary", "")),
+                    "reasoning_control": str(item.get("reasoning_control", "")),
+                    "blocking_dependencies": [
+                        str(value)
+                        for value in item.get("blocking_dependencies", [])
+                    ],
+                    "object_ids": [
+                        str(value)
+                        for value in item.get("object_ids", [])
+                    ],
+                    "touchpoint_ids": [
+                        str(value)
+                        for value in item.get("touchpoint_ids", [])
+                    ],
+                    "touchsite_count": int(item.get("touchsite_count", 0)),
+                    "collapsible_touchsite_count": int(
+                        item.get("collapsible_touchsite_count", 0)
+                    ),
+                    "surviving_touchsite_count": int(
+                        item.get("surviving_touchsite_count", 0)
+                    ),
+                }
+                for item in raw_workstream.get("subqueues", [])
+                if isinstance(item, Mapping)
+            ],
+            "touchpoints": [
+                {
+                    "touchpoint_id": str(item.get("object_id", "")),
+                    "subqueue_id": str(item.get("subqueue_id", "")),
+                    "title": str(item.get("title", "")),
+                    "rel_path": str(item.get("rel_path", "")),
+                    "site_identity": str(item.get("site_identity", "")),
+                    "structural_identity": str(item.get("structural_identity", "")),
+                    "marker_identity": str(item.get("marker_identity", "")),
+                    "marker_reason": str(item.get("reasoning_summary", "")),
+                    "reasoning_summary": str(item.get("reasoning_summary", "")),
+                    "reasoning_control": str(item.get("reasoning_control", "")),
+                    "blocking_dependencies": [
+                        str(value)
+                        for value in item.get("blocking_dependencies", [])
+                    ],
+                    "object_ids": [
+                        str(value)
+                        for value in item.get("object_ids", [])
+                    ],
+                    "touchsite_count": int(item.get("touchsite_count", 0)),
+                    "collapsible_touchsite_count": int(
+                        item.get("collapsible_touchsite_count", 0)
+                    ),
+                    "surviving_touchsite_count": int(
+                        item.get("surviving_touchsite_count", 0)
+                    ),
+                    "touchsites": [
+                        {
+                            "touchsite_id": str(touchsite.get("object_id", "")),
+                            "touchpoint_id": str(touchsite.get("touchpoint_id", "")),
+                            "subqueue_id": str(touchsite.get("subqueue_id", "")),
+                            "rel_path": str(touchsite.get("rel_path", "")),
+                            "qualname": str(touchsite.get("qualname", "")),
+                            "boundary_name": str(touchsite.get("boundary_name", "")),
+                            "line": int(touchsite.get("line", 0)),
+                            "column": int(touchsite.get("column", 0)),
+                            "node_kind": str(touchsite.get("node_kind", "")),
+                            "site_identity": str(touchsite.get("site_identity", "")),
+                            "structural_identity": str(
+                                touchsite.get("structural_identity", "")
+                            ),
+                            "seam_class": str(touchsite.get("seam_class", "")),
+                            "touchpoint_marker_identity": str(
+                                touchsite.get("touchpoint_marker_identity", "")
+                            ),
+                            "touchpoint_structural_identity": str(
+                                touchsite.get(
+                                    "touchpoint_structural_identity",
+                                    "",
+                                )
+                            ),
+                            "subqueue_marker_identity": str(
+                                touchsite.get("subqueue_marker_identity", "")
+                            ),
+                            "subqueue_structural_identity": str(
+                                touchsite.get("subqueue_structural_identity", "")
+                            ),
+                        }
+                        for touchsite in item.get("touchsites", [])
+                        if isinstance(touchsite, Mapping)
+                    ],
+                }
+                for item in raw_workstream.get("touchpoints", [])
+                if isinstance(item, Mapping)
+            ],
+        }
+    else:
+        projection = build_psf_phase5_projection(build_invariant_graph(_REPO_ROOT))
     subqueue_states = tuple(
         ProjectionSemanticFragmentPhase5Subqueue(
-            subqueue_id=str(item.get("subqueue_id", "")),
+            subqueue_id=identity_space.subqueue_id(str(item.get("subqueue_id", ""))),
             title=str(item.get("title", "")),
-            site_identity=str(item.get("site_identity", "")),
-            structural_identity=str(item.get("structural_identity", "")),
+            site_identity=identity_space.site_ref_id(str(item.get("site_identity", ""))),
+            structural_identity=identity_space.structural_ref_id(
+                str(item.get("structural_identity", ""))
+            ),
             marker_identity=str(item.get("marker_identity", "")),
             marker_reason=str(item.get("marker_reason", "")),
             reasoning_summary=str(item.get("reasoning_summary", "")),
@@ -317,7 +465,10 @@ def _phase5_structure() -> ProjectionSemanticFragmentPhase5Structure:
                 str(value) for value in item.get("blocking_dependencies", [])
             ),
             object_ids=tuple(str(value) for value in item.get("object_ids", [])),
-            touchpoint_ids=tuple(str(value) for value in item.get("touchpoint_ids", [])),
+            touchpoint_ids=tuple(
+                identity_space.touchpoint_id(str(value))
+                for value in item.get("touchpoint_ids", [])
+            ),
             touchsite_count=int(item.get("touchsite_count", 0)),
             collapsible_touchsite_count=int(item.get("collapsible_touchsite_count", 0)),
             surviving_touchsite_count=int(item.get("surviving_touchsite_count", 0)),
@@ -327,12 +478,16 @@ def _phase5_structure() -> ProjectionSemanticFragmentPhase5Structure:
     )
     touchpoint_states = tuple(
         ProjectionSemanticFragmentPhase5Touchpoint(
-            touchpoint_id=str(item.get("touchpoint_id", "")),
-            subqueue_id=str(item.get("subqueue_id", "")),
+            touchpoint_id=identity_space.touchpoint_id(
+                str(item.get("touchpoint_id", ""))
+            ),
+            subqueue_id=identity_space.subqueue_id(str(item.get("subqueue_id", ""))),
             title=str(item.get("title", "")),
             rel_path=str(item.get("rel_path", "")),
-            site_identity=str(item.get("site_identity", "")),
-            structural_identity=str(item.get("structural_identity", "")),
+            site_identity=identity_space.site_ref_id(str(item.get("site_identity", ""))),
+            structural_identity=identity_space.structural_ref_id(
+                str(item.get("structural_identity", ""))
+            ),
             marker_identity=str(item.get("marker_identity", "")),
             marker_reason=str(item.get("marker_reason", "")),
             reasoning_summary=str(item.get("reasoning_summary", "")),
@@ -346,29 +501,39 @@ def _phase5_structure() -> ProjectionSemanticFragmentPhase5Structure:
             surviving_touchsite_count=int(item.get("surviving_touchsite_count", 0)),
             touchsites=tuple(
                 ProjectionSemanticFragmentPhase5Touchsite(
-                    touchsite_id=str(touchsite.get("touchsite_id", "")),
-                    touchpoint_id=str(touchsite.get("touchpoint_id", "")),
-                    subqueue_id=str(touchsite.get("subqueue_id", "")),
+                    touchsite_id=identity_space.touchsite_id(
+                        str(touchsite.get("touchsite_id", ""))
+                    ),
+                    touchpoint_id=identity_space.touchpoint_id(
+                        str(touchsite.get("touchpoint_id", ""))
+                    ),
+                    subqueue_id=identity_space.subqueue_id(
+                        str(touchsite.get("subqueue_id", ""))
+                    ),
                     rel_path=str(touchsite.get("rel_path", "")),
                     qualname=str(touchsite.get("qualname", "")),
                     boundary_name=str(touchsite.get("boundary_name", "")),
                     line=int(touchsite.get("line", 0)),
                     column=int(touchsite.get("column", 0)),
                     node_kind=str(touchsite.get("node_kind", "")),
-                    site_identity=str(touchsite.get("site_identity", "")),
-                    structural_identity=str(touchsite.get("structural_identity", "")),
+                    site_identity=identity_space.site_ref_id(
+                        str(touchsite.get("site_identity", ""))
+                    ),
+                    structural_identity=identity_space.structural_ref_id(
+                        str(touchsite.get("structural_identity", ""))
+                    ),
                     seam_class=str(touchsite.get("seam_class", "")),
                     touchpoint_marker_identity=str(
                         touchsite.get("touchpoint_marker_identity", "")
                     ),
-                    touchpoint_structural_identity=str(
-                        touchsite.get("touchpoint_structural_identity", "")
+                    touchpoint_structural_identity=identity_space.structural_ref_id(
+                        str(touchsite.get("touchpoint_structural_identity", ""))
                     ),
                     subqueue_marker_identity=str(
                         touchsite.get("subqueue_marker_identity", "")
                     ),
-                    subqueue_structural_identity=str(
-                        touchsite.get("subqueue_structural_identity", "")
+                    subqueue_structural_identity=identity_space.structural_ref_id(
+                        str(touchsite.get("subqueue_structural_identity", ""))
                     ),
                 )
                 for touchsite in item.get("touchsites", [])
@@ -379,7 +544,7 @@ def _phase5_structure() -> ProjectionSemanticFragmentPhase5Structure:
         if isinstance(item, Mapping)
     )
     return ProjectionSemanticFragmentPhase5Structure(
-        queue_id="PSF-007",
+        queue_id=identity_space.workstream_id("PSF-007"),
         title=str(projection.get("title", "")),
         remaining_touchsite_count=int(projection.get("remaining_touchsite_count", 0)),
         collapsible_touchsite_count=int(projection.get("collapsible_touchsite_count", 0)),
@@ -395,7 +560,7 @@ def analyze(
     source_artifact: str = _DEFAULT_SOURCE_ARTIFACT,
 ) -> ProjectionSemanticFragmentQueue:
     current_state = _current_state(payload)
-    phase5_structure = _phase5_structure()
+    phase5_structure = _phase5_structure(source_artifact)
     items = _queue_items(current_state, phase5_structure=phase5_structure)
     next_queue_ids = tuple(
         item.queue_id for item in items if item.status != "landed"
@@ -470,7 +635,7 @@ def _queue_items(
         and policy_direct_carrier_judgment_landed
     )
     legacy_projection_exec_ingress_retired = _legacy_projection_exec_ingress_retired()
-    remaining_phase5_adapter_markers = _remaining_phase5_projection_adapter_markers()
+    remaining_phase5_adapter_markers = phase5_structure.remaining_touchsite_count
     phase5_subqueue_count = len(phase5_structure.subqueues)
     phase5_touchpoint_count = len(phase5_structure.touchpoints)
     phase5_collapsible_touchsite_count = phase5_structure.collapsible_touchsite_count
@@ -689,132 +854,18 @@ def _string_value(value: object) -> str:
 
 
 def _markdown_summary(queue: ProjectionSemanticFragmentQueue) -> str:
-    current_state = queue.current_state
-    phase5_structure = queue.phase5_structure
-    spec_names = ", ".join(current_state.compiled_projection_semantic_spec_names) or "<none>"
-    lines = [
-        "# Projection Semantic Fragment Queue",
-        "",
-        f"- source_artifact: `{queue.source_artifact}`",
-        f"- decision_rule: `{_string_value(current_state.decision.get('rule_id')) or '<none>'}`",
-        f"- semantic_rows: `{current_state.semantic_row_count}`",
-        (
-            "- compiled_projection_semantic_bundles: "
-            f"`{current_state.compiled_projection_semantic_bundle_count}`"
+    return render_markdown(_queue_document(queue))
+
+
+def _queue_document(queue: ProjectionSemanticFragmentQueue):
+    return mapping_document(
+        identity=ArtifactSourceRef(
+            rel_path="<synthetic>",
+            qualname="projection_semantic_fragment_queue",
         ),
-        f"- compiled_specs: `{spec_names}`",
-        f"- semantic_preview_count: `{current_state.semantic_preview_count}`",
-        (
-            "- semantic_preview_samples: "
-            f"`{len(current_state.semantic_previews)}`"
-        ),
-        "",
-        "## Next Queue",
-    ]
-    if queue.next_queue_ids:
-        lines.extend(f"- `{item}`" for item in queue.next_queue_ids)
-    else:
-        lines.append("- `<none>`")
-    lines.extend(
-        [
-            "",
-            "## Queue",
-            "",
-            "| id | phase | status | title |",
-            "| --- | --- | --- | --- |",
-        ]
+        title="Projection Semantic Fragment Queue",
+        payload=queue.as_payload(),
     )
-    for item in queue.items:
-        lines.append(
-            f"| {item.queue_id} | {item.phase} | {item.status} | {item.title} |"
-        )
-    lines.extend(
-        [
-            "",
-            "## Phase 5 Structure",
-            "",
-            f"- remaining_touchsites: `{phase5_structure.remaining_touchsite_count}`",
-            f"- collapsible_touchsites: `{phase5_structure.collapsible_touchsite_count}`",
-            f"- surviving_touchsites: `{phase5_structure.surviving_touchsite_count}`",
-            "",
-            "### Subqueues",
-            "",
-            "| id | touchpoints | touchsites | collapsible | surviving | control |",
-            "| --- | --- | --- | --- | --- | --- |",
-        ]
-    )
-    for subqueue in phase5_structure.subqueues:
-        lines.append(
-            "| {subqueue_id} | {touchpoints} | {touchsites} | {collapsible} | {surviving} | {control} |".format(
-                subqueue_id=subqueue.subqueue_id,
-                touchpoints=len(subqueue.touchpoint_ids),
-                touchsites=subqueue.touchsite_count,
-                collapsible=subqueue.collapsible_touchsite_count,
-                surviving=subqueue.surviving_touchsite_count,
-                control=subqueue.reasoning_control or "<none>",
-            )
-        )
-    lines.extend(
-        [
-            "",
-            "### Touchpoints",
-            "",
-            "| id | subqueue | path | touchsites | collapsible | surviving |",
-            "| --- | --- | --- | --- | --- | --- |",
-        ]
-    )
-    for touchpoint in phase5_structure.touchpoints:
-        lines.append(
-            "| {touchpoint_id} | {subqueue_id} | {rel_path} | {touchsites} | {collapsible} | {surviving} |".format(
-                touchpoint_id=touchpoint.touchpoint_id,
-                subqueue_id=touchpoint.subqueue_id,
-                rel_path=touchpoint.rel_path,
-                touchsites=touchpoint.touchsite_count,
-                collapsible=touchpoint.collapsible_touchsite_count,
-                surviving=touchpoint.surviving_touchsite_count,
-            )
-        )
-    lines.extend(
-        [
-            "",
-            "### Touchsites",
-            "",
-            "| touchpoint | qualname | boundary | class | line |",
-            "| --- | --- | --- | --- | --- |",
-        ]
-    )
-    for touchpoint in phase5_structure.touchpoints:
-        for touchsite in touchpoint.touchsites:
-            lines.append(
-                "| {touchpoint_id} | {qualname} | {boundary_name} | {seam_class} | {line} |".format(
-                    touchpoint_id=touchsite.touchpoint_id,
-                    qualname=touchsite.qualname,
-                    boundary_name=touchsite.boundary_name,
-                    seam_class=touchsite.seam_class,
-                    line=touchsite.line,
-                )
-            )
-    if current_state.semantic_previews:
-        lines.extend(
-            [
-                "",
-                "## Semantic Previews",
-                "",
-                "| spec | quotient_face | path | qualname | structural_path |",
-                "| --- | --- | --- | --- | --- |",
-            ]
-        )
-        for preview in current_state.semantic_previews:
-            lines.append(
-                "| {spec} | {face} | {path} | {qualname} | {structural_path} |".format(
-                    spec=_string_value(preview.get("spec_name")),
-                    face=_string_value(preview.get("quotient_face")),
-                    path=_string_value(preview.get("path")),
-                    qualname=_string_value(preview.get("qualname")),
-                    structural_path=_string_value(preview.get("structural_path")),
-                )
-            )
-    return "\n".join(lines) + "\n"
 
 
 def run(
@@ -830,17 +881,9 @@ def run(
         payload=payload,
         source_artifact=str(source_artifact_path),
     )
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(
-        json.dumps(queue.as_payload(), indent=2, sort_keys=False) + "\n",
-        encoding="utf-8",
-    )
+    write_json(out_path, _queue_document(queue))
     if markdown_out is not None:
-        markdown_out.parent.mkdir(parents=True, exist_ok=True)
-        markdown_out.write_text(
-            _markdown_summary(queue),
-            encoding="utf-8",
-        )
+        write_markdown(markdown_out, _queue_document(queue))
     return 0
 
 

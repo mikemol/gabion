@@ -569,9 +569,11 @@ def test_markdown_summary_includes_projection_fiber_semantic_fields() -> None:
     )
 
     markdown = hotspot_neighborhood_queue._markdown_summary(queue)
-    assert "projection_fiber_decision: projection_fiber.convergence.ok" in markdown
-    assert "projection_fiber_semantic_bundles: 1" in markdown
-    assert "## Projection Fiber Semantic Previews" in markdown
+    assert "## source" in markdown
+    assert "### projection_fiber_decision" in markdown
+    assert "- rule_id: `projection_fiber.convergence.ok`" in markdown
+    assert "- projection_fiber_semantic_bundle_count: `1`" in markdown
+    assert "### projection_fiber_semantic_previews" in markdown
     assert "src/gabion/example.py" in markdown
 
 

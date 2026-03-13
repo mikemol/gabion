@@ -12,6 +12,13 @@ from typing import Any
 
 from gabion.order_contract import ordered_or_sorted
 from gabion.tooling.runtime import policy_result_schema
+from gabion.tooling.policy_substrate.policy_artifact_stream import (
+    ArtifactSourceRef,
+    mapping_document,
+    render_markdown,
+    write_json,
+    write_markdown,
+)
 from gabion.tooling.runtime.projection_fiber_semantics_summary import (
     projection_fiber_decision_from_payload,
     projection_fiber_semantic_bundle_count_from_payload,
@@ -457,144 +464,7 @@ def analyze(
 
 
 def _markdown_summary(payload: dict[str, Any]) -> str:
-    source = payload.get("source")
-    source_mapping = source if isinstance(source, dict) else {}
-    semantics_decision = source_mapping.get("projection_fiber_decision")
-    semantics_decision_mapping = (
-        semantics_decision if isinstance(semantics_decision, dict) else {}
-    )
-    semantics_bundle_count = _count_int(
-        source_mapping.get("projection_fiber_semantic_bundle_count")
-    )
-    semantic_previews = source_mapping.get("projection_fiber_semantic_previews")
-    semantic_preview_list = semantic_previews if isinstance(semantic_previews, list) else []
-    lines = [
-        "# Hotspot Neighborhood Queue",
-        "",
-        f"- generated_at_utc: {payload.get('generated_at_utc', '')}",
-        f"- neighborhoods: {payload.get('counts', {}).get('neighborhood_count', 0)}",
-        f"- large_zone_backlog: {payload.get('counts', {}).get('large_zone_backlog_count', 0)}",
-    ]
-    if semantics_decision_mapping or semantics_bundle_count > 0 or semantic_preview_list:
-        lines.extend(
-            [
-                f"- projection_fiber_decision: {semantics_decision_mapping.get('rule_id', '')}",
-                (
-                    "- projection_fiber_semantic_bundles: "
-                    f"{semantics_bundle_count}"
-                ),
-            ]
-        )
-        if semantic_preview_list:
-            lines.extend(
-                [
-                    "",
-                    "## Projection Fiber Semantic Previews",
-                    "",
-                    "| spec | quotient_face | path | qualname | structural_path |",
-                    "| --- | --- | --- | --- | --- |",
-                ]
-            )
-            for item in semantic_preview_list:
-                if not isinstance(item, dict):
-                    continue
-                lines.append(
-                    "| {spec} | {face} | {path} | {qualname} | {structural_path} |".format(
-                        spec=str(item.get("spec_name", "")),
-                        face=str(item.get("quotient_face", "")),
-                        path=str(item.get("path", "")),
-                        qualname=str(item.get("qualname", "")),
-                        structural_path=str(item.get("structural_path", "")),
-                    )
-                )
-    lines.extend(
-        [
-            "",
-            "| rank | ring_1_scope | seed_path | pf_overlap | score | ring_1_total | ring_2_total |",
-            "| ---: | --- | --- | ---: | ---: | ---: | ---: |",
-        ]
-    )
-    neighborhoods = payload.get("neighborhoods")
-    if isinstance(neighborhoods, list):
-        for item in neighborhoods:
-            if not isinstance(item, dict):
-                continue
-            lines.append(
-                "| {rank} | {scope} | {seed} | {overlap} | {score:.3f} | {ring1} | {ring2} |".format(
-                    rank=int(item.get("rank", 0) or 0),
-                    scope=str(item.get("ring_1_scope", "")),
-                    seed=str(item.get("seed_path", "")),
-                    overlap=int(
-                        ((item.get("projection_fiber_overlap") or {}).get("match_count", 0))
-                        or 0
-                    ),
-                    score=float((item.get("score") or {}).get("balanced", 0.0) or 0.0),
-                    ring1=int((item.get("score") or {}).get("ring_1_total", 0) or 0),
-                    ring2=int((item.get("score") or {}).get("ring_2_advisory_total", 0) or 0),
-                )
-            )
-        matched_neighborhoods = [
-            item
-            for item in neighborhoods
-            if isinstance(item, dict)
-            and int(((item.get("projection_fiber_overlap") or {}).get("match_count", 0)) or 0)
-            > 0
-        ]
-        if matched_neighborhoods:
-            lines.extend(
-                [
-                    "",
-                    "## Projection Fiber Queue Overlap",
-                    "",
-                    "| rank | location | path | qualname | structural_path |",
-                    "| ---: | --- | --- | --- | --- |",
-                ]
-            )
-            for item in matched_neighborhoods:
-                overlap = item.get("projection_fiber_overlap")
-                if not isinstance(overlap, dict):
-                    continue
-                previews = overlap.get("matched_previews")
-                if not isinstance(previews, list):
-                    continue
-                rank = int(item.get("rank", 0) or 0)
-                for preview in previews:
-                    if not isinstance(preview, dict):
-                        continue
-                    lines.append(
-                        "| {rank} | {location} | {path} | {qualname} | {structural_path} |".format(
-                            rank=rank,
-                            location=str(preview.get("location", "")),
-                            path=str(preview.get("path", "")),
-                            qualname=str(preview.get("qualname", "")),
-                            structural_path=str(preview.get("structural_path", "")),
-                        )
-                    )
-    backlog = payload.get("large_zone_backlog")
-    if isinstance(backlog, list) and backlog:
-        lines.extend(
-            [
-                "",
-                "## Large-Zone Backlog",
-                "",
-                "| backlog_rank | ring_1_scope | seed_path | ring_1_file_count | ring_1_total |",
-                "| ---: | --- | --- | ---: | ---: |",
-            ]
-        )
-        for item in backlog:
-            if not isinstance(item, dict):
-                continue
-            lines.append(
-                "| {rank} | {scope} | {seed} | {files} | {total} |".format(
-                    rank=int(item.get("backlog_rank", 0) or 0),
-                    scope=str(item.get("ring_1_scope", "")),
-                    seed=str(item.get("seed_path", "")),
-                    files=int((item.get("ring_1") or {}).get("file_count", 0) or 0),
-                    total=int((item.get("ring_1") or {}).get("total", 0) or 0),
-                )
-            )
-    lines.append("")
-    return "\n".join(lines)
+    return render_markdown(_queue_document(payload))
 
 
 def _write_queue_outputs(
@@ -603,12 +473,21 @@ def _write_queue_outputs(
     out_path: Path,
     markdown_out: Path | None = None,
 ) -> int:
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(json.dumps(queue, indent=2) + "\n", encoding="utf-8")
+    write_json(out_path, _queue_document(queue))
     if markdown_out is not None:
-        markdown_out.parent.mkdir(parents=True, exist_ok=True)
-        markdown_out.write_text(_markdown_summary(queue), encoding="utf-8")
+        write_markdown(markdown_out, _queue_document(queue))
     return 0
+
+
+def _queue_document(payload: dict[str, Any]):
+    return mapping_document(
+        identity=ArtifactSourceRef(
+            rel_path="<synthetic>",
+            qualname="hotspot_neighborhood_queue",
+        ),
+        title="Hotspot Neighborhood Queue",
+        payload=payload,
+    )
 
 
 def run(

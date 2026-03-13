@@ -96,13 +96,10 @@ def _workstream_by_object_id(
     *,
     graph: InvariantGraph,
     object_id: str,
-) -> dict[str, object] | None:
+):
     projection = build_invariant_workstreams(graph)
-    workstreams = projection.get("workstreams", [])
-    if not isinstance(workstreams, list):
-        return None
-    for item in workstreams:
-        if isinstance(item, dict) and str(item.get("object_id", "")) == object_id:
+    for item in projection.iter_workstreams():
+        if item.object_id.wire() == object_id:
             return item
     return None
 
@@ -254,32 +251,30 @@ def _print_workstream(*, graph: InvariantGraph, object_id: str) -> int:
     if workstream is None:
         print(f"no workstream projection for object_id: {object_id}")
         return 1
-    print(f"object_id: {workstream.get('object_id', '')}")
-    print(f"title: {workstream.get('title', '')}")
-    print(f"status: {workstream.get('status', '')}")
-    print(f"touchsites: {workstream.get('touchsite_count', 0)}")
-    print(f"collapsible_touchsites: {workstream.get('collapsible_touchsite_count', 0)}")
-    print(f"surviving_touchsites: {workstream.get('surviving_touchsite_count', 0)}")
-    print(f"policy_signals: {workstream.get('policy_signal_count', 0)}")
-    print(f"coverage_count: {workstream.get('coverage_count', 0)}")
-    print(f"diagnostics: {workstream.get('diagnostic_count', 0)}")
+    print(f"object_id: {workstream.object_id.wire()}")
+    print(f"title: {workstream.title}")
+    print(f"status: {workstream.status}")
+    print(f"touchsites: {workstream.touchsite_count}")
+    print(f"collapsible_touchsites: {workstream.collapsible_touchsite_count}")
+    print(f"surviving_touchsites: {workstream.surviving_touchsite_count}")
+    print(f"policy_signals: {workstream.policy_signal_count}")
+    print(f"coverage_count: {workstream.coverage_count}")
+    print(f"diagnostics: {workstream.diagnostic_count}")
     print("subqueues:")
-    subqueues = workstream.get("subqueues", [])
-    if isinstance(subqueues, list) and subqueues:
+    subqueues = tuple(workstream.iter_subqueues())
+    if not subqueues:
+        print("- <none>")
+    else:
         for item in subqueues:
-            if not isinstance(item, dict):
-                continue
             print(
                 "- {object_id} :: {status} :: touchsites={touchsites} :: signals={signals} :: coverage={coverage}".format(
-                    object_id=str(item.get("object_id", "")),
-                    status=str(item.get("status", "")),
-                    touchsites=int(item.get("touchsite_count", 0)),
-                    signals=int(item.get("policy_signal_count", 0)),
-                    coverage=int(item.get("coverage_count", 0)),
+                    object_id=item.object_id.wire(),
+                    status=item.status,
+                    touchsites=item.touchsite_count,
+                    signals=item.policy_signal_count,
+                    coverage=item.coverage_count,
                 )
             )
-    else:
-        print("- <none>")
     return 0
 
 
