@@ -902,6 +902,58 @@ class InvariantRepoFollowupCrossClassTradeoff:
 
 
 @dataclass(frozen=True)
+class InvariantRepoFollowupSameClassTradeoff:
+    frontier_followup_family: str
+    frontier_followup_class: str
+    frontier_action_kind: str
+    frontier_object_id: str | None
+    frontier_diagnostic_code: str | None
+    frontier_target_doc_id: str | None
+    frontier_policy_ids: tuple[str, ...]
+    frontier_utility_score: int
+    frontier_utility_reason: str
+    runner_up_followup_family: str
+    runner_up_followup_class: str
+    runner_up_action_kind: str
+    runner_up_object_id: str | None
+    runner_up_diagnostic_code: str | None
+    runner_up_target_doc_id: str | None
+    runner_up_policy_ids: tuple[str, ...]
+    runner_up_utility_score: int
+    runner_up_utility_reason: str
+    margin_score: int
+    margin_reason: str
+    margin_components: tuple[InvariantScoreComponent, ...]
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "frontier_followup_family": self.frontier_followup_family,
+            "frontier_followup_class": self.frontier_followup_class,
+            "frontier_action_kind": self.frontier_action_kind,
+            "frontier_object_id": self.frontier_object_id,
+            "frontier_diagnostic_code": self.frontier_diagnostic_code,
+            "frontier_target_doc_id": self.frontier_target_doc_id,
+            "frontier_policy_ids": list(self.frontier_policy_ids),
+            "frontier_utility_score": self.frontier_utility_score,
+            "frontier_utility_reason": self.frontier_utility_reason,
+            "runner_up_followup_family": self.runner_up_followup_family,
+            "runner_up_followup_class": self.runner_up_followup_class,
+            "runner_up_action_kind": self.runner_up_action_kind,
+            "runner_up_object_id": self.runner_up_object_id,
+            "runner_up_diagnostic_code": self.runner_up_diagnostic_code,
+            "runner_up_target_doc_id": self.runner_up_target_doc_id,
+            "runner_up_policy_ids": list(self.runner_up_policy_ids),
+            "runner_up_utility_score": self.runner_up_utility_score,
+            "runner_up_utility_reason": self.runner_up_utility_reason,
+            "margin_score": self.margin_score,
+            "margin_reason": self.margin_reason,
+            "margin_components": [
+                item.as_payload() for item in self.margin_components
+            ],
+        }
+
+
+@dataclass(frozen=True)
 class InvariantRepoDiagnosticLane:
     diagnostic_code: str
     severity: str
@@ -2345,9 +2397,11 @@ class InvariantWorkstreamsProjection:
     ) -> tuple[InvariantScoreComponent, ...]:
         if (
             frontier_followup.followup_family == followup.followup_family
+            and frontier_followup.action_kind == followup.action_kind
             and frontier_followup.object_id == followup.object_id
             and frontier_followup.diagnostic_code == followup.diagnostic_code
             and frontier_followup.target_doc_id == followup.target_doc_id
+            and frontier_followup.policy_ids == followup.policy_ids
         ):
             return ()
         components: list[InvariantScoreComponent] = list(
@@ -3145,6 +3199,56 @@ class InvariantWorkstreamsProjection:
             ),
         )
 
+    def recommended_repo_followup_same_class_tradeoff(
+        self,
+    ) -> InvariantRepoFollowupSameClassTradeoff | None:
+        return self._recommended_repo_followup_same_class_tradeoff
+
+    @cached_property
+    def _recommended_repo_followup_same_class_tradeoff(
+        self,
+    ) -> InvariantRepoFollowupSameClassTradeoff | None:
+        frontier = self.recommended_repo_followup()
+        if frontier is None:
+            return None
+        frontier_class = self._repo_followup_class(frontier)
+        runner_up = next(
+            (
+                item
+                for item in self.ranked_repo_followups()[1:]
+                if self._repo_followup_class(item) == frontier_class
+            ),
+            None,
+        )
+        if runner_up is None:
+            return None
+        return InvariantRepoFollowupSameClassTradeoff(
+            frontier_followup_family=frontier.followup_family,
+            frontier_followup_class=frontier_class,
+            frontier_action_kind=frontier.action_kind,
+            frontier_object_id=frontier.object_id,
+            frontier_diagnostic_code=frontier.diagnostic_code,
+            frontier_target_doc_id=frontier.target_doc_id,
+            frontier_policy_ids=frontier.policy_ids,
+            frontier_utility_score=frontier.utility_score,
+            frontier_utility_reason=frontier.utility_reason,
+            runner_up_followup_family=runner_up.followup_family,
+            runner_up_followup_class=self._repo_followup_class(runner_up),
+            runner_up_action_kind=runner_up.action_kind,
+            runner_up_object_id=runner_up.object_id,
+            runner_up_diagnostic_code=runner_up.diagnostic_code,
+            runner_up_target_doc_id=runner_up.target_doc_id,
+            runner_up_policy_ids=runner_up.policy_ids,
+            runner_up_utility_score=runner_up.utility_score,
+            runner_up_utility_reason=runner_up.utility_reason,
+            margin_score=max(0, frontier.utility_score - runner_up.utility_score),
+            margin_reason=f"{frontier.utility_reason}->{runner_up.utility_reason}",
+            margin_components=self._repo_followup_opportunity_components(
+                frontier_followup=frontier,
+                followup=runner_up,
+            ),
+        )
+
     def recommended_repo_followup_frontier_tradeoff(
         self,
     ) -> InvariantRepoFrontierTradeoff | None:
@@ -3462,6 +3566,9 @@ class InvariantWorkstreamsProjection:
         recommended_repo_followup_frontier_tradeoff = (
             self.recommended_repo_followup_frontier_tradeoff()
         )
+        recommended_repo_followup_same_class_tradeoff = (
+            self.recommended_repo_followup_same_class_tradeoff()
+        )
         recommended_repo_followup_cross_class_tradeoff = (
             self.recommended_repo_followup_cross_class_tradeoff()
         )
@@ -3511,6 +3618,11 @@ class InvariantWorkstreamsProjection:
                     None
                     if recommended_repo_followup_frontier_tradeoff is None
                     else recommended_repo_followup_frontier_tradeoff.as_payload()
+                ),
+                "recommended_followup_same_class_tradeoff": (
+                    None
+                    if recommended_repo_followup_same_class_tradeoff is None
+                    else recommended_repo_followup_same_class_tradeoff.as_payload()
                 ),
                 "recommended_followup_cross_class_tradeoff": (
                     None
