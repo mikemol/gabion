@@ -665,6 +665,28 @@ class InvariantRepoFollowupLane:
 
 
 @dataclass(frozen=True)
+class InvariantRepoDiagnosticLane:
+    diagnostic_code: str
+    severity: str
+    title: str
+    recommended_action: str
+    count: int
+    node_ids: tuple[str, ...]
+    policy_ids: tuple[str, ...]
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "diagnostic_code": self.diagnostic_code,
+            "severity": self.severity,
+            "title": self.title,
+            "recommended_action": self.recommended_action,
+            "count": self.count,
+            "node_ids": list(self.node_ids),
+            "policy_ids": list(self.policy_ids),
+        }
+
+
+@dataclass(frozen=True)
 class InvariantTouchpointProjection:
     object_id: TouchpointId
     subqueue_id: SubqueueId
@@ -1486,6 +1508,61 @@ class InvariantWorkstreamsProjection:
             return "none"
         return recommended.followup_family
 
+    def repo_diagnostic_lanes(self) -> tuple[InvariantRepoDiagnosticLane, ...]:
+        grouped: defaultdict[
+            tuple[str, str, str, str],
+            list[InvariantGraphDiagnostic],
+        ] = defaultdict(list)
+        for diagnostic in self.diagnostics:
+            if diagnostic.code == "unmatched_policy_signal":
+                title = diagnostic.message.split(" did not resolve", 1)[0].strip() or diagnostic.code
+                recommended_action = "attribute_policy_signals_to_owned_workstreams"
+            elif diagnostic.code == "unresolved_blocking_dependency":
+                title = diagnostic.code
+                recommended_action = "resolve_or_reassign_blocking_dependencies"
+            else:
+                title = diagnostic.message.strip() or diagnostic.code
+                recommended_action = "investigate_diagnostic_backlog"
+            grouped[
+                (
+                    diagnostic.code,
+                    diagnostic.severity,
+                    title,
+                    recommended_action,
+                )
+            ].append(diagnostic)
+        lanes = []
+        for (diagnostic_code, severity, title, recommended_action), diagnostics in grouped.items():
+            policy_ids = (
+                (title.split(":", 1)[1],)
+                if diagnostic_code == "unmatched_policy_signal" and ":" in title
+                else ()
+            )
+            node_ids = tuple(
+                _sorted([item.node_id for item in diagnostics])
+            )
+            lanes.append(
+                InvariantRepoDiagnosticLane(
+                    diagnostic_code=diagnostic_code,
+                    severity=severity,
+                    title=title,
+                    recommended_action=recommended_action,
+                    count=len(diagnostics),
+                    node_ids=node_ids,
+                    policy_ids=policy_ids,
+                )
+            )
+        return tuple(
+            _sorted(
+                lanes,
+                key=lambda item: (
+                    item.severity,
+                    item.diagnostic_code,
+                    item.title,
+                ),
+            )
+        )
+
     def as_payload(self) -> dict[str, object]:
         workstreams = tuple(self.iter_workstreams())
         diagnostic_summary = self.diagnostic_summary()
@@ -1494,6 +1571,7 @@ class InvariantWorkstreamsProjection:
         recommended_repo_human_followup = self.recommended_repo_human_followup()
         ranked_repo_followups = self.ranked_repo_followups()
         repo_followup_lanes = self.repo_followup_lanes()
+        repo_diagnostic_lanes = self.repo_diagnostic_lanes()
         return {
             "format_version": _FORMAT_VERSION,
             "generated_at_utc": self.generated_at_utc,
@@ -1524,6 +1602,9 @@ class InvariantWorkstreamsProjection:
                 "followup_lanes": [
                     item.as_payload() for item in repo_followup_lanes
                 ],
+                "diagnostic_lanes": [
+                    item.as_payload() for item in repo_diagnostic_lanes
+                ],
             },
             "counts": {
                 "workstream_count": len(workstreams),
@@ -1539,6 +1620,7 @@ class InvariantWorkstreamsProjection:
         recommended_repo_human_followup = self.recommended_repo_human_followup()
         ranked_repo_followups = self.ranked_repo_followups()
         repo_followup_lanes = self.repo_followup_lanes()
+        repo_diagnostic_lanes = self.repo_diagnostic_lanes()
 
         def _workstream_items() -> Iterator[ArtifactUnit]:
             for workstream in workstreams:
@@ -2029,7 +2111,8 @@ class InvariantWorkstreamsProjection:
                         recommended_repo_code_followup=recommended_repo_code_followup,
                         recommended_repo_human_followup=recommended_repo_human_followup,
                         ranked_repo_followups=ranked_repo_followups,
-                        repo_followup_lanes=repo_followup_lanes: iter(
+                        repo_followup_lanes=repo_followup_lanes,
+                        repo_diagnostic_lanes=repo_diagnostic_lanes: iter(
                             (
                                 scalar(
                                     identity=ArtifactSourceRef(
@@ -2129,6 +2212,25 @@ class InvariantWorkstreamsProjection:
                                             ),
                                         )
                                         for item in repo_followup_lanes
+                                    ),
+                                ),
+                                bullet_list(
+                                    identity=ArtifactSourceRef(
+                                        rel_path="<synthetic>",
+                                        qualname="diagnostic_lanes",
+                                    ),
+                                    key="diagnostic_lanes",
+                                    children=lambda repo_diagnostic_lanes=repo_diagnostic_lanes: (
+                                        list_item(
+                                            identity=ArtifactSourceRef(
+                                                rel_path="<synthetic>",
+                                                qualname=item.title,
+                                            ),
+                                            children=lambda item=item: iter(
+                                                _payload_to_units(item.as_payload())
+                                            ),
+                                        )
+                                        for item in repo_diagnostic_lanes
                                     ),
                                 ),
                             )

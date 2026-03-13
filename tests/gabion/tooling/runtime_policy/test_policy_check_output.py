@@ -91,6 +91,7 @@ def test_policy_check_output_carries_projection_fiber_semantics_on_pass(
     assert "recommended_human_followup" in invariant_workstreams_payload["repo_next_actions"]
     assert "ranked_followups" in invariant_workstreams_payload["repo_next_actions"]
     assert "followup_lanes" in invariant_workstreams_payload["repo_next_actions"]
+    assert "diagnostic_lanes" in invariant_workstreams_payload["repo_next_actions"]
     assert invariant_ledger_payload["counts"]["ledger_count"] >= 1
     for workstream in invariant_workstreams_payload["workstreams"]:
         assert "next_actions" in workstream

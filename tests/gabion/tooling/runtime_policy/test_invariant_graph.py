@@ -272,6 +272,24 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         and lane["followup_class"] == "documentation"
         for lane in repo_followup_lanes
     )
+    repo_diagnostic_lanes = workstreams_payload["repo_next_actions"]["diagnostic_lanes"]
+    assert len(repo_diagnostic_lanes) == 7
+    assert repo_diagnostic_lanes[0] == {
+        "diagnostic_code": "unmatched_policy_signal",
+        "severity": "warning",
+        "title": "grade:GMP-001",
+        "recommended_action": "attribute_policy_signals_to_owned_workstreams",
+        "count": 1,
+        "node_ids": [
+            "policy_signal:b44a09c4612a0f70ee325fc584b3eff24e1db63f042e393bfe2669843ff7745a"
+        ],
+        "policy_ids": ["GMP-001"],
+    }
+    assert repo_diagnostic_lanes[-1]["title"] == "grade:GMP-007"
+    assert all(
+        lane["recommended_action"] == "attribute_policy_signals_to_owned_workstreams"
+        for lane in repo_diagnostic_lanes
+    )
     projected_ids = [
         str(item.get("object_id", ""))
         for item in workstreams_payload.get("workstreams", [])
@@ -1507,6 +1525,11 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
     assert "repo_followup_lanes:" in summary_output
     assert (
         "- governance_orphan_resolution :: class=governance :: actions=1 :: best=diagnostic_resolution::unmatched_policy_signal"
+        in summary_output
+    )
+    assert "repo_diagnostic_lanes:" in summary_output
+    assert (
+        "- grade:GMP-001 :: code=unmatched_policy_signal :: severity=warning :: count=1 :: policy_ids=GMP-001 :: action=attribute_policy_signals_to_owned_workstreams"
         in summary_output
     )
 

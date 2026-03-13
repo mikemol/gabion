@@ -140,6 +140,7 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
     recommended_repo_code_followup = workstreams.recommended_repo_code_followup()
     recommended_repo_human_followup = workstreams.recommended_repo_human_followup()
     repo_followup_lanes = workstreams.repo_followup_lanes()
+    repo_diagnostic_lanes = workstreams.repo_diagnostic_lanes()
     print(f"root: {graph.root}")
     print(f"workstreams: {len(graph.workstream_root_ids)}")
     print(f"nodes: {counts.get('node_count', 0)}")
@@ -229,6 +230,19 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
                 actions=lane.action_count,
                 action_kind=best.action_kind,
                 target=target,
+            )
+        )
+    print("repo_diagnostic_lanes:")
+    for lane in repo_diagnostic_lanes:
+        policy_ids = ", ".join(lane.policy_ids) if lane.policy_ids else "<none>"
+        print(
+            "- {title} :: code={code} :: severity={severity} :: count={count} :: policy_ids={policy_ids} :: action={action}".format(
+                title=lane.title,
+                code=lane.diagnostic_code,
+                severity=lane.severity,
+                count=lane.count,
+                policy_ids=policy_ids,
+                action=lane.recommended_action,
             )
         )
     node_kind_counts = counts.get("node_kind_counts", {})
