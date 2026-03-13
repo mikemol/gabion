@@ -631,6 +631,7 @@ class InvariantRepoFollowupAction:
     recommended_action: str | None
     owner_seed_path: str | None
     owner_seed_object_id: str | None
+    owner_resolution_score: int | None
     count: int
 
     def as_payload(self) -> dict[str, object]:
@@ -649,6 +650,7 @@ class InvariantRepoFollowupAction:
             "recommended_action": self.recommended_action,
             "owner_seed_path": self.owner_seed_path,
             "owner_seed_object_id": self.owner_seed_object_id,
+            "owner_resolution_score": self.owner_resolution_score,
             "count": self.count,
         }
 
@@ -1782,6 +1784,9 @@ class InvariantWorkstreamsProjection:
                         recommended_action=lane.recommended_action,
                         owner_seed_path=lane.candidate_owner_seed_path,
                         owner_seed_object_id=lane.candidate_owner_seed_object_id,
+                        owner_resolution_score=(
+                            best_option.score if best_option is not None else None
+                        ),
                         count=lane.count,
                     )
                 )
@@ -1808,6 +1813,7 @@ class InvariantWorkstreamsProjection:
                         recommended_action=lane.recommended_action,
                         owner_seed_path=None,
                         owner_seed_object_id=None,
+                        owner_resolution_score=None,
                         count=lane.count,
                     )
                 )
@@ -1834,6 +1840,7 @@ class InvariantWorkstreamsProjection:
                         recommended_action=lane.recommended_action,
                         owner_seed_path=None,
                         owner_seed_object_id=None,
+                        owner_resolution_score=None,
                         count=lane.count,
                     )
                 )
@@ -1855,6 +1862,7 @@ class InvariantWorkstreamsProjection:
                         recommended_action=followup.recommended_action,
                         owner_seed_path=None,
                         owner_seed_object_id=None,
+                        owner_resolution_score=None,
                         count=followup.touchsite_count,
                     )
                 )
@@ -1863,6 +1871,7 @@ class InvariantWorkstreamsProjection:
                 actions,
                 key=lambda item: (
                     item.priority_rank,
+                    -(item.owner_resolution_score or 0),
                     -item.count,
                     item.followup_family,
                     item.title,

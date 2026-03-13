@@ -172,6 +172,7 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         "recommended_action": "seed_owned_workstream_from_source_family",
         "owner_seed_path": "src/gabion/analysis/dataflow/io",
         "owner_seed_object_id": "WS-SEED:gabion.analysis.dataflow.io",
+        "owner_resolution_score": 100,
         "count": 1,
     }
     assert workstreams_payload["repo_next_actions"]["dominant_followup_class"] == (
@@ -195,6 +196,7 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         "recommended_action": None,
         "owner_seed_path": None,
         "owner_seed_object_id": None,
+        "owner_resolution_score": None,
         "count": 1,
     }
     assert workstreams_payload["repo_next_actions"]["recommended_human_followup"] == (
@@ -216,6 +218,7 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         "recommended_action": "seed_owned_workstream_from_source_family",
         "owner_seed_path": "src/gabion/analysis/dataflow/io",
         "owner_seed_object_id": "WS-SEED:gabion.analysis.dataflow.io",
+        "owner_resolution_score": 100,
         "count": 1,
     }
     assert ranked_repo_followups[1]["followup_family"] == "governance_orphan_resolution"
@@ -237,6 +240,7 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
             "recommended_action": None,
             "owner_seed_path": None,
             "owner_seed_object_id": None,
+            "owner_resolution_score": None,
             "count": 1,
         }
         for item in ranked_repo_followups
@@ -267,6 +271,7 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
             "recommended_action": "seed_owned_workstream_from_source_family",
             "owner_seed_path": "src/gabion/analysis/dataflow/io",
             "owner_seed_object_id": "WS-SEED:gabion.analysis.dataflow.io",
+            "owner_resolution_score": 100,
             "count": 1,
         },
     }
@@ -1053,6 +1058,192 @@ def test_repo_diagnostic_lane_ranks_structural_proximity_owner_over_seed() -> No
     )
     assert followup.recommended_action == "choose_candidate_owner_from_ranked_options"
     assert followup.title == "resolve grade:GMP-PROX ownership via WS-PROX"
+
+
+def test_ranked_repo_followups_prefers_stronger_owner_resolution_score() -> None:
+    space = PolicyQueueIdentitySpace()
+    exact_workstream_id = space.workstream_id("WS-OWNER")
+    exact_subqueue_id = space.subqueue_id("WS-OWNER-SQ-001")
+    exact_touchpoint_id = space.touchpoint_id("WS-OWNER-TP-001")
+    exact_touchsite = invariant_graph.InvariantTouchsiteProjection(
+        object_id=space.touchsite_id("WS-OWNER-TS-001"),
+        touchpoint_id=exact_touchpoint_id,
+        subqueue_id=exact_subqueue_id,
+        title="owner touchsite",
+        status="in_progress",
+        rel_path="src/gabion/sample_owner.py",
+        qualname="owner_touchsite",
+        boundary_name="owner_touchsite",
+        line=12,
+        column=1,
+        node_kind="marker_callsite",
+        site_identity=space.site_ref_id("site.owner"),
+        structural_identity=space.structural_ref_id("struct.owner"),
+        seam_class="surviving_carrier_seam",
+        touchpoint_marker_identity="tp.owner",
+        touchpoint_structural_identity=space.structural_ref_id("tp.struct.owner"),
+        subqueue_marker_identity="sq.owner",
+        subqueue_structural_identity=space.structural_ref_id("sq.struct.owner"),
+        policy_signal_count=0,
+        coverage_count=0,
+        diagnostic_count=0,
+        object_ids=(),
+    )
+    exact_workstream = invariant_graph.InvariantWorkstreamProjection(
+        object_id=exact_workstream_id,
+        title="owner workstream",
+        status="in_progress",
+        site_identity=space.site_ref_id("ws.owner.site"),
+        structural_identity=space.structural_ref_id("ws.owner.struct"),
+        marker_identity="ws.owner.marker",
+        reasoning_summary="owner",
+        reasoning_control="owner.control",
+        blocking_dependencies=(),
+        object_ids=(),
+        doc_ids=(),
+        policy_ids=(),
+        touchsite_count=1,
+        collapsible_touchsite_count=0,
+        surviving_touchsite_count=1,
+        policy_signal_count=0,
+        coverage_count=0,
+        diagnostic_count=0,
+        subqueues=_stream_from_items(
+            (
+                invariant_graph.InvariantSubqueueProjection(
+                    object_id=exact_subqueue_id,
+                    title="owner subqueue",
+                    status="in_progress",
+                    site_identity=space.site_ref_id("sq.owner.site"),
+                    structural_identity=space.structural_ref_id("sq.owner.struct"),
+                    marker_identity="sq.owner.marker",
+                    reasoning_summary="owner",
+                    reasoning_control="owner",
+                    blocking_dependencies=(),
+                    object_ids=(),
+                    touchpoint_ids=(exact_touchpoint_id,),
+                    touchsite_count=1,
+                    collapsible_touchsite_count=0,
+                    surviving_touchsite_count=1,
+                    policy_signal_count=0,
+                    coverage_count=0,
+                    diagnostic_count=0,
+                ),
+            )
+        ),
+        touchpoints=_stream_from_items(
+            (
+                invariant_graph.InvariantTouchpointProjection(
+                    object_id=exact_touchpoint_id,
+                    subqueue_id=exact_subqueue_id,
+                    title="owner touchpoint",
+                    status="in_progress",
+                    rel_path="src/gabion/sample_owner.py",
+                    site_identity=space.site_ref_id("tp.owner.site"),
+                    structural_identity=space.structural_ref_id("tp.owner.struct"),
+                    marker_identity="tp.owner.marker",
+                    reasoning_summary="owner",
+                    reasoning_control="owner",
+                    blocking_dependencies=(),
+                    object_ids=(),
+                    touchsite_count=1,
+                    collapsible_touchsite_count=0,
+                    surviving_touchsite_count=1,
+                    policy_signal_count=0,
+                    coverage_count=0,
+                    diagnostic_count=0,
+                    touchsites=_stream_from_items((exact_touchsite,)),
+                ),
+            )
+        ),
+    )
+    exact_node = invariant_graph.InvariantGraphNode(
+        node_id="policy_signal:owner-rank",
+        node_kind="policy_signal",
+        title="grade:GMP-RANK-EXACT",
+        marker_name="never",
+        marker_kind="policy_signal",
+        marker_id="policy-signal-owner-rank",
+        site_identity="site.synthetic.owner.rank",
+        structural_identity="struct.synthetic.owner.rank",
+        object_ids=(),
+        doc_ids=(),
+        policy_ids=("GMP-RANK-EXACT",),
+        invariant_ids=(),
+        reasoning_summary="owner signal",
+        reasoning_control="owner.signal",
+        blocking_dependencies=(),
+        rel_path="src/gabion/sample_owner.py",
+        qualname="gabion.sample_owner.emit_signal",
+        line=12,
+        column=3,
+        ast_node_kind="Call",
+        seam_class="policy_signal",
+        source_marker_node_id="policy_signal:owner-rank",
+        status_hint="warning",
+    )
+    seed_only_node = invariant_graph.InvariantGraphNode(
+        node_id="policy_signal:seed-rank",
+        node_kind="policy_signal",
+        title="grade:GMP-RANK-SEED",
+        marker_name="never",
+        marker_kind="policy_signal",
+        marker_id="policy-signal-seed-rank",
+        site_identity="site.synthetic.seed.rank",
+        structural_identity="struct.synthetic.seed.rank",
+        object_ids=(),
+        doc_ids=(),
+        policy_ids=("GMP-RANK-SEED",),
+        invariant_ids=(),
+        reasoning_summary="seed signal",
+        reasoning_control="seed.signal",
+        blocking_dependencies=(),
+        rel_path="src/gabion/analysis/dataflow/io/dataflow_reporting.py",
+        qualname="gabion.analysis.dataflow.io.dataflow_reporting.emit_seed_signal",
+        line=15,
+        column=3,
+        ast_node_kind="Call",
+        seam_class="policy_signal",
+        source_marker_node_id="policy_signal:seed-rank",
+        status_hint="warning",
+    )
+    diagnostics = (
+        invariant_graph.InvariantGraphDiagnostic(
+            diagnostic_id="diag-owner-rank",
+            severity="warning",
+            code="unmatched_policy_signal",
+            node_id=exact_node.node_id,
+            raw_dependency="",
+            message="grade:GMP-RANK-EXACT did not resolve to an owned workstream",
+        ),
+        invariant_graph.InvariantGraphDiagnostic(
+            diagnostic_id="diag-seed-rank",
+            severity="warning",
+            code="unmatched_policy_signal",
+            node_id=seed_only_node.node_id,
+            raw_dependency="",
+            message="grade:GMP-RANK-SEED did not resolve to an owned workstream",
+        ),
+    )
+    projection = invariant_graph.InvariantWorkstreamsProjection(
+        root=str(REPO_ROOT),
+        generated_at_utc="2026-03-13T00:00:00+00:00",
+        workstreams=_stream_from_items((exact_workstream,)),
+        diagnostics=diagnostics,
+        node_lookup={
+            exact_node.node_id: exact_node,
+            seed_only_node.node_id: seed_only_node,
+        },
+    )
+
+    ranked = projection.ranked_repo_followups()
+    assert ranked[0].diagnostic_code == "unmatched_policy_signal"
+    assert ranked[0].owner_object_id == "WS-OWNER"
+    assert ranked[0].owner_resolution_score == 300
+    assert ranked[1].diagnostic_code == "unmatched_policy_signal"
+    assert ranked[1].owner_object_id is None
+    assert ranked[1].owner_resolution_score == 100
+    assert projection.recommended_repo_followup() == ranked[0]
 
 
 def test_runtime_invariant_graph_cli_build_summary_trace_and_blockers(
