@@ -240,6 +240,9 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
     recommended_repo_followup_frontier_tradeoff = (
         workstreams.recommended_repo_followup_frontier_tradeoff()
     )
+    recommended_repo_followup_frontier_explanation = (
+        workstreams.recommended_repo_followup_frontier_explanation()
+    )
     recommended_repo_followup_frontier_triad = (
         workstreams.recommended_repo_followup_frontier_triad()
     )
@@ -803,6 +806,78 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
                 ),
                 margin_components=_format_score_components(
                     recommended_repo_followup_frontier_tradeoff.margin_components
+                ),
+            )
+        )
+    if recommended_repo_followup_frontier_explanation is None:
+        print("recommended_repo_followup_frontier_explanation: <none>")
+    else:
+        print(
+            "recommended_repo_followup_frontier_explanation: frontier={frontier_family}:{frontier_class}:{frontier_action}:{frontier_target}:{frontier_policy_ids}:{frontier_utility} :: same_class={same_class_runner_up}:{same_class_utility}:{same_class_margin}:{same_class_margin_components} :: cross_class={cross_class_runner_up}:{cross_class_utility}:{cross_class_margin}:{cross_class_margin_components}".format(
+                frontier_family=(
+                    recommended_repo_followup_frontier_explanation.frontier_followup_family
+                ),
+                frontier_class=(
+                    recommended_repo_followup_frontier_explanation.frontier_followup_class
+                ),
+                frontier_action=(
+                    recommended_repo_followup_frontier_explanation.frontier_action_kind
+                ),
+                frontier_target=(
+                    recommended_repo_followup_frontier_explanation.frontier_object_id
+                    or recommended_repo_followup_frontier_explanation.frontier_diagnostic_code
+                    or recommended_repo_followup_frontier_explanation.frontier_target_doc_id
+                    or "<none>"
+                ),
+                frontier_policy_ids=",".join(
+                    recommended_repo_followup_frontier_explanation.frontier_policy_ids
+                )
+                or "<none>",
+                frontier_utility=(
+                    f"{recommended_repo_followup_frontier_explanation.frontier_utility_score}:"
+                    f"{recommended_repo_followup_frontier_explanation.frontier_utility_reason}"
+                ),
+                same_class_runner_up=(
+                    recommended_repo_followup_frontier_explanation.same_class_runner_up_object_id
+                    or recommended_repo_followup_frontier_explanation.same_class_runner_up_diagnostic_code
+                    or recommended_repo_followup_frontier_explanation.same_class_runner_up_target_doc_id
+                    or "<none>"
+                ),
+                same_class_utility=(
+                    "<none>"
+                    if recommended_repo_followup_frontier_explanation.same_class_runner_up_utility_score is None
+                    or recommended_repo_followup_frontier_explanation.same_class_runner_up_utility_reason is None
+                    else f"{recommended_repo_followup_frontier_explanation.same_class_runner_up_utility_score}:{recommended_repo_followup_frontier_explanation.same_class_runner_up_utility_reason}"
+                ),
+                same_class_margin=(
+                    "<none>"
+                    if recommended_repo_followup_frontier_explanation.same_class_margin_score is None
+                    or recommended_repo_followup_frontier_explanation.same_class_margin_reason is None
+                    else f"{recommended_repo_followup_frontier_explanation.same_class_margin_score}:{recommended_repo_followup_frontier_explanation.same_class_margin_reason}"
+                ),
+                same_class_margin_components=_format_score_components(
+                    recommended_repo_followup_frontier_explanation.same_class_margin_components
+                ),
+                cross_class_runner_up=(
+                    recommended_repo_followup_frontier_explanation.cross_class_runner_up_object_id
+                    or recommended_repo_followup_frontier_explanation.cross_class_runner_up_diagnostic_code
+                    or recommended_repo_followup_frontier_explanation.cross_class_runner_up_target_doc_id
+                    or "<none>"
+                ),
+                cross_class_utility=(
+                    "<none>"
+                    if recommended_repo_followup_frontier_explanation.cross_class_runner_up_utility_score is None
+                    or recommended_repo_followup_frontier_explanation.cross_class_runner_up_utility_reason is None
+                    else f"{recommended_repo_followup_frontier_explanation.cross_class_runner_up_utility_score}:{recommended_repo_followup_frontier_explanation.cross_class_runner_up_utility_reason}"
+                ),
+                cross_class_margin=(
+                    "<none>"
+                    if recommended_repo_followup_frontier_explanation.cross_class_margin_score is None
+                    or recommended_repo_followup_frontier_explanation.cross_class_margin_reason is None
+                    else f"{recommended_repo_followup_frontier_explanation.cross_class_margin_score}:{recommended_repo_followup_frontier_explanation.cross_class_margin_reason}"
+                ),
+                cross_class_margin_components=_format_score_components(
+                    recommended_repo_followup_frontier_explanation.cross_class_margin_components
                 ),
             )
         )

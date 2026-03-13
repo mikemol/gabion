@@ -1048,6 +1048,82 @@ class InvariantRepoFollowupFrontierTriad:
 
 
 @dataclass(frozen=True)
+class InvariantRepoFollowupFrontierExplanation:
+    frontier_followup_family: str
+    frontier_followup_class: str
+    frontier_action_kind: str
+    frontier_object_id: str | None
+    frontier_diagnostic_code: str | None
+    frontier_target_doc_id: str | None
+    frontier_policy_ids: tuple[str, ...]
+    frontier_utility_score: int
+    frontier_utility_reason: str
+    same_class_runner_up_followup_family: str | None
+    same_class_runner_up_followup_class: str | None
+    same_class_runner_up_action_kind: str | None
+    same_class_runner_up_object_id: str | None
+    same_class_runner_up_diagnostic_code: str | None
+    same_class_runner_up_target_doc_id: str | None
+    same_class_runner_up_policy_ids: tuple[str, ...]
+    same_class_runner_up_utility_score: int | None
+    same_class_runner_up_utility_reason: str | None
+    same_class_margin_score: int | None
+    same_class_margin_reason: str | None
+    same_class_margin_components: tuple[InvariantScoreComponent, ...]
+    cross_class_runner_up_followup_family: str | None
+    cross_class_runner_up_followup_class: str | None
+    cross_class_runner_up_action_kind: str | None
+    cross_class_runner_up_object_id: str | None
+    cross_class_runner_up_diagnostic_code: str | None
+    cross_class_runner_up_target_doc_id: str | None
+    cross_class_runner_up_utility_score: int | None
+    cross_class_runner_up_utility_reason: str | None
+    cross_class_margin_score: int | None
+    cross_class_margin_reason: str | None
+    cross_class_margin_components: tuple[InvariantScoreComponent, ...]
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "frontier_followup_family": self.frontier_followup_family,
+            "frontier_followup_class": self.frontier_followup_class,
+            "frontier_action_kind": self.frontier_action_kind,
+            "frontier_object_id": self.frontier_object_id,
+            "frontier_diagnostic_code": self.frontier_diagnostic_code,
+            "frontier_target_doc_id": self.frontier_target_doc_id,
+            "frontier_policy_ids": list(self.frontier_policy_ids),
+            "frontier_utility_score": self.frontier_utility_score,
+            "frontier_utility_reason": self.frontier_utility_reason,
+            "same_class_runner_up_followup_family": self.same_class_runner_up_followup_family,
+            "same_class_runner_up_followup_class": self.same_class_runner_up_followup_class,
+            "same_class_runner_up_action_kind": self.same_class_runner_up_action_kind,
+            "same_class_runner_up_object_id": self.same_class_runner_up_object_id,
+            "same_class_runner_up_diagnostic_code": self.same_class_runner_up_diagnostic_code,
+            "same_class_runner_up_target_doc_id": self.same_class_runner_up_target_doc_id,
+            "same_class_runner_up_policy_ids": list(self.same_class_runner_up_policy_ids),
+            "same_class_runner_up_utility_score": self.same_class_runner_up_utility_score,
+            "same_class_runner_up_utility_reason": self.same_class_runner_up_utility_reason,
+            "same_class_margin_score": self.same_class_margin_score,
+            "same_class_margin_reason": self.same_class_margin_reason,
+            "same_class_margin_components": [
+                item.as_payload() for item in self.same_class_margin_components
+            ],
+            "cross_class_runner_up_followup_family": self.cross_class_runner_up_followup_family,
+            "cross_class_runner_up_followup_class": self.cross_class_runner_up_followup_class,
+            "cross_class_runner_up_action_kind": self.cross_class_runner_up_action_kind,
+            "cross_class_runner_up_object_id": self.cross_class_runner_up_object_id,
+            "cross_class_runner_up_diagnostic_code": self.cross_class_runner_up_diagnostic_code,
+            "cross_class_runner_up_target_doc_id": self.cross_class_runner_up_target_doc_id,
+            "cross_class_runner_up_utility_score": self.cross_class_runner_up_utility_score,
+            "cross_class_runner_up_utility_reason": self.cross_class_runner_up_utility_reason,
+            "cross_class_margin_score": self.cross_class_margin_score,
+            "cross_class_margin_reason": self.cross_class_margin_reason,
+            "cross_class_margin_components": [
+                item.as_payload() for item in self.cross_class_margin_components
+            ],
+        }
+
+
+@dataclass(frozen=True)
 class InvariantOwnerCandidateOption:
     resolution_kind: str
     owner_status: str
@@ -3311,6 +3387,101 @@ class InvariantWorkstreamsProjection:
             cross_class_tradeoff=self.recommended_repo_followup_cross_class_tradeoff(),
         )
 
+    def recommended_repo_followup_frontier_explanation(
+        self,
+    ) -> InvariantRepoFollowupFrontierExplanation | None:
+        return self._recommended_repo_followup_frontier_explanation
+
+    @cached_property
+    def _recommended_repo_followup_frontier_explanation(
+        self,
+    ) -> InvariantRepoFollowupFrontierExplanation | None:
+        triad = self.recommended_repo_followup_frontier_triad()
+        if triad is None:
+            return None
+        same_class_tradeoff = triad.same_class_tradeoff
+        cross_class_tradeoff = triad.cross_class_tradeoff
+        return InvariantRepoFollowupFrontierExplanation(
+            frontier_followup_family=triad.frontier_followup_family,
+            frontier_followup_class=triad.frontier_followup_class,
+            frontier_action_kind=triad.frontier_action_kind,
+            frontier_object_id=triad.frontier_object_id,
+            frontier_diagnostic_code=triad.frontier_diagnostic_code,
+            frontier_target_doc_id=triad.frontier_target_doc_id,
+            frontier_policy_ids=triad.frontier_policy_ids,
+            frontier_utility_score=triad.frontier_utility_score,
+            frontier_utility_reason=triad.frontier_utility_reason,
+            same_class_runner_up_followup_family=(
+                None if same_class_tradeoff is None else same_class_tradeoff.runner_up_followup_family
+            ),
+            same_class_runner_up_followup_class=(
+                None if same_class_tradeoff is None else same_class_tradeoff.runner_up_followup_class
+            ),
+            same_class_runner_up_action_kind=(
+                None if same_class_tradeoff is None else same_class_tradeoff.runner_up_action_kind
+            ),
+            same_class_runner_up_object_id=(
+                None if same_class_tradeoff is None else same_class_tradeoff.runner_up_object_id
+            ),
+            same_class_runner_up_diagnostic_code=(
+                None if same_class_tradeoff is None else same_class_tradeoff.runner_up_diagnostic_code
+            ),
+            same_class_runner_up_target_doc_id=(
+                None if same_class_tradeoff is None else same_class_tradeoff.runner_up_target_doc_id
+            ),
+            same_class_runner_up_policy_ids=(
+                () if same_class_tradeoff is None else same_class_tradeoff.runner_up_policy_ids
+            ),
+            same_class_runner_up_utility_score=(
+                None if same_class_tradeoff is None else same_class_tradeoff.runner_up_utility_score
+            ),
+            same_class_runner_up_utility_reason=(
+                None if same_class_tradeoff is None else same_class_tradeoff.runner_up_utility_reason
+            ),
+            same_class_margin_score=(
+                None if same_class_tradeoff is None else same_class_tradeoff.margin_score
+            ),
+            same_class_margin_reason=(
+                None if same_class_tradeoff is None else same_class_tradeoff.margin_reason
+            ),
+            same_class_margin_components=(
+                () if same_class_tradeoff is None else same_class_tradeoff.margin_components
+            ),
+            cross_class_runner_up_followup_family=(
+                None if cross_class_tradeoff is None else cross_class_tradeoff.runner_up_followup_family
+            ),
+            cross_class_runner_up_followup_class=(
+                None if cross_class_tradeoff is None else cross_class_tradeoff.runner_up_followup_class
+            ),
+            cross_class_runner_up_action_kind=(
+                None if cross_class_tradeoff is None else cross_class_tradeoff.runner_up_action_kind
+            ),
+            cross_class_runner_up_object_id=(
+                None if cross_class_tradeoff is None else cross_class_tradeoff.runner_up_object_id
+            ),
+            cross_class_runner_up_diagnostic_code=(
+                None if cross_class_tradeoff is None else cross_class_tradeoff.runner_up_diagnostic_code
+            ),
+            cross_class_runner_up_target_doc_id=(
+                None if cross_class_tradeoff is None else cross_class_tradeoff.runner_up_target_doc_id
+            ),
+            cross_class_runner_up_utility_score=(
+                None if cross_class_tradeoff is None else cross_class_tradeoff.runner_up_utility_score
+            ),
+            cross_class_runner_up_utility_reason=(
+                None if cross_class_tradeoff is None else cross_class_tradeoff.runner_up_utility_reason
+            ),
+            cross_class_margin_score=(
+                None if cross_class_tradeoff is None else cross_class_tradeoff.margin_score
+            ),
+            cross_class_margin_reason=(
+                None if cross_class_tradeoff is None else cross_class_tradeoff.margin_reason
+            ),
+            cross_class_margin_components=(
+                () if cross_class_tradeoff is None else cross_class_tradeoff.margin_components
+            ),
+        )
+
     def recommended_repo_followup_frontier_tradeoff(
         self,
     ) -> InvariantRepoFrontierTradeoff | None:
@@ -3628,6 +3799,9 @@ class InvariantWorkstreamsProjection:
         recommended_repo_followup_frontier_tradeoff = (
             self.recommended_repo_followup_frontier_tradeoff()
         )
+        recommended_repo_followup_frontier_explanation = (
+            self.recommended_repo_followup_frontier_explanation()
+        )
         recommended_repo_followup_frontier_triad = (
             self.recommended_repo_followup_frontier_triad()
         )
@@ -3683,6 +3857,11 @@ class InvariantWorkstreamsProjection:
                     None
                     if recommended_repo_followup_frontier_tradeoff is None
                     else recommended_repo_followup_frontier_tradeoff.as_payload()
+                ),
+                "recommended_followup_frontier_explanation": (
+                    None
+                    if recommended_repo_followup_frontier_explanation is None
+                    else recommended_repo_followup_frontier_explanation.as_payload()
                 ),
                 "recommended_followup_frontier_triad": (
                     None
