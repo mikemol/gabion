@@ -5,7 +5,9 @@ from pathlib import Path
 
 from tests.path_helpers import REPO_ROOT
 
+from gabion.analysis.aspf.aspf_lattice_algebra import ReplayableStream
 from gabion.tooling.policy_substrate import invariant_graph
+from gabion.tooling.policy_substrate.policy_queue_identity import PolicyQueueIdentitySpace
 from gabion.tooling.runtime import invariant_graph as invariant_graph_runtime
 
 
@@ -58,6 +60,10 @@ def _sample_repo(tmp_path: Path) -> Path:
         ),
     )
     return tmp_path
+
+
+def _stream_from_items(items):
+    return ReplayableStream(factory=lambda items=tuple(items): iter(items))
 
 
 def test_build_invariant_graph_scans_decorated_symbols_and_marker_callsites(
@@ -144,6 +150,10 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
     assert psf["health_summary"]["uncovered_touchsite_count"] == 70
     assert psf["health_summary"]["governed_touchsite_count"] == 0
     assert psf["health_summary"]["diagnosed_touchsite_count"] == 0
+    assert psf["health_summary"]["ready_touchsite_count"] == 3
+    assert psf["health_summary"]["coverage_gap_touchsite_count"] == 70
+    assert psf["health_summary"]["policy_blocked_touchsite_count"] == 0
+    assert psf["health_summary"]["diagnostic_blocked_touchsite_count"] == 0
     assert psf["health_summary"]["ready_touchpoint_cut_count"] == 1
     assert psf["health_summary"]["coverage_gap_touchpoint_cut_count"] == 5
     assert psf["health_summary"]["ready_subqueue_cut_count"] == 0
@@ -161,6 +171,10 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
     assert psf["next_actions"]["recommended_coverage_gap_cut"]["readiness_class"] == (
         "coverage_gap"
     )
+    assert psf["next_actions"]["dominant_blocker_class"] == "coverage_gap"
+    assert psf["next_actions"]["recommended_remediation_family"] == "structural_cut"
+    assert psf["next_actions"]["recommended_policy_blocked_cut"] is None
+    assert psf["next_actions"]["recommended_diagnostic_blocked_cut"] is None
     assert psf["next_actions"]["ranked_touchpoint_cuts"][0]["object_id"] == "PSF-007-TP-005"
     assert psf["next_actions"]["ranked_touchpoint_cuts"][0]["readiness_class"] == (
         "ready_structural"
@@ -168,6 +182,196 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
     assert psf["next_actions"]["ranked_subqueue_cuts"][0]["object_id"] == "PSF-007-SQ-001"
     assert psf["next_actions"]["ranked_subqueue_cuts"][0]["readiness_class"] == (
         "coverage_gap"
+    )
+
+
+def test_workstream_projection_surfaces_policy_and_diagnostic_remediation_families() -> None:
+    space = PolicyQueueIdentitySpace()
+    workstream_id = space.workstream_id("WS-SYNTH")
+    subqueue_policy = space.subqueue_id("WS-SYNTH-SQ-POLICY")
+    subqueue_diag = space.subqueue_id("WS-SYNTH-SQ-DIAG")
+    touchpoint_policy = space.touchpoint_id("WS-SYNTH-TP-POLICY")
+    touchpoint_diag = space.touchpoint_id("WS-SYNTH-TP-DIAG")
+    policy_touchsite = invariant_graph.InvariantTouchsiteProjection(
+        object_id=space.touchsite_id("WS-SYNTH-TS-POLICY"),
+        touchpoint_id=touchpoint_policy,
+        subqueue_id=subqueue_policy,
+        title="policy touchsite",
+        status="in_progress",
+        rel_path="src/gabion/sample.py",
+        qualname="policy_touchsite",
+        boundary_name="policy_touchsite",
+        line=10,
+        column=1,
+        node_kind="marker_callsite",
+        site_identity=space.site_ref_id("site.policy"),
+        structural_identity=space.structural_ref_id("struct.policy"),
+        seam_class="surviving_carrier_seam",
+        touchpoint_marker_identity="tp.policy",
+        touchpoint_structural_identity=space.structural_ref_id("tp.struct.policy"),
+        subqueue_marker_identity="sq.policy",
+        subqueue_structural_identity=space.structural_ref_id("sq.struct.policy"),
+        policy_signal_count=1,
+        coverage_count=1,
+        diagnostic_count=0,
+        object_ids=(),
+    )
+    diagnostic_touchsite = invariant_graph.InvariantTouchsiteProjection(
+        object_id=space.touchsite_id("WS-SYNTH-TS-DIAG"),
+        touchpoint_id=touchpoint_diag,
+        subqueue_id=subqueue_diag,
+        title="diagnostic touchsite",
+        status="in_progress",
+        rel_path="src/gabion/sample.py",
+        qualname="diagnostic_touchsite",
+        boundary_name="diagnostic_touchsite",
+        line=20,
+        column=1,
+        node_kind="marker_callsite",
+        site_identity=space.site_ref_id("site.diagnostic"),
+        structural_identity=space.structural_ref_id("struct.diagnostic"),
+        seam_class="surviving_carrier_seam",
+        touchpoint_marker_identity="tp.diagnostic",
+        touchpoint_structural_identity=space.structural_ref_id("tp.struct.diagnostic"),
+        subqueue_marker_identity="sq.diagnostic",
+        subqueue_structural_identity=space.structural_ref_id("sq.struct.diagnostic"),
+        policy_signal_count=0,
+        coverage_count=1,
+        diagnostic_count=1,
+        object_ids=(),
+    )
+    projection = invariant_graph.InvariantWorkstreamProjection(
+        object_id=workstream_id,
+        title="synthetic workstream",
+        status="in_progress",
+        site_identity=space.site_ref_id("ws.site"),
+        structural_identity=space.structural_ref_id("ws.struct"),
+        marker_identity="ws.marker",
+        reasoning_summary="synthetic",
+        reasoning_control="synthetic.control",
+        blocking_dependencies=(),
+        object_ids=(),
+        touchsite_count=2,
+        collapsible_touchsite_count=0,
+        surviving_touchsite_count=2,
+        policy_signal_count=1,
+        coverage_count=2,
+        diagnostic_count=1,
+        subqueues=_stream_from_items(
+            (
+                invariant_graph.InvariantSubqueueProjection(
+                    object_id=subqueue_policy,
+                    title="policy subqueue",
+                    status="in_progress",
+                    site_identity=space.site_ref_id("sq.site.policy"),
+                    structural_identity=space.structural_ref_id("sq.struct.policy.root"),
+                    marker_identity="sq.policy.marker",
+                    reasoning_summary="policy",
+                    reasoning_control="policy",
+                    blocking_dependencies=(),
+                    object_ids=(),
+                    touchpoint_ids=(touchpoint_policy,),
+                    touchsite_count=1,
+                    collapsible_touchsite_count=0,
+                    surviving_touchsite_count=1,
+                    policy_signal_count=1,
+                    coverage_count=1,
+                    diagnostic_count=0,
+                ),
+                invariant_graph.InvariantSubqueueProjection(
+                    object_id=subqueue_diag,
+                    title="diagnostic subqueue",
+                    status="in_progress",
+                    site_identity=space.site_ref_id("sq.site.diagnostic"),
+                    structural_identity=space.structural_ref_id("sq.struct.diagnostic.root"),
+                    marker_identity="sq.diagnostic.marker",
+                    reasoning_summary="diagnostic",
+                    reasoning_control="diagnostic",
+                    blocking_dependencies=(),
+                    object_ids=(),
+                    touchpoint_ids=(touchpoint_diag,),
+                    touchsite_count=1,
+                    collapsible_touchsite_count=0,
+                    surviving_touchsite_count=1,
+                    policy_signal_count=0,
+                    coverage_count=1,
+                    diagnostic_count=1,
+                ),
+            )
+        ),
+        touchpoints=_stream_from_items(
+            (
+                invariant_graph.InvariantTouchpointProjection(
+                    object_id=touchpoint_policy,
+                    subqueue_id=subqueue_policy,
+                    title="policy touchpoint",
+                    status="in_progress",
+                    rel_path="src/gabion/sample.py",
+                    site_identity=space.site_ref_id("tp.site.policy"),
+                    structural_identity=space.structural_ref_id("tp.struct.policy.root"),
+                    marker_identity="tp.policy.marker",
+                    reasoning_summary="policy",
+                    reasoning_control="policy",
+                    blocking_dependencies=(),
+                    object_ids=(),
+                    touchsite_count=1,
+                    collapsible_touchsite_count=0,
+                    surviving_touchsite_count=1,
+                    policy_signal_count=1,
+                    coverage_count=1,
+                    diagnostic_count=0,
+                    touchsites=_stream_from_items((policy_touchsite,)),
+                ),
+                invariant_graph.InvariantTouchpointProjection(
+                    object_id=touchpoint_diag,
+                    subqueue_id=subqueue_diag,
+                    title="diagnostic touchpoint",
+                    status="in_progress",
+                    rel_path="src/gabion/sample.py",
+                    site_identity=space.site_ref_id("tp.site.diagnostic"),
+                    structural_identity=space.structural_ref_id("tp.struct.diagnostic.root"),
+                    marker_identity="tp.diagnostic.marker",
+                    reasoning_summary="diagnostic",
+                    reasoning_control="diagnostic",
+                    blocking_dependencies=(),
+                    object_ids=(),
+                    touchsite_count=1,
+                    collapsible_touchsite_count=0,
+                    surviving_touchsite_count=1,
+                    policy_signal_count=0,
+                    coverage_count=1,
+                    diagnostic_count=1,
+                    touchsites=_stream_from_items((diagnostic_touchsite,)),
+                ),
+            )
+        ),
+    )
+
+    health_summary = projection.health_summary()
+    assert health_summary.ready_touchsite_count == 0
+    assert health_summary.coverage_gap_touchsite_count == 0
+    assert health_summary.policy_blocked_touchsite_count == 1
+    assert health_summary.diagnostic_blocked_touchsite_count == 1
+    assert projection.dominant_blocker_class() == "diagnostic_blocked"
+    assert projection.recommended_remediation_family() == "diagnostic_blocked"
+    assert projection.recommended_policy_blocked_cut() is not None
+    assert projection.recommended_policy_blocked_cut().object_id.wire() == (
+        "WS-SYNTH-TP-POLICY"
+    )
+    assert projection.recommended_diagnostic_blocked_cut() is not None
+    assert projection.recommended_diagnostic_blocked_cut().object_id.wire() == (
+        "WS-SYNTH-TP-DIAG"
+    )
+    payload = projection.as_payload()
+    assert payload["next_actions"]["dominant_blocker_class"] == "diagnostic_blocked"
+    assert payload["next_actions"]["recommended_remediation_family"] == (
+        "diagnostic_blocked"
+    )
+    assert payload["next_actions"]["recommended_policy_blocked_cut"]["object_id"] == (
+        "WS-SYNTH-TP-POLICY"
+    )
+    assert payload["next_actions"]["recommended_diagnostic_blocked_cut"]["object_id"] == (
+        "WS-SYNTH-TP-DIAG"
     )
 
 
@@ -467,9 +671,15 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
         in workstream_output
     )
     assert (
+        "touchsite_blockers: ready=3 :: coverage_gap=70 :: policy=0 :: diagnostic=0"
+        in workstream_output
+    )
+    assert (
         "health_cuts: touchpoints(ready=1, coverage_gap=5, policy=0, diagnostic=0) :: subqueues(ready=0, coverage_gap=5, policy=0, diagnostic=0)"
         in workstream_output
     )
+    assert "dominant_blocker_class: coverage_gap" in workstream_output
+    assert "recommended_remediation_family: structural_cut" in workstream_output
     assert "recommended_cut: touchpoint_cut :: PSF-007-TP-005 :: touchsites=1 :: surviving=1" in workstream_output
     assert (
         "recommended_ready_cut: touchpoint_cut :: PSF-007-TP-005 :: touchsites=1 :: uncovered=0"
@@ -479,6 +689,8 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
         "recommended_coverage_gap_cut: touchpoint_cut :: PSF-007-TP-001 :: touchsites=4 :: uncovered=4"
         in workstream_output
     )
+    assert "recommended_policy_blocked_cut: <none>" in workstream_output
+    assert "recommended_diagnostic_blocked_cut: <none>" in workstream_output
     assert "ranked_touchpoint_cuts:" in workstream_output
     assert (
         "- PSF-007-TP-005 :: readiness=ready_structural :: touchsites=1 :: collapsible=0 :: surviving=1 :: uncovered=0"

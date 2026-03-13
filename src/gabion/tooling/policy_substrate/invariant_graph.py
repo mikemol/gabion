@@ -421,6 +421,14 @@ def _cut_readiness_class(
     return "ready_structural"
 
 
+def _touchsite_blocker_class(touchsite: InvariantTouchsiteProjection) -> str:
+    return _cut_readiness_class(
+        policy_signal_count=touchsite.policy_signal_count,
+        diagnostic_count=touchsite.diagnostic_count,
+        uncovered_touchsite_count=1 if touchsite.coverage_count <= 0 else 0,
+    )
+
+
 def _cut_sort_key(candidate: InvariantCutCandidate) -> tuple[int, int, int, int, int, str]:
     return (
         _READINESS_PRIORITY.get(candidate.readiness_class, 99),
@@ -441,6 +449,10 @@ class InvariantWorkstreamHealthSummary:
     uncovered_touchsite_count: int
     governed_touchsite_count: int
     diagnosed_touchsite_count: int
+    ready_touchsite_count: int
+    coverage_gap_touchsite_count: int
+    policy_blocked_touchsite_count: int
+    diagnostic_blocked_touchsite_count: int
     ready_touchpoint_cut_count: int
     coverage_gap_touchpoint_cut_count: int
     policy_blocked_touchpoint_cut_count: int
@@ -457,6 +469,10 @@ class InvariantWorkstreamHealthSummary:
             "uncovered_touchsite_count": self.uncovered_touchsite_count,
             "governed_touchsite_count": self.governed_touchsite_count,
             "diagnosed_touchsite_count": self.diagnosed_touchsite_count,
+            "ready_touchsite_count": self.ready_touchsite_count,
+            "coverage_gap_touchsite_count": self.coverage_gap_touchsite_count,
+            "policy_blocked_touchsite_count": self.policy_blocked_touchsite_count,
+            "diagnostic_blocked_touchsite_count": self.diagnostic_blocked_touchsite_count,
             "ready_touchpoint_cut_count": self.ready_touchpoint_cut_count,
             "coverage_gap_touchpoint_cut_count": self.coverage_gap_touchpoint_cut_count,
             "policy_blocked_touchpoint_cut_count": self.policy_blocked_touchpoint_cut_count,
@@ -685,6 +701,18 @@ class InvariantWorkstreamProjection:
             return None
         return _sorted(candidates, key=_cut_sort_key)[0]
 
+    def recommended_ready_cut(self) -> InvariantCutCandidate | None:
+        return self._recommended_cut_for_readiness("ready_structural")
+
+    def recommended_coverage_gap_cut(self) -> InvariantCutCandidate | None:
+        return self._recommended_cut_for_readiness("coverage_gap")
+
+    def recommended_policy_blocked_cut(self) -> InvariantCutCandidate | None:
+        return self._recommended_cut_for_readiness("policy_blocked")
+
+    def recommended_diagnostic_blocked_cut(self) -> InvariantCutCandidate | None:
+        return self._recommended_cut_for_readiness("diagnostic_blocked")
+
     def recommended_cut(self) -> InvariantCutCandidate | None:
         candidates: list[InvariantCutCandidate] = []
         touchpoint_cuts = self.ranked_touchpoint_cuts()
@@ -704,6 +732,9 @@ class InvariantWorkstreamProjection:
             for touchpoint in touchpoints
             for touchsite in touchpoint.iter_touchsites()
         )
+        touchsite_blocker_classes = tuple(
+            _touchsite_blocker_class(touchsite) for touchsite in touchsites
+        )
         touchpoint_cuts = self.ranked_touchpoint_cuts()
         subqueue_cuts = self.ranked_subqueue_cuts()
         return InvariantWorkstreamHealthSummary(
@@ -719,6 +750,26 @@ class InvariantWorkstreamProjection:
             ),
             diagnosed_touchsite_count=sum(
                 1 for touchsite in touchsites if touchsite.diagnostic_count > 0
+            ),
+            ready_touchsite_count=sum(
+                1
+                for blocker_class in touchsite_blocker_classes
+                if blocker_class == "ready_structural"
+            ),
+            coverage_gap_touchsite_count=sum(
+                1
+                for blocker_class in touchsite_blocker_classes
+                if blocker_class == "coverage_gap"
+            ),
+            policy_blocked_touchsite_count=sum(
+                1
+                for blocker_class in touchsite_blocker_classes
+                if blocker_class == "policy_blocked"
+            ),
+            diagnostic_blocked_touchsite_count=sum(
+                1
+                for blocker_class in touchsite_blocker_classes
+                if blocker_class == "diagnostic_blocked"
             ),
             ready_touchpoint_cut_count=sum(
                 1
@@ -758,12 +809,51 @@ class InvariantWorkstreamProjection:
             ),
         )
 
+    def dominant_blocker_class(self) -> str:
+        health_summary = self.health_summary()
+        blocked_counts = (
+            ("diagnostic_blocked", health_summary.diagnostic_blocked_touchsite_count),
+            ("policy_blocked", health_summary.policy_blocked_touchsite_count),
+            ("coverage_gap", health_summary.coverage_gap_touchsite_count),
+        )
+        blocker_priority = {
+            "diagnostic_blocked": 0,
+            "policy_blocked": 1,
+            "coverage_gap": 2,
+        }
+        dominant = _sorted(
+            [
+                (blocker_class, count)
+                for blocker_class, count in blocked_counts
+                if count > 0
+            ],
+            key=lambda item: (-item[1], blocker_priority.get(item[0], 99), item[0]),
+        )
+        if dominant:
+            return dominant[0][0]
+        if health_summary.ready_touchsite_count > 0:
+            return "ready_structural"
+        return "none"
+
+    def recommended_remediation_family(self) -> str:
+        if self.recommended_ready_cut() is not None:
+            return "structural_cut"
+        if self.recommended_diagnostic_blocked_cut() is not None:
+            return "diagnostic_blocked"
+        if self.recommended_policy_blocked_cut() is not None:
+            return "policy_blocked"
+        if self.recommended_coverage_gap_cut() is not None:
+            return "coverage_gap"
+        return "none"
+
     def as_payload(self) -> dict[str, object]:
         ranked_touchpoint_cuts = self.ranked_touchpoint_cuts()
         ranked_subqueue_cuts = self.ranked_subqueue_cuts()
         recommended_cut = self.recommended_cut()
-        recommended_ready_cut = self._recommended_cut_for_readiness("ready_structural")
-        recommended_coverage_gap_cut = self._recommended_cut_for_readiness("coverage_gap")
+        recommended_ready_cut = self.recommended_ready_cut()
+        recommended_coverage_gap_cut = self.recommended_coverage_gap_cut()
+        recommended_policy_blocked_cut = self.recommended_policy_blocked_cut()
+        recommended_diagnostic_blocked_cut = self.recommended_diagnostic_blocked_cut()
         health_summary = self.health_summary()
         return {
             "object_id": self.object_id.wire(),
@@ -786,6 +876,8 @@ class InvariantWorkstreamProjection:
             "touchpoints": [item.as_payload() for item in self.iter_touchpoints()],
             "health_summary": health_summary.as_payload(),
             "next_actions": {
+                "dominant_blocker_class": self.dominant_blocker_class(),
+                "recommended_remediation_family": self.recommended_remediation_family(),
                 "recommended_cut": (
                     recommended_cut.as_payload() if recommended_cut is not None else None
                 ),
@@ -797,6 +889,16 @@ class InvariantWorkstreamProjection:
                 "recommended_coverage_gap_cut": (
                     recommended_coverage_gap_cut.as_payload()
                     if recommended_coverage_gap_cut is not None
+                    else None
+                ),
+                "recommended_policy_blocked_cut": (
+                    recommended_policy_blocked_cut.as_payload()
+                    if recommended_policy_blocked_cut is not None
+                    else None
+                ),
+                "recommended_diagnostic_blocked_cut": (
+                    recommended_diagnostic_blocked_cut.as_payload()
+                    if recommended_diagnostic_blocked_cut is not None
                     else None
                 ),
                 "ranked_touchpoint_cuts": [
@@ -834,11 +936,11 @@ class InvariantWorkstreamsProjection:
         def _workstream_items() -> Iterator[ArtifactUnit]:
             for workstream in self.iter_workstreams():
                 recommended_cut = workstream.recommended_cut()
-                recommended_ready_cut = workstream._recommended_cut_for_readiness(
-                    "ready_structural"
-                )
-                recommended_coverage_gap_cut = workstream._recommended_cut_for_readiness(
-                    "coverage_gap"
+                recommended_ready_cut = workstream.recommended_ready_cut()
+                recommended_coverage_gap_cut = workstream.recommended_coverage_gap_cut()
+                recommended_policy_blocked_cut = workstream.recommended_policy_blocked_cut()
+                recommended_diagnostic_blocked_cut = (
+                    workstream.recommended_diagnostic_blocked_cut()
                 )
                 ranked_touchpoint_cuts = workstream.ranked_touchpoint_cuts()
                 ranked_subqueue_cuts = workstream.ranked_subqueue_cuts()
@@ -967,9 +1069,29 @@ class InvariantWorkstreamsProjection:
                                 children=lambda recommended_cut=recommended_cut,
                                 recommended_ready_cut=recommended_ready_cut,
                                 recommended_coverage_gap_cut=recommended_coverage_gap_cut,
+                                recommended_policy_blocked_cut=recommended_policy_blocked_cut,
+                                recommended_diagnostic_blocked_cut=recommended_diagnostic_blocked_cut,
                                 ranked_touchpoint_cuts=ranked_touchpoint_cuts,
                                 ranked_subqueue_cuts=ranked_subqueue_cuts: iter(
                                     (
+                                        scalar(
+                                            identity=ArtifactSourceRef(
+                                                rel_path="<synthetic>",
+                                                qualname="dominant_blocker_class",
+                                            ),
+                                            key="dominant_blocker_class",
+                                            title="dominant_blocker_class",
+                                            value=workstream.dominant_blocker_class(),
+                                        ),
+                                        scalar(
+                                            identity=ArtifactSourceRef(
+                                                rel_path="<synthetic>",
+                                                qualname="recommended_remediation_family",
+                                            ),
+                                            key="recommended_remediation_family",
+                                            title="recommended_remediation_family",
+                                            value=workstream.recommended_remediation_family(),
+                                        ),
                                         scalar(
                                             identity=ArtifactSourceRef(
                                                 rel_path="<synthetic>",
@@ -1007,6 +1129,32 @@ class InvariantWorkstreamsProjection:
                                                 None
                                                 if recommended_coverage_gap_cut is None
                                                 else recommended_coverage_gap_cut.as_payload()
+                                            ),
+                                        ),
+                                        scalar(
+                                            identity=ArtifactSourceRef(
+                                                rel_path="<synthetic>",
+                                                qualname="recommended_policy_blocked_cut",
+                                            ),
+                                            key="recommended_policy_blocked_cut",
+                                            title="recommended_policy_blocked_cut",
+                                            value=(
+                                                None
+                                                if recommended_policy_blocked_cut is None
+                                                else recommended_policy_blocked_cut.as_payload()
+                                            ),
+                                        ),
+                                        scalar(
+                                            identity=ArtifactSourceRef(
+                                                rel_path="<synthetic>",
+                                                qualname="recommended_diagnostic_blocked_cut",
+                                            ),
+                                            key="recommended_diagnostic_blocked_cut",
+                                            title="recommended_diagnostic_blocked_cut",
+                                            value=(
+                                                None
+                                                if recommended_diagnostic_blocked_cut is None
+                                                else recommended_diagnostic_blocked_cut.as_payload()
                                             ),
                                         ),
                                         bullet_list(

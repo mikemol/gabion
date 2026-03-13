@@ -270,6 +270,14 @@ def _print_workstream(*, graph: InvariantGraph, object_id: str) -> int:
         )
     )
     print(
+        "touchsite_blockers: ready={ready} :: coverage_gap={coverage_gap} :: policy={policy} :: diagnostic={diagnostic}".format(
+            ready=health_summary.ready_touchsite_count,
+            coverage_gap=health_summary.coverage_gap_touchsite_count,
+            policy=health_summary.policy_blocked_touchsite_count,
+            diagnostic=health_summary.diagnostic_blocked_touchsite_count,
+        )
+    )
+    print(
         "health_cuts: touchpoints(ready={tp_ready}, coverage_gap={tp_gap}, policy={tp_policy}, diagnostic={tp_diag}) :: "
         "subqueues(ready={sq_ready}, coverage_gap={sq_gap}, policy={sq_policy}, diagnostic={sq_diag})".format(
             tp_ready=health_summary.ready_touchpoint_cut_count,
@@ -282,11 +290,13 @@ def _print_workstream(*, graph: InvariantGraph, object_id: str) -> int:
             sq_diag=health_summary.diagnostic_blocked_subqueue_cut_count,
         )
     )
+    print(f"dominant_blocker_class: {workstream.dominant_blocker_class()}")
+    print(f"recommended_remediation_family: {workstream.recommended_remediation_family()}")
     recommended_cut = workstream.recommended_cut()
-    recommended_ready_cut = workstream._recommended_cut_for_readiness("ready_structural")
-    recommended_coverage_gap_cut = workstream._recommended_cut_for_readiness(
-        "coverage_gap"
-    )
+    recommended_ready_cut = workstream.recommended_ready_cut()
+    recommended_coverage_gap_cut = workstream.recommended_coverage_gap_cut()
+    recommended_policy_blocked_cut = workstream.recommended_policy_blocked_cut()
+    recommended_diagnostic_blocked_cut = workstream.recommended_diagnostic_blocked_cut()
     if recommended_cut is None:
         print("recommended_cut: <none>")
     else:
@@ -318,6 +328,28 @@ def _print_workstream(*, graph: InvariantGraph, object_id: str) -> int:
                 object_id=recommended_coverage_gap_cut.object_id.wire(),
                 touchsites=recommended_coverage_gap_cut.touchsite_count,
                 uncovered=recommended_coverage_gap_cut.uncovered_touchsite_count,
+            )
+        )
+    if recommended_policy_blocked_cut is None:
+        print("recommended_policy_blocked_cut: <none>")
+    else:
+        print(
+            "recommended_policy_blocked_cut: {cut_kind} :: {object_id} :: touchsites={touchsites} :: signals={signals}".format(
+                cut_kind=recommended_policy_blocked_cut.cut_kind,
+                object_id=recommended_policy_blocked_cut.object_id.wire(),
+                touchsites=recommended_policy_blocked_cut.touchsite_count,
+                signals=recommended_policy_blocked_cut.policy_signal_count,
+            )
+        )
+    if recommended_diagnostic_blocked_cut is None:
+        print("recommended_diagnostic_blocked_cut: <none>")
+    else:
+        print(
+            "recommended_diagnostic_blocked_cut: {cut_kind} :: {object_id} :: touchsites={touchsites} :: diagnostics={diagnostics}".format(
+                cut_kind=recommended_diagnostic_blocked_cut.cut_kind,
+                object_id=recommended_diagnostic_blocked_cut.object_id.wire(),
+                touchsites=recommended_diagnostic_blocked_cut.touchsite_count,
+                diagnostics=recommended_diagnostic_blocked_cut.diagnostic_count,
             )
         )
     print("ranked_touchpoint_cuts:")

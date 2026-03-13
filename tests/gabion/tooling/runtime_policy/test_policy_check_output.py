@@ -80,6 +80,8 @@ def test_policy_check_output_carries_projection_fiber_semantics_on_pass(
     for workstream in invariant_workstreams_payload["workstreams"]:
         assert "next_actions" in workstream
         assert "health_summary" in workstream
+        assert "dominant_blocker_class" in workstream["next_actions"]
+        assert "recommended_remediation_family" in workstream["next_actions"]
     assert (tmp_path / "projection_semantic_fragment_queue.md").exists()
 
 
