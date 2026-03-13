@@ -485,6 +485,36 @@ class InvariantWorkstreamHealthSummary:
 
 
 @dataclass(frozen=True)
+class InvariantRemediationLane:
+    remediation_family: str
+    blocker_class: str
+    touchsite_count: int
+    touchpoint_cut_count: int
+    subqueue_cut_count: int
+    best_touchpoint_cut: InvariantCutCandidate | None
+    best_subqueue_cut: InvariantCutCandidate | None
+    best_cut: InvariantCutCandidate | None
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "remediation_family": self.remediation_family,
+            "blocker_class": self.blocker_class,
+            "touchsite_count": self.touchsite_count,
+            "touchpoint_cut_count": self.touchpoint_cut_count,
+            "subqueue_cut_count": self.subqueue_cut_count,
+            "best_touchpoint_cut": (
+                None
+                if self.best_touchpoint_cut is None
+                else self.best_touchpoint_cut.as_payload()
+            ),
+            "best_subqueue_cut": (
+                None if self.best_subqueue_cut is None else self.best_subqueue_cut.as_payload()
+            ),
+            "best_cut": None if self.best_cut is None else self.best_cut.as_payload(),
+        }
+
+
+@dataclass(frozen=True)
 class InvariantTouchpointProjection:
     object_id: TouchpointId
     subqueue_id: SubqueueId
@@ -846,6 +876,72 @@ class InvariantWorkstreamProjection:
             return "coverage_gap"
         return "none"
 
+    def remediation_lanes(self) -> tuple[InvariantRemediationLane, ...]:
+        health_summary = self.health_summary()
+        touchpoint_cuts = self.ranked_touchpoint_cuts()
+        subqueue_cuts = self.ranked_subqueue_cuts()
+        lane_specs = (
+            ("structural_cut", "ready_structural", health_summary.ready_touchsite_count),
+            (
+                "diagnostic_blocked",
+                "diagnostic_blocked",
+                health_summary.diagnostic_blocked_touchsite_count,
+            ),
+            (
+                "policy_blocked",
+                "policy_blocked",
+                health_summary.policy_blocked_touchsite_count,
+            ),
+            ("coverage_gap", "coverage_gap", health_summary.coverage_gap_touchsite_count),
+        )
+        lanes: list[InvariantRemediationLane] = []
+        for remediation_family, blocker_class, touchsite_count in lane_specs:
+            matching_touchpoint_cuts = tuple(
+                candidate
+                for candidate in touchpoint_cuts
+                if candidate.readiness_class == blocker_class
+            )
+            matching_subqueue_cuts = tuple(
+                candidate
+                for candidate in subqueue_cuts
+                if candidate.readiness_class == blocker_class
+            )
+            if (
+                touchsite_count <= 0
+                and not matching_touchpoint_cuts
+                and not matching_subqueue_cuts
+            ):
+                continue
+            best_touchpoint_cut = (
+                matching_touchpoint_cuts[0] if matching_touchpoint_cuts else None
+            )
+            best_subqueue_cut = (
+                matching_subqueue_cuts[0] if matching_subqueue_cuts else None
+            )
+            best_cut_candidates = [
+                candidate
+                for candidate in (best_touchpoint_cut, best_subqueue_cut)
+                if candidate is not None
+            ]
+            best_cut = (
+                None
+                if not best_cut_candidates
+                else _sorted(best_cut_candidates, key=_cut_sort_key)[0]
+            )
+            lanes.append(
+                InvariantRemediationLane(
+                    remediation_family=remediation_family,
+                    blocker_class=blocker_class,
+                    touchsite_count=touchsite_count,
+                    touchpoint_cut_count=len(matching_touchpoint_cuts),
+                    subqueue_cut_count=len(matching_subqueue_cuts),
+                    best_touchpoint_cut=best_touchpoint_cut,
+                    best_subqueue_cut=best_subqueue_cut,
+                    best_cut=best_cut,
+                )
+            )
+        return tuple(lanes)
+
     def as_payload(self) -> dict[str, object]:
         ranked_touchpoint_cuts = self.ranked_touchpoint_cuts()
         ranked_subqueue_cuts = self.ranked_subqueue_cuts()
@@ -855,6 +951,7 @@ class InvariantWorkstreamProjection:
         recommended_policy_blocked_cut = self.recommended_policy_blocked_cut()
         recommended_diagnostic_blocked_cut = self.recommended_diagnostic_blocked_cut()
         health_summary = self.health_summary()
+        remediation_lanes = self.remediation_lanes()
         return {
             "object_id": self.object_id.wire(),
             "title": self.title,
@@ -901,6 +998,9 @@ class InvariantWorkstreamProjection:
                     if recommended_diagnostic_blocked_cut is not None
                     else None
                 ),
+                "remediation_lanes": [
+                    item.as_payload() for item in remediation_lanes
+                ],
                 "ranked_touchpoint_cuts": [
                     item.as_payload() for item in ranked_touchpoint_cuts
                 ],
@@ -942,6 +1042,7 @@ class InvariantWorkstreamsProjection:
                 recommended_diagnostic_blocked_cut = (
                     workstream.recommended_diagnostic_blocked_cut()
                 )
+                remediation_lanes = workstream.remediation_lanes()
                 ranked_touchpoint_cuts = workstream.ranked_touchpoint_cuts()
                 ranked_subqueue_cuts = workstream.ranked_subqueue_cuts()
                 health_summary = workstream.health_summary()
@@ -1071,6 +1172,7 @@ class InvariantWorkstreamsProjection:
                                 recommended_coverage_gap_cut=recommended_coverage_gap_cut,
                                 recommended_policy_blocked_cut=recommended_policy_blocked_cut,
                                 recommended_diagnostic_blocked_cut=recommended_diagnostic_blocked_cut,
+                                remediation_lanes=remediation_lanes,
                                 ranked_touchpoint_cuts=ranked_touchpoint_cuts,
                                 ranked_subqueue_cuts=ranked_subqueue_cuts: iter(
                                     (
@@ -1155,6 +1257,25 @@ class InvariantWorkstreamsProjection:
                                                 None
                                                 if recommended_diagnostic_blocked_cut is None
                                                 else recommended_diagnostic_blocked_cut.as_payload()
+                                            ),
+                                        ),
+                                        bullet_list(
+                                            identity=ArtifactSourceRef(
+                                                rel_path="<synthetic>",
+                                                qualname="remediation_lanes",
+                                            ),
+                                            key="remediation_lanes",
+                                            children=lambda remediation_lanes=remediation_lanes: (
+                                                list_item(
+                                                    identity=ArtifactSourceRef(
+                                                        rel_path="<synthetic>",
+                                                        qualname=item.remediation_family,
+                                                    ),
+                                                    children=lambda item=item: iter(
+                                                        _payload_to_units(item.as_payload())
+                                                    ),
+                                                )
+                                                for item in remediation_lanes
                                             ),
                                         ),
                                         bullet_list(

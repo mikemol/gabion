@@ -175,6 +175,18 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
     assert psf["next_actions"]["recommended_remediation_family"] == "structural_cut"
     assert psf["next_actions"]["recommended_policy_blocked_cut"] is None
     assert psf["next_actions"]["recommended_diagnostic_blocked_cut"] is None
+    assert psf["next_actions"]["remediation_lanes"][0]["remediation_family"] == (
+        "structural_cut"
+    )
+    assert psf["next_actions"]["remediation_lanes"][0]["best_cut"]["object_id"] == (
+        "PSF-007-TP-005"
+    )
+    assert psf["next_actions"]["remediation_lanes"][1]["remediation_family"] == (
+        "coverage_gap"
+    )
+    assert psf["next_actions"]["remediation_lanes"][1]["best_cut"]["object_id"] == (
+        "PSF-007-TP-001"
+    )
     assert psf["next_actions"]["ranked_touchpoint_cuts"][0]["object_id"] == "PSF-007-TP-005"
     assert psf["next_actions"]["ranked_touchpoint_cuts"][0]["readiness_class"] == (
         "ready_structural"
@@ -372,6 +384,18 @@ def test_workstream_projection_surfaces_policy_and_diagnostic_remediation_famili
     )
     assert payload["next_actions"]["recommended_diagnostic_blocked_cut"]["object_id"] == (
         "WS-SYNTH-TP-DIAG"
+    )
+    assert payload["next_actions"]["remediation_lanes"][0]["remediation_family"] == (
+        "diagnostic_blocked"
+    )
+    assert payload["next_actions"]["remediation_lanes"][0]["best_cut"]["object_id"] == (
+        "WS-SYNTH-TP-DIAG"
+    )
+    assert payload["next_actions"]["remediation_lanes"][1]["remediation_family"] == (
+        "policy_blocked"
+    )
+    assert payload["next_actions"]["remediation_lanes"][1]["best_cut"]["object_id"] == (
+        "WS-SYNTH-TP-POLICY"
     )
 
 
@@ -691,6 +715,15 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
     )
     assert "recommended_policy_blocked_cut: <none>" in workstream_output
     assert "recommended_diagnostic_blocked_cut: <none>" in workstream_output
+    assert "remediation_lanes:" in workstream_output
+    assert (
+        "- structural_cut :: blocker=ready_structural :: touchsites=3 :: touchpoints=1 :: subqueues=0 :: best=touchpoint_cut::PSF-007-TP-005"
+        in workstream_output
+    )
+    assert (
+        "- coverage_gap :: blocker=coverage_gap :: touchsites=70 :: touchpoints=5 :: subqueues=5 :: best=touchpoint_cut::PSF-007-TP-001"
+        in workstream_output
+    )
     assert "ranked_touchpoint_cuts:" in workstream_output
     assert (
         "- PSF-007-TP-005 :: readiness=ready_structural :: touchsites=1 :: collapsible=0 :: surviving=1 :: uncovered=0"

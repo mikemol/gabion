@@ -352,6 +352,31 @@ def _print_workstream(*, graph: InvariantGraph, object_id: str) -> int:
                 diagnostics=recommended_diagnostic_blocked_cut.diagnostic_count,
             )
         )
+    print("remediation_lanes:")
+    remediation_lanes = workstream.remediation_lanes()
+    if not remediation_lanes:
+        print("- <none>")
+    else:
+        for lane in remediation_lanes:
+            best_cut = lane.best_cut
+            best_cut_rendered = (
+                "<none>"
+                if best_cut is None
+                else "{cut_kind}::{object_id}".format(
+                    cut_kind=best_cut.cut_kind,
+                    object_id=best_cut.object_id.wire(),
+                )
+            )
+            print(
+                "- {family} :: blocker={blocker} :: touchsites={touchsites} :: touchpoints={touchpoints} :: subqueues={subqueues} :: best={best}".format(
+                    family=lane.remediation_family,
+                    blocker=lane.blocker_class,
+                    touchsites=lane.touchsite_count,
+                    touchpoints=lane.touchpoint_cut_count,
+                    subqueues=lane.subqueue_cut_count,
+                    best=best_cut_rendered,
+                )
+            )
     print("ranked_touchpoint_cuts:")
     touchpoint_cuts = workstream.ranked_touchpoint_cuts()
     if not touchpoint_cuts:
