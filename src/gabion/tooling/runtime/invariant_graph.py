@@ -813,7 +813,7 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
         print("recommended_repo_followup_frontier_explanation: <none>")
     else:
         print(
-            "recommended_repo_followup_frontier_explanation: frontier={frontier_family}:{frontier_class}:{frontier_action}:{frontier_target}:{frontier_policy_ids}:{frontier_utility} :: same_class={same_class_runner_up}:{same_class_utility}:{same_class_margin}:{same_class_margin_components} :: cross_class={cross_class_runner_up}:{cross_class_utility}:{cross_class_margin}:{cross_class_margin_components}".format(
+            "recommended_repo_followup_frontier_explanation: frontier={frontier_family}:{frontier_class}:{frontier_action}:{frontier_target}:{frontier_policy_ids}:{frontier_utility} :: same_class={same_class_runner_up}:{same_class_utility}:{same_class_margin}:{same_class_margin_components} :: cross_class={cross_class_runner_up}:{cross_class_utility}:{cross_class_margin}:{cross_class_margin_components} :: rationale={rationale_kind}:{rationale_reason}:{rationale_components}".format(
                 frontier_family=(
                     recommended_repo_followup_frontier_explanation.frontier_followup_family
                 ),
@@ -878,6 +878,15 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
                 ),
                 cross_class_margin_components=_format_score_components(
                     recommended_repo_followup_frontier_explanation.cross_class_margin_components
+                ),
+                rationale_kind=(
+                    recommended_repo_followup_frontier_explanation.recommendation_rationale_kind
+                ),
+                rationale_reason=(
+                    recommended_repo_followup_frontier_explanation.recommendation_rationale_reason
+                ),
+                rationale_components=_format_score_components(
+                    recommended_repo_followup_frontier_explanation.recommendation_rationale_components
                 ),
             )
         )

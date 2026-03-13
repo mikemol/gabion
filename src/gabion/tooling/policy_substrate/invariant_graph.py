@@ -633,6 +633,18 @@ class InvariantScoreComponent:
         }
 
 
+def _margin_strength(score: int | None) -> str:
+    if score is None:
+        return "none"
+    if score <= 0:
+        return "tied"
+    if score < 25:
+        return "weak"
+    if score < 100:
+        return "moderate"
+    return "strong"
+
+
 @dataclass(frozen=True)
 class InvariantRepoFollowupCohortMember:
     followup_family: str
@@ -1081,6 +1093,9 @@ class InvariantRepoFollowupFrontierExplanation:
     cross_class_margin_score: int | None
     cross_class_margin_reason: str | None
     cross_class_margin_components: tuple[InvariantScoreComponent, ...]
+    recommendation_rationale_kind: str
+    recommendation_rationale_reason: str
+    recommendation_rationale_components: tuple[InvariantScoreComponent, ...]
 
     def as_payload(self) -> dict[str, object]:
         return {
@@ -1119,6 +1134,11 @@ class InvariantRepoFollowupFrontierExplanation:
             "cross_class_margin_reason": self.cross_class_margin_reason,
             "cross_class_margin_components": [
                 item.as_payload() for item in self.cross_class_margin_components
+            ],
+            "recommendation_rationale_kind": self.recommendation_rationale_kind,
+            "recommendation_rationale_reason": self.recommendation_rationale_reason,
+            "recommendation_rationale_components": [
+                item.as_payload() for item in self.recommendation_rationale_components
             ],
         }
 
@@ -3401,6 +3421,12 @@ class InvariantWorkstreamsProjection:
             return None
         same_class_tradeoff = triad.same_class_tradeoff
         cross_class_tradeoff = triad.cross_class_tradeoff
+        same_class_strength = _margin_strength(
+            None if same_class_tradeoff is None else same_class_tradeoff.margin_score
+        )
+        cross_class_strength = _margin_strength(
+            None if cross_class_tradeoff is None else cross_class_tradeoff.margin_score
+        )
         return InvariantRepoFollowupFrontierExplanation(
             frontier_followup_family=triad.frontier_followup_family,
             frontier_followup_class=triad.frontier_followup_class,
@@ -3479,6 +3505,33 @@ class InvariantWorkstreamsProjection:
             ),
             cross_class_margin_components=(
                 () if cross_class_tradeoff is None else cross_class_tradeoff.margin_components
+            ),
+            recommendation_rationale_kind=(
+                f"same_class_{same_class_strength}__cross_class_{cross_class_strength}"
+            ),
+            recommendation_rationale_reason=(
+                f"same_class_margin:{same_class_strength}:"
+                f"{None if same_class_tradeoff is None else same_class_tradeoff.margin_score}"
+                f"|cross_class_margin:{cross_class_strength}:"
+                f"{None if cross_class_tradeoff is None else cross_class_tradeoff.margin_score}"
+            ),
+            recommendation_rationale_components=(
+                InvariantScoreComponent(
+                    kind="same_class_margin_strength",
+                    score=(
+                        0 if same_class_tradeoff is None else same_class_tradeoff.margin_score
+                    ),
+                    rationale=same_class_strength,
+                ),
+                InvariantScoreComponent(
+                    kind="cross_class_margin_strength",
+                    score=(
+                        0
+                        if cross_class_tradeoff is None
+                        else cross_class_tradeoff.margin_score
+                    ),
+                    rationale=cross_class_strength,
+                ),
             ),
         )
 

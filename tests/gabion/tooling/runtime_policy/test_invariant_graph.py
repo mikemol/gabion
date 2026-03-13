@@ -659,6 +659,22 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         "cross_class_margin_components": workstreams_payload["repo_next_actions"][
             "recommended_followup_cross_class_tradeoff"
         ]["margin_components"],
+        "recommendation_rationale_kind": "same_class_weak__cross_class_strong",
+        "recommendation_rationale_reason": (
+            "same_class_margin:weak:10|cross_class_margin:strong:490"
+        ),
+        "recommendation_rationale_components": [
+            {
+                "kind": "same_class_margin_strength",
+                "score": 10,
+                "rationale": "weak",
+            },
+            {
+                "kind": "cross_class_margin_strength",
+                "score": 490,
+                "rationale": "strong",
+            },
+        ],
     }
     assert workstreams_payload["repo_next_actions"][
         "recommended_followup_frontier_triad"
@@ -3192,7 +3208,7 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
         in summary_output
     )
     assert (
-        "recommended_repo_followup_frontier_explanation: frontier=governance_orphan_resolution:governance:diagnostic_resolution:unmatched_policy_signal:GMP-001:1190:governance_orphan:seed_new_owner+owner_option_tradeoff:100+governance_priority:GMP-001:10 :: same_class=unmatched_policy_signal:1180:governance_orphan:seed_new_owner+owner_option_tradeoff:100+governance_priority:GMP-002:20:10:governance_orphan:seed_new_owner+owner_option_tradeoff:100+governance_priority:GMP-001:10->governance_orphan:seed_new_owner+owner_option_tradeoff:100+governance_priority:GMP-002:20:governance_orphan_base:900:governance_orphan | owner_resolution_bonus:100:seed_new_owner | owner_option_tradeoff_bonus:100:uncontested_best_option | governance_priority_bonus:90:governance_priority:GMP-001:10 | runner_up_offset:governance_orphan_base:-900:governance_orphan | runner_up_offset:owner_resolution_bonus:-100:seed_new_owner | runner_up_offset:owner_option_tradeoff_bonus:-100:uncontested_best_option | runner_up_offset:governance_priority_bonus:-80:governance_priority:GMP-002:20 :: cross_class=PSF-007-TP-005:700:code:ready_structural:490:governance_orphan:seed_new_owner+owner_option_tradeoff:100+governance_priority:GMP-001:10->code:ready_structural:governance_orphan_base:900:governance_orphan | owner_resolution_bonus:100:seed_new_owner | owner_option_tradeoff_bonus:100:uncontested_best_option | governance_priority_bonus:90:governance_priority:GMP-001:10 | runner_up_offset:code_touchpoint_base:-450:code:touchpoint_cut | runner_up_offset:readiness_bonus:-250:readiness:ready_structural"
+        "recommended_repo_followup_frontier_explanation: frontier=governance_orphan_resolution:governance:diagnostic_resolution:unmatched_policy_signal:GMP-001:1190:governance_orphan:seed_new_owner+owner_option_tradeoff:100+governance_priority:GMP-001:10 :: same_class=unmatched_policy_signal:1180:governance_orphan:seed_new_owner+owner_option_tradeoff:100+governance_priority:GMP-002:20:10:governance_orphan:seed_new_owner+owner_option_tradeoff:100+governance_priority:GMP-001:10->governance_orphan:seed_new_owner+owner_option_tradeoff:100+governance_priority:GMP-002:20:governance_orphan_base:900:governance_orphan | owner_resolution_bonus:100:seed_new_owner | owner_option_tradeoff_bonus:100:uncontested_best_option | governance_priority_bonus:90:governance_priority:GMP-001:10 | runner_up_offset:governance_orphan_base:-900:governance_orphan | runner_up_offset:owner_resolution_bonus:-100:seed_new_owner | runner_up_offset:owner_option_tradeoff_bonus:-100:uncontested_best_option | runner_up_offset:governance_priority_bonus:-80:governance_priority:GMP-002:20 :: cross_class=PSF-007-TP-005:700:code:ready_structural:490:governance_orphan:seed_new_owner+owner_option_tradeoff:100+governance_priority:GMP-001:10->code:ready_structural:governance_orphan_base:900:governance_orphan | owner_resolution_bonus:100:seed_new_owner | owner_option_tradeoff_bonus:100:uncontested_best_option | governance_priority_bonus:90:governance_priority:GMP-001:10 | runner_up_offset:code_touchpoint_base:-450:code:touchpoint_cut | runner_up_offset:readiness_bonus:-250:readiness:ready_structural :: rationale=same_class_weak__cross_class_strong:same_class_margin:weak:10|cross_class_margin:strong:490:same_class_margin_strength:10:weak | cross_class_margin_strength:490:strong"
         in summary_output
     )
     assert (
