@@ -217,7 +217,7 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
         print("recommended_repo_followup: <none>")
     elif recommended_repo_followup.diagnostic_code is not None:
         print(
-            "recommended_repo_followup: {family} :: diagnostic={diagnostic} :: owner={owner} :: seed={seed} :: seed_object={seed_object} :: owner_kind={owner_kind} :: owner_score={owner_score} :: owner_options={owner_options} :: runner_up_owner={runner_up_owner} :: runner_up_kind={runner_up_kind} :: runner_up_score={runner_up_score} :: owner_choice_margin={owner_choice_margin} :: owner_choice_margin_components={owner_choice_margin_components} :: owner_option_tradeoff={owner_option_tradeoff} :: owner_option_tradeoff_components={owner_option_tradeoff_components} :: count={count} :: action={action} :: utility={utility} :: utility_components={utility_components}".format(
+            "recommended_repo_followup: {family} :: diagnostic={diagnostic} :: owner={owner} :: seed={seed} :: seed_object={seed_object} :: owner_kind={owner_kind} :: owner_score={owner_score} :: owner_options={owner_options} :: runner_up_owner={runner_up_owner} :: runner_up_kind={runner_up_kind} :: runner_up_score={runner_up_score} :: owner_choice_margin={owner_choice_margin} :: owner_choice_margin_components={owner_choice_margin_components} :: owner_option_tradeoff={owner_option_tradeoff} :: owner_option_tradeoff_components={owner_option_tradeoff_components} :: count={count} :: action={action} :: utility={utility} :: utility_components={utility_components} :: certainty={certainty} :: runner_up_followup={runner_up_followup} :: frontier_choice_margin={frontier_choice_margin} :: frontier_choice_margin_components={frontier_choice_margin_components} :: rank={rank} :: opportunity={opportunity} :: opportunity_components={opportunity_components}".format(
                 family=recommended_repo_followup.followup_family,
                 diagnostic=recommended_repo_followup.diagnostic_code,
                 owner=recommended_repo_followup.owner_object_id or "<none>",
@@ -273,11 +273,44 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
                 utility_components=_format_score_components(
                     recommended_repo_followup.utility_components
                 ),
+                certainty=(
+                    f"{recommended_repo_followup.selection_certainty_kind}:"
+                    f"{recommended_repo_followup.cofrontier_followup_count}"
+                ),
+                runner_up_followup=(
+                    "<none>"
+                    if recommended_repo_followup.runner_up_followup_family is None
+                    else (
+                        f"{recommended_repo_followup.runner_up_followup_family}:"
+                        f"{recommended_repo_followup.runner_up_followup_class or 'none'}:"
+                        f"{recommended_repo_followup.runner_up_followup_object_id or '<none>'}:"
+                        f"{recommended_repo_followup.runner_up_followup_utility_score}"
+                    )
+                ),
+                frontier_choice_margin=(
+                    "none"
+                    if recommended_repo_followup.frontier_choice_margin_score is None
+                    else (
+                        f"{recommended_repo_followup.frontier_choice_margin_score}:"
+                        f"{recommended_repo_followup.frontier_choice_margin_reason}"
+                    )
+                ),
+                frontier_choice_margin_components=_format_score_components(
+                    recommended_repo_followup.frontier_choice_margin_components
+                ),
+                rank=recommended_repo_followup.selection_rank,
+                opportunity=(
+                    f"{recommended_repo_followup.opportunity_cost_score}:"
+                    f"{recommended_repo_followup.opportunity_cost_reason}"
+                ),
+                opportunity_components=_format_score_components(
+                    recommended_repo_followup.opportunity_cost_components
+                ),
             )
         )
     elif recommended_repo_followup.action_kind == "doc_alignment":
         print(
-            "recommended_repo_followup: {family} :: owner={owner} :: target_doc={target_doc} :: alignment={alignment} :: action={action} :: utility={utility} :: utility_components={utility_components}".format(
+            "recommended_repo_followup: {family} :: owner={owner} :: target_doc={target_doc} :: alignment={alignment} :: action={action} :: utility={utility} :: utility_components={utility_components} :: certainty={certainty} :: runner_up_followup={runner_up_followup} :: frontier_choice_margin={frontier_choice_margin} :: frontier_choice_margin_components={frontier_choice_margin_components} :: rank={rank} :: opportunity={opportunity} :: opportunity_components={opportunity_components}".format(
                 family=recommended_repo_followup.followup_family,
                 owner=recommended_repo_followup.owner_object_id or "<none>",
                 target_doc=recommended_repo_followup.target_doc_id or "<none>",
@@ -289,11 +322,44 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
                 utility_components=_format_score_components(
                     recommended_repo_followup.utility_components
                 ),
+                certainty=(
+                    f"{recommended_repo_followup.selection_certainty_kind}:"
+                    f"{recommended_repo_followup.cofrontier_followup_count}"
+                ),
+                runner_up_followup=(
+                    "<none>"
+                    if recommended_repo_followup.runner_up_followup_family is None
+                    else (
+                        f"{recommended_repo_followup.runner_up_followup_family}:"
+                        f"{recommended_repo_followup.runner_up_followup_class or 'none'}:"
+                        f"{recommended_repo_followup.runner_up_followup_object_id or '<none>'}:"
+                        f"{recommended_repo_followup.runner_up_followup_utility_score}"
+                    )
+                ),
+                frontier_choice_margin=(
+                    "none"
+                    if recommended_repo_followup.frontier_choice_margin_score is None
+                    else (
+                        f"{recommended_repo_followup.frontier_choice_margin_score}:"
+                        f"{recommended_repo_followup.frontier_choice_margin_reason}"
+                    )
+                ),
+                frontier_choice_margin_components=_format_score_components(
+                    recommended_repo_followup.frontier_choice_margin_components
+                ),
+                rank=recommended_repo_followup.selection_rank,
+                opportunity=(
+                    f"{recommended_repo_followup.opportunity_cost_score}:"
+                    f"{recommended_repo_followup.opportunity_cost_reason}"
+                ),
+                opportunity_components=_format_score_components(
+                    recommended_repo_followup.opportunity_cost_components
+                ),
             )
         )
     else:
         print(
-            "recommended_repo_followup: {family} :: owner={owner} :: {action_kind} :: {object_id} :: count={count} :: blocker={blocker} :: utility={utility} :: utility_components={utility_components}".format(
+            "recommended_repo_followup: {family} :: owner={owner} :: {action_kind} :: {object_id} :: count={count} :: blocker={blocker} :: utility={utility} :: utility_components={utility_components} :: certainty={certainty} :: runner_up_followup={runner_up_followup} :: frontier_choice_margin={frontier_choice_margin} :: frontier_choice_margin_components={frontier_choice_margin_components} :: rank={rank} :: opportunity={opportunity} :: opportunity_components={opportunity_components}".format(
                 family=recommended_repo_followup.followup_family,
                 owner=recommended_repo_followup.owner_object_id or "<none>",
                 action_kind=recommended_repo_followup.action_kind,
@@ -306,13 +372,46 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
                 utility_components=_format_score_components(
                     recommended_repo_followup.utility_components
                 ),
+                certainty=(
+                    f"{recommended_repo_followup.selection_certainty_kind}:"
+                    f"{recommended_repo_followup.cofrontier_followup_count}"
+                ),
+                runner_up_followup=(
+                    "<none>"
+                    if recommended_repo_followup.runner_up_followup_family is None
+                    else (
+                        f"{recommended_repo_followup.runner_up_followup_family}:"
+                        f"{recommended_repo_followup.runner_up_followup_class or 'none'}:"
+                        f"{recommended_repo_followup.runner_up_followup_object_id or '<none>'}:"
+                        f"{recommended_repo_followup.runner_up_followup_utility_score}"
+                    )
+                ),
+                frontier_choice_margin=(
+                    "none"
+                    if recommended_repo_followup.frontier_choice_margin_score is None
+                    else (
+                        f"{recommended_repo_followup.frontier_choice_margin_score}:"
+                        f"{recommended_repo_followup.frontier_choice_margin_reason}"
+                    )
+                ),
+                frontier_choice_margin_components=_format_score_components(
+                    recommended_repo_followup.frontier_choice_margin_components
+                ),
+                rank=recommended_repo_followup.selection_rank,
+                opportunity=(
+                    f"{recommended_repo_followup.opportunity_cost_score}:"
+                    f"{recommended_repo_followup.opportunity_cost_reason}"
+                ),
+                opportunity_components=_format_score_components(
+                    recommended_repo_followup.opportunity_cost_components
+                ),
             )
         )
     if recommended_repo_code_followup is None:
         print("recommended_repo_code_followup: <none>")
     else:
         print(
-            "recommended_repo_code_followup: {family} :: owner={owner} :: {action_kind} :: {object_id} :: count={count} :: blocker={blocker} :: utility={utility} :: utility_components={utility_components}".format(
+            "recommended_repo_code_followup: {family} :: owner={owner} :: {action_kind} :: {object_id} :: count={count} :: blocker={blocker} :: utility={utility} :: utility_components={utility_components} :: certainty={certainty} :: runner_up_followup={runner_up_followup} :: frontier_choice_margin={frontier_choice_margin} :: frontier_choice_margin_components={frontier_choice_margin_components} :: rank={rank} :: opportunity={opportunity} :: opportunity_components={opportunity_components}".format(
                 family=recommended_repo_code_followup.followup_family,
                 owner=recommended_repo_code_followup.owner_object_id or "<none>",
                 action_kind=recommended_repo_code_followup.action_kind,
@@ -325,13 +424,46 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
                 utility_components=_format_score_components(
                     recommended_repo_code_followup.utility_components
                 ),
+                certainty=(
+                    f"{recommended_repo_code_followup.selection_certainty_kind}:"
+                    f"{recommended_repo_code_followup.cofrontier_followup_count}"
+                ),
+                runner_up_followup=(
+                    "<none>"
+                    if recommended_repo_code_followup.runner_up_followup_family is None
+                    else (
+                        f"{recommended_repo_code_followup.runner_up_followup_family}:"
+                        f"{recommended_repo_code_followup.runner_up_followup_class or 'none'}:"
+                        f"{recommended_repo_code_followup.runner_up_followup_object_id or '<none>'}:"
+                        f"{recommended_repo_code_followup.runner_up_followup_utility_score}"
+                    )
+                ),
+                frontier_choice_margin=(
+                    "none"
+                    if recommended_repo_code_followup.frontier_choice_margin_score is None
+                    else (
+                        f"{recommended_repo_code_followup.frontier_choice_margin_score}:"
+                        f"{recommended_repo_code_followup.frontier_choice_margin_reason}"
+                    )
+                ),
+                frontier_choice_margin_components=_format_score_components(
+                    recommended_repo_code_followup.frontier_choice_margin_components
+                ),
+                rank=recommended_repo_code_followup.selection_rank,
+                opportunity=(
+                    f"{recommended_repo_code_followup.opportunity_cost_score}:"
+                    f"{recommended_repo_code_followup.opportunity_cost_reason}"
+                ),
+                opportunity_components=_format_score_components(
+                    recommended_repo_code_followup.opportunity_cost_components
+                ),
             )
         )
     if recommended_repo_human_followup is None:
         print("recommended_repo_human_followup: <none>")
     elif recommended_repo_human_followup.diagnostic_code is not None:
         print(
-            "recommended_repo_human_followup: {family} :: diagnostic={diagnostic} :: owner={owner} :: seed={seed} :: seed_object={seed_object} :: owner_kind={owner_kind} :: owner_score={owner_score} :: owner_options={owner_options} :: runner_up_owner={runner_up_owner} :: runner_up_kind={runner_up_kind} :: runner_up_score={runner_up_score} :: owner_choice_margin={owner_choice_margin} :: owner_choice_margin_components={owner_choice_margin_components} :: owner_option_tradeoff={owner_option_tradeoff} :: owner_option_tradeoff_components={owner_option_tradeoff_components} :: count={count} :: action={action} :: utility={utility} :: utility_components={utility_components}".format(
+            "recommended_repo_human_followup: {family} :: diagnostic={diagnostic} :: owner={owner} :: seed={seed} :: seed_object={seed_object} :: owner_kind={owner_kind} :: owner_score={owner_score} :: owner_options={owner_options} :: runner_up_owner={runner_up_owner} :: runner_up_kind={runner_up_kind} :: runner_up_score={runner_up_score} :: owner_choice_margin={owner_choice_margin} :: owner_choice_margin_components={owner_choice_margin_components} :: owner_option_tradeoff={owner_option_tradeoff} :: owner_option_tradeoff_components={owner_option_tradeoff_components} :: count={count} :: action={action} :: utility={utility} :: utility_components={utility_components} :: certainty={certainty} :: runner_up_followup={runner_up_followup} :: frontier_choice_margin={frontier_choice_margin} :: frontier_choice_margin_components={frontier_choice_margin_components} :: rank={rank} :: opportunity={opportunity} :: opportunity_components={opportunity_components}".format(
                 family=recommended_repo_human_followup.followup_family,
                 diagnostic=recommended_repo_human_followup.diagnostic_code,
                 owner=recommended_repo_human_followup.owner_object_id or "<none>",
@@ -390,11 +522,45 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
                 utility_components=_format_score_components(
                     recommended_repo_human_followup.utility_components
                 ),
+                certainty=(
+                    f"{recommended_repo_human_followup.selection_certainty_kind}:"
+                    f"{recommended_repo_human_followup.cofrontier_followup_count}"
+                ),
+                runner_up_followup=(
+                    "<none>"
+                    if recommended_repo_human_followup.runner_up_followup_family is None
+                    else (
+                        f"{recommended_repo_human_followup.runner_up_followup_family}:"
+                        f"{recommended_repo_human_followup.runner_up_followup_class or 'none'}:"
+                        f"{recommended_repo_human_followup.runner_up_followup_object_id or '<none>'}:"
+                        f"{recommended_repo_human_followup.runner_up_followup_utility_score}"
+                    )
+                ),
+                frontier_choice_margin=(
+                    "none"
+                    if recommended_repo_human_followup.frontier_choice_margin_score
+                    is None
+                    else (
+                        f"{recommended_repo_human_followup.frontier_choice_margin_score}:"
+                        f"{recommended_repo_human_followup.frontier_choice_margin_reason}"
+                    )
+                ),
+                frontier_choice_margin_components=_format_score_components(
+                    recommended_repo_human_followup.frontier_choice_margin_components
+                ),
+                rank=recommended_repo_human_followup.selection_rank,
+                opportunity=(
+                    f"{recommended_repo_human_followup.opportunity_cost_score}:"
+                    f"{recommended_repo_human_followup.opportunity_cost_reason}"
+                ),
+                opportunity_components=_format_score_components(
+                    recommended_repo_human_followup.opportunity_cost_components
+                ),
             )
         )
     else:
         print(
-            "recommended_repo_human_followup: {family} :: target_doc={target_doc} :: alignment={alignment} :: action={action} :: utility={utility} :: utility_components={utility_components}".format(
+            "recommended_repo_human_followup: {family} :: target_doc={target_doc} :: alignment={alignment} :: action={action} :: utility={utility} :: utility_components={utility_components} :: certainty={certainty} :: runner_up_followup={runner_up_followup} :: frontier_choice_margin={frontier_choice_margin} :: frontier_choice_margin_components={frontier_choice_margin_components} :: rank={rank} :: opportunity={opportunity} :: opportunity_components={opportunity_components}".format(
                 family=recommended_repo_human_followup.followup_family,
                 target_doc=recommended_repo_human_followup.target_doc_id or "<none>",
                 alignment=recommended_repo_human_followup.alignment_status or "none",
@@ -404,6 +570,40 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
                 ),
                 utility_components=_format_score_components(
                     recommended_repo_human_followup.utility_components
+                ),
+                certainty=(
+                    f"{recommended_repo_human_followup.selection_certainty_kind}:"
+                    f"{recommended_repo_human_followup.cofrontier_followup_count}"
+                ),
+                runner_up_followup=(
+                    "<none>"
+                    if recommended_repo_human_followup.runner_up_followup_family is None
+                    else (
+                        f"{recommended_repo_human_followup.runner_up_followup_family}:"
+                        f"{recommended_repo_human_followup.runner_up_followup_class or 'none'}:"
+                        f"{recommended_repo_human_followup.runner_up_followup_object_id or '<none>'}:"
+                        f"{recommended_repo_human_followup.runner_up_followup_utility_score}"
+                    )
+                ),
+                frontier_choice_margin=(
+                    "none"
+                    if recommended_repo_human_followup.frontier_choice_margin_score
+                    is None
+                    else (
+                        f"{recommended_repo_human_followup.frontier_choice_margin_score}:"
+                        f"{recommended_repo_human_followup.frontier_choice_margin_reason}"
+                    )
+                ),
+                frontier_choice_margin_components=_format_score_components(
+                    recommended_repo_human_followup.frontier_choice_margin_components
+                ),
+                rank=recommended_repo_human_followup.selection_rank,
+                opportunity=(
+                    f"{recommended_repo_human_followup.opportunity_cost_score}:"
+                    f"{recommended_repo_human_followup.opportunity_cost_reason}"
+                ),
+                opportunity_components=_format_score_components(
+                    recommended_repo_human_followup.opportunity_cost_components
                 ),
             )
         )

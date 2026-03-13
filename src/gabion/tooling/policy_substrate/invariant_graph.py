@@ -660,6 +660,19 @@ class InvariantRepoFollowupAction:
     utility_score: int
     utility_reason: str
     utility_components: tuple[InvariantScoreComponent, ...]
+    selection_certainty_kind: str
+    cofrontier_followup_count: int
+    runner_up_followup_family: str | None
+    runner_up_followup_class: str | None
+    runner_up_followup_object_id: str | None
+    runner_up_followup_utility_score: int | None
+    frontier_choice_margin_score: int | None
+    frontier_choice_margin_reason: str | None
+    frontier_choice_margin_components: tuple[InvariantScoreComponent, ...]
+    selection_rank: int
+    opportunity_cost_score: int
+    opportunity_cost_reason: str
+    opportunity_cost_components: tuple[InvariantScoreComponent, ...]
     count: int
 
     def as_payload(self) -> dict[str, object]:
@@ -700,6 +713,23 @@ class InvariantRepoFollowupAction:
             "utility_reason": self.utility_reason,
             "utility_components": [
                 item.as_payload() for item in self.utility_components
+            ],
+            "selection_certainty_kind": self.selection_certainty_kind,
+            "cofrontier_followup_count": self.cofrontier_followup_count,
+            "runner_up_followup_family": self.runner_up_followup_family,
+            "runner_up_followup_class": self.runner_up_followup_class,
+            "runner_up_followup_object_id": self.runner_up_followup_object_id,
+            "runner_up_followup_utility_score": self.runner_up_followup_utility_score,
+            "frontier_choice_margin_score": self.frontier_choice_margin_score,
+            "frontier_choice_margin_reason": self.frontier_choice_margin_reason,
+            "frontier_choice_margin_components": [
+                item.as_payload() for item in self.frontier_choice_margin_components
+            ],
+            "selection_rank": self.selection_rank,
+            "opportunity_cost_score": self.opportunity_cost_score,
+            "opportunity_cost_reason": self.opportunity_cost_reason,
+            "opportunity_cost_components": [
+                item.as_payload() for item in self.opportunity_cost_components
             ],
             "count": self.count,
         }
@@ -2143,6 +2173,41 @@ class InvariantWorkstreamsProjection:
             ),
         )
 
+    @staticmethod
+    def _repo_followup_opportunity_components(
+        *,
+        frontier_followup: InvariantRepoFollowupAction,
+        followup: InvariantRepoFollowupAction,
+    ) -> tuple[InvariantScoreComponent, ...]:
+        if (
+            frontier_followup.followup_family == followup.followup_family
+            and frontier_followup.object_id == followup.object_id
+            and frontier_followup.diagnostic_code == followup.diagnostic_code
+            and frontier_followup.target_doc_id == followup.target_doc_id
+        ):
+            return ()
+        components: list[InvariantScoreComponent] = list(
+            frontier_followup.utility_components
+        )
+        if followup.utility_components:
+            components.extend(
+                InvariantScoreComponent(
+                    kind=f"runner_up_offset:{component.kind}",
+                    score=-component.score,
+                    rationale=component.rationale,
+                )
+                for component in followup.utility_components
+            )
+        else:
+            components.append(
+                InvariantScoreComponent(
+                    kind="runner_up_offset",
+                    score=-followup.utility_score,
+                    rationale=followup.utility_reason,
+                )
+            )
+        return tuple(components)
+
     def ranked_repo_followups(self) -> tuple[InvariantRepoFollowupAction, ...]:
         return self._ranked_repo_followups
 
@@ -2233,6 +2298,19 @@ class InvariantWorkstreamsProjection:
                         utility_score=0,
                         utility_reason="",
                         utility_components=(),
+                        selection_certainty_kind="ranked_unique",
+                        cofrontier_followup_count=1,
+                        runner_up_followup_family=None,
+                        runner_up_followup_class=None,
+                        runner_up_followup_object_id=None,
+                        runner_up_followup_utility_score=None,
+                        frontier_choice_margin_score=None,
+                        frontier_choice_margin_reason=None,
+                        frontier_choice_margin_components=(),
+                        selection_rank=0,
+                        opportunity_cost_score=0,
+                        opportunity_cost_reason="frontier",
+                        opportunity_cost_components=(),
                         count=lane.count,
                     )
                 )
@@ -2274,6 +2352,19 @@ class InvariantWorkstreamsProjection:
                         utility_score=0,
                         utility_reason="",
                         utility_components=(),
+                        selection_certainty_kind="ranked_unique",
+                        cofrontier_followup_count=1,
+                        runner_up_followup_family=None,
+                        runner_up_followup_class=None,
+                        runner_up_followup_object_id=None,
+                        runner_up_followup_utility_score=None,
+                        frontier_choice_margin_score=None,
+                        frontier_choice_margin_reason=None,
+                        frontier_choice_margin_components=(),
+                        selection_rank=0,
+                        opportunity_cost_score=0,
+                        opportunity_cost_reason="frontier",
+                        opportunity_cost_components=(),
                         count=lane.count,
                     )
                 )
@@ -2315,6 +2406,19 @@ class InvariantWorkstreamsProjection:
                         utility_score=0,
                         utility_reason="",
                         utility_components=(),
+                        selection_certainty_kind="ranked_unique",
+                        cofrontier_followup_count=1,
+                        runner_up_followup_family=None,
+                        runner_up_followup_class=None,
+                        runner_up_followup_object_id=None,
+                        runner_up_followup_utility_score=None,
+                        frontier_choice_margin_score=None,
+                        frontier_choice_margin_reason=None,
+                        frontier_choice_margin_components=(),
+                        selection_rank=0,
+                        opportunity_cost_score=0,
+                        opportunity_cost_reason="frontier",
+                        opportunity_cost_components=(),
                         count=lane.count,
                     )
                 )
@@ -2351,6 +2455,19 @@ class InvariantWorkstreamsProjection:
                         utility_score=0,
                         utility_reason="",
                         utility_components=(),
+                        selection_certainty_kind="ranked_unique",
+                        cofrontier_followup_count=1,
+                        runner_up_followup_family=None,
+                        runner_up_followup_class=None,
+                        runner_up_followup_object_id=None,
+                        runner_up_followup_utility_score=None,
+                        frontier_choice_margin_score=None,
+                        frontier_choice_margin_reason=None,
+                        frontier_choice_margin_components=(),
+                        selection_rank=0,
+                        opportunity_cost_score=0,
+                        opportunity_cost_reason="frontier",
+                        opportunity_cost_components=(),
                         count=followup.touchsite_count,
                     )
                 )
@@ -2368,7 +2485,7 @@ class InvariantWorkstreamsProjection:
                 )
             )
         actions = scored_actions
-        return tuple(
+        ranked_actions = tuple(
             _sorted(
                 actions,
                 key=lambda item: (
@@ -2384,6 +2501,145 @@ class InvariantWorkstreamsProjection:
                 ),
             )
         )
+        if not ranked_actions:
+            return ()
+        frontier_followup = ranked_actions[0]
+        projected_actions: list[InvariantRepoFollowupAction] = []
+        for index, action in enumerate(ranked_actions, start=1):
+            runner_up_followup = (
+                ranked_actions[index] if index < len(ranked_actions) else None
+            )
+            cofrontier_followup_count = sum(
+                1 for item in ranked_actions if item.utility_score == action.utility_score
+            )
+            selection_certainty_kind = (
+                "frontier_plateau"
+                if index == 1 and cofrontier_followup_count > 1
+                else (
+                    "frontier_unique"
+                    if index == 1
+                    else (
+                        "ranked_plateau"
+                        if cofrontier_followup_count > 1
+                        else "ranked_unique"
+                    )
+                )
+            )
+            frontier_choice_margin_score = (
+                None
+                if runner_up_followup is None
+                else max(0, action.utility_score - runner_up_followup.utility_score)
+            )
+            frontier_choice_margin_reason = (
+                None
+                if runner_up_followup is None
+                else (
+                    "cofrontier"
+                    if frontier_choice_margin_score == 0
+                    else (
+                        f"{action.utility_reason}"
+                        f"->{runner_up_followup.utility_reason}"
+                    )
+                )
+            )
+            frontier_choice_margin_components = (
+                ()
+                if runner_up_followup is None or frontier_choice_margin_score == 0
+                else self._repo_followup_opportunity_components(
+                    frontier_followup=action,
+                    followup=runner_up_followup,
+                )
+            )
+            if index == 1:
+                projected_actions.append(
+                    replace(
+                        action,
+                        runner_up_followup_family=(
+                            None
+                            if runner_up_followup is None
+                            else runner_up_followup.followup_family
+                        ),
+                        runner_up_followup_class=(
+                            None
+                            if runner_up_followup is None
+                            else self._repo_followup_class(runner_up_followup)
+                        ),
+                        runner_up_followup_object_id=(
+                            None
+                            if runner_up_followup is None
+                            else runner_up_followup.object_id
+                        ),
+                        runner_up_followup_utility_score=(
+                            None
+                            if runner_up_followup is None
+                            else runner_up_followup.utility_score
+                        ),
+                        frontier_choice_margin_score=frontier_choice_margin_score,
+                        frontier_choice_margin_reason=frontier_choice_margin_reason,
+                        frontier_choice_margin_components=(
+                            frontier_choice_margin_components
+                        ),
+                        selection_certainty_kind=selection_certainty_kind,
+                        cofrontier_followup_count=cofrontier_followup_count,
+                        selection_rank=index,
+                        opportunity_cost_score=0,
+                        opportunity_cost_reason="frontier",
+                        opportunity_cost_components=(),
+                    )
+                )
+                continue
+            opportunity_cost_score = max(
+                0, frontier_followup.utility_score - action.utility_score
+            )
+            projected_actions.append(
+                replace(
+                    action,
+                    runner_up_followup_family=(
+                        None
+                        if runner_up_followup is None
+                        else runner_up_followup.followup_family
+                    ),
+                    runner_up_followup_class=(
+                        None
+                        if runner_up_followup is None
+                        else self._repo_followup_class(runner_up_followup)
+                    ),
+                    runner_up_followup_object_id=(
+                        None
+                        if runner_up_followup is None
+                        else runner_up_followup.object_id
+                    ),
+                    runner_up_followup_utility_score=(
+                        None
+                        if runner_up_followup is None
+                        else runner_up_followup.utility_score
+                    ),
+                    frontier_choice_margin_score=frontier_choice_margin_score,
+                    frontier_choice_margin_reason=frontier_choice_margin_reason,
+                    frontier_choice_margin_components=frontier_choice_margin_components,
+                    selection_certainty_kind=selection_certainty_kind,
+                    cofrontier_followup_count=cofrontier_followup_count,
+                    selection_rank=index,
+                    opportunity_cost_score=opportunity_cost_score,
+                    opportunity_cost_reason=(
+                        "cofrontier"
+                        if opportunity_cost_score == 0
+                        else (
+                            f"{frontier_followup.utility_reason}"
+                            f"->{action.utility_reason}"
+                        )
+                    ),
+                    opportunity_cost_components=(
+                        ()
+                        if opportunity_cost_score == 0
+                        else self._repo_followup_opportunity_components(
+                            frontier_followup=frontier_followup,
+                            followup=action,
+                        )
+                    ),
+                )
+            )
+        return tuple(projected_actions)
 
     def recommended_repo_followup(self) -> InvariantRepoFollowupAction | None:
         return self._recommended_repo_followup

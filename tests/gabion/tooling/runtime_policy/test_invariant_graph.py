@@ -234,6 +234,19 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
                 "rationale": "uncontested_best_option",
             },
         ],
+        "selection_certainty_kind": "frontier_plateau",
+        "cofrontier_followup_count": 7,
+        "runner_up_followup_family": "governance_orphan_resolution",
+        "runner_up_followup_class": "governance",
+        "runner_up_followup_object_id": None,
+        "runner_up_followup_utility_score": 1100,
+        "frontier_choice_margin_score": 0,
+        "frontier_choice_margin_reason": "cofrontier",
+        "frontier_choice_margin_components": [],
+        "selection_rank": 1,
+        "opportunity_cost_score": 0,
+        "opportunity_cost_reason": "frontier",
+        "opportunity_cost_components": [],
         "count": 1,
     }
     assert workstreams_payload["repo_next_actions"]["dominant_followup_class"] == (
@@ -280,6 +293,66 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
             {
                 "kind": "readiness_bonus",
                 "score": 250,
+                "rationale": "readiness:ready_structural",
+            },
+        ],
+        "selection_certainty_kind": "ranked_unique",
+        "cofrontier_followup_count": 1,
+        "runner_up_followup_family": "coverage_gap",
+        "runner_up_followup_class": "code",
+        "runner_up_followup_object_id": "PSF-007-TP-001",
+        "runner_up_followup_utility_score": 480,
+        "frontier_choice_margin_score": 220,
+        "frontier_choice_margin_reason": "code:ready_structural->code:coverage_gap",
+        "frontier_choice_margin_components": [
+            {
+                "kind": "code_touchpoint_base",
+                "score": 450,
+                "rationale": "code:touchpoint_cut",
+            },
+            {
+                "kind": "readiness_bonus",
+                "score": 250,
+                "rationale": "readiness:ready_structural",
+            },
+            {
+                "kind": "runner_up_offset:code_touchpoint_base",
+                "score": -450,
+                "rationale": "code:touchpoint_cut",
+            },
+            {
+                "kind": "runner_up_offset:readiness_bonus",
+                "score": -30,
+                "rationale": "readiness:coverage_gap",
+            },
+        ],
+        "selection_rank": 8,
+        "opportunity_cost_score": 400,
+        "opportunity_cost_reason": "governance_orphan:seed_new_owner+owner_option_tradeoff:100->code:ready_structural",
+        "opportunity_cost_components": [
+            {
+                "kind": "governance_orphan_base",
+                "score": 900,
+                "rationale": "governance_orphan",
+            },
+            {
+                "kind": "owner_resolution_bonus",
+                "score": 100,
+                "rationale": "seed_new_owner",
+            },
+            {
+                "kind": "owner_option_tradeoff_bonus",
+                "score": 100,
+                "rationale": "uncontested_best_option",
+            },
+            {
+                "kind": "runner_up_offset:code_touchpoint_base",
+                "score": -450,
+                "rationale": "code:touchpoint_cut",
+            },
+            {
+                "kind": "runner_up_offset:readiness_bonus",
+                "score": -250,
                 "rationale": "readiness:ready_structural",
             },
         ],
@@ -423,6 +496,66 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
                     "rationale": "readiness:ready_structural",
                 },
             ],
+            "selection_certainty_kind": "ranked_unique",
+            "cofrontier_followup_count": 1,
+            "runner_up_followup_family": "coverage_gap",
+            "runner_up_followup_class": "code",
+            "runner_up_followup_object_id": "PSF-007-TP-001",
+            "runner_up_followup_utility_score": 480,
+            "frontier_choice_margin_score": 220,
+            "frontier_choice_margin_reason": "code:ready_structural->code:coverage_gap",
+            "frontier_choice_margin_components": [
+                {
+                    "kind": "code_touchpoint_base",
+                    "score": 450,
+                    "rationale": "code:touchpoint_cut",
+                },
+                {
+                    "kind": "readiness_bonus",
+                    "score": 250,
+                    "rationale": "readiness:ready_structural",
+                },
+                {
+                    "kind": "runner_up_offset:code_touchpoint_base",
+                    "score": -450,
+                    "rationale": "code:touchpoint_cut",
+                },
+                {
+                    "kind": "runner_up_offset:readiness_bonus",
+                    "score": -30,
+                    "rationale": "readiness:coverage_gap",
+                },
+            ],
+            "selection_rank": 8,
+            "opportunity_cost_score": 400,
+            "opportunity_cost_reason": "governance_orphan:seed_new_owner+owner_option_tradeoff:100->code:ready_structural",
+            "opportunity_cost_components": [
+                {
+                    "kind": "governance_orphan_base",
+                    "score": 900,
+                    "rationale": "governance_orphan",
+                },
+                {
+                    "kind": "owner_resolution_bonus",
+                    "score": 100,
+                    "rationale": "seed_new_owner",
+                },
+                {
+                    "kind": "owner_option_tradeoff_bonus",
+                    "score": 100,
+                    "rationale": "uncontested_best_option",
+                },
+                {
+                    "kind": "runner_up_offset:code_touchpoint_base",
+                    "score": -450,
+                    "rationale": "code:touchpoint_cut",
+                },
+                {
+                    "kind": "runner_up_offset:readiness_bonus",
+                    "score": -250,
+                    "rationale": "readiness:ready_structural",
+                },
+            ],
             "count": 1,
         }
         for item in ranked_repo_followups
@@ -467,85 +600,7 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         "opportunity_cost_score": 0,
         "opportunity_cost_reason": "frontier",
         "opportunity_cost_components": [],
-        "best_followup": {
-            "followup_family": "governance_orphan_resolution",
-            "action_kind": "diagnostic_resolution",
-            "priority_rank": 0,
-            "object_id": None,
-            "owner_object_id": None,
-            "diagnostic_code": "unmatched_policy_signal",
-            "target_doc_id": None,
-            "title": "seed ownership for grade:GMP-001 from src/gabion/analysis/dataflow/io",
-            "blocker_class": "policy_orphan",
-            "readiness_class": None,
-            "alignment_status": None,
-            "recommended_action": "seed_owned_workstream_from_source_family",
-            "owner_seed_path": "src/gabion/analysis/dataflow/io",
-            "owner_seed_object_id": "WS-SEED:gabion.analysis.dataflow.io",
-            "owner_resolution_kind": "seed_new_owner",
-            "owner_resolution_score": 100,
-            "owner_resolution_options": [
-                {
-                    "resolution_kind": "seed_new_owner",
-                    "owner_status": "source_family_seed_owner",
-                    "object_id": "WS-SEED:gabion.analysis.dataflow.io",
-                    "score": 100,
-                    "rationale": "source_family_seed",
-                    "score_components": [
-                        {
-                            "kind": "seed_new_owner_base",
-                            "score": 100,
-                            "rationale": "source_family_seed",
-                        }
-                    ],
-                    "selection_rank": 1,
-                    "opportunity_cost_score": 0,
-                    "opportunity_cost_reason": "frontier",
-                    "opportunity_cost_components": [],
-                }
-            ],
-            "runner_up_owner_object_id": None,
-            "runner_up_owner_resolution_kind": None,
-            "runner_up_owner_resolution_score": None,
-            "owner_choice_margin_score": 100,
-            "owner_choice_margin_reason": "uncontested_best_option",
-            "owner_choice_margin_components": [
-                {
-                    "kind": "seed_new_owner_base",
-                    "score": 100,
-                    "rationale": "source_family_seed",
-                }
-            ],
-            "owner_option_tradeoff_score": 100,
-            "owner_option_tradeoff_reason": "uncontested_best_option",
-            "owner_option_tradeoff_components": [
-                {
-                    "kind": "seed_new_owner_base",
-                    "score": 100,
-                    "rationale": "source_family_seed",
-                }
-            ],
-            "utility_score": 1100,
-            "utility_reason": "governance_orphan:seed_new_owner+owner_option_tradeoff:100",
-            "utility_components": [
-                {
-                    "kind": "governance_orphan_base",
-                    "score": 900,
-                    "rationale": "governance_orphan",
-                },
-                {
-                    "kind": "owner_resolution_bonus",
-                    "score": 100,
-                    "rationale": "seed_new_owner",
-                },
-                {
-                    "kind": "owner_option_tradeoff_bonus",
-                    "score": 100,
-                    "rationale": "uncontested_best_option",
-                },
-            ],
-            "count": 1,
-        },
+        "best_followup": recommended_followup,
     }
     assert repo_followup_lanes[1]["followup_family"] == "structural_cut"
     assert repo_followup_lanes[1]["followup_class"] == "code"
@@ -2828,15 +2883,15 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
     assert "next_human_followup_family: governance_orphan_resolution" in summary_output
     assert "diagnostic_summary: unmatched_policy_signals=7 :: unresolved_dependencies=0" in summary_output
     assert (
-        "recommended_repo_followup: governance_orphan_resolution :: diagnostic=unmatched_policy_signal :: owner=<none> :: seed=src/gabion/analysis/dataflow/io :: seed_object=WS-SEED:gabion.analysis.dataflow.io :: owner_kind=seed_new_owner :: owner_score=100 :: owner_options=seed_new_owner:WS-SEED:gabion.analysis.dataflow.io:100:seed_new_owner_base:100:source_family_seed:rank=1:opp=0:frontier:none :: runner_up_owner=<none> :: runner_up_kind=none :: runner_up_score=none :: owner_choice_margin=100:uncontested_best_option :: owner_choice_margin_components=seed_new_owner_base:100:source_family_seed :: owner_option_tradeoff=100:uncontested_best_option :: owner_option_tradeoff_components=seed_new_owner_base:100:source_family_seed :: count=1 :: action=seed_owned_workstream_from_source_family :: utility=1100:governance_orphan:seed_new_owner+owner_option_tradeoff:100 :: utility_components=governance_orphan_base:900:governance_orphan | owner_resolution_bonus:100:seed_new_owner | owner_option_tradeoff_bonus:100:uncontested_best_option"
+        "recommended_repo_followup: governance_orphan_resolution :: diagnostic=unmatched_policy_signal :: owner=<none> :: seed=src/gabion/analysis/dataflow/io :: seed_object=WS-SEED:gabion.analysis.dataflow.io :: owner_kind=seed_new_owner :: owner_score=100 :: owner_options=seed_new_owner:WS-SEED:gabion.analysis.dataflow.io:100:seed_new_owner_base:100:source_family_seed:rank=1:opp=0:frontier:none :: runner_up_owner=<none> :: runner_up_kind=none :: runner_up_score=none :: owner_choice_margin=100:uncontested_best_option :: owner_choice_margin_components=seed_new_owner_base:100:source_family_seed :: owner_option_tradeoff=100:uncontested_best_option :: owner_option_tradeoff_components=seed_new_owner_base:100:source_family_seed :: count=1 :: action=seed_owned_workstream_from_source_family :: utility=1100:governance_orphan:seed_new_owner+owner_option_tradeoff:100 :: utility_components=governance_orphan_base:900:governance_orphan | owner_resolution_bonus:100:seed_new_owner | owner_option_tradeoff_bonus:100:uncontested_best_option :: certainty=frontier_plateau:7 :: runner_up_followup=governance_orphan_resolution:governance:<none>:1100 :: frontier_choice_margin=0:cofrontier :: frontier_choice_margin_components=none"
         in summary_output
     )
     assert (
-        "recommended_repo_code_followup: structural_cut :: owner=PSF-007 :: touchpoint_cut :: PSF-007-TP-005 :: count=1 :: blocker=ready_structural :: utility=700:code:ready_structural :: utility_components=code_touchpoint_base:450:code:touchpoint_cut | readiness_bonus:250:readiness:ready_structural"
+        "recommended_repo_code_followup: structural_cut :: owner=PSF-007 :: touchpoint_cut :: PSF-007-TP-005 :: count=1 :: blocker=ready_structural :: utility=700:code:ready_structural :: utility_components=code_touchpoint_base:450:code:touchpoint_cut | readiness_bonus:250:readiness:ready_structural :: certainty=ranked_unique:1"
         in summary_output
     )
     assert (
-        "recommended_repo_human_followup: governance_orphan_resolution :: diagnostic=unmatched_policy_signal :: owner=<none> :: seed=src/gabion/analysis/dataflow/io :: seed_object=WS-SEED:gabion.analysis.dataflow.io :: owner_kind=seed_new_owner :: owner_score=100 :: owner_options=seed_new_owner:WS-SEED:gabion.analysis.dataflow.io:100:seed_new_owner_base:100:source_family_seed:rank=1:opp=0:frontier:none :: runner_up_owner=<none> :: runner_up_kind=none :: runner_up_score=none :: owner_choice_margin=100:uncontested_best_option :: owner_choice_margin_components=seed_new_owner_base:100:source_family_seed :: owner_option_tradeoff=100:uncontested_best_option :: owner_option_tradeoff_components=seed_new_owner_base:100:source_family_seed :: count=1 :: action=seed_owned_workstream_from_source_family :: utility=1100:governance_orphan:seed_new_owner+owner_option_tradeoff:100 :: utility_components=governance_orphan_base:900:governance_orphan | owner_resolution_bonus:100:seed_new_owner | owner_option_tradeoff_bonus:100:uncontested_best_option"
+        "recommended_repo_human_followup: governance_orphan_resolution :: diagnostic=unmatched_policy_signal :: owner=<none> :: seed=src/gabion/analysis/dataflow/io :: seed_object=WS-SEED:gabion.analysis.dataflow.io :: owner_kind=seed_new_owner :: owner_score=100 :: owner_options=seed_new_owner:WS-SEED:gabion.analysis.dataflow.io:100:seed_new_owner_base:100:source_family_seed:rank=1:opp=0:frontier:none :: runner_up_owner=<none> :: runner_up_kind=none :: runner_up_score=none :: owner_choice_margin=100:uncontested_best_option :: owner_choice_margin_components=seed_new_owner_base:100:source_family_seed :: owner_option_tradeoff=100:uncontested_best_option :: owner_option_tradeoff_components=seed_new_owner_base:100:source_family_seed :: count=1 :: action=seed_owned_workstream_from_source_family :: utility=1100:governance_orphan:seed_new_owner+owner_option_tradeoff:100 :: utility_components=governance_orphan_base:900:governance_orphan | owner_resolution_bonus:100:seed_new_owner | owner_option_tradeoff_bonus:100:uncontested_best_option :: certainty=frontier_plateau:7 :: runner_up_followup=governance_orphan_resolution:governance:<none>:1100 :: frontier_choice_margin=0:cofrontier :: frontier_choice_margin_components=none"
         in summary_output
     )
     assert (
