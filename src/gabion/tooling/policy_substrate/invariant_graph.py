@@ -772,6 +772,7 @@ class InvariantOwnerCandidateOption:
     object_id: str
     score: int
     rationale: str
+    score_components: tuple[InvariantScoreComponent, ...]
 
     def as_payload(self) -> dict[str, object]:
         return {
@@ -780,6 +781,9 @@ class InvariantOwnerCandidateOption:
             "object_id": self.object_id,
             "score": self.score,
             "rationale": self.rationale,
+            "score_components": [
+                item.as_payload() for item in self.score_components
+            ],
         }
 
 
@@ -1735,6 +1739,18 @@ class InvariantWorkstreamsProjection:
                         object_id=object_id,
                         score=300,
                         rationale="exact_path_match",
+                        score_components=(
+                            InvariantScoreComponent(
+                                kind="attach_existing_owner_base",
+                                score=200,
+                                rationale="attach_existing_owner",
+                            ),
+                            InvariantScoreComponent(
+                                kind="exact_path_bonus",
+                                score=100,
+                                rationale="exact_path_match",
+                            ),
+                        ),
                     )
                 )
         elif family_owner_object_ids:
@@ -1750,6 +1766,13 @@ class InvariantWorkstreamsProjection:
                         object_id=object_id,
                         score=200,
                         rationale="same_parent_path",
+                        score_components=(
+                            InvariantScoreComponent(
+                                kind="attach_existing_owner_base",
+                                score=200,
+                                rationale="attach_existing_owner",
+                            ),
+                        ),
                     )
                 )
         elif proximity_owner_scores:
@@ -1766,6 +1789,18 @@ class InvariantWorkstreamsProjection:
                         object_id=object_id,
                         score=120 + (depth * 10),
                         rationale=f"shared_source_family_prefix:{depth}",
+                        score_components=(
+                            InvariantScoreComponent(
+                                kind="attach_existing_owner_base",
+                                score=120,
+                                rationale="attach_existing_owner",
+                            ),
+                            InvariantScoreComponent(
+                                kind="structural_proximity_bonus",
+                                score=depth * 10,
+                                rationale=f"shared_source_family_prefix:{depth}",
+                            ),
+                        ),
                     )
                 )
         if candidate_owner_seed_object_id is not None:
@@ -1776,6 +1811,13 @@ class InvariantWorkstreamsProjection:
                     object_id=candidate_owner_seed_object_id,
                     score=100,
                     rationale="source_family_seed",
+                    score_components=(
+                        InvariantScoreComponent(
+                            kind="seed_new_owner_base",
+                            score=100,
+                            rationale="source_family_seed",
+                        ),
+                    ),
                 )
             )
         return tuple(
