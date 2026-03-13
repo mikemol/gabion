@@ -27,12 +27,14 @@ from gabion.tooling.policy_substrate.policy_artifact_stream import (
     cell,
     document,
     list_item,
+    paragraph,
     render_json_value,
     row,
     scalar,
     section,
     table,
     write_json,
+    write_markdown,
 )
 from gabion.tooling.policy_substrate.policy_queue_identity import (
     PolicyQueueIdentitySpace,
@@ -1525,6 +1527,7 @@ class InvariantLedgerProjections:
 @dataclass(frozen=True)
 class InvariantLedgerDelta:
     object_id: str
+    title: str
     target_doc_ids: tuple[str, ...]
     target_policy_ids: tuple[str, ...]
     classification: str
@@ -1538,6 +1541,7 @@ class InvariantLedgerDelta:
     def as_payload(self) -> dict[str, object]:
         return {
             "object_id": self.object_id,
+            "title": self.title,
             "target_doc_ids": list(self.target_doc_ids),
             "target_policy_ids": list(self.target_policy_ids),
             "classification": self.classification,
@@ -1547,7 +1551,182 @@ class InvariantLedgerDelta:
             "after_status": self.after_status,
             "before_recommended_cut_object_id": self.before_recommended_cut_object_id,
             "after_recommended_cut_object_id": self.after_recommended_cut_object_id,
+            "append_entry": {
+                "object_id": self.object_id,
+                "title": self.title,
+                "classification": self.classification,
+                "recommended_ledger_action": self.recommended_ledger_action,
+                "summary": self.summary,
+                "before_status": self.before_status,
+                "after_status": self.after_status,
+                "before_recommended_cut_object_id": self.before_recommended_cut_object_id,
+                "after_recommended_cut_object_id": self.after_recommended_cut_object_id,
+                "target_policy_ids": list(self.target_policy_ids),
+            },
         }
+
+
+@dataclass(frozen=True)
+class InvariantLedgerDeltaProjections:
+    root: str
+    generated_at_utc: str
+    before_workstreams_artifact: str
+    after_workstreams_artifact: str
+    deltas: ReplayableStream[InvariantLedgerDelta]
+
+    def iter_deltas(self) -> Iterator[InvariantLedgerDelta]:
+        return iter(self.deltas)
+
+    def as_payload(self) -> dict[str, object]:
+        deltas = tuple(self.iter_deltas())
+        classification_counts: dict[str, int] = defaultdict(int)
+        target_doc_ids: set[str] = set()
+        for item in deltas:
+            classification_counts[item.classification] += 1
+            target_doc_ids.update(item.target_doc_ids)
+        return {
+            "format_version": _FORMAT_VERSION,
+            "generated_at_utc": self.generated_at_utc,
+            "root": self.root,
+            "before_workstreams_artifact": self.before_workstreams_artifact,
+            "after_workstreams_artifact": self.after_workstreams_artifact,
+            "deltas": [item.as_payload() for item in deltas],
+            "counts": {
+                "delta_count": len(deltas),
+                "classification_counts": dict(
+                    _sorted(list(classification_counts.items()), key=lambda item: item[0])
+                ),
+                "target_doc_count": len(target_doc_ids),
+            },
+        }
+
+    def artifact_document(self) -> ArtifactUnit:
+        def _delta_items() -> Iterator[ArtifactUnit]:
+            for delta in self.iter_deltas():
+                yield list_item(
+                    identity=ArtifactSourceRef(rel_path="<synthetic>", qualname=delta.object_id),
+                    title=delta.object_id,
+                    children=lambda delta=delta: iter(_payload_to_units(delta.as_payload())),
+                )
+
+        return document(
+            identity=ArtifactSourceRef(
+                rel_path="<synthetic>",
+                qualname="invariant_ledger_delta_projections",
+            ),
+            children=lambda: iter(
+                (
+                    scalar(
+                        identity=ArtifactSourceRef(
+                            rel_path="<synthetic>",
+                            qualname="format_version",
+                        ),
+                        key="format_version",
+                        title="format_version",
+                        value=_FORMAT_VERSION,
+                    ),
+                    scalar(
+                        identity=ArtifactSourceRef(
+                            rel_path="<synthetic>",
+                            qualname="generated_at_utc",
+                        ),
+                        key="generated_at_utc",
+                        title="generated_at_utc",
+                        value=self.generated_at_utc,
+                    ),
+                    scalar(
+                        identity=ArtifactSourceRef(rel_path="<synthetic>", qualname="root"),
+                        key="root",
+                        title="root",
+                        value=self.root,
+                    ),
+                    scalar(
+                        identity=ArtifactSourceRef(
+                            rel_path="<synthetic>",
+                            qualname="before_workstreams_artifact",
+                        ),
+                        key="before_workstreams_artifact",
+                        title="before_workstreams_artifact",
+                        value=self.before_workstreams_artifact,
+                    ),
+                    scalar(
+                        identity=ArtifactSourceRef(
+                            rel_path="<synthetic>",
+                            qualname="after_workstreams_artifact",
+                        ),
+                        key="after_workstreams_artifact",
+                        title="after_workstreams_artifact",
+                        value=self.after_workstreams_artifact,
+                    ),
+                    bullet_list(
+                        identity=ArtifactSourceRef(
+                            rel_path="<synthetic>",
+                            qualname="deltas",
+                        ),
+                        key="deltas",
+                        children=_delta_items,
+                    ),
+                    section(
+                        identity=ArtifactSourceRef(
+                            rel_path="<synthetic>",
+                            qualname="counts",
+                        ),
+                        key="counts",
+                        title="counts",
+                        children=lambda: iter(
+                            (
+                                scalar(
+                                    identity=ArtifactSourceRef(
+                                        rel_path="<synthetic>",
+                                        qualname="delta_count",
+                                    ),
+                                    key="delta_count",
+                                    title="delta_count",
+                                    value=sum(1 for _ in self.iter_deltas()),
+                                ),
+                            )
+                        ),
+                    ),
+                )
+            ),
+        )
+
+    def markdown_document(self) -> ArtifactUnit:
+        grouped = self.grouped_by_target_doc_id()
+
+        def _doc_sections() -> Iterator[ArtifactUnit]:
+            for doc_id, deltas in grouped:
+                yield section(
+                    identity=ArtifactSourceRef(rel_path="<synthetic>", qualname=doc_id),
+                    key=doc_id,
+                    title=doc_id,
+                    children=lambda deltas=deltas: _ledger_delta_markdown_units(
+                        deltas=deltas
+                    ),
+                )
+
+        return document(
+            identity=ArtifactSourceRef(
+                rel_path="<synthetic>",
+                qualname="invariant_ledger_delta_markdown",
+            ),
+            title="Invariant Ledger Deltas",
+            children=_doc_sections,
+        )
+
+    def grouped_by_target_doc_id(self) -> tuple[tuple[str, tuple[InvariantLedgerDelta, ...]], ...]:
+        grouped: defaultdict[str, list[InvariantLedgerDelta]] = defaultdict(list)
+        for delta in self.iter_deltas():
+            target_doc_ids = delta.target_doc_ids or ("<unassigned>",)
+            for doc_id in target_doc_ids:
+                grouped[doc_id].append(delta)
+        return tuple(
+            (
+                doc_id,
+                tuple(_sorted(deltas, key=lambda item: (item.object_id, item.classification))),
+            )
+            for doc_id, deltas in _sorted(list(grouped.items()), key=lambda item: item[0])
+        )
 
 
 @dataclass(frozen=True)
@@ -1709,6 +1888,72 @@ def _recommended_ledger_action_for_classification(classification: str) -> str:
     if classification == "retired":
         return "append_retirement_delta"
     return "append_delta"
+
+
+def _ledger_delta_markdown_units(
+    *,
+    deltas: tuple[InvariantLedgerDelta, ...],
+) -> Iterator[ArtifactUnit]:
+    for delta in deltas:
+        identity = ArtifactSourceRef(rel_path="<synthetic>", qualname=delta.object_id)
+        yield section(
+            identity=identity,
+            key=delta.object_id,
+            title=f"{delta.object_id} :: {delta.classification}",
+            children=lambda delta=delta, identity=identity: iter(
+                (
+                    paragraph(
+                        identity=identity,
+                        value=delta.summary,
+                    ),
+                    bullet_list(
+                        identity=identity,
+                        key="append_entry",
+                        title="append_entry",
+                        children=lambda delta=delta: iter(
+                            (
+                                list_item(
+                                    identity=identity,
+                                    title="recommended_ledger_action",
+                                    value=delta.recommended_ledger_action,
+                                ),
+                                list_item(
+                                    identity=identity,
+                                    title="before_status",
+                                    value=delta.before_status,
+                                ),
+                                list_item(
+                                    identity=identity,
+                                    title="after_status",
+                                    value=delta.after_status,
+                                ),
+                                list_item(
+                                    identity=identity,
+                                    title="before_recommended_cut_object_id",
+                                    value=delta.before_recommended_cut_object_id,
+                                ),
+                                list_item(
+                                    identity=identity,
+                                    title="after_recommended_cut_object_id",
+                                    value=delta.after_recommended_cut_object_id,
+                                ),
+                                list_item(
+                                    identity=identity,
+                                    title="target_policy_ids",
+                                    children=lambda delta=delta: iter(
+                                        list_item(
+                                            identity=identity,
+                                            value=policy_id,
+                                        )
+                                        for policy_id in delta.target_policy_ids
+                                    ),
+                                ),
+                            )
+                        ),
+                    ),
+                )
+            ),
+        )
 
 
 def compare_invariant_workstreams(
@@ -1962,6 +2207,7 @@ def compare_invariant_ledger_projections(
         deltas.append(
             InvariantLedgerDelta(
                 object_id=drift.object_id,
+                title=title,
                 target_doc_ids=target_doc_ids,
                 target_policy_ids=target_policy_ids,
                 classification=drift.classification,
@@ -1976,6 +2222,25 @@ def compare_invariant_ledger_projections(
             )
         )
     return tuple(_sorted(deltas, key=lambda item: (item.object_id, item.classification)))
+
+
+def build_invariant_ledger_delta_projections(
+    *,
+    root: str,
+    before_workstreams_artifact: str,
+    after_workstreams_artifact: str,
+    before_payload: Mapping[str, object],
+    after_payload: Mapping[str, object],
+) -> InvariantLedgerDeltaProjections:
+    deltas = compare_invariant_ledger_projections(before_payload, after_payload)
+
+    return InvariantLedgerDeltaProjections(
+        root=root,
+        generated_at_utc=datetime.now(timezone.utc).isoformat(),
+        before_workstreams_artifact=before_workstreams_artifact,
+        after_workstreams_artifact=after_workstreams_artifact,
+        deltas=_stream_from_iterable(lambda: iter(deltas)),
+    )
 
 
 def _payload_to_units(payload: Mapping[str, object]) -> tuple[ArtifactUnit, ...]:
@@ -3766,6 +4031,13 @@ def load_invariant_ledger_projections(path: Path) -> Mapping[str, object]:
     return payload
 
 
+def load_invariant_ledger_deltas(path: Path) -> Mapping[str, object]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, Mapping):
+        raise ValueError("invariant ledger deltas payload must be a mapping")
+    return payload
+
+
 def write_invariant_workstreams(
     path: Path,
     workstreams: InvariantWorkstreamsProjection,
@@ -3778,6 +4050,20 @@ def write_invariant_ledger_projections(
     ledger_projections: InvariantLedgerProjections,
 ) -> None:
     write_json(path, ledger_projections.artifact_document())
+
+
+def write_invariant_ledger_deltas(
+    path: Path,
+    ledger_deltas: InvariantLedgerDeltaProjections,
+) -> None:
+    write_json(path, ledger_deltas.artifact_document())
+
+
+def write_invariant_ledger_deltas_markdown(
+    path: Path,
+    ledger_deltas: InvariantLedgerDeltaProjections,
+) -> None:
+    write_markdown(path, ledger_deltas.markdown_document())
 
 
 def load_invariant_graph(path: Path) -> InvariantGraph:
@@ -3800,22 +4086,27 @@ __all__ = [
     "InvariantGraphDiagnostic",
     "InvariantGraphEdge",
     "InvariantLedgerDelta",
+    "InvariantLedgerDeltaProjections",
     "InvariantLedgerProjection",
     "InvariantLedgerProjections",
     "InvariantGraphNode",
     "InvariantWorkstreamDrift",
     "blocker_chains",
     "build_invariant_graph",
+    "build_invariant_ledger_delta_projections",
     "build_invariant_ledger_projections",
     "build_invariant_workstreams",
     "build_psf_phase5_projection",
     "compare_invariant_ledger_projections",
     "compare_invariant_workstreams",
     "load_invariant_workstreams",
+    "load_invariant_ledger_deltas",
     "load_invariant_ledger_projections",
     "load_invariant_graph",
     "trace_nodes",
     "write_invariant_graph",
+    "write_invariant_ledger_deltas",
+    "write_invariant_ledger_deltas_markdown",
     "write_invariant_ledger_projections",
     "write_invariant_workstreams",
 ]

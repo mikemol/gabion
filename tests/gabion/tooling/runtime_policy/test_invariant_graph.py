@@ -882,10 +882,79 @@ def test_compare_invariant_ledger_projections_synthesizes_doc_targets_and_action
     assert len(deltas) == 1
     delta = deltas[0]
     assert delta.object_id == "WS-REDUCE"
+    assert delta.title == "reduce stream"
     assert delta.target_doc_ids == ("ledger.reduce",)
     assert delta.classification == "reduced"
     assert delta.recommended_ledger_action == "append_reduction_delta"
     assert "recommended cut TP-BEFORE->TP-AFTER" in delta.summary
+    assert delta.as_payload()["append_entry"]["recommended_ledger_action"] == (
+        "append_reduction_delta"
+    )
+
+
+def test_build_invariant_ledger_delta_projections_groups_append_targets() -> None:
+    before_payload = _synthetic_workstreams_payload(
+        [
+            {
+                "object_id": "WS-REDUCE",
+                "title": "reduce stream",
+                "doc_ids": ["ledger.reduce"],
+                "status": "in_progress",
+                "touchsite_count": 2,
+                "surviving_touchsite_count": 1,
+                "touchpoints": [{"touchsites": [{"object_id": "TS-1"}, {"object_id": "TS-2"}]}],
+                "health_summary": {
+                    "ready_touchsite_count": 0,
+                    "coverage_gap_touchsite_count": 2,
+                    "policy_blocked_touchsite_count": 0,
+                    "diagnostic_blocked_touchsite_count": 0,
+                },
+                "next_actions": {
+                    "dominant_blocker_class": "coverage_gap",
+                    "recommended_cut": {"object_id": "TP-BEFORE"},
+                },
+            }
+        ]
+    )
+    after_payload = _synthetic_workstreams_payload(
+        [
+            {
+                "object_id": "WS-REDUCE",
+                "title": "reduce stream",
+                "doc_ids": ["ledger.reduce"],
+                "status": "in_progress",
+                "touchsite_count": 1,
+                "surviving_touchsite_count": 1,
+                "touchpoints": [{"touchsites": [{"object_id": "TS-1"}]}],
+                "health_summary": {
+                    "ready_touchsite_count": 1,
+                    "coverage_gap_touchsite_count": 0,
+                    "policy_blocked_touchsite_count": 0,
+                    "diagnostic_blocked_touchsite_count": 0,
+                },
+                "next_actions": {
+                    "dominant_blocker_class": "ready_structural",
+                    "recommended_cut": {"object_id": "TP-AFTER"},
+                },
+            }
+        ]
+    )
+
+    projections = invariant_graph.build_invariant_ledger_delta_projections(
+        root="/tmp/root",
+        before_workstreams_artifact="/tmp/before.json",
+        after_workstreams_artifact="/tmp/after.json",
+        before_payload=before_payload,
+        after_payload=after_payload,
+    )
+
+    payload = projections.as_payload()
+    assert payload["counts"]["delta_count"] == 1
+    assert payload["counts"]["target_doc_count"] == 1
+    assert payload["deltas"][0]["title"] == "reduce stream"
+    grouped = projections.grouped_by_target_doc_id()
+    assert grouped[0][0] == "ledger.reduce"
+    assert grouped[0][1][0].object_id == "WS-REDUCE"
 
 
 def test_runtime_invariant_graph_cli_compare_reports_workstream_drift(
@@ -894,6 +963,8 @@ def test_runtime_invariant_graph_cli_compare_reports_workstream_drift(
 ) -> None:
     before_artifact = tmp_path / "before_workstreams.json"
     after_artifact = tmp_path / "after_workstreams.json"
+    ledger_deltas_artifact = tmp_path / "ledger_deltas.json"
+    ledger_deltas_markdown_artifact = tmp_path / "ledger_deltas.md"
     _write_json(
         before_artifact,
         _synthetic_workstreams_payload(
@@ -957,6 +1028,10 @@ def test_runtime_invariant_graph_cli_compare_reports_workstream_drift(
                 str(before_artifact),
                 "--after-workstreams-artifact",
                 str(after_artifact),
+                "--ledger-deltas-artifact",
+                str(ledger_deltas_artifact),
+                "--ledger-deltas-markdown-artifact",
+                str(ledger_deltas_markdown_artifact),
             ]
         )
         == 0
@@ -978,6 +1053,21 @@ def test_runtime_invariant_graph_cli_compare_reports_workstream_drift(
         in compare_output
     )
     assert "summary: reduce stream reduced: touchsites 2->1" in compare_output
+    assert f"ledger_delta_artifact: {ledger_deltas_artifact}" in compare_output
+    assert (
+        f"ledger_delta_markdown_artifact: {ledger_deltas_markdown_artifact}"
+        in compare_output
+    )
+    ledger_deltas_payload = json.loads(
+        ledger_deltas_artifact.read_text(encoding="utf-8")
+    )
+    assert ledger_deltas_payload["counts"]["delta_count"] == 1
+    assert ledger_deltas_payload["deltas"][0]["append_entry"]["object_id"] == "WS-REDUCE"
+    markdown_output = ledger_deltas_markdown_artifact.read_text(encoding="utf-8")
+    assert "# Invariant Ledger Deltas" in markdown_output
+    assert "## ledger.reduce" in markdown_output
+    assert "### WS-REDUCE :: reduced" in markdown_output
+    assert "reduce stream reduced: touchsites 2->1" in markdown_output
 
 
 def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(

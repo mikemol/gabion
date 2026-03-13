@@ -4,20 +4,25 @@ import argparse
 import json
 from pathlib import Path
 
+from gabion.analysis.aspf.aspf_lattice_algebra import ReplayableStream
 from gabion.order_contract import ordered_or_sorted
 from gabion.tooling.policy_substrate.invariant_graph import (
     InvariantGraph,
     blocker_chains,
     build_invariant_graph,
+    build_invariant_ledger_delta_projections,
     build_invariant_ledger_projections,
     build_invariant_workstreams,
     compare_invariant_ledger_projections,
     compare_invariant_workstreams,
     load_invariant_graph,
+    load_invariant_ledger_deltas,
     load_invariant_ledger_projections,
     load_invariant_workstreams,
     trace_nodes,
     write_invariant_graph,
+    write_invariant_ledger_deltas,
+    write_invariant_ledger_deltas_markdown,
     write_invariant_ledger_projections,
     write_invariant_workstreams,
 )
@@ -25,6 +30,10 @@ from gabion.tooling.policy_substrate.invariant_graph import (
 _DEFAULT_ARTIFACT = Path("artifacts/out/invariant_graph.json")
 _DEFAULT_WORKSTREAMS_ARTIFACT = Path("artifacts/out/invariant_workstreams.json")
 _DEFAULT_LEDGER_ARTIFACT = Path("artifacts/out/invariant_ledger_projections.json")
+_DEFAULT_LEDGER_DELTAS_ARTIFACT = Path("artifacts/out/invariant_ledger_deltas.json")
+_DEFAULT_LEDGER_DELTAS_MARKDOWN_ARTIFACT = Path(
+    "artifacts/out/invariant_ledger_deltas.md"
+)
 
 
 def _sorted[T](values: list[T], *, key=None) -> list[T]:
@@ -473,6 +482,8 @@ def _print_compare(
     *,
     before_workstreams_artifact: Path,
     after_workstreams_artifact: Path,
+    ledger_deltas_artifact: Path,
+    ledger_deltas_markdown_artifact: Path,
     object_id: str | None,
 ) -> int:
     before_payload = load_invariant_workstreams(before_workstreams_artifact)
@@ -548,6 +559,35 @@ def _print_compare(
             )
         )
         print(f"  summary: {item.summary}")
+    ledger_delta_projections = build_invariant_ledger_delta_projections(
+        root=str(after_payload.get("root", after_workstreams_artifact.parent)),
+        before_workstreams_artifact=str(before_workstreams_artifact),
+        after_workstreams_artifact=str(after_workstreams_artifact),
+        before_payload=before_payload,
+        after_payload=after_payload,
+    )
+    if object_id is not None:
+        filtered_deltas = tuple(
+            item
+            for item in ledger_delta_projections.iter_deltas()
+            if item.object_id == object_id
+        )
+        ledger_delta_projections = type(ledger_delta_projections)(
+            root=ledger_delta_projections.root,
+            generated_at_utc=ledger_delta_projections.generated_at_utc,
+            before_workstreams_artifact=ledger_delta_projections.before_workstreams_artifact,
+            after_workstreams_artifact=ledger_delta_projections.after_workstreams_artifact,
+            deltas=ReplayableStream(
+                factory=lambda filtered_deltas=filtered_deltas: iter(filtered_deltas)
+            ),
+        )
+    write_invariant_ledger_deltas(ledger_deltas_artifact, ledger_delta_projections)
+    write_invariant_ledger_deltas_markdown(
+        ledger_deltas_markdown_artifact,
+        ledger_delta_projections,
+    )
+    print(f"ledger_delta_artifact: {ledger_deltas_artifact}")
+    print(f"ledger_delta_markdown_artifact: {ledger_deltas_markdown_artifact}")
     return 0
 
 
@@ -602,6 +642,48 @@ def _print_ledger(*, ledger_artifact: Path, object_id: str | None) -> int:
     return 0
 
 
+def _print_ledger_deltas(
+    *,
+    ledger_deltas_artifact: Path,
+    object_id: str | None,
+    doc_id: str | None,
+) -> int:
+    payload = load_invariant_ledger_deltas(ledger_deltas_artifact)
+    deltas = payload.get("deltas", [])
+    if not isinstance(deltas, list):
+        print("invalid invariant ledger deltas payload")
+        return 1
+    filtered = [
+        item
+        for item in deltas
+        if isinstance(item, dict)
+        and (object_id is None or str(item.get("object_id", "")) == object_id)
+        and (
+            doc_id is None
+            or (
+                isinstance(item.get("target_doc_ids"), list)
+                and doc_id in [str(value) for value in item.get("target_doc_ids", [])]
+            )
+        )
+    ]
+    if not filtered:
+        print("no ledger deltas available")
+        return 1
+    for item in filtered:
+        print(f"object_id: {item.get('object_id', '')}")
+        print(f"title: {item.get('title', '')}")
+        print(f"classification: {item.get('classification', '')}")
+        print(f"recommended_ledger_action: {item.get('recommended_ledger_action', '')}")
+        doc_ids = item.get("target_doc_ids", [])
+        if isinstance(doc_ids, list):
+            print(
+                "target_doc_ids: "
+                + (", ".join(str(value) for value in doc_ids) if doc_ids else "<none>")
+            )
+        print(f"summary: {item.get('summary', '')}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", default=".")
@@ -613,6 +695,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--ledger-artifact",
         default=str(_DEFAULT_LEDGER_ARTIFACT),
+    )
+    parser.add_argument(
+        "--ledger-deltas-artifact",
+        default=str(_DEFAULT_LEDGER_DELTAS_ARTIFACT),
+    )
+    parser.add_argument(
+        "--ledger-deltas-markdown-artifact",
+        default=str(_DEFAULT_LEDGER_DELTAS_MARKDOWN_ARTIFACT),
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -631,6 +721,14 @@ def main(argv: list[str] | None = None) -> int:
     ledger_parser = subparsers.add_parser("ledger")
     ledger_parser.add_argument("--object-id", default=None)
 
+    ledger_deltas_parser = subparsers.add_parser("ledger-deltas")
+    ledger_deltas_parser.add_argument("--object-id", default=None)
+    ledger_deltas_parser.add_argument("--doc-id", default=None)
+    ledger_deltas_parser.add_argument(
+        "--ledger-deltas-artifact",
+        default=str(_DEFAULT_LEDGER_DELTAS_ARTIFACT),
+    )
+
     blast_radius_parser = subparsers.add_parser("blast-radius")
     blast_radius_parser.add_argument("--id", required=True)
     blast_radius_parser.add_argument("--impact-artifact", default=None)
@@ -639,12 +737,24 @@ def main(argv: list[str] | None = None) -> int:
     compare_parser.add_argument("--before-workstreams-artifact", required=True)
     compare_parser.add_argument("--after-workstreams-artifact", required=True)
     compare_parser.add_argument("--object-id", default=None)
+    compare_parser.add_argument(
+        "--ledger-deltas-artifact",
+        default=str(_DEFAULT_LEDGER_DELTAS_ARTIFACT),
+    )
+    compare_parser.add_argument(
+        "--ledger-deltas-markdown-artifact",
+        default=str(_DEFAULT_LEDGER_DELTAS_MARKDOWN_ARTIFACT),
+    )
 
     args = parser.parse_args(argv)
     root = Path(args.root).resolve()
     artifact = Path(args.artifact).resolve()
     workstreams_artifact = Path(args.workstreams_artifact).resolve()
     ledger_artifact = Path(args.ledger_artifact).resolve()
+    ledger_deltas_artifact = Path(args.ledger_deltas_artifact).resolve()
+    ledger_deltas_markdown_artifact = Path(
+        args.ledger_deltas_markdown_artifact
+    ).resolve()
 
     if args.command == "build":
         graph = build_invariant_graph(root)
@@ -680,6 +790,12 @@ def main(argv: list[str] | None = None) -> int:
             ledger_artifact=ledger_artifact,
             object_id=None if args.object_id is None else str(args.object_id),
         )
+    if args.command == "ledger-deltas":
+        return _print_ledger_deltas(
+            ledger_deltas_artifact=ledger_deltas_artifact,
+            object_id=None if args.object_id is None else str(args.object_id),
+            doc_id=None if args.doc_id is None else str(args.doc_id),
+        )
     if args.command == "blast-radius":
         impact_artifact = (
             Path(args.impact_artifact).resolve()
@@ -699,6 +815,8 @@ def main(argv: list[str] | None = None) -> int:
             after_workstreams_artifact=Path(
                 str(args.after_workstreams_artifact)
             ).resolve(),
+            ledger_deltas_artifact=ledger_deltas_artifact,
+            ledger_deltas_markdown_artifact=ledger_deltas_markdown_artifact,
             object_id=None if args.object_id is None else str(args.object_id),
         )
     return 1
