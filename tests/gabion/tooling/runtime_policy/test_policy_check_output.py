@@ -77,8 +77,9 @@ def test_policy_check_output_carries_projection_fiber_semantics_on_pass(
     assert invariant_graph_payload["format_version"] == 1
     assert invariant_workstreams_payload["format_version"] == 1
     assert invariant_workstreams_payload["counts"]["workstream_count"] >= 1
-    psf_or_first = invariant_workstreams_payload["workstreams"][0]
-    assert "next_actions" in psf_or_first
+    for workstream in invariant_workstreams_payload["workstreams"]:
+        assert "next_actions" in workstream
+        assert "health_summary" in workstream
     assert (tmp_path / "projection_semantic_fragment_queue.md").exists()
 
 

@@ -251,6 +251,7 @@ def _print_workstream(*, graph: InvariantGraph, object_id: str) -> int:
     if workstream is None:
         print(f"no workstream projection for object_id: {object_id}")
         return 1
+    health_summary = workstream.health_summary()
     print(f"object_id: {workstream.object_id.wire()}")
     print(f"title: {workstream.title}")
     print(f"status: {workstream.status}")
@@ -260,7 +261,32 @@ def _print_workstream(*, graph: InvariantGraph, object_id: str) -> int:
     print(f"policy_signals: {workstream.policy_signal_count}")
     print(f"coverage_count: {workstream.coverage_count}")
     print(f"diagnostics: {workstream.diagnostic_count}")
+    print(
+        "health_summary: covered={covered} :: uncovered={uncovered} :: governed={governed} :: diagnosed={diagnosed}".format(
+            covered=health_summary.covered_touchsite_count,
+            uncovered=health_summary.uncovered_touchsite_count,
+            governed=health_summary.governed_touchsite_count,
+            diagnosed=health_summary.diagnosed_touchsite_count,
+        )
+    )
+    print(
+        "health_cuts: touchpoints(ready={tp_ready}, coverage_gap={tp_gap}, policy={tp_policy}, diagnostic={tp_diag}) :: "
+        "subqueues(ready={sq_ready}, coverage_gap={sq_gap}, policy={sq_policy}, diagnostic={sq_diag})".format(
+            tp_ready=health_summary.ready_touchpoint_cut_count,
+            tp_gap=health_summary.coverage_gap_touchpoint_cut_count,
+            tp_policy=health_summary.policy_blocked_touchpoint_cut_count,
+            tp_diag=health_summary.diagnostic_blocked_touchpoint_cut_count,
+            sq_ready=health_summary.ready_subqueue_cut_count,
+            sq_gap=health_summary.coverage_gap_subqueue_cut_count,
+            sq_policy=health_summary.policy_blocked_subqueue_cut_count,
+            sq_diag=health_summary.diagnostic_blocked_subqueue_cut_count,
+        )
+    )
     recommended_cut = workstream.recommended_cut()
+    recommended_ready_cut = workstream._recommended_cut_for_readiness("ready_structural")
+    recommended_coverage_gap_cut = workstream._recommended_cut_for_readiness(
+        "coverage_gap"
+    )
     if recommended_cut is None:
         print("recommended_cut: <none>")
     else:
@@ -272,6 +298,28 @@ def _print_workstream(*, graph: InvariantGraph, object_id: str) -> int:
                 surviving=recommended_cut.surviving_touchsite_count,
             )
         )
+    if recommended_ready_cut is None:
+        print("recommended_ready_cut: <none>")
+    else:
+        print(
+            "recommended_ready_cut: {cut_kind} :: {object_id} :: touchsites={touchsites} :: uncovered={uncovered}".format(
+                cut_kind=recommended_ready_cut.cut_kind,
+                object_id=recommended_ready_cut.object_id.wire(),
+                touchsites=recommended_ready_cut.touchsite_count,
+                uncovered=recommended_ready_cut.uncovered_touchsite_count,
+            )
+        )
+    if recommended_coverage_gap_cut is None:
+        print("recommended_coverage_gap_cut: <none>")
+    else:
+        print(
+            "recommended_coverage_gap_cut: {cut_kind} :: {object_id} :: touchsites={touchsites} :: uncovered={uncovered}".format(
+                cut_kind=recommended_coverage_gap_cut.cut_kind,
+                object_id=recommended_coverage_gap_cut.object_id.wire(),
+                touchsites=recommended_coverage_gap_cut.touchsite_count,
+                uncovered=recommended_coverage_gap_cut.uncovered_touchsite_count,
+            )
+        )
     print("ranked_touchpoint_cuts:")
     touchpoint_cuts = workstream.ranked_touchpoint_cuts()
     if not touchpoint_cuts:
@@ -279,11 +327,13 @@ def _print_workstream(*, graph: InvariantGraph, object_id: str) -> int:
     else:
         for item in touchpoint_cuts:
             print(
-                "- {object_id} :: touchsites={touchsites} :: collapsible={collapsible} :: surviving={surviving}".format(
+                "- {object_id} :: readiness={readiness} :: touchsites={touchsites} :: collapsible={collapsible} :: surviving={surviving} :: uncovered={uncovered}".format(
                     object_id=item.object_id.wire(),
+                    readiness=item.readiness_class,
                     touchsites=item.touchsite_count,
                     collapsible=item.collapsible_touchsite_count,
                     surviving=item.surviving_touchsite_count,
+                    uncovered=item.uncovered_touchsite_count,
                 )
             )
     print("ranked_subqueue_cuts:")
@@ -293,11 +343,13 @@ def _print_workstream(*, graph: InvariantGraph, object_id: str) -> int:
     else:
         for item in subqueue_cuts:
             print(
-                "- {object_id} :: touchsites={touchsites} :: collapsible={collapsible} :: surviving={surviving}".format(
+                "- {object_id} :: readiness={readiness} :: touchsites={touchsites} :: collapsible={collapsible} :: surviving={surviving} :: uncovered={uncovered}".format(
                     object_id=item.object_id.wire(),
+                    readiness=item.readiness_class,
                     touchsites=item.touchsite_count,
                     collapsible=item.collapsible_touchsite_count,
                     surviving=item.surviving_touchsite_count,
+                    uncovered=item.uncovered_touchsite_count,
                 )
             )
     print("subqueues:")

@@ -367,6 +367,9 @@ class InvariantCutCandidate:
     policy_signal_count: int
     coverage_count: int
     diagnostic_count: int
+    covered_touchsite_count: int
+    uncovered_touchsite_count: int
+    readiness_class: str
     touchsite_ids: tuple[TouchsiteId, ...]
 
     def as_payload(self) -> dict[str, object]:
@@ -381,21 +384,88 @@ class InvariantCutCandidate:
             "policy_signal_count": self.policy_signal_count,
             "coverage_count": self.coverage_count,
             "diagnostic_count": self.diagnostic_count,
+            "covered_touchsite_count": self.covered_touchsite_count,
+            "uncovered_touchsite_count": self.uncovered_touchsite_count,
+            "readiness_class": self.readiness_class,
             "touchsite_ids": [
                 encode_policy_queue_identity(item) for item in self.touchsite_ids
             ],
         }
 
 
+_READINESS_PRIORITY = {
+    "ready_structural": 0,
+    "coverage_gap": 1,
+    "policy_blocked": 2,
+    "diagnostic_blocked": 3,
+}
+
+_CUT_KIND_PRIORITY = {
+    "touchpoint_cut": 0,
+    "subqueue_cut": 1,
+}
+
+
+def _cut_readiness_class(
+    *,
+    policy_signal_count: int,
+    diagnostic_count: int,
+    uncovered_touchsite_count: int,
+) -> str:
+    if diagnostic_count > 0:
+        return "diagnostic_blocked"
+    if policy_signal_count > 0:
+        return "policy_blocked"
+    if uncovered_touchsite_count > 0:
+        return "coverage_gap"
+    return "ready_structural"
+
+
 def _cut_sort_key(candidate: InvariantCutCandidate) -> tuple[int, int, int, int, int, str]:
     return (
+        _READINESS_PRIORITY.get(candidate.readiness_class, 99),
+        _CUT_KIND_PRIORITY.get(candidate.cut_kind, 99),
         candidate.touchsite_count,
         candidate.surviving_touchsite_count,
         candidate.policy_signal_count,
         candidate.diagnostic_count,
-        candidate.coverage_count,
+        candidate.uncovered_touchsite_count,
         encode_policy_queue_identity(candidate.object_id),
     )
+
+
+@dataclass(frozen=True)
+class InvariantWorkstreamHealthSummary:
+    touchsite_count: int
+    covered_touchsite_count: int
+    uncovered_touchsite_count: int
+    governed_touchsite_count: int
+    diagnosed_touchsite_count: int
+    ready_touchpoint_cut_count: int
+    coverage_gap_touchpoint_cut_count: int
+    policy_blocked_touchpoint_cut_count: int
+    diagnostic_blocked_touchpoint_cut_count: int
+    ready_subqueue_cut_count: int
+    coverage_gap_subqueue_cut_count: int
+    policy_blocked_subqueue_cut_count: int
+    diagnostic_blocked_subqueue_cut_count: int
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "touchsite_count": self.touchsite_count,
+            "covered_touchsite_count": self.covered_touchsite_count,
+            "uncovered_touchsite_count": self.uncovered_touchsite_count,
+            "governed_touchsite_count": self.governed_touchsite_count,
+            "diagnosed_touchsite_count": self.diagnosed_touchsite_count,
+            "ready_touchpoint_cut_count": self.ready_touchpoint_cut_count,
+            "coverage_gap_touchpoint_cut_count": self.coverage_gap_touchpoint_cut_count,
+            "policy_blocked_touchpoint_cut_count": self.policy_blocked_touchpoint_cut_count,
+            "diagnostic_blocked_touchpoint_cut_count": self.diagnostic_blocked_touchpoint_cut_count,
+            "ready_subqueue_cut_count": self.ready_subqueue_cut_count,
+            "coverage_gap_subqueue_cut_count": self.coverage_gap_subqueue_cut_count,
+            "policy_blocked_subqueue_cut_count": self.policy_blocked_subqueue_cut_count,
+            "diagnostic_blocked_subqueue_cut_count": self.diagnostic_blocked_subqueue_cut_count,
+        }
 
 
 @dataclass(frozen=True)
@@ -529,6 +599,21 @@ class InvariantWorkstreamProjection:
                 policy_signal_count=touchpoint.policy_signal_count,
                 coverage_count=touchpoint.coverage_count,
                 diagnostic_count=touchpoint.diagnostic_count,
+                covered_touchsite_count=sum(
+                    1 for touchsite in touchpoint.iter_touchsites() if touchsite.coverage_count > 0
+                ),
+                uncovered_touchsite_count=sum(
+                    1 for touchsite in touchpoint.iter_touchsites() if touchsite.coverage_count <= 0
+                ),
+                readiness_class=_cut_readiness_class(
+                    policy_signal_count=touchpoint.policy_signal_count,
+                    diagnostic_count=touchpoint.diagnostic_count,
+                    uncovered_touchsite_count=sum(
+                        1
+                        for touchsite in touchpoint.iter_touchsites()
+                        if touchsite.coverage_count <= 0
+                    ),
+                ),
                 touchsite_ids=tuple(
                     touchsite.object_id for touchsite in touchpoint.iter_touchsites()
                 ),
@@ -546,13 +631,19 @@ class InvariantWorkstreamProjection:
         for subqueue in self.iter_subqueues():
             if subqueue.touchsite_count <= 0:
                 continue
-            touchsite_ids = tuple(
-                touchsite.object_id
+            touchsites = tuple(
+                touchsite
                 for touchpoint in _sorted(
                     touchpoint_groups.get(subqueue.object_id.wire(), []),
                     key=lambda item: item.object_id.wire(),
                 )
                 for touchsite in touchpoint.iter_touchsites()
+            )
+            touchsite_ids = tuple(
+                touchsite.object_id for touchsite in touchsites
+            )
+            uncovered_touchsite_count = sum(
+                1 for touchsite in touchsites if touchsite.coverage_count <= 0
             )
             candidates.append(
                 InvariantCutCandidate(
@@ -566,10 +657,33 @@ class InvariantWorkstreamProjection:
                     policy_signal_count=subqueue.policy_signal_count,
                     coverage_count=subqueue.coverage_count,
                     diagnostic_count=subqueue.diagnostic_count,
+                    covered_touchsite_count=len(touchsites) - uncovered_touchsite_count,
+                    uncovered_touchsite_count=uncovered_touchsite_count,
+                    readiness_class=_cut_readiness_class(
+                        policy_signal_count=subqueue.policy_signal_count,
+                        diagnostic_count=subqueue.diagnostic_count,
+                        uncovered_touchsite_count=uncovered_touchsite_count,
+                    ),
                     touchsite_ids=touchsite_ids,
                 )
             )
         return tuple(_sorted(candidates, key=_cut_sort_key))
+
+    def _recommended_cut_for_readiness(
+        self,
+        readiness_class: str,
+    ) -> InvariantCutCandidate | None:
+        candidates = [
+            candidate
+            for candidate in (
+                *self.ranked_touchpoint_cuts(),
+                *self.ranked_subqueue_cuts(),
+            )
+            if candidate.readiness_class == readiness_class
+        ]
+        if not candidates:
+            return None
+        return _sorted(candidates, key=_cut_sort_key)[0]
 
     def recommended_cut(self) -> InvariantCutCandidate | None:
         candidates: list[InvariantCutCandidate] = []
@@ -583,10 +697,74 @@ class InvariantWorkstreamProjection:
             return None
         return _sorted(candidates, key=_cut_sort_key)[0]
 
+    def health_summary(self) -> InvariantWorkstreamHealthSummary:
+        touchpoints = tuple(self.iter_touchpoints())
+        touchsites = tuple(
+            touchsite
+            for touchpoint in touchpoints
+            for touchsite in touchpoint.iter_touchsites()
+        )
+        touchpoint_cuts = self.ranked_touchpoint_cuts()
+        subqueue_cuts = self.ranked_subqueue_cuts()
+        return InvariantWorkstreamHealthSummary(
+            touchsite_count=len(touchsites),
+            covered_touchsite_count=sum(
+                1 for touchsite in touchsites if touchsite.coverage_count > 0
+            ),
+            uncovered_touchsite_count=sum(
+                1 for touchsite in touchsites if touchsite.coverage_count <= 0
+            ),
+            governed_touchsite_count=sum(
+                1 for touchsite in touchsites if touchsite.policy_signal_count > 0
+            ),
+            diagnosed_touchsite_count=sum(
+                1 for touchsite in touchsites if touchsite.diagnostic_count > 0
+            ),
+            ready_touchpoint_cut_count=sum(
+                1
+                for candidate in touchpoint_cuts
+                if candidate.readiness_class == "ready_structural"
+            ),
+            coverage_gap_touchpoint_cut_count=sum(
+                1 for candidate in touchpoint_cuts if candidate.readiness_class == "coverage_gap"
+            ),
+            policy_blocked_touchpoint_cut_count=sum(
+                1
+                for candidate in touchpoint_cuts
+                if candidate.readiness_class == "policy_blocked"
+            ),
+            diagnostic_blocked_touchpoint_cut_count=sum(
+                1
+                for candidate in touchpoint_cuts
+                if candidate.readiness_class == "diagnostic_blocked"
+            ),
+            ready_subqueue_cut_count=sum(
+                1
+                for candidate in subqueue_cuts
+                if candidate.readiness_class == "ready_structural"
+            ),
+            coverage_gap_subqueue_cut_count=sum(
+                1 for candidate in subqueue_cuts if candidate.readiness_class == "coverage_gap"
+            ),
+            policy_blocked_subqueue_cut_count=sum(
+                1
+                for candidate in subqueue_cuts
+                if candidate.readiness_class == "policy_blocked"
+            ),
+            diagnostic_blocked_subqueue_cut_count=sum(
+                1
+                for candidate in subqueue_cuts
+                if candidate.readiness_class == "diagnostic_blocked"
+            ),
+        )
+
     def as_payload(self) -> dict[str, object]:
         ranked_touchpoint_cuts = self.ranked_touchpoint_cuts()
         ranked_subqueue_cuts = self.ranked_subqueue_cuts()
         recommended_cut = self.recommended_cut()
+        recommended_ready_cut = self._recommended_cut_for_readiness("ready_structural")
+        recommended_coverage_gap_cut = self._recommended_cut_for_readiness("coverage_gap")
+        health_summary = self.health_summary()
         return {
             "object_id": self.object_id.wire(),
             "title": self.title,
@@ -606,9 +784,20 @@ class InvariantWorkstreamProjection:
             "diagnostic_count": self.diagnostic_count,
             "subqueues": [item.as_payload() for item in self.iter_subqueues()],
             "touchpoints": [item.as_payload() for item in self.iter_touchpoints()],
+            "health_summary": health_summary.as_payload(),
             "next_actions": {
                 "recommended_cut": (
                     recommended_cut.as_payload() if recommended_cut is not None else None
+                ),
+                "recommended_ready_cut": (
+                    recommended_ready_cut.as_payload()
+                    if recommended_ready_cut is not None
+                    else None
+                ),
+                "recommended_coverage_gap_cut": (
+                    recommended_coverage_gap_cut.as_payload()
+                    if recommended_coverage_gap_cut is not None
+                    else None
                 ),
                 "ranked_touchpoint_cuts": [
                     item.as_payload() for item in ranked_touchpoint_cuts
@@ -645,8 +834,15 @@ class InvariantWorkstreamsProjection:
         def _workstream_items() -> Iterator[ArtifactUnit]:
             for workstream in self.iter_workstreams():
                 recommended_cut = workstream.recommended_cut()
+                recommended_ready_cut = workstream._recommended_cut_for_readiness(
+                    "ready_structural"
+                )
+                recommended_coverage_gap_cut = workstream._recommended_cut_for_readiness(
+                    "coverage_gap"
+                )
                 ranked_touchpoint_cuts = workstream.ranked_touchpoint_cuts()
                 ranked_subqueue_cuts = workstream.ranked_subqueue_cuts()
+                health_summary = workstream.health_summary()
                 yield list_item(
                     identity=workstream.object_id,
                     title=workstream.object_id.wire(),
@@ -734,6 +930,14 @@ class InvariantWorkstreamsProjection:
                             scalar(identity=workstream.object_id, key="policy_signal_count", title="policy_signal_count", value=workstream.policy_signal_count),
                             scalar(identity=workstream.object_id, key="coverage_count", title="coverage_count", value=workstream.coverage_count),
                             scalar(identity=workstream.object_id, key="diagnostic_count", title="diagnostic_count", value=workstream.diagnostic_count),
+                            section(
+                                identity=workstream.object_id,
+                                key="health_summary",
+                                title="health_summary",
+                                children=lambda health_summary=health_summary: iter(
+                                    _payload_to_units(health_summary.as_payload())
+                                ),
+                            ),
                             bullet_list(
                                 identity=workstream.object_id,
                                 key="subqueues",
@@ -761,6 +965,8 @@ class InvariantWorkstreamsProjection:
                                 key="next_actions",
                                 title="next_actions",
                                 children=lambda recommended_cut=recommended_cut,
+                                recommended_ready_cut=recommended_ready_cut,
+                                recommended_coverage_gap_cut=recommended_coverage_gap_cut,
                                 ranked_touchpoint_cuts=ranked_touchpoint_cuts,
                                 ranked_subqueue_cuts=ranked_subqueue_cuts: iter(
                                     (
@@ -775,6 +981,32 @@ class InvariantWorkstreamsProjection:
                                                 None
                                                 if recommended_cut is None
                                                 else recommended_cut.as_payload()
+                                            ),
+                                        ),
+                                        scalar(
+                                            identity=ArtifactSourceRef(
+                                                rel_path="<synthetic>",
+                                                qualname="recommended_ready_cut",
+                                            ),
+                                            key="recommended_ready_cut",
+                                            title="recommended_ready_cut",
+                                            value=(
+                                                None
+                                                if recommended_ready_cut is None
+                                                else recommended_ready_cut.as_payload()
+                                            ),
+                                        ),
+                                        scalar(
+                                            identity=ArtifactSourceRef(
+                                                rel_path="<synthetic>",
+                                                qualname="recommended_coverage_gap_cut",
+                                            ),
+                                            key="recommended_coverage_gap_cut",
+                                            title="recommended_coverage_gap_cut",
+                                            value=(
+                                                None
+                                                if recommended_coverage_gap_cut is None
+                                                else recommended_coverage_gap_cut.as_payload()
                                             ),
                                         ),
                                         bullet_list(

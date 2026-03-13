@@ -140,11 +140,35 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
     assert psf["touchsite_count"] == 73
     assert psf["collapsible_touchsite_count"] == 47
     assert psf["surviving_touchsite_count"] == 26
+    assert psf["health_summary"]["covered_touchsite_count"] == 3
+    assert psf["health_summary"]["uncovered_touchsite_count"] == 70
+    assert psf["health_summary"]["governed_touchsite_count"] == 0
+    assert psf["health_summary"]["diagnosed_touchsite_count"] == 0
+    assert psf["health_summary"]["ready_touchpoint_cut_count"] == 1
+    assert psf["health_summary"]["coverage_gap_touchpoint_cut_count"] == 5
+    assert psf["health_summary"]["ready_subqueue_cut_count"] == 0
+    assert psf["health_summary"]["coverage_gap_subqueue_cut_count"] == 5
     assert psf["next_actions"]["recommended_cut"]["object_id"] == "PSF-007-TP-005"
     assert psf["next_actions"]["recommended_cut"]["cut_kind"] == "touchpoint_cut"
     assert psf["next_actions"]["recommended_cut"]["touchsite_count"] == 1
+    assert psf["next_actions"]["recommended_ready_cut"]["object_id"] == "PSF-007-TP-005"
+    assert psf["next_actions"]["recommended_ready_cut"]["readiness_class"] == (
+        "ready_structural"
+    )
+    assert psf["next_actions"]["recommended_coverage_gap_cut"]["object_id"] == (
+        "PSF-007-TP-001"
+    )
+    assert psf["next_actions"]["recommended_coverage_gap_cut"]["readiness_class"] == (
+        "coverage_gap"
+    )
     assert psf["next_actions"]["ranked_touchpoint_cuts"][0]["object_id"] == "PSF-007-TP-005"
+    assert psf["next_actions"]["ranked_touchpoint_cuts"][0]["readiness_class"] == (
+        "ready_structural"
+    )
     assert psf["next_actions"]["ranked_subqueue_cuts"][0]["object_id"] == "PSF-007-SQ-001"
+    assert psf["next_actions"]["ranked_subqueue_cuts"][0]["readiness_class"] == (
+        "coverage_gap"
+    )
 
 
 def test_runtime_invariant_graph_cli_build_summary_trace_and_blockers(
@@ -438,9 +462,33 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
     workstream_output = capsys.readouterr().out
     assert "object_id: PSF-007" in workstream_output
     assert "touchsites: 73" in workstream_output
+    assert (
+        "health_summary: covered=3 :: uncovered=70 :: governed=0 :: diagnosed=0"
+        in workstream_output
+    )
+    assert (
+        "health_cuts: touchpoints(ready=1, coverage_gap=5, policy=0, diagnostic=0) :: subqueues(ready=0, coverage_gap=5, policy=0, diagnostic=0)"
+        in workstream_output
+    )
     assert "recommended_cut: touchpoint_cut :: PSF-007-TP-005 :: touchsites=1 :: surviving=1" in workstream_output
+    assert (
+        "recommended_ready_cut: touchpoint_cut :: PSF-007-TP-005 :: touchsites=1 :: uncovered=0"
+        in workstream_output
+    )
+    assert (
+        "recommended_coverage_gap_cut: touchpoint_cut :: PSF-007-TP-001 :: touchsites=4 :: uncovered=4"
+        in workstream_output
+    )
     assert "ranked_touchpoint_cuts:" in workstream_output
+    assert (
+        "- PSF-007-TP-005 :: readiness=ready_structural :: touchsites=1 :: collapsible=0 :: surviving=1 :: uncovered=0"
+        in workstream_output
+    )
     assert "ranked_subqueue_cuts:" in workstream_output
+    assert (
+        "- PSF-007-SQ-001 :: readiness=coverage_gap :: touchsites=4 :: collapsible=0 :: surviving=4 :: uncovered=4"
+        in workstream_output
+    )
 
     assert (
         invariant_graph_runtime.main(
