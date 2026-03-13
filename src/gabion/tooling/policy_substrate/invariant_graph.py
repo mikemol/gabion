@@ -649,6 +649,22 @@ class InvariantRepoFollowupAction:
 
 
 @dataclass(frozen=True)
+class InvariantRepoFollowupLane:
+    followup_family: str
+    followup_class: str
+    action_count: int
+    best_followup: InvariantRepoFollowupAction
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "followup_family": self.followup_family,
+            "followup_class": self.followup_class,
+            "action_count": self.action_count,
+            "best_followup": self.best_followup.as_payload(),
+        }
+
+
+@dataclass(frozen=True)
 class InvariantTouchpointProjection:
     object_id: TouchpointId
     subqueue_id: SubqueueId
@@ -1413,11 +1429,71 @@ class InvariantWorkstreamsProjection:
             return None
         return ranked[0]
 
+    def _repo_followup_class(self, followup: InvariantRepoFollowupAction) -> str:
+        if followup.diagnostic_code is not None or followup.action_kind == "diagnostic_resolution":
+            return "governance"
+        if followup.action_kind == "doc_alignment":
+            return "documentation"
+        return "code"
+
+    def repo_followup_lanes(self) -> tuple[InvariantRepoFollowupLane, ...]:
+        grouped: defaultdict[tuple[str, str], list[InvariantRepoFollowupAction]] = defaultdict(list)
+        for followup in self.ranked_repo_followups():
+            followup_class = self._repo_followup_class(followup)
+            grouped[(followup_class, followup.followup_family)].append(followup)
+        lanes = [
+            InvariantRepoFollowupLane(
+                followup_family=followup_family,
+                followup_class=followup_class,
+                action_count=len(items),
+                best_followup=items[0],
+            )
+            for (followup_class, followup_family), items in grouped.items()
+        ]
+        return tuple(
+            _sorted(
+                lanes,
+                key=lambda item: (
+                    item.best_followup.priority_rank,
+                    item.action_count,
+                    item.followup_class,
+                    item.followup_family,
+                ),
+            )
+        )
+
+    def recommended_repo_code_followup(self) -> InvariantRepoFollowupAction | None:
+        for followup in self.ranked_repo_followups():
+            if self._repo_followup_class(followup) == "code":
+                return followup
+        return None
+
+    def recommended_repo_human_followup(self) -> InvariantRepoFollowupAction | None:
+        for followup in self.ranked_repo_followups():
+            if self._repo_followup_class(followup) != "code":
+                return followup
+        return None
+
+    def dominant_repo_followup_class(self) -> str:
+        recommended = self.recommended_repo_followup()
+        if recommended is None:
+            return "none"
+        return self._repo_followup_class(recommended)
+
+    def next_repo_human_followup_family(self) -> str:
+        recommended = self.recommended_repo_human_followup()
+        if recommended is None:
+            return "none"
+        return recommended.followup_family
+
     def as_payload(self) -> dict[str, object]:
         workstreams = tuple(self.iter_workstreams())
         diagnostic_summary = self.diagnostic_summary()
         recommended_repo_followup = self.recommended_repo_followup()
+        recommended_repo_code_followup = self.recommended_repo_code_followup()
+        recommended_repo_human_followup = self.recommended_repo_human_followup()
         ranked_repo_followups = self.ranked_repo_followups()
+        repo_followup_lanes = self.repo_followup_lanes()
         return {
             "format_version": _FORMAT_VERSION,
             "generated_at_utc": self.generated_at_utc,
@@ -1425,13 +1501,28 @@ class InvariantWorkstreamsProjection:
             "workstreams": [item.as_payload() for item in workstreams],
             "diagnostic_summary": diagnostic_summary.as_payload(),
             "repo_next_actions": {
+                "dominant_followup_class": self.dominant_repo_followup_class(),
+                "next_human_followup_family": self.next_repo_human_followup_family(),
                 "recommended_followup": (
                     None
                     if recommended_repo_followup is None
                     else recommended_repo_followup.as_payload()
                 ),
+                "recommended_code_followup": (
+                    None
+                    if recommended_repo_code_followup is None
+                    else recommended_repo_code_followup.as_payload()
+                ),
+                "recommended_human_followup": (
+                    None
+                    if recommended_repo_human_followup is None
+                    else recommended_repo_human_followup.as_payload()
+                ),
                 "ranked_followups": [
                     item.as_payload() for item in ranked_repo_followups
+                ],
+                "followup_lanes": [
+                    item.as_payload() for item in repo_followup_lanes
                 ],
             },
             "counts": {
@@ -1444,7 +1535,10 @@ class InvariantWorkstreamsProjection:
         workstreams = tuple(self.iter_workstreams())
         diagnostic_summary = self.diagnostic_summary()
         recommended_repo_followup = self.recommended_repo_followup()
+        recommended_repo_code_followup = self.recommended_repo_code_followup()
+        recommended_repo_human_followup = self.recommended_repo_human_followup()
         ranked_repo_followups = self.ranked_repo_followups()
+        repo_followup_lanes = self.repo_followup_lanes()
 
         def _workstream_items() -> Iterator[ArtifactUnit]:
             for workstream in workstreams:
@@ -1932,8 +2026,29 @@ class InvariantWorkstreamsProjection:
                         key="repo_next_actions",
                         title="repo_next_actions",
                         children=lambda recommended_repo_followup=recommended_repo_followup,
-                        ranked_repo_followups=ranked_repo_followups: iter(
+                        recommended_repo_code_followup=recommended_repo_code_followup,
+                        recommended_repo_human_followup=recommended_repo_human_followup,
+                        ranked_repo_followups=ranked_repo_followups,
+                        repo_followup_lanes=repo_followup_lanes: iter(
                             (
+                                scalar(
+                                    identity=ArtifactSourceRef(
+                                        rel_path="<synthetic>",
+                                        qualname="dominant_followup_class",
+                                    ),
+                                    key="dominant_followup_class",
+                                    title="dominant_followup_class",
+                                    value=self.dominant_repo_followup_class(),
+                                ),
+                                scalar(
+                                    identity=ArtifactSourceRef(
+                                        rel_path="<synthetic>",
+                                        qualname="next_human_followup_family",
+                                    ),
+                                    key="next_human_followup_family",
+                                    title="next_human_followup_family",
+                                    value=self.next_repo_human_followup_family(),
+                                ),
                                 scalar(
                                     identity=ArtifactSourceRef(
                                         rel_path="<synthetic>",
@@ -1945,6 +2060,32 @@ class InvariantWorkstreamsProjection:
                                         None
                                         if recommended_repo_followup is None
                                         else recommended_repo_followup.as_payload()
+                                    ),
+                                ),
+                                scalar(
+                                    identity=ArtifactSourceRef(
+                                        rel_path="<synthetic>",
+                                        qualname="recommended_code_followup",
+                                    ),
+                                    key="recommended_code_followup",
+                                    title="recommended_code_followup",
+                                    value=(
+                                        None
+                                        if recommended_repo_code_followup is None
+                                        else recommended_repo_code_followup.as_payload()
+                                    ),
+                                ),
+                                scalar(
+                                    identity=ArtifactSourceRef(
+                                        rel_path="<synthetic>",
+                                        qualname="recommended_human_followup",
+                                    ),
+                                    key="recommended_human_followup",
+                                    title="recommended_human_followup",
+                                    value=(
+                                        None
+                                        if recommended_repo_human_followup is None
+                                        else recommended_repo_human_followup.as_payload()
                                     ),
                                 ),
                                 bullet_list(
@@ -1969,6 +2110,25 @@ class InvariantWorkstreamsProjection:
                                             ),
                                         )
                                         for item in ranked_repo_followups
+                                    ),
+                                ),
+                                bullet_list(
+                                    identity=ArtifactSourceRef(
+                                        rel_path="<synthetic>",
+                                        qualname="followup_lanes",
+                                    ),
+                                    key="followup_lanes",
+                                    children=lambda repo_followup_lanes=repo_followup_lanes: (
+                                        list_item(
+                                            identity=ArtifactSourceRef(
+                                                rel_path="<synthetic>",
+                                                qualname=item.followup_family,
+                                            ),
+                                            children=lambda item=item: iter(
+                                                _payload_to_units(item.as_payload())
+                                            ),
+                                        )
+                                        for item in repo_followup_lanes
                                     ),
                                 ),
                             )

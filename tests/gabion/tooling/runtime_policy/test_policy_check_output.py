@@ -84,8 +84,13 @@ def test_policy_check_output_carries_projection_fiber_semantics_on_pass(
     assert "diagnostic_summary" in invariant_workstreams_payload
     assert "repo_next_actions" in invariant_workstreams_payload
     assert "diagnostic_count" in invariant_workstreams_payload["counts"]
+    assert "dominant_followup_class" in invariant_workstreams_payload["repo_next_actions"]
+    assert "next_human_followup_family" in invariant_workstreams_payload["repo_next_actions"]
     assert "recommended_followup" in invariant_workstreams_payload["repo_next_actions"]
+    assert "recommended_code_followup" in invariant_workstreams_payload["repo_next_actions"]
+    assert "recommended_human_followup" in invariant_workstreams_payload["repo_next_actions"]
     assert "ranked_followups" in invariant_workstreams_payload["repo_next_actions"]
+    assert "followup_lanes" in invariant_workstreams_payload["repo_next_actions"]
     assert invariant_ledger_payload["counts"]["ledger_count"] >= 1
     for workstream in invariant_workstreams_payload["workstreams"]:
         assert "next_actions" in workstream

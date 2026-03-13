@@ -137,11 +137,16 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
     workstreams = build_invariant_workstreams(graph, root=root)
     diagnostic_summary = workstreams.diagnostic_summary()
     recommended_repo_followup = workstreams.recommended_repo_followup()
+    recommended_repo_code_followup = workstreams.recommended_repo_code_followup()
+    recommended_repo_human_followup = workstreams.recommended_repo_human_followup()
+    repo_followup_lanes = workstreams.repo_followup_lanes()
     print(f"root: {graph.root}")
     print(f"workstreams: {len(graph.workstream_root_ids)}")
     print(f"nodes: {counts.get('node_count', 0)}")
     print(f"edges: {counts.get('edge_count', 0)}")
     print(f"diagnostics: {counts.get('diagnostic_count', 0)}")
+    print(f"dominant_followup_class: {workstreams.dominant_repo_followup_class()}")
+    print(f"next_human_followup_family: {workstreams.next_repo_human_followup_family()}")
     print(
         "diagnostic_summary: unmatched_policy_signals={signals} :: unresolved_dependencies={dependencies}".format(
             signals=diagnostic_summary.unmatched_policy_signal_count,
@@ -178,6 +183,52 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
                 object_id=recommended_repo_followup.object_id or "<none>",
                 count=recommended_repo_followup.count,
                 blocker=recommended_repo_followup.readiness_class or "none",
+            )
+        )
+    if recommended_repo_code_followup is None:
+        print("recommended_repo_code_followup: <none>")
+    else:
+        print(
+            "recommended_repo_code_followup: {family} :: owner={owner} :: {action_kind} :: {object_id} :: count={count} :: blocker={blocker}".format(
+                family=recommended_repo_code_followup.followup_family,
+                owner=recommended_repo_code_followup.owner_object_id or "<none>",
+                action_kind=recommended_repo_code_followup.action_kind,
+                object_id=recommended_repo_code_followup.object_id or "<none>",
+                count=recommended_repo_code_followup.count,
+                blocker=recommended_repo_code_followup.readiness_class or "none",
+            )
+        )
+    if recommended_repo_human_followup is None:
+        print("recommended_repo_human_followup: <none>")
+    elif recommended_repo_human_followup.diagnostic_code is not None:
+        print(
+            "recommended_repo_human_followup: {family} :: diagnostic={diagnostic} :: count={count} :: action={action}".format(
+                family=recommended_repo_human_followup.followup_family,
+                diagnostic=recommended_repo_human_followup.diagnostic_code,
+                count=recommended_repo_human_followup.count,
+                action=recommended_repo_human_followup.recommended_action or "none",
+            )
+        )
+    else:
+        print(
+            "recommended_repo_human_followup: {family} :: target_doc={target_doc} :: alignment={alignment} :: action={action}".format(
+                family=recommended_repo_human_followup.followup_family,
+                target_doc=recommended_repo_human_followup.target_doc_id or "<none>",
+                alignment=recommended_repo_human_followup.alignment_status or "none",
+                action=recommended_repo_human_followup.recommended_action or "none",
+            )
+        )
+    print("repo_followup_lanes:")
+    for lane in repo_followup_lanes:
+        best = lane.best_followup
+        target = best.object_id or best.target_doc_id or best.diagnostic_code or "<none>"
+        print(
+            "- {family} :: class={klass} :: actions={actions} :: best={action_kind}::{target}".format(
+                family=lane.followup_family,
+                klass=lane.followup_class,
+                actions=lane.action_count,
+                action_kind=best.action_kind,
+                target=target,
             )
         )
     node_kind_counts = counts.get("node_kind_counts", {})

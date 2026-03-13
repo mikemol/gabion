@@ -171,6 +171,42 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         "recommended_action": "attribute_policy_signals_to_owned_workstreams",
         "count": 7,
     }
+    assert workstreams_payload["repo_next_actions"]["dominant_followup_class"] == (
+        "governance"
+    )
+    assert workstreams_payload["repo_next_actions"]["next_human_followup_family"] == (
+        "governance_orphan_resolution"
+    )
+    assert workstreams_payload["repo_next_actions"]["recommended_code_followup"] == {
+        "followup_family": "structural_cut",
+        "action_kind": "touchpoint_cut",
+        "priority_rank": 100,
+        "object_id": "PSF-007-TP-005",
+        "owner_object_id": "PSF-007",
+        "diagnostic_code": None,
+        "target_doc_id": None,
+        "title": "projection_exec_plan.py planning surfaces",
+        "blocker_class": "ready_structural",
+        "readiness_class": "ready_structural",
+        "alignment_status": None,
+        "recommended_action": None,
+        "count": 1,
+    }
+    assert workstreams_payload["repo_next_actions"]["recommended_human_followup"] == {
+        "followup_family": "governance_orphan_resolution",
+        "action_kind": "diagnostic_resolution",
+        "priority_rank": 0,
+        "object_id": None,
+        "owner_object_id": None,
+        "diagnostic_code": "unmatched_policy_signal",
+        "target_doc_id": None,
+        "title": "resolve unmatched policy signal ownership",
+        "blocker_class": "policy_orphan",
+        "readiness_class": None,
+        "alignment_status": None,
+        "recommended_action": "attribute_policy_signals_to_owned_workstreams",
+        "count": 7,
+    }
     ranked_repo_followups = workstreams_payload["repo_next_actions"]["ranked_followups"]
     assert ranked_repo_followups[0] == {
         "followup_family": "governance_orphan_resolution",
@@ -207,6 +243,34 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         and item["target_doc_id"] == "projection_semantic_fragment_ledger"
         and item["recommended_action"] == "append_existing_ledger_entry"
         for item in ranked_repo_followups
+    )
+    repo_followup_lanes = workstreams_payload["repo_next_actions"]["followup_lanes"]
+    assert repo_followup_lanes[0] == {
+        "followup_family": "governance_orphan_resolution",
+        "followup_class": "governance",
+        "action_count": 1,
+        "best_followup": {
+            "followup_family": "governance_orphan_resolution",
+            "action_kind": "diagnostic_resolution",
+            "priority_rank": 0,
+            "object_id": None,
+            "owner_object_id": None,
+            "diagnostic_code": "unmatched_policy_signal",
+            "target_doc_id": None,
+            "title": "resolve unmatched policy signal ownership",
+            "blocker_class": "policy_orphan",
+            "readiness_class": None,
+            "alignment_status": None,
+            "recommended_action": "attribute_policy_signals_to_owned_workstreams",
+            "count": 7,
+        },
+    }
+    assert repo_followup_lanes[1]["followup_family"] == "structural_cut"
+    assert repo_followup_lanes[1]["followup_class"] == "code"
+    assert any(
+        lane["followup_family"] == "documentation_alignment"
+        and lane["followup_class"] == "documentation"
+        for lane in repo_followup_lanes
     )
     projected_ids = [
         str(item.get("object_id", ""))
@@ -1425,9 +1489,24 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
         == 0
     )
     summary_output = capsys.readouterr().out
+    assert "dominant_followup_class: governance" in summary_output
+    assert "next_human_followup_family: governance_orphan_resolution" in summary_output
     assert "diagnostic_summary: unmatched_policy_signals=7 :: unresolved_dependencies=0" in summary_output
     assert (
         "recommended_repo_followup: governance_orphan_resolution :: diagnostic=unmatched_policy_signal :: count=7 :: action=attribute_policy_signals_to_owned_workstreams"
+        in summary_output
+    )
+    assert (
+        "recommended_repo_code_followup: structural_cut :: owner=PSF-007 :: touchpoint_cut :: PSF-007-TP-005 :: count=1 :: blocker=ready_structural"
+        in summary_output
+    )
+    assert (
+        "recommended_repo_human_followup: governance_orphan_resolution :: diagnostic=unmatched_policy_signal :: count=7 :: action=attribute_policy_signals_to_owned_workstreams"
+        in summary_output
+    )
+    assert "repo_followup_lanes:" in summary_output
+    assert (
+        "- governance_orphan_resolution :: class=governance :: actions=1 :: best=diagnostic_resolution::unmatched_policy_signal"
         in summary_output
     )
 
