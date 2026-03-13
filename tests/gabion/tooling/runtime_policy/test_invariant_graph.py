@@ -140,6 +140,11 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
     assert psf["touchsite_count"] == 73
     assert psf["collapsible_touchsite_count"] == 47
     assert psf["surviving_touchsite_count"] == 26
+    assert psf["next_actions"]["recommended_cut"]["object_id"] == "PSF-007-TP-005"
+    assert psf["next_actions"]["recommended_cut"]["cut_kind"] == "touchpoint_cut"
+    assert psf["next_actions"]["recommended_cut"]["touchsite_count"] == 1
+    assert psf["next_actions"]["ranked_touchpoint_cuts"][0]["object_id"] == "PSF-007-TP-005"
+    assert psf["next_actions"]["ranked_subqueue_cuts"][0]["object_id"] == "PSF-007-SQ-001"
 
 
 def test_runtime_invariant_graph_cli_build_summary_trace_and_blockers(
@@ -433,6 +438,9 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
     workstream_output = capsys.readouterr().out
     assert "object_id: PSF-007" in workstream_output
     assert "touchsites: 73" in workstream_output
+    assert "recommended_cut: touchpoint_cut :: PSF-007-TP-005 :: touchsites=1 :: surviving=1" in workstream_output
+    assert "ranked_touchpoint_cuts:" in workstream_output
+    assert "ranked_subqueue_cuts:" in workstream_output
 
     assert (
         invariant_graph_runtime.main(

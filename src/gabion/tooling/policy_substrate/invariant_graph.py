@@ -356,6 +356,49 @@ class InvariantTouchsiteProjection:
 
 
 @dataclass(frozen=True)
+class InvariantCutCandidate:
+    cut_kind: str
+    object_id: TouchpointId | SubqueueId
+    owner_object_id: WorkstreamId | SubqueueId
+    title: str
+    touchsite_count: int
+    collapsible_touchsite_count: int
+    surviving_touchsite_count: int
+    policy_signal_count: int
+    coverage_count: int
+    diagnostic_count: int
+    touchsite_ids: tuple[TouchsiteId, ...]
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "cut_kind": self.cut_kind,
+            "object_id": encode_policy_queue_identity(self.object_id),
+            "owner_object_id": encode_policy_queue_identity(self.owner_object_id),
+            "title": self.title,
+            "touchsite_count": self.touchsite_count,
+            "collapsible_touchsite_count": self.collapsible_touchsite_count,
+            "surviving_touchsite_count": self.surviving_touchsite_count,
+            "policy_signal_count": self.policy_signal_count,
+            "coverage_count": self.coverage_count,
+            "diagnostic_count": self.diagnostic_count,
+            "touchsite_ids": [
+                encode_policy_queue_identity(item) for item in self.touchsite_ids
+            ],
+        }
+
+
+def _cut_sort_key(candidate: InvariantCutCandidate) -> tuple[int, int, int, int, int, str]:
+    return (
+        candidate.touchsite_count,
+        candidate.surviving_touchsite_count,
+        candidate.policy_signal_count,
+        candidate.diagnostic_count,
+        candidate.coverage_count,
+        encode_policy_queue_identity(candidate.object_id),
+    )
+
+
+@dataclass(frozen=True)
 class InvariantTouchpointProjection:
     object_id: TouchpointId
     subqueue_id: SubqueueId
@@ -473,7 +516,77 @@ class InvariantWorkstreamProjection:
     def iter_touchpoints(self) -> Iterator[InvariantTouchpointProjection]:
         return iter(self.touchpoints)
 
+    def ranked_touchpoint_cuts(self) -> tuple[InvariantCutCandidate, ...]:
+        candidates = [
+            InvariantCutCandidate(
+                cut_kind="touchpoint_cut",
+                object_id=touchpoint.object_id,
+                owner_object_id=touchpoint.subqueue_id,
+                title=touchpoint.title,
+                touchsite_count=touchpoint.touchsite_count,
+                collapsible_touchsite_count=touchpoint.collapsible_touchsite_count,
+                surviving_touchsite_count=touchpoint.surviving_touchsite_count,
+                policy_signal_count=touchpoint.policy_signal_count,
+                coverage_count=touchpoint.coverage_count,
+                diagnostic_count=touchpoint.diagnostic_count,
+                touchsite_ids=tuple(
+                    touchsite.object_id for touchsite in touchpoint.iter_touchsites()
+                ),
+            )
+            for touchpoint in self.iter_touchpoints()
+            if touchpoint.touchsite_count > 0
+        ]
+        return tuple(_sorted(candidates, key=_cut_sort_key))
+
+    def ranked_subqueue_cuts(self) -> tuple[InvariantCutCandidate, ...]:
+        touchpoint_groups: defaultdict[str, list[InvariantTouchpointProjection]] = defaultdict(list)
+        for touchpoint in self.iter_touchpoints():
+            touchpoint_groups[touchpoint.subqueue_id.wire()].append(touchpoint)
+        candidates = []
+        for subqueue in self.iter_subqueues():
+            if subqueue.touchsite_count <= 0:
+                continue
+            touchsite_ids = tuple(
+                touchsite.object_id
+                for touchpoint in _sorted(
+                    touchpoint_groups.get(subqueue.object_id.wire(), []),
+                    key=lambda item: item.object_id.wire(),
+                )
+                for touchsite in touchpoint.iter_touchsites()
+            )
+            candidates.append(
+                InvariantCutCandidate(
+                    cut_kind="subqueue_cut",
+                    object_id=subqueue.object_id,
+                    owner_object_id=self.object_id,
+                    title=subqueue.title,
+                    touchsite_count=subqueue.touchsite_count,
+                    collapsible_touchsite_count=subqueue.collapsible_touchsite_count,
+                    surviving_touchsite_count=subqueue.surviving_touchsite_count,
+                    policy_signal_count=subqueue.policy_signal_count,
+                    coverage_count=subqueue.coverage_count,
+                    diagnostic_count=subqueue.diagnostic_count,
+                    touchsite_ids=touchsite_ids,
+                )
+            )
+        return tuple(_sorted(candidates, key=_cut_sort_key))
+
+    def recommended_cut(self) -> InvariantCutCandidate | None:
+        candidates: list[InvariantCutCandidate] = []
+        touchpoint_cuts = self.ranked_touchpoint_cuts()
+        subqueue_cuts = self.ranked_subqueue_cuts()
+        if touchpoint_cuts:
+            candidates.append(touchpoint_cuts[0])
+        if subqueue_cuts:
+            candidates.append(subqueue_cuts[0])
+        if not candidates:
+            return None
+        return _sorted(candidates, key=_cut_sort_key)[0]
+
     def as_payload(self) -> dict[str, object]:
+        ranked_touchpoint_cuts = self.ranked_touchpoint_cuts()
+        ranked_subqueue_cuts = self.ranked_subqueue_cuts()
+        recommended_cut = self.recommended_cut()
         return {
             "object_id": self.object_id.wire(),
             "title": self.title,
@@ -493,6 +606,17 @@ class InvariantWorkstreamProjection:
             "diagnostic_count": self.diagnostic_count,
             "subqueues": [item.as_payload() for item in self.iter_subqueues()],
             "touchpoints": [item.as_payload() for item in self.iter_touchpoints()],
+            "next_actions": {
+                "recommended_cut": (
+                    recommended_cut.as_payload() if recommended_cut is not None else None
+                ),
+                "ranked_touchpoint_cuts": [
+                    item.as_payload() for item in ranked_touchpoint_cuts
+                ],
+                "ranked_subqueue_cuts": [
+                    item.as_payload() for item in ranked_subqueue_cuts
+                ],
+            },
         }
 
 
@@ -520,6 +644,9 @@ class InvariantWorkstreamsProjection:
     def artifact_document(self) -> ArtifactUnit:
         def _workstream_items() -> Iterator[ArtifactUnit]:
             for workstream in self.iter_workstreams():
+                recommended_cut = workstream.recommended_cut()
+                ranked_touchpoint_cuts = workstream.ranked_touchpoint_cuts()
+                ranked_subqueue_cuts = workstream.ranked_subqueue_cuts()
                 yield list_item(
                     identity=workstream.object_id,
                     title=workstream.object_id.wire(),
@@ -627,6 +754,62 @@ class InvariantWorkstreamsProjection:
                                         children=lambda touchpoint=touchpoint: iter(_payload_to_units(touchpoint.as_payload())),
                                     )
                                     for touchpoint in workstream.iter_touchpoints()
+                                ),
+                            ),
+                            section(
+                                identity=workstream.object_id,
+                                key="next_actions",
+                                title="next_actions",
+                                children=lambda recommended_cut=recommended_cut,
+                                ranked_touchpoint_cuts=ranked_touchpoint_cuts,
+                                ranked_subqueue_cuts=ranked_subqueue_cuts: iter(
+                                    (
+                                        scalar(
+                                            identity=ArtifactSourceRef(
+                                                rel_path="<synthetic>",
+                                                qualname="recommended_cut",
+                                            ),
+                                            key="recommended_cut",
+                                            title="recommended_cut",
+                                            value=(
+                                                None
+                                                if recommended_cut is None
+                                                else recommended_cut.as_payload()
+                                            ),
+                                        ),
+                                        bullet_list(
+                                            identity=ArtifactSourceRef(
+                                                rel_path="<synthetic>",
+                                                qualname="ranked_touchpoint_cuts",
+                                            ),
+                                            key="ranked_touchpoint_cuts",
+                                            children=lambda ranked_touchpoint_cuts=ranked_touchpoint_cuts: (
+                                                list_item(
+                                                    identity=item.object_id,
+                                                    children=lambda item=item: iter(
+                                                        _payload_to_units(item.as_payload())
+                                                    ),
+                                                )
+                                                for item in ranked_touchpoint_cuts
+                                            ),
+                                        ),
+                                        bullet_list(
+                                            identity=ArtifactSourceRef(
+                                                rel_path="<synthetic>",
+                                                qualname="ranked_subqueue_cuts",
+                                            ),
+                                            key="ranked_subqueue_cuts",
+                                            children=lambda ranked_subqueue_cuts=ranked_subqueue_cuts: (
+                                                list_item(
+                                                    identity=item.object_id,
+                                                    children=lambda item=item: iter(
+                                                        _payload_to_units(item.as_payload())
+                                                    ),
+                                                )
+                                                for item in ranked_subqueue_cuts
+                                            ),
+                                        ),
+                                    )
                                 ),
                             ),
                         )

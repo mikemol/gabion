@@ -260,6 +260,46 @@ def _print_workstream(*, graph: InvariantGraph, object_id: str) -> int:
     print(f"policy_signals: {workstream.policy_signal_count}")
     print(f"coverage_count: {workstream.coverage_count}")
     print(f"diagnostics: {workstream.diagnostic_count}")
+    recommended_cut = workstream.recommended_cut()
+    if recommended_cut is None:
+        print("recommended_cut: <none>")
+    else:
+        print(
+            "recommended_cut: {cut_kind} :: {object_id} :: touchsites={touchsites} :: surviving={surviving}".format(
+                cut_kind=recommended_cut.cut_kind,
+                object_id=recommended_cut.object_id.wire(),
+                touchsites=recommended_cut.touchsite_count,
+                surviving=recommended_cut.surviving_touchsite_count,
+            )
+        )
+    print("ranked_touchpoint_cuts:")
+    touchpoint_cuts = workstream.ranked_touchpoint_cuts()
+    if not touchpoint_cuts:
+        print("- <none>")
+    else:
+        for item in touchpoint_cuts:
+            print(
+                "- {object_id} :: touchsites={touchsites} :: collapsible={collapsible} :: surviving={surviving}".format(
+                    object_id=item.object_id.wire(),
+                    touchsites=item.touchsite_count,
+                    collapsible=item.collapsible_touchsite_count,
+                    surviving=item.surviving_touchsite_count,
+                )
+            )
+    print("ranked_subqueue_cuts:")
+    subqueue_cuts = workstream.ranked_subqueue_cuts()
+    if not subqueue_cuts:
+        print("- <none>")
+    else:
+        for item in subqueue_cuts:
+            print(
+                "- {object_id} :: touchsites={touchsites} :: collapsible={collapsible} :: surviving={surviving}".format(
+                    object_id=item.object_id.wire(),
+                    touchsites=item.touchsite_count,
+                    collapsible=item.collapsible_touchsite_count,
+                    surviving=item.surviving_touchsite_count,
+                )
+            )
     print("subqueues:")
     subqueues = tuple(workstream.iter_subqueues())
     if not subqueues:
