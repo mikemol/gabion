@@ -1012,6 +1012,42 @@ class InvariantRepoDiagnosticLane:
 
 
 @dataclass(frozen=True)
+class InvariantRepoFollowupFrontierTriad:
+    frontier_followup_family: str
+    frontier_followup_class: str
+    frontier_action_kind: str
+    frontier_object_id: str | None
+    frontier_diagnostic_code: str | None
+    frontier_target_doc_id: str | None
+    frontier_policy_ids: tuple[str, ...]
+    frontier_utility_score: int
+    frontier_utility_reason: str
+    same_class_tradeoff: InvariantRepoFollowupSameClassTradeoff | None
+    cross_class_tradeoff: InvariantRepoFollowupCrossClassTradeoff | None
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "frontier_followup_family": self.frontier_followup_family,
+            "frontier_followup_class": self.frontier_followup_class,
+            "frontier_action_kind": self.frontier_action_kind,
+            "frontier_object_id": self.frontier_object_id,
+            "frontier_diagnostic_code": self.frontier_diagnostic_code,
+            "frontier_target_doc_id": self.frontier_target_doc_id,
+            "frontier_policy_ids": list(self.frontier_policy_ids),
+            "frontier_utility_score": self.frontier_utility_score,
+            "frontier_utility_reason": self.frontier_utility_reason,
+            "same_class_tradeoff": (
+                None if self.same_class_tradeoff is None else self.same_class_tradeoff.as_payload()
+            ),
+            "cross_class_tradeoff": (
+                None
+                if self.cross_class_tradeoff is None
+                else self.cross_class_tradeoff.as_payload()
+            ),
+        }
+
+
+@dataclass(frozen=True)
 class InvariantOwnerCandidateOption:
     resolution_kind: str
     owner_status: str
@@ -3249,6 +3285,32 @@ class InvariantWorkstreamsProjection:
             ),
         )
 
+    def recommended_repo_followup_frontier_triad(
+        self,
+    ) -> InvariantRepoFollowupFrontierTriad | None:
+        return self._recommended_repo_followup_frontier_triad
+
+    @cached_property
+    def _recommended_repo_followup_frontier_triad(
+        self,
+    ) -> InvariantRepoFollowupFrontierTriad | None:
+        frontier = self.recommended_repo_followup()
+        if frontier is None:
+            return None
+        return InvariantRepoFollowupFrontierTriad(
+            frontier_followup_family=frontier.followup_family,
+            frontier_followup_class=self._repo_followup_class(frontier),
+            frontier_action_kind=frontier.action_kind,
+            frontier_object_id=frontier.object_id,
+            frontier_diagnostic_code=frontier.diagnostic_code,
+            frontier_target_doc_id=frontier.target_doc_id,
+            frontier_policy_ids=frontier.policy_ids,
+            frontier_utility_score=frontier.utility_score,
+            frontier_utility_reason=frontier.utility_reason,
+            same_class_tradeoff=self.recommended_repo_followup_same_class_tradeoff(),
+            cross_class_tradeoff=self.recommended_repo_followup_cross_class_tradeoff(),
+        )
+
     def recommended_repo_followup_frontier_tradeoff(
         self,
     ) -> InvariantRepoFrontierTradeoff | None:
@@ -3566,6 +3628,9 @@ class InvariantWorkstreamsProjection:
         recommended_repo_followup_frontier_tradeoff = (
             self.recommended_repo_followup_frontier_tradeoff()
         )
+        recommended_repo_followup_frontier_triad = (
+            self.recommended_repo_followup_frontier_triad()
+        )
         recommended_repo_followup_same_class_tradeoff = (
             self.recommended_repo_followup_same_class_tradeoff()
         )
@@ -3618,6 +3683,11 @@ class InvariantWorkstreamsProjection:
                     None
                     if recommended_repo_followup_frontier_tradeoff is None
                     else recommended_repo_followup_frontier_tradeoff.as_payload()
+                ),
+                "recommended_followup_frontier_triad": (
+                    None
+                    if recommended_repo_followup_frontier_triad is None
+                    else recommended_repo_followup_frontier_triad.as_payload()
                 ),
                 "recommended_followup_same_class_tradeoff": (
                     None

@@ -607,6 +607,28 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         ],
     }
     assert workstreams_payload["repo_next_actions"][
+        "recommended_followup_frontier_triad"
+    ] == {
+        "frontier_followup_family": "governance_orphan_resolution",
+        "frontier_followup_class": "governance",
+        "frontier_action_kind": "diagnostic_resolution",
+        "frontier_object_id": None,
+        "frontier_diagnostic_code": "unmatched_policy_signal",
+        "frontier_target_doc_id": None,
+        "frontier_policy_ids": ["GMP-001"],
+        "frontier_utility_score": 1190,
+        "frontier_utility_reason": (
+            "governance_orphan:seed_new_owner+owner_option_tradeoff:100"
+            "+governance_priority:GMP-001:10"
+        ),
+        "same_class_tradeoff": workstreams_payload["repo_next_actions"][
+            "recommended_followup_same_class_tradeoff"
+        ],
+        "cross_class_tradeoff": workstreams_payload["repo_next_actions"][
+            "recommended_followup_cross_class_tradeoff"
+        ],
+    }
+    assert workstreams_payload["repo_next_actions"][
         "recommended_followup_same_class_tradeoff"
     ] == {
         "frontier_followup_family": "governance_orphan_resolution",
@@ -3113,6 +3135,10 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
     )
     assert (
         "recommended_repo_followup_frontier_tradeoff: governance_orphan_resolution:governance:1250:governance_orphan:seed_new_owner+owner_option_tradeoff:100+governance_priority:GMP-001:10+lane_breadth:7+lane:governance_orphan_resolution :: runner_up=structural_cut:code:715:code:ready_structural+lane_breadth:1+lane:structural_cut :: margin=535:governance_orphan:seed_new_owner+owner_option_tradeoff:100+governance_priority:GMP-001:10+lane_breadth:7+lane:governance_orphan_resolution->code:ready_structural+lane_breadth:1+lane:structural_cut :: margin_components=best_followup_utility_gap:490:governance_orphan:seed_new_owner+owner_option_tradeoff:100+governance_priority:GMP-001:10->code:ready_structural | lane_breadth_bonus_gap:30:lane_breadth:7->lane_breadth:1 | lane_class_bonus_gap:15:lane_class:governance->lane_class:code"
+        in summary_output
+    )
+    assert (
+        "recommended_repo_followup_frontier_triad: frontier=governance_orphan_resolution:governance:diagnostic_resolution:unmatched_policy_signal:GMP-001:1190:governance_orphan:seed_new_owner+owner_option_tradeoff:100+governance_priority:GMP-001:10 :: same_class_runner_up=governance_orphan_resolution:governance:diagnostic_resolution:unmatched_policy_signal:GMP-002:1180:governance_orphan:seed_new_owner+owner_option_tradeoff:100+governance_priority:GMP-002:20 :: same_class_margin=10:governance_orphan:seed_new_owner+owner_option_tradeoff:100+governance_priority:GMP-001:10->governance_orphan:seed_new_owner+owner_option_tradeoff:100+governance_priority:GMP-002:20 :: cross_class_runner_up=structural_cut:code:touchpoint_cut:PSF-007-TP-005:700:code:ready_structural :: cross_class_margin=490:governance_orphan:seed_new_owner+owner_option_tradeoff:100+governance_priority:GMP-001:10->code:ready_structural"
         in summary_output
     )
     assert (

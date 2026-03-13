@@ -240,6 +240,9 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
     recommended_repo_followup_frontier_tradeoff = (
         workstreams.recommended_repo_followup_frontier_tradeoff()
     )
+    recommended_repo_followup_frontier_triad = (
+        workstreams.recommended_repo_followup_frontier_triad()
+    )
     recommended_repo_followup_same_class_tradeoff = (
         workstreams.recommended_repo_followup_same_class_tradeoff()
     )
@@ -800,6 +803,67 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
                 ),
                 margin_components=_format_score_components(
                     recommended_repo_followup_frontier_tradeoff.margin_components
+                ),
+            )
+        )
+    if recommended_repo_followup_frontier_triad is None:
+        print("recommended_repo_followup_frontier_triad: <none>")
+    else:
+        same_class_tradeoff = recommended_repo_followup_frontier_triad.same_class_tradeoff
+        cross_class_tradeoff = recommended_repo_followup_frontier_triad.cross_class_tradeoff
+        print(
+            "recommended_repo_followup_frontier_triad: frontier={frontier_family}:{frontier_class}:{frontier_action}:{frontier_target}:{frontier_policy_ids}:{frontier_utility} :: same_class_runner_up={same_class_runner_up} :: same_class_margin={same_class_margin} :: cross_class_runner_up={cross_class_runner_up} :: cross_class_margin={cross_class_margin}".format(
+                frontier_family=recommended_repo_followup_frontier_triad.frontier_followup_family,
+                frontier_class=recommended_repo_followup_frontier_triad.frontier_followup_class,
+                frontier_action=recommended_repo_followup_frontier_triad.frontier_action_kind,
+                frontier_target=(
+                    recommended_repo_followup_frontier_triad.frontier_object_id
+                    or recommended_repo_followup_frontier_triad.frontier_diagnostic_code
+                    or recommended_repo_followup_frontier_triad.frontier_target_doc_id
+                    or "<none>"
+                ),
+                frontier_policy_ids=",".join(
+                    recommended_repo_followup_frontier_triad.frontier_policy_ids
+                )
+                or "<none>",
+                frontier_utility=(
+                    f"{recommended_repo_followup_frontier_triad.frontier_utility_score}:"
+                    f"{recommended_repo_followup_frontier_triad.frontier_utility_reason}"
+                ),
+                same_class_runner_up=(
+                    "<none>"
+                    if same_class_tradeoff is None
+                    else (
+                        f"{same_class_tradeoff.runner_up_followup_family}:"
+                        f"{same_class_tradeoff.runner_up_followup_class}:"
+                        f"{same_class_tradeoff.runner_up_action_kind}:"
+                        f"{same_class_tradeoff.runner_up_object_id or same_class_tradeoff.runner_up_diagnostic_code or same_class_tradeoff.runner_up_target_doc_id or '<none>'}:"
+                        f"{','.join(same_class_tradeoff.runner_up_policy_ids) or '<none>'}:"
+                        f"{same_class_tradeoff.runner_up_utility_score}:"
+                        f"{same_class_tradeoff.runner_up_utility_reason}"
+                    )
+                ),
+                same_class_margin=(
+                    "<none>"
+                    if same_class_tradeoff is None
+                    else f"{same_class_tradeoff.margin_score}:{same_class_tradeoff.margin_reason}"
+                ),
+                cross_class_runner_up=(
+                    "<none>"
+                    if cross_class_tradeoff is None
+                    else (
+                        f"{cross_class_tradeoff.runner_up_followup_family}:"
+                        f"{cross_class_tradeoff.runner_up_followup_class}:"
+                        f"{cross_class_tradeoff.runner_up_action_kind}:"
+                        f"{cross_class_tradeoff.runner_up_object_id or cross_class_tradeoff.runner_up_diagnostic_code or cross_class_tradeoff.runner_up_target_doc_id or '<none>'}:"
+                        f"{cross_class_tradeoff.runner_up_utility_score}:"
+                        f"{cross_class_tradeoff.runner_up_utility_reason}"
+                    )
+                ),
+                cross_class_margin=(
+                    "<none>"
+                    if cross_class_tradeoff is None
+                    else f"{cross_class_tradeoff.margin_score}:{cross_class_tradeoff.margin_reason}"
                 ),
             )
         )
