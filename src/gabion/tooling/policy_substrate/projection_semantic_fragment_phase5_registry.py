@@ -15,9 +15,26 @@ _REPO_ROOT = Path(__file__).resolve().parents[4]
 
 
 @dataclass(frozen=True)
+class ProjectionSemanticFragmentPhase5QueueDefinition:
+    queue_id: str
+    title: str
+    rel_path: str
+    qualname: str
+    line: int
+    site_identity: str
+    structural_identity: str
+    marker_identity: str
+    marker_payload: MarkerPayload
+    subqueue_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class ProjectionSemanticFragmentPhase5SubqueueDefinition:
     subqueue_id: str
     title: str
+    rel_path: str
+    qualname: str
+    line: int
     site_identity: str
     structural_identity: str
     marker_identity: str
@@ -31,6 +48,8 @@ class ProjectionSemanticFragmentPhase5TouchpointDefinition:
     subqueue_id: str
     title: str
     rel_path: str
+    qualname: str
+    line: int
     site_identity: str
     structural_identity: str
     marker_identity: str
@@ -49,7 +68,7 @@ def _todo_metadata(
     *,
     surface: str,
     structural_path: str,
-) -> tuple[MarkerPayload, str, str, str]:
+) -> tuple[MarkerPayload, str, str, str, str, str, int]:
     decorations = invariant_decorations(symbol)
     if len(decorations) != 1:
         raise ValueError(
@@ -74,7 +93,39 @@ def _todo_metadata(
         node_kind="function_def",
         surface=surface,
     )
-    return (payload, marker_identity(payload), site_id, structural_id)
+    return (
+        payload,
+        marker_identity(payload),
+        site_id,
+        structural_id,
+        rel_path,
+        qualname,
+        start_line,
+    )
+
+
+@todo_decorator(
+    reason="PSF-007 queue remains active until all Phase-5 adapter seams are retired.",
+    reasoning={
+        "summary": "PSF-007 remains the active Phase-5 cutover queue until all subqueues land.",
+        "control": "psf007.queue.phase5_cutover",
+        "blocking_dependencies": (
+            "PSF-007-SQ-001",
+            "PSF-007-SQ-002",
+            "PSF-007-SQ-003",
+            "PSF-007-SQ-004",
+            "PSF-007-SQ-005",
+        ),
+    },
+    owner="gabion.analysis.projection",
+    expiry="PSF-007 closure",
+    links=[
+        {"kind": "object_id", "value": "PSF-007"},
+        {"kind": "doc_id", "value": "projection_semantic_fragment_rfc"},
+    ],
+)
+def _psf_007_queue() -> None:
+    return None
 
 
 @todo_decorator(
@@ -82,7 +133,7 @@ def _todo_metadata(
     reasoning={
         "summary": "Semantic row closure and canonicalization still retain temporary Phase-5 adapter seams.",
         "control": "psf007.subqueue.semantic_row_canonicalization",
-        "blocking_dependencies": ("psf007.touchpoint.semantic_fragment",),
+        "blocking_dependencies": ("PSF-007-TP-001",),
     },
     owner="gabion.analysis.projection",
     expiry="PSF-007 closure",
@@ -101,7 +152,7 @@ def _psf_007_sq_semantic_row_canonicalization() -> None:
     reasoning={
         "summary": "Authoring-to-semantic lowering still retains temporary normalization and payload-shaping seams.",
         "control": "psf007.subqueue.lowering_normalization",
-        "blocking_dependencies": ("psf007.touchpoint.projection_semantic_lowering",),
+        "blocking_dependencies": ("PSF-007-TP-002",),
     },
     owner="gabion.analysis.projection",
     expiry="PSF-007 closure",
@@ -120,9 +171,7 @@ def _psf_007_sq_lowering_normalization() -> None:
     reasoning={
         "summary": "Semantic-op compilation dispatch still retains temporary adapter seams around surface and field selection.",
         "control": "psf007.subqueue.lowering_compile_dispatch",
-        "blocking_dependencies": (
-            "psf007.touchpoint.projection_semantic_lowering_compile",
-        ),
+        "blocking_dependencies": ("PSF-007-TP-003",),
     },
     owner="gabion.analysis.projection",
     expiry="PSF-007 closure",
@@ -141,7 +190,7 @@ def _psf_007_sq_lowering_compile_dispatch() -> None:
     reasoning={
         "summary": "Semantic-row compilation into SHACL/SPARQL plans still retains temporary adapter seams on the compile path.",
         "control": "psf007.subqueue.semantic_row_compile",
-        "blocking_dependencies": ("psf007.touchpoint.semantic_fragment_compile",),
+        "blocking_dependencies": ("PSF-007-TP-004",),
     },
     owner="gabion.analysis.projection",
     expiry="PSF-007 closure",
@@ -161,8 +210,8 @@ def _psf_007_sq_semantic_row_compile() -> None:
         "summary": "Typed execution planning and runtime application still retain temporary adapter seams on the final compatibility path.",
         "control": "psf007.subqueue.typed_execution",
         "blocking_dependencies": (
-            "psf007.touchpoint.projection_exec_plan",
-            "psf007.touchpoint.projection_exec",
+            "PSF-007-TP-005",
+            "PSF-007-TP-006",
         ),
     },
     owner="gabion.analysis.projection",
@@ -182,9 +231,7 @@ def _psf_007_sq_typed_execution() -> None:
     reasoning={
         "summary": "semantic_fragment.py still carries the canonicalization and semantic-row closure touchsites for PSF-007.",
         "control": "psf007.touchpoint.semantic_fragment",
-        "blocking_dependencies": (
-            "psf007.subqueue.semantic_row_canonicalization",
-        ),
+        "blocking_dependencies": ("PSF-007-SQ-001",),
     },
     owner="gabion.analysis.projection",
     expiry="PSF-007 closure",
@@ -204,7 +251,7 @@ def _psf_007_tp_semantic_fragment() -> None:
     reasoning={
         "summary": "projection_semantic_lowering.py still carries the authoring-to-semantic normalization touchsites for PSF-007.",
         "control": "psf007.touchpoint.projection_semantic_lowering",
-        "blocking_dependencies": ("psf007.subqueue.lowering_normalization",),
+        "blocking_dependencies": ("PSF-007-SQ-002",),
     },
     owner="gabion.analysis.projection",
     expiry="PSF-007 closure",
@@ -224,9 +271,7 @@ def _psf_007_tp_projection_semantic_lowering() -> None:
     reasoning={
         "summary": "projection_semantic_lowering_compile.py still carries the lowering-to-compile dispatch touchsites for PSF-007.",
         "control": "psf007.touchpoint.projection_semantic_lowering_compile",
-        "blocking_dependencies": (
-            "psf007.subqueue.lowering_compile_dispatch",
-        ),
+        "blocking_dependencies": ("PSF-007-SQ-003",),
     },
     owner="gabion.analysis.projection",
     expiry="PSF-007 closure",
@@ -246,7 +291,7 @@ def _psf_007_tp_projection_semantic_lowering_compile() -> None:
     reasoning={
         "summary": "semantic_fragment_compile.py still carries the semantic-row presentation compile touchsites for PSF-007.",
         "control": "psf007.touchpoint.semantic_fragment_compile",
-        "blocking_dependencies": ("psf007.subqueue.semantic_row_compile",),
+        "blocking_dependencies": ("PSF-007-SQ-004",),
     },
     owner="gabion.analysis.projection",
     expiry="PSF-007 closure",
@@ -266,7 +311,7 @@ def _psf_007_tp_semantic_fragment_compile() -> None:
     reasoning={
         "summary": "projection_exec_plan.py still carries the typed execution planning touchsites for PSF-007.",
         "control": "psf007.touchpoint.projection_exec_plan",
-        "blocking_dependencies": ("psf007.subqueue.typed_execution",),
+        "blocking_dependencies": ("PSF-007-SQ-005",),
     },
     owner="gabion.analysis.projection",
     expiry="PSF-007 closure",
@@ -286,7 +331,7 @@ def _psf_007_tp_projection_exec_plan() -> None:
     reasoning={
         "summary": "projection_exec.py still carries the typed execution runtime touchsites for PSF-007.",
         "control": "psf007.touchpoint.projection_exec",
-        "blocking_dependencies": ("psf007.subqueue.typed_execution",),
+        "blocking_dependencies": ("PSF-007-SQ-005",),
     },
     owner="gabion.analysis.projection",
     expiry="PSF-007 closure",
@@ -299,6 +344,34 @@ def _psf_007_tp_projection_exec_plan() -> None:
 )
 def _psf_007_tp_projection_exec() -> None:
     return None
+
+
+def iter_phase5_queues() -> tuple[ProjectionSemanticFragmentPhase5QueueDefinition, ...]:
+    payload, marker_id, site_id, structural_id, rel_path, qualname, line = _todo_metadata(
+        _psf_007_queue,
+        surface="projection_semantic_fragment_phase5_queue",
+        structural_path="psf007.queue::PSF-007",
+    )
+    return (
+        ProjectionSemanticFragmentPhase5QueueDefinition(
+            queue_id="PSF-007",
+            title="Cut over legacy adapters and retire semantic_carrier_adapter boundaries",
+            rel_path=rel_path,
+            qualname=qualname,
+            line=line,
+            site_identity=site_id,
+            structural_identity=structural_id,
+            marker_identity=marker_id,
+            marker_payload=payload,
+            subqueue_ids=(
+                "PSF-007-SQ-001",
+                "PSF-007-SQ-002",
+                "PSF-007-SQ-003",
+                "PSF-007-SQ-004",
+                "PSF-007-SQ-005",
+            ),
+        ),
+    )
 
 
 def iter_phase5_subqueues() -> tuple[ProjectionSemanticFragmentPhase5SubqueueDefinition, ...]:
@@ -335,7 +408,15 @@ def iter_phase5_subqueues() -> tuple[ProjectionSemanticFragmentPhase5SubqueueDef
             ("PSF-007-TP-005", "PSF-007-TP-006"),
         ),
     ):
-        payload, marker_id, site_id, structural_id = _todo_metadata(
+        (
+            payload,
+            marker_id,
+            site_id,
+            structural_id,
+            rel_path,
+            qualname,
+            line,
+        ) = _todo_metadata(
             symbol,
             surface="projection_semantic_fragment_phase5_subqueue",
             structural_path=f"psf007.subqueue::{subqueue_id}",
@@ -344,6 +425,9 @@ def iter_phase5_subqueues() -> tuple[ProjectionSemanticFragmentPhase5SubqueueDef
             ProjectionSemanticFragmentPhase5SubqueueDefinition(
                 subqueue_id=subqueue_id,
                 title=title,
+                rel_path=rel_path,
+                qualname=qualname,
+                line=line,
                 site_identity=site_id,
                 structural_identity=structural_id,
                 marker_identity=marker_id,
@@ -400,7 +484,15 @@ def iter_phase5_touchpoints() -> tuple[ProjectionSemanticFragmentPhase5Touchpoin
             _psf_007_tp_projection_exec,
         ),
     ):
-        payload, marker_id, site_id, structural_id = _todo_metadata(
+        (
+            payload,
+            marker_id,
+            site_id,
+            structural_id,
+            _registry_rel_path,
+            qualname,
+            line,
+        ) = _todo_metadata(
             symbol,
             surface="projection_semantic_fragment_phase5_touchpoint",
             structural_path=f"psf007.touchpoint::{touchpoint_id}",
@@ -411,6 +503,8 @@ def iter_phase5_touchpoints() -> tuple[ProjectionSemanticFragmentPhase5Touchpoin
                 subqueue_id=subqueue_id,
                 title=title,
                 rel_path=rel_path,
+                qualname=qualname,
+                line=line,
                 site_identity=site_id,
                 structural_identity=structural_id,
                 marker_identity=marker_id,
@@ -421,8 +515,10 @@ def iter_phase5_touchpoints() -> tuple[ProjectionSemanticFragmentPhase5Touchpoin
 
 
 __all__ = [
+    "ProjectionSemanticFragmentPhase5QueueDefinition",
     "ProjectionSemanticFragmentPhase5SubqueueDefinition",
     "ProjectionSemanticFragmentPhase5TouchpointDefinition",
+    "iter_phase5_queues",
     "iter_phase5_subqueues",
     "iter_phase5_touchpoints",
 ]

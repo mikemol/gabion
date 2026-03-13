@@ -52,6 +52,8 @@ in_steps:
   - in-100
   - in-101
   - in-102
+  - in-103
+delta_note_4: "Shared invariant-marker scanning, invariant-graph projection, and PSF-007 queue projection now consume governance-only marker metadata plus global site/structural identity carriers, while `dataflow_projection_materialization.py` routes its remaining fixed-spec materialization through typed execution-op planning/execution rather than the removed `apply_spec(...)`; these changes preserve the same ASPF taint identifier anchors, witness labels, and crosswalk row mappings."
 delta_note_3: "Extracting strict YAML frontmatter parsing into a shared helper and reusing it from `impact_index.py` plus the policy DSL compiler preserves the same ASPF taint identifier anchors, witness labels, and crosswalk row mappings while moving markdown-frontmatter parsing onto a shared boundary-normalization utility."
 delta_note_2: "Collapsing the quotient-face field-plan forwarding wrapper into the already-graded `compile_projection_fiber_quotient_face_*` entrypoints preserves the same ASPF taint identifier anchors, witness labels, and crosswalk row mappings while removing a second quotient-face assembly seam."
 delta_note: "Collapsing `_witness_trace(...)` into the already-graded `compile_projection_fiber_*` entrypoints preserves the same ASPF taint identifier anchors, witness labels, and crosswalk row mappings while removing a helper-only witness-forwarding seam."

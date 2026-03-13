@@ -43,6 +43,7 @@ def test_cli_help_lists_tooling_subcommands() -> None:
     assert "docflow-delta-emit" in result.output
     assert "ambiguity-contract-gate" in result.output
     assert "normative-symdiff" in result.output
+    assert "invariant-graph" in result.output
     assert "impact-select-tests" in result.output
     assert "run-dataflow-stage" in result.output
     assert "ci-watch" in result.output
@@ -56,6 +57,7 @@ def test_cli_tooling_subcommand_help_invocations() -> None:
         "docflow-delta-emit",
         "ambiguity-contract-gate",
         "normative-symdiff",
+        "invariant-graph",
         "impact-select-tests",
         "run-dataflow-stage",
         "ci-watch",
@@ -90,6 +92,7 @@ def test_cli_tooling_wrappers_and_argparse_exit_handling() -> None:
     argv_seen: list[list[str]] = []
     ambiguity_args: list[list[str]] = []
     symdiff_args: list[list[str]] = []
+    invariant_graph_args: list[list[str]] = []
     ci_watch_args: list[list[str]] = []
     with cli._tooling_runner_override(
         no_arg={
@@ -99,6 +102,7 @@ def test_cli_tooling_wrappers_and_argparse_exit_handling() -> None:
             "ci-watch": lambda argv: (ci_watch_args.append(list(argv or [])) or 18),
             "ambiguity-contract-gate": lambda argv: (ambiguity_args.append(list(argv or [])) or 16),
             "normative-symdiff": lambda argv: (symdiff_args.append(list(argv or [])) or 17),
+            "invariant-graph": lambda argv: (invariant_graph_args.append(list(argv or [])) or 19),
             "impact-select-tests": lambda argv: (argv_seen.append(list(argv or [])) or 14),
             "run-dataflow-stage": lambda argv: (_ for _ in ()).throw(SystemExit(15)),
         },
@@ -112,6 +116,9 @@ def test_cli_tooling_wrappers_and_argparse_exit_handling() -> None:
         with pytest.raises(typer.Exit) as exc:
             cli.normative_symdiff(_Ctx(["--root", ".", "--json-out", "out.json"]))  # type: ignore[arg-type]
         assert exc.value.exit_code == 17
+        with pytest.raises(typer.Exit) as exc:
+            cli.invariant_graph(_Ctx(["summary"]))  # type: ignore[arg-type]
+        assert exc.value.exit_code == 19
         with pytest.raises(typer.Exit) as exc:
             cli.impact_select_tests(_Ctx(["--root", "."]))  # type: ignore[arg-type]
         assert exc.value.exit_code == 14
@@ -136,6 +143,7 @@ def test_cli_tooling_wrappers_and_argparse_exit_handling() -> None:
     assert argv_seen == [["--root", "."]]
     assert ambiguity_args == [["--root", ".", "--baseline", "b.json"]]
     assert symdiff_args == [["--root", ".", "--json-out", "out.json"]]
+    assert invariant_graph_args == [["summary"]]
     assert ci_watch_args == [
         [
             "--branch",
@@ -174,6 +182,7 @@ def test_tooling_passthrough_commands_forward_nonzero_exit_codes() -> None:
         with_argv={
             "ambiguity-contract-gate": lambda _argv: 11,
             "normative-symdiff": lambda _argv: 12,
+            "invariant-graph": lambda _argv: 13,
         },
     ):
         with pytest.raises(typer.Exit) as exc:
@@ -191,6 +200,9 @@ def test_tooling_passthrough_commands_forward_nonzero_exit_codes() -> None:
         with pytest.raises(typer.Exit) as exc:
             cli.normative_symdiff(_Ctx(["--root", "."]))  # type: ignore[arg-type]
         assert exc.value.exit_code == 12
+        with pytest.raises(typer.Exit) as exc:
+            cli.invariant_graph(_Ctx(["summary"]))  # type: ignore[arg-type]
+        assert exc.value.exit_code == 13
 # gabion:behavior primary=verboten facets=error
 def test_removed_delta_wrapper_commands_emit_migration_errors() -> None:
     runner = CliRunner()

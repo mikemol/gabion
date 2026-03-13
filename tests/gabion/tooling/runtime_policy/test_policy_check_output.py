@@ -64,10 +64,14 @@ def test_policy_check_output_carries_projection_fiber_semantics_on_pass(
             encoding="utf-8"
         )
     )
+    invariant_graph_payload = json.loads(
+        (tmp_path / "invariant_graph.json").read_text(encoding="utf-8")
+    )
     assert queue_payload["source_artifact"] == str(output)
     assert queue_payload["current_state"]["decision"]["rule_id"] == (
         "projection_fiber.convergence.ok"
     )
+    assert invariant_graph_payload["format_version"] == 1
     assert (tmp_path / "projection_semantic_fragment_queue.md").exists()
 
 
@@ -111,3 +115,39 @@ def test_policy_check_output_carries_projection_fiber_semantics_on_block(
     semantics = payload["projection_fiber_semantics"]
     assert semantics["decision"]["outcome"] == "block"
     assert semantics["error_messages"] == ["frontier witness incomplete"]
+
+
+def test_policy_check_workflows_output_emits_invariant_graph_artifact(
+    tmp_path: Path,
+    monkeypatch: object,
+) -> None:
+    output = tmp_path / "policy_check_result.json"
+    monkeypatch.setattr(policy_check, "check_workflows", lambda: None)
+    monkeypatch.setattr(policy_check, "check_aspf_taint_crosswalk_ack", lambda: None)
+    monkeypatch.setattr(policy_check, "check_policy_dsl", lambda: None)
+    monkeypatch.setattr(
+        policy_check,
+        "collect_aspf_lattice_convergence_result",
+        lambda: policy_check.ProjectionFiberLatticeConvergenceResult(
+            decision_rule_id="projection_fiber.convergence.ok",
+            decision_outcome="pass",
+            decision_severity="info",
+            decision_message="projection fiber clean",
+            report_payload={
+                "semantic_rows": [],
+                "compiled_projection_semantic_bundles": [],
+            },
+            error_messages=(),
+        ),
+    )
+
+    result = policy_check.main(
+        [
+            "--workflows",
+            "--output",
+            str(output),
+        ]
+    )
+
+    assert result == 0
+    assert (tmp_path / "invariant_graph.json").exists()

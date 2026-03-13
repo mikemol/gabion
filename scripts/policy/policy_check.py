@@ -1783,6 +1783,21 @@ def _write_projection_semantic_fragment_queue_artifacts(
     )
 
 
+def _write_invariant_graph_artifact(
+    *,
+    output_path: Path,
+) -> None:
+    from gabion.tooling.policy_substrate.invariant_graph import (
+        build_invariant_graph,
+        write_invariant_graph,
+    )
+
+    write_invariant_graph(
+        output_path.parent / "invariant_graph.json",
+        build_invariant_graph(REPO_ROOT),
+    )
+
+
 
 def _raw_payload_branching_violations(path: Path) -> list[str]:
     check_deadline()
@@ -2005,6 +2020,7 @@ def main(argv: list[str] | None = None):
             result=result,
         )
         if lattice_convergence_result is not None:
+            _write_invariant_graph_artifact(output_path=args.output)
             _write_projection_semantic_fragment_queue_artifacts(
                 output_path=args.output,
             )

@@ -107,6 +107,7 @@ def test_analyze_emits_landed_and_active_queue_rows() -> None:
         for item in runtime_touchpoint["touchsites"]
         if item["boundary_name"] == "projection_exec.apply_execution_ops"
     )
+    assert str(runtime_touchsite["touchsite_id"]).startswith("PSF-007-TS:")
     assert runtime_touchsite["site_identity"]
     assert runtime_touchsite["structural_identity"]
     assert runtime_touchsite["touchpoint_structural_identity"] == runtime_touchpoint["structural_identity"]

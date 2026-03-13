@@ -12,83 +12,17 @@ import tomllib
 from typing import Any
 
 from gabion.order_contract import ordered_or_sorted
+from gabion.tooling.policy_substrate.invariant_marker_scan import (
+    decorated_symbol_marker_index,
+    scan_invariant_markers,
+)
 
 
 SRC_ROOT = Path("src") / "gabion"
 SCRIPTS_ROOT = Path("scripts")
 
-_MARKER_DECORATOR_KIND_BY_NAME = {
-    "never_decorator": "never",
-    "invariants.never_decorator": "never",
-    "gabion.invariants.never_decorator": "never",
-    "todo_decorator": "todo",
-    "invariants.todo_decorator": "todo",
-    "gabion.invariants.todo_decorator": "todo",
-    "deprecated_decorator": "deprecated",
-    "invariants.deprecated_decorator": "deprecated",
-    "gabion.invariants.deprecated_decorator": "deprecated",
-}
-_INVARIANT_DECORATOR_NAMES = {
-    "invariant_decorator",
-    "invariants.invariant_decorator",
-    "gabion.invariants.invariant_decorator",
-}
-
-
 def _sorted[T](values: list[T], *, key=None) -> list[T]:
     return ordered_or_sorted(values, source="scripts.policy.symbol_activity_audit", key=key)
-
-
-def _dotted_name(node: ast.AST) -> str | None:
-    match node:
-        case ast.Name(id=name):
-            return name
-        case ast.Attribute(value=value, attr=attr):
-            parent = _dotted_name(value)
-            if parent is None:
-                return None
-            return f"{parent}.{attr}"
-        case _:
-            return None
-
-
-def _const_text(node: ast.AST | None) -> str | None:
-    if isinstance(node, ast.Constant) and isinstance(node.value, str):
-        return str(node.value).strip()
-    return None
-
-
-def _const_text_sequence(node: ast.AST | None) -> tuple[str, ...]:
-    match node:
-        case ast.Constant(value=value) if isinstance(value, str):
-            text = value.strip()
-            return (text,) if text else ()
-        case ast.List(elts=elts) | ast.Tuple(elts=elts) | ast.Set(elts=elts):
-            values = [
-                str(elt.value).strip()
-                for elt in elts
-                if isinstance(elt, ast.Constant) and isinstance(elt.value, str) and str(elt.value).strip()
-            ]
-            return tuple(_sorted(values))
-        case _:
-            return ()
-
-
-def _reasoning_fields(node: ast.AST | None) -> tuple[str, str, tuple[str, ...]]:
-    if not isinstance(node, ast.Dict):
-        return ("", "", ())
-    pairs: dict[str, ast.AST] = {}
-    for raw_key, raw_value in zip(node.keys, node.values):
-        key = _const_text(raw_key)
-        if not key:
-            continue
-        pairs[key] = raw_value
-    summary = _const_text(pairs.get("summary")) or ""
-    control = _const_text(pairs.get("control")) or ""
-    dependencies = _const_text_sequence(pairs.get("blocking_dependencies"))
-    return (summary, control, dependencies)
-
-
 @dataclass(frozen=True)
 class InvariantMarker:
     marker_kind: str
@@ -240,107 +174,14 @@ class _SymbolUseAnalyzer(ast.NodeVisitor):
                 if self._decorator_depth > 0:
                     self.attr_decorators.append(pair)
         self.visit(node.value)
-
-
-def _marker_kind_from_decorator_name(dotted: str) -> str:
-    if dotted in _MARKER_DECORATOR_KIND_BY_NAME:
-        return _MARKER_DECORATOR_KIND_BY_NAME[dotted]
-    terminal = dotted.rsplit(".", 1)[-1]
-    if terminal in _MARKER_DECORATOR_KIND_BY_NAME:
-        return _MARKER_DECORATOR_KIND_BY_NAME[terminal]
-    return ""
-
-
-def _is_invariant_decorator_name(dotted: str) -> bool:
-    if dotted in _INVARIANT_DECORATOR_NAMES:
-        return True
-    terminal = dotted.rsplit(".", 1)[-1]
-    return terminal == "invariant_decorator"
-
-
-def _invariant_marker_from_decorators(decorators: list[ast.expr]) -> InvariantMarker | None:
-    for raw_decorator in decorators:
-        decorator = raw_decorator if isinstance(raw_decorator, ast.Call) else ast.Call(func=raw_decorator, args=[], keywords=[])
-        dotted = _dotted_name(decorator.func)
-        if dotted is None:
-            continue
-
-        marker_kind = ""
-        reason_node: ast.AST | None = None
-        reasoning_node: ast.AST | None = None
-        owner_node: ast.AST | None = None
-        expiry_node: ast.AST | None = None
-        lifecycle_node: ast.AST | None = None
-
-        match dotted:
-            case value if _marker_kind_from_decorator_name(value):
-                marker_kind = _marker_kind_from_decorator_name(value)
-                if decorator.args:
-                    reason_node = decorator.args[0]
-            case value if _is_invariant_decorator_name(value):
-                if decorator.args:
-                    marker_kind = _const_text(decorator.args[0]) or ""
-                    if len(decorator.args) > 1:
-                        reason_node = decorator.args[1]
-                else:
-                    marker_kind = ""
-            case _:
-                continue
-
-        for keyword in decorator.keywords:
-            if keyword.arg == "marker_kind":
-                marker_kind = _const_text(keyword.value) or marker_kind
-            elif keyword.arg == "reason":
-                reason_node = keyword.value
-            elif keyword.arg == "reasoning":
-                reasoning_node = keyword.value
-            elif keyword.arg == "owner":
-                owner_node = keyword.value
-            elif keyword.arg == "expiry":
-                expiry_node = keyword.value
-            elif keyword.arg == "lifecycle_state":
-                lifecycle_node = keyword.value
-
-        if marker_kind not in {"never", "todo", "deprecated"}:
-            continue
-
-        reason = _const_text(reason_node) or ""
-        owner = _const_text(owner_node) or ""
-        expiry = _const_text(expiry_node) or ""
-        summary, control, dependencies = _reasoning_fields(reasoning_node)
-        lifecycle_state = (_const_text(lifecycle_node) or "active").lower()
-
-        missing = []
-        if not reason:
-            missing.append("reason")
-        if not owner:
-            missing.append("owner")
-        if not expiry:
-            missing.append("expiry")
-        if not summary:
-            missing.append("reasoning.summary")
-        if not control:
-            missing.append("reasoning.control")
-        if not dependencies:
-            missing.append("reasoning.blocking_dependencies")
-        if lifecycle_state != "active":
-            missing.append("lifecycle_state")
-
-        return InvariantMarker(
-            marker_kind=marker_kind,
-            valid=not missing,
-            reason=reason,
-            owner=owner,
-            expiry=expiry,
-            reasoning_summary=summary,
-            reasoning_control=control,
-            blocking_dependencies=dependencies,
-            lifecycle_state=lifecycle_state,
-            missing_fields=tuple(missing),
-            decorator=dotted,
-        )
-
-    return None
+def _invariant_marker_from_scan_entry(
+    *,
+    rel_path: str,
+    symbol: str,
+    line: int,
+    marker_index: dict[tuple[str, str, int], InvariantMarker],
+) -> InvariantMarker | None:
+    return marker_index.get((rel_path, symbol, line))
 
 
 def _decorator_is_register(decorator: ast.expr) -> bool:
@@ -379,6 +220,22 @@ def _iter_source_modules(root: Path) -> list[Path]:
 
 def _collect_module_data(*, root: Path) -> dict[str, ModuleData]:
     modules: dict[str, ModuleData] = {}
+    marker_index = {
+        key: InvariantMarker(
+            marker_kind=node.marker_kind,
+            valid=node.valid,
+            reason=node.marker_reason,
+            owner=node.owner,
+            expiry=node.expiry,
+            reasoning_summary=node.reasoning_summary,
+            reasoning_control=node.reasoning_control,
+            blocking_dependencies=node.blocking_dependencies,
+            lifecycle_state=node.lifecycle_state,
+            missing_fields=node.missing_fields,
+            decorator=node.marker_name,
+        )
+        for key, node in decorated_symbol_marker_index(scan_invariant_markers(root)).items()
+    }
     for path in _iter_source_modules(root):
         module = _module_name(path, root)
         source = path.read_text(encoding="utf-8")
@@ -400,7 +257,12 @@ def _collect_module_data(*, root: Path) -> dict[str, ModuleData]:
                             kind="function",
                             lineno=int(lineno),
                             has_register_decorator=_has_register_decorator(node.decorator_list),
-                            invariant_marker=_invariant_marker_from_decorators(node.decorator_list),
+                            invariant_marker=_invariant_marker_from_scan_entry(
+                                rel_path=rel_path,
+                                symbol=name,
+                                line=int(lineno),
+                                marker_index=marker_index,
+                            ),
                         )
                     )
                 case ast.AsyncFunctionDef(name=name, lineno=lineno):
@@ -412,7 +274,12 @@ def _collect_module_data(*, root: Path) -> dict[str, ModuleData]:
                             kind="async_function",
                             lineno=int(lineno),
                             has_register_decorator=_has_register_decorator(node.decorator_list),
-                            invariant_marker=_invariant_marker_from_decorators(node.decorator_list),
+                            invariant_marker=_invariant_marker_from_scan_entry(
+                                rel_path=rel_path,
+                                symbol=name,
+                                line=int(lineno),
+                                marker_index=marker_index,
+                            ),
                         )
                     )
                 case ast.ClassDef(name=name, lineno=lineno):
@@ -424,7 +291,12 @@ def _collect_module_data(*, root: Path) -> dict[str, ModuleData]:
                             kind="class",
                             lineno=int(lineno),
                             has_register_decorator=_has_register_decorator(node.decorator_list),
-                            invariant_marker=_invariant_marker_from_decorators(node.decorator_list),
+                            invariant_marker=_invariant_marker_from_scan_entry(
+                                rel_path=rel_path,
+                                symbol=name,
+                                line=int(lineno),
+                                marker_index=marker_index,
+                            ),
                         )
                     )
                 case _:

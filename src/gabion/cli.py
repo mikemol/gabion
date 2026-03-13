@@ -87,7 +87,11 @@ LSP_PARITY_GATE_COMMAND = command_ids.LSP_PARITY_GATE_COMMAND
 from gabion.lsp_client import (
     CommandRequest, run_command, run_command_direct)
 from gabion.tooling.runtime import (
-    ci_watch as tooling_ci_watch, tool_specs, run_dataflow_stage as tooling_run_dataflow_stage)
+    ci_watch as tooling_ci_watch,
+    invariant_graph as tooling_invariant_graph,
+    tool_specs,
+    run_dataflow_stage as tooling_run_dataflow_stage,
+)
 from gabion.tooling.delta import (
     delta_advisory as tooling_delta_advisory)
 from gabion.tooling.docflow import (
@@ -1693,6 +1697,7 @@ _TOOLING_ARGV_RUNNERS: dict[str, Callable[[list[str] | None], int]] = {
     "run-dataflow-stage": tooling_run_dataflow_stage.main,
     "ambiguity-contract-gate": tooling_ambiguity_contract_policy_check.main,
     "normative-symdiff": tooling_normative_symdiff.main,
+    "invariant-graph": tooling_invariant_graph.main,
 }
 
 
@@ -1760,6 +1765,7 @@ impact_select_tests = _tooling_passthrough_commands["impact_select_tests"]
 run_dataflow_stage = _tooling_passthrough_commands["run_dataflow_stage"]
 ambiguity_contract_gate = _tooling_passthrough_commands["ambiguity_contract_gate"]
 normative_symdiff = _tooling_passthrough_commands["normative_symdiff"]
+invariant_graph = _tooling_passthrough_commands["invariant_graph"]
 
 
 @app.command("lsp-parity-gate")

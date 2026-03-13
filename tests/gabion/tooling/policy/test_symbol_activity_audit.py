@@ -212,9 +212,13 @@ def test_todo_suppression_requires_valid_active_marker_metadata(tmp_path: Path) 
     )
     assert isinstance(invalid_marker_payload, dict)
     assert invalid_marker_payload.get("valid") is False
-    assert "reasoning.summary" in set(invalid_marker_payload.get("missing_fields", []))
+    assert invalid_marker_payload.get("decorator") == "gabion.invariants.todo_decorator"
+    missing_fields = set(invalid_marker_payload.get("missing_fields", []))
+    assert "reasoning.control" in missing_fields
+    assert "reasoning.blocking_dependencies" in missing_fields
     assert isinstance(never_marker_payload, dict)
     assert never_marker_payload.get("marker_kind") == "never"
+    assert never_marker_payload.get("decorator") == "gabion.invariants.never_decorator"
     assert never_marker_payload.get("valid") is True
 
 

@@ -6,6 +6,7 @@ import ast
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from types import MappingProxyType
 
 from gabion.analysis.aspf.aspf import Alt, Forest, NodeId
 from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
@@ -80,6 +81,8 @@ from gabion.analysis.indexed_scan.scanners.materialization.suite_order_relation 
 from gabion.analysis.indexed_scan.scanners.report_sections import (
     spec_row_span as _spec_row_span_impl,
 )
+from gabion.analysis.projection.projection_exec import apply_execution_ops
+from gabion.analysis.projection.projection_exec_plan import execution_ops_from_spec
 from gabion.analysis.projection.projection_registry import (
     AMBIGUITY_SUITE_AGG_SPEC,
     AMBIGUITY_VIRTUAL_SET_SPEC,
@@ -87,6 +90,7 @@ from gabion.analysis.projection.projection_registry import (
     spec_metadata_lines_from_payload,
     spec_metadata_payload,
 )
+from gabion.analysis.projection.projection_spec import ProjectionSpec
 from gabion.invariants import never
 from gabion.order_contract import sort_once
 
@@ -118,6 +122,9 @@ class CallAmbiguity:
     callee_key: str
     candidates: tuple[object, ...]
     phase: str
+
+
+_EMPTY_PROJECTION_OP_REGISTRY: Mapping[str, Callable[[Mapping[str, JSONValue], Mapping[str, JSONValue]], bool]] = MappingProxyType({})
 
 
 def _decode_projection_span(row: Mapping[str, JSONValue]) -> _ProjectionSpan:
@@ -167,6 +174,19 @@ def _materialize_projection_spec_rows(
     )
 
     _impl(spec=spec, projected=projected, forest=forest, row_to_site=row_to_site)
+
+
+def _apply_projection_spec(
+    projection_spec: ProjectionSpec,
+    relation: Iterable[Mapping[str, JSONValue]],
+    *,
+    op_registry: Mapping[str, Callable[[Mapping[str, JSONValue], Mapping[str, JSONValue]], bool]] = _EMPTY_PROJECTION_OP_REGISTRY,
+) -> list[dict[str, JSONValue]]:
+    return apply_execution_ops(
+        execution_ops_from_spec(projection_spec),
+        relation,
+        op_registry=op_registry,
+    )
 
 
 def _suite_order_depth(suite_kind: str) -> int:
@@ -231,7 +251,7 @@ def _materialize_suite_order_spec(
         suite_order_relation_runner=_suite_order_relation,
         row_to_site_runner=_suite_order_row_to_site,
         projection_spec=SUITE_ORDER_SPEC,
-        projection_apply_runner=apply_spec,
+        projection_apply_runner=_apply_projection_spec,
         materialize_rows_runner=_materialize_projection_spec_rows,
     )
 
@@ -304,7 +324,7 @@ def _materialize_ambiguity_suite_agg_spec(
         ambiguity_relation_runner=_ambiguity_suite_relation,
         row_to_suite_runner=_ambiguity_suite_row_to_suite,
         projection_spec=AMBIGUITY_SUITE_AGG_SPEC,
-        projection_apply_runner=apply_spec,
+        projection_apply_runner=_apply_projection_spec,
         materialize_rows_runner=_materialize_projection_spec_rows,
     )
 
@@ -322,7 +342,7 @@ def _materialize_ambiguity_virtual_set_spec(
         ambiguity_relation_runner=_ambiguity_suite_relation,
         row_to_suite_runner=_ambiguity_suite_row_to_suite,
         projection_spec=AMBIGUITY_VIRTUAL_SET_SPEC,
-        projection_apply_runner=apply_spec,
+        projection_apply_runner=_apply_projection_spec,
         materialize_rows_runner=_materialize_projection_spec_rows,
         count_gt_1_runner=_ambiguity_virtual_count_gt_1,
     )

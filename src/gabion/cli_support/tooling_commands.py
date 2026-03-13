@@ -158,6 +158,19 @@ def register_tooling_passthrough_commands(
             )
         )
 
+    @app.command(
+        "invariant-graph",
+        context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+    )
+    def invariant_graph(ctx: typer.Context) -> None:
+        """Build and query the invariant marker graph."""
+        raise typer.Exit(
+            code=run_tooling_with_argv_fn(
+                "invariant-graph",
+                list(ctx.args),
+            )
+        )
+
     return {
         "delta_advisory_telemetry": delta_advisory_telemetry,
         "docflow_delta_emit": docflow_delta_emit,
@@ -165,6 +178,7 @@ def register_tooling_passthrough_commands(
         "run_dataflow_stage": run_dataflow_stage,
         "ambiguity_contract_gate": ambiguity_contract_gate,
         "normative_symdiff": normative_symdiff,
+        "invariant_graph": invariant_graph,
     }
 
 
