@@ -881,6 +881,180 @@ def test_repo_diagnostic_lane_attributes_candidate_owner_from_exact_path() -> No
     assert followup.owner_seed_object_id == "WS-SEED:gabion"
 
 
+def test_repo_diagnostic_lane_ranks_structural_proximity_owner_over_seed() -> None:
+    space = PolicyQueueIdentitySpace()
+    workstream_id = space.workstream_id("WS-PROX")
+    subqueue_id = space.subqueue_id("WS-PROX-SQ-001")
+    touchpoint_id = space.touchpoint_id("WS-PROX-TP-001")
+    touchsite = invariant_graph.InvariantTouchsiteProjection(
+        object_id=space.touchsite_id("WS-PROX-TS-001"),
+        touchpoint_id=touchpoint_id,
+        subqueue_id=subqueue_id,
+        title="proximity touchsite",
+        status="in_progress",
+        rel_path="src/gabion/analysis/dataflow/engine/report_engine.py",
+        qualname="proximity_touchsite",
+        boundary_name="proximity_touchsite",
+        line=12,
+        column=1,
+        node_kind="marker_callsite",
+        site_identity=space.site_ref_id("site.prox"),
+        structural_identity=space.structural_ref_id("struct.prox"),
+        seam_class="surviving_carrier_seam",
+        touchpoint_marker_identity="tp.prox",
+        touchpoint_structural_identity=space.structural_ref_id("tp.struct.prox"),
+        subqueue_marker_identity="sq.prox",
+        subqueue_structural_identity=space.structural_ref_id("sq.struct.prox"),
+        policy_signal_count=0,
+        coverage_count=0,
+        diagnostic_count=0,
+        object_ids=(),
+    )
+    workstream = invariant_graph.InvariantWorkstreamProjection(
+        object_id=workstream_id,
+        title="proximity workstream",
+        status="in_progress",
+        site_identity=space.site_ref_id("ws.prox.site"),
+        structural_identity=space.structural_ref_id("ws.prox.struct"),
+        marker_identity="ws.prox.marker",
+        reasoning_summary="prox",
+        reasoning_control="prox.control",
+        blocking_dependencies=(),
+        object_ids=(),
+        doc_ids=(),
+        policy_ids=(),
+        touchsite_count=1,
+        collapsible_touchsite_count=0,
+        surviving_touchsite_count=1,
+        policy_signal_count=0,
+        coverage_count=0,
+        diagnostic_count=0,
+        subqueues=_stream_from_items(
+            (
+                invariant_graph.InvariantSubqueueProjection(
+                    object_id=subqueue_id,
+                    title="proximity subqueue",
+                    status="in_progress",
+                    site_identity=space.site_ref_id("sq.prox.site"),
+                    structural_identity=space.structural_ref_id("sq.prox.struct"),
+                    marker_identity="sq.prox.marker",
+                    reasoning_summary="prox",
+                    reasoning_control="prox",
+                    blocking_dependencies=(),
+                    object_ids=(),
+                    touchpoint_ids=(touchpoint_id,),
+                    touchsite_count=1,
+                    collapsible_touchsite_count=0,
+                    surviving_touchsite_count=1,
+                    policy_signal_count=0,
+                    coverage_count=0,
+                    diagnostic_count=0,
+                ),
+            )
+        ),
+        touchpoints=_stream_from_items(
+            (
+                invariant_graph.InvariantTouchpointProjection(
+                    object_id=touchpoint_id,
+                    subqueue_id=subqueue_id,
+                    title="proximity touchpoint",
+                    status="in_progress",
+                    rel_path="src/gabion/analysis/dataflow/engine/report_engine.py",
+                    site_identity=space.site_ref_id("tp.prox.site"),
+                    structural_identity=space.structural_ref_id("tp.prox.struct"),
+                    marker_identity="tp.prox.marker",
+                    reasoning_summary="prox",
+                    reasoning_control="prox",
+                    blocking_dependencies=(),
+                    object_ids=(),
+                    touchsite_count=1,
+                    collapsible_touchsite_count=0,
+                    surviving_touchsite_count=1,
+                    policy_signal_count=0,
+                    coverage_count=0,
+                    diagnostic_count=0,
+                    touchsites=_stream_from_items((touchsite,)),
+                ),
+            )
+        ),
+    )
+    node = invariant_graph.InvariantGraphNode(
+        node_id="policy_signal:prox",
+        node_kind="policy_signal",
+        title="grade:GMP-PROX",
+        marker_name="never",
+        marker_kind="policy_signal",
+        marker_id="policy-signal-prox",
+        site_identity="site.synthetic.prox",
+        structural_identity="struct.synthetic.prox",
+        object_ids=(),
+        doc_ids=(),
+        policy_ids=("GMP-PROX",),
+        invariant_ids=(),
+        reasoning_summary="prox signal",
+        reasoning_control="prox.signal",
+        blocking_dependencies=(),
+        rel_path="src/gabion/analysis/dataflow/io/dataflow_reporting.py",
+        qualname="gabion.analysis.dataflow.io.dataflow_reporting.emit_signal",
+        line=12,
+        column=3,
+        ast_node_kind="Call",
+        seam_class="policy_signal",
+        source_marker_node_id="policy_signal:prox",
+        status_hint="warning",
+    )
+    diagnostics = (
+        invariant_graph.InvariantGraphDiagnostic(
+            diagnostic_id="diag-prox",
+            severity="warning",
+            code="unmatched_policy_signal",
+            node_id=node.node_id,
+            raw_dependency="",
+            message="grade:GMP-PROX did not resolve to an owned workstream",
+        ),
+    )
+    projection = invariant_graph.InvariantWorkstreamsProjection(
+        root=str(REPO_ROOT),
+        generated_at_utc="2026-03-13T00:00:00+00:00",
+        workstreams=_stream_from_items((workstream,)),
+        diagnostics=diagnostics,
+        node_lookup={node.node_id: node},
+    )
+
+    lane = projection.repo_diagnostic_lanes()[0]
+    assert lane.candidate_owner_status == "structural_proximity_owner"
+    assert lane.candidate_owner_object_id == "WS-PROX"
+    assert lane.candidate_owner_object_ids == ("WS-PROX",)
+    assert lane.candidate_owner_seed_path == "src/gabion/analysis/dataflow/io"
+    assert lane.candidate_owner_seed_object_id == "WS-SEED:gabion.analysis.dataflow.io"
+    assert lane.candidate_owner_options == (
+        invariant_graph.InvariantOwnerCandidateOption(
+            resolution_kind="attach_existing_owner",
+            owner_status="structural_proximity_owner",
+            object_id="WS-PROX",
+            score=160,
+            rationale="shared_source_family_prefix:4",
+        ),
+        invariant_graph.InvariantOwnerCandidateOption(
+            resolution_kind="seed_new_owner",
+            owner_status="source_family_seed_owner",
+            object_id="WS-SEED:gabion.analysis.dataflow.io",
+            score=100,
+            rationale="source_family_seed",
+        ),
+    )
+    assert lane.recommended_action == "choose_candidate_owner_from_ranked_options"
+    followup = projection.recommended_repo_followup()
+    assert followup is not None
+    assert followup.owner_object_id == "WS-PROX"
+    assert followup.owner_seed_path == "src/gabion/analysis/dataflow/io"
+    assert (
+        followup.owner_seed_object_id == "WS-SEED:gabion.analysis.dataflow.io"
+    )
+    assert followup.recommended_action == "choose_candidate_owner_from_ranked_options"
+    assert followup.title == "resolve grade:GMP-PROX ownership via WS-PROX"
+
+
 def test_runtime_invariant_graph_cli_build_summary_trace_and_blockers(
     tmp_path: Path,
     monkeypatch,

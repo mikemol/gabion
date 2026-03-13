@@ -1511,9 +1511,90 @@ class InvariantWorkstreamsProjection:
             return tuple(_sorted(list(exact_matches)))
         if exact_only:
             return ()
-        if family_matches:
-            return tuple(_sorted(list(family_matches)))
+        family_owner_object_ids = self._repo_diagnostic_family_owner_ids(
+            rel_path=rel_path
+        )
+        if family_owner_object_ids:
+            return family_owner_object_ids
+        proximity_scores = self._repo_diagnostic_proximity_owner_scores(rel_path=rel_path)
+        if proximity_scores:
+            return tuple(_sorted(list(proximity_scores)))
         return ()
+
+    def _repo_diagnostic_family_owner_ids(
+        self,
+        *,
+        rel_path: str,
+    ) -> tuple[str, ...]:
+        if not rel_path:
+            return ()
+        family_matches: set[str] = set()
+        diagnostic_parent = Path(rel_path).parent.as_posix()
+        for workstream in self.iter_workstreams():
+            family_match = False
+            for touchpoint in workstream.iter_touchpoints():
+                if (
+                    touchpoint.rel_path
+                    and Path(touchpoint.rel_path).parent.as_posix() == diagnostic_parent
+                ):
+                    family_match = True
+                for touchsite in touchpoint.iter_touchsites():
+                    if (
+                        touchsite.rel_path
+                        and Path(touchsite.rel_path).parent.as_posix() == diagnostic_parent
+                    ):
+                        family_match = True
+            if family_match:
+                family_matches.add(workstream.object_id.wire())
+        return tuple(_sorted(list(family_matches)))
+
+    @staticmethod
+    def _shared_path_prefix_depth(
+        left: tuple[str, ...],
+        right: tuple[str, ...],
+    ) -> int:
+        depth = 0
+        for left_part, right_part in zip(left, right):
+            if left_part != right_part:
+                break
+            depth += 1
+        return depth
+
+    def _repo_diagnostic_proximity_owner_scores(
+        self,
+        *,
+        rel_path: str,
+        minimum_prefix_depth: int = 4,
+    ) -> dict[str, int]:
+        if not rel_path:
+            return {}
+        diagnostic_parent_parts = Path(rel_path).parent.parts
+        if not diagnostic_parent_parts:
+            return {}
+        scores: dict[str, int] = {}
+        for workstream in self.iter_workstreams():
+            best_depth = 0
+            for touchpoint in workstream.iter_touchpoints():
+                if touchpoint.rel_path:
+                    best_depth = max(
+                        best_depth,
+                        self._shared_path_prefix_depth(
+                            diagnostic_parent_parts,
+                            Path(touchpoint.rel_path).parent.parts,
+                        ),
+                    )
+                for touchsite in touchpoint.iter_touchsites():
+                    if touchsite.rel_path:
+                        best_depth = max(
+                            best_depth,
+                            self._shared_path_prefix_depth(
+                                diagnostic_parent_parts,
+                                Path(touchsite.rel_path).parent.parts,
+                            ),
+                        )
+            if best_depth >= minimum_prefix_depth:
+                scores[workstream.object_id.wire()] = best_depth
+        return scores
 
     def _repo_diagnostic_candidate_owner_seed_path(self, *, rel_path: str) -> str | None:
         if not rel_path:
@@ -1555,9 +1636,23 @@ class InvariantWorkstreamsProjection:
             if len(exact_owner_object_ids) == 1:
                 return "exact_path_owner"
             return "ambiguous_exact_path_owner"
+        family_owner_object_ids = self._repo_diagnostic_family_owner_ids(rel_path=rel_path)
+        if family_owner_object_ids and family_owner_object_ids == candidate_owner_object_ids:
+            if len(candidate_owner_object_ids) == 1:
+                return "path_family_owner"
+            return "ambiguous_path_family_owner"
+        proximity_owner_scores = self._repo_diagnostic_proximity_owner_scores(
+            rel_path=rel_path
+        )
+        if proximity_owner_scores and tuple(
+            _sorted(list(proximity_owner_scores))
+        ) == candidate_owner_object_ids:
+            if len(candidate_owner_object_ids) == 1:
+                return "structural_proximity_owner"
+            return "ambiguous_structural_proximity_owner"
         if len(candidate_owner_object_ids) == 1:
-            return "path_family_owner"
-        return "ambiguous_path_family_owner"
+            return "candidate_owner"
+        return "ambiguous_candidate_owner"
 
     def _repo_diagnostic_candidate_owner_options(
         self,
@@ -1569,6 +1664,10 @@ class InvariantWorkstreamsProjection:
         exact_owner_object_ids = self._repo_diagnostic_candidate_owner_ids(
             rel_path=rel_path,
             exact_only=True,
+        )
+        family_owner_object_ids = self._repo_diagnostic_family_owner_ids(rel_path=rel_path)
+        proximity_owner_scores = self._repo_diagnostic_proximity_owner_scores(
+            rel_path=rel_path
         )
         options: list[InvariantOwnerCandidateOption] = []
         if exact_owner_object_ids:
@@ -1586,19 +1685,35 @@ class InvariantWorkstreamsProjection:
                         rationale="exact_path_match",
                     )
                 )
-        elif candidate_owner_object_ids:
-            for object_id in candidate_owner_object_ids:
+        elif family_owner_object_ids:
+            for object_id in family_owner_object_ids:
                 options.append(
                     InvariantOwnerCandidateOption(
                         resolution_kind="attach_existing_owner",
                         owner_status=(
                             "path_family_owner"
-                            if len(candidate_owner_object_ids) == 1
+                            if len(family_owner_object_ids) == 1
                             else "ambiguous_path_family_owner"
                         ),
                         object_id=object_id,
                         score=200,
                         rationale="same_parent_path",
+                    )
+                )
+        elif proximity_owner_scores:
+            owner_status = (
+                "structural_proximity_owner"
+                if len(proximity_owner_scores) == 1
+                else "ambiguous_structural_proximity_owner"
+            )
+            for object_id, depth in proximity_owner_scores.items():
+                options.append(
+                    InvariantOwnerCandidateOption(
+                        resolution_kind="attach_existing_owner",
+                        owner_status=owner_status,
+                        object_id=object_id,
+                        score=120 + (depth * 10),
+                        rationale=f"shared_source_family_prefix:{depth}",
                     )
                 )
         if candidate_owner_seed_object_id is not None:
@@ -1626,7 +1741,20 @@ class InvariantWorkstreamsProjection:
         actions: list[InvariantRepoFollowupAction] = []
         for lane in self.repo_diagnostic_lanes():
             if lane.diagnostic_code == "unmatched_policy_signal":
-                if lane.candidate_owner_seed_path:
+                best_option = (
+                    lane.candidate_owner_options[0]
+                    if lane.candidate_owner_options
+                    else None
+                )
+                if (
+                    best_option is not None
+                    and best_option.resolution_kind == "attach_existing_owner"
+                ):
+                    title = (
+                        f"resolve {lane.title} ownership via "
+                        f"{best_option.object_id}"
+                    )
+                elif lane.candidate_owner_seed_path:
                     title = (
                         f"seed ownership for {lane.title} from "
                         f"{lane.candidate_owner_seed_path}"
@@ -1902,7 +2030,7 @@ class InvariantWorkstreamsProjection:
             )
             recommended_action = _base_recommended_action
             if diagnostic_code == "unmatched_policy_signal":
-                if len(candidate_owner_object_ids) == 1:
+                if candidate_owner_status in {"exact_path_owner", "path_family_owner"}:
                     recommended_action = "attach_policy_signals_to_candidate_owner"
                 elif candidate_owner_object_ids:
                     recommended_action = "choose_candidate_owner_from_ranked_options"
