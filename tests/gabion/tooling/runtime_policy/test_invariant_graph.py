@@ -300,6 +300,15 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
     assert repo_diagnostic_lanes[0]["candidate_owner_seed_object_id"] == (
         "WS-SEED:gabion.analysis.dataflow.io"
     )
+    assert repo_diagnostic_lanes[0]["candidate_owner_options"] == [
+        {
+            "resolution_kind": "seed_new_owner",
+            "owner_status": "source_family_seed_owner",
+            "object_id": "WS-SEED:gabion.analysis.dataflow.io",
+            "score": 100,
+            "rationale": "source_family_seed",
+        }
+    ]
     assert len(repo_diagnostic_lanes[0]["node_ids"]) == 1
     assert repo_diagnostic_lanes[-1]["title"] == "grade:GMP-007"
     assert all(
@@ -848,6 +857,22 @@ def test_repo_diagnostic_lane_attributes_candidate_owner_from_exact_path() -> No
     assert lane.candidate_owner_object_ids == ("WS-OWNER",)
     assert lane.candidate_owner_seed_path == "src/gabion"
     assert lane.candidate_owner_seed_object_id == "WS-SEED:gabion"
+    assert lane.candidate_owner_options == (
+        invariant_graph.InvariantOwnerCandidateOption(
+            resolution_kind="attach_existing_owner",
+            owner_status="exact_path_owner",
+            object_id="WS-OWNER",
+            score=300,
+            rationale="exact_path_match",
+        ),
+        invariant_graph.InvariantOwnerCandidateOption(
+            resolution_kind="seed_new_owner",
+            owner_status="source_family_seed_owner",
+            object_id="WS-SEED:gabion",
+            score=100,
+            rationale="source_family_seed",
+        ),
+    )
     assert lane.recommended_action == "attach_policy_signals_to_candidate_owner"
     followup = projection.recommended_repo_followup()
     assert followup is not None
@@ -1699,7 +1724,7 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
     )
     assert "repo_diagnostic_lanes:" in summary_output
     assert (
-        "- grade:GMP-001 :: code=unmatched_policy_signal :: severity=warning :: count=1 :: source=src/gabion/analysis/dataflow/io/dataflow_reporting.py::gabion.analysis.dataflow.io.dataflow_reporting._append_report_tail_sections :: policy_ids=GMP-001 :: owner_status=source_family_seed_owner :: owner=<none> :: seed=src/gabion/analysis/dataflow/io :: seed_object=WS-SEED:gabion.analysis.dataflow.io :: action=seed_owned_workstream_from_source_family"
+        "- grade:GMP-001 :: code=unmatched_policy_signal :: severity=warning :: count=1 :: source=src/gabion/analysis/dataflow/io/dataflow_reporting.py::gabion.analysis.dataflow.io.dataflow_reporting._append_report_tail_sections :: policy_ids=GMP-001 :: owner_status=source_family_seed_owner :: owner=<none> :: seed=src/gabion/analysis/dataflow/io :: seed_object=WS-SEED:gabion.analysis.dataflow.io :: best_option=seed_new_owner:WS-SEED:gabion.analysis.dataflow.io:100 :: action=seed_owned_workstream_from_source_family"
         in summary_output
     )
 

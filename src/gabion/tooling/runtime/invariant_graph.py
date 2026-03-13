@@ -241,8 +241,9 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
     print("repo_diagnostic_lanes:")
     for lane in repo_diagnostic_lanes:
         policy_ids = ", ".join(lane.policy_ids) if lane.policy_ids else "<none>"
+        best_option = lane.candidate_owner_options[0] if lane.candidate_owner_options else None
         print(
-            "- {title} :: code={code} :: severity={severity} :: count={count} :: source={source} :: policy_ids={policy_ids} :: owner_status={owner_status} :: owner={owner} :: seed={seed} :: seed_object={seed_object} :: action={action}".format(
+            "- {title} :: code={code} :: severity={severity} :: count={count} :: source={source} :: policy_ids={policy_ids} :: owner_status={owner_status} :: owner={owner} :: seed={seed} :: seed_object={seed_object} :: best_option={best_option} :: action={action}".format(
                 title=lane.title,
                 code=lane.diagnostic_code,
                 severity=lane.severity,
@@ -257,6 +258,11 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
                 owner=lane.candidate_owner_object_id or "<none>",
                 seed=lane.candidate_owner_seed_path or "<none>",
                 seed_object=lane.candidate_owner_seed_object_id or "<none>",
+                best_option=(
+                    "<none>"
+                    if best_option is None
+                    else f"{best_option.resolution_kind}:{best_option.object_id}:{best_option.score}"
+                ),
                 action=lane.recommended_action,
             )
         )

@@ -687,6 +687,7 @@ class InvariantRepoDiagnosticLane:
     candidate_owner_object_ids: tuple[str, ...]
     candidate_owner_seed_path: str | None
     candidate_owner_seed_object_id: str | None
+    candidate_owner_options: tuple["InvariantOwnerCandidateOption", ...]
 
     def as_payload(self) -> dict[str, object]:
         return {
@@ -706,6 +707,27 @@ class InvariantRepoDiagnosticLane:
             "candidate_owner_object_ids": list(self.candidate_owner_object_ids),
             "candidate_owner_seed_path": self.candidate_owner_seed_path,
             "candidate_owner_seed_object_id": self.candidate_owner_seed_object_id,
+            "candidate_owner_options": [
+                item.as_payload() for item in self.candidate_owner_options
+            ],
+        }
+
+
+@dataclass(frozen=True)
+class InvariantOwnerCandidateOption:
+    resolution_kind: str
+    owner_status: str
+    object_id: str
+    score: int
+    rationale: str
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "resolution_kind": self.resolution_kind,
+            "owner_status": self.owner_status,
+            "object_id": self.object_id,
+            "score": self.score,
+            "rationale": self.rationale,
         }
 
 
@@ -1537,6 +1559,65 @@ class InvariantWorkstreamsProjection:
             return "path_family_owner"
         return "ambiguous_path_family_owner"
 
+    def _repo_diagnostic_candidate_owner_options(
+        self,
+        *,
+        rel_path: str,
+        candidate_owner_object_ids: tuple[str, ...],
+        candidate_owner_seed_object_id: str | None,
+    ) -> tuple[InvariantOwnerCandidateOption, ...]:
+        exact_owner_object_ids = self._repo_diagnostic_candidate_owner_ids(
+            rel_path=rel_path,
+            exact_only=True,
+        )
+        options: list[InvariantOwnerCandidateOption] = []
+        if exact_owner_object_ids:
+            for object_id in exact_owner_object_ids:
+                options.append(
+                    InvariantOwnerCandidateOption(
+                        resolution_kind="attach_existing_owner",
+                        owner_status=(
+                            "exact_path_owner"
+                            if len(exact_owner_object_ids) == 1
+                            else "ambiguous_exact_path_owner"
+                        ),
+                        object_id=object_id,
+                        score=300,
+                        rationale="exact_path_match",
+                    )
+                )
+        elif candidate_owner_object_ids:
+            for object_id in candidate_owner_object_ids:
+                options.append(
+                    InvariantOwnerCandidateOption(
+                        resolution_kind="attach_existing_owner",
+                        owner_status=(
+                            "path_family_owner"
+                            if len(candidate_owner_object_ids) == 1
+                            else "ambiguous_path_family_owner"
+                        ),
+                        object_id=object_id,
+                        score=200,
+                        rationale="same_parent_path",
+                    )
+                )
+        if candidate_owner_seed_object_id is not None:
+            options.append(
+                InvariantOwnerCandidateOption(
+                    resolution_kind="seed_new_owner",
+                    owner_status="source_family_seed_owner",
+                    object_id=candidate_owner_seed_object_id,
+                    score=100,
+                    rationale="source_family_seed",
+                )
+            )
+        return tuple(
+            _sorted(
+                options,
+                key=lambda item: (-item.score, item.resolution_kind, item.object_id),
+            )
+        )
+
     def ranked_repo_followups(self) -> tuple[InvariantRepoFollowupAction, ...]:
         return self._ranked_repo_followups
 
@@ -1809,6 +1890,11 @@ class InvariantWorkstreamsProjection:
                     seed_path=candidate_owner_seed_path
                 )
             )
+            candidate_owner_options = self._repo_diagnostic_candidate_owner_options(
+                rel_path=rel_path,
+                candidate_owner_object_ids=candidate_owner_object_ids,
+                candidate_owner_seed_object_id=candidate_owner_seed_object_id,
+            )
             candidate_owner_status = self._repo_diagnostic_candidate_owner_status(
                 rel_path=rel_path,
                 candidate_owner_object_ids=candidate_owner_object_ids,
@@ -1816,8 +1902,10 @@ class InvariantWorkstreamsProjection:
             )
             recommended_action = _base_recommended_action
             if diagnostic_code == "unmatched_policy_signal":
-                if candidate_owner_object_ids:
+                if len(candidate_owner_object_ids) == 1:
                     recommended_action = "attach_policy_signals_to_candidate_owner"
+                elif candidate_owner_object_ids:
+                    recommended_action = "choose_candidate_owner_from_ranked_options"
                 elif candidate_owner_seed_path is not None:
                     recommended_action = "seed_owned_workstream_from_source_family"
             lanes.append(
@@ -1842,6 +1930,7 @@ class InvariantWorkstreamsProjection:
                     candidate_owner_object_ids=candidate_owner_object_ids,
                     candidate_owner_seed_path=candidate_owner_seed_path,
                     candidate_owner_seed_object_id=candidate_owner_seed_object_id,
+                    candidate_owner_options=candidate_owner_options,
                 )
             )
         return tuple(
