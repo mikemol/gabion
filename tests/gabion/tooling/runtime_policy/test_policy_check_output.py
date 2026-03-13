@@ -67,11 +67,15 @@ def test_policy_check_output_carries_projection_fiber_semantics_on_pass(
     invariant_graph_payload = json.loads(
         (tmp_path / "invariant_graph.json").read_text(encoding="utf-8")
     )
+    invariant_workstreams_payload = json.loads(
+        (tmp_path / "invariant_workstreams.json").read_text(encoding="utf-8")
+    )
     assert queue_payload["source_artifact"] == str(output)
     assert queue_payload["current_state"]["decision"]["rule_id"] == (
         "projection_fiber.convergence.ok"
     )
     assert invariant_graph_payload["format_version"] == 1
+    assert invariant_workstreams_payload["format_version"] == 1
     assert (tmp_path / "projection_semantic_fragment_queue.md").exists()
 
 
@@ -151,3 +155,4 @@ def test_policy_check_workflows_output_emits_invariant_graph_artifact(
 
     assert result == 0
     assert (tmp_path / "invariant_graph.json").exists()
+    assert (tmp_path / "invariant_workstreams.json").exists()

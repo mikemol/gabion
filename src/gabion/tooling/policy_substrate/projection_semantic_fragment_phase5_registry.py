@@ -54,6 +54,8 @@ class ProjectionSemanticFragmentPhase5TouchpointDefinition:
     structural_identity: str
     marker_identity: str
     marker_payload: MarkerPayload
+    collapse_private_helpers: bool
+    surviving_boundary_names: tuple[str, ...]
 
 
 def _registry_site_metadata(symbol: Callable[..., object]) -> tuple[str, str, int]:
@@ -484,6 +486,31 @@ def iter_phase5_touchpoints() -> tuple[ProjectionSemanticFragmentPhase5Touchpoin
             _psf_007_tp_projection_exec,
         ),
     ):
+        surviving_boundary_names: tuple[str, ...]
+        if touchpoint_id == "PSF-007-TP-001":
+            surviving_boundary_names = (
+                "semantic_fragment.normalize_value",
+                "semantic_fragment.stable_json_key",
+            )
+        elif touchpoint_id == "PSF-007-TP-002":
+            surviving_boundary_names = (
+                "projection_semantic_lowering.normalize_projection_op",
+                "projection_semantic_lowering.lower_projection_op",
+            )
+        elif touchpoint_id == "PSF-007-TP-003":
+            surviving_boundary_names = (
+                "projection_semantic_lowering_compile.compile_semantic_projection_op",
+                "projection_semantic_lowering_compile.semantic_rows_for_quotient_face",
+                "projection_semantic_lowering_compile.semantic_rows_for_surface",
+            )
+        elif touchpoint_id == "PSF-007-TP-006":
+            surviving_boundary_names = (
+                "projection_exec.apply_execution_op",
+                "projection_exec.sort_value",
+                "projection_exec.canonical_group_reference",
+            )
+        else:
+            surviving_boundary_names = ()
         (
             payload,
             marker_id,
@@ -509,6 +536,8 @@ def iter_phase5_touchpoints() -> tuple[ProjectionSemanticFragmentPhase5Touchpoin
                 structural_identity=structural_id,
                 marker_identity=marker_id,
                 marker_payload=payload,
+                collapse_private_helpers=True,
+                surviving_boundary_names=surviving_boundary_names,
             )
         )
     return tuple(definitions)

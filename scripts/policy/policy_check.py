@@ -1789,12 +1789,16 @@ def _write_invariant_graph_artifact(
 ) -> None:
     from gabion.tooling.policy_substrate.invariant_graph import (
         build_invariant_graph,
+        build_invariant_workstreams,
         write_invariant_graph,
+        write_invariant_workstreams,
     )
 
-    write_invariant_graph(
-        output_path.parent / "invariant_graph.json",
-        build_invariant_graph(REPO_ROOT),
+    graph = build_invariant_graph(REPO_ROOT)
+    write_invariant_graph(output_path.parent / "invariant_graph.json", graph)
+    write_invariant_workstreams(
+        output_path.parent / "invariant_workstreams.json",
+        build_invariant_workstreams(graph),
     )
 
 

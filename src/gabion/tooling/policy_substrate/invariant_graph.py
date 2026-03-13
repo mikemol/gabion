@@ -15,6 +15,12 @@ from gabion.tooling.policy_substrate.invariant_marker_scan import (
     InvariantMarkerScanNode,
     scan_invariant_markers,
 )
+from gabion.tooling.policy_substrate.policy_rule_frontmatter_migration_registry import (
+    PolicyRuleFrontmatterMigrationQueueDefinition,
+    PolicyRuleFrontmatterMigrationSubqueueDefinition,
+    iter_prf_queues,
+    iter_prf_subqueues,
+)
 from gabion.tooling.policy_substrate.projection_semantic_fragment_phase5_registry import (
     ProjectionSemanticFragmentPhase5QueueDefinition,
     ProjectionSemanticFragmentPhase5SubqueueDefinition,
@@ -30,20 +36,8 @@ from gabion.tooling.policy_substrate.site_identity import (
 
 _FORMAT_VERSION = 1
 _REPO_ROOT = Path(__file__).resolve().parents[4]
-_PHASE5_SURVIVING_TOUCHSITE_BOUNDARY_NAMES = frozenset(
-    {
-        "semantic_fragment.normalize_value",
-        "semantic_fragment.stable_json_key",
-        "projection_semantic_lowering.normalize_projection_op",
-        "projection_semantic_lowering.lower_projection_op",
-        "projection_semantic_lowering_compile.compile_semantic_projection_op",
-        "projection_semantic_lowering_compile.semantic_rows_for_quotient_face",
-        "projection_semantic_lowering_compile.semantic_rows_for_surface",
-        "projection_exec.apply_execution_op",
-        "projection_exec.sort_value",
-        "projection_exec.canonical_group_reference",
-    }
-)
+_AMBIGUITY_ARTIFACT = Path("artifacts/out/ambiguity_contract_policy_check.json")
+_TEST_EVIDENCE_ARTIFACT = Path("out/test_evidence.json")
 
 
 def _sorted[T](values: list[T], *, key=None) -> list[T]:
@@ -78,6 +72,7 @@ class InvariantGraphNode:
     ast_node_kind: str
     seam_class: str
     source_marker_node_id: str
+    status_hint: str
 
     def matches_raw_id(self, raw_id: str) -> bool:
         values = {
@@ -116,6 +111,7 @@ class InvariantGraphNode:
             "ast_node_kind": self.ast_node_kind,
             "seam_class": self.seam_class,
             "source_marker_node_id": self.source_marker_node_id,
+            "status_hint": self.status_hint,
         }
 
 
@@ -158,6 +154,7 @@ class InvariantGraphDiagnostic:
 @dataclass(frozen=True)
 class InvariantGraph:
     root: str
+    workstream_root_ids: tuple[str, ...]
     nodes: tuple[InvariantGraphNode, ...]
     edges: tuple[InvariantGraphEdge, ...]
     diagnostics: tuple[InvariantGraphDiagnostic, ...]
@@ -194,6 +191,7 @@ class InvariantGraph:
             "format_version": _FORMAT_VERSION,
             "generated_at_utc": datetime.now(timezone.utc).isoformat(),
             "root": self.root,
+            "workstream_root_ids": list(self.workstream_root_ids),
             "counts": {
                 "node_count": len(self.nodes),
                 "edge_count": len(self.edges),
@@ -234,6 +232,7 @@ class InvariantGraph:
                 ast_node_kind=str(item.get("ast_node_kind", "")),
                 seam_class=str(item.get("seam_class", "")),
                 source_marker_node_id=str(item.get("source_marker_node_id", "")),
+                status_hint=str(item.get("status_hint", "")),
             )
             for item in payload.get("nodes", [])
             if isinstance(item, Mapping)
@@ -262,6 +261,9 @@ class InvariantGraph:
         )
         return cls(
             root=str(payload.get("root", "")),
+            workstream_root_ids=tuple(
+                str(value) for value in payload.get("workstream_root_ids", [])
+            ),
             nodes=nodes,
             edges=edges,
             diagnostics=diagnostics,
@@ -323,6 +325,7 @@ def _synthetic_node(
     marker_kind: str = "",
     source_marker_node_id: str = "",
     node_kind: str = "synthetic_work_item",
+    status_hint: str = "",
 ) -> InvariantGraphNode:
     site_identity, structural_identity = _synthetic_identity(
         ref_kind=ref_kind,
@@ -351,6 +354,7 @@ def _synthetic_node(
         ast_node_kind="synthetic",
         seam_class=seam_class,
         source_marker_node_id=source_marker_node_id,
+        status_hint=status_hint,
     )
 
 
@@ -378,6 +382,7 @@ def _node_from_scan_entry(entry: InvariantMarkerScanNode) -> InvariantGraphNode:
         ast_node_kind=entry.ast_node_kind,
         seam_class="",
         source_marker_node_id="",
+        status_hint="",
     )
 
 
@@ -416,11 +421,18 @@ def _semantic_ref_node(
     )
 
 
-def _touchsite_seam_class(*, qualname: str, boundary_name: str) -> str:
+def _touchsite_seam_class(
+    *,
+    qualname: str,
+    boundary_name: str,
+    touchpoint_definition: ProjectionSemanticFragmentPhase5TouchpointDefinition,
+) -> str:
     function_name = qualname.rsplit(".", 1)[-1]
+    if not touchpoint_definition.collapse_private_helpers:
+        return "surviving_carrier_seam"
     if (
         not function_name.startswith("_")
-        or boundary_name in _PHASE5_SURVIVING_TOUCHSITE_BOUNDARY_NAMES
+        or boundary_name in touchpoint_definition.surviving_boundary_names
     ):
         return "surviving_carrier_seam"
     return "collapsible_helper_seam"
@@ -447,10 +459,12 @@ class _Phase5TouchsiteScanner(ast.NodeVisitor):
         self,
         *,
         rel_path: str,
+        touchpoint_definition: ProjectionSemanticFragmentPhase5TouchpointDefinition,
         touchpoint_object_id: str,
         subqueue_object_id: str,
     ) -> None:
         self.rel_path = rel_path
+        self.touchpoint_definition = touchpoint_definition
         self.touchpoint_object_id = touchpoint_object_id
         self.subqueue_object_id = subqueue_object_id
         self._scope: list[str] = []
@@ -503,6 +517,7 @@ class _Phase5TouchsiteScanner(ast.NodeVisitor):
             seam_class = _touchsite_seam_class(
                 qualname=qualname,
                 boundary_name=boundary_name,
+                touchpoint_definition=self.touchpoint_definition,
             )
             touchsite_object_id = f"PSF-007-TS:{structural_identity}"
             self.touchsites.append(
@@ -549,6 +564,7 @@ def _keyword_string_literal(call: ast.Call, key: str) -> str:
 
 def _scan_phase5_touchsites(
     *,
+    touchpoint_definition: ProjectionSemanticFragmentPhase5TouchpointDefinition,
     rel_path: str,
     touchpoint_object_id: str,
     subqueue_object_id: str,
@@ -556,6 +572,7 @@ def _scan_phase5_touchsites(
     source = (_REPO_ROOT / rel_path).read_text(encoding="utf-8")
     scanner = _Phase5TouchsiteScanner(
         rel_path=rel_path,
+        touchpoint_definition=touchpoint_definition,
         touchpoint_object_id=touchpoint_object_id,
         subqueue_object_id=subqueue_object_id,
     )
@@ -581,139 +598,272 @@ def _phase5_primary_object_id(values: tuple[str, ...], fallback: str) -> str:
     return fallback
 
 
-def build_invariant_graph(root: Path) -> InvariantGraph:
-    root = root.resolve()
-    nodes_by_id: dict[str, InvariantGraphNode] = {}
-    diagnostics: list[InvariantGraphDiagnostic] = []
-    edge_keys: set[tuple[str, str, str]] = set()
-    edges: list[InvariantGraphEdge] = []
-    object_node_ids: dict[str, str] = {}
-    object_owner_node_ids: dict[str, str] = {}
+@dataclass
+class _InvariantGraphBuildState:
+    root: Path
+    nodes_by_id: dict[str, InvariantGraphNode]
+    diagnostics: list[InvariantGraphDiagnostic]
+    edge_keys: set[tuple[str, str, str]]
+    edges: list[InvariantGraphEdge]
+    object_node_ids: dict[str, str]
+    object_owner_node_ids: dict[str, str]
+    workstream_root_ids: list[str]
+    declared_workstream_ids: set[str]
 
-    def add_node(node: InvariantGraphNode, *, replace: bool = False) -> None:
-        existing = nodes_by_id.get(node.node_id)
-        if existing is not None and not replace:
-            raise ValueError(f"duplicate invariant graph node id: {node.node_id}")
-        nodes_by_id[node.node_id] = node
 
-    def add_edge(edge_kind: str, source_id: str, target_id: str) -> None:
-        key = (edge_kind, source_id, target_id)
-        if source_id == target_id or key in edge_keys:
-            return
-        edge_keys.add(key)
-        edges.append(
-            InvariantGraphEdge(
-                edge_id=_edge_id(edge_kind, source_id, target_id),
-                edge_kind=edge_kind,
-                source_id=source_id,
-                target_id=target_id,
-            )
+def _new_build_state(root: Path) -> _InvariantGraphBuildState:
+    return _InvariantGraphBuildState(
+        root=root,
+        nodes_by_id={},
+        diagnostics=[],
+        edge_keys=set(),
+        edges=[],
+        object_node_ids={},
+        object_owner_node_ids={},
+        workstream_root_ids=[],
+        declared_workstream_ids=set(),
+    )
+
+
+def _add_node(
+    state: _InvariantGraphBuildState,
+    node: InvariantGraphNode,
+    *,
+    replace: bool = False,
+) -> None:
+    existing = state.nodes_by_id.get(node.node_id)
+    if existing is not None and not replace:
+        raise ValueError(f"duplicate invariant graph node id: {node.node_id}")
+    state.nodes_by_id[node.node_id] = node
+
+
+def _add_edge(
+    state: _InvariantGraphBuildState,
+    edge_kind: str,
+    source_id: str,
+    target_id: str,
+) -> None:
+    key = (edge_kind, source_id, target_id)
+    if source_id == target_id or key in state.edge_keys:
+        return
+    state.edge_keys.add(key)
+    state.edges.append(
+        InvariantGraphEdge(
+            edge_id=_edge_id(edge_kind, source_id, target_id),
+            edge_kind=edge_kind,
+            source_id=source_id,
+            target_id=target_id,
+        )
+    )
+
+
+def _ensure_ref_node(
+    state: _InvariantGraphBuildState,
+    ref_kind: SemanticLinkKind,
+    value: str,
+) -> str:
+    node_id = _synthetic_ref_node_id(ref_kind.value, value)
+    if node_id not in state.nodes_by_id:
+        _add_node(state, _semantic_ref_node(ref_kind=ref_kind, value=value))
+    if ref_kind is SemanticLinkKind.OBJECT_ID:
+        state.object_node_ids.setdefault(value, node_id)
+    return node_id
+
+
+def _claim_object_id(
+    state: _InvariantGraphBuildState,
+    node: InvariantGraphNode,
+    *,
+    object_id: str,
+) -> None:
+    claimed_by = state.object_owner_node_ids.get(object_id)
+    if claimed_by is not None and claimed_by != node.node_id:
+        raise ValueError(
+            "duplicate invariant graph object_id ownership: "
+            f"{object_id} claimed by {claimed_by} and {node.node_id}"
+        )
+    state.object_owner_node_ids[object_id] = node.node_id
+    state.object_node_ids[object_id] = node.node_id
+
+
+def _link_node_refs(state: _InvariantGraphBuildState, node: InvariantGraphNode) -> None:
+    for value in node.object_ids:
+        _add_edge(
+            state,
+            "links_to",
+            node.node_id,
+            _ensure_ref_node(state, SemanticLinkKind.OBJECT_ID, value),
+        )
+    for value in node.doc_ids:
+        _add_edge(
+            state,
+            "links_to",
+            node.node_id,
+            _ensure_ref_node(state, SemanticLinkKind.DOC_ID, value),
+        )
+    for value in node.policy_ids:
+        _add_edge(
+            state,
+            "links_to",
+            node.node_id,
+            _ensure_ref_node(state, SemanticLinkKind.POLICY_ID, value),
+        )
+    for value in node.invariant_ids:
+        _add_edge(
+            state,
+            "links_to",
+            node.node_id,
+            _ensure_ref_node(state, SemanticLinkKind.INVARIANT_ID, value),
         )
 
-    def ensure_ref_node(ref_kind: SemanticLinkKind, value: str) -> str:
-        node_id = _synthetic_ref_node_id(ref_kind.value, value)
-        if node_id not in nodes_by_id:
-            add_node(_semantic_ref_node(ref_kind=ref_kind, value=value))
-        if ref_kind is SemanticLinkKind.OBJECT_ID:
-            object_node_ids.setdefault(value, node_id)
-        return node_id
 
-    def claim_object_ids(node: InvariantGraphNode) -> None:
-        if node.node_kind not in {"synthetic_work_item", "synthetic_touchsite"}:
-            return
-        _prefix, _separator, primary_object_id = node.node_id.partition(":")
-        if not primary_object_id:
-            return
-        claimed_by = object_owner_node_ids.get(primary_object_id)
-        if claimed_by is not None and claimed_by != node.node_id:
-            raise ValueError(
-                "duplicate invariant graph object_id ownership: "
-                f"{primary_object_id} claimed by {claimed_by} and {node.node_id}"
-            )
-        object_owner_node_ids[primary_object_id] = node.node_id
+def _work_item_node(
+    *,
+    object_id: str,
+    title: str,
+    rel_path: str,
+    qualname: str,
+    line: int,
+    marker_id: str,
+    marker_name: str,
+    marker_kind: str,
+    site_identity: str,
+    structural_identity: str,
+    object_ids: tuple[str, ...],
+    doc_ids: tuple[str, ...],
+    policy_ids: tuple[str, ...],
+    invariant_ids: tuple[str, ...],
+    reasoning_summary: str,
+    reasoning_control: str,
+    blocking_dependencies: tuple[str, ...],
+    source_marker_node_id: str,
+    status_hint: str = "",
+) -> InvariantGraphNode:
+    return InvariantGraphNode(
+        node_id=_synthetic_ref_node_id("object_id", object_id),
+        node_kind="synthetic_work_item",
+        title=title,
+        marker_name=marker_name,
+        marker_kind=marker_kind,
+        marker_id=marker_id,
+        site_identity=site_identity,
+        structural_identity=structural_identity,
+        object_ids=object_ids,
+        doc_ids=doc_ids,
+        policy_ids=policy_ids,
+        invariant_ids=invariant_ids,
+        reasoning_summary=reasoning_summary,
+        reasoning_control=reasoning_control,
+        blocking_dependencies=blocking_dependencies,
+        rel_path=rel_path,
+        qualname=qualname,
+        line=line,
+        column=1,
+        ast_node_kind="function_def",
+        seam_class="",
+        source_marker_node_id=source_marker_node_id,
+        status_hint=status_hint,
+    )
 
-    marker_nodes = scan_invariant_markers(root)
-    marker_node_id_by_marker_id: dict[str, str] = {}
-    for marker_node in marker_nodes:
-        graph_node = _node_from_scan_entry(marker_node)
-        add_node(graph_node)
-        marker_node_id_by_marker_id[graph_node.marker_id] = graph_node.node_id
-        for link_value in graph_node.object_ids:
-            add_edge(
-                "links_to",
-                graph_node.node_id,
-                ensure_ref_node(SemanticLinkKind.OBJECT_ID, link_value),
-            )
-        for link_value in graph_node.doc_ids:
-            add_edge(
-                "links_to",
-                graph_node.node_id,
-                ensure_ref_node(SemanticLinkKind.DOC_ID, link_value),
-            )
-        for link_value in graph_node.policy_ids:
-            add_edge(
-                "links_to",
-                graph_node.node_id,
-                ensure_ref_node(SemanticLinkKind.POLICY_ID, link_value),
-            )
-        for link_value in graph_node.invariant_ids:
-            add_edge(
-                "links_to",
-                graph_node.node_id,
-                ensure_ref_node(SemanticLinkKind.INVARIANT_ID, link_value),
-            )
 
+def _add_work_item(
+    state: _InvariantGraphBuildState,
+    *,
+    object_id: str,
+    title: str,
+    rel_path: str,
+    qualname: str,
+    line: int,
+    marker_id: str,
+    marker_name: str,
+    marker_kind: str,
+    site_identity: str,
+    structural_identity: str,
+    object_ids: tuple[str, ...],
+    doc_ids: tuple[str, ...],
+    policy_ids: tuple[str, ...],
+    invariant_ids: tuple[str, ...],
+    reasoning_summary: str,
+    reasoning_control: str,
+    blocking_dependencies: tuple[str, ...],
+    source_marker_node_id: str,
+    status_hint: str = "",
+) -> str:
+    node = _work_item_node(
+        object_id=object_id,
+        title=title,
+        rel_path=rel_path,
+        qualname=qualname,
+        line=line,
+        marker_id=marker_id,
+        marker_name=marker_name,
+        marker_kind=marker_kind,
+        site_identity=site_identity,
+        structural_identity=structural_identity,
+        object_ids=object_ids,
+        doc_ids=doc_ids,
+        policy_ids=policy_ids,
+        invariant_ids=invariant_ids,
+        reasoning_summary=reasoning_summary,
+        reasoning_control=reasoning_control,
+        blocking_dependencies=blocking_dependencies,
+        source_marker_node_id=source_marker_node_id,
+        status_hint=status_hint,
+    )
+    _add_node(state, node, replace=True)
+    _claim_object_id(state, node, object_id=object_id)
+    state.declared_workstream_ids.add(object_id)
+    _link_node_refs(state, node)
+    return node.node_id
+
+
+def _register_root_workstream(
+    state: _InvariantGraphBuildState,
+    *,
+    object_id: str,
+) -> None:
+    if object_id not in state.workstream_root_ids:
+        state.workstream_root_ids.append(object_id)
+    state.declared_workstream_ids.add(object_id)
+
+
+def _normalize_rel_path(root: Path, raw_path: object) -> str:
+    value = str(raw_path or "").strip().replace("\\", "/")
+    if not value:
+        return ""
+    path = Path(value)
+    if path.is_absolute():
+        try:
+            return str(path.resolve().relative_to(root)).replace("\\", "/")
+        except ValueError:
+            return path.name
+    return value.lstrip("./")
+
+
+def _boundary_key(rel_path: str, line: int, boundary_name: str) -> tuple[str, int, str]:
+    return (rel_path, line, boundary_name)
+
+
+def _scan_phase5_touchsites_for_definition(
+    *,
+    touchpoint_definition: ProjectionSemanticFragmentPhase5TouchpointDefinition,
+) -> tuple[_Phase5Touchsite, ...]:
+    return _scan_phase5_touchsites(
+        touchpoint_definition=touchpoint_definition,
+        rel_path=touchpoint_definition.rel_path,
+        touchpoint_object_id=touchpoint_definition.touchpoint_id,
+        subqueue_object_id=touchpoint_definition.subqueue_id,
+    )
+
+
+def _enrich_psf_phase5_workstream(
+    state: _InvariantGraphBuildState,
+    *,
+    marker_node_id_by_marker_id: Mapping[str, str],
+) -> None:
     queue_definitions = tuple(iter_phase5_queues())
     subqueue_definitions = tuple(iter_phase5_subqueues())
     touchpoint_definitions = tuple(iter_phase5_touchpoints())
-    subqueue_by_id = {item.subqueue_id: item for item in subqueue_definitions}
-    touchpoint_by_id = {item.touchpoint_id: item for item in touchpoint_definitions}
-
-    def _work_item_node(
-        *,
-        object_id: str,
-        title: str,
-        rel_path: str,
-        qualname: str,
-        line: int,
-        marker_id: str,
-        marker_name: str,
-        marker_kind: str,
-        site_identity: str,
-        structural_identity: str,
-        object_ids: tuple[str, ...],
-        doc_ids: tuple[str, ...],
-        policy_ids: tuple[str, ...],
-        invariant_ids: tuple[str, ...],
-        reasoning_summary: str,
-        reasoning_control: str,
-        blocking_dependencies: tuple[str, ...],
-        source_marker_node_id: str,
-    ) -> InvariantGraphNode:
-        return InvariantGraphNode(
-            node_id=_synthetic_ref_node_id("object_id", object_id),
-            node_kind="synthetic_work_item",
-            title=title,
-            marker_name=marker_name,
-            marker_kind=marker_kind,
-            marker_id=marker_id,
-            site_identity=site_identity,
-            structural_identity=structural_identity,
-            object_ids=object_ids,
-            doc_ids=doc_ids,
-            policy_ids=policy_ids,
-            invariant_ids=invariant_ids,
-            reasoning_summary=reasoning_summary,
-            reasoning_control=reasoning_control,
-            blocking_dependencies=blocking_dependencies,
-            rel_path=rel_path,
-            qualname=qualname,
-            line=line,
-            column=1,
-            ast_node_kind="function_def",
-            seam_class="",
-            source_marker_node_id=source_marker_node_id,
-        )
 
     for queue_definition in queue_definitions:
         primary_object_id = _phase5_primary_object_id(
@@ -724,7 +874,8 @@ def build_invariant_graph(root: Path) -> InvariantGraph:
             ),
             queue_definition.queue_id,
         )
-        node = _work_item_node(
+        _add_work_item(
+            state,
             object_id=primary_object_id,
             title=queue_definition.title,
             rel_path=queue_definition.rel_path,
@@ -763,18 +914,7 @@ def build_invariant_graph(root: Path) -> InvariantGraph:
                 "",
             ),
         )
-        add_node(node, replace=True)
-        claim_object_ids(node)
-        object_node_ids[primary_object_id] = node.node_id
-        for item in (*node.doc_ids, *node.policy_ids, *node.invariant_ids):
-            kind = (
-                SemanticLinkKind.DOC_ID
-                if item in node.doc_ids
-                else SemanticLinkKind.POLICY_ID
-                if item in node.policy_ids
-                else SemanticLinkKind.INVARIANT_ID
-            )
-            add_edge("links_to", node.node_id, ensure_ref_node(kind, item))
+        _register_root_workstream(state, object_id=primary_object_id)
 
     for subqueue_definition in subqueue_definitions:
         primary_object_id = _phase5_primary_object_id(
@@ -786,7 +926,8 @@ def build_invariant_graph(root: Path) -> InvariantGraph:
             ),
             subqueue_definition.subqueue_id,
         )
-        node = _work_item_node(
+        _add_work_item(
+            state,
             object_id=primary_object_id,
             title=subqueue_definition.title,
             rel_path=subqueue_definition.rel_path,
@@ -825,9 +966,6 @@ def build_invariant_graph(root: Path) -> InvariantGraph:
                 "",
             ),
         )
-        add_node(node, replace=True)
-        claim_object_ids(node)
-        object_node_ids[primary_object_id] = node.node_id
 
     for touchpoint_definition in touchpoint_definitions:
         primary_object_id = _phase5_primary_object_id(
@@ -839,7 +977,8 @@ def build_invariant_graph(root: Path) -> InvariantGraph:
             ),
             touchpoint_definition.touchpoint_id,
         )
-        node = _work_item_node(
+        _add_work_item(
+            state,
             object_id=primary_object_id,
             title=touchpoint_definition.title,
             rel_path=touchpoint_definition.rel_path,
@@ -878,98 +1017,450 @@ def build_invariant_graph(root: Path) -> InvariantGraph:
                 "",
             ),
         )
-        add_node(node, replace=True)
-        claim_object_ids(node)
-        object_node_ids[primary_object_id] = node.node_id
-
-    for node in list(nodes_by_id.values()):
-        for value in node.object_ids:
-            add_edge(
-                "links_to",
-                node.node_id,
-                ensure_ref_node(SemanticLinkKind.OBJECT_ID, value),
-            )
-        for value in node.doc_ids:
-            add_edge(
-                "links_to",
-                node.node_id,
-                ensure_ref_node(SemanticLinkKind.DOC_ID, value),
-            )
-        for value in node.policy_ids:
-            add_edge(
-                "links_to",
-                node.node_id,
-                ensure_ref_node(SemanticLinkKind.POLICY_ID, value),
-            )
-        for value in node.invariant_ids:
-            add_edge(
-                "links_to",
-                node.node_id,
-                ensure_ref_node(SemanticLinkKind.INVARIANT_ID, value),
-            )
 
     for queue_definition in queue_definitions:
-        queue_id = object_node_ids[queue_definition.queue_id]
+        queue_node_id = state.object_node_ids[queue_definition.queue_id]
         for subqueue_id in queue_definition.subqueue_ids:
-            subqueue_node_id = object_node_ids[subqueue_id]
-            add_edge("contains", queue_id, subqueue_node_id)
-            add_edge("blocks", subqueue_node_id, queue_id)
+            subqueue_node_id = state.object_node_ids[subqueue_id]
+            _add_edge(state, "contains", queue_node_id, subqueue_node_id)
+            _add_edge(state, "blocks", subqueue_node_id, queue_node_id)
 
     for subqueue_definition in subqueue_definitions:
-        subqueue_node_id = object_node_ids[subqueue_definition.subqueue_id]
+        subqueue_node_id = state.object_node_ids[subqueue_definition.subqueue_id]
         for touchpoint_id in subqueue_definition.touchpoint_ids:
-            touchpoint_node_id = object_node_ids[touchpoint_id]
-            add_edge("contains", subqueue_node_id, touchpoint_node_id)
-            add_edge("blocks", touchpoint_node_id, subqueue_node_id)
+            touchpoint_node_id = state.object_node_ids[touchpoint_id]
+            _add_edge(state, "contains", subqueue_node_id, touchpoint_node_id)
+            _add_edge(state, "blocks", touchpoint_node_id, subqueue_node_id)
 
     for touchpoint_definition in touchpoint_definitions:
-        touchpoint_node_id = object_node_ids[touchpoint_definition.touchpoint_id]
-        touchsites = _scan_phase5_touchsites(
-            rel_path=touchpoint_definition.rel_path,
-            touchpoint_object_id=touchpoint_definition.touchpoint_id,
-            subqueue_object_id=touchpoint_definition.subqueue_id,
+        touchpoint_node_id = state.object_node_ids[touchpoint_definition.touchpoint_id]
+        touchsites = _scan_phase5_touchsites_for_definition(
+            touchpoint_definition=touchpoint_definition
         )
         for touchsite in touchsites:
             node_id = _synthetic_ref_node_id("object_id", touchsite.touchsite_object_id)
-            add_node(
-                InvariantGraphNode(
-                    node_id=node_id,
-                    node_kind="synthetic_touchsite",
-                    title=touchsite.boundary_name,
-                    marker_name="grade_boundary",
-                    marker_kind="",
-                    marker_id="",
-                    site_identity=touchsite.site_identity,
-                    structural_identity=touchsite.structural_identity,
-                    object_ids=(touchsite.touchsite_object_id,),
-                    doc_ids=(),
-                    policy_ids=(),
-                    invariant_ids=(),
-                    reasoning_summary="PSF-007 touchsite remains active.",
-                    reasoning_control=touchpoint_by_id[
-                        touchpoint_definition.touchpoint_id
-                    ].marker_payload.reasoning.control,
-                    blocking_dependencies=(touchpoint_definition.touchpoint_id,),
-                    rel_path=touchsite.rel_path,
-                    qualname=touchsite.qualname,
-                    line=touchsite.line,
-                    column=touchsite.column,
-                    ast_node_kind=touchsite.node_kind,
-                    seam_class=touchsite.seam_class,
-                    source_marker_node_id=object_node_ids[touchpoint_definition.touchpoint_id],
-                ),
-                replace=True,
+            node = InvariantGraphNode(
+                node_id=node_id,
+                node_kind="synthetic_touchsite",
+                title=touchsite.boundary_name,
+                marker_name="grade_boundary",
+                marker_kind="",
+                marker_id="",
+                site_identity=touchsite.site_identity,
+                structural_identity=touchsite.structural_identity,
+                object_ids=(touchsite.touchsite_object_id,),
+                doc_ids=(),
+                policy_ids=(),
+                invariant_ids=(),
+                reasoning_summary="PSF-007 touchsite remains active.",
+                reasoning_control=touchpoint_definition.marker_payload.reasoning.control,
+                blocking_dependencies=(touchpoint_definition.touchpoint_id,),
+                rel_path=touchsite.rel_path,
+                qualname=touchsite.qualname,
+                line=touchsite.line,
+                column=touchsite.column,
+                ast_node_kind=touchsite.node_kind,
+                seam_class=touchsite.seam_class,
+                source_marker_node_id=touchpoint_node_id,
+                status_hint="",
             )
-            claim_object_ids(nodes_by_id[node_id])
-            object_node_ids[touchsite.touchsite_object_id] = node_id
-            add_edge("contains", touchpoint_node_id, node_id)
-            add_edge("blocks", node_id, touchpoint_node_id)
+            _add_node(state, node, replace=True)
+            _claim_object_id(state, node, object_id=touchsite.touchsite_object_id)
+            state.declared_workstream_ids.add(touchsite.touchsite_object_id)
+            _add_edge(state, "contains", touchpoint_node_id, node_id)
+            _add_edge(state, "blocks", node_id, touchpoint_node_id)
 
-    for node in list(nodes_by_id.values()):
+
+def _enrich_prf_workstream(
+    state: _InvariantGraphBuildState,
+    *,
+    marker_node_id_by_marker_id: Mapping[str, str],
+) -> None:
+    queue_definitions = tuple(iter_prf_queues())
+    subqueue_definitions = tuple(iter_prf_subqueues())
+    for queue_definition in queue_definitions:
+        _add_work_item(
+            state,
+            object_id=queue_definition.queue_id,
+            title=queue_definition.title,
+            rel_path=queue_definition.rel_path,
+            qualname=queue_definition.qualname,
+            line=queue_definition.line,
+            marker_id=queue_definition.marker_identity,
+            marker_name="gabion.invariants.todo_decorator",
+            marker_kind=queue_definition.marker_payload.marker_kind.value,
+            site_identity=queue_definition.site_identity,
+            structural_identity=queue_definition.structural_identity,
+            object_ids=tuple(
+                link.value
+                for link in queue_definition.marker_payload.links
+                if link.kind is SemanticLinkKind.OBJECT_ID
+            ),
+            doc_ids=tuple(
+                link.value
+                for link in queue_definition.marker_payload.links
+                if link.kind is SemanticLinkKind.DOC_ID
+            ),
+            policy_ids=tuple(
+                link.value
+                for link in queue_definition.marker_payload.links
+                if link.kind is SemanticLinkKind.POLICY_ID
+            ),
+            invariant_ids=tuple(
+                link.value
+                for link in queue_definition.marker_payload.links
+                if link.kind is SemanticLinkKind.INVARIANT_ID
+            ),
+            reasoning_summary=queue_definition.marker_payload.reasoning.summary,
+            reasoning_control=queue_definition.marker_payload.reasoning.control,
+            blocking_dependencies=queue_definition.marker_payload.reasoning.blocking_dependencies,
+            source_marker_node_id=marker_node_id_by_marker_id.get(
+                queue_definition.marker_identity,
+                "",
+            ),
+            status_hint=queue_definition.status_hint,
+        )
+        _register_root_workstream(state, object_id=queue_definition.queue_id)
+    for subqueue_definition in subqueue_definitions:
+        _add_work_item(
+            state,
+            object_id=subqueue_definition.subqueue_id,
+            title=subqueue_definition.title,
+            rel_path=subqueue_definition.rel_path,
+            qualname=subqueue_definition.qualname,
+            line=subqueue_definition.line,
+            marker_id=subqueue_definition.marker_identity,
+            marker_name="gabion.invariants.todo_decorator",
+            marker_kind=subqueue_definition.marker_payload.marker_kind.value,
+            site_identity=subqueue_definition.site_identity,
+            structural_identity=subqueue_definition.structural_identity,
+            object_ids=tuple(
+                link.value
+                for link in subqueue_definition.marker_payload.links
+                if link.kind is SemanticLinkKind.OBJECT_ID
+            ),
+            doc_ids=tuple(
+                link.value
+                for link in subqueue_definition.marker_payload.links
+                if link.kind is SemanticLinkKind.DOC_ID
+            ),
+            policy_ids=tuple(
+                link.value
+                for link in subqueue_definition.marker_payload.links
+                if link.kind is SemanticLinkKind.POLICY_ID
+            ),
+            invariant_ids=tuple(
+                link.value
+                for link in subqueue_definition.marker_payload.links
+                if link.kind is SemanticLinkKind.INVARIANT_ID
+            ),
+            reasoning_summary=subqueue_definition.marker_payload.reasoning.summary,
+            reasoning_control=subqueue_definition.marker_payload.reasoning.control,
+            blocking_dependencies=subqueue_definition.marker_payload.reasoning.blocking_dependencies,
+            source_marker_node_id=marker_node_id_by_marker_id.get(
+                subqueue_definition.marker_identity,
+                "",
+            ),
+            status_hint=subqueue_definition.status_hint,
+        )
+    for queue_definition in queue_definitions:
+        queue_node_id = state.object_node_ids[queue_definition.queue_id]
+        for subqueue_id in queue_definition.subqueue_ids:
+            subqueue_node_id = state.object_node_ids[subqueue_id]
+            _add_edge(state, "contains", queue_node_id, subqueue_node_id)
+            _add_edge(state, "blocks", subqueue_node_id, queue_node_id)
+
+
+def _path_variants(raw_path: str) -> tuple[str, ...]:
+    normalized = raw_path.strip().replace("\\", "/")
+    if not normalized:
+        return ()
+    basename = Path(normalized).name
+    if basename and basename != normalized:
+        return (normalized, basename)
+    return (normalized,)
+
+
+@dataclass(frozen=True)
+class _InvariantGraphNodeIndex:
+    by_structural_identity: Mapping[str, str]
+    touchsite_by_boundary: Mapping[tuple[str, int, str], str]
+    by_path_line_qualname: Mapping[tuple[str, int, str], str]
+    by_path_exact: Mapping[str, tuple[str, ...]]
+    by_path_basename: Mapping[str, tuple[str, ...]]
+
+
+def _node_index(state: _InvariantGraphBuildState) -> _InvariantGraphNodeIndex:
+    by_structural_identity: dict[str, str] = {}
+    touchsite_by_boundary: dict[tuple[str, int, str], str] = {}
+    by_path_line_qualname: dict[tuple[str, int, str], str] = {}
+    by_path_exact: defaultdict[str, list[str]] = defaultdict(list)
+    by_path_basename: defaultdict[str, list[str]] = defaultdict(list)
+    for node in state.nodes_by_id.values():
+        if node.structural_identity:
+            by_structural_identity.setdefault(node.structural_identity, node.node_id)
+        if node.rel_path:
+            by_path_exact[node.rel_path].append(node.node_id)
+            by_path_basename[Path(node.rel_path).name].append(node.node_id)
+        if node.rel_path and node.line > 0 and node.qualname:
+            by_path_line_qualname.setdefault(
+                (node.rel_path, node.line, node.qualname),
+                node.node_id,
+            )
+        if node.node_kind == "synthetic_touchsite":
+            touchsite_by_boundary.setdefault(
+                _boundary_key(node.rel_path, node.line, node.title),
+                node.node_id,
+            )
+    return _InvariantGraphNodeIndex(
+        by_structural_identity=by_structural_identity,
+        touchsite_by_boundary=touchsite_by_boundary,
+        by_path_line_qualname=by_path_line_qualname,
+        by_path_exact={
+            key: tuple(_sorted(value))
+            for key, value in by_path_exact.items()
+        },
+        by_path_basename={
+            key: tuple(_sorted(value))
+            for key, value in by_path_basename.items()
+        },
+    )
+
+
+def _match_policy_signal_target(
+    *,
+    root: Path,
+    index: _InvariantGraphNodeIndex,
+    violation: Mapping[str, object],
+) -> str:
+    details = violation.get("details")
+    if isinstance(details, Mapping):
+        structural_identity = str(details.get("edge_structural_identity", "")).strip()
+        if structural_identity:
+            node_id = index.by_structural_identity.get(structural_identity)
+            if node_id is not None:
+                return node_id
+        boundary_marker = details.get("boundary_marker")
+        if isinstance(boundary_marker, Mapping):
+            boundary_name = str(boundary_marker.get("name", "")).strip()
+            boundary_line = int(boundary_marker.get("line", 0) or 0)
+            for path_variant in _path_variants(
+                _normalize_rel_path(root, boundary_marker.get("source"))
+            ):
+                node_id = index.touchsite_by_boundary.get(
+                    _boundary_key(path_variant, boundary_line, boundary_name)
+                )
+                if node_id is not None:
+                    return node_id
+    qualname = str(violation.get("qualname", "")).strip()
+    line = int(violation.get("line", 0) or 0)
+    for path_variant in _path_variants(_normalize_rel_path(root, violation.get("path"))):
+        node_id = index.by_path_line_qualname.get((path_variant, line, qualname))
+        if node_id is not None:
+            return node_id
+    return ""
+
+
+def _add_policy_signal_node(
+    state: _InvariantGraphBuildState,
+    *,
+    domain: str,
+    rule_id: str,
+    target_node_id: str,
+    count: int,
+    message: str,
+) -> None:
+    target_suffix = target_node_id or "orphan"
+    node_id = f"policy_signal:{stable_hash(domain, rule_id, target_suffix)}"
+    title = f"{domain}:{rule_id}"
+    node = _synthetic_node(
+        node_id=node_id,
+        title=title,
+        ref_kind="policy_signal",
+        value=f"{title}:{target_suffix}",
+        policy_ids=(rule_id,),
+        reasoning_summary=f"{count} aggregated violation(s): {message}",
+        reasoning_control=f"policy_signal.{domain}.{rule_id}",
+        node_kind="policy_signal",
+    )
+    _add_node(state, node, replace=True)
+    _link_node_refs(state, node)
+    if target_node_id:
+        _add_edge(state, "blocks", node_id, target_node_id)
+    else:
+        state.diagnostics.append(
+            InvariantGraphDiagnostic(
+                diagnostic_id=stable_hash("invariant_graph_policy_signal_orphan", node_id),
+                severity="warning",
+                code="unmatched_policy_signal",
+                node_id=node_id,
+                raw_dependency="",
+                message=f"{title} did not resolve to a graph touchsite or work item.",
+            )
+        )
+
+
+def _join_policy_signals(state: _InvariantGraphBuildState) -> None:
+    artifact_path = state.root / _AMBIGUITY_ARTIFACT
+    if not artifact_path.exists():
+        return
+    payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, Mapping):
+        return
+    index = _node_index(state)
+    aggregates: dict[tuple[str, str, str], dict[str, object]] = {}
+    for domain in ("ast", "grade"):
+        section = payload.get(domain)
+        if not isinstance(section, Mapping):
+            continue
+        violations = section.get("violations", [])
+        if not isinstance(violations, list):
+            continue
+        for raw_violation in violations:
+            if not isinstance(raw_violation, Mapping):
+                continue
+            rule_id = str(raw_violation.get("rule_id", "")).strip() or f"{domain}.signal"
+            target_node_id = _match_policy_signal_target(
+                root=state.root,
+                index=index,
+                violation=raw_violation,
+            )
+            aggregate_key = (domain, rule_id, target_node_id)
+            entry = aggregates.setdefault(
+                aggregate_key,
+                {
+                    "count": 0,
+                    "message": str(raw_violation.get("message", "")).strip(),
+                },
+            )
+            entry["count"] = int(entry["count"]) + 1
+    for (domain, rule_id, target_node_id), data in _sorted(
+        list(aggregates.items()),
+        key=lambda item: item[0],
+    ):
+        _add_policy_signal_node(
+            state,
+            domain=domain,
+            rule_id=rule_id,
+            target_node_id=target_node_id,
+            count=int(data["count"]),
+            message=str(data["message"]),
+        )
+
+
+def _site_span_contains_line(site: Mapping[str, object], line: int) -> bool:
+    raw_span = site.get("span")
+    if not isinstance(raw_span, list) or len(raw_span) != 4:
+        return True
+    start = raw_span[0]
+    end = raw_span[2]
+    if not isinstance(start, int) or not isinstance(end, int):
+        return True
+    lower = min(start, end)
+    upper = max(start, end)
+    return lower <= line <= upper
+
+
+def _match_test_evidence_node_ids(
+    *,
+    root: Path,
+    index: _InvariantGraphNodeIndex,
+    state: _InvariantGraphBuildState,
+    site: Mapping[str, object],
+) -> tuple[str, ...]:
+    rel_path = _normalize_rel_path(root, site.get("path"))
+    site_qual = str(site.get("qual", "")).strip()
+    candidate_ids: list[str] = []
+    for path_variant in _path_variants(rel_path):
+        candidate_ids.extend(index.by_path_exact.get(path_variant, ()))
+        candidate_ids.extend(index.by_path_basename.get(path_variant, ()))
+    if not candidate_ids:
+        return ()
+    matched: list[str] = []
+    for node_id in _sorted(list(set(candidate_ids))):
+        node = state.nodes_by_id[node_id]
+        if site_qual and node.qualname and not site_qual.endswith(node.qualname):
+            continue
+        if node.line > 0 and not _site_span_contains_line(site, node.line):
+            continue
+        matched.append(node_id)
+    return tuple(matched)
+
+
+def _join_test_coverage(state: _InvariantGraphBuildState) -> None:
+    evidence_path = state.root / _TEST_EVIDENCE_ARTIFACT
+    if not evidence_path.exists():
+        return
+    payload = json.loads(evidence_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, Mapping):
+        return
+    tests = payload.get("tests", [])
+    if not isinstance(tests, list):
+        return
+    index = _node_index(state)
+    for raw_test in tests:
+        if not isinstance(raw_test, Mapping):
+            continue
+        test_id = str(raw_test.get("test_id", "")).strip()
+        if not test_id:
+            continue
+        evidence = raw_test.get("evidence", [])
+        if not isinstance(evidence, list):
+            continue
+        matched_node_ids: set[str] = set()
+        for raw_item in evidence:
+            if not isinstance(raw_item, Mapping):
+                continue
+            key = raw_item.get("key")
+            if not isinstance(key, Mapping):
+                continue
+            site = key.get("site")
+            if not isinstance(site, Mapping):
+                continue
+            matched_node_ids.update(
+                _match_test_evidence_node_ids(
+                    root=state.root,
+                    index=index,
+                    state=state,
+                    site=site,
+                )
+            )
+        if not matched_node_ids:
+            continue
+        node_id = f"test_case:{stable_hash(test_id)}"
+        test_file = _normalize_rel_path(state.root, raw_test.get("file"))
+        test_line = int(raw_test.get("line", 0) or 0)
+        node = _synthetic_node(
+            node_id=node_id,
+            title=test_id,
+            ref_kind="test_case",
+            value=test_id,
+            rel_path=test_file,
+            qualname=test_id,
+            line=test_line,
+            reasoning_summary=str(raw_test.get("status", "")).strip(),
+            node_kind="test_case",
+        )
+        _add_node(state, node, replace=True)
+        for matched_node_id in _sorted(list(matched_node_ids)):
+            _add_edge(state, "covered_by", matched_node_id, node_id)
+
+
+def _resolve_blocking_dependencies(state: _InvariantGraphBuildState) -> None:
+    for node in list(state.nodes_by_id.values()):
         for dependency in node.blocking_dependencies:
-            target_id = object_node_ids.get(dependency)
+            target_id = state.object_node_ids.get(dependency)
             if target_id is None:
-                diagnostics.append(
+                if (
+                    dependency in state.declared_workstream_ids
+                    or dependency.startswith("PSF-")
+                    or dependency.startswith("PRF-")
+                ):
+                    raise ValueError(
+                        "declared workstream blocking dependency did not resolve: "
+                        f"{dependency} (from {node.node_id})"
+                    )
+                state.diagnostics.append(
                     InvariantGraphDiagnostic(
                         diagnostic_id=stable_hash(
                             "invariant_graph_diagnostic",
@@ -987,29 +1478,330 @@ def build_invariant_graph(root: Path) -> InvariantGraph:
                     )
                 )
                 continue
-            add_edge("depends_on", node.node_id, target_id)
+            _add_edge(state, "depends_on", node.node_id, target_id)
 
+
+def build_invariant_graph(root: Path) -> InvariantGraph:
+    root = root.resolve()
+    state = _new_build_state(root)
+    marker_nodes = scan_invariant_markers(root)
+    marker_node_id_by_marker_id: dict[str, str] = {}
+    for marker_node in marker_nodes:
+        graph_node = _node_from_scan_entry(marker_node)
+        _add_node(state, graph_node)
+        marker_node_id_by_marker_id[graph_node.marker_id] = graph_node.node_id
+        _link_node_refs(state, graph_node)
+    _enrich_psf_phase5_workstream(
+        state,
+        marker_node_id_by_marker_id=marker_node_id_by_marker_id,
+    )
+    _enrich_prf_workstream(
+        state,
+        marker_node_id_by_marker_id=marker_node_id_by_marker_id,
+    )
+    _resolve_blocking_dependencies(state)
+    _join_policy_signals(state)
+    _join_test_coverage(state)
     return InvariantGraph(
         root=str(root),
+        workstream_root_ids=tuple(_sorted(state.workstream_root_ids)),
         nodes=tuple(
             _sorted(
-                list(nodes_by_id.values()),
+                list(state.nodes_by_id.values()),
                 key=lambda item: (item.node_kind, item.rel_path, item.line, item.node_id),
             )
         ),
         edges=tuple(
             _sorted(
-                edges,
+                state.edges,
                 key=lambda item: (item.edge_kind, item.source_id, item.target_id),
             )
         ),
         diagnostics=tuple(
             _sorted(
-                diagnostics,
+                state.diagnostics,
                 key=lambda item: (item.severity, item.code, item.node_id, item.raw_dependency),
             )
         ),
     )
+
+
+def _descendant_node_ids(graph: InvariantGraph, node_id: str) -> tuple[str, ...]:
+    node_by_id = graph.node_by_id()
+    edges_from = graph.edges_from()
+    pending = deque([node_id])
+    seen: set[str] = set()
+    while pending:
+        current = pending.popleft()
+        if current in seen:
+            continue
+        seen.add(current)
+        for edge in edges_from.get(current, ()):
+            if edge.edge_kind != "contains" or edge.target_id not in node_by_id:
+                continue
+            pending.append(edge.target_id)
+    return tuple(_sorted(list(seen)))
+
+
+def _status_for_projection(
+    node: InvariantGraphNode,
+    *,
+    touchsite_count: int,
+) -> str:
+    if node.status_hint:
+        return node.status_hint
+    if touchsite_count > 0:
+        return "in_progress"
+    return "landed"
+
+
+def _workstream_signal_ids(graph: InvariantGraph, node_ids: set[str]) -> tuple[str, ...]:
+    edges_to = graph.edges_to()
+    node_by_id = graph.node_by_id()
+    signal_ids = {
+        edge.source_id
+        for node_id in node_ids
+        for edge in edges_to.get(node_id, ())
+        if edge.edge_kind == "blocks"
+        and node_by_id.get(edge.source_id, None) is not None
+        and node_by_id[edge.source_id].node_kind == "policy_signal"
+    }
+    return tuple(_sorted(list(signal_ids)))
+
+
+def _workstream_test_case_ids(graph: InvariantGraph, node_ids: set[str]) -> tuple[str, ...]:
+    edges_from = graph.edges_from()
+    node_by_id = graph.node_by_id()
+    test_case_ids = {
+        edge.target_id
+        for node_id in node_ids
+        for edge in edges_from.get(node_id, ())
+        if edge.edge_kind == "covered_by"
+        and node_by_id.get(edge.target_id, None) is not None
+        and node_by_id[edge.target_id].node_kind == "test_case"
+    }
+    return tuple(_sorted(list(test_case_ids)))
+
+
+def build_invariant_workstreams(graph: InvariantGraph) -> dict[str, object]:
+    node_by_id = graph.node_by_id()
+    edges_from = graph.edges_from()
+    workstreams: list[dict[str, object]] = []
+    for root_object_id in graph.workstream_root_ids:
+        root_node_id = _synthetic_ref_node_id("object_id", root_object_id)
+        root_node = node_by_id[root_node_id]
+        subqueue_nodes = [
+            node_by_id[edge.target_id]
+            for edge in edges_from.get(root_node_id, ())
+            if edge.edge_kind == "contains" and edge.target_id in node_by_id
+        ]
+        subqueue_payloads: list[dict[str, object]] = []
+        touchpoint_payloads: list[dict[str, object]] = []
+        touchsite_payloads: list[dict[str, object]] = []
+        for subqueue_node in subqueue_nodes:
+            touchpoint_nodes = [
+                node_by_id[edge.target_id]
+                for edge in edges_from.get(subqueue_node.node_id, ())
+                if edge.edge_kind == "contains" and edge.target_id in node_by_id
+            ]
+            subqueue_descendants = set(_descendant_node_ids(graph, subqueue_node.node_id))
+            subqueue_touchsites = [
+                node_by_id[node_id]
+                for node_id in subqueue_descendants
+                if node_by_id[node_id].node_kind == "synthetic_touchsite"
+            ]
+            subqueue_payloads.append(
+                {
+                    "object_id": _primary_object_id(subqueue_node),
+                    "title": subqueue_node.title,
+                    "status": _status_for_projection(
+                        subqueue_node,
+                        touchsite_count=len(subqueue_touchsites),
+                    ),
+                    "site_identity": subqueue_node.site_identity,
+                    "structural_identity": subqueue_node.structural_identity,
+                    "marker_identity": subqueue_node.marker_id,
+                    "reasoning_summary": subqueue_node.reasoning_summary,
+                    "reasoning_control": subqueue_node.reasoning_control,
+                    "blocking_dependencies": list(subqueue_node.blocking_dependencies),
+                    "object_ids": list(subqueue_node.object_ids),
+                    "touchpoint_ids": [
+                        _primary_object_id(node) for node in touchpoint_nodes
+                    ],
+                    "touchsite_count": len(subqueue_touchsites),
+                    "collapsible_touchsite_count": sum(
+                        1
+                        for node in subqueue_touchsites
+                        if node.seam_class == "collapsible_helper_seam"
+                    ),
+                    "surviving_touchsite_count": sum(
+                        1
+                        for node in subqueue_touchsites
+                        if node.seam_class == "surviving_carrier_seam"
+                    ),
+                    "policy_signal_count": len(
+                        _workstream_signal_ids(graph, subqueue_descendants)
+                    ),
+                    "coverage_count": len(
+                        _workstream_test_case_ids(graph, subqueue_descendants)
+                    ),
+                    "diagnostic_count": sum(
+                        1
+                        for diagnostic in graph.diagnostics
+                        if diagnostic.node_id in subqueue_descendants
+                    ),
+                }
+            )
+            for touchpoint_node in touchpoint_nodes:
+                touchpoint_descendants = set(_descendant_node_ids(graph, touchpoint_node.node_id))
+                touchsites = [
+                    node_by_id[node_id]
+                    for node_id in touchpoint_descendants
+                    if node_by_id[node_id].node_kind == "synthetic_touchsite"
+                ]
+                touchpoint_payloads.append(
+                    {
+                        "object_id": _primary_object_id(touchpoint_node),
+                        "subqueue_id": _primary_object_id(subqueue_node),
+                        "title": touchpoint_node.title,
+                        "status": _status_for_projection(
+                            touchpoint_node,
+                            touchsite_count=len(touchsites),
+                        ),
+                        "rel_path": touchpoint_node.rel_path,
+                        "site_identity": touchpoint_node.site_identity,
+                        "structural_identity": touchpoint_node.structural_identity,
+                        "marker_identity": touchpoint_node.marker_id,
+                        "reasoning_summary": touchpoint_node.reasoning_summary,
+                        "reasoning_control": touchpoint_node.reasoning_control,
+                        "blocking_dependencies": list(touchpoint_node.blocking_dependencies),
+                        "object_ids": list(touchpoint_node.object_ids),
+                        "touchsite_count": len(touchsites),
+                        "collapsible_touchsite_count": sum(
+                            1
+                            for node in touchsites
+                            if node.seam_class == "collapsible_helper_seam"
+                        ),
+                        "surviving_touchsite_count": sum(
+                            1
+                            for node in touchsites
+                            if node.seam_class == "surviving_carrier_seam"
+                        ),
+                        "policy_signal_count": len(
+                            _workstream_signal_ids(graph, touchpoint_descendants)
+                        ),
+                        "coverage_count": len(
+                            _workstream_test_case_ids(graph, touchpoint_descendants)
+                        ),
+                        "diagnostic_count": sum(
+                            1
+                            for diagnostic in graph.diagnostics
+                            if diagnostic.node_id in touchpoint_descendants
+                        ),
+                        "touchsites": [
+                            {
+                                "object_id": _primary_object_id(node),
+                                "touchpoint_id": _primary_object_id(touchpoint_node),
+                                "subqueue_id": _primary_object_id(subqueue_node),
+                                "title": node.title,
+                                "status": _status_for_projection(node, touchsite_count=1),
+                                "rel_path": node.rel_path,
+                                "qualname": node.qualname,
+                                "boundary_name": node.title,
+                                "line": node.line,
+                                "column": node.column,
+                                "node_kind": node.ast_node_kind,
+                                "site_identity": node.site_identity,
+                                "structural_identity": node.structural_identity,
+                                "seam_class": node.seam_class,
+                                "touchpoint_marker_identity": touchpoint_node.marker_id,
+                                "touchpoint_structural_identity": touchpoint_node.structural_identity,
+                                "subqueue_marker_identity": subqueue_node.marker_id,
+                                "subqueue_structural_identity": subqueue_node.structural_identity,
+                                "policy_signal_count": len(
+                                    _workstream_signal_ids(graph, {node.node_id})
+                                ),
+                                "coverage_count": len(
+                                    _workstream_test_case_ids(graph, {node.node_id})
+                                ),
+                                "diagnostic_count": sum(
+                                    1
+                                    for diagnostic in graph.diagnostics
+                                    if diagnostic.node_id == node.node_id
+                                ),
+                                "object_ids": list(node.object_ids),
+                            }
+                            for node in _sorted(
+                                touchsites,
+                                key=lambda item: (
+                                    item.rel_path,
+                                    item.line,
+                                    item.column,
+                                    item.qualname,
+                                ),
+                            )
+                        ],
+                    }
+                )
+                touchsite_payloads.extend(touchpoint_payloads[-1]["touchsites"])
+        root_descendants = set(_descendant_node_ids(graph, root_node_id))
+        touchsite_nodes = [
+            node_by_id[node_id]
+            for node_id in root_descendants
+            if node_by_id[node_id].node_kind == "synthetic_touchsite"
+        ]
+        workstreams.append(
+            {
+                "object_id": root_object_id,
+                "title": root_node.title,
+                "status": _status_for_projection(
+                    root_node,
+                    touchsite_count=len(touchsite_nodes),
+                ),
+                "site_identity": root_node.site_identity,
+                "structural_identity": root_node.structural_identity,
+                "marker_identity": root_node.marker_id,
+                "reasoning_summary": root_node.reasoning_summary,
+                "reasoning_control": root_node.reasoning_control,
+                "blocking_dependencies": list(root_node.blocking_dependencies),
+                "object_ids": list(root_node.object_ids),
+                "touchsite_count": len(touchsite_nodes),
+                "collapsible_touchsite_count": sum(
+                    1
+                    for node in touchsite_nodes
+                    if node.seam_class == "collapsible_helper_seam"
+                ),
+                "surviving_touchsite_count": sum(
+                    1
+                    for node in touchsite_nodes
+                    if node.seam_class == "surviving_carrier_seam"
+                ),
+                "policy_signal_count": len(_workstream_signal_ids(graph, root_descendants)),
+                "coverage_count": len(_workstream_test_case_ids(graph, root_descendants)),
+                "diagnostic_count": sum(
+                    1
+                    for diagnostic in graph.diagnostics
+                    if diagnostic.node_id in root_descendants
+                ),
+                "subqueues": _sorted(
+                    subqueue_payloads,
+                    key=lambda item: str(item["object_id"]),
+                ),
+                "touchpoints": _sorted(
+                    touchpoint_payloads,
+                    key=lambda item: str(item["object_id"]),
+                ),
+            }
+        )
+    return {
+        "format_version": _FORMAT_VERSION,
+        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "root": graph.root,
+        "workstreams": _sorted(workstreams, key=lambda item: str(item["object_id"])),
+        "counts": {
+            "workstream_count": len(workstreams),
+        },
+    }
 
 
 def build_psf_phase5_projection(
@@ -1017,173 +1809,109 @@ def build_psf_phase5_projection(
     *,
     queue_object_id: str = "PSF-007",
 ) -> dict[str, object]:
-    node_by_id = graph.node_by_id()
-    edges_from = graph.edges_from()
-    queue_node = node_by_id[_synthetic_ref_node_id("object_id", queue_object_id)]
-    subqueue_nodes = [
-        node_by_id[edge.target_id]
-        for edge in edges_from.get(queue_node.node_id, ())
-        if edge.edge_kind == "contains"
-    ]
-    touchpoint_nodes: list[InvariantGraphNode] = []
-    touchsite_nodes: list[InvariantGraphNode] = []
-    subqueue_payloads: list[dict[str, object]] = []
-    touchpoint_payloads: list[dict[str, object]] = []
-    for subqueue_node in subqueue_nodes:
-        touchpoints = [
-            node_by_id[edge.target_id]
-            for edge in edges_from.get(subqueue_node.node_id, ())
-            if edge.edge_kind == "contains"
-        ]
-        touchpoint_ids = [_primary_object_id(node) for node in touchpoints]
-        touchpoint_nodes.extend(touchpoints)
-        touchsite_count = 0
-        collapsible_count = 0
-        surviving_count = 0
-        for touchpoint_node in touchpoints:
-            touchsites = [
-                node_by_id[edge.target_id]
-                for edge in edges_from.get(touchpoint_node.node_id, ())
-                if edge.edge_kind == "contains"
-            ]
-            touchsite_nodes.extend(touchsites)
-            touchsite_count += len(touchsites)
-            collapsible_count += sum(
-                1 for node in touchsites if node.seam_class == "collapsible_helper_seam"
-            )
-            surviving_count += sum(
-                1 for node in touchsites if node.seam_class == "surviving_carrier_seam"
-            )
-        subqueue_payloads.append(
-            {
-                "subqueue_id": _primary_object_id(subqueue_node),
-                "title": subqueue_node.title,
-                "site_identity": subqueue_node.site_identity,
-                "structural_identity": subqueue_node.structural_identity,
-                "marker_identity": subqueue_node.marker_id,
-                "marker_reason": subqueue_node.reasoning_summary or subqueue_node.title,
-                "reasoning_summary": subqueue_node.reasoning_summary,
-                "reasoning_control": subqueue_node.reasoning_control,
-                "blocking_dependencies": list(subqueue_node.blocking_dependencies),
-                "object_ids": list(subqueue_node.object_ids),
-                "touchpoint_ids": touchpoint_ids,
-                "touchsite_count": touchsite_count,
-                "collapsible_touchsite_count": collapsible_count,
-                "surviving_touchsite_count": surviving_count,
-            }
-        )
-    for touchpoint_node in touchpoint_nodes:
-        touchsites = [
-            node_by_id[edge.target_id]
-            for edge in edges_from.get(touchpoint_node.node_id, ())
-            if edge.edge_kind == "contains"
-        ]
-        collapsible_count = sum(
-            1 for node in touchsites if node.seam_class == "collapsible_helper_seam"
-        )
-        touchpoint_payloads.append(
-            {
-                "touchpoint_id": _primary_object_id(touchpoint_node),
-                "subqueue_id": next(
-                    (
-                        _primary_object_id(subqueue_node)
-                        for subqueue_node in subqueue_nodes
-                        if any(
-                            edge.target_id == touchpoint_node.node_id and edge.edge_kind == "contains"
-                            for edge in edges_from.get(subqueue_node.node_id, ())
-                        )
-                    ),
-                    "",
-                ),
-                "title": touchpoint_node.title,
-                "rel_path": touchpoint_node.rel_path,
-                "site_identity": touchpoint_node.site_identity,
-                "structural_identity": touchpoint_node.structural_identity,
-                "marker_identity": touchpoint_node.marker_id,
-                "marker_reason": touchpoint_node.reasoning_summary or touchpoint_node.title,
-                "reasoning_summary": touchpoint_node.reasoning_summary,
-                "reasoning_control": touchpoint_node.reasoning_control,
-                "blocking_dependencies": list(touchpoint_node.blocking_dependencies),
-                "object_ids": list(touchpoint_node.object_ids),
-                "touchsite_count": len(touchsites),
-                "collapsible_touchsite_count": collapsible_count,
-                "surviving_touchsite_count": len(touchsites) - collapsible_count,
-                "touchsites": [
-                    {
-                        "touchsite_id": _primary_object_id(node),
-                        "touchpoint_id": _primary_object_id(touchpoint_node),
-                        "subqueue_id": next(
-                            (
-                                _primary_object_id(subqueue_node)
-                                for subqueue_node in subqueue_nodes
-                                if any(
-                                    edge.target_id == touchpoint_node.node_id and edge.edge_kind == "contains"
-                                    for edge in edges_from.get(subqueue_node.node_id, ())
-                                )
-                            ),
-                            "",
-                        ),
-                        "rel_path": node.rel_path,
-                        "qualname": node.qualname,
-                        "boundary_name": node.title,
-                        "line": node.line,
-                        "column": node.column,
-                        "node_kind": node.ast_node_kind,
-                        "site_identity": node.site_identity,
-                        "structural_identity": node.structural_identity,
-                        "seam_class": node.seam_class,
-                        "touchpoint_marker_identity": touchpoint_node.marker_id,
-                        "touchpoint_structural_identity": touchpoint_node.structural_identity,
-                        "subqueue_marker_identity": next(
-                            (
-                                subqueue_node.marker_id
-                                for subqueue_node in subqueue_nodes
-                                if any(
-                                    edge.target_id == touchpoint_node.node_id and edge.edge_kind == "contains"
-                                    for edge in edges_from.get(subqueue_node.node_id, ())
-                                )
-                            ),
-                            "",
-                        ),
-                        "subqueue_structural_identity": next(
-                            (
-                                subqueue_node.structural_identity
-                                for subqueue_node in subqueue_nodes
-                                if any(
-                                    edge.target_id == touchpoint_node.node_id and edge.edge_kind == "contains"
-                                    for edge in edges_from.get(subqueue_node.node_id, ())
-                                )
-                            ),
-                            "",
-                        ),
-                        "object_ids": list(node.object_ids),
-                    }
-                    for node in _sorted(
-                        touchsites,
-                        key=lambda item: (
-                            item.rel_path,
-                            item.line,
-                            item.column,
-                            item.qualname,
-                        ),
-                    )
-                ],
-            }
-        )
-    collapsible_touchsite_count = sum(
-        1 for node in touchsite_nodes if node.seam_class == "collapsible_helper_seam"
+    workstreams = build_invariant_workstreams(graph)
+    workstream = next(
+        (
+            item
+            for item in workstreams.get("workstreams", [])
+            if isinstance(item, Mapping) and str(item.get("object_id", "")) == queue_object_id
+        ),
+        None,
     )
+    if not isinstance(workstream, Mapping):
+        raise KeyError(queue_object_id)
     return {
         "queue_id": queue_object_id,
-        "title": queue_node.title,
-        "remaining_touchsite_count": len(touchsite_nodes),
-        "collapsible_touchsite_count": collapsible_touchsite_count,
-        "surviving_touchsite_count": len(touchsite_nodes) - collapsible_touchsite_count,
-        "subqueues": _sorted(subqueue_payloads, key=lambda item: str(item["subqueue_id"])),
-        "touchpoints": _sorted(
-            touchpoint_payloads,
-            key=lambda item: str(item["touchpoint_id"]),
+        "title": str(workstream.get("title", "")),
+        "remaining_touchsite_count": int(workstream.get("touchsite_count", 0)),
+        "collapsible_touchsite_count": int(
+            workstream.get("collapsible_touchsite_count", 0)
         ),
+        "surviving_touchsite_count": int(
+            workstream.get("surviving_touchsite_count", 0)
+        ),
+        "subqueues": [
+            {
+                "subqueue_id": str(item.get("object_id", "")),
+                "title": str(item.get("title", "")),
+                "site_identity": str(item.get("site_identity", "")),
+                "structural_identity": str(item.get("structural_identity", "")),
+                "marker_identity": str(item.get("marker_identity", "")),
+                "marker_reason": str(item.get("reasoning_summary", "")),
+                "reasoning_summary": str(item.get("reasoning_summary", "")),
+                "reasoning_control": str(item.get("reasoning_control", "")),
+                "blocking_dependencies": list(item.get("blocking_dependencies", [])),
+                "object_ids": list(item.get("object_ids", [])),
+                "touchpoint_ids": list(item.get("touchpoint_ids", [])),
+                "touchsite_count": int(item.get("touchsite_count", 0)),
+                "collapsible_touchsite_count": int(
+                    item.get("collapsible_touchsite_count", 0)
+                ),
+                "surviving_touchsite_count": int(
+                    item.get("surviving_touchsite_count", 0)
+                ),
+            }
+            for item in workstream.get("subqueues", [])
+            if isinstance(item, Mapping)
+        ],
+        "touchpoints": [
+            {
+                "touchpoint_id": str(item.get("object_id", "")),
+                "subqueue_id": str(item.get("subqueue_id", "")),
+                "title": str(item.get("title", "")),
+                "rel_path": str(item.get("rel_path", "")),
+                "site_identity": str(item.get("site_identity", "")),
+                "structural_identity": str(item.get("structural_identity", "")),
+                "marker_identity": str(item.get("marker_identity", "")),
+                "marker_reason": str(item.get("reasoning_summary", "")),
+                "reasoning_summary": str(item.get("reasoning_summary", "")),
+                "reasoning_control": str(item.get("reasoning_control", "")),
+                "blocking_dependencies": list(item.get("blocking_dependencies", [])),
+                "object_ids": list(item.get("object_ids", [])),
+                "touchsite_count": int(item.get("touchsite_count", 0)),
+                "collapsible_touchsite_count": int(
+                    item.get("collapsible_touchsite_count", 0)
+                ),
+                "surviving_touchsite_count": int(
+                    item.get("surviving_touchsite_count", 0)
+                ),
+                "touchsites": [
+                    {
+                        "touchsite_id": str(touchsite.get("object_id", "")),
+                        "touchpoint_id": str(touchsite.get("touchpoint_id", "")),
+                        "subqueue_id": str(touchsite.get("subqueue_id", "")),
+                        "rel_path": str(touchsite.get("rel_path", "")),
+                        "qualname": str(touchsite.get("qualname", "")),
+                        "boundary_name": str(touchsite.get("boundary_name", "")),
+                        "line": int(touchsite.get("line", 0)),
+                        "column": int(touchsite.get("column", 0)),
+                        "node_kind": str(touchsite.get("node_kind", "")),
+                        "site_identity": str(touchsite.get("site_identity", "")),
+                        "structural_identity": str(
+                            touchsite.get("structural_identity", "")
+                        ),
+                        "seam_class": str(touchsite.get("seam_class", "")),
+                        "touchpoint_marker_identity": str(
+                            touchsite.get("touchpoint_marker_identity", "")
+                        ),
+                        "touchpoint_structural_identity": str(
+                            touchsite.get("touchpoint_structural_identity", "")
+                        ),
+                        "subqueue_marker_identity": str(
+                            touchsite.get("subqueue_marker_identity", "")
+                        ),
+                        "subqueue_structural_identity": str(
+                            touchsite.get("subqueue_structural_identity", "")
+                        ),
+                        "object_ids": list(touchsite.get("object_ids", [])),
+                    }
+                    for touchsite in item.get("touchsites", [])
+                    if isinstance(touchsite, Mapping)
+                ],
+            }
+            for item in workstream.get("touchpoints", [])
+            if isinstance(item, Mapping)
+        ],
     }
 
 
@@ -1229,6 +1957,18 @@ def blocker_chains(
     }
 
 
+def load_invariant_workstreams(path: Path) -> Mapping[str, object]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, Mapping):
+        raise ValueError("invariant workstreams payload must be a mapping")
+    return payload
+
+
+def write_invariant_workstreams(path: Path, workstreams: Mapping[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(workstreams, indent=2) + "\n", encoding="utf-8")
+
+
 def load_invariant_graph(path: Path) -> InvariantGraph:
     payload = json.loads(path.read_text(encoding="utf-8"))
     return InvariantGraph.from_payload(payload)
@@ -1246,8 +1986,11 @@ __all__ = [
     "InvariantGraphNode",
     "blocker_chains",
     "build_invariant_graph",
+    "build_invariant_workstreams",
     "build_psf_phase5_projection",
+    "load_invariant_workstreams",
     "load_invariant_graph",
     "trace_nodes",
     "write_invariant_graph",
+    "write_invariant_workstreams",
 ]

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 from gabion.order_contract import ordered_or_sorted
@@ -8,12 +9,15 @@ from gabion.tooling.policy_substrate.invariant_graph import (
     InvariantGraph,
     blocker_chains,
     build_invariant_graph,
+    build_invariant_workstreams,
     load_invariant_graph,
     trace_nodes,
     write_invariant_graph,
+    write_invariant_workstreams,
 )
 
 _DEFAULT_ARTIFACT = Path("artifacts/out/invariant_graph.json")
+_DEFAULT_WORKSTREAMS_ARTIFACT = Path("artifacts/out/invariant_workstreams.json")
 
 
 def _sorted[T](values: list[T], *, key=None) -> list[T]:
@@ -30,10 +34,84 @@ def _load_or_build_graph(*, root: Path, artifact: Path) -> InvariantGraph:
     return build_invariant_graph(root)
 
 
+def _descendant_ids(graph: InvariantGraph, node_id: str) -> tuple[str, ...]:
+    node_by_id = graph.node_by_id()
+    edges_from = graph.edges_from()
+    pending = [node_id]
+    seen: set[str] = set()
+    while pending:
+        current = pending.pop()
+        if current in seen:
+            continue
+        seen.add(current)
+        for edge in edges_from.get(current, ()):
+            if edge.edge_kind == "contains" and edge.target_id in node_by_id:
+                pending.append(edge.target_id)
+    return tuple(_sorted(list(seen)))
+
+
+def _coverage_and_signal_ids(
+    graph: InvariantGraph,
+    *,
+    node_ids: tuple[str, ...],
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    node_by_id = graph.node_by_id()
+    edges_from = graph.edges_from()
+    edges_to = graph.edges_to()
+    test_case_ids = {
+        edge.target_id
+        for node_id in node_ids
+        for edge in edges_from.get(node_id, ())
+        if edge.edge_kind == "covered_by"
+        and edge.target_id in node_by_id
+        and node_by_id[edge.target_id].node_kind == "test_case"
+    }
+    signal_ids = {
+        edge.source_id
+        for node_id in node_ids
+        for edge in edges_to.get(node_id, ())
+        if edge.edge_kind == "blocks"
+        and edge.source_id in node_by_id
+        and node_by_id[edge.source_id].node_kind == "policy_signal"
+    }
+    return (tuple(_sorted(list(test_case_ids))), tuple(_sorted(list(signal_ids))))
+
+
+def _load_impacted_tests(path: Path | None) -> tuple[str, ...]:
+    if path is None or not path.exists():
+        return ()
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        return ()
+    selection = payload.get("selection")
+    if not isinstance(selection, dict):
+        return ()
+    impacted_tests = selection.get("impacted_tests", [])
+    if not isinstance(impacted_tests, list):
+        return ()
+    return tuple(_sorted([str(item) for item in impacted_tests if isinstance(item, str)]))
+
+
+def _workstream_by_object_id(
+    *,
+    graph: InvariantGraph,
+    object_id: str,
+) -> dict[str, object] | None:
+    projection = build_invariant_workstreams(graph)
+    workstreams = projection.get("workstreams", [])
+    if not isinstance(workstreams, list):
+        return None
+    for item in workstreams:
+        if isinstance(item, dict) and str(item.get("object_id", "")) == object_id:
+            return item
+    return None
+
+
 def _print_summary(*, graph: InvariantGraph) -> None:
     payload = graph.as_payload()
     counts = payload.get("counts", {})
     print(f"root: {graph.root}")
+    print(f"workstreams: {len(graph.workstream_root_ids)}")
     print(f"nodes: {counts.get('node_count', 0)}")
     print(f"edges: {counts.get('edge_count', 0)}")
     print(f"diagnostics: {counts.get('diagnostic_count', 0)}")
@@ -137,6 +215,19 @@ def _print_trace(*, graph: InvariantGraph, raw_id: str) -> int:
             print(f"- {edge.edge_kind}: {source.node_id} :: {source.title}")
         if not inbound:
             print("- <none>")
+        descendant_ids = _descendant_ids(graph, node.node_id)
+        coverage_ids, signal_ids = _coverage_and_signal_ids(graph, node_ids=descendant_ids)
+        print(f"coverage_summary: tests={len(coverage_ids)}")
+        if coverage_ids:
+            print("covering_tests:")
+            for test_case_id in coverage_ids[:20]:
+                print(f"- {node_by_id[test_case_id].title}")
+        print(f"policy_signal_summary: signals={len(signal_ids)}")
+        if signal_ids:
+            print("policy_signals:")
+            for signal_id in signal_ids[:20]:
+                signal_node = node_by_id[signal_id]
+                print(f"- {signal_node.title} :: {signal_node.reasoning_summary}")
     return 0
 
 
@@ -158,10 +249,83 @@ def _print_blockers(*, graph: InvariantGraph, object_id: str) -> int:
     return 0
 
 
+def _print_workstream(*, graph: InvariantGraph, object_id: str) -> int:
+    workstream = _workstream_by_object_id(graph=graph, object_id=object_id)
+    if workstream is None:
+        print(f"no workstream projection for object_id: {object_id}")
+        return 1
+    print(f"object_id: {workstream.get('object_id', '')}")
+    print(f"title: {workstream.get('title', '')}")
+    print(f"status: {workstream.get('status', '')}")
+    print(f"touchsites: {workstream.get('touchsite_count', 0)}")
+    print(f"collapsible_touchsites: {workstream.get('collapsible_touchsite_count', 0)}")
+    print(f"surviving_touchsites: {workstream.get('surviving_touchsite_count', 0)}")
+    print(f"policy_signals: {workstream.get('policy_signal_count', 0)}")
+    print(f"coverage_count: {workstream.get('coverage_count', 0)}")
+    print(f"diagnostics: {workstream.get('diagnostic_count', 0)}")
+    print("subqueues:")
+    subqueues = workstream.get("subqueues", [])
+    if isinstance(subqueues, list) and subqueues:
+        for item in subqueues:
+            if not isinstance(item, dict):
+                continue
+            print(
+                "- {object_id} :: {status} :: touchsites={touchsites} :: signals={signals} :: coverage={coverage}".format(
+                    object_id=str(item.get("object_id", "")),
+                    status=str(item.get("status", "")),
+                    touchsites=int(item.get("touchsite_count", 0)),
+                    signals=int(item.get("policy_signal_count", 0)),
+                    coverage=int(item.get("coverage_count", 0)),
+                )
+            )
+    else:
+        print("- <none>")
+    return 0
+
+
+def _print_blast_radius(
+    *,
+    graph: InvariantGraph,
+    raw_id: str,
+    impact_artifact: Path | None,
+) -> int:
+    node_by_id = graph.node_by_id()
+    nodes = trace_nodes(graph, raw_id)
+    if not nodes:
+        print(f"no invariant-graph nodes matched: {raw_id}")
+        return 1
+    descendant_ids = tuple(
+        _sorted(
+            list(
+                {
+                    descendant_id
+                    for node in nodes
+                    for descendant_id in _descendant_ids(graph, node.node_id)
+                }
+            )
+        )
+    )
+    coverage_ids, _signal_ids = _coverage_and_signal_ids(graph, node_ids=descendant_ids)
+    impacted_tests = set(_load_impacted_tests(impact_artifact))
+    print(f"node_matches: {len(nodes)}")
+    print(f"covering_tests: {len(coverage_ids)}")
+    if impact_artifact is not None:
+        print(f"impact_artifact: {impact_artifact}")
+    for test_case_id in coverage_ids:
+        test_id = node_by_id[test_case_id].title
+        suffix = " [impacted]" if test_id in impacted_tests else ""
+        print(f"- {test_id}{suffix}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", default=".")
     parser.add_argument("--artifact", default=str(_DEFAULT_ARTIFACT))
+    parser.add_argument(
+        "--workstreams-artifact",
+        default=str(_DEFAULT_WORKSTREAMS_ARTIFACT),
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     subparsers.add_parser("build")
@@ -173,13 +337,22 @@ def main(argv: list[str] | None = None) -> int:
     blockers_parser = subparsers.add_parser("blockers")
     blockers_parser.add_argument("--object-id", required=True)
 
+    workstream_parser = subparsers.add_parser("workstream")
+    workstream_parser.add_argument("--object-id", required=True)
+
+    blast_radius_parser = subparsers.add_parser("blast-radius")
+    blast_radius_parser.add_argument("--id", required=True)
+    blast_radius_parser.add_argument("--impact-artifact", default=None)
+
     args = parser.parse_args(argv)
     root = Path(args.root).resolve()
     artifact = Path(args.artifact).resolve()
+    workstreams_artifact = Path(args.workstreams_artifact).resolve()
 
     if args.command == "build":
         graph = build_invariant_graph(root)
         write_invariant_graph(artifact, graph)
+        write_invariant_workstreams(workstreams_artifact, build_invariant_workstreams(graph))
         print(str(artifact))
         return 0
     if args.command == "summary":
@@ -194,6 +367,22 @@ def main(argv: list[str] | None = None) -> int:
         return _print_blockers(
             graph=_load_or_build_graph(root=root, artifact=artifact),
             object_id=str(args.object_id),
+        )
+    if args.command == "workstream":
+        return _print_workstream(
+            graph=_load_or_build_graph(root=root, artifact=artifact),
+            object_id=str(args.object_id),
+        )
+    if args.command == "blast-radius":
+        impact_artifact = (
+            Path(args.impact_artifact).resolve()
+            if args.impact_artifact is not None
+            else None
+        )
+        return _print_blast_radius(
+            graph=_load_or_build_graph(root=root, artifact=artifact),
+            raw_id=str(args.id),
+            impact_artifact=impact_artifact,
         )
     return 1
 
