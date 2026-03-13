@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from gabion.tooling.policy_substrate import policy_artifact_stream as stream
+from gabion.tooling.policy_substrate.policy_queue_identity import PolicyQueueIdentitySpace
 
 
 def test_write_json_matches_render_json_value_for_recursive_artifact_units(
@@ -145,3 +146,55 @@ def test_write_json_does_not_delegate_to_render_json_value(
     stream.write_json(output_path, artifact)
 
     assert json.loads(output_path.read_text(encoding="utf-8")) == {"value": "ok"}
+
+
+def test_artifact_stream_uses_default_renderer_for_typed_identities() -> None:
+    identity_space = PolicyQueueIdentitySpace()
+    touchpoint = identity_space.touchpoint_id("PSF-007-TP-005")
+    touchsite = identity_space.touchsite_id("PSF-007-TS:semantic_fragment")
+
+    artifact = stream.document(
+        identity=touchpoint,
+        title="workstream",
+        children=lambda: iter(
+            (
+                stream.scalar(
+                    identity=touchpoint,
+                    key="recommended_cut",
+                    title="recommended_cut",
+                    value=touchpoint,
+                ),
+                stream.bullet_list(
+                    identity=touchsite,
+                    key="touchsites",
+                    title="touchsites",
+                    children=lambda: iter(
+                        (
+                            stream.list_item(
+                                identity=touchsite,
+                                children=lambda: iter(
+                                    (
+                                        stream.scalar(
+                                            identity=touchsite,
+                                            key="touchsite",
+                                            title="touchsite",
+                                            value=touchsite,
+                                        ),
+                                    )
+                                ),
+                            ),
+                        )
+                    ),
+                ),
+            )
+        ),
+    )
+
+    rendered = str(artifact)
+    assert "recommended_cut" in rendered
+    assert "PSF-007-TP-005" in rendered
+    assert "PSF-007-TS:semantic_fragment" in rendered
+    assert stream.render_json_value(artifact) == {
+        "recommended_cut": "PSF-007-TP-005",
+        "touchsites": [{"touchsite": "PSF-007-TS:semantic_fragment"}],
+    }

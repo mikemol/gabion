@@ -10,10 +10,6 @@ from typing import Any, cast
 from gabion.analysis.aspf.aspf_lattice_algebra import ReplayableStream
 from gabion.analysis.foundation.json_types import JSONValue
 
-from gabion.tooling.policy_substrate.policy_queue_identity import (
-    encode_policy_queue_identity,
-)
-
 
 class ArtifactUnitKind(StrEnum):
     DOCUMENT = "document"
@@ -35,11 +31,24 @@ class ArtifactSourceRef:
     line: int = 0
     column: int = 0
 
+    def __str__(self) -> str:
+        location = self.rel_path
+        if self.line > 0:
+            location = f"{location}:{self.line}"
+            if self.column > 0:
+                location = f"{location}:{self.column}"
+        if self.qualname:
+            return f"{location}::{self.qualname}"
+        return location
+
 
 @dataclass(frozen=True)
 class ArtifactColumn:
     key: str
     title: str
+
+    def __str__(self) -> str:
+        return self.title or self.key
 
 
 def _empty_stream() -> ReplayableStream[ArtifactUnit]:
@@ -58,6 +67,9 @@ class ArtifactUnit:
 
     def __iter__(self) -> Iterator["ArtifactUnit"]:
         return iter(self.children)
+
+    def __str__(self) -> str:
+        return render_markdown(self).rstrip("\n")
 
 
 def document(
@@ -346,6 +358,24 @@ def _stringify(value: object) -> str:
             return str(value)
 
 
+def _boundary_json_value(value: object) -> object:
+    match value:
+        case None | bool() | int() | float() | str():
+            return value
+        case Mapping() as mapping:
+            return {
+                str(key): _boundary_json_value(item)
+                for key, item in mapping.items()
+            }
+        case Sequence() as sequence if not isinstance(value, (str, bytes, bytearray)):
+            return [_boundary_json_value(item) for item in sequence]
+        case _:
+            wire = getattr(value, "wire", None)
+            if callable(wire):
+                return wire()
+            return str(value)
+
+
 def _markdown_scalar_line(unit: ArtifactUnit) -> str:
     return f"- {unit.title}: `{_stringify(unit.value)}`"
 
@@ -393,7 +423,7 @@ def iter_markdown_lines(
                     case ArtifactUnitKind.LIST_ITEM if child.value is not None:
                         yield f"- `{_stringify(child.value)}`"
                     case ArtifactUnitKind.LIST_ITEM:
-                        bullet = child.title or encode_policy_queue_identity(child.identity)
+                        bullet = child.title or str(child.identity)
                         yield f"- {bullet}"
                         for grandchild in child:
                             for line in iter_markdown_lines(
@@ -437,7 +467,7 @@ def _json_value(unit: ArtifactUnit) -> object:
                 if child.key
             }
         case ArtifactUnitKind.PARAGRAPH | ArtifactUnitKind.SCALAR | ArtifactUnitKind.CELL:
-            return unit.value
+            return _boundary_json_value(unit.value)
         case ArtifactUnitKind.BULLET_LIST:
             return [_json_value(child) for child in unit]
         case ArtifactUnitKind.LIST_ITEM:
@@ -448,7 +478,7 @@ def _json_value(unit: ArtifactUnit) -> object:
                     for child in children
                     if child.key
                 }
-            return unit.value
+            return _boundary_json_value(unit.value)
         case ArtifactUnitKind.TABLE:
             return [_json_value(child) for child in unit]
         case ArtifactUnitKind.ROW:
