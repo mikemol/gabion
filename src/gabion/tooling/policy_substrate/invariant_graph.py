@@ -647,6 +647,12 @@ class InvariantRepoFollowupAction:
     owner_seed_object_id: str | None
     owner_resolution_kind: str | None
     owner_resolution_score: int | None
+    owner_resolution_options: tuple["InvariantOwnerCandidateOption", ...]
+    runner_up_owner_object_id: str | None
+    runner_up_owner_resolution_kind: str | None
+    runner_up_owner_resolution_score: int | None
+    owner_choice_margin_score: int | None
+    owner_choice_margin_reason: str | None
     utility_score: int
     utility_reason: str
     utility_components: tuple[InvariantScoreComponent, ...]
@@ -670,6 +676,14 @@ class InvariantRepoFollowupAction:
             "owner_seed_object_id": self.owner_seed_object_id,
             "owner_resolution_kind": self.owner_resolution_kind,
             "owner_resolution_score": self.owner_resolution_score,
+            "owner_resolution_options": [
+                item.as_payload() for item in self.owner_resolution_options
+            ],
+            "runner_up_owner_object_id": self.runner_up_owner_object_id,
+            "runner_up_owner_resolution_kind": self.runner_up_owner_resolution_kind,
+            "runner_up_owner_resolution_score": self.runner_up_owner_resolution_score,
+            "owner_choice_margin_score": self.owner_choice_margin_score,
+            "owner_choice_margin_reason": self.owner_choice_margin_reason,
             "utility_score": self.utility_score,
             "utility_reason": self.utility_reason,
             "utility_components": [
@@ -1993,6 +2007,7 @@ class InvariantWorkstreamsProjection:
                     if lane.candidate_owner_options
                     else None
                 )
+                runner_up_option = lane.runner_up_candidate_owner_option
                 if (
                     best_option is not None
                     and best_option.resolution_kind == "attach_existing_owner"
@@ -2035,6 +2050,24 @@ class InvariantWorkstreamsProjection:
                         owner_resolution_score=(
                             best_option.score if best_option is not None else None
                         ),
+                        owner_resolution_options=lane.candidate_owner_options,
+                        runner_up_owner_object_id=(
+                            runner_up_option.object_id
+                            if runner_up_option is not None
+                            else None
+                        ),
+                        runner_up_owner_resolution_kind=(
+                            runner_up_option.resolution_kind
+                            if runner_up_option is not None
+                            else None
+                        ),
+                        runner_up_owner_resolution_score=(
+                            runner_up_option.score
+                            if runner_up_option is not None
+                            else None
+                        ),
+                        owner_choice_margin_score=lane.candidate_owner_choice_margin_score,
+                        owner_choice_margin_reason=lane.candidate_owner_choice_margin_reason,
                         utility_score=0,
                         utility_reason="",
                         utility_components=(),
@@ -2066,6 +2099,12 @@ class InvariantWorkstreamsProjection:
                         owner_seed_object_id=None,
                         owner_resolution_kind=None,
                         owner_resolution_score=None,
+                        owner_resolution_options=(),
+                        runner_up_owner_object_id=None,
+                        runner_up_owner_resolution_kind=None,
+                        runner_up_owner_resolution_score=None,
+                        owner_choice_margin_score=None,
+                        owner_choice_margin_reason=None,
                         utility_score=0,
                         utility_reason="",
                         utility_components=(),
@@ -2097,6 +2136,12 @@ class InvariantWorkstreamsProjection:
                         owner_seed_object_id=None,
                         owner_resolution_kind=None,
                         owner_resolution_score=None,
+                        owner_resolution_options=(),
+                        runner_up_owner_object_id=None,
+                        runner_up_owner_resolution_kind=None,
+                        runner_up_owner_resolution_score=None,
+                        owner_choice_margin_score=None,
+                        owner_choice_margin_reason=None,
                         utility_score=0,
                         utility_reason="",
                         utility_components=(),
@@ -2123,6 +2168,12 @@ class InvariantWorkstreamsProjection:
                         owner_seed_object_id=None,
                         owner_resolution_kind=None,
                         owner_resolution_score=None,
+                        owner_resolution_options=(),
+                        runner_up_owner_object_id=None,
+                        runner_up_owner_resolution_kind=None,
+                        runner_up_owner_resolution_score=None,
+                        owner_choice_margin_score=None,
+                        owner_choice_margin_reason=None,
                         utility_score=0,
                         utility_reason="",
                         utility_components=(),

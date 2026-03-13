@@ -135,6 +135,27 @@ def _format_score_components(components: object) -> str:
     return " | ".join(parts) if parts else "none"
 
 
+def _format_owner_resolution_options(options: object) -> str:
+    if not isinstance(options, (list, tuple)) or not options:
+        return "none"
+    parts: list[str] = []
+    for item in options:
+        if isinstance(item, dict):
+            resolution_kind = str(item.get("resolution_kind", "unknown"))
+            object_id = str(item.get("object_id", "<none>"))
+            score = int(item.get("score", 0))
+            components = item.get("score_components", ())
+        else:
+            resolution_kind = str(getattr(item, "resolution_kind", "unknown"))
+            object_id = str(getattr(item, "object_id", "<none>"))
+            score = int(getattr(item, "score", 0))
+            components = getattr(item, "score_components", ())
+        parts.append(
+            f"{resolution_kind}:{object_id}:{score}:{_format_score_components(components)}"
+        )
+    return " || ".join(parts) if parts else "none"
+
+
 def _workstream_by_object_id(
     *,
     graph: InvariantGraph,
@@ -180,12 +201,40 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
         print("recommended_repo_followup: <none>")
     elif recommended_repo_followup.diagnostic_code is not None:
         print(
-            "recommended_repo_followup: {family} :: diagnostic={diagnostic} :: owner={owner} :: seed={seed} :: seed_object={seed_object} :: count={count} :: action={action} :: utility={utility} :: utility_components={utility_components}".format(
+            "recommended_repo_followup: {family} :: diagnostic={diagnostic} :: owner={owner} :: seed={seed} :: seed_object={seed_object} :: owner_kind={owner_kind} :: owner_score={owner_score} :: owner_options={owner_options} :: runner_up_owner={runner_up_owner} :: runner_up_kind={runner_up_kind} :: runner_up_score={runner_up_score} :: owner_choice_margin={owner_choice_margin} :: count={count} :: action={action} :: utility={utility} :: utility_components={utility_components}".format(
                 family=recommended_repo_followup.followup_family,
                 diagnostic=recommended_repo_followup.diagnostic_code,
                 owner=recommended_repo_followup.owner_object_id or "<none>",
                 seed=recommended_repo_followup.owner_seed_path or "<none>",
                 seed_object=recommended_repo_followup.owner_seed_object_id or "<none>",
+                owner_kind=recommended_repo_followup.owner_resolution_kind or "none",
+                owner_score=(
+                    "none"
+                    if recommended_repo_followup.owner_resolution_score is None
+                    else recommended_repo_followup.owner_resolution_score
+                ),
+                owner_options=_format_owner_resolution_options(
+                    recommended_repo_followup.owner_resolution_options
+                ),
+                runner_up_owner=(
+                    recommended_repo_followup.runner_up_owner_object_id or "<none>"
+                ),
+                runner_up_kind=(
+                    recommended_repo_followup.runner_up_owner_resolution_kind or "none"
+                ),
+                runner_up_score=(
+                    "none"
+                    if recommended_repo_followup.runner_up_owner_resolution_score is None
+                    else recommended_repo_followup.runner_up_owner_resolution_score
+                ),
+                owner_choice_margin=(
+                    "none"
+                    if recommended_repo_followup.owner_choice_margin_score is None
+                    else (
+                        f"{recommended_repo_followup.owner_choice_margin_score}:"
+                        f"{recommended_repo_followup.owner_choice_margin_reason}"
+                    )
+                ),
                 count=recommended_repo_followup.count,
                 action=recommended_repo_followup.recommended_action or "none",
                 utility=(
@@ -252,12 +301,42 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
         print("recommended_repo_human_followup: <none>")
     elif recommended_repo_human_followup.diagnostic_code is not None:
         print(
-            "recommended_repo_human_followup: {family} :: diagnostic={diagnostic} :: owner={owner} :: seed={seed} :: seed_object={seed_object} :: count={count} :: action={action} :: utility={utility} :: utility_components={utility_components}".format(
+            "recommended_repo_human_followup: {family} :: diagnostic={diagnostic} :: owner={owner} :: seed={seed} :: seed_object={seed_object} :: owner_kind={owner_kind} :: owner_score={owner_score} :: owner_options={owner_options} :: runner_up_owner={runner_up_owner} :: runner_up_kind={runner_up_kind} :: runner_up_score={runner_up_score} :: owner_choice_margin={owner_choice_margin} :: count={count} :: action={action} :: utility={utility} :: utility_components={utility_components}".format(
                 family=recommended_repo_human_followup.followup_family,
                 diagnostic=recommended_repo_human_followup.diagnostic_code,
                 owner=recommended_repo_human_followup.owner_object_id or "<none>",
                 seed=recommended_repo_human_followup.owner_seed_path or "<none>",
                 seed_object=recommended_repo_human_followup.owner_seed_object_id or "<none>",
+                owner_kind=recommended_repo_human_followup.owner_resolution_kind or "none",
+                owner_score=(
+                    "none"
+                    if recommended_repo_human_followup.owner_resolution_score is None
+                    else recommended_repo_human_followup.owner_resolution_score
+                ),
+                owner_options=_format_owner_resolution_options(
+                    recommended_repo_human_followup.owner_resolution_options
+                ),
+                runner_up_owner=(
+                    recommended_repo_human_followup.runner_up_owner_object_id
+                    or "<none>"
+                ),
+                runner_up_kind=(
+                    recommended_repo_human_followup.runner_up_owner_resolution_kind
+                    or "none"
+                ),
+                runner_up_score=(
+                    "none"
+                    if recommended_repo_human_followup.runner_up_owner_resolution_score is None
+                    else recommended_repo_human_followup.runner_up_owner_resolution_score
+                ),
+                owner_choice_margin=(
+                    "none"
+                    if recommended_repo_human_followup.owner_choice_margin_score is None
+                    else (
+                        f"{recommended_repo_human_followup.owner_choice_margin_score}:"
+                        f"{recommended_repo_human_followup.owner_choice_margin_reason}"
+                    )
+                ),
                 count=recommended_repo_human_followup.count,
                 action=recommended_repo_human_followup.recommended_action or "none",
                 utility=(

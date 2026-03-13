@@ -174,6 +174,27 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         "owner_seed_object_id": "WS-SEED:gabion.analysis.dataflow.io",
         "owner_resolution_kind": "seed_new_owner",
         "owner_resolution_score": 100,
+        "owner_resolution_options": [
+            {
+                "resolution_kind": "seed_new_owner",
+                "owner_status": "source_family_seed_owner",
+                "object_id": "WS-SEED:gabion.analysis.dataflow.io",
+                "score": 100,
+                "rationale": "source_family_seed",
+                "score_components": [
+                    {
+                        "kind": "seed_new_owner_base",
+                        "score": 100,
+                        "rationale": "source_family_seed",
+                    }
+                ],
+            }
+        ],
+        "runner_up_owner_object_id": None,
+        "runner_up_owner_resolution_kind": None,
+        "runner_up_owner_resolution_score": None,
+        "owner_choice_margin_score": 100,
+        "owner_choice_margin_reason": "uncontested_best_option",
         "utility_score": 1000,
         "utility_reason": "governance_orphan:seed_new_owner",
         "utility_components": [
@@ -213,6 +234,12 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         "owner_seed_object_id": None,
         "owner_resolution_kind": None,
         "owner_resolution_score": None,
+        "owner_resolution_options": [],
+        "runner_up_owner_object_id": None,
+        "runner_up_owner_resolution_kind": None,
+        "runner_up_owner_resolution_score": None,
+        "owner_choice_margin_score": None,
+        "owner_choice_margin_reason": None,
         "utility_score": 700,
         "utility_reason": "code:ready_structural",
         "utility_components": [
@@ -338,6 +365,27 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         "owner_seed_object_id": "WS-SEED:gabion.analysis.dataflow.io",
         "owner_resolution_kind": "seed_new_owner",
         "owner_resolution_score": 100,
+        "owner_resolution_options": [
+            {
+                "resolution_kind": "seed_new_owner",
+                "owner_status": "source_family_seed_owner",
+                "object_id": "WS-SEED:gabion.analysis.dataflow.io",
+                "score": 100,
+                "rationale": "source_family_seed",
+                "score_components": [
+                    {
+                        "kind": "seed_new_owner_base",
+                        "score": 100,
+                        "rationale": "source_family_seed",
+                    }
+                ],
+            }
+        ],
+        "runner_up_owner_object_id": None,
+        "runner_up_owner_resolution_kind": None,
+        "runner_up_owner_resolution_score": None,
+        "owner_choice_margin_score": 100,
+        "owner_choice_margin_reason": "uncontested_best_option",
         "utility_score": 1000,
         "utility_reason": "governance_orphan:seed_new_owner",
         "utility_components": [
@@ -375,6 +423,12 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
             "owner_seed_object_id": None,
             "owner_resolution_kind": None,
             "owner_resolution_score": None,
+            "owner_resolution_options": [],
+            "runner_up_owner_object_id": None,
+            "runner_up_owner_resolution_kind": None,
+            "runner_up_owner_resolution_score": None,
+            "owner_choice_margin_score": None,
+            "owner_choice_margin_reason": None,
             "utility_score": 700,
             "utility_reason": "code:ready_structural",
             "utility_components": [
@@ -450,6 +504,27 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
             "owner_seed_object_id": "WS-SEED:gabion.analysis.dataflow.io",
             "owner_resolution_kind": "seed_new_owner",
             "owner_resolution_score": 100,
+            "owner_resolution_options": [
+                {
+                    "resolution_kind": "seed_new_owner",
+                    "owner_status": "source_family_seed_owner",
+                    "object_id": "WS-SEED:gabion.analysis.dataflow.io",
+                    "score": 100,
+                    "rationale": "source_family_seed",
+                    "score_components": [
+                        {
+                            "kind": "seed_new_owner_base",
+                            "score": 100,
+                            "rationale": "source_family_seed",
+                        }
+                    ],
+                }
+            ],
+            "runner_up_owner_object_id": None,
+            "runner_up_owner_resolution_kind": None,
+            "runner_up_owner_resolution_score": None,
+            "owner_choice_margin_score": 100,
+            "owner_choice_margin_reason": "uncontested_best_option",
             "utility_score": 1000,
             "utility_reason": "governance_orphan:seed_new_owner",
             "utility_components": [
@@ -1521,6 +1596,46 @@ def test_ranked_repo_followups_prefers_stronger_owner_resolution_score() -> None
     assert ranked[0].diagnostic_code == "unmatched_policy_signal"
     assert ranked[0].owner_object_id == "WS-OWNER"
     assert ranked[0].owner_resolution_score == 300
+    assert ranked[0].owner_resolution_options == (
+        invariant_graph.InvariantOwnerCandidateOption(
+            resolution_kind="attach_existing_owner",
+            owner_status="exact_path_owner",
+            object_id="WS-OWNER",
+            score=300,
+            rationale="exact_path_match",
+            score_components=(
+                invariant_graph.InvariantScoreComponent(
+                    kind="attach_existing_owner_base",
+                    score=200,
+                    rationale="attach_existing_owner",
+                ),
+                invariant_graph.InvariantScoreComponent(
+                    kind="exact_path_bonus",
+                    score=100,
+                    rationale="exact_path_match",
+                ),
+            ),
+        ),
+        invariant_graph.InvariantOwnerCandidateOption(
+            resolution_kind="seed_new_owner",
+            owner_status="source_family_seed_owner",
+            object_id="WS-SEED:gabion",
+            score=100,
+            rationale="source_family_seed",
+            score_components=(
+                invariant_graph.InvariantScoreComponent(
+                    kind="seed_new_owner_base",
+                    score=100,
+                    rationale="source_family_seed",
+                ),
+            ),
+        ),
+    )
+    assert ranked[0].runner_up_owner_object_id == "WS-SEED:gabion"
+    assert ranked[0].runner_up_owner_resolution_kind == "seed_new_owner"
+    assert ranked[0].runner_up_owner_resolution_score == 100
+    assert ranked[0].owner_choice_margin_score == 200
+    assert ranked[0].owner_choice_margin_reason == "exact_path_match->source_family_seed"
     assert ranked[0].utility_score == 1200
     assert ranked[0].utility_reason == "governance_orphan:attach_existing_owner"
     assert ranked[0].utility_components == (
@@ -1538,6 +1653,27 @@ def test_ranked_repo_followups_prefers_stronger_owner_resolution_score() -> None
     assert ranked[1].diagnostic_code == "unmatched_policy_signal"
     assert ranked[1].owner_object_id is None
     assert ranked[1].owner_resolution_score == 100
+    assert ranked[1].owner_resolution_options == (
+        invariant_graph.InvariantOwnerCandidateOption(
+            resolution_kind="seed_new_owner",
+            owner_status="source_family_seed_owner",
+            object_id="WS-SEED:gabion.analysis.dataflow.io",
+            score=100,
+            rationale="source_family_seed",
+            score_components=(
+                invariant_graph.InvariantScoreComponent(
+                    kind="seed_new_owner_base",
+                    score=100,
+                    rationale="source_family_seed",
+                ),
+            ),
+        ),
+    )
+    assert ranked[1].runner_up_owner_object_id is None
+    assert ranked[1].runner_up_owner_resolution_kind is None
+    assert ranked[1].runner_up_owner_resolution_score is None
+    assert ranked[1].owner_choice_margin_score == 100
+    assert ranked[1].owner_choice_margin_reason == "uncontested_best_option"
     assert ranked[1].utility_score == 1000
     assert ranked[1].utility_reason == "governance_orphan:seed_new_owner"
     assert ranked[1].utility_components == (
@@ -2380,7 +2516,7 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
     assert "next_human_followup_family: governance_orphan_resolution" in summary_output
     assert "diagnostic_summary: unmatched_policy_signals=7 :: unresolved_dependencies=0" in summary_output
     assert (
-        "recommended_repo_followup: governance_orphan_resolution :: diagnostic=unmatched_policy_signal :: owner=<none> :: seed=src/gabion/analysis/dataflow/io :: seed_object=WS-SEED:gabion.analysis.dataflow.io :: count=1 :: action=seed_owned_workstream_from_source_family :: utility=1000:governance_orphan:seed_new_owner :: utility_components=governance_orphan_base:900:governance_orphan | owner_resolution_bonus:100:seed_new_owner"
+        "recommended_repo_followup: governance_orphan_resolution :: diagnostic=unmatched_policy_signal :: owner=<none> :: seed=src/gabion/analysis/dataflow/io :: seed_object=WS-SEED:gabion.analysis.dataflow.io :: owner_kind=seed_new_owner :: owner_score=100 :: owner_options=seed_new_owner:WS-SEED:gabion.analysis.dataflow.io:100:seed_new_owner_base:100:source_family_seed :: runner_up_owner=<none> :: runner_up_kind=none :: runner_up_score=none :: owner_choice_margin=100:uncontested_best_option :: count=1 :: action=seed_owned_workstream_from_source_family :: utility=1000:governance_orphan:seed_new_owner :: utility_components=governance_orphan_base:900:governance_orphan | owner_resolution_bonus:100:seed_new_owner"
         in summary_output
     )
     assert (
@@ -2388,7 +2524,7 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
         in summary_output
     )
     assert (
-        "recommended_repo_human_followup: governance_orphan_resolution :: diagnostic=unmatched_policy_signal :: owner=<none> :: seed=src/gabion/analysis/dataflow/io :: seed_object=WS-SEED:gabion.analysis.dataflow.io :: count=1 :: action=seed_owned_workstream_from_source_family :: utility=1000:governance_orphan:seed_new_owner :: utility_components=governance_orphan_base:900:governance_orphan | owner_resolution_bonus:100:seed_new_owner"
+        "recommended_repo_human_followup: governance_orphan_resolution :: diagnostic=unmatched_policy_signal :: owner=<none> :: seed=src/gabion/analysis/dataflow/io :: seed_object=WS-SEED:gabion.analysis.dataflow.io :: owner_kind=seed_new_owner :: owner_score=100 :: owner_options=seed_new_owner:WS-SEED:gabion.analysis.dataflow.io:100:seed_new_owner_base:100:source_family_seed :: runner_up_owner=<none> :: runner_up_kind=none :: runner_up_score=none :: owner_choice_margin=100:uncontested_best_option :: count=1 :: action=seed_owned_workstream_from_source_family :: utility=1000:governance_orphan:seed_new_owner :: utility_components=governance_orphan_base:900:governance_orphan | owner_resolution_bonus:100:seed_new_owner"
         in summary_output
     )
     assert (
