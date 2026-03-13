@@ -92,7 +92,10 @@ def test_policy_check_output_carries_projection_fiber_semantics_on_pass(
         assert "recommended_remediation_family" in workstream["next_actions"]
         assert "dominant_doc_alignment_status" in workstream["next_actions"]
         assert "recommended_doc_alignment_action" in workstream["next_actions"]
+        assert "next_human_followup_family" in workstream["next_actions"]
+        assert "recommended_doc_followup_target_doc_id" in workstream["next_actions"]
         assert "misaligned_target_doc_ids" in workstream["next_actions"]
+        assert "documentation_followup_lanes" in workstream["next_actions"]
         assert "remediation_lanes" in workstream["next_actions"]
     for ledger in invariant_ledger_payload["ledgers"]:
         assert "target_doc_ids" in ledger

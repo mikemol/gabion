@@ -518,6 +518,30 @@ class InvariantRemediationLane:
 
 
 @dataclass(frozen=True)
+class InvariantDocumentationFollowupLane:
+    followup_family: str
+    alignment_status: str
+    target_doc_count: int
+    misaligned_target_doc_count: int
+    target_doc_ids: tuple[str, ...]
+    misaligned_target_doc_ids: tuple[str, ...]
+    recommended_action: str
+    best_target_doc_id: str | None
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "followup_family": self.followup_family,
+            "alignment_status": self.alignment_status,
+            "target_doc_count": self.target_doc_count,
+            "misaligned_target_doc_count": self.misaligned_target_doc_count,
+            "target_doc_ids": list(self.target_doc_ids),
+            "misaligned_target_doc_ids": list(self.misaligned_target_doc_ids),
+            "recommended_action": self.recommended_action,
+            "best_target_doc_id": self.best_target_doc_id,
+        }
+
+
+@dataclass(frozen=True)
 class InvariantTouchpointProjection:
     object_id: TouchpointId
     subqueue_id: SubqueueId
@@ -776,6 +800,17 @@ class InvariantWorkstreamProjection:
             return ()
         return self.doc_alignment_summary.misaligned_target_doc_ids
 
+    def next_human_followup_family(self) -> str:
+        if self.documentation_followup_lane() is None:
+            return "none"
+        return "documentation_alignment"
+
+    def recommended_doc_followup_target_doc_id(self) -> str | None:
+        lane = self.documentation_followup_lane()
+        if lane is None:
+            return None
+        return lane.best_target_doc_id
+
     def health_summary(self) -> InvariantWorkstreamHealthSummary:
         touchpoints = tuple(self.iter_touchpoints())
         touchsites = tuple(
@@ -963,6 +998,25 @@ class InvariantWorkstreamProjection:
             )
         return tuple(lanes)
 
+    def documentation_followup_lane(self) -> InvariantDocumentationFollowupLane | None:
+        if self.doc_alignment_summary is None:
+            return None
+        if self.doc_alignment_summary.recommended_doc_alignment_action == "none":
+            return None
+        misaligned_target_doc_ids = self.doc_alignment_summary.misaligned_target_doc_ids
+        return InvariantDocumentationFollowupLane(
+            followup_family="documentation_alignment",
+            alignment_status=self.doc_alignment_summary.dominant_alignment_status,
+            target_doc_count=self.doc_alignment_summary.target_doc_count,
+            misaligned_target_doc_count=len(misaligned_target_doc_ids),
+            target_doc_ids=self.doc_ids,
+            misaligned_target_doc_ids=misaligned_target_doc_ids,
+            recommended_action=self.doc_alignment_summary.recommended_doc_alignment_action,
+            best_target_doc_id=(
+                misaligned_target_doc_ids[0] if misaligned_target_doc_ids else None
+            ),
+        )
+
     def as_payload(self) -> dict[str, object]:
         ranked_touchpoint_cuts = self.ranked_touchpoint_cuts()
         ranked_subqueue_cuts = self.ranked_subqueue_cuts()
@@ -973,6 +1027,7 @@ class InvariantWorkstreamProjection:
         recommended_diagnostic_blocked_cut = self.recommended_diagnostic_blocked_cut()
         health_summary = self.health_summary()
         remediation_lanes = self.remediation_lanes()
+        documentation_followup_lane = self.documentation_followup_lane()
         return {
             "object_id": self.object_id.wire(),
             "title": self.title,
@@ -1006,6 +1061,10 @@ class InvariantWorkstreamProjection:
                 "dominant_doc_alignment_status": self.dominant_doc_alignment_status(),
                 "recommended_doc_alignment_action": self.recommended_doc_alignment_action(),
                 "misaligned_target_doc_ids": list(self.misaligned_target_doc_ids()),
+                "next_human_followup_family": self.next_human_followup_family(),
+                "recommended_doc_followup_target_doc_id": (
+                    self.recommended_doc_followup_target_doc_id()
+                ),
                 "recommended_cut": (
                     recommended_cut.as_payload() if recommended_cut is not None else None
                 ),
@@ -1032,6 +1091,11 @@ class InvariantWorkstreamProjection:
                 "remediation_lanes": [
                     item.as_payload() for item in remediation_lanes
                 ],
+                "documentation_followup_lanes": (
+                    []
+                    if documentation_followup_lane is None
+                    else [documentation_followup_lane.as_payload()]
+                ),
                 "ranked_touchpoint_cuts": [
                     item.as_payload() for item in ranked_touchpoint_cuts
                 ],
@@ -1244,6 +1308,7 @@ class InvariantWorkstreamsProjection:
                                 recommended_policy_blocked_cut=recommended_policy_blocked_cut,
                                 recommended_diagnostic_blocked_cut=recommended_diagnostic_blocked_cut,
                                 remediation_lanes=remediation_lanes,
+                                documentation_followup_lane=workstream.documentation_followup_lane(),
                                 ranked_touchpoint_cuts=ranked_touchpoint_cuts,
                                 ranked_subqueue_cuts=ranked_subqueue_cuts: iter(
                                     (
@@ -1282,6 +1347,24 @@ class InvariantWorkstreamsProjection:
                                             key="recommended_doc_alignment_action",
                                             title="recommended_doc_alignment_action",
                                             value=workstream.recommended_doc_alignment_action(),
+                                        ),
+                                        scalar(
+                                            identity=ArtifactSourceRef(
+                                                rel_path="<synthetic>",
+                                                qualname="next_human_followup_family",
+                                            ),
+                                            key="next_human_followup_family",
+                                            title="next_human_followup_family",
+                                            value=workstream.next_human_followup_family(),
+                                        ),
+                                        scalar(
+                                            identity=ArtifactSourceRef(
+                                                rel_path="<synthetic>",
+                                                qualname="recommended_doc_followup_target_doc_id",
+                                            ),
+                                            key="recommended_doc_followup_target_doc_id",
+                                            title="recommended_doc_followup_target_doc_id",
+                                            value=workstream.recommended_doc_followup_target_doc_id(),
                                         ),
                                         bullet_list(
                                             identity=ArtifactSourceRef(
@@ -1382,6 +1465,30 @@ class InvariantWorkstreamsProjection:
                                                     ),
                                                 )
                                                 for item in remediation_lanes
+                                            ),
+                                        ),
+                                        bullet_list(
+                                            identity=ArtifactSourceRef(
+                                                rel_path="<synthetic>",
+                                                qualname="documentation_followup_lanes",
+                                            ),
+                                            key="documentation_followup_lanes",
+                                            children=lambda documentation_followup_lane=documentation_followup_lane: iter(
+                                                ()
+                                                if documentation_followup_lane is None
+                                                else (
+                                                    list_item(
+                                                        identity=ArtifactSourceRef(
+                                                            rel_path="<synthetic>",
+                                                            qualname=documentation_followup_lane.followup_family,
+                                                        ),
+                                                        children=lambda documentation_followup_lane=documentation_followup_lane: iter(
+                                                            _payload_to_units(
+                                                                documentation_followup_lane.as_payload()
+                                                            )
+                                                        ),
+                                                    ),
+                                                )
                                             ),
                                         ),
                                         bullet_list(

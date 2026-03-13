@@ -491,6 +491,19 @@ def _print_workstream(*, graph: InvariantGraph, root: Path, object_id: str) -> i
                 action=workstream.recommended_doc_alignment_action()
             )
         )
+        print(
+            "next_human_followup_family: {family}".format(
+                family=workstream.next_human_followup_family()
+            )
+        )
+        print(
+            "recommended_doc_followup_target_doc_id: {doc_id}".format(
+                doc_id=(
+                    workstream.recommended_doc_followup_target_doc_id()
+                    or "<none>"
+                )
+            )
+        )
         misaligned_target_doc_ids = workstream.misaligned_target_doc_ids()
         print(
             "misaligned_target_doc_ids: "
@@ -500,6 +513,21 @@ def _print_workstream(*, graph: InvariantGraph, root: Path, object_id: str) -> i
                 else "<none>"
             )
         )
+        print("documentation_followup_lanes:")
+        lane = workstream.documentation_followup_lane()
+        if lane is None:
+            print("- <none>")
+        else:
+            print(
+                "- {family} :: alignment={alignment} :: target_docs={target_docs} :: misaligned={misaligned} :: best={best} :: action={action}".format(
+                    family=lane.followup_family,
+                    alignment=lane.alignment_status,
+                    target_docs=lane.target_doc_count,
+                    misaligned=lane.misaligned_target_doc_count,
+                    best=lane.best_target_doc_id or "<none>",
+                    action=lane.recommended_action,
+                )
+            )
     return 0
 
 

@@ -204,9 +204,33 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
     assert psf["next_actions"]["recommended_doc_alignment_action"] == (
         "append_existing_ledger_entry"
     )
+    assert psf["next_actions"]["next_human_followup_family"] == (
+        "documentation_alignment"
+    )
+    assert psf["next_actions"]["recommended_doc_followup_target_doc_id"] == (
+        "projection_semantic_fragment_ledger"
+    )
     assert psf["next_actions"]["misaligned_target_doc_ids"] == [
         "projection_semantic_fragment_ledger",
         "projection_semantic_fragment_rfc",
+    ]
+    assert psf["next_actions"]["documentation_followup_lanes"] == [
+        {
+            "followup_family": "documentation_alignment",
+            "alignment_status": "append_pending_existing_object",
+            "target_doc_count": 2,
+            "misaligned_target_doc_count": 2,
+            "target_doc_ids": [
+                "projection_semantic_fragment_ledger",
+                "projection_semantic_fragment_rfc",
+            ],
+            "misaligned_target_doc_ids": [
+                "projection_semantic_fragment_ledger",
+                "projection_semantic_fragment_rfc",
+            ],
+            "recommended_action": "append_existing_ledger_entry",
+            "best_target_doc_id": "projection_semantic_fragment_ledger",
+        }
     ]
     assert psf["next_actions"]["remediation_lanes"][0]["remediation_family"] == (
         "structural_cut"
@@ -1326,7 +1350,17 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
     assert "ledger_alignment_summary: target_docs=2 ::" in workstream_output
     assert "dominant_doc_alignment_status: append_pending_existing_object" in workstream_output
     assert "recommended_doc_alignment_action:" in workstream_output
+    assert "next_human_followup_family: documentation_alignment" in workstream_output
+    assert (
+        "recommended_doc_followup_target_doc_id: projection_semantic_fragment_ledger"
+        in workstream_output
+    )
     assert "misaligned_target_doc_ids:" in workstream_output
+    assert "documentation_followup_lanes:" in workstream_output
+    assert (
+        "- documentation_alignment :: alignment=append_pending_existing_object :: target_docs=2 :: misaligned=2 :: best=projection_semantic_fragment_ledger :: action=append_existing_ledger_entry"
+        in workstream_output
+    )
 
     assert (
         invariant_graph_runtime.main(
