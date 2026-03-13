@@ -1797,7 +1797,7 @@ def _write_invariant_graph_artifact(
     )
 
     graph = build_invariant_graph(REPO_ROOT)
-    workstreams = build_invariant_workstreams(graph)
+    workstreams = build_invariant_workstreams(graph, root=REPO_ROOT)
     write_invariant_graph(output_path.parent / "invariant_graph.json", graph)
     write_invariant_workstreams(
         output_path.parent / "invariant_workstreams.json",

@@ -121,9 +121,10 @@ def _load_impacted_tests(path: Path | None) -> tuple[str, ...]:
 def _workstream_by_object_id(
     *,
     graph: InvariantGraph,
+    root: Path | None,
     object_id: str,
 ):
-    projection = build_invariant_workstreams(graph)
+    projection = build_invariant_workstreams(graph, root=root)
     for item in projection.iter_workstreams():
         if item.object_id.wire() == object_id:
             return item
@@ -289,8 +290,8 @@ def _ledger_projection_item(
     return None
 
 
-def _print_workstream(*, graph: InvariantGraph, ledger_artifact: Path, object_id: str) -> int:
-    workstream = _workstream_by_object_id(graph=graph, object_id=object_id)
+def _print_workstream(*, graph: InvariantGraph, root: Path, object_id: str) -> int:
+    workstream = _workstream_by_object_id(graph=graph, root=root, object_id=object_id)
     if workstream is None:
         print(f"no workstream projection for object_id: {object_id}")
         return 1
@@ -467,47 +468,38 @@ def _print_workstream(*, graph: InvariantGraph, ledger_artifact: Path, object_id
                     coverage=item.coverage_count,
                 )
             )
-    ledger_projection = _ledger_projection_item(
-        ledger_artifact=ledger_artifact,
-        object_id=workstream.object_id.wire(),
-    )
-    if ledger_projection is not None:
-        alignment_summary = ledger_projection.get("alignment_summary")
-        if isinstance(alignment_summary, dict):
-            print(
-                "ledger_alignment_summary: target_docs={target_docs} :: reflected={reflected} :: append_existing={append_existing} :: append_new={append_new} :: missing={missing} :: ambiguous={ambiguous} :: unassigned={unassigned}".format(
-                    target_docs=alignment_summary.get("target_doc_count", 0),
-                    reflected=alignment_summary.get("reflected_target_doc_count", 0),
-                    append_existing=alignment_summary.get(
-                        "append_pending_existing_target_doc_count", 0
-                    ),
-                    append_new=alignment_summary.get(
-                        "append_pending_new_target_doc_count", 0
-                    ),
-                    missing=alignment_summary.get("missing_target_doc_count", 0),
-                    ambiguous=alignment_summary.get("ambiguous_target_doc_count", 0),
-                    unassigned=alignment_summary.get("unassigned_target_doc_count", 0),
-                )
+    alignment_summary = workstream.doc_alignment_summary
+    if alignment_summary is not None:
+        print(
+            "ledger_alignment_summary: target_docs={target_docs} :: reflected={reflected} :: append_existing={append_existing} :: append_new={append_new} :: missing={missing} :: ambiguous={ambiguous} :: unassigned={unassigned}".format(
+                target_docs=alignment_summary.target_doc_count,
+                reflected=alignment_summary.reflected_target_doc_count,
+                append_existing=alignment_summary.append_pending_existing_target_doc_count,
+                append_new=alignment_summary.append_pending_new_target_doc_count,
+                missing=alignment_summary.missing_target_doc_count,
+                ambiguous=alignment_summary.ambiguous_target_doc_count,
+                unassigned=alignment_summary.unassigned_target_doc_count,
             )
-            print(
-                "recommended_doc_alignment_action: {action}".format(
-                    action=alignment_summary.get(
-                        "recommended_doc_alignment_action", "none"
-                    )
-                )
+        )
+        print(
+            "dominant_doc_alignment_status: {status}".format(
+                status=workstream.dominant_doc_alignment_status()
             )
-            misaligned_target_doc_ids = alignment_summary.get(
-                "misaligned_target_doc_ids", []
+        )
+        print(
+            "recommended_doc_alignment_action: {action}".format(
+                action=workstream.recommended_doc_alignment_action()
             )
-            if isinstance(misaligned_target_doc_ids, list):
-                print(
-                    "misaligned_target_doc_ids: "
-                    + (
-                        ", ".join(str(value) for value in misaligned_target_doc_ids)
-                        if misaligned_target_doc_ids
-                        else "<none>"
-                    )
-                )
+        )
+        misaligned_target_doc_ids = workstream.misaligned_target_doc_ids()
+        print(
+            "misaligned_target_doc_ids: "
+            + (
+                ", ".join(str(value) for value in misaligned_target_doc_ids)
+                if misaligned_target_doc_ids
+                else "<none>"
+            )
+        )
     return 0
 
 
@@ -957,7 +949,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "build":
         graph = build_invariant_graph(root)
-        workstreams = build_invariant_workstreams(graph)
+        workstreams = build_invariant_workstreams(graph, root=root)
         write_invariant_graph(artifact, graph)
         write_invariant_workstreams(workstreams_artifact, workstreams)
         write_invariant_ledger_projections(
@@ -982,7 +974,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "workstream":
         return _print_workstream(
             graph=_load_or_build_graph(root=root, artifact=artifact),
-            ledger_artifact=ledger_artifact,
+            root=root,
             object_id=str(args.object_id),
         )
     if args.command == "ledger":

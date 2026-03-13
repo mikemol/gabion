@@ -3,7 +3,7 @@ from __future__ import annotations
 import ast
 from collections import defaultdict, deque
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 import json
 from pathlib import Path
@@ -630,6 +630,7 @@ class InvariantWorkstreamProjection:
     diagnostic_count: int
     subqueues: ReplayableStream[InvariantSubqueueProjection]
     touchpoints: ReplayableStream[InvariantTouchpointProjection]
+    doc_alignment_summary: InvariantLedgerAlignmentSummary | None = None
 
     def iter_subqueues(self) -> Iterator[InvariantSubqueueProjection]:
         return iter(self.subqueues)
@@ -759,6 +760,21 @@ class InvariantWorkstreamProjection:
         if not candidates:
             return None
         return _sorted(candidates, key=_cut_sort_key)[0]
+
+    def dominant_doc_alignment_status(self) -> str:
+        if self.doc_alignment_summary is None:
+            return "none"
+        return self.doc_alignment_summary.dominant_alignment_status
+
+    def recommended_doc_alignment_action(self) -> str:
+        if self.doc_alignment_summary is None:
+            return "none"
+        return self.doc_alignment_summary.recommended_doc_alignment_action
+
+    def misaligned_target_doc_ids(self) -> tuple[str, ...]:
+        if self.doc_alignment_summary is None:
+            return ()
+        return self.doc_alignment_summary.misaligned_target_doc_ids
 
     def health_summary(self) -> InvariantWorkstreamHealthSummary:
         touchpoints = tuple(self.iter_touchpoints())
@@ -976,12 +992,20 @@ class InvariantWorkstreamProjection:
             "policy_signal_count": self.policy_signal_count,
             "coverage_count": self.coverage_count,
             "diagnostic_count": self.diagnostic_count,
+            "doc_alignment_summary": (
+                None
+                if self.doc_alignment_summary is None
+                else self.doc_alignment_summary.as_payload()
+            ),
             "subqueues": [item.as_payload() for item in self.iter_subqueues()],
             "touchpoints": [item.as_payload() for item in self.iter_touchpoints()],
             "health_summary": health_summary.as_payload(),
             "next_actions": {
                 "dominant_blocker_class": self.dominant_blocker_class(),
                 "recommended_remediation_family": self.recommended_remediation_family(),
+                "dominant_doc_alignment_status": self.dominant_doc_alignment_status(),
+                "recommended_doc_alignment_action": self.recommended_doc_alignment_action(),
+                "misaligned_target_doc_ids": list(self.misaligned_target_doc_ids()),
                 "recommended_cut": (
                     recommended_cut.as_payload() if recommended_cut is not None else None
                 ),
@@ -1170,6 +1194,18 @@ class InvariantWorkstreamsProjection:
                             scalar(identity=workstream.object_id, key="diagnostic_count", title="diagnostic_count", value=workstream.diagnostic_count),
                             section(
                                 identity=workstream.object_id,
+                                key="doc_alignment_summary",
+                                title="doc_alignment_summary",
+                                children=lambda workstream=workstream: iter(
+                                    ()
+                                    if workstream.doc_alignment_summary is None
+                                    else _payload_to_units(
+                                        workstream.doc_alignment_summary.as_payload()
+                                    )
+                                ),
+                            ),
+                            section(
+                                identity=workstream.object_id,
                                 key="health_summary",
                                 title="health_summary",
                                 children=lambda health_summary=health_summary: iter(
@@ -1228,6 +1264,41 @@ class InvariantWorkstreamsProjection:
                                             key="recommended_remediation_family",
                                             title="recommended_remediation_family",
                                             value=workstream.recommended_remediation_family(),
+                                        ),
+                                        scalar(
+                                            identity=ArtifactSourceRef(
+                                                rel_path="<synthetic>",
+                                                qualname="dominant_doc_alignment_status",
+                                            ),
+                                            key="dominant_doc_alignment_status",
+                                            title="dominant_doc_alignment_status",
+                                            value=workstream.dominant_doc_alignment_status(),
+                                        ),
+                                        scalar(
+                                            identity=ArtifactSourceRef(
+                                                rel_path="<synthetic>",
+                                                qualname="recommended_doc_alignment_action",
+                                            ),
+                                            key="recommended_doc_alignment_action",
+                                            title="recommended_doc_alignment_action",
+                                            value=workstream.recommended_doc_alignment_action(),
+                                        ),
+                                        bullet_list(
+                                            identity=ArtifactSourceRef(
+                                                rel_path="<synthetic>",
+                                                qualname="misaligned_target_doc_ids",
+                                            ),
+                                            key="misaligned_target_doc_ids",
+                                            children=lambda workstream=workstream: (
+                                                list_item(
+                                                    identity=ArtifactSourceRef(
+                                                        rel_path="<synthetic>",
+                                                        qualname=doc_id,
+                                                    ),
+                                                    value=doc_id,
+                                                )
+                                                for doc_id in workstream.misaligned_target_doc_ids()
+                                            ),
                                         ),
                                         scalar(
                                             identity=ArtifactSourceRef(
@@ -4102,12 +4173,17 @@ def _workstream_test_case_ids(graph: InvariantGraph, node_ids: set[str]) -> tupl
     return tuple(_sorted(list(test_case_ids)))
 
 
-def build_invariant_workstreams(graph: InvariantGraph) -> InvariantWorkstreamsProjection:
+def build_invariant_workstreams(
+    graph: InvariantGraph,
+    *,
+    root: Path | None = None,
+) -> InvariantWorkstreamsProjection:
     node_by_id = graph.node_by_id()
     edges_from = graph.edges_from()
     edges_to = graph.edges_to()
     identity_space = PolicyQueueIdentitySpace()
     generated_at_utc = datetime.now(timezone.utc).isoformat()
+    doc_paths_by_id = None if root is None else _doc_id_paths(root)
     diagnostics_by_node_id: dict[str, tuple[InvariantGraphDiagnostic, ...]] = {}
     for diagnostic in graph.diagnostics:
         diagnostics_by_node_id.setdefault(diagnostic.node_id, tuple())
@@ -4350,7 +4426,7 @@ def build_invariant_workstreams(graph: InvariantGraph) -> InvariantWorkstreamsPr
                         subqueue_node=subqueue_node,
                     )
 
-        return InvariantWorkstreamProjection(
+        workstream = InvariantWorkstreamProjection(
             object_id=identity_space.workstream_id(root_object_id),
             title=root_node.title,
             status=_status_for_projection(
@@ -4380,8 +4456,30 @@ def build_invariant_workstreams(graph: InvariantGraph) -> InvariantWorkstreamsPr
             policy_signal_count=len(_signal_ids(root_descendants)),
             coverage_count=len(_test_case_ids(root_descendants)),
             diagnostic_count=_diagnostic_count(root_descendants),
+            doc_alignment_summary=None,
             subqueues=_stream_from_iterable(_iter_subqueues),
             touchpoints=_stream_from_iterable(_iter_touchpoints),
+        )
+        if root is None or doc_paths_by_id is None:
+            return workstream
+        recommended_cut = workstream.recommended_cut()
+        summary = (
+            f"{workstream.object_id.wire()} is {workstream.status} with "
+            f"{workstream.touchsite_count} touchsites; dominant blocker "
+            f"{workstream.dominant_blocker_class()}; recommended cut "
+            f"{recommended_cut.object_id.wire() if recommended_cut is not None else '<none>'}."
+        )
+        return replace(
+            workstream,
+            doc_alignment_summary=_alignment_summary(
+                _current_target_doc_alignments(
+                    root=root,
+                    doc_paths_by_id=doc_paths_by_id,
+                    object_id=workstream.object_id.wire(),
+                    target_doc_ids=workstream.doc_ids,
+                    summary=summary,
+                )
+            ),
         )
 
     return InvariantWorkstreamsProjection(

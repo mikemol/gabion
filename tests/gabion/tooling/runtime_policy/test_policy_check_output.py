@@ -85,10 +85,14 @@ def test_policy_check_output_carries_projection_fiber_semantics_on_pass(
     for workstream in invariant_workstreams_payload["workstreams"]:
         assert "next_actions" in workstream
         assert "health_summary" in workstream
+        assert "doc_alignment_summary" in workstream
         assert "doc_ids" in workstream
         assert "policy_ids" in workstream
         assert "dominant_blocker_class" in workstream["next_actions"]
         assert "recommended_remediation_family" in workstream["next_actions"]
+        assert "dominant_doc_alignment_status" in workstream["next_actions"]
+        assert "recommended_doc_alignment_action" in workstream["next_actions"]
+        assert "misaligned_target_doc_ids" in workstream["next_actions"]
         assert "remediation_lanes" in workstream["next_actions"]
     for ledger in invariant_ledger_payload["ledgers"]:
         assert "target_doc_ids" in ledger

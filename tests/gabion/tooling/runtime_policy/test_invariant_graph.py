@@ -130,7 +130,7 @@ def test_invariant_graph_write_and_load_round_trip(
 def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
     graph = invariant_graph.build_invariant_graph(REPO_ROOT)
     projection = invariant_graph.build_psf_phase5_projection(graph)
-    workstreams = invariant_graph.build_invariant_workstreams(graph)
+    workstreams = invariant_graph.build_invariant_workstreams(graph, root=REPO_ROOT)
     ledgers = invariant_graph.build_invariant_ledger_projections(
         workstreams,
         root=REPO_ROOT,
@@ -197,6 +197,17 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
     assert psf["next_actions"]["recommended_remediation_family"] == "structural_cut"
     assert psf["next_actions"]["recommended_policy_blocked_cut"] is None
     assert psf["next_actions"]["recommended_diagnostic_blocked_cut"] is None
+    assert psf["doc_alignment_summary"]["target_doc_count"] == 2
+    assert psf["next_actions"]["dominant_doc_alignment_status"] == (
+        "append_pending_existing_object"
+    )
+    assert psf["next_actions"]["recommended_doc_alignment_action"] == (
+        "append_existing_ledger_entry"
+    )
+    assert psf["next_actions"]["misaligned_target_doc_ids"] == [
+        "projection_semantic_fragment_ledger",
+        "projection_semantic_fragment_rfc",
+    ]
     assert psf["next_actions"]["remediation_lanes"][0]["remediation_family"] == (
         "structural_cut"
     )
@@ -1313,6 +1324,7 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
         in workstream_output
     )
     assert "ledger_alignment_summary: target_docs=2 ::" in workstream_output
+    assert "dominant_doc_alignment_status: append_pending_existing_object" in workstream_output
     assert "recommended_doc_alignment_action:" in workstream_output
     assert "misaligned_target_doc_ids:" in workstream_output
 
