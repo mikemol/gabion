@@ -805,6 +805,10 @@ class InvariantOwnerCandidateOption:
     score: int
     rationale: str
     score_components: tuple[InvariantScoreComponent, ...]
+    selection_rank: int = 0
+    opportunity_cost_score: int = 0
+    opportunity_cost_reason: str = "frontier"
+    opportunity_cost_components: tuple[InvariantScoreComponent, ...] = ()
 
     def as_payload(self) -> dict[str, object]:
         return {
@@ -815,6 +819,12 @@ class InvariantOwnerCandidateOption:
             "rationale": self.rationale,
             "score_components": [
                 item.as_payload() for item in self.score_components
+            ],
+            "selection_rank": self.selection_rank,
+            "opportunity_cost_score": self.opportunity_cost_score,
+            "opportunity_cost_reason": self.opportunity_cost_reason,
+            "opportunity_cost_components": [
+                item.as_payload() for item in self.opportunity_cost_components
             ],
         }
 
@@ -1852,12 +1862,50 @@ class InvariantWorkstreamsProjection:
                     ),
                 )
             )
-        return tuple(
+        ranked_options = tuple(
             _sorted(
                 options,
                 key=lambda item: (-item.score, item.resolution_kind, item.object_id),
             )
         )
+        if not ranked_options:
+            return ()
+        frontier_option = ranked_options[0]
+        projected_options: list[InvariantOwnerCandidateOption] = []
+        for index, option in enumerate(ranked_options, start=1):
+            if option.object_id == frontier_option.object_id:
+                projected_options.append(
+                    replace(
+                        option,
+                        selection_rank=index,
+                        opportunity_cost_score=0,
+                        opportunity_cost_reason="frontier",
+                        opportunity_cost_components=(),
+                    )
+                )
+                continue
+            opportunity_cost_score = max(0, frontier_option.score - option.score)
+            projected_options.append(
+                replace(
+                    option,
+                    selection_rank=index,
+                    opportunity_cost_score=opportunity_cost_score,
+                    opportunity_cost_reason=(
+                        "cofrontier"
+                        if opportunity_cost_score == 0
+                        else f"{frontier_option.rationale}->{option.rationale}"
+                    ),
+                    opportunity_cost_components=(
+                        ()
+                        if opportunity_cost_score == 0
+                        else self._owner_choice_margin_components(
+                            best_option=frontier_option,
+                            runner_up_option=option,
+                        )
+                    ),
+                )
+            )
+        return tuple(projected_options)
 
     @staticmethod
     def _owner_choice_margin_components(

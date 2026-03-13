@@ -145,13 +145,29 @@ def _format_owner_resolution_options(options: object) -> str:
             object_id = str(item.get("object_id", "<none>"))
             score = int(item.get("score", 0))
             components = item.get("score_components", ())
+            selection_rank = int(item.get("selection_rank", 0))
+            opportunity_cost_score = int(item.get("opportunity_cost_score", 0))
+            opportunity_cost_reason = str(item.get("opportunity_cost_reason", "frontier"))
+            opportunity_cost_components = item.get("opportunity_cost_components", ())
         else:
             resolution_kind = str(getattr(item, "resolution_kind", "unknown"))
             object_id = str(getattr(item, "object_id", "<none>"))
             score = int(getattr(item, "score", 0))
             components = getattr(item, "score_components", ())
+            selection_rank = int(getattr(item, "selection_rank", 0))
+            opportunity_cost_score = int(getattr(item, "opportunity_cost_score", 0))
+            opportunity_cost_reason = str(
+                getattr(item, "opportunity_cost_reason", "frontier")
+            )
+            opportunity_cost_components = getattr(item, "opportunity_cost_components", ())
         parts.append(
-            f"{resolution_kind}:{object_id}:{score}:{_format_score_components(components)}"
+            (
+                f"{resolution_kind}:{object_id}:{score}:"
+                f"{_format_score_components(components)}:"
+                f"rank={selection_rank}:"
+                f"opp={opportunity_cost_score}:{opportunity_cost_reason}:"
+                f"{_format_score_components(opportunity_cost_components)}"
+            )
         )
     return " || ".join(parts) if parts else "none"
 
