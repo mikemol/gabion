@@ -195,6 +195,13 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         "runner_up_owner_resolution_score": None,
         "owner_choice_margin_score": 100,
         "owner_choice_margin_reason": "uncontested_best_option",
+        "owner_choice_margin_components": [
+            {
+                "kind": "seed_new_owner_base",
+                "score": 100,
+                "rationale": "source_family_seed",
+            }
+        ],
         "utility_score": 1000,
         "utility_reason": "governance_orphan:seed_new_owner",
         "utility_components": [
@@ -240,6 +247,7 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         "runner_up_owner_resolution_score": None,
         "owner_choice_margin_score": None,
         "owner_choice_margin_reason": None,
+        "owner_choice_margin_components": [],
         "utility_score": 700,
         "utility_reason": "code:ready_structural",
         "utility_components": [
@@ -386,6 +394,13 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         "runner_up_owner_resolution_score": None,
         "owner_choice_margin_score": 100,
         "owner_choice_margin_reason": "uncontested_best_option",
+        "owner_choice_margin_components": [
+            {
+                "kind": "seed_new_owner_base",
+                "score": 100,
+                "rationale": "source_family_seed",
+            }
+        ],
         "utility_score": 1000,
         "utility_reason": "governance_orphan:seed_new_owner",
         "utility_components": [
@@ -429,6 +444,7 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
             "runner_up_owner_resolution_score": None,
             "owner_choice_margin_score": None,
             "owner_choice_margin_reason": None,
+            "owner_choice_margin_components": [],
             "utility_score": 700,
             "utility_reason": "code:ready_structural",
             "utility_components": [
@@ -525,6 +541,13 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
             "runner_up_owner_resolution_score": None,
             "owner_choice_margin_score": 100,
             "owner_choice_margin_reason": "uncontested_best_option",
+            "owner_choice_margin_components": [
+                {
+                    "kind": "seed_new_owner_base",
+                    "score": 100,
+                    "rationale": "source_family_seed",
+                }
+            ],
             "utility_score": 1000,
             "utility_reason": "governance_orphan:seed_new_owner",
             "utility_components": [
@@ -594,6 +617,13 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         repo_diagnostic_lanes[0]["candidate_owner_choice_margin_reason"]
         == "uncontested_best_option"
     )
+    assert repo_diagnostic_lanes[0]["candidate_owner_choice_margin_components"] == [
+        {
+            "kind": "seed_new_owner_base",
+            "score": 100,
+            "rationale": "source_family_seed",
+        }
+    ]
     assert len(repo_diagnostic_lanes[0]["node_ids"]) == 1
     assert repo_diagnostic_lanes[-1]["title"] == "grade:GMP-007"
     assert all(
@@ -1197,11 +1227,45 @@ def test_repo_diagnostic_lane_attributes_candidate_owner_from_exact_path() -> No
         lane.candidate_owner_choice_margin_reason
         == "exact_path_match->source_family_seed"
     )
+    assert lane.candidate_owner_choice_margin_components == (
+        invariant_graph.InvariantScoreComponent(
+            kind="attach_existing_owner_base",
+            score=200,
+            rationale="attach_existing_owner",
+        ),
+        invariant_graph.InvariantScoreComponent(
+            kind="exact_path_bonus",
+            score=100,
+            rationale="exact_path_match",
+        ),
+        invariant_graph.InvariantScoreComponent(
+            kind="runner_up_offset:seed_new_owner_base",
+            score=-100,
+            rationale="source_family_seed",
+        ),
+    )
     followup = projection.recommended_repo_followup()
     assert followup is not None
     assert followup.owner_object_id == "WS-OWNER"
     assert followup.owner_seed_path == "src/gabion"
     assert followup.owner_seed_object_id == "WS-SEED:gabion"
+    assert followup.owner_choice_margin_components == (
+        invariant_graph.InvariantScoreComponent(
+            kind="attach_existing_owner_base",
+            score=200,
+            rationale="attach_existing_owner",
+        ),
+        invariant_graph.InvariantScoreComponent(
+            kind="exact_path_bonus",
+            score=100,
+            rationale="exact_path_match",
+        ),
+        invariant_graph.InvariantScoreComponent(
+            kind="runner_up_offset:seed_new_owner_base",
+            score=-100,
+            rationale="source_family_seed",
+        ),
+    )
 
 
 def test_repo_diagnostic_lane_ranks_structural_proximity_owner_over_seed() -> None:
@@ -1405,6 +1469,23 @@ def test_repo_diagnostic_lane_ranks_structural_proximity_owner_over_seed() -> No
         lane.candidate_owner_choice_margin_reason
         == "shared_source_family_prefix:4->source_family_seed"
     )
+    assert lane.candidate_owner_choice_margin_components == (
+        invariant_graph.InvariantScoreComponent(
+            kind="attach_existing_owner_base",
+            score=120,
+            rationale="attach_existing_owner",
+        ),
+        invariant_graph.InvariantScoreComponent(
+            kind="structural_proximity_bonus",
+            score=40,
+            rationale="shared_source_family_prefix:4",
+        ),
+        invariant_graph.InvariantScoreComponent(
+            kind="runner_up_offset:seed_new_owner_base",
+            score=-100,
+            rationale="source_family_seed",
+        ),
+    )
     followup = projection.recommended_repo_followup()
     assert followup is not None
     assert followup.owner_object_id == "WS-PROX"
@@ -1413,6 +1494,23 @@ def test_repo_diagnostic_lane_ranks_structural_proximity_owner_over_seed() -> No
         followup.owner_seed_object_id == "WS-SEED:gabion.analysis.dataflow.io"
     )
     assert followup.recommended_action == "choose_candidate_owner_from_ranked_options"
+    assert followup.owner_choice_margin_components == (
+        invariant_graph.InvariantScoreComponent(
+            kind="attach_existing_owner_base",
+            score=120,
+            rationale="attach_existing_owner",
+        ),
+        invariant_graph.InvariantScoreComponent(
+            kind="structural_proximity_bonus",
+            score=40,
+            rationale="shared_source_family_prefix:4",
+        ),
+        invariant_graph.InvariantScoreComponent(
+            kind="runner_up_offset:seed_new_owner_base",
+            score=-100,
+            rationale="source_family_seed",
+        ),
+    )
     assert followup.title == "resolve grade:GMP-PROX ownership via WS-PROX"
 
 
@@ -1636,6 +1734,23 @@ def test_ranked_repo_followups_prefers_stronger_owner_resolution_score() -> None
     assert ranked[0].runner_up_owner_resolution_score == 100
     assert ranked[0].owner_choice_margin_score == 200
     assert ranked[0].owner_choice_margin_reason == "exact_path_match->source_family_seed"
+    assert ranked[0].owner_choice_margin_components == (
+        invariant_graph.InvariantScoreComponent(
+            kind="attach_existing_owner_base",
+            score=200,
+            rationale="attach_existing_owner",
+        ),
+        invariant_graph.InvariantScoreComponent(
+            kind="exact_path_bonus",
+            score=100,
+            rationale="exact_path_match",
+        ),
+        invariant_graph.InvariantScoreComponent(
+            kind="runner_up_offset:seed_new_owner_base",
+            score=-100,
+            rationale="source_family_seed",
+        ),
+    )
     assert ranked[0].utility_score == 1200
     assert ranked[0].utility_reason == "governance_orphan:attach_existing_owner"
     assert ranked[0].utility_components == (
@@ -1674,6 +1789,13 @@ def test_ranked_repo_followups_prefers_stronger_owner_resolution_score() -> None
     assert ranked[1].runner_up_owner_resolution_score is None
     assert ranked[1].owner_choice_margin_score == 100
     assert ranked[1].owner_choice_margin_reason == "uncontested_best_option"
+    assert ranked[1].owner_choice_margin_components == (
+        invariant_graph.InvariantScoreComponent(
+            kind="seed_new_owner_base",
+            score=100,
+            rationale="source_family_seed",
+        ),
+    )
     assert ranked[1].utility_score == 1000
     assert ranked[1].utility_reason == "governance_orphan:seed_new_owner"
     assert ranked[1].utility_components == (
@@ -2516,7 +2638,7 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
     assert "next_human_followup_family: governance_orphan_resolution" in summary_output
     assert "diagnostic_summary: unmatched_policy_signals=7 :: unresolved_dependencies=0" in summary_output
     assert (
-        "recommended_repo_followup: governance_orphan_resolution :: diagnostic=unmatched_policy_signal :: owner=<none> :: seed=src/gabion/analysis/dataflow/io :: seed_object=WS-SEED:gabion.analysis.dataflow.io :: owner_kind=seed_new_owner :: owner_score=100 :: owner_options=seed_new_owner:WS-SEED:gabion.analysis.dataflow.io:100:seed_new_owner_base:100:source_family_seed :: runner_up_owner=<none> :: runner_up_kind=none :: runner_up_score=none :: owner_choice_margin=100:uncontested_best_option :: count=1 :: action=seed_owned_workstream_from_source_family :: utility=1000:governance_orphan:seed_new_owner :: utility_components=governance_orphan_base:900:governance_orphan | owner_resolution_bonus:100:seed_new_owner"
+        "recommended_repo_followup: governance_orphan_resolution :: diagnostic=unmatched_policy_signal :: owner=<none> :: seed=src/gabion/analysis/dataflow/io :: seed_object=WS-SEED:gabion.analysis.dataflow.io :: owner_kind=seed_new_owner :: owner_score=100 :: owner_options=seed_new_owner:WS-SEED:gabion.analysis.dataflow.io:100:seed_new_owner_base:100:source_family_seed :: runner_up_owner=<none> :: runner_up_kind=none :: runner_up_score=none :: owner_choice_margin=100:uncontested_best_option :: owner_choice_margin_components=seed_new_owner_base:100:source_family_seed :: count=1 :: action=seed_owned_workstream_from_source_family :: utility=1000:governance_orphan:seed_new_owner :: utility_components=governance_orphan_base:900:governance_orphan | owner_resolution_bonus:100:seed_new_owner"
         in summary_output
     )
     assert (
@@ -2524,7 +2646,7 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
         in summary_output
     )
     assert (
-        "recommended_repo_human_followup: governance_orphan_resolution :: diagnostic=unmatched_policy_signal :: owner=<none> :: seed=src/gabion/analysis/dataflow/io :: seed_object=WS-SEED:gabion.analysis.dataflow.io :: owner_kind=seed_new_owner :: owner_score=100 :: owner_options=seed_new_owner:WS-SEED:gabion.analysis.dataflow.io:100:seed_new_owner_base:100:source_family_seed :: runner_up_owner=<none> :: runner_up_kind=none :: runner_up_score=none :: owner_choice_margin=100:uncontested_best_option :: count=1 :: action=seed_owned_workstream_from_source_family :: utility=1000:governance_orphan:seed_new_owner :: utility_components=governance_orphan_base:900:governance_orphan | owner_resolution_bonus:100:seed_new_owner"
+        "recommended_repo_human_followup: governance_orphan_resolution :: diagnostic=unmatched_policy_signal :: owner=<none> :: seed=src/gabion/analysis/dataflow/io :: seed_object=WS-SEED:gabion.analysis.dataflow.io :: owner_kind=seed_new_owner :: owner_score=100 :: owner_options=seed_new_owner:WS-SEED:gabion.analysis.dataflow.io:100:seed_new_owner_base:100:source_family_seed :: runner_up_owner=<none> :: runner_up_kind=none :: runner_up_score=none :: owner_choice_margin=100:uncontested_best_option :: owner_choice_margin_components=seed_new_owner_base:100:source_family_seed :: count=1 :: action=seed_owned_workstream_from_source_family :: utility=1000:governance_orphan:seed_new_owner :: utility_components=governance_orphan_base:900:governance_orphan | owner_resolution_bonus:100:seed_new_owner"
         in summary_output
     )
     assert (

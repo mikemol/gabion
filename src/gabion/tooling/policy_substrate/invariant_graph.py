@@ -653,6 +653,7 @@ class InvariantRepoFollowupAction:
     runner_up_owner_resolution_score: int | None
     owner_choice_margin_score: int | None
     owner_choice_margin_reason: str | None
+    owner_choice_margin_components: tuple[InvariantScoreComponent, ...]
     utility_score: int
     utility_reason: str
     utility_components: tuple[InvariantScoreComponent, ...]
@@ -684,6 +685,9 @@ class InvariantRepoFollowupAction:
             "runner_up_owner_resolution_score": self.runner_up_owner_resolution_score,
             "owner_choice_margin_score": self.owner_choice_margin_score,
             "owner_choice_margin_reason": self.owner_choice_margin_reason,
+            "owner_choice_margin_components": [
+                item.as_payload() for item in self.owner_choice_margin_components
+            ],
             "utility_score": self.utility_score,
             "utility_reason": self.utility_reason,
             "utility_components": [
@@ -757,6 +761,7 @@ class InvariantRepoDiagnosticLane:
     runner_up_candidate_owner_option: "InvariantOwnerCandidateOption" | None
     candidate_owner_choice_margin_score: int | None
     candidate_owner_choice_margin_reason: str | None
+    candidate_owner_choice_margin_components: tuple[InvariantScoreComponent, ...]
 
     def as_payload(self) -> dict[str, object]:
         return {
@@ -786,6 +791,9 @@ class InvariantRepoDiagnosticLane:
             ),
             "candidate_owner_choice_margin_score": self.candidate_owner_choice_margin_score,
             "candidate_owner_choice_margin_reason": self.candidate_owner_choice_margin_reason,
+            "candidate_owner_choice_margin_components": [
+                item.as_payload() for item in self.candidate_owner_choice_margin_components
+            ],
         }
 
 
@@ -1851,6 +1859,37 @@ class InvariantWorkstreamsProjection:
             )
         )
 
+    @staticmethod
+    def _owner_choice_margin_components(
+        *,
+        best_option: InvariantOwnerCandidateOption | None,
+        runner_up_option: InvariantOwnerCandidateOption | None,
+    ) -> tuple[InvariantScoreComponent, ...]:
+        if best_option is None:
+            return ()
+        components: list[InvariantScoreComponent] = list(best_option.score_components)
+        if runner_up_option is None:
+            return tuple(components)
+        runner_up_components = runner_up_option.score_components
+        if runner_up_components:
+            components.extend(
+                InvariantScoreComponent(
+                    kind=f"runner_up_offset:{component.kind}",
+                    score=-component.score,
+                    rationale=component.rationale,
+                )
+                for component in runner_up_components
+            )
+        else:
+            components.append(
+                InvariantScoreComponent(
+                    kind="runner_up_offset",
+                    score=-runner_up_option.score,
+                    rationale=runner_up_option.rationale,
+                )
+            )
+        return tuple(components)
+
     def _repo_followup_utility(
         self,
         followup: InvariantRepoFollowupAction,
@@ -2068,6 +2107,9 @@ class InvariantWorkstreamsProjection:
                         ),
                         owner_choice_margin_score=lane.candidate_owner_choice_margin_score,
                         owner_choice_margin_reason=lane.candidate_owner_choice_margin_reason,
+                        owner_choice_margin_components=(
+                            lane.candidate_owner_choice_margin_components
+                        ),
                         utility_score=0,
                         utility_reason="",
                         utility_components=(),
@@ -2105,6 +2147,7 @@ class InvariantWorkstreamsProjection:
                         runner_up_owner_resolution_score=None,
                         owner_choice_margin_score=None,
                         owner_choice_margin_reason=None,
+                        owner_choice_margin_components=(),
                         utility_score=0,
                         utility_reason="",
                         utility_components=(),
@@ -2142,6 +2185,7 @@ class InvariantWorkstreamsProjection:
                         runner_up_owner_resolution_score=None,
                         owner_choice_margin_score=None,
                         owner_choice_margin_reason=None,
+                        owner_choice_margin_components=(),
                         utility_score=0,
                         utility_reason="",
                         utility_components=(),
@@ -2174,6 +2218,7 @@ class InvariantWorkstreamsProjection:
                         runner_up_owner_resolution_score=None,
                         owner_choice_margin_score=None,
                         owner_choice_margin_reason=None,
+                        owner_choice_margin_components=(),
                         utility_score=0,
                         utility_reason="",
                         utility_components=(),
@@ -2570,6 +2615,12 @@ class InvariantWorkstreamsProjection:
                                 f"{best_candidate_owner_option.rationale}->"
                                 f"{runner_up_candidate_owner_option.rationale}"
                             )
+                        )
+                    ),
+                    candidate_owner_choice_margin_components=(
+                        self._owner_choice_margin_components(
+                            best_option=best_candidate_owner_option,
+                            runner_up_option=runner_up_candidate_owner_option,
                         )
                     ),
                 )
