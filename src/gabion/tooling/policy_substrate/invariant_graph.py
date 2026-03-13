@@ -631,6 +631,7 @@ class InvariantRepoFollowupAction:
     recommended_action: str | None
     owner_seed_path: str | None
     owner_seed_object_id: str | None
+    owner_resolution_kind: str | None
     owner_resolution_score: int | None
     count: int
 
@@ -650,6 +651,7 @@ class InvariantRepoFollowupAction:
             "recommended_action": self.recommended_action,
             "owner_seed_path": self.owner_seed_path,
             "owner_seed_object_id": self.owner_seed_object_id,
+            "owner_resolution_kind": self.owner_resolution_kind,
             "owner_resolution_score": self.owner_resolution_score,
             "count": self.count,
         }
@@ -660,6 +662,8 @@ class InvariantRepoFollowupLane:
     followup_family: str
     followup_class: str
     action_count: int
+    strongest_owner_resolution_kind: str | None
+    strongest_owner_resolution_score: int | None
     best_followup: InvariantRepoFollowupAction
 
     def as_payload(self) -> dict[str, object]:
@@ -667,6 +671,8 @@ class InvariantRepoFollowupLane:
             "followup_family": self.followup_family,
             "followup_class": self.followup_class,
             "action_count": self.action_count,
+            "strongest_owner_resolution_kind": self.strongest_owner_resolution_kind,
+            "strongest_owner_resolution_score": self.strongest_owner_resolution_score,
             "best_followup": self.best_followup.as_payload(),
         }
 
@@ -1784,6 +1790,9 @@ class InvariantWorkstreamsProjection:
                         recommended_action=lane.recommended_action,
                         owner_seed_path=lane.candidate_owner_seed_path,
                         owner_seed_object_id=lane.candidate_owner_seed_object_id,
+                        owner_resolution_kind=(
+                            best_option.resolution_kind if best_option is not None else None
+                        ),
                         owner_resolution_score=(
                             best_option.score if best_option is not None else None
                         ),
@@ -1813,6 +1822,7 @@ class InvariantWorkstreamsProjection:
                         recommended_action=lane.recommended_action,
                         owner_seed_path=None,
                         owner_seed_object_id=None,
+                        owner_resolution_kind=None,
                         owner_resolution_score=None,
                         count=lane.count,
                     )
@@ -1840,6 +1850,7 @@ class InvariantWorkstreamsProjection:
                         recommended_action=lane.recommended_action,
                         owner_seed_path=None,
                         owner_seed_object_id=None,
+                        owner_resolution_kind=None,
                         owner_resolution_score=None,
                         count=lane.count,
                     )
@@ -1862,6 +1873,7 @@ class InvariantWorkstreamsProjection:
                         recommended_action=followup.recommended_action,
                         owner_seed_path=None,
                         owner_seed_object_id=None,
+                        owner_resolution_kind=None,
                         owner_resolution_score=None,
                         count=followup.touchsite_count,
                     )
@@ -1913,6 +1925,8 @@ class InvariantWorkstreamsProjection:
                 followup_family=followup_family,
                 followup_class=followup_class,
                 action_count=len(items),
+                strongest_owner_resolution_kind=items[0].owner_resolution_kind,
+                strongest_owner_resolution_score=items[0].owner_resolution_score,
                 best_followup=items[0],
             )
             for (followup_class, followup_family), items in grouped.items()

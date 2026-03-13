@@ -230,12 +230,19 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
         best = lane.best_followup
         target = best.object_id or best.target_doc_id or best.diagnostic_code or "<none>"
         print(
-            "- {family} :: class={klass} :: actions={actions} :: best={action_kind}::{target}".format(
+            "- {family} :: class={klass} :: actions={actions} :: best={action_kind}::{target} :: owner_strength={owner_strength}".format(
                 family=lane.followup_family,
                 klass=lane.followup_class,
                 actions=lane.action_count,
                 action_kind=best.action_kind,
                 target=target,
+                owner_strength=(
+                    "none"
+                    if lane.strongest_owner_resolution_kind is None
+                    else (
+                        f"{lane.strongest_owner_resolution_kind}:{lane.strongest_owner_resolution_score}"
+                    )
+                ),
             )
         )
     print("repo_diagnostic_lanes:")

@@ -172,6 +172,7 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         "recommended_action": "seed_owned_workstream_from_source_family",
         "owner_seed_path": "src/gabion/analysis/dataflow/io",
         "owner_seed_object_id": "WS-SEED:gabion.analysis.dataflow.io",
+        "owner_resolution_kind": "seed_new_owner",
         "owner_resolution_score": 100,
         "count": 1,
     }
@@ -196,6 +197,7 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         "recommended_action": None,
         "owner_seed_path": None,
         "owner_seed_object_id": None,
+        "owner_resolution_kind": None,
         "owner_resolution_score": None,
         "count": 1,
     }
@@ -218,6 +220,7 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         "recommended_action": "seed_owned_workstream_from_source_family",
         "owner_seed_path": "src/gabion/analysis/dataflow/io",
         "owner_seed_object_id": "WS-SEED:gabion.analysis.dataflow.io",
+        "owner_resolution_kind": "seed_new_owner",
         "owner_resolution_score": 100,
         "count": 1,
     }
@@ -240,6 +243,7 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
             "recommended_action": None,
             "owner_seed_path": None,
             "owner_seed_object_id": None,
+            "owner_resolution_kind": None,
             "owner_resolution_score": None,
             "count": 1,
         }
@@ -256,6 +260,8 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         "followup_family": "governance_orphan_resolution",
         "followup_class": "governance",
         "action_count": 7,
+        "strongest_owner_resolution_kind": "seed_new_owner",
+        "strongest_owner_resolution_score": 100,
         "best_followup": {
             "followup_family": "governance_orphan_resolution",
             "action_kind": "diagnostic_resolution",
@@ -271,6 +277,7 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
             "recommended_action": "seed_owned_workstream_from_source_family",
             "owner_seed_path": "src/gabion/analysis/dataflow/io",
             "owner_seed_object_id": "WS-SEED:gabion.analysis.dataflow.io",
+            "owner_resolution_kind": "seed_new_owner",
             "owner_resolution_score": 100,
             "count": 1,
         },
@@ -2084,7 +2091,7 @@ def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
     )
     assert "repo_followup_lanes:" in summary_output
     assert (
-        "- governance_orphan_resolution :: class=governance :: actions=7 :: best=diagnostic_resolution::unmatched_policy_signal"
+        "- governance_orphan_resolution :: class=governance :: actions=7 :: best=diagnostic_resolution::unmatched_policy_signal :: owner_strength=seed_new_owner:100"
         in summary_output
     )
     assert "repo_diagnostic_lanes:" in summary_output
