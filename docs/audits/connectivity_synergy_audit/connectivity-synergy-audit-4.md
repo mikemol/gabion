@@ -1,5 +1,5 @@
 ---
-doc_revision: 8
+doc_revision: 9
 doc_id: connectivity_synergy_audit
 doc_role: audit
 doc_scope:
@@ -23,6 +23,14 @@ doc_targets:
   - gabion.tooling.runtime.invariant_graph._load_profile_observations
   - gabion.tooling.runtime.invariant_graph._print_perf_heat_map
   - gabion.tooling.runtime.perf_artifact.build_cprofile_perf_artifact_payload
+  - gabion_governance.governance_audit_impl._sppf_sync_check
+  - gabion_governance.governance_audit_impl._evaluate_docflow_obligations
+  - gabion.tooling.sppf.sync_core._collect_commits
+  - gabion.tooling.sppf.sync_core._issue_ids_from_commits
+  - gabion.tooling.sppf.sync_core._validate_issue_lifecycle
+  - gabion.tooling.sppf.sync_core._run_validate_mode
+  - gabion.analysis.semantics.obligation_registry.evaluate_obligations
+  - gabion.execution_plan.ExecutionPlan.with_issue_link
 doc_requires:
   - docs/architecture_zones.md#architecture_zones
   - README.md#repo_contract
@@ -120,6 +128,20 @@ The repo already has a frontmatter-driven doc-to-symbol selector in `impact_inde
 
 **Merge/subsume opportunity:** converge `impact_index`, frontmatter ingestion, and perf-query rooting onto one declarative selector substrate, then treat runtime perf heat as a consumer of that carrier rather than a parallel selector implementation.
 
+### Gap E: git/GH provenance and docflow obligation state are still second-order sidecars
+
+The repo can now graph SPPF checklist nodes, inbox governance actions, planner artifacts, and control-loop sidecars, but the state that governs whether those same artifacts are lawfully attached to the planning loop still remains out-of-band:
+
+- correction-unit rev-range provenance,
+- commit-to-issue GH linkage,
+- issue lifecycle validation state,
+- docflow obligation evaluation,
+- execution-plan issue-link facets.
+
+**Synergy gap:** the planner can see first-order governance objects, but not yet the second-order control state that says whether the current correction unit is correctly linked into that governance forest. This means the graph still consumes planning outputs without fully consuming the policy gate that governs planning-for-planning integration.
+
+**Merge/subsume opportunity:** reify git-range provenance, GH-reference validation, obligation summaries, and issue-link facets as graph-native carriers so the planner can reason over governance attachment debt instead of discovering it only as an out-of-band gate failure.
+
 ## ASPF-first convergence target (requested direction)
 
 The long-term unification path should be: **analysis == ASPF enrichments + ASPF queries**.
@@ -210,17 +232,22 @@ The roadmap below is designed so each step both **depends on** and **improves** 
    - Leverage: removes duplication between docs and code, and gives scanner/rule orchestration one registry substrate.
    - Feedback edge: registry ambiguities discovered here should tighten adapter normalization rules (step 2).
 
-4. **Unify policy scanner execution around package-native rule modules + declarative registry resolution.**
+4. **Reify git-range/GH-reference provenance and docflow obligation state into the governance graph.**
+   - Deliverables: typed rev-range carriers, commit-to-issue linkage carriers, issue lifecycle state, obligation summaries, and execution-plan issue-link projections.
+   - Leverage: upgrades the graph from planning over first-order artifacts to planning over the legality and attachment state of those artifacts, which is the required second-order cybernetic loop.
+   - Feedback edge: unmet provenance obligations and ambiguous issue-link state should feed back into both registry schemas (step 3) and adapter witness design (steps 1-2).
+
+5. **Unify policy scanner execution around package-native rule modules + declarative registry resolution.**
    - Deliverables: remove package->scripts dynamic imports, make scripts thin launch shims, resolve active rules from declarative registry.
    - Leverage: establishes a single rule-execution topology that orchestration refactors can call without wrapper branching.
    - Feedback edge: scanner execution metrics should inform registry pruning/normalization in step 3.
 
-5. **Extract orchestration/analysis protocol bundles using the stabilized substrate contracts.**
+6. **Extract orchestration/analysis protocol bundles using the stabilized substrate contracts.**
    - Deliverables: tier-1 dataclass/protocol bundles for progress emission, result projection, phase transitions, and report-tail assembly.
    - Leverage: this is where the largest line/branch reductions land, now constrained by stable carriers from steps 1-4.
    - Feedback edge: any new recurring parameter bundles discovered here should be promoted into shared registry/query vocabulary upstream.
 
-6. **Normalize wrapper surfaces and continuation artifacts to enforce substrate parity.**
+7. **Normalize wrapper surfaces and continuation artifacts to enforce substrate parity.**
    - Deliverables: launcher manifest/template, wrapper policy checks, ASPF snapshot/delta parity across governance + analysis commands.
    - Leverage: hardens previous steps into ongoing invariants so future features inherit convergence by default.
    - Feedback edge: parity/audit drift signals become inputs for incremental protocol tightening in steps 3-5.
@@ -229,9 +256,10 @@ The roadmap below is designed so each step both **depends on** and **improves** 
 
 - **1 ↔ 2:** witness contracts guide adapters; adapter anomalies refine witness contracts.
 - **2 ↔ 3:** normalized non-Python ingress enables declarative registry execution; registry ambiguities refine ingress normalization.
-- **3 ↔ 4:** declarative registries select rule execution; scanner telemetry improves registry quality.
-- **4 ↔ 5:** unified execution topology enables safe protocol extraction; extracted protocols reveal additional rule orchestration reuse points.
-- **5 ↔ 6:** protocolized core simplifies wrapper unification; wrapper parity checks enforce protocol usage and expose residual divergence.
+- **3 ↔ 4:** declarative registries expose what provenance and obligation state must become graph-native; second-order provenance carriers force clearer registry schemas.
+- **4 ↔ 5:** graph-native provenance lets scanner execution become governance-aware instead of only registry-aware; scanner telemetry improves provenance coverage.
+- **5 ↔ 6:** unified execution topology enables safe protocol extraction; extracted protocols reveal additional rule orchestration reuse points.
+- **6 ↔ 7:** protocolized core simplifies wrapper unification; wrapper parity checks enforce protocol usage and expose residual divergence.
 
 ## Expected outcome
 
@@ -239,6 +267,7 @@ If executed in this order, the codebase should gain:
 
 - tighter cross-zone alignment (tooling/governance/runtime),
 - one analysis substrate across code and governance docs,
+- graph-visible second-order provenance over planning attachment and obligation state,
 - less hardcoded policy logic in Python,
 - lower branch density in core orchestration paths,
 - fewer duplicate entrypoint lines,
