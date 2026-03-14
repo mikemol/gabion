@@ -212,6 +212,52 @@ class StructuralReferenceId:
         return self.canonical.token
 
 
+@dataclass(frozen=True, order=True)
+class ArtifactNodeId:
+    canonical: _PrimeBackedIdentity
+    site_ref: SiteReferenceId = field(compare=False)
+    structural_ref: StructuralReferenceId = field(compare=False)
+    rel_path: str = field(compare=False, default="")
+    qualname: str = field(compare=False, default="")
+    line: int = field(compare=False, default=0)
+    column: int = field(compare=False, default=0)
+    decompositions: tuple[PolicyQueueDecompositionIdentity, ...] = field(
+        default=(),
+        compare=False,
+    )
+    relations: tuple[PolicyQueueDecompositionRelation, ...] = field(
+        default=(),
+        compare=False,
+    )
+
+    @property
+    def site_identity(self) -> str:
+        return self.site_ref.wire()
+
+    @property
+    def structural_identity(self) -> str:
+        return self.structural_ref.wire()
+
+    def wire(self) -> str:
+        return self.canonical.token
+
+    def __str__(self) -> str:
+        if self.rel_path and self.qualname and self.line > 0:
+            return f"{self.rel_path}:{self.line}::{self.qualname}"
+        return self.canonical.token
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "wire": self.wire(),
+            "site_identity": self.site_identity,
+            "structural_identity": self.structural_identity,
+            "rel_path": self.rel_path,
+            "qualname": self.qualname,
+            "line": self.line,
+            "column": self.column,
+        }
+
+
 _IdentityCarrierT = TypeVar(
     "_IdentityCarrierT",
     WorkstreamId,
@@ -220,6 +266,7 @@ _IdentityCarrierT = TypeVar(
     TouchsiteId,
     SiteReferenceId,
     StructuralReferenceId,
+    ArtifactNodeId,
 )
 
 
@@ -502,6 +549,44 @@ class PolicyQueueIdentitySpace:
             constructor=StructuralReferenceId,
         )
 
+    def artifact_node_id(
+        self,
+        *,
+        site_identity: str,
+        structural_identity: str,
+        rel_path: str = "",
+        qualname: str = "",
+        line: int = 0,
+        column: int = 0,
+    ) -> ArtifactNodeId:
+        normalized_site_identity = str(site_identity).strip()
+        normalized_structural_identity = str(structural_identity).strip()
+        if not normalized_site_identity or not normalized_structural_identity:
+            raise ValueError(
+                "artifact_node_id requires both site_identity and structural_identity"
+            )
+        canonical = self._identity(
+            namespace=PolicyQueueIdentityNamespace.ARTIFACT_NODE,
+            token="::".join(
+                (
+                    normalized_site_identity,
+                    normalized_structural_identity,
+                )
+            ),
+        )
+        decompositions, relations = self._decomposition_bundle(origin=canonical)
+        return ArtifactNodeId(
+            canonical=canonical,
+            site_ref=self.site_ref_id(normalized_site_identity),
+            structural_ref=self.structural_ref_id(normalized_structural_identity),
+            rel_path=str(rel_path).strip(),
+            qualname=str(qualname).strip(),
+            line=int(line),
+            column=int(column),
+            decompositions=decompositions,
+            relations=relations,
+        )
+
 
 def policy_queue_identity_view_payload(
     value: WorkstreamId
@@ -509,13 +594,26 @@ def policy_queue_identity_view_payload(
     | TouchpointId
     | TouchsiteId
     | SiteReferenceId
-    | StructuralReferenceId,
+    | StructuralReferenceId
+    | ArtifactNodeId,
 ) -> dict[str, object]:
-    return {
+    payload = {
         "wire": value.wire(),
         "decompositions": [item.as_payload() for item in value.decompositions],
         "relations": [item.as_payload() for item in value.relations],
     }
+    if isinstance(value, ArtifactNodeId):
+        payload.update(
+            {
+                "site_identity": value.site_identity,
+                "structural_identity": value.structural_identity,
+                "rel_path": value.rel_path,
+                "qualname": value.qualname,
+                "line": value.line,
+                "column": value.column,
+            }
+        )
+    return payload
 
 
 def encode_policy_queue_identity(
@@ -525,13 +623,14 @@ def encode_policy_queue_identity(
     | TouchsiteId
     | SiteReferenceId
     | StructuralReferenceId
+    | ArtifactNodeId
     | PolicyQueueDecompositionIdentity
     | str,
 ) -> str:
     match value:
         case WorkstreamId() | SubqueueId() | TouchpointId() | TouchsiteId():
             return value.wire()
-        case SiteReferenceId() | StructuralReferenceId():
+        case SiteReferenceId() | StructuralReferenceId() | ArtifactNodeId():
             return value.wire()
         case PolicyQueueDecompositionIdentity():
             return value.wire()
@@ -548,6 +647,7 @@ __all__ = [
     "PolicyQueueDecompositionKind",
     "PolicyQueueDecompositionRelation",
     "PolicyQueueDecompositionRelationKind",
+    "ArtifactNodeId",
     "SiteReferenceId",
     "StructuralReferenceId",
     "SubqueueId",

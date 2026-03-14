@@ -51,3 +51,25 @@ def test_policy_queue_identity_view_payload_is_boundary_only() -> None:
         item["relation_kind"] == "derived_from"
         for item in payload["relations"]
     )
+
+
+def test_policy_queue_identity_exposes_artifact_node_binding_carrier() -> None:
+    identity_space = PolicyQueueIdentitySpace()
+    artifact_node = identity_space.artifact_node_id(
+        site_identity="site.decorated",
+        structural_identity="struct.decorated",
+        rel_path="src/gabion/sample.py",
+        qualname="decorated",
+        line=14,
+        column=1,
+    )
+
+    payload = policy_queue_identity_view_payload(artifact_node)
+
+    assert artifact_node.site_identity == "site.decorated"
+    assert artifact_node.structural_identity == "struct.decorated"
+    assert str(artifact_node) == "src/gabion/sample.py:14::decorated"
+    assert payload["wire"] == "site.decorated::struct.decorated"
+    assert payload["site_identity"] == "site.decorated"
+    assert payload["structural_identity"] == "struct.decorated"
+    assert payload["line"] == 14
