@@ -53,6 +53,12 @@ from gabion.tooling.policy_substrate.policy_queue_identity import (
     WorkstreamId,
     encode_policy_queue_identity,
 )
+from gabion.tooling.policy_substrate.ranking_signal_dsl import (
+    RankingSignalCapture,
+    RankingSignalPredicate,
+    RankingSignalRule,
+    evaluate_ranking_signal_rules,
+)
 from gabion.tooling.policy_substrate.policy_rule_frontmatter_migration_registry import (
     prf_workstream_registry,
 )
@@ -63,6 +69,7 @@ from gabion.tooling.policy_substrate.structured_artifact_ingress import (
     StructuredArtifactIdentitySpace,
     TestEvidenceSite,
     load_controller_drift_artifact,
+    load_docflow_compliance_artifact,
     load_cross_origin_witness_contract_artifact,
     load_docflow_packet_enforcement_artifact,
     load_git_state_artifact,
@@ -92,6 +99,7 @@ _AMBIGUITY_ARTIFACT = Path("artifacts/out/ambiguity_contract_policy_check.json")
 _TEST_EVIDENCE_ARTIFACT = Path("out/test_evidence.json")
 _JUNIT_TEST_RESULTS_ARTIFACT = Path("artifacts/test_runs/junit.xml")
 _SPPF_DEPENDENCY_GRAPH_ARTIFACT = Path("artifacts/sppf_dependency_graph.json")
+_DOCFLOW_COMPLIANCE_ARTIFACT = Path("artifacts/out/docflow_compliance.json")
 _DOCFLOW_PACKET_ENFORCEMENT_ARTIFACT = Path(
     "artifacts/out/docflow_packet_enforcement.json"
 )
@@ -100,6 +108,10 @@ _LOCAL_REPRO_CLOSURE_LEDGER_ARTIFACT = Path(
     "artifacts/out/local_repro_closure_ledger.json"
 )
 _GIT_STATE_ARTIFACT = Path("artifacts/out/git_state.json")
+_DOCFLOW_REQUIRED_ISSUE_LIFECYCLE_LABELS = (
+    "done-on-stage",
+    "status/pending-release",
+)
 _DIRTY_GIT_STATE_CLASSES = frozenset({"staged", "unstaged", "untracked"})
 _MECHANICALLY_RECONSTRUCTABLE_PATH_ROOTS = frozenset(
     {
@@ -262,12 +274,37 @@ class InvariantGraphDiagnostic:
 
 
 @dataclass(frozen=True)
+class InvariantGraphRankingSignal:
+    signal_id: str
+    code: str
+    node_id: str
+    touchpoint_object_id: str
+    touchsite_object_id: str
+    raw_dependency: str
+    score: int
+    message: str
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "signal_id": self.signal_id,
+            "code": self.code,
+            "node_id": self.node_id,
+            "touchpoint_object_id": self.touchpoint_object_id,
+            "touchsite_object_id": self.touchsite_object_id,
+            "raw_dependency": self.raw_dependency,
+            "score": self.score,
+            "message": self.message,
+        }
+
+
+@dataclass(frozen=True)
 class InvariantGraph:
     root: str
     workstream_root_ids: tuple[str, ...]
     nodes: tuple[InvariantGraphNode, ...]
     edges: tuple[InvariantGraphEdge, ...]
     diagnostics: tuple[InvariantGraphDiagnostic, ...]
+    ranking_signals: tuple[InvariantGraphRankingSignal, ...] = ()
 
     def node_by_id(self) -> dict[str, InvariantGraphNode]:
         return {node.node_id: node for node in self.nodes}
@@ -306,12 +343,17 @@ class InvariantGraph:
                 "node_count": len(self.nodes),
                 "edge_count": len(self.edges),
                 "diagnostic_count": len(self.diagnostics),
+                "ranking_signal_count": len(self.ranking_signals),
+                "ranking_signal_score_total": sum(
+                    signal.score for signal in self.ranking_signals
+                ),
                 "node_kind_counts": dict(_sorted(list(node_kind_counts.items()))),
                 "edge_kind_counts": dict(_sorted(list(edge_kind_counts.items()))),
             },
             "nodes": [node.as_payload() for node in self.nodes],
             "edges": [edge.as_payload() for edge in self.edges],
             "diagnostics": [item.as_payload() for item in self.diagnostics],
+            "ranking_signals": [item.as_payload() for item in self.ranking_signals],
         }
 
     @classmethod
@@ -369,6 +411,20 @@ class InvariantGraph:
             for item in payload.get("diagnostics", [])
             if isinstance(item, Mapping)
         )
+        ranking_signals = tuple(
+            InvariantGraphRankingSignal(
+                signal_id=str(item.get("signal_id", "")),
+                code=str(item.get("code", "")),
+                node_id=str(item.get("node_id", "")),
+                touchpoint_object_id=str(item.get("touchpoint_object_id", "")),
+                touchsite_object_id=str(item.get("touchsite_object_id", "")),
+                raw_dependency=str(item.get("raw_dependency", "")),
+                score=int(item.get("score", 0)),
+                message=str(item.get("message", "")),
+            )
+            for item in payload.get("ranking_signals", [])
+            if isinstance(item, Mapping)
+        )
         return cls(
             root=str(payload.get("root", "")),
             workstream_root_ids=tuple(
@@ -377,6 +433,7 @@ class InvariantGraph:
             nodes=nodes,
             edges=edges,
             diagnostics=diagnostics,
+            ranking_signals=ranking_signals,
         )
 
 
@@ -452,6 +509,8 @@ class InvariantCutCandidate:
     uncovered_touchsite_count: int
     readiness_class: str
     touchsite_ids: tuple[TouchsiteId, ...]
+    ranking_signal_count: int = 0
+    ranking_signal_score: int = 0
 
     def as_payload(self) -> dict[str, object]:
         return {
@@ -465,6 +524,8 @@ class InvariantCutCandidate:
             "policy_signal_count": self.policy_signal_count,
             "coverage_count": self.coverage_count,
             "diagnostic_count": self.diagnostic_count,
+            "ranking_signal_count": self.ranking_signal_count,
+            "ranking_signal_score": self.ranking_signal_score,
             "covered_touchsite_count": self.covered_touchsite_count,
             "uncovered_touchsite_count": self.uncovered_touchsite_count,
             "readiness_class": self.readiness_class,
@@ -517,10 +578,13 @@ def _cut_priority_rank(candidate: InvariantCutCandidate) -> int:
     )
 
 
-def _cut_sort_key(candidate: InvariantCutCandidate) -> tuple[int, int, int, int, int, str]:
+def _cut_sort_key(
+    candidate: InvariantCutCandidate,
+) -> tuple[int, int, int, int, int, int, int, int, str]:
     return (
         _READINESS_PRIORITY.get(candidate.readiness_class, 99),
         _CUT_KIND_PRIORITY.get(candidate.cut_kind, 99),
+        -candidate.ranking_signal_score,
         candidate.touchsite_count,
         candidate.surviving_touchsite_count,
         candidate.policy_signal_count,
@@ -1031,6 +1095,22 @@ def _cut_tradeoff_components(
                 kind="cut_kind_priority_gap",
                 score=cut_kind_gap,
                 rationale=f"{frontier.cut_kind}->{runner_up.cut_kind}",
+            )
+        )
+
+    ranking_signal_gap = max(
+        0,
+        frontier.ranking_signal_score - runner_up.ranking_signal_score,
+    )
+    if ranking_signal_gap > 0:
+        components.append(
+            InvariantScoreComponent(
+                kind="ranking_signal_score_gap",
+                score=ranking_signal_gap,
+                rationale=(
+                    f"{frontier.ranking_signal_score}->"
+                    f"{runner_up.ranking_signal_score}"
+                ),
             )
         )
 
@@ -1759,6 +1839,8 @@ class InvariantTouchpointProjection:
     coverage_count: int
     diagnostic_count: int
     touchsites: ReplayableStream[InvariantTouchsiteProjection]
+    ranking_signal_count: int = 0
+    ranking_signal_score: int = 0
     failing_test_case_count: int = 0
     test_failure_count: int = 0
 
@@ -1785,6 +1867,8 @@ class InvariantTouchpointProjection:
             "policy_signal_count": self.policy_signal_count,
             "coverage_count": self.coverage_count,
             "diagnostic_count": self.diagnostic_count,
+            "ranking_signal_count": self.ranking_signal_count,
+            "ranking_signal_score": self.ranking_signal_score,
             "failing_test_case_count": self.failing_test_case_count,
             "test_failure_count": self.test_failure_count,
             "touchsites": [item.as_payload() for item in self.iter_touchsites()],
@@ -1810,6 +1894,8 @@ class InvariantSubqueueProjection:
     policy_signal_count: int
     coverage_count: int
     diagnostic_count: int
+    ranking_signal_count: int = 0
+    ranking_signal_score: int = 0
     failing_test_case_count: int = 0
     test_failure_count: int = 0
 
@@ -1832,6 +1918,8 @@ class InvariantSubqueueProjection:
             "policy_signal_count": self.policy_signal_count,
             "coverage_count": self.coverage_count,
             "diagnostic_count": self.diagnostic_count,
+            "ranking_signal_count": self.ranking_signal_count,
+            "ranking_signal_score": self.ranking_signal_score,
             "failing_test_case_count": self.failing_test_case_count,
             "test_failure_count": self.test_failure_count,
         }
@@ -1859,6 +1947,8 @@ class InvariantWorkstreamProjection:
     diagnostic_count: int
     subqueues: ReplayableStream[InvariantSubqueueProjection]
     touchpoints: ReplayableStream[InvariantTouchpointProjection]
+    ranking_signal_count: int = 0
+    ranking_signal_score: int = 0
     doc_alignment_summary: InvariantLedgerAlignmentSummary | None = None
     failing_test_case_count: int = 0
     test_failure_count: int = 0
@@ -1902,6 +1992,8 @@ class InvariantWorkstreamProjection:
                 policy_signal_count=touchpoint.policy_signal_count,
                 coverage_count=touchpoint.coverage_count,
                 diagnostic_count=touchpoint.diagnostic_count,
+                ranking_signal_count=touchpoint.ranking_signal_count,
+                ranking_signal_score=touchpoint.ranking_signal_score,
                 covered_touchsite_count=sum(
                     1 for touchsite in touchpoint.iter_touchsites() if touchsite.coverage_count > 0
                 ),
@@ -1964,6 +2056,8 @@ class InvariantWorkstreamProjection:
                     policy_signal_count=subqueue.policy_signal_count,
                     coverage_count=subqueue.coverage_count,
                     diagnostic_count=subqueue.diagnostic_count,
+                    ranking_signal_count=subqueue.ranking_signal_count,
+                    ranking_signal_score=subqueue.ranking_signal_score,
                     covered_touchsite_count=len(touchsites) - uncovered_touchsite_count,
                     uncovered_touchsite_count=uncovered_touchsite_count,
                     readiness_class=_cut_readiness_class(
@@ -2685,6 +2779,8 @@ class InvariantWorkstreamProjection:
             "policy_signal_count": self.policy_signal_count,
             "coverage_count": self.coverage_count,
             "diagnostic_count": self.diagnostic_count,
+            "ranking_signal_count": self.ranking_signal_count,
+            "ranking_signal_score": self.ranking_signal_score,
             "failing_test_case_count": self.failing_test_case_count,
             "test_failure_count": self.test_failure_count,
             "doc_alignment_summary": (
@@ -8061,6 +8157,7 @@ class _InvariantGraphBuildState:
     root: Path
     nodes_by_id: dict[str, InvariantGraphNode]
     diagnostics: list[InvariantGraphDiagnostic]
+    ranking_signals: list[InvariantGraphRankingSignal]
     edge_keys: set[tuple[str, str, str]]
     edges: list[InvariantGraphEdge]
     object_node_ids: dict[str, str]
@@ -8075,6 +8172,7 @@ def _new_build_state(root: Path) -> _InvariantGraphBuildState:
         root=root,
         nodes_by_id={},
         diagnostics=[],
+        ranking_signals=[],
         edge_keys=set(),
         edges=[],
         object_node_ids={},
@@ -9417,6 +9515,564 @@ def _link_to_governance_doc_if_present(
     _add_edge(state, "tracks", source_node_id, target_node_id)
 
 
+def _link_to_git_state_entries_for_path(
+    state: _InvariantGraphBuildState,
+    *,
+    source_node_id: str,
+    rel_path: str,
+) -> None:
+    normalized = _normalize_rel_path(state.root, rel_path)
+    if not normalized:
+        return
+    for node in state.nodes_by_id.values():
+        if node.node_kind != "git_state_entry":
+            continue
+        if node.rel_path != normalized:
+            continue
+        _add_edge(state, "touches", source_node_id, node.node_id)
+
+
+def _append_diagnostic(
+    state: _InvariantGraphBuildState,
+    *,
+    severity: str,
+    code: str,
+    node_id: str,
+    raw_dependency: str,
+    message: str,
+) -> None:
+    state.diagnostics.append(
+        InvariantGraphDiagnostic(
+            diagnostic_id=stable_hash(
+                "invariant_graph_diagnostic",
+                severity,
+                code,
+                node_id,
+                raw_dependency,
+                message,
+            ),
+            severity=severity,
+            code=code,
+            node_id=node_id,
+            raw_dependency=raw_dependency,
+            message=message,
+        )
+    )
+
+
+def _append_ranking_signal(
+    state: _InvariantGraphBuildState,
+    *,
+    node_id: str,
+    touchpoint_object_id: str,
+    touchsite_object_id: str,
+    code: str,
+    score: int,
+    message: str,
+    raw_dependency: str = "",
+) -> None:
+    signal_id = stable_hash(
+        "invariant_graph_ranking_signal",
+        node_id,
+        touchpoint_object_id,
+        touchsite_object_id,
+        code,
+        str(score),
+        raw_dependency,
+        message,
+    )
+    if any(existing.signal_id == signal_id for existing in state.ranking_signals):
+        return
+    state.ranking_signals.append(
+        InvariantGraphRankingSignal(
+            signal_id=signal_id,
+            code=code,
+            node_id=node_id,
+            touchpoint_object_id=touchpoint_object_id,
+            touchsite_object_id=touchsite_object_id,
+            raw_dependency=raw_dependency,
+            score=score,
+            message=message,
+        )
+    )
+
+
+def _join_docflow_compliance_artifact(state: _InvariantGraphBuildState) -> None:
+    artifact = load_docflow_compliance_artifact(
+        root=state.root,
+        rel_path=_DOCFLOW_COMPLIANCE_ARTIFACT.as_posix(),
+        identities=state.structured_artifact_identities,
+    )
+    if artifact is None:
+        return
+    report_node_id = "docflow_compliance_report:artifact"
+    report_node = _synthetic_node(
+        node_id=report_node_id,
+        title="docflow compliance",
+        ref_kind="docflow_compliance_report",
+        value=_DOCFLOW_COMPLIANCE_ARTIFACT.as_posix(),
+        object_ids=(artifact.identity.wire(),),
+        reasoning_summary=(
+            "compliant={compliant} contradicts={contradicts} excess={excess} "
+            "proposed={proposed} unmet_fail={unmet_fail}".format(
+                compliant=artifact.compliant_count,
+                contradicts=artifact.contradiction_count,
+                excess=artifact.excess_count,
+                proposed=artifact.proposed_count,
+                unmet_fail=artifact.unmet_fail_count,
+            )
+        ),
+        reasoning_control="invariant_graph.docflow_compliance",
+        rel_path=_DOCFLOW_COMPLIANCE_ARTIFACT.as_posix(),
+        node_kind="docflow_compliance_report",
+        status_hint=(
+            "contradicts"
+            if artifact.contradiction_count or artifact.unmet_fail_count
+            else "ready"
+        ),
+    )
+    _add_node(state, report_node, replace=True)
+    _link_node_refs(state, report_node)
+    for touchpoint_object_id in ("CSA-RGC-TP-006", "CSA-RGC-TP-007"):
+        touchpoint_node_id = state.object_node_ids.get(touchpoint_object_id, "")
+        if touchpoint_node_id:
+            _add_edge(state, "contains", touchpoint_node_id, report_node_id)
+    for rel_path in artifact.changed_paths:
+        _link_to_governance_doc_if_present(
+            state,
+            source_node_id=report_node_id,
+            rel_path=rel_path,
+        )
+        _link_to_git_state_entries_for_path(
+            state,
+            source_node_id=report_node_id,
+            rel_path=rel_path,
+        )
+    for row in artifact.rows:
+        row_node_id = f"docflow_compliance_row:{stable_hash(row.identity.wire())}"
+        row_title = row.invariant or row.evidence_id or row.row_id
+        row_node = _synthetic_node(
+            node_id=row_node_id,
+            title=row_title,
+            ref_kind="docflow_compliance_row",
+            value=row.identity.wire(),
+            object_ids=tuple(
+                item
+                for item in (
+                    row.identity.wire(),
+                    row.row_id,
+                    row.invariant,
+                    row.evidence_id,
+                )
+                if item
+            ),
+            doc_ids=_governance_doc_ids_for_path(state, rel_path=row.rel_path),
+            reasoning_summary=(
+                "docflow compliance status={status} source_row_kind={source_row_kind} detail={detail}".format(
+                    status=row.status or "<unset>",
+                    source_row_kind=row.source_row_kind or "<unset>",
+                    detail=row.detail or "<none>",
+                )
+            ),
+            reasoning_control="invariant_graph.docflow_compliance.row",
+            rel_path=row.rel_path,
+            node_kind="docflow_compliance_row",
+            status_hint=row.status,
+        )
+        _add_node(state, row_node, replace=True)
+        _link_node_refs(state, row_node)
+        _add_edge(state, "contains", report_node_id, row_node_id)
+        if row.rel_path:
+            _link_to_governance_doc_if_present(
+                state,
+                source_node_id=row_node_id,
+                rel_path=row.rel_path,
+            )
+            _link_to_git_state_entries_for_path(
+                state,
+                source_node_id=row_node_id,
+                rel_path=row.rel_path,
+            )
+    for obligation in artifact.obligations:
+        obligation_node_id = (
+            f"docflow_obligation:{stable_hash(obligation.identity.wire())}"
+        )
+        status_hint = obligation.status or "unknown"
+        if obligation.triggered and obligation.status != "met":
+            status_hint = f"unmet_{obligation.enforcement or 'unknown'}"
+        obligation_node = _synthetic_node(
+            node_id=obligation_node_id,
+            title=obligation.obligation_id,
+            ref_kind="docflow_obligation",
+            value=obligation.identity.wire(),
+            object_ids=tuple(
+                item
+                for item in (obligation.identity.wire(), obligation.obligation_id)
+                if item
+            ),
+            reasoning_summary=obligation.description or obligation.obligation_id,
+            reasoning_control="invariant_graph.docflow_compliance.obligation",
+            rel_path=_DOCFLOW_COMPLIANCE_ARTIFACT.as_posix(),
+            node_kind="docflow_obligation",
+            status_hint=status_hint,
+        )
+        _add_node(state, obligation_node, replace=True)
+        _link_node_refs(state, obligation_node)
+        _add_edge(state, "contains", report_node_id, obligation_node_id)
+        for rel_path in artifact.changed_paths:
+            _link_to_governance_doc_if_present(
+                state,
+                source_node_id=obligation_node_id,
+                rel_path=rel_path,
+            )
+            _link_to_git_state_entries_for_path(
+                state,
+                source_node_id=obligation_node_id,
+                rel_path=rel_path,
+            )
+
+
+def _resolve_sppf_issue_node_id(
+    state: _InvariantGraphBuildState,
+    *,
+    issue_id: str,
+) -> str:
+    normalized = str(issue_id).strip()
+    if not normalized:
+        return ""
+    candidates = [normalized]
+    if normalized.startswith("GH-"):
+        candidates.append(normalized[3:])
+    else:
+        candidates.append(f"GH-{normalized}")
+    for candidate in candidates:
+        node_id = f"sppf_issue:{candidate}"
+        if node_id in state.nodes_by_id:
+            return node_id
+    return ""
+
+
+_DOCFLOW_PROVENANCE_RANKING_RULES = (
+    RankingSignalRule(
+        rule_id="docflow_issue_lifecycle_fetch_incomplete",
+        entry_path=(),
+        diagnostic_code="sppf_issue_lifecycle_fetch_incomplete",
+        severity="warning",
+        score=5,
+        message_template=(
+            "issue lifecycle fetch status {fetch_status} for strict docflow provenance "
+            "reported {error_count} error(s)"
+        ),
+        captures=(
+            RankingSignalCapture(
+                name="fetch_status",
+                path=("issue_lifecycle_fetch_status",),
+            ),
+            RankingSignalCapture(
+                name="error_count",
+                path=("issue_lifecycle_errors",),
+                render_as="count",
+            ),
+        ),
+        predicates=(
+            RankingSignalPredicate(
+                path=("issue_lifecycle_fetch_status",),
+                op="in",
+                expected=("error", "partial_error"),
+            ),
+        ),
+    ),
+    RankingSignalRule(
+        rule_id="docflow_issue_lifecycle_state_mismatch",
+        entry_path=("issue_lifecycles", "*"),
+        diagnostic_code="sppf_issue_lifecycle_state_mismatch",
+        severity="warning",
+        score=4,
+        message_template=(
+            "GH-{issue_id} is {state}; active correction-unit linkage expects open lifecycle"
+        ),
+        captures=(
+            RankingSignalCapture(name="issue_id", path=("issue_id",)),
+            RankingSignalCapture(name="state", path=("state",)),
+        ),
+        predicates=(
+            RankingSignalPredicate(
+                path=("state",),
+                op="not_in",
+                expected=("open",),
+            ),
+        ),
+    ),
+    RankingSignalRule(
+        rule_id="docflow_issue_lifecycle_missing_required_labels",
+        entry_path=("issue_lifecycles", "*"),
+        diagnostic_code="sppf_issue_lifecycle_missing_required_labels",
+        severity="warning",
+        score=3,
+        message_template=(
+            "GH-{issue_id} is missing required lifecycle label(s): {missing_labels}"
+        ),
+        captures=(RankingSignalCapture(name="issue_id", path=("issue_id",)),),
+        predicates=(
+            RankingSignalPredicate(
+                path=("labels",),
+                op="missing_any",
+                expected=_DOCFLOW_REQUIRED_ISSUE_LIFECYCLE_LABELS,
+                bind_name="missing_labels",
+            ),
+        ),
+    ),
+)
+
+
+def _join_docflow_provenance_artifact(state: _InvariantGraphBuildState) -> None:
+    artifact = load_docflow_compliance_artifact(
+        root=state.root,
+        rel_path=_DOCFLOW_COMPLIANCE_ARTIFACT.as_posix(),
+        identities=state.structured_artifact_identities,
+    )
+    if artifact is None:
+        return
+    if not (
+        artifact.rev_range
+        or artifact.commits
+        or artifact.issue_references
+        or artifact.sppf_relevant_paths_changed
+    ):
+        return
+    report_node_id = "docflow_provenance_report:artifact"
+    report_node = _synthetic_node(
+        node_id=report_node_id,
+        title="docflow provenance",
+        ref_kind="docflow_provenance_report",
+        value=_DOCFLOW_COMPLIANCE_ARTIFACT.as_posix(),
+        object_ids=tuple(
+            item
+            for item in (artifact.identity.wire(), artifact.rev_range)
+            if item
+        ),
+        reasoning_summary=(
+            "rev_range={rev_range} commits={commits} issue_refs={issue_refs} "
+            "issue_lifecycles={issue_lifecycles} lifecycle_fetch={fetch_status} "
+            "gh_reference_validated={validated}".format(
+                rev_range=artifact.rev_range or "<unset>",
+                commits=len(artifact.commits),
+                issue_refs=len(artifact.issue_references),
+                issue_lifecycles=len(artifact.issue_lifecycles),
+                fetch_status=artifact.issue_lifecycle_fetch_status or "<unset>",
+                validated=artifact.gh_reference_validated,
+            )
+        ),
+        reasoning_control="invariant_graph.docflow_provenance",
+        rel_path=_DOCFLOW_COMPLIANCE_ARTIFACT.as_posix(),
+        node_kind="docflow_provenance_report",
+        status_hint=(
+            "unmet_fail"
+            if artifact.sppf_relevant_paths_changed and not artifact.gh_reference_validated
+            else "ready"
+        ),
+    )
+    _add_node(state, report_node, replace=True)
+    _link_node_refs(state, report_node)
+    touchpoint_node_id = state.object_node_ids.get("CSA-RGC-TP-007", "")
+    if touchpoint_node_id:
+        _add_edge(state, "contains", touchpoint_node_id, report_node_id)
+    for rel_path in artifact.changed_paths:
+        _link_to_governance_doc_if_present(
+            state,
+            source_node_id=report_node_id,
+            rel_path=rel_path,
+        )
+        _link_to_git_state_entries_for_path(
+            state,
+            source_node_id=report_node_id,
+            rel_path=rel_path,
+        )
+    parent_node_id = report_node_id
+    if artifact.rev_range:
+        rev_range_node_id = f"docflow_commit_range:{stable_hash(artifact.rev_range)}"
+        rev_range_node = _synthetic_node(
+            node_id=rev_range_node_id,
+            title=artifact.rev_range,
+            ref_kind="docflow_commit_range",
+            value=artifact.rev_range,
+            object_ids=(artifact.rev_range,),
+            reasoning_summary=(
+                f"strict docflow commit range with {len(artifact.commits)} commit(s)"
+            ),
+            reasoning_control="invariant_graph.docflow_provenance.commit_range",
+            rel_path=_DOCFLOW_COMPLIANCE_ARTIFACT.as_posix(),
+            node_kind="docflow_commit_range",
+            status_hint=(
+                "issue_refs_missing"
+                if artifact.sppf_relevant_paths_changed and not artifact.gh_reference_validated
+                else ""
+            ),
+        )
+        _add_node(state, rev_range_node, replace=True)
+        _link_node_refs(state, rev_range_node)
+        _add_edge(state, "contains", report_node_id, rev_range_node_id)
+        parent_node_id = rev_range_node_id
+    for commit in artifact.commits:
+        commit_node_id = f"docflow_commit:{stable_hash(commit.identity.wire())}"
+        commit_node = _synthetic_node(
+            node_id=commit_node_id,
+            title=str(commit),
+            ref_kind="docflow_commit",
+            value=commit.identity.wire(),
+            object_ids=tuple(
+                item for item in (commit.identity.wire(), commit.sha) if item
+            ),
+            reasoning_summary=commit.subject or commit.sha,
+            reasoning_control="invariant_graph.docflow_provenance.commit",
+            rel_path=_DOCFLOW_COMPLIANCE_ARTIFACT.as_posix(),
+            node_kind="docflow_commit",
+            status_hint=(
+                "issue_refs_missing"
+                if artifact.sppf_relevant_paths_changed and not artifact.gh_reference_validated
+                else ""
+            ),
+        )
+        _add_node(state, commit_node, replace=True)
+        _link_node_refs(state, commit_node)
+        _add_edge(state, "contains", parent_node_id, commit_node_id)
+        git_head_node_id = f"git_head_commit:{commit.sha}"
+        if git_head_node_id in state.nodes_by_id:
+            _add_edge(state, "tracks", commit_node_id, git_head_node_id)
+    issue_reference_node_ids: dict[str, str] = {}
+    issue_lifecycle_node_ids: dict[str, str] = {}
+    for issue_reference in artifact.issue_references:
+        issue_node_id = (
+            f"docflow_issue_reference:{stable_hash(issue_reference.identity.wire())}"
+        )
+        issue_node = _synthetic_node(
+            node_id=issue_node_id,
+            title=str(issue_reference),
+            ref_kind="docflow_issue_reference",
+            value=issue_reference.identity.wire(),
+            object_ids=tuple(
+                item
+                for item in (
+                    issue_reference.identity.wire(),
+                    issue_reference.issue_id,
+                    f"GH-{issue_reference.issue_id}",
+                )
+                if item
+            ),
+            reasoning_summary=(
+                f"strict docflow issue reference commit_count={issue_reference.commit_count}"
+            ),
+            reasoning_control="invariant_graph.docflow_provenance.issue_reference",
+            rel_path=_DOCFLOW_COMPLIANCE_ARTIFACT.as_posix(),
+            node_kind="docflow_issue_reference",
+            status_hint="ready" if artifact.gh_reference_validated else "",
+        )
+        _add_node(state, issue_node, replace=True)
+        _link_node_refs(state, issue_node)
+        _add_edge(state, "contains", report_node_id, issue_node_id)
+        issue_reference_node_ids[issue_reference.issue_id] = issue_node_id
+        checklist_issue_node_id = _resolve_sppf_issue_node_id(
+            state,
+            issue_id=issue_reference.issue_id,
+        )
+        if checklist_issue_node_id:
+            _add_edge(state, "tracks", issue_node_id, checklist_issue_node_id)
+    for issue_lifecycle in artifact.issue_lifecycles:
+        lifecycle_node_id = (
+            f"docflow_issue_lifecycle:{stable_hash(issue_lifecycle.identity.wire())}"
+        )
+        lifecycle_node = _synthetic_node(
+            node_id=lifecycle_node_id,
+            title=str(issue_lifecycle),
+            ref_kind="docflow_issue_lifecycle",
+            value=issue_lifecycle.identity.wire(),
+            object_ids=tuple(
+                item
+                for item in (
+                    issue_lifecycle.identity.wire(),
+                    issue_lifecycle.issue_id,
+                    f"GH-{issue_lifecycle.issue_id}",
+                    *issue_lifecycle.labels,
+                )
+                if item
+            ),
+            reasoning_summary=(
+                "issue lifecycle state={state} labels={labels}".format(
+                    state=issue_lifecycle.state or "<unset>",
+                    labels=",".join(issue_lifecycle.labels) or "<none>",
+                )
+            ),
+            reasoning_control="invariant_graph.docflow_provenance.issue_lifecycle",
+            rel_path=_DOCFLOW_COMPLIANCE_ARTIFACT.as_posix(),
+            node_kind="docflow_issue_lifecycle",
+            status_hint=issue_lifecycle.state,
+        )
+        _add_node(state, lifecycle_node, replace=True)
+        _link_node_refs(state, lifecycle_node)
+        issue_lifecycle_node_ids[issue_lifecycle.issue_id] = lifecycle_node_id
+        _add_edge(
+            state,
+            "contains",
+            issue_reference_node_ids.get(issue_lifecycle.issue_id, report_node_id),
+            lifecycle_node_id,
+        )
+        checklist_issue_node_id = _resolve_sppf_issue_node_id(
+            state,
+            issue_id=issue_lifecycle.issue_id,
+        )
+        if checklist_issue_node_id:
+            _add_edge(state, "tracks", lifecycle_node_id, checklist_issue_node_id)
+    for match in evaluate_ranking_signal_rules(
+        carrier=artifact,
+        rules=_DOCFLOW_PROVENANCE_RANKING_RULES,
+    ):
+        capture_map = match.capture_map()
+        target_node_id = report_node_id
+        if "issue_id" in capture_map:
+            target_node_id = issue_lifecycle_node_ids.get(
+                str(capture_map["issue_id"]),
+                issue_reference_node_ids.get(str(capture_map["issue_id"]), report_node_id),
+            )
+        _append_diagnostic(
+            state,
+            severity=match.severity,
+            code=match.diagnostic_code,
+            node_id=target_node_id,
+            raw_dependency="CSA-RGC-TP-007",
+            message=match.message,
+        )
+        _append_ranking_signal(
+            state,
+            node_id=target_node_id,
+            touchpoint_object_id="CSA-RGC-TP-007",
+            touchsite_object_id=(
+                "CSA-RGC-TS-043"
+                if match.rule_id == "docflow_issue_lifecycle_fetch_incomplete"
+                else "CSA-RGC-TS-034"
+            ),
+            code=match.rule_id,
+            score=match.score,
+            raw_dependency="CSA-RGC-TP-007",
+            message=match.message,
+        )
+    if artifact.sppf_relevant_paths_changed and not artifact.gh_reference_validated:
+        sample_paths = ", ".join(_sorted(list(artifact.changed_paths))[:5])
+        suffix = f" touching {sample_paths}" if sample_paths else ""
+        diagnostic_message = (
+            f"sppf_gh_reference_validation unmet for {artifact.rev_range or '<unknown-range>'}"
+            f"{suffix}; no GH references were found for the current strict-docflow provenance carrier."
+        )
+        diagnostic_node_id = state.object_node_ids.get("CSA-RGC-TS-031", report_node_id)
+        _append_diagnostic(
+            state,
+            severity="warning",
+            code="sppf_gh_reference_validation",
+            node_id=diagnostic_node_id,
+            raw_dependency=artifact.rev_range or "docflow_provenance",
+            message=diagnostic_message,
+        )
+
+
 def _join_docflow_packet_enforcement(state: _InvariantGraphBuildState) -> None:
     artifact = load_docflow_packet_enforcement_artifact(
         root=state.root,
@@ -9979,6 +10635,8 @@ def _join_control_loop_artifacts(state: _InvariantGraphBuildState) -> None:
     _join_local_repro_closure_ledger(state)
     _join_cross_origin_witness_contract_artifact(state)
     _join_git_state_artifact(state)
+    _join_docflow_compliance_artifact(state)
+    _join_docflow_provenance_artifact(state)
     _join_ingress_merge_parity_artifact(state)
 
 
@@ -10070,6 +10728,18 @@ def build_invariant_graph(root: Path) -> InvariantGraph:
                 key=lambda item: (item.severity, item.code, item.node_id, item.raw_dependency),
             )
         ),
+        ranking_signals=tuple(
+            _sorted(
+                state.ranking_signals,
+                key=lambda item: (
+                    item.code,
+                    item.touchpoint_object_id,
+                    item.touchsite_object_id,
+                    item.node_id,
+                    item.signal_id,
+                ),
+            )
+        ),
     )
 
 
@@ -10151,6 +10821,18 @@ def build_invariant_workstreams(
         diagnostics_by_node_id = {
             node_id: tuple(items) for node_id, items in grouped_diagnostics.items()
         }
+    ranking_signals_by_node_id: dict[str, tuple[InvariantGraphRankingSignal, ...]] = {}
+    for signal in graph.ranking_signals:
+        ranking_signals_by_node_id.setdefault(signal.node_id, tuple())
+    if graph.ranking_signals:
+        grouped_ranking_signals: defaultdict[str, list[InvariantGraphRankingSignal]] = (
+            defaultdict(list)
+        )
+        for signal in graph.ranking_signals:
+            grouped_ranking_signals[signal.node_id].append(signal)
+        ranking_signals_by_node_id = {
+            node_id: tuple(items) for node_id, items in grouped_ranking_signals.items()
+        }
     descendant_cache: dict[str, tuple[str, ...]] = {}
 
     def _descendants(node_id: str) -> tuple[str, ...]:
@@ -10228,6 +10910,16 @@ def build_invariant_workstreams(
 
     def _diagnostic_count(node_ids: Iterable[str]) -> int:
         return sum(len(diagnostics_by_node_id.get(node_id, ())) for node_id in node_ids)
+
+    def _ranking_signal_count(node_ids: Iterable[str]) -> int:
+        return sum(len(ranking_signals_by_node_id.get(node_id, ())) for node_id in node_ids)
+
+    def _ranking_signal_score(node_ids: Iterable[str]) -> int:
+        return sum(
+            signal.score
+            for node_id in node_ids
+            for signal in ranking_signals_by_node_id.get(node_id, ())
+        )
 
     def _site_ref(token: str) -> SiteReferenceId:
         return identity_space.site_ref_id(token)
@@ -10325,6 +11017,8 @@ def build_invariant_workstreams(
             coverage_count=len(_test_case_ids(touchpoint_descendants)),
             diagnostic_count=_diagnostic_count(touchpoint_descendants),
             touchsites=_stream_from_iterable(_iter_touchsites),
+            ranking_signal_count=_ranking_signal_count(touchpoint_descendants),
+            ranking_signal_score=_ranking_signal_score(touchpoint_descendants),
             failing_test_case_count=len(_failing_test_case_ids(touchpoint_descendants)),
             test_failure_count=len(_test_failure_ids(touchpoint_descendants)),
         )
@@ -10379,6 +11073,8 @@ def build_invariant_workstreams(
             policy_signal_count=len(_signal_ids(subqueue_descendants)),
             coverage_count=len(_test_case_ids(subqueue_descendants)),
             diagnostic_count=_diagnostic_count(subqueue_descendants),
+            ranking_signal_count=_ranking_signal_count(subqueue_descendants),
+            ranking_signal_score=_ranking_signal_score(subqueue_descendants),
             failing_test_case_count=len(_failing_test_case_ids(subqueue_descendants)),
             test_failure_count=len(_test_failure_ids(subqueue_descendants)),
         )
@@ -10451,6 +11147,8 @@ def build_invariant_workstreams(
             policy_signal_count=len(_signal_ids(root_descendants)),
             coverage_count=len(_test_case_ids(root_descendants)),
             diagnostic_count=_diagnostic_count(root_descendants),
+            ranking_signal_count=_ranking_signal_count(root_descendants),
+            ranking_signal_score=_ranking_signal_score(root_descendants),
             doc_alignment_summary=None,
             subqueues=_stream_from_iterable(_iter_subqueues),
             touchpoints=_stream_from_iterable(_iter_touchpoints),

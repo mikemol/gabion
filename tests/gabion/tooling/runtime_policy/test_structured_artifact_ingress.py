@@ -12,6 +12,7 @@ from gabion.tooling.policy_substrate.structured_artifact_ingress import (
     load_cross_origin_witness_contract_artifact,
     load_git_state_artifact,
     load_controller_drift_artifact,
+    load_docflow_compliance_artifact,
     load_docflow_packet_enforcement_artifact,
     load_ingress_merge_parity_artifact,
     load_junit_failure_artifact,
@@ -89,6 +90,185 @@ def test_load_docflow_packet_enforcement_artifact_uses_typed_row_identities(
         StructuredArtifactDecompositionKind.ITEM_KIND,
         StructuredArtifactDecompositionKind.ITEM_KEY,
     }
+
+
+def test_load_docflow_compliance_artifact_uses_typed_row_and_obligation_identities(
+    tmp_path: Path,
+) -> None:
+    _write_json(
+        tmp_path / "artifacts" / "out" / "docflow_compliance.json",
+        {
+            "version": 2,
+            "summary": {
+                "compliant": 0,
+                "contradicts": 1,
+                "excess": 0,
+                "proposed": 0,
+            },
+            "rows": [
+                {
+                    "row_kind": "docflow_compliance",
+                    "invariant": "docflow:missing_explicit_reference",
+                    "invariant_kind": "never",
+                    "status": "contradicts",
+                    "path": "in/in-54.md",
+                    "source_row_kind": "doc_requires_ref",
+                    "detail": "missing explicit reference",
+                }
+            ],
+            "obligations": {
+                "summary": {
+                    "total": 1,
+                    "triggered": 1,
+                    "met": 0,
+                    "unmet_fail": 1,
+                    "unmet_warn": 0,
+                },
+                "context": {
+                    "changed_paths": ["in/in-54.md"],
+                    "sppf_relevant_paths_changed": True,
+                    "gh_reference_validated": False,
+                    "baseline_write_emitted": False,
+                    "delta_guard_checked": False,
+                    "doc_status_changed": True,
+                    "checklist_influence_consistent": False,
+                    "rev_range": "origin/stage..HEAD",
+                    "commits": [
+                        {
+                            "sha": "a" * 40,
+                            "subject": "Add PM view boundary renderer",
+                        }
+                    ],
+                    "issue_ids": [],
+                    "checklist_impact": [],
+                    "issue_lifecycle_fetch_status": "not_applicable",
+                    "issue_lifecycles": [],
+                    "issue_lifecycle_errors": [],
+                },
+                "entries": [
+                    {
+                        "obligation_id": "sppf_gh_reference_validation",
+                        "triggered": True,
+                        "status": "unmet",
+                        "enforcement": "fail",
+                        "description": "SPPF-relevant path changes require GH-reference validation.",
+                    }
+                ],
+            },
+        },
+    )
+
+    artifact = load_docflow_compliance_artifact(
+        root=tmp_path,
+        rel_path="artifacts/out/docflow_compliance.json",
+        identities=StructuredArtifactIdentitySpace(),
+    )
+
+    assert artifact is not None
+    assert artifact.identity.artifact_kind is StructuredArtifactKind.DOCFLOW_COMPLIANCE
+    assert artifact.contradiction_count == 1
+    assert artifact.rev_range == "origin/stage..HEAD"
+    assert artifact.changed_paths == ("in/in-54.md",)
+    assert artifact.sppf_relevant_paths_changed is True
+    assert artifact.gh_reference_validated is False
+    assert len(artifact.commits) == 1
+    assert artifact.issue_references == ()
+    assert artifact.issue_lifecycle_fetch_status == "not_applicable"
+    assert artifact.issue_lifecycles == ()
+    row = artifact.rows[0]
+    obligation = artifact.obligations[0]
+    commit = artifact.commits[0]
+
+    assert row.rel_path == "in/in-54.md"
+    assert row.identity.item_kind == "row"
+    assert str(row).startswith("docflow_compliance:")
+    assert row.identity.wire() != str(row.identity)
+    assert commit.sha == "a" * 40
+    assert commit.identity.item_kind == "commit"
+    assert str(commit) == "aaaaaaaaaaaa"
+    assert obligation.obligation_id == "sppf_gh_reference_validation"
+    assert obligation.identity.item_kind == "obligation"
+    assert str(obligation) == "sppf_gh_reference_validation"
+    assert obligation.identity.wire() != str(obligation.identity)
+
+
+def test_load_docflow_compliance_artifact_extracts_issue_lifecycle_state(
+    tmp_path: Path,
+) -> None:
+    _write_json(
+        tmp_path / "artifacts" / "out" / "docflow_compliance.json",
+        {
+            "version": 2,
+            "summary": {
+                "compliant": 1,
+                "contradicts": 0,
+                "excess": 0,
+                "proposed": 0,
+            },
+            "rows": [],
+            "obligations": {
+                "summary": {
+                    "total": 1,
+                    "triggered": 1,
+                    "met": 1,
+                    "unmet_fail": 0,
+                    "unmet_warn": 0,
+                },
+                "context": {
+                    "changed_paths": ["docs/sppf_checklist.md"],
+                    "sppf_relevant_paths_changed": True,
+                    "gh_reference_validated": True,
+                    "baseline_write_emitted": False,
+                    "delta_guard_checked": False,
+                    "doc_status_changed": True,
+                    "checklist_influence_consistent": True,
+                    "rev_range": "origin/stage..HEAD",
+                    "commits": [],
+                    "issue_ids": ["214"],
+                    "checklist_impact": [{"issue_id": "214", "commit_count": 1}],
+                    "issue_lifecycle_fetch_status": "ok",
+                    "issue_lifecycles": [
+                        {
+                            "issue_id": "214",
+                            "state": "open",
+                            "labels": ["done-on-stage", "status/pending-release"],
+                            "url": "https://example.invalid/214",
+                        }
+                    ],
+                    "issue_lifecycle_errors": [],
+                },
+                "entries": [
+                    {
+                        "obligation_id": "sppf_gh_reference_validation",
+                        "triggered": True,
+                        "status": "met",
+                        "enforcement": "fail",
+                        "description": "SPPF-relevant path changes require GH-reference validation.",
+                    }
+                ],
+            },
+        },
+    )
+
+    artifact = load_docflow_compliance_artifact(
+        root=tmp_path,
+        rel_path="artifacts/out/docflow_compliance.json",
+        identities=StructuredArtifactIdentitySpace(),
+    )
+
+    assert artifact is not None
+    assert len(artifact.issue_references) == 1
+    assert artifact.issue_references[0].issue_id == "214"
+    assert artifact.issue_references[0].commit_count == 1
+    assert artifact.issue_lifecycle_fetch_status == "ok"
+    assert artifact.issue_lifecycle_errors == ()
+    assert len(artifact.issue_lifecycles) == 1
+    lifecycle = artifact.issue_lifecycles[0]
+    assert lifecycle.issue_id == "214"
+    assert lifecycle.state == "open"
+    assert lifecycle.labels == ("done-on-stage", "status/pending-release")
+    assert lifecycle.url == "https://example.invalid/214"
+    assert lifecycle.identity.item_kind == "issue_lifecycle"
 
 
 def test_load_controller_drift_artifact_extracts_markdown_doc_paths(

@@ -1176,6 +1176,168 @@ def test_workstream_projection_surfaces_policy_and_diagnostic_remediation_famili
     )
 
 
+def test_workstream_projection_uses_ranking_signal_score_to_break_diagnostic_ties() -> None:
+    space = PolicyQueueIdentitySpace()
+    workstream_id = space.workstream_id("WS-RANK")
+    subqueue_id = space.subqueue_id("WS-RANK-SQ-001")
+    touchpoint_low = space.touchpoint_id("WS-RANK-TP-LOW")
+    touchpoint_high = space.touchpoint_id("WS-RANK-TP-HIGH")
+    low_touchsite = invariant_graph.InvariantTouchsiteProjection(
+        object_id=space.touchsite_id("WS-RANK-TS-LOW"),
+        touchpoint_id=touchpoint_low,
+        subqueue_id=subqueue_id,
+        title="low pressure touchsite",
+        status="in_progress",
+        rel_path="src/gabion/sample.py",
+        qualname="low_pressure",
+        boundary_name="low_pressure",
+        line=10,
+        column=1,
+        node_kind="marker_callsite",
+        site_identity=space.site_ref_id("site.low"),
+        structural_identity=space.structural_ref_id("struct.low"),
+        seam_class="surviving_carrier_seam",
+        touchpoint_marker_identity="tp.low",
+        touchpoint_structural_identity=space.structural_ref_id("tp.struct.low"),
+        subqueue_marker_identity="sq.rank",
+        subqueue_structural_identity=space.structural_ref_id("sq.struct.rank"),
+        policy_signal_count=0,
+        coverage_count=1,
+        diagnostic_count=1,
+        object_ids=(),
+    )
+    high_touchsite = invariant_graph.InvariantTouchsiteProjection(
+        object_id=space.touchsite_id("WS-RANK-TS-HIGH"),
+        touchpoint_id=touchpoint_high,
+        subqueue_id=subqueue_id,
+        title="high pressure touchsite",
+        status="in_progress",
+        rel_path="src/gabion/sample.py",
+        qualname="high_pressure",
+        boundary_name="high_pressure",
+        line=20,
+        column=1,
+        node_kind="marker_callsite",
+        site_identity=space.site_ref_id("site.high"),
+        structural_identity=space.structural_ref_id("struct.high"),
+        seam_class="surviving_carrier_seam",
+        touchpoint_marker_identity="tp.high",
+        touchpoint_structural_identity=space.structural_ref_id("tp.struct.high"),
+        subqueue_marker_identity="sq.rank",
+        subqueue_structural_identity=space.structural_ref_id("sq.struct.rank"),
+        policy_signal_count=0,
+        coverage_count=1,
+        diagnostic_count=1,
+        object_ids=(),
+    )
+
+    projection = invariant_graph.InvariantWorkstreamProjection(
+        object_id=workstream_id,
+        title="ranking score workstream",
+        status="in_progress",
+        site_identity=space.site_ref_id("ws.rank.site"),
+        structural_identity=space.structural_ref_id("ws.rank.struct"),
+        marker_identity="ws.rank.marker",
+        reasoning_summary="ranking",
+        reasoning_control="ranking",
+        blocking_dependencies=(),
+        object_ids=(),
+        doc_ids=(),
+        policy_ids=(),
+        touchsite_count=2,
+        collapsible_touchsite_count=0,
+        surviving_touchsite_count=2,
+        policy_signal_count=0,
+        coverage_count=2,
+        diagnostic_count=2,
+        ranking_signal_count=2,
+        ranking_signal_score=7,
+        subqueues=_stream_from_items(
+            (
+                invariant_graph.InvariantSubqueueProjection(
+                    object_id=subqueue_id,
+                    title="rank subqueue",
+                    status="in_progress",
+                    site_identity=space.site_ref_id("sq.rank.site"),
+                    structural_identity=space.structural_ref_id("sq.rank.struct"),
+                    marker_identity="sq.rank.marker",
+                    reasoning_summary="rank",
+                    reasoning_control="rank",
+                    blocking_dependencies=(),
+                    object_ids=(),
+                    touchpoint_ids=(touchpoint_low, touchpoint_high),
+                    touchsite_count=2,
+                    collapsible_touchsite_count=0,
+                    surviving_touchsite_count=2,
+                    policy_signal_count=0,
+                    coverage_count=2,
+                    diagnostic_count=2,
+                    ranking_signal_count=2,
+                    ranking_signal_score=7,
+                ),
+            )
+        ),
+        touchpoints=_stream_from_items(
+            (
+                invariant_graph.InvariantTouchpointProjection(
+                    object_id=touchpoint_low,
+                    subqueue_id=subqueue_id,
+                    title="low diagnostic pressure",
+                    status="in_progress",
+                    rel_path="src/gabion/sample.py",
+                    site_identity=space.site_ref_id("tp.low.site"),
+                    structural_identity=space.structural_ref_id("tp.low.struct"),
+                    marker_identity="tp.low.marker",
+                    reasoning_summary="low",
+                    reasoning_control="low",
+                    blocking_dependencies=(),
+                    object_ids=(),
+                    touchsite_count=1,
+                    collapsible_touchsite_count=0,
+                    surviving_touchsite_count=1,
+                    policy_signal_count=0,
+                    coverage_count=1,
+                    diagnostic_count=1,
+                    ranking_signal_count=0,
+                    ranking_signal_score=0,
+                    touchsites=_stream_from_items((low_touchsite,)),
+                ),
+                invariant_graph.InvariantTouchpointProjection(
+                    object_id=touchpoint_high,
+                    subqueue_id=subqueue_id,
+                    title="high diagnostic pressure",
+                    status="in_progress",
+                    rel_path="src/gabion/sample.py",
+                    site_identity=space.site_ref_id("tp.high.site"),
+                    structural_identity=space.structural_ref_id("tp.high.struct"),
+                    marker_identity="tp.high.marker",
+                    reasoning_summary="high",
+                    reasoning_control="high",
+                    blocking_dependencies=(),
+                    object_ids=(),
+                    touchsite_count=1,
+                    collapsible_touchsite_count=0,
+                    surviving_touchsite_count=1,
+                    policy_signal_count=0,
+                    coverage_count=1,
+                    diagnostic_count=1,
+                    ranking_signal_count=2,
+                    ranking_signal_score=7,
+                    touchsites=_stream_from_items((high_touchsite,)),
+                ),
+            )
+        ),
+    )
+
+    ranked_cuts = projection.ranked_touchpoint_cuts()
+    assert ranked_cuts[0].object_id.wire() == "WS-RANK-TP-HIGH"
+    assert ranked_cuts[0].ranking_signal_score == 7
+    assert projection.recommended_diagnostic_blocked_cut() is not None
+    assert projection.recommended_diagnostic_blocked_cut().object_id.wire() == (
+        "WS-RANK-TP-HIGH"
+    )
+
+
 def test_repo_diagnostic_lane_attributes_candidate_owner_from_exact_path() -> None:
     space = PolicyQueueIdentitySpace()
     workstream_id = space.workstream_id("WS-OWNER")
@@ -3253,7 +3415,6 @@ def test_build_invariant_graph_joins_control_loop_artifacts(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    _disable_phase5_enricher(monkeypatch)
     root = tmp_path
     _write(root / "src" / "gabion" / "__init__.py", "")
     _write(
@@ -3309,6 +3470,65 @@ def test_build_invariant_graph_joins_control_loop_artifacts(
         },
     )
     _write_json(
+        root / "artifacts" / "out" / "docflow_compliance.json",
+        {
+            "version": 2,
+            "summary": {
+                "compliant": 0,
+                "contradicts": 1,
+                "excess": 0,
+                "proposed": 0,
+            },
+            "rows": [
+                {
+                    "row_kind": "docflow_compliance",
+                    "invariant": "docflow:missing_explicit_reference",
+                    "invariant_kind": "never",
+                    "status": "contradicts",
+                    "path": "in/in-54.md",
+                    "source_row_kind": "doc_requires_ref",
+                    "detail": "missing explicit reference",
+                }
+            ],
+            "obligations": {
+                "summary": {
+                    "total": 1,
+                    "triggered": 1,
+                    "met": 0,
+                    "unmet_fail": 1,
+                    "unmet_warn": 0,
+                },
+                "context": {
+                    "changed_paths": ["in/in-54.md"],
+                    "sppf_relevant_paths_changed": True,
+                    "gh_reference_validated": False,
+                    "baseline_write_emitted": False,
+                    "delta_guard_checked": False,
+                    "doc_status_changed": True,
+                    "checklist_influence_consistent": False,
+                    "rev_range": "origin/stage..HEAD",
+                    "commits": [
+                        {
+                            "sha": "b" * 40,
+                            "subject": "Add PM view boundary renderer",
+                        }
+                    ],
+                    "issue_ids": [],
+                    "checklist_impact": [],
+                },
+                "entries": [
+                    {
+                        "obligation_id": "sppf_gh_reference_validation",
+                        "triggered": True,
+                        "status": "unmet",
+                        "enforcement": "fail",
+                        "description": "SPPF-relevant path changes require GH-reference validation.",
+                    }
+                ],
+            },
+        },
+    )
+    _write_json(
         root / "artifacts" / "out" / "controller_drift.json",
         {
             "summary": {
@@ -3324,6 +3544,31 @@ def test_build_invariant_graph_joins_control_loop_artifacts(
                     "severity": "high",
                     "anchor": "CD-999",
                     "detail": "Workflow references `AGENTS.md` without a controlling anchor.",
+                }
+            ],
+        },
+    )
+    _write_json(
+        root / "artifacts" / "out" / "git_state.json",
+        {
+            "schema_version": 1,
+            "artifact_kind": "git_state",
+            "head_sha": "a" * 40,
+            "branch": "main",
+            "upstream": "origin/main",
+            "is_detached": False,
+            "summary": {
+                "committed_count": 0,
+                "staged_count": 1,
+                "unstaged_count": 0,
+                "untracked_count": 0,
+            },
+            "entries": [
+                {
+                    "state_class": "staged",
+                    "change_code": "M",
+                    "path": "in/in-54.md",
+                    "previous_path": "",
                 }
             ],
         },
@@ -3352,10 +3597,17 @@ def test_build_invariant_graph_joins_control_loop_artifacts(
     assert node_kind_counts["docflow_packet_enforcement"] == 1
     assert node_kind_counts["docflow_packet"] == 1
     assert node_kind_counts["docflow_packet_row"] == 1
+    assert node_kind_counts["docflow_compliance_report"] == 1
+    assert node_kind_counts["docflow_provenance_report"] == 1
+    assert node_kind_counts["docflow_commit_range"] == 1
+    assert node_kind_counts["docflow_commit"] == 1
+    assert node_kind_counts["docflow_compliance_row"] == 1
+    assert node_kind_counts["docflow_obligation"] == 1
     assert node_kind_counts["controller_drift_report"] == 1
     assert node_kind_counts["controller_drift_finding"] == 1
     assert node_kind_counts["local_repro_closure_ledger"] == 1
     assert node_kind_counts["local_repro_entry"] == 1
+    assert node_kind_counts["git_state_entry"] == 1
 
     inbox_doc = next(
         node
@@ -3366,10 +3618,26 @@ def test_build_invariant_graph_joins_control_loop_artifacts(
     packet_row_node = next(
         node for node in graph.nodes if node.node_kind == "docflow_packet_row"
     )
+    compliance_row_node = next(
+        node for node in graph.nodes if node.node_kind == "docflow_compliance_row"
+    )
+    obligation_node = next(
+        node for node in graph.nodes if node.node_kind == "docflow_obligation"
+    )
+    provenance_report_node = next(
+        node for node in graph.nodes if node.node_kind == "docflow_provenance_report"
+    )
+    rev_range_node = next(
+        node for node in graph.nodes if node.node_kind == "docflow_commit_range"
+    )
+    commit_node = next(node for node in graph.nodes if node.node_kind == "docflow_commit")
     controller_drift_finding = next(
         node
         for node in graph.nodes
         if node.node_kind == "controller_drift_finding"
+    )
+    git_state_entry = next(
+        node for node in graph.nodes if node.node_kind == "git_state_entry"
     )
     agents_doc = next(
         node for node in graph.nodes if node.node_kind == "governance_doc" and node.rel_path == "AGENTS.md"
@@ -3381,7 +3649,13 @@ def test_build_invariant_graph_joins_control_loop_artifacts(
 
     assert {"in-54", "in_54"}.issubset(set(inbox_doc.doc_ids))
     assert {"in-54", "in_54"}.issubset(set(packet_node.doc_ids))
+    assert {"in-54", "in_54"}.issubset(set(compliance_row_node.doc_ids))
     assert "docflow:row-1" in packet_row_node.object_ids
+    assert "docflow:missing_explicit_reference" in compliance_row_node.object_ids
+    assert "sppf_gh_reference_validation" in obligation_node.object_ids
+    assert "origin/stage..HEAD" in provenance_report_node.object_ids
+    assert "origin/stage..HEAD" in rev_range_node.object_ids
+    assert "b" * 40 in commit_node.object_ids
     assert any(
         item.startswith("docflow_packet_enforcement:")
         for item in packet_row_node.object_ids
@@ -3398,9 +3672,304 @@ def test_build_invariant_graph_joins_control_loop_artifacts(
     )
     assert ("tracks", packet_node.node_id, inbox_doc.node_id) in edges
     assert ("tracks", packet_row_node.node_id, inbox_doc.node_id) in edges
+    assert ("tracks", compliance_row_node.node_id, inbox_doc.node_id) in edges
+    assert ("touches", compliance_row_node.node_id, git_state_entry.node_id) in edges
+    assert ("touches", obligation_node.node_id, git_state_entry.node_id) in edges
+    assert ("touches", provenance_report_node.node_id, git_state_entry.node_id) in edges
     assert ("tracks", controller_drift_finding.node_id, agents_doc.node_id) in edges
     assert invariant_graph.trace_nodes(graph, "CU-R1")
     assert invariant_graph.trace_nodes(graph, "docflow:row-1")
+    assert invariant_graph.trace_nodes(graph, "origin/stage..HEAD")
+    assert invariant_graph.trace_nodes(graph, "b" * 40)
+    assert invariant_graph.trace_nodes(graph, "sppf_gh_reference_validation")
+
+    workstreams = invariant_graph.build_invariant_workstreams(graph, root=root)
+    payload = workstreams.as_payload()
+    rgc = next(item for item in payload["workstreams"] if item["object_id"] == "CSA-RGC")
+    tp7 = next(
+        item
+        for item in rgc["next_actions"]["ranked_touchpoint_cuts"]
+        if item["object_id"] == "CSA-RGC-TP-007"
+    )
+
+    assert payload["diagnostic_summary"]["diagnostic_count"] >= 1
+    assert rgc["next_actions"]["recommended_diagnostic_blocked_cut"] is not None
+    assert (
+        rgc["next_actions"]["recommended_diagnostic_blocked_cut"]["object_id"]
+        == "CSA-RGC-TP-007"
+    )
+    assert tp7["diagnostic_count"] >= 1
+    assert tp7["readiness_class"] == "diagnostic_blocked"
+
+
+def test_build_invariant_graph_joins_docflow_issue_lifecycle_nodes(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path
+    _write(root / "src" / "gabion" / "__init__.py", "")
+    _write(
+        root / "docs" / "sppf_checklist.md",
+        "\n".join(
+            [
+                "# SPPF Checklist",
+                "",
+                "- [~] Project manager view linkage remains pending. (GH-214)",
+            ]
+        ),
+    )
+    _write_json(
+        root / "artifacts" / "sppf_dependency_graph.json",
+        {
+            "format_version": 1,
+            "generated_at": "2026-03-13T00:00:00+00:00",
+            "source": "docs/sppf_checklist.md",
+            "docs": {
+                "pm-view@1": {
+                    "doc_id": "pm-view",
+                    "id": "pm-view@1",
+                    "issues": ["GH-214"],
+                    "revision": 1,
+                }
+            },
+            "issues": {
+                "GH-214": {
+                    "id": "GH-214",
+                    "checklist_state": "~",
+                    "doc_refs": ["pm-view@1"],
+                    "doc_status": "partial",
+                    "impl_status": "partial",
+                    "line": "- [~] Project manager view linkage remains pending. (GH-214)",
+                    "line_no": 3,
+                }
+            },
+            "edges": [{"from": "pm-view@1", "kind": "doc_ref", "to": "GH-214"}],
+            "docs_without_issue": [],
+            "issues_without_doc_ref": [],
+        },
+    )
+    _write_json(
+        root / "artifacts" / "out" / "docflow_compliance.json",
+        {
+            "version": 2,
+            "summary": {
+                "compliant": 1,
+                "contradicts": 0,
+                "excess": 0,
+                "proposed": 0,
+            },
+            "rows": [],
+            "obligations": {
+                "summary": {
+                    "total": 1,
+                    "triggered": 1,
+                    "met": 1,
+                    "unmet_fail": 0,
+                    "unmet_warn": 0,
+                },
+                "context": {
+                    "changed_paths": [
+                        "src/gabion/tooling/policy_substrate/project_manager_view.py"
+                    ],
+                    "sppf_relevant_paths_changed": True,
+                    "gh_reference_validated": True,
+                    "baseline_write_emitted": False,
+                    "delta_guard_checked": False,
+                    "doc_status_changed": True,
+                    "checklist_influence_consistent": True,
+                    "rev_range": "origin/stage..HEAD",
+                    "commits": [
+                        {
+                            "sha": "c" * 40,
+                            "subject": "Track PM view linkage through strict docflow",
+                        }
+                    ],
+                    "issue_ids": ["214"],
+                    "checklist_impact": [{"issue_id": "214", "commit_count": 1}],
+                    "issue_lifecycle_fetch_status": "ok",
+                    "issue_lifecycles": [
+                        {
+                            "issue_id": "214",
+                            "state": "open",
+                            "labels": ["done-on-stage", "status/pending-release"],
+                            "url": "https://example.invalid/214",
+                        }
+                    ],
+                    "issue_lifecycle_errors": [],
+                },
+                "entries": [
+                    {
+                        "obligation_id": "sppf_gh_reference_validation",
+                        "triggered": True,
+                        "status": "met",
+                        "enforcement": "fail",
+                        "description": "SPPF-relevant path changes require GH-reference validation.",
+                    }
+                ],
+            },
+        },
+    )
+
+    graph = invariant_graph.build_invariant_graph(root)
+    node_kind_counts = graph.as_payload()["counts"]["node_kind_counts"]
+    assert node_kind_counts["docflow_issue_reference"] == 1
+    assert node_kind_counts["docflow_issue_lifecycle"] == 1
+
+    issue_reference_node = next(
+        node for node in graph.nodes if node.node_kind == "docflow_issue_reference"
+    )
+    lifecycle_node = next(
+        node for node in graph.nodes if node.node_kind == "docflow_issue_lifecycle"
+    )
+    sppf_issue_node = next(node for node in graph.nodes if node.node_kind == "sppf_issue")
+    edges = {(edge.edge_kind, edge.source_id, edge.target_id) for edge in graph.edges}
+
+    assert "GH-214" in issue_reference_node.object_ids
+    assert "done-on-stage" in lifecycle_node.object_ids
+    assert lifecycle_node.status_hint == "open"
+    assert ("contains", issue_reference_node.node_id, lifecycle_node.node_id) in edges
+    assert any(
+        edge_kind == "tracks"
+        and source_id == lifecycle_node.node_id
+        and target_id == sppf_issue_node.node_id
+        for edge_kind, source_id, target_id in edges
+    )
+    assert invariant_graph.trace_nodes(graph, "214")
+    assert invariant_graph.trace_nodes(graph, "done-on-stage")
+
+
+def test_docflow_issue_lifecycle_rules_emit_ranking_pressure_for_csa_rgc_tp_007(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path
+    _write(root / "src" / "gabion" / "__init__.py", "")
+    _write(
+        root / "docs" / "sppf_checklist.md",
+        "\n".join(
+            [
+                "# SPPF Checklist",
+                "",
+                "- [~] Project manager view linkage remains pending. (GH-214)",
+            ]
+        ),
+    )
+    _write_json(
+        root / "artifacts" / "sppf_dependency_graph.json",
+        {
+            "format_version": 1,
+            "generated_at": "2026-03-13T00:00:00+00:00",
+            "source": "docs/sppf_checklist.md",
+            "docs": {
+                "pm-view@1": {
+                    "doc_id": "pm-view",
+                    "id": "pm-view@1",
+                    "issues": ["GH-214"],
+                    "revision": 1,
+                }
+            },
+            "issues": {
+                "GH-214": {
+                    "id": "GH-214",
+                    "checklist_state": "~",
+                    "doc_refs": ["pm-view@1"],
+                    "doc_status": "partial",
+                    "impl_status": "partial",
+                    "line": "- [~] Project manager view linkage remains pending. (GH-214)",
+                    "line_no": 3,
+                }
+            },
+            "edges": [{"from": "pm-view@1", "kind": "doc_ref", "to": "GH-214"}],
+            "docs_without_issue": [],
+            "issues_without_doc_ref": [],
+        },
+    )
+    _write_json(
+        root / "artifacts" / "out" / "docflow_compliance.json",
+        {
+            "version": 2,
+            "summary": {
+                "compliant": 1,
+                "contradicts": 0,
+                "excess": 0,
+                "proposed": 0,
+            },
+            "rows": [],
+            "obligations": {
+                "summary": {
+                    "total": 1,
+                    "triggered": 1,
+                    "met": 1,
+                    "unmet_fail": 0,
+                    "unmet_warn": 0,
+                },
+                "context": {
+                    "changed_paths": [
+                        "src/gabion/tooling/policy_substrate/project_manager_view.py"
+                    ],
+                    "sppf_relevant_paths_changed": True,
+                    "gh_reference_validated": True,
+                    "baseline_write_emitted": False,
+                    "delta_guard_checked": False,
+                    "doc_status_changed": True,
+                    "checklist_influence_consistent": True,
+                    "rev_range": "origin/stage..HEAD",
+                    "commits": [
+                        {
+                            "sha": "d" * 40,
+                            "subject": "Track PM view lifecycle pressure",
+                        }
+                    ],
+                    "issue_ids": ["214"],
+                    "checklist_impact": [{"issue_id": "214", "commit_count": 1}],
+                    "issue_lifecycle_fetch_status": "ok",
+                    "issue_lifecycles": [
+                        {
+                            "issue_id": "214",
+                            "state": "closed",
+                            "labels": ["done-on-stage"],
+                            "url": "https://example.invalid/214",
+                        }
+                    ],
+                    "issue_lifecycle_errors": [],
+                },
+                "entries": [
+                    {
+                        "obligation_id": "sppf_gh_reference_validation",
+                        "triggered": True,
+                        "status": "met",
+                        "enforcement": "fail",
+                        "description": "SPPF-relevant path changes require GH-reference validation.",
+                    }
+                ],
+            },
+        },
+    )
+
+    graph = invariant_graph.build_invariant_graph(root)
+    payload = graph.as_payload()
+    assert payload["counts"]["ranking_signal_count"] == 2
+    assert payload["counts"]["ranking_signal_score_total"] == 7
+    ranking_codes = {item["code"] for item in payload["ranking_signals"]}
+    assert ranking_codes == {
+        "docflow_issue_lifecycle_state_mismatch",
+        "docflow_issue_lifecycle_missing_required_labels",
+    }
+
+    workstreams = invariant_graph.build_invariant_workstreams(graph, root=root)
+    workstream_payload = workstreams.as_payload()
+    rgc = next(item for item in workstream_payload["workstreams"] if item["object_id"] == "CSA-RGC")
+    tp7 = next(
+        item
+        for item in rgc["next_actions"]["ranked_touchpoint_cuts"]
+        if item["object_id"] == "CSA-RGC-TP-007"
+    )
+
+    assert tp7["ranking_signal_count"] == 2
+    assert tp7["ranking_signal_score"] == 7
+    assert rgc["next_actions"]["recommended_diagnostic_blocked_cut"] is not None
+    assert (
+        rgc["next_actions"]["recommended_diagnostic_blocked_cut"]["object_id"]
+        == "CSA-RGC-TP-007"
+    )
 
 
 def test_build_invariant_graph_joins_ingress_merge_parity_artifact(

@@ -26,12 +26,16 @@ from gabion.policy_dsl.registry import _build_registry_for_root
 from gabion.server_core.command_orchestrator_primitives import (
     _normalize_dataflow_response,
 )
+from gabion.tooling.docflow.compliance_identity import (
+    stable_docflow_compliance_row_id,
+)
 from gabion_governance import governance_audit_impl
 
 
 class StructuredArtifactKind(StrEnum):
     TEST_EVIDENCE = "test_evidence"
     JUNIT_FAILURES = "junit_failures"
+    DOCFLOW_COMPLIANCE = "docflow_compliance"
     DOCFLOW_PACKET_ENFORCEMENT = "docflow_packet_enforcement"
     CONTROLLER_DRIFT = "controller_drift"
     LOCAL_REPRO_CLOSURE_LEDGER = "local_repro_closure_ledger"
@@ -582,6 +586,102 @@ class JUnitFailureArtifact:
 
     def __str__(self) -> str:
         return f"{self.source.rel_path} ({len(self.failures)} failures)"
+
+
+@dataclass(frozen=True)
+class DocflowComplianceRow:
+    identity: StructuredArtifactIdentity
+    row_id: str
+    status: str
+    invariant: str
+    invariant_kind: str
+    rel_path: str
+    source_row_kind: str
+    detail: str
+    evidence_id: str
+
+    def __str__(self) -> str:
+        return self.row_id or self.invariant or self.identity.wire()
+
+
+@dataclass(frozen=True)
+class DocflowObligationEntry:
+    identity: StructuredArtifactIdentity
+    obligation_id: str
+    triggered: bool
+    status: str
+    enforcement: str
+    description: str
+
+    def __str__(self) -> str:
+        return self.obligation_id or self.identity.wire()
+
+
+@dataclass(frozen=True)
+class DocflowCommit:
+    identity: StructuredArtifactIdentity
+    sha: str
+    subject: str
+
+    def __str__(self) -> str:
+        return self.sha[:12] if self.sha else self.identity.wire()
+
+
+@dataclass(frozen=True)
+class DocflowIssueReference:
+    identity: StructuredArtifactIdentity
+    issue_id: str
+    commit_count: int
+
+    def __str__(self) -> str:
+        return f"GH-{self.issue_id}" if self.issue_id else self.identity.wire()
+
+
+@dataclass(frozen=True)
+class DocflowIssueLifecycle:
+    identity: StructuredArtifactIdentity
+    issue_id: str
+    state: str
+    labels: tuple[str, ...]
+    url: str
+
+    def __str__(self) -> str:
+        if self.issue_id:
+            return f"GH-{self.issue_id}"
+        return self.identity.wire()
+
+
+@dataclass(frozen=True)
+class DocflowComplianceArtifact:
+    identity: StructuredArtifactIdentity
+    source: StructuredArtifactSource
+    compliant_count: int
+    contradiction_count: int
+    excess_count: int
+    proposed_count: int
+    rev_range: str
+    changed_paths: tuple[str, ...]
+    sppf_relevant_paths_changed: bool
+    gh_reference_validated: bool
+    baseline_write_emitted: bool
+    delta_guard_checked: bool
+    doc_status_changed: bool
+    checklist_influence_consistent: bool
+    unmet_fail_count: int
+    unmet_warn_count: int
+    commits: tuple[DocflowCommit, ...]
+    issue_references: tuple[DocflowIssueReference, ...]
+    issue_lifecycle_fetch_status: str
+    issue_lifecycle_errors: tuple[str, ...]
+    issue_lifecycles: tuple[DocflowIssueLifecycle, ...]
+    rows: tuple[DocflowComplianceRow, ...]
+    obligations: tuple[DocflowObligationEntry, ...]
+
+    def __str__(self) -> str:
+        return (
+            f"{self.source.rel_path} contradicts={self.contradiction_count} "
+            f"excess={self.excess_count} unmet_fail={self.unmet_fail_count}"
+        )
 
 
 @dataclass(frozen=True)
@@ -1676,6 +1776,243 @@ def load_junit_failure_artifact(
     )
 
 
+def load_docflow_compliance_artifact(
+    *,
+    root: Path,
+    rel_path: str,
+    identities: StructuredArtifactIdentitySpace,
+) -> DocflowComplianceArtifact | None:
+    payload = _load_json_mapping_artifact(root / rel_path)
+    if payload is None:
+        return None
+    summary = payload.get("summary", {})
+    summary_mapping = summary if isinstance(summary, Mapping) else {}
+    obligations_payload = payload.get("obligations", {})
+    obligations_mapping = (
+        obligations_payload if isinstance(obligations_payload, Mapping) else {}
+    )
+    obligation_summary = obligations_mapping.get("summary", {})
+    obligation_summary_mapping = (
+        obligation_summary if isinstance(obligation_summary, Mapping) else {}
+    )
+    obligation_context = obligations_mapping.get("context", {})
+    obligation_context_mapping = (
+        obligation_context if isinstance(obligation_context, Mapping) else {}
+    )
+    source = StructuredArtifactSource(rel_path=rel_path)
+    identity = identities.artifact_id(
+        artifact_kind=StructuredArtifactKind.DOCFLOW_COMPLIANCE,
+        source_path=rel_path,
+        label=rel_path,
+    )
+    rev_range = str(obligation_context_mapping.get("rev_range", "")).strip()
+    commits: list[DocflowCommit] = []
+    raw_commits = obligation_context_mapping.get("commits", [])
+    if isinstance(raw_commits, list):
+        for raw_commit in raw_commits:
+            if not isinstance(raw_commit, Mapping):
+                continue
+            sha = str(raw_commit.get("sha", "")).strip()
+            if not sha:
+                continue
+            commit_identity = identities.item_id(
+                artifact_kind=StructuredArtifactKind.DOCFLOW_COMPLIANCE,
+                source_path=rel_path,
+                item_kind="commit",
+                item_key=sha,
+                label=sha[:12],
+            )
+            commits.append(
+                DocflowCommit(
+                    identity=commit_identity,
+                    sha=sha,
+                    subject=str(raw_commit.get("subject", "")).strip(),
+                )
+            )
+    issue_ids = tuple(
+        sorted(
+            [
+                str(value).strip()
+                for value in obligation_context_mapping.get("issue_ids", [])
+                if str(value).strip()
+            ]
+        )
+    )
+    checklist_impact_by_issue_id: dict[str, int] = {}
+    raw_checklist_impact = obligation_context_mapping.get("checklist_impact", [])
+    if isinstance(raw_checklist_impact, list):
+        for raw_entry in raw_checklist_impact:
+            if isinstance(raw_entry, Mapping):
+                issue_id = str(raw_entry.get("issue_id", "")).strip()
+                if not issue_id:
+                    continue
+                checklist_impact_by_issue_id[issue_id] = int(
+                    raw_entry.get("commit_count", 0) or 0
+                )
+                continue
+            if (
+                isinstance(raw_entry, Sequence)
+                and not isinstance(raw_entry, str)
+                and len(raw_entry) == 2
+            ):
+                issue_id = str(raw_entry[0]).strip()
+                if not issue_id:
+                    continue
+                checklist_impact_by_issue_id[issue_id] = int(raw_entry[1] or 0)
+    issue_references: list[DocflowIssueReference] = []
+    for issue_id in sorted(set(issue_ids) | set(checklist_impact_by_issue_id.keys())):
+        issue_identity = identities.item_id(
+            artifact_kind=StructuredArtifactKind.DOCFLOW_COMPLIANCE,
+            source_path=rel_path,
+            item_kind="issue_reference",
+            item_key=issue_id,
+            label=f"GH-{issue_id}",
+        )
+        issue_references.append(
+            DocflowIssueReference(
+                identity=issue_identity,
+                issue_id=issue_id,
+                commit_count=checklist_impact_by_issue_id.get(issue_id, 0),
+            )
+        )
+    issue_lifecycles: list[DocflowIssueLifecycle] = []
+    raw_issue_lifecycles = obligation_context_mapping.get("issue_lifecycles", [])
+    if isinstance(raw_issue_lifecycles, list):
+        for raw_lifecycle in raw_issue_lifecycles:
+            if not isinstance(raw_lifecycle, Mapping):
+                continue
+            issue_id = str(raw_lifecycle.get("issue_id", "")).strip()
+            if not issue_id:
+                continue
+            lifecycle_identity = identities.item_id(
+                artifact_kind=StructuredArtifactKind.DOCFLOW_COMPLIANCE,
+                source_path=rel_path,
+                item_kind="issue_lifecycle",
+                item_key=issue_id,
+                label=f"GH-{issue_id}",
+            )
+            labels = raw_lifecycle.get("labels", [])
+            labels_values = (
+                tuple(
+                    sorted(
+                        str(value).strip()
+                        for value in labels
+                        if str(value).strip()
+                    )
+                )
+                if isinstance(labels, list)
+                else ()
+            )
+            issue_lifecycles.append(
+                DocflowIssueLifecycle(
+                    identity=lifecycle_identity,
+                    issue_id=issue_id,
+                    state=str(raw_lifecycle.get("state", "")).strip(),
+                    labels=labels_values,
+                    url=str(raw_lifecycle.get("url", "")).strip(),
+                )
+            )
+    rows: list[DocflowComplianceRow] = []
+    raw_rows = payload.get("rows", [])
+    if isinstance(raw_rows, list):
+        for raw_row in raw_rows:
+            if not isinstance(raw_row, Mapping):
+                continue
+            row_id = stable_docflow_compliance_row_id(raw_row)
+            row_identity = identities.item_id(
+                artifact_kind=StructuredArtifactKind.DOCFLOW_COMPLIANCE,
+                source_path=rel_path,
+                item_kind="row",
+                item_key=row_id,
+                label=row_id,
+            )
+            rows.append(
+                DocflowComplianceRow(
+                    identity=row_identity,
+                    row_id=row_id,
+                    status=str(raw_row.get("status", "")).strip(),
+                    invariant=str(raw_row.get("invariant", "")).strip(),
+                    invariant_kind=str(raw_row.get("invariant_kind", "")).strip(),
+                    rel_path=_normalize_rel_path(root, raw_row.get("path")),
+                    source_row_kind=str(raw_row.get("source_row_kind", "")).strip(),
+                    detail=str(raw_row.get("detail", "")).strip(),
+                    evidence_id=str(raw_row.get("evidence_id", "")).strip(),
+                )
+            )
+    obligations: list[DocflowObligationEntry] = []
+    raw_entries = obligations_mapping.get("entries", [])
+    if isinstance(raw_entries, list):
+        for raw_entry in raw_entries:
+            if not isinstance(raw_entry, Mapping):
+                continue
+            obligation_id = str(raw_entry.get("obligation_id", "")).strip()
+            if not obligation_id:
+                continue
+            obligation_identity = identities.item_id(
+                artifact_kind=StructuredArtifactKind.DOCFLOW_COMPLIANCE,
+                source_path=rel_path,
+                item_kind="obligation",
+                item_key=obligation_id,
+                label=obligation_id,
+            )
+            obligations.append(
+                DocflowObligationEntry(
+                    identity=obligation_identity,
+                    obligation_id=obligation_id,
+                    triggered=raw_entry.get("triggered") is True,
+                    status=str(raw_entry.get("status", "")).strip(),
+                    enforcement=str(raw_entry.get("enforcement", "")).strip(),
+                    description=str(raw_entry.get("description", "")).strip(),
+                )
+            )
+    return DocflowComplianceArtifact(
+        identity=identity,
+        source=source,
+        compliant_count=int(summary_mapping.get("compliant", 0) or 0),
+        contradiction_count=int(summary_mapping.get("contradicts", 0) or 0),
+        excess_count=int(summary_mapping.get("excess", 0) or 0),
+        proposed_count=int(summary_mapping.get("proposed", 0) or 0),
+        rev_range=rev_range,
+        changed_paths=tuple(
+            _normalize_rel_path(root, value)
+            for value in obligation_context_mapping.get("changed_paths", [])
+        ),
+        sppf_relevant_paths_changed=(
+            obligation_context_mapping.get("sppf_relevant_paths_changed") is True
+        ),
+        gh_reference_validated=(
+            obligation_context_mapping.get("gh_reference_validated") is True
+        ),
+        baseline_write_emitted=(
+            obligation_context_mapping.get("baseline_write_emitted") is True
+        ),
+        delta_guard_checked=(
+            obligation_context_mapping.get("delta_guard_checked") is True
+        ),
+        doc_status_changed=(
+            obligation_context_mapping.get("doc_status_changed") is True
+        ),
+        checklist_influence_consistent=(
+            obligation_context_mapping.get("checklist_influence_consistent") is True
+        ),
+        unmet_fail_count=int(obligation_summary_mapping.get("unmet_fail", 0) or 0),
+        unmet_warn_count=int(obligation_summary_mapping.get("unmet_warn", 0) or 0),
+        commits=tuple(commits),
+        issue_references=tuple(issue_references),
+        issue_lifecycle_fetch_status=str(
+            obligation_context_mapping.get("issue_lifecycle_fetch_status", "")
+        ).strip(),
+        issue_lifecycle_errors=tuple(
+            str(value).strip()
+            for value in obligation_context_mapping.get("issue_lifecycle_errors", [])
+            if str(value).strip()
+        ),
+        issue_lifecycles=tuple(issue_lifecycles),
+        rows=tuple(rows),
+        obligations=tuple(obligations),
+    )
+
+
 def load_docflow_packet_enforcement_artifact(
     *,
     root: Path,
@@ -2140,6 +2477,12 @@ __all__ = [
     "CrossOriginWitnessContractCase",
     "CrossOriginWitnessFieldCheck",
     "CrossOriginWitnessRow",
+    "DocflowCommit",
+    "DocflowComplianceArtifact",
+    "DocflowComplianceRow",
+    "DocflowIssueLifecycle",
+    "DocflowIssueReference",
+    "DocflowObligationEntry",
     "DocflowPacket",
     "DocflowPacketEnforcementArtifact",
     "DocflowPacketRow",
@@ -2166,6 +2509,7 @@ __all__ = [
     "build_ingress_merge_parity_artifact",
     "load_cross_origin_witness_contract_artifact",
     "load_controller_drift_artifact",
+    "load_docflow_compliance_artifact",
     "load_docflow_packet_enforcement_artifact",
     "load_git_state_artifact",
     "load_ingress_merge_parity_artifact",

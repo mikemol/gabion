@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal, Mapping, TypeAlias
 
 FrontmatterScalar: TypeAlias = str | int
@@ -50,6 +50,7 @@ class DocflowObligationResult:
     summary: dict[str, int]
     warnings: list[str]
     violations: list[str]
+    context: dict[str, JSONValue] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

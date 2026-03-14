@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import re
 from collections import Counter, defaultdict
 from datetime import date, timezone, datetime
 from pathlib import Path
 from typing import Any
+
+from gabion.tooling.docflow.compliance_identity import stable_docflow_compliance_row_id
 
 try:
     import yaml
@@ -56,26 +57,6 @@ def _load_json(path: Path) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise SystemExit(f"invalid JSON payload at {path}: expected object")
     return payload
-
-
-def _stable_row_id(row: dict[str, Any]) -> str:
-    identity = {
-        "row_kind": row.get("row_kind"),
-        "status": row.get("status"),
-        "path": row.get("path"),
-        "invariant": row.get("invariant"),
-        "source_row_kind": row.get("source_row_kind"),
-        "dep": row.get("dep"),
-        "anchor": row.get("anchor"),
-        "qual": row.get("qual"),
-        "field": row.get("field"),
-        "missing": row.get("missing"),
-    }
-    digest = hashlib.sha1(
-        json.dumps(identity, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    ).hexdigest()[:12]
-    prefix = str(row.get("row_kind", "row"))
-    return f"{prefix}:{digest}"
 
 
 def _active_compliance_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
@@ -272,7 +253,7 @@ def run(
         classification = _packet_classification(rows=rows, stale_anchors=stale_anchors)
         packet_rows = []
         for row in rows:
-            row_id = _stable_row_id(row)
+            row_id = stable_docflow_compliance_row_id(row)
             packet_rows.append(
                 {
                     "row_id": row_id,

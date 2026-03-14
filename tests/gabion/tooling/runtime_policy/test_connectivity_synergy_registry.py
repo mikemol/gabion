@@ -111,6 +111,15 @@ def test_connectivity_synergy_registry_defines_expected_roots_and_subqueues() ->
         "CSA-RGC-SQ-004",
         "CSA-RGC-SQ-005",
         "CSA-RGC-TP-006",
+        "CSA-RGC-TP-007",
+    }
+    assert set(
+        rgc_touchpoints["CSA-RGC-TP-007"].marker_payload.reasoning.blocking_dependencies
+    ) == {
+        "CSA-IGM-SQ-004",
+        "CSA-IVL-SQ-004",
+        "CSA-RGC-SQ-005",
+        "CSA-RGC-SQ-006",
     }
     assert set(
         ivl_subqueues["CSA-IVL-SQ-002"].marker_payload.reasoning.blocking_dependencies
@@ -346,12 +355,14 @@ def test_connectivity_synergy_registry_defines_expected_roots_and_subqueues() ->
     } >= {
         "scripts/policy/docflow_packet_enforce.py",
         "scripts/governance/governance_controller_audit.py",
+        "src/gabion_governance/governance_audit_impl.py",
         "src/gabion/tooling/runtime/ci_watch.py",
         "scripts/policy/policy_scanner_suite.py",
         "scripts/policy/symbol_activity_audit.py",
         "scripts/policy/policy_check.py",
         "src/gabion/plan.py",
         "src/gabion/tooling/policy_substrate/invariant_graph.py",
+        "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
     }
     assert {
         (item.rel_path, item.qualname)
@@ -392,6 +403,76 @@ def test_connectivity_synergy_registry_defines_expected_roots_and_subqueues() ->
         (
             "src/gabion/tooling/policy_substrate/invariant_graph.py",
             "_join_git_state_artifact",
+        ),
+        (
+            "src/gabion_governance/governance_audit_impl.py",
+            "_emit_docflow_compliance",
+        ),
+        (
+            "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+            "load_docflow_compliance_artifact",
+        ),
+        (
+            "src/gabion/tooling/policy_substrate/invariant_graph.py",
+            "_join_docflow_compliance_artifact",
+        ),
+    }
+    assert {
+        item.rel_path for item in rgc_touchpoints["CSA-RGC-TP-007"].declared_touchsites
+    } >= {
+        "src/gabion_governance/governance_audit_impl.py",
+        "src/gabion/tooling/sppf/sync_core.py",
+        "src/gabion/analysis/semantics/obligation_registry.py",
+        "src/gabion/execution_plan.py",
+        "src/gabion/tooling/policy_substrate/invariant_graph.py",
+    }
+    assert {
+        (item.rel_path, item.qualname)
+        for item in rgc_touchpoints["CSA-RGC-TP-007"].declared_touchsites
+    } >= {
+        (
+            "src/gabion_governance/governance_audit_impl.py",
+            "_sppf_sync_check",
+        ),
+        (
+            "src/gabion_governance/governance_audit_impl.py",
+            "_evaluate_docflow_obligations",
+        ),
+        (
+            "src/gabion/tooling/sppf/sync_core.py",
+            "_collect_commits",
+        ),
+        (
+            "src/gabion/tooling/sppf/sync_core.py",
+            "_issue_ids_from_commits",
+        ),
+        (
+            "src/gabion/tooling/sppf/sync_core.py",
+            "_build_issue_link_facet",
+        ),
+        (
+            "src/gabion/tooling/sppf/sync_core.py",
+            "_fetch_issue",
+        ),
+        (
+            "src/gabion/tooling/sppf/sync_core.py",
+            "_validate_issue_lifecycle",
+        ),
+        (
+            "src/gabion/tooling/sppf/sync_core.py",
+            "_run_validate_mode",
+        ),
+        (
+            "src/gabion/analysis/semantics/obligation_registry.py",
+            "evaluate_obligations",
+        ),
+        (
+            "src/gabion/execution_plan.py",
+            "ExecutionPlan.with_issue_link",
+        ),
+        (
+            "src/gabion/tooling/policy_substrate/invariant_graph.py",
+            "_join_docflow_provenance_artifact",
         ),
     }
 
@@ -445,6 +526,33 @@ def test_connectivity_synergy_graph_exposes_cross_root_dependencies_and_mixed_ro
     assert any(
         node_by_id[edge.target_id].matches_raw_id("CSA-RGC-SQ-005")
         for edge in edges_from.get(csa_rgc_sq6.node_id, ())
+        if edge.edge_kind == "depends_on"
+    )
+    assert any(
+        node_by_id[edge.target_id].matches_raw_id("CSA-RGC-TP-007")
+        for edge in edges_from.get(csa_rgc_sq6.node_id, ())
+        if edge.edge_kind == "depends_on"
+    )
+
+    csa_rgc_tp7 = _work_item_node(graph, "CSA-RGC-TP-007")
+    assert any(
+        node_by_id[edge.target_id].matches_raw_id("CSA-IGM-SQ-004")
+        for edge in edges_from.get(csa_rgc_tp7.node_id, ())
+        if edge.edge_kind == "depends_on"
+    )
+    assert any(
+        node_by_id[edge.target_id].matches_raw_id("CSA-IVL-SQ-004")
+        for edge in edges_from.get(csa_rgc_tp7.node_id, ())
+        if edge.edge_kind == "depends_on"
+    )
+    assert any(
+        node_by_id[edge.target_id].matches_raw_id("CSA-RGC-SQ-005")
+        for edge in edges_from.get(csa_rgc_tp7.node_id, ())
+        if edge.edge_kind == "depends_on"
+    )
+    assert any(
+        node_by_id[edge.target_id].matches_raw_id("CSA-RGC-SQ-006")
+        for edge in edges_from.get(csa_rgc_tp7.node_id, ())
         if edge.edge_kind == "depends_on"
     )
 
@@ -511,6 +619,11 @@ def test_connectivity_synergy_graph_exposes_cross_root_dependencies_and_mixed_ro
     assert _work_item_node(graph, "CSA-RGC-TP-006").doc_ids == (
         "connectivity_synergy_audit",
     )
+    assert set(_work_item_node(graph, "CSA-RGC-TP-007").doc_ids) == {
+        "connectivity_synergy_audit",
+        "influence_index",
+        "sppf_checklist",
+    }
     assert set(_work_item_node(graph, "CSA-RGC-SQ-005").doc_ids) == {
         "connectivity_synergy_audit",
         "influence_index",

@@ -2674,6 +2674,7 @@ def _emit_docflow_compliance(
         payload["obligations"] = {
             "summary": obligations.summary,
             "entries": obligations.entries,
+            "context": obligations.context,
         }
     if json_output is not None:
         json_output.parent.mkdir(parents=True, exist_ok=True)
@@ -4391,13 +4392,54 @@ def _evaluate_docflow_obligations(
         for path in changed
     )
     gh_reference_validated = True
+    commit_payloads: list[dict[str, JSONValue]] = []
+    issue_ids_payload: list[str] = []
+    checklist_impact_payload: list[dict[str, JSONValue]] = []
+    issue_lifecycle_payloads: list[dict[str, JSONValue]] = []
+    issue_lifecycle_errors: list[str] = []
+    issue_lifecycle_fetch_status = "not_applicable"
     if sppf_relevant_changed:
         gh_reference_validated = False
         try:
             from gabion.tooling.sppf import sync_core
             commits = sync_core._collect_commits(rev_range)
-            issue_ids = sync_core._issue_ids_from_commits(commits)
-            gh_reference_validated = bool(issue_ids)
+            issue_link = sync_core._build_issue_link_facet(commits)
+            commit_payloads = [
+                {
+                    "sha": commit.sha,
+                    "subject": commit.subject,
+                }
+                for commit in commits
+            ]
+            issue_ids_payload = list(issue_link.issue_ids)
+            checklist_impact_payload = [
+                {
+                    "issue_id": issue_id,
+                    "commit_count": count,
+                }
+                for issue_id, count in issue_link.checklist_impact
+            ]
+            gh_reference_validated = bool(issue_link.issue_ids)
+            if issue_ids_payload:
+                issue_lifecycle_fetch_status = "ok"
+                for issue_id in issue_ids_payload:
+                    try:
+                        lifecycle = sync_core._fetch_issue(issue_id)
+                    except Exception as exc:
+                        issue_lifecycle_errors.append(str(exc))
+                        continue
+                    issue_lifecycle_payloads.append(
+                        {
+                            "issue_id": lifecycle.issue_id,
+                            "state": lifecycle.state,
+                            "labels": list(lifecycle.labels),
+                            "url": lifecycle.url,
+                        }
+                    )
+                if issue_lifecycle_errors:
+                    issue_lifecycle_fetch_status = (
+                        "partial_error" if issue_lifecycle_payloads else "error"
+                    )
         except Exception:
             gh_reference_validated = False
 
@@ -4412,6 +4454,13 @@ def _evaluate_docflow_obligations(
         "delta_guard_checked": delta_guard_checked,
         "doc_status_changed": doc_status_changed,
         "checklist_influence_consistent": checklist_influence_consistent,
+        "rev_range": rev_range,
+        "commits": commit_payloads,
+        "issue_ids": issue_ids_payload,
+        "checklist_impact": checklist_impact_payload,
+        "issue_lifecycle_fetch_status": issue_lifecycle_fetch_status,
+        "issue_lifecycles": issue_lifecycle_payloads,
+        "issue_lifecycle_errors": issue_lifecycle_errors,
     }
     entries = evaluate_obligations(operation="docflow_plan", context=context)
     summary = summarize_obligations(entries)
@@ -4434,6 +4483,7 @@ def _evaluate_docflow_obligations(
         summary=summary,
         warnings=obligation_warnings,
         violations=obligation_violations,
+        context=context,
     )
 
 
