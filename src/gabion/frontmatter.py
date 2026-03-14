@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from importlib import import_module
-from typing import Mapping
-
+from gabion.frontmatter_ingress import FrontmatterParseMode, parse_frontmatter_document
 from gabion.json_types import JSONValue
 
 
@@ -10,48 +8,23 @@ class FrontmatterParseError(ValueError):
     pass
 
 
-def _yaml_module():
-    return import_module("yaml")
-
-
 def parse_strict_yaml_frontmatter(
     text: str,
     *,
     require_parser: bool = False,
 ) -> tuple[dict[str, JSONValue], str]:
-    if not text.startswith("---\n"):
-        return {}, text
-    lines = text.splitlines()
-    end = None
-    for index in range(1, len(lines)):
-        if lines[index].strip() == "---":
-            end = index
-            break
-    if end is None:
-        if require_parser:
+    carrier = parse_frontmatter_document(text)
+    if carrier.mode is FrontmatterParseMode.YAML:
+        return carrier.payload_mapping(), carrier.body
+    if require_parser:
+        if not carrier.parser_available:
+            raise ImportError("No module named 'yaml'")
+        if carrier.is_unterminated:
             raise FrontmatterParseError("unterminated YAML frontmatter")
-        return {}, text
-    raw = lines[1:end]
-    body = "\n".join(lines[end + 1 :])
-    try:
-        yaml = _yaml_module()
-    except ImportError:
-        if require_parser:
-            raise
-        return {}, body
-    try:
-        parsed = yaml.safe_load("\n".join(raw))
-    except Exception as exc:
-        if require_parser:
-            raise FrontmatterParseError("invalid YAML frontmatter") from exc
-        parsed = None
-    if parsed is None:
-        return {}, body
-    if not isinstance(parsed, Mapping):
-        if require_parser:
+        if carrier.detail and carrier.detail.startswith(
+            "frontmatter root must be a mapping"
+        ):
             raise FrontmatterParseError("frontmatter root must be a mapping")
-        return {}, body
-    normalized: dict[str, JSONValue] = {}
-    for key, value in parsed.items():
-        normalized[str(key)] = value
-    return normalized, body
+        if carrier.mode is FrontmatterParseMode.YAML_PARSE_FAILED:
+            raise FrontmatterParseError("invalid YAML frontmatter")
+    return {}, carrier.body

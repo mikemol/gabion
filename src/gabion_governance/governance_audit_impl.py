@@ -14,11 +14,11 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Callable, Iterable, List, Literal, Mapping, Tuple, TypeAlias, cast
 
-try:
-    import yaml
-except ImportError:  # pragma: no cover - pyyaml is expected in managed environments
-    yaml = None
-
+from gabion.frontmatter_ingress import (
+    FrontmatterParseMode,
+    parse_frontmatter_document,
+    scan_frontmatter_lines,
+)
 from gabion.tooling.runtime.deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
 from gabion.analysis.aspf.aspf import Forest
 from gabion.analysis.foundation.timeout_context import check_deadline
@@ -873,13 +873,11 @@ def _slugify_heading(value: str) -> str:
 
 
 def _frontmatter_block(lines: list[str]) -> tuple[list[str], int] | None:
-    if not lines or lines[0].strip() != "---":
+    block = scan_frontmatter_lines(lines)
+    if block is None:
         return None
-    for idx in range(1, len(lines)):
-        check_deadline()
-        if lines[idx].strip() == "---":
-            return lines[1:idx], idx
-    return None
+    fm_lines, end = block
+    return list(fm_lines), end
 
 
 def _suite_key(
@@ -1821,54 +1819,30 @@ def _sppf_axis_audit(root: Path, docs: dict[str, Doc]) -> tuple[list[str], list[
 
 
 def _frontmatter_block_from_text(text: str) -> tuple[list[str], str] | None:
-    if not text.startswith("---\n"):
+    carrier = parse_frontmatter_document(text)
+    if not carrier.has_closed_block:
         return None
-    lines = text.split("\n")
-    if lines[0].strip() != "---":
-        return None
-    fm_lines: list[str] = []
-    idx = 1
-    while idx < len(lines):
-        check_deadline()
-        line = lines[idx]
-        if line.strip() == "---":
-            idx += 1
-            break
-        fm_lines.append(line)
-        idx += 1
-    body = "\n".join(lines[idx:])
-    return fm_lines, body
+    return list(carrier.raw_frontmatter_lines), carrier.body
 
 
 def _parse_yaml_frontmatter(lines: list[str]) -> tuple[Frontmatter, str | None]:
-    if yaml is None:
-        return {}, "pyyaml unavailable"
-    raw = "\n".join(lines)
-    try:
-        payload = yaml.safe_load(raw)
-    except Exception as exc:  # pragma: no cover - exercised through callers
-        message = str(exc).strip() or type(exc).__name__
-        return {}, message.splitlines()[0]
-    if payload is None:
-        return {}, None
-    if not isinstance(payload, Mapping):
-        return {}, f"frontmatter root must be a mapping (got {type(payload).__name__})"
-    normalized: Frontmatter = {}
-    for key, value in payload.items():
-        check_deadline()
-        normalized[str(key)] = cast(FrontmatterValue, value)
-    return normalized, None
+    text = "---\n" + "\n".join(lines) + "\n---\n"
+    carrier = parse_frontmatter_document(text)
+    if carrier.mode is FrontmatterParseMode.YAML:
+        normalized: Frontmatter = {}
+        for key, value in carrier.payload.items():
+            check_deadline()
+            normalized[key] = cast(FrontmatterValue, value)
+        return normalized, None
+    return {}, carrier.detail or "invalid YAML frontmatter"
 
 
 def _parse_frontmatter_with_mode(text: str) -> tuple[Frontmatter, str, str, str | None]:
-    block = _frontmatter_block_from_text(text)
-    if block is None:
-        return {}, text, "absent", None
-    fm_lines, body = block
-    yaml_payload, yaml_error = _parse_yaml_frontmatter(fm_lines)
-    if yaml_error is None:
-        return yaml_payload, body, "yaml", None
-    return {}, body, "yaml_parse_failed", yaml_error
+    carrier = parse_frontmatter_document(text)
+    normalized: Frontmatter = {}
+    for key, value in carrier.payload.items():
+        normalized[key] = cast(FrontmatterValue, value)
+    return normalized, carrier.body, carrier.mode.value, carrier.detail
 
 
 def _frontmatter_parse_warning(
