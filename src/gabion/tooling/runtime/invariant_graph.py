@@ -790,6 +790,7 @@ def _format_repo_followup_cohort(cohort: object) -> str:
             followup_family = str(item.get("followup_family", "followup"))
             action_kind = str(item.get("action_kind", "action"))
             object_id = item.get("object_id")
+            owner_root_object_id = item.get("owner_root_object_id")
             diagnostic_code = item.get("diagnostic_code")
             target_doc_id = item.get("target_doc_id")
             title = str(item.get("title", ""))
@@ -800,6 +801,7 @@ def _format_repo_followup_cohort(cohort: object) -> str:
             followup_family = str(getattr(item, "followup_family", "followup"))
             action_kind = str(getattr(item, "action_kind", "action"))
             object_id = getattr(item, "object_id", None)
+            owner_root_object_id = getattr(item, "owner_root_object_id", None)
             diagnostic_code = getattr(item, "diagnostic_code", None)
             target_doc_id = getattr(item, "target_doc_id", None)
             title = str(getattr(item, "title", ""))
@@ -815,7 +817,10 @@ def _format_repo_followup_cohort(cohort: object) -> str:
         else:
             label = f"{followup_family}:{action_kind}:{title}"
         parts.append(
-            f"{label}@{utility_score}:rank={selection_rank}:{selection_reason}"
+            (
+                f"{label}@{utility_score}:root={owner_root_object_id or '<none>'}:"
+                f"rank={selection_rank}:{selection_reason}"
+            )
         )
     return " || ".join(parts) if parts else "none"
 
@@ -874,9 +879,11 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
     print(f"dominant_followup_class: {workstreams.dominant_repo_followup_class()}")
     print(f"next_human_followup_family: {workstreams.next_repo_human_followup_family()}")
     print(
-        "diagnostic_summary: unmatched_policy_signals={signals} :: unresolved_dependencies={dependencies}".format(
+        "diagnostic_summary: unmatched_policy_signals={signals} :: unresolved_dependencies={dependencies} :: workspace_preservation={workspace} :: workspace_orphans={workspace_orphans}".format(
             signals=diagnostic_summary.unmatched_policy_signal_count,
             dependencies=diagnostic_summary.unresolved_blocking_dependency_count,
+            workspace=diagnostic_summary.workspace_preservation_count,
+            workspace_orphans=diagnostic_summary.orphaned_workspace_change_count,
         )
     )
     if recommended_repo_followup is None:
@@ -1325,9 +1332,11 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
         print("recommended_repo_followup_lane: <none>")
     else:
         print(
-            "recommended_repo_followup_lane: {family} :: class={klass} :: rank={rank} :: utility={utility} :: utility_components={utility_components} :: opportunity={opportunity} :: opportunity_components={opportunity_components}".format(
+            "recommended_repo_followup_lane: {family} :: class={klass} :: roots={roots} :: rank={rank} :: utility={utility} :: utility_components={utility_components} :: opportunity={opportunity} :: opportunity_components={opportunity_components}".format(
                 family=recommended_repo_followup_lane.followup_family,
                 klass=recommended_repo_followup_lane.followup_class,
+                roots=",".join(recommended_repo_followup_lane.root_object_ids)
+                or "<none>",
                 rank=recommended_repo_followup_lane.selection_rank,
                 utility=(
                     f"{recommended_repo_followup_lane.lane_utility_score}:{recommended_repo_followup_lane.lane_utility_reason}"
@@ -1347,9 +1356,11 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
         print("recommended_repo_code_followup_lane: <none>")
     else:
         print(
-            "recommended_repo_code_followup_lane: {family} :: class={klass} :: rank={rank} :: utility={utility} :: utility_components={utility_components} :: opportunity={opportunity} :: opportunity_components={opportunity_components}".format(
+            "recommended_repo_code_followup_lane: {family} :: class={klass} :: roots={roots} :: rank={rank} :: utility={utility} :: utility_components={utility_components} :: opportunity={opportunity} :: opportunity_components={opportunity_components}".format(
                 family=recommended_repo_code_followup_lane.followup_family,
                 klass=recommended_repo_code_followup_lane.followup_class,
+                roots=",".join(recommended_repo_code_followup_lane.root_object_ids)
+                or "<none>",
                 rank=recommended_repo_code_followup_lane.selection_rank,
                 utility=(
                     f"{recommended_repo_code_followup_lane.lane_utility_score}:{recommended_repo_code_followup_lane.lane_utility_reason}"
@@ -1369,9 +1380,11 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
         print("recommended_repo_human_followup_lane: <none>")
     else:
         print(
-            "recommended_repo_human_followup_lane: {family} :: class={klass} :: rank={rank} :: utility={utility} :: utility_components={utility_components} :: opportunity={opportunity} :: opportunity_components={opportunity_components}".format(
+            "recommended_repo_human_followup_lane: {family} :: class={klass} :: roots={roots} :: rank={rank} :: utility={utility} :: utility_components={utility_components} :: opportunity={opportunity} :: opportunity_components={opportunity_components}".format(
                 family=recommended_repo_human_followup_lane.followup_family,
                 klass=recommended_repo_human_followup_lane.followup_class,
+                roots=",".join(recommended_repo_human_followup_lane.root_object_ids)
+                or "<none>",
                 rank=recommended_repo_human_followup_lane.selection_rank,
                 utility=(
                     f"{recommended_repo_human_followup_lane.lane_utility_score}:{recommended_repo_human_followup_lane.lane_utility_reason}"
@@ -1721,9 +1734,10 @@ def _print_summary(*, graph: InvariantGraph, root: Path) -> None:
         best = lane.best_followup
         target = best.object_id or best.target_doc_id or best.diagnostic_code or "<none>"
         print(
-            "- {family} :: class={klass} :: actions={actions} :: best={action_kind}::{target} :: owner_strength={owner_strength} :: utility={utility} :: lane_utility={lane_utility} :: lane_components={lane_components} :: rank={rank} :: opportunity={opportunity} :: opportunity_components={opportunity_components}".format(
+            "- {family} :: class={klass} :: roots={roots} :: actions={actions} :: best={action_kind}::{target} :: owner_strength={owner_strength} :: utility={utility} :: lane_utility={lane_utility} :: lane_components={lane_components} :: rank={rank} :: opportunity={opportunity} :: opportunity_components={opportunity_components}".format(
                 family=lane.followup_family,
                 klass=lane.followup_class,
+                roots=",".join(lane.root_object_ids) or "<none>",
                 actions=lane.action_count,
                 action_kind=best.action_kind,
                 target=target,

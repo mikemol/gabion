@@ -15,9 +15,10 @@ from gabion.analysis.projection.projection_registry import (
 from gabion.policy_dsl.registry import build_registry
 from gabion.policy_dsl.schema import PolicyDomain
 from gabion.order_contract import ordered_or_sorted
+from gabion.invariants import never
 from gabion.tooling.policy_substrate.invariant_graph import (
     build_invariant_graph,
-    build_psf_phase5_projection,
+    build_invariant_workstreams,
     load_invariant_workstreams,
 )
 from gabion.tooling.policy_substrate.policy_artifact_stream import (
@@ -99,6 +100,7 @@ class ProjectionSemanticFragmentQueueItem:
     title: str
     summary: str
     next_action: str
+    planning_chain: "ProjectionSemanticFragmentPlanningChain | None"
     evidence_links: tuple[str, ...]
 
     def as_payload(self) -> dict[str, object]:
@@ -109,6 +111,9 @@ class ProjectionSemanticFragmentQueueItem:
             "title": self.title,
             "summary": self.summary,
             "next_action": self.next_action,
+            "planning_chain": (
+                None if self.planning_chain is None else self.planning_chain.as_payload()
+            ),
             "evidence_links": [item for item in self.evidence_links],
         }
 
@@ -256,6 +261,50 @@ class ProjectionSemanticFragmentPhase5Subqueue:
 
 
 @dataclass(frozen=True)
+class ProjectionSemanticFragmentPlanningChain:
+    observed_state: str
+    next_slice: str
+    stabilization_goal: str
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "observed_state": self.observed_state,
+            "next_slice": self.next_slice,
+            "stabilization_goal": self.stabilization_goal,
+        }
+
+
+@dataclass(frozen=True)
+class ProjectionSemanticFragmentPhase5Frontier:
+    action_kind: str
+    object_id: str
+    owner_object_id: str
+    title: str
+    blocker_class: str
+    touchsite_count: int
+    surviving_touchsite_count: int
+    decision_mode: str
+    decision_reason: str
+    same_kind_pressure: str
+    cross_kind_pressure: str
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "action_kind": self.action_kind,
+            "object_id": self.object_id,
+            "owner_object_id": self.owner_object_id,
+            "title": self.title,
+            "blocker_class": self.blocker_class,
+            "touchsite_count": self.touchsite_count,
+            "surviving_touchsite_count": self.surviving_touchsite_count,
+            "decision_mode": self.decision_mode,
+            "decision_reason": self.decision_reason,
+            "same_kind_pressure": self.same_kind_pressure,
+            "cross_kind_pressure": self.cross_kind_pressure,
+        }
+
+
+@dataclass(frozen=True)
 class ProjectionSemanticFragmentPhase5Structure:
     queue_id: WorkstreamId
     title: str
@@ -264,6 +313,7 @@ class ProjectionSemanticFragmentPhase5Structure:
     surviving_touchsite_count: int
     subqueues: tuple[ProjectionSemanticFragmentPhase5Subqueue, ...]
     touchpoints: tuple[ProjectionSemanticFragmentPhase5Touchpoint, ...]
+    current_frontier: ProjectionSemanticFragmentPhase5Frontier | None = None
 
     def as_payload(self) -> dict[str, object]:
         return {
@@ -274,6 +324,9 @@ class ProjectionSemanticFragmentPhase5Structure:
             "surviving_touchsite_count": self.surviving_touchsite_count,
             "subqueues": [item.as_payload() for item in self.subqueues],
             "touchpoints": [item.as_payload() for item in self.touchpoints],
+            "current_frontier": (
+                None if self.current_frontier is None else self.current_frontier.as_payload()
+            ),
         }
 
 @lru_cache(maxsize=1)
@@ -319,136 +372,238 @@ def _legacy_projection_exec_ingress_retired() -> bool:
     ).exists()
 
 
-@lru_cache(maxsize=8)
-def _phase5_structure(source_artifact: str) -> ProjectionSemanticFragmentPhase5Structure:
-    identity_space = PolicyQueueIdentitySpace()
+def _phase5_frontier_from_workstream_payload(
+    raw_workstream: Mapping[str, object],
+) -> ProjectionSemanticFragmentPhase5Frontier | None:
+    raw_next_actions = raw_workstream.get("next_actions", {})
+    if not isinstance(raw_next_actions, Mapping):
+        return None
+    raw_frontier = raw_next_actions.get("recommended_followup")
+    raw_decision_protocol = raw_next_actions.get("recommended_cut_decision_protocol")
+    if not isinstance(raw_frontier, Mapping) or not isinstance(
+        raw_decision_protocol, Mapping
+    ):
+        return None
+    frontier_object_id = _string_value(raw_frontier.get("object_id"))
+    frontier_owner_object_id = _string_value(raw_frontier.get("owner_object_id"))
+    frontier_title = _string_value(raw_frontier.get("title"))
+    frontier_blocker_class = _string_value(raw_frontier.get("blocker_class"))
+    frontier_action_kind = _string_value(raw_frontier.get("action_kind"))
+    decision_mode = _string_value(raw_decision_protocol.get("decision_mode"))
+    decision_reason = _string_value(raw_decision_protocol.get("decision_reason"))
+    same_kind_pressure = _string_value(raw_decision_protocol.get("same_kind_pressure"))
+    cross_kind_pressure = _string_value(
+        raw_decision_protocol.get("cross_kind_pressure")
+    )
+    if not (
+        frontier_object_id
+        and frontier_owner_object_id
+        and frontier_title
+        and frontier_blocker_class
+        and frontier_action_kind
+        and decision_mode
+        and decision_reason
+        and same_kind_pressure
+        and cross_kind_pressure
+    ):
+        return None
+    return ProjectionSemanticFragmentPhase5Frontier(
+        action_kind=frontier_action_kind,
+        object_id=frontier_object_id,
+        owner_object_id=frontier_owner_object_id,
+        title=frontier_title,
+        blocker_class=frontier_blocker_class,
+        touchsite_count=int(raw_frontier.get("touchsite_count", 0)),
+        surviving_touchsite_count=int(
+            raw_frontier.get("surviving_touchsite_count", 0)
+        ),
+        decision_mode=decision_mode,
+        decision_reason=decision_reason,
+        same_kind_pressure=same_kind_pressure,
+        cross_kind_pressure=cross_kind_pressure,
+    )
+
+
+def _phase5_planning_chain(
+    *,
+    phase5_structure: ProjectionSemanticFragmentPhase5Structure,
+    phase5_in_progress: bool,
+) -> ProjectionSemanticFragmentPlanningChain | None:
+    if not phase5_in_progress:
+        return None
+    frontier = phase5_structure.current_frontier
+    if frontier is None:
+        never(
+            reasoning={
+                "summary": (
+                    "Phase-5 queue planning must resolve a concrete frontier before "
+                    "emitting an in-progress queue row."
+                ),
+                "control": "projection_semantic_fragment_queue.phase5_requires_frontier",
+                "blocking_dependencies": (phase5_structure.queue_id.wire(),),
+            },
+            queue_id=phase5_structure.queue_id.wire(),
+            remaining_touchsite_count=phase5_structure.remaining_touchsite_count,
+            collapsible_touchsite_count=phase5_structure.collapsible_touchsite_count,
+            surviving_touchsite_count=phase5_structure.surviving_touchsite_count,
+        )
+        return None  # pragma: no cover - never() raises
+    return ProjectionSemanticFragmentPlanningChain(
+        observed_state=(
+            "X happened: "
+            f"Phase 5 still has {phase5_structure.remaining_touchsite_count} remaining "
+            f"marker(s), and the planner currently ranks {frontier.object_id} "
+            f"({frontier.title}) as the active {frontier.blocker_class} "
+            f"{frontier.action_kind} frontier."
+        ),
+        next_slice=(
+            "So Y: "
+            f"take {frontier.object_id} next, because it keeps the cut on the smallest "
+            f"currently-ranked surface at {frontier.touchsite_count} touchsite(s) and "
+            f"{frontier.surviving_touchsite_count} surviving seam(s)."
+        ),
+        stabilization_goal=(
+            "So that Z: "
+            f"the queue can hold {frontier.decision_mode} with same-kind pressure "
+            f"{frontier.same_kind_pressure} and cross-kind pressure "
+            f"{frontier.cross_kind_pressure} while the next correction unit ratchets the "
+            "frontier before widening to sibling cuts."
+        ),
+    )
+
+
+def _resolve_source_artifact_path(source_artifact: str) -> Path:
     source_path = Path(source_artifact)
+    if not source_path.is_absolute():
+        source_path = (_REPO_ROOT / source_path).resolve()
+    return source_path
+
+
+def _load_phase5_workstreams_projection(source_artifact: str) -> Mapping[str, object]:
+    source_path = _resolve_source_artifact_path(source_artifact)
     workstreams_artifact = source_path.parent / "invariant_workstreams.json"
     if workstreams_artifact.exists():
-        loaded_projection = load_invariant_workstreams(workstreams_artifact)
-        workstreams = loaded_projection.get("workstreams", [])
-        raw_workstream = next(
-            (
-                item
-                for item in workstreams
-                if isinstance(item, Mapping)
-                and str(item.get("object_id", "")) == "PSF-007"
-            ),
-            None,
-        )
-        if not isinstance(raw_workstream, Mapping):
-            raise KeyError("PSF-007")
-        projection = {
-            "title": str(raw_workstream.get("title", "")),
-            "remaining_touchsite_count": int(raw_workstream.get("touchsite_count", 0)),
-            "collapsible_touchsite_count": int(
-                raw_workstream.get("collapsible_touchsite_count", 0)
-            ),
-            "surviving_touchsite_count": int(
-                raw_workstream.get("surviving_touchsite_count", 0)
-            ),
-            "subqueues": [
-                {
-                    "subqueue_id": str(item.get("object_id", "")),
-                    "title": str(item.get("title", "")),
-                    "site_identity": str(item.get("site_identity", "")),
-                    "structural_identity": str(item.get("structural_identity", "")),
-                    "marker_identity": str(item.get("marker_identity", "")),
-                    "marker_reason": str(item.get("reasoning_summary", "")),
-                    "reasoning_summary": str(item.get("reasoning_summary", "")),
-                    "reasoning_control": str(item.get("reasoning_control", "")),
-                    "blocking_dependencies": [
-                        str(value)
-                        for value in item.get("blocking_dependencies", [])
-                    ],
-                    "object_ids": [
-                        str(value)
-                        for value in item.get("object_ids", [])
-                    ],
-                    "touchpoint_ids": [
-                        str(value)
-                        for value in item.get("touchpoint_ids", [])
-                    ],
-                    "touchsite_count": int(item.get("touchsite_count", 0)),
-                    "collapsible_touchsite_count": int(
-                        item.get("collapsible_touchsite_count", 0)
-                    ),
-                    "surviving_touchsite_count": int(
-                        item.get("surviving_touchsite_count", 0)
-                    ),
-                }
-                for item in raw_workstream.get("subqueues", [])
-                if isinstance(item, Mapping)
-            ],
-            "touchpoints": [
-                {
-                    "touchpoint_id": str(item.get("object_id", "")),
-                    "subqueue_id": str(item.get("subqueue_id", "")),
-                    "title": str(item.get("title", "")),
-                    "rel_path": str(item.get("rel_path", "")),
-                    "site_identity": str(item.get("site_identity", "")),
-                    "structural_identity": str(item.get("structural_identity", "")),
-                    "marker_identity": str(item.get("marker_identity", "")),
-                    "marker_reason": str(item.get("reasoning_summary", "")),
-                    "reasoning_summary": str(item.get("reasoning_summary", "")),
-                    "reasoning_control": str(item.get("reasoning_control", "")),
-                    "blocking_dependencies": [
-                        str(value)
-                        for value in item.get("blocking_dependencies", [])
-                    ],
-                    "object_ids": [
-                        str(value)
-                        for value in item.get("object_ids", [])
-                    ],
-                    "touchsite_count": int(item.get("touchsite_count", 0)),
-                    "collapsible_touchsite_count": int(
-                        item.get("collapsible_touchsite_count", 0)
-                    ),
-                    "surviving_touchsite_count": int(
-                        item.get("surviving_touchsite_count", 0)
-                    ),
-                    "touchsites": [
-                        {
-                            "touchsite_id": str(touchsite.get("object_id", "")),
-                            "touchpoint_id": str(touchsite.get("touchpoint_id", "")),
-                            "subqueue_id": str(touchsite.get("subqueue_id", "")),
-                            "rel_path": str(touchsite.get("rel_path", "")),
-                            "qualname": str(touchsite.get("qualname", "")),
-                            "boundary_name": str(touchsite.get("boundary_name", "")),
-                            "line": int(touchsite.get("line", 0)),
-                            "column": int(touchsite.get("column", 0)),
-                            "node_kind": str(touchsite.get("node_kind", "")),
-                            "site_identity": str(touchsite.get("site_identity", "")),
-                            "structural_identity": str(
-                                touchsite.get("structural_identity", "")
-                            ),
-                            "seam_class": str(touchsite.get("seam_class", "")),
-                            "touchpoint_marker_identity": str(
-                                touchsite.get("touchpoint_marker_identity", "")
-                            ),
-                            "touchpoint_structural_identity": str(
-                                touchsite.get(
-                                    "touchpoint_structural_identity",
-                                    "",
-                                )
-                            ),
-                            "subqueue_marker_identity": str(
-                                touchsite.get("subqueue_marker_identity", "")
-                            ),
-                            "subqueue_structural_identity": str(
-                                touchsite.get("subqueue_structural_identity", "")
-                            ),
-                        }
-                        for touchsite in item.get("touchsites", [])
-                        if isinstance(touchsite, Mapping)
-                    ],
-                }
-                for item in raw_workstream.get("touchpoints", [])
-                if isinstance(item, Mapping)
-            ],
-        }
-    else:
-        projection = build_psf_phase5_projection(build_invariant_graph(_REPO_ROOT))
+        return load_invariant_workstreams(workstreams_artifact)
+    return build_invariant_workstreams(
+        build_invariant_graph(_REPO_ROOT),
+        root=_REPO_ROOT,
+    ).as_payload()
+
+
+def _phase5_structure_from_projection(
+    phase5_workstreams_projection: Mapping[str, object],
+) -> ProjectionSemanticFragmentPhase5Structure:
+    identity_space = PolicyQueueIdentitySpace()
+    current_frontier: ProjectionSemanticFragmentPhase5Frontier | None = None
+    workstreams = phase5_workstreams_projection.get("workstreams", [])
+    raw_workstream = next(
+        (
+            item
+            for item in workstreams
+            if isinstance(item, Mapping) and str(item.get("object_id", "")) == "PSF-007"
+        ),
+        None,
+    )
+    if not isinstance(raw_workstream, Mapping):
+        raise KeyError("PSF-007")
+    current_frontier = _phase5_frontier_from_workstream_payload(raw_workstream)
+    projection = {
+        "title": str(raw_workstream.get("title", "")),
+        "remaining_touchsite_count": int(raw_workstream.get("touchsite_count", 0)),
+        "collapsible_touchsite_count": int(
+            raw_workstream.get("collapsible_touchsite_count", 0)
+        ),
+        "surviving_touchsite_count": int(
+            raw_workstream.get("surviving_touchsite_count", 0)
+        ),
+        "subqueues": [
+            {
+                "subqueue_id": str(item.get("object_id", "")),
+                "title": str(item.get("title", "")),
+                "site_identity": str(item.get("site_identity", "")),
+                "structural_identity": str(item.get("structural_identity", "")),
+                "marker_identity": str(item.get("marker_identity", "")),
+                "marker_reason": str(item.get("reasoning_summary", "")),
+                "reasoning_summary": str(item.get("reasoning_summary", "")),
+                "reasoning_control": str(item.get("reasoning_control", "")),
+                "blocking_dependencies": [
+                    str(value) for value in item.get("blocking_dependencies", [])
+                ],
+                "object_ids": [str(value) for value in item.get("object_ids", [])],
+                "touchpoint_ids": [
+                    str(value) for value in item.get("touchpoint_ids", [])
+                ],
+                "touchsite_count": int(item.get("touchsite_count", 0)),
+                "collapsible_touchsite_count": int(
+                    item.get("collapsible_touchsite_count", 0)
+                ),
+                "surviving_touchsite_count": int(
+                    item.get("surviving_touchsite_count", 0)
+                ),
+            }
+            for item in raw_workstream.get("subqueues", [])
+            if isinstance(item, Mapping)
+        ],
+        "touchpoints": [
+            {
+                "touchpoint_id": str(item.get("object_id", "")),
+                "subqueue_id": str(item.get("subqueue_id", "")),
+                "title": str(item.get("title", "")),
+                "rel_path": str(item.get("rel_path", "")),
+                "site_identity": str(item.get("site_identity", "")),
+                "structural_identity": str(item.get("structural_identity", "")),
+                "marker_identity": str(item.get("marker_identity", "")),
+                "marker_reason": str(item.get("reasoning_summary", "")),
+                "reasoning_summary": str(item.get("reasoning_summary", "")),
+                "reasoning_control": str(item.get("reasoning_control", "")),
+                "blocking_dependencies": [
+                    str(value) for value in item.get("blocking_dependencies", [])
+                ],
+                "object_ids": [str(value) for value in item.get("object_ids", [])],
+                "touchsite_count": int(item.get("touchsite_count", 0)),
+                "collapsible_touchsite_count": int(
+                    item.get("collapsible_touchsite_count", 0)
+                ),
+                "surviving_touchsite_count": int(
+                    item.get("surviving_touchsite_count", 0)
+                ),
+                "touchsites": [
+                    {
+                        "touchsite_id": str(touchsite.get("object_id", "")),
+                        "touchpoint_id": str(touchsite.get("touchpoint_id", "")),
+                        "subqueue_id": str(touchsite.get("subqueue_id", "")),
+                        "rel_path": str(touchsite.get("rel_path", "")),
+                        "qualname": str(touchsite.get("qualname", "")),
+                        "boundary_name": str(touchsite.get("boundary_name", "")),
+                        "line": int(touchsite.get("line", 0)),
+                        "column": int(touchsite.get("column", 0)),
+                        "node_kind": str(touchsite.get("node_kind", "")),
+                        "site_identity": str(touchsite.get("site_identity", "")),
+                        "structural_identity": str(
+                            touchsite.get("structural_identity", "")
+                        ),
+                        "seam_class": str(touchsite.get("seam_class", "")),
+                        "touchpoint_marker_identity": str(
+                            touchsite.get("touchpoint_marker_identity", "")
+                        ),
+                        "touchpoint_structural_identity": str(
+                            touchsite.get("touchpoint_structural_identity", "")
+                        ),
+                        "subqueue_marker_identity": str(
+                            touchsite.get("subqueue_marker_identity", "")
+                        ),
+                        "subqueue_structural_identity": str(
+                            touchsite.get("subqueue_structural_identity", "")
+                        ),
+                    }
+                    for touchsite in item.get("touchsites", [])
+                    if isinstance(touchsite, Mapping)
+                ],
+            }
+            for item in raw_workstream.get("touchpoints", [])
+            if isinstance(item, Mapping)
+        ],
+    }
     subqueue_states = tuple(
         ProjectionSemanticFragmentPhase5Subqueue(
             subqueue_id=identity_space.subqueue_id(str(item.get("subqueue_id", ""))),
@@ -551,6 +706,14 @@ def _phase5_structure(source_artifact: str) -> ProjectionSemanticFragmentPhase5S
         surviving_touchsite_count=int(projection.get("surviving_touchsite_count", 0)),
         subqueues=subqueue_states,
         touchpoints=touchpoint_states,
+        current_frontier=current_frontier,
+    )
+
+
+@lru_cache(maxsize=8)
+def _phase5_structure(source_artifact: str) -> ProjectionSemanticFragmentPhase5Structure:
+    return _phase5_structure_from_projection(
+        _load_phase5_workstreams_projection(source_artifact)
     )
 
 
@@ -558,9 +721,14 @@ def analyze(
     *,
     payload: Mapping[str, object],
     source_artifact: str = _DEFAULT_SOURCE_ARTIFACT,
+    phase5_workstreams_projection: Mapping[str, object] | None = None,
 ) -> ProjectionSemanticFragmentQueue:
     current_state = _current_state(payload)
-    phase5_structure = _phase5_structure(source_artifact)
+    phase5_structure = (
+        _phase5_structure(source_artifact)
+        if phase5_workstreams_projection is None
+        else _phase5_structure_from_projection(phase5_workstreams_projection)
+    )
     items = _queue_items(current_state, phase5_structure=phase5_structure)
     next_queue_ids = tuple(
         item.queue_id for item in items if item.status != "landed"
@@ -650,6 +818,10 @@ def _queue_items(
         and legacy_projection_exec_ingress_retired
         and remaining_phase5_adapter_markers > 0
     )
+    phase5_planning_chain = _phase5_planning_chain(
+        phase5_structure=phase5_structure,
+        phase5_in_progress=phase5_in_progress,
+    )
     items = (
         ProjectionSemanticFragmentQueueItem(
             queue_id="PSF-001",
@@ -666,6 +838,7 @@ def _queue_items(
                 if row_count > 0
                 else "Land the canonical witnessed carrier on a real semantic path before expanding authoring surfaces."
             ),
+            planning_chain=None,
             evidence_links=(
                 "src/gabion/analysis/projection/semantic_fragment.py",
                 "src/gabion/tooling/policy_substrate/lattice_convergence_semantic.py",
@@ -687,6 +860,7 @@ def _queue_items(
                 if semantic_lowering_landed
                 else "Compile the first declared quotient-face authoring surface into SHACL/SPARQL plans."
             ),
+            planning_chain=None,
             evidence_links=(
                 "src/gabion/analysis/projection/projection_semantic_lowering.py",
                 "src/gabion/analysis/projection/projection_semantic_lowering_compile.py",
@@ -708,6 +882,7 @@ def _queue_items(
                 if preview_count > 0
                 else "Thread canonical semantic previews into reporting surfaces that currently only see aggregate counts."
             ),
+            planning_chain=None,
             evidence_links=(
                 "src/gabion/tooling/runtime/policy_scanner_suite.py",
                 "scripts/policy/hotspot_neighborhood_queue.py",
@@ -733,6 +908,7 @@ def _queue_items(
                 if friendly_surface_convergence_landed
                 else "Promote additional declared semantic ops through lowering without adding new semantic behavior directly to projection_exec."
             ),
+            planning_chain=None,
             evidence_links=(
                 "src/gabion/analysis/projection/projection_registry.py",
                 "scripts/policy/build_projection_spec_history.py",
@@ -757,6 +933,7 @@ def _queue_items(
                 if semantic_op_expansion_landed
                 else "Add the next smallest lawful semantic op on top of the same carrier instead of widening generic row-shaping operators."
             ),
+            planning_chain=None,
             evidence_links=(
                 "src/gabion/analysis/projection/projection_registry.py",
                 "src/gabion/analysis/projection/projection_semantic_lowering.py",
@@ -780,6 +957,7 @@ def _queue_items(
                 if policy_direct_carrier_judgment_landed
                 else "Shift the next consumer from row-shape inference to direct canonical-carrier reads, then preserve that path with policy tests."
             ),
+            planning_chain=None,
             evidence_links=(
                 "docs/projection_fiber_rules.yaml",
                 "tests/test_policy_dsl.py",
@@ -822,6 +1000,7 @@ def _queue_items(
                 if phase5_in_progress
                 else "Use the RFC cutover criteria and ratchet rules to remove temporary adapter status only after end-to-end semantic paths are stable."
             ),
+            planning_chain=phase5_planning_chain,
             evidence_links=(
                 "src/gabion/analysis/projection/projection_exec.py",
                 "src/gabion/analysis/projection/projection_exec_plan.py",
@@ -873,6 +1052,7 @@ def run(
     source_artifact_path: Path,
     out_path: Path,
     markdown_out: Path | None = None,
+    phase5_workstreams_projection: Mapping[str, object] | None = None,
 ) -> int:
     payload = json.loads(source_artifact_path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
@@ -880,6 +1060,7 @@ def run(
     queue = analyze(
         payload=payload,
         source_artifact=str(source_artifact_path),
+        phase5_workstreams_projection=phase5_workstreams_projection,
     )
     write_json(out_path, _queue_document(queue))
     if markdown_out is not None:

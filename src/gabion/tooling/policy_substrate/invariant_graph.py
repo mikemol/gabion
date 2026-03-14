@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from functools import cached_property
 import json
 from pathlib import Path
+import re
 from typing import cast
 
 from gabion.analysis.aspf.aspf_lattice_algebra import (
@@ -16,6 +17,7 @@ from gabion.analysis.aspf.aspf_lattice_algebra import (
 )
 from gabion.analysis.foundation.marker_protocol import SemanticLinkKind
 from gabion.frontmatter import parse_strict_yaml_frontmatter
+from gabion.invariants import never
 from gabion.order_contract import ordered_or_sorted
 from gabion.tooling.policy_substrate.invariant_marker_scan import (
     InvariantMarkerScanNode,
@@ -52,29 +54,96 @@ from gabion.tooling.policy_substrate.policy_queue_identity import (
     encode_policy_queue_identity,
 )
 from gabion.tooling.policy_substrate.policy_rule_frontmatter_migration_registry import (
-    PolicyRuleFrontmatterMigrationQueueDefinition,
-    PolicyRuleFrontmatterMigrationSubqueueDefinition,
-    iter_prf_queues,
-    iter_prf_subqueues,
+    prf_workstream_registry,
 )
 from gabion.tooling.policy_substrate.projection_semantic_fragment_phase5_registry import (
-    ProjectionSemanticFragmentPhase5QueueDefinition,
-    ProjectionSemanticFragmentPhase5SubqueueDefinition,
-    ProjectionSemanticFragmentPhase5TouchpointDefinition,
-    iter_phase5_queues,
-    iter_phase5_subqueues,
-    iter_phase5_touchpoints,
+    phase5_workstream_registry,
+)
+from gabion.tooling.policy_substrate.structured_artifact_ingress import (
+    StructuredArtifactIdentitySpace,
+    TestEvidenceSite,
+    load_controller_drift_artifact,
+    load_cross_origin_witness_contract_artifact,
+    load_docflow_packet_enforcement_artifact,
+    load_git_state_artifact,
+    load_ingress_merge_parity_artifact,
+    load_junit_failure_artifact,
+    load_local_repro_closure_ledger_artifact,
+    load_test_evidence_artifact,
+)
+from gabion.tooling.policy_substrate.connectivity_synergy_registry import (
+    connectivity_synergy_workstream_registries,
 )
 from gabion.tooling.policy_substrate.site_identity import (
     canonical_site_identity,
     stable_hash,
+)
+from gabion.tooling.policy_substrate.workstream_registry import (
+    RegisteredRootDefinition,
+    RegisteredSubqueueDefinition,
+    RegisteredTouchpointDefinition,
+    RegisteredTouchsiteDefinition,
+    WorkstreamRegistry,
 )
 
 _FORMAT_VERSION = 1
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 _AMBIGUITY_ARTIFACT = Path("artifacts/out/ambiguity_contract_policy_check.json")
 _TEST_EVIDENCE_ARTIFACT = Path("out/test_evidence.json")
+_JUNIT_TEST_RESULTS_ARTIFACT = Path("artifacts/test_runs/junit.xml")
+_SPPF_DEPENDENCY_GRAPH_ARTIFACT = Path("artifacts/sppf_dependency_graph.json")
+_DOCFLOW_PACKET_ENFORCEMENT_ARTIFACT = Path(
+    "artifacts/out/docflow_packet_enforcement.json"
+)
+_CONTROLLER_DRIFT_ARTIFACT = Path("artifacts/out/controller_drift.json")
+_LOCAL_REPRO_CLOSURE_LEDGER_ARTIFACT = Path(
+    "artifacts/out/local_repro_closure_ledger.json"
+)
+_GIT_STATE_ARTIFACT = Path("artifacts/out/git_state.json")
+_DIRTY_GIT_STATE_CLASSES = frozenset({"staged", "unstaged", "untracked"})
+_MECHANICALLY_RECONSTRUCTABLE_PATH_ROOTS = frozenset(
+    {
+        "artifacts",
+        "out",
+        "build",
+        "dist",
+        ".pytest_cache",
+        ".mypy_cache",
+        ".ruff_cache",
+        ".venv",
+        "__pycache__",
+    }
+)
+_MECHANICALLY_RECONSTRUCTABLE_PATH_NAMES = frozenset(
+    {
+        ".coverage",
+        "coverage.xml",
+        "junit.xml",
+    }
+)
+_GIT_STATE_NODE_KINDS = frozenset(
+    {
+        "git_state_report",
+        "git_head_commit",
+        "git_state_entry",
+    }
+)
+_CROSS_ORIGIN_WITNESS_CONTRACT_ARTIFACT = Path(
+    "artifacts/out/cross_origin_witness_contract.json"
+)
+_INGRESS_MERGE_PARITY_ARTIFACT = Path("artifacts/out/ingress_merge_parity.json")
+_SPPF_CHECKLIST_DOC = Path("docs/sppf_checklist.md")
+_INFLUENCE_INDEX_DOC = Path("docs/influence_index.md")
 _DEFAULT_GOVERNANCE_PRIORITY_RANK = 999
+_GH_ISSUE_RE = re.compile(r"\bGH-\d+\b")
+_TRACEBACK_FRAME_RE = re.compile(
+    r'File "(?P<path>[^"]+)", line (?P<line>\d+)(?:, in (?P<qual>.+))?'
+)
+_ORDERED_LIST_RE = re.compile(r"^\s*(?P<ordinal>\d+)\.\s+(?P<text>.+?)\s*$")
+_CHECKLIST_ITEM_RE = re.compile(
+    r"^\s*-\s+\[(?P<marker>[ xX~])\]\s+(?P<text>.+?)\s*$"
+)
+_HEADING_RE = re.compile(r"^(?P<level>#{2,6})\s+(?P<title>.+?)\s*$")
 
 
 def _sorted[T](values: list[T], *, key=None) -> list[T]:
@@ -335,6 +404,8 @@ class InvariantTouchsiteProjection:
     coverage_count: int
     diagnostic_count: int
     object_ids: tuple[str, ...]
+    failing_test_case_count: int = 0
+    test_failure_count: int = 0
 
     def as_payload(self) -> dict[str, object]:
         return {
@@ -360,6 +431,8 @@ class InvariantTouchsiteProjection:
             "coverage_count": self.coverage_count,
             "diagnostic_count": self.diagnostic_count,
             "object_ids": list(self.object_ids),
+            "failing_test_case_count": self.failing_test_case_count,
+            "test_failure_count": self.test_failure_count,
         }
 
 
@@ -608,6 +681,8 @@ class InvariantDiagnosticSummary:
     diagnostic_count: int
     unmatched_policy_signal_count: int
     unresolved_blocking_dependency_count: int
+    workspace_preservation_count: int
+    orphaned_workspace_change_count: int
     buckets: tuple[InvariantDiagnosticBucket, ...]
 
     def as_payload(self) -> dict[str, object]:
@@ -615,6 +690,8 @@ class InvariantDiagnosticSummary:
             "diagnostic_count": self.diagnostic_count,
             "unmatched_policy_signal_count": self.unmatched_policy_signal_count,
             "unresolved_blocking_dependency_count": self.unresolved_blocking_dependency_count,
+            "workspace_preservation_count": self.workspace_preservation_count,
+            "orphaned_workspace_change_count": self.orphaned_workspace_change_count,
             "buckets": [item.as_payload() for item in self.buckets],
         }
 
@@ -677,6 +754,83 @@ def _frontier_decision_mode(
     if same_class_pressure == "moderate":
         return "frontier_hold_with_same_class_watch"
     return "frontier_hold"
+
+
+def _is_mechanically_reconstructable_git_path(rel_path: str) -> bool:
+    if not rel_path:
+        return True
+    path = Path(rel_path)
+    if path.name in _MECHANICALLY_RECONSTRUCTABLE_PATH_NAMES:
+        return True
+    if path.parts and path.parts[0] in _MECHANICALLY_RECONSTRUCTABLE_PATH_ROOTS:
+        return True
+    if path.suffix in {".pyc", ".pyo", ".log", ".tmp"}:
+        return True
+    return False
+
+
+def _workspace_preservation_action_for_state(state_class: str) -> str:
+    return {
+        "staged": "validate_commit_graph_participating_change",
+        "unstaged": "stage_validate_commit_graph_participating_change",
+        "untracked": "adopt_stage_validate_commit_graph_participating_change",
+    }.get(state_class, "preserve_graph_participating_change")
+
+
+def _workspace_preservation_state_from_action(recommended_action: str | None) -> str:
+    return {
+        "validate_commit_graph_participating_change": "staged",
+        "stage_validate_commit_graph_participating_change": "unstaged",
+        "adopt_stage_validate_commit_graph_participating_change": "untracked",
+    }.get(recommended_action or "", "")
+
+
+def _workspace_preservation_followup_title(
+    *,
+    rel_path: str,
+    recommended_action: str | None,
+) -> str:
+    path_label = rel_path or "<unknown>"
+    if recommended_action == "validate_commit_graph_participating_change":
+        return f"validate and commit graph change at {path_label}"
+    if recommended_action == "stage_validate_commit_graph_participating_change":
+        return f"stage, validate, and commit graph change at {path_label}"
+    if recommended_action == "adopt_stage_validate_commit_graph_participating_change":
+        return f"adopt, stage, validate, and commit graph change at {path_label}"
+    return f"preserve graph change at {path_label}"
+
+
+def _workspace_orphan_action_for_state(state_class: str) -> str:
+    return {
+        "staged": "attribute_validate_commit_orphaned_change",
+        "unstaged": "attribute_stage_validate_commit_orphaned_change",
+        "untracked": "adopt_attribute_stage_validate_commit_orphaned_change",
+    }.get(state_class, "attribute_preserve_orphaned_change")
+
+
+def _workspace_orphan_state_from_action(recommended_action: str | None) -> str:
+    return {
+        "attribute_validate_commit_orphaned_change": "staged",
+        "attribute_stage_validate_commit_orphaned_change": "unstaged",
+        "adopt_attribute_stage_validate_commit_orphaned_change": "untracked",
+    }.get(recommended_action or "", "")
+
+
+def _workspace_orphan_followup_title(
+    *,
+    rel_path: str,
+    recommended_action: str | None,
+) -> str:
+    path_label = rel_path or "<unknown>"
+    if recommended_action == "attribute_validate_commit_orphaned_change":
+        return f"attribute, validate, and commit orphaned change at {path_label}"
+    if recommended_action == "attribute_stage_validate_commit_orphaned_change":
+        return f"attribute, stage, validate, and commit orphaned change at {path_label}"
+    if recommended_action == "adopt_attribute_stage_validate_commit_orphaned_change":
+        return (
+            f"adopt, attribute, stage, validate, and commit orphaned change at {path_label}"
+        )
+    return f"attribute and preserve orphaned change at {path_label}"
 
 
 def _cut_frontier_stability_kind(
@@ -970,6 +1124,7 @@ class InvariantRepoFollowupCohortMember:
     followup_class: str
     action_kind: str
     object_id: str | None
+    owner_root_object_id: str | None
     diagnostic_code: str | None
     target_doc_id: str | None
     policy_ids: tuple[str, ...]
@@ -984,6 +1139,7 @@ class InvariantRepoFollowupCohortMember:
             "followup_class": self.followup_class,
             "action_kind": self.action_kind,
             "object_id": self.object_id,
+            "owner_root_object_id": self.owner_root_object_id,
             "diagnostic_code": self.diagnostic_code,
             "target_doc_id": self.target_doc_id,
             "policy_ids": list(self.policy_ids),
@@ -1001,6 +1157,7 @@ class InvariantRepoFollowupAction:
     priority_rank: int
     object_id: str | None
     owner_object_id: str | None
+    owner_root_object_id: str | None
     diagnostic_code: str | None
     target_doc_id: str | None
     policy_ids: tuple[str, ...]
@@ -1043,6 +1200,8 @@ class InvariantRepoFollowupAction:
     opportunity_cost_reason: str
     opportunity_cost_components: tuple[InvariantScoreComponent, ...]
     count: int
+    rel_path: str = ""
+    qualname: str = ""
 
     def as_payload(self) -> dict[str, object]:
         return {
@@ -1051,6 +1210,7 @@ class InvariantRepoFollowupAction:
             "priority_rank": self.priority_rank,
             "object_id": self.object_id,
             "owner_object_id": self.owner_object_id,
+            "owner_root_object_id": self.owner_root_object_id,
             "diagnostic_code": self.diagnostic_code,
             "target_doc_id": self.target_doc_id,
             "policy_ids": list(self.policy_ids),
@@ -1106,6 +1266,8 @@ class InvariantRepoFollowupAction:
             "opportunity_cost_components": [
                 item.as_payload() for item in self.opportunity_cost_components
             ],
+            "rel_path": self.rel_path,
+            "qualname": self.qualname,
             "count": self.count,
         }
 
@@ -1115,6 +1277,7 @@ class InvariantRepoFollowupLane:
     followup_family: str
     followup_class: str
     action_count: int
+    root_object_ids: tuple[str, ...]
     strongest_owner_resolution_kind: str | None
     strongest_owner_resolution_score: int | None
     strongest_utility_score: int
@@ -1133,6 +1296,7 @@ class InvariantRepoFollowupLane:
             "followup_family": self.followup_family,
             "followup_class": self.followup_class,
             "action_count": self.action_count,
+            "root_object_ids": list(self.root_object_ids),
             "strongest_owner_resolution_kind": self.strongest_owner_resolution_kind,
             "strongest_owner_resolution_score": self.strongest_owner_resolution_score,
             "strongest_utility_score": self.strongest_utility_score,
@@ -1339,6 +1503,48 @@ class InvariantRepoDiagnosticLane:
             "candidate_owner_choice_margin_components": [
                 item.as_payload() for item in self.candidate_owner_choice_margin_components
             ],
+        }
+
+
+@dataclass(frozen=True)
+class InvariantWorkspaceCommitUnit:
+    followup_family: str
+    diagnostic_code: str
+    recommended_action: str | None
+    state_class: str
+    owner_scope_kind: str
+    root_object_ids: tuple[str, ...]
+    owner_seed_path: str | None
+    owner_resolution_kind: str | None
+    action_count: int
+    rel_paths: tuple[str, ...]
+    qualnames: tuple[str, ...]
+    utility_score: int
+    utility_reason: str
+    selection_rank: int
+    opportunity_cost_score: int
+    opportunity_cost_reason: str
+    best_followup: InvariantRepoFollowupAction
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "followup_family": self.followup_family,
+            "diagnostic_code": self.diagnostic_code,
+            "recommended_action": self.recommended_action,
+            "state_class": self.state_class,
+            "owner_scope_kind": self.owner_scope_kind,
+            "root_object_ids": list(self.root_object_ids),
+            "owner_seed_path": self.owner_seed_path,
+            "owner_resolution_kind": self.owner_resolution_kind,
+            "action_count": self.action_count,
+            "rel_paths": list(self.rel_paths),
+            "qualnames": list(self.qualnames),
+            "utility_score": self.utility_score,
+            "utility_reason": self.utility_reason,
+            "selection_rank": self.selection_rank,
+            "opportunity_cost_score": self.opportunity_cost_score,
+            "opportunity_cost_reason": self.opportunity_cost_reason,
+            "best_followup": self.best_followup.as_payload(),
         }
 
 
@@ -1553,6 +1759,8 @@ class InvariantTouchpointProjection:
     coverage_count: int
     diagnostic_count: int
     touchsites: ReplayableStream[InvariantTouchsiteProjection]
+    failing_test_case_count: int = 0
+    test_failure_count: int = 0
 
     def iter_touchsites(self) -> Iterator[InvariantTouchsiteProjection]:
         return iter(self.touchsites)
@@ -1577,6 +1785,8 @@ class InvariantTouchpointProjection:
             "policy_signal_count": self.policy_signal_count,
             "coverage_count": self.coverage_count,
             "diagnostic_count": self.diagnostic_count,
+            "failing_test_case_count": self.failing_test_case_count,
+            "test_failure_count": self.test_failure_count,
             "touchsites": [item.as_payload() for item in self.iter_touchsites()],
         }
 
@@ -1600,6 +1810,8 @@ class InvariantSubqueueProjection:
     policy_signal_count: int
     coverage_count: int
     diagnostic_count: int
+    failing_test_case_count: int = 0
+    test_failure_count: int = 0
 
     def as_payload(self) -> dict[str, object]:
         return {
@@ -1620,6 +1832,8 @@ class InvariantSubqueueProjection:
             "policy_signal_count": self.policy_signal_count,
             "coverage_count": self.coverage_count,
             "diagnostic_count": self.diagnostic_count,
+            "failing_test_case_count": self.failing_test_case_count,
+            "test_failure_count": self.test_failure_count,
         }
 
 
@@ -1646,6 +1860,8 @@ class InvariantWorkstreamProjection:
     subqueues: ReplayableStream[InvariantSubqueueProjection]
     touchpoints: ReplayableStream[InvariantTouchpointProjection]
     doc_alignment_summary: InvariantLedgerAlignmentSummary | None = None
+    failing_test_case_count: int = 0
+    test_failure_count: int = 0
 
     def iter_subqueues(self) -> Iterator[InvariantSubqueueProjection]:
         return iter(self.subqueues)
@@ -1806,6 +2022,26 @@ class InvariantWorkstreamProjection:
     def recommended_cut(self) -> InvariantCutCandidate | None:
         ranked_cuts = self.ranked_cuts()
         if not ranked_cuts:
+            if (
+                self.touchsite_count > 0
+                or self.policy_signal_count > 0
+                or self.diagnostic_count > 0
+            ):
+                never(
+                    reasoning={
+                        "summary": (
+                            "Active workstream planning must resolve a concrete cut "
+                            "frontier instead of emitting an empty ranked-cut set."
+                        ),
+                        "control": "invariant_graph.workstream.requires_recommended_cut",
+                        "blocking_dependencies": (self.object_id.wire(),),
+                    },
+                    workstream_id=self.object_id.wire(),
+                    touchsite_count=self.touchsite_count,
+                    policy_signal_count=self.policy_signal_count,
+                    diagnostic_count=self.diagnostic_count,
+                )
+                return None  # pragma: no cover - never() raises
             return None
         return ranked_cuts[0]
 
@@ -2038,6 +2274,22 @@ class InvariantWorkstreamProjection:
         lane = self.documentation_followup_lane()
         if lane is None:
             return None
+        if lane.best_target_doc_id is None:
+            never(
+                reasoning={
+                    "summary": (
+                        "Documentation followup lanes must resolve a concrete target "
+                        "doc before they are projected into next-action outputs."
+                    ),
+                    "control": "invariant_graph.workstream.documentation_lane_requires_target_doc",
+                    "blocking_dependencies": (self.object_id.wire(),),
+                },
+                workstream_id=self.object_id.wire(),
+                alignment_status=lane.alignment_status,
+                recommended_action=lane.recommended_action,
+                misaligned_target_doc_count=lane.misaligned_target_doc_count,
+            )
+            return None  # pragma: no cover - never() raises
         return lane.best_target_doc_id
 
     def _documentation_followup_priority_rank(
@@ -2061,7 +2313,23 @@ class InvariantWorkstreamProjection:
         actions: list[InvariantFollowupAction] = []
         for lane in self.remediation_lanes():
             if lane.best_cut is None:
-                continue
+                never(
+                    reasoning={
+                        "summary": (
+                            "Remediation lanes must resolve a best cut before they are "
+                            "projected into workstream followups."
+                        ),
+                        "control": "invariant_graph.workstream.remediation_lane_requires_best_cut",
+                        "blocking_dependencies": (self.object_id.wire(),),
+                    },
+                    workstream_id=self.object_id.wire(),
+                    remediation_family=lane.remediation_family,
+                    blocker_class=lane.blocker_class,
+                    touchsite_count=lane.touchsite_count,
+                    touchpoint_cut_count=lane.touchpoint_cut_count,
+                    subqueue_cut_count=lane.subqueue_cut_count,
+                )
+                continue  # pragma: no cover - never() raises
             actions.append(
                 InvariantFollowupAction(
                     followup_family=lane.remediation_family,
@@ -2119,6 +2387,22 @@ class InvariantWorkstreamProjection:
     def recommended_followup(self) -> InvariantFollowupAction | None:
         ranked_followups = self.ranked_followups()
         if not ranked_followups:
+            documentation_lane = self.documentation_followup_lane()
+            if self.touchsite_count > 0 or documentation_lane is not None:
+                never(
+                    reasoning={
+                        "summary": (
+                            "Active workstream planning must resolve a recommended "
+                            "followup instead of emitting an empty followup set."
+                        ),
+                        "control": "invariant_graph.workstream.requires_recommended_followup",
+                        "blocking_dependencies": (self.object_id.wire(),),
+                    },
+                    workstream_id=self.object_id.wire(),
+                    touchsite_count=self.touchsite_count,
+                    has_documentation_lane=documentation_lane is not None,
+                )
+                return None  # pragma: no cover - never() raises
             return None
         return ranked_followups[0]
 
@@ -2290,6 +2574,8 @@ class InvariantWorkstreamProjection:
                 and not matching_subqueue_cuts
             ):
                 continue
+            if not matching_touchpoint_cuts and not matching_subqueue_cuts:
+                continue
             best_touchpoint_cut = (
                 matching_touchpoint_cuts[0] if matching_touchpoint_cuts else None
             )
@@ -2330,6 +2616,23 @@ class InvariantWorkstreamProjection:
         if self.doc_alignment_summary.recommended_doc_alignment_action == "none":
             return None
         misaligned_target_doc_ids = self.doc_alignment_summary.misaligned_target_doc_ids
+        if not misaligned_target_doc_ids:
+            never(
+                reasoning={
+                    "summary": (
+                        "Documentation alignment planning must resolve at least one "
+                        "misaligned target doc before it emits a documentation lane."
+                    ),
+                    "control": "invariant_graph.workstream.documentation_lane_requires_misaligned_target",
+                    "blocking_dependencies": (self.object_id.wire(),),
+                },
+                workstream_id=self.object_id.wire(),
+                recommended_action=(
+                    self.doc_alignment_summary.recommended_doc_alignment_action
+                ),
+                target_doc_count=self.doc_alignment_summary.target_doc_count,
+            )
+            return None  # pragma: no cover - never() raises
         return InvariantDocumentationFollowupLane(
             followup_family="documentation_alignment",
             alignment_status=self.doc_alignment_summary.dominant_alignment_status,
@@ -2382,6 +2685,8 @@ class InvariantWorkstreamProjection:
             "policy_signal_count": self.policy_signal_count,
             "coverage_count": self.coverage_count,
             "diagnostic_count": self.diagnostic_count,
+            "failing_test_case_count": self.failing_test_case_count,
+            "test_failure_count": self.test_failure_count,
             "doc_alignment_summary": (
                 None
                 if self.doc_alignment_summary is None
@@ -2491,12 +2796,18 @@ class InvariantWorkstreamsProjection:
         bucket_counts: defaultdict[tuple[str, str], int] = defaultdict(int)
         unmatched_policy_signal_count = 0
         unresolved_blocking_dependency_count = 0
+        workspace_preservation_count = 0
+        orphaned_workspace_change_count = 0
         for diagnostic in self.diagnostics:
             bucket_counts[(diagnostic.code, diagnostic.severity)] += 1
             if diagnostic.code == "unmatched_policy_signal":
                 unmatched_policy_signal_count += 1
             if diagnostic.code == "unresolved_blocking_dependency":
                 unresolved_blocking_dependency_count += 1
+            if diagnostic.code == "workspace_preservation_needed":
+                workspace_preservation_count += 1
+            if diagnostic.code == "orphaned_workspace_change":
+                orphaned_workspace_change_count += 1
         buckets = tuple(
             InvariantDiagnosticBucket(code=code, severity=severity, count=count)
             for (code, severity), count in _sorted(
@@ -2508,6 +2819,8 @@ class InvariantWorkstreamsProjection:
             diagnostic_count=len(self.diagnostics),
             unmatched_policy_signal_count=unmatched_policy_signal_count,
             unresolved_blocking_dependency_count=unresolved_blocking_dependency_count,
+            workspace_preservation_count=workspace_preservation_count,
+            orphaned_workspace_change_count=orphaned_workspace_change_count,
             buckets=buckets,
         )
 
@@ -3011,6 +3324,132 @@ class InvariantWorkstreamsProjection:
                     ),
                 ),
             )
+        if followup.diagnostic_code == "workspace_preservation_needed":
+            state_class = _workspace_preservation_state_from_action(
+                followup.recommended_action
+            )
+            base_score = {
+                "untracked": 960,
+                "unstaged": 950,
+                "staged": 940,
+            }.get(state_class, 930)
+            owner_resolution_bonus = {
+                "attach_existing_owner": 30,
+                "seed_new_owner": 10,
+            }.get(followup.owner_resolution_kind or "", 0)
+            owner_option_tradeoff_bonus = (
+                10 if (followup.owner_option_tradeoff_score or 0) > 0 else 0
+            )
+            score = (
+                base_score
+                + owner_resolution_bonus
+                + owner_option_tradeoff_bonus
+            )
+            reason = f"workspace_preservation:{state_class or 'dirty'}"
+            if followup.owner_resolution_kind is not None:
+                reason = f"{reason}:{followup.owner_resolution_kind}"
+            return (
+                score,
+                reason,
+                tuple(
+                    component
+                    for component in (
+                        InvariantScoreComponent(
+                            kind="workspace_preservation_base",
+                            score=base_score,
+                            rationale=f"workspace_preservation:{state_class or 'dirty'}",
+                        ),
+                        (
+                            InvariantScoreComponent(
+                                kind="owner_resolution_bonus",
+                                score=owner_resolution_bonus,
+                                rationale=(
+                                    followup.owner_resolution_kind
+                                    or "owner_resolution:none"
+                                ),
+                            )
+                            if owner_resolution_bonus > 0
+                            else None
+                        ),
+                        (
+                            InvariantScoreComponent(
+                                kind="owner_option_tradeoff_bonus",
+                                score=owner_option_tradeoff_bonus,
+                                rationale=(
+                                    followup.owner_option_tradeoff_reason
+                                    or "owner_option_tradeoff:none"
+                                ),
+                            )
+                            if owner_option_tradeoff_bonus > 0
+                            else None
+                        ),
+                    )
+                    if component is not None
+                ),
+            )
+        if followup.diagnostic_code == "orphaned_workspace_change":
+            state_class = _workspace_orphan_state_from_action(
+                followup.recommended_action
+            )
+            base_score = {
+                "untracked": 930,
+                "unstaged": 920,
+                "staged": 910,
+            }.get(state_class, 900)
+            owner_resolution_bonus = {
+                "attach_existing_owner": 20,
+                "seed_new_owner": 10,
+            }.get(followup.owner_resolution_kind or "", 0)
+            owner_option_tradeoff_bonus = (
+                10 if (followup.owner_option_tradeoff_score or 0) > 0 else 0
+            )
+            score = (
+                base_score
+                + owner_resolution_bonus
+                + owner_option_tradeoff_bonus
+            )
+            reason = f"workspace_orphan:{state_class or 'dirty'}"
+            if followup.owner_resolution_kind is not None:
+                reason = f"{reason}:{followup.owner_resolution_kind}"
+            return (
+                score,
+                reason,
+                tuple(
+                    component
+                    for component in (
+                        InvariantScoreComponent(
+                            kind="workspace_orphan_base",
+                            score=base_score,
+                            rationale=f"workspace_orphan:{state_class or 'dirty'}",
+                        ),
+                        (
+                            InvariantScoreComponent(
+                                kind="owner_resolution_bonus",
+                                score=owner_resolution_bonus,
+                                rationale=(
+                                    followup.owner_resolution_kind
+                                    or "owner_resolution:none"
+                                ),
+                            )
+                            if owner_resolution_bonus > 0
+                            else None
+                        ),
+                        (
+                            InvariantScoreComponent(
+                                kind="owner_option_tradeoff_bonus",
+                                score=owner_option_tradeoff_bonus,
+                                rationale=(
+                                    followup.owner_option_tradeoff_reason
+                                    or "owner_option_tradeoff:none"
+                                ),
+                            )
+                            if owner_option_tradeoff_bonus > 0
+                            else None
+                        ),
+                    )
+                    if component is not None
+                ),
+            )
         if followup.action_kind == "diagnostic_resolution":
             return (
                 800,
@@ -3163,6 +3602,7 @@ class InvariantWorkstreamsProjection:
                 followup_class=self._repo_followup_class(item),
                 action_kind=item.action_kind,
                 object_id=item.object_id,
+                owner_root_object_id=item.owner_root_object_id,
                 diagnostic_code=item.diagnostic_code,
                 target_doc_id=item.target_doc_id,
                 policy_ids=item.policy_ids,
@@ -3177,6 +3617,32 @@ class InvariantWorkstreamsProjection:
             )
             for index, item in enumerate(cofrontier_followups, start=1)
         )
+
+    @staticmethod
+    def _resolved_repo_followup_owner_root_object_id(
+        followup: InvariantRepoFollowupAction,
+    ) -> str | None:
+        if followup.owner_root_object_id is not None:
+            return followup.owner_root_object_id
+        if followup.owner_object_id is not None:
+            return followup.owner_object_id
+        if followup.owner_seed_object_id is not None:
+            return followup.owner_seed_object_id
+        return None
+
+    @staticmethod
+    def _resolved_repo_diagnostic_lane_owner_root_object_id(
+        *,
+        lane: InvariantRepoDiagnosticLane,
+        best_option: InvariantOwnerCandidateOption | None,
+    ) -> str | None:
+        if best_option is not None:
+            return best_option.object_id
+        if lane.candidate_owner_object_id is not None:
+            return lane.candidate_owner_object_id
+        if lane.candidate_owner_seed_object_id is not None:
+            return lane.candidate_owner_seed_object_id
+        return None
 
     def _repo_followup_cohort_selection_reason(
         self,
@@ -3303,6 +3769,12 @@ class InvariantWorkstreamsProjection:
                         priority_rank=0,
                         object_id=None,
                         owner_object_id=lane.candidate_owner_object_id,
+                        owner_root_object_id=(
+                            self._resolved_repo_diagnostic_lane_owner_root_object_id(
+                                lane=lane,
+                                best_option=best_option,
+                            )
+                        ),
                         diagnostic_code=lane.diagnostic_code,
                         target_doc_id=None,
                         policy_ids=lane.policy_ids,
@@ -3360,6 +3832,8 @@ class InvariantWorkstreamsProjection:
                         frontier_choice_margin_score=None,
                         frontier_choice_margin_reason=None,
                         frontier_choice_margin_components=(),
+                        rel_path=lane.rel_path,
+                        qualname=lane.qualname,
                         selection_rank=0,
                         opportunity_cost_score=0,
                         opportunity_cost_reason="frontier",
@@ -3380,7 +3854,13 @@ class InvariantWorkstreamsProjection:
                         action_kind="diagnostic_resolution",
                         priority_rank=10,
                         object_id=None,
-                        owner_object_id=None,
+                        owner_object_id=lane.candidate_owner_object_id,
+                        owner_root_object_id=(
+                            self._resolved_repo_diagnostic_lane_owner_root_object_id(
+                                lane=lane,
+                                best_option=None,
+                            )
+                        ),
                         diagnostic_code=lane.diagnostic_code,
                         target_doc_id=None,
                         policy_ids=lane.policy_ids,
@@ -3418,6 +3898,203 @@ class InvariantWorkstreamsProjection:
                         frontier_choice_margin_score=None,
                         frontier_choice_margin_reason=None,
                         frontier_choice_margin_components=(),
+                        rel_path=lane.rel_path,
+                        qualname=lane.qualname,
+                        selection_rank=0,
+                        opportunity_cost_score=0,
+                        opportunity_cost_reason="frontier",
+                        opportunity_cost_components=(),
+                        count=lane.count,
+                    )
+                )
+            elif lane.diagnostic_code == "workspace_preservation_needed":
+                best_option = (
+                    lane.candidate_owner_options[0]
+                    if lane.candidate_owner_options
+                    else None
+                )
+                runner_up_option = lane.runner_up_candidate_owner_option
+                (
+                    owner_option_tradeoff_score,
+                    owner_option_tradeoff_reason,
+                    owner_option_tradeoff_components,
+                ) = self._owner_option_tradeoff(lane.candidate_owner_options)
+                title = _workspace_preservation_followup_title(
+                    rel_path=lane.rel_path,
+                    recommended_action=lane.recommended_action,
+                )
+                actions.append(
+                    InvariantRepoFollowupAction(
+                        followup_family="workspace_preservation",
+                        action_kind="state_preservation",
+                        priority_rank=5,
+                        object_id=None,
+                        owner_object_id=lane.candidate_owner_object_id,
+                        owner_root_object_id=(
+                            self._resolved_repo_diagnostic_lane_owner_root_object_id(
+                                lane=lane,
+                                best_option=best_option,
+                            )
+                        ),
+                        diagnostic_code=lane.diagnostic_code,
+                        target_doc_id=None,
+                        policy_ids=lane.policy_ids,
+                        title=title,
+                        blocker_class=(
+                            f"workspace_{_workspace_preservation_state_from_action(lane.recommended_action) or 'dirty'}"
+                        ),
+                        readiness_class=None,
+                        alignment_status=None,
+                        recommended_action=lane.recommended_action,
+                        owner_seed_path=lane.candidate_owner_seed_path,
+                        owner_seed_object_id=lane.candidate_owner_seed_object_id,
+                        owner_resolution_kind=(
+                            best_option.resolution_kind if best_option is not None else None
+                        ),
+                        owner_resolution_score=(
+                            best_option.score if best_option is not None else None
+                        ),
+                        owner_resolution_options=lane.candidate_owner_options,
+                        runner_up_owner_object_id=(
+                            runner_up_option.object_id
+                            if runner_up_option is not None
+                            else None
+                        ),
+                        runner_up_owner_resolution_kind=(
+                            runner_up_option.resolution_kind
+                            if runner_up_option is not None
+                            else None
+                        ),
+                        runner_up_owner_resolution_score=(
+                            runner_up_option.score
+                            if runner_up_option is not None
+                            else None
+                        ),
+                        owner_choice_margin_score=lane.candidate_owner_choice_margin_score,
+                        owner_choice_margin_reason=lane.candidate_owner_choice_margin_reason,
+                        owner_choice_margin_components=(
+                            lane.candidate_owner_choice_margin_components
+                        ),
+                        owner_option_tradeoff_score=owner_option_tradeoff_score,
+                        owner_option_tradeoff_reason=owner_option_tradeoff_reason,
+                        owner_option_tradeoff_components=(
+                            owner_option_tradeoff_components
+                        ),
+                        utility_score=0,
+                        utility_reason="",
+                        utility_components=(),
+                        selection_certainty_kind="ranked_unique",
+                        cofrontier_followup_count=1,
+                        cofrontier_followup_cohort=(),
+                        selection_scope_kind="singleton",
+                        selection_scope_id=None,
+                        runner_up_followup_family=None,
+                        runner_up_followup_class=None,
+                        runner_up_followup_object_id=None,
+                        runner_up_followup_utility_score=None,
+                        frontier_choice_margin_score=None,
+                        frontier_choice_margin_reason=None,
+                        frontier_choice_margin_components=(),
+                        rel_path=lane.rel_path,
+                        qualname=lane.qualname,
+                        selection_rank=0,
+                        opportunity_cost_score=0,
+                        opportunity_cost_reason="frontier",
+                        opportunity_cost_components=(),
+                        count=lane.count,
+                    )
+                )
+            elif lane.diagnostic_code == "orphaned_workspace_change":
+                best_option = (
+                    lane.candidate_owner_options[0]
+                    if lane.candidate_owner_options
+                    else None
+                )
+                runner_up_option = lane.runner_up_candidate_owner_option
+                (
+                    owner_option_tradeoff_score,
+                    owner_option_tradeoff_reason,
+                    owner_option_tradeoff_components,
+                ) = self._owner_option_tradeoff(lane.candidate_owner_options)
+                title = _workspace_orphan_followup_title(
+                    rel_path=lane.rel_path,
+                    recommended_action=lane.recommended_action,
+                )
+                actions.append(
+                    InvariantRepoFollowupAction(
+                        followup_family="workspace_orphan_resolution",
+                        action_kind="state_preservation",
+                        priority_rank=6,
+                        object_id=None,
+                        owner_object_id=lane.candidate_owner_object_id,
+                        owner_root_object_id=(
+                            self._resolved_repo_diagnostic_lane_owner_root_object_id(
+                                lane=lane,
+                                best_option=best_option,
+                            )
+                        ),
+                        diagnostic_code=lane.diagnostic_code,
+                        target_doc_id=None,
+                        policy_ids=lane.policy_ids,
+                        title=title,
+                        blocker_class=(
+                            "workspace_orphan_"
+                            f"{_workspace_orphan_state_from_action(lane.recommended_action) or 'dirty'}"
+                        ),
+                        readiness_class=None,
+                        alignment_status=None,
+                        recommended_action=lane.recommended_action,
+                        owner_seed_path=lane.candidate_owner_seed_path,
+                        owner_seed_object_id=lane.candidate_owner_seed_object_id,
+                        owner_resolution_kind=(
+                            best_option.resolution_kind if best_option is not None else None
+                        ),
+                        owner_resolution_score=(
+                            best_option.score if best_option is not None else None
+                        ),
+                        owner_resolution_options=lane.candidate_owner_options,
+                        runner_up_owner_object_id=(
+                            runner_up_option.object_id
+                            if runner_up_option is not None
+                            else None
+                        ),
+                        runner_up_owner_resolution_kind=(
+                            runner_up_option.resolution_kind
+                            if runner_up_option is not None
+                            else None
+                        ),
+                        runner_up_owner_resolution_score=(
+                            runner_up_option.score
+                            if runner_up_option is not None
+                            else None
+                        ),
+                        owner_choice_margin_score=lane.candidate_owner_choice_margin_score,
+                        owner_choice_margin_reason=lane.candidate_owner_choice_margin_reason,
+                        owner_choice_margin_components=(
+                            lane.candidate_owner_choice_margin_components
+                        ),
+                        owner_option_tradeoff_score=owner_option_tradeoff_score,
+                        owner_option_tradeoff_reason=owner_option_tradeoff_reason,
+                        owner_option_tradeoff_components=(
+                            owner_option_tradeoff_components
+                        ),
+                        utility_score=0,
+                        utility_reason="",
+                        utility_components=(),
+                        selection_certainty_kind="ranked_unique",
+                        cofrontier_followup_count=1,
+                        cofrontier_followup_cohort=(),
+                        selection_scope_kind="singleton",
+                        selection_scope_id=None,
+                        runner_up_followup_family=None,
+                        runner_up_followup_class=None,
+                        runner_up_followup_object_id=None,
+                        runner_up_followup_utility_score=None,
+                        frontier_choice_margin_score=None,
+                        frontier_choice_margin_reason=None,
+                        frontier_choice_margin_components=(),
+                        rel_path=lane.rel_path,
+                        qualname=lane.qualname,
                         selection_rank=0,
                         opportunity_cost_score=0,
                         opportunity_cost_reason="frontier",
@@ -3438,7 +4115,13 @@ class InvariantWorkstreamsProjection:
                         action_kind="diagnostic_resolution",
                         priority_rank=20,
                         object_id=None,
-                        owner_object_id=None,
+                        owner_object_id=lane.candidate_owner_object_id,
+                        owner_root_object_id=(
+                            self._resolved_repo_diagnostic_lane_owner_root_object_id(
+                                lane=lane,
+                                best_option=None,
+                            )
+                        ),
                         diagnostic_code=lane.diagnostic_code,
                         target_doc_id=None,
                         policy_ids=lane.policy_ids,
@@ -3476,6 +4159,8 @@ class InvariantWorkstreamsProjection:
                         frontier_choice_margin_score=None,
                         frontier_choice_margin_reason=None,
                         frontier_choice_margin_components=(),
+                        rel_path=lane.rel_path,
+                        qualname=lane.qualname,
                         selection_rank=0,
                         opportunity_cost_score=0,
                         opportunity_cost_reason="frontier",
@@ -3492,6 +4177,7 @@ class InvariantWorkstreamsProjection:
                         priority_rank=100 + followup.priority_rank,
                         object_id=followup.object_id,
                         owner_object_id=workstream.object_id.wire(),
+                        owner_root_object_id=workstream.object_id.wire(),
                         diagnostic_code=None,
                         target_doc_id=followup.target_doc_id,
                         policy_ids=(),
@@ -3529,6 +4215,8 @@ class InvariantWorkstreamsProjection:
                         frontier_choice_margin_score=None,
                         frontier_choice_margin_reason=None,
                         frontier_choice_margin_components=(),
+                        rel_path="",
+                        qualname="",
                         selection_rank=0,
                         opportunity_cost_score=0,
                         opportunity_cost_reason="frontier",
@@ -3741,6 +4429,34 @@ class InvariantWorkstreamsProjection:
     def _recommended_repo_followup(self) -> InvariantRepoFollowupAction | None:
         ranked = self.ranked_repo_followups()
         if not ranked:
+            if self.diagnostics or any(
+                workstream.touchsite_count > 0
+                or workstream.documentation_followup_lane() is not None
+                for workstream in self._workstream_cache
+            ):
+                never(
+                    reasoning={
+                        "summary": (
+                            "Repo-level planning must resolve a frontier followup "
+                            "when diagnostics or active workstream queues exist."
+                        ),
+                        "control": "invariant_graph.repo.requires_recommended_followup",
+                        "blocking_dependencies": tuple(
+                            workstream.object_id.wire()
+                            for workstream in self._workstream_cache
+                            if workstream.touchsite_count > 0
+                            or workstream.documentation_followup_lane() is not None
+                        ),
+                    },
+                    diagnostic_count=len(self.diagnostics),
+                    active_workstream_count=sum(
+                        1
+                        for workstream in self._workstream_cache
+                        if workstream.touchsite_count > 0
+                        or workstream.documentation_followup_lane() is not None
+                    ),
+                )
+                return None  # pragma: no cover - never() raises
             return None
         return ranked[0]
 
@@ -3776,9 +4492,27 @@ class InvariantWorkstreamsProjection:
                     f"{next(iter(owner_resolution_targets))}"
                 ),
             )
+        owner_root_object_ids = {
+            item.owner_root_object_id
+            for item in cofrontier_followups
+            if item.owner_root_object_id is not None
+        }
+        if len(owner_root_object_ids) == 1:
+            return ("shared_root_workstream", next(iter(owner_root_object_ids)))
         followup_families = {item.followup_family for item in cofrontier_followups}
         if len(followup_families) == 1:
-            return ("shared_followup_family", next(iter(followup_families)))
+            followup_family = next(iter(followup_families))
+            if len(owner_root_object_ids) > 1:
+                return (
+                    "mixed_root_followup_family",
+                    f"{followup_family}:{','.join(_sorted(list(owner_root_object_ids)))}",
+                )
+            return ("shared_followup_family", followup_family)
+        if len(owner_root_object_ids) > 1:
+            return (
+                "mixed_root_plateau",
+                ",".join(_sorted(list(owner_root_object_ids))),
+            )
         return ("mixed_plateau", None)
 
     def _repo_followup_lane_utility(
@@ -3861,6 +4595,24 @@ class InvariantWorkstreamsProjection:
     def _recommended_repo_followup_lane(self) -> InvariantRepoFollowupLane | None:
         lanes = self.repo_followup_lanes()
         if not lanes:
+            if self.ranked_repo_followups():
+                never(
+                    reasoning={
+                        "summary": (
+                            "Repo followup ranking must resolve at least one lane "
+                            "whenever repo followups exist."
+                        ),
+                        "control": "invariant_graph.repo.requires_recommended_followup_lane",
+                        "blocking_dependencies": tuple(
+                            workstream.object_id.wire()
+                            for workstream in self._workstream_cache
+                            if workstream.touchsite_count > 0
+                            or workstream.documentation_followup_lane() is not None
+                        ),
+                    },
+                    followup_count=len(self.ranked_repo_followups()),
+                )
+                return None  # pragma: no cover - never() raises
             return None
         return lanes[0]
 
@@ -3868,12 +4620,46 @@ class InvariantWorkstreamsProjection:
         for lane in self.repo_followup_lanes():
             if lane.followup_class == "code":
                 return lane
+        if self.recommended_repo_code_followup() is not None:
+            never(
+                reasoning={
+                    "summary": (
+                        "Repo-level code followups must project a code lane once "
+                        "a recommended code followup exists."
+                    ),
+                    "control": "invariant_graph.repo.requires_recommended_code_followup_lane",
+                    "blocking_dependencies": tuple(
+                        workstream.object_id.wire()
+                        for workstream in self._workstream_cache
+                        if workstream.touchsite_count > 0
+                    ),
+                },
+                followup_family=self.recommended_repo_code_followup().followup_family,
+            )
+            return None  # pragma: no cover - never() raises
         return None
 
     def recommended_repo_human_followup_lane(self) -> InvariantRepoFollowupLane | None:
         for lane in self.repo_followup_lanes():
             if lane.followup_class != "code":
                 return lane
+        if self.recommended_repo_human_followup() is not None:
+            never(
+                reasoning={
+                    "summary": (
+                        "Repo-level human followups must project a human lane once "
+                        "a recommended human followup exists."
+                    ),
+                    "control": "invariant_graph.repo.requires_recommended_human_followup_lane",
+                    "blocking_dependencies": tuple(
+                        workstream.object_id.wire()
+                        for workstream in self._workstream_cache
+                        if workstream.documentation_followup_lane() is not None
+                    ),
+                },
+                followup_family=self.recommended_repo_human_followup().followup_family,
+            )
+            return None  # pragma: no cover - never() raises
         return None
 
     def recommended_repo_followup_cross_class_tradeoff(
@@ -4240,6 +5026,22 @@ class InvariantWorkstreamsProjection:
                     followup_family=followup_family,
                     followup_class=followup_class,
                     action_count=len(items),
+                    root_object_ids=tuple(
+                        _sorted(
+                            list(
+                                {
+                                self._resolved_repo_followup_owner_root_object_id(
+                                    item
+                                )
+                                for item in items
+                                if self._resolved_repo_followup_owner_root_object_id(
+                                    item
+                                )
+                                is not None
+                                }
+                            )
+                        )
+                    ),
                     strongest_owner_resolution_kind=items[0].owner_resolution_kind,
                     strongest_owner_resolution_score=items[0].owner_resolution_score,
                     strongest_utility_score=items[0].utility_score,
@@ -4337,6 +5139,18 @@ class InvariantWorkstreamsProjection:
             elif diagnostic.code == "unresolved_blocking_dependency":
                 title = diagnostic.code
                 recommended_action = "resolve_or_reassign_blocking_dependencies"
+            elif diagnostic.code == "workspace_preservation_needed":
+                state_class = "" if node is None else node.status_hint
+                title = "" if node is None else node.title
+                if not title:
+                    title = f"{state_class}:{rel_path}" if state_class and rel_path else diagnostic.code
+                recommended_action = _workspace_preservation_action_for_state(state_class)
+            elif diagnostic.code == "orphaned_workspace_change":
+                state_class = "" if node is None else node.status_hint
+                title = "" if node is None else node.title
+                if not title:
+                    title = f"{state_class}:{rel_path}" if state_class and rel_path else diagnostic.code
+                recommended_action = _workspace_orphan_action_for_state(state_class)
             else:
                 title = diagnostic.message.strip() or diagnostic.code
                 recommended_action = "investigate_diagnostic_backlog"
@@ -4487,6 +5301,187 @@ class InvariantWorkstreamsProjection:
             )
         )
 
+    @staticmethod
+    def _workspace_commit_unit_owner_scope(
+        followup: InvariantRepoFollowupAction,
+    ) -> tuple[str, tuple[str, ...]]:
+        attach_existing_owner_ids = tuple(
+            _sorted(
+                list(
+                    {
+                        item.object_id
+                        for item in followup.owner_resolution_options
+                        if item.object_id
+                        and item.resolution_kind == "attach_existing_owner"
+                    }
+                )
+            )
+        )
+        if len(attach_existing_owner_ids) > 1:
+            return ("ambiguous_owner_set", attach_existing_owner_ids)
+        if len(attach_existing_owner_ids) == 1:
+            return ("resolved_owner", attach_existing_owner_ids)
+        owner_option_object_ids = tuple(
+            _sorted(
+                list(
+                    {
+                        item.object_id
+                        for item in followup.owner_resolution_options
+                        if item.object_id
+                    }
+                )
+            )
+        )
+        if len(owner_option_object_ids) > 1:
+            return ("ambiguous_owner_set", owner_option_object_ids)
+        resolved_owner_root_object_id = (
+            InvariantWorkstreamsProjection._resolved_repo_followup_owner_root_object_id(
+                followup
+            )
+        )
+        if resolved_owner_root_object_id is not None:
+            return ("resolved_owner", (resolved_owner_root_object_id,))
+        if followup.owner_seed_object_id is not None:
+            return ("seed_owner", (followup.owner_seed_object_id,))
+        return ("unassigned", ())
+
+    def workspace_commit_units(self) -> tuple[InvariantWorkspaceCommitUnit, ...]:
+        return self._workspace_commit_units
+
+    @cached_property
+    def _workspace_commit_units(self) -> tuple[InvariantWorkspaceCommitUnit, ...]:
+        workspace_followups = [
+            item
+            for item in self.ranked_repo_followups()
+            if item.diagnostic_code
+            in {"workspace_preservation_needed", "orphaned_workspace_change"}
+        ]
+        grouped: defaultdict[
+            tuple[str, str, str, str, str, tuple[str, ...], str, str],
+            list[InvariantRepoFollowupAction],
+        ] = defaultdict(list)
+        for followup in workspace_followups:
+            if followup.diagnostic_code == "workspace_preservation_needed":
+                state_class = _workspace_preservation_state_from_action(
+                    followup.recommended_action
+                )
+            else:
+                state_class = _workspace_orphan_state_from_action(
+                    followup.recommended_action
+                )
+            owner_scope_kind, root_object_ids = self._workspace_commit_unit_owner_scope(
+                followup
+            )
+            grouped[
+                (
+                    followup.followup_family,
+                    followup.diagnostic_code or "",
+                    followup.recommended_action or "",
+                    state_class,
+                    owner_scope_kind,
+                    root_object_ids,
+                    followup.owner_seed_path or "",
+                    followup.owner_resolution_kind or "",
+                )
+            ].append(followup)
+
+        units: list[InvariantWorkspaceCommitUnit] = []
+        for (
+            followup_family,
+            diagnostic_code,
+            recommended_action,
+            state_class,
+            owner_scope_kind,
+            root_object_ids,
+            owner_seed_path,
+            owner_resolution_kind,
+        ), items in grouped.items():
+            best_followup = items[0]
+            action_count = sum(item.count for item in items)
+            rel_paths = tuple(
+                _sorted(list({item.rel_path for item in items if item.rel_path}))
+            )
+            qualnames = tuple(
+                _sorted(list({item.qualname for item in items if item.qualname}))
+            )
+            breadth_bonus = 0 if len(items) <= 1 else min(len(items), 9) * 5
+            utility_score = best_followup.utility_score + breadth_bonus
+            utility_reason = (
+                best_followup.utility_reason
+                if breadth_bonus <= 0
+                else f"{best_followup.utility_reason}+workspace_breadth:{len(items)}"
+            )
+            units.append(
+                InvariantWorkspaceCommitUnit(
+                    followup_family=followup_family,
+                    diagnostic_code=diagnostic_code,
+                    recommended_action=(
+                        None if not recommended_action else recommended_action
+                    ),
+                    state_class=state_class,
+                    owner_scope_kind=owner_scope_kind,
+                    root_object_ids=root_object_ids,
+                    owner_seed_path=(
+                        None if not owner_seed_path else owner_seed_path
+                    ),
+                    owner_resolution_kind=(
+                        None if not owner_resolution_kind else owner_resolution_kind
+                    ),
+                    action_count=action_count,
+                    rel_paths=rel_paths,
+                    qualnames=qualnames,
+                    utility_score=utility_score,
+                    utility_reason=utility_reason,
+                    selection_rank=0,
+                    opportunity_cost_score=0,
+                    opportunity_cost_reason="frontier",
+                    best_followup=best_followup,
+                )
+            )
+
+        ranked_units = _sorted(
+            units,
+            key=lambda item: (
+                -item.utility_score,
+                item.best_followup.priority_rank,
+                -item.action_count,
+                item.followup_family,
+                item.owner_scope_kind,
+                item.root_object_ids,
+                item.rel_paths,
+            ),
+        )
+        frontier_unit = ranked_units[0] if ranked_units else None
+        frontier_score = frontier_unit.utility_score if frontier_unit is not None else 0
+        return tuple(
+            replace(
+                item,
+                selection_rank=index,
+                opportunity_cost_score=max(0, frontier_score - item.utility_score),
+                opportunity_cost_reason=(
+                    "frontier"
+                    if index == 1
+                    else (
+                        "cofrontier"
+                        if frontier_unit is not None
+                        and frontier_score == item.utility_score
+                        else (
+                            f"deferred_by:{frontier_unit.followup_family}"
+                            if frontier_unit is not None
+                            else "none"
+                        )
+                    )
+                ),
+            )
+            for index, item in enumerate(ranked_units, start=1)
+        )
+
+    def recommended_workspace_commit_unit(self) -> InvariantWorkspaceCommitUnit | None:
+        units = self.workspace_commit_units()
+        if not units:
+            return None
+        return units[0]
+
     def as_payload(self) -> dict[str, object]:
         workstreams = self._workstream_cache
         diagnostic_summary = self.diagnostic_summary()
@@ -4517,6 +5512,8 @@ class InvariantWorkstreamsProjection:
         ranked_repo_followups = self.ranked_repo_followups()
         repo_followup_lanes = self.repo_followup_lanes()
         repo_diagnostic_lanes = self.repo_diagnostic_lanes()
+        workspace_commit_units = self.workspace_commit_units()
+        recommended_workspace_commit_unit = self.recommended_workspace_commit_unit()
         return {
             "format_version": _FORMAT_VERSION,
             "generated_at_utc": self.generated_at_utc,
@@ -4594,6 +5591,14 @@ class InvariantWorkstreamsProjection:
                 ],
                 "diagnostic_lanes": [
                     item.as_payload() for item in repo_diagnostic_lanes
+                ],
+                "recommended_workspace_commit_unit": (
+                    None
+                    if recommended_workspace_commit_unit is None
+                    else recommended_workspace_commit_unit.as_payload()
+                ),
+                "workspace_commit_units": [
+                    item.as_payload() for item in workspace_commit_units
                 ],
             },
             "counts": {
@@ -4720,6 +5725,8 @@ class InvariantWorkstreamsProjection:
                             scalar(identity=workstream.object_id, key="policy_signal_count", title="policy_signal_count", value=workstream.policy_signal_count),
                             scalar(identity=workstream.object_id, key="coverage_count", title="coverage_count", value=workstream.coverage_count),
                             scalar(identity=workstream.object_id, key="diagnostic_count", title="diagnostic_count", value=workstream.diagnostic_count),
+                            scalar(identity=workstream.object_id, key="failing_test_case_count", title="failing_test_case_count", value=workstream.failing_test_case_count),
+                            scalar(identity=workstream.object_id, key="test_failure_count", title="test_failure_count", value=workstream.test_failure_count),
                             section(
                                 identity=workstream.object_id,
                                 key="doc_alignment_summary",
@@ -6862,7 +7869,7 @@ def _touchsite_seam_class(
     *,
     qualname: str,
     boundary_name: str,
-    touchpoint_definition: ProjectionSemanticFragmentPhase5TouchpointDefinition,
+    touchpoint_definition: RegisteredTouchpointDefinition,
 ) -> str:
     function_name = qualname.rsplit(".", 1)[-1]
     if not touchpoint_definition.collapse_private_helpers:
@@ -6896,7 +7903,7 @@ class _Phase5TouchsiteScanner(ast.NodeVisitor):
         self,
         *,
         rel_path: str,
-        touchpoint_definition: ProjectionSemanticFragmentPhase5TouchpointDefinition,
+        touchpoint_definition: RegisteredTouchpointDefinition,
         touchpoint_object_id: str,
         subqueue_object_id: str,
     ) -> None:
@@ -6956,7 +7963,10 @@ class _Phase5TouchsiteScanner(ast.NodeVisitor):
                 boundary_name=boundary_name,
                 touchpoint_definition=self.touchpoint_definition,
             )
-            touchsite_object_id = f"PSF-007-TS:{structural_identity}"
+            touchsite_object_id = _scanned_touchsite_object_id(
+                touchpoint_object_id=self.touchpoint_object_id,
+                structural_identity=structural_identity,
+            )
             self.touchsites.append(
                 _Phase5Touchsite(
                     touchsite_object_id=touchsite_object_id,
@@ -7001,7 +8011,7 @@ def _keyword_string_literal(call: ast.Call, key: str) -> str:
 
 def _scan_phase5_touchsites(
     *,
-    touchpoint_definition: ProjectionSemanticFragmentPhase5TouchpointDefinition,
+    touchpoint_definition: RegisteredTouchpointDefinition,
     rel_path: str,
     touchpoint_object_id: str,
     subqueue_object_id: str,
@@ -7028,7 +8038,18 @@ def _scan_phase5_touchsites(
     )
 
 
-def _phase5_primary_object_id(values: tuple[str, ...], fallback: str) -> str:
+def _scanned_touchsite_object_id(
+    *,
+    touchpoint_object_id: str,
+    structural_identity: str,
+) -> str:
+    prefix, _, _suffix = touchpoint_object_id.partition("-TP-")
+    if prefix:
+        return f"{prefix}-TS:{structural_identity}"
+    return f"TS:{structural_identity}"
+
+
+def _primary_workstream_object_id(values: tuple[str, ...], fallback: str) -> str:
     for value in values:
         if value == fallback:
             return value
@@ -7046,6 +8067,7 @@ class _InvariantGraphBuildState:
     object_owner_node_ids: dict[str, str]
     workstream_root_ids: list[str]
     declared_workstream_ids: set[str]
+    structured_artifact_identities: StructuredArtifactIdentitySpace
 
 
 def _new_build_state(root: Path) -> _InvariantGraphBuildState:
@@ -7059,6 +8081,7 @@ def _new_build_state(root: Path) -> _InvariantGraphBuildState:
         object_owner_node_ids={},
         workstream_root_ids=[],
         declared_workstream_ids=set(),
+        structured_artifact_identities=StructuredArtifactIdentitySpace(),
     )
 
 
@@ -7283,7 +8306,7 @@ def _boundary_key(rel_path: str, line: int, boundary_name: str) -> tuple[str, in
 
 def _scan_phase5_touchsites_for_definition(
     *,
-    touchpoint_definition: ProjectionSemanticFragmentPhase5TouchpointDefinition,
+    touchpoint_definition: RegisteredTouchpointDefinition,
 ) -> tuple[_Phase5Touchsite, ...]:
     return _scan_phase5_touchsites(
         touchpoint_definition=touchpoint_definition,
@@ -7293,319 +8316,275 @@ def _scan_phase5_touchsites_for_definition(
     )
 
 
-def _enrich_psf_phase5_workstream(
+def _semantic_link_values(
+    payload,
+    *,
+    kind: SemanticLinkKind,
+) -> tuple[str, ...]:
+    return tuple(link.value for link in payload.links if link.kind is kind)
+
+
+def _registered_touchsite_node(
+    *,
+    touchsite_id: str,
+    title: str,
+    rel_path: str,
+    qualname: str,
+    line: int,
+    column: int,
+    node_kind: str,
+    site_identity: str,
+    structural_identity: str,
+    seam_class: str,
+    source_marker_node_id: str,
+    reasoning_summary: str,
+    reasoning_control: str,
+    blocking_dependencies: tuple[str, ...],
+    object_ids: tuple[str, ...] = (),
+    status_hint: str = "",
+) -> InvariantGraphNode:
+    return InvariantGraphNode(
+        node_id=_synthetic_ref_node_id("object_id", touchsite_id),
+        node_kind="synthetic_touchsite",
+        title=title,
+        marker_name="grade_boundary",
+        marker_kind="",
+        marker_id="",
+        site_identity=site_identity,
+        structural_identity=structural_identity,
+        object_ids=(touchsite_id, *object_ids),
+        doc_ids=(),
+        policy_ids=(),
+        invariant_ids=(),
+        reasoning_summary=reasoning_summary,
+        reasoning_control=reasoning_control,
+        blocking_dependencies=blocking_dependencies,
+        rel_path=rel_path,
+        qualname=qualname,
+        line=line,
+        column=column,
+        ast_node_kind=node_kind,
+        seam_class=seam_class,
+        source_marker_node_id=source_marker_node_id,
+        status_hint=status_hint,
+    )
+
+
+def _add_registered_touchsite(
     state: _InvariantGraphBuildState,
     *,
+    touchpoint_definition: RegisteredTouchpointDefinition,
+    touchpoint_node_id: str,
+    touchsite_definition: RegisteredTouchsiteDefinition,
+) -> None:
+    node = _registered_touchsite_node(
+        touchsite_id=touchsite_definition.touchsite_id,
+        title=touchsite_definition.boundary_name,
+        rel_path=touchsite_definition.rel_path,
+        qualname=touchsite_definition.qualname,
+        line=touchsite_definition.line,
+        column=touchsite_definition.column,
+        node_kind=touchsite_definition.node_kind,
+        site_identity=touchsite_definition.site_identity,
+        structural_identity=touchsite_definition.structural_identity,
+        seam_class=touchsite_definition.seam_class,
+        source_marker_node_id=touchpoint_node_id,
+        reasoning_summary=f"{touchpoint_definition.touchpoint_id} touchsite remains active.",
+        reasoning_control=touchpoint_definition.marker_payload.reasoning.control,
+        blocking_dependencies=(touchpoint_definition.touchpoint_id,),
+        object_ids=touchsite_definition.object_ids,
+        status_hint=touchsite_definition.status_hint,
+    )
+    _add_node(state, node, replace=True)
+    _claim_object_id(state, node, object_id=touchsite_definition.touchsite_id)
+    state.declared_workstream_ids.add(touchsite_definition.touchsite_id)
+    _add_edge(state, "contains", touchpoint_node_id, node.node_id)
+    _add_edge(state, "blocks", node.node_id, touchpoint_node_id)
+
+
+def _add_registered_work_item(
+    state: _InvariantGraphBuildState,
+    *,
+    object_id: str,
+    title: str,
+    rel_path: str,
+    qualname: str,
+    line: int,
+    marker_identity: str,
+    marker_payload,
+    site_identity: str,
+    structural_identity: str,
+    marker_node_id_by_marker_id: Mapping[str, str],
+    status_hint: str = "",
+) -> None:
+    _add_work_item(
+        state,
+        object_id=object_id,
+        title=title,
+        rel_path=rel_path,
+        qualname=qualname,
+        line=line,
+        marker_id=marker_identity,
+        marker_name="gabion.invariants.todo_decorator",
+        marker_kind=marker_payload.marker_kind.value,
+        site_identity=site_identity,
+        structural_identity=structural_identity,
+        object_ids=_semantic_link_values(
+            marker_payload,
+            kind=SemanticLinkKind.OBJECT_ID,
+        ),
+        doc_ids=_semantic_link_values(
+            marker_payload,
+            kind=SemanticLinkKind.DOC_ID,
+        ),
+        policy_ids=_semantic_link_values(
+            marker_payload,
+            kind=SemanticLinkKind.POLICY_ID,
+        ),
+        invariant_ids=_semantic_link_values(
+            marker_payload,
+            kind=SemanticLinkKind.INVARIANT_ID,
+        ),
+        reasoning_summary=marker_payload.reasoning.summary,
+        reasoning_control=marker_payload.reasoning.control,
+        blocking_dependencies=marker_payload.reasoning.blocking_dependencies,
+        source_marker_node_id=marker_node_id_by_marker_id.get(marker_identity, ""),
+        status_hint=status_hint,
+    )
+
+
+def _enrich_workstream_registry(
+    state: _InvariantGraphBuildState,
+    *,
+    registry: WorkstreamRegistry,
     marker_node_id_by_marker_id: Mapping[str, str],
 ) -> None:
-    queue_definitions = tuple(iter_phase5_queues())
-    subqueue_definitions = tuple(iter_phase5_subqueues())
-    touchpoint_definitions = tuple(iter_phase5_touchpoints())
+    root_definition = registry.root
+    primary_root_object_id = _primary_workstream_object_id(
+        _semantic_link_values(
+            root_definition.marker_payload,
+            kind=SemanticLinkKind.OBJECT_ID,
+        ),
+        root_definition.root_id,
+    )
+    _add_registered_work_item(
+        state,
+        object_id=primary_root_object_id,
+        title=root_definition.title,
+        rel_path=root_definition.rel_path,
+        qualname=root_definition.qualname,
+        line=root_definition.line,
+        marker_identity=root_definition.marker_identity,
+        marker_payload=root_definition.marker_payload,
+        site_identity=root_definition.site_identity,
+        structural_identity=root_definition.structural_identity,
+        marker_node_id_by_marker_id=marker_node_id_by_marker_id,
+        status_hint=root_definition.status_hint,
+    )
+    _register_root_workstream(state, object_id=primary_root_object_id)
 
-    for queue_definition in queue_definitions:
-        primary_object_id = _phase5_primary_object_id(
-            tuple(
-                link.value
-                for link in queue_definition.marker_payload.links
-                if link.kind is SemanticLinkKind.OBJECT_ID
-            ),
-            queue_definition.queue_id,
-        )
-        _add_work_item(
-            state,
-            object_id=primary_object_id,
-            title=queue_definition.title,
-            rel_path=queue_definition.rel_path,
-            qualname=queue_definition.qualname,
-            line=queue_definition.line,
-            marker_id=queue_definition.marker_identity,
-            marker_name="gabion.invariants.todo_decorator",
-            marker_kind=queue_definition.marker_payload.marker_kind.value,
-            site_identity=queue_definition.site_identity,
-            structural_identity=queue_definition.structural_identity,
-            object_ids=tuple(
-                link.value
-                for link in queue_definition.marker_payload.links
-                if link.kind is SemanticLinkKind.OBJECT_ID
-            ),
-            doc_ids=tuple(
-                link.value
-                for link in queue_definition.marker_payload.links
-                if link.kind is SemanticLinkKind.DOC_ID
-            ),
-            policy_ids=tuple(
-                link.value
-                for link in queue_definition.marker_payload.links
-                if link.kind is SemanticLinkKind.POLICY_ID
-            ),
-            invariant_ids=tuple(
-                link.value
-                for link in queue_definition.marker_payload.links
-                if link.kind is SemanticLinkKind.INVARIANT_ID
-            ),
-            reasoning_summary=queue_definition.marker_payload.reasoning.summary,
-            reasoning_control=queue_definition.marker_payload.reasoning.control,
-            blocking_dependencies=queue_definition.marker_payload.reasoning.blocking_dependencies,
-            source_marker_node_id=marker_node_id_by_marker_id.get(
-                queue_definition.marker_identity,
-                "",
-            ),
-        )
-        _register_root_workstream(state, object_id=primary_object_id)
-
-    for subqueue_definition in subqueue_definitions:
-        primary_object_id = _phase5_primary_object_id(
-            tuple(
-                link.value
-                for link in subqueue_definition.marker_payload.links
-                if link.kind is SemanticLinkKind.OBJECT_ID
-                and link.value.startswith(subqueue_definition.subqueue_id)
+    for subqueue_definition in registry.subqueues:
+        primary_subqueue_object_id = _primary_workstream_object_id(
+            _semantic_link_values(
+                subqueue_definition.marker_payload,
+                kind=SemanticLinkKind.OBJECT_ID,
             ),
             subqueue_definition.subqueue_id,
         )
-        _add_work_item(
+        _add_registered_work_item(
             state,
-            object_id=primary_object_id,
+            object_id=primary_subqueue_object_id,
             title=subqueue_definition.title,
             rel_path=subqueue_definition.rel_path,
             qualname=subqueue_definition.qualname,
             line=subqueue_definition.line,
-            marker_id=subqueue_definition.marker_identity,
-            marker_name="gabion.invariants.todo_decorator",
-            marker_kind=subqueue_definition.marker_payload.marker_kind.value,
+            marker_identity=subqueue_definition.marker_identity,
+            marker_payload=subqueue_definition.marker_payload,
             site_identity=subqueue_definition.site_identity,
             structural_identity=subqueue_definition.structural_identity,
-            object_ids=tuple(
-                link.value
-                for link in subqueue_definition.marker_payload.links
-                if link.kind is SemanticLinkKind.OBJECT_ID
-            ),
-            doc_ids=tuple(
-                link.value
-                for link in subqueue_definition.marker_payload.links
-                if link.kind is SemanticLinkKind.DOC_ID
-            ),
-            policy_ids=tuple(
-                link.value
-                for link in subqueue_definition.marker_payload.links
-                if link.kind is SemanticLinkKind.POLICY_ID
-            ),
-            invariant_ids=tuple(
-                link.value
-                for link in subqueue_definition.marker_payload.links
-                if link.kind is SemanticLinkKind.INVARIANT_ID
-            ),
-            reasoning_summary=subqueue_definition.marker_payload.reasoning.summary,
-            reasoning_control=subqueue_definition.marker_payload.reasoning.control,
-            blocking_dependencies=subqueue_definition.marker_payload.reasoning.blocking_dependencies,
-            source_marker_node_id=marker_node_id_by_marker_id.get(
-                subqueue_definition.marker_identity,
-                "",
-            ),
+            marker_node_id_by_marker_id=marker_node_id_by_marker_id,
+            status_hint=subqueue_definition.status_hint,
         )
 
-    for touchpoint_definition in touchpoint_definitions:
-        primary_object_id = _phase5_primary_object_id(
-            tuple(
-                link.value
-                for link in touchpoint_definition.marker_payload.links
-                if link.kind is SemanticLinkKind.OBJECT_ID
-                and link.value.startswith(touchpoint_definition.touchpoint_id)
+    for touchpoint_definition in registry.touchpoints:
+        primary_touchpoint_object_id = _primary_workstream_object_id(
+            _semantic_link_values(
+                touchpoint_definition.marker_payload,
+                kind=SemanticLinkKind.OBJECT_ID,
             ),
             touchpoint_definition.touchpoint_id,
         )
-        _add_work_item(
+        _add_registered_work_item(
             state,
-            object_id=primary_object_id,
+            object_id=primary_touchpoint_object_id,
             title=touchpoint_definition.title,
             rel_path=touchpoint_definition.rel_path,
             qualname=touchpoint_definition.qualname,
             line=touchpoint_definition.line,
-            marker_id=touchpoint_definition.marker_identity,
-            marker_name="gabion.invariants.todo_decorator",
-            marker_kind=touchpoint_definition.marker_payload.marker_kind.value,
+            marker_identity=touchpoint_definition.marker_identity,
+            marker_payload=touchpoint_definition.marker_payload,
             site_identity=touchpoint_definition.site_identity,
             structural_identity=touchpoint_definition.structural_identity,
-            object_ids=tuple(
-                link.value
-                for link in touchpoint_definition.marker_payload.links
-                if link.kind is SemanticLinkKind.OBJECT_ID
-            ),
-            doc_ids=tuple(
-                link.value
-                for link in touchpoint_definition.marker_payload.links
-                if link.kind is SemanticLinkKind.DOC_ID
-            ),
-            policy_ids=tuple(
-                link.value
-                for link in touchpoint_definition.marker_payload.links
-                if link.kind is SemanticLinkKind.POLICY_ID
-            ),
-            invariant_ids=tuple(
-                link.value
-                for link in touchpoint_definition.marker_payload.links
-                if link.kind is SemanticLinkKind.INVARIANT_ID
-            ),
-            reasoning_summary=touchpoint_definition.marker_payload.reasoning.summary,
-            reasoning_control=touchpoint_definition.marker_payload.reasoning.control,
-            blocking_dependencies=touchpoint_definition.marker_payload.reasoning.blocking_dependencies,
-            source_marker_node_id=marker_node_id_by_marker_id.get(
-                touchpoint_definition.marker_identity,
-                "",
-            ),
+            marker_node_id_by_marker_id=marker_node_id_by_marker_id,
+            status_hint=touchpoint_definition.status_hint,
         )
 
-    for queue_definition in queue_definitions:
-        queue_node_id = state.object_node_ids[queue_definition.queue_id]
-        for subqueue_id in queue_definition.subqueue_ids:
-            subqueue_node_id = state.object_node_ids[subqueue_id]
-            _add_edge(state, "contains", queue_node_id, subqueue_node_id)
-            _add_edge(state, "blocks", subqueue_node_id, queue_node_id)
+    root_node_id = state.object_node_ids[primary_root_object_id]
+    for subqueue_id in root_definition.subqueue_ids:
+        subqueue_node_id = state.object_node_ids[subqueue_id]
+        _add_edge(state, "contains", root_node_id, subqueue_node_id)
+        _add_edge(state, "blocks", subqueue_node_id, root_node_id)
 
-    for subqueue_definition in subqueue_definitions:
+    for subqueue_definition in registry.subqueues:
         subqueue_node_id = state.object_node_ids[subqueue_definition.subqueue_id]
         for touchpoint_id in subqueue_definition.touchpoint_ids:
             touchpoint_node_id = state.object_node_ids[touchpoint_id]
             _add_edge(state, "contains", subqueue_node_id, touchpoint_node_id)
             _add_edge(state, "blocks", touchpoint_node_id, subqueue_node_id)
 
-    for touchpoint_definition in touchpoint_definitions:
+    for touchpoint_definition in registry.touchpoints:
         touchpoint_node_id = state.object_node_ids[touchpoint_definition.touchpoint_id]
-        touchsites = _scan_phase5_touchsites_for_definition(
-            touchpoint_definition=touchpoint_definition
-        )
-        for touchsite in touchsites:
-            node_id = _synthetic_ref_node_id("object_id", touchsite.touchsite_object_id)
-            node = InvariantGraphNode(
-                node_id=node_id,
-                node_kind="synthetic_touchsite",
-                title=touchsite.boundary_name,
-                marker_name="grade_boundary",
-                marker_kind="",
-                marker_id="",
-                site_identity=touchsite.site_identity,
-                structural_identity=touchsite.structural_identity,
-                object_ids=(touchsite.touchsite_object_id,),
-                doc_ids=(),
-                policy_ids=(),
-                invariant_ids=(),
-                reasoning_summary="PSF-007 touchsite remains active.",
-                reasoning_control=touchpoint_definition.marker_payload.reasoning.control,
-                blocking_dependencies=(touchpoint_definition.touchpoint_id,),
-                rel_path=touchsite.rel_path,
-                qualname=touchsite.qualname,
-                line=touchsite.line,
-                column=touchsite.column,
-                ast_node_kind=touchsite.node_kind,
-                seam_class=touchsite.seam_class,
-                source_marker_node_id=touchpoint_node_id,
-                status_hint="",
+        for touchsite_definition in touchpoint_definition.declared_touchsites:
+            _add_registered_touchsite(
+                state,
+                touchpoint_definition=touchpoint_definition,
+                touchpoint_node_id=touchpoint_node_id,
+                touchsite_definition=touchsite_definition,
             )
-            _add_node(state, node, replace=True)
-            _claim_object_id(state, node, object_id=touchsite.touchsite_object_id)
-            state.declared_workstream_ids.add(touchsite.touchsite_object_id)
-            _add_edge(state, "contains", touchpoint_node_id, node_id)
-            _add_edge(state, "blocks", node_id, touchpoint_node_id)
+        if not touchpoint_definition.scan_touchsites:
+            continue
+        for touchsite in _scan_phase5_touchsites_for_definition(
+            touchpoint_definition=touchpoint_definition
+        ):
+            _add_registered_touchsite(
+                state,
+                touchpoint_definition=touchpoint_definition,
+                touchpoint_node_id=touchpoint_node_id,
+                touchsite_definition=RegisteredTouchsiteDefinition(
+                    touchsite_id=touchsite.touchsite_object_id,
+                    rel_path=touchsite.rel_path,
+                    qualname=touchsite.qualname,
+                    boundary_name=touchsite.boundary_name,
+                    line=touchsite.line,
+                    column=touchsite.column,
+                    node_kind=touchsite.node_kind,
+                    site_identity=touchsite.site_identity,
+                    structural_identity=touchsite.structural_identity,
+                    seam_class=touchsite.seam_class,
+                ),
+            )
 
 
-def _enrich_prf_workstream(
-    state: _InvariantGraphBuildState,
-    *,
-    marker_node_id_by_marker_id: Mapping[str, str],
-) -> None:
-    queue_definitions = tuple(iter_prf_queues())
-    subqueue_definitions = tuple(iter_prf_subqueues())
-    for queue_definition in queue_definitions:
-        _add_work_item(
-            state,
-            object_id=queue_definition.queue_id,
-            title=queue_definition.title,
-            rel_path=queue_definition.rel_path,
-            qualname=queue_definition.qualname,
-            line=queue_definition.line,
-            marker_id=queue_definition.marker_identity,
-            marker_name="gabion.invariants.todo_decorator",
-            marker_kind=queue_definition.marker_payload.marker_kind.value,
-            site_identity=queue_definition.site_identity,
-            structural_identity=queue_definition.structural_identity,
-            object_ids=tuple(
-                link.value
-                for link in queue_definition.marker_payload.links
-                if link.kind is SemanticLinkKind.OBJECT_ID
-            ),
-            doc_ids=tuple(
-                link.value
-                for link in queue_definition.marker_payload.links
-                if link.kind is SemanticLinkKind.DOC_ID
-            ),
-            policy_ids=tuple(
-                link.value
-                for link in queue_definition.marker_payload.links
-                if link.kind is SemanticLinkKind.POLICY_ID
-            ),
-            invariant_ids=tuple(
-                link.value
-                for link in queue_definition.marker_payload.links
-                if link.kind is SemanticLinkKind.INVARIANT_ID
-            ),
-            reasoning_summary=queue_definition.marker_payload.reasoning.summary,
-            reasoning_control=queue_definition.marker_payload.reasoning.control,
-            blocking_dependencies=queue_definition.marker_payload.reasoning.blocking_dependencies,
-            source_marker_node_id=marker_node_id_by_marker_id.get(
-                queue_definition.marker_identity,
-                "",
-            ),
-            status_hint=queue_definition.status_hint,
-        )
-        _register_root_workstream(state, object_id=queue_definition.queue_id)
-    for subqueue_definition in subqueue_definitions:
-        _add_work_item(
-            state,
-            object_id=subqueue_definition.subqueue_id,
-            title=subqueue_definition.title,
-            rel_path=subqueue_definition.rel_path,
-            qualname=subqueue_definition.qualname,
-            line=subqueue_definition.line,
-            marker_id=subqueue_definition.marker_identity,
-            marker_name="gabion.invariants.todo_decorator",
-            marker_kind=subqueue_definition.marker_payload.marker_kind.value,
-            site_identity=subqueue_definition.site_identity,
-            structural_identity=subqueue_definition.structural_identity,
-            object_ids=tuple(
-                link.value
-                for link in subqueue_definition.marker_payload.links
-                if link.kind is SemanticLinkKind.OBJECT_ID
-            ),
-            doc_ids=tuple(
-                link.value
-                for link in subqueue_definition.marker_payload.links
-                if link.kind is SemanticLinkKind.DOC_ID
-            ),
-            policy_ids=tuple(
-                link.value
-                for link in subqueue_definition.marker_payload.links
-                if link.kind is SemanticLinkKind.POLICY_ID
-            ),
-            invariant_ids=tuple(
-                link.value
-                for link in subqueue_definition.marker_payload.links
-                if link.kind is SemanticLinkKind.INVARIANT_ID
-            ),
-            reasoning_summary=subqueue_definition.marker_payload.reasoning.summary,
-            reasoning_control=subqueue_definition.marker_payload.reasoning.control,
-            blocking_dependencies=subqueue_definition.marker_payload.reasoning.blocking_dependencies,
-            source_marker_node_id=marker_node_id_by_marker_id.get(
-                subqueue_definition.marker_identity,
-                "",
-            ),
-            status_hint=subqueue_definition.status_hint,
-        )
-    for queue_definition in queue_definitions:
-        queue_node_id = state.object_node_ids[queue_definition.queue_id]
-        for subqueue_id in queue_definition.subqueue_ids:
-            subqueue_node_id = state.object_node_ids[subqueue_id]
-            _add_edge(state, "contains", queue_node_id, subqueue_node_id)
-            _add_edge(state, "blocks", subqueue_node_id, queue_node_id)
+def _iter_declared_workstream_registries() -> tuple[WorkstreamRegistry, ...]:
+    registries = []
+    phase5_registry = phase5_workstream_registry()
+    if phase5_registry is not None:
+        registries.append(phase5_registry)
+    prf_registry = prf_workstream_registry()
+    if prf_registry is not None:
+        registries.append(prf_registry)
+    registries.extend(connectivity_synergy_workstream_registries())
+    return tuple(registries)
 
 
 def _path_variants(raw_path: str) -> tuple[str, ...]:
@@ -7698,6 +8677,17 @@ def _match_policy_signal_target(
     return ""
 
 
+def _policy_signal_orphan_group_key(*, rel_path: str, qualname: str) -> str:
+    if rel_path:
+        parent = Path(rel_path).parent.as_posix()
+        if parent and parent != ".":
+            return f"seed:{parent}"
+        return f"path:{rel_path}"
+    if qualname:
+        return f"qualname:{qualname}"
+    return "global"
+
+
 def _add_policy_signal_node(
     state: _InvariantGraphBuildState,
     *,
@@ -7769,14 +8759,18 @@ def _join_policy_signals(state: _InvariantGraphBuildState) -> None:
             if not isinstance(raw_violation, Mapping):
                 continue
             rule_id = str(raw_violation.get("rule_id", "")).strip() or f"{domain}.signal"
+            rel_path = _normalize_rel_path(state.root, raw_violation.get("path"))
+            qualname = str(raw_violation.get("qualname", "")).strip()
             target_node_id = _match_policy_signal_target(
                 root=state.root,
                 index=index,
                 violation=raw_violation,
             )
-            rel_path = _normalize_rel_path(state.root, raw_violation.get("path"))
-            qualname = str(raw_violation.get("qualname", "")).strip()
-            aggregate_key = (domain, rule_id, target_node_id)
+            aggregate_target = target_node_id or _policy_signal_orphan_group_key(
+                rel_path=rel_path,
+                qualname=qualname,
+            )
+            aggregate_key = (domain, rule_id, aggregate_target)
             entry = aggregates.setdefault(
                 aggregate_key,
                 {
@@ -7836,14 +8830,12 @@ def _join_policy_signals(state: _InvariantGraphBuildState) -> None:
         )
 
 
-def _site_span_contains_line(site: Mapping[str, object], line: int) -> bool:
-    raw_span = site.get("span")
-    if not isinstance(raw_span, list) or len(raw_span) != 4:
+def _site_span_contains_line(site: TestEvidenceSite, line: int) -> bool:
+    raw_span = site.span
+    if len(raw_span) != 4:
         return True
     start = raw_span[0]
     end = raw_span[2]
-    if not isinstance(start, int) or not isinstance(end, int):
-        return True
     lower = min(start, end)
     upper = max(start, end)
     return lower <= line <= upper
@@ -7854,10 +8846,10 @@ def _match_test_evidence_node_ids(
     root: Path,
     index: _InvariantGraphNodeIndex,
     state: _InvariantGraphBuildState,
-    site: Mapping[str, object],
+    site: TestEvidenceSite,
 ) -> tuple[str, ...]:
-    rel_path = _normalize_rel_path(root, site.get("path"))
-    site_qual = str(site.get("qual", "")).strip()
+    rel_path = _normalize_rel_path(root, site.path)
+    site_qual = site.qualname
     candidate_ids: list[str] = []
     for path_variant in _path_variants(rel_path):
         candidate_ids.extend(index.by_path_exact.get(path_variant, ()))
@@ -7876,35 +8868,17 @@ def _match_test_evidence_node_ids(
 
 
 def _join_test_coverage(state: _InvariantGraphBuildState) -> None:
-    evidence_path = state.root / _TEST_EVIDENCE_ARTIFACT
-    if not evidence_path.exists():
-        return
-    payload = json.loads(evidence_path.read_text(encoding="utf-8"))
-    if not isinstance(payload, Mapping):
-        return
-    tests = payload.get("tests", [])
-    if not isinstance(tests, list):
+    artifact = load_test_evidence_artifact(
+        root=state.root,
+        rel_path=_TEST_EVIDENCE_ARTIFACT.as_posix(),
+        identities=state.structured_artifact_identities,
+    )
+    if artifact is None:
         return
     index = _node_index(state)
-    for raw_test in tests:
-        if not isinstance(raw_test, Mapping):
-            continue
-        test_id = str(raw_test.get("test_id", "")).strip()
-        if not test_id:
-            continue
-        evidence = raw_test.get("evidence", [])
-        if not isinstance(evidence, list):
-            continue
+    for test_case in artifact.cases:
         matched_node_ids: set[str] = set()
-        for raw_item in evidence:
-            if not isinstance(raw_item, Mapping):
-                continue
-            key = raw_item.get("key")
-            if not isinstance(key, Mapping):
-                continue
-            site = key.get("site")
-            if not isinstance(site, Mapping):
-                continue
+        for site in test_case.evidence_sites:
             matched_node_ids.update(
                 _match_test_evidence_node_ids(
                     root=state.root,
@@ -7915,18 +8889,17 @@ def _join_test_coverage(state: _InvariantGraphBuildState) -> None:
             )
         if not matched_node_ids:
             continue
-        node_id = f"test_case:{stable_hash(test_id)}"
-        test_file = _normalize_rel_path(state.root, raw_test.get("file"))
-        test_line = int(raw_test.get("line", 0) or 0)
+        node_id = f"test_case:{stable_hash(test_case.identity.wire())}"
         node = _synthetic_node(
             node_id=node_id,
-            title=test_id,
+            title=test_case.test_id,
             ref_kind="test_case",
-            value=test_id,
-            rel_path=test_file,
-            qualname=test_id,
-            line=test_line,
-            reasoning_summary=str(raw_test.get("status", "")).strip(),
+            value=test_case.identity.wire(),
+            object_ids=(test_case.identity.wire(),),
+            rel_path=test_case.rel_path,
+            qualname=test_case.test_id,
+            line=test_case.line,
+            reasoning_summary=test_case.status,
             node_kind="test_case",
         )
         _add_node(state, node, replace=True)
@@ -7934,16 +8907,1101 @@ def _join_test_coverage(state: _InvariantGraphBuildState) -> None:
             _add_edge(state, "covered_by", matched_node_id, node_id)
 
 
+def _match_existing_test_case_node_id(
+    state: _InvariantGraphBuildState,
+    *,
+    rel_path: str,
+    test_name: str,
+    classname: str,
+) -> str:
+    matches: list[str] = []
+    class_suffix = classname.split(".")[-1].strip() if classname else ""
+    for node in state.nodes_by_id.values():
+        if node.node_kind != "test_case":
+            continue
+        if rel_path and node.rel_path != rel_path:
+            continue
+        if node.title.endswith(f"::{test_name}"):
+            matches.append(node.node_id)
+            continue
+        if class_suffix and node.title.endswith(f"::{class_suffix}::{test_name}"):
+            matches.append(node.node_id)
+    if not matches:
+        return ""
+    return _sorted(matches)[0]
+
+
+def _ensure_test_case_node(
+    state: _InvariantGraphBuildState,
+    *,
+    test_id: str,
+    rel_path: str,
+    line: int,
+    status: str,
+) -> str:
+    node_id = f"test_case:{stable_hash(test_id)}"
+    node = _synthetic_node(
+        node_id=node_id,
+        title=test_id,
+        ref_kind="test_case",
+        value=test_id,
+        rel_path=rel_path,
+        qualname=test_id,
+        line=line,
+        reasoning_summary=status,
+        node_kind="test_case",
+    )
+    _add_node(state, node, replace=True)
+    return node_id
+
+
+def _traceback_matched_node_ids(
+    *,
+    root: Path,
+    index: _InvariantGraphNodeIndex,
+    state: _InvariantGraphBuildState,
+    traceback_text: str,
+) -> tuple[str, ...]:
+    matched: set[str] = set()
+    for match in _TRACEBACK_FRAME_RE.finditer(traceback_text):
+        rel_path = _normalize_rel_path(root, match.group("path"))
+        line = int(match.group("line") or 0)
+        qualname = str(match.group("qual") or "").strip()
+        for path_variant in _path_variants(rel_path):
+            if qualname:
+                node_id = index.by_path_line_qualname.get((path_variant, line, qualname))
+                if node_id is not None:
+                    matched.add(node_id)
+            for candidate_id in index.by_path_exact.get(path_variant, ()):
+                candidate = state.nodes_by_id[candidate_id]
+                if candidate.line > 0 and candidate.line == line:
+                    matched.add(candidate_id)
+    return tuple(_sorted(list(matched)))
+
+
+def _join_test_failures(state: _InvariantGraphBuildState) -> None:
+    artifact = load_junit_failure_artifact(
+        root=state.root,
+        rel_path=_JUNIT_TEST_RESULTS_ARTIFACT.as_posix(),
+        identities=state.structured_artifact_identities,
+    )
+    if artifact is None:
+        return
+    index = _node_index(state)
+    for failure in artifact.failures:
+        test_case_node_id = _match_existing_test_case_node_id(
+            state,
+            rel_path=failure.rel_path,
+            test_name=failure.raw_name,
+            classname=failure.classname,
+        )
+        test_id = failure.test_id
+        if test_case_node_id:
+            test_id = state.nodes_by_id[test_case_node_id].title
+        else:
+            test_case_node_id = _ensure_test_case_node(
+                state,
+                test_id=test_id,
+                rel_path=failure.rel_path,
+                line=failure.line,
+                status="failed",
+            )
+        failure_node_id = f"test_failure:{stable_hash(failure.identity.wire())}"
+        failure_node = _synthetic_node(
+            node_id=failure_node_id,
+            title=failure.title,
+            ref_kind="test_failure",
+            value=failure.identity.wire(),
+            object_ids=tuple(
+                item
+                for item in (failure.identity.wire(), failure.title)
+                if item
+            ),
+            rel_path=failure.rel_path,
+            qualname=test_id,
+            line=failure.line,
+            reasoning_summary=failure.message or failure.raw_name,
+            reasoning_control="invariant_graph.test_failure",
+            node_kind="test_failure",
+            status_hint=failure.failure_kind,
+        )
+        _add_node(state, failure_node, replace=True)
+        _add_edge(state, "fails_with", test_case_node_id, failure_node_id)
+        for matched_node_id in _traceback_matched_node_ids(
+            root=state.root,
+            index=index,
+            state=state,
+            traceback_text=failure.traceback_text,
+        ):
+            _add_edge(state, "fails_on", failure_node_id, matched_node_id)
+
+
+def _markdown_frontmatter(
+    *,
+    root: Path,
+    rel_path: str,
+) -> tuple[dict[str, object], str]:
+    path = root / rel_path
+    if not path.exists():
+        return {}, ""
+    frontmatter, body = parse_strict_yaml_frontmatter(path.read_text(encoding="utf-8"))
+    return cast(dict[str, object], dict(frontmatter)), body
+
+
+def _governance_doc_aliases(
+    *,
+    rel_path: str,
+    frontmatter: Mapping[str, object],
+) -> tuple[str, ...]:
+    aliases: list[str] = []
+    doc_id = str(frontmatter.get("doc_id", "")).strip()
+    if doc_id:
+        aliases.append(doc_id)
+    path = Path(rel_path)
+    if path.parent.as_posix() == "in" and path.name.startswith("in-") and path.suffix == ".md":
+        stem = path.stem
+        aliases.append(stem)
+        if stem.startswith("in-"):
+            suffix = stem.split("-", 1)[1]
+            aliases.append(f"in_{suffix}")
+    return tuple(_sorted(list({value for value in aliases if value})))
+
+
+def _governance_doc_title(
+    *,
+    rel_path: str,
+    frontmatter: Mapping[str, object],
+) -> str:
+    for key in ("title", "doc_id"):
+        value = str(frontmatter.get(key, "")).strip()
+        if value:
+            return value
+    return Path(rel_path).name
+
+
+def _ensure_governance_doc_node(
+    state: _InvariantGraphBuildState,
+    *,
+    rel_path: str,
+    default_status_hint: str = "",
+    reasoning_summary: str = "",
+) -> str:
+    node_id = f"governance_doc:{rel_path}"
+    existing = state.nodes_by_id.get(node_id)
+    if existing is not None:
+        return existing.node_id
+    frontmatter, _body = _markdown_frontmatter(root=state.root, rel_path=rel_path)
+    doc_ids = _governance_doc_aliases(rel_path=rel_path, frontmatter=frontmatter)
+    title = _governance_doc_title(rel_path=rel_path, frontmatter=frontmatter)
+    authority = str(frontmatter.get("doc_authority", "")).strip()
+    role = str(frontmatter.get("doc_role", "")).strip()
+    summary = reasoning_summary or (
+        f"governance_doc authority={authority or '<unset>'} role={role or '<unset>'}"
+    )
+    node = _synthetic_node(
+        node_id=node_id,
+        title=title,
+        ref_kind="governance_doc",
+        value=rel_path,
+        doc_ids=doc_ids,
+        reasoning_summary=summary,
+        reasoning_control="invariant_graph.governance_doc",
+        rel_path=rel_path,
+        node_kind="governance_doc",
+        status_hint=default_status_hint or authority or role,
+    )
+    _add_node(state, node, replace=True)
+    _link_node_refs(state, node)
+    return node.node_id
+
+
+def _influence_index_status_rows(root: Path) -> dict[str, tuple[str, str]]:
+    path = root / _INFLUENCE_INDEX_DOC
+    if not path.exists():
+        return {}
+    rows: dict[str, tuple[str, str]] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.startswith("- in/"):
+            continue
+        rel_path, separator, tail = line[2:].partition(" — ")
+        if not separator:
+            continue
+        start = tail.find("**")
+        end = tail.find("**", start + 2) if start >= 0 else -1
+        if start < 0 or end <= start + 2:
+            continue
+        status = tail[start + 2 : end].strip().lower()
+        if not status:
+            continue
+        rows[rel_path.strip()] = (status, tail.strip())
+    return rows
+
+
+def _section_category(title: str) -> str:
+    normalized = title.casefold()
+    if "goal" in normalized or "objective" in normalized:
+        return "goal"
+    if "next step" in normalized:
+        return "next_steps"
+    if "acceptance" in normalized:
+        return "acceptance"
+    if "proposed approach" in normalized or "implementation" in normalized:
+        return "approach"
+    if "open question" in normalized:
+        return "open_questions"
+    if "dependenc" in normalized:
+        return "dependencies"
+    if "problem" in normalized:
+        return "problem"
+    return "section"
+
+
+def _join_sppf_dependency_graph(
+    state: _InvariantGraphBuildState,
+    *,
+    checklist_node_id: str,
+) -> Mapping[str, tuple[str, ...]]:
+    artifact_path = state.root / _SPPF_DEPENDENCY_GRAPH_ARTIFACT
+    if not artifact_path.exists():
+        return {}
+    payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, Mapping):
+        return {}
+    docs = payload.get("docs")
+    issues = payload.get("issues")
+    edges = payload.get("edges")
+    if not isinstance(docs, Mapping) or not isinstance(issues, Mapping) or not isinstance(edges, list):
+        return {}
+    docs_without_issue = {
+        str(value)
+        for value in payload.get("docs_without_issue", [])
+        if isinstance(value, str)
+    }
+    issues_without_doc_ref = {
+        str(value)
+        for value in payload.get("issues_without_doc_ref", [])
+        if isinstance(value, str)
+    }
+    doc_node_ids_by_doc_id: defaultdict[str, list[str]] = defaultdict(list)
+    doc_entry_node_ids: dict[str, str] = {}
+    issue_node_ids: dict[str, str] = {}
+    for entry_id, raw_doc in _sorted(list(docs.items()), key=lambda item: item[0]):
+        if not isinstance(raw_doc, Mapping):
+            continue
+        doc_id = str(raw_doc.get("doc_id", "")).strip() or str(entry_id)
+        revision = int(raw_doc.get("revision", 0) or 0)
+        issue_ids = tuple(
+            _sorted(
+                [str(value) for value in raw_doc.get("issues", []) if isinstance(value, str)]
+            )
+        )
+        node_id = f"sppf_doc_ref:{entry_id}"
+        node = _synthetic_node(
+            node_id=node_id,
+            title=str(entry_id),
+            ref_kind="sppf_doc_ref",
+            value=str(entry_id),
+            doc_ids=(doc_id,),
+            reasoning_summary=(
+                f"sppf checklist doc_ref revision={revision} issues={len(issue_ids)}"
+            ),
+            reasoning_control="invariant_graph.sppf_dependency.doc_ref",
+            rel_path=_SPPF_CHECKLIST_DOC.as_posix(),
+            node_kind="sppf_doc_ref",
+            status_hint="issue_missing" if str(entry_id) in docs_without_issue else "",
+        )
+        _add_node(state, node, replace=True)
+        _link_node_refs(state, node)
+        _add_edge(state, "contains", checklist_node_id, node_id)
+        doc_entry_node_ids[str(entry_id)] = node_id
+        doc_node_ids_by_doc_id[doc_id].append(node_id)
+    for issue_id, raw_issue in _sorted(list(issues.items()), key=lambda item: item[0]):
+        if not isinstance(raw_issue, Mapping):
+            continue
+        doc_refs = tuple(
+            _sorted(
+                [str(value) for value in raw_issue.get("doc_refs", []) if isinstance(value, str)]
+            )
+        )
+        checklist_state = str(raw_issue.get("checklist_state", "")).strip()
+        doc_status = str(raw_issue.get("doc_status", "")).strip()
+        impl_status = str(raw_issue.get("impl_status", "")).strip()
+        node_id = f"sppf_issue:{issue_id}"
+        node = _synthetic_node(
+            node_id=node_id,
+            title=str(issue_id),
+            ref_kind="sppf_issue",
+            value=str(issue_id),
+            object_ids=(str(issue_id),),
+            reasoning_summary=(
+                "sppf issue checklist={checklist} doc={doc} impl={impl} refs={refs}".format(
+                    checklist=checklist_state or "<none>",
+                    doc=doc_status or "<none>",
+                    impl=impl_status or "<none>",
+                    refs=len(doc_refs),
+                )
+            ),
+            reasoning_control="invariant_graph.sppf_dependency.issue",
+            rel_path=_SPPF_CHECKLIST_DOC.as_posix(),
+            line=int(raw_issue.get("line_no", 0) or 0),
+            node_kind="sppf_issue",
+            status_hint="doc_ref_missing" if str(issue_id) in issues_without_doc_ref else "",
+        )
+        _add_node(state, node, replace=True)
+        _link_node_refs(state, node)
+        _add_edge(state, "contains", checklist_node_id, node_id)
+        issue_node_ids[str(issue_id)] = node_id
+    for raw_edge in edges:
+        if not isinstance(raw_edge, Mapping):
+            continue
+        source_id = doc_entry_node_ids.get(str(raw_edge.get("from", "")))
+        target_id = issue_node_ids.get(str(raw_edge.get("to", "")))
+        edge_kind = str(raw_edge.get("kind", "")).strip() or "sppf_link"
+        if source_id and target_id:
+            _add_edge(state, edge_kind, source_id, target_id)
+            _add_edge(state, "tracks", source_id, target_id)
+    return {
+        doc_id: tuple(_sorted(node_ids))
+        for doc_id, node_ids in doc_node_ids_by_doc_id.items()
+    }
+
+
+def _join_inbox_governance_docs(
+    state: _InvariantGraphBuildState,
+    *,
+    influence_index_node_id: str,
+    sppf_doc_node_ids: Mapping[str, tuple[str, ...]],
+) -> None:
+    status_rows = _influence_index_status_rows(state.root)
+    for path in _sorted(
+        [
+            item
+            for item in state.root.joinpath("in").glob("*.md")
+            if item.is_file()
+        ],
+        key=lambda item: str(item.relative_to(state.root)).replace("\\", "/"),
+    ):
+        rel_path = str(path.relative_to(state.root)).replace("\\", "/")
+        frontmatter, body = _markdown_frontmatter(root=state.root, rel_path=rel_path)
+        doc_ids = _governance_doc_aliases(rel_path=rel_path, frontmatter=frontmatter)
+        influence_status, influence_summary = status_rows.get(rel_path, ("", ""))
+        doc_node_id = _ensure_governance_doc_node(
+            state,
+            rel_path=rel_path,
+            default_status_hint=influence_status,
+            reasoning_summary=(
+                influence_summary
+                or f"governance_doc role={frontmatter.get('doc_role', '<unset>')}"
+            ),
+        )
+        _add_edge(state, "indexes", influence_index_node_id, doc_node_id)
+        for doc_id in doc_ids:
+            for sppf_node_id in sppf_doc_node_ids.get(doc_id, ()):
+                _add_edge(state, "tracks", doc_node_id, sppf_node_id)
+        inside_fence = False
+        current_section_node_id = ""
+        current_section_slug = ""
+        for line_number, raw_line in enumerate(body.splitlines(), start=1):
+            stripped = raw_line.strip()
+            if stripped.startswith("```"):
+                inside_fence = not inside_fence
+                continue
+            if inside_fence or not stripped:
+                continue
+            heading_match = _HEADING_RE.match(raw_line)
+            if heading_match is not None:
+                title = heading_match.group("title").strip()
+                category = _section_category(title)
+                section_node_id = f"governance_section:{stable_hash(rel_path, line_number, title)}"
+                section_node = _synthetic_node(
+                    node_id=section_node_id,
+                    title=title,
+                    ref_kind="governance_section",
+                    value=f"{rel_path}:{line_number}:{title}",
+                    doc_ids=doc_ids,
+                    reasoning_summary=f"inbox governance section category={category}",
+                    reasoning_control="invariant_graph.inbox_governance.section",
+                    rel_path=rel_path,
+                    line=line_number,
+                    node_kind="governance_section",
+                    status_hint=category,
+                )
+                _add_node(state, section_node, replace=True)
+                _link_node_refs(state, section_node)
+                _add_edge(state, "contains", doc_node_id, section_node_id)
+                current_section_node_id = section_node_id
+                current_section_slug = category
+                continue
+            ordered_match = _ORDERED_LIST_RE.match(raw_line)
+            checklist_match = _CHECKLIST_ITEM_RE.match(raw_line)
+            item_text = ""
+            item_kind = ""
+            if ordered_match is not None:
+                item_text = ordered_match.group("text").strip()
+                item_kind = "ordered"
+            elif checklist_match is not None:
+                item_text = checklist_match.group("text").strip()
+                item_kind = checklist_match.group("marker").strip() or "checklist"
+            if not item_text:
+                continue
+            item_node_id = f"governance_action_item:{stable_hash(rel_path, line_number, item_text)}"
+            item_node = _synthetic_node(
+                node_id=item_node_id,
+                title=item_text,
+                ref_kind="governance_action_item",
+                value=f"{rel_path}:{line_number}:{item_text}",
+                doc_ids=doc_ids,
+                reasoning_summary=(
+                    f"inbox governance action kind={item_kind} section={current_section_slug or 'none'}"
+                ),
+                reasoning_control="invariant_graph.inbox_governance.action_item",
+                rel_path=rel_path,
+                line=line_number,
+                node_kind="governance_action_item",
+                status_hint=current_section_slug or item_kind,
+            )
+            _add_node(state, item_node, replace=True)
+            _link_node_refs(state, item_node)
+            parent_node_id = current_section_node_id or doc_node_id
+            _add_edge(state, "contains", parent_node_id, item_node_id)
+            for issue_id in _sorted(list(set(_GH_ISSUE_RE.findall(item_text)))):
+                issue_node_id = f"sppf_issue:{issue_id}"
+                if issue_node_id in state.nodes_by_id:
+                    _add_edge(state, "tracks", item_node_id, issue_node_id)
+
+
+def _join_governance_convergence_sources(state: _InvariantGraphBuildState) -> None:
+    checklist_node_id = _ensure_governance_doc_node(
+        state,
+        rel_path=_SPPF_CHECKLIST_DOC.as_posix(),
+    )
+    influence_index_node_id = _ensure_governance_doc_node(
+        state,
+        rel_path=_INFLUENCE_INDEX_DOC.as_posix(),
+    )
+    sppf_doc_node_ids = _join_sppf_dependency_graph(
+        state,
+        checklist_node_id=checklist_node_id,
+    )
+    _join_inbox_governance_docs(
+        state,
+        influence_index_node_id=influence_index_node_id,
+        sppf_doc_node_ids=sppf_doc_node_ids,
+    )
+
+
+def _governance_doc_ids_for_path(
+    state: _InvariantGraphBuildState,
+    *,
+    rel_path: str,
+) -> tuple[str, ...]:
+    if not rel_path.endswith(".md"):
+        return ()
+    frontmatter, _body = _markdown_frontmatter(root=state.root, rel_path=rel_path)
+    return _governance_doc_aliases(rel_path=rel_path, frontmatter=frontmatter)
+
+
+def _link_to_governance_doc_if_present(
+    state: _InvariantGraphBuildState,
+    *,
+    source_node_id: str,
+    rel_path: str,
+) -> None:
+    normalized = _normalize_rel_path(state.root, rel_path)
+    if not normalized.endswith(".md"):
+        return
+    target_node_id = _ensure_governance_doc_node(
+        state,
+        rel_path=normalized,
+    )
+    _add_edge(state, "tracks", source_node_id, target_node_id)
+
+
+def _join_docflow_packet_enforcement(state: _InvariantGraphBuildState) -> None:
+    artifact = load_docflow_packet_enforcement_artifact(
+        root=state.root,
+        rel_path=_DOCFLOW_PACKET_ENFORCEMENT_ARTIFACT.as_posix(),
+        identities=state.structured_artifact_identities,
+    )
+    if artifact is None:
+        return
+    report_node_id = "docflow_packet_enforcement:artifact"
+    report_node = _synthetic_node(
+        node_id=report_node_id,
+        title="docflow packet enforcement",
+        ref_kind="docflow_packet_enforcement",
+        value=_DOCFLOW_PACKET_ENFORCEMENT_ARTIFACT.as_posix(),
+        object_ids=(artifact.identity.wire(),),
+        reasoning_summary=(
+            "docflow packet enforcement blocked={blocked} drifted={drifted} new_rows={new_rows}".format(
+                blocked=artifact.blocked,
+                drifted=artifact.drifted,
+                new_rows=artifact.new_row_count,
+            )
+        ),
+        reasoning_control="invariant_graph.docflow_packet_enforcement",
+        rel_path=_DOCFLOW_PACKET_ENFORCEMENT_ARTIFACT.as_posix(),
+        node_kind="docflow_packet_enforcement",
+        status_hint="blocked"
+        if artifact.blocked or artifact.drifted or artifact.new_row_count
+        else "ready",
+    )
+    _add_node(state, report_node, replace=True)
+    for packet in artifact.packets:
+        packet_node_id = f"docflow_packet:{stable_hash(packet.identity.wire())}"
+        packet_node = _synthetic_node(
+            node_id=packet_node_id,
+            title=packet.packet_path or packet.classification or "docflow packet",
+            ref_kind="docflow_packet",
+            value=packet.identity.wire(),
+            object_ids=(packet.identity.wire(),),
+            doc_ids=_governance_doc_ids_for_path(state, rel_path=packet.packet_path),
+            reasoning_summary=(
+                "docflow packet status={status} classification={classification} rows={rows}".format(
+                    status=packet.status or "<unset>",
+                    classification=packet.classification or "<unset>",
+                    rows=len(packet.row_ids),
+                )
+            ),
+            reasoning_control="invariant_graph.docflow_packet_enforcement.packet",
+            rel_path=packet.packet_path,
+            node_kind="docflow_packet",
+            status_hint=packet.status or packet.classification,
+        )
+        _add_node(state, packet_node, replace=True)
+        _link_node_refs(state, packet_node)
+        _add_edge(state, "contains", report_node_id, packet_node_id)
+        _link_to_governance_doc_if_present(
+            state,
+            source_node_id=packet_node_id,
+            rel_path=packet.packet_path,
+        )
+        for row_item in packet.rows:
+            row_node_id = f"docflow_packet_row:{stable_hash(row_item.identity.wire())}"
+            row_node = _synthetic_node(
+                node_id=row_node_id,
+                title=row_item.row_id,
+                ref_kind="docflow_packet_row",
+                value=row_item.identity.wire(),
+                object_ids=(row_item.identity.wire(), row_item.row_id),
+                doc_ids=packet_node.doc_ids,
+                reasoning_summary=(
+                    "docflow row status={status} packet={path}".format(
+                        status=row_item.status or "<unset>",
+                        path=row_item.packet_path or "<unset>",
+                    )
+                ),
+                reasoning_control="invariant_graph.docflow_packet_enforcement.row",
+                rel_path=row_item.packet_path,
+                node_kind="docflow_packet_row",
+                status_hint=row_item.status,
+            )
+            _add_node(state, row_node, replace=True)
+            _link_node_refs(state, row_node)
+            _add_edge(state, "contains", packet_node_id, row_node_id)
+            _link_to_governance_doc_if_present(
+                state,
+                source_node_id=row_node_id,
+                rel_path=row_item.packet_path,
+            )
+    for rel_path_list in (
+        artifact.changed_paths,
+        artifact.out_of_scope_touches,
+        artifact.unresolved_touched_packets,
+    ):
+        for rel_path in rel_path_list:
+            _link_to_governance_doc_if_present(
+                state,
+                source_node_id=report_node_id,
+                rel_path=rel_path,
+            )
+
+
+def _join_controller_drift_artifact(state: _InvariantGraphBuildState) -> None:
+    artifact = load_controller_drift_artifact(
+        root=state.root,
+        rel_path=_CONTROLLER_DRIFT_ARTIFACT.as_posix(),
+        identities=state.structured_artifact_identities,
+    )
+    if artifact is None:
+        return
+    report_node_id = "controller_drift_report:artifact"
+    report_node = _synthetic_node(
+        node_id=report_node_id,
+        title="controller drift",
+        ref_kind="controller_drift_report",
+        value=_CONTROLLER_DRIFT_ARTIFACT.as_posix(),
+        object_ids=(artifact.identity.wire(),),
+        reasoning_summary=(
+            "controller drift findings={findings} highest_severity={severity}".format(
+                findings=artifact.total_findings,
+                severity=artifact.highest_severity or "<unset>",
+            )
+        ),
+        reasoning_control="invariant_graph.controller_drift",
+        rel_path=_CONTROLLER_DRIFT_ARTIFACT.as_posix(),
+        node_kind="controller_drift_report",
+        status_hint=artifact.highest_severity,
+    )
+    _add_node(state, report_node, replace=True)
+    for finding in artifact.findings:
+        finding_node_id = f"controller_drift_finding:{stable_hash(finding.identity.wire())}"
+        finding_node = _synthetic_node(
+            node_id=finding_node_id,
+            title=finding.detail or finding.sensor or "controller drift finding",
+            ref_kind="controller_drift_finding",
+            value=finding.identity.wire(),
+            object_ids=tuple(
+                item
+                for item in (finding.identity.wire(), finding.anchor)
+                if item
+            ),
+            reasoning_summary=finding.detail or finding.sensor or finding.anchor,
+            reasoning_control="invariant_graph.controller_drift.finding",
+            rel_path=_CONTROLLER_DRIFT_ARTIFACT.as_posix(),
+            node_kind="controller_drift_finding",
+            status_hint=finding.severity or finding.sensor,
+        )
+        _add_node(state, finding_node, replace=True)
+        _link_node_refs(state, finding_node)
+        _add_edge(state, "contains", report_node_id, finding_node_id)
+        for rel_path in finding.doc_paths:
+            _link_to_governance_doc_if_present(
+                state,
+                source_node_id=finding_node_id,
+                rel_path=rel_path,
+            )
+
+
+def _join_local_repro_closure_ledger(state: _InvariantGraphBuildState) -> None:
+    artifact = load_local_repro_closure_ledger_artifact(
+        root=state.root,
+        rel_path=_LOCAL_REPRO_CLOSURE_LEDGER_ARTIFACT.as_posix(),
+        identities=state.structured_artifact_identities,
+    )
+    if artifact is None:
+        return
+    report_node_id = "local_repro_closure_ledger:artifact"
+    report_node = _synthetic_node(
+        node_id=report_node_id,
+        title="local repro closure ledger",
+        ref_kind="local_repro_closure_ledger",
+        value=_LOCAL_REPRO_CLOSURE_LEDGER_ARTIFACT.as_posix(),
+        object_ids=(artifact.identity.wire(),),
+        reasoning_summary=(
+            "local repro closure entries={entries} schema_version={schema_version} workstream={workstream}".format(
+                entries=len(artifact.entries),
+                schema_version=artifact.source.schema_version,
+                workstream=artifact.workstream or "<unset>",
+            )
+        ),
+        reasoning_control="invariant_graph.local_repro_closure_ledger",
+        rel_path=_LOCAL_REPRO_CLOSURE_LEDGER_ARTIFACT.as_posix(),
+        node_kind="local_repro_closure_ledger",
+        status_hint=artifact.workstream,
+    )
+    _add_node(state, report_node, replace=True)
+    for entry in artifact.entries:
+        status_hint = (
+            "pass"
+            if entry.validation_statuses
+            and all(value == "pass" for value in entry.validation_statuses)
+            else ""
+        )
+        entry_node_id = f"local_repro_entry:{stable_hash(entry.identity.wire())}"
+        entry_node = _synthetic_node(
+            node_id=entry_node_id,
+            title=entry.cu_id or entry.summary or "local repro entry",
+            ref_kind="local_repro_entry",
+            value=entry.identity.wire(),
+            object_ids=tuple(
+                item
+                for item in (entry.identity.wire(), entry.cu_id)
+                if item
+            ),
+            reasoning_summary=entry.summary or entry.cu_id,
+            reasoning_control="invariant_graph.local_repro_closure_ledger.entry",
+            rel_path=_LOCAL_REPRO_CLOSURE_LEDGER_ARTIFACT.as_posix(),
+            node_kind="local_repro_entry",
+            status_hint=status_hint,
+        )
+        _add_node(state, entry_node, replace=True)
+        _link_node_refs(state, entry_node)
+        _add_edge(state, "contains", report_node_id, entry_node_id)
+
+
+def _join_cross_origin_witness_contract_artifact(state: _InvariantGraphBuildState) -> None:
+    artifact = load_cross_origin_witness_contract_artifact(
+        root=state.root,
+        rel_path=_CROSS_ORIGIN_WITNESS_CONTRACT_ARTIFACT.as_posix(),
+        identities=state.structured_artifact_identities,
+    )
+    if artifact is None:
+        return
+    report_node_id = "cross_origin_witness_report:artifact"
+    report_node = _synthetic_node(
+        node_id=report_node_id,
+        title="cross-origin witness contract",
+        ref_kind="cross_origin_witness_report",
+        value=_CROSS_ORIGIN_WITNESS_CONTRACT_ARTIFACT.as_posix(),
+        object_ids=(artifact.identity.wire(),),
+        reasoning_summary=(
+            "cross-origin witness cases={cases} witness_rows={rows} passing={passing}".format(
+                cases=len(artifact.cases),
+                rows=len(artifact.witness_rows),
+                passing=sum(1 for item in artifact.cases if item.status == "pass"),
+            )
+        ),
+        reasoning_control="invariant_graph.cross_origin_witness",
+        rel_path=_CROSS_ORIGIN_WITNESS_CONTRACT_ARTIFACT.as_posix(),
+        node_kind="cross_origin_witness_report",
+        status_hint="pass"
+        if all(item.status == "pass" for item in artifact.cases)
+        else "fail",
+    )
+    _add_node(state, report_node, replace=True)
+    _link_node_refs(state, report_node)
+    touchpoint_node_id = state.object_node_ids.get("CSA-IGM-TP-001", "")
+    if touchpoint_node_id:
+        _add_edge(state, "contains", touchpoint_node_id, report_node_id)
+    row_node_ids: dict[str, str] = {}
+    for row in artifact.witness_rows:
+        row_node_id = f"cross_origin_witness_row:{stable_hash(row.identity.wire())}"
+        row_node = _synthetic_node(
+            node_id=row_node_id,
+            title=str(row),
+            ref_kind="cross_origin_witness_row",
+            value=row.identity.wire(),
+            object_ids=tuple(
+                item
+                for item in (
+                    row.identity.wire(),
+                    row.row_key,
+                    row.remap_key,
+                    row.left_origin_key,
+                    row.right_origin_key,
+                )
+                if item
+            ),
+            reasoning_summary=row.summary,
+            reasoning_control="invariant_graph.cross_origin_witness.row",
+            rel_path=_CROSS_ORIGIN_WITNESS_CONTRACT_ARTIFACT.as_posix(),
+            node_kind="cross_origin_witness_row",
+            status_hint=row.row_kind,
+        )
+        _add_node(state, row_node, replace=True)
+        _link_node_refs(state, row_node)
+        row_node_ids[row.row_key] = row_node_id
+    for case in artifact.cases:
+        case_node_id = f"cross_origin_witness_case:{stable_hash(case.identity.wire())}"
+        case_node = _synthetic_node(
+            node_id=case_node_id,
+            title=case.title,
+            ref_kind="cross_origin_witness_case",
+            value=case.identity.wire(),
+            object_ids=(case.identity.wire(), case.case_key),
+            reasoning_summary=case.summary,
+            reasoning_control="invariant_graph.cross_origin_witness.case",
+            rel_path=_CROSS_ORIGIN_WITNESS_CONTRACT_ARTIFACT.as_posix(),
+            node_kind="cross_origin_witness_case",
+            status_hint=case.status,
+        )
+        _add_node(state, case_node, replace=True)
+        _link_node_refs(state, case_node)
+        _add_edge(state, "contains", report_node_id, case_node_id)
+        for row_key in case.row_keys:
+            row_node_id = row_node_ids.get(row_key, "")
+            if row_node_id:
+                _add_edge(state, "contains", case_node_id, row_node_id)
+
+
+def _git_state_line_spans_overlap(
+    *,
+    line: int,
+    start_line: int,
+    line_count: int,
+) -> bool:
+    return start_line <= line <= (start_line + line_count - 1)
+
+
+def _git_state_candidate_nodes(
+    state: _InvariantGraphBuildState,
+    *,
+    entry,
+) -> tuple[InvariantGraphNode, ...]:
+    return tuple(
+        node
+        for node in state.nodes_by_id.values()
+        if node.rel_path == entry.rel_path and node.node_kind not in _GIT_STATE_NODE_KINDS
+    )
+
+
+def _git_state_participation_parent_node_ids(
+    *,
+    candidate_nodes: tuple[InvariantGraphNode, ...],
+    entry,
+) -> tuple[str, ...]:
+    if not candidate_nodes:
+        return ()
+    if not entry.current_line_spans:
+        return tuple(_sorted([node.node_id for node in candidate_nodes]))
+    overlapping_node_ids = [
+        node.node_id
+        for node in candidate_nodes
+        if node.line > 0
+        and any(
+            _git_state_line_spans_overlap(
+                line=node.line,
+                start_line=line_span.start_line,
+                line_count=line_span.line_count,
+            )
+            for line_span in entry.current_line_spans
+        )
+    ]
+    line_agnostic_node_ids = [node.node_id for node in candidate_nodes if node.line <= 0]
+    if overlapping_node_ids:
+        return tuple(_sorted([*overlapping_node_ids, *line_agnostic_node_ids]))
+    if line_agnostic_node_ids:
+        return tuple(_sorted(line_agnostic_node_ids))
+    return ()
+
+
+def _join_git_state_artifact(state: _InvariantGraphBuildState) -> None:
+    artifact = load_git_state_artifact(
+        root=state.root,
+        rel_path=_GIT_STATE_ARTIFACT.as_posix(),
+        identities=state.structured_artifact_identities,
+        prefer_live_repo_state=True,
+    )
+    if artifact is None:
+        return
+    counts = defaultdict(int)
+    for entry in artifact.entries:
+        counts[entry.state_class] += 1
+    report_node_id = "git_state_report:artifact"
+    report_node = _synthetic_node(
+        node_id=report_node_id,
+        title="git state",
+        ref_kind="git_state_report",
+        value=_GIT_STATE_ARTIFACT.as_posix(),
+        object_ids=tuple(
+            item
+            for item in (artifact.identity.wire(), artifact.head_sha)
+            if item
+        ),
+        reasoning_summary=(
+            "head={head} branch={branch} committed={committed} staged={staged} "
+            "unstaged={unstaged} untracked={untracked}".format(
+                head=artifact.head_sha[:12] if artifact.head_sha else "<none>",
+                branch=artifact.branch or "<detached>",
+                committed=counts["committed"],
+                staged=counts["staged"],
+                unstaged=counts["unstaged"],
+                untracked=counts["untracked"],
+            )
+        ),
+        reasoning_control="invariant_graph.git_state",
+        rel_path=_GIT_STATE_ARTIFACT.as_posix(),
+        node_kind="git_state_report",
+        status_hint=artifact.branch or ("detached" if artifact.is_detached else "unknown"),
+    )
+    _add_node(state, report_node, replace=True)
+    _link_node_refs(state, report_node)
+    for touchpoint_object_id in ("CSA-IGM-TP-004", "CSA-RGC-TP-006"):
+        touchpoint_node_id = state.object_node_ids.get(touchpoint_object_id, "")
+        if touchpoint_node_id:
+            _add_edge(state, "contains", touchpoint_node_id, report_node_id)
+    if artifact.head_sha:
+        commit_node_id = f"git_head_commit:{artifact.head_sha}"
+        commit_node = _synthetic_node(
+            node_id=commit_node_id,
+            title=artifact.head_sha[:12],
+            ref_kind="git_head_commit",
+            value=artifact.head_sha,
+            object_ids=(artifact.head_sha,),
+            reasoning_summary=(
+                "branch={branch} upstream={upstream}".format(
+                    branch=artifact.branch or "<detached>",
+                    upstream=artifact.upstream or "<none>",
+                )
+            ),
+            reasoning_control="invariant_graph.git_state.head_commit",
+            rel_path=_GIT_STATE_ARTIFACT.as_posix(),
+            node_kind="git_head_commit",
+            status_hint=artifact.branch or "detached",
+        )
+        _add_node(state, commit_node, replace=True)
+        _link_node_refs(state, commit_node)
+        _add_edge(state, "contains", report_node_id, commit_node_id)
+    for entry in artifact.entries:
+        entry_node_id = f"git_state_entry:{stable_hash(entry.identity.wire())}"
+        entry_node = _synthetic_node(
+            node_id=entry_node_id,
+            title=str(entry),
+            ref_kind="git_state_entry",
+            value=entry.identity.wire(),
+            object_ids=tuple(
+                item
+                for item in (
+                    entry.identity.wire(),
+                    entry.rel_path,
+                    entry.previous_path,
+                )
+                if item
+            ),
+            reasoning_summary=(
+                f"state_class={entry.state_class} change_code={entry.change_code or '<unset>'}"
+            ),
+            reasoning_control="invariant_graph.git_state.entry",
+            rel_path=entry.rel_path,
+            node_kind="git_state_entry",
+            status_hint=entry.state_class,
+        )
+        _add_node(state, entry_node, replace=True)
+        _link_node_refs(state, entry_node)
+        _add_edge(state, "contains", report_node_id, entry_node_id)
+        candidate_nodes = _git_state_candidate_nodes(
+            state,
+            entry=entry,
+        )
+        participation_parent_node_ids = _git_state_participation_parent_node_ids(
+            candidate_nodes=candidate_nodes,
+            entry=entry,
+        )
+        for parent_node_id in participation_parent_node_ids:
+            _add_edge(state, "touches", entry_node_id, parent_node_id)
+        if not participation_parent_node_ids:
+            for candidate_node in candidate_nodes:
+                _add_edge(state, "shares_path_with", entry_node_id, candidate_node.node_id)
+        if (
+            entry.state_class in _DIRTY_GIT_STATE_CLASSES
+            and not _is_mechanically_reconstructable_git_path(entry.rel_path)
+        ):
+            if participation_parent_node_ids:
+                state.diagnostics.append(
+                    InvariantGraphDiagnostic(
+                        diagnostic_id=stable_hash(
+                            "invariant_graph_workspace_preservation",
+                            entry_node_id,
+                            entry.state_class,
+                            entry.rel_path,
+                        ),
+                        severity="warning",
+                        code="workspace_preservation_needed",
+                        node_id=entry_node_id,
+                        raw_dependency=entry.state_class,
+                        message=(
+                            f"{entry.state_class} graph-participating change at {entry.rel_path} "
+                            f"should be {_workspace_preservation_action_for_state(entry.state_class).replace('_', ' ')}."
+                        ),
+                    )
+                )
+            else:
+                orphan_reason = (
+                    "does not overlap current touchsite lines"
+                    if candidate_nodes
+                    else "does not match any current workstream-owned path"
+                )
+                state.diagnostics.append(
+                    InvariantGraphDiagnostic(
+                        diagnostic_id=stable_hash(
+                            "invariant_graph_orphaned_workspace_change",
+                            entry_node_id,
+                            entry.state_class,
+                            entry.rel_path,
+                        ),
+                        severity="warning",
+                        code="orphaned_workspace_change",
+                        node_id=entry_node_id,
+                        raw_dependency=entry.state_class,
+                        message=(
+                            f"{entry.state_class} non-ephemeral change at {entry.rel_path} "
+                            f"{orphan_reason}; attribute it before preservation."
+                        ),
+                    )
+                )
+
+
+def _join_ingress_merge_parity_artifact(state: _InvariantGraphBuildState) -> None:
+    artifact = load_ingress_merge_parity_artifact(
+        root=state.root,
+        rel_path=_INGRESS_MERGE_PARITY_ARTIFACT.as_posix(),
+        identities=state.structured_artifact_identities,
+    )
+    if artifact is None:
+        return
+    report_node_id = "ingress_merge_parity_report:artifact"
+    report_node = _synthetic_node(
+        node_id=report_node_id,
+        title="ingress merge parity",
+        ref_kind="ingress_merge_parity_report",
+        value=_INGRESS_MERGE_PARITY_ARTIFACT.as_posix(),
+        object_ids=(artifact.identity.wire(),),
+        reasoning_summary=(
+            "ingress merge parity cases={cases} passing={passing}".format(
+                cases=len(artifact.cases),
+                passing=sum(1 for item in artifact.cases if item.status == "pass"),
+            )
+        ),
+        reasoning_control="invariant_graph.ingress_merge_parity",
+        rel_path=_INGRESS_MERGE_PARITY_ARTIFACT.as_posix(),
+        node_kind="ingress_merge_parity_report",
+        status_hint="pass"
+        if all(item.status == "pass" for item in artifact.cases)
+        else "fail",
+    )
+    _add_node(state, report_node, replace=True)
+    touchpoint_node_id = state.object_node_ids.get("CSA-IGM-TP-003", "")
+    if touchpoint_node_id:
+        _add_edge(state, "contains", touchpoint_node_id, report_node_id)
+    for case in artifact.cases:
+        case_node_id = f"ingress_merge_parity_case:{stable_hash(case.identity.wire())}"
+        case_node = _synthetic_node(
+            node_id=case_node_id,
+            title=case.title,
+            ref_kind="ingress_merge_parity_case",
+            value=case.identity.wire(),
+            object_ids=(case.identity.wire(), case.case_key),
+            reasoning_summary=case.summary,
+            reasoning_control="invariant_graph.ingress_merge_parity.case",
+            rel_path=_INGRESS_MERGE_PARITY_ARTIFACT.as_posix(),
+            node_kind="ingress_merge_parity_case",
+            status_hint=case.status,
+        )
+        _add_node(state, case_node, replace=True)
+        _link_node_refs(state, case_node)
+        _add_edge(state, "contains", report_node_id, case_node_id)
+
+
+def _join_control_loop_artifacts(state: _InvariantGraphBuildState) -> None:
+    _join_docflow_packet_enforcement(state)
+    _join_controller_drift_artifact(state)
+    _join_local_repro_closure_ledger(state)
+    _join_cross_origin_witness_contract_artifact(state)
+    _join_git_state_artifact(state)
+    _join_ingress_merge_parity_artifact(state)
+
+
+def _is_declared_workstream_dependency(
+    state: _InvariantGraphBuildState,
+    dependency: str,
+) -> bool:
+    if dependency in state.declared_workstream_ids:
+        return True
+    if dependency.startswith(("PSF-", "PRF-", "CSA-")):
+        return True
+    return any(
+        dependency == root_id or dependency.startswith(f"{root_id}-")
+        for root_id in state.workstream_root_ids
+    )
+
+
 def _resolve_blocking_dependencies(state: _InvariantGraphBuildState) -> None:
     for node in list(state.nodes_by_id.values()):
         for dependency in node.blocking_dependencies:
             target_id = state.object_node_ids.get(dependency)
             if target_id is None:
-                if (
-                    dependency in state.declared_workstream_ids
-                    or dependency.startswith("PSF-")
-                    or dependency.startswith("PRF-")
-                ):
+                if _is_declared_workstream_dependency(state, dependency):
                     raise ValueError(
                         "declared workstream blocking dependency did not resolve: "
                         f"{dependency} (from {node.node_id})"
@@ -7979,17 +10037,18 @@ def build_invariant_graph(root: Path) -> InvariantGraph:
         _add_node(state, graph_node)
         marker_node_id_by_marker_id[graph_node.marker_id] = graph_node.node_id
         _link_node_refs(state, graph_node)
-    _enrich_psf_phase5_workstream(
-        state,
-        marker_node_id_by_marker_id=marker_node_id_by_marker_id,
-    )
-    _enrich_prf_workstream(
-        state,
-        marker_node_id_by_marker_id=marker_node_id_by_marker_id,
-    )
+    for registry in _iter_declared_workstream_registries():
+        _enrich_workstream_registry(
+            state,
+            registry=registry,
+            marker_node_id_by_marker_id=marker_node_id_by_marker_id,
+        )
     _resolve_blocking_dependencies(state)
     _join_policy_signals(state)
     _join_test_coverage(state)
+    _join_test_failures(state)
+    _join_governance_convergence_sources(state)
+    _join_control_loop_artifacts(state)
     return InvariantGraph(
         root=str(root),
         workstream_root_ids=tuple(_sorted(state.workstream_root_ids)),
@@ -8135,6 +10194,38 @@ def build_invariant_workstreams(
         }
         return tuple(_sorted(list(test_case_ids)))
 
+    def _failing_test_case_ids(node_ids: Iterable[str]) -> tuple[str, ...]:
+        failing_test_case_ids = {
+            test_case_id
+            for test_case_id in _test_case_ids(node_ids)
+            if any(
+                edge.edge_kind == "fails_with"
+                and node_by_id.get(edge.target_id, None) is not None
+                and node_by_id[edge.target_id].node_kind == "test_failure"
+                for edge in edges_from.get(test_case_id, ())
+            )
+        }
+        return tuple(_sorted(list(failing_test_case_ids)))
+
+    def _test_failure_ids(node_ids: Iterable[str]) -> tuple[str, ...]:
+        direct_failure_ids = {
+            edge.source_id
+            for node_id in node_ids
+            for edge in edges_to.get(node_id, ())
+            if edge.edge_kind == "fails_on"
+            and node_by_id.get(edge.source_id, None) is not None
+            and node_by_id[edge.source_id].node_kind == "test_failure"
+        }
+        covered_failure_ids = {
+            edge.target_id
+            for test_case_id in _failing_test_case_ids(node_ids)
+            for edge in edges_from.get(test_case_id, ())
+            if edge.edge_kind == "fails_with"
+            and node_by_id.get(edge.target_id, None) is not None
+            and node_by_id[edge.target_id].node_kind == "test_failure"
+        }
+        return tuple(_sorted(list(direct_failure_ids | covered_failure_ids)))
+
     def _diagnostic_count(node_ids: Iterable[str]) -> int:
         return sum(len(diagnostics_by_node_id.get(node_id, ())) for node_id in node_ids)
 
@@ -8175,6 +10266,8 @@ def build_invariant_workstreams(
             coverage_count=len(_test_case_ids((node.node_id,))),
             diagnostic_count=_diagnostic_count((node.node_id,)),
             object_ids=node.object_ids,
+            failing_test_case_count=len(_failing_test_case_ids((node.node_id,))),
+            test_failure_count=len(_test_failure_ids((node.node_id,))),
         )
 
     def _touchpoint_projection(
@@ -8232,6 +10325,8 @@ def build_invariant_workstreams(
             coverage_count=len(_test_case_ids(touchpoint_descendants)),
             diagnostic_count=_diagnostic_count(touchpoint_descendants),
             touchsites=_stream_from_iterable(_iter_touchsites),
+            failing_test_case_count=len(_failing_test_case_ids(touchpoint_descendants)),
+            test_failure_count=len(_test_failure_ids(touchpoint_descendants)),
         )
 
     def _subqueue_projection(
@@ -8284,6 +10379,8 @@ def build_invariant_workstreams(
             policy_signal_count=len(_signal_ids(subqueue_descendants)),
             coverage_count=len(_test_case_ids(subqueue_descendants)),
             diagnostic_count=_diagnostic_count(subqueue_descendants),
+            failing_test_case_count=len(_failing_test_case_ids(subqueue_descendants)),
+            test_failure_count=len(_test_failure_ids(subqueue_descendants)),
         )
 
     def _workstream_projection(root_object_id: str) -> InvariantWorkstreamProjection:
@@ -8357,6 +10454,8 @@ def build_invariant_workstreams(
             doc_alignment_summary=None,
             subqueues=_stream_from_iterable(_iter_subqueues),
             touchpoints=_stream_from_iterable(_iter_touchpoints),
+            failing_test_case_count=len(_failing_test_case_ids(root_descendants)),
+            test_failure_count=len(_test_failure_ids(root_descendants)),
         )
         if root is None or doc_paths_by_id is None:
             return workstream
@@ -8551,7 +10650,13 @@ def write_invariant_workstreams(
     path: Path,
     workstreams: InvariantWorkstreamsProjection,
 ) -> None:
-    write_json(path, workstreams.artifact_document())
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = path.with_suffix(f"{path.suffix}.tmp")
+    temp_path.write_text(
+        json.dumps(workstreams.as_payload(), indent=2) + "\n",
+        encoding="utf-8",
+    )
+    temp_path.replace(path)
 
 
 def write_invariant_ledger_projections(

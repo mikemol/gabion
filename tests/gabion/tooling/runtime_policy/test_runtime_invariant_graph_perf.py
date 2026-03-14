@@ -13,6 +13,15 @@ def _write(path: Path, content: str) -> None:
 
 
 def _disable_phase5_enricher(monkeypatch) -> None:
+    if hasattr(invariant_graph, "phase5_workstream_registry"):
+        monkeypatch.setattr(invariant_graph, "phase5_workstream_registry", lambda: None)
+        monkeypatch.setattr(invariant_graph, "prf_workstream_registry", lambda: None)
+        monkeypatch.setattr(
+            invariant_graph,
+            "connectivity_synergy_workstream_registries",
+            lambda: (),
+        )
+        return
     monkeypatch.setattr(invariant_graph, "iter_phase5_queues", lambda: ())
     monkeypatch.setattr(invariant_graph, "iter_phase5_subqueues", lambda: ())
     monkeypatch.setattr(invariant_graph, "iter_phase5_touchpoints", lambda: ())

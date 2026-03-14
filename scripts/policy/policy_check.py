@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import cProfile
 import argparse
 import ast
 import json
@@ -8,6 +9,7 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Mapping
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -18,6 +20,7 @@ from gabion.deadline_clock import MonotonicClock
 from gabion.order_contract import ordered_or_sorted
 from gabion.config import dataflow_adapter_payload, dataflow_defaults, dataflow_required_surfaces
 from gabion.tooling.runtime import policy_result_schema
+from gabion.tooling.runtime.perf_artifact import write_cprofile_perf_artifact
 from gabion.policy_dsl import PolicyDomain, evaluate_policy
 from gabion.policy_dsl.compile import compile_document
 from gabion.policy_dsl.registry import build_registry
@@ -1773,6 +1776,7 @@ _LAST_FAIL_ERRORS: list[str] = []
 def _write_projection_semantic_fragment_queue_artifacts(
     *,
     output_path: Path,
+    phase5_workstreams_projection: Mapping[str, object] | None = None,
 ) -> None:
     from scripts.policy import projection_semantic_fragment_queue
 
@@ -1780,17 +1784,59 @@ def _write_projection_semantic_fragment_queue_artifacts(
         source_artifact_path=output_path,
         out_path=output_path.parent / "projection_semantic_fragment_queue.json",
         markdown_out=output_path.parent / "projection_semantic_fragment_queue.md",
+        phase5_workstreams_projection=phase5_workstreams_projection,
+    )
+
+
+def _write_ingress_merge_parity_artifact(*, output_path: Path) -> Path:
+    from gabion.tooling.policy_substrate.structured_artifact_ingress import (
+        StructuredArtifactIdentitySpace,
+        build_ingress_merge_parity_artifact,
+        write_ingress_merge_parity_artifact,
+    )
+
+    artifact_rel_path = "artifacts/out/ingress_merge_parity.json"
+    artifact = build_ingress_merge_parity_artifact(
+        root=REPO_ROOT,
+        rel_path=artifact_rel_path,
+        identities=StructuredArtifactIdentitySpace(),
+    )
+    return write_ingress_merge_parity_artifact(
+        root=REPO_ROOT,
+        rel_path=artifact_rel_path,
+        artifact=artifact,
+    )
+
+
+def _write_git_state_artifact(*, output_path: Path) -> Path:
+    from gabion.tooling.runtime.git_state_artifact import write_git_state_artifact
+
+    return write_git_state_artifact(
+        path=output_path.parent / "git_state.json",
+        root=REPO_ROOT,
+    )
+
+
+def _write_cross_origin_witness_contract_artifact(*, output_path: Path) -> Path:
+    from gabion.tooling.runtime.cross_origin_witness_artifact import (
+        write_cross_origin_witness_contract_artifact,
+    )
+
+    return write_cross_origin_witness_contract_artifact(
+        path=output_path.parent / "cross_origin_witness_contract.json",
+        root=REPO_ROOT,
     )
 
 
 def _write_invariant_graph_artifact(
     *,
     output_path: Path,
-) -> None:
+) -> Mapping[str, object]:
     from gabion.tooling.policy_substrate.invariant_graph import (
         build_invariant_graph,
         build_invariant_ledger_projections,
         build_invariant_workstreams,
+        load_invariant_workstreams,
         write_invariant_graph,
         write_invariant_ledger_projections,
         write_invariant_workstreams,
@@ -1798,15 +1844,17 @@ def _write_invariant_graph_artifact(
 
     graph = build_invariant_graph(REPO_ROOT)
     workstreams = build_invariant_workstreams(graph, root=REPO_ROOT)
+    workstreams_path = output_path.parent / "invariant_workstreams.json"
     write_invariant_graph(output_path.parent / "invariant_graph.json", graph)
     write_invariant_workstreams(
-        output_path.parent / "invariant_workstreams.json",
+        workstreams_path,
         workstreams,
     )
     write_invariant_ledger_projections(
         output_path.parent / "invariant_ledger_projections.json",
         build_invariant_ledger_projections(workstreams, root=REPO_ROOT),
     )
+    return load_invariant_workstreams(workstreams_path)
 
 
 
@@ -1932,6 +1980,7 @@ def check_adapter_surface_policy() -> None:
         _fail(errors)
 
 def main(argv: list[str] | None = None):
+    raw_argv = list(sys.argv[1:] if argv is None else argv)
     parser = argparse.ArgumentParser(description="POLICY_SEED guardrails")
     parser.add_argument("--workflows", action="store_true", help="lint workflows")
     parser.add_argument("--posture", action="store_true", help="check GitHub posture")
@@ -1943,6 +1992,11 @@ def main(argv: list[str] | None = None):
     parser.add_argument("--aspf-taint-crosswalk", action="store_true", help="require ASPF/taint crosswalk acknowledgement when relevant files change")
     parser.add_argument("--policy-dsl", action="store_true", help="compile/typecheck policy DSL sources")
     parser.add_argument("--output", type=Path, help="optional policy-result artifact path")
+    parser.add_argument(
+        "--perf-artifact",
+        type=Path,
+        help="optional cProfile-based structural perf artifact path",
+    )
     args = parser.parse_args(argv)
 
     if not args.workflows and not args.posture and not args.ambiguity_contract and not args.normative_map and not args.tier2_residue_contract and not args.adapter_surfaces and not args.semantic_core_payload_branching and not args.aspf_taint_crosswalk and not args.policy_dsl:
@@ -1966,75 +2020,130 @@ def main(argv: list[str] | None = None):
 
     returncode = 0
     lattice_convergence_result: ProjectionFiberLatticeConvergenceResult | None = None
+    perf_profile = cProfile.Profile() if args.perf_artifact is not None else None
+    result: dict[str, object] | None = None
     _LAST_FAIL_ERRORS.clear()
     try:
-        with _policy_deadline_scope():
-            if args.workflows:
-                check_workflows()
-            if args.posture:
-                check_posture()
-            if args.ambiguity_contract:
-                check_ambiguity_contract()
-            if args.normative_map:
-                check_normative_enforcement_map()
-            if args.tier2_residue_contract:
-                check_tier2_residue_contract()
-            if args.adapter_surfaces:
-                check_adapter_surface_policy()
-            if args.semantic_core_payload_branching:
-                check_semantic_core_payload_branching()
-            if args.aspf_taint_crosswalk or args.workflows:
-                check_aspf_taint_crosswalk_ack()
-            if args.policy_dsl or args.workflows:
-                check_policy_dsl()
-                lattice_convergence_result = collect_aspf_lattice_convergence_result()
-                if lattice_convergence_result.blocking:
-                    _fail(
-                        [
-                            lattice_convergence_result.decision_message,
-                            *lattice_convergence_result.error_messages,
-                        ]
-                    )
-    except SystemExit as exc:
-        code = exc.code
-        returncode = int(code) if isinstance(code, int) else 1
+        if perf_profile is not None:
+            perf_profile.enable()
+        try:
+            with _policy_deadline_scope():
+                if args.workflows:
+                    check_workflows()
+                if args.posture:
+                    check_posture()
+                if args.ambiguity_contract:
+                    check_ambiguity_contract()
+                if args.normative_map:
+                    check_normative_enforcement_map()
+                if args.tier2_residue_contract:
+                    check_tier2_residue_contract()
+                if args.adapter_surfaces:
+                    check_adapter_surface_policy()
+                if args.semantic_core_payload_branching:
+                    check_semantic_core_payload_branching()
+                if args.aspf_taint_crosswalk or args.workflows:
+                    check_aspf_taint_crosswalk_ack()
+                if args.policy_dsl or args.workflows:
+                    check_policy_dsl()
+                    lattice_convergence_result = collect_aspf_lattice_convergence_result()
+                    if lattice_convergence_result.blocking:
+                        _fail(
+                            [
+                                lattice_convergence_result.decision_message,
+                                *lattice_convergence_result.error_messages,
+                            ]
+                        )
+        except SystemExit as exc:
+            code = exc.code
+            returncode = int(code) if isinstance(code, int) else 1
 
-    if args.output is not None:
-        violations: list[dict[str, str]] = []
-        if returncode != 0:
-            violations = [
-                {
-                    "message": message,
-                    "render": message,
-                }
-                for message in _LAST_FAIL_ERRORS
-            ]
-            if not violations:
-                violations.append(
+        if args.output is not None:
+            violations: list[dict[str, str]] = []
+            if returncode != 0:
+                violations = [
                     {
-                        "message": "policy checks failed",
-                        "render": f"policy_check returncode={returncode}",
+                        "message": message,
+                        "render": message,
                     }
-                )
-        result = policy_result_schema.make_policy_result(
-            rule_id="policy_check",
-            status="pass" if returncode == 0 else "fail",
-            violations=violations,
-            baseline_mode="none",
-            source_tool="scripts/policy/policy_check.py",
-            input_scope={"checks": requested_checks},
-        )
-        if lattice_convergence_result is not None:
-            result["projection_fiber_semantics"] = lattice_convergence_result.as_policy_output()
-        policy_result_schema.write_policy_result(
-            path=args.output,
-            result=result,
-        )
-        if lattice_convergence_result is not None:
-            _write_invariant_graph_artifact(output_path=args.output)
-            _write_projection_semantic_fragment_queue_artifacts(
-                output_path=args.output,
+                    for message in _LAST_FAIL_ERRORS
+                ]
+                if not violations:
+                    violations.append(
+                        {
+                            "message": "policy checks failed",
+                            "render": f"policy_check returncode={returncode}",
+                        }
+                    )
+            result = policy_result_schema.make_policy_result(
+                rule_id="policy_check",
+                status="pass" if returncode == 0 else "fail",
+                violations=violations,
+                baseline_mode="none",
+                source_tool="scripts/policy/policy_check.py",
+                input_scope={"checks": requested_checks},
             )
+            if lattice_convergence_result is not None:
+                result["projection_fiber_semantics"] = (
+                    lattice_convergence_result.as_policy_output()
+                )
+            policy_result_schema.write_policy_result(
+                path=args.output,
+                result=result,
+            )
+            if lattice_convergence_result is not None:
+                _write_git_state_artifact(
+                    output_path=args.output,
+                )
+                _write_cross_origin_witness_contract_artifact(
+                    output_path=args.output,
+                )
+                _write_ingress_merge_parity_artifact(
+                    output_path=args.output,
+                )
+                phase5_workstreams_projection = _write_invariant_graph_artifact(
+                    output_path=args.output
+                )
+                _write_projection_semantic_fragment_queue_artifacts(
+                    output_path=args.output,
+                    phase5_workstreams_projection=phase5_workstreams_projection,
+                )
+    finally:
+        if perf_profile is not None:
+            perf_profile.disable()
+    graph_artifact = (
+        args.output.parent / "invariant_graph.json"
+        if args.output is not None
+        else None
+    )
+    if args.perf_artifact is not None and perf_profile is not None:
+        try:
+            write_cprofile_perf_artifact(
+                path=args.perf_artifact,
+                profile=perf_profile,
+                root=REPO_ROOT,
+                command=("scripts/policy/policy_check.py", *raw_argv),
+                requested_checks=requested_checks,
+                returncode=returncode,
+                graph_artifact=graph_artifact,
+            )
+        except Exception as exc:
+            message = f"perf artifact write failed: {exc}"
+            _LAST_FAIL_ERRORS.append(message)
+            returncode = 1
+            if result is not None:
+                result["status"] = "fail"
+                result["violations"] = [
+                    *result["violations"],
+                    {
+                        "message": message,
+                        "render": message,
+                    },
+                ]
+                policy_result_schema.write_policy_result(
+                    path=args.output,
+                    result=result,
+                )
 
     return returncode
 
