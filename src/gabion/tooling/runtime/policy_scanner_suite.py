@@ -5,6 +5,11 @@ import itertools
 import json
 from pathlib import Path
 from typing import Any, Iterable
+from gabion.tooling.policy_substrate.policy_scanner_identity import (
+    PolicyScannerIdentitySpace,
+    canonical_policy_scanner_site_identity,
+    canonical_policy_scanner_structural_identity,
+)
 from gabion.tooling.policy_rules import (
     aspf_normalization_idempotence_rule,
     boundary_core_contract_rule,
@@ -101,8 +106,10 @@ def scan_policy_suite(
     *,
     root: Path,
     changed_paths: set[str] | None = None,
+    identities: PolicyScannerIdentitySpace | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
     resolved_root = root.resolve()
+    identity_space = identities if identities is not None else PolicyScannerIdentitySpace()
     inventory = _inventory_files(resolved_root)
     boundary_scope_files = _boundary_scoped_files(
         root=resolved_root,
@@ -119,21 +126,25 @@ def scan_policy_suite(
         root=resolved_root,
         target_globs=(),
         files=inventory,
+        identities=identity_space,
     )
     src_batch = build_policy_scan_batch(
         root=resolved_root,
         target_globs=(),
         files=src_inventory,
+        identities=identity_space,
     )
     test_batch = build_policy_scan_batch(
         root=resolved_root,
         target_globs=(),
         files=test_inventory,
+        identities=identity_space,
     )
     boundary_batch = build_policy_scan_batch(
         root=resolved_root,
         target_globs=(),
         files=boundary_scope_files,
+        identities=identity_space,
     )
     branchless_allowed = _load_rule_baseline_keys(
         module=branchless_rule,
@@ -187,107 +198,174 @@ def scan_policy_suite(
 
     for invalid in typing_surface_waiver_result.invalid_waivers:
         violations_by_rule["typing_surface"].append(
-            {
-                "path": _TYPING_SURFACE_WAIVERS.as_posix(),
-                "line": int(invalid.index),
-                "column": 1,
-                "qualname": "<waiver>",
-                "kind": "invalid_waiver",
-                "scope": "waiver",
-                "annotation": "<none>",
-                "message": f"invalid typing-surface waiver metadata: {invalid.reason}",
-                "key": f"{_TYPING_SURFACE_WAIVERS.as_posix()}:<waiver>:{int(invalid.index)}:invalid_waiver",
-                "render": f"{_TYPING_SURFACE_WAIVERS.as_posix()}:{int(invalid.index)}:1: invalid_waiver: {invalid.reason}",
-            }
+            _with_scanner_identity(
+                {
+                    "path": _TYPING_SURFACE_WAIVERS.as_posix(),
+                    "line": int(invalid.index),
+                    "column": 1,
+                    "qualname": "<waiver>",
+                    "kind": "invalid_waiver",
+                    "scope": "waiver",
+                    "annotation": "<none>",
+                    "message": f"invalid typing-surface waiver metadata: {invalid.reason}",
+                    "key": f"{_TYPING_SURFACE_WAIVERS.as_posix()}:<waiver>:{int(invalid.index)}:invalid_waiver",
+                    "render": f"{_TYPING_SURFACE_WAIVERS.as_posix()}:{int(invalid.index)}:1: invalid_waiver: {invalid.reason}",
+                },
+                rule_id="typing_surface",
+                identities=identity_space,
+            )
         )
 
     for invalid in runtime_narrowing_boundary_waiver_result.invalid_waivers:
         violations_by_rule["runtime_narrowing_boundary"].append(
-            {
-                "path": _RUNTIME_NARROWING_BOUNDARY_WAIVERS.as_posix(),
-                "line": int(invalid.index),
-                "column": 1,
-                "qualname": "<waiver>",
-                "kind": "invalid_waiver",
-                "call": "<none>",
-                "message": f"invalid runtime-narrowing-boundary waiver metadata: {invalid.reason}",
-                "key": f"{_RUNTIME_NARROWING_BOUNDARY_WAIVERS.as_posix()}:<waiver>:{int(invalid.index)}:invalid_waiver",
-                "render": f"{_RUNTIME_NARROWING_BOUNDARY_WAIVERS.as_posix()}:{int(invalid.index)}:1: invalid_waiver: {invalid.reason}",
-            }
+            _with_scanner_identity(
+                {
+                    "path": _RUNTIME_NARROWING_BOUNDARY_WAIVERS.as_posix(),
+                    "line": int(invalid.index),
+                    "column": 1,
+                    "qualname": "<waiver>",
+                    "kind": "invalid_waiver",
+                    "call": "<none>",
+                    "message": f"invalid runtime-narrowing-boundary waiver metadata: {invalid.reason}",
+                    "key": f"{_RUNTIME_NARROWING_BOUNDARY_WAIVERS.as_posix()}:<waiver>:{int(invalid.index)}:invalid_waiver",
+                    "render": f"{_RUNTIME_NARROWING_BOUNDARY_WAIVERS.as_posix()}:{int(invalid.index)}:1: invalid_waiver: {invalid.reason}",
+                },
+                rule_id="runtime_narrowing_boundary",
+                identities=identity_space,
+            )
         )
 
     legacy_monolith_violations = no_legacy_monolith_import_rule.collect_violations(
         batch=inventory_batch,
     )
     violations_by_rule["no_legacy_monolith_import"].extend(
-        _serialize_legacy_monolith(item) for item in legacy_monolith_violations
+        _serialize_rule_violations(
+            rule_id="no_legacy_monolith_import",
+            violations=legacy_monolith_violations,
+            serializer=_serialize_legacy_monolith,
+            identities=identity_space,
+        )
     )
     orchestrator_barrel_violations = orchestrator_primitive_barrel_rule.collect_violations(
         batch=inventory_batch,
     )
     violations_by_rule["orchestrator_primitive_barrel"].extend(
-        _serialize_orchestrator_primitive_barrel(item)
-        for item in orchestrator_barrel_violations
+        _serialize_rule_violations(
+            rule_id="orchestrator_primitive_barrel",
+            violations=orchestrator_barrel_violations,
+            serializer=_serialize_orchestrator_primitive_barrel,
+            identities=identity_space,
+        )
     )
     no_mp_violations = no_monkeypatch_rule.collect_violations(batch=inventory_batch)
     violations_by_rule["no_monkeypatch"].extend(
-        _serialize_no_monkeypatch(item) for item in no_mp_violations
+        _serialize_rule_violations(
+            rule_id="no_monkeypatch",
+            violations=no_mp_violations,
+            serializer=_serialize_no_monkeypatch,
+            identities=identity_space,
+        )
     )
     branchless_violations = _filter_baseline_violations(
         branchless_rule.collect_violations(batch=src_batch),
         allowed_keys=branchless_allowed,
     )
     violations_by_rule["branchless"].extend(
-        _serialize_branchless(item) for item in branchless_violations
+        _serialize_rule_violations(
+            rule_id="branchless",
+            violations=branchless_violations,
+            serializer=_serialize_branchless,
+            identities=identity_space,
+        )
     )
     defensive_violations = _filter_baseline_violations(
         defensive_fallback_rule.collect_violations(batch=src_batch),
         allowed_keys=defensive_allowed,
     )
     violations_by_rule["defensive_fallback"].extend(
-        _serialize_defensive(item) for item in defensive_violations
+        _serialize_rule_violations(
+            rule_id="defensive_fallback",
+            violations=defensive_violations,
+            serializer=_serialize_defensive,
+            identities=identity_space,
+        )
     )
     loop_structure_violations = fiber_loop_structure_contract_rule.collect_violations(
         batch=src_batch,
     )
     violations_by_rule["fiber_loop_structure_contract"].extend(
-        _serialize_fiber_loop_structure_contract(item) for item in loop_structure_violations
+        _serialize_rule_violations(
+            rule_id="fiber_loop_structure_contract",
+            violations=loop_structure_violations,
+            serializer=_serialize_fiber_loop_structure_contract,
+            identities=identity_space,
+        )
     )
     filter_processor_violations = fiber_filter_processor_contract_rule.collect_violations(
         batch=src_batch,
     )
     violations_by_rule["fiber_filter_processor_contract"].extend(
-        _serialize_fiber_filter_processor_contract(item) for item in filter_processor_violations
+        _serialize_rule_violations(
+            rule_id="fiber_filter_processor_contract",
+            violations=filter_processor_violations,
+            serializer=_serialize_fiber_filter_processor_contract,
+            identities=identity_space,
+        )
     )
     return_shape_violations = fiber_return_shape_contract_rule.collect_violations(
         batch=src_batch,
     )
     violations_by_rule["fiber_return_shape_contract"].extend(
-        _serialize_fiber_return_shape_contract(item) for item in return_shape_violations
+        _serialize_rule_violations(
+            rule_id="fiber_return_shape_contract",
+            violations=return_shape_violations,
+            serializer=_serialize_fiber_return_shape_contract,
+            identities=identity_space,
+        )
     )
     scalar_sentinel_violations = fiber_scalar_sentinel_contract_rule.collect_violations(
         batch=src_batch,
     )
     violations_by_rule["fiber_scalar_sentinel_contract"].extend(
-        _serialize_fiber_scalar_sentinel_contract(item) for item in scalar_sentinel_violations
+        _serialize_rule_violations(
+            rule_id="fiber_scalar_sentinel_contract",
+            violations=scalar_sentinel_violations,
+            serializer=_serialize_fiber_scalar_sentinel_contract,
+            identities=identity_space,
+        )
     )
     type_dispatch_violations = fiber_type_dispatch_contract_rule.collect_violations(
         batch=src_batch,
     )
     violations_by_rule["fiber_type_dispatch_contract"].extend(
-        _serialize_fiber_type_dispatch_contract(item) for item in type_dispatch_violations
+        _serialize_rule_violations(
+            rule_id="fiber_type_dispatch_contract",
+            violations=type_dispatch_violations,
+            serializer=_serialize_fiber_type_dispatch_contract,
+            identities=identity_space,
+        )
     )
     no_anonymous_tuple_violations = no_anonymous_tuple_rule.collect_violations(
         batch=src_batch,
     )
     violations_by_rule["no_anonymous_tuple"].extend(
-        _serialize_no_anonymous_tuple(item) for item in no_anonymous_tuple_violations
+        _serialize_rule_violations(
+            rule_id="no_anonymous_tuple",
+            violations=no_anonymous_tuple_violations,
+            serializer=_serialize_no_anonymous_tuple,
+            identities=identity_space,
+        )
     )
     no_mutable_dict_violations = no_mutable_dict_rule.collect_violations(
         batch=src_batch,
     )
     violations_by_rule["no_mutable_dict"].extend(
-        _serialize_no_mutable_dict(item) for item in no_mutable_dict_violations
+        _serialize_rule_violations(
+            rule_id="no_mutable_dict",
+            violations=no_mutable_dict_violations,
+            serializer=_serialize_no_mutable_dict,
+            identities=identity_space,
+        )
     )
     no_scalar_conversion_boundary_violations = (
         no_scalar_conversion_boundary_rule.collect_violations(
@@ -295,15 +373,24 @@ def scan_policy_suite(
         )
     )
     violations_by_rule["no_scalar_conversion_boundary"].extend(
-        _serialize_no_scalar_conversion_boundary(item)
-        for item in no_scalar_conversion_boundary_violations
+        _serialize_rule_violations(
+            rule_id="no_scalar_conversion_boundary",
+            violations=no_scalar_conversion_boundary_violations,
+            serializer=_serialize_no_scalar_conversion_boundary,
+            identities=identity_space,
+        )
     )
     typing_surface_violations = _filter_baseline_violations(
         typing_surface_rule.collect_violations(batch=src_batch),
         allowed_keys=(typing_surface_allowed | typing_surface_waiver_result.allowed_keys),
     )
     violations_by_rule["typing_surface"].extend(
-        _serialize_typing_surface(item) for item in typing_surface_violations
+        _serialize_rule_violations(
+            rule_id="typing_surface",
+            violations=typing_surface_violations,
+            serializer=_serialize_typing_surface,
+            identities=identity_space,
+        )
     )
     runtime_narrowing_boundary_violations = _filter_baseline_violations(
         runtime_narrowing_boundary_rule.collect_violations(batch=src_batch),
@@ -313,8 +400,12 @@ def scan_policy_suite(
         ),
     )
     violations_by_rule["runtime_narrowing_boundary"].extend(
-        _serialize_runtime_narrowing_boundary(item)
-        for item in runtime_narrowing_boundary_violations
+        _serialize_rule_violations(
+            rule_id="runtime_narrowing_boundary",
+            violations=runtime_narrowing_boundary_violations,
+            serializer=_serialize_runtime_narrowing_boundary,
+            identities=identity_space,
+        )
     )
     aspf_normalization_idempotence_violations = _filter_baseline_violations(
         aspf_normalization_idempotence_rule.collect_violations(batch=src_batch),
@@ -325,42 +416,66 @@ def scan_policy_suite(
         baseline_path=(resolved_root / _ASPF_NORMALIZATION_IDEMPOTENCE_BASELINE),
     )
     violations_by_rule["aspf_normalization_idempotence"].extend(
-        _serialize_aspf_normalization_idempotence(item)
-        for item in aspf_ingress_violations
+        _serialize_rule_violations(
+            rule_id="aspf_normalization_idempotence",
+            violations=aspf_ingress_violations,
+            serializer=_serialize_aspf_normalization_idempotence,
+            identities=identity_space,
+        )
     )
     violations_by_rule["aspf_normalization_idempotence"].extend(
-        _serialize_aspf_normalization_idempotence(item)
-        for item in aspf_normalization_idempotence_violations
+        _serialize_rule_violations(
+            rule_id="aspf_normalization_idempotence",
+            violations=aspf_normalization_idempotence_violations,
+            serializer=_serialize_aspf_normalization_idempotence,
+            identities=identity_space,
+        )
     )
     boundary_core_contract_violations = boundary_core_contract_rule.collect_violations(
         batch=boundary_batch,
     )
     violations_by_rule["boundary_core_contract"].extend(
-        _serialize_boundary_core_contract(item)
-        for item in boundary_core_contract_violations
+        _serialize_rule_violations(
+            rule_id="boundary_core_contract",
+            violations=boundary_core_contract_violations,
+            serializer=_serialize_boundary_core_contract,
+            identities=identity_space,
+        )
     )
     fiber_contract_violations = fiber_normalization_contract_rule.collect_violations(
         batch=boundary_batch,
     )
     violations_by_rule["fiber_normalization_contract"].extend(
-        _serialize_fiber_normalization_contract(item)
-        for item in fiber_contract_violations
+        _serialize_rule_violations(
+            rule_id="fiber_normalization_contract",
+            violations=fiber_contract_violations,
+            serializer=_serialize_fiber_normalization_contract,
+            identities=identity_space,
+        )
     )
     test_subprocess_hygiene_violations = test_subprocess_hygiene_rule.collect_violations(
         batch=test_batch,
         allowlist_path=resolved_root / _TEST_SUBPROCESS_HYGIENE_ALLOWLIST,
     )
     violations_by_rule["test_subprocess_hygiene"].extend(
-        _serialize_test_subprocess_hygiene(item)
-        for item in test_subprocess_hygiene_violations
+        _serialize_rule_violations(
+            rule_id="test_subprocess_hygiene",
+            violations=test_subprocess_hygiene_violations,
+            serializer=_serialize_test_subprocess_hygiene,
+            identities=identity_space,
+        )
     )
     test_sleep_hygiene_violations = test_sleep_hygiene_rule.collect_violations(
         batch=test_batch,
         allowlist_path=resolved_root / _TEST_SLEEP_HYGIENE_ALLOWLIST,
     )
     violations_by_rule["test_sleep_hygiene"].extend(
-        _serialize_test_sleep_hygiene(item)
-        for item in test_sleep_hygiene_violations
+        _serialize_rule_violations(
+            rule_id="test_sleep_hygiene",
+            violations=test_sleep_hygiene_violations,
+            serializer=_serialize_test_sleep_hygiene,
+            identities=identity_space,
+        )
     )
 
     _drain(_iter_sort_violations_by_rule(violations_by_rule))
@@ -369,6 +484,115 @@ def scan_policy_suite(
 
 def _drain(items: Iterable[object]) -> None:
     deque(items, maxlen=0)
+
+
+def _serialize_rule_violations(
+    *,
+    rule_id: str,
+    violations: Iterable[object],
+    serializer,
+    identities: PolicyScannerIdentitySpace,
+) -> list[dict[str, object]]:
+    return [
+        _with_scanner_identity(
+            serializer(violation),
+            rule_id=rule_id,
+            identities=identities,
+        )
+        for violation in violations
+    ]
+
+
+def _with_scanner_identity(
+    payload: dict[str, object],
+    *,
+    rule_id: str,
+    identities: PolicyScannerIdentitySpace,
+) -> dict[str, object]:
+    item = dict(payload)
+    path = _payload_text(item.get("path"))
+    qualname = _payload_text(item.get("qualname")) or "<module>"
+    line = _payload_int(item.get("line"))
+    column = _payload_int(item.get("column"))
+    kind = _payload_text(item.get("kind")) or "violation"
+    site_identity = _payload_text(item.get("site_identity")) or canonical_policy_scanner_site_identity(
+        rel_path=path,
+        qualname=qualname,
+        line=line,
+        column=column,
+        scanner_kind="violation",
+        surface=rule_id,
+    )
+    structural_identity = _payload_text(item.get("structural_identity")) or canonical_policy_scanner_structural_identity(
+        rel_path=path,
+        qualname=qualname,
+        structural_path=_scanner_structural_basis(item),
+        scanner_kind="violation",
+        surface=rule_id,
+    )
+    identity = identities.item_id(
+        scanner_kind="violation",
+        rule_id=rule_id,
+        rel_path=path,
+        qualname=qualname,
+        line=line,
+        column=column,
+        kind=kind,
+        site_identity=site_identity,
+        structural_identity=structural_identity,
+        label=_payload_text(item.get("render")) or f"{rule_id}:{path}:{kind}",
+    )
+    item["site_identity"] = site_identity
+    item["structural_identity"] = structural_identity
+    item["identity"] = identity.as_payload()
+    return item
+
+
+def _scanner_structural_basis(item: dict[str, object]) -> str:
+    for key in (
+        "structured_hash",
+        "flow_identity",
+        "fiber_id",
+        "taint_interval_id",
+        "condition_overlap_id",
+        "call",
+        "annotation",
+        "normalization_class",
+        "guard_form",
+        "branch_form",
+        "return_form",
+        "scalar_literal",
+        "comparison_operator",
+        "input_slot",
+        "legacy_key",
+        "key",
+        "message",
+    ):
+        value = _payload_text(item.get(key))
+        if value:
+            return value
+    kind = _payload_text(item.get("kind")) or "violation"
+    line = _payload_int(item.get("line"))
+    column = _payload_int(item.get("column"))
+    return f"{kind}:{line}:{column}"
+
+
+def _payload_text(value: object) -> str:
+    match value:
+        case str() as text:
+            return text.strip()
+        case _:
+            return ""
+
+
+def _payload_int(value: object) -> int:
+    match value:
+        case bool():
+            return 0
+        case int() as integer:
+            return integer
+        case _:
+            return 0
 
 def _iter_sort_violations_by_rule(
     violations_by_rule: dict[str, list[dict[str, Any]]],

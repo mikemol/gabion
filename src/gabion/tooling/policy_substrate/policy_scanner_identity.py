@@ -1,0 +1,478 @@
+from __future__ import annotations
+
+from contextlib import ExitStack
+from dataclasses import dataclass, field
+from enum import StrEnum
+import re
+
+from gabion.analysis.aspf.aspf_lattice_algebra import canonical_structural_identity
+from gabion.analysis.core.prime_identity_adapter import PrimeIdentityAdapter
+from gabion.analysis.core.type_fingerprints import PrimeRegistry
+from gabion.analysis.foundation.timeout_context import (
+    Deadline,
+    deadline_clock_scope,
+    deadline_scope,
+)
+from gabion.deadline_clock import MonotonicClock
+from gabion.tooling.policy_substrate.site_identity import canonical_site_identity
+
+
+class PolicyScannerIdentityNamespace(StrEnum):
+    ITEM = "policy_scanner.item"
+    DECOMPOSITION = "policy_scanner.decomposition"
+
+
+class PolicyScannerDecompositionKind(StrEnum):
+    CANONICAL = "canonical"
+    SCANNER_KIND = "scanner_kind"
+    RULE_ID = "rule_id"
+    REL_PATH = "rel_path"
+    REL_PATH_SEGMENT = "rel_path_segment"
+    QUALNAME = "qualname"
+    QUALNAME_SEGMENT = "qualname_segment"
+    KIND = "kind"
+    SITE_IDENTITY = "site_identity"
+    STRUCTURAL_IDENTITY = "structural_identity"
+
+
+class PolicyScannerDecompositionRelationKind(StrEnum):
+    CANONICAL_OF = "canonical_of"
+    ALTERNATE_OF = "alternate_of"
+    EQUIVALENT_UNDER = "equivalent_under"
+    DERIVED_FROM = "derived_from"
+
+
+@dataclass(frozen=True, order=True)
+class _PrimeBackedIdentity:
+    atom_id: int
+    namespace: PolicyScannerIdentityNamespace = field(compare=False)
+    token: str = field(compare=False)
+
+    def wire(self) -> str:
+        return self.token
+
+    def __str__(self) -> str:
+        return self.token
+
+
+@dataclass(frozen=True, order=True)
+class PolicyScannerDecompositionIdentity:
+    canonical: _PrimeBackedIdentity
+    decomposition_kind: PolicyScannerDecompositionKind = field(compare=False)
+    origin: _PrimeBackedIdentity = field(compare=False)
+    label: str = field(compare=False, default="")
+    part_index: int = field(compare=False, default=-1)
+
+    def wire(self) -> str:
+        return self.canonical.token
+
+    def __str__(self) -> str:
+        return self.label or self.canonical.token
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "wire": self.canonical.token,
+            "decomposition_kind": self.decomposition_kind.value,
+            "origin_wire": self.origin.token,
+            "origin_namespace": self.origin.namespace.value,
+            "label": self.label or self.canonical.token,
+            "part_index": self.part_index,
+        }
+
+
+@dataclass(frozen=True)
+class PolicyScannerDecompositionRelation:
+    relation_kind: PolicyScannerDecompositionRelationKind
+    source: PolicyScannerDecompositionIdentity
+    target: PolicyScannerDecompositionIdentity
+    rationale: str = ""
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "relation_kind": self.relation_kind.value,
+            "source_wire": self.source.canonical.token,
+            "target_wire": self.target.canonical.token,
+            "source_kind": self.source.decomposition_kind.value,
+            "target_kind": self.target.decomposition_kind.value,
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True, order=True)
+class PolicyScannerIdentity:
+    canonical: _PrimeBackedIdentity
+    scanner_kind: str = field(compare=False)
+    rule_id: str = field(compare=False, default="")
+    rel_path: str = field(compare=False, default="")
+    qualname: str = field(compare=False, default="")
+    line: int = field(compare=False, default=0)
+    column: int = field(compare=False, default=0)
+    kind: str = field(compare=False, default="")
+    site_identity: str = field(compare=False, default="")
+    structural_identity: str = field(compare=False, default="")
+    label: str = field(compare=False, default="")
+    decompositions: tuple[PolicyScannerDecompositionIdentity, ...] = field(
+        default=(),
+        compare=False,
+    )
+    relations: tuple[PolicyScannerDecompositionRelation, ...] = field(
+        default=(),
+        compare=False,
+    )
+
+    def wire(self) -> str:
+        return self.canonical.token
+
+    def __str__(self) -> str:
+        return self.label or self.canonical.token
+
+    def as_payload(self) -> dict[str, object]:
+        return {
+            "wire": self.wire(),
+            "scanner_kind": self.scanner_kind,
+            "rule_id": self.rule_id,
+            "rel_path": self.rel_path,
+            "qualname": self.qualname,
+            "line": self.line,
+            "column": self.column,
+            "kind": self.kind,
+            "site_identity": self.site_identity,
+            "structural_identity": self.structural_identity,
+            "label": self.label or self.wire(),
+            "decompositions": [item.as_payload() for item in self.decompositions],
+            "relations": [item.as_payload() for item in self.relations],
+        }
+
+
+def canonical_policy_scanner_site_identity(
+    *,
+    rel_path: str,
+    qualname: str,
+    line: int,
+    column: int,
+    scanner_kind: str,
+    surface: str,
+) -> str:
+    return canonical_site_identity(
+        rel_path=rel_path,
+        qualname=qualname,
+        line=line,
+        column=column,
+        node_kind=scanner_kind,
+        surface=surface,
+    )
+
+
+def canonical_policy_scanner_structural_identity(
+    *,
+    rel_path: str,
+    qualname: str,
+    structural_path: str,
+    scanner_kind: str,
+    surface: str,
+) -> str:
+    return canonical_structural_identity(
+        rel_path=rel_path,
+        qualname=qualname,
+        structural_path=structural_path,
+        node_kind=scanner_kind,
+        surface=surface,
+    )
+
+
+@dataclass
+class PolicyScannerIdentitySpace:
+    registry: PrimeRegistry = field(default_factory=PrimeRegistry)
+    _adapter: PrimeIdentityAdapter = field(init=False, repr=False)
+    _cache: dict[
+        tuple[PolicyScannerIdentityNamespace, str],
+        _PrimeBackedIdentity,
+    ] = field(init=False, repr=False, default_factory=dict)
+    _decomposition_cache: dict[
+        _PrimeBackedIdentity,
+        tuple[
+            tuple[PolicyScannerDecompositionIdentity, ...],
+            tuple[PolicyScannerDecompositionRelation, ...],
+        ],
+    ] = field(init=False, repr=False, default_factory=dict)
+
+    def __post_init__(self) -> None:
+        self._adapter = PrimeIdentityAdapter(registry=self.registry)
+
+    @staticmethod
+    def _segments(value: str) -> tuple[str, ...]:
+        parts = [part for part in re.split(r"[:/._-]+", value.strip()) if part]
+        seen: set[str] = set()
+        ordered: list[str] = []
+        for part in parts:
+            if part in seen:
+                continue
+            seen.add(part)
+            ordered.append(part)
+        return tuple(ordered)
+
+    def _identity(
+        self,
+        *,
+        namespace: PolicyScannerIdentityNamespace,
+        token: str,
+    ) -> _PrimeBackedIdentity:
+        normalized = str(token).strip()
+        cache_key = (namespace, normalized)
+        cached = self._cache.get(cache_key)
+        if cached is not None:
+            return cached
+        with ExitStack() as scope:
+            scope.enter_context(deadline_clock_scope(MonotonicClock()))
+            scope.enter_context(deadline_scope(Deadline.from_timeout_ms(60_000)))
+            atom_id = self._adapter.get_or_assign(
+                namespace=namespace.value,
+                token=normalized,
+            )
+        created = _PrimeBackedIdentity(
+            atom_id=atom_id,
+            namespace=namespace,
+            token=normalized,
+        )
+        self._cache[cache_key] = created
+        return created
+
+    def _decomposition_identity(
+        self,
+        *,
+        origin: _PrimeBackedIdentity,
+        decomposition_kind: PolicyScannerDecompositionKind,
+        label: str,
+        part_index: int = -1,
+    ) -> PolicyScannerDecompositionIdentity:
+        if decomposition_kind is PolicyScannerDecompositionKind.CANONICAL:
+            return PolicyScannerDecompositionIdentity(
+                canonical=origin,
+                decomposition_kind=decomposition_kind,
+                origin=origin,
+                label=origin.token,
+                part_index=part_index,
+            )
+        synthetic = self._identity(
+            namespace=PolicyScannerIdentityNamespace.DECOMPOSITION,
+            token="::".join(
+                (
+                    origin.namespace.value,
+                    origin.token,
+                    decomposition_kind.value,
+                    str(part_index),
+                    label.strip(),
+                )
+            ),
+        )
+        return PolicyScannerDecompositionIdentity(
+            canonical=synthetic,
+            decomposition_kind=decomposition_kind,
+            origin=origin,
+            label=label.strip(),
+            part_index=part_index,
+        )
+
+    def _decomposition_bundle(
+        self,
+        *,
+        origin: _PrimeBackedIdentity,
+        scanner_kind: str,
+        rule_id: str,
+        rel_path: str,
+        qualname: str,
+        kind: str,
+        site_identity: str,
+        structural_identity: str,
+    ) -> tuple[
+        tuple[PolicyScannerDecompositionIdentity, ...],
+        tuple[PolicyScannerDecompositionRelation, ...],
+    ]:
+        cached = self._decomposition_cache.get(origin)
+        if cached is not None:
+            return cached
+        canonical = self._decomposition_identity(
+            origin=origin,
+            decomposition_kind=PolicyScannerDecompositionKind.CANONICAL,
+            label=origin.token,
+        )
+        scanner_kind_view = self._decomposition_identity(
+            origin=origin,
+            decomposition_kind=PolicyScannerDecompositionKind.SCANNER_KIND,
+            label=scanner_kind,
+        )
+        rule_id_view = (
+            self._decomposition_identity(
+                origin=origin,
+                decomposition_kind=PolicyScannerDecompositionKind.RULE_ID,
+                label=rule_id,
+            )
+            if rule_id
+            else None
+        )
+        rel_path_view = self._decomposition_identity(
+            origin=origin,
+            decomposition_kind=PolicyScannerDecompositionKind.REL_PATH,
+            label=rel_path,
+        )
+        rel_path_segments = tuple(
+            self._decomposition_identity(
+                origin=origin,
+                decomposition_kind=PolicyScannerDecompositionKind.REL_PATH_SEGMENT,
+                label=segment,
+                part_index=index,
+            )
+            for index, segment in enumerate(self._segments(rel_path))
+        )
+        qualname_view = (
+            self._decomposition_identity(
+                origin=origin,
+                decomposition_kind=PolicyScannerDecompositionKind.QUALNAME,
+                label=qualname,
+            )
+            if qualname
+            else None
+        )
+        qualname_segments = tuple(
+            self._decomposition_identity(
+                origin=origin,
+                decomposition_kind=PolicyScannerDecompositionKind.QUALNAME_SEGMENT,
+                label=segment,
+                part_index=index,
+            )
+            for index, segment in enumerate(self._segments(qualname))
+        )
+        kind_view = (
+            self._decomposition_identity(
+                origin=origin,
+                decomposition_kind=PolicyScannerDecompositionKind.KIND,
+                label=kind,
+            )
+            if kind
+            else None
+        )
+        site_identity_view = (
+            self._decomposition_identity(
+                origin=origin,
+                decomposition_kind=PolicyScannerDecompositionKind.SITE_IDENTITY,
+                label=site_identity,
+            )
+            if site_identity
+            else None
+        )
+        structural_identity_view = (
+            self._decomposition_identity(
+                origin=origin,
+                decomposition_kind=PolicyScannerDecompositionKind.STRUCTURAL_IDENTITY,
+                label=structural_identity,
+            )
+            if structural_identity
+            else None
+        )
+        decompositions = tuple(
+            item
+            for item in (
+                canonical,
+                scanner_kind_view,
+                rule_id_view,
+                rel_path_view,
+                qualname_view,
+                kind_view,
+                site_identity_view,
+                structural_identity_view,
+                *rel_path_segments,
+                *qualname_segments,
+            )
+            if item is not None
+        )
+        relations: list[PolicyScannerDecompositionRelation] = [
+            PolicyScannerDecompositionRelation(
+                relation_kind=PolicyScannerDecompositionRelationKind.CANONICAL_OF,
+                source=canonical,
+                target=item,
+                rationale="scanner identity canonical decomposition view",
+            )
+            for item in decompositions
+            if item is not canonical
+        ]
+        for item in (*rel_path_segments, *qualname_segments):
+            relations.append(
+                PolicyScannerDecompositionRelation(
+                    relation_kind=PolicyScannerDecompositionRelationKind.DERIVED_FROM,
+                    source=item,
+                    target=canonical,
+                    rationale="scanner identity segment derived from canonical item",
+                )
+            )
+        bundle = (decompositions, tuple(relations))
+        self._decomposition_cache[origin] = bundle
+        return bundle
+
+    def item_id(
+        self,
+        *,
+        scanner_kind: str,
+        rule_id: str,
+        rel_path: str,
+        qualname: str,
+        line: int,
+        column: int,
+        kind: str,
+        site_identity: str,
+        structural_identity: str,
+        label: str = "",
+    ) -> PolicyScannerIdentity:
+        canonical = self._identity(
+            namespace=PolicyScannerIdentityNamespace.ITEM,
+            token="::".join(
+                (
+                    scanner_kind.strip(),
+                    rule_id.strip(),
+                    rel_path.strip(),
+                    qualname.strip(),
+                    str(int(line)),
+                    str(int(column)),
+                    kind.strip(),
+                    site_identity.strip(),
+                    structural_identity.strip(),
+                )
+            ),
+        )
+        decompositions, relations = self._decomposition_bundle(
+            origin=canonical,
+            scanner_kind=scanner_kind.strip(),
+            rule_id=rule_id.strip(),
+            rel_path=rel_path.strip(),
+            qualname=qualname.strip(),
+            kind=kind.strip(),
+            site_identity=site_identity.strip(),
+            structural_identity=structural_identity.strip(),
+        )
+        return PolicyScannerIdentity(
+            canonical=canonical,
+            scanner_kind=scanner_kind.strip(),
+            rule_id=rule_id.strip(),
+            rel_path=rel_path.strip(),
+            qualname=qualname.strip(),
+            line=int(line),
+            column=int(column),
+            kind=kind.strip(),
+            site_identity=site_identity.strip(),
+            structural_identity=structural_identity.strip(),
+            label=label.strip(),
+            decompositions=decompositions,
+            relations=relations,
+        )
+
+
+__all__ = [
+    "PolicyScannerDecompositionIdentity",
+    "PolicyScannerDecompositionKind",
+    "PolicyScannerDecompositionRelation",
+    "PolicyScannerDecompositionRelationKind",
+    "PolicyScannerIdentity",
+    "PolicyScannerIdentityNamespace",
+    "PolicyScannerIdentitySpace",
+    "canonical_policy_scanner_site_identity",
+    "canonical_policy_scanner_structural_identity",
+]

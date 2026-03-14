@@ -4,6 +4,13 @@ import json
 from pathlib import Path
 
 from gabion.policy_dsl import PolicyDomain, evaluate_policy
+from gabion.tooling.policy_substrate.policy_scanner_identity import (
+    PolicyScannerIdentitySpace,
+)
+from gabion.tooling.runtime.policy_scan_batch import (
+    build_policy_scan_batch,
+    iter_failure_seeds,
+)
 from gabion.tooling.runtime import policy_scanner_suite
 from gabion.tooling.runtime.projection_fiber_semantics_summary import (
     projection_fiber_decision_from_payload,
@@ -49,10 +56,12 @@ def _scan_policy_suite(
     *,
     root: Path,
     changed_paths: set[str] | None = None,
+    identities: PolicyScannerIdentitySpace | None = None,
 ) -> dict[str, list[dict[str, object]]]:
     return policy_scanner_suite.scan_policy_suite(
         root=root,
         changed_paths=changed_paths,
+        identities=identities,
     )
 
 
@@ -137,6 +146,54 @@ def test_policy_scanner_suite_scan_result_shape(tmp_path: Path) -> None:
     assert "counts" not in first_payload
     assert "inventory_hash" not in first_payload
     assert "rule_set_hash" not in first_payload
+    identity = branchless_violation["identity"]
+    assert isinstance(identity, dict)
+    assert identity["scanner_kind"] == "violation"
+    assert identity["rule_id"] == "branchless"
+    assert identity["site_identity"] == branchless_violation["site_identity"]
+    assert identity["structural_identity"] == branchless_violation["structural_identity"]
+    assert identity["decompositions"]
+
+
+def test_policy_scan_batch_interns_module_and_parse_failure_inputs(tmp_path: Path) -> None:
+    root = tmp_path
+    identities = PolicyScannerIdentitySpace()
+    _write(root / "src/gabion/good.py", "def ok() -> int:\n    return 1\n")
+    _write(root / "src/gabion/bad.py", "def broken(:\n")
+
+    batch = build_policy_scan_batch(
+        root=root,
+        target_globs=("src/gabion/**/*.py",),
+        identities=identities,
+    )
+
+    assert len(batch.modules) == 1
+    assert batch.modules[0].identity is not None
+    assert batch.modules[0].identity.scanner_kind == "module"
+    assert batch.modules[0].identity.structural_identity
+    assert len(batch.parse_failures) == 1
+    assert batch.parse_failures[0].identity is not None
+    assert batch.parse_failures[0].identity.scanner_kind == "parse_failure"
+    seeds = tuple(iter_failure_seeds(batch=batch))
+    assert len(seeds) == 1
+    assert seeds[0].identity == batch.parse_failures[0].identity
+
+
+def test_policy_scanner_suite_reuses_injected_identity_space(tmp_path: Path) -> None:
+    root = tmp_path
+    identities = PolicyScannerIdentitySpace()
+    _write(
+        root / "src/gabion/branch_sample.py",
+        "def branchy(flag):\n    if flag:\n        return 1\n    return 0\n",
+    )
+
+    first = _scan_policy_suite(root=root, identities=identities)
+    second = _scan_policy_suite(root=root, identities=identities)
+
+    first_violation = _violations(first, rule="branchless")[0]
+    second_violation = _violations(second, rule="branchless")[0]
+    assert first_violation["identity"]["wire"] == second_violation["identity"]["wire"]
+    assert first_violation["structural_identity"] == second_violation["structural_identity"]
 
 # gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_ignores_nonstandard_files_by_default::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
 # gabion:behavior primary=desired

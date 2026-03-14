@@ -8,6 +8,12 @@ import json
 from typing import Callable, Iterable, Mapping, Sequence
 
 from gabion.invariants import never
+from gabion.tooling.policy_substrate.policy_scanner_identity import (
+    PolicyScannerIdentity,
+    PolicyScannerIdentitySpace,
+    canonical_policy_scanner_site_identity,
+    canonical_policy_scanner_structural_identity,
+)
 
 
 @dataclass(frozen=True)
@@ -16,6 +22,7 @@ class ScannedModule:
     rel_path: str
     source: str
     tree: ast.AST
+    identity: PolicyScannerIdentity | None = None
 
 
 @dataclass(frozen=True)
@@ -24,6 +31,7 @@ class ReadFailure:
     rel_path: str
     error_type: str
     error_message: str
+    identity: PolicyScannerIdentity | None = None
 
 
 @dataclass(frozen=True)
@@ -33,6 +41,7 @@ class ParseFailure:
     line: int
     column: int
     error_message: str
+    identity: PolicyScannerIdentity | None = None
 
 
 @dataclass(frozen=True)
@@ -50,6 +59,7 @@ class ScanFailureSeed:
     column: int
     kind: str
     detail: str
+    identity: PolicyScannerIdentity | None = None
 
 
 def build_policy_scan_batch(
@@ -58,6 +68,7 @@ def build_policy_scan_batch(
     target_globs: Sequence[str],
     files: Sequence[Path] | None = None,
     include_path: Callable[[Path], bool] | None = None,
+    identities: PolicyScannerIdentitySpace | None = None,
 ) -> PolicyScanBatch:
     resolved_root = root.resolve()
     candidates = (
@@ -80,34 +91,90 @@ def build_policy_scan_batch(
         try:
             source = path.read_text(encoding="utf-8")
         except OSError as exc:
+            detail = str(exc)
+            failure_identity = (
+                _scanner_item_identity(
+                    identities=identities,
+                    scanner_kind="read_failure",
+                    rule_id="",
+                    rel_path=rel_path,
+                    qualname="<module>",
+                    line=1,
+                    column=1,
+                    kind=type(exc).__name__,
+                    structural_basis=detail or type(exc).__name__,
+                    label=f"{rel_path}:read_failure",
+                    surface="policy_scanner_input",
+                )
+                if identities is not None
+                else None
+            )
             read_failures.append(
                 ReadFailure(
                     path=path,
                     rel_path=rel_path,
                     error_type=type(exc).__name__,
-                    error_message=str(exc),
+                    error_message=detail,
+                    identity=failure_identity,
                 )
             )
             continue
         try:
             tree = ast.parse(source)
         except SyntaxError as exc:
+            parse_message = str(getattr(exc, "msg", "") or "")
+            failure_identity = (
+                _scanner_item_identity(
+                    identities=identities,
+                    scanner_kind="parse_failure",
+                    rule_id="",
+                    rel_path=rel_path,
+                    qualname="<module>",
+                    line=int(exc.lineno or 1),
+                    column=int(exc.offset or 1),
+                    kind="SyntaxError",
+                    structural_basis=f"{int(exc.lineno or 1)}:{int(exc.offset or 1)}:{parse_message}",
+                    label=f"{rel_path}:parse_failure",
+                    surface="policy_scanner_input",
+                )
+                if identities is not None
+                else None
+            )
             parse_failures.append(
                 ParseFailure(
                     path=path,
                     rel_path=rel_path,
                     line=int(exc.lineno or 1),
                     column=int(exc.offset or 1),
-                    error_message=str(getattr(exc, "msg", "") or ""),
+                    error_message=parse_message,
+                    identity=failure_identity,
                 )
             )
             continue
+        module_identity = (
+            _scanner_item_identity(
+                identities=identities,
+                scanner_kind="module",
+                rule_id="",
+                rel_path=rel_path,
+                qualname="<module>",
+                line=1,
+                column=1,
+                kind="module",
+                structural_basis=rel_path,
+                label=rel_path,
+                surface="policy_scanner_input",
+            )
+            if identities is not None
+            else None
+        )
         modules.append(
             ScannedModule(
                 path=path,
                 rel_path=rel_path,
                 source=source,
                 tree=tree,
+                identity=module_identity,
             )
         )
     return PolicyScanBatch(
@@ -122,6 +189,7 @@ def build_policy_scan_batch_from_sources(
     *,
     root: Path,
     source_by_rel_path: Mapping[str, str],
+    identities: PolicyScannerIdentitySpace | None = None,
 ) -> PolicyScanBatch:
     resolved_root = root.resolve()
     modules: list[ScannedModule] = []
@@ -132,22 +200,59 @@ def build_policy_scan_batch_from_sources(
         try:
             tree = ast.parse(source)
         except SyntaxError as exc:
+            parse_message = str(getattr(exc, "msg", "") or "")
+            failure_identity = (
+                _scanner_item_identity(
+                    identities=identities,
+                    scanner_kind="parse_failure",
+                    rule_id="",
+                    rel_path=rel_path,
+                    qualname="<module>",
+                    line=int(exc.lineno or 1),
+                    column=int(exc.offset or 1),
+                    kind="SyntaxError",
+                    structural_basis=f"{int(exc.lineno or 1)}:{int(exc.offset or 1)}:{parse_message}",
+                    label=f"{rel_path}:parse_failure",
+                    surface="policy_scanner_input",
+                )
+                if identities is not None
+                else None
+            )
             parse_failures.append(
                 ParseFailure(
                     path=path,
                     rel_path=rel_path,
                     line=int(exc.lineno or 1),
                     column=int(exc.offset or 1),
-                    error_message=str(getattr(exc, "msg", "") or ""),
+                    error_message=parse_message,
+                    identity=failure_identity,
                 )
             )
             continue
+        module_identity = (
+            _scanner_item_identity(
+                identities=identities,
+                scanner_kind="module",
+                rule_id="",
+                rel_path=rel_path,
+                qualname="<module>",
+                line=1,
+                column=1,
+                kind="module",
+                structural_basis=rel_path,
+                label=rel_path,
+                surface="policy_scanner_input",
+            )
+            if identities is not None
+            else None
+        )
         modules.append(
             ScannedModule(
                 path=path,
                 rel_path=rel_path,
                 source=source,
                 tree=tree,
+                identity=module_identity,
             )
         )
     return PolicyScanBatch(
@@ -176,6 +281,7 @@ def iter_failure_seeds(
             column=1,
             kind=read_kind,
             detail=detail or "read failure",
+            identity=failure.identity,
         )
     for failure in batch.parse_failures:
         yield ScanFailureSeed(
@@ -184,7 +290,51 @@ def iter_failure_seeds(
             column=failure.column,
             kind=syntax_kind,
             detail=failure.error_message or "syntax error",
+            identity=failure.identity,
         )
+
+
+def _scanner_item_identity(
+    *,
+    identities: PolicyScannerIdentitySpace,
+    scanner_kind: str,
+    rule_id: str,
+    rel_path: str,
+    qualname: str,
+    line: int,
+    column: int,
+    kind: str,
+    structural_basis: str,
+    label: str,
+    surface: str,
+) -> PolicyScannerIdentity:
+    site_identity = canonical_policy_scanner_site_identity(
+        rel_path=rel_path,
+        qualname=qualname,
+        line=line,
+        column=column,
+        scanner_kind=scanner_kind,
+        surface=surface,
+    )
+    structural_identity = canonical_policy_scanner_structural_identity(
+        rel_path=rel_path,
+        qualname=qualname,
+        structural_path=structural_basis,
+        scanner_kind=scanner_kind,
+        surface=surface,
+    )
+    return identities.item_id(
+        scanner_kind=scanner_kind,
+        rule_id=rule_id,
+        rel_path=rel_path,
+        qualname=qualname,
+        line=line,
+        column=column,
+        kind=kind,
+        site_identity=site_identity,
+        structural_identity=structural_identity,
+        label=label,
+    )
 
 
 def load_path_allowlist(path: Path) -> set[str]:
