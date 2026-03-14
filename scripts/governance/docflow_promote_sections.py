@@ -12,15 +12,25 @@ dependency doc exposes exactly one anchor.
 """
 from __future__ import annotations
 
-import argparse
 import re
 from pathlib import Path
 from typing import Any, Iterable
 
 from gabion.tooling.governance.governance_audit import _parse_frontmatter  # type: ignore
-from scripts.deadline.deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.order_contract import ordered_or_sorted
+from gabion.tooling.runtime.declarative_script_host import (
+    DeclarativeScriptSpec,
+    ScriptInvocation,
+    ScriptOptionArity,
+    ScriptOptionKind,
+    ScriptOptionSpec,
+    ScriptRuntimeMode,
+    ScriptRuntimeSpec,
+    invoke_script,
+    script_runtime_scope,
+)
+from scripts.deadline.deadline_runtime import DeadlineBudget
 
 
 AnchorMap = dict[str, tuple[str, int]]
@@ -31,22 +41,23 @@ _DEFAULT_PROMOTE_TIMEOUT_BUDGET = DeadlineBudget(
     ticks=_DEFAULT_PROMOTE_TIMEOUT_TICKS,
     tick_ns=_DEFAULT_PROMOTE_TIMEOUT_TICK_NS,
 )
+_SCRIPT_RUNTIME = ScriptRuntimeSpec(
+    mode=ScriptRuntimeMode.FIXED,
+    deadline_budget=_DEFAULT_PROMOTE_TIMEOUT_BUDGET,
+)
 
 
 def _promote_deadline_scope():
-    return deadline_scope_from_ticks(
-        budget=_DEFAULT_PROMOTE_TIMEOUT_BUDGET,
+    return script_runtime_scope(
+        runtime=_SCRIPT_RUNTIME,
     )
 
 
-def _iter_docs(paths: Iterable[str]) -> list[Path]:
+def _iter_docs(paths: Iterable[Path]) -> list[Path]:
     out: list[Path] = []
     seen: set[Path] = set()
-    for raw in paths:
+    for path in paths:
         check_deadline()
-        if not raw:
-            continue
-        path = Path(raw)
         if path.is_dir():
             for doc in ordered_or_sorted(
                 path.rglob("*.md"),
@@ -347,27 +358,9 @@ def _update_doc(path: Path, anchors: AnchorMap, *, add_sections: bool, anchorize
     return True
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Promote docflow sections and anchorize refs.")
-    parser.add_argument(
-        "paths",
-        nargs="+",
-        help="Docs or directories to update.",
-    )
-    parser.add_argument(
-        "--anchorize",
-        action="store_true",
-        help="Rewrite doc_requires/review pins to anchor refs when possible.",
-    )
-    parser.add_argument(
-        "--add-sections",
-        action="store_true",
-        help="Add doc_sections/doc_section_requires/doc_section_reviews if missing.",
-    )
-    args = parser.parse_args()
-
+def _run_invocation(invocation: ScriptInvocation) -> int:
     with _promote_deadline_scope():
-        doc_paths = _iter_docs(args.paths)
+        doc_paths = _iter_docs(invocation.paths("paths"))
         all_docs: dict[str, dict[str, Any]] = {}
         for path in doc_paths:
             check_deadline()
@@ -381,11 +374,52 @@ def main() -> int:
         changed = 0
         for path in doc_paths:
             check_deadline()
-            if _update_doc(path, anchors, add_sections=args.add_sections, anchorize=args.anchorize):
+            if _update_doc(
+                path,
+                anchors,
+                add_sections=invocation.flag("add_sections"),
+                anchorize=invocation.flag("anchorize"),
+            ):
                 changed += 1
                 print(f"updated {path}")
         print(f"Updated {changed} document(s).")
         return 0
+
+
+_SCRIPT_SPEC = DeclarativeScriptSpec(
+    script_id="docflow_promote_sections",
+    description="Promote docflow sections and anchorize refs.",
+    options=(
+        ScriptOptionSpec(
+            dest="paths",
+            flags=("paths",),
+            kind=ScriptOptionKind.PATH,
+            positional=True,
+            arity=ScriptOptionArity.ONE_OR_MORE,
+            help="Docs or directories to update.",
+        ),
+        ScriptOptionSpec(
+            dest="anchorize",
+            flags=("--anchorize",),
+            kind=ScriptOptionKind.FLAG,
+            default=False,
+            help="Rewrite doc_requires/review pins to anchor refs when possible.",
+        ),
+        ScriptOptionSpec(
+            dest="add_sections",
+            flags=("--add-sections",),
+            kind=ScriptOptionKind.FLAG,
+            default=False,
+            help="Add doc_sections/doc_section_requires/doc_section_reviews if missing.",
+        ),
+    ),
+    handler=_run_invocation,
+    runtime=_SCRIPT_RUNTIME,
+)
+
+
+def main(argv: list[str] | None = None) -> int:
+    return invoke_script(_SCRIPT_SPEC, argv=argv)
 
 
 if __name__ == "__main__":

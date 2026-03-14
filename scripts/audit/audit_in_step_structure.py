@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import argparse
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -11,9 +9,20 @@ try:
 except ImportError:  # pragma: no cover - fallback path
     yaml = None
 
-from scripts.deadline.deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.order_contract import ordered_or_sorted
+from gabion.tooling.runtime.declarative_script_host import (
+    DeclarativeScriptSpec,
+    ScriptInvocation,
+    ScriptOptionArity,
+    ScriptOptionKind,
+    ScriptOptionSpec,
+    ScriptRuntimeMode,
+    ScriptRuntimeSpec,
+    invoke_script,
+    script_runtime_scope,
+)
+from scripts.deadline.deadline_runtime import DeadlineBudget
 
 
 REQUIRED_FRONTMATTER_FIELDS = {
@@ -50,11 +59,15 @@ _DEFAULT_TIMEOUT_BUDGET = DeadlineBudget(
     ticks=_DEFAULT_TIMEOUT_TICKS,
     tick_ns=_DEFAULT_TIMEOUT_TICK_NS,
 )
+_SCRIPT_RUNTIME = ScriptRuntimeSpec(
+    mode=ScriptRuntimeMode.LSP_ENV,
+    deadline_budget=_DEFAULT_TIMEOUT_BUDGET,
+)
 
 
 def _deadline_scope():
-    return deadline_scope_from_lsp_env(
-        default_budget=_DEFAULT_TIMEOUT_BUDGET,
+    return script_runtime_scope(
+        runtime=_SCRIPT_RUNTIME,
     )
 
 
@@ -140,11 +153,10 @@ def _audit_doc(path: Path) -> list[str]:
     return violations
 
 
-def _iter_paths(paths: list[str]) -> list[Path]:
+def _iter_paths(paths: tuple[Path, ...]) -> list[Path]:
     resolved: list[Path] = []
-    for raw in paths:
+    for path in paths:
         check_deadline()
-        path = Path(raw)
         if path.is_dir():
             resolved.extend(
                 ordered_or_sorted(
@@ -157,14 +169,10 @@ def _iter_paths(paths: list[str]) -> list[Path]:
     return resolved
 
 
-def main(argv: list[str] | None = None) -> int:
+def _run_invocation(invocation: ScriptInvocation) -> int:
     with _deadline_scope():
-        parser = argparse.ArgumentParser(description="Audit in_step document structure.")
-        parser.add_argument("paths", nargs="+", help="Markdown files or directories to audit.")
-        args = parser.parse_args(argv)
-
         violations: list[str] = []
-        for path in _iter_paths(args.paths):
+        for path in _iter_paths(invocation.paths("paths")):
             check_deadline()
             if not path.exists():
                 violations.append(f"{path}: missing file")
@@ -177,6 +185,28 @@ def main(argv: list[str] | None = None) -> int:
                 print(violation)
             return 2
         return 0
+
+
+_SCRIPT_SPEC = DeclarativeScriptSpec(
+    script_id="audit_in_step_structure",
+    description="Audit in_step document structure.",
+    options=(
+        ScriptOptionSpec(
+            dest="paths",
+            flags=("paths",),
+            kind=ScriptOptionKind.PATH,
+            positional=True,
+            arity=ScriptOptionArity.ONE_OR_MORE,
+            help="Markdown files or directories to audit.",
+        ),
+    ),
+    handler=_run_invocation,
+    runtime=_SCRIPT_RUNTIME,
+)
+
+
+def main(argv: list[str] | None = None) -> int:
+    return invoke_script(_SCRIPT_SPEC, argv=argv)
 
 
 if __name__ == "__main__":

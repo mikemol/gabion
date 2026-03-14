@@ -1,20 +1,12 @@
 from __future__ import annotations
 
-import argparse
-from contextlib import ExitStack
 import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Mapping
 
-from gabion.analysis.foundation.timeout_context import (
-    Deadline,
-    deadline_clock_scope,
-    deadline_scope,
-)
 from gabion.analysis.semantics.report_doc import ReportDoc
-from gabion.deadline_clock import MonotonicClock
 from gabion.order_contract import ordered_or_sorted
 from gabion.tooling.policy_substrate.invariant_graph import load_invariant_workstreams
 from gabion.tooling.policy_substrate.view_dsl import (
@@ -27,6 +19,14 @@ from gabion.tooling.policy_substrate.view_dsl import (
     eval_int,
     eval_mapping,
     eval_text,
+)
+from gabion.tooling.runtime.declarative_script_host import (
+    DeclarativeScriptSpec,
+    ScriptInvocation,
+    ScriptOptionKind,
+    ScriptOptionSpec,
+    invoke_script,
+    script_runtime_scope,
 )
 
 _FORMAT_VERSION = 1
@@ -435,9 +435,7 @@ def render_mermaid(view: ProjectManagerView) -> str:
 
 
 def render_markdown(view: ProjectManagerView) -> str:
-    with ExitStack() as scope:
-        scope.enter_context(deadline_clock_scope(MonotonicClock()))
-        scope.enter_context(deadline_scope(Deadline.from_timeout_ms(60_000)))
+    with script_runtime_scope():
         doc = ReportDoc("project_manager_view")
         summary = view.portfolio_summary
         doc.header(1, "Project Manager View")
@@ -541,21 +539,57 @@ def run(
     return 0
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--source-artifact", default=_DEFAULT_SOURCE_ARTIFACT)
-    parser.add_argument("--out", default=_DEFAULT_OUT)
-    parser.add_argument("--markdown-out", default=_DEFAULT_MARKDOWN_OUT)
-    parser.add_argument("--mermaid-out", default=_DEFAULT_MERMAID_OUT)
-    parser.add_argument("--visual-limit", type=int, default=_DEFAULT_VISUAL_LIMIT)
-    args = parser.parse_args(argv)
+def _run_invocation(invocation: ScriptInvocation) -> int:
     return run(
-        source_artifact_path=Path(args.source_artifact),
-        out_path=Path(args.out),
-        markdown_out=Path(args.markdown_out),
-        mermaid_out=Path(args.mermaid_out),
-        visual_limit=args.visual_limit,
+        source_artifact_path=invocation.path("source_artifact"),
+        out_path=invocation.path("out"),
+        markdown_out=invocation.path("markdown_out"),
+        mermaid_out=invocation.path("mermaid_out"),
+        visual_limit=invocation.integer("visual_limit"),
     )
+
+
+_SCRIPT_SPEC = DeclarativeScriptSpec(
+    script_id="project_manager_view",
+    description=__doc__ or "Render the project manager planning view.",
+    options=(
+        ScriptOptionSpec(
+            dest="source_artifact",
+            flags=("--source-artifact",),
+            kind=ScriptOptionKind.PATH,
+            default=_DEFAULT_SOURCE_ARTIFACT,
+        ),
+        ScriptOptionSpec(
+            dest="out",
+            flags=("--out",),
+            kind=ScriptOptionKind.PATH,
+            default=_DEFAULT_OUT,
+        ),
+        ScriptOptionSpec(
+            dest="markdown_out",
+            flags=("--markdown-out",),
+            kind=ScriptOptionKind.PATH,
+            default=_DEFAULT_MARKDOWN_OUT,
+        ),
+        ScriptOptionSpec(
+            dest="mermaid_out",
+            flags=("--mermaid-out",),
+            kind=ScriptOptionKind.PATH,
+            default=_DEFAULT_MERMAID_OUT,
+        ),
+        ScriptOptionSpec(
+            dest="visual_limit",
+            flags=("--visual-limit",),
+            kind=ScriptOptionKind.INTEGER,
+            default=_DEFAULT_VISUAL_LIMIT,
+        ),
+    ),
+    handler=_run_invocation,
+)
+
+
+def main(argv: list[str] | None = None) -> int:
+    return invoke_script(_SCRIPT_SPEC, argv=argv)
 
 
 __all__ = [

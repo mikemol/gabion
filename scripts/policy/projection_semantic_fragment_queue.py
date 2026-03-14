@@ -45,6 +45,13 @@ from gabion.tooling.runtime.projection_fiber_semantics_summary import (
     projection_fiber_semantic_row_count_from_payload,
     projection_fiber_semantic_spec_names_from_payload,
 )
+from gabion.tooling.runtime.declarative_script_host import (
+    DeclarativeScriptSpec,
+    ScriptInvocation,
+    ScriptOptionKind,
+    ScriptOptionSpec,
+    invoke_script,
+)
 
 _FORMAT_VERSION = 1
 _DEFAULT_SOURCE_ARTIFACT = "artifacts/out/policy_check_result.json"
@@ -1068,26 +1075,43 @@ def run(
     return 0
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--source-artifact",
-        default=_DEFAULT_SOURCE_ARTIFACT,
-    )
-    parser.add_argument(
-        "--out",
-        default="artifacts/out/projection_semantic_fragment_queue.json",
-    )
-    parser.add_argument(
-        "--markdown-out",
-        default="artifacts/out/projection_semantic_fragment_queue.md",
-    )
-    args = parser.parse_args(argv)
+def _run_invocation(invocation: ScriptInvocation) -> int:
     return run(
-        source_artifact_path=Path(args.source_artifact).resolve(),
-        out_path=Path(args.out).resolve(),
-        markdown_out=Path(args.markdown_out).resolve(),
+        source_artifact_path=invocation.path("source_artifact").resolve(),
+        out_path=invocation.path("out").resolve(),
+        markdown_out=invocation.path("markdown_out").resolve(),
     )
+
+
+_SCRIPT_SPEC = DeclarativeScriptSpec(
+    script_id="projection_semantic_fragment_queue",
+    description=__doc__ or "Render the projection semantic fragment queue.",
+    options=(
+        ScriptOptionSpec(
+            dest="source_artifact",
+            flags=("--source-artifact",),
+            kind=ScriptOptionKind.PATH,
+            default=_DEFAULT_SOURCE_ARTIFACT,
+        ),
+        ScriptOptionSpec(
+            dest="out",
+            flags=("--out",),
+            kind=ScriptOptionKind.PATH,
+            default="artifacts/out/projection_semantic_fragment_queue.json",
+        ),
+        ScriptOptionSpec(
+            dest="markdown_out",
+            flags=("--markdown-out",),
+            kind=ScriptOptionKind.PATH,
+            default="artifacts/out/projection_semantic_fragment_queue.md",
+        ),
+    ),
+    handler=_run_invocation,
+)
+
+
+def main(argv: list[str] | None = None) -> int:
+    return invoke_script(_SCRIPT_SPEC, argv=argv)
 
 
 if __name__ == "__main__":
