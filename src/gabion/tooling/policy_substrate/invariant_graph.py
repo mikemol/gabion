@@ -88,6 +88,7 @@ from gabion.tooling.policy_substrate.site_identity import (
     stable_hash,
 )
 from gabion.tooling.policy_substrate.workstream_registry import (
+    RegisteredCounterfactualActionDefinition,
     RegisteredRootDefinition,
     RegisteredSubqueueDefinition,
     RegisteredTouchpointDefinition,
@@ -117,6 +118,9 @@ _GIT_STATE_ARTIFACT = Path("artifacts/out/git_state.json")
 _DOCFLOW_REQUIRED_ISSUE_LIFECYCLE_LABELS = (
     "done-on-stage",
     "status/pending-release",
+)
+_COUNTERFACTUAL_BLOCKED_READINESS_CLASSES = frozenset(
+    {"policy_blocked", "diagnostic_blocked", "counterfactual_blocked"}
 )
 _DIRTY_GIT_STATE_CLASSES = frozenset({"staged", "unstaged", "untracked"})
 _MECHANICALLY_RECONSTRUCTABLE_PATH_ROOTS = frozenset(
@@ -517,6 +521,9 @@ class InvariantCutCandidate:
     touchsite_ids: tuple[TouchsiteId, ...]
     ranking_signal_count: int = 0
     ranking_signal_score: int = 0
+    counterfactual_action_count: int = 0
+    viable_counterfactual_action_count: int = 0
+    blocked_counterfactual_action_count: int = 0
 
     def as_payload(self) -> dict[str, object]:
         return {
@@ -532,6 +539,9 @@ class InvariantCutCandidate:
             "diagnostic_count": self.diagnostic_count,
             "ranking_signal_count": self.ranking_signal_count,
             "ranking_signal_score": self.ranking_signal_score,
+            "counterfactual_action_count": self.counterfactual_action_count,
+            "viable_counterfactual_action_count": self.viable_counterfactual_action_count,
+            "blocked_counterfactual_action_count": self.blocked_counterfactual_action_count,
             "covered_touchsite_count": self.covered_touchsite_count,
             "uncovered_touchsite_count": self.uncovered_touchsite_count,
             "readiness_class": self.readiness_class,
@@ -544,8 +554,9 @@ class InvariantCutCandidate:
 _READINESS_PRIORITY = {
     "ready_structural": 0,
     "coverage_gap": 1,
-    "policy_blocked": 2,
-    "diagnostic_blocked": 3,
+    "counterfactual_blocked": 2,
+    "policy_blocked": 3,
+    "diagnostic_blocked": 4,
 }
 
 _CUT_KIND_PRIORITY = {
@@ -559,6 +570,9 @@ def _cut_readiness_class(
     policy_signal_count: int,
     diagnostic_count: int,
     uncovered_touchsite_count: int,
+    counterfactual_action_count: int = 0,
+    viable_counterfactual_action_count: int = 0,
+    blocked_counterfactual_action_count: int = 0,
 ) -> str:
     if diagnostic_count > 0:
         return "diagnostic_blocked"
@@ -566,6 +580,12 @@ def _cut_readiness_class(
         return "policy_blocked"
     if uncovered_touchsite_count > 0:
         return "coverage_gap"
+    if (
+        counterfactual_action_count > 0
+        and viable_counterfactual_action_count <= 0
+        and blocked_counterfactual_action_count > 0
+    ):
+        return "counterfactual_blocked"
     return "ready_structural"
 
 
@@ -613,10 +633,12 @@ class InvariantWorkstreamHealthSummary:
     diagnostic_blocked_touchsite_count: int
     ready_touchpoint_cut_count: int
     coverage_gap_touchpoint_cut_count: int
+    counterfactual_blocked_touchpoint_cut_count: int
     policy_blocked_touchpoint_cut_count: int
     diagnostic_blocked_touchpoint_cut_count: int
     ready_subqueue_cut_count: int
     coverage_gap_subqueue_cut_count: int
+    counterfactual_blocked_subqueue_cut_count: int
     policy_blocked_subqueue_cut_count: int
     diagnostic_blocked_subqueue_cut_count: int
 
@@ -633,10 +655,12 @@ class InvariantWorkstreamHealthSummary:
             "diagnostic_blocked_touchsite_count": self.diagnostic_blocked_touchsite_count,
             "ready_touchpoint_cut_count": self.ready_touchpoint_cut_count,
             "coverage_gap_touchpoint_cut_count": self.coverage_gap_touchpoint_cut_count,
+            "counterfactual_blocked_touchpoint_cut_count": self.counterfactual_blocked_touchpoint_cut_count,
             "policy_blocked_touchpoint_cut_count": self.policy_blocked_touchpoint_cut_count,
             "diagnostic_blocked_touchpoint_cut_count": self.diagnostic_blocked_touchpoint_cut_count,
             "ready_subqueue_cut_count": self.ready_subqueue_cut_count,
             "coverage_gap_subqueue_cut_count": self.coverage_gap_subqueue_cut_count,
+            "counterfactual_blocked_subqueue_cut_count": self.counterfactual_blocked_subqueue_cut_count,
             "policy_blocked_subqueue_cut_count": self.policy_blocked_subqueue_cut_count,
             "diagnostic_blocked_subqueue_cut_count": self.diagnostic_blocked_subqueue_cut_count,
         }
@@ -1849,6 +1873,9 @@ class InvariantTouchpointProjection:
     ranking_signal_score: int = 0
     failing_test_case_count: int = 0
     test_failure_count: int = 0
+    counterfactual_action_count: int = 0
+    viable_counterfactual_action_count: int = 0
+    blocked_counterfactual_action_count: int = 0
 
     def iter_touchsites(self) -> Iterator[InvariantTouchsiteProjection]:
         return iter(self.touchsites)
@@ -1877,6 +1904,9 @@ class InvariantTouchpointProjection:
             "ranking_signal_score": self.ranking_signal_score,
             "failing_test_case_count": self.failing_test_case_count,
             "test_failure_count": self.test_failure_count,
+            "counterfactual_action_count": self.counterfactual_action_count,
+            "viable_counterfactual_action_count": self.viable_counterfactual_action_count,
+            "blocked_counterfactual_action_count": self.blocked_counterfactual_action_count,
             "touchsites": [item.as_payload() for item in self.iter_touchsites()],
         }
 
@@ -1904,6 +1934,9 @@ class InvariantSubqueueProjection:
     ranking_signal_score: int = 0
     failing_test_case_count: int = 0
     test_failure_count: int = 0
+    counterfactual_action_count: int = 0
+    viable_counterfactual_action_count: int = 0
+    blocked_counterfactual_action_count: int = 0
 
     def as_payload(self) -> dict[str, object]:
         return {
@@ -1928,6 +1961,9 @@ class InvariantSubqueueProjection:
             "ranking_signal_score": self.ranking_signal_score,
             "failing_test_case_count": self.failing_test_case_count,
             "test_failure_count": self.test_failure_count,
+            "counterfactual_action_count": self.counterfactual_action_count,
+            "viable_counterfactual_action_count": self.viable_counterfactual_action_count,
+            "blocked_counterfactual_action_count": self.blocked_counterfactual_action_count,
         }
 
 
@@ -1958,6 +1994,9 @@ class InvariantWorkstreamProjection:
     doc_alignment_summary: InvariantLedgerAlignmentSummary | None = None
     failing_test_case_count: int = 0
     test_failure_count: int = 0
+    counterfactual_action_count: int = 0
+    viable_counterfactual_action_count: int = 0
+    blocked_counterfactual_action_count: int = 0
 
     def iter_subqueues(self) -> Iterator[InvariantSubqueueProjection]:
         return iter(self.subqueues)
@@ -2000,6 +2039,9 @@ class InvariantWorkstreamProjection:
                 diagnostic_count=touchpoint.diagnostic_count,
                 ranking_signal_count=touchpoint.ranking_signal_count,
                 ranking_signal_score=touchpoint.ranking_signal_score,
+                counterfactual_action_count=touchpoint.counterfactual_action_count,
+                viable_counterfactual_action_count=touchpoint.viable_counterfactual_action_count,
+                blocked_counterfactual_action_count=touchpoint.blocked_counterfactual_action_count,
                 covered_touchsite_count=sum(
                     1 for touchsite in touchpoint.iter_touchsites() if touchsite.coverage_count > 0
                 ),
@@ -2014,6 +2056,9 @@ class InvariantWorkstreamProjection:
                         for touchsite in touchpoint.iter_touchsites()
                         if touchsite.coverage_count <= 0
                     ),
+                    counterfactual_action_count=touchpoint.counterfactual_action_count,
+                    viable_counterfactual_action_count=touchpoint.viable_counterfactual_action_count,
+                    blocked_counterfactual_action_count=touchpoint.blocked_counterfactual_action_count,
                 ),
                 touchsite_ids=tuple(
                     touchsite.object_id for touchsite in touchpoint.iter_touchsites()
@@ -2062,17 +2107,23 @@ class InvariantWorkstreamProjection:
                     policy_signal_count=subqueue.policy_signal_count,
                     coverage_count=subqueue.coverage_count,
                     diagnostic_count=subqueue.diagnostic_count,
-                    ranking_signal_count=subqueue.ranking_signal_count,
-                    ranking_signal_score=subqueue.ranking_signal_score,
-                    covered_touchsite_count=len(touchsites) - uncovered_touchsite_count,
+                ranking_signal_count=subqueue.ranking_signal_count,
+                ranking_signal_score=subqueue.ranking_signal_score,
+                counterfactual_action_count=subqueue.counterfactual_action_count,
+                viable_counterfactual_action_count=subqueue.viable_counterfactual_action_count,
+                blocked_counterfactual_action_count=subqueue.blocked_counterfactual_action_count,
+                covered_touchsite_count=len(touchsites) - uncovered_touchsite_count,
+                uncovered_touchsite_count=uncovered_touchsite_count,
+                readiness_class=_cut_readiness_class(
+                    policy_signal_count=subqueue.policy_signal_count,
+                    diagnostic_count=subqueue.diagnostic_count,
                     uncovered_touchsite_count=uncovered_touchsite_count,
-                    readiness_class=_cut_readiness_class(
-                        policy_signal_count=subqueue.policy_signal_count,
-                        diagnostic_count=subqueue.diagnostic_count,
-                        uncovered_touchsite_count=uncovered_touchsite_count,
-                    ),
-                    touchsite_ids=touchsite_ids,
-                )
+                    counterfactual_action_count=subqueue.counterfactual_action_count,
+                    viable_counterfactual_action_count=subqueue.viable_counterfactual_action_count,
+                    blocked_counterfactual_action_count=subqueue.blocked_counterfactual_action_count,
+                ),
+                touchsite_ids=touchsite_ids,
+            )
             )
         return tuple(_sorted(candidates, key=_cut_sort_key))
 
@@ -2097,6 +2148,9 @@ class InvariantWorkstreamProjection:
 
     def recommended_coverage_gap_cut(self) -> InvariantCutCandidate | None:
         return self._recommended_cut_for_readiness("coverage_gap")
+
+    def recommended_counterfactual_blocked_cut(self) -> InvariantCutCandidate | None:
+        return self._recommended_cut_for_readiness("counterfactual_blocked")
 
     def recommended_policy_blocked_cut(self) -> InvariantCutCandidate | None:
         return self._recommended_cut_for_readiness("policy_blocked")
@@ -2559,6 +2613,11 @@ class InvariantWorkstreamProjection:
             coverage_gap_touchpoint_cut_count=sum(
                 1 for candidate in touchpoint_cuts if candidate.readiness_class == "coverage_gap"
             ),
+            counterfactual_blocked_touchpoint_cut_count=sum(
+                1
+                for candidate in touchpoint_cuts
+                if candidate.readiness_class == "counterfactual_blocked"
+            ),
             policy_blocked_touchpoint_cut_count=sum(
                 1
                 for candidate in touchpoint_cuts
@@ -2576,6 +2635,11 @@ class InvariantWorkstreamProjection:
             ),
             coverage_gap_subqueue_cut_count=sum(
                 1 for candidate in subqueue_cuts if candidate.readiness_class == "coverage_gap"
+            ),
+            counterfactual_blocked_subqueue_cut_count=sum(
+                1
+                for candidate in subqueue_cuts
+                if candidate.readiness_class == "counterfactual_blocked"
             ),
             policy_blocked_subqueue_cut_count=sum(
                 1
@@ -2599,11 +2663,19 @@ class InvariantWorkstreamProjection:
             ("diagnostic_blocked", health_summary.diagnostic_blocked_touchsite_count),
             ("policy_blocked", health_summary.policy_blocked_touchsite_count),
             ("coverage_gap", health_summary.coverage_gap_touchsite_count),
+            (
+                "counterfactual_blocked",
+                (
+                    health_summary.counterfactual_blocked_touchpoint_cut_count
+                    + health_summary.counterfactual_blocked_subqueue_cut_count
+                ),
+            ),
         )
         blocker_priority = {
             "diagnostic_blocked": 0,
             "policy_blocked": 1,
             "coverage_gap": 2,
+            "counterfactual_blocked": 3,
         }
         dominant = _sorted(
             [
@@ -2632,6 +2704,8 @@ class InvariantWorkstreamProjection:
             return "policy_blocked"
         if self.recommended_coverage_gap_cut() is not None:
             return "coverage_gap"
+        if self.recommended_counterfactual_blocked_cut() is not None:
+            return "counterfactual_blocked"
         return "none"
 
     def remediation_lanes(self) -> tuple[InvariantRemediationLane, ...]:
@@ -2655,6 +2729,11 @@ class InvariantWorkstreamProjection:
                 health_summary.policy_blocked_touchsite_count,
             ),
             ("coverage_gap", "coverage_gap", health_summary.coverage_gap_touchsite_count),
+            (
+                "counterfactual_blocked",
+                "counterfactual_blocked",
+                0,
+            ),
         )
         lanes: list[InvariantRemediationLane] = []
         for remediation_family, blocker_class, touchsite_count in lane_specs:
@@ -2676,6 +2755,14 @@ class InvariantWorkstreamProjection:
                 continue
             if not matching_touchpoint_cuts and not matching_subqueue_cuts:
                 continue
+            if blocker_class == "counterfactual_blocked":
+                touchsite_count = len(
+                    {
+                        touchsite_id.wire()
+                        for candidate in (*matching_touchpoint_cuts, *matching_subqueue_cuts)
+                        for touchsite_id in candidate.touchsite_ids
+                    }
+                )
             best_touchpoint_cut = (
                 matching_touchpoint_cuts[0] if matching_touchpoint_cuts else None
             )
@@ -2752,6 +2839,9 @@ class InvariantWorkstreamProjection:
         recommended_cut = self.recommended_cut()
         recommended_ready_cut = self.recommended_ready_cut()
         recommended_coverage_gap_cut = self.recommended_coverage_gap_cut()
+        recommended_counterfactual_blocked_cut = (
+            self.recommended_counterfactual_blocked_cut()
+        )
         recommended_policy_blocked_cut = self.recommended_policy_blocked_cut()
         recommended_diagnostic_blocked_cut = self.recommended_diagnostic_blocked_cut()
         recommended_cut_frontier_explanation = (
@@ -2789,6 +2879,9 @@ class InvariantWorkstreamProjection:
             "ranking_signal_score": self.ranking_signal_score,
             "failing_test_case_count": self.failing_test_case_count,
             "test_failure_count": self.test_failure_count,
+            "counterfactual_action_count": self.counterfactual_action_count,
+            "viable_counterfactual_action_count": self.viable_counterfactual_action_count,
+            "blocked_counterfactual_action_count": self.blocked_counterfactual_action_count,
             "doc_alignment_summary": (
                 None
                 if self.doc_alignment_summary is None
@@ -2823,6 +2916,11 @@ class InvariantWorkstreamProjection:
                 "recommended_coverage_gap_cut": (
                     recommended_coverage_gap_cut.as_payload()
                     if recommended_coverage_gap_cut is not None
+                    else None
+                ),
+                "recommended_counterfactual_blocked_cut": (
+                    recommended_counterfactual_blocked_cut.as_payload()
+                    if recommended_counterfactual_blocked_cut is not None
                     else None
                 ),
                 "recommended_policy_blocked_cut": (
@@ -6003,6 +6101,20 @@ class InvariantWorkstreamsProjection:
                                         scalar(
                                             identity=ArtifactSourceRef(
                                                 rel_path="<synthetic>",
+                                                qualname="recommended_counterfactual_blocked_cut",
+                                            ),
+                                            key="recommended_counterfactual_blocked_cut",
+                                            title="recommended_counterfactual_blocked_cut",
+                                            value=(
+                                                None
+                                                if workstream.recommended_counterfactual_blocked_cut()
+                                                is None
+                                                else workstream.recommended_counterfactual_blocked_cut().as_payload()
+                                            ),
+                                        ),
+                                        scalar(
+                                            identity=ArtifactSourceRef(
+                                                rel_path="<synthetic>",
                                                 qualname="recommended_policy_blocked_cut",
                                             ),
                                             key="recommended_policy_blocked_cut",
@@ -8506,6 +8618,125 @@ def _add_registered_touchsite(
     _add_edge(state, "blocks", node.node_id, touchpoint_node_id)
 
 
+def _touchpoint_touchsite_node_ids(
+    state: _InvariantGraphBuildState,
+    *,
+    touchpoint_node_id: str,
+) -> tuple[str, ...]:
+    return tuple(
+        _sorted(
+            [
+                edge.target_id
+                for edge in state.edges
+                if edge.edge_kind == "contains"
+                and edge.source_id == touchpoint_node_id
+                and state.nodes_by_id.get(edge.target_id, None) is not None
+                and state.nodes_by_id[edge.target_id].node_kind == "synthetic_touchsite"
+            ]
+        )
+    )
+
+
+def _resolve_counterfactual_target_touchsite_node_id(
+    state: _InvariantGraphBuildState,
+    *,
+    touchpoint_node_id: str,
+    target_boundary_name: str,
+) -> str:
+    if not target_boundary_name:
+        return ""
+    for node_id in _touchpoint_touchsite_node_ids(
+        state,
+        touchpoint_node_id=touchpoint_node_id,
+    ):
+        node = state.nodes_by_id[node_id]
+        if node.title == target_boundary_name:
+            return node_id
+    return ""
+
+
+def _counterfactual_action_signal_score(
+    action_definition: RegisteredCounterfactualActionDefinition,
+) -> int:
+    if action_definition.score > 0:
+        return action_definition.score
+    match action_definition.predicted_readiness_class:
+        case "diagnostic_blocked":
+            return 10
+        case "policy_blocked":
+            return 8
+        case "counterfactual_blocked":
+            return 6
+        case "coverage_gap":
+            return 3
+        case "ready_structural":
+            return 1
+        case _:
+            return 0
+
+
+def _add_registered_counterfactual_action(
+    state: _InvariantGraphBuildState,
+    *,
+    touchpoint_definition: RegisteredTouchpointDefinition,
+    touchpoint_node_id: str,
+    action_definition: RegisteredCounterfactualActionDefinition,
+) -> None:
+    action_node_id = f"counterfactual_action:{stable_hash(action_definition.action_id)}"
+    action_node = _synthetic_node(
+        node_id=action_node_id,
+        title=action_definition.title,
+        ref_kind="counterfactual_action",
+        value=action_definition.action_id,
+        object_ids=tuple(
+            item
+            for item in (
+                action_definition.action_id,
+                touchpoint_definition.touchpoint_id,
+                action_definition.target_boundary_name,
+                *action_definition.object_ids,
+            )
+            if item
+        ),
+        reasoning_summary=action_definition.rationale or action_definition.title,
+        reasoning_control=(
+            "invariant_graph.counterfactual_action."
+            f"{action_definition.action_kind or 'declared'}"
+        ),
+        rel_path=touchpoint_definition.rel_path,
+        qualname=action_definition.action_id,
+        node_kind="counterfactual_action",
+        status_hint=action_definition.predicted_readiness_class,
+    )
+    _add_node(state, action_node, replace=True)
+    _link_node_refs(state, action_node)
+    _add_edge(state, "contains", touchpoint_node_id, action_node_id)
+    target_touchsite_node_id = _resolve_counterfactual_target_touchsite_node_id(
+        state,
+        touchpoint_node_id=touchpoint_node_id,
+        target_boundary_name=action_definition.target_boundary_name,
+    )
+    if target_touchsite_node_id:
+        _add_edge(state, "predicts", action_node_id, target_touchsite_node_id)
+        _add_edge(state, "tracks", action_node_id, target_touchsite_node_id)
+    if action_definition.predicted_readiness_class in _COUNTERFACTUAL_BLOCKED_READINESS_CLASSES:
+        target_touchsite_object_id = (
+            _primary_object_id(state.nodes_by_id[target_touchsite_node_id])
+            if target_touchsite_node_id
+            else touchpoint_definition.touchpoint_id
+        )
+        _append_ranking_signal(
+            state,
+            node_id=action_node_id,
+            touchpoint_object_id=touchpoint_definition.touchpoint_id,
+            touchsite_object_id=target_touchsite_object_id,
+            code=f"counterfactual_{action_definition.predicted_readiness_class}",
+            score=_counterfactual_action_signal_score(action_definition),
+            raw_dependency=action_definition.action_id,
+            message=action_definition.rationale or action_definition.title,
+        )
+
+
 def _add_registered_work_item(
     state: _InvariantGraphBuildState,
     *,
@@ -8654,6 +8885,13 @@ def _enrich_workstream_registry(
                 touchpoint_definition=touchpoint_definition,
                 touchpoint_node_id=touchpoint_node_id,
                 touchsite_definition=touchsite_definition,
+            )
+        for action_definition in touchpoint_definition.declared_counterfactual_actions:
+            _add_registered_counterfactual_action(
+                state,
+                touchpoint_definition=touchpoint_definition,
+                touchpoint_node_id=touchpoint_node_id,
+                action_definition=action_definition,
             )
         if not touchpoint_definition.scan_touchsites:
             continue
@@ -11058,7 +11296,11 @@ def _resolve_blocking_dependencies(state: _InvariantGraphBuildState) -> None:
             _add_edge(state, "depends_on", node.node_id, target_id)
 
 
-def build_invariant_graph(root: Path) -> InvariantGraph:
+def build_invariant_graph(
+    root: Path,
+    *,
+    declared_registries: tuple[WorkstreamRegistry, ...] | None = None,
+) -> InvariantGraph:
     root = root.resolve()
     state = _new_build_state(root)
     marker_nodes = scan_invariant_markers(root)
@@ -11068,7 +11310,12 @@ def build_invariant_graph(root: Path) -> InvariantGraph:
         _add_node(state, graph_node)
         marker_node_id_by_marker_id[graph_node.marker_id] = graph_node.node_id
         _link_node_refs(state, graph_node)
-    for registry in _iter_declared_workstream_registries():
+    registries = (
+        _iter_declared_workstream_registries()
+        if declared_registries is None
+        else declared_registries
+    )
+    for registry in registries:
         _enrich_workstream_registry(
             state,
             registry=registry,
@@ -11294,6 +11541,32 @@ def build_invariant_workstreams(
             for signal in ranking_signals_by_node_id.get(node_id, ())
         )
 
+    def _counterfactual_action_nodes(
+        node_ids: Iterable[str],
+    ) -> tuple[InvariantGraphNode, ...]:
+        return tuple(
+            node_by_id[node_id]
+            for node_id in node_ids
+            if node_id in node_by_id and node_by_id[node_id].node_kind == "counterfactual_action"
+        )
+
+    def _counterfactual_action_count(node_ids: Iterable[str]) -> int:
+        return len(_counterfactual_action_nodes(node_ids))
+
+    def _viable_counterfactual_action_count(node_ids: Iterable[str]) -> int:
+        return sum(
+            1
+            for node in _counterfactual_action_nodes(node_ids)
+            if node.status_hint not in _COUNTERFACTUAL_BLOCKED_READINESS_CLASSES
+        )
+
+    def _blocked_counterfactual_action_count(node_ids: Iterable[str]) -> int:
+        return sum(
+            1
+            for node in _counterfactual_action_nodes(node_ids)
+            if node.status_hint in _COUNTERFACTUAL_BLOCKED_READINESS_CLASSES
+        )
+
     def _site_ref(token: str) -> SiteReferenceId:
         return identity_space.site_ref_id(token)
 
@@ -11394,6 +11667,15 @@ def build_invariant_workstreams(
             ranking_signal_score=_ranking_signal_score(touchpoint_descendants),
             failing_test_case_count=len(_failing_test_case_ids(touchpoint_descendants)),
             test_failure_count=len(_test_failure_ids(touchpoint_descendants)),
+            counterfactual_action_count=_counterfactual_action_count(
+                touchpoint_descendants
+            ),
+            viable_counterfactual_action_count=_viable_counterfactual_action_count(
+                touchpoint_descendants
+            ),
+            blocked_counterfactual_action_count=_blocked_counterfactual_action_count(
+                touchpoint_descendants
+            ),
         )
 
     def _subqueue_projection(
@@ -11450,6 +11732,15 @@ def build_invariant_workstreams(
             ranking_signal_score=_ranking_signal_score(subqueue_descendants),
             failing_test_case_count=len(_failing_test_case_ids(subqueue_descendants)),
             test_failure_count=len(_test_failure_ids(subqueue_descendants)),
+            counterfactual_action_count=_counterfactual_action_count(
+                subqueue_descendants
+            ),
+            viable_counterfactual_action_count=_viable_counterfactual_action_count(
+                subqueue_descendants
+            ),
+            blocked_counterfactual_action_count=_blocked_counterfactual_action_count(
+                subqueue_descendants
+            ),
         )
 
     def _workstream_projection(root_object_id: str) -> InvariantWorkstreamProjection:
@@ -11527,6 +11818,13 @@ def build_invariant_workstreams(
             touchpoints=_stream_from_iterable(_iter_touchpoints),
             failing_test_case_count=len(_failing_test_case_ids(root_descendants)),
             test_failure_count=len(_test_failure_ids(root_descendants)),
+            counterfactual_action_count=_counterfactual_action_count(root_descendants),
+            viable_counterfactual_action_count=_viable_counterfactual_action_count(
+                root_descendants
+            ),
+            blocked_counterfactual_action_count=_blocked_counterfactual_action_count(
+                root_descendants
+            ),
         )
         if root is None or doc_paths_by_id is None:
             return workstream

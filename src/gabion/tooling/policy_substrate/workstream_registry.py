@@ -42,6 +42,23 @@ class RegisteredTouchsiteDefinition:
 
 
 @dataclass(frozen=True)
+class RegisteredCounterfactualActionDefinition:
+    action_id: str
+    title: str
+    action_kind: str
+    target_boundary_name: str = ""
+    predicted_readiness_class: str = ""
+    predicted_touchsite_delta: int = 0
+    predicted_surviving_touchsite_delta: int = 0
+    predicted_policy_signal_delta: int = 0
+    predicted_diagnostic_delta: int = 0
+    predicted_coverage_delta: int = 0
+    score: int = 0
+    rationale: str = ""
+    object_ids: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class RegisteredTouchpointDefinition:
     root_id: str
     touchpoint_id: str
@@ -57,6 +74,9 @@ class RegisteredTouchpointDefinition:
     status_hint: str = ""
     collapse_private_helpers: bool = False
     surviving_boundary_names: tuple[str, ...] = ()
+    declared_counterfactual_actions: tuple[
+        RegisteredCounterfactualActionDefinition, ...
+    ] = ()
     declared_touchsites: tuple[RegisteredTouchsiteDefinition, ...] = ()
     scan_touchsites: bool = False
 
@@ -220,6 +240,7 @@ def declared_touchsite_definition_from_symbol(
 
 
 __all__ = [
+    "RegisteredCounterfactualActionDefinition",
     "RegisteredRootDefinition",
     "RegisteredSubqueueDefinition",
     "RegisteredTouchpointDefinition",

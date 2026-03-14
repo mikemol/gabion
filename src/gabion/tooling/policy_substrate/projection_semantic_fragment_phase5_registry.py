@@ -9,6 +9,7 @@ from gabion.analysis.aspf.aspf_lattice_algebra import canonical_structural_ident
 from gabion.analysis.foundation.marker_protocol import MarkerPayload, marker_identity
 from gabion.tooling.policy_substrate.site_identity import canonical_site_identity
 from gabion.tooling.policy_substrate.workstream_registry import (
+    RegisteredCounterfactualActionDefinition,
     RegisteredRootDefinition,
     RegisteredSubqueueDefinition,
     RegisteredTouchpointDefinition,
@@ -62,6 +63,9 @@ class ProjectionSemanticFragmentPhase5TouchpointDefinition:
     marker_payload: MarkerPayload
     collapse_private_helpers: bool
     surviving_boundary_names: tuple[str, ...]
+    declared_counterfactual_actions: tuple[
+        RegisteredCounterfactualActionDefinition, ...
+    ]
 
 
 def _registry_site_metadata(symbol: Callable[..., object]) -> tuple[str, str, int]:
@@ -494,30 +498,61 @@ def iter_phase5_touchpoints() -> tuple[ProjectionSemanticFragmentPhase5Touchpoin
         ),
     ):
         surviving_boundary_names: tuple[str, ...]
+        declared_counterfactual_actions: tuple[
+            RegisteredCounterfactualActionDefinition, ...
+        ]
         if touchpoint_id == "PSF-007-TP-001":
             surviving_boundary_names = (
                 "semantic_fragment.reflect_projection_fiber_witness",
                 "semantic_fragment.canonical_value_materialization",
+            )
+            declared_counterfactual_actions = (
+                RegisteredCounterfactualActionDefinition(
+                    action_id="PSF-007-TP-001-ACT-001",
+                    title="Retire semantic_fragment.canonical_value_materialization",
+                    action_kind="retire_boundary",
+                    target_boundary_name=(
+                        "semantic_fragment.canonical_value_materialization"
+                    ),
+                    predicted_readiness_class="policy_blocked",
+                    predicted_touchsite_delta=-1,
+                    predicted_surviving_touchsite_delta=-1,
+                    predicted_policy_signal_delta=1,
+                    score=12,
+                    rationale=(
+                        "Retiring canonical_value_materialization currently trips the "
+                        "ambiguity contract, so TP-001 is at a lawful minimum until a "
+                        "different boundary move changes the surface."
+                    ),
+                    object_ids=(
+                        "PSF-007-TP-001",
+                        "semantic_fragment.canonical_value_materialization",
+                    ),
+                ),
             )
         elif touchpoint_id == "PSF-007-TP-002":
             surviving_boundary_names = (
                 "projection_semantic_lowering.normalize_projection_op",
                 "projection_semantic_lowering.lower_projection_op",
             )
+            declared_counterfactual_actions = ()
         elif touchpoint_id == "PSF-007-TP-003":
             surviving_boundary_names = (
                 "projection_semantic_lowering_compile.compile_semantic_projection_op",
                 "projection_semantic_lowering_compile.semantic_rows_for_quotient_face",
                 "projection_semantic_lowering_compile.semantic_rows_for_surface",
             )
+            declared_counterfactual_actions = ()
         elif touchpoint_id == "PSF-007-TP-006":
             surviving_boundary_names = (
                 "projection_exec.apply_execution_op",
                 "projection_exec.sort_value",
                 "projection_exec.canonical_group_reference",
             )
+            declared_counterfactual_actions = ()
         else:
             surviving_boundary_names = ()
+            declared_counterfactual_actions = ()
         (
             payload,
             marker_id,
@@ -545,6 +580,7 @@ def iter_phase5_touchpoints() -> tuple[ProjectionSemanticFragmentPhase5Touchpoin
                 marker_payload=payload,
                 collapse_private_helpers=True,
                 surviving_boundary_names=surviving_boundary_names,
+                declared_counterfactual_actions=declared_counterfactual_actions,
             )
         )
     return tuple(definitions)
@@ -598,6 +634,7 @@ def phase5_workstream_registry() -> WorkstreamRegistry:
                 marker_payload=item.marker_payload,
                 collapse_private_helpers=item.collapse_private_helpers,
                 surviving_boundary_names=item.surviving_boundary_names,
+                declared_counterfactual_actions=item.declared_counterfactual_actions,
                 scan_touchsites=True,
             )
             for item in touchpoint_definitions

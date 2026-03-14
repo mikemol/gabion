@@ -44,6 +44,14 @@ def test_phase5_workstream_registry_exposes_touchpoint_scan_contract() -> None:
         "semantic_fragment.reflect_projection_fiber_witness",
         "semantic_fragment.canonical_value_materialization",
     )
+    assert (
+        touchpoints["PSF-007-TP-001"].declared_counterfactual_actions[0].action_id
+        == "PSF-007-TP-001-ACT-001"
+    )
+    assert (
+        touchpoints["PSF-007-TP-001"].declared_counterfactual_actions[0].predicted_readiness_class
+        == "policy_blocked"
+    )
 
 
 def test_connectivity_synergy_workstream_registries_expose_expected_roots_and_touchsites() -> None:
