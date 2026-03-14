@@ -54,6 +54,8 @@ in_steps:
   - in-102
   - in-103
   - in-104
+  - in-105
+delta_note_6: "Expanding `impact_index.py` symbol scanning to include `scripts/` and rooting runtime perf heat on the shared doc-target selector preserves the same ASPF taint identifier anchors, witness labels, and crosswalk row mappings while converging doc-to-symbol selection and profiler-query rooting onto one selector substrate."
 delta_note_5: "Prime-backed queue identities now intern decomposition views as typed carriers, recursive policy artifact streams render typed identities only at JSON/Markdown boundaries, and call-cluster summary/consolidation carriers now keep canonical prime-backed cluster identities internally while preserving the same emitted wire identities; these changes preserve the same ASPF taint identifier anchors, witness labels, and crosswalk row mappings while tightening boundary rendering and internal identity discipline."
 delta_note_4: "Shared invariant-marker scanning, invariant-graph projection, and PSF-007 queue projection now consume governance-only marker metadata plus global site/structural identity carriers, while `dataflow_projection_materialization.py` routes its remaining fixed-spec materialization through typed execution-op planning/execution rather than the removed `apply_spec(...)`; these changes preserve the same ASPF taint identifier anchors, witness labels, and crosswalk row mappings."
 delta_note_3: "Extracting strict YAML frontmatter parsing into a shared helper and reusing it from `impact_index.py` plus the policy DSL compiler preserves the same ASPF taint identifier anchors, witness labels, and crosswalk row mappings while moving markdown-frontmatter parsing onto a shared boundary-normalization utility."

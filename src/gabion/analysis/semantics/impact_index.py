@@ -23,6 +23,7 @@ from gabion.order_contract import sort_once
 
 _DEFAULT_ARTIFACT_PATH = Path("artifacts/audit_reports/impact_index.json")
 _PYTHON_SOURCE_ROOTS = ("src", "tests")
+_PYTHON_SCAN_ROOTS = ("src", "tests", "scripts")
 _MARKDOWN_GLOBS = ("*.md", "docs/**/*.md", "in/**/*.md")
 _COMMAND_PATTERN = re.compile(r"gabion\.[A-Za-z][A-Za-z0-9]+")
 _ANCHOR_PATTERN = re.compile(r"<a\s+id=\"(?P<anchor>[A-Za-z0-9_\-:.]+)\"\s*></a>")
@@ -582,7 +583,7 @@ def _build_graph_payload(root: Path) -> dict[str, object]:
 
 
 def _iter_python_files(root: Path) -> Iterable[Path]:
-    for source_root in _PYTHON_SOURCE_ROOTS:
+    for source_root in _PYTHON_SCAN_ROOTS:
         check_deadline()
         target = root / source_root
         if not target.exists():

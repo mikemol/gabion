@@ -136,6 +136,7 @@ def test_doc_links_read_doc_targets_and_fallback_to_mentions(tmp_path: Path) -> 
 ---
 doc_targets:
   - gabion.mod.fn
+  - scripts.policy.policy_check.main
 ---
 Notes.
 """.strip(),
@@ -146,7 +147,28 @@ Notes.
     links = {(item.source, item.target, item.confidence) for item in index.links}
 
     assert ("docs/a.md", "gabion.mod.fn", "explicit") in links
+    assert ("docs/a.md", "scripts.policy.policy_check.main", "explicit") in links
     assert ("docs/b.md", "gabion.mod.fn", "inferred") in links
+
+
+# gabion:evidence E:call_footprint::tests/test_impact_index.py::test_links_from_doc_infer_script_symbols_from_supplied_symbol_overlay::impact_index.py::gabion.analysis.impact_index._links_from_doc::test_impact_index.py::tests.test_impact_index._write
+# gabion:behavior primary=desired
+def test_links_from_doc_infer_script_symbols_from_supplied_symbol_overlay(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "docs" / "perf.md",
+        "Touches `scripts.policy.policy_check.main`.",
+    )
+
+    assert [
+        (item.source, item.target, item.confidence)
+        for item in ii._links_from_doc(
+            path=tmp_path / "docs" / "perf.md",
+            root=tmp_path,
+            symbols={"scripts.policy.policy_check.main"},
+        )
+    ] == [("docs/perf.md", "scripts.policy.policy_check.main", "inferred")]
 
 
 # gabion:evidence E:call_footprint::tests/test_impact_index.py::test_doc_links_fallback_to_anchors_as_weak::impact_index.py::gabion.analysis.impact_index.build_impact_index::test_impact_index.py::tests.test_impact_index._write
@@ -229,12 +251,18 @@ def test_build_graph_payload_handles_async_and_unparseable_files(tmp_path: Path)
         tmp_path / "src" / "gabion" / "server.py",
         'REFACTOR_COMMAND = "gabion.refactorProtocol"\n',
     )
+    _write(
+        tmp_path / "scripts" / "policy" / "policy_check.py",
+        "def main():\n    return 1\n",
+    )
     _write(tmp_path / "src" / "gabion" / "broken.py", "def broken(:\n    pass\n")
 
     graph = ii._build_graph_payload(tmp_path)
     symbols = {entry["qualname"] for entry in graph["nodes"]["symbol"]}
+    modules = {entry["module"] for entry in graph["nodes"]["symbol"]}
     assert "run_async" in symbols
     assert "helper" in symbols
+    assert "scripts.policy.policy_check" in modules
 
 
 # gabion:evidence E:call_footprint::tests/test_impact_index.py::test_module_and_parse_helpers_cover_error_edges::impact_index.py::gabion.analysis.impact_index._module_from_path::impact_index.py::gabion.analysis.impact_index._parse_ast::impact_index.py::gabion.analysis.impact_index._parse_python_file::impact_index.py::gabion.analysis.impact_index._read_text::impact_index.py::gabion.analysis.impact_index._relative::test_impact_index.py::tests.test_impact_index._write
@@ -242,6 +270,10 @@ def test_build_graph_payload_handles_async_and_unparseable_files(tmp_path: Path)
 def test_module_and_parse_helpers_cover_error_edges(tmp_path: Path) -> None:
     assert ii._module_from_path(Path("src/gabion/sample.py")) == "gabion.sample"
     assert ii._module_from_path(Path("gabion/sample.py")) == "gabion.sample"
+    assert (
+        ii._module_from_path(Path("scripts/policy/policy_check.py"))
+        == "scripts.policy.policy_check"
+    )
 
     assert ii._parse_python_file(tmp_path / "missing.py") is None
     broken = tmp_path / "broken.py"
@@ -354,6 +386,8 @@ def test_collect_symbol_universe_and_dedupe_edges(tmp_path: Path) -> None:
 
     _write(tmp_path / "src" / "gabion" / "broken.py", "def broken(:\n    pass\n")
     assert ii._collect_symbol_universe(tmp_path) == set()
+    _write(tmp_path / "src" / "gabion" / "mod.py", "def fn():\n    return 1\n")
+    assert ii._collect_symbol_universe(tmp_path) == {"gabion.mod.fn"}
 
     deduped = ii._dedupe_links(
         [

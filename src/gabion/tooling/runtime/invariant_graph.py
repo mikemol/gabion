@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+from collections import defaultdict
 import argparse
+from dataclasses import dataclass
 import json
 from pathlib import Path
 
-from gabion.analysis.aspf.aspf_lattice_algebra import ReplayableStream
+from gabion.analysis.aspf.aspf_lattice_algebra import ReplayableStream, meet
+from gabion.analysis.semantics import impact_index
+from gabion.frontmatter import parse_strict_yaml_frontmatter
 from gabion.order_contract import ordered_or_sorted
 from gabion.tooling.policy_substrate.invariant_graph import (
     InvariantGraph,
@@ -46,6 +50,60 @@ _DEFAULT_LEDGER_ALIGNMENTS_MARKDOWN_ARTIFACT = Path(
 )
 
 
+@dataclass(frozen=True)
+class _ProfileObservation:
+    profiler: str
+    metric_kind: str
+    unit: str
+    artifact_node_wire: str
+    site_identity: str
+    rel_path: str
+    qualname: str
+    line: int
+    structural_identity: str
+    inclusive_value: float
+
+
+@dataclass(frozen=True)
+class _MatchedProfileObservation:
+    node_id: str
+    profiler: str
+    metric_kind: str
+    unit: str
+    rel_path: str
+    qualname: str
+    line: int
+    title: str
+    inclusive_value: float
+
+
+@dataclass(frozen=True)
+class _PerfInfimumBucket:
+    metric_kind: str
+    unit: str
+    node_id: str
+    title: str
+    node_kind: str
+    rel_path: str
+    qualname: str
+    line: int
+    depth: int
+    total_inclusive_value: float
+    matched_leaf_node_count: int
+    profiler_count: int
+    direct_match_node_count: int
+    is_global_infimum: bool
+    is_virtual_intersection: bool
+
+
+@dataclass(frozen=True)
+class _PerfDslOverlay:
+    doc_ids: tuple[str, ...]
+    doc_paths: tuple[str, ...]
+    target_symbols: tuple[str, ...]
+    candidate_node_ids: tuple[str, ...]
+
+
 def _sorted[T](values: list[T], *, key=None) -> list[T]:
     return ordered_or_sorted(
         values,
@@ -74,6 +132,217 @@ def _descendant_ids(graph: InvariantGraph, node_id: str) -> tuple[str, ...]:
             if edge.edge_kind == "contains" and edge.target_id in node_by_id:
                 pending.append(edge.target_id)
     return tuple(_sorted(list(seen)))
+
+
+def _doc_id_paths(root: Path) -> dict[str, tuple[str, ...]]:
+    grouped: defaultdict[str, list[str]] = defaultdict(list)
+    for path in root.rglob("*.md"):
+        rel_parts = path.relative_to(root).parts
+        if not rel_parts:
+            continue
+        if rel_parts[0] in {"artifacts", "out", ".git", ".venv", "__pycache__"}:
+            continue
+        frontmatter, _body = parse_strict_yaml_frontmatter(
+            path.read_text(encoding="utf-8"),
+            require_parser=False,
+        )
+        doc_id = frontmatter.get("doc_id")
+        if isinstance(doc_id, str) and doc_id:
+            grouped[doc_id].append(str(path.relative_to(root)))
+    return {
+        doc_id: tuple(_sorted(paths))
+        for doc_id, paths in grouped.items()
+    }
+
+
+def _module_name_from_rel_path(rel_path: str) -> str:
+    parts = list(Path(rel_path).with_suffix("").parts)
+    if parts and parts[0] in {"src", "tests"}:
+        parts = parts[1:]
+    return ".".join(parts)
+
+
+def _symbol_name_for_node(node) -> str:
+    if not node.rel_path or not node.qualname:
+        return ""
+    module_name = _module_name_from_rel_path(node.rel_path)
+    if not module_name:
+        return ""
+    return f"{module_name}.{node.qualname}"
+
+
+def _resolve_perf_dsl_overlay(
+    *,
+    root: Path,
+    graph: InvariantGraph,
+    scope_node_ids: tuple[str, ...],
+) -> _PerfDslOverlay:
+    node_by_id = graph.node_by_id()
+    doc_ids = tuple(
+        _sorted(
+            list(
+                {
+                    doc_id
+                    for node_id in scope_node_ids
+                    for doc_id in (
+                        ()
+                        if node_by_id.get(node_id) is None
+                        else node_by_id[node_id].doc_ids
+                    )
+                }
+            )
+        )
+    )
+    if not doc_ids:
+        return _PerfDslOverlay(
+            doc_ids=(),
+            doc_paths=(),
+            target_symbols=(),
+            candidate_node_ids=(),
+        )
+    doc_paths_by_id = _doc_id_paths(root)
+    doc_paths = tuple(
+        _sorted(
+            list(
+                {
+                    path
+                    for doc_id in doc_ids
+                    for path in doc_paths_by_id.get(doc_id, ())
+                }
+            )
+        )
+    )
+    if not doc_paths:
+        return _PerfDslOverlay(
+            doc_ids=doc_ids,
+            doc_paths=(),
+            target_symbols=(),
+            candidate_node_ids=(),
+        )
+    existing_doc_paths = tuple(
+        _sorted(
+            list(
+                {
+                    rel_path
+                    for rel_path in doc_paths
+                    if (root / rel_path).exists() and (root / rel_path).is_file()
+                }
+            )
+        )
+    )
+    if not existing_doc_paths:
+        return _PerfDslOverlay(
+            doc_ids=doc_ids,
+            doc_paths=(),
+            target_symbols=(),
+            candidate_node_ids=(),
+        )
+    symbol_universe = {
+        symbol_name
+        for node_id in scope_node_ids
+        for symbol_name in (
+            (_symbol_name_for_node(node_by_id[node_id]),)
+            if node_by_id.get(node_id) is not None
+            else ()
+        )
+        if symbol_name
+    }
+    if not symbol_universe:
+        return _PerfDslOverlay(
+            doc_ids=doc_ids,
+            doc_paths=existing_doc_paths,
+            target_symbols=(),
+            candidate_node_ids=(),
+        )
+    links = []
+    for rel_path in existing_doc_paths:
+        links.extend(
+            impact_index._links_from_doc(
+                path=root / rel_path,
+                root=root,
+                symbols=symbol_universe,
+            )
+        )
+    target_symbols = tuple(
+        _sorted(
+            list(
+                {
+                    link.target
+                    for link in links
+                    if link.source_kind == "doc" and link.source in existing_doc_paths
+                }
+            )
+        )
+    )
+    if not target_symbols:
+        return _PerfDslOverlay(
+            doc_ids=doc_ids,
+            doc_paths=existing_doc_paths,
+            target_symbols=(),
+            candidate_node_ids=(),
+        )
+    candidate_node_ids: set[str] = set()
+    for node_id in scope_node_ids:
+        node = node_by_id.get(node_id)
+        if node is None:
+            continue
+        symbol_name = _symbol_name_for_node(node)
+        if not symbol_name:
+            continue
+        for target_symbol in target_symbols:
+            if symbol_name == target_symbol or symbol_name.startswith(
+                f"{target_symbol}."
+            ):
+                candidate_node_ids.add(node_id)
+                break
+    return _PerfDslOverlay(
+        doc_ids=doc_ids,
+        doc_paths=existing_doc_paths,
+        target_symbols=target_symbols,
+        candidate_node_ids=tuple(_sorted(list(candidate_node_ids))),
+    )
+
+
+def _ancestor_ids(graph: InvariantGraph, node_id: str) -> tuple[str, ...]:
+    node_by_id = graph.node_by_id()
+    edges_to = graph.edges_to()
+    pending = [node_id]
+    seen: set[str] = set()
+    while pending:
+        current = pending.pop()
+        if current in seen:
+            continue
+        seen.add(current)
+        for edge in edges_to.get(current, ()):
+            if edge.edge_kind == "contains" and edge.source_id in node_by_id:
+                pending.append(edge.source_id)
+    return tuple(_sorted(list(seen)))
+
+
+def _containment_depths(graph: InvariantGraph) -> dict[str, int]:
+    node_by_id = graph.node_by_id()
+    edges_to = graph.edges_to()
+    cache: dict[str, int] = {}
+
+    def _depth(node_id: str) -> int:
+        cached = cache.get(node_id)
+        if cached is not None:
+            return cached
+        parent_ids = [
+            edge.source_id
+            for edge in edges_to.get(node_id, ())
+            if edge.edge_kind == "contains" and edge.source_id in node_by_id
+        ]
+        if not parent_ids:
+            cache[node_id] = 0
+            return 0
+        depth = 1 + max(_depth(parent_id) for parent_id in parent_ids)
+        cache[node_id] = depth
+        return depth
+
+    for node_id in node_by_id:
+        _depth(node_id)
+    return cache
 
 
 def _coverage_and_signal_ids(
@@ -116,6 +385,346 @@ def _load_impacted_tests(path: Path | None) -> tuple[str, ...]:
     if not isinstance(impacted_tests, list):
         return ()
     return tuple(_sorted([str(item) for item in impacted_tests if isinstance(item, str)]))
+
+
+def _normalized_profile_line(value: object) -> int | None:
+    match value:
+        case bool():
+            return None
+        case int() as line if line > 0:
+            return line
+        case float() as line if line.is_integer() and line > 0:
+            return int(line)
+        case str() as line:
+            stripped = line.strip()
+            if not stripped:
+                return None
+            try:
+                parsed = int(stripped)
+            except ValueError:
+                return None
+            return parsed if parsed > 0 else None
+        case _:
+            return None
+
+
+def _normalized_profile_value(value: object) -> float | None:
+    match value:
+        case bool():
+            return None
+        case int() | float() as number:
+            parsed = float(number)
+            return parsed if parsed >= 0 else None
+        case str() as number:
+            stripped = number.strip()
+            if not stripped:
+                return None
+            try:
+                parsed = float(stripped)
+            except ValueError:
+                return None
+            return parsed if parsed >= 0 else None
+        case _:
+            return None
+
+
+def _profile_observation_from_payload(
+    raw_sample: object,
+    *,
+    profiler: object,
+    metric_kind: object,
+    unit: object,
+) -> _ProfileObservation | None:
+    if not isinstance(raw_sample, dict):
+        return None
+    raw_artifact_node = raw_sample.get("artifact_node")
+    artifact_node_wire = ""
+    site_identity = ""
+    structural_identity = ""
+    rel_path = ""
+    qualname = ""
+    line = 0
+    if isinstance(raw_artifact_node, dict):
+        artifact_node_wire = str(raw_artifact_node.get("wire", "")).strip()
+        site_identity = str(raw_artifact_node.get("site_identity", "")).strip()
+        structural_identity = str(
+            raw_artifact_node.get("structural_identity", "")
+        ).strip()
+        rel_path = str(raw_artifact_node.get("rel_path", "")).strip()
+        qualname = str(raw_artifact_node.get("qualname", "")).strip()
+        line = _normalized_profile_line(raw_artifact_node.get("line")) or 0
+    if not site_identity:
+        site_identity = str(raw_sample.get("site_identity", "")).strip()
+    if not structural_identity:
+        structural_identity = str(raw_sample.get("structural_identity", "")).strip()
+    if not rel_path:
+        rel_path = str(raw_sample.get("rel_path", "")).strip()
+    if not qualname:
+        qualname = str(raw_sample.get("qualname", "")).strip()
+    if line <= 0:
+        line = _normalized_profile_line(raw_sample.get("line")) or 0
+    inclusive_value = _normalized_profile_value(raw_sample.get("inclusive_value"))
+    has_identity = bool(site_identity or structural_identity)
+    has_location = bool(rel_path and qualname and line > 0)
+    if inclusive_value is None or not (has_identity or has_location):
+        return None
+    return _ProfileObservation(
+        profiler=str(profiler).strip() or "unknown",
+        metric_kind=str(metric_kind).strip() or "value",
+        unit=str(unit).strip() or "value",
+        artifact_node_wire=artifact_node_wire,
+        site_identity=site_identity,
+        rel_path=rel_path,
+        qualname=qualname,
+        line=line,
+        structural_identity=structural_identity,
+        inclusive_value=inclusive_value,
+    )
+
+
+def _load_profile_observations(path: Path | None) -> tuple[_ProfileObservation, ...]:
+    if path is None or not path.exists():
+        return ()
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        return ()
+    observations: list[_ProfileObservation] = []
+    raw_profiles = payload.get("profiles", [])
+    if isinstance(raw_profiles, list):
+        for raw_profile in raw_profiles:
+            if not isinstance(raw_profile, dict):
+                continue
+            samples = raw_profile.get("samples", [])
+            if not isinstance(samples, list):
+                continue
+            for raw_sample in samples:
+                observation = _profile_observation_from_payload(
+                    raw_sample,
+                    profiler=raw_profile.get("profiler", ""),
+                    metric_kind=raw_profile.get("metric_kind", ""),
+                    unit=raw_profile.get("unit", ""),
+                )
+                if observation is not None:
+                    observations.append(observation)
+    raw_observations = payload.get("observations", [])
+    if isinstance(raw_observations, list):
+        for raw_observation in raw_observations:
+            observation = _profile_observation_from_payload(
+                raw_observation,
+                profiler=payload.get("profiler", raw_observation.get("profiler", "")),
+                metric_kind=payload.get(
+                    "metric_kind", raw_observation.get("metric_kind", "")
+                ),
+                unit=payload.get("unit", raw_observation.get("unit", "")),
+            )
+            if observation is not None:
+                observations.append(observation)
+    return tuple(
+        _sorted(
+            observations,
+            key=lambda item: (
+                item.profiler,
+                item.metric_kind,
+                item.rel_path,
+                item.line,
+                item.qualname,
+                item.inclusive_value,
+            ),
+        )
+    )
+
+
+def _match_profile_observations(
+    *,
+    graph: InvariantGraph,
+    descendant_ids: tuple[str, ...],
+    observations: tuple[_ProfileObservation, ...],
+) -> tuple[_MatchedProfileObservation, ...]:
+    node_by_id = graph.node_by_id()
+    structural_node_ids: dict[str, str] = {}
+    site_node_ids: dict[str, str] = {}
+    path_line_qualname_node_ids: dict[tuple[str, int, str], str] = {}
+    for node_id in descendant_ids:
+        node = node_by_id.get(node_id)
+        if node is None:
+            continue
+        if node.structural_identity:
+            structural_node_ids.setdefault(node.structural_identity, node_id)
+        if node.site_identity:
+            site_node_ids.setdefault(node.site_identity, node_id)
+        if node.rel_path and node.line > 0 and node.qualname:
+            path_line_qualname_node_ids.setdefault(
+                (node.rel_path, node.line, node.qualname),
+                node_id,
+            )
+    matched: list[_MatchedProfileObservation] = []
+    for observation in observations:
+        matched_node_id = ""
+        if observation.structural_identity:
+            matched_node_id = structural_node_ids.get(observation.structural_identity, "")
+        if not matched_node_id and observation.site_identity:
+            matched_node_id = site_node_ids.get(observation.site_identity, "")
+        if not matched_node_id:
+            matched_node_id = path_line_qualname_node_ids.get(
+                (observation.rel_path, observation.line, observation.qualname),
+                "",
+            )
+        if not matched_node_id:
+            continue
+        node = node_by_id[matched_node_id]
+        matched.append(
+            _MatchedProfileObservation(
+                node_id=matched_node_id,
+                profiler=observation.profiler,
+                metric_kind=observation.metric_kind,
+                unit=observation.unit,
+                rel_path=node.rel_path,
+                qualname=node.qualname,
+                line=node.line,
+                title=node.title,
+                inclusive_value=observation.inclusive_value,
+            )
+        )
+    return tuple(
+        _sorted(
+            matched,
+            key=lambda item: (
+                item.metric_kind,
+                item.unit,
+                -item.inclusive_value,
+                item.profiler,
+                item.rel_path,
+                item.line,
+                item.qualname,
+            ),
+        )
+    )
+
+
+def _perf_infimum_buckets(
+    *,
+    graph: InvariantGraph,
+    descendant_ids: tuple[str, ...],
+    matched: tuple[_MatchedProfileObservation, ...],
+) -> tuple[_PerfInfimumBucket, ...]:
+    if not matched:
+        return ()
+    node_by_id = graph.node_by_id()
+    descendant_id_set = set(descendant_ids)
+    depth_by_node = _containment_depths(graph)
+    ancestor_cache: dict[str, tuple[str, ...]] = {}
+    buckets: list[_PerfInfimumBucket] = []
+    by_metric: defaultdict[tuple[str, str], list[_MatchedProfileObservation]] = defaultdict(list)
+    for observation in matched:
+        by_metric[(observation.metric_kind, observation.unit)].append(observation)
+    for (metric_kind, unit), metric_observations in by_metric.items():
+        matched_node_ids = tuple(
+            _sorted(list({item.node_id for item in metric_observations}))
+        )
+        if len(matched_node_ids) < 2:
+            continue
+        global_common_ids: tuple[str, ...] = tuple(
+            item
+            for item in ancestor_cache.setdefault(
+                matched_node_ids[0],
+                _ancestor_ids(graph, matched_node_ids[0]),
+            )
+            if item in descendant_id_set
+        )
+        for matched_node_id in matched_node_ids[1:]:
+            global_common_ids = tuple(
+                item
+                for item in meet(
+                    left_ids=global_common_ids,
+                    right_ids=tuple(
+                        item
+                        for item in ancestor_cache.setdefault(
+                            matched_node_id,
+                            _ancestor_ids(graph, matched_node_id),
+                        )
+                        if item in descendant_id_set
+                    ),
+                ).result_ids
+                if item in descendant_id_set
+            )
+        if global_common_ids:
+            deepest_global_depth = max(depth_by_node.get(item, 0) for item in global_common_ids)
+            global_infimum_ids = {
+                item
+                for item in global_common_ids
+                if depth_by_node.get(item, 0) == deepest_global_depth
+            }
+        else:
+            global_infimum_ids = set()
+        ancestor_aggregate: defaultdict[
+            str,
+            dict[str, object],
+        ] = defaultdict(
+            lambda: {
+                "matched_leaf_node_ids": set(),
+                "profilers": set(),
+                "direct_match_node_ids": set(),
+                "total_inclusive_value": 0.0,
+            }
+        )
+        for observation in metric_observations:
+            ancestor_ids = tuple(
+                item
+                for item in ancestor_cache.setdefault(
+                    observation.node_id,
+                    _ancestor_ids(graph, observation.node_id),
+                )
+                if item in descendant_id_set
+            )
+            for ancestor_id in ancestor_ids:
+                aggregate = ancestor_aggregate[ancestor_id]
+                aggregate["matched_leaf_node_ids"].add(observation.node_id)
+                aggregate["profilers"].add(observation.profiler)
+                aggregate["total_inclusive_value"] = float(
+                    aggregate["total_inclusive_value"]
+                ) + observation.inclusive_value
+                if observation.node_id == ancestor_id:
+                    aggregate["direct_match_node_ids"].add(observation.node_id)
+        for ancestor_id, aggregate in ancestor_aggregate.items():
+            matched_leaf_node_ids = aggregate["matched_leaf_node_ids"]
+            if len(matched_leaf_node_ids) < 2:
+                continue
+            node = node_by_id.get(ancestor_id)
+            if node is None:
+                continue
+            direct_match_node_ids = aggregate["direct_match_node_ids"]
+            buckets.append(
+                _PerfInfimumBucket(
+                    metric_kind=metric_kind,
+                    unit=unit,
+                    node_id=ancestor_id,
+                    title=node.title,
+                    node_kind=node.node_kind,
+                    rel_path=node.rel_path,
+                    qualname=node.qualname,
+                    line=node.line,
+                    depth=depth_by_node.get(ancestor_id, 0),
+                    total_inclusive_value=float(aggregate["total_inclusive_value"]),
+                    matched_leaf_node_count=len(matched_leaf_node_ids),
+                    profiler_count=len(aggregate["profilers"]),
+                    direct_match_node_count=len(direct_match_node_ids),
+                    is_global_infimum=ancestor_id in global_infimum_ids,
+                    is_virtual_intersection=ancestor_id not in matched_leaf_node_ids,
+                )
+            )
+    return tuple(
+        _sorted(
+            buckets,
+            key=lambda item: (
+                item.metric_kind,
+                item.unit,
+                -item.total_inclusive_value,
+                -item.matched_leaf_node_count,
+                -item.depth,
+                item.node_id,
+            ),
+        )
+    )
 
 
 def _format_score_components(components: object) -> str:
@@ -1740,6 +2349,139 @@ def _print_blast_radius(
     return 0
 
 
+def _print_perf_heat_map(
+    *,
+    root: Path,
+    graph: InvariantGraph,
+    raw_id: str,
+    perf_artifact: Path | None,
+) -> int:
+    if perf_artifact is None:
+        print("perf_artifact: <none>")
+        return 1
+    node_by_id = graph.node_by_id()
+    nodes = trace_nodes(graph, raw_id)
+    if not nodes:
+        print(f"no invariant-graph nodes matched: {raw_id}")
+        return 1
+    descendant_ids = tuple(
+        _sorted(
+            list(
+                {
+                    descendant_id
+                    for node in nodes
+                    for descendant_id in _descendant_ids(graph, node.node_id)
+                }
+            )
+        )
+    )
+    overlay = _resolve_perf_dsl_overlay(
+        root=root,
+        graph=graph,
+        scope_node_ids=descendant_ids,
+    )
+    candidate_node_ids = (
+        overlay.candidate_node_ids if overlay.candidate_node_ids else descendant_ids
+    )
+    observations = _load_profile_observations(perf_artifact)
+    matched = _match_profile_observations(
+        graph=graph,
+        descendant_ids=candidate_node_ids,
+        observations=observations,
+    )
+    infimum_buckets = _perf_infimum_buckets(
+        graph=graph,
+        descendant_ids=descendant_ids,
+        matched=matched,
+    )
+    print(f"node_matches: {len(nodes)}")
+    print(f"perf_artifact: {perf_artifact}")
+    print("perf_query_overlay:")
+    print(
+        "  doc_ids: "
+        + (", ".join(overlay.doc_ids) if overlay.doc_ids else "<none>")
+    )
+    print(
+        "  doc_paths: "
+        + (", ".join(overlay.doc_paths) if overlay.doc_paths else "<none>")
+    )
+    print(
+        "  target_symbols: "
+        + (", ".join(overlay.target_symbols) if overlay.target_symbols else "<none>")
+    )
+    print(f"  candidate_nodes: {len(candidate_node_ids)}")
+    print(
+        "  source: "
+        + ("dsl_overlay" if overlay.candidate_node_ids else "invariant_descendants")
+    )
+    print(f"profile_observations: {len(observations)}")
+    print(f"matched_profile_observations: {len(matched)}")
+    if not matched:
+        print("perf_metric_buckets:")
+        print("- <none>")
+        return 0
+    metric_keys = _sorted(
+        list({(item.metric_kind, item.unit) for item in matched}),
+        key=lambda item: (item[0], item[1]),
+    )
+    print("perf_metric_buckets:")
+    for metric_kind, unit in metric_keys:
+        bucket = [
+            item
+            for item in matched
+            if item.metric_kind == metric_kind and item.unit == unit
+        ]
+        total = sum(item.inclusive_value for item in bucket)
+        print(f"- {metric_kind}:{unit} total={total:g}")
+        for item in bucket:
+            node = node_by_id[item.node_id]
+            print(
+                "  - {profiler} :: {value:g} :: {path}:{line}::{qualname} :: {title} :: node_kind={node_kind}".format(
+                    profiler=item.profiler,
+                    value=item.inclusive_value,
+                    path=item.rel_path,
+                    line=item.line,
+                    qualname=item.qualname,
+                    title=item.title,
+                    node_kind=node.node_kind,
+                )
+            )
+    print("perf_infimum_buckets:")
+    if not infimum_buckets:
+        print("- <none>")
+        return 0
+    infimum_metric_keys = _sorted(
+        list({(item.metric_kind, item.unit) for item in infimum_buckets}),
+        key=lambda item: (item[0], item[1]),
+    )
+    for metric_kind, unit in infimum_metric_keys:
+        print(f"- {metric_kind}:{unit}")
+        metric_buckets = [
+            item
+            for item in infimum_buckets
+            if item.metric_kind == metric_kind and item.unit == unit
+        ]
+        for item in metric_buckets:
+            location = (
+                f"{item.rel_path}:{item.line}::{item.qualname}"
+                if item.rel_path and item.qualname and item.line > 0
+                else item.node_id
+            )
+            print(
+                "  - {total:g} :: leaves={leaves} :: depth={depth} :: global_infimum={global_infimum} :: virtual={virtual} :: {location} :: {title} :: node_kind={node_kind}".format(
+                    total=item.total_inclusive_value,
+                    leaves=item.matched_leaf_node_count,
+                    depth=item.depth,
+                    global_infimum="yes" if item.is_global_infimum else "no",
+                    virtual="yes" if item.is_virtual_intersection else "no",
+                    location=location,
+                    title=item.title,
+                    node_kind=item.node_kind,
+                )
+            )
+    return 0
+
+
 def _print_compare(
     *,
     root: Path,
@@ -2113,6 +2855,10 @@ def main(argv: list[str] | None = None) -> int:
     blast_radius_parser.add_argument("--id", required=True)
     blast_radius_parser.add_argument("--impact-artifact", default=None)
 
+    perf_heat_parser = subparsers.add_parser("perf-heat")
+    perf_heat_parser.add_argument("--id", required=True)
+    perf_heat_parser.add_argument("--perf-artifact", required=True)
+
     compare_parser = subparsers.add_parser("compare")
     compare_parser.add_argument("--root", default=".")
     compare_parser.add_argument("--before-workstreams-artifact", required=True)
@@ -2210,6 +2956,13 @@ def main(argv: list[str] | None = None) -> int:
             graph=_load_or_build_graph(root=root, artifact=artifact),
             raw_id=str(args.id),
             impact_artifact=impact_artifact,
+        )
+    if args.command == "perf-heat":
+        return _print_perf_heat_map(
+            root=root,
+            graph=_load_or_build_graph(root=root, artifact=artifact),
+            raw_id=str(args.id),
+            perf_artifact=Path(str(args.perf_artifact)).resolve(),
         )
     if args.command == "compare":
         return _print_compare(

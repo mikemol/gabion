@@ -1,5 +1,5 @@
 ---
-doc_revision: 5
+doc_revision: 8
 doc_id: connectivity_synergy_audit
 doc_role: audit
 doc_scope:
@@ -7,6 +7,22 @@ doc_scope:
   - architecture
   - refactor
 doc_authority: informative
+doc_targets:
+  - gabion.analysis.semantics.impact_index.build_impact_index
+  - gabion.analysis.semantics.impact_index._links_from_doc
+  - gabion.analysis.semantics.impact_index._collect_symbol_universe
+  - scripts.policy.policy_check.collect_aspf_lattice_convergence_result
+  - gabion.tooling.policy_substrate.lattice_convergence_semantic.materialize_semantic_lattice_convergence
+  - gabion.tooling.policy_substrate.lattice_convergence_semantic.iter_semantic_lattice_convergence._events
+  - gabion.analysis.aspf.aspf_lattice_algebra.build_dataflow_fiber_bundle_for_qualname
+  - gabion.analysis.aspf.aspf_lattice_algebra.build_fiber_bundle_for_qualname
+  - gabion.analysis.aspf.aspf_lattice_algebra.iter_lattice_witnesses._query
+  - gabion.analysis.aspf.aspf_lattice_algebra._module_bound_symbols
+  - gabion.analysis.aspf.aspf_lattice_algebra.compute_lattice_witness
+  - gabion.tooling.runtime.invariant_graph._resolve_perf_dsl_overlay
+  - gabion.tooling.runtime.invariant_graph._load_profile_observations
+  - gabion.tooling.runtime.invariant_graph._print_perf_heat_map
+  - gabion.tooling.runtime.perf_artifact.build_cprofile_perf_artifact_payload
 doc_requires:
   - docs/architecture_zones.md#architecture_zones
   - README.md#repo_contract
@@ -96,6 +112,14 @@ Several script entrypoints share the same import/export/`main()` bridge shape.
 
 **Merge/subsume opportunity:** define a tiny declarative launcher manifest (module + symbol) and generate wrappers, or implement a single generic wrapper command that dispatches by name.
 
+### Gap D: the doc-target selector substrate is split across convergence and runtime surfaces
+
+The repo already has a frontmatter-driven doc-to-symbol selector in `impact_index`, but the runtime perf path currently reconstructs a local overlay in `tooling/runtime/invariant_graph.py` instead of consuming one shared selector/interner carrier.
+
+**Synergy gap:** this leaves doc-target selection, symbol-universe interning, and profiler-query rooting adjacent but not identical, which weakens the quotient-algebra story exactly where cross-surface ranking should be strongest.
+
+**Merge/subsume opportunity:** converge `impact_index`, frontmatter ingestion, and perf-query rooting onto one declarative selector substrate, then treat runtime perf heat as a consumer of that carrier rather than a parallel selector implementation.
+
 ## ASPF-first convergence target (requested direction)
 
 The long-term unification path should be: **analysis == ASPF enrichments + ASPF queries**.
@@ -112,6 +136,7 @@ The long-term unification path should be: **analysis == ASPF enrichments + ASPF 
 2. **Rule execution unification:** express policy/gov checks as ASPF queries (or projections over ASPF-enriched state) instead of hardcoded file lists + ad-hoc walkers.
 3. **Artifact parity:** require governance/docflow checks to publish ASPF snapshots/deltas with the same continuation semantics used in dataflow analysis.
 4. **Wrapper collapse:** script entrypoints should invoke package commands that all resolve to ASPF enrichment + query pipelines.
+5. **Selector convergence:** the frontmatter-driven doc target DSL, symbol-universe interning, and profiler-query rooting should converge into one selector/interner substrate instead of being reconstituted independently at runtime.
 
 
 ### Multi-registry ASPF interning strategy (prime-space merge)
