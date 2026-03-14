@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
-from contextlib import ExitStack
 from dataclasses import dataclass, field
 from enum import StrEnum
 import json
@@ -11,14 +10,7 @@ import subprocess
 from typing import cast
 from xml.etree import ElementTree
 
-from gabion.analysis.core.prime_identity_adapter import PrimeIdentityAdapter
 from gabion.analysis.core.type_fingerprints import PrimeRegistry
-from gabion.analysis.foundation.timeout_context import (
-    Deadline,
-    deadline_clock_scope,
-    deadline_scope,
-)
-from gabion.deadline_clock import MonotonicClock
 from gabion.frontmatter import FrontmatterParseError, parse_strict_yaml_frontmatter
 from gabion.json_types import JSONValue
 from gabion.policy_dsl.compile import compile_document
@@ -28,6 +20,12 @@ from gabion.server_core.command_orchestrator_primitives import (
 )
 from gabion.tooling.docflow.compliance_identity import (
     stable_docflow_compliance_row_id,
+)
+from gabion.tooling.policy_substrate.identity_zone import (
+    IdentityAtom,
+    IdentityDecomposition,
+    IdentityDecompositionRelation,
+    IdentityLocalInterner,
 )
 from gabion_governance import governance_audit_impl
 
@@ -69,60 +67,20 @@ class StructuredArtifactDecompositionRelationKind(StrEnum):
     DERIVED_FROM = "derived_from"
 
 
-@dataclass(frozen=True, order=True)
-class _PrimeBackedIdentity:
-    atom_id: int
-    namespace: StructuredArtifactIdentityNamespace = field(compare=False)
-    token: str = field(compare=False)
-
-    def wire(self) -> str:
-        return self.token
-
-    def __str__(self) -> str:
-        return self.token
+_PrimeBackedIdentity = IdentityAtom[StructuredArtifactIdentityNamespace]
 
 
-@dataclass(frozen=True, order=True)
-class StructuredArtifactDecompositionIdentity:
-    canonical: _PrimeBackedIdentity
-    decomposition_kind: StructuredArtifactDecompositionKind = field(compare=False)
-    origin: _PrimeBackedIdentity = field(compare=False)
-    label: str = field(compare=False, default="")
-    part_index: int = field(compare=False, default=-1)
-
-    def wire(self) -> str:
-        return self.canonical.token
-
-    def __str__(self) -> str:
-        return self.label or self.canonical.token
-
-    def to_payload(self) -> dict[str, object]:
-        return {
-            "wire": self.canonical.token,
-            "decomposition_kind": self.decomposition_kind.value,
-            "origin_wire": self.origin.token,
-            "origin_namespace": self.origin.namespace.value,
-            "label": self.label or self.canonical.token,
-            "part_index": self.part_index,
-        }
+StructuredArtifactDecompositionIdentity = IdentityDecomposition[
+    StructuredArtifactIdentityNamespace,
+    StructuredArtifactDecompositionKind,
+]
 
 
-@dataclass(frozen=True)
-class StructuredArtifactDecompositionRelation:
-    relation_kind: StructuredArtifactDecompositionRelationKind
-    source: StructuredArtifactDecompositionIdentity
-    target: StructuredArtifactDecompositionIdentity
-    rationale: str = ""
-
-    def to_payload(self) -> dict[str, object]:
-        return {
-            "relation_kind": self.relation_kind.value,
-            "source_wire": self.source.canonical.token,
-            "target_wire": self.target.canonical.token,
-            "source_kind": self.source.decomposition_kind.value,
-            "target_kind": self.target.decomposition_kind.value,
-            "rationale": self.rationale,
-        }
+StructuredArtifactDecompositionRelation = IdentityDecompositionRelation[
+    StructuredArtifactIdentityNamespace,
+    StructuredArtifactDecompositionKind,
+    StructuredArtifactDecompositionRelationKind,
+]
 
 
 @dataclass(frozen=True, order=True)
@@ -199,11 +157,10 @@ class StructuredArtifactIdentity:
 @dataclass
 class StructuredArtifactIdentitySpace:
     registry: PrimeRegistry = field(default_factory=PrimeRegistry)
-    _adapter: PrimeIdentityAdapter = field(init=False, repr=False)
-    _identity_cache: dict[
-        tuple[StructuredArtifactIdentityNamespace, str],
-        _PrimeBackedIdentity,
-    ] = field(init=False, repr=False, default_factory=dict)
+    _interner: IdentityLocalInterner[StructuredArtifactIdentityNamespace] = field(
+        init=False,
+        repr=False,
+    )
     _decomposition_cache: dict[
         _PrimeBackedIdentity,
         tuple[
@@ -213,19 +170,11 @@ class StructuredArtifactIdentitySpace:
     ] = field(init=False, repr=False, default_factory=dict)
 
     def __post_init__(self) -> None:
-        self._adapter = PrimeIdentityAdapter(registry=self.registry)
+        self._interner = IdentityLocalInterner(registry=self.registry)
 
     @staticmethod
     def _structural_segments(value: str) -> tuple[str, ...]:
-        parts = [part for part in re.split(r"[:/._-]+", value.strip()) if part]
-        seen: set[str] = set()
-        ordered: list[str] = []
-        for part in parts:
-            if part in seen:
-                continue
-            seen.add(part)
-            ordered.append(part)
-        return tuple(ordered)
+        return IdentityLocalInterner.structural_segments(value)
 
     def _identity(
         self,
@@ -233,25 +182,7 @@ class StructuredArtifactIdentitySpace:
         namespace: StructuredArtifactIdentityNamespace,
         token: str,
     ) -> _PrimeBackedIdentity:
-        normalized = str(token).strip()
-        cache_key = (namespace, normalized)
-        cached = self._identity_cache.get(cache_key)
-        if cached is not None:
-            return cached
-        with ExitStack() as scope:
-            scope.enter_context(deadline_clock_scope(MonotonicClock()))
-            scope.enter_context(deadline_scope(Deadline.from_timeout_ms(60_000)))
-            atom_id = self._adapter.get_or_assign(
-                namespace=namespace.value,
-                token=normalized,
-            )
-        created = _PrimeBackedIdentity(
-            atom_id=atom_id,
-            namespace=namespace,
-            token=normalized,
-        )
-        self._identity_cache[cache_key] = created
-        return created
+        return self._interner.identity(namespace=namespace, token=token)
 
     def _decomposition_identity(
         self,
@@ -261,19 +192,15 @@ class StructuredArtifactIdentitySpace:
         label: str,
         part_index: int = -1,
     ) -> StructuredArtifactDecompositionIdentity:
-        token = (
-            f"{origin.token}|{decomposition_kind.value}|{part_index}|{label.strip()}"
-        )
-        canonical = self._identity(
-            namespace=StructuredArtifactIdentityNamespace.DECOMPOSITION,
-            token=token,
-        )
-        return StructuredArtifactDecompositionIdentity(
-            canonical=canonical,
-            decomposition_kind=decomposition_kind,
+        return self._interner.decomposition_identity(
             origin=origin,
-            label=label.strip(),
+            decomposition_namespace=StructuredArtifactIdentityNamespace.DECOMPOSITION,
+            decomposition_kind=decomposition_kind,
+            label=label,
             part_index=part_index,
+            token_builder=lambda item_origin, item_kind, item_label, item_part_index: (
+                f"{item_origin.token}|{item_kind.value}|{item_part_index}|{item_label}"
+            ),
         )
 
     def _decomposition_bundle(
