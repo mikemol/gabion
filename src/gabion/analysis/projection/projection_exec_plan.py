@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from dataclasses import dataclass
 from gabion.analysis.projection.projection_exec_protocol import (
     CountByExecutionOp,
     ExecutionProjectionOp,
@@ -15,127 +15,426 @@ from gabion.analysis.projection.projection_normalize import (
     _extract_predicates,
     _normalize_fields,
     _normalize_group_fields,
+    _normalize_limit,
     _normalize_predicates,
     _normalize_sort_by,
     _normalize_value,
 )
 from gabion.analysis.projection.projection_spec import ProjectionSpec
-from gabion.json_types import JSONValue
-from gabion.invariants import grade_boundary
-from gabion.runtime_shape_dispatch import str_optional
+from gabion.invariants import decision_protocol, grade_boundary, never
+
+
+@dataclass(frozen=True)
+class _LimitPlanningDecision:
+    decision_kind: str
+    count: int
+
+
+@dataclass(frozen=True)
+class _ExecutionPlanningDecision:
+    source_index: int
+    op_name: str
+
+
+@dataclass(frozen=True)
+class _SkipExecutionPlanningDecision(_ExecutionPlanningDecision):
+    pass
+
+
+@dataclass(frozen=True)
+class _EmitExecutionPlanningDecision(_ExecutionPlanningDecision):
+    execution_op: ExecutionProjectionOp
+
 
 @grade_boundary(
     kind="semantic_carrier_adapter",
     name="projection_exec_plan.execution_ops_from_spec",
 )
+@decision_protocol
 def execution_ops_from_spec(spec: ProjectionSpec) -> tuple[ExecutionProjectionOp, ...]:
     execution_ops: list[ExecutionProjectionOp] = []
-    for index, op in enumerate(spec.pipeline):
-        op_name = str(op.op).strip()
-        if not op_name:
-            continue
-        params = {str(key): value for key, value in op.params.items()}
-        execution_op: ExecutionProjectionOp
-        if op_name == "select":
-            predicates = _normalize_predicates(_extract_predicates(params))
-            if not predicates:
+    for source_index, op in enumerate(spec.pipeline):
+        planning_decision = _plan_execution_op(source_index=source_index, op_name=op.op.strip(), params=op.params)
+        match planning_decision:
+            case _SkipExecutionPlanningDecision():
                 continue
-            execution_op = SelectExecutionOp(
-                source_index=index,
-                op_name=op_name,
-                predicates=tuple(predicates),
-            )
-        elif op_name == "project":
-            fields = _normalize_fields(_mapping_value(params, "fields"))
-            if not fields:
-                continue
-            execution_op = ProjectExecutionOp(
-                source_index=index,
-                op_name=op_name,
-                fields=tuple(fields),
-            )
-        elif op_name == "count_by":
-            fields = _normalize_group_fields(
-                _mapping_value(params, "fields")
-                if "fields" in params
-                else _mapping_value(params, "field")
-            )
-            if not fields:
-                continue
-            execution_op = CountByExecutionOp(
-                source_index=index,
-                op_name=op_name,
-                fields=tuple(fields),
-            )
-        elif op_name == "traverse":
-            field_value = _normalize_value(_mapping_value(params, "field"))
-            field_text = str_optional(field_value)
-            field = field_text.strip() if field_text else ""
-            if not field:
-                continue
-            merge = True
-            merge_raw = _mapping_value(params, "merge")
-            match merge_raw:
-                case bool() as merge_bool:
-                    merge = merge_bool
-            keep = False
-            keep_raw = _mapping_value(params, "keep")
-            match keep_raw:
-                case bool() as keep_bool:
-                    keep = keep_bool
-            prefix = str_optional(_normalize_value(_mapping_value(params, "prefix"))) or ""
-            as_value = _normalize_value(_mapping_value(params, "as"))
-            as_field_text = str_optional(as_value)
-            as_field = as_field_text if as_field_text and as_field_text.strip() else field
-            index_value = _normalize_value(_mapping_value(params, "index"))
-            index_text = str_optional(index_value)
-            index_field = index_text if index_text and index_text.strip() else ""
-            execution_op = TraverseExecutionOp(
-                source_index=index,
-                op_name=op_name,
-                field=field,
-                merge=merge,
-                keep=keep,
-                prefix=prefix,
-                as_field=as_field,
-                index_field=index_field,
-            )
-        elif op_name == "sort":
-            normalized_entries = _normalize_sort_by(_mapping_value(params, "by"))
-            keys = tuple(
-                SortKey(
-                    field=str(entry["field"]),
-                    order=str(entry["order"]),
+            case _EmitExecutionPlanningDecision(execution_op=execution_op):
+                execution_ops.append(execution_op)
+            case _ as unreachable_decision:
+                never(
+                    reasoning={
+                        "summary": (
+                            "Execution planning decisions must collapse to one "
+                            "typed skip-or-emit carrier before runtime planning "
+                            "continues."
+                        ),
+                        "control": (
+                            "projection_exec_plan.execution_ops_from_spec."
+                            "planning_decision_exhaustive"
+                        ),
+                        "blocking_dependencies": ("PSF-007",),
+                    },
+                    planning_decision=unreachable_decision,
                 )
-                for entry in normalized_entries
-            )
-            if not keys:
-                continue
-            execution_op = SortExecutionOp(
-                source_index=index,
-                op_name=op_name,
-                keys=keys,
-            )
-        elif op_name == "limit":
-            try:
-                count = int(_mapping_value(params, "count"))
-            except (TypeError, ValueError):
-                continue
-            if count < 0:
-                continue
-            execution_op = LimitExecutionOp(
-                source_index=index,
-                op_name=op_name,
-                count=count,
-            )
-        else:
-            continue
-        if execution_op.op_name:
-            execution_ops.append(execution_op)
+                continue  # pragma: no cover - never() raises
     return tuple(execution_ops)
 
 
-def _mapping_value(params: Mapping[str, JSONValue], key: str) -> JSONValue:
-    if key in params:
-        return params[key]
-    return []
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_exec_plan.plan_execution_op",
+)
+def _plan_execution_op(
+    *,
+    source_index: int,
+    op_name: str,
+    params: dict[str, object],
+) -> _ExecutionPlanningDecision:
+    if not op_name:
+        return _SkipExecutionPlanningDecision(source_index=source_index, op_name="")
+    match op_name:
+        case "select":
+            predicates = tuple(_normalize_predicates(_extract_predicates(params)))
+            if not predicates:
+                return _SkipExecutionPlanningDecision(
+                    source_index=source_index,
+                    op_name=op_name,
+                )
+            return _EmitExecutionPlanningDecision(
+                source_index=source_index,
+                op_name=op_name,
+                execution_op=SelectExecutionOp(
+                    source_index=source_index,
+                    op_name=op_name,
+                    predicates=predicates,
+                ),
+            )
+        case "project":
+            fields = tuple(
+                _normalize_fields(params["fields"] if "fields" in params else [])
+            )
+            if not fields:
+                return _SkipExecutionPlanningDecision(
+                    source_index=source_index,
+                    op_name=op_name,
+                )
+            return _EmitExecutionPlanningDecision(
+                source_index=source_index,
+                op_name=op_name,
+                execution_op=ProjectExecutionOp(
+                    source_index=source_index,
+                    op_name=op_name,
+                    fields=fields,
+                ),
+            )
+        case "count_by":
+            fields = tuple(
+                _normalize_group_fields(
+                    (params["fields"] if "fields" in params else [])
+                    if "fields" in params
+                    else (params["field"] if "field" in params else [])
+                )
+            )
+            if not fields:
+                return _SkipExecutionPlanningDecision(
+                    source_index=source_index,
+                    op_name=op_name,
+                )
+            return _EmitExecutionPlanningDecision(
+                source_index=source_index,
+                op_name=op_name,
+                execution_op=CountByExecutionOp(
+                    source_index=source_index,
+                    op_name=op_name,
+                    fields=fields,
+                ),
+            )
+        case "traverse":
+            return _plan_traverse_execution_op(
+                source_index=source_index,
+                op_name=op_name,
+                params=params,
+            )
+        case "sort":
+            normalized_entries = _normalize_sort_by(
+                params["by"] if "by" in params else []
+            )
+            if not normalized_entries:
+                return _SkipExecutionPlanningDecision(
+                    source_index=source_index,
+                    op_name=op_name,
+                )
+            return _EmitExecutionPlanningDecision(
+                source_index=source_index,
+                op_name=op_name,
+                execution_op=SortExecutionOp(
+                    source_index=source_index,
+                    op_name=op_name,
+                    keys=tuple(
+                        SortKey(
+                            field=str(entry["field"]),
+                            order=str(entry["order"]),
+                        )
+                        for entry in normalized_entries
+                    ),
+                ),
+            )
+        case "limit":
+            normalized_limit_count = _normalize_limit(
+                params["count"] if "count" in params else []
+            )
+            limit_decision = (
+                _LimitPlanningDecision(decision_kind="skip", count=0)
+                if normalized_limit_count is None
+                else _LimitPlanningDecision(
+                    decision_kind="emit",
+                    count=normalized_limit_count,
+                )
+            )
+            if limit_decision.decision_kind == "skip":
+                return _SkipExecutionPlanningDecision(
+                    source_index=source_index,
+                    op_name=op_name,
+                )
+            return _EmitExecutionPlanningDecision(
+                source_index=source_index,
+                op_name=op_name,
+                execution_op=LimitExecutionOp(
+                    source_index=source_index,
+                    op_name=op_name,
+                    count=limit_decision.count,
+                ),
+            )
+        case str():
+            return _SkipExecutionPlanningDecision(
+                source_index=source_index,
+                op_name=op_name,
+            )
+        case _ as unreachable_op_name:
+            never(
+                reasoning={
+                    "summary": (
+                        "Projection op names must be normalized to strings "
+                        "before execution planning continues."
+                    ),
+                    "control": (
+                        "projection_exec_plan.execution_ops_from_spec."
+                        "op_name_exhaustive"
+                    ),
+                    "blocking_dependencies": ("PSF-007",),
+                },
+                source_index=source_index,
+                op_name=unreachable_op_name,
+            )
+            return _SkipExecutionPlanningDecision(
+                source_index=source_index,
+                op_name="",
+            )  # pragma: no cover - never() raises
+
+
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="projection_exec_plan.plan_traverse_execution_op",
+)
+def _plan_traverse_execution_op(
+    *,
+    source_index: int,
+    op_name: str,
+    params: dict[str, object],
+) -> _ExecutionPlanningDecision:
+    field_value = _normalize_value(params["field"] if "field" in params else [])
+    match field_value:
+        case str() as raw_field if raw_field.strip():
+            field = raw_field.strip()
+        case str():
+            return _SkipExecutionPlanningDecision(
+                source_index=source_index,
+                op_name=op_name,
+            )
+        case list() | dict() | int() | float() | bool() | None:
+            return _SkipExecutionPlanningDecision(
+                source_index=source_index,
+                op_name=op_name,
+            )
+        case _ as unreachable_field:
+            never(
+                reasoning={
+                    "summary": (
+                        "Projection traversal field normalization must "
+                        "discharge all normalized JSON variants before "
+                        "runtime planning continues."
+                    ),
+                    "control": (
+                        "projection_exec_plan.execution_ops_from_spec."
+                        "traverse_field_exhaustive"
+                    ),
+                    "blocking_dependencies": ("PSF-007",),
+                },
+                source_index=source_index,
+                op_name=op_name,
+                field_value=unreachable_field,
+            )
+            return _SkipExecutionPlanningDecision(
+                source_index=source_index,
+                op_name=op_name,
+            )  # pragma: no cover - never() raises
+
+    merge_value = params["merge"] if "merge" in params else []
+    match merge_value:
+        case bool() as merge:
+            normalized_merge = merge
+        case list() | dict() | int() | float() | str() | None:
+            normalized_merge = True
+        case _ as unreachable_merge:
+            never(
+                reasoning={
+                    "summary": (
+                        "Projection traversal merge normalization must "
+                        "discharge all normalized JSON variants before "
+                        "runtime planning continues."
+                    ),
+                    "control": (
+                        "projection_exec_plan.execution_ops_from_spec."
+                        "traverse_merge_exhaustive"
+                    ),
+                    "blocking_dependencies": ("PSF-007",),
+                },
+                source_index=source_index,
+                op_name=op_name,
+                merge_value=unreachable_merge,
+            )
+            return _SkipExecutionPlanningDecision(
+                source_index=source_index,
+                op_name=op_name,
+            )  # pragma: no cover - never() raises
+
+    keep_value = params["keep"] if "keep" in params else []
+    match keep_value:
+        case bool() as keep:
+            normalized_keep = keep
+        case list() | dict() | int() | float() | str() | None:
+            normalized_keep = False
+        case _ as unreachable_keep:
+            never(
+                reasoning={
+                    "summary": (
+                        "Projection traversal keep normalization must "
+                        "discharge all normalized JSON variants before "
+                        "runtime planning continues."
+                    ),
+                    "control": (
+                        "projection_exec_plan.execution_ops_from_spec."
+                        "traverse_keep_exhaustive"
+                    ),
+                    "blocking_dependencies": ("PSF-007",),
+                },
+                source_index=source_index,
+                op_name=op_name,
+                keep_value=unreachable_keep,
+            )
+            return _SkipExecutionPlanningDecision(
+                source_index=source_index,
+                op_name=op_name,
+            )  # pragma: no cover - never() raises
+
+    prefix_value = _normalize_value(params["prefix"] if "prefix" in params else [])
+    match prefix_value:
+        case str() as raw_prefix if raw_prefix.strip():
+            prefix = raw_prefix.strip()
+        case str() | list() | dict() | int() | float() | bool() | None:
+            prefix = ""
+        case _ as unreachable_prefix:
+            never(
+                reasoning={
+                    "summary": (
+                        "Projection traversal prefix normalization must "
+                        "discharge all normalized JSON variants before "
+                        "runtime planning continues."
+                    ),
+                    "control": (
+                        "projection_exec_plan.execution_ops_from_spec."
+                        "traverse_prefix_exhaustive"
+                    ),
+                    "blocking_dependencies": ("PSF-007",),
+                },
+                source_index=source_index,
+                op_name=op_name,
+                prefix_value=unreachable_prefix,
+            )
+            return _SkipExecutionPlanningDecision(
+                source_index=source_index,
+                op_name=op_name,
+            )  # pragma: no cover - never() raises
+
+    as_value = _normalize_value(params["as"] if "as" in params else [])
+    match as_value:
+        case str() as raw_as if raw_as.strip():
+            as_field = raw_as.strip()
+        case str() | list() | dict() | int() | float() | bool() | None:
+            as_field = field
+        case _ as unreachable_as:
+            never(
+                reasoning={
+                    "summary": (
+                        "Projection traversal alias normalization must "
+                        "discharge all normalized JSON variants before "
+                        "runtime planning continues."
+                    ),
+                    "control": (
+                        "projection_exec_plan.execution_ops_from_spec."
+                        "traverse_as_field_exhaustive"
+                    ),
+                    "blocking_dependencies": ("PSF-007",),
+                },
+                source_index=source_index,
+                op_name=op_name,
+                as_value=unreachable_as,
+            )
+            return _SkipExecutionPlanningDecision(
+                source_index=source_index,
+                op_name=op_name,
+            )  # pragma: no cover - never() raises
+
+    index_value = _normalize_value(params["index"] if "index" in params else [])
+    match index_value:
+        case str() as raw_index if raw_index.strip():
+            index_field = raw_index.strip()
+        case str() | list() | dict() | int() | float() | bool() | None:
+            index_field = ""
+        case _ as unreachable_index:
+            never(
+                reasoning={
+                    "summary": (
+                        "Projection traversal index normalization must "
+                        "discharge all normalized JSON variants before "
+                        "runtime planning continues."
+                    ),
+                    "control": (
+                        "projection_exec_plan.execution_ops_from_spec."
+                        "traverse_index_field_exhaustive"
+                    ),
+                    "blocking_dependencies": ("PSF-007",),
+                },
+                source_index=source_index,
+                op_name=op_name,
+                index_value=unreachable_index,
+            )
+            return _SkipExecutionPlanningDecision(
+                source_index=source_index,
+                op_name=op_name,
+            )  # pragma: no cover - never() raises
+
+    return _EmitExecutionPlanningDecision(
+        source_index=source_index,
+        op_name=op_name,
+        execution_op=TraverseExecutionOp(
+            source_index=source_index,
+            op_name=op_name,
+            field=field,
+            merge=normalized_merge,
+            keep=normalized_keep,
+            prefix=prefix,
+            as_field=as_field,
+            index_field=index_field,
+        ),
+    )

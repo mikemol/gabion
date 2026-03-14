@@ -1,5 +1,5 @@
 ---
-doc_revision: 122
+doc_revision: 124
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -608,6 +608,12 @@ Current implementation status:
   the remaining temporary grading on `semantic_fragment.py` stays concentrated
   on the real row-closure, recursive canonicalization, and stable-key
   materialization surfaces
+- and narrower again after that: `_normalize_value(...)` and
+  `_stable_json_key(...)` now project from one shared
+  `_canonical_value_materialization(...)` carrier boundary instead of each
+  carrying their own temporary grading, so the remaining semantic-fragment
+  grading is concentrated on reflection, row closure, and one canonical-value
+  materialization surface
 - whole-Gabion output boundaries are tightening too: `call_clusters` now owns
   its JSON emission shape at the carrier module, and the emitted wire payload
   preserves cluster `identity` rather than dropping part of the internal DTO at
@@ -625,12 +631,16 @@ Current implementation status:
   `projection_exec.py` is now retired as well; the executor keeps only
   function-local temporary grading on the concrete typed-execution surfaces
   still needed during the cutover window
-- the remaining planner-side temporary grading is now limited to the actual
-  top-level `ProjectionSpec` planning entrypoint in `projection_exec_plan.py`;
-  the former internal per-op classification helper is now collapsed back into
-  that entrypoint, and helper-only seams for dict-copying and traverse/sort
-  string normalization have already been collapsed into the same planner path
-  rather than justified as separate internal adapter surfaces
+- planner-side cutover is narrower again, but not landed yet: typed
+  skip/emit planning carriers now collapse per-op execution planning onto the
+  real `projection_exec_plan.py` planning surfaces, but ambiguity validation
+  still requires temporary `semantic_carrier_adapter` grading on
+  `execution_ops_from_spec(...)`, `_plan_execution_op(...)`, and
+  `_plan_traverse_execution_op(...)`
+- the live Phase 5 frontier therefore still includes planner ingress:
+  `PSF-007-TP-005` remains active until those typed planning surfaces can shed
+  their temporary grading without reintroducing constructor/builtin work-growth
+  drift into ordinary core edges
 - the executor-side temporary grading is now narrower too: `projection_exec.py`
   no longer carries a separate normalized-op relay, runtime-params copy seam,
   or dedicated graded limit helper seam, and the remaining temporary grading
@@ -1000,10 +1010,12 @@ Pure `ProjectionSpec` -> typed execution-op planning is internal normalization,
 not a DTO or ambiguity boundary. That planner now lives in
 `projection_exec_plan.py`, and stable in-repo consumers should import it
 directly rather than routing through any dedicated ingress module just to
-compile a fixed local `ProjectionSpec`. During the remaining
-compatibility window, that planner may still carry a temporary grade-only
-adapter classification so monotonicity accounting remains explicit until
-`ProjectionSpec` retirement is complete.
+compile a fixed local `ProjectionSpec`. The planner now keeps typed skip/emit
+decision carriers on the real planning surfaces, but ambiguity validation still
+requires temporary adapter grading on those live planner functions. Remaining
+compatibility debt should therefore continue to ratchet down through the actual
+planner and downstream semantic/canonicalization surfaces rather than being
+hidden behind a dedicated ingress wrapper.
 
 Internal JSON-shaped payload builders are also not ambiguity boundaries.
 If a report path remains inside Gabion, it should keep a strict carrier/DTO

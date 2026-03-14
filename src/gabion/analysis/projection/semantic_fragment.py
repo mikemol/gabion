@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from collections.abc import Iterable
 from typing import TYPE_CHECKING, TypedDict
 
@@ -8,7 +9,7 @@ from gabion.analysis.aspf.aspf_lattice_algebra import (
     canonical_structural_identity,
 )
 from gabion.analysis.foundation.artifact_ordering import canonical_mapping_keys
-from gabion.json_types import JSONObject, JSONValue
+from gabion.json_types import JSONObject
 from gabion.invariants import grade_boundary
 from gabion.runtime_shape_dispatch import json_list_optional, json_mapping_optional
 
@@ -55,6 +56,12 @@ class CanonicalWitnessedSemanticRow(TypedDict):
     boundary_trace: list[JSONObject]
     transform_trace: list[SemanticTransformTrace]
     obligation_state: str
+
+
+@dataclass(frozen=True)
+class _CanonicalValueMaterialization:
+    normalized_value: object
+    stable_key: str
 
 @grade_boundary(
     kind="semantic_carrier_adapter",
@@ -158,7 +165,7 @@ def reflect_projection_fiber_witness(
             {
                 "op": SemanticOpKind.REFLECT,
                 "details": {
-                    key: _normalize_value(value)
+                    key: _canonical_value_materialization(value).normalized_value
                     for key, value in {
                         "surface": "projection_fiber",
                         "carrier_kind": "frontier_witness",
@@ -169,7 +176,7 @@ def reflect_projection_fiber_witness(
             {
                 "op": SemanticOpKind.SYNTHESIZE_WITNESS,
                 "details": {
-                    key: _normalize_value(value)
+                    key: _canonical_value_materialization(value).normalized_value
                     for key, value in {
                         "synthesized_witness_kind": "projection_fiber",
                         "boundary_crossing_present": bool(boundary_trace),
@@ -192,10 +199,10 @@ def close_canonical_semantic_row(
         keyed: dict[str, JSONObject] = {}
         for value in values:
             normalized = {
-                key: _normalize_value(value[key])
+                key: _canonical_value_materialization(value[key]).normalized_value
                 for key in canonical_mapping_keys(value)
             }
-            keyed[_stable_json_key(normalized)] = normalized
+            keyed[_canonical_value_materialization(normalized).stable_key] = normalized
         return [keyed[key] for key in canonical_mapping_keys(keyed)]
 
     return {
@@ -205,7 +212,7 @@ def close_canonical_semantic_row(
         "surface": row["surface"],
         "carrier_kind": row["carrier_kind"],
         "payload": {
-            key: _normalize_value(row["payload"][key])
+            key: _canonical_value_materialization(row["payload"][key]).normalized_value
             for key in canonical_mapping_keys(row["payload"])
         },
         "input_witnesses": stable_objects(row["input_witnesses"]),
@@ -216,7 +223,7 @@ def close_canonical_semantic_row(
             {
                 "op": item["op"],
                 "details": {
-                    key: _normalize_value(item["details"][key])
+                    key: _canonical_value_materialization(item["details"][key]).normalized_value
                     for key in canonical_mapping_keys(item["details"])
                 },
             }
@@ -342,36 +349,51 @@ def _obligation_payloads(witness: FrontierWitness) -> list[JSONObject]:
 
 @grade_boundary(
     kind="semantic_carrier_adapter",
-    name="semantic_fragment.normalize_value",
+    name="semantic_fragment.canonical_value_materialization",
 )
-def _normalize_value(value: object) -> JSONValue:
+def _canonical_value_materialization(value: object) -> _CanonicalValueMaterialization:
     mapping_value = json_mapping_optional(value)
     if mapping_value is not None:
-        return {
-            key: _normalize_value(mapping_value[key])
-            for key in canonical_mapping_keys(mapping_value)
-        }
-    list_value = json_list_optional(value)
-    if list_value is not None:
-        return [_normalize_value(item) for item in list_value]
-    return value
-
-@grade_boundary(
-    kind="semantic_carrier_adapter",
-    name="semantic_fragment.stable_json_key",
-)
-def _stable_json_key(value: object) -> str:
-    mapping_value = json_mapping_optional(value)
-    if mapping_value is not None:
-        parts = (
-            f"{key}:{_stable_json_key(mapping_value[key])}"
+        entries = tuple(
+            (
+                key,
+                _canonical_value_materialization(mapping_value[key]),
+            )
             for key in canonical_mapping_keys(mapping_value)
         )
-        return "{" + "|".join(parts) + "}"
+        return _CanonicalValueMaterialization(
+            normalized_value={
+                key: materialization.normalized_value
+                for key, materialization in entries
+            },
+            stable_key="{"
+            + "|".join(
+                f"{key}:{materialization.stable_key}"
+                for key, materialization in entries
+            )
+            + "}",
+        )
     list_value = json_list_optional(value)
     if list_value is not None:
-        return "[" + "|".join(_stable_json_key(item) for item in list_value) + "]"
-    return f"scalar:{value}"
+        items = tuple(
+            _canonical_value_materialization(item) for item in list_value
+        )
+        return _CanonicalValueMaterialization(
+            normalized_value=[item.normalized_value for item in items],
+            stable_key="[" + "|".join(item.stable_key for item in items) + "]",
+        )
+    return _CanonicalValueMaterialization(
+        normalized_value=value,
+        stable_key=f"scalar:{value}",
+    )
+
+
+def _normalize_value(value: object) -> object:
+    return _canonical_value_materialization(value).normalized_value
+
+
+def _stable_json_key(value: object) -> str:
+    return _canonical_value_materialization(value).stable_key
 
 
 __all__ = [
