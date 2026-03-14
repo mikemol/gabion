@@ -13,6 +13,7 @@ import json
 from itertools import chain, groupby
 from pathlib import Path
 from typing import Callable, Generic, Iterable, Iterator, Mapping, TypeVar
+from gabion.analysis.kernel_vm.object_images import AugmentedRule
 from gabion.invariants import never
 
 _StreamItem = TypeVar("_StreamItem")
@@ -28,6 +29,8 @@ _MODULE_INGRESS_SYMBOLS = {
     "__package__",
     "__spec__",
 }
+
+_AUGMENTED_RULE_OBJECT_IMAGE = AugmentedRule
 
 
 @dataclass(frozen=True)

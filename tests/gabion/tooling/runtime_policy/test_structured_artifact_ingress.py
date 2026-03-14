@@ -315,7 +315,7 @@ def test_load_kernel_vm_alignment_artifact_uses_typed_binding_and_residue_identi
                             "capability_id": "runtime_object_image",
                             "requirement_kind": "runtime_object_image",
                             "status": "fail",
-                            "match_mode": "any",
+                            "match_mode": "all",
                             "description": "explicit runtime object image for AugmentedRule",
                             "residue_kind": "missing_runtime_object_image",
                             "severity": "warning",

@@ -3970,7 +3970,7 @@ def test_build_invariant_graph_joins_control_loop_artifacts(
                             "capability_id": "runtime_object_image",
                             "requirement_kind": "runtime_object_image",
                             "status": "fail",
-                            "match_mode": "any",
+                            "match_mode": "all",
                             "description": "explicit runtime object image for AugmentedRule",
                             "residue_kind": "missing_runtime_object_image",
                             "severity": "warning",

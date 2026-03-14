@@ -242,7 +242,7 @@ _BINDING_SPECS = (
                 capability_id="runtime_object_image",
                 requirement_kind="runtime_object_image",
                 description="explicit runtime object image for AugmentedRule",
-                match_mode="any",
+                match_mode="all",
                 evidence_refs=_evidence_refs_for_symbol(
                     evidence_kind="python_symbol",
                     symbol="AugmentedRule",
@@ -367,7 +367,7 @@ _BINDING_SPECS = (
                 capability_id="runtime_object_image",
                 requirement_kind="runtime_object_image",
                 description="explicit runtime object image for polarity package",
-                match_mode="any",
+                match_mode="all",
                 evidence_refs=tuple(
                     ref
                     for symbol in ("RulePolarity", "WitnessDomain", "PredicateDomain", "SupportReflection")
@@ -479,7 +479,7 @@ _BINDING_SPECS = (
                 capability_id="runtime_object_image",
                 requirement_kind="runtime_object_image",
                 description="explicit runtime object image for ClosedRuleCell",
-                match_mode="any",
+                match_mode="all",
                 evidence_refs=_evidence_refs_for_symbol(
                     evidence_kind="python_symbol",
                     symbol="ClosedRuleCell",
@@ -610,7 +610,7 @@ _BINDING_SPECS = (
                 capability_id="runtime_object_image",
                 requirement_kind="runtime_object_image",
                 description="explicit runtime query-AST object image",
-                match_mode="any",
+                match_mode="all",
                 evidence_refs=tuple(
                     ref
                     for symbol in (
@@ -660,7 +660,39 @@ def _python_symbol_index(root: Path, rel_path: str) -> set[str]:
     for node in ast.walk(module):
         if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
             symbols.add(node.name)
+            continue
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                bound_name = alias.asname or alias.name.split(".", maxsplit=1)[0]
+                if bound_name:
+                    symbols.add(bound_name)
+            continue
+        if isinstance(node, ast.ImportFrom):
+            for alias in node.names:
+                bound_name = alias.asname or alias.name
+                if bound_name != "*":
+                    symbols.add(bound_name)
+            continue
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                symbols.update(_bound_symbol_names(target))
+            continue
+        if isinstance(node, ast.AnnAssign):
+            symbols.update(_bound_symbol_names(node.target))
     return symbols
+
+
+def _bound_symbol_names(target: ast.expr) -> set[str]:
+    match target:
+        case ast.Name(id=name):
+            return {name}
+        case ast.Tuple(elts=elts) | ast.List(elts=elts):
+            names: set[str] = set()
+            for item in elts:
+                names.update(_bound_symbol_names(item))
+            return names
+        case _:
+            return set()
 
 
 def _evidence_ref_present(

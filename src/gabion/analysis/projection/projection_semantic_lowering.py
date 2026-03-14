@@ -5,6 +5,7 @@ from enum import Enum
 from collections.abc import Mapping
 from functools import singledispatch
 
+from gabion.analysis.kernel_vm.object_images import AugmentedRule
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.analysis.projection.projection_normalize import spec_hash
 from gabion.analysis.projection.projection_spec import ProjectionOp, ProjectionSpec
@@ -33,6 +34,9 @@ class BridgeProjectionKind(str, Enum):
     PREDICATE_FILTER = "predicate_filter"
     TRAVERSE = "traverse"
     COMPATIBILITY = "compatibility"
+
+
+_AUGMENTED_RULE_OBJECT_IMAGE = AugmentedRule
 
 
 @dataclass(frozen=True)
@@ -141,6 +145,7 @@ def lower_projection_spec_to_semantic_plan(
     spec: ProjectionSpec,
 ) -> ProjectionSemanticLoweringPlan:
     check_deadline()
+    spec_identity = spec_hash(spec)
     semantic_ops: list[SemanticProjectionOp] = []
     presentation_ops: list[PresentationProjectionOp] = []
     bridge_ops: list[BridgeProjectionOp] = []
@@ -158,7 +163,7 @@ def lower_projection_spec_to_semantic_plan(
             case _LoweredBridgeProjectionOp(bridge_op=bridge_op):
                 bridge_ops.append(bridge_op)
     return ProjectionSemanticLoweringPlan(
-        spec_identity=spec_hash(spec),
+        spec_identity=spec_identity,
         spec_name=str(spec.name),
         domain=str(spec.domain),
         semantic_ops=tuple(semantic_ops),

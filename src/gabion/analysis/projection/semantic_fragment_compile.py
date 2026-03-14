@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from functools import singledispatch
 from typing import TypedDict
 
+from gabion.analysis.kernel_vm.object_images import AugmentedRule
 from gabion.invariants import grade_boundary, never
 from gabion.analysis.projection.semantic_fragment import (
     CanonicalWitnessedSemanticRow,
@@ -49,6 +50,9 @@ class CompiledSparqlPlan(TypedDict):
     where_patterns: list[CompiledSparqlPattern]
     anti_join_filters: list[str]
     witness_trace: list[str]
+
+
+_AUGMENTED_RULE_OBJECT_IMAGE = AugmentedRule
 
 
 @dataclass(frozen=True)

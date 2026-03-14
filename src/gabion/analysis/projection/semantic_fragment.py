@@ -9,12 +9,16 @@ from gabion.analysis.aspf.aspf_lattice_algebra import (
     canonical_structural_identity,
 )
 from gabion.analysis.foundation.artifact_ordering import canonical_mapping_keys
+from gabion.analysis.kernel_vm.object_images import AugmentedRule
 from gabion.json_types import JSONObject
 from gabion.invariants import grade_boundary
 from gabion.runtime_shape_dispatch import json_list_optional, json_mapping_optional
 
 if TYPE_CHECKING:
     from gabion.analysis.aspf.aspf_lattice_algebra import UnmappedWitness
+
+
+_AUGMENTED_RULE_OBJECT_IMAGE = AugmentedRule
 
 
 class SemanticOpKind(str):
