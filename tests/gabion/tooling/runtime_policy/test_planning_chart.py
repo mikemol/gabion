@@ -2,6 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from gabion.tooling.policy_substrate.identity_zone import (
+    IdentityAtom,
+    IdentityCarrier,
+    IdentityZoneName,
+)
 from gabion.tooling.policy_substrate.invariant_graph import (
     InvariantGraph,
     InvariantGraphDiagnostic,
@@ -11,6 +16,10 @@ from gabion.tooling.policy_substrate.invariant_graph import (
 from gabion.tooling.policy_substrate.planning_chart import (
     PlanningChartRule,
     PlanningPhaseKind,
+    PlanningChartSummary,
+    PlanningPhaseSummary,
+    PlanningChartItem,
+    build_planning_chart_identity_grammar,
     build_planning_chart_summary,
 )
 
@@ -257,3 +266,86 @@ def test_build_planning_chart_summary_supports_injected_rules() -> None:
         "complete.workstream:WS-001",
         "complete.repo:WS-001-TP-001",
     ]
+
+
+def test_build_planning_chart_identity_grammar_anchors_unresolved_refs() -> None:
+    summary = PlanningChartSummary(
+        item_count=1,
+        selected_completion_item_ids=("complete.repo:WS-001-TP-001",),
+        phases=(
+            PlanningPhaseSummary(
+                phase_kind="complete",
+                item_count=1,
+                status_counts={"coverage_gap": 1},
+                blocker_counts={"coverage_gap": 1},
+                selected_item_ids=("complete.repo:WS-001-TP-001",),
+                items=(
+                    PlanningChartItem(
+                        item_id="complete.repo:WS-001-TP-001",
+                        phase_kind="complete",
+                        item_kind="repo_recommendation",
+                        source_kind="recommended_followup",
+                        title="repo frontier",
+                        status_hint="coverage_gap",
+                        selection_rank=0,
+                        tracked_node_ids=("node:1",),
+                        tracked_object_ids=("WS-001-TP-001",),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    bundle = build_planning_chart_identity_grammar(summary=summary)
+
+    assert "planning_chart" in bundle.zones
+    assert "planning_external_anchor" in bundle.zones
+    assert any(item.zone_name.value == "planning_chart" for item in bundle.carriers)
+    assert any(item.zone_name.value == "planning_external_anchor" for item in bundle.carriers)
+    assert {item.morphism_kind for item in bundle.morphisms} == {"derived_from"}
+
+
+def test_build_planning_chart_identity_grammar_tracks_resolved_zone_carriers() -> None:
+    summary = PlanningChartSummary(
+        item_count=1,
+        selected_completion_item_ids=("complete.repo:WS-001-TP-001",),
+        phases=(
+            PlanningPhaseSummary(
+                phase_kind="complete",
+                item_count=1,
+                status_counts={"coverage_gap": 1},
+                blocker_counts={"coverage_gap": 1},
+                selected_item_ids=("complete.repo:WS-001-TP-001",),
+                items=(
+                    PlanningChartItem(
+                        item_id="complete.repo:WS-001-TP-001",
+                        phase_kind="complete",
+                        item_kind="repo_recommendation",
+                        source_kind="recommended_followup",
+                        title="repo frontier",
+                        status_hint="coverage_gap",
+                        selection_rank=0,
+                        tracked_node_ids=(),
+                        tracked_object_ids=("WS-001-TP-001",),
+                    ),
+                ),
+            ),
+        ),
+    )
+    resolved_carrier = IdentityCarrier(
+        canonical=IdentityAtom(atom_id=0, namespace="hotspot_queue.item", token="file:src/gabion/a.py"),
+        zone_name=IdentityZoneName("hotspot_queue"),
+        carrier_kind="file",
+        label="src/gabion/a.py",
+    )
+
+    bundle = build_planning_chart_identity_grammar(
+        summary=summary,
+        resolved_carriers={"WS-001-TP-001": resolved_carrier},
+    )
+
+    assert any(item.zone_name.value == "hotspot_queue" for item in bundle.carriers)
+    assert any(
+        item.morphism_kind == "tracks" and item.target_zone == "hotspot_queue"
+        for item in bundle.morphisms
+    )

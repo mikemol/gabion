@@ -7,6 +7,9 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, cast
 
 from gabion.order_contract import ordered_or_sorted
+from gabion.tooling.policy_substrate.planning_chart_identity import (
+    build_planning_chart_identity_grammar,
+)
 
 if TYPE_CHECKING:
     from gabion.tooling.policy_substrate.invariant_graph import (
@@ -700,6 +703,7 @@ __all__ = [
     "PlanningChartSummary",
     "PlanningPhaseKind",
     "PlanningPhaseSummary",
+    "build_planning_chart_identity_grammar",
     "build_planning_chart_summary",
     "default_planning_chart_rules",
 ]
