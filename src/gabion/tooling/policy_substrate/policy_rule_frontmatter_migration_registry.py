@@ -9,6 +9,11 @@ from gabion.analysis.aspf.aspf_lattice_algebra import canonical_structural_ident
 from gabion.analysis.foundation.marker_protocol import MarkerPayload, marker_identity
 from gabion.invariants import invariant_decorations, todo_decorator
 from gabion.tooling.policy_substrate.site_identity import canonical_site_identity
+from gabion.tooling.policy_substrate.workstream_registry import (
+    RegisteredRootDefinition,
+    RegisteredSubqueueDefinition,
+    WorkstreamRegistry,
+)
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 
@@ -243,9 +248,48 @@ def iter_prf_subqueues() -> tuple[PolicyRuleFrontmatterMigrationSubqueueDefiniti
     return tuple(definitions)
 
 
+def prf_workstream_registry() -> WorkstreamRegistry:
+    queue_definition = iter_prf_queues()[0]
+    subqueue_definitions = iter_prf_subqueues()
+    return WorkstreamRegistry(
+        root=RegisteredRootDefinition(
+            root_id=queue_definition.queue_id,
+            title=queue_definition.title,
+            rel_path=queue_definition.rel_path,
+            qualname=queue_definition.qualname,
+            line=queue_definition.line,
+            site_identity=queue_definition.site_identity,
+            structural_identity=queue_definition.structural_identity,
+            marker_identity=queue_definition.marker_identity,
+            marker_payload=queue_definition.marker_payload,
+            subqueue_ids=queue_definition.subqueue_ids,
+            status_hint=queue_definition.status_hint,
+        ),
+        subqueues=tuple(
+            RegisteredSubqueueDefinition(
+                root_id=queue_definition.queue_id,
+                subqueue_id=item.subqueue_id,
+                title=item.title,
+                rel_path=item.rel_path,
+                qualname=item.qualname,
+                line=item.line,
+                site_identity=item.site_identity,
+                structural_identity=item.structural_identity,
+                marker_identity=item.marker_identity,
+                marker_payload=item.marker_payload,
+                touchpoint_ids=(),
+                status_hint=item.status_hint,
+            )
+            for item in subqueue_definitions
+        ),
+        tags=("registry_convergence",),
+    )
+
+
 __all__ = [
     "PolicyRuleFrontmatterMigrationQueueDefinition",
     "PolicyRuleFrontmatterMigrationSubqueueDefinition",
     "iter_prf_queues",
     "iter_prf_subqueues",
+    "prf_workstream_registry",
 ]

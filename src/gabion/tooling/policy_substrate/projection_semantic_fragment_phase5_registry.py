@@ -8,6 +8,12 @@ from typing import Callable
 from gabion.analysis.aspf.aspf_lattice_algebra import canonical_structural_identity
 from gabion.analysis.foundation.marker_protocol import MarkerPayload, marker_identity
 from gabion.tooling.policy_substrate.site_identity import canonical_site_identity
+from gabion.tooling.policy_substrate.workstream_registry import (
+    RegisteredRootDefinition,
+    RegisteredSubqueueDefinition,
+    RegisteredTouchpointDefinition,
+    WorkstreamRegistry,
+)
 from gabion.invariants import invariant_decorations, todo_decorator
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -490,8 +496,7 @@ def iter_phase5_touchpoints() -> tuple[ProjectionSemanticFragmentPhase5Touchpoin
         surviving_boundary_names: tuple[str, ...]
         if touchpoint_id == "PSF-007-TP-001":
             surviving_boundary_names = (
-                "semantic_fragment.normalize_value",
-                "semantic_fragment.stable_json_key",
+                "semantic_fragment.canonical_value_materialization",
             )
         elif touchpoint_id == "PSF-007-TP-002":
             surviving_boundary_names = (
@@ -544,10 +549,67 @@ def iter_phase5_touchpoints() -> tuple[ProjectionSemanticFragmentPhase5Touchpoin
     return tuple(definitions)
 
 
+def phase5_workstream_registry() -> WorkstreamRegistry:
+    queue_definition = iter_phase5_queues()[0]
+    subqueue_definitions = iter_phase5_subqueues()
+    touchpoint_definitions = iter_phase5_touchpoints()
+    return WorkstreamRegistry(
+        root=RegisteredRootDefinition(
+            root_id=queue_definition.queue_id,
+            title=queue_definition.title,
+            rel_path=queue_definition.rel_path,
+            qualname=queue_definition.qualname,
+            line=queue_definition.line,
+            site_identity=queue_definition.site_identity,
+            structural_identity=queue_definition.structural_identity,
+            marker_identity=queue_definition.marker_identity,
+            marker_payload=queue_definition.marker_payload,
+            subqueue_ids=queue_definition.subqueue_ids,
+        ),
+        subqueues=tuple(
+            RegisteredSubqueueDefinition(
+                root_id=queue_definition.queue_id,
+                subqueue_id=item.subqueue_id,
+                title=item.title,
+                rel_path=item.rel_path,
+                qualname=item.qualname,
+                line=item.line,
+                site_identity=item.site_identity,
+                structural_identity=item.structural_identity,
+                marker_identity=item.marker_identity,
+                marker_payload=item.marker_payload,
+                touchpoint_ids=item.touchpoint_ids,
+            )
+            for item in subqueue_definitions
+        ),
+        touchpoints=tuple(
+            RegisteredTouchpointDefinition(
+                root_id=queue_definition.queue_id,
+                touchpoint_id=item.touchpoint_id,
+                subqueue_id=item.subqueue_id,
+                title=item.title,
+                rel_path=item.rel_path,
+                qualname=item.qualname,
+                line=item.line,
+                site_identity=item.site_identity,
+                structural_identity=item.structural_identity,
+                marker_identity=item.marker_identity,
+                marker_payload=item.marker_payload,
+                collapse_private_helpers=item.collapse_private_helpers,
+                surviving_boundary_names=item.surviving_boundary_names,
+                scan_touchsites=True,
+            )
+            for item in touchpoint_definitions
+        ),
+        tags=("identity_rendering",),
+    )
+
+
 __all__ = [
     "ProjectionSemanticFragmentPhase5QueueDefinition",
     "ProjectionSemanticFragmentPhase5SubqueueDefinition",
     "ProjectionSemanticFragmentPhase5TouchpointDefinition",
+    "phase5_workstream_registry",
     "iter_phase5_queues",
     "iter_phase5_subqueues",
     "iter_phase5_touchpoints",
