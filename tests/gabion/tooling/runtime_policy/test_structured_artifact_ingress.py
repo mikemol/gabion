@@ -16,6 +16,7 @@ from gabion.tooling.policy_substrate.structured_artifact_ingress import (
     load_docflow_packet_enforcement_artifact,
     load_ingress_merge_parity_artifact,
     load_junit_failure_artifact,
+    load_kernel_vm_alignment_artifact,
     load_local_ci_repro_contract_artifact,
     load_local_repro_closure_ledger_artifact,
     load_test_evidence_artifact,
@@ -270,6 +271,124 @@ def test_load_docflow_compliance_artifact_extracts_issue_lifecycle_state(
     assert lifecycle.labels == ("done-on-stage", "status/pending-release")
     assert lifecycle.url == "https://example.invalid/214"
     assert lifecycle.identity.item_kind == "issue_lifecycle"
+
+
+def test_load_kernel_vm_alignment_artifact_uses_typed_binding_and_residue_identities(
+    tmp_path: Path,
+) -> None:
+    _write_json(
+        tmp_path / "artifacts" / "out" / "kernel_vm_alignment.json",
+        {
+            "artifact_kind": "kernel_vm_alignment",
+            "schema_version": 1,
+            "generated_by": "tests",
+            "fragment_id": "ttl_kernel_vm.fragment.augmented_rule_polarity_query_ast",
+            "summary": {
+                "binding_count": 1,
+                "pass_count": 0,
+                "partial_count": 1,
+                "fail_count": 0,
+                "residue_count": 1,
+            },
+            "bindings": [
+                {
+                    "binding_id": "kernel_vm.augmented_rule_core",
+                    "fragment_id": "ttl_kernel_vm.fragment.augmented_rule_polarity_query_ast",
+                    "title": "AugmentedRule core object over semantic-row reflection",
+                    "status": "partial",
+                    "summary": "Synthetic kernel VM binding",
+                    "kernel_terms": ["lg:AugmentedRule"],
+                    "runtime_surface_symbols": ["CanonicalWitnessedSemanticRow"],
+                    "realizer_symbols": [],
+                    "runtime_object_symbols": ["AugmentedRule"],
+                    "missing_capability_ids": ["runtime_object_image"],
+                    "residue_ids": [
+                        "kernel_vm.augmented_rule_core:missing_runtime_object_image"
+                    ],
+                    "evidence_paths": [
+                        "in/lg_kernel_ontology_cut_elim-1.ttl",
+                        "src/gabion/analysis/projection/semantic_fragment.py",
+                    ],
+                    "capabilities": [
+                        {
+                            "capability_id": "runtime_object_image",
+                            "requirement_kind": "runtime_object_image",
+                            "status": "fail",
+                            "match_mode": "any",
+                            "description": "explicit runtime object image for AugmentedRule",
+                            "residue_kind": "missing_runtime_object_image",
+                            "severity": "warning",
+                            "score": 6,
+                            "expected_refs": [
+                                {
+                                    "rel_path": "src/gabion/analysis/projection/semantic_fragment.py",
+                                    "evidence_kind": "python_symbol",
+                                    "symbol": "AugmentedRule",
+                                    "present": False,
+                                }
+                            ],
+                            "matched_refs": [],
+                            "missing_refs": [
+                                {
+                                    "rel_path": "src/gabion/analysis/projection/semantic_fragment.py",
+                                    "evidence_kind": "python_symbol",
+                                    "symbol": "AugmentedRule",
+                                    "present": False,
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+            "residues": [
+                {
+                    "residue_id": "kernel_vm.augmented_rule_core:missing_runtime_object_image",
+                    "binding_id": "kernel_vm.augmented_rule_core",
+                    "fragment_id": "ttl_kernel_vm.fragment.augmented_rule_polarity_query_ast",
+                    "residue_kind": "missing_runtime_object_image",
+                    "severity": "warning",
+                    "score": 6,
+                    "title": "AugmentedRule core object over semantic-row reflection",
+                    "message": "Synthetic kernel VM residue",
+                    "missing_capability_ids": ["runtime_object_image"],
+                    "kernel_terms": ["lg:AugmentedRule"],
+                    "runtime_surface_symbols": ["CanonicalWitnessedSemanticRow"],
+                    "realizer_symbols": [],
+                    "runtime_object_symbols": ["AugmentedRule"],
+                    "evidence_paths": [
+                        "in/lg_kernel_ontology_cut_elim-1.ttl",
+                        "src/gabion/analysis/projection/semantic_fragment.py",
+                    ],
+                }
+            ],
+        },
+    )
+
+    artifact = load_kernel_vm_alignment_artifact(
+        root=tmp_path,
+        rel_path="artifacts/out/kernel_vm_alignment.json",
+        identities=StructuredArtifactIdentitySpace(),
+    )
+
+    assert artifact is not None
+    assert artifact.identity.artifact_kind is StructuredArtifactKind.KERNEL_VM_ALIGNMENT
+    assert artifact.binding_count == 1
+    assert artifact.residue_count == 1
+    binding = artifact.bindings[0]
+    capability = binding.capabilities[0]
+    residue = artifact.residues[0]
+
+    assert binding.identity.item_kind == "binding"
+    assert capability.identity.item_kind == "capability"
+    assert residue.identity.item_kind == "residue"
+    assert binding.binding_id == "kernel_vm.augmented_rule_core"
+    assert capability.capability_id == "runtime_object_image"
+    assert capability.missing_refs[0].symbol == "AugmentedRule"
+    assert residue.residue_kind == "missing_runtime_object_image"
+    assert residue.evidence_paths == (
+        "in/lg_kernel_ontology_cut_elim-1.ttl",
+        "src/gabion/analysis/projection/semantic_fragment.py",
+    )
 
 
 def test_load_controller_drift_artifact_extracts_markdown_doc_paths(

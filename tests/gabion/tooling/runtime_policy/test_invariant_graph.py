@@ -3667,6 +3667,93 @@ def test_build_invariant_graph_joins_control_loop_artifacts(
             ],
         },
     )
+    _write_json(
+        root / "artifacts" / "out" / "kernel_vm_alignment.json",
+        {
+            "artifact_kind": "kernel_vm_alignment",
+            "schema_version": 1,
+            "generated_by": "tests",
+            "fragment_id": "ttl_kernel_vm.fragment.augmented_rule_polarity_query_ast",
+            "summary": {
+                "binding_count": 1,
+                "pass_count": 0,
+                "partial_count": 1,
+                "fail_count": 0,
+                "residue_count": 1,
+            },
+            "bindings": [
+                {
+                    "binding_id": "kernel_vm.augmented_rule_core",
+                    "fragment_id": "ttl_kernel_vm.fragment.augmented_rule_polarity_query_ast",
+                    "title": "AugmentedRule core object over semantic-row reflection",
+                    "status": "partial",
+                    "summary": "Synthetic kernel VM binding",
+                    "kernel_terms": ["lg:AugmentedRule"],
+                    "runtime_surface_symbols": ["CanonicalWitnessedSemanticRow"],
+                    "realizer_symbols": [],
+                    "runtime_object_symbols": ["AugmentedRule"],
+                    "missing_capability_ids": ["runtime_object_image"],
+                    "residue_ids": [
+                        "kernel_vm.augmented_rule_core:missing_runtime_object_image"
+                    ],
+                    "evidence_paths": [
+                        "in/lg_kernel_ontology_cut_elim-1.ttl",
+                        "src/gabion/analysis/projection/semantic_fragment.py",
+                    ],
+                    "capabilities": [
+                        {
+                            "capability_id": "runtime_object_image",
+                            "requirement_kind": "runtime_object_image",
+                            "status": "fail",
+                            "match_mode": "any",
+                            "description": "explicit runtime object image for AugmentedRule",
+                            "residue_kind": "missing_runtime_object_image",
+                            "severity": "warning",
+                            "score": 6,
+                            "expected_refs": [
+                                {
+                                    "rel_path": "src/gabion/analysis/projection/semantic_fragment.py",
+                                    "evidence_kind": "python_symbol",
+                                    "symbol": "AugmentedRule",
+                                    "present": False,
+                                }
+                            ],
+                            "matched_refs": [],
+                            "missing_refs": [
+                                {
+                                    "rel_path": "src/gabion/analysis/projection/semantic_fragment.py",
+                                    "evidence_kind": "python_symbol",
+                                    "symbol": "AugmentedRule",
+                                    "present": False,
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+            "residues": [
+                {
+                    "residue_id": "kernel_vm.augmented_rule_core:missing_runtime_object_image",
+                    "binding_id": "kernel_vm.augmented_rule_core",
+                    "fragment_id": "ttl_kernel_vm.fragment.augmented_rule_polarity_query_ast",
+                    "residue_kind": "missing_runtime_object_image",
+                    "severity": "warning",
+                    "score": 6,
+                    "title": "AugmentedRule core object over semantic-row reflection",
+                    "message": "Synthetic kernel VM residue",
+                    "missing_capability_ids": ["runtime_object_image"],
+                    "kernel_terms": ["lg:AugmentedRule"],
+                    "runtime_surface_symbols": ["CanonicalWitnessedSemanticRow"],
+                    "realizer_symbols": [],
+                    "runtime_object_symbols": ["AugmentedRule"],
+                    "evidence_paths": [
+                        "in/lg_kernel_ontology_cut_elim-1.ttl",
+                        "src/gabion/analysis/projection/semantic_fragment.py",
+                    ],
+                }
+            ],
+        },
+    )
 
     graph = invariant_graph.build_invariant_graph(root)
     node_kind_counts = graph.as_payload()["counts"]["node_kind_counts"]
@@ -3687,6 +3774,9 @@ def test_build_invariant_graph_joins_control_loop_artifacts(
     assert node_kind_counts["local_ci_repro_surface"] == 2
     assert node_kind_counts["local_ci_repro_capability"] == 2
     assert node_kind_counts["local_ci_repro_relation"] == 1
+    assert node_kind_counts["kernel_vm_alignment_report"] == 1
+    assert node_kind_counts["kernel_vm_alignment_binding"] == 1
+    assert node_kind_counts["kernel_vm_alignment_residue"] == 1
     assert node_kind_counts["git_state_entry"] == 1
 
     inbox_doc = next(
@@ -3744,6 +3834,12 @@ def test_build_invariant_graph_joins_control_loop_artifacts(
     local_ci_repro_relation = next(
         node for node in graph.nodes if node.node_kind == "local_ci_repro_relation"
     )
+    kernel_vm_binding = next(
+        node for node in graph.nodes if node.node_kind == "kernel_vm_alignment_binding"
+    )
+    kernel_vm_residue = next(
+        node for node in graph.nodes if node.node_kind == "kernel_vm_alignment_residue"
+    )
     edges = {(edge.edge_kind, edge.source_id, edge.target_id) for edge in graph.edges}
 
     assert {"in-54", "in_54"}.issubset(set(inbox_doc.doc_ids))
@@ -3772,12 +3868,15 @@ def test_build_invariant_graph_joins_control_loop_artifacts(
     assert "local_script:scripts/ci_local_repro.sh:checks" in local_ci_repro_surface.object_ids
     assert "policy_workflows_output" in local_ci_repro_capability.object_ids
     assert "ci-repro:local-checks->workflow-checks" in local_ci_repro_relation.object_ids
+    assert "kernel_vm.augmented_rule_core" in kernel_vm_binding.object_ids
+    assert "missing_runtime_object_image" in kernel_vm_residue.object_ids
     assert ("tracks", packet_node.node_id, inbox_doc.node_id) in edges
     assert ("tracks", packet_row_node.node_id, inbox_doc.node_id) in edges
     assert ("tracks", compliance_row_node.node_id, inbox_doc.node_id) in edges
     assert ("tracks", local_ci_repro_surface.node_id, compliance_report_node.node_id) in edges
     assert ("contains", local_ci_repro_surface.node_id, local_ci_repro_capability.node_id) in edges
     assert ("tracks", local_ci_repro_relation.node_id, local_ci_repro_surface.node_id) in edges
+    assert ("contains", kernel_vm_binding.node_id, kernel_vm_residue.node_id) in edges
     assert ("touches", compliance_row_node.node_id, git_state_entry.node_id) in edges
     assert ("touches", obligation_node.node_id, git_state_entry.node_id) in edges
     assert ("touches", provenance_report_node.node_id, git_state_entry.node_id) in edges
@@ -3790,6 +3889,8 @@ def test_build_invariant_graph_joins_control_loop_artifacts(
     assert invariant_graph.trace_nodes(graph, "ci-repro:local-checks->workflow-checks")
     assert invariant_graph.trace_nodes(graph, "local_script:scripts/ci_local_repro.sh:checks")
     assert invariant_graph.trace_nodes(graph, "policy_workflows_output")
+    assert invariant_graph.trace_nodes(graph, "kernel_vm.augmented_rule_core")
+    assert invariant_graph.trace_nodes(graph, "missing_runtime_object_image")
 
     workstreams = invariant_graph.build_invariant_workstreams(graph, root=root)
     payload = workstreams.as_payload()
@@ -3799,15 +3900,24 @@ def test_build_invariant_graph_joins_control_loop_artifacts(
         for item in rgc["next_actions"]["ranked_touchpoint_cuts"]
         if item["object_id"] == "CSA-RGC-TP-007"
     )
+    tp8 = next(
+        item
+        for item in rgc["next_actions"]["ranked_touchpoint_cuts"]
+        if item["object_id"] == "CSA-RGC-TP-008"
+    )
 
     assert payload["diagnostic_summary"]["diagnostic_count"] >= 3
     assert rgc["next_actions"]["recommended_diagnostic_blocked_cut"] is not None
     assert (
         rgc["next_actions"]["recommended_diagnostic_blocked_cut"]["object_id"]
-        == "CSA-RGC-TP-007"
+        == "CSA-RGC-TP-008"
     )
     assert tp7["diagnostic_count"] >= 1
     assert tp7["readiness_class"] == "diagnostic_blocked"
+    assert tp8["diagnostic_count"] >= 1
+    assert tp8["ranking_signal_count"] >= 1
+    assert tp8["ranking_signal_score"] >= 6
+    assert tp8["readiness_class"] == "diagnostic_blocked"
 
 
 def test_build_invariant_graph_joins_docflow_issue_lifecycle_nodes(

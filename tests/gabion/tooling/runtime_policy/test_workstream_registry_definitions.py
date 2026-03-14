@@ -126,8 +126,16 @@ def test_connectivity_synergy_workstream_registries_expose_expected_roots_and_to
             "reflect_projection_fiber_witness",
         ),
         (
+            "src/gabion/tooling/runtime/kernel_vm_alignment_artifact.py",
+            "build_kernel_vm_alignment_artifact_payload",
+        ),
+        (
             "scripts/policy/policy_check.py",
             "collect_aspf_lattice_convergence_result",
+        ),
+        (
+            "src/gabion/tooling/policy_substrate/invariant_graph.py",
+            "_join_kernel_vm_alignment_artifact",
         ),
     }
     assert {

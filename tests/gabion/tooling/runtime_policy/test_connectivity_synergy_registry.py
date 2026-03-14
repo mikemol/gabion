@@ -508,7 +508,9 @@ def test_connectivity_synergy_registry_defines_expected_roots_and_subqueues() ->
         "src/gabion/analysis/projection/semantic_fragment.py",
         "src/gabion/analysis/projection/projection_semantic_lowering.py",
         "src/gabion/analysis/projection/semantic_fragment_compile.py",
+        "src/gabion/tooling/runtime/kernel_vm_alignment_artifact.py",
         "src/gabion/tooling/policy_substrate/lattice_convergence_semantic.py",
+        "src/gabion/tooling/policy_substrate/invariant_graph.py",
         "scripts/policy/policy_check.py",
     }
     assert {
@@ -570,6 +572,14 @@ def test_connectivity_synergy_registry_defines_expected_roots_and_subqueues() ->
         (
             "scripts/policy/policy_check.py",
             "collect_aspf_lattice_convergence_result",
+        ),
+        (
+            "src/gabion/tooling/runtime/kernel_vm_alignment_artifact.py",
+            "build_kernel_vm_alignment_artifact_payload",
+        ),
+        (
+            "src/gabion/tooling/policy_substrate/invariant_graph.py",
+            "_join_kernel_vm_alignment_artifact",
         ),
     }
 

@@ -40,6 +40,7 @@ class StructuredArtifactKind(StrEnum):
     CONTROLLER_DRIFT = "controller_drift"
     LOCAL_REPRO_CLOSURE_LEDGER = "local_repro_closure_ledger"
     LOCAL_CI_REPRO_CONTRACT = "local_ci_repro_contract"
+    KERNEL_VM_ALIGNMENT = "kernel_vm_alignment"
     GIT_STATE = "git_state"
     CROSS_ORIGIN_WITNESS_CONTRACT = "cross_origin_witness_contract"
     INGRESS_MERGE_PARITY = "ingress_merge_parity"
@@ -851,6 +852,99 @@ class LocalCiReproContractArtifact:
         return (
             f"{self.source.rel_path} surfaces={len(self.surfaces)} "
             f"relations={len(self.relations)}"
+        )
+
+
+@dataclass(frozen=True)
+class KernelVmEvidenceRef:
+    rel_path: str
+    evidence_kind: str
+    symbol: str
+    present: bool
+
+    def __str__(self) -> str:
+        return f"{self.rel_path}::{self.symbol}"
+
+
+@dataclass(frozen=True)
+class KernelVmCapability:
+    identity: StructuredArtifactIdentity
+    capability_id: str
+    requirement_kind: str
+    status: str
+    match_mode: str
+    description: str
+    residue_kind: str
+    severity: str
+    score: int
+    expected_refs: tuple[KernelVmEvidenceRef, ...]
+    matched_refs: tuple[KernelVmEvidenceRef, ...]
+    missing_refs: tuple[KernelVmEvidenceRef, ...]
+
+    def __str__(self) -> str:
+        return self.capability_id or self.identity.wire()
+
+
+@dataclass(frozen=True)
+class KernelVmBinding:
+    identity: StructuredArtifactIdentity
+    binding_id: str
+    fragment_id: str
+    title: str
+    status: str
+    summary: str
+    kernel_terms: tuple[str, ...]
+    runtime_surface_symbols: tuple[str, ...]
+    realizer_symbols: tuple[str, ...]
+    runtime_object_symbols: tuple[str, ...]
+    missing_capability_ids: tuple[str, ...]
+    residue_ids: tuple[str, ...]
+    evidence_paths: tuple[str, ...]
+    capabilities: tuple[KernelVmCapability, ...]
+
+    def __str__(self) -> str:
+        return self.title or self.binding_id or self.identity.wire()
+
+
+@dataclass(frozen=True)
+class KernelVmResidue:
+    identity: StructuredArtifactIdentity
+    residue_id: str
+    binding_id: str
+    fragment_id: str
+    residue_kind: str
+    severity: str
+    score: int
+    title: str
+    message: str
+    missing_capability_ids: tuple[str, ...]
+    kernel_terms: tuple[str, ...]
+    runtime_surface_symbols: tuple[str, ...]
+    realizer_symbols: tuple[str, ...]
+    runtime_object_symbols: tuple[str, ...]
+    evidence_paths: tuple[str, ...]
+
+    def __str__(self) -> str:
+        return self.title or self.residue_id or self.identity.wire()
+
+
+@dataclass(frozen=True)
+class KernelVmAlignmentArtifact:
+    identity: StructuredArtifactIdentity
+    source: StructuredArtifactSource
+    fragment_id: str
+    binding_count: int
+    pass_count: int
+    partial_count: int
+    fail_count: int
+    residue_count: int
+    bindings: tuple[KernelVmBinding, ...]
+    residues: tuple[KernelVmResidue, ...]
+
+    def __str__(self) -> str:
+        return (
+            f"{self.source.rel_path} bindings={self.binding_count} "
+            f"residues={self.residue_count}"
         )
 
 
@@ -2772,6 +2866,244 @@ def load_local_ci_repro_contract_artifact(
     )
 
 
+def load_kernel_vm_alignment_artifact(
+    *,
+    root: Path,
+    rel_path: str,
+    identities: StructuredArtifactIdentitySpace,
+) -> KernelVmAlignmentArtifact | None:
+    payload = _load_json_mapping_artifact(root / rel_path)
+    if payload is None:
+        return None
+    if payload.get("artifact_kind") != StructuredArtifactKind.KERNEL_VM_ALIGNMENT.value:
+        return None
+    source = StructuredArtifactSource(
+        rel_path=rel_path,
+        schema_version=int(payload.get("schema_version", 0) or 0),
+        producer=str(payload.get("generated_by", "")).strip(),
+    )
+    identity = identities.artifact_id(
+        artifact_kind=StructuredArtifactKind.KERNEL_VM_ALIGNMENT,
+        source_path=rel_path,
+        label=rel_path,
+    )
+
+    def _evidence_refs(raw_items: object) -> tuple[KernelVmEvidenceRef, ...]:
+        items: list[KernelVmEvidenceRef] = []
+        if isinstance(raw_items, list):
+            for raw_item in raw_items:
+                if not isinstance(raw_item, Mapping):
+                    continue
+                ref_path = _normalize_rel_path(root, raw_item.get("rel_path", ""))
+                symbol = str(raw_item.get("symbol", "")).strip()
+                if not ref_path or not symbol:
+                    continue
+                items.append(
+                    KernelVmEvidenceRef(
+                        rel_path=ref_path,
+                        evidence_kind=str(raw_item.get("evidence_kind", "")).strip(),
+                        symbol=symbol,
+                        present=bool(raw_item.get("present", False)),
+                    )
+                )
+        return tuple(items)
+
+    bindings: list[KernelVmBinding] = []
+    raw_bindings = payload.get("bindings", [])
+    if isinstance(raw_bindings, list):
+        for binding_index, raw_binding in enumerate(raw_bindings, start=1):
+            if not isinstance(raw_binding, Mapping):
+                continue
+            binding_id = str(raw_binding.get("binding_id", "")).strip()
+            if not binding_id:
+                binding_id = f"binding-{binding_index}"
+            binding_identity = identities.item_id(
+                artifact_kind=StructuredArtifactKind.KERNEL_VM_ALIGNMENT,
+                source_path=rel_path,
+                item_kind="binding",
+                item_key=binding_id,
+                label=str(raw_binding.get("title", "")).strip()
+                or binding_id,
+            )
+            capabilities: list[KernelVmCapability] = []
+            raw_capabilities = raw_binding.get("capabilities", [])
+            if isinstance(raw_capabilities, list):
+                for capability_index, raw_capability in enumerate(
+                    raw_capabilities,
+                    start=1,
+                ):
+                    if not isinstance(raw_capability, Mapping):
+                        continue
+                    capability_id = str(
+                        raw_capability.get("capability_id", "")
+                    ).strip()
+                    capability_identity = identities.item_id(
+                        artifact_kind=StructuredArtifactKind.KERNEL_VM_ALIGNMENT,
+                        source_path=rel_path,
+                        item_kind="capability",
+                        item_key=(
+                            f"{binding_id}:{capability_id}"
+                            if capability_id
+                            else f"{binding_id}:capability-{capability_index}"
+                        ),
+                        label=capability_id or f"capability-{capability_index}",
+                    )
+                    capabilities.append(
+                        KernelVmCapability(
+                            identity=capability_identity,
+                            capability_id=capability_id,
+                            requirement_kind=str(
+                                raw_capability.get("requirement_kind", "")
+                            ).strip(),
+                            status=str(raw_capability.get("status", "")).strip(),
+                            match_mode=str(
+                                raw_capability.get("match_mode", "")
+                            ).strip(),
+                            description=str(
+                                raw_capability.get("description", "")
+                            ).strip(),
+                            residue_kind=str(
+                                raw_capability.get("residue_kind", "")
+                            ).strip(),
+                            severity=str(
+                                raw_capability.get("severity", "")
+                            ).strip(),
+                            score=int(raw_capability.get("score", 0) or 0),
+                            expected_refs=_evidence_refs(
+                                raw_capability.get("expected_refs", [])
+                            ),
+                            matched_refs=_evidence_refs(
+                                raw_capability.get("matched_refs", [])
+                            ),
+                            missing_refs=_evidence_refs(
+                                raw_capability.get("missing_refs", [])
+                            ),
+                        )
+                    )
+            bindings.append(
+                KernelVmBinding(
+                    identity=binding_identity,
+                    binding_id=binding_id,
+                    fragment_id=str(raw_binding.get("fragment_id", "")).strip(),
+                    title=str(raw_binding.get("title", "")).strip(),
+                    status=str(raw_binding.get("status", "")).strip(),
+                    summary=str(raw_binding.get("summary", "")).strip(),
+                    kernel_terms=tuple(
+                        str(item).strip()
+                        for item in raw_binding.get("kernel_terms", [])
+                        if str(item).strip()
+                    ),
+                    runtime_surface_symbols=tuple(
+                        str(item).strip()
+                        for item in raw_binding.get("runtime_surface_symbols", [])
+                        if str(item).strip()
+                    ),
+                    realizer_symbols=tuple(
+                        str(item).strip()
+                        for item in raw_binding.get("realizer_symbols", [])
+                        if str(item).strip()
+                    ),
+                    runtime_object_symbols=tuple(
+                        str(item).strip()
+                        for item in raw_binding.get("runtime_object_symbols", [])
+                        if str(item).strip()
+                    ),
+                    missing_capability_ids=tuple(
+                        str(item).strip()
+                        for item in raw_binding.get("missing_capability_ids", [])
+                        if str(item).strip()
+                    ),
+                    residue_ids=tuple(
+                        str(item).strip()
+                        for item in raw_binding.get("residue_ids", [])
+                        if str(item).strip()
+                    ),
+                    evidence_paths=tuple(
+                        _normalize_rel_path(root, item)
+                        for item in raw_binding.get("evidence_paths", [])
+                        if _normalize_rel_path(root, item)
+                    ),
+                    capabilities=tuple(capabilities),
+                )
+            )
+
+    residues: list[KernelVmResidue] = []
+    raw_residues = payload.get("residues", [])
+    if isinstance(raw_residues, list):
+        for residue_index, raw_residue in enumerate(raw_residues, start=1):
+            if not isinstance(raw_residue, Mapping):
+                continue
+            residue_id = str(raw_residue.get("residue_id", "")).strip()
+            if not residue_id:
+                residue_id = f"residue-{residue_index}"
+            residue_identity = identities.item_id(
+                artifact_kind=StructuredArtifactKind.KERNEL_VM_ALIGNMENT,
+                source_path=rel_path,
+                item_kind="residue",
+                item_key=residue_id,
+                label=str(raw_residue.get("title", "")).strip()
+                or residue_id,
+            )
+            residues.append(
+                KernelVmResidue(
+                    identity=residue_identity,
+                    residue_id=residue_id,
+                    binding_id=str(raw_residue.get("binding_id", "")).strip(),
+                    fragment_id=str(raw_residue.get("fragment_id", "")).strip(),
+                    residue_kind=str(raw_residue.get("residue_kind", "")).strip(),
+                    severity=str(raw_residue.get("severity", "")).strip(),
+                    score=int(raw_residue.get("score", 0) or 0),
+                    title=str(raw_residue.get("title", "")).strip(),
+                    message=str(raw_residue.get("message", "")).strip(),
+                    missing_capability_ids=tuple(
+                        str(item).strip()
+                        for item in raw_residue.get("missing_capability_ids", [])
+                        if str(item).strip()
+                    ),
+                    kernel_terms=tuple(
+                        str(item).strip()
+                        for item in raw_residue.get("kernel_terms", [])
+                        if str(item).strip()
+                    ),
+                    runtime_surface_symbols=tuple(
+                        str(item).strip()
+                        for item in raw_residue.get("runtime_surface_symbols", [])
+                        if str(item).strip()
+                    ),
+                    realizer_symbols=tuple(
+                        str(item).strip()
+                        for item in raw_residue.get("realizer_symbols", [])
+                        if str(item).strip()
+                    ),
+                    runtime_object_symbols=tuple(
+                        str(item).strip()
+                        for item in raw_residue.get("runtime_object_symbols", [])
+                        if str(item).strip()
+                    ),
+                    evidence_paths=tuple(
+                        _normalize_rel_path(root, item)
+                        for item in raw_residue.get("evidence_paths", [])
+                        if _normalize_rel_path(root, item)
+                    ),
+                )
+            )
+
+    summary = payload.get("summary", {})
+    summary_mapping = summary if isinstance(summary, Mapping) else {}
+    return KernelVmAlignmentArtifact(
+        identity=identity,
+        source=source,
+        fragment_id=str(payload.get("fragment_id", "")).strip(),
+        binding_count=int(summary_mapping.get("binding_count", len(bindings)) or 0),
+        pass_count=int(summary_mapping.get("pass_count", 0) or 0),
+        partial_count=int(summary_mapping.get("partial_count", 0) or 0),
+        fail_count=int(summary_mapping.get("fail_count", 0) or 0),
+        residue_count=int(summary_mapping.get("residue_count", len(residues)) or 0),
+        bindings=tuple(bindings),
+        residues=tuple(residues),
+    )
+
+
 __all__ = [
     "ControllerDriftArtifact",
     "ControllerDriftFinding",
@@ -2794,6 +3126,11 @@ __all__ = [
     "IngressMergeParityFieldCheck",
     "JUnitFailureArtifact",
     "JUnitFailureCase",
+    "KernelVmAlignmentArtifact",
+    "KernelVmBinding",
+    "KernelVmCapability",
+    "KernelVmEvidenceRef",
+    "KernelVmResidue",
     "LocalCiReproContractArtifact",
     "LocalCiReproCapability",
     "LocalCiReproRelation",
@@ -2820,6 +3157,7 @@ __all__ = [
     "load_git_state_artifact",
     "load_ingress_merge_parity_artifact",
     "load_junit_failure_artifact",
+    "load_kernel_vm_alignment_artifact",
     "load_local_ci_repro_contract_artifact",
     "load_local_repro_closure_ledger_artifact",
     "load_test_evidence_artifact",

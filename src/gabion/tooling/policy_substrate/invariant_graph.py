@@ -69,6 +69,7 @@ from gabion.tooling.policy_substrate.structured_artifact_ingress import (
     StructuredArtifactIdentitySpace,
     TestEvidenceSite,
     load_controller_drift_artifact,
+    load_kernel_vm_alignment_artifact,
     load_local_ci_repro_contract_artifact,
     load_docflow_compliance_artifact,
     load_cross_origin_witness_contract_artifact,
@@ -111,6 +112,7 @@ _LOCAL_REPRO_CLOSURE_LEDGER_ARTIFACT = Path(
 _LOCAL_CI_REPRO_CONTRACT_ARTIFACT = Path(
     "artifacts/out/local_ci_repro_contract.json"
 )
+_KERNEL_VM_ALIGNMENT_ARTIFACT = Path("artifacts/out/kernel_vm_alignment.json")
 _GIT_STATE_ARTIFACT = Path("artifacts/out/git_state.json")
 _DOCFLOW_REQUIRED_ISSUE_LIFECYCLE_LABELS = (
     "done-on-stage",
@@ -10515,6 +10517,146 @@ def _join_local_ci_repro_contract_artifact(state: _InvariantGraphBuildState) -> 
                 )
 
 
+def _join_kernel_vm_alignment_artifact(state: _InvariantGraphBuildState) -> None:
+    artifact = load_kernel_vm_alignment_artifact(
+        root=state.root,
+        rel_path=_KERNEL_VM_ALIGNMENT_ARTIFACT.as_posix(),
+        identities=state.structured_artifact_identities,
+    )
+    if artifact is None:
+        return
+    report_node_id = "kernel_vm_alignment_report:artifact"
+    report_node = _synthetic_node(
+        node_id=report_node_id,
+        title="kernel VM alignment",
+        ref_kind="kernel_vm_alignment_report",
+        value=_KERNEL_VM_ALIGNMENT_ARTIFACT.as_posix(),
+        object_ids=tuple(
+            item for item in (artifact.identity.wire(), artifact.fragment_id) if item
+        ),
+        reasoning_summary=(
+            "kernel VM alignment bindings={bindings} pass={passed} partial={partial} "
+            "fail={failed} residues={residues}".format(
+                bindings=artifact.binding_count,
+                passed=artifact.pass_count,
+                partial=artifact.partial_count,
+                failed=artifact.fail_count,
+                residues=artifact.residue_count,
+            )
+        ),
+        reasoning_control="invariant_graph.kernel_vm_alignment",
+        rel_path=_KERNEL_VM_ALIGNMENT_ARTIFACT.as_posix(),
+        node_kind="kernel_vm_alignment_report",
+        status_hint="pass" if artifact.residue_count == 0 else "partial",
+    )
+    _add_node(state, report_node, replace=True)
+    _link_node_refs(state, report_node)
+    touchpoint_node_id = state.object_node_ids.get("CSA-RGC-TP-008", "")
+    if touchpoint_node_id:
+        _add_edge(state, "contains", touchpoint_node_id, report_node_id)
+    binding_node_ids: dict[str, str] = {}
+    for binding in artifact.bindings:
+        binding_node_id = (
+            f"kernel_vm_alignment_binding:{stable_hash(binding.identity.wire())}"
+        )
+        binding_node = _synthetic_node(
+            node_id=binding_node_id,
+            title=str(binding),
+            ref_kind="kernel_vm_alignment_binding",
+            value=binding.identity.wire(),
+            object_ids=tuple(
+                item
+                for item in (
+                    binding.identity.wire(),
+                    binding.binding_id,
+                    binding.fragment_id,
+                    *binding.kernel_terms,
+                    *binding.runtime_surface_symbols,
+                    *binding.realizer_symbols,
+                    *binding.runtime_object_symbols,
+                )
+                if item
+            ),
+            reasoning_summary=binding.summary,
+            reasoning_control="invariant_graph.kernel_vm_alignment.binding",
+            rel_path=_KERNEL_VM_ALIGNMENT_ARTIFACT.as_posix(),
+            node_kind="kernel_vm_alignment_binding",
+            status_hint=binding.status,
+        )
+        _add_node(state, binding_node, replace=True)
+        _link_node_refs(state, binding_node)
+        _add_edge(state, "contains", report_node_id, binding_node_id)
+        binding_node_ids[binding.binding_id] = binding_node_id
+        for rel_path in binding.evidence_paths:
+            _link_to_existing_nodes_for_path(
+                state,
+                source_node_id=binding_node_id,
+                rel_path=rel_path,
+            )
+    for residue in artifact.residues:
+        residue_node_id = (
+            f"kernel_vm_alignment_residue:{stable_hash(residue.identity.wire())}"
+        )
+        residue_node = _synthetic_node(
+            node_id=residue_node_id,
+            title=str(residue),
+            ref_kind="kernel_vm_alignment_residue",
+            value=residue.identity.wire(),
+            object_ids=tuple(
+                item
+                for item in (
+                    residue.identity.wire(),
+                    residue.residue_id,
+                    residue.binding_id,
+                    residue.fragment_id,
+                    residue.residue_kind,
+                    *residue.kernel_terms,
+                    *residue.runtime_surface_symbols,
+                    *residue.realizer_symbols,
+                    *residue.runtime_object_symbols,
+                )
+                if item
+            ),
+            reasoning_summary=residue.message,
+            reasoning_control="invariant_graph.kernel_vm_alignment.residue",
+            rel_path=_KERNEL_VM_ALIGNMENT_ARTIFACT.as_posix(),
+            node_kind="kernel_vm_alignment_residue",
+            status_hint=residue.residue_kind,
+        )
+        _add_node(state, residue_node, replace=True)
+        _link_node_refs(state, residue_node)
+        _add_edge(
+            state,
+            "contains",
+            binding_node_ids.get(residue.binding_id, report_node_id),
+            residue_node_id,
+        )
+        for rel_path in residue.evidence_paths:
+            _link_to_existing_nodes_for_path(
+                state,
+                source_node_id=residue_node_id,
+                rel_path=rel_path,
+            )
+        _append_diagnostic(
+            state,
+            severity=residue.severity or "warning",
+            code=f"kernel_vm_alignment_{residue.residue_kind or 'residue'}",
+            node_id=residue_node_id,
+            raw_dependency=residue.binding_id or "CSA-RGC-TP-008",
+            message=residue.message,
+        )
+        _append_ranking_signal(
+            state,
+            node_id=residue_node_id,
+            touchpoint_object_id="CSA-RGC-TP-008",
+            touchsite_object_id="CSA-RGC-TS-063",
+            code=residue.residue_kind or "kernel_vm_alignment_residue",
+            score=residue.score,
+            raw_dependency=residue.binding_id,
+            message=residue.message,
+        )
+
+
 def _join_cross_origin_witness_contract_artifact(state: _InvariantGraphBuildState) -> None:
     artifact = load_cross_origin_witness_contract_artifact(
         root=state.root,
@@ -10862,6 +11004,7 @@ def _join_control_loop_artifacts(state: _InvariantGraphBuildState) -> None:
     _join_docflow_packet_enforcement(state)
     _join_controller_drift_artifact(state)
     _join_local_repro_closure_ledger(state)
+    _join_kernel_vm_alignment_artifact(state)
     _join_cross_origin_witness_contract_artifact(state)
     _join_git_state_artifact(state)
     _join_docflow_compliance_artifact(state)

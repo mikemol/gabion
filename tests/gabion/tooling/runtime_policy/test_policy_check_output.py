@@ -77,6 +77,23 @@ def _write_policy_check_perf_helpers(repo_root: Path):
                 "    },",
                 "    links=[{'kind': 'object_id', 'value': 'TEST-PERF-HELPER'}],",
                 ")",
+                "def write_kernel_vm_alignment_artifact(*, output_path: Path) -> None:",
+                "    (output_path.parent / 'fake_kernel_vm_alignment.json').write_text(",
+                "        'ok',",
+                "        encoding='utf-8',",
+                "    )",
+                "",
+                "@todo_decorator(",
+                "    reason='policy_check perf helper',",
+                "    owner='tests.gabion.tooling.runtime_policy',",
+                "    expiry='2099-01-01',",
+                "    reasoning={",
+                "        'summary': 'Synthetic policy_check perf helper',",
+                "        'control': 'tests.runtime_policy.policy_check_perf_helper',",
+                "        'blocking_dependencies': ['TEST-PERF-HELPER'],",
+                "    },",
+                "    links=[{'kind': 'object_id', 'value': 'TEST-PERF-HELPER'}],",
+                ")",
                 "def write_ingress_merge_parity_artifact(*, output_path: Path) -> None:",
                 "    (output_path.parent / 'fake_ingress_merge_parity.json').write_text(",
                 "        'ok',",
@@ -170,6 +187,9 @@ def test_policy_check_output_carries_projection_fiber_semantics_on_pass(
     cross_origin_witness_payload = json.loads(
         (tmp_path / "cross_origin_witness_contract.json").read_text(encoding="utf-8")
     )
+    kernel_vm_alignment_payload = json.loads(
+        (tmp_path / "kernel_vm_alignment.json").read_text(encoding="utf-8")
+    )
     assert queue_payload["source_artifact"] == str(output)
     assert queue_payload["current_state"]["decision"]["rule_id"] == (
         "projection_fiber.convergence.ok"
@@ -204,6 +224,9 @@ def test_policy_check_output_carries_projection_fiber_semantics_on_pass(
         for item in cross_origin_witness_payload["cases"]
         if isinstance(item, dict)
     )
+    assert kernel_vm_alignment_payload["artifact_kind"] == "kernel_vm_alignment"
+    assert "bindings" in kernel_vm_alignment_payload
+    assert "residues" in kernel_vm_alignment_payload
     assert invariant_workstreams_payload["counts"]["workstream_count"] >= 1
     assert "diagnostic_summary" in invariant_workstreams_payload
     assert "repo_next_actions" in invariant_workstreams_payload
@@ -457,6 +480,11 @@ def test_policy_check_workflows_emits_perf_artifact_when_requested(
     )
     monkeypatch.setattr(
         policy_check,
+        "_write_kernel_vm_alignment_artifact",
+        perf_helpers.write_kernel_vm_alignment_artifact,
+    )
+    monkeypatch.setattr(
+        policy_check,
         "_write_ingress_merge_parity_artifact",
         perf_helpers.write_ingress_merge_parity_artifact,
     )
@@ -531,6 +559,11 @@ def test_policy_check_perf_artifact_includes_output_phase_writers(
         policy_check,
         "_write_cross_origin_witness_contract_artifact",
         perf_helpers.write_cross_origin_witness_contract_artifact,
+    )
+    monkeypatch.setattr(
+        policy_check,
+        "_write_kernel_vm_alignment_artifact",
+        perf_helpers.write_kernel_vm_alignment_artifact,
     )
     monkeypatch.setattr(
         policy_check,

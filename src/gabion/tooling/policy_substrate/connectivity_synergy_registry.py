@@ -2189,6 +2189,25 @@ def connectivity_synergy_workstream_registries() -> tuple[WorkstreamRegistry, ..
                         surface="kernel_vm_runtime_surface",
                         structural_path="collect_aspf_lattice_convergence_result",
                     ),
+                    _function_touchsite(
+                        touchsite_id="CSA-RGC-TS-062",
+                        rel_path=(
+                            "src/gabion/tooling/runtime/"
+                            "kernel_vm_alignment_artifact.py"
+                        ),
+                        qualname="build_kernel_vm_alignment_artifact_payload",
+                        line=749,
+                        surface="kernel_vm_runtime_surface",
+                        structural_path="build_kernel_vm_alignment_artifact_payload",
+                    ),
+                    _function_touchsite(
+                        touchsite_id="CSA-RGC-TS-063",
+                        rel_path="src/gabion/tooling/policy_substrate/invariant_graph.py",
+                        qualname="_join_kernel_vm_alignment_artifact",
+                        line=10520,
+                        surface="kernel_vm_runtime_surface",
+                        structural_path="_join_kernel_vm_alignment_artifact",
+                    ),
                 ),
             ),
         ),

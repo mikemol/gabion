@@ -2590,6 +2590,17 @@ def _write_cross_origin_witness_contract_artifact(*, output_path: Path) -> Path:
     )
 
 
+def _write_kernel_vm_alignment_artifact(*, output_path: Path) -> Path:
+    from gabion.tooling.runtime.kernel_vm_alignment_artifact import (
+        write_kernel_vm_alignment_artifact,
+    )
+
+    return write_kernel_vm_alignment_artifact(
+        path=output_path.parent / "kernel_vm_alignment.json",
+        root=REPO_ROOT,
+    )
+
+
 def _write_invariant_graph_artifact(
     *,
     output_path: Path,
@@ -2858,6 +2869,9 @@ def main(argv: list[str] | None = None):
                     output_path=args.output,
                 )
                 _write_cross_origin_witness_contract_artifact(
+                    output_path=args.output,
+                )
+                _write_kernel_vm_alignment_artifact(
                     output_path=args.output,
                 )
                 _write_ingress_merge_parity_artifact(
