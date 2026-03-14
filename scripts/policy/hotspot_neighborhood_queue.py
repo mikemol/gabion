@@ -11,6 +11,11 @@ from pathlib import Path
 from typing import Any
 
 from gabion.order_contract import ordered_or_sorted
+from gabion.tooling.policy_substrate.policy_scanner_identity import (
+    PolicyScannerIdentitySpace,
+    canonical_policy_scanner_site_identity,
+    canonical_policy_scanner_structural_identity,
+)
 from gabion.tooling.runtime import policy_result_schema
 from gabion.tooling.policy_substrate.policy_artifact_stream import (
     ArtifactSourceRef,
@@ -53,6 +58,19 @@ class QueueConfig:
     ring1_backlog_file_threshold: int = DEFAULT_RING1_BACKLOG_FILE_THRESHOLD
 
 
+@dataclass(frozen=True, order=True)
+class HotspotScopeRef:
+    identity: str
+    path: str
+
+
+@dataclass(frozen=True, order=True)
+class HotspotFileRef:
+    identity: str
+    path: str
+    scope: HotspotScopeRef
+
+
 def _sorted[T](values: list[T], *, key=None) -> list[T]:
     return ordered_or_sorted(values, source="scripts.policy.hotspot_neighborhood_queue", key=key)
 
@@ -65,11 +83,15 @@ def _count_int(value: object) -> int:
     return 0
 
 
-def _file_family_counts(payload: dict[str, Any], families: tuple[str, ...]) -> dict[str, Counter[str]]:
+def _file_family_counts(
+    payload: dict[str, Any],
+    families: tuple[str, ...],
+) -> dict[HotspotFileRef, Counter[str]]:
     violations = payload.get("violations")
     if not isinstance(violations, dict):
         return {}
-    counts_by_file: defaultdict[str, Counter[str]] = defaultdict(Counter)
+    identity_space = PolicyScannerIdentitySpace()
+    counts_by_file: defaultdict[HotspotFileRef, Counter[str]] = defaultdict(Counter)
     for family in families:
         family_items = violations.get(family, [])
         if not isinstance(family_items, list):
@@ -77,17 +99,20 @@ def _file_family_counts(payload: dict[str, Any], families: tuple[str, ...]) -> d
         for item in family_items:
             if not isinstance(item, dict):
                 continue
-            path = item.get("path")
-            if not isinstance(path, str) or not path.strip():
+            file_ref = _file_ref_from_violation(
+                item=item,
+                identities=identity_space,
+            )
+            if file_ref is None:
                 continue
-            counts_by_file[path][family] += 1
+            counts_by_file[file_ref][family] += 1
     return dict(counts_by_file)
 
 
 def _vector_for_path(
     *,
-    counts_by_file: dict[str, Counter[str]],
-    path: str,
+    counts_by_file: dict[HotspotFileRef, Counter[str]],
+    path: HotspotFileRef,
     families: tuple[str, ...],
 ) -> tuple[int, ...]:
     file_counts = counts_by_file.get(path, Counter())
@@ -111,35 +136,121 @@ def _cosine_similarity(left: tuple[int, ...], right: tuple[int, ...]) -> float:
     return dot / (left_norm * right_norm)
 
 
-def _ring1_scope(path: str) -> str:
-    return str(Path(path).parent).replace("\\", "/")
+def _text(value: object) -> str:
+    if isinstance(value, str):
+        return value.strip()
+    return ""
+
+
+def _scope_ref(path: str, *, identities: PolicyScannerIdentitySpace) -> HotspotScopeRef:
+    scope_path = str(Path(path).parent).replace("\\", "/")
+    site_identity = canonical_policy_scanner_site_identity(
+        rel_path=scope_path,
+        qualname="<scope>",
+        line=0,
+        column=0,
+        scanner_kind="hotspot_scope",
+        surface="hotspot_neighborhood_queue",
+    )
+    structural_identity = canonical_policy_scanner_structural_identity(
+        rel_path=scope_path,
+        qualname="<scope>",
+        structural_path=scope_path,
+        scanner_kind="hotspot_scope",
+        surface="hotspot_neighborhood_queue",
+    )
+    identity = identities.item_id(
+        scanner_kind="hotspot_scope",
+        rule_id="hotspot_neighborhood_queue",
+        rel_path=scope_path,
+        qualname="<scope>",
+        line=0,
+        column=0,
+        kind="scope",
+        site_identity=site_identity,
+        structural_identity=structural_identity,
+        label=scope_path,
+    )
+    return HotspotScopeRef(identity=identity.wire(), path=scope_path)
+
+
+def _file_ref_from_violation(
+    *,
+    item: dict[str, object],
+    identities: PolicyScannerIdentitySpace,
+) -> HotspotFileRef | None:
+    path = _text(item.get("path"))
+    if not path:
+        return None
+    site_identity = canonical_policy_scanner_site_identity(
+        rel_path=path,
+        qualname="<file>",
+        line=0,
+        column=0,
+        scanner_kind="hotspot_file",
+        surface="hotspot_neighborhood_queue",
+    )
+    structural_identity = canonical_policy_scanner_structural_identity(
+        rel_path=path,
+        qualname="<file>",
+        structural_path=path,
+        scanner_kind="hotspot_file",
+        surface="hotspot_neighborhood_queue",
+    )
+    path_identity = identities.item_id(
+        scanner_kind="hotspot_file",
+        rule_id="hotspot_neighborhood_queue",
+        rel_path=path,
+        qualname="<file>",
+        line=0,
+        column=0,
+        kind="file",
+        site_identity=site_identity,
+        structural_identity=structural_identity,
+        label=path,
+    ).wire()
+    return HotspotFileRef(
+        identity=path_identity,
+        path=path,
+        scope=_scope_ref(path, identities=identities),
+    )
 
 
 def _seed_paths(
     *,
-    counts_by_file: dict[str, Counter[str]],
+    counts_by_file: dict[HotspotFileRef, Counter[str]],
     config: QueueConfig,
-) -> list[str]:
+) -> list[HotspotFileRef]:
     candidates = [
         path
         for path, counts in counts_by_file.items()
         if _file_family_count(counts) >= config.min_seed_families
         and _file_total(counts) >= config.min_seed_total
     ]
-    return _sorted(candidates, key=lambda path: (-_file_total(counts_by_file[path]), path))
+    return _sorted(
+        candidates,
+        key=lambda path: (-_file_total(counts_by_file[path]), path.path),
+    )
 
 
-def _ring1_paths_for_seed(*, counts_by_file: dict[str, Counter[str]], seed_path: str) -> list[str]:
-    scope = _ring1_scope(seed_path)
-    ring1 = [path for path in counts_by_file if _ring1_scope(path) == scope]
-    return _sorted(ring1, key=lambda path: (-_file_total(counts_by_file[path]), path))
+def _ring1_paths_for_seed(
+    *,
+    counts_by_file: dict[HotspotFileRef, Counter[str]],
+    seed_path: HotspotFileRef,
+) -> list[HotspotFileRef]:
+    scope = seed_path.scope
+    ring1 = [path for path in counts_by_file if path.scope == scope]
+    return _sorted(
+        ring1,
+        key=lambda path: (-_file_total(counts_by_file[path]), path.path),
+    )
 
 
 def _ring2_neighbors_for_seed(
     *,
-    counts_by_file: dict[str, Counter[str]],
-    seed_path: str,
-    ring1_paths: set[str],
+    counts_by_file: dict[HotspotFileRef, Counter[str]],
+    seed_path: HotspotFileRef,
+    ring1_paths: set[HotspotFileRef],
     families: tuple[str, ...],
     config: QueueConfig,
 ) -> list[dict[str, Any]]:
@@ -157,7 +268,8 @@ def _ring2_neighbors_for_seed(
             continue
         neighbors.append(
             {
-                "path": path,
+                "path": path.path,
+                "path_identity": path.identity,
                 "similarity": round(similarity, 6),
                 "total": total,
                 "family_count": _file_family_count(counts),
@@ -177,13 +289,14 @@ def _ring2_neighbors_for_seed(
 
 def _ring1_payload(
     *,
-    counts_by_file: dict[str, Counter[str]],
-    ring1_paths: list[str],
+    counts_by_file: dict[HotspotFileRef, Counter[str]],
+    ring1_paths: list[HotspotFileRef],
     families: tuple[str, ...],
 ) -> dict[str, Any]:
     files_payload = [
         {
-            "path": path,
+            "path": path.path,
+            "path_identity": path.identity,
             "total": _file_total(counts_by_file[path]),
             "family_count": _file_family_count(counts_by_file[path]),
             "counts_by_family": {
@@ -210,7 +323,11 @@ def _ring1_payload(
     }
 
 
-def _family_totals(*, counts_by_file: dict[str, Counter[str]], families: tuple[str, ...]) -> dict[str, int]:
+def _family_totals(
+    *,
+    counts_by_file: dict[HotspotFileRef, Counter[str]],
+    families: tuple[str, ...],
+) -> dict[str, int]:
     totals = Counter[str]()
     for counts in counts_by_file.values():
         totals.update(counts)
@@ -347,8 +464,10 @@ def analyze(
         seed_counts = counts_by_file.get(seed_path, Counter())
         neighborhood_candidates.append(
             {
-                "ring_1_scope": _ring1_scope(seed_path),
-                "seed_path": seed_path,
+                "ring_1_scope": seed_path.scope.path,
+                "ring_1_scope_identity": seed_path.scope.identity,
+                "seed_path": seed_path.path,
+                "seed_path_identity": seed_path.identity,
                 "seed_total": _file_total(seed_counts),
                 "seed_family_count": _file_family_count(seed_counts),
                 "seed_counts_by_family": {
@@ -378,7 +497,7 @@ def analyze(
     # Keep one representative neighborhood per ring-1 scope (highest balanced score).
     neighborhoods_by_scope: dict[str, dict[str, Any]] = {}
     for candidate in neighborhood_candidates:
-        scope = str(candidate["ring_1_scope"])
+        scope = str(candidate["ring_1_scope_identity"])
         current = neighborhoods_by_scope.get(scope)
         if current is None:
             neighborhoods_by_scope[scope] = candidate
@@ -401,8 +520,8 @@ def analyze(
         key=lambda item: (
             -float(item["score"]["balanced"]),
             -int(item["ring_1"]["total"]),
-            str(item["ring_1_scope"]),
-            str(item["seed_path"]),
+            str(item["ring_1_scope_identity"]),
+            str(item["seed_path_identity"]),
         ),
     )
     large_zone_backlog = _sorted(
@@ -414,8 +533,8 @@ def analyze(
         key=lambda item: (
             -int(item["ring_1"]["file_count"]),
             -float(item["score"]["balanced"]),
-            str(item["ring_1_scope"]),
-            str(item["seed_path"]),
+            str(item["ring_1_scope_identity"]),
+            str(item["seed_path_identity"]),
         ),
     )
     for index, neighborhood in enumerate(neighborhoods, start=1):

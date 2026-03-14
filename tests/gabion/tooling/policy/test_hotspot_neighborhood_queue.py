@@ -6,11 +6,50 @@ from pathlib import Path
 
 import pytest
 
+from gabion.tooling.policy_substrate.policy_scanner_identity import (
+    PolicyScannerIdentitySpace,
+    canonical_policy_scanner_site_identity,
+    canonical_policy_scanner_structural_identity,
+)
 from scripts.policy import hotspot_neighborhood_queue
 
 
 def _violation(path: str, render: str) -> dict[str, object]:
-    return {"path": path, "render": render}
+    identities = PolicyScannerIdentitySpace()
+    site_identity = canonical_policy_scanner_site_identity(
+        rel_path=path,
+        qualname="<module>",
+        line=1,
+        column=1,
+        scanner_kind="violation",
+        surface="branchless",
+    )
+    structural_identity = canonical_policy_scanner_structural_identity(
+        rel_path=path,
+        qualname="<module>",
+        structural_path=render or path,
+        scanner_kind="violation",
+        surface="branchless",
+    )
+    identity = identities.item_id(
+        scanner_kind="violation",
+        rule_id="branchless",
+        rel_path=path,
+        qualname="<module>",
+        line=1,
+        column=1,
+        kind="sample",
+        site_identity=site_identity,
+        structural_identity=structural_identity,
+        label=render,
+    )
+    return {
+        "path": path,
+        "render": render,
+        "site_identity": site_identity,
+        "structural_identity": structural_identity,
+        "identity": identity.as_payload(),
+    }
 
 
 def _payload() -> dict[str, object]:
@@ -91,9 +130,12 @@ def test_analyze_builds_deterministic_ranked_neighborhoods() -> None:
     assert neighborhoods
     first = neighborhoods[0]
     assert first["ring_1_scope"] == "src/gabion/server_core"
+    assert first["ring_1_scope_identity"]
     assert first["seed_path"] == "src/gabion/server_core/a.py"
+    assert first["seed_path_identity"]
     assert first["ring_1"]["file_count"] == 2
     assert first["ring_1"]["total"] == 25
+    assert first["ring_1"]["files"][0]["path_identity"]
     assert queue["config"]["scoring"] == "balanced_5_family_logsum"
     assert float(first["score"]["ring_1_equal_family_score"]) > 0.0
     assert float(first["score"]["ring_2_equal_family_score"]) > 0.0
@@ -121,6 +163,7 @@ def test_analyze_builds_deterministic_ranked_neighborhoods() -> None:
     )
     ring2_paths = [item["path"] for item in first["ring_2"]]
     assert "src/gabion/tooling/runtime/run_dataflow_stage.py" in ring2_paths
+    assert all(item["path_identity"] for item in first["ring_2"])
 
 
 # gabion:evidence E:function_site::test_hotspot_neighborhood_queue.py::tests.gabion.tooling.policy.test_hotspot_neighborhood_queue.test_analyze_uses_single_representative_seed_per_ring1_scope
