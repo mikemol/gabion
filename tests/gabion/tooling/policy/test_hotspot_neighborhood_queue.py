@@ -131,11 +131,25 @@ def test_analyze_builds_deterministic_ranked_neighborhoods() -> None:
     first = neighborhoods[0]
     assert first["ring_1_scope"] == "src/gabion/server_core"
     assert first["ring_1_scope_identity"]
+    assert first["ring_1_scope_identity_zone"] == "hotspot_queue"
+    assert first["ring_1_scope_identity_morphism"]["morphism_kind"] == "quotients_to"
+    assert first["ring_1_scope_kernel_congruence"]["retained_decomposition_kinds"] == [
+        "rel_path_segment"
+    ]
     assert first["seed_path"] == "src/gabion/server_core/a.py"
     assert first["seed_path_identity"]
+    assert first["seed_identity_zone"] == "hotspot_queue"
+    assert first["seed_identity_morphism"]["morphism_kind"] == "quotients_to"
+    assert first["seed_reflection_functor"]["section_kind"] == "least_wire_representative"
+    assert first["seed_adjoint_pair"]["law_checks"] == [
+        "fiber_member",
+        "deterministic_section",
+    ]
     assert first["ring_1"]["file_count"] == 2
     assert first["ring_1"]["total"] == 25
     assert first["ring_1"]["files"][0]["path_identity"]
+    assert first["ring_1"]["files"][0]["identity_zone"] == "hotspot_queue"
+    assert first["ring_1"]["files"][0]["fiber_witness"]["member_source_wires"]
     assert queue["config"]["scoring"] == "balanced_5_family_logsum"
     assert float(first["score"]["ring_1_equal_family_score"]) > 0.0
     assert float(first["score"]["ring_2_equal_family_score"]) > 0.0
@@ -164,6 +178,7 @@ def test_analyze_builds_deterministic_ranked_neighborhoods() -> None:
     ring2_paths = [item["path"] for item in first["ring_2"]]
     assert "src/gabion/tooling/runtime/run_dataflow_stage.py" in ring2_paths
     assert all(item["path_identity"] for item in first["ring_2"])
+    assert all(item["identity_morphism"]["morphism_kind"] == "quotients_to" for item in first["ring_2"])
 
 
 # gabion:evidence E:function_site::test_hotspot_neighborhood_queue.py::tests.gabion.tooling.policy.test_hotspot_neighborhood_queue.test_analyze_uses_single_representative_seed_per_ring1_scope

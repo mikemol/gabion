@@ -5,16 +5,23 @@ import argparse
 import json
 import math
 from collections import Counter, defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from gabion.order_contract import ordered_or_sorted
+from gabion.tooling.policy_substrate.hotspot_queue_identity import (
+    HOTSPOT_QUEUE_ZONE,
+    HotspotQueueIdentitySpace,
+)
+from gabion.tooling.policy_substrate.identity_zone import (
+    HierarchicalIdentityGrammar,
+    IdentityCarrier,
+)
 from gabion.tooling.policy_substrate.policy_scanner_identity import (
-    PolicyScannerIdentitySpace,
-    canonical_policy_scanner_site_identity,
-    canonical_policy_scanner_structural_identity,
+    POLICY_SCANNER_ZONE,
+    policy_scanner_carrier_from_payload,
 )
 from gabion.tooling.runtime import policy_result_schema
 from gabion.tooling.policy_substrate.policy_artifact_stream import (
@@ -62,6 +69,13 @@ class QueueConfig:
 class HotspotScopeRef:
     identity: str
     path: str
+    identity_zone: str = field(default=HOTSPOT_QUEUE_ZONE.value, compare=False)
+    identity_morphism: dict[str, object] = field(default_factory=dict, compare=False)
+    kernel_congruence: dict[str, object] = field(default_factory=dict, compare=False)
+    quotient_projection: dict[str, object] = field(default_factory=dict, compare=False)
+    reflection_functor: dict[str, object] = field(default_factory=dict, compare=False)
+    adjoint_pair: dict[str, object] = field(default_factory=dict, compare=False)
+    fiber_witness: dict[str, object] = field(default_factory=dict, compare=False)
 
 
 @dataclass(frozen=True, order=True)
@@ -69,6 +83,13 @@ class HotspotFileRef:
     identity: str
     path: str
     scope: HotspotScopeRef
+    identity_zone: str = field(default=HOTSPOT_QUEUE_ZONE.value, compare=False)
+    identity_morphism: dict[str, object] = field(default_factory=dict, compare=False)
+    kernel_congruence: dict[str, object] = field(default_factory=dict, compare=False)
+    quotient_projection: dict[str, object] = field(default_factory=dict, compare=False)
+    reflection_functor: dict[str, object] = field(default_factory=dict, compare=False)
+    adjoint_pair: dict[str, object] = field(default_factory=dict, compare=False)
+    fiber_witness: dict[str, object] = field(default_factory=dict, compare=False)
 
 
 def _sorted[T](values: list[T], *, key=None) -> list[T]:
@@ -83,6 +104,14 @@ def _count_int(value: object) -> int:
     return 0
 
 
+@dataclass
+class _HotspotIdentityContext:
+    identities: HotspotQueueIdentitySpace
+    grammar: HierarchicalIdentityGrammar
+    _scope_cache: dict[str, HotspotScopeRef] = field(default_factory=dict)
+    _file_cache: dict[str, HotspotFileRef] = field(default_factory=dict)
+
+
 def _file_family_counts(
     payload: dict[str, Any],
     families: tuple[str, ...],
@@ -90,8 +119,12 @@ def _file_family_counts(
     violations = payload.get("violations")
     if not isinstance(violations, dict):
         return {}
-    identity_space = PolicyScannerIdentitySpace()
-    counts_by_file: defaultdict[HotspotFileRef, Counter[str]] = defaultdict(Counter)
+    context = _HotspotIdentityContext(
+        identities=HotspotQueueIdentitySpace(),
+        grammar=HierarchicalIdentityGrammar(),
+    )
+    counts_by_path: defaultdict[str, Counter[str]] = defaultdict(Counter)
+    source_carriers_by_path: defaultdict[str, list[IdentityCarrier[object, object, object]]] = defaultdict(list)
     for family in families:
         family_items = violations.get(family, [])
         if not isinstance(family_items, list):
@@ -99,13 +132,28 @@ def _file_family_counts(
         for item in family_items:
             if not isinstance(item, dict):
                 continue
-            file_ref = _file_ref_from_violation(
-                item=item,
-                identities=identity_space,
-            )
-            if file_ref is None:
+            path = _text(item.get("path"))
+            if not path:
                 continue
-            counts_by_file[file_ref][family] += 1
+            counts_by_path[path][family] += 1
+            source_carrier = _scanner_carrier_from_violation(item)
+            if source_carrier is not None:
+                source_carriers_by_path[path].append(source_carrier)
+    counts_by_file: dict[HotspotFileRef, Counter[str]] = {}
+    for path, counts in counts_by_path.items():
+        file_ref = _file_ref(
+            path=path,
+            source_carriers=tuple(source_carriers_by_path.get(path, ())),
+            context=context,
+            scope_source_carriers=tuple(
+                carrier
+                for other_path, carriers in source_carriers_by_path.items()
+                if str(Path(other_path).parent).replace("\\", "/")
+                == str(Path(path).parent).replace("\\", "/")
+                for carrier in carriers
+            ),
+        )
+        counts_by_file[file_ref] = counts
     return dict(counts_by_file)
 
 
@@ -142,78 +190,241 @@ def _text(value: object) -> str:
     return ""
 
 
-def _scope_ref(path: str, *, identities: PolicyScannerIdentitySpace) -> HotspotScopeRef:
+def _identity_payload(ref: HotspotScopeRef | HotspotFileRef) -> dict[str, object]:
+    return {
+        "identity_zone": ref.identity_zone,
+        "identity_morphism": ref.identity_morphism,
+        "kernel_congruence": ref.kernel_congruence,
+        "quotient_projection": ref.quotient_projection,
+        "reflection_functor": ref.reflection_functor,
+        "adjoint_pair": ref.adjoint_pair,
+        "fiber_witness": ref.fiber_witness,
+    }
+
+
+def _scope_ref(
+    path: str,
+    *,
+    source_carriers: tuple[IdentityCarrier[object, object, object], ...],
+    context: _HotspotIdentityContext,
+) -> HotspotScopeRef:
     scope_path = str(Path(path).parent).replace("\\", "/")
-    site_identity = canonical_policy_scanner_site_identity(
-        rel_path=scope_path,
-        qualname="<scope>",
-        line=0,
-        column=0,
-        scanner_kind="hotspot_scope",
-        surface="hotspot_neighborhood_queue",
-    )
-    structural_identity = canonical_policy_scanner_structural_identity(
-        rel_path=scope_path,
-        qualname="<scope>",
-        structural_path=scope_path,
-        scanner_kind="hotspot_scope",
-        surface="hotspot_neighborhood_queue",
-    )
-    identity = identities.item_id(
-        scanner_kind="hotspot_scope",
-        rule_id="hotspot_neighborhood_queue",
-        rel_path=scope_path,
-        qualname="<scope>",
-        line=0,
-        column=0,
-        kind="scope",
-        site_identity=site_identity,
-        structural_identity=structural_identity,
+    cached = context._scope_cache.get(scope_path)
+    if cached is not None:
+        return cached
+    identity = context.identities.item_id(
+        item_kind="scope",
+        path=scope_path,
         label=scope_path,
     )
-    return HotspotScopeRef(identity=identity.wire(), path=scope_path)
+    target_carrier = identity.as_carrier()
+    context.grammar.add_carrier(target_carrier)
+    for source_carrier in source_carriers:
+        context.grammar.add_carrier(source_carrier)
+    member_source_wires = tuple(
+        sorted({carrier.wire() for carrier in source_carriers})
+    )
+    chosen_wire = member_source_wires[0] if member_source_wires else ""
+    kernel = context.grammar.add_kernel_congruence(
+        source_zone=POLICY_SCANNER_ZONE.value,
+        target_zone=HOTSPOT_QUEUE_ZONE.value,
+        source_carrier_wire=chosen_wire or identity.wire(),
+        retained_decomposition_kinds=("rel_path_segment",),
+        erased_decomposition_kinds=(
+            "rule_id",
+            "qualname",
+            "kind",
+            "site_identity",
+            "structural_identity",
+            "line",
+            "column",
+        ),
+        rationale="scope quotient retains parent path face",
+    )
+    quotient = context.grammar.add_quotient_projection(
+        source_zone=POLICY_SCANNER_ZONE.value,
+        target_zone=HOTSPOT_QUEUE_ZONE.value,
+        source_carrier_wire=chosen_wire or identity.wire(),
+        target_carrier_wire=identity.wire(),
+        kernel_congruence_id=kernel.kernel_congruence_id,
+        rationale="scanner->hotspot_scope",
+    )
+    fiber = context.grammar.add_fiber_witness(
+        source_zone=POLICY_SCANNER_ZONE.value,
+        target_zone=HOTSPOT_QUEUE_ZONE.value,
+        target_carrier_wire=identity.wire(),
+        member_source_wires=member_source_wires,
+        chosen_representative_wire=chosen_wire,
+    )
+    reflection = context.grammar.add_reflection_functor(
+        source_zone=HOTSPOT_QUEUE_ZONE.value,
+        target_zone=POLICY_SCANNER_ZONE.value,
+        source_carrier_wire=identity.wire(),
+        target_carrier_wire=chosen_wire,
+        section_kind="least_wire_representative",
+        rationale="scope representative chosen from fiber",
+    )
+    adjoint = context.grammar.add_adjoint_pair(
+        left_morphism_id=quotient.quotient_projection_id,
+        right_morphism_id=reflection.reflection_functor_id,
+        along_zone_boundary=f"{POLICY_SCANNER_ZONE.value}->{HOTSPOT_QUEUE_ZONE.value}",
+        law_checks=("fiber_member", "deterministic_section"),
+    )
+    morphism = context.grammar.add_zone_morphism(
+        source_zone=POLICY_SCANNER_ZONE.value,
+        target_zone=HOTSPOT_QUEUE_ZONE.value,
+        source_carrier_wire=chosen_wire or identity.wire(),
+        target_carrier_wire=identity.wire(),
+        morphism_kind="quotients_to",
+        invertible=False,
+        retained_decomposition_kinds=("rel_path_segment",),
+        erased_decomposition_kinds=(
+            "rule_id",
+            "qualname",
+            "kind",
+            "site_identity",
+            "structural_identity",
+            "line",
+            "column",
+        ),
+        kernel_congruence_id=kernel.kernel_congruence_id,
+        quotient_projection_id=quotient.quotient_projection_id,
+        reflection_functor_id=reflection.reflection_functor_id,
+        adjoint_pair_id=adjoint.adjoint_pair_id,
+        fiber_witness_ids=(fiber.fiber_witness_id,),
+    )
+    created = HotspotScopeRef(
+        identity=identity.wire(),
+        path=scope_path,
+        identity_morphism=morphism.as_payload(),
+        kernel_congruence=kernel.as_payload(),
+        quotient_projection=quotient.as_payload(),
+        reflection_functor=reflection.as_payload(),
+        adjoint_pair=adjoint.as_payload(),
+        fiber_witness=fiber.as_payload(),
+    )
+    context._scope_cache[scope_path] = created
+    return created
 
 
-def _file_ref_from_violation(
-    *,
+def _scanner_carrier_from_violation(
     item: dict[str, object],
-    identities: PolicyScannerIdentitySpace,
-) -> HotspotFileRef | None:
-    path = _text(item.get("path"))
-    if not path:
-        return None
-    site_identity = canonical_policy_scanner_site_identity(
-        rel_path=path,
-        qualname="<file>",
-        line=0,
-        column=0,
-        scanner_kind="hotspot_file",
-        surface="hotspot_neighborhood_queue",
+) -> IdentityCarrier[object, object, object] | None:
+    identity_payload = item.get("identity")
+    if isinstance(identity_payload, dict):
+        return policy_scanner_carrier_from_payload(identity_payload)
+    return None
+
+
+def _file_ref(
+    *,
+    path: str,
+    source_carriers: tuple[IdentityCarrier[object, object, object], ...],
+    scope_source_carriers: tuple[IdentityCarrier[object, object, object], ...],
+    context: _HotspotIdentityContext,
+) -> HotspotFileRef:
+    cached = context._file_cache.get(path)
+    if cached is not None:
+        return cached
+    scope_ref = _scope_ref(
+        path,
+        source_carriers=scope_source_carriers,
+        context=context,
     )
-    structural_identity = canonical_policy_scanner_structural_identity(
-        rel_path=path,
-        qualname="<file>",
-        structural_path=path,
-        scanner_kind="hotspot_file",
-        surface="hotspot_neighborhood_queue",
-    )
-    path_identity = identities.item_id(
-        scanner_kind="hotspot_file",
-        rule_id="hotspot_neighborhood_queue",
-        rel_path=path,
-        qualname="<file>",
-        line=0,
-        column=0,
-        kind="file",
-        site_identity=site_identity,
-        structural_identity=structural_identity,
-        label=path,
-    ).wire()
-    return HotspotFileRef(
-        identity=path_identity,
+    identity = context.identities.item_id(
+        item_kind="file",
         path=path,
-        scope=_scope_ref(path, identities=identities),
+        label=path,
     )
+    target_carrier = identity.as_carrier()
+    context.grammar.add_carrier(target_carrier)
+    for source_carrier in source_carriers:
+        context.grammar.add_carrier(source_carrier)
+    member_source_wires = tuple(
+        sorted({carrier.wire() for carrier in source_carriers})
+    )
+    chosen_wire = member_source_wires[0] if member_source_wires else ""
+    kernel = context.grammar.add_kernel_congruence(
+        source_zone=POLICY_SCANNER_ZONE.value,
+        target_zone=HOTSPOT_QUEUE_ZONE.value,
+        source_carrier_wire=chosen_wire or identity.wire(),
+        retained_decomposition_kinds=("rel_path",),
+        erased_decomposition_kinds=(
+            "rule_id",
+            "qualname",
+            "kind",
+            "site_identity",
+            "structural_identity",
+            "line",
+            "column",
+        ),
+        rationale="file quotient retains rel_path face",
+    )
+    quotient = context.grammar.add_quotient_projection(
+        source_zone=POLICY_SCANNER_ZONE.value,
+        target_zone=HOTSPOT_QUEUE_ZONE.value,
+        source_carrier_wire=chosen_wire or identity.wire(),
+        target_carrier_wire=identity.wire(),
+        kernel_congruence_id=kernel.kernel_congruence_id,
+        rationale="scanner->hotspot_file",
+    )
+    fiber = context.grammar.add_fiber_witness(
+        source_zone=POLICY_SCANNER_ZONE.value,
+        target_zone=HOTSPOT_QUEUE_ZONE.value,
+        target_carrier_wire=identity.wire(),
+        member_source_wires=member_source_wires,
+        chosen_representative_wire=chosen_wire,
+    )
+    reflection = context.grammar.add_reflection_functor(
+        source_zone=HOTSPOT_QUEUE_ZONE.value,
+        target_zone=POLICY_SCANNER_ZONE.value,
+        source_carrier_wire=identity.wire(),
+        target_carrier_wire=chosen_wire,
+        section_kind="least_wire_representative",
+        rationale="file representative chosen from fiber",
+    )
+    adjoint = context.grammar.add_adjoint_pair(
+        left_morphism_id=quotient.quotient_projection_id,
+        right_morphism_id=reflection.reflection_functor_id,
+        along_zone_boundary=f"{POLICY_SCANNER_ZONE.value}->{HOTSPOT_QUEUE_ZONE.value}",
+        law_checks=("fiber_member", "deterministic_section"),
+    )
+    morphism = context.grammar.add_zone_morphism(
+        source_zone=POLICY_SCANNER_ZONE.value,
+        target_zone=HOTSPOT_QUEUE_ZONE.value,
+        source_carrier_wire=chosen_wire or identity.wire(),
+        target_carrier_wire=identity.wire(),
+        morphism_kind="quotients_to",
+        invertible=False,
+        retained_decomposition_kinds=("rel_path",),
+        erased_decomposition_kinds=(
+            "rule_id",
+            "qualname",
+            "kind",
+            "site_identity",
+            "structural_identity",
+            "line",
+            "column",
+        ),
+        kernel_congruence_id=kernel.kernel_congruence_id,
+        quotient_projection_id=quotient.quotient_projection_id,
+        reflection_functor_id=reflection.reflection_functor_id,
+        adjoint_pair_id=adjoint.adjoint_pair_id,
+        fiber_witness_ids=(fiber.fiber_witness_id,),
+    )
+    created = HotspotFileRef(
+        identity=identity.wire(),
+        path=path,
+        scope=scope_ref,
+        identity_morphism=morphism.as_payload(),
+        kernel_congruence=kernel.as_payload(),
+        quotient_projection=quotient.as_payload(),
+        reflection_functor=reflection.as_payload(),
+        adjoint_pair=adjoint.as_payload(),
+        fiber_witness=fiber.as_payload(),
+    )
+    context._file_cache[path] = created
+    return created
 
 
 def _seed_paths(
@@ -270,6 +481,7 @@ def _ring2_neighbors_for_seed(
             {
                 "path": path.path,
                 "path_identity": path.identity,
+                **_identity_payload(path),
                 "similarity": round(similarity, 6),
                 "total": total,
                 "family_count": _file_family_count(counts),
@@ -297,6 +509,7 @@ def _ring1_payload(
         {
             "path": path.path,
             "path_identity": path.identity,
+            **_identity_payload(path),
             "total": _file_total(counts_by_file[path]),
             "family_count": _file_family_count(counts_by_file[path]),
             "counts_by_family": {
@@ -466,8 +679,16 @@ def analyze(
             {
                 "ring_1_scope": seed_path.scope.path,
                 "ring_1_scope_identity": seed_path.scope.identity,
+                **{
+                    f"ring_1_scope_{key}": value
+                    for key, value in _identity_payload(seed_path.scope).items()
+                },
                 "seed_path": seed_path.path,
                 "seed_path_identity": seed_path.identity,
+                **{
+                    f"seed_{key}": value
+                    for key, value in _identity_payload(seed_path).items()
+                },
                 "seed_total": _file_total(seed_counts),
                 "seed_family_count": _file_family_count(seed_counts),
                 "seed_counts_by_family": {

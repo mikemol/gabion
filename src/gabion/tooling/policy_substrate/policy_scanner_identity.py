@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import StrEnum
+from collections.abc import Mapping
 import re
 
 from gabion.analysis.aspf.aspf_lattice_algebra import canonical_structural_identity
@@ -178,6 +179,104 @@ def canonical_policy_scanner_structural_identity(
         structural_path=structural_path,
         node_kind=scanner_kind,
         surface=surface,
+    )
+
+
+def policy_scanner_carrier_from_payload(
+    payload: Mapping[str, object],
+) -> IdentityCarrier[
+    PolicyScannerIdentityNamespace,
+    PolicyScannerDecompositionKind,
+    PolicyScannerDecompositionRelationKind,
+]:
+    canonical_wire = str(payload.get("wire", "") or "").strip()
+    canonical = IdentityAtom(
+        atom_id=0,
+        namespace=PolicyScannerIdentityNamespace.ITEM,
+        token=canonical_wire,
+    )
+    decomposition_by_wire: dict[str, PolicyScannerDecompositionIdentity] = {}
+    for item in payload.get("decompositions", ()):
+        if not isinstance(item, Mapping):
+            continue
+        wire = str(item.get("wire", "") or "").strip()
+        if not wire:
+            continue
+        decomposition_kind_raw = str(item.get("decomposition_kind", "") or "").strip()
+        try:
+            decomposition_kind = PolicyScannerDecompositionKind(decomposition_kind_raw)
+        except ValueError:
+            continue
+        origin_wire = str(item.get("origin_wire", "") or canonical_wire).strip() or canonical_wire
+        origin_namespace_raw = str(
+            item.get("origin_namespace", PolicyScannerIdentityNamespace.ITEM.value) or ""
+        ).strip()
+        try:
+            origin_namespace = PolicyScannerIdentityNamespace(origin_namespace_raw)
+        except ValueError:
+            origin_namespace = PolicyScannerIdentityNamespace.ITEM
+        decomposition_by_wire[wire] = PolicyScannerDecompositionIdentity(
+            canonical=IdentityAtom(
+                atom_id=0,
+                namespace=(
+                    PolicyScannerIdentityNamespace.ITEM
+                    if wire == canonical_wire
+                    else PolicyScannerIdentityNamespace.DECOMPOSITION
+                ),
+                token=wire,
+            ),
+            decomposition_kind=decomposition_kind,
+            origin=IdentityAtom(
+                atom_id=0,
+                namespace=origin_namespace,
+                token=origin_wire,
+            ),
+            label=str(item.get("label", "") or "").strip(),
+            part_index=int(item.get("part_index", -1) or -1),
+        )
+    relations: list[PolicyScannerDecompositionRelation] = []
+    for item in payload.get("relations", ()):
+        if not isinstance(item, Mapping):
+            continue
+        source = decomposition_by_wire.get(str(item.get("source_wire", "") or "").strip())
+        target = decomposition_by_wire.get(str(item.get("target_wire", "") or "").strip())
+        if source is None or target is None:
+            continue
+        relation_kind_raw = str(item.get("relation_kind", "") or "").strip()
+        try:
+            relation_kind = PolicyScannerDecompositionRelationKind(relation_kind_raw)
+        except ValueError:
+            continue
+        relations.append(
+            PolicyScannerDecompositionRelation(
+                relation_kind=relation_kind,
+                source=source,
+                target=target,
+                rationale=str(item.get("rationale", "") or "").strip(),
+            )
+        )
+    zone_name = str(
+        payload.get("provenance", {}).get("zone_name", POLICY_SCANNER_ZONE.value)
+        if isinstance(payload.get("provenance"), Mapping)
+        else POLICY_SCANNER_ZONE.value
+    ).strip() or POLICY_SCANNER_ZONE.value
+    return IdentityCarrier(
+        canonical=canonical,
+        zone_name=IdentityZoneName(zone_name),
+        carrier_kind=str(payload.get("scanner_kind", "") or "").strip(),
+        label=str(payload.get("label", "") or canonical_wire).strip(),
+        decompositions=tuple(decomposition_by_wire.values()),
+        relations=tuple(relations),
+        metadata={
+            "rule_id": str(payload.get("rule_id", "") or "").strip(),
+            "rel_path": str(payload.get("rel_path", "") or "").strip(),
+            "qualname": str(payload.get("qualname", "") or "").strip(),
+            "line": int(payload.get("line", 0) or 0),
+            "column": int(payload.get("column", 0) or 0),
+            "kind": str(payload.get("kind", "") or "").strip(),
+            "site_identity": str(payload.get("site_identity", "") or "").strip(),
+            "structural_identity": str(payload.get("structural_identity", "") or "").strip(),
+        },
     )
 
 
@@ -462,4 +561,5 @@ __all__ = [
     "PolicyScannerIdentitySpace",
     "canonical_policy_scanner_site_identity",
     "canonical_policy_scanner_structural_identity",
+    "policy_scanner_carrier_from_payload",
 ]
