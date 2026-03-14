@@ -11,6 +11,36 @@ def _sample_payload() -> dict[str, object]:
         "format_version": 1,
         "generated_at_utc": "2026-03-14T05:33:19+00:00",
         "root": "/repo",
+        "planning_chart_summary": {
+            "item_count": 3,
+            "selected_completion_item_ids": ["repo.followup:PSF-007-TP-001"],
+            "phases": [
+                {
+                    "phase_kind": "scan",
+                    "item_count": 1,
+                    "status_counts": {"in_progress": 1},
+                    "blocker_counts": {},
+                    "selected_item_ids": [],
+                    "items": [],
+                },
+                {
+                    "phase_kind": "predict",
+                    "item_count": 1,
+                    "status_counts": {"policy_blocked": 1},
+                    "blocker_counts": {"policy_blocked": 1},
+                    "selected_item_ids": [],
+                    "items": [],
+                },
+                {
+                    "phase_kind": "complete",
+                    "item_count": 1,
+                    "status_counts": {"ready_structural": 1},
+                    "blocker_counts": {"ready_structural": 1},
+                    "selected_item_ids": ["repo.followup:PSF-007-TP-001"],
+                    "items": [],
+                },
+            ],
+        },
         "workstreams": [
             {
                 "object_id": "CSA-IVL",

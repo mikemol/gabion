@@ -83,6 +83,11 @@ from gabion.tooling.policy_substrate.structured_artifact_ingress import (
 from gabion.tooling.policy_substrate.connectivity_synergy_registry import (
     connectivity_synergy_workstream_registries,
 )
+from gabion.tooling.policy_substrate.planning_chart import (
+    PlanningChartRule,
+    PlanningChartSummary,
+    build_planning_chart_summary,
+)
 from gabion.tooling.policy_substrate.site_identity import (
     canonical_site_identity,
     stable_hash,
@@ -205,6 +210,12 @@ class InvariantGraphNode:
     seam_class: str
     source_marker_node_id: str
     status_hint: str
+    phase_kind: str = ""
+    item_kind: str = ""
+    source_kind: str = ""
+    selection_rank: int = 0
+    tracked_node_ids: tuple[str, ...] = ()
+    tracked_object_ids: tuple[str, ...] = ()
 
     def matches_raw_id(self, raw_id: str) -> bool:
         values = {
@@ -244,6 +255,12 @@ class InvariantGraphNode:
             "seam_class": self.seam_class,
             "source_marker_node_id": self.source_marker_node_id,
             "status_hint": self.status_hint,
+            "phase_kind": self.phase_kind,
+            "item_kind": self.item_kind,
+            "source_kind": self.source_kind,
+            "selection_rank": self.selection_rank,
+            "tracked_node_ids": list(self.tracked_node_ids),
+            "tracked_object_ids": list(self.tracked_object_ids),
         }
 
 
@@ -315,6 +332,7 @@ class InvariantGraph:
     edges: tuple[InvariantGraphEdge, ...]
     diagnostics: tuple[InvariantGraphDiagnostic, ...]
     ranking_signals: tuple[InvariantGraphRankingSignal, ...] = ()
+    planning_chart_summary: PlanningChartSummary | None = None
 
     def node_by_id(self) -> dict[str, InvariantGraphNode]:
         return {node.node_id: node for node in self.nodes}
@@ -364,6 +382,11 @@ class InvariantGraph:
             "edges": [edge.as_payload() for edge in self.edges],
             "diagnostics": [item.as_payload() for item in self.diagnostics],
             "ranking_signals": [item.as_payload() for item in self.ranking_signals],
+            "planning_chart_summary": (
+                None
+                if self.planning_chart_summary is None
+                else self.planning_chart_summary.as_payload()
+            ),
         }
 
     @classmethod
@@ -395,6 +418,16 @@ class InvariantGraph:
                 seam_class=str(item.get("seam_class", "")),
                 source_marker_node_id=str(item.get("source_marker_node_id", "")),
                 status_hint=str(item.get("status_hint", "")),
+                phase_kind=str(item.get("phase_kind", "")),
+                item_kind=str(item.get("item_kind", "")),
+                source_kind=str(item.get("source_kind", "")),
+                selection_rank=int(item.get("selection_rank", 0) or 0),
+                tracked_node_ids=tuple(
+                    str(value) for value in item.get("tracked_node_ids", [])
+                ),
+                tracked_object_ids=tuple(
+                    str(value) for value in item.get("tracked_object_ids", [])
+                ),
             )
             for item in payload.get("nodes", [])
             if isinstance(item, Mapping)
@@ -444,6 +477,13 @@ class InvariantGraph:
             edges=edges,
             diagnostics=diagnostics,
             ranking_signals=ranking_signals,
+            planning_chart_summary=(
+                None
+                if not isinstance(payload.get("planning_chart_summary"), Mapping)
+                else PlanningChartSummary.from_payload(
+                    cast(Mapping[str, object], payload["planning_chart_summary"])
+                )
+            ),
         )
 
 
@@ -2975,6 +3015,7 @@ class InvariantWorkstreamsProjection:
     generated_at_utc: str
     workstreams: ReplayableStream[InvariantWorkstreamProjection]
     diagnostics: tuple[InvariantGraphDiagnostic, ...] = ()
+    planning_chart_summary: PlanningChartSummary | None = None
     node_lookup: Mapping[str, InvariantGraphNode] = field(
         default_factory=dict,
         repr=False,
@@ -5720,6 +5761,11 @@ class InvariantWorkstreamsProjection:
             "root": self.root,
             "workstreams": [item.as_payload() for item in workstreams],
             "diagnostic_summary": diagnostic_summary.as_payload(),
+            "planning_chart_summary": (
+                None
+                if self.planning_chart_summary is None
+                else self.planning_chart_summary.as_payload()
+            ),
             "repo_next_actions": {
                 "dominant_followup_class": self.dominant_repo_followup_class(),
                 "next_human_followup_family": self.next_repo_human_followup_family(),
@@ -7984,6 +8030,12 @@ def _synthetic_node(
     source_marker_node_id: str = "",
     node_kind: str = "synthetic_work_item",
     status_hint: str = "",
+    phase_kind: str = "",
+    item_kind: str = "",
+    source_kind: str = "",
+    selection_rank: int = 0,
+    tracked_node_ids: tuple[str, ...] = (),
+    tracked_object_ids: tuple[str, ...] = (),
 ) -> InvariantGraphNode:
     site_identity, structural_identity = _synthetic_identity(
         ref_kind=ref_kind,
@@ -8013,6 +8065,12 @@ def _synthetic_node(
         seam_class=seam_class,
         source_marker_node_id=source_marker_node_id,
         status_hint=status_hint,
+        phase_kind=phase_kind,
+        item_kind=item_kind,
+        source_kind=source_kind,
+        selection_rank=selection_rank,
+        tracked_node_ids=tracked_node_ids,
+        tracked_object_ids=tracked_object_ids,
     )
 
 
@@ -11296,39 +11354,9 @@ def _resolve_blocking_dependencies(state: _InvariantGraphBuildState) -> None:
             _add_edge(state, "depends_on", node.node_id, target_id)
 
 
-def build_invariant_graph(
-    root: Path,
-    *,
-    declared_registries: tuple[WorkstreamRegistry, ...] | None = None,
-) -> InvariantGraph:
-    root = root.resolve()
-    state = _new_build_state(root)
-    marker_nodes = scan_invariant_markers(root)
-    marker_node_id_by_marker_id: dict[str, str] = {}
-    for marker_node in marker_nodes:
-        graph_node = _node_from_scan_entry(marker_node)
-        _add_node(state, graph_node)
-        marker_node_id_by_marker_id[graph_node.marker_id] = graph_node.node_id
-        _link_node_refs(state, graph_node)
-    registries = (
-        _iter_declared_workstream_registries()
-        if declared_registries is None
-        else declared_registries
-    )
-    for registry in registries:
-        _enrich_workstream_registry(
-            state,
-            registry=registry,
-            marker_node_id_by_marker_id=marker_node_id_by_marker_id,
-        )
-    _resolve_blocking_dependencies(state)
-    _join_policy_signals(state)
-    _join_test_coverage(state)
-    _join_test_failures(state)
-    _join_governance_convergence_sources(state)
-    _join_control_loop_artifacts(state)
+def _graph_from_build_state(state: _InvariantGraphBuildState) -> InvariantGraph:
     return InvariantGraph(
-        root=str(root),
+        root=str(state.root),
         workstream_root_ids=tuple(_sorted(state.workstream_root_ids)),
         nodes=tuple(
             _sorted(
@@ -11361,6 +11389,206 @@ def build_invariant_graph(
             )
         ),
     )
+
+
+def _build_base_invariant_graph(
+    root: Path,
+    *,
+    declared_registries: tuple[WorkstreamRegistry, ...] | None = None,
+) -> InvariantGraph:
+    root = root.resolve()
+    state = _new_build_state(root)
+    marker_nodes = scan_invariant_markers(root)
+    marker_node_id_by_marker_id: dict[str, str] = {}
+    for marker_node in marker_nodes:
+        graph_node = _node_from_scan_entry(marker_node)
+        _add_node(state, graph_node)
+        marker_node_id_by_marker_id[graph_node.marker_id] = graph_node.node_id
+        _link_node_refs(state, graph_node)
+    registries = (
+        _iter_declared_workstream_registries()
+        if declared_registries is None
+        else declared_registries
+    )
+    for registry in registries:
+        _enrich_workstream_registry(
+            state,
+            registry=registry,
+            marker_node_id_by_marker_id=marker_node_id_by_marker_id,
+        )
+    _resolve_blocking_dependencies(state)
+    _join_policy_signals(state)
+    _join_test_coverage(state)
+    _join_test_failures(state)
+    _join_governance_convergence_sources(state)
+    _join_control_loop_artifacts(state)
+    return _graph_from_build_state(state)
+
+
+def _planning_chart_item_node_id(item_id: str) -> str:
+    return f"planning_chart_item:{stable_hash(item_id)}"
+
+
+def _graph_with_planning_chart(
+    graph: InvariantGraph,
+    summary: PlanningChartSummary,
+) -> InvariantGraph:
+    nodes_by_id = {node.node_id: node for node in graph.nodes}
+    edges = list(graph.edges)
+    edge_keys = {(edge.edge_kind, edge.source_id, edge.target_id) for edge in edges}
+
+    def _add_node(node: InvariantGraphNode) -> None:
+        nodes_by_id[node.node_id] = node
+
+    def _add_edge(edge_kind: str, source_id: str, target_id: str) -> None:
+        key = (edge_kind, source_id, target_id)
+        if source_id == target_id or key in edge_keys:
+            return
+        edge_keys.add(key)
+        edges.append(
+            InvariantGraphEdge(
+                edge_id=_edge_id(edge_kind, source_id, target_id),
+                edge_kind=edge_kind,
+                source_id=source_id,
+                target_id=target_id,
+            )
+        )
+
+    report_node_id = "planning_chart_report:artifact"
+    phase_count_summary = ", ".join(
+        f"{phase.phase_kind}={phase.item_count}" for phase in summary.phases
+    )
+    report_node = _synthetic_node(
+        node_id=report_node_id,
+        title="planning chart",
+        ref_kind="planning_chart_report",
+        value="artifacts/out/invariant_graph.json#planning_chart_summary",
+        reasoning_summary=(
+            f"planning chart items={summary.item_count}; {phase_count_summary}"
+        ),
+        reasoning_control="invariant_graph.planning_chart",
+        rel_path="artifacts/out/invariant_graph.json",
+        qualname="planning_chart_summary",
+        node_kind="planning_chart_report",
+        status_hint="populated" if summary.item_count > 0 else "empty",
+    )
+    _add_node(report_node)
+    for phase in summary.phases:
+        phase_node_id = f"planning_phase:{phase.phase_kind}"
+        phase_node = _synthetic_node(
+            node_id=phase_node_id,
+            title=phase.phase_kind,
+            ref_kind="planning_phase",
+            value=phase.phase_kind,
+            reasoning_summary=(
+                f"{phase.phase_kind} items={phase.item_count} "
+                f"selected={len(phase.selected_item_ids)}"
+            ),
+            reasoning_control="invariant_graph.planning_chart.phase",
+            rel_path="artifacts/out/invariant_graph.json",
+            qualname=f"planning_chart_summary.{phase.phase_kind}",
+            node_kind="planning_phase",
+            status_hint="active" if phase.item_count > 0 else "empty",
+            phase_kind=phase.phase_kind,
+        )
+        _add_node(phase_node)
+        _add_edge("contains", report_node_id, phase_node_id)
+        for item in phase.items:
+            item_node_id = _planning_chart_item_node_id(item.item_id)
+            item_node = _synthetic_node(
+                node_id=item_node_id,
+                title=item.title,
+                ref_kind="planning_chart_item",
+                value=item.item_id,
+                object_ids=tuple(
+                    _sorted(list({item.item_id, *item.tracked_object_ids}))
+                ),
+                reasoning_summary=item.reasoning_summary,
+                reasoning_control="invariant_graph.planning_chart.item",
+                rel_path="artifacts/out/invariant_graph.json",
+                qualname=item.item_id,
+                node_kind="planning_chart_item",
+                status_hint=item.status_hint,
+                phase_kind=item.phase_kind,
+                item_kind=item.item_kind,
+                source_kind=item.source_kind,
+                selection_rank=item.selection_rank,
+                tracked_node_ids=item.tracked_node_ids,
+                tracked_object_ids=item.tracked_object_ids,
+            )
+            _add_node(item_node)
+            _add_edge("contains", phase_node_id, item_node_id)
+            for tracked_node_id in item.tracked_node_ids:
+                if tracked_node_id in nodes_by_id:
+                    _add_edge("tracks", item_node_id, tracked_node_id)
+            for tracked_object_id in item.tracked_object_ids:
+                ref_node_id = _synthetic_ref_node_id("object_id", tracked_object_id)
+                if ref_node_id in nodes_by_id:
+                    _add_edge("tracks", item_node_id, ref_node_id)
+
+    return replace(
+        graph,
+        nodes=tuple(
+            _sorted(
+                list(nodes_by_id.values()),
+                key=lambda item: (item.node_kind, item.rel_path, item.line, item.node_id),
+            )
+        ),
+        edges=tuple(
+            _sorted(
+                edges,
+                key=lambda item: (item.edge_kind, item.source_id, item.target_id),
+            )
+        ),
+        planning_chart_summary=summary,
+    )
+
+
+@dataclass(frozen=True)
+class InvariantPlanningBundle:
+    graph: InvariantGraph
+    workstreams: InvariantWorkstreamsProjection
+
+
+def build_invariant_planning_bundle(
+    root: Path,
+    *,
+    declared_registries: tuple[WorkstreamRegistry, ...] | None = None,
+    planning_chart_rules: tuple[PlanningChartRule, ...] | None = None,
+) -> InvariantPlanningBundle:
+    base_graph = _build_base_invariant_graph(
+        root,
+        declared_registries=declared_registries,
+    )
+    base_workstreams = _build_invariant_workstreams_projection(
+        base_graph,
+        root=root,
+    )
+    planning_chart_summary = build_planning_chart_summary(
+        graph=base_graph,
+        workstreams=base_workstreams,
+        rules=planning_chart_rules,
+    )
+    graph = _graph_with_planning_chart(base_graph, planning_chart_summary)
+    workstreams = replace(
+        base_workstreams,
+        node_lookup=graph.node_by_id(),
+        planning_chart_summary=planning_chart_summary,
+    )
+    return InvariantPlanningBundle(graph=graph, workstreams=workstreams)
+
+
+def build_invariant_graph(
+    root: Path,
+    *,
+    declared_registries: tuple[WorkstreamRegistry, ...] | None = None,
+    planning_chart_rules: tuple[PlanningChartRule, ...] | None = None,
+) -> InvariantGraph:
+    return build_invariant_planning_bundle(
+        root,
+        declared_registries=declared_registries,
+        planning_chart_rules=planning_chart_rules,
+    ).graph
 
 
 def _descendant_node_ids(graph: InvariantGraph, node_id: str) -> tuple[str, ...]:
@@ -11420,7 +11648,7 @@ def _workstream_test_case_ids(graph: InvariantGraph, node_ids: set[str]) -> tupl
     return tuple(_sorted(list(test_case_ids)))
 
 
-def build_invariant_workstreams(
+def _build_invariant_workstreams_projection(
     graph: InvariantGraph,
     *,
     root: Path | None = None,
@@ -11849,6 +12077,7 @@ def build_invariant_workstreams(
         root=graph.root,
         generated_at_utc=generated_at_utc,
         diagnostics=graph.diagnostics,
+        planning_chart_summary=graph.planning_chart_summary,
         node_lookup=node_by_id,
         workstreams=_stream_from_iterable(
             lambda: (
@@ -11857,6 +12086,23 @@ def build_invariant_workstreams(
             )
         ),
     )
+
+
+def build_invariant_workstreams(
+    graph: InvariantGraph,
+    *,
+    root: Path | None = None,
+    planning_chart_rules: tuple[PlanningChartRule, ...] | None = None,
+) -> InvariantWorkstreamsProjection:
+    projection = _build_invariant_workstreams_projection(graph, root=root)
+    if projection.planning_chart_summary is not None:
+        return projection
+    planning_chart_summary = build_planning_chart_summary(
+        graph=graph,
+        workstreams=projection,
+        rules=planning_chart_rules,
+    )
+    return replace(projection, planning_chart_summary=planning_chart_summary)
 
 
 def build_psf_phase5_projection(
@@ -12113,9 +12359,11 @@ __all__ = [
     "InvariantLedgerProjection",
     "InvariantLedgerProjections",
     "InvariantGraphNode",
+    "InvariantPlanningBundle",
     "InvariantWorkstreamDrift",
     "blocker_chains",
     "build_invariant_graph",
+    "build_invariant_planning_bundle",
     "build_invariant_ledger_alignments",
     "build_invariant_ledger_delta_projections",
     "build_invariant_ledger_projections",

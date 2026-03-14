@@ -183,6 +183,44 @@ def test_invariant_graph_write_and_load_round_trip(
     assert len(reloaded.nodes) == len(graph.nodes)
     assert len(reloaded.edges) == len(graph.edges)
     assert len(reloaded.diagnostics) == len(graph.diagnostics)
+    assert reloaded.planning_chart_summary == graph.planning_chart_summary
+
+
+def test_build_invariant_graph_materializes_planning_chart_overlay_live_repo() -> None:
+    graph = invariant_graph.build_invariant_graph(REPO_ROOT)
+    payload = graph.as_payload()
+
+    node_kind_counts = payload["counts"]["node_kind_counts"]
+    assert node_kind_counts["planning_chart_report"] == 1
+    assert node_kind_counts["planning_phase"] == 3
+    assert node_kind_counts["planning_chart_item"] > 0
+
+    planning_chart_summary = payload["planning_chart_summary"]
+    assert planning_chart_summary is not None
+    phases = {
+        phase["phase_kind"]: phase for phase in planning_chart_summary["phases"]
+    }
+    assert set(phases) == {"scan", "predict", "complete"}
+    assert any(
+        item["source_kind"] == "kernel_vm_alignment"
+        for item in phases["scan"]["items"]
+    )
+    assert any(
+        item["source_kind"] == "declared_counterfactual"
+        for item in phases["predict"]["items"]
+    )
+    assert any(
+        item["source_kind"] == "recommended_cut"
+        for item in phases["complete"]["items"]
+    )
+
+
+def test_build_invariant_workstreams_includes_planning_chart_summary_live_repo() -> None:
+    graph = invariant_graph.build_invariant_graph(REPO_ROOT)
+    workstreams = invariant_graph.build_invariant_workstreams(graph, root=REPO_ROOT)
+    payload = workstreams.as_payload()
+
+    assert payload["planning_chart_summary"] == graph.as_payload()["planning_chart_summary"]
 
 
 @pytest.mark.skip(

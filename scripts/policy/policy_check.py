@@ -2606,17 +2606,17 @@ def _write_invariant_graph_artifact(
     output_path: Path,
 ) -> Mapping[str, object]:
     from gabion.tooling.policy_substrate.invariant_graph import (
-        build_invariant_graph,
+        build_invariant_planning_bundle,
         build_invariant_ledger_projections,
-        build_invariant_workstreams,
         load_invariant_workstreams,
         write_invariant_graph,
         write_invariant_ledger_projections,
         write_invariant_workstreams,
     )
 
-    graph = build_invariant_graph(REPO_ROOT)
-    workstreams = build_invariant_workstreams(graph, root=REPO_ROOT)
+    bundle = build_invariant_planning_bundle(REPO_ROOT)
+    graph = bundle.graph
+    workstreams = bundle.workstreams
     workstreams_path = output_path.parent / "invariant_workstreams.json"
     write_invariant_graph(output_path.parent / "invariant_graph.json", graph)
     write_invariant_workstreams(

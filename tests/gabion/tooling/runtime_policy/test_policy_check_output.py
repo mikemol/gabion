@@ -229,10 +229,12 @@ def test_policy_check_output_carries_projection_fiber_semantics_on_pass(
     assert "residues" in kernel_vm_alignment_payload
     assert invariant_workstreams_payload["counts"]["workstream_count"] >= 1
     assert "diagnostic_summary" in invariant_workstreams_payload
+    assert "planning_chart_summary" in invariant_workstreams_payload
     assert "repo_next_actions" in invariant_workstreams_payload
     assert "diagnostic_count" in invariant_workstreams_payload["counts"]
     assert "workspace_preservation_count" in invariant_workstreams_payload["diagnostic_summary"]
     assert "orphaned_workspace_change_count" in invariant_workstreams_payload["diagnostic_summary"]
+    assert "phases" in invariant_workstreams_payload["planning_chart_summary"]
     assert "dominant_followup_class" in invariant_workstreams_payload["repo_next_actions"]
     assert "next_human_followup_family" in invariant_workstreams_payload["repo_next_actions"]
     assert "recommended_followup" in invariant_workstreams_payload["repo_next_actions"]

@@ -14,6 +14,7 @@ from gabion.tooling.policy_substrate.invariant_graph import (
     InvariantGraph,
     blocker_chains,
     build_invariant_graph,
+    build_invariant_planning_bundle,
     build_invariant_ledger_alignments,
     build_invariant_ledger_delta_projections,
     build_invariant_ledger_projections,
@@ -2910,8 +2911,9 @@ def main(argv: list[str] | None = None) -> int:
     ).resolve()
 
     if args.command == "build":
-        graph = build_invariant_graph(root)
-        workstreams = build_invariant_workstreams(graph, root=root)
+        bundle = build_invariant_planning_bundle(root)
+        graph = bundle.graph
+        workstreams = bundle.workstreams
         write_invariant_graph(artifact, graph)
         write_invariant_workstreams(workstreams_artifact, workstreams)
         write_invariant_ledger_projections(
