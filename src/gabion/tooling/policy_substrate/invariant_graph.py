@@ -69,6 +69,7 @@ from gabion.tooling.policy_substrate.structured_artifact_ingress import (
     StructuredArtifactIdentitySpace,
     TestEvidenceSite,
     load_controller_drift_artifact,
+    load_identity_grammar_completion_artifact,
     load_kernel_vm_alignment_artifact,
     load_local_ci_repro_contract_artifact,
     load_docflow_compliance_artifact,
@@ -119,6 +120,9 @@ _LOCAL_CI_REPRO_CONTRACT_ARTIFACT = Path(
     "artifacts/out/local_ci_repro_contract.json"
 )
 _KERNEL_VM_ALIGNMENT_ARTIFACT = Path("artifacts/out/kernel_vm_alignment.json")
+_IDENTITY_GRAMMAR_COMPLETION_ARTIFACT = Path(
+    "artifacts/out/identity_grammar_completion.json"
+)
 _GIT_STATE_ARTIFACT = Path("artifacts/out/git_state.json")
 _DOCFLOW_REQUIRED_ISSUE_LIFECYCLE_LABELS = (
     "done-on-stage",
@@ -128,6 +132,13 @@ _COUNTERFACTUAL_BLOCKED_READINESS_CLASSES = frozenset(
     {"policy_blocked", "diagnostic_blocked", "counterfactual_blocked"}
 )
 _DIRTY_GIT_STATE_CLASSES = frozenset({"staged", "unstaged", "untracked"})
+_IDENTITY_GRAMMAR_TOUCHSITE_IDS = {
+    "raw_string_grouping_in_core_queue_logic": "CSA-IDR-TS-013",
+    "partial_file_quotient_reification": "CSA-IDR-TS-014",
+    "partial_scope_quotient_reification": "CSA-IDR-TS-015",
+    "planning_chart_identity_grammar_unintegrated": "CSA-IDR-TS-016",
+    "coherence_witness_emission_missing": "CSA-IDR-TS-017",
+}
 _MECHANICALLY_RECONSTRUCTABLE_PATH_ROOTS = frozenset(
     {
         "artifacts",
@@ -10953,6 +10964,137 @@ def _join_kernel_vm_alignment_artifact(state: _InvariantGraphBuildState) -> None
         )
 
 
+def _join_identity_grammar_completion_artifact(state: _InvariantGraphBuildState) -> None:
+    artifact = load_identity_grammar_completion_artifact(
+        root=state.root,
+        rel_path=_IDENTITY_GRAMMAR_COMPLETION_ARTIFACT.as_posix(),
+        identities=state.structured_artifact_identities,
+    )
+    if artifact is None:
+        return
+    report_node_id = "identity_grammar_completion_report:artifact"
+    report_node = _synthetic_node(
+        node_id=report_node_id,
+        title="identity grammar completion",
+        ref_kind="identity_grammar_completion_report",
+        value=_IDENTITY_GRAMMAR_COMPLETION_ARTIFACT.as_posix(),
+        object_ids=(artifact.identity.wire(),),
+        reasoning_summary=(
+            "identity grammar surfaces={surfaces} pass={passed} fail={failed} "
+            "residues={residues}".format(
+                surfaces=artifact.surface_count,
+                passed=artifact.pass_count,
+                failed=artifact.fail_count,
+                residues=artifact.residue_count,
+            )
+        ),
+        reasoning_control="invariant_graph.identity_grammar_completion",
+        rel_path=_IDENTITY_GRAMMAR_COMPLETION_ARTIFACT.as_posix(),
+        node_kind="identity_grammar_completion_report",
+        status_hint="pass" if artifact.residue_count == 0 else "partial",
+    )
+    _add_node(state, report_node, replace=True)
+    _link_node_refs(state, report_node)
+    touchpoint_node_id = state.object_node_ids.get("CSA-IDR-TP-004", "")
+    if touchpoint_node_id:
+        _add_edge(state, "contains", touchpoint_node_id, report_node_id)
+    surface_node_ids: dict[str, str] = {}
+    for surface in artifact.surfaces:
+        surface_node_id = (
+            f"identity_grammar_completion_surface:{stable_hash(surface.identity.wire())}"
+        )
+        surface_node = _synthetic_node(
+            node_id=surface_node_id,
+            title=str(surface),
+            ref_kind="identity_grammar_completion_surface",
+            value=surface.identity.wire(),
+            object_ids=tuple(
+                item
+                for item in (
+                    surface.identity.wire(),
+                    surface.surface_id,
+                    *surface.residue_ids,
+                )
+                if item
+            ),
+            reasoning_summary=surface.summary,
+            reasoning_control="invariant_graph.identity_grammar_completion.surface",
+            rel_path=_IDENTITY_GRAMMAR_COMPLETION_ARTIFACT.as_posix(),
+            node_kind="identity_grammar_completion_surface",
+            status_hint=surface.status,
+        )
+        _add_node(state, surface_node, replace=True)
+        _link_node_refs(state, surface_node)
+        _add_edge(state, "contains", report_node_id, surface_node_id)
+        surface_node_ids[surface.surface_id] = surface_node_id
+        for rel_path in surface.evidence_paths:
+            _link_to_existing_nodes_for_path(
+                state,
+                source_node_id=surface_node_id,
+                rel_path=rel_path,
+            )
+    for residue in artifact.residues:
+        residue_node_id = (
+            f"identity_grammar_completion_residue:{stable_hash(residue.identity.wire())}"
+        )
+        residue_node = _synthetic_node(
+            node_id=residue_node_id,
+            title=str(residue),
+            ref_kind="identity_grammar_completion_residue",
+            value=residue.identity.wire(),
+            object_ids=tuple(
+                item
+                for item in (
+                    residue.identity.wire(),
+                    residue.residue_id,
+                    residue.surface_id,
+                    residue.residue_kind,
+                )
+                if item
+            ),
+            reasoning_summary=residue.message,
+            reasoning_control="invariant_graph.identity_grammar_completion.residue",
+            rel_path=_IDENTITY_GRAMMAR_COMPLETION_ARTIFACT.as_posix(),
+            node_kind="identity_grammar_completion_residue",
+            status_hint=residue.residue_kind,
+        )
+        _add_node(state, residue_node, replace=True)
+        _link_node_refs(state, residue_node)
+        _add_edge(
+            state,
+            "contains",
+            surface_node_ids.get(residue.surface_id, report_node_id),
+            residue_node_id,
+        )
+        for rel_path in residue.evidence_paths:
+            _link_to_existing_nodes_for_path(
+                state,
+                source_node_id=residue_node_id,
+                rel_path=rel_path,
+            )
+        _append_diagnostic(
+            state,
+            severity=residue.severity or "warning",
+            code=f"identity_grammar_{residue.residue_kind or 'residue'}",
+            node_id=residue_node_id,
+            raw_dependency=residue.surface_id or "CSA-IDR-TP-004",
+            message=residue.message,
+        )
+        _append_ranking_signal(
+            state,
+            node_id=residue_node_id,
+            touchpoint_object_id="CSA-IDR-TP-004",
+            touchsite_object_id=_IDENTITY_GRAMMAR_TOUCHSITE_IDS.get(
+                residue.residue_kind,
+                "CSA-IDR-TS-017",
+            ),
+            code=residue.residue_kind or "identity_grammar_residue",
+            score=residue.score,
+            raw_dependency=residue.surface_id,
+            message=residue.message,
+        )
+
+
 def _join_cross_origin_witness_contract_artifact(state: _InvariantGraphBuildState) -> None:
     artifact = load_cross_origin_witness_contract_artifact(
         root=state.root,
@@ -11301,6 +11443,7 @@ def _join_control_loop_artifacts(state: _InvariantGraphBuildState) -> None:
     _join_controller_drift_artifact(state)
     _join_local_repro_closure_ledger(state)
     _join_kernel_vm_alignment_artifact(state)
+    _join_identity_grammar_completion_artifact(state)
     _join_cross_origin_witness_contract_artifact(state)
     _join_git_state_artifact(state)
     _join_docflow_compliance_artifact(state)

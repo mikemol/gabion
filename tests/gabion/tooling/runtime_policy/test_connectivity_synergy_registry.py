@@ -27,6 +27,10 @@ def test_connectivity_synergy_registry_defines_expected_roots_and_subqueues() ->
     ivl_subqueues = {
         subqueue.subqueue_id: subqueue for subqueue in by_root["CSA-IVL"].subqueues
     }
+    idr_touchpoints = {
+        touchpoint.touchpoint_id: touchpoint
+        for touchpoint in by_root["CSA-IDR"].touchpoints
+    }
     igm_touchpoints = {
         touchpoint.touchpoint_id: touchpoint
         for touchpoint in by_root["CSA-IGM"].touchpoints
@@ -58,6 +62,7 @@ def test_connectivity_synergy_registry_defines_expected_roots_and_subqueues() ->
         "CSA-IDR-SQ-001",
         "CSA-IDR-SQ-002",
         "CSA-IDR-SQ-003",
+        "CSA-IDR-SQ-004",
     )
     assert by_root["CSA-IGM"].root.subqueue_ids == (
         "CSA-IGM-SQ-001",
@@ -81,6 +86,12 @@ def test_connectivity_synergy_registry_defines_expected_roots_and_subqueues() ->
         "CSA-IVL-SQ-004",
         "CSA-IVL-SQ-005",
     )
+    assert set(
+        by_root["CSA-IDR"].subqueues[3].marker_payload.reasoning.blocking_dependencies
+    ) == {"CSA-IDR-SQ-001", "CSA-IDR-TP-004"}
+    assert set(
+        idr_touchpoints["CSA-IDR-TP-004"].marker_payload.reasoning.blocking_dependencies
+    ) == {"CSA-IDR-SQ-001", "CSA-IDR-SQ-004"}
     assert set(
         by_root["CSA-IDR"].subqueues[1].marker_payload.reasoning.blocking_dependencies
     ) == {"CSA-IDR-TP-002", "PSF-007"}
@@ -140,6 +151,31 @@ def test_connectivity_synergy_registry_defines_expected_roots_and_subqueues() ->
     assert set(
         ivl_subqueues["CSA-IVL-SQ-005"].marker_payload.reasoning.blocking_dependencies
     ) == {"CSA-IGM-SQ-001", "CSA-IVL-SQ-001", "CSA-IVL-TP-005", "CSA-RGC-SQ-004"}
+    assert {
+        (item.rel_path, item.qualname)
+        for item in idr_touchpoints["CSA-IDR-TP-004"].declared_touchsites
+    } >= {
+        (
+            "scripts/policy/hotspot_neighborhood_queue.py",
+            "_file_family_counts",
+        ),
+        (
+            "scripts/policy/hotspot_neighborhood_queue.py",
+            "_file_ref",
+        ),
+        (
+            "scripts/policy/hotspot_neighborhood_queue.py",
+            "_scope_ref",
+        ),
+        (
+            "src/gabion/tooling/policy_substrate/planning_chart_identity.py",
+            "build_planning_chart_identity_grammar",
+        ),
+        (
+            "src/gabion/tooling/policy_substrate/identity_zone/grammar.py",
+            "HierarchicalIdentityGrammar.add_two_cell",
+        ),
+    }
     assert {
         item.rel_path for item in igm_touchpoints["CSA-IGM-TP-001"].declared_touchsites
     } >= {

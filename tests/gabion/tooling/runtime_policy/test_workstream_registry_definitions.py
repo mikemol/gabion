@@ -72,6 +72,9 @@ def test_connectivity_synergy_workstream_registries_expose_expected_roots_and_to
     igm_touchpoints = {
         item.touchpoint_id: item for item in by_root["CSA-IGM"].touchpoints
     }
+    idr_touchpoints = {
+        item.touchpoint_id: item for item in by_root["CSA-IDR"].touchpoints
+    }
     rgc_touchpoints = {
         item.touchpoint_id: item for item in by_root["CSA-RGC"].touchpoints
     }
@@ -79,6 +82,12 @@ def test_connectivity_synergy_workstream_registries_expose_expected_roots_and_to
         item.touchpoint_id: item for item in by_root["CSA-IVL"].touchpoints
     }
 
+    assert by_root["CSA-IDR"].root.subqueue_ids == (
+        "CSA-IDR-SQ-001",
+        "CSA-IDR-SQ-002",
+        "CSA-IDR-SQ-003",
+        "CSA-IDR-SQ-004",
+    )
     assert by_root["CSA-IGM"].root.subqueue_ids == (
         "CSA-IGM-SQ-001",
         "CSA-IGM-SQ-002",
@@ -95,6 +104,31 @@ def test_connectivity_synergy_workstream_registries_expose_expected_roots_and_to
         "CSA-RGC-SQ-007",
     )
 
+    assert {
+        (item.rel_path, item.qualname)
+        for item in idr_touchpoints["CSA-IDR-TP-004"].declared_touchsites
+    } >= {
+        (
+            "scripts/policy/hotspot_neighborhood_queue.py",
+            "_file_family_counts",
+        ),
+        (
+            "scripts/policy/hotspot_neighborhood_queue.py",
+            "_file_ref",
+        ),
+        (
+            "scripts/policy/hotspot_neighborhood_queue.py",
+            "_scope_ref",
+        ),
+        (
+            "src/gabion/tooling/policy_substrate/planning_chart_identity.py",
+            "build_planning_chart_identity_grammar",
+        ),
+        (
+            "src/gabion/tooling/policy_substrate/identity_zone/grammar.py",
+            "HierarchicalIdentityGrammar.add_two_cell",
+        ),
+    }
     assert {
         (item.rel_path, item.qualname)
         for item in igm_touchpoints["CSA-IGM-TP-004"].declared_touchsites

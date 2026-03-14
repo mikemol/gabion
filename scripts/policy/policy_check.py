@@ -2601,6 +2601,17 @@ def _write_kernel_vm_alignment_artifact(*, output_path: Path) -> Path:
     )
 
 
+def _write_identity_grammar_completion_artifact(*, output_path: Path) -> Path:
+    from gabion.tooling.runtime.identity_grammar_completion_artifact import (
+        write_identity_grammar_completion_artifact,
+    )
+
+    return write_identity_grammar_completion_artifact(
+        path=output_path.parent / "identity_grammar_completion.json",
+        root=REPO_ROOT,
+    )
+
+
 def _write_invariant_graph_artifact(
     *,
     output_path: Path,
@@ -2872,6 +2883,9 @@ def main(argv: list[str] | None = None):
                     output_path=args.output,
                 )
                 _write_kernel_vm_alignment_artifact(
+                    output_path=args.output,
+                )
+                _write_identity_grammar_completion_artifact(
                     output_path=args.output,
                 )
                 _write_ingress_merge_parity_artifact(

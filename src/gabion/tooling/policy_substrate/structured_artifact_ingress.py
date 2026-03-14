@@ -39,6 +39,7 @@ class StructuredArtifactKind(StrEnum):
     LOCAL_REPRO_CLOSURE_LEDGER = "local_repro_closure_ledger"
     LOCAL_CI_REPRO_CONTRACT = "local_ci_repro_contract"
     KERNEL_VM_ALIGNMENT = "kernel_vm_alignment"
+    IDENTITY_GRAMMAR_COMPLETION = "identity_grammar_completion"
     GIT_STATE = "git_state"
     CROSS_ORIGIN_WITNESS_CONTRACT = "cross_origin_witness_contract"
     INGRESS_MERGE_PARITY = "ingress_merge_parity"
@@ -871,6 +872,55 @@ class KernelVmAlignmentArtifact:
     def __str__(self) -> str:
         return (
             f"{self.source.rel_path} bindings={self.binding_count} "
+            f"residues={self.residue_count}"
+        )
+
+
+@dataclass(frozen=True)
+class IdentityGrammarCompletionSurface:
+    identity: StructuredArtifactIdentity
+    surface_id: str
+    title: str
+    status: str
+    summary: str
+    residue_ids: tuple[str, ...]
+    evidence_paths: tuple[str, ...]
+
+    def __str__(self) -> str:
+        return self.title or self.surface_id or self.identity.wire()
+
+
+@dataclass(frozen=True)
+class IdentityGrammarCompletionResidue:
+    identity: StructuredArtifactIdentity
+    residue_id: str
+    surface_id: str
+    residue_kind: str
+    severity: str
+    score: int
+    title: str
+    message: str
+    evidence_paths: tuple[str, ...]
+
+    def __str__(self) -> str:
+        return self.title or self.residue_id or self.identity.wire()
+
+
+@dataclass(frozen=True)
+class IdentityGrammarCompletionArtifact:
+    identity: StructuredArtifactIdentity
+    source: StructuredArtifactSource
+    surface_count: int
+    pass_count: int
+    fail_count: int
+    residue_count: int
+    highest_severity: str
+    surfaces: tuple[IdentityGrammarCompletionSurface, ...]
+    residues: tuple[IdentityGrammarCompletionResidue, ...]
+
+    def __str__(self) -> str:
+        return (
+            f"{self.source.rel_path} surfaces={self.surface_count} "
             f"residues={self.residue_count}"
         )
 
@@ -3031,6 +3081,110 @@ def load_kernel_vm_alignment_artifact(
     )
 
 
+def load_identity_grammar_completion_artifact(
+    *,
+    root: Path,
+    rel_path: str,
+    identities: StructuredArtifactIdentitySpace,
+) -> IdentityGrammarCompletionArtifact | None:
+    payload = _load_json_mapping_artifact(root / rel_path)
+    if payload is None:
+        return None
+    if (
+        payload.get("artifact_kind")
+        != StructuredArtifactKind.IDENTITY_GRAMMAR_COMPLETION.value
+    ):
+        return None
+    source = StructuredArtifactSource(
+        rel_path=rel_path,
+        schema_version=int(payload.get("schema_version", 0) or 0),
+        producer=str(payload.get("generated_by", "")).strip(),
+    )
+    identity = identities.artifact_id(
+        artifact_kind=StructuredArtifactKind.IDENTITY_GRAMMAR_COMPLETION,
+        source_path=rel_path,
+        label=rel_path,
+    )
+    summary_mapping = (
+        payload.get("summary", {}) if isinstance(payload.get("summary"), Mapping) else {}
+    )
+    surfaces: list[IdentityGrammarCompletionSurface] = []
+    raw_surfaces = payload.get("surfaces", [])
+    if isinstance(raw_surfaces, list):
+        for index, raw_surface in enumerate(raw_surfaces, start=1):
+            if not isinstance(raw_surface, Mapping):
+                continue
+            surface_id = str(raw_surface.get("surface_id", "")).strip()
+            title = str(raw_surface.get("title", "")).strip()
+            surfaces.append(
+                IdentityGrammarCompletionSurface(
+                    identity=identities.item_id(
+                        artifact_kind=StructuredArtifactKind.IDENTITY_GRAMMAR_COMPLETION,
+                        source_path=rel_path,
+                        item_kind="surface",
+                        item_key=surface_id or f"surface-{index}",
+                        label=title or surface_id or f"surface-{index}",
+                    ),
+                    surface_id=surface_id,
+                    title=title,
+                    status=str(raw_surface.get("status", "")).strip(),
+                    summary=str(raw_surface.get("summary", "")).strip(),
+                    residue_ids=tuple(
+                        str(item).strip()
+                        for item in raw_surface.get("residue_ids", [])
+                        if str(item).strip()
+                    ),
+                    evidence_paths=tuple(
+                        _normalize_rel_path(root, item)
+                        for item in raw_surface.get("evidence_paths", [])
+                        if str(item).strip()
+                    ),
+                )
+            )
+    residues: list[IdentityGrammarCompletionResidue] = []
+    raw_residues = payload.get("residues", [])
+    if isinstance(raw_residues, list):
+        for index, raw_residue in enumerate(raw_residues, start=1):
+            if not isinstance(raw_residue, Mapping):
+                continue
+            residue_id = str(raw_residue.get("residue_id", "")).strip()
+            title = str(raw_residue.get("title", "")).strip()
+            residues.append(
+                IdentityGrammarCompletionResidue(
+                    identity=identities.item_id(
+                        artifact_kind=StructuredArtifactKind.IDENTITY_GRAMMAR_COMPLETION,
+                        source_path=rel_path,
+                        item_kind="residue",
+                        item_key=residue_id or f"residue-{index}",
+                        label=title or residue_id or f"residue-{index}",
+                    ),
+                    residue_id=residue_id,
+                    surface_id=str(raw_residue.get("surface_id", "")).strip(),
+                    residue_kind=str(raw_residue.get("residue_kind", "")).strip(),
+                    severity=str(raw_residue.get("severity", "")).strip(),
+                    score=int(raw_residue.get("score", 0) or 0),
+                    title=title,
+                    message=str(raw_residue.get("message", "")).strip(),
+                    evidence_paths=tuple(
+                        _normalize_rel_path(root, item)
+                        for item in raw_residue.get("evidence_paths", [])
+                        if str(item).strip()
+                    ),
+                )
+            )
+    return IdentityGrammarCompletionArtifact(
+        identity=identity,
+        source=source,
+        surface_count=int(summary_mapping.get("surface_count", len(surfaces)) or 0),
+        pass_count=int(summary_mapping.get("pass_count", 0) or 0),
+        fail_count=int(summary_mapping.get("fail_count", 0) or 0),
+        residue_count=int(summary_mapping.get("residue_count", len(residues)) or 0),
+        highest_severity=str(summary_mapping.get("highest_severity", "")).strip(),
+        surfaces=tuple(surfaces),
+        residues=tuple(residues),
+    )
+
+
 __all__ = [
     "ControllerDriftArtifact",
     "ControllerDriftFinding",
@@ -3048,6 +3202,9 @@ __all__ = [
     "DocflowPacketEnforcementArtifact",
     "DocflowPacketRow",
     "GitStateLineSpan",
+    "IdentityGrammarCompletionArtifact",
+    "IdentityGrammarCompletionResidue",
+    "IdentityGrammarCompletionSurface",
     "IngressMergeParityArtifact",
     "IngressMergeParityCase",
     "IngressMergeParityFieldCheck",
@@ -3082,6 +3239,7 @@ __all__ = [
     "load_docflow_compliance_artifact",
     "load_docflow_packet_enforcement_artifact",
     "load_git_state_artifact",
+    "load_identity_grammar_completion_artifact",
     "load_ingress_merge_parity_artifact",
     "load_junit_failure_artifact",
     "load_kernel_vm_alignment_artifact",

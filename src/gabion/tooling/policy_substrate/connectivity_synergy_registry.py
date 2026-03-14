@@ -12,14 +12,15 @@ from gabion.tooling.policy_substrate.workstream_registry import (
 
 
 @todo_decorator(
-    reason="CSA-IDR remains active until typed identity carriers and boundary renderers converge across the open rollout family.",
+    reason="CSA-IDR remains active until typed identity carriers, boundary renderers, and the hierarchical identity grammar converge across the open rollout family.",
     reasoning={
-        "summary": "Identity/rendering separation remains partially landed and still needs the call-cluster and aggregate-test rollout tranche.",
+        "summary": "Identity/rendering separation remains partially landed and still needs the call-cluster rollout, aggregate-test cleanup, and hierarchical identity grammar completion tranche.",
         "control": "connectivity_synergy.identity_rendering.root",
         "blocking_dependencies": (
             "CSA-IDR-SQ-001",
             "CSA-IDR-SQ-002",
             "CSA-IDR-SQ-003",
+            "CSA-IDR-SQ-004",
         ),
     },
     owner="gabion.tooling.policy_substrate",
@@ -150,6 +151,25 @@ def _csa_idr_sq_call_cluster_rollout() -> None:
     ],
 )
 def _csa_idr_sq_aggregate_test_cleanup() -> None:
+    return None
+
+
+@todo_decorator(
+    reason="CSA-IDR-SQ-004 remains active until scanner, hotspot queue, and planning chart complete the hierarchical identity grammar rollout.",
+    reasoning={
+        "summary": "The shared identity-zone substrate landed, but hotspot quotienting, planning-chart activation, and coherence emission still need planner-visible completion.",
+        "control": "connectivity_synergy.identity_rendering.identity_grammar_completion",
+        "blocking_dependencies": ("CSA-IDR-SQ-001", "CSA-IDR-TP-004"),
+    },
+    owner="gabion.tooling.policy_substrate",
+    expiry="CSA-IDR closure",
+    links=[
+        {"kind": "doc_id", "value": "connectivity_synergy_audit"},
+        {"kind": "object_id", "value": "CSA-IDR"},
+        {"kind": "object_id", "value": "CSA-IDR-SQ-004"},
+    ],
+)
+def _csa_idr_sq_identity_grammar_completion() -> None:
     return None
 
 
@@ -557,6 +577,26 @@ def _csa_idr_tp_aggregate_test_cleanup() -> None:
 
 
 @todo_decorator(
+    reason="CSA-IDR-TP-004 tracks the remaining hierarchical identity grammar completion surfaces across scanner, hotspot queue, planning chart, and coherence witnesses.",
+    reasoning={
+        "summary": "The first identity-zone tranche landed, but hotspot internals still rely on raw string grouping, quotient witnesses remain representative-only, planning-chart grammar is not yet active in production, and 2-cell coherence witnesses are not emitted.",
+        "control": "connectivity_synergy.identity_rendering.identity_grammar_touchpoint",
+        "blocking_dependencies": ("CSA-IDR-SQ-001", "CSA-IDR-SQ-004"),
+    },
+    owner="gabion.tooling.policy_substrate",
+    expiry="CSA-IDR closure",
+    links=[
+        {"kind": "doc_id", "value": "connectivity_synergy_audit"},
+        {"kind": "object_id", "value": "CSA-IDR"},
+        {"kind": "object_id", "value": "CSA-IDR-SQ-004"},
+        {"kind": "object_id", "value": "CSA-IDR-TP-004"},
+    ],
+)
+def _csa_idr_tp_identity_grammar_completion() -> None:
+    return None
+
+
+@todo_decorator(
     reason="CSA-IGM-TP-001 tracks the current witness/remap-related surfaces that still lack one typed merge contract.",
     reasoning={
         "summary": "Current witness digest, union-view, and overlap surfaces still stop short of one cross-origin remap carrier.",
@@ -924,7 +964,12 @@ def _root_definition(
     )
     _ = blocking_dependencies
     subqueue_ids_by_root = {
-        "CSA-IDR": ("CSA-IDR-SQ-001", "CSA-IDR-SQ-002", "CSA-IDR-SQ-003"),
+        "CSA-IDR": (
+            "CSA-IDR-SQ-001",
+            "CSA-IDR-SQ-002",
+            "CSA-IDR-SQ-003",
+            "CSA-IDR-SQ-004",
+        ),
         "CSA-IGM": (
             "CSA-IGM-SQ-001",
             "CSA-IGM-SQ-002",
@@ -1145,6 +1190,13 @@ def connectivity_synergy_workstream_registries() -> tuple[WorkstreamRegistry, ..
                 touchpoint_ids=("CSA-IDR-TP-003",),
                 symbol=_csa_idr_sq_aggregate_test_cleanup,
             ),
+            _subqueue_definition(
+                root_id="CSA-IDR",
+                subqueue_id="CSA-IDR-SQ-004",
+                title="Hierarchical identity grammar completion across scanner, hotspot queue, and planning chart",
+                touchpoint_ids=("CSA-IDR-TP-004",),
+                symbol=_csa_idr_sq_identity_grammar_completion,
+            ),
         ),
         touchpoints=(
             _touchpoint_definition(
@@ -1273,6 +1325,61 @@ def connectivity_synergy_workstream_registries() -> tuple[WorkstreamRegistry, ..
                         surface="aggregate_test",
                         structural_path="test_call_cluster_consolidation_payload_and_render",
                         seam_class="surviving_test_seam",
+                    ),
+                ),
+            ),
+            _touchpoint_definition(
+                root_id="CSA-IDR",
+                subqueue_id="CSA-IDR-SQ-004",
+                touchpoint_id="CSA-IDR-TP-004",
+                title="Hierarchical identity grammar completion surfaces",
+                symbol=_csa_idr_tp_identity_grammar_completion,
+                declared_touchsites=(
+                    _function_touchsite(
+                        touchsite_id="CSA-IDR-TS-013",
+                        rel_path="scripts/policy/hotspot_neighborhood_queue.py",
+                        qualname="_file_family_counts",
+                        line=115,
+                        surface="identity_grammar_completion",
+                        structural_path="_file_family_counts",
+                    ),
+                    _function_touchsite(
+                        touchsite_id="CSA-IDR-TS-014",
+                        rel_path="scripts/policy/hotspot_neighborhood_queue.py",
+                        qualname="_file_ref",
+                        line=319,
+                        surface="identity_grammar_completion",
+                        structural_path="_file_ref",
+                    ),
+                    _function_touchsite(
+                        touchsite_id="CSA-IDR-TS-015",
+                        rel_path="scripts/policy/hotspot_neighborhood_queue.py",
+                        qualname="_scope_ref",
+                        line=205,
+                        surface="identity_grammar_completion",
+                        structural_path="_scope_ref",
+                    ),
+                    _function_touchsite(
+                        touchsite_id="CSA-IDR-TS-016",
+                        rel_path=(
+                            "src/gabion/tooling/policy_substrate/"
+                            "planning_chart_identity.py"
+                        ),
+                        qualname="build_planning_chart_identity_grammar",
+                        line=330,
+                        surface="identity_grammar_completion",
+                        structural_path="build_planning_chart_identity_grammar",
+                    ),
+                    _function_touchsite(
+                        touchsite_id="CSA-IDR-TS-017",
+                        rel_path=(
+                            "src/gabion/tooling/policy_substrate/"
+                            "identity_zone/grammar.py"
+                        ),
+                        qualname="HierarchicalIdentityGrammar.add_two_cell",
+                        line=453,
+                        surface="identity_grammar_completion",
+                        structural_path="HierarchicalIdentityGrammar.add_two_cell",
                     ),
                 ),
             ),

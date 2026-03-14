@@ -14,6 +14,7 @@ from gabion.tooling.policy_substrate.structured_artifact_ingress import (
     load_controller_drift_artifact,
     load_docflow_compliance_artifact,
     load_docflow_packet_enforcement_artifact,
+    load_identity_grammar_completion_artifact,
     load_ingress_merge_parity_artifact,
     load_junit_failure_artifact,
     load_kernel_vm_alignment_artifact,
@@ -389,6 +390,92 @@ def test_load_kernel_vm_alignment_artifact_uses_typed_binding_and_residue_identi
         "in/lg_kernel_ontology_cut_elim-1.ttl",
         "src/gabion/analysis/projection/semantic_fragment.py",
     )
+
+
+def test_load_identity_grammar_completion_artifact_uses_typed_surface_and_residue_identities(
+    tmp_path: Path,
+) -> None:
+    _write_json(
+        tmp_path / "artifacts" / "out" / "identity_grammar_completion.json",
+        {
+            "artifact_kind": "identity_grammar_completion",
+            "schema_version": 1,
+            "generated_by": "tests",
+            "summary": {
+                "surface_count": 2,
+                "pass_count": 0,
+                "fail_count": 2,
+                "residue_count": 2,
+                "highest_severity": "high",
+            },
+            "surfaces": [
+                {
+                    "surface_id": "identity_grammar.hotspot.raw_string_grouping",
+                    "title": "Hotspot queue still groups by raw path strings",
+                    "status": "fail",
+                    "summary": "Synthetic surface",
+                    "evidence_paths": ["scripts/policy/hotspot_neighborhood_queue.py"],
+                    "residue_ids": [
+                        "identity_grammar.hotspot.raw_string_grouping:raw_string_grouping_in_core_queue_logic"
+                    ],
+                },
+                {
+                    "surface_id": "identity_grammar.coherence.two_cell",
+                    "title": "Coherence witness carrier exists but is not emitted",
+                    "status": "fail",
+                    "summary": "Synthetic coherence surface",
+                    "evidence_paths": [
+                        "src/gabion/tooling/policy_substrate/identity_zone/grammar.py"
+                    ],
+                    "residue_ids": [
+                        "identity_grammar.coherence.two_cell:coherence_witness_emission_missing"
+                    ],
+                },
+            ],
+            "residues": [
+                {
+                    "residue_id": "identity_grammar.hotspot.raw_string_grouping:raw_string_grouping_in_core_queue_logic",
+                    "surface_id": "identity_grammar.hotspot.raw_string_grouping",
+                    "residue_kind": "raw_string_grouping_in_core_queue_logic",
+                    "severity": "high",
+                    "score": 9,
+                    "title": "Hotspot queue still groups by raw path strings",
+                    "message": "Synthetic hotspot residue",
+                    "evidence_paths": ["scripts/policy/hotspot_neighborhood_queue.py"],
+                },
+                {
+                    "residue_id": "identity_grammar.coherence.two_cell:coherence_witness_emission_missing",
+                    "surface_id": "identity_grammar.coherence.two_cell",
+                    "residue_kind": "coherence_witness_emission_missing",
+                    "severity": "medium",
+                    "score": 6,
+                    "title": "Coherence witness carrier exists but is not emitted",
+                    "message": "Synthetic coherence residue",
+                    "evidence_paths": [
+                        "src/gabion/tooling/policy_substrate/identity_zone/grammar.py"
+                    ],
+                },
+            ],
+        },
+    )
+
+    artifact = load_identity_grammar_completion_artifact(
+        root=tmp_path,
+        rel_path="artifacts/out/identity_grammar_completion.json",
+        identities=StructuredArtifactIdentitySpace(),
+    )
+
+    assert artifact is not None
+    assert (
+        artifact.identity.artifact_kind
+        is StructuredArtifactKind.IDENTITY_GRAMMAR_COMPLETION
+    )
+    assert artifact.surface_count == 2
+    assert artifact.residue_count == 2
+    assert artifact.highest_severity == "high"
+    assert artifact.surfaces[0].identity.item_kind == "surface"
+    assert artifact.residues[0].identity.item_kind == "residue"
+    assert artifact.residues[0].residue_kind == "raw_string_grouping_in_core_queue_logic"
 
 
 def test_load_controller_drift_artifact_extracts_markdown_doc_paths(

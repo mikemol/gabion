@@ -4019,6 +4019,69 @@ def test_build_invariant_graph_joins_control_loop_artifacts(
             ],
         },
     )
+    _write_json(
+        root / "artifacts" / "out" / "identity_grammar_completion.json",
+        {
+            "artifact_kind": "identity_grammar_completion",
+            "schema_version": 1,
+            "generated_by": "tests",
+            "summary": {
+                "surface_count": 2,
+                "pass_count": 0,
+                "fail_count": 2,
+                "residue_count": 2,
+                "highest_severity": "high",
+            },
+            "surfaces": [
+                {
+                    "surface_id": "identity_grammar.hotspot.raw_string_grouping",
+                    "title": "Hotspot queue still groups by raw path strings",
+                    "status": "fail",
+                    "summary": "Synthetic identity grammar surface",
+                    "evidence_paths": ["scripts/policy/hotspot_neighborhood_queue.py"],
+                    "residue_ids": [
+                        "identity_grammar.hotspot.raw_string_grouping:raw_string_grouping_in_core_queue_logic"
+                    ],
+                },
+                {
+                    "surface_id": "identity_grammar.coherence.two_cell",
+                    "title": "Coherence witness carrier exists but is not emitted",
+                    "status": "fail",
+                    "summary": "Synthetic coherence surface",
+                    "evidence_paths": [
+                        "src/gabion/tooling/policy_substrate/identity_zone/grammar.py"
+                    ],
+                    "residue_ids": [
+                        "identity_grammar.coherence.two_cell:coherence_witness_emission_missing"
+                    ],
+                },
+            ],
+            "residues": [
+                {
+                    "residue_id": "identity_grammar.hotspot.raw_string_grouping:raw_string_grouping_in_core_queue_logic",
+                    "surface_id": "identity_grammar.hotspot.raw_string_grouping",
+                    "residue_kind": "raw_string_grouping_in_core_queue_logic",
+                    "severity": "high",
+                    "score": 9,
+                    "title": "Hotspot queue still groups by raw path strings",
+                    "message": "Synthetic hotspot residue",
+                    "evidence_paths": ["scripts/policy/hotspot_neighborhood_queue.py"],
+                },
+                {
+                    "residue_id": "identity_grammar.coherence.two_cell:coherence_witness_emission_missing",
+                    "surface_id": "identity_grammar.coherence.two_cell",
+                    "residue_kind": "coherence_witness_emission_missing",
+                    "severity": "medium",
+                    "score": 6,
+                    "title": "Coherence witness carrier exists but is not emitted",
+                    "message": "Synthetic coherence residue",
+                    "evidence_paths": [
+                        "src/gabion/tooling/policy_substrate/identity_zone/grammar.py"
+                    ],
+                },
+            ],
+        },
+    )
 
     graph = invariant_graph.build_invariant_graph(root)
     node_kind_counts = graph.as_payload()["counts"]["node_kind_counts"]
@@ -4042,6 +4105,9 @@ def test_build_invariant_graph_joins_control_loop_artifacts(
     assert node_kind_counts["kernel_vm_alignment_report"] == 1
     assert node_kind_counts["kernel_vm_alignment_binding"] == 1
     assert node_kind_counts["kernel_vm_alignment_residue"] == 1
+    assert node_kind_counts["identity_grammar_completion_report"] == 1
+    assert node_kind_counts["identity_grammar_completion_surface"] == 2
+    assert node_kind_counts["identity_grammar_completion_residue"] == 2
     assert node_kind_counts["git_state_entry"] == 1
 
     inbox_doc = next(
@@ -4105,6 +4171,18 @@ def test_build_invariant_graph_joins_control_loop_artifacts(
     kernel_vm_residue = next(
         node for node in graph.nodes if node.node_kind == "kernel_vm_alignment_residue"
     )
+    identity_grammar_surface = next(
+        node
+        for node in graph.nodes
+        if node.node_kind == "identity_grammar_completion_surface"
+        and "identity_grammar.hotspot.raw_string_grouping" in node.object_ids
+    )
+    identity_grammar_residue = next(
+        node
+        for node in graph.nodes
+        if node.node_kind == "identity_grammar_completion_residue"
+        and "raw_string_grouping_in_core_queue_logic" in node.object_ids
+    )
     edges = {(edge.edge_kind, edge.source_id, edge.target_id) for edge in graph.edges}
 
     assert {"in-54", "in_54"}.issubset(set(inbox_doc.doc_ids))
@@ -4135,6 +4213,8 @@ def test_build_invariant_graph_joins_control_loop_artifacts(
     assert "ci-repro:local-checks->workflow-checks" in local_ci_repro_relation.object_ids
     assert "kernel_vm.augmented_rule_core" in kernel_vm_binding.object_ids
     assert "missing_runtime_object_image" in kernel_vm_residue.object_ids
+    assert "identity_grammar.hotspot.raw_string_grouping" in identity_grammar_surface.object_ids
+    assert "raw_string_grouping_in_core_queue_logic" in identity_grammar_residue.object_ids
     assert ("tracks", packet_node.node_id, inbox_doc.node_id) in edges
     assert ("tracks", packet_row_node.node_id, inbox_doc.node_id) in edges
     assert ("tracks", compliance_row_node.node_id, inbox_doc.node_id) in edges
@@ -4142,6 +4222,7 @@ def test_build_invariant_graph_joins_control_loop_artifacts(
     assert ("contains", local_ci_repro_surface.node_id, local_ci_repro_capability.node_id) in edges
     assert ("tracks", local_ci_repro_relation.node_id, local_ci_repro_surface.node_id) in edges
     assert ("contains", kernel_vm_binding.node_id, kernel_vm_residue.node_id) in edges
+    assert ("contains", identity_grammar_surface.node_id, identity_grammar_residue.node_id) in edges
     assert ("touches", compliance_row_node.node_id, git_state_entry.node_id) in edges
     assert ("touches", obligation_node.node_id, git_state_entry.node_id) in edges
     assert ("touches", provenance_report_node.node_id, git_state_entry.node_id) in edges
@@ -4156,10 +4237,18 @@ def test_build_invariant_graph_joins_control_loop_artifacts(
     assert invariant_graph.trace_nodes(graph, "policy_workflows_output")
     assert invariant_graph.trace_nodes(graph, "kernel_vm.augmented_rule_core")
     assert invariant_graph.trace_nodes(graph, "missing_runtime_object_image")
+    assert invariant_graph.trace_nodes(
+        graph, "raw_string_grouping_in_core_queue_logic"
+    )
 
     workstreams = invariant_graph.build_invariant_workstreams(graph, root=root)
     payload = workstreams.as_payload()
+    idr = next(item for item in payload["workstreams"] if item["object_id"] == "CSA-IDR")
     rgc = next(item for item in payload["workstreams"] if item["object_id"] == "CSA-RGC")
+    assert (
+        idr["next_actions"]["recommended_diagnostic_blocked_cut"]["object_id"]
+        == "CSA-IDR-TP-004"
+    )
     tp7 = next(
         item
         for item in rgc["next_actions"]["ranked_touchpoint_cuts"]
