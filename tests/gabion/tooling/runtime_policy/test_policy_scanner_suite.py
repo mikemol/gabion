@@ -5,6 +5,7 @@ from pathlib import Path
 
 from gabion.policy_dsl import PolicyDomain, evaluate_policy
 from gabion.tooling.policy_substrate.policy_scanner_identity import (
+    POLICY_SCANNER_ZONE,
     PolicyScannerIdentitySpace,
 )
 from gabion.tooling.runtime.policy_scan_batch import (
@@ -153,6 +154,9 @@ def test_policy_scanner_suite_scan_result_shape(tmp_path: Path) -> None:
     assert identity["site_identity"] == branchless_violation["site_identity"]
     assert identity["structural_identity"] == branchless_violation["structural_identity"]
     assert identity["decompositions"]
+    assert identity["provenance"]["zone_name"] == POLICY_SCANNER_ZONE.value
+    assert identity["provenance"]["carrier_wire"] == identity["wire"]
+    assert identity["provenance"]["decomposition_wires"]
 
 
 def test_policy_scan_batch_interns_module_and_parse_failure_inputs(tmp_path: Path) -> None:
@@ -194,6 +198,27 @@ def test_policy_scanner_suite_reuses_injected_identity_space(tmp_path: Path) -> 
     second_violation = _violations(second, rule="branchless")[0]
     assert first_violation["identity"]["wire"] == second_violation["identity"]["wire"]
     assert first_violation["structural_identity"] == second_violation["structural_identity"]
+
+
+def test_policy_scanner_identity_exposes_zone_carrier_view() -> None:
+    identities = PolicyScannerIdentitySpace()
+    carrier = identities.item_carrier(
+        scanner_kind="violation",
+        rule_id="branchless",
+        rel_path="src/gabion/sample.py",
+        qualname="sample",
+        line=4,
+        column=1,
+        kind="branch",
+        site_identity="site.sample",
+        structural_identity="struct.sample",
+        label="sample",
+    )
+
+    assert carrier.zone_name.value == POLICY_SCANNER_ZONE.value
+    assert carrier.carrier_kind == "violation"
+    assert carrier.wire()
+    assert carrier.metadata["site_identity"] == "site.sample"
 
 # gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_ignores_nonstandard_files_by_default::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
 # gabion:behavior primary=desired

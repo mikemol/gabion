@@ -8,9 +8,11 @@ from gabion.analysis.aspf.aspf_lattice_algebra import canonical_structural_ident
 from gabion.tooling.policy_substrate.site_identity import canonical_site_identity
 from gabion.tooling.policy_substrate.identity_zone import (
     IdentityAtom,
+    IdentityCarrier,
     IdentityDecomposition,
     IdentityDecompositionRelation,
     IdentityLocalInterner,
+    IdentityZoneName,
 )
 from gabion.analysis.core.type_fingerprints import PrimeRegistry
 
@@ -38,6 +40,9 @@ class PolicyScannerDecompositionRelationKind(StrEnum):
     ALTERNATE_OF = "alternate_of"
     EQUIVALENT_UNDER = "equivalent_under"
     DERIVED_FROM = "derived_from"
+
+
+POLICY_SCANNER_ZONE = IdentityZoneName("policy_scanner")
 
 
 _PrimeBackedIdentity = IdentityAtom[PolicyScannerIdentityNamespace]
@@ -77,12 +82,49 @@ class PolicyScannerIdentity:
         default=(),
         compare=False,
     )
+    zone_name: IdentityZoneName = field(
+        default=POLICY_SCANNER_ZONE,
+        compare=False,
+    )
 
     def wire(self) -> str:
         return self.canonical.token
 
     def __str__(self) -> str:
         return self.label or self.canonical.token
+
+    def as_carrier(
+        self,
+    ) -> IdentityCarrier[
+        PolicyScannerIdentityNamespace,
+        PolicyScannerDecompositionKind,
+        PolicyScannerDecompositionRelationKind,
+    ]:
+        return IdentityCarrier(
+            canonical=self.canonical,
+            zone_name=self.zone_name,
+            carrier_kind=self.scanner_kind,
+            label=self.label or self.wire(),
+            decompositions=self.decompositions,
+            relations=self.relations,
+            metadata={
+                "rule_id": self.rule_id,
+                "rel_path": self.rel_path,
+                "qualname": self.qualname,
+                "line": self.line,
+                "column": self.column,
+                "kind": self.kind,
+                "site_identity": self.site_identity,
+                "structural_identity": self.structural_identity,
+            },
+        )
+
+    def provenance_payload(self) -> dict[str, object]:
+        return {
+            "zone_name": self.zone_name.value,
+            "carrier_wire": self.wire(),
+            "decomposition_wires": [item.wire() for item in self.decompositions],
+        }
 
     def as_payload(self) -> dict[str, object]:
         return {
@@ -99,6 +141,7 @@ class PolicyScannerIdentity:
             "label": self.label or self.wire(),
             "decompositions": [item.as_payload() for item in self.decompositions],
             "relations": [item.as_payload() for item in self.relations],
+            "provenance": self.provenance_payload(),
         }
 
 
@@ -376,8 +419,40 @@ class PolicyScannerIdentitySpace:
             relations=relations,
         )
 
+    def item_carrier(
+        self,
+        *,
+        scanner_kind: str,
+        rule_id: str,
+        rel_path: str,
+        qualname: str,
+        line: int,
+        column: int,
+        kind: str,
+        site_identity: str,
+        structural_identity: str,
+        label: str = "",
+    ) -> IdentityCarrier[
+        PolicyScannerIdentityNamespace,
+        PolicyScannerDecompositionKind,
+        PolicyScannerDecompositionRelationKind,
+    ]:
+        return self.item_id(
+            scanner_kind=scanner_kind,
+            rule_id=rule_id,
+            rel_path=rel_path,
+            qualname=qualname,
+            line=line,
+            column=column,
+            kind=kind,
+            site_identity=site_identity,
+            structural_identity=structural_identity,
+            label=label,
+        ).as_carrier()
+
 
 __all__ = [
+    "POLICY_SCANNER_ZONE",
     "PolicyScannerDecompositionIdentity",
     "PolicyScannerDecompositionKind",
     "PolicyScannerDecompositionRelation",
