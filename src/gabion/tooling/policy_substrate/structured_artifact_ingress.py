@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import ExitStack
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -127,13 +127,22 @@ class StructuredArtifactIdentity:
     item_kind: str = field(compare=False, default="")
     item_key: str = field(compare=False, default="")
     label: str = field(compare=False, default="")
-    decompositions: tuple[StructuredArtifactDecompositionIdentity, ...] = field(
+    _decomposition_loader: Callable[
+        [],
+        tuple[
+            tuple[StructuredArtifactDecompositionIdentity, ...],
+            tuple[StructuredArtifactDecompositionRelation, ...],
+        ],
+    ] | None = field(default=None, compare=False, repr=False)
+    _decompositions: tuple[StructuredArtifactDecompositionIdentity, ...] = field(
         default=(),
         compare=False,
+        repr=False,
     )
-    relations: tuple[StructuredArtifactDecompositionRelation, ...] = field(
+    _relations: tuple[StructuredArtifactDecompositionRelation, ...] = field(
         default=(),
         compare=False,
+        repr=False,
     )
 
     def wire(self) -> str:
@@ -141,6 +150,32 @@ class StructuredArtifactIdentity:
 
     def __str__(self) -> str:
         return self.label or self.canonical.token
+
+    def _ensure_decomposition_bundle(
+        self,
+    ) -> tuple[
+        tuple[StructuredArtifactDecompositionIdentity, ...],
+        tuple[StructuredArtifactDecompositionRelation, ...],
+    ]:
+        if self._decomposition_loader is None:
+            return (self._decompositions, self._relations)
+        if self._decompositions or self._relations:
+            return (self._decompositions, self._relations)
+        decompositions, relations = self._decomposition_loader()
+        object.__setattr__(self, "_decompositions", decompositions)
+        object.__setattr__(self, "_relations", relations)
+        object.__setattr__(self, "_decomposition_loader", None)
+        return (decompositions, relations)
+
+    @property
+    def decompositions(self) -> tuple[StructuredArtifactDecompositionIdentity, ...]:
+        decompositions, _ = self._ensure_decomposition_bundle()
+        return decompositions
+
+    @property
+    def relations(self) -> tuple[StructuredArtifactDecompositionRelation, ...]:
+        _, relations = self._ensure_decomposition_bundle()
+        return relations
 
     def to_payload(self) -> dict[str, object]:
         return {
@@ -445,8 +480,8 @@ class StructuredArtifactIdentitySpace:
             artifact_kind=artifact_kind,
             source_path=source_path,
             label=label,
-            decompositions=decompositions,
-            relations=relations,
+            _decompositions=decompositions,
+            _relations=relations,
         )
 
     def item_id(
@@ -462,13 +497,6 @@ class StructuredArtifactIdentitySpace:
             namespace=StructuredArtifactIdentityNamespace.UNIT,
             token=f"{artifact_kind.value}:{source_path}:{item_kind}:{item_key}",
         )
-        decompositions, relations = self._decomposition_bundle(
-            origin=canonical,
-            artifact_kind=artifact_kind,
-            source_path=source_path,
-            item_kind=item_kind,
-            item_key=item_key,
-        )
         return StructuredArtifactIdentity(
             canonical=canonical,
             artifact_kind=artifact_kind,
@@ -476,8 +504,13 @@ class StructuredArtifactIdentitySpace:
             item_kind=item_kind,
             item_key=item_key,
             label=label,
-            decompositions=decompositions,
-            relations=relations,
+            _decomposition_loader=lambda: self._decomposition_bundle(
+                origin=canonical,
+                artifact_kind=artifact_kind,
+                source_path=source_path,
+                item_kind=item_kind,
+                item_key=item_key,
+            ),
         )
 
 

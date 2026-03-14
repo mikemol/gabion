@@ -368,6 +368,16 @@ def test_load_test_evidence_and_junit_failure_artifacts_share_ingress_contract(
     assert evidence.identity.artifact_kind is StructuredArtifactKind.TEST_EVIDENCE
     assert junit.identity.artifact_kind is StructuredArtifactKind.JUNIT_FAILURES
     assert evidence.cases[0].evidence_sites[0].path == "src/example.py"
+    assert {
+        item.decomposition_kind for item in evidence.cases[0].identity.decompositions
+    } >= {
+        StructuredArtifactDecompositionKind.CANONICAL,
+        StructuredArtifactDecompositionKind.ARTIFACT_KIND,
+        StructuredArtifactDecompositionKind.SOURCE_PATH,
+        StructuredArtifactDecompositionKind.ITEM_KIND,
+        StructuredArtifactDecompositionKind.ITEM_KEY,
+    }
+    assert evidence.cases[0].identity.to_payload()["decompositions"]
     assert junit.failures[0].test_id == "tests/example_test.py::TestExample::test_value"
     assert junit.failures[0].traceback_text
     assert evidence.cases[0].identity.canonical.atom_id != junit.failures[0].identity.canonical.atom_id
