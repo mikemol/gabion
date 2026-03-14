@@ -319,16 +319,11 @@ def get_order_policy() -> OrderPolicy:
 
 def _deadline_clock_if_available() -> object | None:
     # Lazy import avoids import cycle with timeout_context -> order_contract.
-    from gabion.analysis.foundation.timeout_context import get_deadline, get_deadline_clock
+    from gabion.analysis.foundation import timeout_context
 
-    try:
-        get_deadline()
-    except NeverThrown:
+    if timeout_context._deadline_var.get() is None:
         return None
-    try:
-        return get_deadline_clock()
-    except NeverThrown:
-        return None
+    return timeout_context._deadline_clock_var.get()
 
 
 def get_order_telemetry_events(*, clear: bool = False) -> list[dict[str, object]]:

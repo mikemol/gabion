@@ -4,7 +4,11 @@ import pytest
 
 from gabion import order_contract
 from gabion.analysis.foundation.timeout_context import (
-    Deadline, GasMeter, deadline_clock_scope, deadline_scope)
+    Deadline,
+    GasMeter,
+    deadline_clock_scope,
+    deadline_scope,
+)
 from gabion.exceptions import NeverThrown
 from gabion.order_contract import (
     OrderPolicy, OrderRuntimeConfig, canonical_sort_allowlist, enforce_ordered, get_order_policy, get_order_telemetry_events, is_sorted_once_carrier, order_policy, order_telemetry, ordered_or_sorted, order_runtime_config_scope, sort_once, sorted_once_source)
@@ -354,6 +358,18 @@ def test_deadline_clock_if_available_returns_none_without_clock_scope() -> None:
             assert order_contract._deadline_clock_if_available() is None
         finally:
             timeout_context._deadline_clock_var.reset(token)
+
+
+# gabion:evidence E:call_footprint::tests/test_order_contract.py::test_deadline_clock_if_available_returns_bound_clock::order_contract.py::gabion.order_contract._deadline_clock_if_available::timeout_context.py::gabion.analysis.timeout_context.deadline_scope::timeout_context.py::gabion.analysis.timeout_context.deadline_clock_scope
+# gabion:behavior primary=desired
+def test_deadline_clock_if_available_returns_bound_clock() -> None:
+    from gabion import order_contract
+
+    clock = GasMeter(limit=10_000)
+    with deadline_scope(Deadline.from_timeout_ms(1_000)):
+        with deadline_clock_scope(clock):
+            assert order_contract._deadline_clock_if_available() == clock
+
 
 
 # gabion:evidence E:call_footprint::tests/test_order_contract.py::test_auto_sort_source_handles_missing_frame_paths::order_contract.py::gabion.order_contract._auto_sort_source
