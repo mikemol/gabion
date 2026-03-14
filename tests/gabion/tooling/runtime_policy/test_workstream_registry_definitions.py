@@ -41,6 +41,7 @@ def test_phase5_workstream_registry_exposes_touchpoint_scan_contract() -> None:
     )
     assert all(item.scan_touchsites for item in registry.touchpoints)
     assert touchpoints["PSF-007-TP-001"].surviving_boundary_names == (
+        "semantic_fragment.reflect_projection_fiber_witness",
         "semantic_fragment.canonical_value_materialization",
     )
 

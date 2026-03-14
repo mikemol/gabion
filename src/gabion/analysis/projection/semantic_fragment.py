@@ -188,10 +188,6 @@ def reflect_projection_fiber_witness(
     }
     return close_canonical_semantic_row(row)
 
-@grade_boundary(
-    kind="semantic_carrier_adapter",
-    name="semantic_fragment.close_canonical_semantic_row",
-)
 def close_canonical_semantic_row(
     row: CanonicalWitnessedSemanticRow,
 ) -> CanonicalWitnessedSemanticRow:

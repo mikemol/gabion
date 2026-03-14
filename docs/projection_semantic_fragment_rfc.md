@@ -1,5 +1,5 @@
 ---
-doc_revision: 124
+doc_revision: 126
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: projection_semantic_fragment_rfc
 doc_role: playbook
@@ -611,9 +611,11 @@ Current implementation status:
 - and narrower again after that: `_normalize_value(...)` and
   `_stable_json_key(...)` now project from one shared
   `_canonical_value_materialization(...)` carrier boundary instead of each
-  carrying their own temporary grading, so the remaining semantic-fragment
-  grading is concentrated on reflection, row closure, and one canonical-value
-  materialization surface
+  carrying their own temporary grading, and
+  `close_canonical_semantic_row(...)` now runs as ordinary internal carrier
+  construction while `reflect_projection_fiber_witness(...)` remains the
+  lawful reflection boundary, so the remaining semantic-fragment grading is
+  concentrated on reflection plus one canonical-value materialization surface
 - whole-Gabion output boundaries are tightening too: `call_clusters` now owns
   its JSON emission shape at the carrier module, and the emitted wire payload
   preserves cluster `identity` rather than dropping part of the internal DTO at
@@ -637,10 +639,13 @@ Current implementation status:
   still requires temporary `semantic_carrier_adapter` grading on
   `execution_ops_from_spec(...)`, `_plan_execution_op(...)`, and
   `_plan_traverse_execution_op(...)`
-- the live Phase 5 frontier therefore still includes planner ingress:
-  `PSF-007-TP-005` remains active until those typed planning surfaces can shed
-  their temporary grading without reintroducing constructor/builtin work-growth
-  drift into ordinary core edges
+- the live Phase 5 frontier is now back on the smallest semantic-fragment cut:
+  `PSF-007-TP-001` currently survives on
+  `reflect_projection_fiber_witness(...)` plus
+  `_canonical_value_materialization(...)`, while the broader planner ingress
+  work at `PSF-007-TP-005` remains open until those typed planning surfaces can
+  shed their temporary grading without reintroducing constructor/builtin
+  work-growth drift into ordinary core edges
 - the executor-side temporary grading is now narrower too: `projection_exec.py`
   no longer carries a separate normalized-op relay, runtime-params copy seam,
   or dedicated graded limit helper seam, and the remaining temporary grading

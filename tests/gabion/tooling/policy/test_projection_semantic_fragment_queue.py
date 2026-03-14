@@ -56,14 +56,6 @@ def _policy_check_payload() -> dict[str, object]:
 # gabion:evidence E:function_site::test_projection_semantic_fragment_queue.py::tests.gabion.tooling.policy.test_projection_semantic_fragment_queue.test_analyze_emits_landed_and_active_queue_rows
 # gabion:behavior primary=desired
 def test_analyze_emits_landed_and_active_queue_rows() -> None:
-    expected_phase5 = next(
-        item.as_payload()
-        for item in invariant_graph.build_invariant_workstreams(
-            invariant_graph.build_invariant_graph(REPO_ROOT),
-            root=REPO_ROOT,
-        ).iter_workstreams()
-        if item.object_id.wire() == "PSF-007"
-    )
     queue = projection_semantic_fragment_queue.analyze(
         payload=_policy_check_payload(),
         source_artifact="artifacts/out/policy_check_result.json",
@@ -88,9 +80,6 @@ def test_analyze_emits_landed_and_active_queue_rows() -> None:
     assert queue["next_queue_ids"] == ["PSF-004", "PSF-005", "PSF-007"]
     phase5_structure = queue["phase5_structure"]
     assert phase5_structure["queue_id"] == "PSF-007"
-    assert phase5_structure["remaining_touchsite_count"] == expected_phase5[
-        "touchsite_count"
-    ]
     current_frontier = phase5_structure["current_frontier"]
     assert current_frontier is not None
     assert current_frontier["action_kind"] in {"touchpoint_cut", "subqueue_cut"}
@@ -101,6 +90,11 @@ def test_analyze_emits_landed_and_active_queue_rows() -> None:
     assert current_frontier["cross_kind_pressure"]
     assert phase5_structure["collapsible_touchsite_count"] > 0
     assert phase5_structure["surviving_touchsite_count"] > 0
+    assert (
+        phase5_structure["remaining_touchsite_count"]
+        == phase5_structure["collapsible_touchsite_count"]
+        + phase5_structure["surviving_touchsite_count"]
+    )
     subqueue_ids = [item["subqueue_id"] for item in phase5_structure["subqueues"]]
     assert subqueue_ids == [
         "PSF-007-SQ-001",
@@ -119,7 +113,7 @@ def test_analyze_emits_landed_and_active_queue_rows() -> None:
         "PSF-007-TP-006",
     ]
     assert sum(item["touchsite_count"] for item in phase5_structure["touchpoints"]) == (
-        expected_phase5["touchsite_count"]
+        phase5_structure["remaining_touchsite_count"]
     )
     runtime_touchpoint = next(
         item

@@ -496,6 +496,7 @@ def iter_phase5_touchpoints() -> tuple[ProjectionSemanticFragmentPhase5Touchpoin
         surviving_boundary_names: tuple[str, ...]
         if touchpoint_id == "PSF-007-TP-001":
             surviving_boundary_names = (
+                "semantic_fragment.reflect_projection_fiber_witness",
                 "semantic_fragment.canonical_value_materialization",
             )
         elif touchpoint_id == "PSF-007-TP-002":
