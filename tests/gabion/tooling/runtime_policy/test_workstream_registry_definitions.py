@@ -83,6 +83,7 @@ def test_connectivity_synergy_workstream_registries_expose_expected_roots_and_to
         "CSA-RGC-SQ-004",
         "CSA-RGC-SQ-005",
         "CSA-RGC-SQ-006",
+        "CSA-RGC-SQ-007",
     )
 
     assert {
@@ -107,6 +108,27 @@ def test_connectivity_synergy_workstream_registries_expose_expected_roots_and_to
     } >= {
         "src/gabion/tooling/policy_substrate/invariant_graph.py",
         "scripts/sppf/sppf_status_audit.py",
+    }
+    assert {
+        (item.rel_path, item.qualname)
+        for item in rgc_touchpoints["CSA-RGC-TP-008"].declared_touchsites
+    } >= {
+        (
+            "docs/ttl_kernel_semantics.md",
+            "ttl_kernel_semantics",
+        ),
+        (
+            "in/lg_kernel_ontology_cut_elim-1.ttl",
+            "lg:AugmentedRule",
+        ),
+        (
+            "src/gabion/analysis/projection/semantic_fragment.py",
+            "reflect_projection_fiber_witness",
+        ),
+        (
+            "scripts/policy/policy_check.py",
+            "collect_aspf_lattice_convergence_result",
+        ),
     }
     assert {
         (item.rel_path, item.qualname)

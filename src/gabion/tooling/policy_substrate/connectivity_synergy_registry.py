@@ -51,9 +51,9 @@ def _csa_igm_root() -> None:
 
 
 @todo_decorator(
-    reason="CSA-RGC remains active until hardcoded governance inventories, shared selector/interner surfaces, and wrapper/package inversions converge into declarative carriers.",
+    reason="CSA-RGC remains active until hardcoded governance inventories, shared selector/interner surfaces, denotational-kernel VM alignment, and wrapper/package inversions converge into declarative carriers.",
     reasoning={
-        "summary": "Registry convergence remains open across governance inventory externalization, shared doc/code/query substrate convergence, scanner/package execution cleanup, wrapper manifest collapse, and governance/control-loop artifact graph convergence.",
+        "summary": "Registry convergence remains open across governance inventory externalization, shared doc/code/query substrate convergence, TTL-kernel VM alignment over runtime semantics, scanner/package execution cleanup, wrapper manifest collapse, and governance/control-loop artifact graph convergence.",
         "control": "connectivity_synergy.registry_convergence.root",
         "blocking_dependencies": (
             "PRF",
@@ -63,6 +63,7 @@ def _csa_igm_root() -> None:
             "CSA-RGC-SQ-004",
             "CSA-RGC-SQ-005",
             "CSA-RGC-SQ-006",
+            "CSA-RGC-SQ-007",
         ),
     },
     owner="gabion.tooling.policy_substrate",
@@ -365,6 +366,29 @@ def _csa_rgc_sq_governance_graph_substrate() -> None:
     ],
 )
 def _csa_rgc_sq_control_loop_artifact_graph() -> None:
+    return None
+
+
+@todo_decorator(
+    reason="CSA-RGC-SQ-007 remains active until the TTL ontology, ASPF witness layer, semantic fragment, lowering stack, and planning residues converge into one denotational-kernel VM contract.",
+    reasoning={
+        "summary": "The repo still treats the TTL kernel, ASPF fibers, semantic fragment carriers, lowering plans, and planning residues as adjacent semantic surfaces instead of one kernel IR plus total runtime realization path.",
+        "control": "connectivity_synergy.registry_convergence.kernel_vm_alignment",
+        "blocking_dependencies": (
+            "CSA-RGC-SQ-004",
+            "CSA-RGC-TP-008",
+        ),
+    },
+    owner="gabion.analysis.projection",
+    expiry="CSA-RGC closure",
+    links=[
+        {"kind": "doc_id", "value": "connectivity_synergy_audit"},
+        {"kind": "doc_id", "value": "ttl_kernel_semantics"},
+        {"kind": "object_id", "value": "CSA-RGC"},
+        {"kind": "object_id", "value": "CSA-RGC-SQ-007"},
+    ],
+)
+def _csa_rgc_sq_kernel_vm_alignment() -> None:
     return None
 
 
@@ -756,6 +780,31 @@ def _csa_rgc_tp_git_issue_provenance() -> None:
 
 
 @todo_decorator(
+    reason="CSA-RGC-TP-008 tracks the law-side TTL kernel, ASPF fibers, semantic fragment, lowering, and planning-surrogate surfaces that should collapse into one kernel-derived VM contract.",
+    reasoning={
+        "summary": "The TTL kernel already models augmented rules, polarity, quotient recovery, and reflective SHACL boundaries, but runtime semantics still realize those ideas through partially parallel ASPF, semantic-fragment, lowering, and planner-facing carriers rather than a small kernel interpreter plus residue report.",
+        "control": "connectivity_synergy.registry_convergence.kernel_vm_alignment_touchpoint",
+        "blocking_dependencies": (
+            "CSA-IVL-SQ-001",
+            "CSA-RGC-SQ-004",
+            "CSA-RGC-SQ-007",
+        ),
+    },
+    owner="gabion.analysis.projection",
+    expiry="CSA-RGC closure",
+    links=[
+        {"kind": "doc_id", "value": "connectivity_synergy_audit"},
+        {"kind": "doc_id", "value": "ttl_kernel_semantics"},
+        {"kind": "object_id", "value": "CSA-RGC"},
+        {"kind": "object_id", "value": "CSA-RGC-SQ-007"},
+        {"kind": "object_id", "value": "CSA-RGC-TP-008"},
+    ],
+)
+def _csa_rgc_tp_kernel_vm_alignment() -> None:
+    return None
+
+
+@todo_decorator(
     reason="CSA-IVL-TP-001 tracks workflow convergence, lattice witness construction, and invariant-workstream projection surfaces that currently govern refresh cost.",
     reasoning={
         "summary": "The live workflow profile is dominated by convergence collection, semantic lattice materialization, and ASPF witness construction before invariant workstream artifacts are written.",
@@ -896,6 +945,7 @@ def _root_definition(
             "CSA-RGC-SQ-004",
             "CSA-RGC-SQ-005",
             "CSA-RGC-SQ-006",
+            "CSA-RGC-SQ-007",
         ),
     }
     subqueue_ids = subqueue_ids_by_root[root_id]
@@ -1036,6 +1086,32 @@ def _wrapper_touchsite(
         surface="wrapper_export",
         structural_path=f"wrapper_export::{qualname}",
         seam_class="surviving_carrier_seam",
+    )
+
+
+def _static_touchsite(
+    *,
+    touchsite_id: str,
+    rel_path: str,
+    qualname: str,
+    line: int,
+    node_kind: str,
+    surface: str,
+    structural_path: str,
+    seam_class: str = "surviving_carrier_seam",
+    status_hint: str = "",
+) -> object:
+    return declared_touchsite_definition(
+        touchsite_id=touchsite_id,
+        rel_path=rel_path,
+        qualname=qualname,
+        boundary_name=qualname,
+        line=line,
+        node_kind=node_kind,
+        surface=surface,
+        structural_path=structural_path,
+        seam_class=seam_class,
+        status_hint=status_hint,
     )
 
 
@@ -1562,6 +1638,13 @@ def connectivity_synergy_workstream_registries() -> tuple[WorkstreamRegistry, ..
                 touchpoint_ids=("CSA-RGC-TP-006", "CSA-RGC-TP-007"),
                 symbol=_csa_rgc_sq_control_loop_artifact_graph,
             ),
+            _subqueue_definition(
+                root_id="CSA-RGC",
+                subqueue_id="CSA-RGC-SQ-007",
+                title="TTL denotational-kernel VM alignment over ASPF, semantic fragment, lowering, and planning residues",
+                touchpoint_ids=("CSA-RGC-TP-008",),
+                symbol=_csa_rgc_sq_kernel_vm_alignment,
+            ),
         ),
         touchpoints=(
             _touchpoint_definition(
@@ -1970,6 +2053,141 @@ def connectivity_synergy_workstream_registries() -> tuple[WorkstreamRegistry, ..
                         line=9602,
                         surface="control_loop_provenance",
                         structural_path="_join_docflow_provenance_artifact",
+                    ),
+                ),
+            ),
+            _touchpoint_definition(
+                root_id="CSA-RGC",
+                subqueue_id="CSA-RGC-SQ-007",
+                touchpoint_id="CSA-RGC-TP-008",
+                title="TTL kernel VM alignment and runtime realization surfaces",
+                symbol=_csa_rgc_tp_kernel_vm_alignment,
+                declared_touchsites=(
+                    _static_touchsite(
+                        touchsite_id="CSA-RGC-TS-048",
+                        rel_path="docs/ttl_kernel_semantics.md",
+                        qualname="ttl_kernel_semantics",
+                        line=1,
+                        node_kind="document",
+                        surface="kernel_vm_law_source",
+                        structural_path="ttl_kernel_semantics",
+                    ),
+                    _static_touchsite(
+                        touchsite_id="CSA-RGC-TS-049",
+                        rel_path="in/lg_kernel_ontology_cut_elim-1.ttl",
+                        qualname="lg:AugmentedRule",
+                        line=60,
+                        node_kind="ttl_term",
+                        surface="kernel_vm_law_source",
+                        structural_path="lg:AugmentedRule",
+                    ),
+                    _static_touchsite(
+                        touchsite_id="CSA-RGC-TS-050",
+                        rel_path="in/lg_kernel_ontology_cut_elim-1.ttl",
+                        qualname="lg:RulePolarity",
+                        line=351,
+                        node_kind="ttl_term",
+                        surface="kernel_vm_law_source",
+                        structural_path="lg:RulePolarity",
+                    ),
+                    _static_touchsite(
+                        touchsite_id="CSA-RGC-TS-051",
+                        rel_path="in/lg_kernel_ontology_cut_elim-1.ttl",
+                        qualname="lg:ClosedRuleCell",
+                        line=401,
+                        node_kind="ttl_term",
+                        surface="kernel_vm_law_source",
+                        structural_path="lg:ClosedRuleCell",
+                    ),
+                    _static_touchsite(
+                        touchsite_id="CSA-RGC-TS-052",
+                        rel_path="src/gabion/analysis/aspf/aspf_lattice_algebra.py",
+                        qualname="NaturalityWitness",
+                        line=273,
+                        node_kind="class_def",
+                        surface="kernel_vm_runtime_surface",
+                        structural_path="NaturalityWitness",
+                    ),
+                    _static_touchsite(
+                        touchsite_id="CSA-RGC-TS-053",
+                        rel_path="src/gabion/analysis/aspf/aspf_lattice_algebra.py",
+                        qualname="FrontierWitness",
+                        line=454,
+                        node_kind="class_def",
+                        surface="kernel_vm_runtime_surface",
+                        structural_path="FrontierWitness",
+                    ),
+                    _static_touchsite(
+                        touchsite_id="CSA-RGC-TS-054",
+                        rel_path="src/gabion/analysis/projection/semantic_fragment.py",
+                        qualname="SemanticOpKind",
+                        line=20,
+                        node_kind="class_def",
+                        surface="kernel_vm_runtime_surface",
+                        structural_path="SemanticOpKind",
+                    ),
+                    _static_touchsite(
+                        touchsite_id="CSA-RGC-TS-055",
+                        rel_path="src/gabion/analysis/projection/semantic_fragment.py",
+                        qualname="CanonicalWitnessedSemanticRow",
+                        line=46,
+                        node_kind="class_def",
+                        surface="kernel_vm_runtime_surface",
+                        structural_path="CanonicalWitnessedSemanticRow",
+                    ),
+                    _function_touchsite(
+                        touchsite_id="CSA-RGC-TS-056",
+                        rel_path="src/gabion/analysis/projection/semantic_fragment.py",
+                        qualname="reflect_projection_fiber_witness",
+                        line=70,
+                        surface="kernel_vm_runtime_surface",
+                        structural_path="reflect_projection_fiber_witness",
+                    ),
+                    _static_touchsite(
+                        touchsite_id="CSA-RGC-TS-057",
+                        rel_path="src/gabion/analysis/projection/projection_semantic_lowering.py",
+                        qualname="ProjectionSemanticLoweringPlan",
+                        line=62,
+                        node_kind="class_def",
+                        surface="kernel_vm_runtime_surface",
+                        structural_path="ProjectionSemanticLoweringPlan",
+                    ),
+                    _static_touchsite(
+                        touchsite_id="CSA-RGC-TS-058",
+                        rel_path="src/gabion/analysis/projection/semantic_fragment_compile.py",
+                        qualname="CompiledShaclPlan",
+                        line=24,
+                        node_kind="class_def",
+                        surface="kernel_vm_runtime_surface",
+                        structural_path="CompiledShaclPlan",
+                    ),
+                    _static_touchsite(
+                        touchsite_id="CSA-RGC-TS-059",
+                        rel_path="src/gabion/analysis/projection/semantic_fragment_compile.py",
+                        qualname="CompiledSparqlPlan",
+                        line=42,
+                        node_kind="class_def",
+                        surface="kernel_vm_runtime_surface",
+                        structural_path="CompiledSparqlPlan",
+                    ),
+                    _function_touchsite(
+                        touchsite_id="CSA-RGC-TS-060",
+                        rel_path=(
+                            "src/gabion/tooling/policy_substrate/"
+                            "lattice_convergence_semantic.py"
+                        ),
+                        qualname="materialize_semantic_lattice_convergence",
+                        line=497,
+                        surface="kernel_vm_runtime_surface",
+                        structural_path="materialize_semantic_lattice_convergence",
+                    ),
+                    _function_touchsite(
+                        touchsite_id="CSA-RGC-TS-061",
+                        rel_path="scripts/policy/policy_check.py",
+                        qualname="collect_aspf_lattice_convergence_result",
+                        line=384,
+                        surface="kernel_vm_runtime_surface",
+                        structural_path="collect_aspf_lattice_convergence_result",
                     ),
                 ),
             ),

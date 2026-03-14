@@ -72,6 +72,7 @@ def test_connectivity_synergy_registry_defines_expected_roots_and_subqueues() ->
         "CSA-RGC-SQ-004",
         "CSA-RGC-SQ-005",
         "CSA-RGC-SQ-006",
+        "CSA-RGC-SQ-007",
     )
     assert by_root["CSA-IVL"].root.subqueue_ids == (
         "CSA-IVL-SQ-001",
@@ -114,6 +115,9 @@ def test_connectivity_synergy_registry_defines_expected_roots_and_subqueues() ->
         "CSA-RGC-TP-007",
     }
     assert set(
+        rgc_subqueues["CSA-RGC-SQ-007"].marker_payload.reasoning.blocking_dependencies
+    ) == {"CSA-RGC-SQ-004", "CSA-RGC-TP-008"}
+    assert set(
         rgc_touchpoints["CSA-RGC-TP-007"].marker_payload.reasoning.blocking_dependencies
     ) == {
         "CSA-IGM-SQ-004",
@@ -121,6 +125,9 @@ def test_connectivity_synergy_registry_defines_expected_roots_and_subqueues() ->
         "CSA-RGC-SQ-005",
         "CSA-RGC-SQ-006",
     }
+    assert set(
+        rgc_touchpoints["CSA-RGC-TP-008"].marker_payload.reasoning.blocking_dependencies
+    ) == {"CSA-IVL-SQ-001", "CSA-RGC-SQ-004", "CSA-RGC-SQ-007"}
     assert set(
         ivl_subqueues["CSA-IVL-SQ-002"].marker_payload.reasoning.blocking_dependencies
     ) == {"CSA-IVL-SQ-001", "CSA-IVL-TP-002"}
@@ -492,6 +499,79 @@ def test_connectivity_synergy_registry_defines_expected_roots_and_subqueues() ->
             "_join_docflow_provenance_artifact",
         ),
     }
+    assert {
+        item.rel_path for item in rgc_touchpoints["CSA-RGC-TP-008"].declared_touchsites
+    } >= {
+        "docs/ttl_kernel_semantics.md",
+        "in/lg_kernel_ontology_cut_elim-1.ttl",
+        "src/gabion/analysis/aspf/aspf_lattice_algebra.py",
+        "src/gabion/analysis/projection/semantic_fragment.py",
+        "src/gabion/analysis/projection/projection_semantic_lowering.py",
+        "src/gabion/analysis/projection/semantic_fragment_compile.py",
+        "src/gabion/tooling/policy_substrate/lattice_convergence_semantic.py",
+        "scripts/policy/policy_check.py",
+    }
+    assert {
+        (item.rel_path, item.qualname)
+        for item in rgc_touchpoints["CSA-RGC-TP-008"].declared_touchsites
+    } >= {
+        (
+            "docs/ttl_kernel_semantics.md",
+            "ttl_kernel_semantics",
+        ),
+        (
+            "in/lg_kernel_ontology_cut_elim-1.ttl",
+            "lg:AugmentedRule",
+        ),
+        (
+            "in/lg_kernel_ontology_cut_elim-1.ttl",
+            "lg:RulePolarity",
+        ),
+        (
+            "in/lg_kernel_ontology_cut_elim-1.ttl",
+            "lg:ClosedRuleCell",
+        ),
+        (
+            "src/gabion/analysis/aspf/aspf_lattice_algebra.py",
+            "NaturalityWitness",
+        ),
+        (
+            "src/gabion/analysis/aspf/aspf_lattice_algebra.py",
+            "FrontierWitness",
+        ),
+        (
+            "src/gabion/analysis/projection/semantic_fragment.py",
+            "SemanticOpKind",
+        ),
+        (
+            "src/gabion/analysis/projection/semantic_fragment.py",
+            "CanonicalWitnessedSemanticRow",
+        ),
+        (
+            "src/gabion/analysis/projection/semantic_fragment.py",
+            "reflect_projection_fiber_witness",
+        ),
+        (
+            "src/gabion/analysis/projection/projection_semantic_lowering.py",
+            "ProjectionSemanticLoweringPlan",
+        ),
+        (
+            "src/gabion/analysis/projection/semantic_fragment_compile.py",
+            "CompiledShaclPlan",
+        ),
+        (
+            "src/gabion/analysis/projection/semantic_fragment_compile.py",
+            "CompiledSparqlPlan",
+        ),
+        (
+            "src/gabion/tooling/policy_substrate/lattice_convergence_semantic.py",
+            "materialize_semantic_lattice_convergence",
+        ),
+        (
+            "scripts/policy/policy_check.py",
+            "collect_aspf_lattice_convergence_result",
+        ),
+    }
 
 
 def test_connectivity_synergy_graph_exposes_cross_root_dependencies_and_mixed_root_lane() -> None:
@@ -572,6 +652,34 @@ def test_connectivity_synergy_graph_exposes_cross_root_dependencies_and_mixed_ro
         for edge in edges_from.get(csa_rgc_tp7.node_id, ())
         if edge.edge_kind == "depends_on"
     )
+    csa_rgc_sq7 = _work_item_node(graph, "CSA-RGC-SQ-007")
+    assert any(
+        node_by_id[edge.target_id].matches_raw_id("CSA-RGC-SQ-004")
+        for edge in edges_from.get(csa_rgc_sq7.node_id, ())
+        if edge.edge_kind == "depends_on"
+    )
+    assert any(
+        node_by_id[edge.target_id].matches_raw_id("CSA-RGC-TP-008")
+        for edge in edges_from.get(csa_rgc_sq7.node_id, ())
+        if edge.edge_kind == "depends_on"
+    )
+
+    csa_rgc_tp8 = _work_item_node(graph, "CSA-RGC-TP-008")
+    assert any(
+        node_by_id[edge.target_id].matches_raw_id("CSA-IVL-SQ-001")
+        for edge in edges_from.get(csa_rgc_tp8.node_id, ())
+        if edge.edge_kind == "depends_on"
+    )
+    assert any(
+        node_by_id[edge.target_id].matches_raw_id("CSA-RGC-SQ-004")
+        for edge in edges_from.get(csa_rgc_tp8.node_id, ())
+        if edge.edge_kind == "depends_on"
+    )
+    assert any(
+        node_by_id[edge.target_id].matches_raw_id("CSA-RGC-SQ-007")
+        for edge in edges_from.get(csa_rgc_tp8.node_id, ())
+        if edge.edge_kind == "depends_on"
+    )
 
     csa_idr_sq2 = _work_item_node(graph, "CSA-IDR-SQ-002")
     assert any(
@@ -624,6 +732,10 @@ def test_connectivity_synergy_graph_exposes_cross_root_dependencies_and_mixed_ro
     assert _work_item_node(graph, "CSA-RGC-SQ-006").doc_ids == (
         "connectivity_synergy_audit",
     )
+    assert set(_work_item_node(graph, "CSA-RGC-SQ-007").doc_ids) == {
+        "connectivity_synergy_audit",
+        "ttl_kernel_semantics",
+    }
     assert _work_item_node(graph, "CSA-IVL-TP-001").doc_ids == (
         "connectivity_synergy_audit",
     )
@@ -636,6 +748,10 @@ def test_connectivity_synergy_graph_exposes_cross_root_dependencies_and_mixed_ro
     assert _work_item_node(graph, "CSA-RGC-TP-006").doc_ids == (
         "connectivity_synergy_audit",
     )
+    assert set(_work_item_node(graph, "CSA-RGC-TP-008").doc_ids) == {
+        "connectivity_synergy_audit",
+        "ttl_kernel_semantics",
+    }
     assert set(_work_item_node(graph, "CSA-RGC-TP-007").doc_ids) == {
         "connectivity_synergy_audit",
         "influence_index",
