@@ -107,6 +107,19 @@ def register_tooling_passthrough_commands(
         raise typer.Exit(code=run_tooling_no_arg_fn("docflow-delta-emit"))
 
     @app.command(
+        "ci-local-repro",
+        context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+    )
+    def ci_local_repro(ctx: typer.Context) -> None:
+        """Run the local CI reproduction protocol through the gabion CLI."""
+        raise typer.Exit(
+            code=run_tooling_with_argv_fn(
+                "ci-local-repro",
+                list(ctx.args),
+            )
+        )
+
+    @app.command(
         "impact-select-tests",
         context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
     )
@@ -174,6 +187,7 @@ def register_tooling_passthrough_commands(
     return {
         "delta_advisory_telemetry": delta_advisory_telemetry,
         "docflow_delta_emit": docflow_delta_emit,
+        "ci_local_repro": ci_local_repro,
         "impact_select_tests": impact_select_tests,
         "run_dataflow_stage": run_dataflow_stage,
         "ambiguity_contract_gate": ambiguity_contract_gate,

@@ -87,6 +87,7 @@ LSP_PARITY_GATE_COMMAND = command_ids.LSP_PARITY_GATE_COMMAND
 from gabion.lsp_client import (
     CommandRequest, run_command, run_command_direct)
 from gabion.tooling.runtime import (
+    ci_local_repro as tooling_ci_local_repro,
     ci_watch as tooling_ci_watch,
     invariant_graph as tooling_invariant_graph,
     tool_specs,
@@ -1692,6 +1693,7 @@ _TOOLING_NO_ARG_RUNNERS: dict[str, Callable[[], int]] = {
     "docflow-delta-emit": tooling_docflow_delta_emit.main,
 }
 _TOOLING_ARGV_RUNNERS: dict[str, Callable[[list[str] | None], int]] = {
+    "ci-local-repro": tooling_ci_local_repro.main,
     "ci-watch": tooling_ci_watch.main,
     "impact-select-tests": tooling_impact_select_tests.main,
     "run-dataflow-stage": tooling_run_dataflow_stage.main,
@@ -1761,6 +1763,7 @@ _tooling_passthrough_commands = _register_tooling_passthrough_commands(
 )
 delta_advisory_telemetry = _tooling_passthrough_commands["delta_advisory_telemetry"]
 docflow_delta_emit = _tooling_passthrough_commands["docflow_delta_emit"]
+ci_local_repro = _tooling_passthrough_commands["ci_local_repro"]
 impact_select_tests = _tooling_passthrough_commands["impact_select_tests"]
 run_dataflow_stage = _tooling_passthrough_commands["run_dataflow_stage"]
 ambiguity_contract_gate = _tooling_passthrough_commands["ambiguity_contract_gate"]

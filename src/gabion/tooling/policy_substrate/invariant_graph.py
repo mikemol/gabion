@@ -69,6 +69,7 @@ from gabion.tooling.policy_substrate.structured_artifact_ingress import (
     StructuredArtifactIdentitySpace,
     TestEvidenceSite,
     load_controller_drift_artifact,
+    load_local_ci_repro_contract_artifact,
     load_docflow_compliance_artifact,
     load_cross_origin_witness_contract_artifact,
     load_docflow_packet_enforcement_artifact,
@@ -106,6 +107,9 @@ _DOCFLOW_PACKET_ENFORCEMENT_ARTIFACT = Path(
 _CONTROLLER_DRIFT_ARTIFACT = Path("artifacts/out/controller_drift.json")
 _LOCAL_REPRO_CLOSURE_LEDGER_ARTIFACT = Path(
     "artifacts/out/local_repro_closure_ledger.json"
+)
+_LOCAL_CI_REPRO_CONTRACT_ARTIFACT = Path(
+    "artifacts/out/local_ci_repro_contract.json"
 )
 _GIT_STATE_ARTIFACT = Path("artifacts/out/git_state.json")
 _DOCFLOW_REQUIRED_ISSUE_LIFECYCLE_LABELS = (
@@ -9532,6 +9536,24 @@ def _link_to_git_state_entries_for_path(
         _add_edge(state, "touches", source_node_id, node.node_id)
 
 
+def _link_to_existing_nodes_for_path(
+    state: _InvariantGraphBuildState,
+    *,
+    source_node_id: str,
+    rel_path: str,
+    edge_kind: str = "tracks",
+) -> None:
+    normalized = _normalize_rel_path(state.root, rel_path)
+    if not normalized:
+        return
+    for node in state.nodes_by_id.values():
+        if node.node_id == source_node_id:
+            continue
+        if node.rel_path != normalized:
+            continue
+        _add_edge(state, edge_kind, source_node_id, node.node_id)
+
+
 def _append_diagnostic(
     state: _InvariantGraphBuildState,
     *,
@@ -10286,6 +10308,213 @@ def _join_local_repro_closure_ledger(state: _InvariantGraphBuildState) -> None:
         _add_edge(state, "contains", report_node_id, entry_node_id)
 
 
+def _join_local_ci_repro_contract_artifact(state: _InvariantGraphBuildState) -> None:
+    artifact = load_local_ci_repro_contract_artifact(
+        root=state.root,
+        rel_path=_LOCAL_CI_REPRO_CONTRACT_ARTIFACT.as_posix(),
+        identities=state.structured_artifact_identities,
+    )
+    if artifact is None:
+        return
+    report_node_id = "local_ci_repro_contract:artifact"
+    report_node = _synthetic_node(
+        node_id=report_node_id,
+        title="local CI reproduction contract",
+        ref_kind="local_ci_repro_contract",
+        value=_LOCAL_CI_REPRO_CONTRACT_ARTIFACT.as_posix(),
+        object_ids=(artifact.identity.wire(),),
+        reasoning_summary=(
+            "local CI reproduction surfaces={surfaces} relations={relations}".format(
+                surfaces=len(artifact.surfaces),
+                relations=len(artifact.relations),
+            )
+        ),
+        reasoning_control="invariant_graph.local_ci_repro_contract",
+        rel_path=_LOCAL_CI_REPRO_CONTRACT_ARTIFACT.as_posix(),
+        node_kind="local_ci_repro_contract",
+        status_hint="pass"
+        if all(item.status == "pass" for item in artifact.surfaces)
+        and all(item.status == "pass" for item in artifact.relations)
+        else "fail",
+    )
+    _add_node(state, report_node, replace=True)
+    _link_node_refs(state, report_node)
+    touchpoint_node_id = state.object_node_ids.get("CSA-RGC-TP-006", "")
+    if touchpoint_node_id:
+        _add_edge(state, "contains", touchpoint_node_id, report_node_id)
+    surface_node_ids: dict[str, str] = {}
+    for surface in artifact.surfaces:
+        surface_node_id = f"local_ci_repro_surface:{stable_hash(surface.identity.wire())}"
+        surface_node = _synthetic_node(
+            node_id=surface_node_id,
+            title=surface.title,
+            ref_kind="local_ci_repro_surface",
+            value=surface.identity.wire(),
+            object_ids=tuple(
+                item
+                for item in (
+                    surface.identity.wire(),
+                    surface.surface_id,
+                    surface.source_ref,
+                    *surface.artifacts,
+                )
+                if item
+            ),
+            reasoning_summary=surface.summary,
+            reasoning_control="invariant_graph.local_ci_repro_contract.surface",
+            rel_path=_LOCAL_CI_REPRO_CONTRACT_ARTIFACT.as_posix(),
+            node_kind="local_ci_repro_surface",
+            status_hint=surface.status,
+        )
+        _add_node(state, surface_node, replace=True)
+        _link_node_refs(state, surface_node)
+        _add_edge(state, "contains", report_node_id, surface_node_id)
+        surface_node_ids[surface.surface_id] = surface_node_id
+        for artifact_path in surface.artifacts:
+            _link_to_existing_nodes_for_path(
+                state,
+                source_node_id=surface_node_id,
+                rel_path=artifact_path,
+            )
+        if surface.required_capabilities:
+            for capability in surface.required_capabilities:
+                capability_node_id = (
+                    f"local_ci_repro_capability:{stable_hash(capability.identity.wire())}"
+                )
+                capability_node = _synthetic_node(
+                    node_id=capability_node_id,
+                    title=capability.capability_id,
+                    ref_kind="local_ci_repro_capability",
+                    value=capability.identity.wire(),
+                    object_ids=tuple(
+                        item
+                        for item in (
+                            capability.identity.wire(),
+                            capability.capability_id,
+                            surface.surface_id,
+                            surface.source_ref,
+                        )
+                        if item
+                    ),
+                    reasoning_summary=capability.summary,
+                    reasoning_control=(
+                        "invariant_graph.local_ci_repro_contract.capability"
+                    ),
+                    rel_path=_LOCAL_CI_REPRO_CONTRACT_ARTIFACT.as_posix(),
+                    node_kind="local_ci_repro_capability",
+                    status_hint=capability.status,
+                )
+                _add_node(state, capability_node, replace=True)
+                _link_node_refs(state, capability_node)
+                _add_edge(state, "contains", surface_node_id, capability_node_id)
+                if capability.status != "pass":
+                    source_groups_text = "; ".join(
+                        ", ".join(group)
+                        for group in capability.source_alternative_token_groups
+                    )
+                    command_groups_text = "; ".join(
+                        ", ".join(group)
+                        for group in capability.command_alternative_token_groups
+                    )
+                    detail_parts = []
+                    if source_groups_text:
+                        detail_parts.append(
+                            f"source alternatives: {source_groups_text}"
+                        )
+                    if command_groups_text:
+                        detail_parts.append(
+                            f"command alternatives: {command_groups_text}"
+                        )
+                    _append_diagnostic(
+                        state,
+                        severity="warning",
+                        code="ci_repro_capability_contract_violation",
+                        node_id=capability_node_id,
+                        raw_dependency="CSA-RGC-TP-006",
+                        message=(
+                            f"{surface.surface_id} missing capability "
+                            f"{capability.capability_id}"
+                            + (
+                                f" ({'; '.join(detail_parts)})"
+                                if detail_parts
+                                else ""
+                            )
+                        ),
+                    )
+        elif surface.status != "pass":
+            missing_groups_text = "; ".join(
+                ", ".join(group) for group in surface.missing_token_groups
+            )
+            _append_diagnostic(
+                state,
+                severity="warning",
+                code="ci_repro_surface_contract_violation",
+                node_id=surface_node_id,
+                raw_dependency="CSA-RGC-TP-006",
+                message=(
+                    f"{surface.surface_id} missing required token groups: "
+                    f"{missing_groups_text or '<none>'}"
+                ),
+            )
+    for relation in artifact.relations:
+        relation_node_id = f"local_ci_repro_relation:{stable_hash(relation.identity.wire())}"
+        relation_node = _synthetic_node(
+            node_id=relation_node_id,
+            title=relation.relation_id,
+            ref_kind="local_ci_repro_relation",
+            value=relation.identity.wire(),
+            object_ids=tuple(
+                item
+                for item in (
+                    relation.identity.wire(),
+                    relation.relation_id,
+                    relation.source_surface_id,
+                    relation.target_surface_id,
+                )
+                if item
+            ),
+            reasoning_summary=relation.summary,
+            reasoning_control="invariant_graph.local_ci_repro_contract.relation",
+            rel_path=_LOCAL_CI_REPRO_CONTRACT_ARTIFACT.as_posix(),
+            node_kind="local_ci_repro_relation",
+            status_hint=relation.status,
+        )
+        _add_node(state, relation_node, replace=True)
+        _link_node_refs(state, relation_node)
+        _add_edge(state, "contains", report_node_id, relation_node_id)
+        source_node_id = surface_node_ids.get(relation.source_surface_id, "")
+        target_node_id = surface_node_ids.get(relation.target_surface_id, "")
+        if source_node_id:
+            _add_edge(state, "tracks", relation_node_id, source_node_id)
+        if target_node_id:
+            _add_edge(state, "tracks", relation_node_id, target_node_id)
+        if relation.status != "pass":
+            missing_capabilities = tuple(
+                item
+                for item in (
+                    *relation.source_missing_capability_ids,
+                    *relation.target_missing_capability_ids,
+                )
+                if item
+            )
+            _append_diagnostic(
+                state,
+                severity="warning",
+                code="ci_repro_relation_contract_violation",
+                node_id=relation_node_id,
+                raw_dependency="CSA-RGC-TP-006",
+                    message=(
+                        f"{relation.relation_id} is not currently satisfiable from the "
+                        "declared local/remote CI reproduction surfaces."
+                        + (
+                        f" Missing capabilities: {', '.join(sorted(missing_capabilities))}."
+                            if missing_capabilities
+                            else ""
+                        )
+                    ),
+                )
+
+
 def _join_cross_origin_witness_contract_artifact(state: _InvariantGraphBuildState) -> None:
     artifact = load_cross_origin_witness_contract_artifact(
         root=state.root,
@@ -10638,6 +10867,7 @@ def _join_control_loop_artifacts(state: _InvariantGraphBuildState) -> None:
     _join_docflow_compliance_artifact(state)
     _join_docflow_provenance_artifact(state)
     _join_ingress_merge_parity_artifact(state)
+    _join_local_ci_repro_contract_artifact(state)
 
 
 def _is_declared_workstream_dependency(

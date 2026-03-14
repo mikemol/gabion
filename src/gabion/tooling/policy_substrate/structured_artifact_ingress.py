@@ -39,6 +39,7 @@ class StructuredArtifactKind(StrEnum):
     DOCFLOW_PACKET_ENFORCEMENT = "docflow_packet_enforcement"
     CONTROLLER_DRIFT = "controller_drift"
     LOCAL_REPRO_CLOSURE_LEDGER = "local_repro_closure_ledger"
+    LOCAL_CI_REPRO_CONTRACT = "local_ci_repro_contract"
     GIT_STATE = "git_state"
     CROSS_ORIGIN_WITNESS_CONTRACT = "cross_origin_witness_contract"
     INGRESS_MERGE_PARITY = "ingress_merge_parity"
@@ -784,6 +785,73 @@ class LocalReproClosureLedgerArtifact:
 
     def __str__(self) -> str:
         return f"{self.source.rel_path} entries={len(self.entries)}"
+
+
+@dataclass(frozen=True)
+class LocalCiReproCapability:
+    identity: StructuredArtifactIdentity
+    capability_id: str
+    summary: str
+    status: str
+    source_alternative_token_groups: tuple[tuple[str, ...], ...]
+    command_alternative_token_groups: tuple[tuple[str, ...], ...]
+    matched_source_alternative_index: int | None
+    matched_command_alternative_index: int | None
+
+    def __str__(self) -> str:
+        return self.capability_id or self.identity.wire()
+
+
+@dataclass(frozen=True)
+class LocalCiReproSurface:
+    identity: StructuredArtifactIdentity
+    surface_id: str
+    surface_kind: str
+    title: str
+    summary: str
+    source_ref: str
+    mode: str
+    status: str
+    required_capabilities: tuple[LocalCiReproCapability, ...]
+    missing_capability_ids: tuple[str, ...]
+    required_token_groups: tuple[tuple[str, ...], ...]
+    missing_token_groups: tuple[tuple[str, ...], ...]
+    commands: tuple[str, ...]
+    artifacts: tuple[str, ...]
+
+    def __str__(self) -> str:
+        return self.title or self.surface_id or self.identity.wire()
+
+
+@dataclass(frozen=True)
+class LocalCiReproRelation:
+    identity: StructuredArtifactIdentity
+    relation_id: str
+    relation_kind: str
+    source_surface_id: str
+    target_surface_id: str
+    source_missing_capability_ids: tuple[str, ...]
+    target_missing_capability_ids: tuple[str, ...]
+    status: str
+    summary: str
+
+    def __str__(self) -> str:
+        return self.relation_id or self.identity.wire()
+
+
+@dataclass(frozen=True)
+class LocalCiReproContractArtifact:
+    identity: StructuredArtifactIdentity
+    source: StructuredArtifactSource
+    summary: str
+    surfaces: tuple[LocalCiReproSurface, ...]
+    relations: tuple[LocalCiReproRelation, ...]
+
+    def __str__(self) -> str:
+        return (
+            f"{self.source.rel_path} surfaces={len(self.surfaces)} "
+            f"relations={len(self.relations)}"
+        )
 
 
 @dataclass(frozen=True)
@@ -2470,6 +2538,240 @@ def load_local_repro_closure_ledger_artifact(
     )
 
 
+def load_local_ci_repro_contract_artifact(
+    *,
+    root: Path,
+    rel_path: str,
+    identities: StructuredArtifactIdentitySpace,
+) -> LocalCiReproContractArtifact | None:
+    payload = _load_json_mapping_artifact(root / rel_path)
+    if payload is None:
+        return None
+    source = StructuredArtifactSource(
+        rel_path=rel_path,
+        schema_version=int(payload.get("schema_version", 0) or 0),
+        producer=str(payload.get("generated_by", "")).strip(),
+    )
+    identity = identities.artifact_id(
+        artifact_kind=StructuredArtifactKind.LOCAL_CI_REPRO_CONTRACT,
+        source_path=rel_path,
+        label=rel_path,
+    )
+    surfaces: list[LocalCiReproSurface] = []
+    raw_surfaces = payload.get("surfaces", [])
+    if isinstance(raw_surfaces, list):
+        for index, raw_surface in enumerate(raw_surfaces, start=1):
+            if not isinstance(raw_surface, Mapping):
+                continue
+            surface_id = str(raw_surface.get("surface_id", "")).strip()
+            surface_identity = identities.item_id(
+                artifact_kind=StructuredArtifactKind.LOCAL_CI_REPRO_CONTRACT,
+                source_path=rel_path,
+                item_kind="surface",
+                item_key=surface_id or f"surface-{index}",
+                label=str(raw_surface.get("title", "")).strip()
+                or surface_id
+                or f"surface-{index}",
+            )
+            capabilities: list[LocalCiReproCapability] = []
+            raw_capabilities = raw_surface.get("required_capabilities", [])
+            if isinstance(raw_capabilities, list):
+                for capability_index, raw_capability in enumerate(
+                    raw_capabilities,
+                    start=1,
+                ):
+                    if not isinstance(raw_capability, Mapping):
+                        continue
+                    capability_id = str(
+                        raw_capability.get("capability_id", "")
+                    ).strip()
+                    capability_identity = identities.item_id(
+                        artifact_kind=StructuredArtifactKind.LOCAL_CI_REPRO_CONTRACT,
+                        source_path=rel_path,
+                        item_kind="capability",
+                        item_key=(
+                            f"{surface_id}:{capability_id}"
+                            if surface_id or capability_id
+                            else f"capability-{index}-{capability_index}"
+                        ),
+                        label=capability_id
+                        or str(raw_capability.get("summary", "")).strip()
+                        or f"capability-{index}-{capability_index}",
+                    )
+                    source_groups: list[tuple[str, ...]] = []
+                    raw_source_groups = raw_capability.get(
+                        "source_alternative_token_groups",
+                        [],
+                    )
+                    if isinstance(raw_source_groups, list):
+                        for raw_group in raw_source_groups:
+                            if not isinstance(raw_group, list):
+                                continue
+                            group = tuple(
+                                str(item).strip()
+                                for item in raw_group
+                                if str(item).strip()
+                            )
+                            if group:
+                                source_groups.append(group)
+                    command_groups: list[tuple[str, ...]] = []
+                    raw_command_groups = raw_capability.get(
+                        "command_alternative_token_groups",
+                        [],
+                    )
+                    if isinstance(raw_command_groups, list):
+                        for raw_group in raw_command_groups:
+                            if not isinstance(raw_group, list):
+                                continue
+                            group = tuple(
+                                str(item).strip()
+                                for item in raw_group
+                                if str(item).strip()
+                            )
+                            if group:
+                                command_groups.append(group)
+                    matched_source = raw_capability.get(
+                        "matched_source_alternative_index"
+                    )
+                    matched_command = raw_capability.get(
+                        "matched_command_alternative_index"
+                    )
+                    capabilities.append(
+                        LocalCiReproCapability(
+                            identity=capability_identity,
+                            capability_id=capability_id,
+                            summary=str(
+                                raw_capability.get("summary", "")
+                            ).strip(),
+                            status=str(raw_capability.get("status", "")).strip(),
+                            source_alternative_token_groups=tuple(source_groups),
+                            command_alternative_token_groups=tuple(command_groups),
+                            matched_source_alternative_index=(
+                                int(matched_source)
+                                if isinstance(matched_source, int)
+                                else None
+                            ),
+                            matched_command_alternative_index=(
+                                int(matched_command)
+                                if isinstance(matched_command, int)
+                                else None
+                            ),
+                        )
+                    )
+            required_groups: list[tuple[str, ...]] = []
+            raw_required_groups = raw_surface.get("required_token_groups", [])
+            if isinstance(raw_required_groups, list):
+                for raw_group in raw_required_groups:
+                    if not isinstance(raw_group, list):
+                        continue
+                    group = tuple(
+                        str(item).strip()
+                        for item in raw_group
+                        if str(item).strip()
+                    )
+                    if group:
+                        required_groups.append(group)
+            missing_groups: list[tuple[str, ...]] = []
+            raw_missing_groups = raw_surface.get("missing_token_groups", [])
+            if isinstance(raw_missing_groups, list):
+                for raw_group in raw_missing_groups:
+                    if not isinstance(raw_group, list):
+                        continue
+                    group = tuple(
+                        str(item).strip()
+                        for item in raw_group
+                        if str(item).strip()
+                    )
+                    if group:
+                        missing_groups.append(group)
+            missing_capability_ids = tuple(
+                str(item).strip()
+                for item in raw_surface.get("missing_capability_ids", [])
+                if str(item).strip()
+            )
+            surfaces.append(
+                LocalCiReproSurface(
+                    identity=surface_identity,
+                    surface_id=surface_id,
+                    surface_kind=str(raw_surface.get("surface_kind", "")).strip(),
+                    title=str(raw_surface.get("title", "")).strip(),
+                    summary=str(raw_surface.get("summary", "")).strip(),
+                    source_ref=_normalize_rel_path(
+                        root,
+                        raw_surface.get("source_ref", ""),
+                    ),
+                    mode=str(raw_surface.get("mode", "")).strip(),
+                    status=str(raw_surface.get("status", "")).strip(),
+                    required_capabilities=tuple(capabilities),
+                    missing_capability_ids=missing_capability_ids,
+                    required_token_groups=tuple(required_groups),
+                    missing_token_groups=tuple(missing_groups),
+                    commands=tuple(
+                        str(item).strip()
+                        for item in raw_surface.get("commands", [])
+                        if str(item).strip()
+                    ),
+                    artifacts=tuple(
+                        _normalize_rel_path(root, item)
+                        for item in raw_surface.get("artifacts", [])
+                        if str(item).strip()
+                    ),
+                )
+            )
+    relations: list[LocalCiReproRelation] = []
+    raw_relations = payload.get("relations", [])
+    if isinstance(raw_relations, list):
+        for index, raw_relation in enumerate(raw_relations, start=1):
+            if not isinstance(raw_relation, Mapping):
+                continue
+            relation_id = str(raw_relation.get("relation_id", "")).strip()
+            relation_identity = identities.item_id(
+                artifact_kind=StructuredArtifactKind.LOCAL_CI_REPRO_CONTRACT,
+                source_path=rel_path,
+                item_kind="relation",
+                item_key=relation_id or f"relation-{index}",
+                label=relation_id or f"relation-{index}",
+            )
+            relations.append(
+                LocalCiReproRelation(
+                    identity=relation_identity,
+                    relation_id=relation_id,
+                    relation_kind=str(raw_relation.get("relation_kind", "")).strip(),
+                    source_surface_id=str(
+                        raw_relation.get("source_surface_id", "")
+                    ).strip(),
+                    target_surface_id=str(
+                        raw_relation.get("target_surface_id", "")
+                    ).strip(),
+                    source_missing_capability_ids=tuple(
+                        str(item).strip()
+                        for item in raw_relation.get(
+                            "source_missing_capability_ids",
+                            [],
+                        )
+                        if str(item).strip()
+                    ),
+                    target_missing_capability_ids=tuple(
+                        str(item).strip()
+                        for item in raw_relation.get(
+                            "target_missing_capability_ids",
+                            [],
+                        )
+                        if str(item).strip()
+                    ),
+                    status=str(raw_relation.get("status", "")).strip(),
+                    summary=str(raw_relation.get("summary", "")).strip(),
+                )
+            )
+    return LocalCiReproContractArtifact(
+        identity=identity,
+        source=source,
+        summary=str(payload.get("summary", "")).strip(),
+        surfaces=tuple(surfaces),
+        relations=tuple(relations),
+    )
+
+
 __all__ = [
     "ControllerDriftArtifact",
     "ControllerDriftFinding",
@@ -2492,6 +2794,10 @@ __all__ = [
     "IngressMergeParityFieldCheck",
     "JUnitFailureArtifact",
     "JUnitFailureCase",
+    "LocalCiReproContractArtifact",
+    "LocalCiReproCapability",
+    "LocalCiReproRelation",
+    "LocalCiReproSurface",
     "LocalReproClosureEntry",
     "LocalReproClosureLedgerArtifact",
     "StructuredArtifactDecompositionIdentity",
@@ -2514,6 +2820,7 @@ __all__ = [
     "load_git_state_artifact",
     "load_ingress_merge_parity_artifact",
     "load_junit_failure_artifact",
+    "load_local_ci_repro_contract_artifact",
     "load_local_repro_closure_ledger_artifact",
     "load_test_evidence_artifact",
     "write_ingress_merge_parity_artifact",

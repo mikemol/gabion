@@ -16,6 +16,7 @@ from gabion.tooling.policy_substrate.structured_artifact_ingress import (
     load_docflow_packet_enforcement_artifact,
     load_ingress_merge_parity_artifact,
     load_junit_failure_artifact,
+    load_local_ci_repro_contract_artifact,
     load_local_repro_closure_ledger_artifact,
     load_test_evidence_artifact,
     write_ingress_merge_parity_artifact,
@@ -350,6 +351,111 @@ def test_load_local_repro_closure_ledger_artifact_preserves_validation_statuses(
     assert entry.validation_statuses == ("pass", "pass")
     assert str(entry.identity) == "CU-R1"
     assert entry.identity.wire() != str(entry.identity)
+
+
+def test_load_local_ci_repro_contract_artifact_preserves_surface_and_relation_statuses(
+    tmp_path: Path,
+) -> None:
+    _write_json(
+        tmp_path / "artifacts" / "out" / "local_ci_repro_contract.json",
+        {
+            "schema_version": 2,
+            "artifact_kind": "local_ci_repro_contract",
+            "generated_by": "tests",
+            "summary": "Local CI reproduction topology.",
+            "surfaces": [
+                {
+                    "surface_id": "workflow:ci.yml:checks",
+                    "surface_kind": "workflow_job",
+                    "title": "CI checks workflow job",
+                    "summary": "Strict gates.",
+                    "source_ref": ".github/workflows/ci.yml",
+                    "mode": "checks",
+                    "status": "pass",
+                    "required_capabilities": [
+                        {
+                            "capability_id": "policy_workflows_output",
+                            "summary": "Materialize the workflow policy artifact.",
+                            "status": "pass",
+                            "source_alternative_token_groups": [["policy_check.py", "--workflows"]],
+                            "command_alternative_token_groups": [],
+                            "matched_source_alternative_index": 0,
+                            "matched_command_alternative_index": None,
+                        }
+                    ],
+                    "missing_capability_ids": [],
+                    "required_token_groups": [["policy_check.py", "--workflows"]],
+                    "missing_token_groups": [],
+                    "commands": ["python scripts/policy/policy_check.py --workflows"],
+                    "artifacts": ["artifacts/out/policy_check_result.json"],
+                },
+                {
+                    "surface_id": "local_script:scripts/ci_local_repro.sh:checks",
+                    "surface_kind": "local_repro_lane",
+                    "title": "Local CI reproduction checks lane",
+                    "summary": "Local parity lane.",
+                    "source_ref": "scripts/ci_local_repro.sh",
+                    "mode": "checks-only",
+                    "status": "fail",
+                    "required_capabilities": [
+                        {
+                            "capability_id": "policy_workflows_output",
+                            "summary": "Materialize the workflow policy artifact.",
+                            "status": "fail",
+                            "source_alternative_token_groups": [["checks_policy_workflows_output"]],
+                            "command_alternative_token_groups": [],
+                            "matched_source_alternative_index": None,
+                            "matched_command_alternative_index": None,
+                        }
+                    ],
+                    "missing_capability_ids": ["policy_workflows_output"],
+                    "required_token_groups": [["checks_policy_workflows_output"]],
+                    "missing_token_groups": [["checks_policy_workflows_output"]],
+                    "commands": ["scripts/ci_local_repro.sh --checks-only"],
+                    "artifacts": ["artifacts/out/policy_check_result.json"],
+                },
+            ],
+            "relations": [
+                {
+                    "relation_id": "ci-repro:local-checks->workflow-checks",
+                    "relation_kind": "reproduces",
+                    "source_surface_id": "local_script:scripts/ci_local_repro.sh:checks",
+                    "target_surface_id": "workflow:ci.yml:checks",
+                    "source_missing_capability_ids": ["policy_workflows_output"],
+                    "target_missing_capability_ids": [],
+                    "status": "fail",
+                    "summary": "Local checks should reproduce workflow checks.",
+                }
+            ],
+        },
+    )
+
+    artifact = load_local_ci_repro_contract_artifact(
+        root=tmp_path,
+        rel_path="artifacts/out/local_ci_repro_contract.json",
+        identities=StructuredArtifactIdentitySpace(),
+    )
+
+    assert artifact is not None
+    assert artifact.source.schema_version == 2
+    assert artifact.summary == "Local CI reproduction topology."
+    assert len(artifact.surfaces) == 2
+    assert len(artifact.relations) == 1
+    failing_surface = artifact.surfaces[1]
+    passing_surface = artifact.surfaces[0]
+    relation = artifact.relations[0]
+    assert passing_surface.required_capabilities[0].capability_id == "policy_workflows_output"
+    assert passing_surface.required_capabilities[0].matched_source_alternative_index == 0
+    assert failing_surface.surface_id == "local_script:scripts/ci_local_repro.sh:checks"
+    assert failing_surface.status == "fail"
+    assert failing_surface.missing_capability_ids == ("policy_workflows_output",)
+    assert failing_surface.required_capabilities[0].status == "fail"
+    assert failing_surface.missing_token_groups == (("checks_policy_workflows_output",),)
+    assert failing_surface.artifacts == ("artifacts/out/policy_check_result.json",)
+    assert relation.relation_kind == "reproduces"
+    assert relation.status == "fail"
+    assert relation.source_missing_capability_ids == ("policy_workflows_output",)
+    assert str(failing_surface.identity) == "Local CI reproduction checks lane"
 
 
 def test_load_git_state_artifact_uses_typed_state_entry_identities(

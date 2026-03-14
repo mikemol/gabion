@@ -3591,6 +3591,82 @@ def test_build_invariant_graph_joins_control_loop_artifacts(
             ],
         },
     )
+    _write_json(
+        root / "artifacts" / "out" / "local_ci_repro_contract.json",
+        {
+            "schema_version": 2,
+            "artifact_kind": "local_ci_repro_contract",
+            "generated_by": "tests",
+            "summary": "Local CI reproduction topology.",
+            "surfaces": [
+                {
+                    "surface_id": "workflow:ci.yml:checks",
+                    "surface_kind": "workflow_job",
+                    "title": "CI checks workflow job",
+                    "summary": "Strict gates.",
+                    "source_ref": ".github/workflows/ci.yml",
+                    "mode": "checks",
+                    "status": "pass",
+                    "required_capabilities": [
+                        {
+                            "capability_id": "policy_workflows_output",
+                            "summary": "Materialize the workflow policy artifact.",
+                            "status": "pass",
+                            "source_alternative_token_groups": [["policy_check.py", "--workflows"]],
+                            "command_alternative_token_groups": [],
+                            "matched_source_alternative_index": 0,
+                            "matched_command_alternative_index": None,
+                        }
+                    ],
+                    "missing_capability_ids": [],
+                    "required_token_groups": [["policy_check.py", "--workflows"]],
+                    "missing_token_groups": [],
+                    "commands": ["python scripts/policy/policy_check.py --workflows"],
+                    "artifacts": [
+                        "artifacts/out/controller_drift.json",
+                        "artifacts/out/docflow_compliance.json",
+                    ],
+                },
+                {
+                    "surface_id": "local_script:scripts/ci_local_repro.sh:checks",
+                    "surface_kind": "local_repro_lane",
+                    "title": "Local CI reproduction checks lane",
+                    "summary": "Local parity lane.",
+                    "source_ref": "scripts/ci_local_repro.sh",
+                    "mode": "checks-only",
+                    "status": "fail",
+                    "required_capabilities": [
+                        {
+                            "capability_id": "policy_workflows_output",
+                            "summary": "Materialize the workflow policy artifact.",
+                            "status": "fail",
+                            "source_alternative_token_groups": [["checks_policy_workflows_output"]],
+                            "command_alternative_token_groups": [],
+                            "matched_source_alternative_index": None,
+                            "matched_command_alternative_index": None,
+                        }
+                    ],
+                    "missing_capability_ids": ["policy_workflows_output"],
+                    "required_token_groups": [["checks_policy_workflows_output"]],
+                    "missing_token_groups": [["checks_policy_workflows_output"]],
+                    "commands": ["scripts/ci_local_repro.sh --checks-only"],
+                    "artifacts": ["artifacts/out/docflow_compliance.json"],
+                },
+            ],
+            "relations": [
+                {
+                    "relation_id": "ci-repro:local-checks->workflow-checks",
+                    "relation_kind": "reproduces",
+                    "source_surface_id": "local_script:scripts/ci_local_repro.sh:checks",
+                    "target_surface_id": "workflow:ci.yml:checks",
+                    "source_missing_capability_ids": ["policy_workflows_output"],
+                    "target_missing_capability_ids": [],
+                    "status": "fail",
+                    "summary": "Local checks should reproduce workflow checks.",
+                }
+            ],
+        },
+    )
 
     graph = invariant_graph.build_invariant_graph(root)
     node_kind_counts = graph.as_payload()["counts"]["node_kind_counts"]
@@ -3607,6 +3683,10 @@ def test_build_invariant_graph_joins_control_loop_artifacts(
     assert node_kind_counts["controller_drift_finding"] == 1
     assert node_kind_counts["local_repro_closure_ledger"] == 1
     assert node_kind_counts["local_repro_entry"] == 1
+    assert node_kind_counts["local_ci_repro_contract"] == 1
+    assert node_kind_counts["local_ci_repro_surface"] == 2
+    assert node_kind_counts["local_ci_repro_capability"] == 2
+    assert node_kind_counts["local_ci_repro_relation"] == 1
     assert node_kind_counts["git_state_entry"] == 1
 
     inbox_doc = next(
@@ -3620,6 +3700,9 @@ def test_build_invariant_graph_joins_control_loop_artifacts(
     )
     compliance_row_node = next(
         node for node in graph.nodes if node.node_kind == "docflow_compliance_row"
+    )
+    compliance_report_node = next(
+        node for node in graph.nodes if node.node_kind == "docflow_compliance_report"
     )
     obligation_node = next(
         node for node in graph.nodes if node.node_kind == "docflow_obligation"
@@ -3644,6 +3727,22 @@ def test_build_invariant_graph_joins_control_loop_artifacts(
     )
     local_repro_entry = next(
         node for node in graph.nodes if node.node_kind == "local_repro_entry"
+    )
+    local_ci_repro_surface = next(
+        node
+        for node in graph.nodes
+        if node.node_kind == "local_ci_repro_surface"
+        and "local_script:scripts/ci_local_repro.sh:checks" in node.object_ids
+    )
+    local_ci_repro_capability = next(
+        node
+        for node in graph.nodes
+        if node.node_kind == "local_ci_repro_capability"
+        and "policy_workflows_output" in node.object_ids
+        and "local_script:scripts/ci_local_repro.sh:checks" in node.object_ids
+    )
+    local_ci_repro_relation = next(
+        node for node in graph.nodes if node.node_kind == "local_ci_repro_relation"
     )
     edges = {(edge.edge_kind, edge.source_id, edge.target_id) for edge in graph.edges}
 
@@ -3670,9 +3769,15 @@ def test_build_invariant_graph_joins_control_loop_artifacts(
         item.startswith("local_repro_closure_ledger:")
         for item in local_repro_entry.object_ids
     )
+    assert "local_script:scripts/ci_local_repro.sh:checks" in local_ci_repro_surface.object_ids
+    assert "policy_workflows_output" in local_ci_repro_capability.object_ids
+    assert "ci-repro:local-checks->workflow-checks" in local_ci_repro_relation.object_ids
     assert ("tracks", packet_node.node_id, inbox_doc.node_id) in edges
     assert ("tracks", packet_row_node.node_id, inbox_doc.node_id) in edges
     assert ("tracks", compliance_row_node.node_id, inbox_doc.node_id) in edges
+    assert ("tracks", local_ci_repro_surface.node_id, compliance_report_node.node_id) in edges
+    assert ("contains", local_ci_repro_surface.node_id, local_ci_repro_capability.node_id) in edges
+    assert ("tracks", local_ci_repro_relation.node_id, local_ci_repro_surface.node_id) in edges
     assert ("touches", compliance_row_node.node_id, git_state_entry.node_id) in edges
     assert ("touches", obligation_node.node_id, git_state_entry.node_id) in edges
     assert ("touches", provenance_report_node.node_id, git_state_entry.node_id) in edges
@@ -3682,6 +3787,9 @@ def test_build_invariant_graph_joins_control_loop_artifacts(
     assert invariant_graph.trace_nodes(graph, "origin/stage..HEAD")
     assert invariant_graph.trace_nodes(graph, "b" * 40)
     assert invariant_graph.trace_nodes(graph, "sppf_gh_reference_validation")
+    assert invariant_graph.trace_nodes(graph, "ci-repro:local-checks->workflow-checks")
+    assert invariant_graph.trace_nodes(graph, "local_script:scripts/ci_local_repro.sh:checks")
+    assert invariant_graph.trace_nodes(graph, "policy_workflows_output")
 
     workstreams = invariant_graph.build_invariant_workstreams(graph, root=root)
     payload = workstreams.as_payload()
@@ -3692,7 +3800,7 @@ def test_build_invariant_graph_joins_control_loop_artifacts(
         if item["object_id"] == "CSA-RGC-TP-007"
     )
 
-    assert payload["diagnostic_summary"]["diagnostic_count"] >= 1
+    assert payload["diagnostic_summary"]["diagnostic_count"] >= 3
     assert rgc["next_actions"]["recommended_diagnostic_blocked_cut"] is not None
     assert (
         rgc["next_actions"]["recommended_diagnostic_blocked_cut"]["object_id"]

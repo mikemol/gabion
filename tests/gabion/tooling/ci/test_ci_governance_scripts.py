@@ -140,6 +140,42 @@ def test_policy_check_writes_workflow_governance_artifacts(tmp_path: Path) -> No
     assert decision_payload["decision"] == "hold"
 
 
+# gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_policy_check_writes_local_ci_repro_contract_artifact
+# gabion:behavior primary=desired
+def test_policy_check_writes_local_ci_repro_contract_artifact(tmp_path: Path) -> None:
+    output = tmp_path / "local_ci_repro_contract.json"
+
+    policy_check._write_local_ci_repro_contract_artifact(
+        output_path=output,
+        repo_root=policy_check.REPO_ROOT,
+    )
+
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    surface_ids = {item["surface_id"] for item in payload["surfaces"]}
+    relation_ids = {item["relation_id"] for item in payload["relations"]}
+    surface_statuses = {item["surface_id"]: item["status"] for item in payload["surfaces"]}
+    relation_statuses = {item["relation_id"]: item["status"] for item in payload["relations"]}
+
+    assert payload["artifact_kind"] == "local_ci_repro_contract"
+    assert "workflow:ci.yml:checks" in surface_ids
+    assert "workflow:ci.yml:dataflow-grammar" in surface_ids
+    assert "workflow:pr-dataflow-grammar.yml:dataflow-grammar" in surface_ids
+    assert "tooling_command:gabion:ci-local-repro:checks" in surface_ids
+    assert "tooling_command:gabion:ci-local-repro:pr-dataflow" in surface_ids
+    assert "local_script:scripts/ci_local_repro.sh:wrapper" in surface_ids
+    assert "local_script:scripts/checks.sh:docflow" in surface_ids
+    assert "local_script:scripts/ci/ci_cycle.py:watch" in surface_ids
+    assert "ci-repro:local-checks->workflow-checks" in relation_ids
+    assert "ci-repro:script-wrapper->local-checks" in relation_ids
+    assert surface_statuses["workflow:ci.yml:checks"] == "pass"
+    assert surface_statuses["tooling_command:gabion:ci-local-repro:checks"] == "pass"
+    assert surface_statuses["tooling_command:gabion:ci-local-repro:pr-dataflow"] == "pass"
+    assert surface_statuses["local_script:scripts/ci_local_repro.sh:wrapper"] == "pass"
+    assert relation_statuses["ci-repro:local-checks->workflow-checks"] == "pass"
+    assert relation_statuses["ci-repro:local-pr-dataflow->workflow-pr-dataflow"] == "pass"
+    assert relation_statuses["ci-repro:script-wrapper->local-checks"] == "pass"
+
+
 # gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_policy_check_test_behavior_contract_reports_missing
 # gabion:behavior primary=verboten facets=missing
 def test_policy_check_test_behavior_contract_reports_missing(tmp_path: Path) -> None:

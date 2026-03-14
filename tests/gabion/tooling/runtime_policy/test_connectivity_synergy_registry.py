@@ -355,6 +355,7 @@ def test_connectivity_synergy_registry_defines_expected_roots_and_subqueues() ->
     } >= {
         "scripts/policy/docflow_packet_enforce.py",
         "scripts/governance/governance_controller_audit.py",
+        "src/gabion/tooling/runtime/ci_local_repro.py",
         "src/gabion_governance/governance_audit_impl.py",
         "src/gabion/tooling/runtime/ci_watch.py",
         "scripts/policy/policy_scanner_suite.py",
@@ -374,6 +375,10 @@ def test_connectivity_synergy_registry_defines_expected_roots_and_subqueues() ->
         ),
         (
             "scripts/governance/governance_controller_audit.py",
+            "main",
+        ),
+        (
+            "src/gabion/tooling/runtime/ci_local_repro.py",
             "main",
         ),
         (
@@ -415,6 +420,18 @@ def test_connectivity_synergy_registry_defines_expected_roots_and_subqueues() ->
         (
             "src/gabion/tooling/policy_substrate/invariant_graph.py",
             "_join_docflow_compliance_artifact",
+        ),
+        (
+            "scripts/policy/policy_check.py",
+            "_write_local_ci_repro_contract_artifact",
+        ),
+        (
+            "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+            "load_local_ci_repro_contract_artifact",
+        ),
+        (
+            "src/gabion/tooling/policy_substrate/invariant_graph.py",
+            "_join_local_ci_repro_contract_artifact",
         ),
     }
     assert {
