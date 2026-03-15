@@ -268,7 +268,7 @@ class ServiceEmission:
     stage: ScannerStage | PredictorStage | CompleterStage
     delta: ScannerDelta | PredictorDelta | CompleterDelta | None
     blocked_on: NeedScan | NeedPredictions | NeedCompleted | None
-    yielded: tuple[object, ...]
+    yielded: tuple[ScannerDelta | PredictorDelta | CompleterDelta | CompletedWitness | Exhausted, ...]
 
 
 @dataclass(frozen=True)
@@ -571,9 +571,11 @@ class ServicePosetRouter:
         self.predictor_trace: list[ServiceEmission] = []
         self.completer_trace: list[ServiceEmission] = []
 
-        self._scan_cache: dict[int, tuple[ScannerTruth | Exhausted, ...]] = {}
-        self._predict_cache: dict[int, tuple[PredictedCandidate | Exhausted, ...]] = {}
+        self._scan_cache: dict[int, tuple[ScannerDelta | Exhausted, ...]] = {}
+        self._predict_cache: dict[int, tuple[PredictorDelta | Exhausted, ...]] = {}
         self._complete_cache: dict[int, CompletedWitness | Exhausted] = {}
+        self._scan_stage_cache: dict[int, ScannerStage] = {}
+        self._predict_stage_cache: dict[int, PredictorStage] = {}
         self._metrics = {
             "scan": [0, 0],
             "predict": [0, 0],
@@ -771,7 +773,7 @@ class ServicePosetRouter:
             require_complete=require_complete,
         )
 
-    def stream_scan(self, request: NeedScan) -> tuple[ScannerTruth | Exhausted, ...]:
+    def stream_scan(self, request: NeedScan) -> tuple[ScannerDelta | Exhausted, ...]:
         with deadline_scope(Deadline.from_timeout_ms(30_000)):
             with deadline_clock_scope(MonotonicClock()):
                 return tuple(self._stream_scan(request))
@@ -814,18 +816,22 @@ class ServicePosetRouter:
                     request_metrics=self.request_metrics,
                 )
 
-    def _stream_scan(self, request: NeedScan) -> Iterator[ScannerTruth | Exhausted]:
+    def _stream_scan(self, request: NeedScan) -> Iterator[ScannerDelta | Exhausted]:
         self._metrics["scan"][0] += 1
         cached = self._scan_cache.get(request.request_id.prime)
         if cached is not None:
             yield from cached
             return
         self._metrics["scan"][1] += 1
-        responses: list[ScannerTruth | Exhausted] = []
+        responses: list[ScannerDelta | Exhausted] = []
         for emission in self._scanner_service(request):
             self._record_emission(emission)
+            self._scan_stage_cache[request.request_id.prime] = emission.stage
+            if isinstance(emission.delta, ScannerDelta):
+                responses.append(emission.delta)
+                yield emission.delta
             for obj in emission.yielded:
-                if isinstance(obj, (ScannerTruth, Exhausted)):
+                if isinstance(obj, Exhausted):
                     responses.append(obj)
                     yield obj
         self._scan_cache[request.request_id.prime] = tuple(responses)
@@ -833,26 +839,29 @@ class ServicePosetRouter:
     def _stream_predictions(
         self,
         request: NeedPredictions,
-    ) -> Iterator[PredictedCandidate | Exhausted]:
+    ) -> Iterator[PredictorDelta | Exhausted]:
         self._metrics["predict"][0] += 1
         cached = self._predict_cache.get(request.request_id.prime)
         if cached is not None:
             yield from cached
             return
         self._metrics["predict"][1] += 1
-        responses: list[PredictedCandidate | Exhausted] = []
+        responses: list[PredictorDelta | Exhausted] = []
         generator = self._predictor_service(request)
         emission = next(generator)
-        scan_stream: Iterator[ScannerTruth | Exhausted] | None = None
+        scan_stream: Iterator[ScannerDelta | Exhausted] | None = None
         while True:
             self._record_emission(emission)
+            self._predict_stage_cache[request.request_id.prime] = emission.stage
+            if isinstance(emission.delta, PredictorDelta):
+                responses.append(emission.delta)
+                yield emission.delta
             for obj in emission.yielded:
-                if isinstance(obj, (PredictedCandidate, Exhausted)):
+                if isinstance(obj, Exhausted):
                     responses.append(obj)
                     yield obj
-                    if isinstance(obj, Exhausted):
-                        self._predict_cache[request.request_id.prime] = tuple(responses)
-                        return
+                    self._predict_cache[request.request_id.prime] = tuple(responses)
+                    return
             blocked = emission.blocked_on
             if blocked is None:
                 self._predict_cache[request.request_id.prime] = tuple(responses)
@@ -880,7 +889,7 @@ class ServicePosetRouter:
         self._metrics["complete"][1] += 1
         generator = self._completer_service(request)
         emission = next(generator)
-        prediction_stream: Iterator[PredictedCandidate | Exhausted] | None = None
+        prediction_stream: Iterator[PredictorDelta | Exhausted] | None = None
         while True:
             self._record_emission(emission)
             for obj in emission.yielded:
@@ -921,6 +930,18 @@ class ServicePosetRouter:
         classes_by_id: dict[int, ScannerAmbiguityClass] = {}
         start = 0 if request.start is None else request.start
         stop = len(self.lexemes) if request.end is None else min(request.end, len(self.lexemes))
+        stage = ScannerStage(
+            stage_id=self._id_factor(
+                "ttl_service_scanner_stage",
+                f"{request.request_id.prime}|0|0|0",
+            ),
+            request_id=request.request_id,
+            horizon=start,
+            truth_ids=frozenset(),
+            ambiguity_class_ids=frozenset(),
+            truths=(),
+            ambiguity_classes=(),
+        )
         for index in range(start, stop):
             lexeme = self.lexemes[index]
             truth_ids: list[PrimeFactor] = []
@@ -995,24 +1016,9 @@ class ServicePosetRouter:
                 stage=stage,
                 delta=delta,
                 blocked_on=None,
-                yielded=tuple(new_truths),
+                yielded=(delta,),
             )
-        final_stage = ScannerStage(
-            stage_id=self._id_factor(
-                "ttl_service_scanner_stage",
-                f"{request.request_id.prime}|final|{stop}",
-            ),
-            request_id=request.request_id,
-            horizon=stop,
-            truth_ids=frozenset(),
-            ambiguity_class_ids=frozenset(),
-            truths=(),
-            ambiguity_classes=(),
-        )
-        if stop > start:
-            last_stage = self.scanner_trace[-1].stage if self.scanner_trace else final_stage
-            if isinstance(last_stage, ScannerStage) and last_stage.request_id == request.request_id:
-                final_stage = last_stage
+        final_stage = stage
         yield ServiceEmission(
             emission_id=self._id_factor(
                 "ttl_service_scanner_emission",
@@ -1029,7 +1035,8 @@ class ServicePosetRouter:
     def _predictor_service(
         self,
         request: NeedPredictions,
-    ) -> Generator[ServiceEmission, ScannerTruth | Exhausted, None]:
+    ) -> Generator[ServiceEmission, ScannerDelta | Exhausted, None]:
+        truths_by_id: dict[int, ScannerTruth] = {}
         candidates_by_id: dict[int, PredictedCandidate] = {}
         scan_request = self.make_scan_request(start=request.start, end=request.end)
         stage = PredictorStage(
@@ -1065,10 +1072,16 @@ class ServicePosetRouter:
                     yielded=(self._make_exhausted("predictor", request.request_id, "prediction_complete"),),
                 )
                 return
-            if not isinstance(response, ScannerTruth):
-                raise TypeError("predictor_service expected ScannerTruth or Exhausted")
+            if not isinstance(response, ScannerDelta):
+                raise TypeError("predictor_service expected ScannerDelta or Exhausted")
 
-            new_candidates = self._candidates_from_truth(request=request, truth=response)
+            for truth in response.new_truths:
+                truths_by_id[truth.truth_id.prime] = truth
+
+            new_candidates = self._candidates_from_stage(
+                request=request,
+                truths=tuple(truths_by_id.values()),
+            )
             delta_candidates: list[PredictedCandidate] = []
             for candidate in new_candidates:
                 if candidate.candidate_id.prime in candidates_by_id:
@@ -1099,20 +1112,20 @@ class ServicePosetRouter:
             response = yield ServiceEmission(
                 emission_id=self._id_factor(
                     "ttl_service_predictor_emission",
-                    f"{request.request_id.prime}|{response.truth_id.prime}",
+                    f"{request.request_id.prime}|{response.delta_id.prime}",
                 ),
                 service_name="predictor",
                 request_id=request.request_id,
                 stage=stage,
                 delta=delta,
                 blocked_on=scan_request,
-                yielded=tuple(delta_candidates),
+                yielded=() if delta is None else (delta,),
             )
 
     def _completer_service(
         self,
         request: NeedCompleted,
-    ) -> Generator[ServiceEmission, PredictedCandidate | CompletedWitness | Exhausted, CompletedWitness | Exhausted]:
+    ) -> Generator[ServiceEmission, PredictorDelta | CompletedWitness | Exhausted, CompletedWitness | Exhausted]:
         completed_by_id: dict[int, CompletedWitness] = {}
         pending_by_id: dict[int, NeedCompleted] = {}
         stage = CompleterStage(
@@ -1156,17 +1169,68 @@ class ServicePosetRouter:
                     yielded=(exhausted,),
                 )
                 return exhausted
-            if not isinstance(response, PredictedCandidate):
-                raise TypeError("completer_service expected PredictedCandidate or Exhausted")
+            if not isinstance(response, PredictorDelta):
+                raise TypeError("completer_service expected PredictorDelta or Exhausted")
 
-            if response.residual_symbol is None:
-                if self._completion_satisfies(request, response.start, response.stop):
-                    witness = self._make_completed_witness(
-                        request=request,
-                        candidate=response,
-                        right_witness=None,
-                    )
-                    completed_by_id[witness.witness_id.prime] = witness
+            for candidate in response.new_candidates:
+                if candidate.residual_symbol is None:
+                    if self._completion_satisfies(request, candidate.start, candidate.stop):
+                        witness = self._make_completed_witness(
+                            request=request,
+                            candidate=candidate,
+                            right_witness=None,
+                        )
+                        completed_by_id[witness.witness_id.prime] = witness
+                        stage = CompleterStage(
+                            stage_id=self._id_factor(
+                                "ttl_service_completer_stage",
+                                f"{request.request_id.prime}|{len(completed_by_id)}|{len(pending_by_id)}",
+                            ),
+                            request_id=request.request_id,
+                            completed_ids=frozenset(
+                                witness.witness_id for witness in completed_by_id.values()
+                            ),
+                            pending_ids=frozenset(
+                                obligation.request_id for obligation in pending_by_id.values()
+                            ),
+                            completed_witnesses=tuple(completed_by_id.values()),
+                            pending_obligations=tuple(pending_by_id.values()),
+                        )
+                        delta = CompleterDelta(
+                            delta_id=self._id_factor(
+                                "ttl_service_completer_delta",
+                                f"{request.request_id.prime}|complete|{witness.witness_id.prime}",
+                            ),
+                            request_id=request.request_id,
+                            new_completed_ids=(witness.witness_id,),
+                            new_pending_ids=(),
+                            new_completed_witnesses=(witness,),
+                            new_pending_obligations=(),
+                        )
+                        yield ServiceEmission(
+                            emission_id=self._id_factor(
+                                "ttl_service_completer_emission",
+                                f"{request.request_id.prime}|witness|{witness.witness_id.prime}",
+                            ),
+                            service_name="completer",
+                            request_id=request.request_id,
+                            stage=stage,
+                            delta=delta,
+                            blocked_on=None,
+                            yielded=(witness,),
+                        )
+                        return witness
+                    continue
+
+                subrequest = self._make_completion_request(
+                    symbol=candidate.residual_symbol,
+                    start=candidate.stop,
+                    end=request.end,
+                    require_complete=True,
+                )
+                delta: CompleterDelta | None
+                if subrequest.request_id.prime not in pending_by_id:
+                    pending_by_id[subrequest.request_id.prime] = subrequest
                     stage = CompleterStage(
                         stage_id=self._id_factor(
                             "ttl_service_completer_stage",
@@ -1185,143 +1249,81 @@ class ServicePosetRouter:
                     delta = CompleterDelta(
                         delta_id=self._id_factor(
                             "ttl_service_completer_delta",
-                            f"{request.request_id.prime}|complete|{witness.witness_id.prime}",
+                            f"{request.request_id.prime}|pending|{subrequest.request_id.prime}",
                         ),
                         request_id=request.request_id,
-                        new_completed_ids=(witness.witness_id,),
-                        new_pending_ids=(),
-                        new_completed_witnesses=(witness,),
-                        new_pending_obligations=(),
+                        new_completed_ids=(),
+                        new_pending_ids=(subrequest.request_id,),
+                        new_completed_witnesses=(),
+                        new_pending_obligations=(subrequest,),
                     )
-                    yield ServiceEmission(
-                        emission_id=self._id_factor(
-                            "ttl_service_completer_emission",
-                            f"{request.request_id.prime}|witness|{witness.witness_id.prime}",
-                        ),
-                        service_name="completer",
-                        request_id=request.request_id,
-                        stage=stage,
-                        delta=delta,
-                        blocked_on=None,
-                        yielded=(witness,),
-                    )
-                    return witness
-                response = yield ServiceEmission(
+                else:
+                    delta = None
+                subresponse = yield ServiceEmission(
                     emission_id=self._id_factor(
                         "ttl_service_completer_emission",
-                        f"{request.request_id.prime}|skip|{response.candidate_id.prime}",
+                        f"{request.request_id.prime}|pending|{subrequest.request_id.prime}",
                     ),
                     service_name="completer",
                     request_id=request.request_id,
                     stage=stage,
-                    delta=None,
-                    blocked_on=prediction_request,
-                    yielded=(),
+                    delta=delta,
+                    blocked_on=subrequest,
+                    yielded=() if delta is None else (delta,),
                 )
-                continue
-
-            subrequest = self._make_completion_request(
-                symbol=response.residual_symbol,
-                start=response.stop,
-                end=request.end,
-                require_complete=True,
-            )
-            delta: CompleterDelta | None
-            if subrequest.request_id.prime not in pending_by_id:
-                pending_by_id[subrequest.request_id.prime] = subrequest
-                stage = CompleterStage(
-                    stage_id=self._id_factor(
-                        "ttl_service_completer_stage",
-                        f"{request.request_id.prime}|{len(completed_by_id)}|{len(pending_by_id)}",
-                    ),
-                    request_id=request.request_id,
-                    completed_ids=frozenset(
-                        witness.witness_id for witness in completed_by_id.values()
-                    ),
-                    pending_ids=frozenset(
-                        obligation.request_id for obligation in pending_by_id.values()
-                    ),
-                    completed_witnesses=tuple(completed_by_id.values()),
-                    pending_obligations=tuple(pending_by_id.values()),
-                )
-                delta = CompleterDelta(
-                    delta_id=self._id_factor(
-                        "ttl_service_completer_delta",
-                        f"{request.request_id.prime}|pending|{subrequest.request_id.prime}",
-                    ),
-                    request_id=request.request_id,
-                    new_completed_ids=(),
-                    new_pending_ids=(subrequest.request_id,),
-                    new_completed_witnesses=(),
-                    new_pending_obligations=(subrequest,),
-                )
-            else:
-                delta = None
-            subresponse = yield ServiceEmission(
-                emission_id=self._id_factor(
-                    "ttl_service_completer_emission",
-                    f"{request.request_id.prime}|pending|{subrequest.request_id.prime}",
-                ),
-                service_name="completer",
-                request_id=request.request_id,
-                stage=stage,
-                delta=delta,
-                blocked_on=subrequest,
-                yielded=(),
-            )
-            if isinstance(subresponse, CompletedWitness):
-                stop = subresponse.stop
-                if self._completion_satisfies(request, response.start, stop):
-                    witness = self._make_completed_witness(
-                        request=request,
-                        candidate=response,
-                        right_witness=subresponse,
-                    )
-                    if witness.witness_id.prime not in completed_by_id:
-                        completed_by_id[witness.witness_id.prime] = witness
-                    stage = CompleterStage(
-                        stage_id=self._id_factor(
-                            "ttl_service_completer_stage",
-                            f"{request.request_id.prime}|{len(completed_by_id)}|{len(pending_by_id)}",
-                        ),
-                        request_id=request.request_id,
-                        completed_ids=frozenset(
-                            witness.witness_id for witness in completed_by_id.values()
-                        ),
-                        pending_ids=frozenset(
-                            obligation.request_id for obligation in pending_by_id.values()
-                        ),
-                        completed_witnesses=tuple(completed_by_id.values()),
-                        pending_obligations=tuple(pending_by_id.values()),
-                    )
-                    delta = CompleterDelta(
-                        delta_id=self._id_factor(
-                            "ttl_service_completer_delta",
-                            f"{request.request_id.prime}|complete|{witness.witness_id.prime}",
-                        ),
-                        request_id=request.request_id,
-                        new_completed_ids=(witness.witness_id,),
-                        new_pending_ids=(),
-                        new_completed_witnesses=(witness,),
-                        new_pending_obligations=(),
-                    )
-                    yield ServiceEmission(
-                        emission_id=self._id_factor(
-                            "ttl_service_completer_emission",
-                            f"{request.request_id.prime}|witness|{witness.witness_id.prime}",
-                        ),
-                        service_name="completer",
-                        request_id=request.request_id,
-                        stage=stage,
-                        delta=delta,
-                        blocked_on=None,
-                        yielded=(witness,),
-                    )
-                    return witness
+                if isinstance(subresponse, CompletedWitness):
+                    stop = subresponse.stop
+                    if self._completion_satisfies(request, candidate.start, stop):
+                        witness = self._make_completed_witness(
+                            request=request,
+                            candidate=candidate,
+                            right_witness=subresponse,
+                        )
+                        if witness.witness_id.prime not in completed_by_id:
+                            completed_by_id[witness.witness_id.prime] = witness
+                        stage = CompleterStage(
+                            stage_id=self._id_factor(
+                                "ttl_service_completer_stage",
+                                f"{request.request_id.prime}|{len(completed_by_id)}|{len(pending_by_id)}",
+                            ),
+                            request_id=request.request_id,
+                            completed_ids=frozenset(
+                                witness.witness_id for witness in completed_by_id.values()
+                            ),
+                            pending_ids=frozenset(
+                                obligation.request_id for obligation in pending_by_id.values()
+                            ),
+                            completed_witnesses=tuple(completed_by_id.values()),
+                            pending_obligations=tuple(pending_by_id.values()),
+                        )
+                        delta = CompleterDelta(
+                            delta_id=self._id_factor(
+                                "ttl_service_completer_delta",
+                                f"{request.request_id.prime}|complete|{witness.witness_id.prime}",
+                            ),
+                            request_id=request.request_id,
+                            new_completed_ids=(witness.witness_id,),
+                            new_pending_ids=(),
+                            new_completed_witnesses=(witness,),
+                            new_pending_obligations=(),
+                        )
+                        yield ServiceEmission(
+                            emission_id=self._id_factor(
+                                "ttl_service_completer_emission",
+                                f"{request.request_id.prime}|witness|{witness.witness_id.prime}",
+                            ),
+                            service_name="completer",
+                            request_id=request.request_id,
+                            stage=stage,
+                            delta=delta,
+                            blocked_on=None,
+                            yielded=(witness,),
+                        )
+                        return witness
             response = yield ServiceEmission(
                 emission_id=self._id_factor(
                     "ttl_service_completer_emission",
-                    f"{request.request_id.prime}|continue|{response.candidate_id.prime}",
+                    f"{request.request_id.prime}|continue|{response.delta_id.prime}",
                 ),
                 service_name="completer",
                 request_id=request.request_id,
@@ -1331,48 +1333,49 @@ class ServicePosetRouter:
                 yielded=(),
             )
 
-    def _candidates_from_truth(
+    def _candidates_from_stage(
         self,
         *,
         request: NeedPredictions,
-        truth: ScannerTruth,
+        truths: tuple[ScannerTruth, ...],
     ) -> tuple[PredictedCandidate, ...]:
         candidates: list[PredictedCandidate] = []
-        if truth.symbol == request.symbol:
-            lexical_rule = EarleyRule(head=request.symbol, rhs=(request.symbol,))
-            candidates.append(
-                PredictedCandidate(
-                    candidate_id=self._id_factor(
-                        "ttl_service_predicted_candidate",
-                        f"{request.request_id.prime}|terminal|{truth.truth_id.prime}",
-                    ),
-                    request_id=request.request_id,
-                    rule=lexical_rule,
-                    anchor_truth_id=truth.truth_id,
-                    anchor_symbol=truth.symbol,
-                    start=truth.start,
-                    stop=truth.stop,
-                    residual_symbol=None,
+        for truth in truths:
+            if truth.symbol == request.symbol:
+                lexical_rule = EarleyRule(head=request.symbol, rhs=(request.symbol,))
+                candidates.append(
+                    PredictedCandidate(
+                        candidate_id=self._id_factor(
+                            "ttl_service_predicted_candidate",
+                            f"{request.request_id.prime}|terminal|{truth.truth_id.prime}",
+                        ),
+                        request_id=request.request_id,
+                        rule=lexical_rule,
+                        anchor_truth_id=truth.truth_id,
+                        anchor_symbol=truth.symbol,
+                        start=truth.start,
+                        stop=truth.stop,
+                        residual_symbol=None,
+                    )
                 )
-            )
-        for rule in self.rules_by_head.get(request.symbol, ()):
-            if rule.rhs[0] != truth.symbol:
-                continue
-            candidates.append(
-                PredictedCandidate(
-                    candidate_id=self._id_factor(
-                        "ttl_service_predicted_candidate",
-                        f"{request.request_id.prime}|rule|{rule.head.prime}|{truth.truth_id.prime}",
-                    ),
-                    request_id=request.request_id,
-                    rule=rule,
-                    anchor_truth_id=truth.truth_id,
-                    anchor_symbol=truth.symbol,
-                    start=truth.start,
-                    stop=truth.stop,
-                    residual_symbol=None if rule.is_unary else rule.rhs[1],
+            for rule in self.rules_by_head.get(request.symbol, ()):
+                if rule.rhs[0] != truth.symbol:
+                    continue
+                candidates.append(
+                    PredictedCandidate(
+                        candidate_id=self._id_factor(
+                            "ttl_service_predicted_candidate",
+                            f"{request.request_id.prime}|rule|{rule.head.prime}|{truth.truth_id.prime}",
+                        ),
+                        request_id=request.request_id,
+                        rule=rule,
+                        anchor_truth_id=truth.truth_id,
+                        anchor_symbol=truth.symbol,
+                        start=truth.start,
+                        stop=truth.stop,
+                        residual_symbol=None if rule.is_unary else rule.rhs[1],
+                    )
                 )
-            )
         return tuple(candidates)
 
     def _make_completed_witness(

@@ -74,7 +74,16 @@ def test_service_poset_router_packs_scanner_ambiguity_and_dedupes_repeated_queri
     scan_request = router.make_scan_request()
     responses = router.stream_scan(scan_request)
 
-    assert any(isinstance(response, module.ScannerTruth) for response in responses)
+    assert any(isinstance(response, module.ScannerDelta) for response in responses)
+    assert all(
+        isinstance(response, (module.ScannerDelta, module.Exhausted))
+        for response in responses
+    )
+    assert all(
+        emission.delta is None or emission.yielded == (emission.delta,)
+        for emission in router.scanner_trace
+        if emission.service_name == "scanner"
+    )
 
     ambiguity_samples: list[tuple[str, set[str]]] = []
     for emission in router.scanner_trace:
@@ -108,6 +117,29 @@ def test_service_poset_router_packs_scanner_ambiguity_and_dedupes_repeated_queri
     assert first == second
     complete_total, complete_unique = router.request_metrics["complete"]
     assert complete_total > complete_unique
+
+
+def test_service_poset_router_predictor_advances_by_deltas() -> None:
+    module = _load_module()
+
+    router = module.ServicePosetRouter.create(max_tokens=96)
+    prediction_request = router._make_prediction_request(
+        symbol=router.symbol_factor("directive"),
+        start=None,
+        end=None,
+    )
+    responses = tuple(router._stream_predictions(prediction_request))
+
+    assert any(isinstance(response, module.PredictorDelta) for response in responses)
+    assert all(
+        isinstance(response, (module.PredictorDelta, module.Exhausted))
+        for response in responses
+    )
+    assert all(
+        emission.delta is None or emission.yielded == (emission.delta,)
+        for emission in router.predictor_trace
+        if emission.service_name == "predictor"
+    )
 
 
 def test_run_turtle_service_poset_skeleton_exhausts_cleanly_for_missing_symbol() -> None:
