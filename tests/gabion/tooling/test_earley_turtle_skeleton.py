@@ -32,13 +32,28 @@ def test_run_kernel_turtle_earley_skeleton_builds_prime_backed_aspf_items() -> N
         "in/lg_kernel_shapes_cut_elim-1.ttl",
         "in/lg_kernel_example_cut_elim-1.ttl",
     )
+    assert len(result.lexemes) == 96
     assert len(result.tokens) == 96
     assert len(result.chart) == len(result.tokens) + 1
     assert result.item_count > 0
+    assert result.states[0].rank == 0
+    assert result.final_state.rank == len(result.states) - 1
+    assert result.lineage.lineage_id
+    assert result.final_state.stamp.stamp_id
+
+    first_token = result.tokens[0]
+    assert first_token.carrier_id
+    assert first_token.lexeme == result.lexemes[0]
+    assert tuple(first_token.window.as_islice(result.lexemes)) == (result.lexemes[0],)
+    assert first_token.rule.lhs == result.lexemes[0].terminal
+    assert list(first_token.iter_frontier_generators()) == []
 
     first_item = result.chart[0].items()[0]
-    assert first_item.carrier.item_id
-    assert first_item.carrier.projection.basis_path.atoms
-    assert first_item.carrier.projection.prime_product > 0
-    assert first_item.carrier.one_cell.representative
-    assert first_item.carrier.one_cell.basis_path
+    assert isinstance(first_item, type(first_token))
+    assert first_item.carrier_id
+    assert first_item.projection.basis_path.atoms
+    assert first_item.projection.prime_product > 0
+    assert first_item.one_cell.representative
+    assert first_item.one_cell.basis_path
+    assert [factor.prime for factor in first_item.prime_factor.iter_chain()]
+    assert first_item.stamp.state_rank == first_item.state_rank
