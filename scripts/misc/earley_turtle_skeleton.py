@@ -2,22 +2,12 @@ from __future__ import annotations
 
 """Experimental history-bound Earley skeleton over the repo's kernel TTL files.
 
-This script keeps the parser experiment outside analysis core, but rewrites the
-native carrier around the TTL history pattern:
+This experiment treats:
 
-- `HistoryLineage` is the append-only parse evolution.
-- `HistoryState` is a frozen chart snapshot at rank `k`.
-- `HistoryExtension` is one constructive append from rank `k` to `k + 1`.
-- `HistoryStamp` names the finite closed universe at a fixed state.
-
-Scanner tokens and chart items are the same immutable carrier species. Each
-carrier keeps:
-
-- a canonical identity projection,
-- a prime-factor witness for the constructive operator that introduced it,
-- an ASPF 1-cell witness over the same object,
-- a history lineage / state / stamp boundary,
-- lazy generator frontiers over frozen left/right structure.
+- history snapshots as immutable closed universes,
+- scanner tokens and chart items as the same carrier species,
+- all `_id` fields as prime-backed identity objects,
+- grammar rules as self-identifying objects with CNF-2 right-hand sides.
 """
 
 from collections.abc import Iterable, Iterator
@@ -30,10 +20,7 @@ import json
 from gabion.analysis.aspf.aspf_core import AspfOneCell, BasisZeroCell
 from gabion.analysis.core.prime_identity_adapter import PrimeIdentityAdapter
 from gabion.analysis.core.type_fingerprints import PrimeAssignmentEvent, PrimeRegistry
-from gabion.analysis.foundation.identity_space import (
-    GlobalIdentitySpace,
-    IdentityProjection,
-)
+from gabion.analysis.foundation.identity_space import GlobalIdentitySpace, IdentityProjection
 from gabion.analysis.foundation.timeout_context import (
     Deadline,
     deadline_clock_scope,
@@ -47,7 +34,6 @@ _DEFAULT_TTL_PATHS = (
     Path("in/lg_kernel_shapes_cut_elim-1.ttl"),
     Path("in/lg_kernel_example_cut_elim-1.ttl"),
 )
-_EPSILON = "<eps>"
 
 
 @dataclass(frozen=True)
@@ -58,9 +44,21 @@ class TurtleLexeme:
     text: str
 
     @property
-    def terminal(self) -> str:
-        if self.text in {"@prefix", "a", ".", ";", ",", "[", "]"}:
-            return self.text
+    def terminal_name(self) -> str:
+        if self.text == "@prefix":
+            return "PREFIX"
+        if self.text == "a":
+            return "A"
+        if self.text == ".":
+            return "DOT"
+        if self.text == ";":
+            return "SEMICOLON"
+        if self.text == ",":
+            return "COMMA"
+        if self.text == "[":
+            return "LBRACK"
+        if self.text == "]":
+            return "RBRACK"
         return self.kind
 
 
@@ -82,6 +80,12 @@ class PrimeFactor:
         if previous.prime >= self.prime:
             raise ValueError("PrimeFactor.previous must point to a lower prime.")
 
+    def __hash__(self) -> int:
+        return hash(self.prime)
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, PrimeFactor) and self.prime == other.prime
+
     def iter_chain(self) -> Iterator[PrimeFactor]:
         current: PrimeFactor | int = self
         while current != 1:
@@ -94,42 +98,52 @@ class PrimeFactor:
 
 @dataclass(frozen=True)
 class EarleyRule:
-    lhs: str
-    rhs: tuple[str, ...]
-    rule_id: str
+    head: PrimeFactor
+    rhs: tuple[PrimeFactor, ...]
+
+    def __post_init__(self) -> None:
+        if len(self.rhs) not in (1, 2):
+            raise ValueError("EarleyRule must be strict CNF-2: rhs length must be 1 or 2.")
+
+    @property
+    def is_binary(self) -> bool:
+        return len(self.rhs) == 2
+
+    @property
+    def is_lexical(self) -> bool:
+        return len(self.rhs) == 1
 
 
 @dataclass(frozen=True)
 class HistoryLineage:
-    lineage_id: str
+    lineage_id: PrimeFactor
     source_paths: tuple[str, ...]
-    lexeme_stream_id: str
+    lexeme_stream_id: PrimeFactor
     projection: IdentityProjection
 
 
 @dataclass(frozen=True)
 class HistoryStamp:
-    stamp_id: str
-    lineage_id: str
+    stamp_id: PrimeFactor
+    lineage: HistoryLineage
     state_rank: int
-    digest_alias: str
     projection: IdentityProjection
 
 
 @dataclass(frozen=True)
 class HistoryExtension:
-    extension_id: str
-    lineage_id: str
+    extension_id: PrimeFactor
+    lineage: HistoryLineage
     source_rank: int
     target_rank: int
-    action_kind: str
-    object_id: str
-    target_stamp_id: str
+    action: PrimeFactor
+    object_id: PrimeFactor
+    target_stamp: HistoryStamp
 
 
 @dataclass(frozen=True)
 class HistoryBoundEarleyWindow:
-    stream_id: str
+    stream_id: PrimeFactor
     start: int
     stop: int
     cursor: int
@@ -144,8 +158,8 @@ class HistoryBoundEarleyWindow:
 
 @dataclass(frozen=True)
 class HistoryBoundEarleyObject:
-    carrier_id: str
-    lineage_id: str
+    carrier_id: PrimeFactor
+    lineage: HistoryLineage
     state_rank: int
     stamp: HistoryStamp
     identified: str
@@ -171,7 +185,7 @@ class HistoryBoundEarleyObject:
         return self.window.stop
 
     @property
-    def next_symbol(self) -> str | None:
+    def next_symbol(self) -> PrimeFactor | None:
         if self.dot >= len(self.rule.rhs):
             return None
         return self.rule.rhs[self.dot]
@@ -200,9 +214,9 @@ class HistoryBoundEarleyObject:
 @dataclass(frozen=True)
 class EarleyChartColumn:
     index: int
-    column_id: str
+    column_id: PrimeFactor
     _items: tuple[HistoryBoundEarleyObject, ...]
-    item_ids: frozenset[str]
+    item_ids: frozenset[PrimeFactor]
 
     def items(self) -> tuple[HistoryBoundEarleyObject, ...]:
         return self._items
@@ -249,30 +263,30 @@ class EarleyParseResult:
             "token_count": len(self.tokens),
             "chart_column_count": len(self.chart),
             "item_count": self.item_count,
-            "lineage_id": self.lineage.lineage_id,
+            "lineage_prime": self.lineage.lineage_id.prime,
             "state_count": len(self.states),
             "final_state_rank": self.final_state.rank,
-            "final_stamp_id": self.final_state.stamp.stamp_id,
+            "final_stamp_prime": self.final_state.stamp.stamp_id.prime,
             "completed_start_items": [
-                item.carrier_id
+                item.carrier_id.prime
                 for item in self.chart[-1].items()
-                if item.rule.lhs == "document'" and item.is_complete and item.origin == 0
+                if item.rule.head.token == "document'" and item.is_complete and item.origin == 0
             ],
             "columns": [
                 {
                     "index": column.index,
+                    "column_prime": column.column_id.prime,
                     "item_count": len(column.item_ids),
                     "sample_items": [
                         {
-                            "carrier_id": item.carrier_id,
-                            "rule_id": item.rule.rule_id,
-                            "lhs": item.rule.lhs,
-                            "rhs": list(item.rule.rhs),
+                            "carrier_prime": item.carrier_id.prime,
+                            "head": item.rule.head.token,
+                            "rhs": [symbol.token for symbol in item.rule.rhs],
                             "dot": item.dot,
                             "origin": item.origin,
                             "end": item.end,
                             "state_rank": item.state_rank,
-                            "stamp_id": item.stamp.stamp_id,
+                            "stamp_prime": item.stamp.stamp_id.prime,
                             "prime_chain": [factor.prime for factor in item.prime_factor.iter_chain()],
                             "prime_product": item.projection.prime_product,
                             "basis_path_atoms": list(item.projection.basis_path.atoms),
@@ -288,7 +302,7 @@ class EarleyParseResult:
 
 @dataclass(frozen=True)
 class _EarleyBlueprint:
-    carrier_id: str
+    carrier_id: PrimeFactor
     identified: str
     rule: EarleyRule
     window: HistoryBoundEarleyWindow
@@ -302,13 +316,13 @@ class _EarleyBlueprint:
     def materialize(
         self,
         *,
-        lineage_id: str,
+        lineage: HistoryLineage,
         state_rank: int,
         stamp: HistoryStamp,
     ) -> HistoryBoundEarleyObject:
         return HistoryBoundEarleyObject(
             carrier_id=self.carrier_id,
-            lineage_id=lineage_id,
+            lineage=lineage,
             state_rank=state_rank,
             stamp=stamp,
             identified=self.identified,
@@ -349,6 +363,16 @@ class _PrimeFactorSpace:
             raise ValueError(f"missing PrimeFactor for atom {atom_id}")
         return factor
 
+    def intern_factor(
+        self,
+        *,
+        identity_space: GlobalIdentitySpace,
+        namespace: str,
+        token: str,
+    ) -> PrimeFactor:
+        atom_id = identity_space.intern_atom(namespace=namespace, token=token)
+        return self.factor_for(atom_id)
+
 
 @dataclass
 class _HistoryBoundEarleyBuilder:
@@ -359,7 +383,7 @@ class _HistoryBoundEarleyBuilder:
     grammar: tuple[EarleyRule, ...]
     lineage: HistoryLineage
     columns: list[list[HistoryBoundEarleyObject]]
-    column_ids: list[set[str]]
+    column_ids: list[set[PrimeFactor]]
     states: list[HistoryState]
 
     @classmethod
@@ -374,6 +398,7 @@ class _HistoryBoundEarleyBuilder:
     ) -> _HistoryBoundEarleyBuilder:
         lineage = _build_history_lineage(
             identity_space=identity_space,
+            prime_space=prime_space,
             source_paths=source_paths,
             lexemes=lexemes,
         )
@@ -397,29 +422,33 @@ class _HistoryBoundEarleyBuilder:
         root_stamp = self.states[0].stamp
         out: list[HistoryBoundEarleyObject] = []
         for index, lexeme in enumerate(self.lexemes):
+            terminal_factor = _terminal_factor(
+                identity_space=self.identity_space,
+                prime_space=self.prime_space,
+                terminal_name=lexeme.terminal_name,
+            )
             token_rule = EarleyRule(
-                lhs=lexeme.terminal,
-                rhs=(),
-                rule_id=f"token.{lexeme.terminal}",
+                head=terminal_factor,
+                rhs=(terminal_factor,),
             )
             window = HistoryBoundEarleyWindow(
                 stream_id=self.lineage.lexeme_stream_id,
                 start=index,
                 stop=index + 1,
-                cursor=0,
+                cursor=1,
             )
             blueprint = self._make_blueprint(
-                identified=f"{lexeme.rel_path}:{lexeme.offset}:{lexeme.terminal}",
+                identified=f"{lexeme.rel_path}:{lexeme.offset}:{lexeme.terminal_name}",
                 rule=token_rule,
                 window=window,
-                operator_token=f"token:{lexeme.terminal}:{index}",
+                operator_token=f"token:{lexeme.terminal_name}:{index}",
                 left=None,
                 right=None,
                 lexeme=lexeme,
             )
             out.append(
                 blueprint.materialize(
-                    lineage_id=self.lineage.lineage_id,
+                    lineage=self.lineage,
                     state_rank=0,
                     stamp=root_stamp,
                 )
@@ -431,7 +460,7 @@ class _HistoryBoundEarleyBuilder:
         *,
         column_index: int,
         blueprint: _EarleyBlueprint,
-        action_kind: str,
+        action_token: str,
     ) -> HistoryBoundEarleyObject | None:
         if blueprint.carrier_id in self.column_ids[column_index]:
             return None
@@ -442,32 +471,42 @@ class _HistoryBoundEarleyBuilder:
             carrier_id=blueprint.carrier_id,
         )
         item = blueprint.materialize(
-            lineage_id=self.lineage.lineage_id,
+            lineage=self.lineage,
             state_rank=next_rank,
             stamp=stamp,
         )
         self.columns[column_index].append(item)
         self.column_ids[column_index].add(item.carrier_id)
+        action_factor = self.prime_space.intern_factor(
+            identity_space=self.identity_space,
+            namespace="ttl_history_action",
+            token=action_token,
+        )
         extension_projection = self.identity_space.project(
             path=self.identity_space.intern_path(
                 namespace="ttl_history_extension",
                 tokens=(
-                    self.lineage.lineage_id,
+                    f"lineage:{self.lineage.lineage_id.prime}",
                     f"source:{self.states[-1].rank}",
                     f"target:{next_rank}",
-                    f"action:{action_kind}",
-                    blueprint.carrier_id,
+                    f"action:{action_factor.prime}",
+                    f"object:{blueprint.carrier_id.prime}",
                 ),
             )
         )
+        extension_id = self.prime_space.intern_factor(
+            identity_space=self.identity_space,
+            namespace="ttl_history_extension_id",
+            token=extension_projection.digest_alias,
+        )
         extension = HistoryExtension(
-            extension_id=extension_projection.digest_alias,
-            lineage_id=self.lineage.lineage_id,
+            extension_id=extension_id,
+            lineage=self.lineage,
             source_rank=self.states[-1].rank,
             target_rank=next_rank,
-            action_kind=action_kind,
+            action=action_factor,
             object_id=blueprint.carrier_id,
-            target_stamp_id=stamp.stamp_id,
+            target_stamp=stamp,
         )
         self.states.append(
             HistoryState(
@@ -501,23 +540,35 @@ class _HistoryBoundEarleyBuilder:
         right: HistoryBoundEarleyObject | None,
         lexeme: TurtleLexeme | None,
     ) -> _EarleyBlueprint:
-        operator_atom = self.identity_space.intern_atom(
+        operator_factor = self.prime_space.intern_factor(
+            identity_space=self.identity_space,
             namespace="ttl_earley_operator",
             token=operator_token,
         )
-        prime_factor = self.prime_space.factor_for(operator_atom)
         projection = self._canonical_projection(
             identified=identified,
             rule=rule,
             window=window,
             lexeme=lexeme,
         )
-        path_tokens = list(self._canonical_tokens(identified=identified, rule=rule, window=window, lexeme=lexeme))
+        carrier_id = self.prime_space.intern_factor(
+            identity_space=self.identity_space,
+            namespace="ttl_history_bound_earley_object_id",
+            token=projection.digest_alias,
+        )
+        path_tokens = list(
+            self._canonical_tokens(
+                identified=identified,
+                rule=rule,
+                window=window,
+                lexeme=lexeme,
+            )
+        )
         if left is not None:
-            path_tokens.append(f"lhs:{left.carrier_id}")
+            path_tokens.append(f"lhs:{left.carrier_id.prime}")
         if right is not None:
-            path_tokens.append(f"rhs:{right.carrier_id}")
-        path_tokens.append(f"operator:{prime_factor.prime}")
+            path_tokens.append(f"rhs:{right.carrier_id.prime}")
+        path_tokens.append(f"operator:{operator_factor.prime}")
         one_cell = AspfOneCell(
             source=BasisZeroCell(f"chart:{window.start}"),
             target=BasisZeroCell(f"chart:{window.stop}"),
@@ -525,11 +576,11 @@ class _HistoryBoundEarleyBuilder:
             basis_path=tuple(path_tokens),
         )
         return _EarleyBlueprint(
-            carrier_id=projection.digest_alias,
+            carrier_id=carrier_id,
             identified=identified,
             rule=rule,
             window=window,
-            prime_factor=prime_factor,
+            prime_factor=operator_factor,
             projection=projection,
             one_cell=one_cell,
             left=left,
@@ -575,11 +626,13 @@ class _HistoryBoundEarleyBuilder:
                 f"lexeme_kind:{lexeme.kind}",
                 f"lexeme_text:{lexeme.text}",
             )
+        rhs_tokens = tuple(f"rhs:{index}:{factor.prime}" for index, factor in enumerate(rule.rhs))
         return (
-            f"lineage:{self.lineage.lineage_id}",
-            f"rule:{rule.rule_id}",
-            f"lhs:{rule.lhs}",
+            f"lineage:{self.lineage.lineage_id.prime}",
+            f"head:{rule.head.prime}",
+            *rhs_tokens,
             f"window:{window.start}:{window.stop}:{window.cursor}",
+            f"stream:{window.stream_id.prime}",
             f"identified:{identified}",
             *lexeme_tokens,
         )
@@ -589,9 +642,9 @@ class _HistoryBoundEarleyBuilder:
         *,
         rank: int,
         column_index: int,
-        carrier_id: str,
+        carrier_id: PrimeFactor,
     ) -> HistoryStamp:
-        snapshot = list(map(list, self._snapshot_item_ids()))
+        snapshot = [list(column) for column in self._snapshot_item_ids()]
         snapshot[column_index].append(carrier_id)
         return self._stamp_from_snapshot(
             rank=rank,
@@ -602,34 +655,35 @@ class _HistoryBoundEarleyBuilder:
         self,
         *,
         rank: int,
-        snapshot: tuple[tuple[str, ...], ...],
+        snapshot: tuple[tuple[PrimeFactor, ...], ...],
     ) -> HistoryStamp:
         stamp_projection = self.identity_space.project(
             path=self.identity_space.intern_path(
                 namespace="ttl_history_stamp",
                 tokens=(
-                    self.lineage.lineage_id,
+                    f"lineage:{self.lineage.lineage_id.prime}",
                     f"rank:{rank}",
                     *(
-                        f"column:{index}:{'|'.join(column_ids) if column_ids else 'empty'}"
+                        f"column:{index}:{'|'.join(str(item_id.prime) for item_id in column_ids) if column_ids else 'empty'}"
                         for index, column_ids in enumerate(snapshot)
                     ),
                 ),
             )
         )
+        stamp_id = self.prime_space.intern_factor(
+            identity_space=self.identity_space,
+            namespace="ttl_history_stamp_id",
+            token=stamp_projection.digest_alias,
+        )
         return HistoryStamp(
-            stamp_id=stamp_projection.digest_alias,
-            lineage_id=self.lineage.lineage_id,
+            stamp_id=stamp_id,
+            lineage=self.lineage,
             state_rank=rank,
-            digest_alias=stamp_projection.digest_alias,
             projection=stamp_projection,
         )
 
-    def _snapshot_item_ids(self) -> tuple[tuple[str, ...], ...]:
-        return tuple(
-            tuple(item.carrier_id for item in column)
-            for column in self.columns
-        )
+    def _snapshot_item_ids(self) -> tuple[tuple[PrimeFactor, ...], ...]:
+        return tuple(tuple(item.carrier_id for item in column) for column in self.columns)
 
     def _freeze_chart(self) -> tuple[EarleyChartColumn, ...]:
         out: list[EarleyChartColumn] = []
@@ -639,16 +693,21 @@ class _HistoryBoundEarleyBuilder:
                 path=self.identity_space.intern_path(
                     namespace="ttl_history_chart_column",
                     tokens=(
-                        self.lineage.lineage_id,
+                        f"lineage:{self.lineage.lineage_id.prime}",
                         f"index:{index}",
-                        *column_ids,
+                        *(f"item:{item_id.prime}" for item_id in column_ids),
                     ),
                 )
+            )
+            column_id = self.prime_space.intern_factor(
+                identity_space=self.identity_space,
+                namespace="ttl_history_chart_column_id",
+                token=column_projection.digest_alias,
             )
             out.append(
                 EarleyChartColumn(
                     index=index,
-                    column_id=column_projection.digest_alias,
+                    column_id=column_id,
                     _items=tuple(column),
                     item_ids=frozenset(column_ids),
                 )
@@ -659,6 +718,7 @@ class _HistoryBoundEarleyBuilder:
 def _build_history_lineage(
     *,
     identity_space: GlobalIdentitySpace,
+    prime_space: _PrimeFactorSpace,
     source_paths: tuple[str, ...],
     lexemes: tuple[TurtleLexeme, ...],
 ) -> HistoryLineage:
@@ -668,20 +728,56 @@ def _build_history_lineage(
             tokens=("kernel_ttl", *source_paths),
         )
     )
+    lineage_id = prime_space.intern_factor(
+        identity_space=identity_space,
+        namespace="ttl_history_lineage_id",
+        token=lineage_projection.digest_alias,
+    )
     lexeme_stream_projection = identity_space.project(
         path=identity_space.intern_path(
             namespace="ttl_lexeme_stream",
             tokens=tuple(
-                f"{lexeme.rel_path}:{lexeme.offset}:{lexeme.terminal}:{lexeme.text}"
+                f"{lexeme.rel_path}:{lexeme.offset}:{lexeme.terminal_name}:{lexeme.text}"
                 for lexeme in lexemes
             ),
         )
     )
+    lexeme_stream_id = prime_space.intern_factor(
+        identity_space=identity_space,
+        namespace="ttl_lexeme_stream_id",
+        token=lexeme_stream_projection.digest_alias,
+    )
     return HistoryLineage(
-        lineage_id=lineage_projection.digest_alias,
+        lineage_id=lineage_id,
         source_paths=source_paths,
-        lexeme_stream_id=lexeme_stream_projection.digest_alias,
+        lexeme_stream_id=lexeme_stream_id,
         projection=lineage_projection,
+    )
+
+
+def _symbol_factor(
+    *,
+    identity_space: GlobalIdentitySpace,
+    prime_space: _PrimeFactorSpace,
+    name: str,
+) -> PrimeFactor:
+    return prime_space.intern_factor(
+        identity_space=identity_space,
+        namespace="ttl_earley_symbol",
+        token=name,
+    )
+
+
+def _terminal_factor(
+    *,
+    identity_space: GlobalIdentitySpace,
+    prime_space: _PrimeFactorSpace,
+    terminal_name: str,
+) -> PrimeFactor:
+    return _symbol_factor(
+        identity_space=identity_space,
+        prime_space=prime_space,
+        name=f"terminal:{terminal_name}",
     )
 
 
@@ -815,39 +911,61 @@ def load_kernel_ttl_lexemes(
     return tuple(lexemes)
 
 
-def build_turtle_skeleton_grammar() -> tuple[EarleyRule, ...]:
+def build_turtle_skeleton_grammar(
+    *,
+    identity_space: GlobalIdentitySpace,
+    prime_space: _PrimeFactorSpace,
+) -> tuple[EarleyRule, ...]:
+    document = _symbol_factor(identity_space=identity_space, prime_space=prime_space, name="document'")
+    directive = _symbol_factor(identity_space=identity_space, prime_space=prime_space, name="directive")
+    directive_tail = _symbol_factor(identity_space=identity_space, prime_space=prime_space, name="directive_tail")
+    iri_dot = _symbol_factor(identity_space=identity_space, prime_space=prime_space, name="iri_dot")
+    triple_name_name = _symbol_factor(identity_space=identity_space, prime_space=prime_space, name="triple_name_name")
+    triple_name_iri = _symbol_factor(identity_space=identity_space, prime_space=prime_space, name="triple_name_iri")
+    triple_name_string = _symbol_factor(identity_space=identity_space, prime_space=prime_space, name="triple_name_string")
+    triple_name_number = _symbol_factor(identity_space=identity_space, prime_space=prime_space, name="triple_name_number")
+    triple_iri_name = _symbol_factor(identity_space=identity_space, prime_space=prime_space, name="triple_iri_name")
+    triple_iri_iri = _symbol_factor(identity_space=identity_space, prime_space=prime_space, name="triple_iri_iri")
+    triple_iri_string = _symbol_factor(identity_space=identity_space, prime_space=prime_space, name="triple_iri_string")
+    triple_iri_number = _symbol_factor(identity_space=identity_space, prime_space=prime_space, name="triple_iri_number")
+    pred_name_name = _symbol_factor(identity_space=identity_space, prime_space=prime_space, name="pred_name_name")
+    pred_name_iri = _symbol_factor(identity_space=identity_space, prime_space=prime_space, name="pred_name_iri")
+    pred_name_string = _symbol_factor(identity_space=identity_space, prime_space=prime_space, name="pred_name_string")
+    pred_name_number = _symbol_factor(identity_space=identity_space, prime_space=prime_space, name="pred_name_number")
+    object_dot_name = _symbol_factor(identity_space=identity_space, prime_space=prime_space, name="object_dot_name")
+    object_dot_iri = _symbol_factor(identity_space=identity_space, prime_space=prime_space, name="object_dot_iri")
+    object_dot_string = _symbol_factor(identity_space=identity_space, prime_space=prime_space, name="object_dot_string")
+    object_dot_number = _symbol_factor(identity_space=identity_space, prime_space=prime_space, name="object_dot_number")
+
+    prefix = _terminal_factor(identity_space=identity_space, prime_space=prime_space, terminal_name="PREFIX")
+    name = _terminal_factor(identity_space=identity_space, prime_space=prime_space, terminal_name="NAME")
+    iri = _terminal_factor(identity_space=identity_space, prime_space=prime_space, terminal_name="IRI")
+    dot = _terminal_factor(identity_space=identity_space, prime_space=prime_space, terminal_name="DOT")
+    string = _terminal_factor(identity_space=identity_space, prime_space=prime_space, terminal_name="STRING")
+    number = _terminal_factor(identity_space=identity_space, prime_space=prime_space, terminal_name="NUMBER")
+
     return (
-        EarleyRule("document'", ("document",), "document'.0"),
-        EarleyRule("document", ("statement_list",), "document.0"),
-        EarleyRule("statement_list", ("statement", "statement_list"), "statement_list.0"),
-        EarleyRule("statement_list", ("statement",), "statement_list.1"),
-        EarleyRule("statement", ("directive",), "statement.0"),
-        EarleyRule("statement", ("triple_stmt",), "statement.1"),
-        EarleyRule("directive", ("@prefix", "NAME", "IRI", "."), "directive.0"),
-        EarleyRule("triple_stmt", ("subject", "predicate_tail", "."), "triple_stmt.0"),
-        EarleyRule("subject", ("NAME",), "subject.0"),
-        EarleyRule("subject", ("IRI",), "subject.1"),
-        EarleyRule("subject", ("blank_node",), "subject.2"),
-        EarleyRule("predicate_tail", ("verb", "object_list", "predicate_more"), "predicate_tail.0"),
-        EarleyRule("predicate_more", (";", "verb", "object_list", "predicate_more"), "predicate_more.0"),
-        EarleyRule("predicate_more", (_EPSILON,), "predicate_more.1"),
-        EarleyRule("verb", ("NAME",), "verb.0"),
-        EarleyRule("verb", ("a",), "verb.1"),
-        EarleyRule("object_list", ("object", "object_more"), "object_list.0"),
-        EarleyRule("object_more", (",", "object", "object_more"), "object_more.0"),
-        EarleyRule("object_more", (_EPSILON,), "object_more.1"),
-        EarleyRule("object", ("NAME",), "object.0"),
-        EarleyRule("object", ("IRI",), "object.1"),
-        EarleyRule("object", ("STRING",), "object.2"),
-        EarleyRule("object", ("NUMBER",), "object.3"),
-        EarleyRule("object", ("blank_node",), "object.4"),
-        EarleyRule("blank_node", ("[", "]"), "blank_node.0"),
-        EarleyRule("blank_node", ("[", "predicate_tail", "]"), "blank_node.1"),
+        EarleyRule(head=document, rhs=(directive, directive)),
+        EarleyRule(head=directive, rhs=(prefix, directive_tail)),
+        EarleyRule(head=directive_tail, rhs=(name, iri_dot)),
+        EarleyRule(head=iri_dot, rhs=(iri, dot)),
+        EarleyRule(head=triple_name_name, rhs=(name, pred_name_name)),
+        EarleyRule(head=triple_name_iri, rhs=(name, pred_name_iri)),
+        EarleyRule(head=triple_name_string, rhs=(name, pred_name_string)),
+        EarleyRule(head=triple_name_number, rhs=(name, pred_name_number)),
+        EarleyRule(head=triple_iri_name, rhs=(iri, pred_name_name)),
+        EarleyRule(head=triple_iri_iri, rhs=(iri, pred_name_iri)),
+        EarleyRule(head=triple_iri_string, rhs=(iri, pred_name_string)),
+        EarleyRule(head=triple_iri_number, rhs=(iri, pred_name_number)),
+        EarleyRule(head=pred_name_name, rhs=(name, object_dot_name)),
+        EarleyRule(head=pred_name_iri, rhs=(name, object_dot_iri)),
+        EarleyRule(head=pred_name_string, rhs=(name, object_dot_string)),
+        EarleyRule(head=pred_name_number, rhs=(name, object_dot_number)),
+        EarleyRule(head=object_dot_name, rhs=(name, dot)),
+        EarleyRule(head=object_dot_iri, rhs=(iri, dot)),
+        EarleyRule(head=object_dot_string, rhs=(string, dot)),
+        EarleyRule(head=object_dot_number, rhs=(number, dot)),
     )
-
-
-def _is_nonterminal(symbol: str, grammar_index: dict[str, tuple[EarleyRule, ...]]) -> bool:
-    return symbol in grammar_index
 
 
 def run_kernel_turtle_earley_skeleton(
@@ -859,10 +977,6 @@ def run_kernel_turtle_earley_skeleton(
     lexemes = load_kernel_ttl_lexemes(root=root, rel_paths=rel_paths)
     if max_tokens is not None:
         lexemes = lexemes[:max_tokens]
-    grammar = build_turtle_skeleton_grammar()
-    grammar_index: dict[str, tuple[EarleyRule, ...]] = {}
-    for rule in grammar:
-        grammar_index[rule.lhs] = (*grammar_index.get(rule.lhs, ()), rule)
 
     with deadline_scope(Deadline.from_timeout_ms(30_000)):
         with deadline_clock_scope(MonotonicClock()):
@@ -873,6 +987,14 @@ def run_kernel_turtle_earley_skeleton(
                 identity_space = GlobalIdentitySpace(
                     allocator=PrimeIdentityAdapter(registry=registry)
                 )
+                grammar = build_turtle_skeleton_grammar(
+                    identity_space=identity_space,
+                    prime_space=prime_space,
+                )
+                grammar_index: dict[PrimeFactor, tuple[EarleyRule, ...]] = {}
+                for rule in grammar:
+                    grammar_index[rule.head] = (*grammar_index.get(rule.head, ()), rule)
+
                 builder = _HistoryBoundEarleyBuilder.create(
                     identity_space=identity_space,
                     prime_space=prime_space,
@@ -882,7 +1004,7 @@ def run_kernel_turtle_earley_skeleton(
                 )
                 token_objects = builder.token_objects()
                 start_blueprint = builder._make_blueprint(
-                    identified="document':0:0:0",
+                    identified=f"{grammar[0].head.token}:0:0:0",
                     rule=grammar[0],
                     window=HistoryBoundEarleyWindow(
                         stream_id=builder.lineage.lexeme_stream_id,
@@ -890,7 +1012,7 @@ def run_kernel_turtle_earley_skeleton(
                         stop=0,
                         cursor=0,
                     ),
-                    operator_token="seed:document'.0",
+                    operator_token=f"seed:{grammar[0].head.token}",
                     left=None,
                     right=None,
                     lexeme=None,
@@ -898,7 +1020,7 @@ def run_kernel_turtle_earley_skeleton(
                 builder.add_blueprint(
                     column_index=0,
                     blueprint=start_blueprint,
-                    action_kind="seed",
+                    action_token="seed",
                 )
 
                 for column_index in range(len(builder.columns)):
@@ -909,13 +1031,13 @@ def run_kernel_turtle_earley_skeleton(
                         next_symbol = current.next_symbol
                         if next_symbol is None:
                             for candidate in tuple(builder.columns[current.origin]):
-                                if candidate.next_symbol != current.rule.lhs:
+                                if candidate.next_symbol != current.rule.head:
                                     continue
                                 builder.add_blueprint(
                                     column_index=column_index,
                                     blueprint=builder._make_blueprint(
                                         identified=(
-                                            f"{candidate.rule.rule_id}:"
+                                            f"{candidate.rule.head.token}:"
                                             f"{candidate.origin}:{column_index}:{candidate.dot + 1}"
                                         ),
                                         rule=candidate.rule,
@@ -926,47 +1048,25 @@ def run_kernel_turtle_earley_skeleton(
                                             cursor=candidate.dot + 1,
                                         ),
                                         operator_token=(
-                                            f"complete:{candidate.rule.rule_id}:"
+                                            f"complete:{candidate.rule.head.token}:"
                                             f"{candidate.dot + 1}:{column_index}"
                                         ),
                                         left=candidate,
                                         right=current,
                                         lexeme=None,
                                     ),
-                                    action_kind="complete",
+                                    action_token="complete",
                                 )
                             continue
-                        if next_symbol == _EPSILON:
-                            builder.add_blueprint(
-                                column_index=column_index,
-                                blueprint=builder._make_blueprint(
-                                    identified=(
-                                        f"{current.rule.rule_id}:"
-                                        f"{current.origin}:{column_index}:{current.dot + 1}"
-                                    ),
-                                    rule=current.rule,
-                                    window=HistoryBoundEarleyWindow(
-                                        stream_id=builder.lineage.lexeme_stream_id,
-                                        start=current.origin,
-                                        stop=column_index,
-                                        cursor=current.dot + 1,
-                                    ),
-                                    operator_token=(
-                                        f"epsilon:{current.rule.rule_id}:{current.dot + 1}"
-                                    ),
-                                    left=current,
-                                    right=None,
-                                    lexeme=None,
-                                ),
-                                action_kind="epsilon",
-                            )
-                            continue
-                        if _is_nonterminal(next_symbol, grammar_index):
+                        if next_symbol in grammar_index:
                             for predicted in grammar_index[next_symbol]:
                                 builder.add_blueprint(
                                     column_index=column_index,
                                     blueprint=builder._make_blueprint(
-                                        identified=f"{predicted.rule_id}:{column_index}:{column_index}:0",
+                                        identified=(
+                                            f"{predicted.head.token}:"
+                                            f"{column_index}:{column_index}:0"
+                                        ),
                                         rule=predicted,
                                         window=HistoryBoundEarleyWindow(
                                             stream_id=builder.lineage.lexeme_stream_id,
@@ -974,24 +1074,24 @@ def run_kernel_turtle_earley_skeleton(
                                             stop=column_index,
                                             cursor=0,
                                         ),
-                                        operator_token=f"predict:{predicted.rule_id}:{column_index}",
+                                        operator_token=f"predict:{predicted.head.token}:{column_index}",
                                         left=current,
                                         right=None,
                                         lexeme=None,
                                     ),
-                                    action_kind="predict",
+                                    action_token="predict",
                                 )
                             continue
                         if column_index >= len(token_objects):
                             continue
                         token_object = token_objects[column_index]
-                        if token_object.rule.lhs != next_symbol:
+                        if token_object.rule.head != next_symbol:
                             continue
                         builder.add_blueprint(
                             column_index=column_index + 1,
                             blueprint=builder._make_blueprint(
                                 identified=(
-                                    f"{current.rule.rule_id}:"
+                                    f"{current.rule.head.token}:"
                                     f"{current.origin}:{column_index + 1}:{current.dot + 1}"
                                 ),
                                 rule=current.rule,
@@ -1002,13 +1102,14 @@ def run_kernel_turtle_earley_skeleton(
                                     cursor=current.dot + 1,
                                 ),
                                 operator_token=(
-                                    f"scan:{current.rule.rule_id}:{next_symbol}:{column_index}"
+                                    f"scan:{current.rule.head.token}:"
+                                    f"{next_symbol.prime}:{column_index}"
                                 ),
                                 left=current,
                                 right=token_object,
                                 lexeme=None,
                             ),
-                            action_kind="scan",
+                            action_token="scan",
                         )
             finally:
                 registry.unregister_assignment_observer(observer_id)
