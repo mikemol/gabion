@@ -1,5 +1,5 @@
 ---
-doc_revision: 13
+doc_revision: 14
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: enforceable_rules_cheat_sheet
 doc_role: reference
@@ -19,27 +19,30 @@ doc_requires:
   - glossary.md#contract
   - docs/coverage_semantics.md#coverage_semantics
   - docs/publishing_practices.md#publishing_practices
+  - docs/normative_clause_index.md#normative_clause_index
   - docs/allowed_actions.txt
   - in/in-23.md#in_in_23
   - in/in-24.md#in_in_24
 doc_reviewed_as_of:
-  POLICY_SEED.md#policy_seed: 55
-  AGENTS.md#agent_obligations: 33
-  README.md#repo_contract: 83
-  CONTRIBUTING.md#contributing_contract: 118
-  glossary.md#contract: 44
-  docs/coverage_semantics.md#coverage_semantics: 21
-  docs/publishing_practices.md#publishing_practices: 28
+  POLICY_SEED.md#policy_seed: 2
+  AGENTS.md#agent_obligations: 2
+  README.md#repo_contract: 2
+  CONTRIBUTING.md#contributing_contract: 2
+  glossary.md#contract: 1
+  docs/coverage_semantics.md#coverage_semantics: 1
+  docs/publishing_practices.md#publishing_practices: 1
+  docs/normative_clause_index.md#normative_clause_index: 3
   in/in-23.md#in_in_23: 11
   in/in-24.md#in_in_24: 11
 doc_review_notes:
-  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev55 (shift-ambiguity-left and correction-unit obligations still anchor this checklist)."
-  AGENTS.md#agent_obligations: "Reviewed AGENTS.md rev33 (required validation stack and ambiguity-left obligations remain aligned with this checklist)."
-  README.md#repo_contract: "Reviewed README.md rev83 (repo scope and entry points remain aligned with the command references here)."
-  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev118 (validation stack and evidence duties remain aligned with the checks listed here)."
-  glossary.md#contract: "Reviewed glossary.md rev44 (bundle, tier, protocol, and evidence terminology remain the semantic source for this checklist)."
-  docs/coverage_semantics.md#coverage_semantics: "Reviewed coverage_semantics rev21 (rule/evidence coverage obligations remain aligned with this checklist)."
-  docs/publishing_practices.md#publishing_practices: "Reviewed publishing_practices rev28 (release hardening references remain advisory and compatible here)."
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md#policy_seed v2 (runtime is now process-relative and the checklist still tracks the canonical policy surface)."
+  AGENTS.md#agent_obligations: "Reviewed AGENTS.md#agent_obligations v2 (agent operating constraints now reference both process-relative runtime and the distinction ladder)."
+  README.md#repo_contract: "Reviewed README.md#repo_contract v2 (repo scope and entry points remain aligned with the command references here)."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md#contributing_contract v2 (validation stack and evidence duties remain aligned with the checks listed here)."
+  glossary.md#contract: "Reviewed glossary.md#contract v1 (runtime scope and distinction admissibility remain the semantic source for this checklist)."
+  docs/coverage_semantics.md#coverage_semantics: "Reviewed coverage_semantics v1 (rule/evidence coverage obligations remain aligned with this checklist)."
+  docs/publishing_practices.md#publishing_practices: "Reviewed publishing_practices v1 (release hardening references remain advisory and compatible here)."
+  docs/normative_clause_index.md#normative_clause_index: "Reviewed normative_clause_index v3 (added NCI-RUNTIME-PROCESS-RELATIVE alongside the runtime-distinction ladder)."
   in/in-23.md#in_in_23: "Reviewed in/in-23 rev11 (ASPF/SPPF carrier discipline still aligns with deterministic artifact obligations listed here)."
   in/in-24.md#in_in_24: "Reviewed in/in-24 rev11 (deadness/evidence artifact constraints still align with canonical ordering expectations here)."
 doc_sections:
@@ -53,54 +56,60 @@ doc_section_requires:
     - glossary.md#contract
     - docs/coverage_semantics.md#coverage_semantics
     - docs/publishing_practices.md#publishing_practices
+    - docs/normative_clause_index.md#normative_clause_index
     - docs/allowed_actions.txt
     - in/in-23.md#in_in_23
     - in/in-24.md#in_in_24
 doc_section_reviews:
   enforceable_rules_cheat_sheet:
     POLICY_SEED.md#policy_seed:
-      dep_version: 55
-      self_version_at_review: 13
+      dep_version: 2
+      self_version_at_review: 14
       outcome: no_change
-      note: "Policy seed rev55 reviewed; governance obligations remain aligned."
+      note: "Policy seed v2 reviewed; governance obligations remain aligned."
     AGENTS.md#agent_obligations:
-      dep_version: 33
-      self_version_at_review: 13
+      dep_version: 2
+      self_version_at_review: 14
       outcome: no_change
-      note: "Agent obligations rev33 reviewed; clause and cadence links remain aligned."
+      note: "Agent obligations v2 reviewed; clause and cadence links remain aligned."
     README.md#repo_contract:
-      dep_version: 83
-      self_version_at_review: 13
+      dep_version: 2
+      self_version_at_review: 14
       outcome: no_change
-      note: "Repo contract rev83 reviewed; command and artifact guidance remains aligned."
+      note: "Repo contract v2 reviewed; command and artifact guidance remains aligned."
     CONTRIBUTING.md#contributing_contract:
-      dep_version: 118
-      self_version_at_review: 13
+      dep_version: 2
+      self_version_at_review: 14
       outcome: no_change
-      note: "Contributor contract rev118 reviewed; dual-sensor cadence and correction gates remain aligned."
+      note: "Contributor contract v2 reviewed; dual-sensor cadence and correction gates remain aligned."
     glossary.md#contract:
-      dep_version: 44
-      self_version_at_review: 13
+      dep_version: 1
+      self_version_at_review: 14
       outcome: no_change
-      note: "Glossary rev44 remains the canonical meaning source for checklist rule IDs."
+      note: "Glossary v1 remains the canonical meaning source for checklist rule IDs."
     docs/coverage_semantics.md#coverage_semantics:
-      dep_version: 21
-      self_version_at_review: 13
+      dep_version: 1
+      self_version_at_review: 14
       outcome: no_change
-      note: "Coverage semantics rev21 remains consistent with checklist testing and evidence obligations."
+      note: "Coverage semantics v1 remains consistent with checklist testing and evidence obligations."
     docs/publishing_practices.md#publishing_practices:
-      dep_version: 28
-      self_version_at_review: 13
+      dep_version: 1
+      self_version_at_review: 14
       outcome: no_change
-      note: "Publishing guidance rev28 remains advisory and policy-compatible for release hardening references."
+      note: "Publishing guidance v1 remains advisory and policy-compatible for release hardening references."
+    docs/normative_clause_index.md#normative_clause_index:
+      dep_version: 3
+      self_version_at_review: 14
+      outcome: no_change
+      note: "Normative clause index v3 reviewed; process-relative runtime and ladder clauses remain traceable here."
     in/in-23.md#in_in_23:
       dep_version: 11
-      self_version_at_review: 13
+      self_version_at_review: 14
       outcome: no_change
       note: "in-23 rev11 still aligns with deterministic checklist interpretation."
     in/in-24.md#in_in_24:
       dep_version: 11
-      self_version_at_review: 13
+      self_version_at_review: 14
       outcome: no_change
       note: "in-24 rev11 still aligns with canonical ordering expectations."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
@@ -117,14 +126,16 @@ This document is **authoritative by proxy via cited canonical clauses**. It is
 not a new normative root. Canonical authority remains:
 - `POLICY_SEED.md#policy_seed` (execution/CI safety)
 - `[glossary.md#contract](../glossary.md#contract)` (semantic correctness)
+- `docs/normative_clause_index.md#normative_clause_index` (stable clause IDs)
 
 ## Authority and Precedence
 
 Precedence stack for interpretation and enforcement:
 1. `POLICY_SEED.md#policy_seed` (execution and CI safety)
 2. `[glossary.md#contract](../glossary.md#contract)` (semantic meaning and commutation)
-3. `AGENTS.md#agent_obligations` (agent operating constraints)
-4. `README.md#repo_contract` and `CONTRIBUTING.md#contributing_contract` (repo/workflow contract)
+3. `docs/normative_clause_index.md#normative_clause_index` (stable clause registry)
+4. `AGENTS.md#agent_obligations` (agent operating constraints)
+5. `README.md#repo_contract` and `CONTRIBUTING.md#contributing_contract` (repo/workflow contract)
 
 No rule in this cheat sheet is valid unless it is traceable to canonical
 clauses in the source documents above.
@@ -141,6 +152,7 @@ Gate-level control-loop mapping lives in `docs/governance_loop_matrix.md#governa
 | `SEC-004` | Self-hosted dependency installs are restricted to allow-listed registries and standard package managers. | [`POLICY_SEED.md#policy_seed` §4.6](../POLICY_SEED.md#policy_seed) | Workflow/script review + `python -m scripts.policy_check --workflows` | Governance rejection for arbitrary download patterns or non-allow-listed sources. |
 | `ARC-001` | LSP-first invariant: server is semantic core; CLI must remain a thin client (no reimplemented analysis logic). | [`README.md#repo_contract`](../README.md#repo_contract), [`CONTRIBUTING.md#contributing_contract`](../CONTRIBUTING.md#contributing_contract), [`AGENTS.md#agent_obligations`](../AGENTS.md#agent_obligations) | `mise exec -- python -m pytest` + code review of `src/gabion/cli.py` vs `src/gabion/server.py` | Behavioral divergence between CLI and server semantics or review rejection. |
 | `ARC-002` | Repo-local tooling commands use `mise exec -- python` to bind pinned interpreter/deps. | [`AGENTS.md#agent_obligations`](../AGENTS.md#agent_obligations), [`CONTRIBUTING.md#contributing_contract`](../CONTRIBUTING.md#contributing_contract) | Command/scripts review; run checks through `mise exec -- python ...` | Execution drift or non-reproducible local/CI behavior. |
+| `SEM-001` | Runtime is process-relative: any subsystem that participates in a real operational process owns runtime semantics relative to that process, not only relative to end-user program execution. | [`NCI-RUNTIME-PROCESS-RELATIVE`](./normative_clause_index.md#clause-runtime-process-relative), [`NCI-RUNTIME-DISTINCTION-LADDER`](./normative_clause_index.md#clause-runtime-distinction-ladder) | Code/doc review + targeted pytest over the relevant subsystem or workflow | Analysis, formal, planning, governance, or other bureaucratic distinctions are dismissed as non-runtime solely because they are not target-program execution, or prose-only taxonomies are treated as runtime without real process participation. |
 | `DFG-001` | Cross-boundary recurring bundles must be Protocol-reified or explicitly marked with `# dataflow-bundle:`; Tier-2 must be reified before merge. | [`AGENTS.md#agent_obligations`](../AGENTS.md#agent_obligations), [`glossary.md#bundle`](../glossary.md#bundle), [`glossary.md#tier`](../glossary.md#tier), [`CONTRIBUTING.md#contributing_contract`](../CONTRIBUTING.md#contributing_contract) | `mise exec -- python -m gabion check` | Dataflow grammar violations in report/lint outputs; merge blocked. |
 | `DFG-002` | Ambiguity must be normalized at boundaries and reified structurally; on ordinary call edges the ambiguity budget is non-increasing, and cost/cardinality escalations must stay at explicit named boundaries. `# pragma: no cover` is allowed only on `never(...)`-guarded branches (including enum exhaustiveness fallbacks). | [`NCI-SHIFT-AMBIGUITY-LEFT`](./normative_clause_index.md#clause-shift-ambiguity-left), [`POLICY_SEED.md#policy_seed` §4.8](../POLICY_SEED.md#policy_seed) | `mise exec -- python -m gabion ambiguity-contract-gate --root .` | Ambiguity-contract gate fails when AST or graded call-edge monotonicity violations are present. |
 | `DFG-003` | Repository JSON/mapping evidence surfaces must be canonically sorted to preserve deterministic replay and stable evidence artifacts. | [`glossary.md#contract`](../glossary.md#contract), [`in/in-23.md#in_in_23`](../in/in-23.md#in_in_23), [`in/in-24.md#in_in_24`](../in/in-24.md#in_in_24) | `mise exec -- python -m pytest tests/test_runtime_kernel_contracts.py` | Nondeterministic key ordering causes unstable artifacts/diffs and replay evidence drift. |

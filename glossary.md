@@ -1,5 +1,5 @@
 ---
-doc_revision: 44
+doc_revision: 46
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: glossary
 doc_role: glossary
@@ -74,6 +74,21 @@ doc_owner: maintainer
 > Execution and CI safety are governed by `POLICY_SEED.md#policy_seed`.
 > The semantic obligations in this glossary are enforced only when execution
 > complies with that policy. Both contracts are required for validity.
+>
+> **Runtime Scope Contract (Normative):**
+> Runtime is process-relative. If a subsystem participates in a real
+> operational process, that process is the runtime for evaluating its state,
+> transitions, and distinctions. Program runtime, analysis runtime, formal
+> derivation runtime, planning runtime, CI runtime, and governance/docflow or
+> other bureaucratic runtime are all valid runtime scopes when they carry real
+> operational state/transition structure.
+>
+> **Runtime Distinction Contract (Normative):**
+> Within the relevant runtime scope, if a distinction is real, it must be
+> constructible; if constructible, it must be behaviorally reachable; if
+> reachable, it must be observable; if observable, it must be coverable; if
+> not, it is not a valid runtime distinction. This ladder is the admissibility
+> test for runtime semantic distinctions in this repository.
 >
 > **Dataflow Grammar Invariant (Normative Pointer):**
 > The dataflow grammar audit in `POLICY_SEED.md#policy_seed` treats recurring parameter

@@ -1,5 +1,5 @@
 ---
-doc_revision: 55
+doc_revision: 57
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: policy_seed
 doc_role: policy
@@ -29,7 +29,7 @@ doc_review_notes:
   README.md#repo_contract: "Reviewed README.md rev2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
   CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
   AGENTS.md#agent_obligations: "Reviewed AGENTS.md rev2 (required validation stack, forward-remediation preference, and ci_watch failure-bundle triage guidance)."
-  glossary.md#contract: "Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline)."
+  glossary.md#contract: "Reviewed glossary.md#contract rev46 (runtime is now defined process-relatively and the admissibility ladder remains aligned with policy)."
   docs/publishing_practices.md#publishing_practices: "Publishing guidance reviewed (anchor v1); policy unaffected."
   docs/coverage_semantics.md#coverage_semantics: "Reviewed docs/coverage_semantics.md#coverage_semantics v1 (glossary-lifted projection + explicit core anchors); policy references remain accurate."
 doc_sections:
@@ -64,7 +64,7 @@ doc_section_reviews:
       dep_version: 1
       self_version_at_review: 2
       outcome: no_change
-      note: "Glossary contract reviewed; policy semantics stable."
+      note: "Glossary runtime-distinction contract reviewed; policy/polysymy handshake remains aligned."
     docs/publishing_practices.md#publishing_practices:
       dep_version: 1
       self_version_at_review: 2
@@ -157,6 +157,20 @@ LSP-carrier execution, and direct dispatch MUST NOT be the normative-only path.
 
 **Readiness invariant:** A feature MUST NOT be classified as `beta` or
 `production` unless it has been validated over the LSP carrier.
+
+**Runtime scope invariant:** Runtime is process-relative. If a subsystem
+participates in a real operational process, that process is the runtime context
+for evaluating its state, transitions, and distinctions. Program execution,
+analysis execution, formal derivation, planning workflows, CI execution, and
+governance/docflow or other bureaucratic workflows are all runtime scopes when
+they carry real operational state/transition structure.
+
+**Runtime distinction invariant:** Within the relevant runtime scope, if a
+distinction is real, it MUST be constructible; if constructible, it MUST be
+behaviorally reachable; if reachable, it MUST be observable; if observable, it
+MUST be coverable; otherwise it is not a valid runtime distinction.
+Semantic-core runtime objects and governance projections MUST NOT rely on
+distinctions that fail this ladder.
 
 ---
 

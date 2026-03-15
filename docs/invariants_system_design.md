@@ -1,5 +1,5 @@
 ---
-doc_revision: 3
+doc_revision: 4
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: invariants_system_design
 doc_role: design
@@ -15,17 +15,17 @@ doc_requires:
   - CONTRIBUTING.md#contributing_contract
   - docs/normative_clause_index.md#normative_clause_index
 doc_reviewed_as_of:
-  POLICY_SEED.md#policy_seed: 52
-  glossary.md#contract: 43
-  AGENTS.md#agent_obligations: 30
-  CONTRIBUTING.md#contributing_contract: 113
-  docs/normative_clause_index.md#normative_clause_index: 10
+  POLICY_SEED.md#policy_seed: 2
+  glossary.md#contract: 1
+  AGENTS.md#agent_obligations: 2
+  CONTRIBUTING.md#contributing_contract: 2
+  docs/normative_clause_index.md#normative_clause_index: 3
 doc_review_notes:
-  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev52 (forward-remediation order, ci_watch failure-bundle durability, and enforced execution-coverage policy wording)."
-  glossary.md#contract: "Reviewed glossary.md rev43 (glossary contract + semantic typing discipline)."
-  AGENTS.md#agent_obligations: "Reviewed AGENTS.md rev30 (required validation stack, forward-remediation preference, and ci_watch failure-bundle triage guidance)."
-  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev113 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
-  docs/normative_clause_index.md#normative_clause_index: "Reviewed normative_clause_index rev10 (extended existing dual-sensor/shift-ambiguity/deadline clauses without introducing new clause IDs)."
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md#policy_seed v2 (runtime is process-relative and still governs the invariants subsystem's operational process)."
+  glossary.md#contract: "Reviewed glossary.md#contract v1 (runtime scope is process-relative and the distinction ladder applies to analysis-time execution here)."
+  AGENTS.md#agent_obligations: "Reviewed AGENTS.md#agent_obligations v2 (validation stack and policy obligations remain aligned for invariants work)."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md#contributing_contract v2 (correction-unit validation stack and ambiguity-left guidance remain aligned)."
+  docs/normative_clause_index.md#normative_clause_index: "Reviewed normative_clause_index v3 (process-relative runtime and the distinction ladder now provide the clause-level interpretation for this design doc)."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_owner: maintainer
 ---
@@ -40,6 +40,12 @@ This document describes the current invariants subsystem centered on:
 - `src/gabion/runtime/policy_runtime.py`
 
 The model is **factory-first**: `invariant_factory()` is the execution core, while `never()`, `todo()`, and `deprecated()` are thin marker entrypoints.
+
+For this document, runtime is process-relative: the relevant runtime is the
+analysis-time and policy-time operation of the invariants subsystem itself, not
+only the target program's runtime. A distinction named here counts as a runtime
+distinction only when it is constructible, behaviorally reachable, observable,
+and coverable within that operational process.
 
 ## 1. System overview
 
@@ -82,6 +88,12 @@ The requested structure is represented as 3 notions, each with:
 - `F*` = first-order implication
 - `S*` = second-order implication
 - `H*` = third-order homotopy implication
+
+The lattice below mixes implemented analysis-time runtime distinctions with
+explanatory decomposition. Unless a node is tied to explicit payload, profile,
+warning, exception, policy, or test surfaces in the operating invariants
+process, read it as design structure rather than as an independently admissible
+runtime distinction.
 
 ---
 

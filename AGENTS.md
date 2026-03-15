@@ -1,5 +1,5 @@
 ---
-doc_revision: 33
+doc_revision: 34
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: agents
 doc_role: agent
@@ -23,9 +23,9 @@ doc_reviewed_as_of:
 doc_review_notes:
   README.md#repo_contract: "Reviewed README.md rev2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
   CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
-  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev2 (forward-remediation order, ci_watch failure-bundle durability, and enforced execution-coverage policy wording)."
-  glossary.md#contract: "Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline)."
-  docs/normative_clause_index.md#normative_clause_index: "Reviewed normative_clause_index rev3 (added NCI-DOCFLOW-CLOSED-LOOP first/second-order loop anchoring and packetized docflow clause continuity language)."
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev57 (runtime is now process-relative across program, analysis, formal, planning, and governance workflows)."
+  glossary.md#contract: "Reviewed glossary.md#contract rev46 (runtime scope is process-relative and the distinction ladder remains part of the semantic contract)."
+  docs/normative_clause_index.md#normative_clause_index: "Reviewed normative_clause_index rev16 (added NCI-RUNTIME-PROCESS-RELATIVE alongside the runtime-distinction ladder)."
 doc_sections:
   agent_obligations: 2
 doc_section_requires:
@@ -51,17 +51,17 @@ doc_section_reviews:
       dep_version: 2
       self_version_at_review: 2
       outcome: no_change
-      note: "Policy seed rev2 reviewed; governance obligations remain aligned."
+      note: "Policy seed rev57 reviewed; process-relative runtime fits existing agent obligations."
     glossary.md#contract:
       dep_version: 1
       self_version_at_review: 2
       outcome: no_change
-      note: "Glossary contract reviewed; agent obligations unchanged."
+      note: "Glossary rev46 reviewed; process-relative runtime and the distinction ladder are now part of semantic typing discipline."
     docs/normative_clause_index.md#normative_clause_index:
       dep_version: 3
       self_version_at_review: 2
       outcome: no_change
-      note: "Clause index rev3 reviewed; canonical clause references remain aligned."
+      note: "Clause index rev16 reviewed; process-relative runtime and the distinction ladder leave agent workflow unchanged."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_invariants:
   - read_policy_glossary_first
@@ -98,6 +98,8 @@ Semantic correctness is governed by `[glossary.md#contract](glossary.md#contract
 - When changing workflows, run the policy checks (once the scripts exist) and
   surface any violations explicitly.
 - Preserve [`NCI-LSP-FIRST`](docs/normative_clause_index.md#clause-lsp-first).
+- Enforce process-relative runtime policy: [`NCI-RUNTIME-PROCESS-RELATIVE`](docs/normative_clause_index.md#clause-runtime-process-relative).
+- Enforce runtime distinction admissibility: [`NCI-RUNTIME-DISTINCTION-LADDER`](docs/normative_clause_index.md#clause-runtime-distinction-ladder).
 - Enforce [`NCI-SHIFT-AMBIGUITY-LEFT`](docs/normative_clause_index.md#clause-shift-ambiguity-left) in semantic core refactors.
 - Enforce command maturity/carrier/parity policy: [`NCI-COMMAND-MATURITY-PARITY`](docs/normative_clause_index.md#clause-command-maturity-parity).
 - Enforce controller-drift override lifecycle policy: [`NCI-CONTROLLER-DRIFT-LIFECYCLE`](docs/normative_clause_index.md#clause-controller-drift-lifecycle).

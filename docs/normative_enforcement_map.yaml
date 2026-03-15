@@ -50,6 +50,22 @@ clauses:
     expected_artifacts:
       - artifacts/dataflow_grammar/report.md
       - artifacts/audit_reports/dataflow_report.md
+  NCI-RUNTIME-PROCESS-RELATIVE:
+    status: document-only
+    enforcing_modules:
+      - POLICY_SEED.md
+      - glossary.md
+      - docs/normative_clause_index.md
+    ci_anchors: []
+    expected_artifacts: []
+  NCI-RUNTIME-DISTINCTION-LADDER:
+    status: document-only
+    enforcing_modules:
+      - POLICY_SEED.md
+      - glossary.md
+      - docs/normative_clause_index.md
+    ci_anchors: []
+    expected_artifacts: []
   NCI-SHIFT-AMBIGUITY-LEFT:
     status: partial
     enforcing_modules:

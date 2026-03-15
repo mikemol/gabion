@@ -1,5 +1,5 @@
 ---
-doc_revision: 118
+doc_revision: 119
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -28,9 +28,9 @@ doc_review_notes:
   README.md#repo_contract: "Reviewed README.md rev2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
   CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
   AGENTS.md#agent_obligations: "Reviewed AGENTS.md rev2 (required validation stack, forward-remediation preference, and ci_watch failure-bundle triage guidance)."
-  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev2 (forward-remediation order, ci_watch failure-bundle durability, and enforced execution-coverage policy wording)."
-  docs/normative_clause_index.md#normative_clause_index: "Reviewed normative_clause_index rev3 (added NCI-DOCFLOW-CLOSED-LOOP first/second-order loop anchoring and packetized docflow clause continuity language)."
-  glossary.md#contract: "Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline)."
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev57 (runtime is now process-relative across program, analysis, formal, planning, and governance workflows)."
+  docs/normative_clause_index.md#normative_clause_index: "Reviewed normative_clause_index rev16 (added NCI-RUNTIME-PROCESS-RELATIVE alongside the runtime-distinction ladder)."
+  glossary.md#contract: "Reviewed glossary.md#contract rev46 (runtime scope is process-relative and the distinction ladder remains part of the semantic contract)."
   docs/coverage_semantics.md#coverage_semantics: "Reviewed docs/coverage_semantics.md#coverage_semantics v1 (glossary-lifted projection + explicit core anchors); contributor guidance unchanged."
 doc_sections:
   contributing_contract: 2
@@ -58,17 +58,17 @@ doc_section_reviews:
       dep_version: 2
       self_version_at_review: 2
       outcome: no_change
-      note: "Policy seed rev2 reviewed; governance obligations remain aligned."
+      note: "Policy seed rev57 reviewed; contributor workflow remains aligned with process-relative runtime and the distinction ladder."
     docs/normative_clause_index.md#normative_clause_index:
       dep_version: 3
       self_version_at_review: 2
       outcome: no_change
-      note: "Clause index rev3 reviewed; canonical clause references remain aligned."
+      note: "Clause index rev16 reviewed; contributor contract semantics remain aligned with the new runtime clauses."
     glossary.md#contract:
       dep_version: 1
       self_version_at_review: 2
       outcome: no_change
-      note: "Glossary contract reviewed; contributor contract unchanged."
+      note: "Glossary rev46 reviewed; semantic typing now includes process-relative runtime and the distinction ladder without changing contributor workflow."
     docs/coverage_semantics.md#coverage_semantics:
       dep_version: 1
       self_version_at_review: 2
@@ -109,6 +109,8 @@ valid.
 - **Maturity/transport policy:** [`NCI-COMMAND-MATURITY-PARITY`](docs/normative_clause_index.md#clause-command-maturity-parity).
 - **Temporal dual-sensor correction loop:** [`NCI-DUAL-SENSOR-CORRECTION-LOOP`](docs/normative_clause_index.md#clause-dual-sensor-correction-loop) (mandatory for agents; recommendation-level interoperability guidance for contributors).
 - **Packetized docflow closed loop:** [`NCI-DOCFLOW-CLOSED-LOOP`](docs/normative_clause_index.md#clause-docflow-closed-loop) (net-new warning/contradiction rows fail, debt drift is explicit and age-bounded).
+- **Process-relative runtime policy:** [`NCI-RUNTIME-PROCESS-RELATIVE`](docs/normative_clause_index.md#clause-runtime-process-relative).
+- **Runtime distinction admissibility:** [`NCI-RUNTIME-DISTINCTION-LADDER`](docs/normative_clause_index.md#clause-runtime-distinction-ladder).
 - **Runtime narrowing boundary contract:** [`NCI-RUNTIME-NARROWING-BOUNDARY`](docs/normative_clause_index.md#clause-runtime-narrowing-boundary).
 - **Semantic ownership boundary:** user-facing semantics must live in server command handlers and be exposed as `gabion` subcommands. `scripts/` are orchestration wrappers (CI/bootstrap/audit), never canonical semantic engines.
 - **Single source of truth:** diagnostics and code actions must be derived from

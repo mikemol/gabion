@@ -55,6 +55,7 @@ def test_run_turtle_service_poset_skeleton_finds_first_directive_witness() -> No
         0,
         4,
     )
+    assert result.first_completed_witness in result.final_global_stage.completer.completed_witnesses
     assert result.scanner_trace
     assert result.predictor_trace
     assert result.completer_trace
@@ -62,39 +63,62 @@ def test_run_turtle_service_poset_skeleton_finds_first_directive_witness() -> No
     assert all(not hasattr(rule, "rule_id") for rule in result.grammar)
     assert isinstance(result.root_query.query_id, module.PrimeFactor)
     assert isinstance(result.first_completed_witness.witness_id, module.PrimeFactor)
+    assert _request_monotone_counts(result.scanner_trace, "scan_key_ids")
     assert _request_monotone_counts(result.scanner_trace, "truth_ids")
+    assert _request_monotone_counts(result.predictor_trace, "prediction_key_ids")
     assert _request_monotone_counts(result.predictor_trace, "candidate_ids")
-    assert _request_monotone_counts(result.completer_trace, "completed_ids")
+    assert _request_monotone_counts(result.completer_trace, "completion_key_ids")
+    assert _request_monotone_counts(
+        result.completer_trace,
+        "discharged_completion_key_ids",
+    )
+    assert _request_monotone_counts(result.completer_trace, "continuation_ids")
+    assert _request_monotone_counts(result.completer_trace, "witness_ids")
+    assert _request_monotone_counts(result.completer_trace, "support_ids")
+    assert any(
+        isinstance(emission.yielded[0], module.NeedScan)
+        for emission in result.predictor_trace
+    )
+    assert any(
+        isinstance(emission.yielded[0], module.NeedPredictions)
+        for emission in result.completer_trace
+    )
+    assert any(
+        isinstance(emission.yielded[0], module.NeedCompleted)
+        for emission in result.completer_trace
+    )
+    assert any(
+        isinstance(emission.yielded[0], module.CompletedWitness)
+        for emission in result.completer_trace
+    )
 
 
-def test_service_poset_router_packs_scanner_ambiguity_and_dedupes_repeated_queries() -> None:
+def test_service_poset_router_stream_scan_packs_real_ambiguity() -> None:
     module = _load_module()
 
     router = module.ServicePosetRouter.create(max_tokens=256)
     scan_request = router.make_scan_request()
     responses = router.stream_scan(scan_request)
 
-    assert any(isinstance(response, module.ScannerDelta) for response in responses)
+    assert responses
+    assert any(isinstance(response, module.ScanWitnessBatch) for response in responses)
+    assert isinstance(responses[-1], module.Exhausted)
     assert all(
-        isinstance(response, (module.ScannerDelta, module.Exhausted))
+        isinstance(response, (module.ScanWitnessBatch, module.Exhausted))
         for response in responses
     )
     assert all(
-        emission.delta is None or emission.yielded == (emission.delta,)
+        isinstance(emission.yielded[0], (module.ScanWitnessBatch, module.Exhausted))
         for emission in router.scanner_trace
-        if emission.service_name == "scanner"
     )
 
     ambiguity_samples: list[tuple[str, set[str]]] = []
-    for emission in router.scanner_trace:
-        delta = emission.delta
-        if not isinstance(delta, module.ScannerDelta):
+    for response in responses:
+        if not isinstance(response, module.ScanWitnessBatch):
             continue
-        for ambiguity in delta.new_ambiguity_classes:
+        for ambiguity in response.ambiguity_classes:
             truth_ids = set(ambiguity.truth_ids)
-            truths = [
-                truth for truth in emission.stage.truths if truth.truth_id in truth_ids
-            ]
+            truths = [truth for truth in response.truths if truth.truth_id in truth_ids]
             if len(truths) > 1:
                 ambiguity_samples.append(
                     (
@@ -108,18 +132,8 @@ def test_service_poset_router_packs_scanner_ambiguity_and_dedupes_repeated_queri
         for lexeme_text, symbols in ambiguity_samples
     )
 
-    query = router.make_root_query(symbol_name="directive")
-    first = router.resolve_query(query)
-    second = router.resolve_query(query)
 
-    assert first is not None
-    assert second is not None
-    assert first == second
-    complete_total, complete_unique = router.request_metrics["complete"]
-    assert complete_total > complete_unique
-
-
-def test_service_poset_router_predictor_advances_by_deltas() -> None:
+def test_service_poset_router_predictor_runs_as_needscan_coroutine() -> None:
     module = _load_module()
 
     router = module.ServicePosetRouter.create(max_tokens=96)
@@ -130,16 +144,22 @@ def test_service_poset_router_predictor_advances_by_deltas() -> None:
     )
     responses = tuple(router._stream_predictions(prediction_request))
 
-    assert any(isinstance(response, module.PredictorDelta) for response in responses)
-    assert all(
-        isinstance(response, (module.PredictorDelta, module.Exhausted))
+    assert responses
+    assert any(
+        isinstance(response, module.PredictionWitnessBatch)
         for response in responses
     )
-    assert all(
-        emission.delta is None or emission.yielded == (emission.delta,)
+    assert isinstance(responses[-1], module.Exhausted)
+    assert any(
+        isinstance(emission.yielded[0], module.NeedScan)
         for emission in router.predictor_trace
-        if emission.service_name == "predictor"
     )
+    assert any(
+        isinstance(emission.yielded[0], module.PredictionWitnessBatch)
+        for emission in router.predictor_trace
+    )
+    assert _request_monotone_counts(router.predictor_trace, "prediction_key_ids")
+    assert _request_monotone_counts(router.predictor_trace, "candidate_ids")
 
 
 def test_run_turtle_service_poset_skeleton_exhausts_cleanly_for_missing_symbol() -> None:
@@ -156,6 +176,18 @@ def test_run_turtle_service_poset_skeleton_exhausts_cleanly_for_missing_symbol()
     assert result.scanner_trace
     assert result.predictor_trace
     assert result.completer_trace
-    assert _request_monotone_counts(result.scanner_trace, "truth_ids")
+    assert any(
+        isinstance(emission.yielded[0], module.NeedPredictions)
+        for emission in result.completer_trace
+    )
+    assert all(
+        not isinstance(emission.yielded[0], module.CompletedWitness)
+        for emission in result.completer_trace
+    )
+    assert _request_monotone_counts(result.predictor_trace, "prediction_key_ids")
     assert _request_monotone_counts(result.predictor_trace, "candidate_ids")
-    assert _request_monotone_counts(result.completer_trace, "pending_ids")
+    assert _request_monotone_counts(result.completer_trace, "completion_key_ids")
+    assert _request_monotone_counts(result.completer_trace, "continuation_ids")
+    assert _request_monotone_counts(result.completer_trace, "witness_ids")
+    assert _request_monotone_counts(result.completer_trace, "support_ids")
+    assert result.final_global_stage.completer.completed_witnesses == ()

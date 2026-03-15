@@ -1,5 +1,5 @@
 ---
-doc_revision: 14
+doc_revision: 16
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: normative_clause_index
 doc_role: normative_index
@@ -22,11 +22,11 @@ doc_reviewed_as_of:
   AGENTS.md#agent_obligations: 2
   glossary.md#contract: 1
 doc_review_notes:
-  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev2 (forward-remediation order, ci_watch failure-bundle durability, and enforced execution-coverage policy wording)."
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev57 (runtime is now process-relative and the distinction ladder remains canonical policy)."
   README.md#repo_contract: "Reviewed README.md rev2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
   CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
   AGENTS.md#agent_obligations: "Reviewed AGENTS.md rev2 (required validation stack, forward-remediation preference, and ci_watch failure-bundle triage guidance)."
-  glossary.md#contract: "Dataflow tier references remain governed by glossary contract."
+  glossary.md#contract: "Reviewed glossary.md#contract rev46 (runtime scope is now process-relative and the distinction ladder remains part of the semantic contract)."
 doc_sections:
   normative_clause_index: 3
 doc_section_requires:
@@ -42,7 +42,7 @@ doc_section_reviews:
       dep_version: 2
       self_version_at_review: 3
       outcome: no_change
-      note: "Policy seed rev2 reviewed; governance obligations remain aligned."
+      note: "Policy seed rev57 reviewed; process-relative runtime and the distinction ladder align with the canonical governance set."
     README.md#repo_contract:
       dep_version: 2
       self_version_at_review: 3
@@ -62,7 +62,7 @@ doc_section_reviews:
       dep_version: 1
       self_version_at_review: 3
       outcome: no_change
-      note: "Dataflow tier clauses stay glossary-aligned."
+      note: "Glossary rev46 reviewed; runtime scope and admissibility clauses stay glossary-aligned."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_erasure:
   - formatting
@@ -102,6 +102,23 @@ link to clause IDs instead of duplicating long-form normative prose.
 - Tier-2 bundles must be reified before merge.
 - Tier-3 bundles must be reified or documented with `# dataflow-bundle:`.
 - Canonical sources: `[glossary.md#contract](../glossary.md#contract)`, `AGENTS.md#agent_obligations`, `CONTRIBUTING.md#contributing_contract`.
+
+<a id="clause-runtime-process-relative"></a>
+### `NCI-RUNTIME-PROCESS-RELATIVE` — Runtime is process-relative
+- Runtime is relative to the governing operational process, not only to end-user program execution.
+- Any subsystem that participates in a real operational process has a runtime for its state and transition structure.
+- Program execution, analysis execution, formal derivation, planning workflows, CI execution, and governance/docflow or other bureaucratic workflows can all be runtime scopes when they carry real operational structure.
+- Canonical sources: `POLICY_SEED.md#policy_seed`, `[glossary.md#contract](../glossary.md#contract)`.
+
+<a id="clause-runtime-distinction-ladder"></a>
+### `NCI-RUNTIME-DISTINCTION-LADDER` — Runtime distinction admissibility ladder
+- Apply this ladder within the runtime scope defined by `NCI-RUNTIME-PROCESS-RELATIVE`.
+- Real distinctions must be constructible.
+- Constructible distinctions must be behaviorally reachable.
+- Reachable distinctions must be observable.
+- Observable distinctions must be coverable.
+- Distinctions failing any step are not valid runtime distinctions.
+- Canonical sources: `POLICY_SEED.md#policy_seed`, `[glossary.md#contract](../glossary.md#contract)`.
 
 
 <a id="clause-shift-ambiguity-left"></a>
