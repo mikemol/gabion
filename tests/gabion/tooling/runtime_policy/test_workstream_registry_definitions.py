@@ -12,6 +12,9 @@ from gabion.tooling.policy_substrate.projection_semantic_fragment_phase5_registr
 from gabion.tooling.policy_substrate.surface_contract_convergence_registry import (
     surface_contract_convergence_workstream_registry,
 )
+from gabion.tooling.policy_substrate.runtime_context_injection_registry import (
+    runtime_context_injection_workstream_registry,
+)
 
 
 def test_prf_workstream_registry_exposes_queue_sequence_and_active_playbook_touchpoint() -> None:
@@ -325,6 +328,98 @@ def test_surface_contract_convergence_workstream_registry_exposes_queue_and_touc
         (
             "docs/normative_clause_index.md",
             "docs/normative_clause_index.md#normative_clause_index",
+        ),
+    }
+
+
+def test_runtime_context_injection_workstream_registry_exposes_queue_and_touchsites() -> None:
+    registry = runtime_context_injection_workstream_registry()
+    touchpoints = {item.touchpoint_id: item for item in registry.touchpoints}
+    subqueues = {item.subqueue_id: item for item in registry.subqueues}
+
+    assert registry.root.root_id == "RCI"
+    assert registry.tags == ("runtime_context_injection",)
+    assert registry.root.status_hint == "in_progress"
+    assert registry.root.subqueue_ids == (
+        "RCI-SQ-001",
+        "RCI-SQ-002",
+        "RCI-SQ-003",
+        "RCI-SQ-004",
+    )
+    assert tuple(item.subqueue_id for item in registry.subqueues) == (
+        "RCI-SQ-001",
+        "RCI-SQ-002",
+        "RCI-SQ-003",
+        "RCI-SQ-004",
+    )
+    assert subqueues["RCI-SQ-001"].touchpoint_ids == ("RCI-TP-001",)
+    assert subqueues["RCI-SQ-002"].touchpoint_ids == ("RCI-TP-002", "RCI-TP-003")
+    assert subqueues["RCI-SQ-003"].touchpoint_ids == ("RCI-TP-004", "RCI-TP-005")
+    assert subqueues["RCI-SQ-004"].touchpoint_ids == ("RCI-TP-006",)
+    assert all(item.status_hint == "in_progress" for item in registry.subqueues)
+    assert set(touchpoints) == {
+        "RCI-TP-001",
+        "RCI-TP-002",
+        "RCI-TP-003",
+        "RCI-TP-004",
+        "RCI-TP-005",
+        "RCI-TP-006",
+    }
+    assert all(item.status_hint == "queued" for item in registry.touchpoints)
+    assert {
+        (item.rel_path, item.qualname)
+        for item in touchpoints["RCI-TP-001"].declared_touchsites
+    } == {
+        ("src/gabion/tooling/policy_substrate/invariant_graph.py", "invariant_graph"),
+    }
+    assert {
+        (item.rel_path, item.qualname)
+        for item in touchpoints["RCI-TP-002"].declared_touchsites
+    } == {
+        (
+            "tests/gabion/tooling/runtime_policy/invariant_graph_test_support.py",
+            "invariant_graph_test_support",
+        ),
+        ("tests/gabion/tooling/runtime_policy/test_invariant_graph.py", "test_invariant_graph"),
+    }
+    assert {
+        (item.rel_path, item.qualname)
+        for item in touchpoints["RCI-TP-003"].declared_touchsites
+    } == {
+        (
+            "tests/gabion/tooling/runtime_policy/invariant_graph_test_support.py",
+            "invariant_graph_test_support",
+        ),
+        ("tests/gabion/tooling/runtime_policy/test_invariant_graph.py", "test_invariant_graph"),
+    }
+    assert {
+        (item.rel_path, item.qualname)
+        for item in touchpoints["RCI-TP-004"].declared_touchsites
+    } == {
+        ("scripts/policy/policy_check.py", "policy_check"),
+        (
+            "tests/gabion/tooling/runtime_policy/test_policy_check_output.py",
+            "test_policy_check_output",
+        ),
+    }
+    assert {
+        (item.rel_path, item.qualname)
+        for item in touchpoints["RCI-TP-005"].declared_touchsites
+    } == {
+        ("src/gabion/tooling/runtime/invariant_graph.py", "runtime_invariant_graph"),
+        (
+            "tests/gabion/tooling/runtime_policy/test_runtime_invariant_graph_perf.py",
+            "test_runtime_invariant_graph_perf",
+        ),
+    }
+    assert {
+        (item.rel_path, item.qualname)
+        for item in touchpoints["RCI-TP-006"].declared_touchsites
+    } == {
+        ("tests/gabion/tooling/runtime_policy/test_invariant_graph.py", "test_invariant_graph"),
+        (
+            "tests/gabion/tooling/runtime_policy/test_invariant_graph_live_repo.py",
+            "test_invariant_graph_live_repo",
         ),
     }
 

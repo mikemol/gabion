@@ -69,6 +69,9 @@ from gabion.tooling.policy_substrate.projection_semantic_fragment_phase5_registr
 from gabion.tooling.policy_substrate.surface_contract_convergence_registry import (
     surface_contract_convergence_workstream_registry,
 )
+from gabion.tooling.policy_substrate.runtime_context_injection_registry import (
+    runtime_context_injection_workstream_registry,
+)
 from gabion.tooling.policy_substrate.structured_artifact_ingress import (
     StructuredArtifactIdentitySpace,
     TestEvidenceSite,
@@ -9116,6 +9119,9 @@ def _iter_declared_workstream_registries() -> tuple[WorkstreamRegistry, ...]:
     scc_registry = surface_contract_convergence_workstream_registry()
     if scc_registry is not None:
         registries.append(scc_registry)
+    rci_registry = runtime_context_injection_workstream_registry()
+    if rci_registry is not None:
+        registries.append(rci_registry)
     registries.extend(connectivity_synergy_workstream_registries())
     return tuple(registries)
 
