@@ -10,7 +10,9 @@ from gabion.exceptions import NeverThrown
 from gabion.runtime import coercion_contract
 from gabion.server_core import coercion_contract as server_core_coercion_contract
 from gabion.server_core import command_orchestrator
+from gabion.server_core import command_orchestrator_primitives
 from gabion.server_core import command_orchestrator_progress
+from gabion.server_core import server_payload_dispatch
 from gabion.runtime_shape_dispatch import (
     float_optional,
     int_optional,
@@ -90,6 +92,16 @@ def test_server_core_modules_bind_to_shared_coercion_contract() -> None:
         is server_core_coercion_contract._non_string_sequence_optional
     )
     assert command_orchestrator_progress._float_optional is server_core_coercion_contract._float_optional
+    assert command_orchestrator_primitives._bool_optional is server_core_coercion_contract._bool_optional
+    assert (
+        command_orchestrator_primitives._json_mapping_optional
+        is server_core_coercion_contract._json_mapping_optional
+    )
+    assert server_payload_dispatch._bool_optional is server_core_coercion_contract._bool_optional
+    assert (
+        server_payload_dispatch._non_string_sequence_optional
+        is server_core_coercion_contract._non_string_sequence_optional
+    )
 
 
 def test_coercion_contract_rejects_unregistered_runtime_types() -> None:

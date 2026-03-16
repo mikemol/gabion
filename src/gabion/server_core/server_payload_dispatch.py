@@ -9,17 +9,19 @@ from gabion.invariants import never
 from gabion.json_types import JSONObject, JSONValue
 from gabion.server_core import command_orchestrator_primitives as orchestrator_primitives
 from gabion.server_core import command_orchestrator_progress as progress_dispatch
+from gabion.server_core.coercion_contract import (
+    _bool_optional,
+    _float_optional,
+    _int_optional,
+    _json_mapping_default_empty,
+    _json_mapping_optional,
+    _non_negative_int_optional,
+    _non_string_sequence_optional,
+    _str_optional,
+)
 
 _NONE_TYPE = type(None)
 
-_int_optional = progress_dispatch._int_optional
-_non_negative_int_optional = progress_dispatch._non_negative_int_optional
-_json_mapping_optional = progress_dispatch._json_mapping_optional
-_json_mapping_default_empty = progress_dispatch._json_mapping_default_empty
-_non_string_sequence_optional = progress_dispatch._non_string_sequence_optional
-_str_optional = progress_dispatch._str_optional
-_bool_optional = progress_dispatch._bool_optional
-_float_optional = progress_dispatch._float_optional
 _report_projection_phase_rank_optional = progress_dispatch._report_projection_phase_rank_optional
 _in_progress_scan_states = progress_dispatch._in_progress_scan_states
 

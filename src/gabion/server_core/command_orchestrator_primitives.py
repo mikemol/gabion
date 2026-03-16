@@ -48,24 +48,26 @@ from gabion.server_core.ingress_primitives import (
     ProgressDeps,
     RuntimeDeps,
 )
-from gabion.server_core import dataflow_runtime_contract as runtime_contract
-from gabion.server_core.command_orchestrator_progress import (
-    _analysis_index_resume_hydrated_count,
-    _analysis_index_resume_signature,
-    _analysis_resume_progress,
+from gabion.server_core.coercion_contract import (
     _bool_optional,
-    _build_phase_progress_v2,
-    _collection_semantic_progress,
     _float_optional,
-    _in_progress_scan_states,
     _int_optional,
     _json_mapping_default_empty,
     _json_mapping_optional,
     _non_negative_int_optional,
     _non_string_sequence_optional,
+    _str_optional,
+)
+from gabion.server_core import dataflow_runtime_contract as runtime_contract
+from gabion.server_core.command_orchestrator_progress import (
+    _analysis_index_resume_hydrated_count,
+    _analysis_index_resume_signature,
+    _analysis_resume_progress,
+    _build_phase_progress_v2,
+    _collection_semantic_progress,
+    _in_progress_scan_states,
     _normalize_progress_work,
     _report_projection_phase_rank_optional,
-    _str_optional,
 )
 
 DATAFLOW_COMMAND = command_ids.DATAFLOW_COMMAND
