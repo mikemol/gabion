@@ -358,7 +358,7 @@ def runtime_context_injection_workstream_registry() -> WorkstreamRegistry:
                 "RCI-SQ-003",
                 "RCI-SQ-004",
             ),
-            status_hint="in_progress",
+            status_hint="landed",
         ),
         subqueues=(
             _subqueue_definition(
@@ -367,7 +367,7 @@ def runtime_context_injection_workstream_registry() -> WorkstreamRegistry:
                 title="Phase5 touchsite active-root injection",
                 symbol=_rci_sq_phase5_root_injection,
                 touchpoint_ids=("RCI-TP-001",),
-                status_hint="in_progress",
+                status_hint="landed",
             ),
             _subqueue_definition(
                 root_id=root_id,
@@ -375,7 +375,7 @@ def runtime_context_injection_workstream_registry() -> WorkstreamRegistry:
                 title="Invariant-graph library dependency injection cleanup",
                 symbol=_rci_sq_library_di_cleanup,
                 touchpoint_ids=("RCI-TP-002", "RCI-TP-003"),
-                status_hint="in_progress",
+                status_hint="landed",
             ),
             _subqueue_definition(
                 root_id=root_id,
@@ -383,7 +383,7 @@ def runtime_context_injection_workstream_registry() -> WorkstreamRegistry:
                 title="Command and runtime DI seams for invariant-graph callers",
                 symbol=_rci_sq_command_di_cleanup,
                 touchpoint_ids=("RCI-TP-004", "RCI-TP-005"),
-                status_hint="in_progress",
+                status_hint="landed",
             ),
             _subqueue_definition(
                 root_id=root_id,
@@ -391,7 +391,7 @@ def runtime_context_injection_workstream_registry() -> WorkstreamRegistry:
                 title="Live-repo sentinel separation for invariant-graph tests",
                 symbol=_rci_sq_repo_state_sentinels,
                 touchpoint_ids=("RCI-TP-006",),
-                status_hint="in_progress",
+                status_hint="landed",
             ),
         ),
         touchpoints=(
@@ -401,7 +401,7 @@ def runtime_context_injection_workstream_registry() -> WorkstreamRegistry:
                 touchpoint_id="RCI-TP-001",
                 title="Active-root phase5 touchsite scanning",
                 symbol=_rci_tp_phase5_touchsite_root,
-                status_hint="queued",
+                status_hint="landed",
                 declared_touchsites=(
                     _module_touchsite(
                         touchsite_id="RCI-TS-001-A",
@@ -416,7 +416,7 @@ def runtime_context_injection_workstream_registry() -> WorkstreamRegistry:
                 touchpoint_id="RCI-TP-002",
                 title="Explicit empty-registry injection for invariant-graph unit tests",
                 symbol=_rci_tp_empty_registry_tests,
-                status_hint="queued",
+                status_hint="landed",
                 declared_touchsites=(
                     _module_touchsite(
                         touchsite_id="RCI-TS-002-A",
@@ -436,7 +436,7 @@ def runtime_context_injection_workstream_registry() -> WorkstreamRegistry:
                 touchpoint_id="RCI-TP-003",
                 title="Explicit synthetic/connectivity registry injection for invariant-graph tests",
                 symbol=_rci_tp_synthetic_registry_tests,
-                status_hint="queued",
+                status_hint="landed",
                 declared_touchsites=(
                     _module_touchsite(
                         touchsite_id="RCI-TS-003-A",
@@ -456,7 +456,7 @@ def runtime_context_injection_workstream_registry() -> WorkstreamRegistry:
                 touchpoint_id="RCI-TP-004",
                 title="Injected repo-root and registry seam for policy_check.main",
                 symbol=_rci_tp_policy_check_main,
-                status_hint="queued",
+                status_hint="landed",
                 declared_touchsites=(
                     _script_touchsite(
                         touchsite_id="RCI-TS-004-A",
@@ -476,7 +476,7 @@ def runtime_context_injection_workstream_registry() -> WorkstreamRegistry:
                 touchpoint_id="RCI-TP-005",
                 title="Injected declared-registry seam for tooling.runtime.invariant_graph.main",
                 symbol=_rci_tp_runtime_invariant_graph_main,
-                status_hint="queued",
+                status_hint="landed",
                 declared_touchsites=(
                     _module_touchsite(
                         touchsite_id="RCI-TS-005-A",
@@ -496,7 +496,7 @@ def runtime_context_injection_workstream_registry() -> WorkstreamRegistry:
                 touchpoint_id="RCI-TP-006",
                 title="Dedicated live-repo sentinel module for invariant-graph tests",
                 symbol=_rci_tp_live_repo_test_split,
-                status_hint="queued",
+                status_hint="landed",
                 declared_touchsites=(
                     _module_touchsite(
                         touchsite_id="RCI-TS-006-A",

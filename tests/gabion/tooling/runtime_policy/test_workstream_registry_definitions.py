@@ -339,7 +339,7 @@ def test_runtime_context_injection_workstream_registry_exposes_queue_and_touchsi
 
     assert registry.root.root_id == "RCI"
     assert registry.tags == ("runtime_context_injection",)
-    assert registry.root.status_hint == "in_progress"
+    assert registry.root.status_hint == "landed"
     assert registry.root.subqueue_ids == (
         "RCI-SQ-001",
         "RCI-SQ-002",
@@ -356,7 +356,7 @@ def test_runtime_context_injection_workstream_registry_exposes_queue_and_touchsi
     assert subqueues["RCI-SQ-002"].touchpoint_ids == ("RCI-TP-002", "RCI-TP-003")
     assert subqueues["RCI-SQ-003"].touchpoint_ids == ("RCI-TP-004", "RCI-TP-005")
     assert subqueues["RCI-SQ-004"].touchpoint_ids == ("RCI-TP-006",)
-    assert all(item.status_hint == "in_progress" for item in registry.subqueues)
+    assert all(item.status_hint == "landed" for item in registry.subqueues)
     assert set(touchpoints) == {
         "RCI-TP-001",
         "RCI-TP-002",
@@ -365,7 +365,7 @@ def test_runtime_context_injection_workstream_registry_exposes_queue_and_touchsi
         "RCI-TP-005",
         "RCI-TP-006",
     }
-    assert all(item.status_hint == "queued" for item in registry.touchpoints)
+    assert all(item.status_hint == "landed" for item in registry.touchpoints)
     assert {
         (item.rel_path, item.qualname)
         for item in touchpoints["RCI-TP-001"].declared_touchsites
