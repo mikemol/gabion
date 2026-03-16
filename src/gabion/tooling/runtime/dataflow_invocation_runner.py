@@ -6,85 +6,60 @@ from pathlib import Path
 import sys
 from typing import Callable, Sequence
 
-from gabion.cli_support.check.check_execution_plan import (
-    build_check_execution_plan_request as _build_check_execution_plan_request_impl,
-    check_derived_artifacts as _check_derived_artifacts_impl,
-)
-from gabion.cli_support.check.check_runtime import run_check as _run_check_impl
 from gabion.cli_support.check.execution_plan_payload import (
     ExecutionPlanRequestPayload,
 )
-from gabion.cli_support.shared.dispatch_runtime import (
-    dispatch_command as _dispatch_command_impl,
-)
-from gabion.cli_support.shared import dataflow_runtime_common
-from gabion.cli_support.shared.payload_builder import (
-    build_dataflow_payload as _build_dataflow_payload_impl,
+from gabion.cli_support.shared.dataflow_transport_ingress import (
+    default_dataflow_transport_ingress,
 )
 from gabion.cli_support.shared.raw_argparse import (
     parse_dataflow_args_or_exit as _parse_dataflow_args_or_exit_impl,
 )
-from gabion.commands import boundary_order, check_contract, command_ids, transport_policy
+from gabion.commands import check_contract, command_ids
 from gabion.commands.check_contract import DataflowFilterBundle
-from gabion.invariants import never
 from gabion.json_types import JSONObject
-from gabion.lsp_client import CommandRequest, run_command, run_command_direct
+from gabion.lsp_client import run_command
 from gabion.tooling.runtime.execution_envelope import ExecutionEnvelope
 
 _STDOUT_ALIAS = "-"
 _STDOUT_PATH = "/dev/stdout"
+_DATAFLOW_TRANSPORT_INGRESS = default_dataflow_transport_ingress()
 
 
 def _cli_timeout_ticks() -> tuple[int, int]:
-    return dataflow_runtime_common.cli_timeout_ticks(
-        default_ticks=dataflow_runtime_common.DEFAULT_CLI_TIMEOUT_TICKS,
-        default_tick_ns=dataflow_runtime_common.DEFAULT_CLI_TIMEOUT_TICK_NS,
-    )
+    return _DATAFLOW_TRANSPORT_INGRESS.cli_timeout_ticks()
 
 
 def _resolve_check_report_path(report: Path | None, *, root: Path) -> Path:
-    return dataflow_runtime_common.resolve_check_report_path(report, root=root)
+    return _DATAFLOW_TRANSPORT_INGRESS.resolve_check_report_path(report, root=root)
 
 
 def _normalize_output_target(target: str | Path) -> str:
-    return dataflow_runtime_common.normalize_output_target(
-        target,
-        stdout_alias=_STDOUT_ALIAS,
-        stdout_path=_STDOUT_PATH,
-    )
+    normalized = _DATAFLOW_TRANSPORT_INGRESS.normalize_optional_output_target(target)
+    if normalized is None:
+        raise ValueError("output target must normalize to a non-empty path")
+    return normalized
 
 
 def _normalize_optional_output_target(target: object) -> str | None:
-    return dataflow_runtime_common.normalize_optional_output_target(
-        target,
-        stdout_alias=_STDOUT_ALIAS,
-        stdout_path=_STDOUT_PATH,
-    )
+    return _DATAFLOW_TRANSPORT_INGRESS.normalize_optional_output_target(target)
 
 
 def _build_dataflow_payload_common(
     *,
     options: check_contract.DataflowPayloadCommonOptions,
 ) -> JSONObject:
-    return dataflow_runtime_common.build_dataflow_payload_common(options=options)
+    return _DATAFLOW_TRANSPORT_INGRESS.build_dataflow_payload_common(
+        options=options
+    )
 
 
 def _build_dataflow_payload(opts: argparse.Namespace) -> JSONObject:
-    return _build_dataflow_payload_impl(
-        opts,
-        normalize_optional_output_target_fn=_normalize_optional_output_target,
-        build_dataflow_payload_common_fn=_build_dataflow_payload_common,
-    )
+    return _DATAFLOW_TRANSPORT_INGRESS.build_dataflow_payload(opts)
 
 
 def _build_check_execution_plan_request(**kwargs) -> ExecutionPlanRequestPayload:
-    return _build_check_execution_plan_request_impl(
-        **kwargs,
-        check_derived_artifacts_fn=_check_derived_artifacts_impl,
-        execution_plan_request_ctor=ExecutionPlanRequestPayload,
-        dataflow_command=command_ids.DATAFLOW_COMMAND,
-        check_command=command_ids.CHECK_COMMAND,
-    )
+    return _DATAFLOW_TRANSPORT_INGRESS.build_check_execution_plan_request(**kwargs)
 
 
 def _dispatch_command(
@@ -95,35 +70,17 @@ def _dispatch_command(
     runner: Callable[..., JSONObject] = run_command,
     execution_plan_request: ExecutionPlanRequestPayload | None = None,
 ) -> JSONObject:
-    return _dispatch_command_impl(
+    return _DATAFLOW_TRANSPORT_INGRESS.dispatch_command(
         command=command,
         payload=payload,
         root=root,
         runner=runner,
         execution_plan_request=execution_plan_request,
-        notification_callback=None,
-        cli_timeout_ticks_fn=_cli_timeout_ticks,
-        normalize_boundary_mapping_once_fn=boundary_order.normalize_boundary_mapping_once,
-        apply_boundary_updates_once_fn=boundary_order.apply_boundary_updates_once,
-        enforce_boundary_mapping_ordered_fn=boundary_order.enforce_boundary_mapping_ordered,
-        command_request_ctor=CommandRequest,
-        resolve_command_transport_fn=transport_policy.resolve_command_transport,
-        default_lsp_runner=run_command,
-        direct_runner=run_command_direct,
-        never_fn=never,
     )
 
 
 def _run_check(**kwargs) -> JSONObject:
-    return _run_check_impl(
-        **kwargs,
-        runner=run_command,
-        resolve_check_report_path_fn=_resolve_check_report_path,
-        build_check_payload_fn=check_contract.build_check_payload,
-        build_check_execution_plan_request_fn=_build_check_execution_plan_request,
-        dispatch_command_fn=_dispatch_command,
-        dataflow_command=command_ids.DATAFLOW_COMMAND,
-    )
+    return _DATAFLOW_TRANSPORT_INGRESS.run_check(**kwargs)
 
 
 @dataclass(frozen=True)

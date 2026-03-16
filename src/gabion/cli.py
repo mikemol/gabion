@@ -19,14 +19,12 @@ from gabion.cli_support.check.check_commands import (
 from gabion.cli_support.check.check_command_runtime import (
     check_raw_profile_args as _check_raw_profile_args_impl, run_check_aux_operation as _run_check_aux_operation_impl, run_check_command as _run_check_command_impl, run_check_raw_profile as _run_check_raw_profile_impl)
 from gabion.cli_support.check import check_runtime_facade
-from gabion.cli_support.check.check_execution_plan import (
-    check_derived_artifacts as _check_derived_artifacts_impl, build_check_execution_plan_request as _build_check_execution_plan_request_impl)
 from gabion.cli_support.check.execution_plan_payload import (
     ExecutionPlanRequestPayload as ExecutionPlanRequest,
 )
-from gabion.cli_support.check.check_runtime import run_check as _run_check_impl
-from gabion.cli_support.shared.dispatch_runtime import (
-    dispatch_command as _dispatch_command_impl)
+from gabion.cli_support.check.check_execution_plan import (
+    check_derived_artifacts as _check_derived_artifacts_impl,
+)
 from gabion.cli_support.shared import (
     github_artifact_restore as _github_artifact_restore)
 from gabion.cli_support.shared.parser_builder import dataflow_cli_parser as _build_dataflow_cli_parser
@@ -34,7 +32,9 @@ from gabion.cli_support.shared.raw_argparse import (
     parse_dataflow_args_or_exit as _parse_dataflow_args_or_exit_impl)
 from gabion.cli_support.shared.payload_builder import (
     build_dataflow_payload as _build_dataflow_payload_impl)
-from gabion.cli_support.shared import dataflow_runtime_common
+from gabion.cli_support.shared.dataflow_transport_ingress import (
+    default_dataflow_transport_ingress,
+)
 from gabion.cli_support.shared.output_emitters import (
     emit_dataflow_result_outputs as _emit_dataflow_result_outputs_impl, write_lint_sarif as _write_lint_sarif_impl)
 from gabion.cli_support.shared import output_targets as output_target_services
@@ -72,7 +72,7 @@ from gabion.cli_support.tooling_commands import (
 from gabion.analysis.foundation.timeout_context import (
     check_deadline, deadline_loop_iter, render_deadline_profile_markdown)
 from gabion.commands import (
-    boundary_order, check_contract, command_ids, progress_contract as progress_timeline, transport_policy)
+    check_contract, command_ids, progress_contract as progress_timeline, transport_policy)
 from gabion.runtime.coercion_contract import (
     CORE_STR_OPTIONAL_POLICY,
     INT_OPTIONAL_POLICY,
@@ -89,8 +89,7 @@ STRUCTURE_REUSE_COMMAND = command_ids.STRUCTURE_REUSE_COMMAND
 DECISION_DIFF_COMMAND = command_ids.DECISION_DIFF_COMMAND
 IMPACT_COMMAND = command_ids.IMPACT_COMMAND
 LSP_PARITY_GATE_COMMAND = command_ids.LSP_PARITY_GATE_COMMAND
-from gabion.lsp_client import (
-    CommandRequest, run_command, run_command_direct)
+from gabion.lsp_client import run_command, run_command_direct
 from gabion.tooling.runtime import (
     checks_runtime as tooling_checks_runtime,
     ci_local_repro as tooling_ci_local_repro,
@@ -156,6 +155,7 @@ _LSP_PROGRESS_TOKEN_V2 = progress_timeline.LSP_PROGRESS_TOKEN_V2
 _LSP_PROGRESS_TOKEN = _LSP_PROGRESS_TOKEN_V2
 _STDOUT_ALIAS = "-"
 _STDOUT_PATH = "/dev/stdout"
+_DATAFLOW_TRANSPORT_INGRESS = default_dataflow_transport_ingress()
 
 
 class CliTransportMode(str, Enum):
@@ -219,14 +219,11 @@ configure_runtime_flags = _register_runtime_flags_callback(
 
 
 def _cli_timeout_ticks() -> tuple[int, int]:
-    return dataflow_runtime_common.cli_timeout_ticks(
-        default_ticks=_DEFAULT_TIMEOUT_TICKS,
-        default_tick_ns=_DEFAULT_TIMEOUT_TICK_NS,
-    )
+    return _DATAFLOW_TRANSPORT_INGRESS.cli_timeout_ticks()
 
 
 def _resolve_check_report_path(report: Path | None, *, root: Path) -> Path:
-    return dataflow_runtime_common.resolve_check_report_path(report, root=root)
+    return _DATAFLOW_TRANSPORT_INGRESS.resolve_check_report_path(report, root=root)
 
 
 @contextmanager
@@ -457,11 +454,7 @@ def _emit_result_json_to_stdout(*, payload: object) -> None:
 
 
 def _normalize_optional_output_target(target: object) -> str | None:
-    return dataflow_runtime_common.normalize_optional_output_target(
-        target,
-        stdout_alias=_STDOUT_ALIAS,
-        stdout_path=_STDOUT_PATH,
-    )
+    return _DATAFLOW_TRANSPORT_INGRESS.normalize_optional_output_target(target)
 
 
 def _write_lint_jsonl(target: str, entries: list[dict[str, object]]) -> None:
@@ -526,27 +519,21 @@ def _build_dataflow_payload_common(
 ) -> JSONObject:
     # dataflow-bundle: filter_bundle
     # dataflow-bundle: deadline_profile
-    return dataflow_runtime_common.build_dataflow_payload_common(options=options)
+    return _DATAFLOW_TRANSPORT_INGRESS.build_dataflow_payload_common(
+        options=options
+    )
 
 
 build_check_payload = check_contract.build_check_payload
 
 
-
-
 _check_derived_artifacts = _check_derived_artifacts_impl
 
-
-build_check_execution_plan_request = cast(
-    Callable[..., ExecutionPlanRequest],
-    partial(
-        _build_check_execution_plan_request_impl,
-        check_derived_artifacts_fn=_check_derived_artifacts,
-        execution_plan_request_ctor=ExecutionPlanRequest,
-        dataflow_command=DATAFLOW_COMMAND,
-        check_command=CHECK_COMMAND,
-    ),
-)
+def build_check_execution_plan_request(**kwargs) -> ExecutionPlanRequest:
+    return cast(
+        ExecutionPlanRequest,
+        _DATAFLOW_TRANSPORT_INGRESS.build_check_execution_plan_request(**kwargs),
+    )
 def parse_dataflow_args_or_exit(
     argv: list[str],
     *,
@@ -556,11 +543,7 @@ def parse_dataflow_args_or_exit(
 
 
 def build_dataflow_payload(opts: argparse.Namespace) -> JSONObject:
-    return _build_dataflow_payload_impl(
-        opts,
-        normalize_optional_output_target_fn=_normalize_optional_output_target,
-        build_dataflow_payload_common_fn=_build_dataflow_payload_common,
-    )
+    return _DATAFLOW_TRANSPORT_INGRESS.build_dataflow_payload(opts)
 
 
 build_refactor_payload = cast(
@@ -582,7 +565,7 @@ def dispatch_command(
     execution_plan_request: ExecutionPlanRequest | None = None,
     notification_callback: Callable[[JSONObject], None] | None = None,
 ) -> JSONObject:
-    return _dispatch_command_impl(
+    return _DATAFLOW_TRANSPORT_INGRESS.dispatch_command(
         command=command,
         payload=payload,
         root=root,
@@ -590,30 +573,11 @@ def dispatch_command(
         process_factory=process_factory,
         execution_plan_request=execution_plan_request,
         notification_callback=notification_callback,
-        cli_timeout_ticks_fn=_cli_timeout_ticks,
-        normalize_boundary_mapping_once_fn=boundary_order.normalize_boundary_mapping_once,
-        apply_boundary_updates_once_fn=boundary_order.apply_boundary_updates_once,
-        enforce_boundary_mapping_ordered_fn=boundary_order.enforce_boundary_mapping_ordered,
-        command_request_ctor=CommandRequest,
-        resolve_command_transport_fn=transport_policy.resolve_command_transport,
-        default_lsp_runner=run_command,
-        direct_runner=run_command_direct,
-        never_fn=never,
     )
 
 
-run_check = cast(
-    Callable[..., JSONObject],
-    partial(
-        _run_check_impl,
-        runner=run_command,
-        resolve_check_report_path_fn=_resolve_check_report_path,
-        build_check_payload_fn=build_check_payload,
-        build_check_execution_plan_request_fn=build_check_execution_plan_request,
-        dispatch_command_fn=dispatch_command,
-        dataflow_command=DATAFLOW_COMMAND,
-    ),
-)
+def run_check(**kwargs) -> JSONObject:
+    return _DATAFLOW_TRANSPORT_INGRESS.run_check(**kwargs)
 
 
 def _run_with_timeout_retries(
