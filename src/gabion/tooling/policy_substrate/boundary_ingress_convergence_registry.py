@@ -49,6 +49,24 @@ def _bic_sq_dataflow_transport_ingress() -> None:
 
 
 @todo_decorator(
+    reason="BIC-SQ-001 follow-on work remains active until runtime dataflow invocation stops re-exporting carrier-owned ingress wrappers.",
+    reasoning={
+        "summary": "dataflow_invocation_runner still carries local timeout, report-path, output-target, and payload helper wrappers instead of treating the shared transport carrier as the sole ingress owner.",
+        "control": "boundary_ingress_convergence.dataflow_transport_follow_on",
+        "blocking_dependencies": ("BIC-TP-005",),
+    },
+    owner="gabion.cli_support",
+    expiry="BIC closure",
+    links=[
+        {"kind": "object_id", "value": "BIC"},
+        {"kind": "object_id", "value": "BIC-SQ-001"},
+    ],
+)
+def _bic_tp_runner_ingress_residue() -> None:
+    return None
+
+
+@todo_decorator(
     reason="BIC-SQ-002 remains active until server-core coercion helpers converge onto one shared carrier.",
     reasoning={
         "summary": "command_orchestrator, command_orchestrator_progress, and their downstream consumers still split overlapping runtime coercion logic across local singledispatch surfaces.",
@@ -289,7 +307,7 @@ def boundary_ingress_convergence_workstream_registry() -> WorkstreamRegistry:
                 subqueue_id="BIC-SQ-001",
                 title="CLI and runtime dataflow transport ingress convergence",
                 symbol=_bic_sq_dataflow_transport_ingress,
-                touchpoint_ids=("BIC-TP-001",),
+                touchpoint_ids=("BIC-TP-001", "BIC-TP-005"),
                 status_hint="landed",
             ),
             _subqueue_definition(
@@ -332,6 +350,31 @@ def boundary_ingress_convergence_workstream_registry() -> WorkstreamRegistry:
                         touchsite_id="BIC-TS-001-C",
                         rel_path="src/gabion/tooling/runtime/dataflow_invocation_runner.py",
                         qualname="dataflow_invocation_runner",
+                    ),
+                ),
+            ),
+            _touchpoint_definition(
+                root_id=root_id,
+                subqueue_id="BIC-SQ-001",
+                touchpoint_id="BIC-TP-005",
+                title="Runtime dataflow runner ingress wrapper collapse",
+                symbol=_bic_tp_runner_ingress_residue,
+                status_hint="landed",
+                declared_touchsites=(
+                    _module_touchsite(
+                        touchsite_id="BIC-TS-005-A",
+                        rel_path="src/gabion/tooling/runtime/dataflow_invocation_runner.py",
+                        qualname="dataflow_invocation_runner",
+                    ),
+                    _module_touchsite(
+                        touchsite_id="BIC-TS-005-B",
+                        rel_path="src/gabion/cli_support/shared/dataflow_transport_ingress.py",
+                        qualname="dataflow_transport_ingress",
+                    ),
+                    _module_touchsite(
+                        touchsite_id="BIC-TS-005-C",
+                        rel_path="tests/gabion/analysis/dataflow_s1/test_dataflow_invocation_runner.py",
+                        qualname="test_dataflow_invocation_runner",
                     ),
                 ),
             ),

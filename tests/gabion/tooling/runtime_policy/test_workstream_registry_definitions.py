@@ -445,12 +445,13 @@ def test_boundary_ingress_convergence_workstream_registry_exposes_queue_and_touc
         "BIC-SQ-002",
         "BIC-SQ-003",
     )
-    assert subqueues["BIC-SQ-001"].touchpoint_ids == ("BIC-TP-001",)
+    assert subqueues["BIC-SQ-001"].touchpoint_ids == ("BIC-TP-001", "BIC-TP-005")
     assert subqueues["BIC-SQ-002"].touchpoint_ids == ("BIC-TP-002", "BIC-TP-003")
     assert subqueues["BIC-SQ-003"].touchpoint_ids == ("BIC-TP-004",)
     assert all(item.status_hint == "landed" for item in registry.subqueues)
     assert set(touchpoints) == {
         "BIC-TP-001",
+        "BIC-TP-005",
         "BIC-TP-002",
         "BIC-TP-003",
         "BIC-TP-004",
@@ -468,6 +469,23 @@ def test_boundary_ingress_convergence_workstream_registry_exposes_queue_and_touc
         (
             "src/gabion/tooling/runtime/dataflow_invocation_runner.py",
             "dataflow_invocation_runner",
+        ),
+    }
+    assert {
+        (item.rel_path, item.qualname)
+        for item in touchpoints["BIC-TP-005"].declared_touchsites
+    } == {
+        (
+            "src/gabion/tooling/runtime/dataflow_invocation_runner.py",
+            "dataflow_invocation_runner",
+        ),
+        (
+            "src/gabion/cli_support/shared/dataflow_transport_ingress.py",
+            "dataflow_transport_ingress",
+        ),
+        (
+            "tests/gabion/analysis/dataflow_s1/test_dataflow_invocation_runner.py",
+            "test_dataflow_invocation_runner",
         ),
     }
     assert {

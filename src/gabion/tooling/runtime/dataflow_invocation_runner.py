@@ -21,66 +21,10 @@ from gabion.json_types import JSONObject
 from gabion.lsp_client import run_command
 from gabion.tooling.runtime.execution_envelope import ExecutionEnvelope
 
-_STDOUT_ALIAS = "-"
-_STDOUT_PATH = "/dev/stdout"
 _DATAFLOW_TRANSPORT_INGRESS = default_dataflow_transport_ingress()
-
-
-def _cli_timeout_ticks() -> tuple[int, int]:
-    return _DATAFLOW_TRANSPORT_INGRESS.cli_timeout_ticks()
-
-
-def _resolve_check_report_path(report: Path | None, *, root: Path) -> Path:
-    return _DATAFLOW_TRANSPORT_INGRESS.resolve_check_report_path(report, root=root)
-
-
-def _normalize_output_target(target: str | Path) -> str:
-    normalized = _DATAFLOW_TRANSPORT_INGRESS.normalize_optional_output_target(target)
-    if normalized is None:
-        raise ValueError("output target must normalize to a non-empty path")
-    return normalized
-
-
-def _normalize_optional_output_target(target: object) -> str | None:
-    return _DATAFLOW_TRANSPORT_INGRESS.normalize_optional_output_target(target)
-
-
-def _build_dataflow_payload_common(
-    *,
-    options: check_contract.DataflowPayloadCommonOptions,
-) -> JSONObject:
-    return _DATAFLOW_TRANSPORT_INGRESS.build_dataflow_payload_common(
-        options=options
-    )
-
-
-def _build_dataflow_payload(opts: argparse.Namespace) -> JSONObject:
-    return _DATAFLOW_TRANSPORT_INGRESS.build_dataflow_payload(opts)
-
 
 def _build_check_execution_plan_request(**kwargs) -> ExecutionPlanRequestPayload:
     return _DATAFLOW_TRANSPORT_INGRESS.build_check_execution_plan_request(**kwargs)
-
-
-def _dispatch_command(
-    *,
-    command: str,
-    payload: JSONObject,
-    root: Path = Path("."),
-    runner: Callable[..., JSONObject] = run_command,
-    execution_plan_request: ExecutionPlanRequestPayload | None = None,
-) -> JSONObject:
-    return _DATAFLOW_TRANSPORT_INGRESS.dispatch_command(
-        command=command,
-        payload=payload,
-        root=root,
-        runner=runner,
-        execution_plan_request=execution_plan_request,
-    )
-
-
-def _run_check(**kwargs) -> JSONObject:
-    return _DATAFLOW_TRANSPORT_INGRESS.run_check(**kwargs)
 
 
 @dataclass(frozen=True)
@@ -101,12 +45,12 @@ class DataflowInvocationRunner:
     def _resolve_run_check(self) -> Callable[..., JSONObject]:
         if callable(self.run_check_fn):
             return self.run_check_fn
-        return _run_check
+        return _DATAFLOW_TRANSPORT_INGRESS.run_check
 
     def _resolve_dispatch_command(self) -> Callable[..., JSONObject]:
         if callable(self.dispatch_command_fn):
             return self.dispatch_command_fn
-        return _dispatch_command
+        return _DATAFLOW_TRANSPORT_INGRESS.dispatch_command
 
     def _resolve_parse_dataflow_args(self) -> Callable[[list[str]], argparse.Namespace]:
         if callable(self.parse_dataflow_args_fn):
@@ -118,7 +62,7 @@ class DataflowInvocationRunner:
     ) -> Callable[[argparse.Namespace], JSONObject]:
         if callable(self.build_dataflow_payload_fn):
             return self.build_dataflow_payload_fn
-        return _build_dataflow_payload
+        return _DATAFLOW_TRANSPORT_INGRESS.build_dataflow_payload
 
     def _resolve_run_command(self) -> Callable[..., JSONObject]:
         if callable(self.run_command_fn):
