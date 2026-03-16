@@ -98,6 +98,10 @@ def test_connectivity_synergy_registry_defines_expected_roots_and_subqueues() ->
     assert set(
         igm_subqueues["CSA-IGM-SQ-002"].marker_payload.reasoning.blocking_dependencies
     ) == {"CSA-IGM-SQ-001", "CSA-IGM-TP-002"}
+    assert igm_subqueues["CSA-IGM-SQ-002"].touchpoint_ids == (
+        "CSA-IGM-TP-002",
+        "CSA-IGM-TP-005",
+    )
     assert set(
         igm_subqueues["CSA-IGM-SQ-004"].marker_payload.reasoning.blocking_dependencies
     ) == {"CSA-IGM-SQ-001", "CSA-IGM-TP-004"}
@@ -110,6 +114,14 @@ def test_connectivity_synergy_registry_defines_expected_roots_and_subqueues() ->
     assert set(
         rgc_subqueues["CSA-RGC-SQ-003"].marker_payload.reasoning.blocking_dependencies
     ) == {"CSA-RGC-SQ-002", "CSA-RGC-TP-003"}
+    assert rgc_subqueues["CSA-RGC-SQ-002"].touchpoint_ids == (
+        "CSA-RGC-TP-002",
+        "CSA-RGC-TP-009",
+    )
+    assert rgc_subqueues["CSA-RGC-SQ-003"].touchpoint_ids == (
+        "CSA-RGC-TP-003",
+        "CSA-RGC-TP-010",
+    )
     assert set(
         rgc_subqueues["CSA-RGC-SQ-004"].marker_payload.reasoning.blocking_dependencies
     ) == {"CSA-IGM-SQ-002", "CSA-RGC-TP-004"}
@@ -125,6 +137,11 @@ def test_connectivity_synergy_registry_defines_expected_roots_and_subqueues() ->
         "CSA-RGC-TP-006",
         "CSA-RGC-TP-007",
     }
+    assert rgc_subqueues["CSA-RGC-SQ-006"].touchpoint_ids == (
+        "CSA-RGC-TP-006",
+        "CSA-RGC-TP-007",
+        "CSA-RGC-TP-011",
+    )
     assert set(
         rgc_subqueues["CSA-RGC-SQ-007"].marker_payload.reasoning.blocking_dependencies
     ) == {"CSA-RGC-SQ-004", "CSA-RGC-TP-008"}
@@ -246,6 +263,32 @@ def test_connectivity_synergy_registry_defines_expected_roots_and_subqueues() ->
         (
             "src/gabion_governance/governance_audit_impl.py",
             "_parse_frontmatter_with_mode",
+        ),
+    }
+    assert igm_touchpoints["CSA-IGM-TP-005"].status_hint == "queued"
+    assert {
+        (item.rel_path, item.qualname)
+        for item in igm_touchpoints["CSA-IGM-TP-005"].declared_touchsites
+    } >= {
+        (
+            "src/gabion/frontmatter.py",
+            "parse_lenient_yaml_frontmatter",
+        ),
+        (
+            "scripts/governance/docflow_promote_sections.py",
+            "main",
+        ),
+        (
+            "scripts/audit/audit_in_step_structure.py",
+            "_parse_frontmatter",
+        ),
+        (
+            "src/gabion/analysis/semantics/impact_index.py",
+            "_parse_frontmatter",
+        ),
+        (
+            "src/gabion/tooling/governance/normative_symdiff.py",
+            "_parse_frontmatter",
         ),
     }
     assert {
@@ -371,6 +414,84 @@ def test_connectivity_synergy_registry_defines_expected_roots_and_subqueues() ->
     } >= {
         "src/gabion/tooling/policy_substrate/invariant_graph.py",
         "scripts/sppf/sppf_status_audit.py",
+    }
+    assert rgc_touchpoints["CSA-RGC-TP-009"].status_hint == "queued"
+    assert rgc_touchpoints["CSA-RGC-TP-010"].status_hint == "queued"
+    assert rgc_touchpoints["CSA-RGC-TP-011"].status_hint == "queued"
+    assert {
+        (item.rel_path, item.qualname)
+        for item in rgc_touchpoints["CSA-RGC-TP-009"].declared_touchsites
+    } >= {
+        (
+            "src/gabion/tooling/governance/normative_symdiff.py",
+            "_capture_policy_check",
+        ),
+        (
+            "src/gabion/tooling/governance/normative_symdiff.py",
+            "_collect_default_probes",
+        ),
+        (
+            "src/gabion/tooling/policy_rules/branchless_rule.py",
+            "_load_baseline",
+        ),
+        (
+            "src/gabion/tooling/policy_rules/defensive_fallback_rule.py",
+            "_load_baseline",
+        ),
+        (
+            "src/gabion/tooling/policy_rules/no_monkeypatch_rule.py",
+            "main",
+        ),
+    }
+    assert {
+        (item.rel_path, item.qualname)
+        for item in rgc_touchpoints["CSA-RGC-TP-010"].declared_touchsites
+    } >= {
+        (
+            "src/gabion/runtime/deadline_policy.py",
+            "deadline_scope_from_ticks",
+        ),
+        (
+            "src/gabion/tooling/runtime/deadline_runtime.py",
+            "deadline_scope_from_ticks",
+        ),
+        (
+            "scripts/policy/policy_check.py",
+            "main",
+        ),
+        (
+            "scripts/sppf/sppf_status_audit.py",
+            "main",
+        ),
+    }
+    assert {
+        (item.rel_path, item.qualname)
+        for item in rgc_touchpoints["CSA-RGC-TP-011"].declared_touchsites
+    } >= {
+        (
+            "src/gabion/tooling/runtime/ci_local_repro.py",
+            "_checks_steps",
+        ),
+        (
+            "src/gabion/cli_support/tooling_commands.py",
+            "tooling_commands#ci_local_repro",
+        ),
+        (
+            "scripts/checks.sh",
+            "checks_sh",
+        ),
+        (
+            "scripts/policy/policy_check.py",
+            "main",
+        ),
+        (
+            "docs/governance_control_loops.yaml",
+            "governance_control_loops.gates",
+        ),
+        (
+            "scripts/install_hooks.sh",
+            "install_hooks",
+        ),
     }
     assert {
         (item.rel_path, item.qualname)

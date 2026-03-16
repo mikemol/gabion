@@ -674,6 +674,25 @@ def _csa_igm_tp_structured_artifact_ingress() -> None:
 
 
 @todo_decorator(
+    reason="CSA-IGM-TP-005 tracks CU3 public lenient frontmatter parsing and migration of local/private frontmatter parsers onto the canonical ingress helper.",
+    reasoning={
+        "summary": "Frontmatter callers still split across private governance adapters and local lenient parsers instead of one public lenient mapping/body helper.",
+        "control": "connectivity_synergy.ingress_merge.frontmatter_public_parser_touchpoint",
+        "blocking_dependencies": ("CSA-IGM-SQ-002",),
+    },
+    owner="gabion.tooling.policy_substrate",
+    expiry="CSA-IGM closure",
+    links=[
+        {"kind": "object_id", "value": "CSA-IGM"},
+        {"kind": "object_id", "value": "CSA-IGM-SQ-002"},
+        {"kind": "object_id", "value": "CSA-IGM-TP-005"},
+    ],
+)
+def _csa_igm_tp_frontmatter_public_parser() -> None:
+    return None
+
+
+@todo_decorator(
     reason="CSA-RGC-TP-001 tracks the hardcoded governance inventory constants that still need declarative carriers.",
     reasoning={
         "summary": "governance_audit_impl still owns inventory-like policy constants that should move into declarative source carriers.",
@@ -841,6 +860,63 @@ def _csa_rgc_tp_git_issue_provenance() -> None:
     ],
 )
 def _csa_rgc_tp_kernel_vm_alignment() -> None:
+    return None
+
+
+@todo_decorator(
+    reason="CSA-RGC-TP-009 tracks CU2 collapse of remaining governance/test imports from policy-check script wrappers onto library rule modules.",
+    reasoning={
+        "summary": "normative_symdiff and adjacent governance/test probes still treat script wrappers as import surfaces instead of consuming package-native policy rule modules.",
+        "control": "connectivity_synergy.registry_convergence.policy_scanner_library_touchpoint",
+        "blocking_dependencies": ("CSA-RGC-SQ-002",),
+    },
+    owner="gabion.tooling.governance",
+    expiry="CSA-RGC closure",
+    links=[
+        {"kind": "object_id", "value": "CSA-RGC"},
+        {"kind": "object_id", "value": "CSA-RGC-SQ-002"},
+        {"kind": "object_id", "value": "CSA-RGC-TP-009"},
+    ],
+)
+def _csa_rgc_tp_policy_scanner_library_imports() -> None:
+    return None
+
+
+@todo_decorator(
+    reason="CSA-RGC-TP-010 tracks CU1 collapse of script-side deadline imports onto the canonical tooling runtime surface.",
+    reasoning={
+        "summary": "Deadline runtime behavior is duplicated between script and library layers while several scripts still import the duplicated script module directly.",
+        "control": "connectivity_synergy.registry_convergence.deadline_runtime_touchpoint",
+        "blocking_dependencies": ("CSA-RGC-SQ-003",),
+    },
+    owner="gabion.tooling.runtime",
+    expiry="CSA-RGC closure",
+    links=[
+        {"kind": "object_id", "value": "CSA-RGC"},
+        {"kind": "object_id", "value": "CSA-RGC-SQ-003"},
+        {"kind": "object_id", "value": "CSA-RGC-TP-010"},
+    ],
+)
+def _csa_rgc_tp_deadline_runtime_cutover() -> None:
+    return None
+
+
+@todo_decorator(
+    reason="CSA-RGC-TP-011 tracks CU4 convergence of the checks workflow onto a canonical gabion command and thin shell wrapper.",
+    reasoning={
+        "summary": "Local checks orchestration still lives primarily in scripts/checks.sh instead of one spec-driven Python command shared with ci-local-repro.",
+        "control": "connectivity_synergy.registry_convergence.gabion_checks_touchpoint",
+        "blocking_dependencies": ("CSA-RGC-SQ-006",),
+    },
+    owner="gabion.tooling.runtime",
+    expiry="CSA-RGC closure",
+    links=[
+        {"kind": "object_id", "value": "CSA-RGC"},
+        {"kind": "object_id", "value": "CSA-RGC-SQ-006"},
+        {"kind": "object_id", "value": "CSA-RGC-TP-011"},
+    ],
+)
+def _csa_rgc_tp_gabion_checks_convergence() -> None:
     return None
 
 
@@ -1404,7 +1480,7 @@ def connectivity_synergy_workstream_registries() -> tuple[WorkstreamRegistry, ..
                 root_id="CSA-IGM",
                 subqueue_id="CSA-IGM-SQ-002",
                 title="Markdown/frontmatter/yaml ASPF ingress adapters",
-                touchpoint_ids=("CSA-IGM-TP-002",),
+                touchpoint_ids=("CSA-IGM-TP-002", "CSA-IGM-TP-005"),
                 symbol=_csa_igm_sq_adapter_rollout,
             ),
             _subqueue_definition(
@@ -1693,6 +1769,56 @@ def connectivity_synergy_workstream_registries() -> tuple[WorkstreamRegistry, ..
                     ),
                 ),
             ),
+            _touchpoint_definition(
+                root_id="CSA-IGM",
+                subqueue_id="CSA-IGM-SQ-002",
+                touchpoint_id="CSA-IGM-TP-005",
+                title="CU3 public lenient frontmatter parser and caller migration",
+                symbol=_csa_igm_tp_frontmatter_public_parser,
+                declared_touchsites=(
+                    _function_touchsite(
+                        touchsite_id="CSA-IGM-TS-030",
+                        rel_path="src/gabion/frontmatter.py",
+                        qualname="parse_lenient_yaml_frontmatter",
+                        line=11,
+                        surface="frontmatter_ingress",
+                        structural_path="parse_lenient_yaml_frontmatter",
+                    ),
+                    _function_touchsite(
+                        touchsite_id="CSA-IGM-TS-031",
+                        rel_path="scripts/governance/docflow_promote_sections.py",
+                        qualname="main",
+                        line=421,
+                        surface="frontmatter_ingress",
+                        structural_path="docflow_promote_sections::main",
+                    ),
+                    _function_touchsite(
+                        touchsite_id="CSA-IGM-TS-032",
+                        rel_path="scripts/audit/audit_in_step_structure.py",
+                        qualname="_parse_frontmatter",
+                        line=80,
+                        surface="frontmatter_ingress",
+                        structural_path="audit_in_step_structure::_parse_frontmatter",
+                    ),
+                    _function_touchsite(
+                        touchsite_id="CSA-IGM-TS-033",
+                        rel_path="src/gabion/analysis/semantics/impact_index.py",
+                        qualname="_parse_frontmatter",
+                        line=921,
+                        surface="frontmatter_ingress",
+                        structural_path="impact_index::_parse_frontmatter",
+                    ),
+                    _function_touchsite(
+                        touchsite_id="CSA-IGM-TS-034",
+                        rel_path="src/gabion/tooling/governance/normative_symdiff.py",
+                        qualname="_parse_frontmatter",
+                        line=279,
+                        surface="frontmatter_ingress",
+                        structural_path="normative_symdiff::_parse_frontmatter",
+                    ),
+                ),
+                status_hint="queued",
+            ),
         ),
         tags=("ingress_merge",),
     )
@@ -1714,14 +1840,14 @@ def connectivity_synergy_workstream_registries() -> tuple[WorkstreamRegistry, ..
                 root_id="CSA-RGC",
                 subqueue_id="CSA-RGC-SQ-002",
                 title="Declarative scanner registry plus package-native execution cleanup",
-                touchpoint_ids=("CSA-RGC-TP-002",),
+                touchpoint_ids=("CSA-RGC-TP-002", "CSA-RGC-TP-009"),
                 symbol=_csa_rgc_sq_package_native_execution,
             ),
             _subqueue_definition(
                 root_id="CSA-RGC",
                 subqueue_id="CSA-RGC-SQ-003",
                 title="Wrapper manifest and remaining package-to-scripts inversion cleanup",
-                touchpoint_ids=("CSA-RGC-TP-003",),
+                touchpoint_ids=("CSA-RGC-TP-003", "CSA-RGC-TP-010"),
                 symbol=_csa_rgc_sq_wrapper_manifest,
             ),
             _subqueue_definition(
@@ -1742,7 +1868,7 @@ def connectivity_synergy_workstream_registries() -> tuple[WorkstreamRegistry, ..
                 root_id="CSA-RGC",
                 subqueue_id="CSA-RGC-SQ-006",
                 title="Governance/control-loop artifact graph convergence over planner, docflow, CI, and drift carriers",
-                touchpoint_ids=("CSA-RGC-TP-006", "CSA-RGC-TP-007"),
+                touchpoint_ids=("CSA-RGC-TP-006", "CSA-RGC-TP-007", "CSA-RGC-TP-011"),
                 symbol=_csa_rgc_sq_control_loop_artifact_graph,
             ),
             _subqueue_definition(
@@ -2316,6 +2442,160 @@ def connectivity_synergy_workstream_registries() -> tuple[WorkstreamRegistry, ..
                         structural_path="_join_kernel_vm_alignment_artifact",
                     ),
                 ),
+            ),
+            _touchpoint_definition(
+                root_id="CSA-RGC",
+                subqueue_id="CSA-RGC-SQ-002",
+                touchpoint_id="CSA-RGC-TP-009",
+                title="CU2 library-native policy scanner probe imports",
+                symbol=_csa_rgc_tp_policy_scanner_library_imports,
+                declared_touchsites=(
+                    _function_touchsite(
+                        touchsite_id="CSA-RGC-TS-064",
+                        rel_path="src/gabion/tooling/governance/normative_symdiff.py",
+                        qualname="_capture_policy_check",
+                        line=504,
+                        surface="package_script_inversion",
+                        structural_path="normative_symdiff::_capture_policy_check",
+                    ),
+                    _function_touchsite(
+                        touchsite_id="CSA-RGC-TS-065",
+                        rel_path="src/gabion/tooling/governance/normative_symdiff.py",
+                        qualname="_collect_default_probes",
+                        line=722,
+                        surface="package_script_inversion",
+                        structural_path="normative_symdiff::_collect_default_probes",
+                    ),
+                    _function_touchsite(
+                        touchsite_id="CSA-RGC-TS-066",
+                        rel_path="src/gabion/tooling/policy_rules/branchless_rule.py",
+                        qualname="_load_baseline",
+                        line=308,
+                        surface="package_script_inversion",
+                        structural_path="branchless_rule::_load_baseline",
+                    ),
+                    _function_touchsite(
+                        touchsite_id="CSA-RGC-TS-067",
+                        rel_path="src/gabion/tooling/policy_rules/defensive_fallback_rule.py",
+                        qualname="_load_baseline",
+                        line=387,
+                        surface="package_script_inversion",
+                        structural_path="defensive_fallback_rule::_load_baseline",
+                    ),
+                    _function_touchsite(
+                        touchsite_id="CSA-RGC-TS-068",
+                        rel_path="src/gabion/tooling/policy_rules/no_monkeypatch_rule.py",
+                        qualname="main",
+                        line=388,
+                        surface="package_script_inversion",
+                        structural_path="no_monkeypatch_rule::main",
+                    ),
+                ),
+                status_hint="queued",
+            ),
+            _touchpoint_definition(
+                root_id="CSA-RGC",
+                subqueue_id="CSA-RGC-SQ-003",
+                touchpoint_id="CSA-RGC-TP-010",
+                title="CU1 canonical deadline runtime import surface",
+                symbol=_csa_rgc_tp_deadline_runtime_cutover,
+                declared_touchsites=(
+                    _function_touchsite(
+                        touchsite_id="CSA-RGC-TS-069",
+                        rel_path="src/gabion/runtime/deadline_policy.py",
+                        qualname="deadline_scope_from_ticks",
+                        line=79,
+                        surface="wrapper_export",
+                        structural_path="deadline_policy::deadline_scope_from_ticks",
+                    ),
+                    _function_touchsite(
+                        touchsite_id="CSA-RGC-TS-070",
+                        rel_path="src/gabion/tooling/runtime/deadline_runtime.py",
+                        qualname="deadline_scope_from_ticks",
+                        line=3,
+                        surface="wrapper_export",
+                        structural_path="deadline_runtime::deadline_scope_from_ticks",
+                    ),
+                    _function_touchsite(
+                        touchsite_id="CSA-RGC-TS-071",
+                        rel_path="scripts/policy/policy_check.py",
+                        qualname="main",
+                        line=2773,
+                        surface="wrapper_export",
+                        structural_path="policy_check::main",
+                    ),
+                    _function_touchsite(
+                        touchsite_id="CSA-RGC-TS-072",
+                        rel_path="scripts/sppf/sppf_status_audit.py",
+                        qualname="main",
+                        line=360,
+                        surface="wrapper_export",
+                        structural_path="sppf_status_audit::main",
+                    ),
+                ),
+                status_hint="queued",
+            ),
+            _touchpoint_definition(
+                root_id="CSA-RGC",
+                subqueue_id="CSA-RGC-SQ-006",
+                touchpoint_id="CSA-RGC-TP-011",
+                title="CU4 spec-driven gabion checks convergence",
+                symbol=_csa_rgc_tp_gabion_checks_convergence,
+                declared_touchsites=(
+                    _function_touchsite(
+                        touchsite_id="CSA-RGC-TS-073",
+                        rel_path="src/gabion/tooling/runtime/ci_local_repro.py",
+                        qualname="_checks_steps",
+                        line=445,
+                        surface="control_loop_artifact",
+                        structural_path="ci_local_repro::_checks_steps",
+                    ),
+                    _static_touchsite(
+                        touchsite_id="CSA-RGC-TS-074",
+                        rel_path="src/gabion/cli_support/tooling_commands.py",
+                        qualname="tooling_commands#ci_local_repro",
+                        line=110,
+                        node_kind="call",
+                        surface="control_loop_artifact",
+                        structural_path="tooling_commands::ci_local_repro",
+                    ),
+                    _static_touchsite(
+                        touchsite_id="CSA-RGC-TS-075",
+                        rel_path="scripts/checks.sh",
+                        qualname="checks_sh",
+                        line=19,
+                        node_kind="script",
+                        surface="control_loop_artifact",
+                        structural_path="scripts/checks.sh",
+                    ),
+                    _function_touchsite(
+                        touchsite_id="CSA-RGC-TS-076",
+                        rel_path="scripts/policy/policy_check.py",
+                        qualname="main",
+                        line=2773,
+                        surface="control_loop_artifact",
+                        structural_path="policy_check::main",
+                    ),
+                    _static_touchsite(
+                        touchsite_id="CSA-RGC-TS-077",
+                        rel_path="docs/governance_control_loops.yaml",
+                        qualname="governance_control_loops.gates",
+                        line=1,
+                        node_kind="document",
+                        surface="control_loop_artifact",
+                        structural_path="governance_control_loops.gates",
+                    ),
+                    _static_touchsite(
+                        touchsite_id="CSA-RGC-TS-078",
+                        rel_path="scripts/install_hooks.sh",
+                        qualname="install_hooks",
+                        line=1,
+                        node_kind="script",
+                        surface="control_loop_artifact",
+                        structural_path="install_hooks.sh",
+                    ),
+                ),
+                status_hint="queued",
             ),
         ),
         tags=("registry_convergence",),
