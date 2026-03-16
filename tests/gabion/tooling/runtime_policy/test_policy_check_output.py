@@ -5,10 +5,18 @@ import json
 from pathlib import Path
 
 from scripts.policy import policy_check
-from gabion.tooling.policy_substrate import invariant_graph as invariant_graph_substrate
 from tests.gabion.tooling.runtime_policy.invariant_graph_test_support import (
-    install_synthetic_connectivity_registries,
+    connectivity_synergy_with_psf_stub_workstream_registries,
+    synthetic_connectivity_workstream_registries,
     write_minimal_invariant_repo,
+)
+
+
+_CONNECTIVITY_SYNERGY_WITH_PSF_STUB_DECLARED_REGISTRIES = (
+    connectivity_synergy_with_psf_stub_workstream_registries()
+)
+_SYNTHETIC_CONNECTIVITY_DECLARED_REGISTRIES = (
+    synthetic_connectivity_workstream_registries()
 )
 
 
@@ -40,7 +48,11 @@ def _write_policy_check_perf_helpers(repo_root: Path):
                 "    },",
                 "    links=[{'kind': 'object_id', 'value': 'TEST-PERF-HELPER'}],",
                 ")",
-                "def write_git_state_artifact(*, output_path: Path) -> None:",
+                "def write_git_state_artifact(",
+                "    *,",
+                "    output_path: Path,",
+                "    repo_root: Path | None = None,",
+                ") -> None:",
                 "    total = 0",
                 "    for index in range(50_000):",
                 "        total += index",
@@ -60,7 +72,11 @@ def _write_policy_check_perf_helpers(repo_root: Path):
                 "    },",
                 "    links=[{'kind': 'object_id', 'value': 'TEST-PERF-HELPER'}],",
                 ")",
-                "def write_cross_origin_witness_contract_artifact(*, output_path: Path) -> None:",
+                "def write_cross_origin_witness_contract_artifact(",
+                "    *,",
+                "    output_path: Path,",
+                "    repo_root: Path | None = None,",
+                ") -> None:",
                 "    (output_path.parent / 'fake_cross_origin_witness_contract.json').write_text(",
                 "        'ok',",
                 "        encoding='utf-8',",
@@ -77,7 +93,11 @@ def _write_policy_check_perf_helpers(repo_root: Path):
                 "    },",
                 "    links=[{'kind': 'object_id', 'value': 'TEST-PERF-HELPER'}],",
                 ")",
-                "def write_kernel_vm_alignment_artifact(*, output_path: Path) -> None:",
+                "def write_kernel_vm_alignment_artifact(",
+                "    *,",
+                "    output_path: Path,",
+                "    repo_root: Path | None = None,",
+                ") -> None:",
                 "    (output_path.parent / 'fake_kernel_vm_alignment.json').write_text(",
                 "        'ok',",
                 "        encoding='utf-8',",
@@ -94,7 +114,11 @@ def _write_policy_check_perf_helpers(repo_root: Path):
                 "    },",
                 "    links=[{'kind': 'object_id', 'value': 'TEST-PERF-HELPER'}],",
                 ")",
-                "def write_identity_grammar_completion_artifact(*, output_path: Path) -> None:",
+                "def write_identity_grammar_completion_artifact(",
+                "    *,",
+                "    output_path: Path,",
+                "    repo_root: Path | None = None,",
+                ") -> None:",
                 "    (output_path.parent / 'fake_identity_grammar_completion.json').write_text(",
                 "        'ok',",
                 "        encoding='utf-8',",
@@ -111,7 +135,11 @@ def _write_policy_check_perf_helpers(repo_root: Path):
                 "    },",
                 "    links=[{'kind': 'object_id', 'value': 'TEST-PERF-HELPER'}],",
                 ")",
-                "def write_ingress_merge_parity_artifact(*, output_path: Path) -> None:",
+                "def write_ingress_merge_parity_artifact(",
+                "    *,",
+                "    output_path: Path,",
+                "    repo_root: Path | None = None,",
+                ") -> None:",
                 "    (output_path.parent / 'fake_ingress_merge_parity.json').write_text(",
                 "        'ok',",
                 "        encoding='utf-8',",
@@ -130,6 +158,7 @@ def test_policy_check_output_carries_projection_fiber_semantics_on_pass(
     tmp_path: Path,
     monkeypatch: object,
 ) -> None:
+    repo_root = write_minimal_invariant_repo(tmp_path)
     output = tmp_path / "policy_check_result.json"
     monkeypatch.setattr(policy_check, "check_policy_dsl", lambda: None)
     monkeypatch.setattr(
@@ -165,7 +194,9 @@ def test_policy_check_output_carries_projection_fiber_semantics_on_pass(
             "--policy-dsl",
             "--output",
             str(output),
-        ]
+        ],
+        repo_root=repo_root,
+        invariant_declared_registries=_CONNECTIVITY_SYNERGY_WITH_PSF_STUB_DECLARED_REGISTRIES,
     )
 
     assert result == 0
@@ -192,14 +223,12 @@ def test_policy_check_output_carries_projection_fiber_semantics_on_pass(
         (tmp_path / "invariant_ledger_projections.json").read_text(encoding="utf-8")
     )
     ingress_merge_parity_payload = json.loads(
-        (
-            policy_check.REPO_ROOT / "artifacts" / "out" / "ingress_merge_parity.json"
-        ).read_text(encoding="utf-8")
+        (repo_root / "artifacts" / "out" / "ingress_merge_parity.json").read_text(
+            encoding="utf-8"
+        )
     )
     git_state_payload = json.loads(
-        (
-            policy_check.REPO_ROOT / "artifacts" / "out" / "git_state.json"
-        ).read_text(encoding="utf-8")
+        (tmp_path / "git_state.json").read_text(encoding="utf-8")
     )
     cross_origin_witness_payload = json.loads(
         (tmp_path / "cross_origin_witness_contract.json").read_text(encoding="utf-8")
@@ -314,6 +343,7 @@ def test_policy_check_output_carries_projection_fiber_semantics_on_block(
     tmp_path: Path,
     monkeypatch: object,
 ) -> None:
+    repo_root = write_minimal_invariant_repo(tmp_path)
     output = tmp_path / "policy_check_result.json"
     monkeypatch.setattr(policy_check, "check_policy_dsl", lambda: None)
     monkeypatch.setattr(
@@ -337,7 +367,9 @@ def test_policy_check_output_carries_projection_fiber_semantics_on_block(
             "--policy-dsl",
             "--output",
             str(output),
-        ]
+        ],
+        repo_root=repo_root,
+        invariant_declared_registries=_CONNECTIVITY_SYNERGY_WITH_PSF_STUB_DECLARED_REGISTRIES,
     )
 
     assert result == 2
@@ -356,8 +388,6 @@ def test_policy_check_workflows_output_emits_invariant_graph_artifact(
 ) -> None:
     output = tmp_path / "policy_check_result.json"
     repo_root = write_minimal_invariant_repo(tmp_path)
-    monkeypatch.setattr(policy_check, "REPO_ROOT", repo_root)
-    install_synthetic_connectivity_registries(monkeypatch, invariant_graph_substrate)
     monkeypatch.setattr(
         policy_check,
         "_write_projection_semantic_fragment_queue_artifacts",
@@ -387,7 +417,9 @@ def test_policy_check_workflows_output_emits_invariant_graph_artifact(
             "--workflows",
             "--output",
             str(output),
-        ]
+        ],
+        repo_root=repo_root,
+        invariant_declared_registries=_SYNTHETIC_CONNECTIVITY_DECLARED_REGISTRIES,
     )
 
     assert result == 0
@@ -441,8 +473,6 @@ def test_policy_check_workflows_requires_output_to_emit_invariant_artifacts(
     monkeypatch: object,
 ) -> None:
     repo_root = write_minimal_invariant_repo(tmp_path)
-    monkeypatch.setattr(policy_check, "REPO_ROOT", repo_root)
-    install_synthetic_connectivity_registries(monkeypatch, invariant_graph_substrate)
     monkeypatch.setattr(
         policy_check,
         "_write_projection_semantic_fragment_queue_artifacts",
@@ -467,7 +497,11 @@ def test_policy_check_workflows_requires_output_to_emit_invariant_artifacts(
         ),
     )
 
-    result = policy_check.main(["--workflows"])
+    result = policy_check.main(
+        ["--workflows"],
+        repo_root=repo_root,
+        invariant_declared_registries=_SYNTHETIC_CONNECTIVITY_DECLARED_REGISTRIES,
+    )
 
     assert result == 0
     assert not (tmp_path / "policy_check_result.json").exists()
@@ -484,8 +518,6 @@ def test_policy_check_workflows_emits_perf_artifact_when_requested(
     perf_artifact = tmp_path / "policy_check_workflows_perf.json"
     repo_root = write_minimal_invariant_repo(tmp_path)
     perf_helpers = _write_policy_check_perf_helpers(repo_root)
-    monkeypatch.setattr(policy_check, "REPO_ROOT", repo_root)
-    install_synthetic_connectivity_registries(monkeypatch, invariant_graph_substrate)
     monkeypatch.setattr(
         policy_check,
         "_write_projection_semantic_fragment_queue_artifacts",
@@ -542,7 +574,9 @@ def test_policy_check_workflows_emits_perf_artifact_when_requested(
             str(output),
             "--perf-artifact",
             str(perf_artifact),
-        ]
+        ],
+        repo_root=repo_root,
+        invariant_declared_registries=_SYNTHETIC_CONNECTIVITY_DECLARED_REGISTRIES,
     )
 
     assert result == 0
@@ -570,8 +604,6 @@ def test_policy_check_perf_artifact_includes_output_phase_writers(
     perf_artifact = tmp_path / "policy_check_workflows_perf.json"
     repo_root = write_minimal_invariant_repo(tmp_path)
     perf_helpers = _write_policy_check_perf_helpers(repo_root)
-    monkeypatch.setattr(policy_check, "REPO_ROOT", repo_root)
-    install_synthetic_connectivity_registries(monkeypatch, invariant_graph_substrate)
 
     monkeypatch.setattr(policy_check, "check_workflows", lambda: None)
     monkeypatch.setattr(policy_check, "check_aspf_taint_crosswalk_ack", lambda: None)
@@ -629,7 +661,9 @@ def test_policy_check_perf_artifact_includes_output_phase_writers(
             str(output),
             "--perf-artifact",
             str(perf_artifact),
-        ]
+        ],
+        repo_root=repo_root,
+        invariant_declared_registries=_SYNTHETIC_CONNECTIVITY_DECLARED_REGISTRIES,
     )
 
     assert result == 0
@@ -651,6 +685,7 @@ def test_policy_check_passes_in_memory_workstreams_projection_to_queue_writer(
     tmp_path: Path,
     monkeypatch: object,
 ) -> None:
+    repo_root = write_minimal_invariant_repo(tmp_path)
     output = tmp_path / "policy_check_result.json"
     phase5_workstreams_projection = {
         "format_version": 1,
@@ -683,7 +718,9 @@ def test_policy_check_passes_in_memory_workstreams_projection_to_queue_writer(
     monkeypatch.setattr(
         policy_check,
         "_write_invariant_graph_artifact",
-        lambda *, output_path: phase5_workstreams_projection,
+        lambda *, output_path, repo_root=None, invariant_declared_registries=None: (
+            phase5_workstreams_projection
+        ),
     )
     monkeypatch.setattr(
         policy_check,
@@ -701,7 +738,9 @@ def test_policy_check_passes_in_memory_workstreams_projection_to_queue_writer(
             "--workflows",
             "--output",
             str(output),
-        ]
+        ],
+        repo_root=repo_root,
+        invariant_declared_registries=_SYNTHETIC_CONNECTIVITY_DECLARED_REGISTRIES,
     )
 
     assert result == 0

@@ -7,31 +7,12 @@ from gabion.tooling.policy_substrate import invariant_graph
 from gabion.tooling.runtime import invariant_graph as invariant_graph_runtime
 
 
+_NO_DECLARED_REGISTRIES = ()
+
+
 def _write(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
-
-
-def _disable_phase5_enricher(monkeypatch) -> None:
-    if hasattr(invariant_graph, "phase5_workstream_registry"):
-        monkeypatch.setattr(invariant_graph, "phase5_workstream_registry", lambda: None)
-        monkeypatch.setattr(invariant_graph, "prf_workstream_registry", lambda: None)
-        monkeypatch.setattr(
-            invariant_graph,
-            "surface_contract_convergence_workstream_registry",
-            lambda: None,
-        )
-        monkeypatch.setattr(
-            invariant_graph,
-            "connectivity_synergy_workstream_registries",
-            lambda: (),
-        )
-        return
-    monkeypatch.setattr(invariant_graph, "iter_phase5_queues", lambda: ())
-    monkeypatch.setattr(invariant_graph, "iter_phase5_subqueues", lambda: ())
-    monkeypatch.setattr(invariant_graph, "iter_phase5_touchpoints", lambda: ())
-    monkeypatch.setattr(invariant_graph, "iter_prf_queues", lambda: ())
-    monkeypatch.setattr(invariant_graph, "iter_prf_subqueues", lambda: ())
 
 
 def _sample_repo(tmp_path: Path) -> Path:
@@ -91,10 +72,8 @@ def _sample_repo(tmp_path: Path) -> Path:
 
 def test_runtime_invariant_graph_cli_perf_heat_maps_profile_artifacts(
     tmp_path: Path,
-    monkeypatch,
     capsys,
 ) -> None:
-    _disable_phase5_enricher(monkeypatch)
     root = _sample_repo(tmp_path)
     (root / "artifacts" / "audit_reports").mkdir(parents=True, exist_ok=True)
     artifact = tmp_path / "artifacts/out/invariant_graph.json"
@@ -114,7 +93,8 @@ def test_runtime_invariant_graph_cli_perf_heat_maps_profile_artifacts(
                 "--ledger-artifact",
                 str(ledger_artifact),
                 "build",
-            ]
+            ],
+            declared_registries=_NO_DECLARED_REGISTRIES,
         )
         == 0
     )
@@ -273,11 +253,12 @@ def test_runtime_invariant_graph_cli_perf_heat_maps_profile_artifacts(
 
 def test_perf_dsl_overlay_resolves_doc_targets_to_invariant_candidates(
     tmp_path: Path,
-    monkeypatch,
 ) -> None:
-    _disable_phase5_enricher(monkeypatch)
     root = _sample_repo(tmp_path)
-    graph = invariant_graph.build_invariant_graph(root)
+    graph = invariant_graph.build_invariant_graph(
+        root,
+        declared_registries=_NO_DECLARED_REGISTRIES,
+    )
     traced = invariant_graph.trace_nodes(graph, "OBJ-TODO")
     descendant_ids = tuple(
         invariant_graph_runtime._sorted(
@@ -309,9 +290,7 @@ def test_perf_dsl_overlay_resolves_doc_targets_to_invariant_candidates(
 
 def test_perf_dsl_overlay_reuses_shared_doc_selector_for_inferred_targets(
     tmp_path: Path,
-    monkeypatch,
 ) -> None:
-    _disable_phase5_enricher(monkeypatch)
     root = _sample_repo(tmp_path)
     _write(
         root / "docs" / "sample.md",
@@ -325,7 +304,10 @@ def test_perf_dsl_overlay_reuses_shared_doc_selector_for_inferred_targets(
             ]
         ),
     )
-    graph = invariant_graph.build_invariant_graph(root)
+    graph = invariant_graph.build_invariant_graph(
+        root,
+        declared_registries=_NO_DECLARED_REGISTRIES,
+    )
     traced = invariant_graph.trace_nodes(graph, "OBJ-TODO")
     descendant_ids = tuple(
         invariant_graph_runtime._sorted(

@@ -53,21 +53,6 @@ def _git(root: Path, *args: str) -> str:
     return completed.stdout.strip()
 
 
-def _disable_phase5_enricher(monkeypatch) -> None:
-    monkeypatch.setattr(invariant_graph, "phase5_workstream_registry", lambda: None)
-    monkeypatch.setattr(invariant_graph, "prf_workstream_registry", lambda: None)
-    monkeypatch.setattr(
-        invariant_graph,
-        "surface_contract_convergence_workstream_registry",
-        lambda: None,
-    )
-    monkeypatch.setattr(
-        invariant_graph,
-        "connectivity_synergy_workstream_registries",
-        lambda: (),
-    )
-
-
 _NO_DECLARED_REGISTRIES = ()
 _CONNECTIVITY_SYNERGY_WITH_PSF_STUB_DECLARED_REGISTRIES = (
     connectivity_synergy_with_psf_stub_workstream_registries()
@@ -2708,10 +2693,8 @@ def test_ranked_repo_followups_prefers_stronger_owner_resolution_score() -> None
 
 def test_runtime_invariant_graph_cli_build_summary_trace_and_blockers(
     tmp_path: Path,
-    monkeypatch,
     capsys,
 ) -> None:
-    _disable_phase5_enricher(monkeypatch)
     root = _sample_repo(tmp_path)
     artifact = tmp_path / "artifacts/out/invariant_graph.json"
     workstreams_artifact = tmp_path / "artifacts/out/invariant_workstreams.json"
@@ -2729,7 +2712,8 @@ def test_runtime_invariant_graph_cli_build_summary_trace_and_blockers(
                 "--ledger-artifact",
                 str(ledger_artifact),
                 "build",
-            ]
+            ],
+            declared_registries=_NO_DECLARED_REGISTRIES,
         )
         == 0
     )
@@ -2775,10 +2759,8 @@ def test_runtime_invariant_graph_cli_build_summary_trace_and_blockers(
 
 def test_runtime_invariant_graph_cli_blast_radius_flags_impacted_tests(
     tmp_path: Path,
-    monkeypatch,
     capsys,
 ) -> None:
-    _disable_phase5_enricher(monkeypatch)
     root = _sample_repo(tmp_path)
     (root / "out").mkdir(parents=True, exist_ok=True)
     (root / "artifacts" / "audit_reports").mkdir(parents=True, exist_ok=True)
@@ -2839,7 +2821,8 @@ def test_runtime_invariant_graph_cli_blast_radius_flags_impacted_tests(
                 "--ledger-artifact",
                 str(ledger_artifact),
                 "build",
-            ]
+            ],
+            declared_registries=_NO_DECLARED_REGISTRIES,
         )
         == 0
     )
@@ -2865,10 +2848,8 @@ def test_runtime_invariant_graph_cli_blast_radius_flags_impacted_tests(
 
 def test_runtime_invariant_graph_cli_perf_heat_maps_profile_artifacts(
     tmp_path: Path,
-    monkeypatch,
     capsys,
 ) -> None:
-    _disable_phase5_enricher(monkeypatch)
     root = _sample_repo(tmp_path)
     (root / "artifacts" / "audit_reports").mkdir(parents=True, exist_ok=True)
     artifact = tmp_path / "artifacts/out/invariant_graph.json"
@@ -2888,7 +2869,8 @@ def test_runtime_invariant_graph_cli_perf_heat_maps_profile_artifacts(
                 "--ledger-artifact",
                 str(ledger_artifact),
                 "build",
-            ]
+            ],
+            declared_registries=_NO_DECLARED_REGISTRIES,
         )
         == 0
     )

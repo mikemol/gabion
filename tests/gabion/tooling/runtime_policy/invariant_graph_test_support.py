@@ -563,24 +563,8 @@ def connectivity_synergy_with_psf_stub_workstream_registries() -> tuple[Workstre
     )
 
 
-def install_synthetic_connectivity_registries(monkeypatch, invariant_graph_module) -> None:
-    monkeypatch.setattr(invariant_graph_module, "phase5_workstream_registry", lambda: None)
-    monkeypatch.setattr(invariant_graph_module, "prf_workstream_registry", lambda: None)
-    monkeypatch.setattr(
-        invariant_graph_module,
-        "surface_contract_convergence_workstream_registry",
-        lambda: None,
-    )
-    monkeypatch.setattr(
-        invariant_graph_module,
-        "connectivity_synergy_workstream_registries",
-        synthetic_connectivity_workstream_registries,
-    )
-
-
 __all__ = [
     "connectivity_synergy_with_psf_stub_workstream_registries",
-    "install_synthetic_connectivity_registries",
     "synthetic_connectivity_workstream_registries",
     "write_minimal_invariant_repo",
 ]

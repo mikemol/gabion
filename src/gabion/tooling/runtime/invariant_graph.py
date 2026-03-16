@@ -35,6 +35,7 @@ from gabion.tooling.policy_substrate.invariant_graph import (
     write_invariant_ledger_projections,
     write_invariant_workstreams,
 )
+from gabion.tooling.policy_substrate.workstream_registry import WorkstreamRegistry
 
 _DEFAULT_ARTIFACT = Path("artifacts/out/invariant_graph.json")
 _DEFAULT_WORKSTREAMS_ARTIFACT = Path("artifacts/out/invariant_workstreams.json")
@@ -113,10 +114,15 @@ def _sorted[T](values: list[T], *, key=None) -> list[T]:
     )
 
 
-def _load_or_build_graph(*, root: Path, artifact: Path) -> InvariantGraph:
+def _load_or_build_graph(
+    *,
+    root: Path,
+    artifact: Path,
+    declared_registries: tuple[WorkstreamRegistry, ...] | None = None,
+) -> InvariantGraph:
     if artifact.exists():
         return load_invariant_graph(artifact)
-    return build_invariant_graph(root)
+    return build_invariant_graph(root, declared_registries=declared_registries)
 
 
 def _descendant_ids(graph: InvariantGraph, node_id: str) -> tuple[str, ...]:
@@ -2804,7 +2810,11 @@ def _print_ledger_alignments(
     return 0
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(
+    argv: list[str] | None = None,
+    *,
+    declared_registries: tuple[WorkstreamRegistry, ...] | None = None,
+) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", default=".")
     parser.add_argument("--artifact", default=str(_DEFAULT_ARTIFACT))
@@ -2911,7 +2921,10 @@ def main(argv: list[str] | None = None) -> int:
     ).resolve()
 
     if args.command == "build":
-        bundle = build_invariant_planning_bundle(root)
+        bundle = build_invariant_planning_bundle(
+            root,
+            declared_registries=declared_registries,
+        )
         graph = bundle.graph
         workstreams = bundle.workstreams
         write_invariant_graph(artifact, graph)
@@ -2924,23 +2937,39 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "summary":
         _print_summary(
-            graph=_load_or_build_graph(root=root, artifact=artifact),
+            graph=_load_or_build_graph(
+                root=root,
+                artifact=artifact,
+                declared_registries=declared_registries,
+            ),
             root=root,
         )
         return 0
     if args.command == "trace":
         return _print_trace(
-            graph=_load_or_build_graph(root=root, artifact=artifact),
+            graph=_load_or_build_graph(
+                root=root,
+                artifact=artifact,
+                declared_registries=declared_registries,
+            ),
             raw_id=str(args.id),
         )
     if args.command == "blockers":
         return _print_blockers(
-            graph=_load_or_build_graph(root=root, artifact=artifact),
+            graph=_load_or_build_graph(
+                root=root,
+                artifact=artifact,
+                declared_registries=declared_registries,
+            ),
             object_id=str(args.object_id),
         )
     if args.command == "workstream":
         return _print_workstream(
-            graph=_load_or_build_graph(root=root, artifact=artifact),
+            graph=_load_or_build_graph(
+                root=root,
+                artifact=artifact,
+                declared_registries=declared_registries,
+            ),
             root=root,
             object_id=str(args.object_id),
         )
@@ -2969,14 +2998,22 @@ def main(argv: list[str] | None = None) -> int:
             else None
         )
         return _print_blast_radius(
-            graph=_load_or_build_graph(root=root, artifact=artifact),
+            graph=_load_or_build_graph(
+                root=root,
+                artifact=artifact,
+                declared_registries=declared_registries,
+            ),
             raw_id=str(args.id),
             impact_artifact=impact_artifact,
         )
     if args.command == "perf-heat":
         return _print_perf_heat_map(
             root=root,
-            graph=_load_or_build_graph(root=root, artifact=artifact),
+            graph=_load_or_build_graph(
+                root=root,
+                artifact=artifact,
+                declared_registries=declared_registries,
+            ),
             raw_id=str(args.id),
             perf_artifact=Path(str(args.perf_artifact)).resolve(),
         )
