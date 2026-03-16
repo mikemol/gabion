@@ -36,6 +36,9 @@ def write_minimal_invariant_repo(tmp_path: Path) -> Path:
                 "def ivl_boundary() -> None:",
                 "    return None",
                 "",
+                "def scc_boundary() -> None:",
+                "    return None",
+                "",
             ]
         ),
     )
@@ -215,6 +218,50 @@ def _synthetic_csa_ivl_subqueue() -> None:
     links=[{"kind": "object_id", "value": "CSA-IVL-TP-T01"}],
 )
 def _synthetic_csa_ivl_touchpoint() -> None:
+    return None
+
+
+@todo_decorator(
+    reason="Synthetic SCC root for injected invariant-graph tests.",
+    reasoning={
+        "summary": "Synthetic surface-contract-convergence root for dependency-injected planning tests.",
+        "control": "tests.runtime_policy.synthetic.scc.root",
+        "blocking_dependencies": ["SCC-SQ-T01"],
+    },
+    owner="tests.gabion.tooling.runtime_policy",
+    expiry="2099-01-01",
+    links=[{"kind": "object_id", "value": "SCC"}],
+)
+def _synthetic_scc_root() -> None:
+    return None
+
+
+@todo_decorator(
+    reason="Synthetic SCC subqueue for injected invariant-graph tests.",
+    reasoning={
+        "summary": "Synthetic surface-contract-convergence subqueue for dependency-injected planning tests.",
+        "control": "tests.runtime_policy.synthetic.scc.subqueue",
+        "blocking_dependencies": ["SCC-TP-T01"],
+    },
+    owner="tests.gabion.tooling.runtime_policy",
+    expiry="2099-01-01",
+    links=[{"kind": "object_id", "value": "SCC-SQ-T01"}],
+)
+def _synthetic_scc_subqueue() -> None:
+    return None
+
+
+@todo_decorator(
+    reason="Synthetic SCC touchpoint for injected invariant-graph tests.",
+    reasoning={
+        "summary": "Synthetic surface-contract-convergence touchpoint for dependency-injected planning tests.",
+        "control": "tests.runtime_policy.synthetic.scc.touchpoint",
+    },
+    owner="tests.gabion.tooling.runtime_policy",
+    expiry="2099-01-01",
+    links=[{"kind": "object_id", "value": "SCC-TP-T01"}],
+)
+def _synthetic_scc_touchpoint() -> None:
     return None
 
 
@@ -449,12 +496,48 @@ def synthetic_connectivity_workstream_registries() -> tuple[WorkstreamRegistry, 
             ),
             tags=("impact_velocity",),
         ),
+        WorkstreamRegistry(
+            root=_root_definition(
+                root_id="SCC",
+                title="Synthetic surface-contract-convergence root",
+                symbol=_synthetic_scc_root,
+                subqueue_ids=("SCC-SQ-T01",),
+            ),
+            subqueues=(
+                _subqueue_definition(
+                    root_id="SCC",
+                    subqueue_id="SCC-SQ-T01",
+                    title="Synthetic surface-contract-convergence subqueue",
+                    symbol=_synthetic_scc_subqueue,
+                    touchpoint_ids=("SCC-TP-T01",),
+                ),
+            ),
+            touchpoints=(
+                _touchpoint_definition(
+                    root_id="SCC",
+                    subqueue_id="SCC-SQ-T01",
+                    touchpoint_id="SCC-TP-T01",
+                    title="Synthetic SCC touchpoint",
+                    symbol=_synthetic_scc_touchpoint,
+                    touchsite_id="SCC-TS-T01",
+                    rel_path=touchsite_rel_path,
+                    qualname="scc_boundary",
+                    line=13,
+                ),
+            ),
+            tags=("contract_convergence",),
+        ),
     )
 
 
 def install_synthetic_connectivity_registries(monkeypatch, invariant_graph_module) -> None:
     monkeypatch.setattr(invariant_graph_module, "phase5_workstream_registry", lambda: None)
     monkeypatch.setattr(invariant_graph_module, "prf_workstream_registry", lambda: None)
+    monkeypatch.setattr(
+        invariant_graph_module,
+        "surface_contract_convergence_workstream_registry",
+        lambda: None,
+    )
     monkeypatch.setattr(
         invariant_graph_module,
         "connectivity_synergy_workstream_registries",

@@ -18,6 +18,11 @@ def _disable_phase5_enricher(monkeypatch) -> None:
         monkeypatch.setattr(invariant_graph, "prf_workstream_registry", lambda: None)
         monkeypatch.setattr(
             invariant_graph,
+            "surface_contract_convergence_workstream_registry",
+            lambda: None,
+        )
+        monkeypatch.setattr(
+            invariant_graph,
             "connectivity_synergy_workstream_registries",
             lambda: (),
         )

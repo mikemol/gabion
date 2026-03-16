@@ -9,6 +9,9 @@ from gabion.tooling.policy_substrate.policy_rule_frontmatter_migration_registry 
 from gabion.tooling.policy_substrate.projection_semantic_fragment_phase5_registry import (
     phase5_workstream_registry,
 )
+from gabion.tooling.policy_substrate.surface_contract_convergence_registry import (
+    surface_contract_convergence_workstream_registry,
+)
 
 
 def test_prf_workstream_registry_exposes_queue_sequence_and_active_playbook_touchpoint() -> None:
@@ -157,6 +160,104 @@ def test_phase5_workstream_registry_exposes_touchpoint_scan_contract() -> None:
         touchpoints["PSF-007-TP-001"].declared_counterfactual_actions[0].predicted_readiness_class
         == "policy_blocked"
     )
+
+
+def test_surface_contract_convergence_workstream_registry_exposes_queue_and_touchsites() -> None:
+    registry = surface_contract_convergence_workstream_registry()
+    touchpoints = {item.touchpoint_id: item for item in registry.touchpoints}
+    subqueues = {item.subqueue_id: item for item in registry.subqueues}
+
+    assert registry.root.root_id == "SCC"
+    assert registry.tags == ("contract_convergence",)
+    assert registry.root.status_hint == "in_progress"
+    assert registry.root.subqueue_ids == (
+        "SCC-SQ-001",
+        "SCC-SQ-002",
+        "SCC-SQ-003",
+        "SCC-SQ-004",
+    )
+    assert tuple(item.subqueue_id for item in registry.subqueues) == (
+        "SCC-SQ-001",
+        "SCC-SQ-002",
+        "SCC-SQ-003",
+        "SCC-SQ-004",
+    )
+    assert subqueues["SCC-SQ-001"].touchpoint_ids == ("SCC-TP-001", "SCC-TP-002")
+    assert subqueues["SCC-SQ-002"].touchpoint_ids == ("SCC-TP-003", "SCC-TP-004")
+    assert subqueues["SCC-SQ-003"].touchpoint_ids == ("SCC-TP-005", "SCC-TP-006")
+    assert subqueues["SCC-SQ-004"].touchpoint_ids == ("SCC-TP-007",)
+    assert all(item.status_hint == "in_progress" for item in registry.subqueues)
+    assert set(touchpoints) == {
+        "SCC-TP-001",
+        "SCC-TP-002",
+        "SCC-TP-003",
+        "SCC-TP-004",
+        "SCC-TP-005",
+        "SCC-TP-006",
+        "SCC-TP-007",
+    }
+    assert all(item.status_hint == "queued" for item in registry.touchpoints)
+    assert {
+        (item.rel_path, item.qualname)
+        for item in touchpoints["SCC-TP-001"].declared_touchsites
+    } >= {
+        ("src/gabion/runtime/coercion_contract.py", "coercion_contract"),
+        ("src/gabion/runtime_shape_dispatch.py", "runtime_shape_dispatch"),
+        ("src/gabion/commands/progress_contract.py", "progress_contract"),
+    }
+    assert {
+        (item.rel_path, item.qualname)
+        for item in touchpoints["SCC-TP-004"].declared_touchsites
+    } >= {
+        ("src/gabion/server_core/output_primitives.py", "output_primitives"),
+        ("src/gabion/server_core/progress_primitives.py", "progress_primitives"),
+        ("src/gabion/server_core/timeout_primitives.py", "timeout_primitives"),
+        ("src/gabion/server_core/ingress_contracts.py", "ingress_contracts"),
+        (
+            "src/gabion/tooling/policy_rules/orchestrator_primitive_barrel_rule.py",
+            "orchestrator_primitive_barrel_rule",
+        ),
+    }
+    assert {
+        (item.rel_path, item.qualname)
+        for item in touchpoints["SCC-TP-006"].declared_touchsites
+    } >= {
+        (
+            "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py",
+            "dataflow_indexed_file_scan",
+        ),
+        (
+            "docs/audits/dataflow_runtime_debt_ledger.md",
+            "dataflow_runtime_debt_ledger",
+        ),
+        (
+            "docs/audits/dataflow_runtime_retirement_ledger.md",
+            "dataflow_runtime_retirement_ledger",
+        ),
+        (
+            "docs/audits/dataflow_legacy_monolith_test_replacement_matrix.md",
+            "dataflow_legacy_monolith_test_replacement_matrix",
+        ),
+        (
+            "docs/compatibility_layer_debt_register.md",
+            "compatibility_layer_debt_register",
+        ),
+    }
+    assert {
+        (item.rel_path, item.qualname)
+        for item in touchpoints["SCC-TP-007"].declared_touchsites
+    } >= {
+        ("src/gabion_governance/governance_audit_impl.py", "governance_audit_impl"),
+        ("AGENTS.md", "AGENTS.md#agent_obligations"),
+        ("README.md", "README.md#repo_contract"),
+        ("CONTRIBUTING.md", "CONTRIBUTING.md#contributing_contract"),
+        ("POLICY_SEED.md", "POLICY_SEED.md#policy_seed"),
+        ("glossary.md", "glossary.md#contract"),
+        (
+            "docs/normative_clause_index.md",
+            "docs/normative_clause_index.md#normative_clause_index",
+        ),
+    }
 
 
 def test_connectivity_synergy_workstream_registries_expose_expected_roots_and_touchsites() -> None:

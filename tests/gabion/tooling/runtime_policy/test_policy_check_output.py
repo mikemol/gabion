@@ -405,6 +405,7 @@ def test_policy_check_workflows_output_emits_invariant_graph_artifact(
         "CSA-IGM",
         "CSA-IVL",
         "CSA-RGC",
+        "SCC",
     ]
     recommended_followup = invariant_workstreams_payload["repo_next_actions"][
         "recommended_followup"
@@ -427,10 +428,10 @@ def test_policy_check_workflows_output_emits_invariant_graph_artifact(
     assert {
         item["owner_root_object_id"]
         for item in recommended_followup["cofrontier_followup_cohort"]
-    } == {"CSA-IDR", "CSA-IGM", "CSA-IVL", "CSA-RGC"}
+    } == {"CSA-IDR", "CSA-IGM", "CSA-IVL", "CSA-RGC", "SCC"}
     assert invariant_workstreams_payload["repo_next_actions"][
         "recommended_followup_lane"
-    ]["root_object_ids"] == ["CSA-IDR", "CSA-IGM", "CSA-IVL", "CSA-RGC"]
+    ]["root_object_ids"] == ["CSA-IDR", "CSA-IGM", "CSA-IVL", "CSA-RGC", "SCC"]
 
 
 # gabion:evidence E:function_site::tests/gabion/tooling/runtime_policy/test_policy_check_output.py::tests.gabion.tooling.runtime_policy.test_policy_check_output.test_policy_check_workflows_requires_output_to_emit_invariant_artifacts::policy_check.py::scripts.policy.policy_check.main

@@ -55,6 +55,11 @@ def _disable_phase5_enricher(monkeypatch) -> None:
     monkeypatch.setattr(invariant_graph, "prf_workstream_registry", lambda: None)
     monkeypatch.setattr(
         invariant_graph,
+        "surface_contract_convergence_workstream_registry",
+        lambda: None,
+    )
+    monkeypatch.setattr(
+        invariant_graph,
         "connectivity_synergy_workstream_registries",
         lambda: (),
     )
@@ -1000,6 +1005,7 @@ def test_injected_repo_followup_plateau_reports_mixed_root_scope(
         "CSA-IGM",
         "CSA-IVL",
         "CSA-RGC",
+        "SCC",
     )
     recommended_code_followup = workstreams.recommended_repo_code_followup()
     assert recommended_code_followup is not None
@@ -1007,9 +1013,9 @@ def test_injected_repo_followup_plateau_reports_mixed_root_scope(
     assert recommended_code_followup.selection_certainty_kind == "frontier_plateau"
     assert recommended_code_followup.selection_scope_kind == "mixed_root_followup_family"
     assert recommended_code_followup.selection_scope_id == (
-        "coverage_gap:CSA-IDR,CSA-IGM,CSA-IVL,CSA-RGC"
+        "coverage_gap:CSA-IDR,CSA-IGM,CSA-IVL,CSA-RGC,SCC"
     )
-    assert recommended_code_followup.cofrontier_followup_count == 4
+    assert recommended_code_followup.cofrontier_followup_count == 5
 
 
 def test_injected_repo_followup_plateau_preserves_root_provenance(
@@ -1027,7 +1033,7 @@ def test_injected_repo_followup_plateau_preserves_root_provenance(
     assert {
         item.owner_root_object_id
         for item in recommended_code_followup.cofrontier_followup_cohort
-    } == {"CSA-IDR", "CSA-IGM", "CSA-IVL", "CSA-RGC"}
+    } == {"CSA-IDR", "CSA-IGM", "CSA-IVL", "CSA-RGC", "SCC"}
     recommended_code_lane = workstreams.recommended_repo_code_followup_lane()
     assert recommended_code_lane is not None
     assert recommended_code_lane.root_object_ids == (
@@ -1035,12 +1041,14 @@ def test_injected_repo_followup_plateau_preserves_root_provenance(
         "CSA-IGM",
         "CSA-IVL",
         "CSA-RGC",
+        "SCC",
     )
     assert recommended_code_lane.best_followup.owner_root_object_id in {
         "CSA-IDR",
         "CSA-IGM",
         "CSA-IVL",
         "CSA-RGC",
+        "SCC",
     }
 
 
@@ -4919,6 +4927,7 @@ def test_git_state_dirty_graph_participant_exerts_workspace_preservation_pressur
         "CSA-IGM",
         "CSA-IVL",
         "CSA-RGC",
+        "SCC",
     ]
     workspace_commit_unit = payload["repo_next_actions"][
         "recommended_workspace_commit_unit"
@@ -4935,6 +4944,7 @@ def test_git_state_dirty_graph_participant_exerts_workspace_preservation_pressur
         "CSA-IGM",
         "CSA-IVL",
         "CSA-RGC",
+        "SCC",
     ]
     assert workspace_commit_unit["rel_paths"] == [
         "src/gabion/synthetic_boundaries.py"
@@ -5030,6 +5040,7 @@ def test_git_state_dirty_nonoverlap_change_emits_orphaned_workspace_pressure(
         "CSA-IGM",
         "CSA-IVL",
         "CSA-RGC",
+        "SCC",
     ]
     workspace_commit_unit = payload["repo_next_actions"][
         "recommended_workspace_commit_unit"
@@ -5046,6 +5057,7 @@ def test_git_state_dirty_nonoverlap_change_emits_orphaned_workspace_pressure(
         "CSA-IGM",
         "CSA-IVL",
         "CSA-RGC",
+        "SCC",
     ]
     assert workspace_commit_unit["rel_paths"] == [
         "src/gabion/synthetic_boundaries.py"
