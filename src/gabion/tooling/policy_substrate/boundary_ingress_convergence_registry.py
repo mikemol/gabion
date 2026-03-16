@@ -281,7 +281,7 @@ def boundary_ingress_convergence_workstream_registry() -> WorkstreamRegistry:
                 "BIC-SQ-002",
                 "BIC-SQ-003",
             ),
-            status_hint="in_progress",
+            status_hint="landed",
         ),
         subqueues=(
             _subqueue_definition(
@@ -290,7 +290,7 @@ def boundary_ingress_convergence_workstream_registry() -> WorkstreamRegistry:
                 title="CLI and runtime dataflow transport ingress convergence",
                 symbol=_bic_sq_dataflow_transport_ingress,
                 touchpoint_ids=("BIC-TP-001",),
-                status_hint="in_progress",
+                status_hint="landed",
             ),
             _subqueue_definition(
                 root_id=root_id,
@@ -298,7 +298,7 @@ def boundary_ingress_convergence_workstream_registry() -> WorkstreamRegistry:
                 title="Server-core coercion carrier convergence",
                 symbol=_bic_sq_server_core_coercion,
                 touchpoint_ids=("BIC-TP-002", "BIC-TP-003"),
-                status_hint="in_progress",
+                status_hint="landed",
             ),
             _subqueue_definition(
                 root_id=root_id,
@@ -306,7 +306,7 @@ def boundary_ingress_convergence_workstream_registry() -> WorkstreamRegistry:
                 title="CLI live-repo sentinel separation",
                 symbol=_bic_sq_cli_live_repo_sentinels,
                 touchpoint_ids=("BIC-TP-004",),
-                status_hint="in_progress",
+                status_hint="landed",
             ),
         ),
         touchpoints=(
@@ -396,7 +396,7 @@ def boundary_ingress_convergence_workstream_registry() -> WorkstreamRegistry:
                 touchpoint_id="BIC-TP-004",
                 title="Dedicated CLI live-repo sentinel surface",
                 symbol=_bic_tp_cli_live_repo_split,
-                status_hint="queued",
+                status_hint="landed",
                 declared_touchsites=(
                     _module_touchsite(
                         touchsite_id="BIC-TS-004-A",

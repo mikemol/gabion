@@ -434,7 +434,7 @@ def test_boundary_ingress_convergence_workstream_registry_exposes_queue_and_touc
 
     assert registry.root.root_id == "BIC"
     assert registry.tags == ("boundary_ingress_convergence",)
-    assert registry.root.status_hint == "in_progress"
+    assert registry.root.status_hint == "landed"
     assert registry.root.subqueue_ids == (
         "BIC-SQ-001",
         "BIC-SQ-002",
@@ -448,14 +448,14 @@ def test_boundary_ingress_convergence_workstream_registry_exposes_queue_and_touc
     assert subqueues["BIC-SQ-001"].touchpoint_ids == ("BIC-TP-001",)
     assert subqueues["BIC-SQ-002"].touchpoint_ids == ("BIC-TP-002", "BIC-TP-003")
     assert subqueues["BIC-SQ-003"].touchpoint_ids == ("BIC-TP-004",)
-    assert all(item.status_hint == "in_progress" for item in registry.subqueues)
+    assert all(item.status_hint == "landed" for item in registry.subqueues)
     assert set(touchpoints) == {
         "BIC-TP-001",
         "BIC-TP-002",
         "BIC-TP-003",
         "BIC-TP-004",
     }
-    assert all(item.status_hint == "queued" for item in registry.touchpoints)
+    assert all(item.status_hint == "landed" for item in registry.touchpoints)
     assert {
         (item.rel_path, item.qualname)
         for item in touchpoints["BIC-TP-001"].declared_touchsites

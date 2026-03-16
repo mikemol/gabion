@@ -4,7 +4,6 @@ import importlib.util
 import json
 import os
 from pathlib import Path
-from tests.path_helpers import REPO_ROOT
 
 import pytest
 import typer
@@ -459,61 +458,7 @@ def test_cli_impact_reads_git_diff_stdin(tmp_path: Path) -> None:
     payload = json.loads(result.output)
     assert payload["changes"][0]["path"] == "module.py"
 
-
-# gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_docflow_audit::cli.py::gabion.cli.app
-# gabion:behavior primary=desired
-def test_cli_docflow() -> None:
-    repo_root = REPO_ROOT
-    runner = CliRunner()
-    result = _invoke(
-        runner,
-        [
-            "docflow",
-            "--root",
-            str(repo_root),
-            "--no-fail-on-violations",
-        ],
-    )
-    assert result.exit_code == 0
-
-
 # gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_legacy_dataflow_monolith_requires_paths::cli.py::gabion.cli.app
-
-
-# gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_sppf_graph_and_status_consistency::cli.py::gabion.cli.app
-# gabion:behavior primary=desired
-def test_cli_sppf_graph_and_status_consistency(tmp_path: Path) -> None:
-    repo_root = REPO_ROOT
-    graph_json = tmp_path / "graph.json"
-    status_json = tmp_path / "status.json"
-
-    runner = CliRunner()
-    graph_result = _invoke(
-        runner,
-        [
-            "sppf-graph",
-            "--root",
-            str(repo_root),
-            "--json-output",
-            str(graph_json),
-        ],
-    )
-    assert graph_result.exit_code == 0
-    assert graph_json.exists()
-
-    status_result = _invoke(
-        runner,
-        [
-            "status-consistency",
-            "--root",
-            str(repo_root),
-            "--json-output",
-            str(status_json),
-            "--no-fail-on-violations",
-        ],
-    )
-    assert status_result.exit_code == 0
-    assert status_json.exists()
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_legacy_dataflow_monolith_command_is_removed::test_cli_commands.py::tests.test_cli_commands._invoke
