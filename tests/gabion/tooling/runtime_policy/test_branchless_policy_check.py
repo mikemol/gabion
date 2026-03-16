@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scripts.policy import branchless_policy_check as policy
+from gabion.tooling.policy_rules import branchless_rule as policy
 from gabion.tooling.runtime.policy_scan_batch import build_policy_scan_batch
 
 

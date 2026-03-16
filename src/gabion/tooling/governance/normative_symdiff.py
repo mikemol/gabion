@@ -22,10 +22,10 @@ from gabion.invariants import never
 from gabion import server
 from gabion.tooling.governance import ambiguity_contract_policy_check
 
-from scripts.policy import branchless_policy_check
-from scripts.policy import defensive_fallback_policy_check
+from gabion.tooling.policy_rules import branchless_rule as branchless_policy_check
+from gabion.tooling.policy_rules import defensive_fallback_rule as defensive_fallback_policy_check
 from scripts.governance import governance_controller_audit
-from scripts.policy import no_monkeypatch_policy_check
+from gabion.tooling.policy_rules import no_monkeypatch_rule as no_monkeypatch_policy_check
 from scripts.misc import order_lifetime_check
 from scripts.policy import policy_check
 from scripts.policy import structural_hash_policy_check

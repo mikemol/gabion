@@ -415,7 +415,7 @@ def test_connectivity_synergy_registry_defines_expected_roots_and_subqueues() ->
         "src/gabion/tooling/policy_substrate/invariant_graph.py",
         "scripts/sppf/sppf_status_audit.py",
     }
-    assert rgc_touchpoints["CSA-RGC-TP-009"].status_hint == "queued"
+    assert rgc_touchpoints["CSA-RGC-TP-009"].status_hint == "landed"
     assert rgc_touchpoints["CSA-RGC-TP-010"].status_hint == "landed"
     assert rgc_touchpoints["CSA-RGC-TP-011"].status_hint == "queued"
     assert {

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scripts.policy import defensive_fallback_policy_check as policy
+from gabion.tooling.policy_rules import defensive_fallback_rule as policy
 from gabion.tooling.runtime.policy_scan_batch import build_policy_scan_batch
 
 
