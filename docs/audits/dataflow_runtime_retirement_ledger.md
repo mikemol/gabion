@@ -1,5 +1,5 @@
 ---
-doc_revision: 1
+doc_revision: 2
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: dataflow_runtime_retirement_ledger
 doc_role: audit
@@ -36,6 +36,10 @@ Deterministic probe contract:
 - state snapshot: `artifacts/out/runtime_retirement_probe/aspf_state.snapshot.json`
 - delta jsonl: `artifacts/out/runtime_retirement_probe/aspf_state.delta.jsonl`
 - required surfaces: `groups_by_path`, `decision_surfaces`, `value_decision_surfaces`, `rewrite_plans`, `violation_summary`, `pattern_schema_instances`, `pattern_schema_residue`
+
+Compatibility boundary telemetry carriers:
+- `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py::DATAFLOW_INDEXED_FILE_SCAN_ALIAS_SURFACE_INVENTORY`
+- `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py::DATAFLOW_INDEXED_FILE_SCAN_RETIREMENT_TELEMETRY`
 
 Rows: `36`
 Status counts: proven=36, intentional_drift=0, blocked=0

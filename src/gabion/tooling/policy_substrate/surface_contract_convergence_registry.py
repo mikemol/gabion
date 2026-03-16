@@ -566,12 +566,17 @@ def surface_contract_convergence_workstream_registry() -> WorkstreamRegistry:
                 touchpoint_id="SCC-TP-005",
                 title="Explicit alias-inventory boundary for indexed dataflow facade",
                 symbol=_scc_tp_indexed_alias_inventory,
-                status_hint="queued",
+                status_hint="landed",
                 declared_touchsites=(
                     _module_touchsite(
                         touchsite_id="SCC-TS-005-A",
                         rel_path="src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py",
                         qualname="dataflow_indexed_file_scan",
+                    ),
+                    _module_touchsite(
+                        touchsite_id="SCC-TS-005-D",
+                        rel_path="src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan_alias_inventory.py",
+                        qualname="dataflow_indexed_file_scan_alias_inventory",
                     ),
                     _document_touchsite(
                         touchsite_id="SCC-TS-005-B",

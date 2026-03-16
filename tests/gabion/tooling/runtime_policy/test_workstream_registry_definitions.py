@@ -200,10 +200,18 @@ def test_surface_contract_convergence_workstream_registry_exposes_queue_and_touc
     assert touchpoints["SCC-TP-002"].status_hint == "landed"
     assert touchpoints["SCC-TP-003"].status_hint == "landed"
     assert touchpoints["SCC-TP-004"].status_hint == "landed"
+    assert touchpoints["SCC-TP-005"].status_hint == "landed"
     assert all(
         touchpoints[touchpoint_id].status_hint == "queued"
         for touchpoint_id in touchpoints
-        if touchpoint_id not in {"SCC-TP-001", "SCC-TP-002", "SCC-TP-003", "SCC-TP-004"}
+        if touchpoint_id
+        not in {
+            "SCC-TP-001",
+            "SCC-TP-002",
+            "SCC-TP-003",
+            "SCC-TP-004",
+            "SCC-TP-005",
+        }
     )
     assert {
         (item.rel_path, item.qualname)
@@ -224,6 +232,27 @@ def test_surface_contract_convergence_workstream_registry_exposes_queue_and_touc
         (
             "src/gabion/tooling/policy_rules/orchestrator_primitive_barrel_rule.py",
             "orchestrator_primitive_barrel_rule",
+        ),
+    }
+    assert {
+        (item.rel_path, item.qualname)
+        for item in touchpoints["SCC-TP-005"].declared_touchsites
+    } >= {
+        (
+            "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py",
+            "dataflow_indexed_file_scan",
+        ),
+        (
+            "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan_alias_inventory.py",
+            "dataflow_indexed_file_scan_alias_inventory",
+        ),
+        (
+            "docs/audits/dataflow_runtime_debt_ledger.md",
+            "dataflow_runtime_debt_ledger",
+        ),
+        (
+            "docs/audits/dataflow_runtime_retirement_ledger.md",
+            "dataflow_runtime_retirement_ledger",
         ),
     }
     assert {

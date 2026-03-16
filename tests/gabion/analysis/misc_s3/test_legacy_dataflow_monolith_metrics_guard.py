@@ -8,9 +8,9 @@ from pathlib import Path
 _MONOLITH_RELATIVE_PATH = (
     "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py"
 )
-_MAX_MONOLITH_LOC = 420
-_MAX_MONOLITH_TOP_LEVEL_IMPORTS = 53
-_MAX_MONOLITH_IMPORTED_SYMBOLS = 300
+_MAX_MONOLITH_LOC = 40
+_MAX_MONOLITH_TOP_LEVEL_IMPORTS = 4
+_MAX_MONOLITH_IMPORTED_SYMBOLS = 4
 
 
 # gabion:behavior primary=allowed_unwanted facets=legacy
