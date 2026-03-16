@@ -4,7 +4,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from scripts.deadline.deadline_runtime import DeadlineBudget
+from gabion.tooling.runtime.deadline_runtime import DeadlineBudget
 from gabion.tooling.runtime.declarative_script_host import (
     DeclarativeScriptSpec,
     ScriptInvocation,

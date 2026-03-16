@@ -8,7 +8,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from scripts.deadline.deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
+from gabion.tooling.runtime.deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
 from gabion.analysis.foundation.timeout_context import check_deadline, deadline_loop_iter
 from gabion.order_contract import ordered_or_sorted
 

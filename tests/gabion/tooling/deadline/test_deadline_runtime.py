@@ -8,7 +8,7 @@ from gabion.exceptions import NeverThrown
 from gabion.runtime import env_policy
 
 def _load_deadline_runtime():
-    from scripts.deadline import deadline_runtime
+    from gabion.tooling.runtime import deadline_runtime
 
     return deadline_runtime
 

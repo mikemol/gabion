@@ -2533,7 +2533,7 @@ def connectivity_synergy_workstream_registries() -> tuple[WorkstreamRegistry, ..
                         structural_path="sppf_status_audit::main",
                     ),
                 ),
-                status_hint="queued",
+                status_hint="landed",
             ),
             _touchpoint_definition(
                 root_id="CSA-RGC",

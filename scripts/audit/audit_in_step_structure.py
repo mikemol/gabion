@@ -22,7 +22,7 @@ from gabion.tooling.runtime.declarative_script_host import (
     invoke_script,
     script_runtime_scope,
 )
-from scripts.deadline.deadline_runtime import DeadlineBudget
+from gabion.tooling.runtime.deadline_runtime import DeadlineBudget
 
 
 REQUIRED_FRONTMATTER_FIELDS = {

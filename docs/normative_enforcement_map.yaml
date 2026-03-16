@@ -145,7 +145,7 @@ clauses:
   NCI-DEADLINE-TIMEOUT-PROPAGATION:
     status: partial
     enforcing_modules:
-      - scripts/deadline/deadline_runtime.py
+      - src/gabion/tooling/runtime/deadline_runtime.py
       - src/gabion/runtime/deadline_policy.py
       - scripts/policy/policy_check.py
     ci_anchors:

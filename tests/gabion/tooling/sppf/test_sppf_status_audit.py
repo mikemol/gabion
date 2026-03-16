@@ -4,7 +4,7 @@ from pathlib import Path
 
 from pytest import CaptureFixture
 
-from scripts.deadline.deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
+from gabion.tooling.runtime.deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
 from scripts.sppf.sppf_status_audit import (
     _collect_overrides, _extract_in_status, _normalize_checklist_pair, _normalize_in_status, _normalize_influence_status, main, run_audit)
 
@@ -117,7 +117,7 @@ def test_normalization_helpers_cover_status_variants() -> None:
     assert _normalize_checklist_pair("partial", "done") == "implemented-in-part"
 
 
-# gabion:evidence E:call_footprint::tests/test_sppf_status_audit.py::test_extract_in_status_handles_missing_or_empty_sections::deadline_runtime.py::scripts.deadline_runtime.deadline_scope_from_lsp_env::sppf_status_audit.py::scripts.sppf_status_audit._extract_in_status
+# gabion:evidence E:call_footprint::tests/test_sppf_status_audit.py::test_extract_in_status_handles_missing_or_empty_sections::deadline_runtime.py::gabion.tooling.runtime.deadline_runtime.deadline_scope_from_lsp_env::sppf_status_audit.py::scripts.sppf_status_audit._extract_in_status
 # gabion:behavior primary=verboten facets=empty,missing
 def test_extract_in_status_handles_missing_or_empty_sections(tmp_path: Path) -> None:
     file_no_heading = tmp_path / "no-heading.md"
@@ -136,7 +136,7 @@ def test_extract_in_status_handles_missing_or_empty_sections(tmp_path: Path) -> 
         assert _extract_in_status(file_empty_status) is None
 
 
-# gabion:evidence E:call_footprint::tests/test_sppf_status_audit.py::test_collect_overrides_is_case_insensitive::deadline_runtime.py::scripts.deadline_runtime.deadline_scope_from_lsp_env::sppf_status_audit.py::scripts.sppf_status_audit._collect_overrides
+# gabion:evidence E:call_footprint::tests/test_sppf_status_audit.py::test_collect_overrides_is_case_insensitive::deadline_runtime.py::gabion.tooling.runtime.deadline_runtime.deadline_scope_from_lsp_env::sppf_status_audit.py::scripts.sppf_status_audit._collect_overrides
 # gabion:behavior primary=desired
 def test_collect_overrides_is_case_insensitive() -> None:
     with deadline_scope_from_lsp_env(default_budget=_TEST_BUDGET):

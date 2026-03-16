@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Protocol, Sequence
 
-from scripts.deadline.deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
+from gabion.tooling.runtime.deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.tooling.runtime import aspf_handoff
 from gabion.tooling.governance.governance_rules import load_governance_rules

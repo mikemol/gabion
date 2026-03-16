@@ -5,7 +5,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from scripts.deadline.deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
+from gabion.tooling.runtime.deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
 
 _DEFAULT_TIMEOUT_TICKS = 120_000
 _DEFAULT_TIMEOUT_TICK_NS = 1_000_000

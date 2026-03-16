@@ -13,7 +13,7 @@ from typing import Mapping
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from scripts.deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
+from gabion.tooling.runtime.deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
 from gabion.analysis.timeout_context import Deadline, check_deadline, deadline_clock_scope, deadline_scope
 from gabion.invariants import never
 from gabion.deadline_clock import MonotonicClock

@@ -242,7 +242,7 @@ def test_connectivity_synergy_workstream_registries_expose_expected_roots_and_to
     )
     assert igm_touchpoints["CSA-IGM-TP-005"].status_hint == "queued"
     assert rgc_touchpoints["CSA-RGC-TP-009"].status_hint == "queued"
-    assert rgc_touchpoints["CSA-RGC-TP-010"].status_hint == "queued"
+    assert rgc_touchpoints["CSA-RGC-TP-010"].status_hint == "landed"
     assert rgc_touchpoints["CSA-RGC-TP-011"].status_hint == "queued"
 
     assert {

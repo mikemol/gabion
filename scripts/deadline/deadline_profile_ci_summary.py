@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Mapping, Sequence
 
-from scripts.deadline.deadline_runtime import deadline_scope_from_lsp_env
+from gabion.tooling.runtime.deadline_runtime import deadline_scope_from_lsp_env
 from gabion.analysis.foundation.timeout_context import deadline_loop_iter
 
 
