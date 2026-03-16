@@ -1,5 +1,5 @@
 ---
-doc_revision: 16
+doc_revision: 17
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: normative_clause_index
 doc_role: normative_index
@@ -25,7 +25,7 @@ doc_review_notes:
   POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev57 (runtime is now process-relative and the distinction ladder remains canonical policy)."
   README.md#repo_contract: "Reviewed README.md rev2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
   CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
-  AGENTS.md#agent_obligations: "Reviewed AGENTS.md rev2 (required validation stack, forward-remediation preference, and ci_watch failure-bundle triage guidance)."
+  AGENTS.md#agent_obligations: "Reviewed AGENTS.md rev35 (agent workflow now includes correction-unit git drainage and hunk-granular commit guidance)."
   glossary.md#contract: "Reviewed glossary.md#contract rev46 (runtime scope is now process-relative and the distinction ladder remains part of the semantic contract)."
 doc_sections:
   normative_clause_index: 3
@@ -57,7 +57,7 @@ doc_section_reviews:
       dep_version: 2
       self_version_at_review: 3
       outcome: no_change
-      note: "Agent obligations rev2 reviewed; clause and cadence links remain aligned."
+      note: "Agent obligations rev35 reviewed; the clause set now includes correction-unit git drainage and commit-boundary guidance."
     glossary.md#contract:
       dep_version: 1
       self_version_at_review: 3
@@ -209,6 +209,16 @@ link to clause IDs instead of duplicating long-form normative prose.
 - Applicability: mandatory for agents; recommended interoperability posture for contributors.
 - Canonical sources: `AGENTS.md#agent_obligations`, `CONTRIBUTING.md#contributing_contract`, `docs/user_workflows.md#user_workflows`.
 
+<a id="clause-correction-unit-commit-boundary"></a>
+### `NCI-CORRECTION-UNIT-COMMIT-BOUNDARY` — Correction-unit git drainage and commit granularity
+- After local validation, agents must drain the workspace into git at each correction-unit boundary.
+- Prefer one coherent commit per correction unit.
+- Prefer hunk-level staging/commits when a single file contains multiple separable correction units and hunk separation yields cleaner principled boundaries.
+- Otherwise commit the whole coherent correction unit, even when it spans multiple files or multiple hunks within one file.
+- Do not batch unrelated correction units into one commit or leave validated correction-unit residue in the workspace when it could have been committed cleanly.
+- Applicability: mandatory for agents; optional interoperability guidance for contributors.
+- Canonical source: `AGENTS.md#agent_obligations`.
+
 <a id="clause-docflow-closed-loop"></a>
 ### `NCI-DOCFLOW-CLOSED-LOOP` — Packetized docflow contradiction/warning control loop
 - Strict docflow findings must be packetized into per-doc bounded remediation units with exact row identities.
@@ -239,4 +249,5 @@ or `AGENTS.md`, use a short summary with direct clause links, for example:
 - `NCI-SHIFT-AMBIGUITY-LEFT` (`docs/normative_clause_index.md#clause-shift-ambiguity-left`)
 - `NCI-FIBER-TRACE-BOUNDARY` (`docs/normative_clause_index.md#clause-fiber-trace-boundary`)
 - `NCI-DUAL-SENSOR-CORRECTION-LOOP` (`docs/normative_clause_index.md#clause-dual-sensor-correction-loop`)
+- `NCI-CORRECTION-UNIT-COMMIT-BOUNDARY` (`docs/normative_clause_index.md#clause-correction-unit-commit-boundary`)
 - `NCI-DOCFLOW-CLOSED-LOOP` (`docs/normative_clause_index.md#clause-docflow-closed-loop`)

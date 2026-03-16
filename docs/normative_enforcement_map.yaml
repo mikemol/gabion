@@ -206,6 +206,13 @@ clauses:
       - scripts/ci_local_repro.sh
     ci_anchors: []
     expected_artifacts: []
+  NCI-CORRECTION-UNIT-COMMIT-BOUNDARY:
+    status: document-only
+    enforcing_modules:
+      - AGENTS.md
+      - docs/normative_clause_index.md
+    ci_anchors: []
+    expected_artifacts: []
   NCI-DOCFLOW-CLOSED-LOOP:
     status: enforced
     enforcing_modules:

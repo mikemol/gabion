@@ -1,5 +1,5 @@
 ---
-doc_revision: 34
+doc_revision: 35
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: agents
 doc_role: agent
@@ -25,7 +25,7 @@ doc_review_notes:
   CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
   POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev57 (runtime is now process-relative across program, analysis, formal, planning, and governance workflows)."
   glossary.md#contract: "Reviewed glossary.md#contract rev46 (runtime scope is process-relative and the distinction ladder remains part of the semantic contract)."
-  docs/normative_clause_index.md#normative_clause_index: "Reviewed normative_clause_index rev16 (added NCI-RUNTIME-PROCESS-RELATIVE alongside the runtime-distinction ladder)."
+  docs/normative_clause_index.md#normative_clause_index: "Reviewed normative_clause_index rev17 (added correction-unit git drainage and commit-boundary clause guidance)."
 doc_sections:
   agent_obligations: 2
 doc_section_requires:
@@ -61,7 +61,7 @@ doc_section_reviews:
       dep_version: 3
       self_version_at_review: 2
       outcome: no_change
-      note: "Clause index rev16 reviewed; process-relative runtime and the distinction ladder leave agent workflow unchanged."
+      note: "Clause index rev17 reviewed; agent workflow now includes a canonical correction-unit git drainage and commit-boundary clause."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_invariants:
   - read_policy_glossary_first
@@ -104,6 +104,7 @@ Semantic correctness is governed by `[glossary.md#contract](glossary.md#contract
 - Enforce command maturity/carrier/parity policy: [`NCI-COMMAND-MATURITY-PARITY`](docs/normative_clause_index.md#clause-command-maturity-parity).
 - Enforce controller-drift override lifecycle policy: [`NCI-CONTROLLER-DRIFT-LIFECYCLE`](docs/normative_clause_index.md#clause-controller-drift-lifecycle).
 - Enforce temporal dual-sensor correction loop policy: [`NCI-DUAL-SENSOR-CORRECTION-LOOP`](docs/normative_clause_index.md#clause-dual-sensor-correction-loop).
+- Enforce correction-unit git drainage and commit-boundary policy: [`NCI-CORRECTION-UNIT-COMMIT-BOUNDARY`](docs/normative_clause_index.md#clause-correction-unit-commit-boundary).
 - Enforce packetized docflow control-loop policy: [`NCI-DOCFLOW-CLOSED-LOOP`](docs/normative_clause_index.md#clause-docflow-closed-loop).
 - Treat coverage-gate drops as dedicated fix-forward correction-unit signals; do not use rollback-first reasoning when coverage regresses.
 - Treat any GitHub API error during monitoring/forensics as a process-remediation signal for API access; do not respond with backoff-only behavior.
@@ -144,7 +145,7 @@ Canonical rule: [`NCI-DUAL-SENSOR-CORRECTION-LOOP`](docs/normative_clause_index.
 4. Stage B (post-signal): once an actionable signal exists, form one correction unit per push (one blocking surface, or tightly coupled set for one blocking surface).
 5. Coverage regressions and API-access failures are Stage-B actionable signals and must trigger dedicated remediation units.
 6. Validate the correction unit locally with the required policy/ambiguity/targeted-test/evidence-drift stack.
-7. Stage, commit, and push the correction unit immediately after local validation.
+7. Stage, commit, and push the correction unit immediately after local validation. Drain the workspace after each correction unit. Prefer hunk-level staging/commits when a file contains multiple separable correction units; otherwise commit the whole coherent correction unit.
 8. Resume dual-sensor monitoring and continue the detection/correction/push loop; treat fallout as later correction units.
 
 If only one sensor is available, proceed with that sensor and restore dual-sensor operation when available.
