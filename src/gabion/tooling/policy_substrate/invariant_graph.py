@@ -110,7 +110,6 @@ from gabion.tooling.policy_substrate.workstream_registry import (
 )
 
 _FORMAT_VERSION = 1
-_REPO_ROOT = Path(__file__).resolve().parents[4]
 _AMBIGUITY_ARTIFACT = Path("artifacts/out/ambiguity_contract_policy_check.json")
 _TEST_EVIDENCE_ARTIFACT = Path("out/test_evidence.json")
 _JUNIT_TEST_RESULTS_ARTIFACT = Path("artifacts/test_runs/junit.xml")
@@ -8416,12 +8415,20 @@ def _keyword_string_literal(call: ast.Call, key: str) -> str:
 
 def _scan_phase5_touchsites(
     *,
+    build_root: Path,
     touchpoint_definition: RegisteredTouchpointDefinition,
     rel_path: str,
     touchpoint_object_id: str,
     subqueue_object_id: str,
 ) -> tuple[_Phase5Touchsite, ...]:
-    source = (_REPO_ROOT / rel_path).read_text(encoding="utf-8")
+    source_path = build_root / rel_path
+    try:
+        source = source_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ValueError(
+            "phase5 touchsite scan requires source under active build root "
+            f"{build_root}: {rel_path} ({exc})"
+        ) from exc
     scanner = _Phase5TouchsiteScanner(
         rel_path=rel_path,
         touchpoint_definition=touchpoint_definition,
@@ -8713,9 +8720,11 @@ def _boundary_key(rel_path: str, line: int, boundary_name: str) -> tuple[str, in
 
 def _scan_phase5_touchsites_for_definition(
     *,
+    build_root: Path,
     touchpoint_definition: RegisteredTouchpointDefinition,
 ) -> tuple[_Phase5Touchsite, ...]:
     return _scan_phase5_touchsites(
+        build_root=build_root,
         touchpoint_definition=touchpoint_definition,
         rel_path=touchpoint_definition.rel_path,
         touchpoint_object_id=touchpoint_definition.touchpoint_id,
@@ -9087,6 +9096,7 @@ def _enrich_workstream_registry(
         if not touchpoint_definition.scan_touchsites:
             continue
         for touchsite in _scan_phase5_touchsites_for_definition(
+            build_root=state.root,
             touchpoint_definition=touchpoint_definition
         ):
             _add_registered_touchsite(

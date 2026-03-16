@@ -12,6 +12,9 @@ from tests.path_helpers import REPO_ROOT
 from gabion.analysis.aspf.aspf_lattice_algebra import ReplayableStream
 from gabion.invariants import deprecated_decorator
 from gabion.tooling.policy_substrate import invariant_graph
+from gabion.tooling.policy_substrate.projection_semantic_fragment_phase5_registry import (
+    phase5_workstream_registry,
+)
 from gabion.tooling.policy_substrate.policy_queue_identity import PolicyQueueIdentitySpace
 from gabion.tooling.policy_substrate.structured_artifact_ingress import (
     StructuredArtifactIdentitySpace,
@@ -189,6 +192,22 @@ def test_invariant_graph_write_and_load_round_trip(
     assert len(reloaded.edges) == len(graph.edges)
     assert len(reloaded.diagnostics) == len(graph.diagnostics)
     assert reloaded.planning_chart_summary == graph.planning_chart_summary
+
+
+def test_phase5_touchsite_scan_uses_active_build_root_and_fails_closed_when_missing(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match="phase5 touchsite scan requires source under active build root",
+    ) as exc_info:
+        invariant_graph.build_invariant_graph(
+            tmp_path,
+            declared_registries=(phase5_workstream_registry(),),
+        )
+
+    assert str(tmp_path.resolve()) in str(exc_info.value)
+    assert "src/gabion/analysis/projection/semantic_fragment.py" in str(exc_info.value)
 
 
 def test_build_invariant_graph_materializes_planning_chart_overlay_live_repo() -> None:
