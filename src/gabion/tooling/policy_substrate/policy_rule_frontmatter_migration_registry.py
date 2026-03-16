@@ -8,11 +8,17 @@ from typing import Callable
 from gabion.analysis.aspf.aspf_lattice_algebra import canonical_structural_identity
 from gabion.analysis.foundation.marker_protocol import MarkerPayload, marker_identity
 from gabion.invariants import invariant_decorations, todo_decorator
+from gabion.tooling.policy_substrate.enforceable_rules_cheat_sheet import (
+    render_rule_matrix_block,
+)
 from gabion.tooling.policy_substrate.site_identity import canonical_site_identity
 from gabion.tooling.policy_substrate.workstream_registry import (
     RegisteredRootDefinition,
     RegisteredSubqueueDefinition,
+    RegisteredTouchpointDefinition,
     WorkstreamRegistry,
+    declared_touchsite_definition,
+    declared_touchsite_definition_from_symbol,
 )
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -45,6 +51,21 @@ class PolicyRuleFrontmatterMigrationSubqueueDefinition:
     marker_identity: str
     marker_payload: MarkerPayload
     status_hint: str
+    touchpoint_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class PolicyRuleFrontmatterMigrationTouchpointDefinition:
+    touchpoint_id: str
+    subqueue_id: str
+    title: str
+    rel_path: str
+    qualname: str
+    line: int
+    site_identity: str
+    structural_identity: str
+    marker_identity: str
+    marker_payload: MarkerPayload
 
 
 def _registry_site_metadata(symbol: Callable[..., object]) -> tuple[str, str, int]:
@@ -94,17 +115,18 @@ def _todo_metadata(
 
 
 @todo_decorator(
-    reason="PRF migration queue remains machine-projected as a landed multi-workstream proof surface.",
+    reason="PRF migration queue remains machine-projected while cheat-sheet mechanization is bootstrapped.",
     reasoning={
-        "summary": "PRF is fully landed, but the workstream identities remain dogfooded in tooling metadata so the invariant graph can project more than one queue family.",
+        "summary": "PRF landed the markdown-frontmatter migration and now carries the first cheat-sheet mechanization follow-up so policy-document governance remains queue-visible.",
         "control": "prf.queue.policy_rule_frontmatter_migration",
-        "blocking_dependencies": ("PRF-001", "PRF-002", "PRF-003", "PRF-004"),
+        "blocking_dependencies": ("PRF-005",),
     },
     owner="gabion.tooling.policy_substrate",
     expiry="graph workstream generalization superseded",
     links=[
         {"kind": "object_id", "value": "PRF"},
         {"kind": "doc_id", "value": "policy_rule_frontmatter_migration_ledger"},
+        {"kind": "doc_id", "value": "enforceable_rules_cheat_sheet"},
     ],
 )
 def _prf_queue() -> None:
@@ -187,6 +209,47 @@ def _prf_004() -> None:
     return None
 
 
+@todo_decorator(
+    reason="PRF-005 remains active until the cheat-sheet Rule Matrix is owned by a structured catalog and renderer path.",
+    reasoning={
+        "summary": "Bootstrap the first mechanically-owned cheat-sheet surface with a structured rule catalog plus renderer.",
+        "control": "prf.item.enforceable_rules_cheat_sheet_catalog",
+        "blocking_dependencies": ("PRF-TP-005",),
+    },
+    owner="gabion.tooling.policy_substrate",
+    expiry="cheat-sheet matrix generation converged",
+    links=[
+        {"kind": "object_id", "value": "PRF"},
+        {"kind": "object_id", "value": "PRF-005"},
+        {"kind": "doc_id", "value": "policy_rule_frontmatter_migration_ledger"},
+        {"kind": "doc_id", "value": "enforceable_rules_cheat_sheet"},
+    ],
+)
+def _prf_005() -> None:
+    return None
+
+
+@todo_decorator(
+    reason="PRF-TP-005 remains active while the cheat-sheet Rule Matrix migrates from prose-maintained rows to structured rendering.",
+    reasoning={
+        "summary": "The Rule Matrix now has a structured catalog and renderer seam that still needs convergence as the rest of the cheat sheet remains hand-authored.",
+        "control": "prf.touchpoint.enforceable_rules_cheat_sheet_rule_matrix",
+        "blocking_dependencies": ("PRF-005",),
+    },
+    owner="gabion.tooling.policy_substrate",
+    expiry="cheat-sheet matrix generation converged",
+    links=[
+        {"kind": "object_id", "value": "PRF"},
+        {"kind": "object_id", "value": "PRF-005"},
+        {"kind": "object_id", "value": "PRF-TP-005"},
+        {"kind": "doc_id", "value": "policy_rule_frontmatter_migration_ledger"},
+        {"kind": "doc_id", "value": "enforceable_rules_cheat_sheet"},
+    ],
+)
+def _prf_tp_005() -> None:
+    return None
+
+
 def iter_prf_queues() -> tuple[PolicyRuleFrontmatterMigrationQueueDefinition, ...]:
     payload, marker_id, site_id, structural_id, rel_path, qualname, line = _todo_metadata(
         _prf_queue,
@@ -204,8 +267,8 @@ def iter_prf_queues() -> tuple[PolicyRuleFrontmatterMigrationQueueDefinition, ..
             structural_identity=structural_id,
             marker_identity=marker_id,
             marker_payload=payload,
-            status_hint="landed",
-            subqueue_ids=("PRF-001", "PRF-002", "PRF-003", "PRF-004"),
+            status_hint="",
+            subqueue_ids=("PRF-001", "PRF-002", "PRF-003", "PRF-004", "PRF-005"),
         ),
     )
 
@@ -217,6 +280,11 @@ def iter_prf_subqueues() -> tuple[PolicyRuleFrontmatterMigrationSubqueueDefiniti
         ("PRF-002", "Fail strictly on malformed YAML frontmatter", _prf_002),
         ("PRF-003", "Reject blank `playbook_anchor` values", _prf_003),
         ("PRF-004", "Emit `GMP-*` guidance from markdown playbooks", _prf_004),
+        (
+            "PRF-005",
+            "Bootstrap the enforceable-rules cheat-sheet catalog + renderer",
+            _prf_005,
+        ),
     ):
         (
             payload,
@@ -242,15 +310,47 @@ def iter_prf_subqueues() -> tuple[PolicyRuleFrontmatterMigrationSubqueueDefiniti
                 structural_identity=structural_id,
                 marker_identity=marker_id,
                 marker_payload=payload,
-                status_hint="landed",
+                status_hint="" if subqueue_id == "PRF-005" else "landed",
+                touchpoint_ids=() if subqueue_id != "PRF-005" else ("PRF-TP-005",),
             )
         )
     return tuple(definitions)
 
 
+def iter_prf_touchpoints() -> tuple[PolicyRuleFrontmatterMigrationTouchpointDefinition, ...]:
+    (
+        payload,
+        marker_id,
+        site_id,
+        structural_id,
+        rel_path,
+        qualname,
+        line,
+    ) = _todo_metadata(
+        _prf_tp_005,
+        surface="policy_rule_frontmatter_migration_touchpoint",
+        structural_path="prf.touchpoint::PRF-TP-005",
+    )
+    return (
+        PolicyRuleFrontmatterMigrationTouchpointDefinition(
+            touchpoint_id="PRF-TP-005",
+            subqueue_id="PRF-005",
+            title="Own the Rule Matrix through a structured catalog + renderer",
+            rel_path=rel_path,
+            qualname=qualname,
+            line=line,
+            site_identity=site_id,
+            structural_identity=structural_id,
+            marker_identity=marker_id,
+            marker_payload=payload,
+        ),
+    )
+
+
 def prf_workstream_registry() -> WorkstreamRegistry:
     queue_definition = iter_prf_queues()[0]
     subqueue_definitions = iter_prf_subqueues()
+    touchpoint_definitions = iter_prf_touchpoints()
     return WorkstreamRegistry(
         root=RegisteredRootDefinition(
             root_id=queue_definition.queue_id,
@@ -277,10 +377,55 @@ def prf_workstream_registry() -> WorkstreamRegistry:
                 structural_identity=item.structural_identity,
                 marker_identity=item.marker_identity,
                 marker_payload=item.marker_payload,
-                touchpoint_ids=(),
+                touchpoint_ids=item.touchpoint_ids,
                 status_hint=item.status_hint,
             )
             for item in subqueue_definitions
+        ),
+        touchpoints=tuple(
+            RegisteredTouchpointDefinition(
+                root_id=queue_definition.queue_id,
+                touchpoint_id=item.touchpoint_id,
+                subqueue_id=item.subqueue_id,
+                title=item.title,
+                rel_path=item.rel_path,
+                qualname=item.qualname,
+                line=item.line,
+                site_identity=item.site_identity,
+                structural_identity=item.structural_identity,
+                marker_identity=item.marker_identity,
+                marker_payload=item.marker_payload,
+                declared_touchsites=(
+                    declared_touchsite_definition(
+                        touchsite_id="PRF-TS-005-A",
+                        rel_path="docs/enforceable_rules_cheat_sheet.md",
+                        qualname="enforceable_rules_cheat_sheet#generated_rule_matrix",
+                        boundary_name="enforceable_rules_cheat_sheet#generated_rule_matrix",
+                        line=1,
+                        node_kind="document",
+                        surface="policy_rule_frontmatter_migration_touchsite",
+                        structural_path="prf.touchsite::PRF-TS-005-A",
+                    ),
+                    declared_touchsite_definition(
+                        touchsite_id="PRF-TS-005-B",
+                        rel_path="docs/enforceable_rules_catalog.yaml",
+                        qualname="enforceable_rules_catalog.rule_matrix",
+                        boundary_name="enforceable_rules_catalog.rule_matrix",
+                        line=1,
+                        node_kind="document",
+                        surface="policy_rule_frontmatter_migration_touchsite",
+                        structural_path="prf.touchsite::PRF-TS-005-B",
+                    ),
+                    declared_touchsite_definition_from_symbol(
+                        render_rule_matrix_block,
+                        touchsite_id="PRF-TS-005-C",
+                        boundary_name="render_rule_matrix_block",
+                        surface="policy_rule_frontmatter_migration_touchsite",
+                        structural_path="prf.touchsite::PRF-TS-005-C",
+                    ),
+                ),
+            )
+            for item in touchpoint_definitions
         ),
         tags=("registry_convergence",),
     )
@@ -289,7 +434,9 @@ def prf_workstream_registry() -> WorkstreamRegistry:
 __all__ = [
     "PolicyRuleFrontmatterMigrationQueueDefinition",
     "PolicyRuleFrontmatterMigrationSubqueueDefinition",
+    "PolicyRuleFrontmatterMigrationTouchpointDefinition",
     "iter_prf_queues",
     "iter_prf_subqueues",
+    "iter_prf_touchpoints",
     "prf_workstream_registry",
 ]

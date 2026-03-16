@@ -11,19 +11,48 @@ from gabion.tooling.policy_substrate.projection_semantic_fragment_phase5_registr
 )
 
 
-def test_prf_workstream_registry_exposes_landed_root_and_subqueues() -> None:
+def test_prf_workstream_registry_exposes_active_root_and_cheat_sheet_touchpoint() -> None:
     registry = prf_workstream_registry()
+    touchpoints = {item.touchpoint_id: item for item in registry.touchpoints}
+    subqueues = {item.subqueue_id: item for item in registry.subqueues}
 
     assert registry.root.root_id == "PRF"
     assert registry.tags == ("registry_convergence",)
-    assert registry.root.subqueue_ids == ("PRF-001", "PRF-002", "PRF-003", "PRF-004")
+    assert registry.root.subqueue_ids == (
+        "PRF-001",
+        "PRF-002",
+        "PRF-003",
+        "PRF-004",
+        "PRF-005",
+    )
     assert tuple(item.subqueue_id for item in registry.subqueues) == (
         "PRF-001",
         "PRF-002",
         "PRF-003",
         "PRF-004",
+        "PRF-005",
     )
-    assert all(item.touchpoint_ids == () for item in registry.subqueues)
+    assert subqueues["PRF-005"].touchpoint_ids == ("PRF-TP-005",)
+    assert all(
+        item.touchpoint_ids == ()
+        for item in registry.subqueues
+        if item.subqueue_id != "PRF-005"
+    )
+    assert set(touchpoints) == {"PRF-TP-005"}
+    assert {
+        (item.rel_path, item.qualname)
+        for item in touchpoints["PRF-TP-005"].declared_touchsites
+    } >= {
+        (
+            "docs/enforceable_rules_cheat_sheet.md",
+            "enforceable_rules_cheat_sheet#generated_rule_matrix",
+        ),
+        ("docs/enforceable_rules_catalog.yaml", "enforceable_rules_catalog.rule_matrix"),
+        (
+            "src/gabion/tooling/policy_substrate/enforceable_rules_cheat_sheet.py",
+            "render_rule_matrix_block",
+        ),
+    }
 
 
 def test_phase5_workstream_registry_exposes_touchpoint_scan_contract() -> None:

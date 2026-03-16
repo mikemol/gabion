@@ -1,0 +1,226 @@
+version: 1
+rule_matrix:
+  rows:
+    - rule_id: SEC-001
+      enforceable_rule: "Self-hosted execution must stay on trusted triggers/actors/branches; no untrusted code on self-hosted runners."
+      source_clauses:
+        - label: POLICY_SEED.md#policy_seed §1
+          href: ../POLICY_SEED.md#policy_seed
+        - label: POLICY_SEED.md#policy_seed §4.1
+          href: ../POLICY_SEED.md#policy_seed
+        - label: POLICY_SEED.md#policy_seed §4.3
+          href: ../POLICY_SEED.md#policy_seed
+      operational_check: mise exec -- python -m scripts.policy_check --workflows
+      failure_signal: Policy check violation on trigger/actor guards, or manual review blocks merge.
+    - rule_id: SEC-002
+      enforceable_rule: "Actions must be allow-listed and pinned to full commit SHAs."
+      source_clauses:
+        - label: POLICY_SEED.md#policy_seed §4.5
+          href: ../POLICY_SEED.md#policy_seed
+        - label: docs/allowed_actions.txt
+          href: ./allowed_actions.txt
+      operational_check: mise exec -- python -m scripts.policy_check --workflows
+      failure_signal: Policy check reports unpinned or disallowed action usage.
+    - rule_id: SEC-003
+      enforceable_rule: "Minimal token permissions only; self-hosted jobs must not request write scopes."
+      source_clauses:
+        - label: POLICY_SEED.md#policy_seed §4.4
+          href: ../POLICY_SEED.md#policy_seed
+      operational_check: mise exec -- python -m scripts.policy_check --workflows
+      failure_signal: Workflow policy failure on excessive permissions.
+    - rule_id: SEC-004
+      enforceable_rule: "Self-hosted dependency installs are restricted to allow-listed registries and standard package managers."
+      source_clauses:
+        - label: POLICY_SEED.md#policy_seed §4.6
+          href: ../POLICY_SEED.md#policy_seed
+      operational_check: Workflow/script review + python -m scripts.policy_check --workflows
+      failure_signal: Governance rejection for arbitrary download patterns or non-allow-listed sources.
+    - rule_id: ARC-001
+      enforceable_rule: "LSP-first invariant: server is semantic core; CLI must remain a thin client (no reimplemented analysis logic)."
+      source_clauses:
+        - label: README.md#repo_contract
+          href: ../README.md#repo_contract
+        - label: CONTRIBUTING.md#contributing_contract
+          href: ../CONTRIBUTING.md#contributing_contract
+        - label: AGENTS.md#agent_obligations
+          href: ../AGENTS.md#agent_obligations
+      operational_check: mise exec -- python -m pytest + code review of src/gabion/cli.py vs src/gabion/server.py
+      failure_signal: Behavioral divergence between CLI and server semantics or review rejection.
+    - rule_id: ARC-002
+      enforceable_rule: "Repo-local tooling commands use mise exec -- python to bind pinned interpreter/deps."
+      source_clauses:
+        - label: AGENTS.md#agent_obligations
+          href: ../AGENTS.md#agent_obligations
+        - label: CONTRIBUTING.md#contributing_contract
+          href: ../CONTRIBUTING.md#contributing_contract
+      operational_check: Command/scripts review; run checks through mise exec -- python ...
+      failure_signal: Execution drift or non-reproducible local/CI behavior.
+    - rule_id: SEM-001
+      enforceable_rule: "Runtime is process-relative: any subsystem that participates in a real operational process owns runtime semantics relative to that process, not only relative to end-user program execution."
+      source_clauses:
+        - label: NCI-RUNTIME-PROCESS-RELATIVE
+          href: ./normative_clause_index.md#clause-runtime-process-relative
+        - label: NCI-RUNTIME-DISTINCTION-LADDER
+          href: ./normative_clause_index.md#clause-runtime-distinction-ladder
+      operational_check: Code/doc review + targeted pytest over the relevant subsystem or workflow
+      failure_signal: Analysis, formal, planning, governance, or other bureaucratic distinctions are dismissed as non-runtime solely because they are not target-program execution, or prose-only taxonomies are treated as runtime without real process participation.
+    - rule_id: DFG-001
+      enforceable_rule: "Cross-boundary recurring bundles must be Protocol-reified or explicitly marked with # dataflow-bundle:; Tier-2 must be reified before merge."
+      source_clauses:
+        - label: AGENTS.md#agent_obligations
+          href: ../AGENTS.md#agent_obligations
+        - label: glossary.md#bundle
+          href: ../glossary.md#bundle
+        - label: glossary.md#tier
+          href: ../glossary.md#tier
+        - label: CONTRIBUTING.md#contributing_contract
+          href: ../CONTRIBUTING.md#contributing_contract
+      operational_check: mise exec -- python -m gabion check
+      failure_signal: Dataflow grammar violations in report/lint outputs; merge blocked.
+    - rule_id: DFG-002
+      enforceable_rule: "Ambiguity must be normalized at boundaries and reified structurally; on ordinary call edges the ambiguity budget is non-increasing, and cost/cardinality escalations must stay at explicit named boundaries. # pragma: no cover is allowed only on never(...)-guarded branches (including enum exhaustiveness fallbacks)."
+      source_clauses:
+        - label: NCI-SHIFT-AMBIGUITY-LEFT
+          href: ./normative_clause_index.md#clause-shift-ambiguity-left
+        - label: POLICY_SEED.md#policy_seed §4.8
+          href: ../POLICY_SEED.md#policy_seed
+      operational_check: mise exec -- python -m gabion ambiguity-contract-gate --root .
+      failure_signal: Ambiguity-contract gate fails when AST or graded call-edge monotonicity violations are present.
+    - rule_id: DFG-003
+      enforceable_rule: "Repository JSON/mapping evidence surfaces must be canonically sorted to preserve deterministic replay and stable evidence artifacts."
+      source_clauses:
+        - label: glossary.md#contract
+          href: ../glossary.md#contract
+        - label: in/in-23.md#in_in_23
+          href: ../in/in-23.md#in_in_23
+        - label: in/in-24.md#in_in_24
+          href: ../in/in-24.md#in_in_24
+      operational_check: mise exec -- python -m pytest tests/test_runtime_kernel_contracts.py
+      failure_signal: Nondeterministic key ordering causes unstable artifacts/diffs and replay evidence drift.
+    - rule_id: DFG-004
+      enforceable_rule: "Any enforced sortedness must disclose sort key/function (or comparator shape) and rationale; non-lexical sorting must declare comparator components."
+      source_clauses:
+        - label: POLICY_SEED.md#policy_seed §4.9
+          href: ../POLICY_SEED.md#policy_seed
+        - label: CONTRIBUTING.md#contributing_contract
+          href: ../CONTRIBUTING.md#contributing_contract
+        - label: in/in-24.md#in_in_24
+          href: ../in/in-24.md#in_in_24
+      operational_check: Code review + targeted ordering contract tests (mise exec -- python -m pytest tests/test_command_boundary_order.py tests/test_runtime_kernel_contracts.py)
+      failure_signal: Undocumented ordering semantics or silent non-lexical sorting leading to semantically ambiguous or unstable output.
+    - rule_id: DFG-005
+      enforceable_rule: "Single-sort lifetime ratchet: each carrier may consume active sorting at most once; egress must enforce order without serializer sort_keys=True fallback for canonical carriers."
+      source_clauses:
+        - label: POLICY_SEED.md#policy_seed §4.9
+          href: ../POLICY_SEED.md#policy_seed
+        - label: CONTRIBUTING.md#contributing_contract
+          href: ../CONTRIBUTING.md#contributing_contract
+      operational_check: mise exec -- python scripts/order_lifetime_check.py --root .
+      failure_signal: Second-sort attempts, boundary/runtime raw sorting shortcuts, or json.dumps(..., sort_keys=True) fallback in protected surfaces.
+    - rule_id: DFG-006
+      enforceable_rule: "Derivation-cache identity surfaces must use structural interning keys (ASPF/forest-derived) and must not use digest/text canonicalization for key identity."
+      source_clauses:
+        - label: glossary.md#hash_consing
+          href: ../glossary.md#hash_consing
+        - label: glossary.md#aspf
+          href: ../glossary.md#aspf
+        - label: POLICY_SEED.md#policy_seed §0.1
+          href: ../POLICY_SEED.md#policy_seed
+      operational_check: mise exec -- python scripts/structural_hash_policy_check.py --root .
+      failure_signal: Structural hash policy check reports digest/hashlib or text-canonicalization keying in derivation identity paths.
+    - rule_id: DEC-001
+      enforceable_rule: "Repeated decision logic must be centralized (Decision Bundle) or explicitly documented as Tier-3 (Decision Table)."
+      source_clauses:
+        - label: glossary.md#decision_bundle
+          href: ../glossary.md#decision_bundle
+        - label: glossary.md#decision_table
+          href: ../glossary.md#decision_table
+      operational_check: Decision-flow tests + code review
+      failure_signal: Duplicate branch logic remains scattered without declared tier treatment.
+    - rule_id: DEC-002
+      enforceable_rule: "Critical cross-boundary decision logic must be represented as a Decision Protocol with explicit validation."
+      source_clauses:
+        - label: glossary.md#decision_protocol
+          href: ../glossary.md#decision_protocol
+        - label: glossary.md#decision_surface
+          href: ../glossary.md#decision_surface
+      operational_check: Schema/edge tests (mise exec -- python -m pytest)
+      failure_signal: Invalid decision states pass, or ad-hoc branches bypass protocol constraints.
+    - rule_id: TST-001
+      enforceable_rule: "Coverage is rule/evidence-oriented; new/changed invariants require positive, negative, and edge coverage."
+      source_clauses:
+        - label: docs/coverage_semantics.md#coverage_semantics §1.2
+          href: ./coverage_semantics.md#coverage_semantics
+        - label: docs/coverage_semantics.md#coverage_semantics §2
+          href: ./coverage_semantics.md#coverage_semantics
+      operational_check: mise exec -- python -m pytest --cov=src/gabion --cov-branch --cov-report=term-missing --cov-fail-under=100 + review
+      failure_signal: Invariant changes without rule-triad tests; coverage policy non-compliance.
+    - rule_id: TST-002
+      enforceable_rule: "Evidence surface is explicit Evidence IDs, not percentages; test evidence carrier must stay deterministic."
+      source_clauses:
+        - label: glossary.md#evidence_id
+          href: ../glossary.md#evidence_id
+        - label: glossary.md#evidence_surface
+          href: ../glossary.md#evidence_surface
+        - label: docs/coverage_semantics.md#coverage_semantics §1.6
+          href: ./coverage_semantics.md#coverage_semantics
+      operational_check: mise exec -- python -m scripts.extract_test_evidence --root . --tests tests --out out/test_evidence.json then git diff --exit-code out/test_evidence.json
+      failure_signal: Evidence carrier drift or unmapped evidence surprises.
+    - rule_id: POL-001
+      enforceable_rule: "Tests must not use monkeypatch/patch-style runtime mutation; seam control is DI-only."
+      source_clauses:
+        - label: AGENTS.md#agent_obligations
+          href: ../AGENTS.md#agent_obligations
+        - label: CONTRIBUTING.md#contributing_contract
+          href: ../CONTRIBUTING.md#contributing_contract
+      operational_check: mise exec -- python scripts/no_monkeypatch_policy_check.py --root .
+      failure_signal: Monkeypatch/patched runtime mutation detected in tests.
+    - rule_id: POL-002
+      enforceable_rule: "Branch constructs outside explicit Decision Protocol surfaces are violations (hard-zero)."
+      source_clauses:
+        - label: AGENTS.md#agent_obligations
+          href: ../AGENTS.md#agent_obligations
+        - label: glossary.md#decision_protocol
+          href: ../glossary.md#decision_protocol
+      operational_check: mise exec -- python scripts/branchless_policy_check.py --root .
+      failure_signal: Branchless policy violation reported.
+    - rule_id: POL-003
+      enforceable_rule: "Defensive fallback/sentinel continuation outside approved boundaries are violations (hard-zero)."
+      source_clauses:
+        - label: AGENTS.md#agent_obligations
+          href: ../AGENTS.md#agent_obligations
+        - label: CONTRIBUTING.md#contributing_contract
+          href: ../CONTRIBUTING.md#contributing_contract
+      operational_check: mise exec -- python scripts/defensive_fallback_policy_check.py --root .
+      failure_signal: Defensive fallback policy violation reported.
+    - rule_id: ACP-001
+      enforceable_rule: "Ordinary core call edges must not increase nullable/type/shape/classification budgets; local AST ambiguity signatures remain fast-fail proxies for that deeper edge invariant."
+      source_clauses:
+        - label: NCI-SHIFT-AMBIGUITY-LEFT
+          href: ./normative_clause_index.md#clause-shift-ambiguity-left
+        - label: docs/architecture_zones.md#architecture_zones
+          href: ./architecture_zones.md#architecture_zones
+      operational_check: mise exec -- python -m gabion ambiguity-contract-gate --root .
+      failure_signal: Ambiguity-contract gate reports AST proxy or graded edge-monotonicity violations.
+    - rule_id: DOC-001
+      enforceable_rule: "Documentation review stamping must be real (no mechanical doc_reviewed_as_of updates; explicit review notes required)."
+      source_clauses:
+        - label: CONTRIBUTING.md#contributing_contract
+          href: ../CONTRIBUTING.md#contributing_contract
+        - label: AGENTS.md#agent_obligations
+          href: ../AGENTS.md#agent_obligations
+        - label: POLICY_SEED.md#policy_seed §0.2
+          href: ../POLICY_SEED.md#policy_seed
+      operational_check: mise exec -- python -m gabion docflow --root . --fail-on-violations --sppf-gh-ref-mode required
+      failure_signal: Docflow violations for review-note/metadata discipline.
+    - rule_id: DOC-002
+      enforceable_rule: "Markdown docs require frontmatter discipline (doc_revision, dependency tracking, change protocol linkage)."
+      source_clauses:
+        - label: AGENTS.md#agent_obligations
+          href: ../AGENTS.md#agent_obligations
+        - label: CONTRIBUTING.md#contributing_contract
+          href: ../CONTRIBUTING.md#contributing_contract
+        - label: POLICY_SEED.md#change_protocol
+          href: ../POLICY_SEED.md#change_protocol
+      operational_check: mise exec -- python -m gabion docflow --root . --fail-on-violations --sppf-gh-ref-mode required
+      failure_signal: Missing/invalid frontmatter or policy-linkage findings in docflow output.

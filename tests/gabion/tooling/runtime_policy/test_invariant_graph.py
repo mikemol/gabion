@@ -782,9 +782,12 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         for item in workstreams_payload["workstreams"]
         if isinstance(item, dict) and item.get("object_id") == "PRF"
     )
-    assert prf["status"] == "landed"
-    assert prf["touchsite_count"] == 0
-    assert prf["doc_ids"] == ["policy_rule_frontmatter_migration_ledger"]
+    assert prf["status"] == "in_progress"
+    assert prf["touchsite_count"] == 3
+    assert set(prf["doc_ids"]) == {
+        "policy_rule_frontmatter_migration_ledger",
+        "enforceable_rules_cheat_sheet",
+    }
     psf = next(
         item
         for item in workstreams_payload["workstreams"]
