@@ -3,6 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from gabion.invariants import todo_decorator
+from gabion.tooling.policy_substrate.connectivity_synergy_registry import (
+    connectivity_synergy_workstream_registries,
+)
 from gabion.tooling.policy_substrate.workstream_registry import (
     RegisteredRootDefinition,
     RegisteredSubqueueDefinition,
@@ -262,6 +265,20 @@ def _synthetic_scc_subqueue() -> None:
     links=[{"kind": "object_id", "value": "SCC-TP-T01"}],
 )
 def _synthetic_scc_touchpoint() -> None:
+    return None
+
+
+@todo_decorator(
+    reason="Synthetic PSF-007 root for tmp-root invariant-graph dependency injection.",
+    reasoning={
+        "summary": "Synthetic PSF-007 root resolves declared connectivity dependencies without scanning live Phase-5 touchsites.",
+        "control": "tests.runtime_policy.synthetic.psf007.root",
+    },
+    owner="tests.gabion.tooling.runtime_policy",
+    expiry="2099-01-01",
+    links=[{"kind": "object_id", "value": "PSF-007"}],
+)
+def _synthetic_psf_007_root() -> None:
     return None
 
 
@@ -530,6 +547,22 @@ def synthetic_connectivity_workstream_registries() -> tuple[WorkstreamRegistry, 
     )
 
 
+def connectivity_synergy_with_psf_stub_workstream_registries() -> tuple[WorkstreamRegistry, ...]:
+    return connectivity_synergy_workstream_registries() + (
+        WorkstreamRegistry(
+            root=_root_definition(
+                root_id="PSF-007",
+                title="Synthetic PSF-007 root",
+                symbol=_synthetic_psf_007_root,
+                subqueue_ids=(),
+            ),
+            subqueues=(),
+            touchpoints=(),
+            tags=("projection_semantic_fragment",),
+        ),
+    )
+
+
 def install_synthetic_connectivity_registries(monkeypatch, invariant_graph_module) -> None:
     monkeypatch.setattr(invariant_graph_module, "phase5_workstream_registry", lambda: None)
     monkeypatch.setattr(invariant_graph_module, "prf_workstream_registry", lambda: None)
@@ -546,6 +579,7 @@ def install_synthetic_connectivity_registries(monkeypatch, invariant_graph_modul
 
 
 __all__ = [
+    "connectivity_synergy_with_psf_stub_workstream_registries",
     "install_synthetic_connectivity_registries",
     "synthetic_connectivity_workstream_registries",
     "write_minimal_invariant_repo",

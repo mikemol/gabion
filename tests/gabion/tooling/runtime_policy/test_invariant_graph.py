@@ -26,7 +26,7 @@ from gabion.tooling.policy_substrate.workstream_registry import (
 )
 from gabion.tooling.runtime import invariant_graph as invariant_graph_runtime
 from tests.gabion.tooling.runtime_policy.invariant_graph_test_support import (
-    install_synthetic_connectivity_registries,
+    connectivity_synergy_with_psf_stub_workstream_registries,
     synthetic_connectivity_workstream_registries,
     write_minimal_invariant_repo,
 )
@@ -66,6 +66,15 @@ def _disable_phase5_enricher(monkeypatch) -> None:
         "connectivity_synergy_workstream_registries",
         lambda: (),
     )
+
+
+_NO_DECLARED_REGISTRIES = ()
+_CONNECTIVITY_SYNERGY_WITH_PSF_STUB_DECLARED_REGISTRIES = (
+    connectivity_synergy_with_psf_stub_workstream_registries()
+)
+_SYNTHETIC_CONNECTIVITY_DECLARED_REGISTRIES = (
+    synthetic_connectivity_workstream_registries()
+)
 
 
 def _sample_repo(tmp_path: Path) -> Path:
@@ -149,12 +158,13 @@ def _synthetic_workstreams_payload(workstreams: list[dict[str, object]]) -> dict
 
 def test_build_invariant_graph_scans_decorated_symbols_and_marker_callsites(
     tmp_path: Path,
-    monkeypatch,
 ) -> None:
-    _disable_phase5_enricher(monkeypatch)
     root = _sample_repo(tmp_path)
 
-    graph = invariant_graph.build_invariant_graph(root)
+    graph = invariant_graph.build_invariant_graph(
+        root,
+        declared_registries=_NO_DECLARED_REGISTRIES,
+    )
     payload = graph.as_payload()
 
     node_kind_counts = payload["counts"]["node_kind_counts"]
@@ -177,13 +187,14 @@ def test_build_invariant_graph_scans_decorated_symbols_and_marker_callsites(
 
 def test_invariant_graph_write_and_load_round_trip(
     tmp_path: Path,
-    monkeypatch,
 ) -> None:
-    _disable_phase5_enricher(monkeypatch)
     root = _sample_repo(tmp_path)
     artifact = tmp_path / "artifacts/out/invariant_graph.json"
 
-    graph = invariant_graph.build_invariant_graph(root)
+    graph = invariant_graph.build_invariant_graph(
+        root,
+        declared_registries=_NO_DECLARED_REGISTRIES,
+    )
     invariant_graph.write_invariant_graph(artifact, graph)
     reloaded = invariant_graph.load_invariant_graph(artifact)
 
@@ -1011,12 +1022,13 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
 
 def test_injected_repo_followup_plateau_reports_mixed_root_scope(
     tmp_path: Path,
-    monkeypatch,
 ) -> None:
-    install_synthetic_connectivity_registries(monkeypatch, invariant_graph)
     root = write_minimal_invariant_repo(tmp_path)
 
-    graph = invariant_graph.build_invariant_graph(root)
+    graph = invariant_graph.build_invariant_graph(
+        root,
+        declared_registries=_SYNTHETIC_CONNECTIVITY_DECLARED_REGISTRIES,
+    )
     workstreams = invariant_graph.build_invariant_workstreams(graph, root=root)
 
     assert graph.workstream_root_ids == (
@@ -1039,12 +1051,13 @@ def test_injected_repo_followup_plateau_reports_mixed_root_scope(
 
 def test_injected_repo_followup_plateau_preserves_root_provenance(
     tmp_path: Path,
-    monkeypatch,
 ) -> None:
-    install_synthetic_connectivity_registries(monkeypatch, invariant_graph)
     root = write_minimal_invariant_repo(tmp_path)
 
-    graph = invariant_graph.build_invariant_graph(root)
+    graph = invariant_graph.build_invariant_graph(
+        root,
+        declared_registries=_SYNTHETIC_CONNECTIVITY_DECLARED_REGISTRIES,
+    )
     workstreams = invariant_graph.build_invariant_workstreams(graph, root=root)
 
     recommended_code_followup = workstreams.recommended_repo_code_followup()
@@ -1073,12 +1086,13 @@ def test_injected_repo_followup_plateau_preserves_root_provenance(
 
 def test_planner_queue_overlay_uses_envelops_without_reusing_contains(
     tmp_path: Path,
-    monkeypatch,
 ) -> None:
-    install_synthetic_connectivity_registries(monkeypatch, invariant_graph)
     root = write_minimal_invariant_repo(tmp_path)
 
-    graph = invariant_graph.build_invariant_graph(root)
+    graph = invariant_graph.build_invariant_graph(
+        root,
+        declared_registries=_CONNECTIVITY_SYNERGY_WITH_PSF_STUB_DECLARED_REGISTRIES,
+    )
 
     queue_nodes = [
         node for node in graph.nodes if node.node_kind == "planner_queue"
@@ -3031,11 +3045,12 @@ def test_runtime_invariant_graph_cli_perf_heat_maps_profile_artifacts(
 
 def test_perf_dsl_overlay_resolves_doc_targets_to_invariant_candidates(
     tmp_path: Path,
-    monkeypatch,
 ) -> None:
-    _disable_phase5_enricher(monkeypatch)
     root = _sample_repo(tmp_path)
-    graph = invariant_graph.build_invariant_graph(root)
+    graph = invariant_graph.build_invariant_graph(
+        root,
+        declared_registries=_NO_DECLARED_REGISTRIES,
+    )
     traced = invariant_graph.trace_nodes(graph, "OBJ-TODO")
     descendant_ids = tuple(
         invariant_graph_runtime._sorted(
@@ -3067,9 +3082,7 @@ def test_perf_dsl_overlay_resolves_doc_targets_to_invariant_candidates(
 
 def test_perf_dsl_overlay_reuses_shared_doc_selector_for_inferred_targets(
     tmp_path: Path,
-    monkeypatch,
 ) -> None:
-    _disable_phase5_enricher(monkeypatch)
     root = _sample_repo(tmp_path)
     _write(
         root / "docs" / "sample.md",
@@ -3083,7 +3096,10 @@ def test_perf_dsl_overlay_reuses_shared_doc_selector_for_inferred_targets(
             ]
         ),
     )
-    graph = invariant_graph.build_invariant_graph(root)
+    graph = invariant_graph.build_invariant_graph(
+        root,
+        declared_registries=_NO_DECLARED_REGISTRIES,
+    )
     traced = invariant_graph.trace_nodes(graph, "OBJ-TODO")
     descendant_ids = tuple(
         invariant_graph_runtime._sorted(
@@ -3345,9 +3361,7 @@ def test_perf_infimum_buckets_use_meet_over_containment_topology() -> None:
 
 def test_build_invariant_graph_joins_policy_signals_and_test_coverage(
     tmp_path: Path,
-    monkeypatch,
 ) -> None:
-    _disable_phase5_enricher(monkeypatch)
     root = _sample_repo(tmp_path)
     decorated_line = _sample_decorated_line(root)
     (root / "artifacts" / "out").mkdir(parents=True, exist_ok=True)
@@ -3403,7 +3417,10 @@ def test_build_invariant_graph_joins_policy_signals_and_test_coverage(
         encoding="utf-8",
     )
 
-    graph = invariant_graph.build_invariant_graph(root)
+    graph = invariant_graph.build_invariant_graph(
+        root,
+        declared_registries=_NO_DECLARED_REGISTRIES,
+    )
     node_kind_counts = graph.as_payload()["counts"]["node_kind_counts"]
     assert node_kind_counts["policy_signal"] == 1
     assert node_kind_counts["test_case"] == 1
@@ -3424,9 +3441,7 @@ def test_build_invariant_graph_joins_policy_signals_and_test_coverage(
 
 def test_build_invariant_graph_joins_pytest_failures_and_couples_them_to_work(
     tmp_path: Path,
-    monkeypatch,
 ) -> None:
-    _disable_phase5_enricher(monkeypatch)
     root = _sample_repo(tmp_path)
     decorated_line = _sample_decorated_line(root)
     (root / "artifacts" / "test_runs").mkdir(parents=True, exist_ok=True)
@@ -3481,7 +3496,10 @@ def test_build_invariant_graph_joins_pytest_failures_and_couples_them_to_work(
         encoding="utf-8",
     )
 
-    graph = invariant_graph.build_invariant_graph(root)
+    graph = invariant_graph.build_invariant_graph(
+        root,
+        declared_registries=_NO_DECLARED_REGISTRIES,
+    )
     node_kind_counts = graph.as_payload()["counts"]["node_kind_counts"]
     assert node_kind_counts["test_case"] == 1
     assert node_kind_counts["test_failure"] == 1
@@ -3658,9 +3676,7 @@ def test_build_invariant_graph_joins_pytest_failures_and_couples_them_to_work(
 
 def test_build_invariant_graph_joins_sppf_and_inbox_governance_sources(
     tmp_path: Path,
-    monkeypatch,
 ) -> None:
-    _disable_phase5_enricher(monkeypatch)
     root = tmp_path
     _write(root / "src" / "gabion" / "__init__.py", "")
     _write(
@@ -3738,7 +3754,10 @@ def test_build_invariant_graph_joins_sppf_and_inbox_governance_sources(
         },
     )
 
-    graph = invariant_graph.build_invariant_graph(root)
+    graph = invariant_graph.build_invariant_graph(
+        root,
+        declared_registries=_NO_DECLARED_REGISTRIES,
+    )
     node_kind_counts = graph.as_payload()["counts"]["node_kind_counts"]
     assert node_kind_counts["sppf_doc_ref"] == 1
     assert node_kind_counts["sppf_issue"] == 1
@@ -4181,7 +4200,10 @@ def test_build_invariant_graph_joins_control_loop_artifacts(
         },
     )
 
-    graph = invariant_graph.build_invariant_graph(root)
+    graph = invariant_graph.build_invariant_graph(
+        root,
+        declared_registries=_CONNECTIVITY_SYNERGY_WITH_PSF_STUB_DECLARED_REGISTRIES,
+    )
     node_kind_counts = graph.as_payload()["counts"]["node_kind_counts"]
     assert node_kind_counts["docflow_packet_enforcement"] == 1
     assert node_kind_counts["docflow_packet"] == 1
@@ -4479,7 +4501,10 @@ def test_build_invariant_graph_joins_docflow_issue_lifecycle_nodes(
         },
     )
 
-    graph = invariant_graph.build_invariant_graph(root)
+    graph = invariant_graph.build_invariant_graph(
+        root,
+        declared_registries=_NO_DECLARED_REGISTRIES,
+    )
     node_kind_counts = graph.as_payload()["counts"]["node_kind_counts"]
     assert node_kind_counts["docflow_issue_reference"] == 1
     assert node_kind_counts["docflow_issue_lifecycle"] == 1
@@ -4614,7 +4639,10 @@ def test_docflow_issue_lifecycle_rules_emit_ranking_pressure_for_csa_rgc_tp_007(
         },
     )
 
-    graph = invariant_graph.build_invariant_graph(root)
+    graph = invariant_graph.build_invariant_graph(
+        root,
+        declared_registries=_CONNECTIVITY_SYNERGY_WITH_PSF_STUB_DECLARED_REGISTRIES,
+    )
     payload = graph.as_payload()
     assert payload["counts"]["ranking_signal_count"] >= 2
     assert payload["counts"]["ranking_signal_score_total"] >= 7
@@ -4683,7 +4711,10 @@ def test_build_invariant_graph_joins_ingress_merge_parity_artifact(
         ),
     )
 
-    graph = invariant_graph.build_invariant_graph(tmp_path)
+    graph = invariant_graph.build_invariant_graph(
+        tmp_path,
+        declared_registries=_CONNECTIVITY_SYNERGY_WITH_PSF_STUB_DECLARED_REGISTRIES,
+    )
     node_kind_counts = graph.as_payload()["counts"]["node_kind_counts"]
     assert node_kind_counts["ingress_merge_parity_report"] == 1
     assert node_kind_counts["ingress_merge_parity_case"] == 4
@@ -4713,9 +4744,7 @@ def test_build_invariant_graph_joins_ingress_merge_parity_artifact(
 
 def test_build_invariant_graph_joins_git_state_artifact(
     tmp_path: Path,
-    monkeypatch,
 ) -> None:
-    _disable_phase5_enricher(monkeypatch)
     _write_json(
         tmp_path / "artifacts" / "out" / "git_state.json",
         {
@@ -4760,7 +4789,10 @@ def test_build_invariant_graph_joins_git_state_artifact(
         },
     )
 
-    graph = invariant_graph.build_invariant_graph(tmp_path)
+    graph = invariant_graph.build_invariant_graph(
+        tmp_path,
+        declared_registries=_NO_DECLARED_REGISTRIES,
+    )
     node_kind_counts = graph.as_payload()["counts"]["node_kind_counts"]
     assert node_kind_counts["git_state_report"] == 1
     assert node_kind_counts["git_head_commit"] == 1
@@ -4787,9 +4819,7 @@ def test_build_invariant_graph_joins_git_state_artifact(
 
 def test_build_invariant_graph_prefers_live_git_state_over_stale_artifact(
     tmp_path: Path,
-    monkeypatch,
 ) -> None:
-    install_synthetic_connectivity_registries(monkeypatch, invariant_graph)
     root = write_minimal_invariant_repo(tmp_path)
     _git(root, "init", "-b", "main")
     _git(root, "config", "user.name", "Gabion Tests")
@@ -4830,7 +4860,10 @@ def test_build_invariant_graph_prefers_live_git_state_over_stale_artifact(
         },
     )
 
-    graph = invariant_graph.build_invariant_graph(root)
+    graph = invariant_graph.build_invariant_graph(
+        root,
+        declared_registries=_SYNTHETIC_CONNECTIVITY_DECLARED_REGISTRIES,
+    )
 
     workspace_diagnostics = [
         item
@@ -4857,9 +4890,7 @@ def test_build_invariant_graph_prefers_live_git_state_over_stale_artifact(
 
 def test_git_state_dirty_graph_participant_exerts_workspace_preservation_pressure(
     tmp_path: Path,
-    monkeypatch,
 ) -> None:
-    install_synthetic_connectivity_registries(monkeypatch, invariant_graph)
     root = write_minimal_invariant_repo(tmp_path)
     _write_json(
         root / "artifacts" / "out" / "git_state.json",
@@ -4899,7 +4930,10 @@ def test_git_state_dirty_graph_participant_exerts_workspace_preservation_pressur
         },
     )
 
-    graph = invariant_graph.build_invariant_graph(root)
+    graph = invariant_graph.build_invariant_graph(
+        root,
+        declared_registries=_SYNTHETIC_CONNECTIVITY_DECLARED_REGISTRIES,
+    )
 
     workspace_diagnostics = [
         item for item in graph.diagnostics if item.code == "workspace_preservation_needed"
@@ -4972,9 +5006,7 @@ def test_git_state_dirty_graph_participant_exerts_workspace_preservation_pressur
 
 def test_git_state_dirty_nonoverlap_change_emits_orphaned_workspace_pressure(
     tmp_path: Path,
-    monkeypatch,
 ) -> None:
-    install_synthetic_connectivity_registries(monkeypatch, invariant_graph)
     root = write_minimal_invariant_repo(tmp_path)
     _write_json(
         root / "artifacts" / "out" / "git_state.json",
@@ -5008,7 +5040,10 @@ def test_git_state_dirty_nonoverlap_change_emits_orphaned_workspace_pressure(
         },
     )
 
-    graph = invariant_graph.build_invariant_graph(root)
+    graph = invariant_graph.build_invariant_graph(
+        root,
+        declared_registries=_SYNTHETIC_CONNECTIVITY_DECLARED_REGISTRIES,
+    )
 
     orphaned_workspace_diagnostics = [
         item for item in graph.diagnostics if item.code == "orphaned_workspace_change"
@@ -5101,9 +5136,7 @@ def test_git_state_dirty_nonoverlap_change_emits_orphaned_workspace_pressure(
 
 def test_build_invariant_graph_joins_cross_origin_witness_contract_artifact(
     tmp_path: Path,
-    monkeypatch,
 ) -> None:
-    _disable_phase5_enricher(monkeypatch)
     _write_json(
         tmp_path / "artifacts" / "out" / "cross_origin_witness_contract.json",
         {
@@ -5151,7 +5184,10 @@ def test_build_invariant_graph_joins_cross_origin_witness_contract_artifact(
         },
     )
 
-    graph = invariant_graph.build_invariant_graph(tmp_path)
+    graph = invariant_graph.build_invariant_graph(
+        tmp_path,
+        declared_registries=_NO_DECLARED_REGISTRIES,
+    )
     node_kind_counts = graph.as_payload()["counts"]["node_kind_counts"]
     assert node_kind_counts["cross_origin_witness_report"] == 1
     assert node_kind_counts["cross_origin_witness_case"] == 1
@@ -5183,9 +5219,7 @@ def test_build_invariant_graph_joins_cross_origin_witness_contract_artifact(
 
 def test_build_invariant_graph_splits_orphan_policy_signals_by_source_seed(
     tmp_path: Path,
-    monkeypatch,
 ) -> None:
-    _disable_phase5_enricher(monkeypatch)
     root = _sample_repo(tmp_path)
     (root / "artifacts" / "out").mkdir(parents=True, exist_ok=True)
     (root / "artifacts" / "out" / "ambiguity_contract_policy_check.json").write_text(
@@ -5219,7 +5253,10 @@ def test_build_invariant_graph_splits_orphan_policy_signals_by_source_seed(
         encoding="utf-8",
     )
 
-    graph = invariant_graph.build_invariant_graph(root)
+    graph = invariant_graph.build_invariant_graph(
+        root,
+        declared_registries=_NO_DECLARED_REGISTRIES,
+    )
     policy_signal_nodes = sorted(
         [
             node
@@ -5238,9 +5275,7 @@ def test_build_invariant_graph_splits_orphan_policy_signals_by_source_seed(
 
 def test_build_invariant_graph_fails_closed_on_declared_workstream_dependency(
     tmp_path: Path,
-    monkeypatch,
 ) -> None:
-    _disable_phase5_enricher(monkeypatch)
     root = tmp_path
     _write(root / "src" / "gabion" / "__init__.py", "")
     _write(
@@ -5268,7 +5303,10 @@ def test_build_invariant_graph_fails_closed_on_declared_workstream_dependency(
     import pytest
 
     with pytest.raises(ValueError, match="declared workstream blocking dependency"):
-        invariant_graph.build_invariant_graph(root)
+        invariant_graph.build_invariant_graph(
+            root,
+            declared_registries=_NO_DECLARED_REGISTRIES,
+        )
 
 
 def test_compare_invariant_workstreams_classifies_reduced_and_relocated() -> None:
