@@ -48,6 +48,7 @@ class _FakeFollowup:
     owner_object_id: str
     owner_root_object_id: str
     blocker_class: str
+    queue_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -184,6 +185,10 @@ def test_build_planning_chart_summary_supports_injected_rules() -> None:
             owner_object_id="WS-001",
             owner_root_object_id="WS-001",
             blocker_class="coverage_gap",
+            queue_id=(
+                "planner_queue|followup_family=structural_cut|followup_class=code|"
+                "selection_scope_kind=singleton|selection_scope_id=|root_object_ids=WS-001"
+            ),
         ),
     )
     rules = (
@@ -262,6 +267,12 @@ def test_build_planning_chart_summary_supports_injected_rules() -> None:
         "recommended_cut",
         "recommended_followup",
     }
+    repo_item = next(
+        item
+        for item in phases["complete"]["items"]
+        if item["source_kind"] == "recommended_followup"
+    )
+    assert repo_item["queue_id"].startswith("planner_queue|followup_family=structural_cut|")
     assert payload["selected_completion_item_ids"] == [
         "complete.workstream:WS-001",
         "complete.repo:WS-001-TP-001",

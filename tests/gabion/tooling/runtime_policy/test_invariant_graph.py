@@ -455,6 +455,11 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         "opportunity_cost_score": 0,
         "opportunity_cost_reason": "frontier",
         "opportunity_cost_components": [],
+        "queue_id": (
+            "planner_queue|followup_family=governance_orphan_resolution|"
+            "followup_class=governance|selection_scope_kind=singleton|"
+            "selection_scope_id=|root_object_ids="
+        ),
         "count": 1,
     }
     assert workstreams_payload["repo_next_actions"]["dominant_followup_class"] == (
@@ -474,6 +479,9 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
     assert recommended_code_followup["readiness_class"] == "coverage_gap"
     assert recommended_code_followup["utility_score"] == 480
     assert recommended_code_followup["utility_reason"] == "code:coverage_gap"
+    assert recommended_code_followup["queue_id"].startswith(
+        "planner_queue|followup_family=coverage_gap|"
+    )
     assert recommended_code_followup["selection_certainty_kind"] == "ranked_plateau"
     assert recommended_code_followup["selection_scope_kind"] == "mixed_root_followup_family"
     assert recommended_code_followup["selection_scope_id"] == (
@@ -484,10 +492,18 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         recommended_followup
     )
     assert workstreams_payload["repo_next_actions"]["recommended_followup_lane"] == {
+        "queue_id": (
+            "planner_queue|followup_family=governance_orphan_resolution|"
+            "followup_class=governance|selection_scope_kind=singleton|"
+            "selection_scope_id=|root_object_ids="
+        ),
         "followup_family": "governance_orphan_resolution",
         "followup_class": "governance",
+        "selection_scope_kind": "singleton",
+        "selection_scope_id": None,
         "action_count": 7,
         "root_object_ids": [],
+        "member_object_ids": [],
         "strongest_owner_resolution_kind": "seed_new_owner",
         "strongest_owner_resolution_score": 100,
         "strongest_utility_score": 1190,
@@ -527,17 +543,27 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         "opportunity_cost_components": [],
         "best_followup": recommended_followup,
     }
+    assert (
+        workstreams_payload["repo_next_actions"]["recommended_queue"]
+        == workstreams_payload["repo_next_actions"]["recommended_followup_lane"]
+    )
     recommended_code_followup_lane = workstreams_payload["repo_next_actions"][
         "recommended_code_followup_lane"
     ]
     assert recommended_code_followup_lane["followup_family"] == "coverage_gap"
     assert recommended_code_followup_lane["followup_class"] == "code"
+    assert recommended_code_followup_lane["queue_id"].startswith(
+        "planner_queue|followup_family=coverage_gap|"
+    )
     assert recommended_code_followup_lane["root_object_ids"] == [
         "CSA-IDR",
         "CSA-IGM",
         "CSA-RGC",
         "PSF-007",
     ]
+    assert recommended_code_followup_lane["selection_scope_kind"] == (
+        "mixed_root_followup_family"
+    )
     assert recommended_code_followup_lane["selection_rank"] == 2
     assert recommended_code_followup_lane["best_followup"] == recommended_code_followup
     assert (
@@ -1016,6 +1042,48 @@ def test_injected_repo_followup_plateau_preserves_root_provenance(
         "CSA-IVL",
         "CSA-RGC",
     }
+
+
+def test_planner_queue_overlay_uses_envelops_without_reusing_contains(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    install_synthetic_connectivity_registries(monkeypatch, invariant_graph)
+    root = write_minimal_invariant_repo(tmp_path)
+
+    graph = invariant_graph.build_invariant_graph(root)
+
+    queue_nodes = [
+        node for node in graph.nodes if node.node_kind == "planner_queue"
+    ]
+    assert queue_nodes
+    coverage_queue = next(
+        node for node in queue_nodes if node.title == "coverage_gap queue"
+    )
+    graph_edges = {(edge.edge_kind, edge.source_id, edge.target_id) for edge in graph.edges}
+    coverage_envelop_targets = {
+        target_id
+        for edge_kind, source_id, target_id in graph_edges
+        if edge_kind == "envelops" and source_id == coverage_queue.node_id
+    }
+    assert "object_id:CSA-IDR" in coverage_envelop_targets
+    assert any(
+        target_id.startswith("object_id:") for target_id in coverage_envelop_targets
+    )
+    assert not any(
+        edge_kind == "contains" and source_id == coverage_queue.node_id
+        for edge_kind, source_id, _target_id in graph_edges
+    )
+    envelop_counts_by_target: dict[str, int] = {}
+    for edge_kind, source_id, target_id in graph_edges:
+        if edge_kind != "envelops" or not source_id.startswith("planner_queue:"):
+            continue
+        if not target_id.startswith("object_id:"):
+            continue
+        envelop_counts_by_target[target_id] = (
+            envelop_counts_by_target.get(target_id, 0) + 1
+        )
+    assert any(count >= 2 for count in envelop_counts_by_target.values())
 
 
 def test_workstream_projection_surfaces_policy_and_diagnostic_remediation_families() -> None:
@@ -4836,6 +4904,9 @@ def test_git_state_dirty_graph_participant_exerts_workspace_preservation_pressur
         "stage_validate_commit_graph_participating_change"
     )
     assert recommended_followup["blocker_class"] == "workspace_unstaged"
+    assert recommended_followup["queue_id"].startswith(
+        "planner_queue|followup_family=workspace_preservation|"
+    )
     workspace_lane = next(
         lane
         for lane in payload["repo_next_actions"]["diagnostic_lanes"]
@@ -4856,6 +4927,9 @@ def test_git_state_dirty_graph_participant_exerts_workspace_preservation_pressur
     assert workspace_commit_unit["followup_family"] == "workspace_preservation"
     assert workspace_commit_unit["diagnostic_code"] == "workspace_preservation_needed"
     assert workspace_commit_unit["owner_scope_kind"] == "ambiguous_owner_set"
+    assert workspace_commit_unit["queue_id"].startswith(
+        "planner_queue|followup_family=workspace_preservation|"
+    )
     assert workspace_commit_unit["root_object_ids"] == [
         "CSA-IDR",
         "CSA-IGM",
@@ -4941,6 +5015,9 @@ def test_git_state_dirty_nonoverlap_change_emits_orphaned_workspace_pressure(
         "attribute_stage_validate_commit_orphaned_change"
     )
     assert recommended_followup["blocker_class"] == "workspace_orphan_unstaged"
+    assert recommended_followup["queue_id"].startswith(
+        "planner_queue|followup_family=workspace_orphan_resolution|"
+    )
     workspace_lane = next(
         lane
         for lane in payload["repo_next_actions"]["diagnostic_lanes"]
@@ -4961,6 +5038,9 @@ def test_git_state_dirty_nonoverlap_change_emits_orphaned_workspace_pressure(
     assert workspace_commit_unit["followup_family"] == "workspace_orphan_resolution"
     assert workspace_commit_unit["diagnostic_code"] == "orphaned_workspace_change"
     assert workspace_commit_unit["owner_scope_kind"] == "ambiguous_owner_set"
+    assert workspace_commit_unit["queue_id"].startswith(
+        "planner_queue|followup_family=workspace_orphan_resolution|"
+    )
     assert workspace_commit_unit["root_object_ids"] == [
         "CSA-IDR",
         "CSA-IGM",

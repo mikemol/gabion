@@ -116,6 +116,7 @@ class ProjectManagerAction:
     action_kind: str
     object_id: str
     owner_root_object_id: str
+    queue_id: str
     title: str
     blocker_class: str
     recommended_action: str
@@ -126,6 +127,7 @@ class ProjectManagerAction:
             "action_kind": self.action_kind,
             "object_id": self.object_id,
             "owner_root_object_id": self.owner_root_object_id,
+            "queue_id": self.queue_id,
             "title": self.title,
             "blocker_class": self.blocker_class,
             "recommended_action": self.recommended_action,
@@ -240,6 +242,7 @@ def _action_from_payload(payload: Mapping[str, object]) -> ProjectManagerAction 
     action_kind = eval_text(PathExpr("action_kind"), payload)
     object_id = eval_text(PathExpr("object_id"), payload)
     owner_root_object_id = eval_text(PathExpr("owner_root_object_id"), payload)
+    queue_id = eval_text(PathExpr("queue_id"), payload)
     blocker_class = eval_text(PathExpr("blocker_class"), payload)
     recommended_action = eval_text(PathExpr("recommended_action"), payload)
     if not any(
@@ -249,6 +252,7 @@ def _action_from_payload(payload: Mapping[str, object]) -> ProjectManagerAction 
             action_kind,
             object_id,
             owner_root_object_id,
+            queue_id,
             blocker_class,
             recommended_action,
         )
@@ -259,6 +263,7 @@ def _action_from_payload(payload: Mapping[str, object]) -> ProjectManagerAction 
         action_kind=action_kind,
         object_id=object_id,
         owner_root_object_id=owner_root_object_id,
+        queue_id=queue_id,
         title=title,
         blocker_class=blocker_class,
         recommended_action=recommended_action,
@@ -496,6 +501,7 @@ def render_markdown(view: ProjectManagerView) -> str:
                     "repo_next_action:",
                     f"title: `{view.repo_next_action.title}`",
                     f"object_id: `{view.repo_next_action.object_id}`",
+                    f"queue_id: `{view.repo_next_action.queue_id}`",
                     f"followup_family: `{view.repo_next_action.followup_family}`",
                     f"recommended_action: `{view.repo_next_action.recommended_action}`",
                 )
@@ -509,6 +515,7 @@ def render_markdown(view: ProjectManagerView) -> str:
                     "repo_code_followup:",
                     f"title: `{view.repo_code_followup.title}`",
                     f"object_id: `{view.repo_code_followup.object_id}`",
+                    f"queue_id: `{view.repo_code_followup.queue_id}`",
                     f"followup_family: `{view.repo_code_followup.followup_family}`",
                     f"recommended_action: `{view.repo_code_followup.recommended_action}`",
                 )

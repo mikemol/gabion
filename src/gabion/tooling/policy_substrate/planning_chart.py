@@ -63,6 +63,7 @@ class PlanningChartItem:
     selection_rank: int
     tracked_node_ids: tuple[str, ...] = ()
     tracked_object_ids: tuple[str, ...] = ()
+    queue_id: str = ""
     rule_id: str = ""
     reasoning_summary: str = ""
     selected: bool = False
@@ -78,6 +79,7 @@ class PlanningChartItem:
             "selection_rank": self.selection_rank,
             "tracked_node_ids": list(self.tracked_node_ids),
             "tracked_object_ids": list(self.tracked_object_ids),
+            "queue_id": self.queue_id,
             "rule_id": self.rule_id,
             "reasoning_summary": self.reasoning_summary,
             "selected": self.selected,
@@ -99,6 +101,7 @@ class PlanningChartItem:
             tracked_object_ids=tuple(
                 str(value) for value in payload.get("tracked_object_ids", [])
             ),
+            queue_id=str(payload.get("queue_id", "")),
             rule_id=str(payload.get("rule_id", "")),
             reasoning_summary=str(payload.get("reasoning_summary", "")),
             selected=bool(payload.get("selected", False)),
@@ -512,6 +515,7 @@ def build_planning_chart_summary(
         rule: PlanningChartRule,
         followup,
     ) -> PlanningChartItem:
+        queue_id = str(getattr(followup, "queue_id", "") or "")
         tracked_object_ids = tuple(
             item
             for item in (
@@ -556,6 +560,7 @@ def build_planning_chart_summary(
             selection_rank=rule.selection_rank,
             tracked_node_ids=tracked_node_ids,
             tracked_object_ids=tracked_object_ids,
+            queue_id=queue_id,
             rule_id=rule.rule_id,
             reasoning_summary=f"repo {rule.source_kind} emits {title}.",
             selected=rule.selected,

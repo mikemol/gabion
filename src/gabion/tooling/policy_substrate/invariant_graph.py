@@ -45,6 +45,7 @@ from gabion.tooling.policy_substrate.policy_artifact_stream import (
 )
 from gabion.tooling.policy_substrate.policy_queue_identity import (
     PolicyQueueIdentitySpace,
+    QueueId,
     SiteReferenceId,
     StructuralReferenceId,
     SubqueueId,
@@ -1361,6 +1362,7 @@ class InvariantRepoFollowupAction:
     opportunity_cost_reason: str
     opportunity_cost_components: tuple[InvariantScoreComponent, ...]
     count: int
+    queue_id: QueueId | None = None
     rel_path: str = ""
     qualname: str = ""
 
@@ -1427,6 +1429,11 @@ class InvariantRepoFollowupAction:
             "opportunity_cost_components": [
                 item.as_payload() for item in self.opportunity_cost_components
             ],
+            "queue_id": (
+                None
+                if self.queue_id is None
+                else encode_policy_queue_identity(self.queue_id)
+            ),
             "rel_path": self.rel_path,
             "qualname": self.qualname,
             "count": self.count,
@@ -1435,10 +1442,14 @@ class InvariantRepoFollowupAction:
 
 @dataclass(frozen=True)
 class InvariantRepoFollowupLane:
+    queue_id: QueueId
     followup_family: str
     followup_class: str
+    selection_scope_kind: str
+    selection_scope_id: str | None
     action_count: int
     root_object_ids: tuple[str, ...]
+    member_object_ids: tuple[str, ...]
     strongest_owner_resolution_kind: str | None
     strongest_owner_resolution_score: int | None
     strongest_utility_score: int
@@ -1454,10 +1465,14 @@ class InvariantRepoFollowupLane:
 
     def as_payload(self) -> dict[str, object]:
         return {
+            "queue_id": encode_policy_queue_identity(self.queue_id),
             "followup_family": self.followup_family,
             "followup_class": self.followup_class,
+            "selection_scope_kind": self.selection_scope_kind,
+            "selection_scope_id": self.selection_scope_id,
             "action_count": self.action_count,
             "root_object_ids": list(self.root_object_ids),
+            "member_object_ids": list(self.member_object_ids),
             "strongest_owner_resolution_kind": self.strongest_owner_resolution_kind,
             "strongest_owner_resolution_score": self.strongest_owner_resolution_score,
             "strongest_utility_score": self.strongest_utility_score,
@@ -1669,6 +1684,7 @@ class InvariantRepoDiagnosticLane:
 
 @dataclass(frozen=True)
 class InvariantWorkspaceCommitUnit:
+    queue_id: QueueId
     followup_family: str
     diagnostic_code: str
     recommended_action: str | None
@@ -1689,6 +1705,7 @@ class InvariantWorkspaceCommitUnit:
 
     def as_payload(self) -> dict[str, object]:
         return {
+            "queue_id": encode_policy_queue_identity(self.queue_id),
             "followup_family": self.followup_family,
             "diagnostic_code": self.diagnostic_code,
             "recommended_action": self.recommended_action,
@@ -3027,6 +3044,11 @@ class InvariantWorkstreamsProjection:
     workstreams: ReplayableStream[InvariantWorkstreamProjection]
     diagnostics: tuple[InvariantGraphDiagnostic, ...] = ()
     planning_chart_summary: PlanningChartSummary | None = None
+    identity_space: PolicyQueueIdentitySpace = field(
+        default_factory=PolicyQueueIdentitySpace,
+        repr=False,
+        compare=False,
+    )
     node_lookup: Mapping[str, InvariantGraphNode] = field(
         default_factory=dict,
         repr=False,
@@ -4552,6 +4574,16 @@ class InvariantWorkstreamsProjection:
                     cofrontier_followups=cofrontier_followups,
                 )
             )
+            root_object_ids = self._repo_followup_root_object_ids(
+                followups=cofrontier_followups,
+            )
+            queue_id = self._planner_queue_id(
+                followup_family=action.followup_family,
+                followup_class=self._repo_followup_class(action),
+                selection_scope_kind=selection_scope_kind,
+                selection_scope_id=selection_scope_id,
+                root_object_ids=root_object_ids,
+            )
             frontier_choice_margin_score = (
                 None
                 if runner_up_followup is None
@@ -4611,6 +4643,7 @@ class InvariantWorkstreamsProjection:
                         cofrontier_followup_cohort=cofrontier_followup_cohort,
                         selection_scope_kind=selection_scope_kind,
                         selection_scope_id=selection_scope_id,
+                        queue_id=queue_id,
                         selection_rank=index,
                         opportunity_cost_score=0,
                         opportunity_cost_reason="frontier",
@@ -4652,6 +4685,7 @@ class InvariantWorkstreamsProjection:
                     cofrontier_followup_cohort=cofrontier_followup_cohort,
                     selection_scope_kind=selection_scope_kind,
                     selection_scope_id=selection_scope_id,
+                    queue_id=queue_id,
                     selection_rank=index,
                     opportunity_cost_score=opportunity_cost_score,
                     opportunity_cost_reason=(
@@ -4767,6 +4801,40 @@ class InvariantWorkstreamsProjection:
             )
         return ("mixed_plateau", None)
 
+    @staticmethod
+    def _repo_followup_root_object_ids(
+        *,
+        followups: tuple[InvariantRepoFollowupAction, ...],
+    ) -> tuple[str, ...]:
+        return tuple(
+            _sorted(
+                list(
+                    {
+                        item.owner_root_object_id
+                        for item in followups
+                        if item.owner_root_object_id is not None
+                    }
+                )
+            )
+        )
+
+    def _planner_queue_id(
+        self,
+        *,
+        followup_family: str,
+        followup_class: str,
+        selection_scope_kind: str,
+        selection_scope_id: str | None,
+        root_object_ids: tuple[str, ...],
+    ) -> QueueId:
+        return self.identity_space.planner_queue_id(
+            followup_family=followup_family,
+            followup_class=followup_class,
+            selection_scope_kind=selection_scope_kind,
+            selection_scope_id=selection_scope_id,
+            root_object_ids=root_object_ids,
+        )
+
     def _repo_followup_lane_utility(
         self,
         *,
@@ -4843,6 +4911,9 @@ class InvariantWorkstreamsProjection:
     def recommended_repo_followup_lane(self) -> InvariantRepoFollowupLane | None:
         return self._recommended_repo_followup_lane
 
+    def recommended_repo_queue(self) -> InvariantRepoFollowupLane | None:
+        return self.recommended_repo_followup_lane()
+
     @cached_property
     def _recommended_repo_followup_lane(self) -> InvariantRepoFollowupLane | None:
         lanes = self.repo_followup_lanes()
@@ -4891,6 +4962,9 @@ class InvariantWorkstreamsProjection:
             return None  # pragma: no cover - never() raises
         return None
 
+    def recommended_repo_code_queue(self) -> InvariantRepoFollowupLane | None:
+        return self.recommended_repo_code_followup_lane()
+
     def recommended_repo_human_followup_lane(self) -> InvariantRepoFollowupLane | None:
         for lane in self.repo_followup_lanes():
             if lane.followup_class != "code":
@@ -4913,6 +4987,9 @@ class InvariantWorkstreamsProjection:
             )
             return None  # pragma: no cover - never() raises
         return None
+
+    def recommended_repo_human_queue(self) -> InvariantRepoFollowupLane | None:
+        return self.recommended_repo_human_followup_lane()
 
     def recommended_repo_followup_cross_class_tradeoff(
         self,
@@ -5257,6 +5334,10 @@ class InvariantWorkstreamsProjection:
     def repo_followup_lanes(self) -> tuple[InvariantRepoFollowupLane, ...]:
         return self._repo_followup_lanes
 
+    def repo_followup_queues(self) -> tuple[InvariantRepoFollowupLane, ...]:
+        # Repo followup lanes are the first concrete queue species in this unit.
+        return self.repo_followup_lanes()
+
     @cached_property
     def _repo_followup_lanes(self) -> tuple[InvariantRepoFollowupLane, ...]:
         grouped: defaultdict[tuple[str, str], list[InvariantRepoFollowupAction]] = defaultdict(list)
@@ -5266,6 +5347,10 @@ class InvariantWorkstreamsProjection:
         lanes: list[InvariantRepoFollowupLane] = []
         for (followup_class, followup_family), grouped_items in grouped.items():
             items = tuple(grouped_items)
+            selection_scope_kind, selection_scope_id = (
+                self._repo_followup_selection_scope(cofrontier_followups=items)
+            )
+            root_object_ids = self._repo_followup_root_object_ids(followups=items)
             lane_utility_score, lane_utility_reason, lane_utility_components = (
                 self._repo_followup_lane_utility(
                     followup_class=followup_class,
@@ -5275,23 +5360,22 @@ class InvariantWorkstreamsProjection:
             )
             lanes.append(
                 InvariantRepoFollowupLane(
+                    queue_id=self._planner_queue_id(
+                        followup_family=followup_family,
+                        followup_class=followup_class,
+                        selection_scope_kind=selection_scope_kind,
+                        selection_scope_id=selection_scope_id,
+                        root_object_ids=root_object_ids,
+                    ),
                     followup_family=followup_family,
                     followup_class=followup_class,
+                    selection_scope_kind=selection_scope_kind,
+                    selection_scope_id=selection_scope_id,
                     action_count=len(items),
-                    root_object_ids=tuple(
+                    root_object_ids=root_object_ids,
+                    member_object_ids=tuple(
                         _sorted(
-                            list(
-                                {
-                                self._resolved_repo_followup_owner_root_object_id(
-                                    item
-                                )
-                                for item in items
-                                if self._resolved_repo_followup_owner_root_object_id(
-                                    item
-                                )
-                                is not None
-                                }
-                            )
+                            list({item.object_id for item in items if item.object_id})
                         )
                     ),
                     strongest_owner_resolution_kind=items[0].owner_resolution_kind,
@@ -5663,8 +5747,20 @@ class InvariantWorkstreamsProjection:
                 if breadth_bonus <= 0
                 else f"{best_followup.utility_reason}+workspace_breadth:{len(items)}"
             )
+            queue_id = (
+                best_followup.queue_id
+                if best_followup.queue_id is not None
+                else self._planner_queue_id(
+                    followup_family=followup_family,
+                    followup_class=self._repo_followup_class(best_followup),
+                    selection_scope_kind=best_followup.selection_scope_kind,
+                    selection_scope_id=best_followup.selection_scope_id,
+                    root_object_ids=root_object_ids,
+                )
+            )
             units.append(
                 InvariantWorkspaceCommitUnit(
+                    queue_id=queue_id,
                     followup_family=followup_family,
                     diagnostic_code=diagnostic_code,
                     recommended_action=(
@@ -5740,6 +5836,9 @@ class InvariantWorkstreamsProjection:
         recommended_repo_followup = self.recommended_repo_followup()
         recommended_repo_code_followup = self.recommended_repo_code_followup()
         recommended_repo_human_followup = self.recommended_repo_human_followup()
+        recommended_repo_queue = self.recommended_repo_queue()
+        recommended_repo_code_queue = self.recommended_repo_code_queue()
+        recommended_repo_human_queue = self.recommended_repo_human_queue()
         recommended_repo_followup_lane = self.recommended_repo_followup_lane()
         recommended_repo_code_followup_lane = self.recommended_repo_code_followup_lane()
         recommended_repo_human_followup_lane = self.recommended_repo_human_followup_lane()
@@ -5762,6 +5861,7 @@ class InvariantWorkstreamsProjection:
             self.recommended_repo_followup_cross_class_tradeoff()
         )
         ranked_repo_followups = self.ranked_repo_followups()
+        repo_queues = self.repo_followup_queues()
         repo_followup_lanes = self.repo_followup_lanes()
         repo_diagnostic_lanes = self.repo_diagnostic_lanes()
         workspace_commit_units = self.workspace_commit_units()
@@ -5794,6 +5894,21 @@ class InvariantWorkstreamsProjection:
                     None
                     if recommended_repo_human_followup is None
                     else recommended_repo_human_followup.as_payload()
+                ),
+                "recommended_queue": (
+                    None
+                    if recommended_repo_queue is None
+                    else recommended_repo_queue.as_payload()
+                ),
+                "recommended_code_queue": (
+                    None
+                    if recommended_repo_code_queue is None
+                    else recommended_repo_code_queue.as_payload()
+                ),
+                "recommended_human_queue": (
+                    None
+                    if recommended_repo_human_queue is None
+                    else recommended_repo_human_queue.as_payload()
                 ),
                 "recommended_followup_lane": (
                     None
@@ -5843,6 +5958,7 @@ class InvariantWorkstreamsProjection:
                 "ranked_followups": [
                     item.as_payload() for item in ranked_repo_followups
                 ],
+                "queues": [item.as_payload() for item in repo_queues],
                 "followup_lanes": [
                     item.as_payload() for item in repo_followup_lanes
                 ],
@@ -11572,9 +11688,14 @@ def _planning_chart_item_node_id(item_id: str) -> str:
     return f"planning_chart_item:{stable_hash(item_id)}"
 
 
+def _planner_queue_node_id(queue_id: str) -> str:
+    return f"planner_queue:{stable_hash(queue_id)}"
+
+
 def _graph_with_planning_chart(
     graph: InvariantGraph,
     summary: PlanningChartSummary,
+    workstreams: InvariantWorkstreamsProjection,
 ) -> InvariantGraph:
     nodes_by_id = {node.node_id: node for node in graph.nodes}
     edges = list(graph.edges)
@@ -11616,6 +11737,37 @@ def _graph_with_planning_chart(
         status_hint="populated" if summary.item_count > 0 else "empty",
     )
     _add_node(report_node)
+    queue_node_ids_by_queue_id: dict[str, str] = {}
+    for queue in workstreams.repo_followup_queues():
+        queue_wire = encode_policy_queue_identity(queue.queue_id)
+        queue_node_id = _planner_queue_node_id(queue_wire)
+        queue_node = _synthetic_node(
+            node_id=queue_node_id,
+            title=f"{queue.followup_family} queue",
+            ref_kind="planner_queue",
+            value=queue_wire,
+            object_ids=(queue_wire, *queue.root_object_ids, *queue.member_object_ids),
+            reasoning_summary=(
+                f"planner queue family={queue.followup_family} "
+                f"class={queue.followup_class} "
+                f"roots={','.join(queue.root_object_ids) or 'none'}"
+            ),
+            reasoning_control="invariant_graph.planner_queue",
+            rel_path="artifacts/out/invariant_graph.json",
+            qualname=queue_wire,
+            node_kind="planner_queue",
+            status_hint="active",
+        )
+        _add_node(queue_node)
+        queue_node_ids_by_queue_id[queue_wire] = queue_node_id
+        for root_object_id in queue.root_object_ids:
+            ref_node_id = _synthetic_ref_node_id("object_id", root_object_id)
+            if ref_node_id in nodes_by_id:
+                _add_edge("envelops", queue_node_id, ref_node_id)
+        for member_object_id in queue.member_object_ids:
+            ref_node_id = _synthetic_ref_node_id("object_id", member_object_id)
+            if ref_node_id in nodes_by_id:
+                _add_edge("envelops", queue_node_id, ref_node_id)
     for phase in summary.phases:
         phase_node_id = f"planning_phase:{phase.phase_kind}"
         phase_node = _synthetic_node(
@@ -11661,6 +11813,11 @@ def _graph_with_planning_chart(
             )
             _add_node(item_node)
             _add_edge("contains", phase_node_id, item_node_id)
+            if item.queue_id:
+                queue_node_id = queue_node_ids_by_queue_id.get(item.queue_id)
+                if queue_node_id is not None:
+                    _add_edge("envelops", queue_node_id, item_node_id)
+                    _add_edge("tracks", item_node_id, queue_node_id)
             for tracked_node_id in item.tracked_node_ids:
                 if tracked_node_id in nodes_by_id:
                     _add_edge("tracks", item_node_id, tracked_node_id)
@@ -11712,7 +11869,11 @@ def build_invariant_planning_bundle(
         workstreams=base_workstreams,
         rules=planning_chart_rules,
     )
-    graph = _graph_with_planning_chart(base_graph, planning_chart_summary)
+    graph = _graph_with_planning_chart(
+        base_graph,
+        planning_chart_summary,
+        base_workstreams,
+    )
     workstreams = replace(
         base_workstreams,
         node_lookup=graph.node_by_id(),
@@ -12221,6 +12382,7 @@ def _build_invariant_workstreams_projection(
         generated_at_utc=generated_at_utc,
         diagnostics=graph.diagnostics,
         planning_chart_summary=graph.planning_chart_summary,
+        identity_space=identity_space,
         node_lookup=node_by_id,
         workstreams=_stream_from_iterable(
             lambda: (

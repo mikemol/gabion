@@ -65,6 +65,7 @@ def _sample_payload() -> dict[str, object]:
                     "action_kind": "touchpoint_cut",
                     "object_id": "CSA-IVL-TP-002",
                     "owner_root_object_id": "CSA-IVL",
+                    "queue_id": "planner_queue|followup_family=planner_velocity|followup_class=code|selection_scope_kind=singleton|selection_scope_id=|root_object_ids=CSA-IVL",
                     "title": "Trim planner artifact fanout",
                     "blocker_class": "ready_structural",
                     "recommended_action": "cut_followup",
@@ -94,6 +95,7 @@ def _sample_payload() -> dict[str, object]:
                         "action_kind": "touchpoint_cut",
                         "object_id": "PSF-007-TP-001",
                         "owner_root_object_id": "PSF-007",
+                        "queue_id": "planner_queue|followup_family=structural_cut|followup_class=code|selection_scope_kind=singleton|selection_scope_id=|root_object_ids=PSF-007",
                         "title": "Projection structural cut",
                         "blocker_class": "ready_structural",
                         "recommended_action": "cut_followup",
@@ -128,6 +130,7 @@ def _sample_payload() -> dict[str, object]:
                 "action_kind": "touchpoint_cut",
                 "object_id": "PSF-007-TP-001",
                 "owner_root_object_id": "PSF-007",
+                "queue_id": "planner_queue|followup_family=structural_cut|followup_class=code|selection_scope_kind=singleton|selection_scope_id=|root_object_ids=PSF-007",
                 "title": "Projection structural cut",
                 "blocker_class": "ready_structural",
                 "recommended_action": "cut_followup",
@@ -137,6 +140,7 @@ def _sample_payload() -> dict[str, object]:
                 "action_kind": "touchpoint_cut",
                 "object_id": "PSF-007-TP-001",
                 "owner_root_object_id": "PSF-007",
+                "queue_id": "planner_queue|followup_family=structural_cut|followup_class=code|selection_scope_kind=singleton|selection_scope_id=|root_object_ids=PSF-007",
                 "title": "Projection structural cut",
                 "blocker_class": "ready_structural",
                 "recommended_action": "cut_followup",
@@ -159,6 +163,9 @@ def test_analyze_summarizes_portfolio_and_sorts_by_pressure() -> None:
     }
     assert view.repo_next_action is not None
     assert view.repo_next_action.object_id == "PSF-007-TP-001"
+    assert view.repo_next_action.queue_id.startswith(
+        "planner_queue|followup_family=structural_cut|"
+    )
     assert view.workstreams[0].object_id == "CSA-IVL"
     assert view.workstreams[0].pressure_score > view.workstreams[1].pressure_score
     assert view.workstreams[1].recommended_followup is not None

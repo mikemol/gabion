@@ -266,7 +266,11 @@ def test_policy_check_output_carries_projection_fiber_semantics_on_pass(
     assert "recommended_followup" in invariant_workstreams_payload["repo_next_actions"]
     assert "recommended_code_followup" in invariant_workstreams_payload["repo_next_actions"]
     assert "recommended_human_followup" in invariant_workstreams_payload["repo_next_actions"]
+    assert "recommended_queue" in invariant_workstreams_payload["repo_next_actions"]
+    assert "recommended_code_queue" in invariant_workstreams_payload["repo_next_actions"]
+    assert "recommended_human_queue" in invariant_workstreams_payload["repo_next_actions"]
     assert "ranked_followups" in invariant_workstreams_payload["repo_next_actions"]
+    assert "queues" in invariant_workstreams_payload["repo_next_actions"]
     assert "followup_lanes" in invariant_workstreams_payload["repo_next_actions"]
     assert "diagnostic_lanes" in invariant_workstreams_payload["repo_next_actions"]
     assert (
@@ -406,12 +410,20 @@ def test_policy_check_workflows_output_emits_invariant_graph_artifact(
         "recommended_followup"
     ]
     assert recommended_followup["followup_family"] == "coverage_gap"
+    assert recommended_followup["queue_id"].startswith(
+        "planner_queue|followup_family=coverage_gap|"
+    )
     assert recommended_followup["owner_root_object_id"] in {
         "CSA-IDR",
         "CSA-IGM",
         "CSA-IVL",
         "CSA-RGC",
     }
+    recommended_queue = invariant_workstreams_payload["repo_next_actions"][
+        "recommended_queue"
+    ]
+    assert recommended_queue["queue_id"] == recommended_followup["queue_id"]
+    assert recommended_queue["selection_scope_kind"] == "mixed_root_followup_family"
     assert {
         item["owner_root_object_id"]
         for item in recommended_followup["cofrontier_followup_cohort"]

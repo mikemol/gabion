@@ -114,6 +114,8 @@ class RegisteredRootDefinition:
 
 @dataclass(frozen=True)
 class WorkstreamRegistry:
+    # Registry packets remain single-root declarations; planner queues are a
+    # separate overlay runtime distinction constructed in the planning substrate.
     root: RegisteredRootDefinition
     subqueues: tuple[RegisteredSubqueueDefinition, ...]
     touchpoints: tuple[RegisteredTouchpointDefinition, ...] = ()

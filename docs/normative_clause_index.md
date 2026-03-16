@@ -1,5 +1,5 @@
 ---
-doc_revision: 17
+doc_revision: 18
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: normative_clause_index
 doc_role: normative_index
@@ -26,7 +26,7 @@ doc_review_notes:
   README.md#repo_contract: "Reviewed README.md rev2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
   CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
   AGENTS.md#agent_obligations: "Reviewed AGENTS.md rev35 (agent workflow now includes correction-unit git drainage and hunk-granular commit guidance)."
-  glossary.md#contract: "Reviewed glossary.md#contract rev46 (runtime scope is now process-relative and the distinction ladder remains part of the semantic contract)."
+  glossary.md#contract: "Reviewed glossary.md#contract rev47 (runtime scope stays process-relative; queue/root/subqueue/workstream-registry semantics now distinguish planner envelopes from rooted registry ownership)."
 doc_sections:
   normative_clause_index: 3
 doc_section_requires:
@@ -62,7 +62,7 @@ doc_section_reviews:
       dep_version: 1
       self_version_at_review: 3
       outcome: no_change
-      note: "Glossary rev46 reviewed; runtime scope and admissibility clauses stay glossary-aligned."
+      note: "Glossary rev47 reviewed; runtime scope and admissibility clauses stay glossary-aligned while queue/root/subqueue/workstream-registry terms remain distinct."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_erasure:
   - formatting
@@ -119,6 +119,15 @@ link to clause IDs instead of duplicating long-form normative prose.
 - Observable distinctions must be coverable.
 - Distinctions failing any step are not valid runtime distinctions.
 - Canonical sources: `POLICY_SEED.md#policy_seed`, `[glossary.md#contract](../glossary.md#contract)`.
+
+<a id="clause-planner-queue-envelope"></a>
+### `NCI-PLANNER-QUEUE-ENVELOPE` — Queue is a planner envelope, not rooted ownership
+- `Queue` is a first-class planner-side runtime distinction when planning state, prioritization, or scheduling observes it.
+- `Root` is the top-level declared work item in the registry substrate.
+- `Subqueue` is a first-order structural child of a root.
+- `WorkstreamRegistry` is a single-root declaration packet and must not be treated as the semantic definition of a queue.
+- Queue membership is overlay membership and must not reuse structural `contains` ownership semantics.
+- Canonical sources: `[glossary.md#queue](../glossary.md#queue)`, `[glossary.md#root](../glossary.md#root)`, `[glossary.md#subqueue](../glossary.md#subqueue)`, `[glossary.md#workstream_registry](../glossary.md#workstream_registry)`.
 
 
 <a id="clause-shift-ambiguity-left"></a>

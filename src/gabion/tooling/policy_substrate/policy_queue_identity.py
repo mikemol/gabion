@@ -4,6 +4,7 @@ import re
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TypeVar
+from urllib.parse import quote, unquote
 
 from gabion.analysis.core.type_fingerprints import PrimeRegistry
 from gabion.tooling.policy_substrate.identity_zone import (
@@ -15,6 +16,7 @@ from gabion.tooling.policy_substrate.identity_zone import (
 
 
 class PolicyQueueIdentityNamespace(StrEnum):
+    QUEUE = "policy_queue.queue"
     WORKSTREAM = "policy_queue.workstream"
     SUBQUEUE = "policy_queue.subqueue"
     TOUCHPOINT = "policy_queue.touchpoint"
@@ -58,6 +60,25 @@ PolicyQueueDecompositionRelation = IdentityDecompositionRelation[
 
 @dataclass(frozen=True, order=True)
 class WorkstreamId:
+    canonical: _PrimeBackedIdentity
+    decompositions: tuple[PolicyQueueDecompositionIdentity, ...] = field(
+        default=(),
+        compare=False,
+    )
+    relations: tuple[PolicyQueueDecompositionRelation, ...] = field(
+        default=(),
+        compare=False,
+    )
+
+    def wire(self) -> str:
+        return self.canonical.token
+
+    def __str__(self) -> str:
+        return self.canonical.token
+
+
+@dataclass(frozen=True, order=True)
+class QueueId:
     canonical: _PrimeBackedIdentity
     decompositions: tuple[PolicyQueueDecompositionIdentity, ...] = field(
         default=(),
@@ -218,6 +239,7 @@ class ArtifactNodeId:
 
 _IdentityCarrierT = TypeVar(
     "_IdentityCarrierT",
+    QueueId,
     WorkstreamId,
     SubqueueId,
     TouchpointId,
@@ -226,6 +248,119 @@ _IdentityCarrierT = TypeVar(
     StructuralReferenceId,
     ArtifactNodeId,
 )
+
+
+_PLANNER_QUEUE_TOKEN_PREFIX = "planner_queue"
+_PLANNER_QUEUE_TOKEN_FIELDS = (
+    "followup_family",
+    "followup_class",
+    "selection_scope_kind",
+    "selection_scope_id",
+    "root_object_ids",
+)
+
+
+@dataclass(frozen=True)
+class PlannerQueueBinding:
+    followup_family: str
+    followup_class: str
+    selection_scope_kind: str
+    selection_scope_id: str | None
+    root_object_ids: tuple[str, ...]
+
+
+def _quote_queue_component(value: str) -> str:
+    return quote(str(value).strip(), safe="-._~")
+
+
+def _unquote_queue_component(value: str) -> str:
+    return unquote(str(value).strip())
+
+
+def build_planner_queue_token(
+    *,
+    followup_family: str,
+    followup_class: str,
+    selection_scope_kind: str,
+    selection_scope_id: str | None,
+    root_object_ids: tuple[str, ...] | list[str],
+) -> str:
+    normalized_followup_family = str(followup_family).strip()
+    normalized_followup_class = str(followup_class).strip()
+    normalized_selection_scope_kind = str(selection_scope_kind).strip()
+    normalized_selection_scope_id = (
+        None
+        if selection_scope_id is None or not str(selection_scope_id).strip()
+        else str(selection_scope_id).strip()
+    )
+    normalized_root_object_ids = tuple(
+        sorted(
+            {
+                str(item).strip()
+                for item in root_object_ids
+                if str(item).strip()
+            }
+        )
+    )
+    if not normalized_followup_family:
+        raise ValueError("planner queue token requires followup_family")
+    if not normalized_followup_class:
+        raise ValueError("planner queue token requires followup_class")
+    if not normalized_selection_scope_kind:
+        raise ValueError("planner queue token requires selection_scope_kind")
+    root_field = ",".join(
+        _quote_queue_component(item) for item in normalized_root_object_ids
+    )
+    return "|".join(
+        (
+            _PLANNER_QUEUE_TOKEN_PREFIX,
+            f"followup_family={_quote_queue_component(normalized_followup_family)}",
+            f"followup_class={_quote_queue_component(normalized_followup_class)}",
+            "selection_scope_kind="
+            f"{_quote_queue_component(normalized_selection_scope_kind)}",
+            "selection_scope_id="
+            f"{_quote_queue_component(normalized_selection_scope_id or '')}",
+            f"root_object_ids={root_field}",
+        )
+    )
+
+
+def parse_planner_queue_token(token: str | QueueId) -> PlannerQueueBinding:
+    wire = token.wire() if isinstance(token, QueueId) else str(token).strip()
+    segments = wire.split("|")
+    if not segments or segments[0] != _PLANNER_QUEUE_TOKEN_PREFIX:
+        raise ValueError(f"invalid planner queue token: {wire}")
+    raw_fields: dict[str, str] = {}
+    for segment in segments[1:]:
+        key, separator, value = segment.partition("=")
+        if not separator or not key:
+            raise ValueError(f"invalid planner queue token segment: {segment}")
+        raw_fields[key] = value
+    missing = [
+        field_name
+        for field_name in _PLANNER_QUEUE_TOKEN_FIELDS
+        if field_name not in raw_fields
+    ]
+    if missing:
+        raise ValueError(
+            "planner queue token missing required fields: "
+            + ", ".join(sorted(missing))
+        )
+    root_object_ids = tuple(
+        _unquote_queue_component(item)
+        for item in raw_fields["root_object_ids"].split(",")
+        if item
+    )
+    selection_scope_id = _unquote_queue_component(raw_fields["selection_scope_id"])
+    return PlannerQueueBinding(
+        followup_family=_unquote_queue_component(raw_fields["followup_family"]),
+        followup_class=_unquote_queue_component(raw_fields["followup_class"]),
+        selection_scope_kind=_unquote_queue_component(
+            raw_fields["selection_scope_kind"]
+        ),
+        selection_scope_id=selection_scope_id or None,
+        root_object_ids=root_object_ids,
+    )
 
 
 @dataclass
@@ -412,6 +547,34 @@ class PolicyQueueIdentitySpace:
             constructor=WorkstreamId,
         )
 
+    def queue_id(self, token: str) -> QueueId:
+        return self._wrap_identity(
+            canonical=self._identity(
+                namespace=PolicyQueueIdentityNamespace.QUEUE,
+                token=token,
+            ),
+            constructor=QueueId,
+        )
+
+    def planner_queue_id(
+        self,
+        *,
+        followup_family: str,
+        followup_class: str,
+        selection_scope_kind: str,
+        selection_scope_id: str | None,
+        root_object_ids: tuple[str, ...] | list[str],
+    ) -> QueueId:
+        return self.queue_id(
+            build_planner_queue_token(
+                followup_family=followup_family,
+                followup_class=followup_class,
+                selection_scope_kind=selection_scope_kind,
+                selection_scope_id=selection_scope_id,
+                root_object_ids=root_object_ids,
+            )
+        )
+
     def subqueue_id(self, token: str) -> SubqueueId:
         return self._wrap_identity(
             canonical=self._identity(
@@ -497,7 +660,8 @@ class PolicyQueueIdentitySpace:
 
 
 def policy_queue_identity_view_payload(
-    value: WorkstreamId
+    value: QueueId
+    | WorkstreamId
     | SubqueueId
     | TouchpointId
     | TouchsiteId
@@ -525,7 +689,8 @@ def policy_queue_identity_view_payload(
 
 
 def encode_policy_queue_identity(
-    value: WorkstreamId
+    value: QueueId
+    | WorkstreamId
     | SubqueueId
     | TouchpointId
     | TouchsiteId
@@ -536,7 +701,7 @@ def encode_policy_queue_identity(
     | str,
 ) -> str:
     match value:
-        case WorkstreamId() | SubqueueId() | TouchpointId() | TouchsiteId():
+        case QueueId() | WorkstreamId() | SubqueueId() | TouchpointId() | TouchsiteId():
             return value.wire()
         case SiteReferenceId() | StructuralReferenceId() | ArtifactNodeId():
             return value.wire()
@@ -556,12 +721,16 @@ __all__ = [
     "PolicyQueueDecompositionRelation",
     "PolicyQueueDecompositionRelationKind",
     "ArtifactNodeId",
+    "PlannerQueueBinding",
+    "QueueId",
     "SiteReferenceId",
     "StructuralReferenceId",
     "SubqueueId",
     "TouchpointId",
     "TouchsiteId",
     "WorkstreamId",
+    "build_planner_queue_token",
     "encode_policy_queue_identity",
+    "parse_planner_queue_token",
     "policy_queue_identity_view_payload",
 ]

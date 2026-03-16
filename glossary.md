@@ -1,5 +1,5 @@
 ---
-doc_revision: 46
+doc_revision: 47
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: glossary
 doc_role: glossary
@@ -26,6 +26,10 @@ doc_sections:
   forest: 1
   suite_site: 1
   hash_consing: 1
+  queue: 1
+  root: 1
+  subqueue: 1
+  workstream_registry: 1
   never_throw_exception_protocol: 1
   deadness_witness: 1
   coherence_witness: 1
@@ -2327,3 +2331,188 @@ Formatting differences are erased; semantic structure is not.
 ### Test Obligations (to be mapped)
 
 - Hash idempotence and normalization commutation.
+
+---
+
+<a id="queue"></a>
+## 53. Queue
+
+### Meaning
+
+**Definition:** A `Queue` is a planner-side scheduling envelope over the global
+invariant graph. It is a runtime distinction of the planning process, not a
+structural ownership node in the registry substrate.
+
+### Axis
+
+**Axis:** Operational overlay (planner envelope / scheduling context).
+
+### Desired Commutation (Overlay Preserves Ownership)
+
+Let `queue(x)` be a planner envelope and `contains(·)` the structural
+ownership relation.
+
+```
+project(queue(x), contains) preserves root/subqueue ownership
+```
+
+### Failure Modes
+
+- `Queue` treated as a synonym for `WorkstreamRegistry`.
+- Queue membership encoded through `contains` rather than an overlay relation.
+- Planner-visible cross-root grouping exists operationally but lacks a
+  constructible queue identity.
+
+### Normative Rule
+
+> `Queue` is a first-class planner runtime distinction when it participates in
+> planning state, scheduling, or prioritization. Queue identity must be
+> constructible from planner-visible envelope inputs. Queue membership is
+> overlay membership, not ownership, and must not reuse structural `contains`
+> semantics.
+
+### Erasure
+
+Projecting a queue to its participating roots erases queue-local scheduling
+context, queue intersections, and queue-level planner observability.
+
+### Test Obligations (to be mapped)
+
+- Queue identity is deterministic from planner-visible envelope inputs.
+- Queue overlay edges do not alter structural ownership edges.
+- Shared items may participate in multiple queues without ownership conflicts.
+
+---
+
+<a id="root"></a>
+## 54. Root
+
+### Meaning
+
+**Definition:** A `Root` is the top-level declared work item in the registry
+substrate. It is the structural owner of first-order `Subqueue` cuts.
+
+### Axis
+
+**Axis:** Structural ownership (registry declaration / graph containment).
+
+### Desired Commutation (Root Closure Stability)
+
+Let `closure(root)` be the structural closure over `contains`.
+
+```
+closure(root) is invariant under planner overlays
+```
+
+### Failure Modes
+
+- Root ownership widened to absorb planner-only queue membership.
+- Subqueues or touchpoints lose a unique structural parent root.
+- Queue context is mistaken for root identity.
+
+### Normative Rule
+
+> `Root` names the top-level declared work item in the registry substrate.
+> Planner overlays may observe or intersect multiple roots, but they do not
+> redefine root ownership.
+
+### Erasure
+
+Planner envelope identity may be erased when projecting to the rooted
+ownership tree; root ownership itself is not erased.
+
+### Test Obligations (to be mapped)
+
+- Declared roots remain single structural parents in the registry graph.
+- Planner overlays do not rewrite root ownership edges.
+
+---
+
+<a id="subqueue"></a>
+## 55. Subqueue
+
+### Meaning
+
+**Definition:** A `Subqueue` is a first-order structural child cut of a root.
+It groups touchpoints under that root within the registry substrate.
+
+### Axis
+
+**Axis:** Structural decomposition (root-local cut / containment boundary).
+
+### Desired Commutation (First-Order Child Stability)
+
+```
+root contains subqueue
+```
+
+must remain distinct from any planner-side queue envelope.
+
+### Failure Modes
+
+- `Subqueue` treated as a planner lane or queue synonym.
+- Planner membership edges reused as subqueue ownership edges.
+- Shared planner items create ambiguity in structural subqueue parentage.
+
+### Normative Rule
+
+> `Subqueue` is a structural first-order child of a root. It remains within the
+> rooted ownership tree even when planner overlays cross or intersect multiple
+> roots and multiple planner queues.
+
+### Erasure
+
+Planner ranking or scheduling context may be erased; structural child
+membership under the root is not.
+
+### Test Obligations (to be mapped)
+
+- Subqueue containment remains root-local.
+- Planner overlays do not create multi-parent structural subqueues.
+
+---
+
+<a id="workstream_registry"></a>
+## 56. Workstream Registry
+
+### Meaning
+
+**Definition:** A `WorkstreamRegistry` is a single-root declaration packet for
+registry-owned structural surfaces. It is not the semantic definition of a
+planner queue.
+
+### Axis
+
+**Axis:** Declaration carrier (registry packet / substrate ingress).
+
+### Desired Commutation (Registry Packet → Root)
+
+```
+registry.packet -> one root
+```
+
+while queue overlays may span multiple registry packets.
+
+### Failure Modes
+
+- Registry packet treated as a planner queue.
+- Multi-root planner grouping forced into a single-root registry type.
+- Queue semantics inferred from registry container shape rather than planner
+  runtime behavior.
+
+### Normative Rule
+
+> `WorkstreamRegistry` remains exactly one root plus its declared subqueues and
+> touchpoints. If a future artifact needs multi-root declaration semantics, it
+> must use a distinct type rather than widening `WorkstreamRegistry`.
+
+### Erasure
+
+Packaging multiple registries together may erase packet boundaries at the view
+layer; the single-root declaration contract of each registry is not erased.
+
+### Test Obligations (to be mapped)
+
+- WorkstreamRegistry remains single-root.
+- Planner queues may span multiple registries without widening the registry
+  declaration type.

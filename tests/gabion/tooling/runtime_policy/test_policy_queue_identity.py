@@ -4,6 +4,8 @@ from gabion.tooling.policy_substrate.policy_queue_identity import (
     PolicyQueueDecompositionKind,
     PolicyQueueDecompositionRelationKind,
     PolicyQueueIdentitySpace,
+    build_planner_queue_token,
+    parse_planner_queue_token,
     policy_queue_identity_view_payload,
 )
 
@@ -73,3 +75,40 @@ def test_policy_queue_identity_exposes_artifact_node_binding_carrier() -> None:
     assert payload["site_identity"] == "site.decorated"
     assert payload["structural_identity"] == "struct.decorated"
     assert payload["line"] == 14
+
+
+def test_planner_queue_identity_is_deterministic_and_decodable() -> None:
+    identity_space = PolicyQueueIdentitySpace()
+    queue_id = identity_space.planner_queue_id(
+        followup_family="coverage_gap",
+        followup_class="code",
+        selection_scope_kind="mixed_root_followup_family",
+        selection_scope_id="coverage_gap:CSA-IDR,CSA-IGM",
+        root_object_ids=("CSA-IGM", "CSA-IDR"),
+    )
+    queue_id_again = identity_space.queue_id(
+        build_planner_queue_token(
+            followup_family="coverage_gap",
+            followup_class="code",
+            selection_scope_kind="mixed_root_followup_family",
+            selection_scope_id="coverage_gap:CSA-IDR,CSA-IGM",
+            root_object_ids=("CSA-IDR", "CSA-IGM"),
+        )
+    )
+
+    assert queue_id == queue_id_again
+    assert queue_id.wire() == queue_id_again.wire()
+    binding = parse_planner_queue_token(queue_id)
+    assert binding.followup_family == "coverage_gap"
+    assert binding.followup_class == "code"
+    assert binding.selection_scope_kind == "mixed_root_followup_family"
+    assert binding.selection_scope_id == "coverage_gap:CSA-IDR,CSA-IGM"
+    assert binding.root_object_ids == ("CSA-IDR", "CSA-IGM")
+    distinct_queue_id = identity_space.planner_queue_id(
+        followup_family="coverage_gap",
+        followup_class="code",
+        selection_scope_kind="shared_root_workstream",
+        selection_scope_id="CSA-IDR",
+        root_object_ids=("CSA-IDR",),
+    )
+    assert distinct_queue_id != queue_id
