@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from gabion.invariants import todo_decorator
+from gabion.invariants import landed_todo_decorator
 from gabion.tooling.policy_substrate.workstream_registry import (
     RegisteredRootDefinition,
     RegisteredSubqueueDefinition,
@@ -11,17 +11,12 @@ from gabion.tooling.policy_substrate.workstream_registry import (
 )
 
 
-@todo_decorator(
-    reason="SCC remains active until coercion, bridge-contract, compatibility-boundary, and review-note metadata surfaces converge onto canonical contracts.",
+@landed_todo_decorator(
+    reason="SCC is recorded as landed metadata after coercion, bridge-contract, compatibility-boundary, and review-note metadata surfaces converged onto canonical contracts.",
     reasoning={
-        "summary": "Runtime-shape coercion, server-core bridge contracts, staged indexed dataflow facade retirement, and review-note consistency still drift across parallel local surfaces.",
+        "summary": "Runtime-shape coercion, server-core bridge contracts, staged indexed dataflow facade retirement, and review-note consistency are completed on canonical contracts and recorded as closed queue state.",
         "control": "surface_contract_convergence.root",
-        "blocking_dependencies": (
-            "SCC-SQ-001",
-            "SCC-SQ-002",
-            "SCC-SQ-003",
-            "SCC-SQ-004",
-        ),
+        "blocking_dependencies": (),
     },
     owner="gabion.tooling.policy_substrate",
     expiry="SCC closure",
@@ -31,15 +26,12 @@ def _scc_root() -> None:
     return None
 
 
-@todo_decorator(
-    reason="SCC-SQ-001 remains active until runtime-shape coercion logic converges on one shared contract substrate.",
+@landed_todo_decorator(
+    reason="SCC-SQ-001 is recorded as landed metadata after runtime-shape coercion logic converged on one shared contract substrate.",
     reasoning={
-        "summary": "Optional mapping/string/int/float coercion still exists in duplicated singledispatch families with diverging bool and fallback semantics.",
+        "summary": "Optional mapping/string/int/float coercion now uses one shared contract substrate, and the completed convergence is recorded as closed subqueue state.",
         "control": "surface_contract_convergence.coercion_substrate",
-        "blocking_dependencies": (
-            "SCC-TP-001",
-            "SCC-TP-002",
-        ),
+        "blocking_dependencies": (),
     },
     owner="gabion.runtime",
     expiry="SCC closure",
@@ -52,15 +44,12 @@ def _scc_sq_coercion_substrate() -> None:
     return None
 
 
-@todo_decorator(
-    reason="SCC-SQ-002 remains active until server-core primitive bridges materialize from one registry-backed contract layer.",
+@landed_todo_decorator(
+    reason="SCC-SQ-002 is recorded as landed metadata after server-core primitive bridges materialized from one registry-backed contract layer.",
     reasoning={
-        "summary": "First-layer and downstream server-core bridge wrappers still mirror command_orchestrator_primitives through brittle hand-wired dataclass/staticmethod assignments.",
+        "summary": "First-layer and downstream server-core bridge wrappers now materialize from one registry-backed contract layer, and the completed convergence is recorded as closed subqueue state.",
         "control": "surface_contract_convergence.server_core_bridge_contracts",
-        "blocking_dependencies": (
-            "SCC-TP-003",
-            "SCC-TP-004",
-        ),
+        "blocking_dependencies": (),
     },
     owner="gabion.server_core",
     expiry="SCC closure",
@@ -73,15 +62,12 @@ def _scc_sq_server_core_bridge_contracts() -> None:
     return None
 
 
-@todo_decorator(
-    reason="SCC-SQ-003 remains active until the indexed dataflow compatibility facade is reduced to explicit boundary adapters with retirement telemetry.",
+@landed_todo_decorator(
+    reason="SCC-SQ-003 is recorded as landed metadata after the indexed dataflow compatibility facade was reduced to explicit boundary adapters with retirement telemetry.",
     reasoning={
-        "summary": "The staged indexed facade still operates as a broad import hub instead of an explicit alias inventory tied to retirement/debt artifacts.",
+        "summary": "The staged indexed facade now operates as an explicit alias inventory tied to retirement and debt artifacts, and the completed convergence is recorded as closed subqueue state.",
         "control": "surface_contract_convergence.indexed_dataflow_boundary",
-        "blocking_dependencies": (
-            "SCC-TP-005",
-            "SCC-TP-006",
-        ),
+        "blocking_dependencies": (),
     },
     owner="gabion.analysis.dataflow",
     expiry="SCC closure",
@@ -96,12 +82,12 @@ def _scc_sq_indexed_dataflow_boundary() -> None:
     return None
 
 
-@todo_decorator(
-    reason="SCC-SQ-004 remains active until review-note metadata drift is mechanically checked and normalized on core governance docs.",
+@landed_todo_decorator(
+    reason="SCC-SQ-004 is recorded as landed metadata after review-note metadata drift became mechanically checked and normalized on core governance docs.",
     reasoning={
-        "summary": "doc_review_notes prose can lag current document and section revisions because the audit only checks pin maps, not the explanatory note text.",
+        "summary": "doc_review_notes prose is now mechanically checked against current document and section revisions, and the completed normalization is recorded as closed subqueue state.",
         "control": "surface_contract_convergence.review_note_consistency",
-        "blocking_dependencies": ("SCC-TP-007",),
+        "blocking_dependencies": (),
     },
     owner="gabion_governance",
     expiry="SCC closure",
@@ -114,12 +100,12 @@ def _scc_sq_review_note_consistency() -> None:
     return None
 
 
-@todo_decorator(
-    reason="SCC-TP-001 tracks the first coercion cutover onto a shared contract module for the runtime-shape and progress-contract entry surfaces.",
+@landed_todo_decorator(
+    reason="SCC-TP-001 is recorded as landed metadata for the first coercion cutover onto a shared contract module for the runtime-shape and progress-contract entry surfaces.",
     reasoning={
-        "summary": "runtime_shape_dispatch and commands.progress_contract should stop carrying parallel coercion singledispatch families and instead consume one named contract substrate.",
+        "summary": "runtime_shape_dispatch and commands.progress_contract now consume one shared contract substrate instead of parallel coercion singledispatch families, and the completed cutover is recorded as closed touchpoint state.",
         "control": "surface_contract_convergence.coercion_pair_touchpoint",
-        "blocking_dependencies": ("SCC-SQ-001",),
+        "blocking_dependencies": (),
     },
     owner="gabion.runtime",
     expiry="SCC closure",
@@ -133,12 +119,12 @@ def _scc_tp_coercion_pair() -> None:
     return None
 
 
-@todo_decorator(
-    reason="SCC-TP-002 tracks the staged migration of remaining duplicate coercion helper families onto the same shared coercion contract.",
+@landed_todo_decorator(
+    reason="SCC-TP-002 is recorded as landed metadata for the staged migration of remaining duplicate coercion helper families onto the same shared coercion contract.",
     reasoning={
-        "summary": "CLI, server-core progress, governance, ASPF, and test-obsolescence still each carry local mapping/int/float coercion helpers that should reuse the shared runtime contract.",
+        "summary": "CLI, server-core progress, governance, ASPF, and test-obsolescence surfaces now reuse the shared runtime contract instead of local coercion helpers, and the completed migration is recorded as closed touchpoint state.",
         "control": "surface_contract_convergence.coercion_followons_touchpoint",
-        "blocking_dependencies": ("SCC-SQ-001",),
+        "blocking_dependencies": (),
     },
     owner="gabion.runtime",
     expiry="SCC closure",
@@ -152,12 +138,12 @@ def _scc_tp_coercion_followons() -> None:
     return None
 
 
-@todo_decorator(
-    reason="SCC-TP-003 tracks replacement of the first-layer server-core bridge wrappers with a registry-backed primitive contract layer.",
+@landed_todo_decorator(
+    reason="SCC-TP-003 is recorded as landed metadata for replacement of the first-layer server-core bridge wrappers with a registry-backed primitive contract layer.",
     reasoning={
-        "summary": "analysis_primitives, timeout_runtime, progress_contracts, and report_projection_runtime should materialize from one declarative bridge contract instead of hand-maintained symbol lists.",
+        "summary": "analysis_primitives, timeout_runtime, progress_contracts, and report_projection_runtime now materialize from one declarative bridge contract instead of hand-maintained symbol lists, and the completed replacement is recorded as closed touchpoint state.",
         "control": "surface_contract_convergence.bridge_layer_one_touchpoint",
-        "blocking_dependencies": ("SCC-SQ-002",),
+        "blocking_dependencies": (),
     },
     owner="gabion.server_core",
     expiry="SCC closure",
@@ -171,12 +157,12 @@ def _scc_tp_bridge_layer_one() -> None:
     return None
 
 
-@todo_decorator(
-    reason="SCC-TP-004 tracks migration of downstream mirror bridge layers and policy surfaces onto the same primitive contract registry.",
+@landed_todo_decorator(
+    reason="SCC-TP-004 is recorded as landed metadata for migration of downstream mirror bridge layers and policy surfaces onto the same primitive contract registry.",
     reasoning={
-        "summary": "output/progress/timeout primitives, ingress deps, and barrel-growth policy checks should consume the same registry-backed bridge contract as the first-layer wrappers.",
+        "summary": "output/progress/timeout primitives, ingress deps, and barrel-growth policy checks now consume the same registry-backed bridge contract as the first-layer wrappers, and the completed migration is recorded as closed touchpoint state.",
         "control": "surface_contract_convergence.bridge_layer_two_touchpoint",
-        "blocking_dependencies": ("SCC-SQ-002",),
+        "blocking_dependencies": (),
     },
     owner="gabion.server_core",
     expiry="SCC closure",
@@ -190,12 +176,12 @@ def _scc_tp_bridge_layer_two() -> None:
     return None
 
 
-@todo_decorator(
-    reason="SCC-TP-005 tracks conversion of the indexed dataflow compatibility facade into an explicit alias-inventory boundary with retirement telemetry.",
+@landed_todo_decorator(
+    reason="SCC-TP-005 is recorded as landed metadata for conversion of the indexed dataflow compatibility facade into an explicit alias-inventory boundary with retirement telemetry.",
     reasoning={
-        "summary": "The staged dataflow_indexed_file_scan compatibility module should declare its alias boundary surface explicitly instead of remaining a broad import hub.",
+        "summary": "The staged dataflow_indexed_file_scan compatibility module now declares its alias boundary surface explicitly instead of remaining a broad import hub, and the completed conversion is recorded as closed touchpoint state.",
         "control": "surface_contract_convergence.indexed_alias_inventory_touchpoint",
-        "blocking_dependencies": ("SCC-SQ-003",),
+        "blocking_dependencies": (),
     },
     owner="gabion.analysis.dataflow",
     expiry="SCC closure",
@@ -211,12 +197,12 @@ def _scc_tp_indexed_alias_inventory() -> None:
     return None
 
 
-@todo_decorator(
-    reason="SCC-TP-006 tracks the follow-on deflation of the indexed facade's remaining hot import fan-in while keeping the compatibility path stable.",
+@landed_todo_decorator(
+    reason="SCC-TP-006 is recorded as landed metadata for the follow-on deflation of the indexed facade's remaining hot import fan-in while keeping the compatibility path stable.",
     reasoning={
-        "summary": "After explicit alias inventory exists, remaining owner-domain adapters and debt rows should converge until the facade is boundary-only.",
+        "summary": "After explicit alias inventory landed, remaining owner-domain adapters and debt rows converged until the facade became boundary-only, and the completed deflation is recorded as closed touchpoint state.",
         "control": "surface_contract_convergence.indexed_adapter_deflation_touchpoint",
-        "blocking_dependencies": ("SCC-SQ-003",),
+        "blocking_dependencies": (),
     },
     owner="gabion.analysis.dataflow",
     expiry="SCC closure",
@@ -232,12 +218,12 @@ def _scc_tp_indexed_adapter_deflation() -> None:
     return None
 
 
-@todo_decorator(
-    reason="SCC-TP-007 tracks the review-note consistency lint and normalization of core governance document notes.",
+@landed_todo_decorator(
+    reason="SCC-TP-007 is recorded as landed metadata for the review-note consistency lint and normalization of core governance document notes.",
     reasoning={
-        "summary": "Core governance docs should fail when doc_review_notes prose does not mention current document and section revision context alongside the pinned review metadata.",
+        "summary": "Core governance docs now fail when doc_review_notes prose omits current document and section revision context alongside the pinned review metadata, and the completed normalization is recorded as closed touchpoint state.",
         "control": "surface_contract_convergence.review_note_lint_touchpoint",
-        "blocking_dependencies": ("SCC-SQ-004",),
+        "blocking_dependencies": (),
     },
     owner="gabion_governance",
     expiry="SCC closure",

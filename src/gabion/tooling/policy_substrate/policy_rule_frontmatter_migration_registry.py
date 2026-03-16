@@ -7,7 +7,7 @@ from typing import Callable
 
 from gabion.analysis.aspf.aspf_lattice_algebra import canonical_structural_identity
 from gabion.analysis.foundation.marker_protocol import MarkerPayload, marker_identity
-from gabion.invariants import invariant_decorations, todo_decorator
+from gabion.invariants import invariant_decorations, landed_todo_decorator
 from gabion.tooling.policy_substrate.site_identity import canonical_site_identity
 from gabion.tooling.policy_substrate.workstream_registry import (
     RegisteredRootDefinition,
@@ -63,6 +63,7 @@ class PolicyRuleFrontmatterMigrationTouchpointDefinition:
     structural_identity: str
     marker_identity: str
     marker_payload: MarkerPayload
+    status_hint: str
 
 
 def _registry_site_metadata(symbol: Callable[..., object]) -> tuple[str, str, int]:
@@ -111,7 +112,7 @@ def _todo_metadata(
     )
 
 
-@todo_decorator(
+@landed_todo_decorator(
     reason="PRF migration queue remains machine-projected as landed metadata after the cheat-sheet mechanization follow-on converged.",
     reasoning={
         "summary": "PRF landed the markdown-frontmatter migration, governance-loop registry mechanization, policy-rule playbook rendering, clause-deck generation, and cheat-sheet follow-on rendering.",
@@ -130,10 +131,10 @@ def _prf_queue() -> None:
     return None
 
 
-@todo_decorator(
+@landed_todo_decorator(
     reason="PRF-001 remains recorded as landed metadata for the frontmatter migration queue.",
     reasoning={
-        "summary": "Reject non-object rules entries during policy document compilation.",
+        "summary": "Completed landed rejection of non-object rules entries during policy document compilation.",
         "control": "prf.item.reject_non_object_rules",
         "blocking_dependencies": (),
     },
@@ -149,10 +150,10 @@ def _prf_001() -> None:
     return None
 
 
-@todo_decorator(
+@landed_todo_decorator(
     reason="PRF-002 remains recorded as landed metadata for the frontmatter migration queue.",
     reasoning={
-        "summary": "Treat malformed YAML frontmatter as a strict compiler failure.",
+        "summary": "Completed landed strict failure behavior for malformed YAML frontmatter.",
         "control": "prf.item.strict_frontmatter_parse_failure",
         "blocking_dependencies": (),
     },
@@ -168,10 +169,10 @@ def _prf_002() -> None:
     return None
 
 
-@todo_decorator(
+@landed_todo_decorator(
     reason="PRF-003 remains recorded as landed metadata for the frontmatter migration queue.",
     reasoning={
-        "summary": "Reject blank playbook_anchor values.",
+        "summary": "Completed landed rejection of blank playbook_anchor values.",
         "control": "prf.item.reject_blank_playbook_anchor",
         "blocking_dependencies": (),
     },
@@ -187,10 +188,10 @@ def _prf_003() -> None:
     return None
 
 
-@todo_decorator(
+@landed_todo_decorator(
     reason="PRF-004 remains recorded as landed metadata for the frontmatter migration queue.",
     reasoning={
-        "summary": "Per-violation grade guidance is emitted from the markdown playbook body rather than duplicated runtime strings.",
+        "summary": "Completed landed emission of per-violation grade guidance from the markdown playbook body rather than duplicated runtime strings.",
         "control": "prf.item.markdown_authoritative_grade_guidance",
         "blocking_dependencies": (),
     },
@@ -206,10 +207,10 @@ def _prf_004() -> None:
     return None
 
 
-@todo_decorator(
+@landed_todo_decorator(
     reason="PRF-005 remains recorded as landed metadata once the cheat-sheet Rule Matrix moved to structured catalog ownership.",
     reasoning={
-        "summary": "Bootstrap the first mechanically-owned cheat-sheet surface with a structured rule catalog plus renderer.",
+        "summary": "Completed landed bootstrap of the first mechanically-owned cheat-sheet surface with a structured rule catalog plus renderer.",
         "control": "prf.item.enforceable_rules_cheat_sheet_catalog",
         "blocking_dependencies": (),
     },
@@ -226,10 +227,10 @@ def _prf_005() -> None:
     return None
 
 
-@todo_decorator(
+@landed_todo_decorator(
     reason="PRF-006 remains recorded as landed metadata once governance loop docs moved to a shared normalized registry plus renderer path.",
     reasoning={
-        "summary": "Governance loop semantics should move out of duplicated prose and into a shared structured registry that renders both the loop registry and the gate matrix.",
+        "summary": "Completed landed migration of governance loop semantics out of duplicated prose and into a shared structured registry that renders both the loop registry and the gate matrix.",
         "control": "prf.item.governance_loop_registry_renderer",
         "blocking_dependencies": (),
     },
@@ -247,10 +248,10 @@ def _prf_006() -> None:
     return None
 
 
-@todo_decorator(
+@landed_todo_decorator(
     reason="PRF-007 remains recorded as landed metadata once policy-rule playbook docs moved from duplicated prose to frontmatter-backed generated sections.",
     reasoning={
-        "summary": "Render the ambiguity-contract and grade-monotonicity playbooks from their canonical markdown-frontmatter rules.",
+        "summary": "Completed landed rendering of the ambiguity-contract and grade-monotonicity playbooks from their canonical markdown-frontmatter rules.",
         "control": "prf.item.policy_rule_playbook_renderer",
         "blocking_dependencies": (),
     },
@@ -268,10 +269,10 @@ def _prf_007() -> None:
     return None
 
 
-@todo_decorator(
+@landed_todo_decorator(
     reason="PRF-008 remains recorded as landed metadata once AGENTS and CONTRIBUTING moved their clause-backed obligation bullets to a shared audience-specific catalog plus renderer.",
     reasoning={
-        "summary": "Generate the repetitive clause-backed obligation bullets in AGENTS and CONTRIBUTING from a small audience-specific catalog.",
+        "summary": "Completed landed generation of the repetitive clause-backed obligation bullets in AGENTS and CONTRIBUTING from a small audience-specific catalog.",
         "control": "prf.item.clause_backed_obligation_decks",
         "blocking_dependencies": (),
     },
@@ -289,10 +290,10 @@ def _prf_008() -> None:
     return None
 
 
-@todo_decorator(
+@landed_todo_decorator(
     reason="PRF-009 remains recorded as landed metadata once the remaining cheat-sheet guardrail and validation sections moved to generated catalog ownership.",
     reasoning={
-        "summary": "The cheat sheet now renders guardrails and validation bundles from the stabilized governance catalogs beyond the original Rule Matrix slice.",
+        "summary": "Completed landed rendering of cheat-sheet guardrails and validation bundles from the stabilized governance catalogs beyond the original Rule Matrix slice.",
         "control": "prf.item.cheat_sheet_guardrails_renderer",
         "blocking_dependencies": (),
     },
@@ -309,10 +310,10 @@ def _prf_009() -> None:
     return None
 
 
-@todo_decorator(
+@landed_todo_decorator(
     reason="PRF-TP-006 remains recorded as landed metadata once governance loop docs moved to a shared structured registry.",
     reasoning={
-        "summary": "The next mechanization slice is the shared governance loop registry that should render both governance loop docs from one catalog.",
+        "summary": "Completed landed mechanization of the shared governance loop registry that renders both governance loop docs from one catalog.",
         "control": "prf.touchpoint.governance_loop_registry_renderer",
         "blocking_dependencies": (),
     },
@@ -331,10 +332,10 @@ def _prf_tp_006() -> None:
     return None
 
 
-@todo_decorator(
+@landed_todo_decorator(
     reason="PRF-TP-007 remains recorded as landed metadata once policy-rule playbook docs moved to generated frontmatter-backed sections.",
     reasoning={
-        "summary": "The ambiguity-contract and grade-monotonicity docs already carry canonical rules metadata and now render their frontmatter-backed playbook bodies from that carrier.",
+        "summary": "Completed landed rendering of the ambiguity-contract and grade-monotonicity docs from their frontmatter-backed canonical rules metadata.",
         "control": "prf.touchpoint.policy_rule_playbook_renderer",
         "blocking_dependencies": (),
     },
@@ -353,10 +354,10 @@ def _prf_tp_007() -> None:
     return None
 
 
-@todo_decorator(
+@landed_todo_decorator(
     reason="PRF-TP-008 remains recorded as landed metadata once clause-backed obligation decks moved to the shared audience-scoped catalog plus renderer.",
     reasoning={
-        "summary": "The repetitive clause bullet decks in AGENTS and CONTRIBUTING now move through an audience-scoped clause selection catalog and renderer.",
+        "summary": "Completed landed migration of the repetitive clause bullet decks in AGENTS and CONTRIBUTING to an audience-scoped clause selection catalog and renderer.",
         "control": "prf.touchpoint.clause_backed_obligation_decks",
         "blocking_dependencies": (),
     },
@@ -375,10 +376,10 @@ def _prf_tp_008() -> None:
     return None
 
 
-@todo_decorator(
+@landed_todo_decorator(
     reason="PRF-TP-009 remains recorded as landed metadata once cheat-sheet guardrails and validation bundles moved to generated catalog ownership.",
     reasoning={
-        "summary": "The remaining repetitive cheat-sheet sections now render from the stabilized loop and rule catalogs rather than staying hand-authored.",
+        "summary": "Completed landed rendering of the remaining repetitive cheat-sheet sections from the stabilized loop and rule catalogs rather than leaving them hand-authored.",
         "control": "prf.touchpoint.cheat_sheet_guardrails_renderer",
         "blocking_dependencies": (),
     },
@@ -557,6 +558,7 @@ def iter_prf_touchpoints() -> tuple[PolicyRuleFrontmatterMigrationTouchpointDefi
                 structural_identity=structural_id,
                 marker_identity=marker_id,
                 marker_payload=payload,
+                status_hint="landed",
             )
         )
     return tuple(definitions)
@@ -610,6 +612,7 @@ def prf_workstream_registry() -> WorkstreamRegistry:
                 structural_identity=item.structural_identity,
                 marker_identity=item.marker_identity,
                 marker_payload=item.marker_payload,
+                status_hint=item.status_hint,
                 declared_touchsites={
                     "PRF-TP-006": (
                         declared_touchsite_definition(

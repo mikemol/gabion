@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from gabion.analysis.foundation.marker_protocol import MarkerLifecycleState
 from gabion.tooling.policy_substrate.connectivity_synergy_registry import (
     connectivity_synergy_workstream_registries,
 )
@@ -28,6 +29,7 @@ def test_prf_workstream_registry_exposes_queue_sequence_and_active_playbook_touc
     assert registry.root.root_id == "PRF"
     assert registry.tags == ("registry_convergence",)
     assert registry.root.status_hint == "landed"
+    assert registry.root.marker_payload.lifecycle_state is MarkerLifecycleState.LANDED
     assert registry.root.subqueue_ids == (
         "PRF-001",
         "PRF-002",
@@ -51,6 +53,7 @@ def test_prf_workstream_registry_exposes_queue_sequence_and_active_playbook_touc
         "PRF-009",
     )
     assert subqueues["PRF-005"].status_hint == "landed"
+    assert subqueues["PRF-005"].marker_payload.lifecycle_state is MarkerLifecycleState.LANDED
     assert subqueues["PRF-005"].touchpoint_ids == ()
     assert subqueues["PRF-006"].status_hint == "landed"
     assert subqueues["PRF-006"].touchpoint_ids == ("PRF-TP-006",)
@@ -71,6 +74,11 @@ def test_prf_workstream_registry_exposes_queue_sequence_and_active_playbook_touc
         "PRF-TP-008",
         "PRF-TP-009",
     }
+    assert all(item.status_hint == "landed" for item in touchpoints.values())
+    assert all(
+        item.marker_payload.lifecycle_state is MarkerLifecycleState.LANDED
+        for item in touchpoints.values()
+    )
     assert {
         (item.rel_path, item.qualname)
         for item in touchpoints["PRF-TP-006"].declared_touchsites
@@ -176,6 +184,7 @@ def test_surface_contract_convergence_workstream_registry_exposes_queue_and_touc
     assert registry.root.root_id == "SCC"
     assert registry.tags == ("contract_convergence",)
     assert registry.root.status_hint == "landed"
+    assert registry.root.marker_payload.lifecycle_state is MarkerLifecycleState.LANDED
     assert registry.root.subqueue_ids == (
         "SCC-SQ-001",
         "SCC-SQ-002",
@@ -193,6 +202,10 @@ def test_surface_contract_convergence_workstream_registry_exposes_queue_and_touc
     assert subqueues["SCC-SQ-003"].touchpoint_ids == ("SCC-TP-005", "SCC-TP-006")
     assert subqueues["SCC-SQ-004"].touchpoint_ids == ("SCC-TP-007",)
     assert all(item.status_hint == "landed" for item in registry.subqueues)
+    assert all(
+        item.marker_payload.lifecycle_state is MarkerLifecycleState.LANDED
+        for item in registry.subqueues
+    )
     assert set(touchpoints) == {
         "SCC-TP-001",
         "SCC-TP-002",
@@ -209,6 +222,10 @@ def test_surface_contract_convergence_workstream_registry_exposes_queue_and_touc
     assert touchpoints["SCC-TP-005"].status_hint == "landed"
     assert touchpoints["SCC-TP-006"].status_hint == "landed"
     assert touchpoints["SCC-TP-007"].status_hint == "landed"
+    assert all(
+        item.marker_payload.lifecycle_state is MarkerLifecycleState.LANDED
+        for item in registry.touchpoints
+    )
     assert all(
         touchpoints[touchpoint_id].status_hint == "queued"
         for touchpoint_id in touchpoints
@@ -343,6 +360,7 @@ def test_runtime_context_injection_workstream_registry_exposes_queue_and_touchsi
     assert registry.root.root_id == "RCI"
     assert registry.tags == ("runtime_context_injection",)
     assert registry.root.status_hint == "landed"
+    assert registry.root.marker_payload.lifecycle_state is MarkerLifecycleState.LANDED
     assert registry.root.subqueue_ids == (
         "RCI-SQ-001",
         "RCI-SQ-002",
@@ -358,8 +376,12 @@ def test_runtime_context_injection_workstream_registry_exposes_queue_and_touchsi
     assert subqueues["RCI-SQ-001"].touchpoint_ids == ("RCI-TP-001",)
     assert subqueues["RCI-SQ-002"].touchpoint_ids == ("RCI-TP-002", "RCI-TP-003")
     assert subqueues["RCI-SQ-003"].touchpoint_ids == ("RCI-TP-004", "RCI-TP-005")
-    assert subqueues["RCI-SQ-004"].touchpoint_ids == ("RCI-TP-006",)
+    assert subqueues["RCI-SQ-004"].touchpoint_ids == ("RCI-TP-006", "RCI-TP-007")
     assert all(item.status_hint == "landed" for item in registry.subqueues)
+    assert all(
+        item.marker_payload.lifecycle_state is MarkerLifecycleState.LANDED
+        for item in registry.subqueues
+    )
     assert set(touchpoints) == {
         "RCI-TP-001",
         "RCI-TP-002",
@@ -367,8 +389,13 @@ def test_runtime_context_injection_workstream_registry_exposes_queue_and_touchsi
         "RCI-TP-004",
         "RCI-TP-005",
         "RCI-TP-006",
+        "RCI-TP-007",
     }
     assert all(item.status_hint == "landed" for item in registry.touchpoints)
+    assert all(
+        item.marker_payload.lifecycle_state is MarkerLifecycleState.LANDED
+        for item in registry.touchpoints
+    )
     assert {
         (item.rel_path, item.qualname)
         for item in touchpoints["RCI-TP-001"].declared_touchsites
@@ -425,6 +452,16 @@ def test_runtime_context_injection_workstream_registry_exposes_queue_and_touchsi
             "test_invariant_graph_live_repo",
         ),
     }
+    assert {
+        (item.rel_path, item.qualname)
+        for item in touchpoints["RCI-TP-007"].declared_touchsites
+    } == {
+        ("tests/gabion/tooling/runtime_policy/test_invariant_graph.py", "test_invariant_graph"),
+        (
+            "tests/gabion/tooling/runtime_policy/test_invariant_graph_live_repo.py",
+            "test_invariant_graph_live_repo",
+        ),
+    }
 
 
 def test_boundary_ingress_convergence_workstream_registry_exposes_queue_and_touchsites() -> None:
@@ -435,6 +472,7 @@ def test_boundary_ingress_convergence_workstream_registry_exposes_queue_and_touc
     assert registry.root.root_id == "BIC"
     assert registry.tags == ("boundary_ingress_convergence",)
     assert registry.root.status_hint == "landed"
+    assert registry.root.marker_payload.lifecycle_state is MarkerLifecycleState.LANDED
     assert registry.root.subqueue_ids == (
         "BIC-SQ-001",
         "BIC-SQ-002",
@@ -449,6 +487,10 @@ def test_boundary_ingress_convergence_workstream_registry_exposes_queue_and_touc
     assert subqueues["BIC-SQ-002"].touchpoint_ids == ("BIC-TP-002", "BIC-TP-003")
     assert subqueues["BIC-SQ-003"].touchpoint_ids == ("BIC-TP-004",)
     assert all(item.status_hint == "landed" for item in registry.subqueues)
+    assert all(
+        item.marker_payload.lifecycle_state is MarkerLifecycleState.LANDED
+        for item in registry.subqueues
+    )
     assert set(touchpoints) == {
         "BIC-TP-001",
         "BIC-TP-005",
@@ -457,6 +499,10 @@ def test_boundary_ingress_convergence_workstream_registry_exposes_queue_and_touc
         "BIC-TP-004",
     }
     assert all(item.status_hint == "landed" for item in registry.touchpoints)
+    assert all(
+        item.marker_payload.lifecycle_state is MarkerLifecycleState.LANDED
+        for item in registry.touchpoints
+    )
     assert {
         (item.rel_path, item.qualname)
         for item in touchpoints["BIC-TP-001"].declared_touchsites
@@ -577,7 +623,7 @@ def test_connectivity_synergy_workstream_registries_expose_expected_roots_and_to
             for item in by_root["CSA-IGM"].subqueues
             if item.subqueue_id == "CSA-IGM-SQ-002"
         ).touchpoint_ids
-        == ("CSA-IGM-TP-002", "CSA-IGM-TP-005")
+        == ("CSA-IGM-TP-002", "CSA-IGM-TP-005", "CSA-IGM-TP-006")
     )
     assert (
         next(
@@ -601,7 +647,12 @@ def test_connectivity_synergy_workstream_registries_expose_expected_roots_and_to
             for item in by_root["CSA-RGC"].subqueues
             if item.subqueue_id == "CSA-RGC-SQ-006"
         ).touchpoint_ids
-        == ("CSA-RGC-TP-006", "CSA-RGC-TP-007", "CSA-RGC-TP-011")
+        == (
+            "CSA-RGC-TP-006",
+            "CSA-RGC-TP-007",
+            "CSA-RGC-TP-011",
+            "CSA-RGC-TP-012",
+        )
     )
     assert igm_touchpoints["CSA-IGM-TP-005"].status_hint == "landed"
     assert rgc_touchpoints["CSA-RGC-TP-009"].status_hint == "landed"
@@ -693,7 +744,16 @@ def test_connectivity_synergy_workstream_registries_expose_expected_roots_and_to
         ("scripts/governance/docflow_promote_sections.py", "main"),
         ("scripts/audit/audit_in_step_structure.py", "_parse_frontmatter"),
         ("src/gabion/analysis/semantics/impact_index.py", "_parse_frontmatter"),
-        ("src/gabion/tooling/governance/normative_symdiff.py", "_parse_frontmatter"),
+    }
+    assert {
+        (item.rel_path, item.qualname)
+        for item in igm_touchpoints["CSA-IGM-TP-006"].declared_touchsites
+    } >= {
+        ("src/gabion/frontmatter.py", "parse_lenient_yaml_frontmatter"),
+        (
+            "src/gabion/tooling/governance/normative_symdiff.py",
+            "collect_scope_inventory",
+        ),
     }
     assert {
         (item.rel_path, item.qualname)
@@ -724,6 +784,26 @@ def test_connectivity_synergy_workstream_registries_expose_expected_roots_and_to
         ("scripts/policy/policy_check.py", "main"),
         ("docs/governance_control_loops.yaml", "governance_control_loops.gates"),
         ("scripts/install_hooks.sh", "install_hooks"),
+    }
+    assert {
+        (item.rel_path, item.qualname)
+        for item in rgc_touchpoints["CSA-RGC-TP-012"].declared_touchsites
+    } >= {
+        ("src/gabion/analysis/foundation/marker_protocol.py", "normalize_marker_payload"),
+        ("src/gabion/invariants.py", "landed_todo_decorator"),
+        (
+            "src/gabion/tooling/policy_substrate/invariant_marker_scan.py",
+            "_lifecycle_state",
+        ),
+        (
+            "src/gabion/tooling/policy_substrate/workstream_registry.py",
+            "validate_workstream_closure_consistency",
+        ),
+        ("scripts/policy/policy_check.py", "check_workstream_closure_consistency"),
+        (
+            "tests/gabion/tooling/runtime_policy/test_workstream_closure_consistency.py",
+            "test_workstream_closure_consistency",
+        ),
     }
     assert {
         (item.rel_path, item.qualname)

@@ -9142,6 +9142,10 @@ def _iter_declared_workstream_registries() -> tuple[WorkstreamRegistry, ...]:
     return tuple(registries)
 
 
+def declared_workstream_registries() -> tuple[WorkstreamRegistry, ...]:
+    return _iter_declared_workstream_registries()
+
+
 def _path_variants(raw_path: str) -> tuple[str, ...]:
     normalized = raw_path.strip().replace("\\", "/")
     if not normalized:
@@ -12704,6 +12708,7 @@ __all__ = [
     "build_psf_phase5_projection",
     "compare_invariant_ledger_projections",
     "compare_invariant_workstreams",
+    "declared_workstream_registries",
     "load_invariant_workstreams",
     "load_invariant_ledger_alignments",
     "load_invariant_ledger_deltas",

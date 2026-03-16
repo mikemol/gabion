@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from gabion.invariants import todo_decorator
+from gabion.invariants import landed_todo_decorator
 from gabion.tooling.policy_substrate.workstream_registry import (
     RegisteredRootDefinition,
     RegisteredSubqueueDefinition,
@@ -11,16 +11,12 @@ from gabion.tooling.policy_substrate.workstream_registry import (
 )
 
 
-@todo_decorator(
-    reason="BIC remains active until CLI/dataflow ingress wiring, server-core coercion carriers, and CLI live-repo sentinel boundaries converge onto explicit shared surfaces.",
+@landed_todo_decorator(
+    reason="BIC is recorded as landed metadata after CLI/dataflow ingress wiring, server-core coercion carriers, and CLI live-repo sentinel boundaries converged onto explicit shared surfaces.",
     reasoning={
-        "summary": "CLI/dataflow transport helper wiring, server-core coercion logic, and CLI repo-state smoke tests still drift across parallel ingress and test surfaces.",
+        "summary": "CLI/dataflow transport helper wiring, server-core coercion logic, and CLI repo-state smoke tests are completed on shared ingress and sentinel surfaces and recorded as closed queue state.",
         "control": "boundary_ingress_convergence.root",
-        "blocking_dependencies": (
-            "BIC-SQ-001",
-            "BIC-SQ-002",
-            "BIC-SQ-003",
-        ),
+        "blocking_dependencies": (),
     },
     owner="gabion.tooling.policy_substrate",
     expiry="BIC closure",
@@ -30,12 +26,12 @@ def _bic_root() -> None:
     return None
 
 
-@todo_decorator(
-    reason="BIC-SQ-001 remains active until CLI/dataflow transport ingress wiring converges on one shared carrier.",
+@landed_todo_decorator(
+    reason="BIC-SQ-001 is recorded as landed metadata after CLI/dataflow transport ingress wiring converged on one shared carrier.",
     reasoning={
-        "summary": "cli.py and tooling.runtime.dataflow_invocation_runner still thread parallel timeout, report-path, payload, dispatch, and run-check helpers instead of sharing one ingress carrier.",
+        "summary": "cli.py and tooling.runtime.dataflow_invocation_runner now share one ingress carrier for timeout, report-path, payload, dispatch, and run-check helpers, and the convergence is recorded as closed subqueue state.",
         "control": "boundary_ingress_convergence.dataflow_transport_ingress",
-        "blocking_dependencies": ("BIC-TP-001",),
+        "blocking_dependencies": (),
     },
     owner="gabion.cli_support",
     expiry="BIC closure",
@@ -48,12 +44,12 @@ def _bic_sq_dataflow_transport_ingress() -> None:
     return None
 
 
-@todo_decorator(
-    reason="BIC-SQ-001 follow-on work remains active until runtime dataflow invocation stops re-exporting carrier-owned ingress wrappers.",
+@landed_todo_decorator(
+    reason="BIC-TP-005 is recorded as landed metadata after runtime dataflow invocation stopped re-exporting carrier-owned ingress wrappers.",
     reasoning={
-        "summary": "dataflow_invocation_runner still carries local timeout, report-path, output-target, and payload helper wrappers instead of treating the shared transport carrier as the sole ingress owner.",
+        "summary": "dataflow_invocation_runner now treats the shared transport carrier as the sole ingress owner, and the follow-on wrapper collapse is completed and recorded as closed touchpoint state.",
         "control": "boundary_ingress_convergence.dataflow_transport_follow_on",
-        "blocking_dependencies": ("BIC-TP-005",),
+        "blocking_dependencies": (),
     },
     owner="gabion.cli_support",
     expiry="BIC closure",
@@ -66,12 +62,12 @@ def _bic_tp_runner_ingress_residue() -> None:
     return None
 
 
-@todo_decorator(
-    reason="BIC-SQ-002 remains active until server-core coercion helpers converge onto one shared carrier.",
+@landed_todo_decorator(
+    reason="BIC-SQ-002 is recorded as landed metadata after server-core coercion helpers converged onto one shared carrier.",
     reasoning={
-        "summary": "command_orchestrator, command_orchestrator_progress, and their downstream consumers still split overlapping runtime coercion logic across local singledispatch surfaces.",
+        "summary": "command_orchestrator, command_orchestrator_progress, and downstream consumers now share one coercion carrier, and the convergence is completed and recorded as closed subqueue state.",
         "control": "boundary_ingress_convergence.server_core_coercion",
-        "blocking_dependencies": ("BIC-TP-002", "BIC-TP-003"),
+        "blocking_dependencies": (),
     },
     owner="gabion.server_core",
     expiry="BIC closure",
@@ -84,12 +80,12 @@ def _bic_sq_server_core_coercion() -> None:
     return None
 
 
-@todo_decorator(
-    reason="BIC-SQ-003 remains active until CLI live-repo smoke tests are separated from deterministic command-behavior tests.",
+@landed_todo_decorator(
+    reason="BIC-SQ-003 is recorded as landed metadata after CLI live-repo smoke tests were separated from deterministic command-behavior tests.",
     reasoning={
-        "summary": "REPO_ROOT-bound CLI smoke tests still live in the deterministic CLI case module instead of an explicit repo-state sentinel surface.",
+        "summary": "REPO_ROOT-bound CLI smoke tests now live in an explicit repo-state sentinel surface, and the separation is completed and recorded as closed subqueue state.",
         "control": "boundary_ingress_convergence.cli_live_repo_sentinels",
-        "blocking_dependencies": ("BIC-TP-004",),
+        "blocking_dependencies": (),
     },
     owner="gabion.cli",
     expiry="BIC closure",
@@ -102,12 +98,12 @@ def _bic_sq_cli_live_repo_sentinels() -> None:
     return None
 
 
-@todo_decorator(
-    reason="BIC-TP-001 tracks the shared CLI/dataflow transport ingress carrier.",
+@landed_todo_decorator(
+    reason="BIC-TP-001 is recorded as landed metadata for the shared CLI/dataflow transport ingress carrier.",
     reasoning={
-        "summary": "CLI and runtime dataflow entry surfaces should share one transport ingress carrier for timeout ticks, report-path resolution, payload helpers, dispatch, and run-check wiring.",
+        "summary": "CLI and runtime dataflow entry surfaces now share one transport ingress carrier for timeout ticks, report-path resolution, payload helpers, dispatch, and run-check wiring, and that completed convergence is recorded as closed touchpoint state.",
         "control": "boundary_ingress_convergence.dataflow_transport_touchpoint",
-        "blocking_dependencies": ("BIC-SQ-001",),
+        "blocking_dependencies": (),
     },
     owner="gabion.cli_support",
     expiry="BIC closure",
@@ -121,12 +117,12 @@ def _bic_tp_dataflow_transport_ingress() -> None:
     return None
 
 
-@todo_decorator(
-    reason="BIC-TP-002 tracks extraction of the canonical server-core coercion carrier.",
+@landed_todo_decorator(
+    reason="BIC-TP-002 is recorded as landed metadata for extraction of the canonical server-core coercion carrier.",
     reasoning={
-        "summary": "Server-core orchestrator and progress coercion helpers should move to one shared carrier backed by the runtime coercion substrate.",
+        "summary": "Server-core orchestrator and progress coercion helpers now use one shared carrier backed by the runtime coercion substrate, and the completed extraction is recorded as closed touchpoint state.",
         "control": "boundary_ingress_convergence.server_core_coercion_extract",
-        "blocking_dependencies": ("BIC-SQ-002",),
+        "blocking_dependencies": (),
     },
     owner="gabion.server_core",
     expiry="BIC closure",
@@ -140,12 +136,12 @@ def _bic_tp_server_core_coercion_extract() -> None:
     return None
 
 
-@todo_decorator(
-    reason="BIC-TP-003 tracks downstream migration onto the shared server-core coercion carrier.",
+@landed_todo_decorator(
+    reason="BIC-TP-003 is recorded as landed metadata for downstream migration onto the shared server-core coercion carrier.",
     reasoning={
-        "summary": "command_orchestrator_primitives and server_payload_dispatch should import the new server-core coercion carrier instead of reusing progress-local helper surfaces.",
+        "summary": "command_orchestrator_primitives and server_payload_dispatch now import the shared server-core coercion carrier, and the completed migration is recorded as closed touchpoint state.",
         "control": "boundary_ingress_convergence.server_core_coercion_migrate",
-        "blocking_dependencies": ("BIC-SQ-002",),
+        "blocking_dependencies": (),
     },
     owner="gabion.server_core",
     expiry="BIC closure",
@@ -159,12 +155,12 @@ def _bic_tp_server_core_coercion_migrate() -> None:
     return None
 
 
-@todo_decorator(
-    reason="BIC-TP-004 tracks the dedicated CLI live-repo sentinel split.",
+@landed_todo_decorator(
+    reason="BIC-TP-004 is recorded as landed metadata for the dedicated CLI live-repo sentinel split.",
     reasoning={
-        "summary": "CLI REPO_ROOT smoke tests should move to a dedicated live-repo sentinel module so deterministic command-behavior cases remain synthetic and stable.",
+        "summary": "CLI REPO_ROOT smoke tests now live in a dedicated live-repo sentinel module so deterministic command-behavior cases remain synthetic and stable, and the completed split is recorded as closed touchpoint state.",
         "control": "boundary_ingress_convergence.cli_live_repo_split",
-        "blocking_dependencies": ("BIC-SQ-003",),
+        "blocking_dependencies": (),
     },
     owner="gabion.cli",
     expiry="BIC closure",

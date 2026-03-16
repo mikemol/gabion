@@ -1477,7 +1477,34 @@ class JobContext:
 
 def _fail(errors):
     global _LAST_FAIL_ERRORS
+    global _LAST_FAIL_VIOLATIONS
     _LAST_FAIL_ERRORS = list(errors)
+    _LAST_FAIL_VIOLATIONS = [
+        {
+            "kind": "policy_violation",
+            "message": error,
+            "render": error,
+        }
+        for error in errors
+    ]
+    for err in errors:
+        check_deadline()
+        print(f"policy-check: {err}", file=sys.stderr)
+    raise SystemExit(2)
+
+
+def _fail_with_kind(kind: str, errors: list[str]) -> None:
+    global _LAST_FAIL_ERRORS
+    global _LAST_FAIL_VIOLATIONS
+    _LAST_FAIL_ERRORS = list(errors)
+    _LAST_FAIL_VIOLATIONS = [
+        {
+            "kind": kind,
+            "message": error,
+            "render": error,
+        }
+        for error in errors
+    ]
     for err in errors:
         check_deadline()
         print(f"policy-check: {err}", file=sys.stderr)
@@ -2491,6 +2518,35 @@ def check_workflows():
         _fail(errors)
 
 
+def check_workstream_closure_consistency(
+    *,
+    declared_registries: tuple[WorkstreamRegistry, ...] | None = None,
+) -> None:
+    from gabion.tooling.policy_substrate.invariant_graph import (
+        declared_workstream_registries,
+    )
+    from gabion.tooling.policy_substrate.workstream_registry import (
+        validate_workstream_closure_consistency,
+    )
+
+    registries = (
+        declared_workstream_registries()
+        if declared_registries is None
+        else declared_registries
+    )
+    violations = validate_workstream_closure_consistency(registries)
+    if not violations:
+        return
+    messages = [
+        (
+            f"workstream_closure_drift:{violation.code}:{violation.object_id}: "
+            f"{violation.message} ({violation.rel_path}:{violation.qualname})"
+        )
+        for violation in violations
+    ]
+    _fail_with_kind("workstream_closure_drift", messages)
+
+
 def _api_json(url, token):
     headers = {
         "Accept": "application/vnd.github+json",
@@ -2699,6 +2755,7 @@ _KNOWN_ADAPTER_SURFACES = {
 }
 
 _LAST_FAIL_ERRORS: list[str] = []
+_LAST_FAIL_VIOLATIONS: list[dict[str, str]] = []
 
 
 def _write_projection_semantic_fragment_queue_artifacts(
@@ -3017,6 +3074,7 @@ def main(
         perf_profile = cProfile.Profile() if args.perf_artifact is not None else None
         result: dict[str, object] | None = None
         _LAST_FAIL_ERRORS.clear()
+        _LAST_FAIL_VIOLATIONS.clear()
         try:
             if perf_profile is not None:
                 perf_profile.enable()
@@ -3024,6 +3082,9 @@ def main(
                 with _policy_deadline_scope():
                     if args.workflows:
                         check_workflows()
+                        check_workstream_closure_consistency(
+                            declared_registries=invariant_declared_registries,
+                        )
                     if args.posture:
                         check_posture()
                     if args.ambiguity_contract:
@@ -3057,16 +3118,11 @@ def main(
             if args.output is not None:
                 violations: list[dict[str, str]] = []
                 if returncode != 0:
-                    violations = [
-                        {
-                            "message": message,
-                            "render": message,
-                        }
-                        for message in _LAST_FAIL_ERRORS
-                    ]
+                    violations = list(_LAST_FAIL_VIOLATIONS)
                     if not violations:
                         violations.append(
                             {
+                                "kind": "policy_violation",
                                 "message": "policy checks failed",
                                 "render": f"policy_check returncode={returncode}",
                             }
@@ -3139,6 +3195,13 @@ def main(
             except Exception as exc:
                 message = f"perf artifact write failed: {exc}"
                 _LAST_FAIL_ERRORS.append(message)
+                _LAST_FAIL_VIOLATIONS.append(
+                    {
+                        "kind": "policy_violation",
+                        "message": message,
+                        "render": message,
+                    }
+                )
                 returncode = 1
                 if result is not None:
                     result["status"] = "fail"

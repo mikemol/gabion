@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from gabion.analysis.foundation.marker_protocol import MarkerLifecycleState
 from gabion.tooling.policy_substrate import invariant_graph
 from gabion.tooling.policy_substrate.connectivity_synergy_registry import (
     connectivity_synergy_workstream_registries,
@@ -101,6 +102,7 @@ def test_connectivity_synergy_registry_defines_expected_roots_and_subqueues() ->
     assert igm_subqueues["CSA-IGM-SQ-002"].touchpoint_ids == (
         "CSA-IGM-TP-002",
         "CSA-IGM-TP-005",
+        "CSA-IGM-TP-006",
     )
     assert set(
         igm_subqueues["CSA-IGM-SQ-004"].marker_payload.reasoning.blocking_dependencies
@@ -141,6 +143,27 @@ def test_connectivity_synergy_registry_defines_expected_roots_and_subqueues() ->
         "CSA-RGC-TP-006",
         "CSA-RGC-TP-007",
         "CSA-RGC-TP-011",
+        "CSA-RGC-TP-012",
+    )
+    assert (
+        idr_touchpoints["CSA-IDR-TP-001"].marker_payload.lifecycle_state
+        is MarkerLifecycleState.LANDED
+    )
+    assert (
+        igm_touchpoints["CSA-IGM-TP-005"].marker_payload.lifecycle_state
+        is MarkerLifecycleState.LANDED
+    )
+    assert (
+        rgc_touchpoints["CSA-RGC-TP-009"].marker_payload.lifecycle_state
+        is MarkerLifecycleState.LANDED
+    )
+    assert (
+        rgc_touchpoints["CSA-RGC-TP-010"].marker_payload.lifecycle_state
+        is MarkerLifecycleState.LANDED
+    )
+    assert (
+        rgc_touchpoints["CSA-RGC-TP-011"].marker_payload.lifecycle_state
+        is MarkerLifecycleState.LANDED
     )
     assert set(
         rgc_subqueues["CSA-RGC-SQ-007"].marker_payload.reasoning.blocking_dependencies
@@ -286,9 +309,19 @@ def test_connectivity_synergy_registry_defines_expected_roots_and_subqueues() ->
             "src/gabion/analysis/semantics/impact_index.py",
             "_parse_frontmatter",
         ),
+    }
+    assert igm_touchpoints["CSA-IGM-TP-006"].status_hint == "landed"
+    assert {
+        (item.rel_path, item.qualname)
+        for item in igm_touchpoints["CSA-IGM-TP-006"].declared_touchsites
+    } >= {
         (
             "src/gabion/tooling/governance/normative_symdiff.py",
-            "_parse_frontmatter",
+            "collect_scope_inventory",
+        ),
+        (
+            "src/gabion/frontmatter.py",
+            "parse_lenient_yaml_frontmatter",
         ),
     }
     assert {
@@ -418,6 +451,7 @@ def test_connectivity_synergy_registry_defines_expected_roots_and_subqueues() ->
     assert rgc_touchpoints["CSA-RGC-TP-009"].status_hint == "landed"
     assert rgc_touchpoints["CSA-RGC-TP-010"].status_hint == "landed"
     assert rgc_touchpoints["CSA-RGC-TP-011"].status_hint == "landed"
+    assert rgc_touchpoints["CSA-RGC-TP-012"].status_hint == "landed"
     assert {
         (item.rel_path, item.qualname)
         for item in rgc_touchpoints["CSA-RGC-TP-009"].declared_touchsites
@@ -491,6 +525,35 @@ def test_connectivity_synergy_registry_defines_expected_roots_and_subqueues() ->
         (
             "scripts/install_hooks.sh",
             "install_hooks",
+        ),
+    }
+    assert {
+        (item.rel_path, item.qualname)
+        for item in rgc_touchpoints["CSA-RGC-TP-012"].declared_touchsites
+    } >= {
+        (
+            "src/gabion/analysis/foundation/marker_protocol.py",
+            "normalize_marker_payload",
+        ),
+        (
+            "src/gabion/invariants.py",
+            "landed_todo_decorator",
+        ),
+        (
+            "src/gabion/tooling/policy_substrate/invariant_marker_scan.py",
+            "_lifecycle_state",
+        ),
+        (
+            "src/gabion/tooling/policy_substrate/workstream_registry.py",
+            "validate_workstream_closure_consistency",
+        ),
+        (
+            "scripts/policy/policy_check.py",
+            "check_workstream_closure_consistency",
+        ),
+        (
+            "tests/gabion/tooling/runtime_policy/test_workstream_closure_consistency.py",
+            "test_workstream_closure_consistency",
         ),
     }
     assert {

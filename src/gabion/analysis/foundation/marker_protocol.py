@@ -25,6 +25,7 @@ class MarkerKindProfile(StrEnum):
 
 class MarkerLifecycleState(StrEnum):
     ACTIVE = "active"
+    LANDED = "landed"
     EXPIRED = "expired"
     ROLLED_BACK = "rolled_back"
 

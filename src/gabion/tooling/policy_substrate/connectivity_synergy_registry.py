@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from gabion.invariants import todo_decorator
+from gabion.invariants import landed_todo_decorator, todo_decorator
 from gabion.tooling.policy_substrate.workstream_registry import (
     RegisteredRootDefinition,
     RegisteredSubqueueDefinition,
@@ -97,12 +97,12 @@ def _csa_ivl_root() -> None:
     return None
 
 
-@todo_decorator(
-    reason="CSA-IDR-SQ-001 keeps the landed policy/workstream tranche visible in the planning substrate while the broader family remains open.",
+@landed_todo_decorator(
+    reason="CSA-IDR-SQ-001 is recorded as landed metadata for the kept policy/workstream tranche inside the broader open identity-rendering family.",
     reasoning={
-        "summary": "The policy queue identity and artifact-stream tranche is the kept first slice for typed identity plus boundary rendering.",
+        "summary": "The policy queue identity and artifact-stream tranche remains recorded as a completed landed slice for typed identity plus boundary rendering inside the still-open broader family.",
         "control": "connectivity_synergy.identity_rendering.policy_tranche",
-        "blocking_dependencies": ("CSA-IDR-TP-001",),
+        "blocking_dependencies": (),
     },
     owner="gabion.tooling.policy_substrate",
     expiry="CSA-IDR closure",
@@ -519,12 +519,12 @@ def _csa_ivl_sq_perf_heat_fiber() -> None:
     return None
 
 
-@todo_decorator(
-    reason="CSA-IDR-TP-001 records the kept policy/workstream identity-rendering tranche as a planning-visible touchpoint.",
+@landed_todo_decorator(
+    reason="CSA-IDR-TP-001 is recorded as landed metadata for the kept policy/workstream identity-rendering tranche.",
     reasoning={
-        "summary": "The queue identity and artifact stream surfaces remain the baseline typed carrier plus boundary renderer tranche.",
+        "summary": "The queue identity and artifact stream surfaces remain recorded as a completed landed typed-carrier and boundary-renderer tranche.",
         "control": "connectivity_synergy.identity_rendering.policy_touchpoint",
-        "blocking_dependencies": ("CSA-IDR-SQ-001",),
+        "blocking_dependencies": (),
     },
     owner="gabion.tooling.policy_substrate",
     expiry="CSA-IDR closure",
@@ -673,12 +673,12 @@ def _csa_igm_tp_structured_artifact_ingress() -> None:
     return None
 
 
-@todo_decorator(
-    reason="CSA-IGM-TP-005 tracks CU3 public lenient frontmatter parsing and migration of local/private frontmatter parsers onto the canonical ingress helper.",
+@landed_todo_decorator(
+    reason="CSA-IGM-TP-005 is recorded as landed metadata for public lenient frontmatter parsing and migration of local and private frontmatter parsers onto the canonical ingress helper.",
     reasoning={
-        "summary": "Frontmatter callers still split across private governance adapters and local lenient parsers instead of one public lenient mapping/body helper.",
+        "summary": "Frontmatter callers now use the public lenient mapping and body helper instead of split private governance adapters and local lenient parsers, and that completed convergence is recorded as landed touchpoint state.",
         "control": "connectivity_synergy.ingress_merge.frontmatter_public_parser_touchpoint",
-        "blocking_dependencies": ("CSA-IGM-SQ-002",),
+        "blocking_dependencies": (),
     },
     owner="gabion.tooling.policy_substrate",
     expiry="CSA-IGM closure",
@@ -689,6 +689,25 @@ def _csa_igm_tp_structured_artifact_ingress() -> None:
     ],
 )
 def _csa_igm_tp_frontmatter_public_parser() -> None:
+    return None
+
+
+@landed_todo_decorator(
+    reason="CSA-IGM-TP-006 is recorded as landed metadata for removal of the remaining normative_symdiff frontmatter wrapper and transfer of ownership to the real semantic surface.",
+    reasoning={
+        "summary": "normative_symdiff now calls the public lenient frontmatter helper directly at the real inventory surface instead of routing through a local wrapper, and the completed cleanup is recorded as landed touchpoint state.",
+        "control": "connectivity_synergy.ingress_merge.frontmatter_wrapper_cleanup",
+        "blocking_dependencies": (),
+    },
+    owner="gabion.tooling.governance",
+    expiry="CSA-IGM closure",
+    links=[
+        {"kind": "object_id", "value": "CSA-IGM"},
+        {"kind": "object_id", "value": "CSA-IGM-SQ-002"},
+        {"kind": "object_id", "value": "CSA-IGM-TP-006"},
+    ],
+)
+def _csa_igm_tp_frontmatter_wrapper_cleanup() -> None:
     return None
 
 
@@ -863,12 +882,12 @@ def _csa_rgc_tp_kernel_vm_alignment() -> None:
     return None
 
 
-@todo_decorator(
-    reason="CSA-RGC-TP-009 tracks CU2 collapse of remaining governance/test imports from policy-check script wrappers onto library rule modules.",
+@landed_todo_decorator(
+    reason="CSA-RGC-TP-009 is recorded as landed metadata for collapse of remaining governance and test imports from policy-check script wrappers onto library rule modules.",
     reasoning={
-        "summary": "normative_symdiff and adjacent governance/test probes still treat script wrappers as import surfaces instead of consuming package-native policy rule modules.",
+        "summary": "normative_symdiff and adjacent governance and test probes now consume package-native policy rule modules instead of treating script wrappers as import surfaces, and the completed convergence is recorded as landed touchpoint state.",
         "control": "connectivity_synergy.registry_convergence.policy_scanner_library_touchpoint",
-        "blocking_dependencies": ("CSA-RGC-SQ-002",),
+        "blocking_dependencies": (),
     },
     owner="gabion.tooling.governance",
     expiry="CSA-RGC closure",
@@ -882,12 +901,12 @@ def _csa_rgc_tp_policy_scanner_library_imports() -> None:
     return None
 
 
-@todo_decorator(
-    reason="CSA-RGC-TP-010 tracks CU1 collapse of script-side deadline imports onto the canonical tooling runtime surface.",
+@landed_todo_decorator(
+    reason="CSA-RGC-TP-010 is recorded as landed metadata for collapse of script-side deadline imports onto the canonical tooling runtime surface.",
     reasoning={
-        "summary": "Deadline runtime behavior is duplicated between script and library layers while several scripts still import the duplicated script module directly.",
+        "summary": "Deadline runtime behavior now resolves through the canonical tooling runtime surface instead of duplicated script imports, and the completed convergence is recorded as landed touchpoint state.",
         "control": "connectivity_synergy.registry_convergence.deadline_runtime_touchpoint",
-        "blocking_dependencies": ("CSA-RGC-SQ-003",),
+        "blocking_dependencies": (),
     },
     owner="gabion.tooling.runtime",
     expiry="CSA-RGC closure",
@@ -901,12 +920,12 @@ def _csa_rgc_tp_deadline_runtime_cutover() -> None:
     return None
 
 
-@todo_decorator(
-    reason="CSA-RGC-TP-011 tracks CU4 convergence of the checks workflow onto a canonical gabion command and thin shell wrapper.",
+@landed_todo_decorator(
+    reason="CSA-RGC-TP-011 is recorded as landed metadata for convergence of the checks workflow onto a canonical gabion command and thin shell wrapper.",
     reasoning={
-        "summary": "Local checks orchestration now converges on gabion checks as the canonical lane surface, with ci-local-repro consuming the shared CI checks registry and scripts/checks.sh reduced to a thin wrapper.",
+        "summary": "Local checks orchestration now uses gabion checks as the canonical lane surface, with ci-local-repro consuming the shared CI checks registry and scripts/checks.sh reduced to a thin wrapper, and the completed convergence is recorded as landed touchpoint state.",
         "control": "connectivity_synergy.registry_convergence.gabion_checks_touchpoint",
-        "blocking_dependencies": ("CSA-RGC-SQ-006",),
+        "blocking_dependencies": (),
     },
     owner="gabion.tooling.runtime",
     expiry="CSA-RGC closure",
@@ -917,6 +936,25 @@ def _csa_rgc_tp_deadline_runtime_cutover() -> None:
     ],
 )
 def _csa_rgc_tp_gabion_checks_convergence() -> None:
+    return None
+
+
+@landed_todo_decorator(
+    reason="CSA-RGC-TP-012 is recorded as landed metadata for the shared closure-model hardening and workstream policy-gate enforcement follow-on.",
+    reasoning={
+        "summary": "The planning substrate now carries a first-class landed lifecycle, landed markers are structurally closed, and policy_check enforces workstream closure drift as a landed control-loop guard.",
+        "control": "connectivity_synergy.registry_convergence.workstream_closure_hardening",
+        "blocking_dependencies": (),
+    },
+    owner="gabion.tooling.policy_substrate",
+    expiry="CSA-RGC closure",
+    links=[
+        {"kind": "object_id", "value": "CSA-RGC"},
+        {"kind": "object_id", "value": "CSA-RGC-SQ-006"},
+        {"kind": "object_id", "value": "CSA-RGC-TP-012"},
+    ],
+)
+def _csa_rgc_tp_workstream_closure_hardening() -> None:
     return None
 
 
@@ -1480,7 +1518,7 @@ def connectivity_synergy_workstream_registries() -> tuple[WorkstreamRegistry, ..
                 root_id="CSA-IGM",
                 subqueue_id="CSA-IGM-SQ-002",
                 title="Markdown/frontmatter/yaml ASPF ingress adapters",
-                touchpoint_ids=("CSA-IGM-TP-002", "CSA-IGM-TP-005"),
+                touchpoint_ids=("CSA-IGM-TP-002", "CSA-IGM-TP-005", "CSA-IGM-TP-006"),
                 symbol=_csa_igm_sq_adapter_rollout,
             ),
             _subqueue_definition(
@@ -1780,7 +1818,7 @@ def connectivity_synergy_workstream_registries() -> tuple[WorkstreamRegistry, ..
                         touchsite_id="CSA-IGM-TS-030",
                         rel_path="src/gabion/frontmatter.py",
                         qualname="parse_lenient_yaml_frontmatter",
-                        line=11,
+                        line=12,
                         surface="frontmatter_ingress",
                         structural_path="parse_lenient_yaml_frontmatter",
                     ),
@@ -1808,13 +1846,31 @@ def connectivity_synergy_workstream_registries() -> tuple[WorkstreamRegistry, ..
                         surface="frontmatter_ingress",
                         structural_path="impact_index::_parse_frontmatter",
                     ),
+                ),
+                status_hint="landed",
+            ),
+            _touchpoint_definition(
+                root_id="CSA-IGM",
+                subqueue_id="CSA-IGM-SQ-002",
+                touchpoint_id="CSA-IGM-TP-006",
+                title="Closure follow-on removal of normative_symdiff frontmatter wrapper residue",
+                symbol=_csa_igm_tp_frontmatter_wrapper_cleanup,
+                declared_touchsites=(
                     _function_touchsite(
                         touchsite_id="CSA-IGM-TS-034",
                         rel_path="src/gabion/tooling/governance/normative_symdiff.py",
-                        qualname="_parse_frontmatter",
-                        line=279,
+                        qualname="collect_scope_inventory",
+                        line=225,
                         surface="frontmatter_ingress",
-                        structural_path="normative_symdiff::_parse_frontmatter",
+                        structural_path="normative_symdiff::collect_scope_inventory",
+                    ),
+                    _function_touchsite(
+                        touchsite_id="CSA-IGM-TS-035",
+                        rel_path="src/gabion/frontmatter.py",
+                        qualname="parse_lenient_yaml_frontmatter",
+                        line=12,
+                        surface="frontmatter_ingress",
+                        structural_path="parse_lenient_yaml_frontmatter",
                     ),
                 ),
                 status_hint="landed",
@@ -1868,7 +1924,12 @@ def connectivity_synergy_workstream_registries() -> tuple[WorkstreamRegistry, ..
                 root_id="CSA-RGC",
                 subqueue_id="CSA-RGC-SQ-006",
                 title="Governance/control-loop artifact graph convergence over planner, docflow, CI, and drift carriers",
-                touchpoint_ids=("CSA-RGC-TP-006", "CSA-RGC-TP-007", "CSA-RGC-TP-011"),
+                touchpoint_ids=(
+                    "CSA-RGC-TP-006",
+                    "CSA-RGC-TP-007",
+                    "CSA-RGC-TP-011",
+                    "CSA-RGC-TP-012",
+                ),
                 symbol=_csa_rgc_sq_control_loop_artifact_graph,
             ),
             _subqueue_definition(
@@ -2593,6 +2654,65 @@ def connectivity_synergy_workstream_registries() -> tuple[WorkstreamRegistry, ..
                         node_kind="script",
                         surface="control_loop_artifact",
                         structural_path="install_hooks.sh",
+                    ),
+                ),
+                status_hint="landed",
+            ),
+            _touchpoint_definition(
+                root_id="CSA-RGC",
+                subqueue_id="CSA-RGC-SQ-006",
+                touchpoint_id="CSA-RGC-TP-012",
+                title="Closure-model hardening and workstream policy-gate enforcement",
+                symbol=_csa_rgc_tp_workstream_closure_hardening,
+                declared_touchsites=(
+                    _function_touchsite(
+                        touchsite_id="CSA-RGC-TS-079",
+                        rel_path="src/gabion/analysis/foundation/marker_protocol.py",
+                        qualname="normalize_marker_payload",
+                        line=210,
+                        surface="control_loop_artifact",
+                        structural_path="marker_protocol::normalize_marker_payload",
+                    ),
+                    _function_touchsite(
+                        touchsite_id="CSA-RGC-TS-080",
+                        rel_path="src/gabion/invariants.py",
+                        qualname="landed_todo_decorator",
+                        line=470,
+                        surface="control_loop_artifact",
+                        structural_path="invariants::landed_todo_decorator",
+                    ),
+                    _function_touchsite(
+                        touchsite_id="CSA-RGC-TS-081",
+                        rel_path="src/gabion/tooling/policy_substrate/invariant_marker_scan.py",
+                        qualname="_lifecycle_state",
+                        line=304,
+                        surface="control_loop_artifact",
+                        structural_path="invariant_marker_scan::_lifecycle_state",
+                    ),
+                    _function_touchsite(
+                        touchsite_id="CSA-RGC-TS-082",
+                        rel_path="src/gabion/tooling/policy_substrate/workstream_registry.py",
+                        qualname="validate_workstream_closure_consistency",
+                        line=289,
+                        surface="control_loop_artifact",
+                        structural_path="workstream_registry::validate_workstream_closure_consistency",
+                    ),
+                    _function_touchsite(
+                        touchsite_id="CSA-RGC-TS-083",
+                        rel_path="scripts/policy/policy_check.py",
+                        qualname="check_workstream_closure_consistency",
+                        line=2521,
+                        surface="control_loop_artifact",
+                        structural_path="policy_check::check_workstream_closure_consistency",
+                    ),
+                    _static_touchsite(
+                        touchsite_id="CSA-RGC-TS-084",
+                        rel_path="tests/gabion/tooling/runtime_policy/test_workstream_closure_consistency.py",
+                        qualname="test_workstream_closure_consistency",
+                        line=1,
+                        node_kind="module",
+                        surface="control_loop_artifact",
+                        structural_path="test_workstream_closure_consistency",
                     ),
                 ),
                 status_hint="landed",

@@ -4,6 +4,7 @@ from pathlib import Path
 import json
 
 from scripts.policy import symbol_activity_audit
+from gabion.tooling.policy_substrate.invariant_marker_scan import scan_invariant_markers
 
 
 def _write(path: Path, content: str) -> None:
@@ -245,3 +246,42 @@ def test_run_check_writes_artifact_and_fails_on_unsuppressed_findings(tmp_path: 
     payload = json.loads(out.read_text(encoding="utf-8"))
     counts = payload.get("counts", {})
     assert int(counts.get("unsuppressed_total", 0)) > 0
+
+
+def test_landed_todo_marker_is_scanned_as_valid(tmp_path: Path) -> None:
+    _write(tmp_path / "pyproject.toml", _minimal_pyproject())
+    _write(tmp_path / "src" / "gabion" / "__init__.py", "")
+    _write(
+        tmp_path / "src" / "gabion" / "markers.py",
+        "\n".join(
+            [
+                "from gabion.invariants import landed_todo_decorator",
+                "",
+                "@landed_todo_decorator(",
+                "    reason='closed marker',",
+                "    owner='policy',",
+                "    expiry='2099-01-01',",
+                "    reasoning={",
+                "        'summary': 'closed marker',",
+                "        'control': 'policy.closed_marker',",
+                "        'blocking_dependencies': [],",
+                "    },",
+                ")",
+                "def closed_symbol() -> None:",
+                "    return None",
+                "",
+            ]
+        ),
+    )
+
+    nodes = scan_invariant_markers(tmp_path)
+    landed_marker_payload = next(
+        node.as_payload()
+        for node in nodes
+        if node.symbol == "closed_symbol"
+    )
+
+    assert isinstance(landed_marker_payload, dict)
+    assert landed_marker_payload.get("valid") is True
+    assert landed_marker_payload.get("marker_name") == "gabion.invariants.landed_todo_decorator"
+    assert landed_marker_payload.get("lifecycle_state") == "landed"

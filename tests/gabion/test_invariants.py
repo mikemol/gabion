@@ -99,6 +99,28 @@ def test_invariant_decorator_attaches_marker_payload_metadata() -> None:
 
 
 # gabion:behavior primary=desired
+def test_landed_todo_decorator_attaches_landed_lifecycle_state() -> None:
+    @invariants.landed_todo_decorator(
+        "landed debt marker",
+        owner="core",
+        reasoning={
+            "summary": "landed debt marker",
+            "control": "closure-remediation",
+            "blocking_dependencies": [],
+        },
+    )
+    def _landed_function() -> str:
+        return "ok"
+
+    payloads = invariants.invariant_decorations(_landed_function)
+    assert len(payloads) == 1
+    assert payloads[0].marker_kind is MarkerKind.TODO
+    assert payloads[0].lifecycle_state is MarkerLifecycleState.LANDED
+    assert payloads[0].reasoning.blocking_dependencies == ()
+    assert _landed_function() == "ok"
+
+
+# gabion:behavior primary=desired
 def test_invariant_decorator_stacks_and_emits_no_runtime_warning() -> None:
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")

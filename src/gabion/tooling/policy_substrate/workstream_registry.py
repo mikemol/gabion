@@ -6,7 +6,11 @@ from pathlib import Path
 from typing import Callable
 
 from gabion.analysis.aspf.aspf_lattice_algebra import canonical_structural_identity
-from gabion.analysis.foundation.marker_protocol import MarkerPayload, marker_identity
+from gabion.analysis.foundation.marker_protocol import (
+    MarkerLifecycleState,
+    MarkerPayload,
+    marker_identity,
+)
 from gabion.tooling.policy_substrate.site_identity import canonical_site_identity
 from gabion.invariants import invariant_decorations
 
@@ -122,6 +126,46 @@ class WorkstreamRegistry:
     tags: tuple[str, ...] = field(default_factory=tuple)
 
 
+@dataclass(frozen=True)
+class WorkstreamClosureViolation:
+    object_id: str
+    node_kind: str
+    code: str
+    message: str
+    rel_path: str
+    qualname: str
+
+
+_LANDED_REASON_REQUIRED_TOKENS = (
+    "landed",
+    "recorded",
+    "closed",
+    "converged",
+    "completed",
+)
+_LANDED_REASON_FORBIDDEN_TOKENS = (
+    "remains active until",
+    "still drift",
+    "still drifts",
+    "still leak",
+    "still leaks",
+    "still split",
+    "still carries",
+    "still carry",
+    "still depends",
+    "still depend",
+    "still reaches",
+    "still reach",
+    "still binds",
+    "still dominate",
+    "still dominates",
+    "still treats",
+    "still emits",
+    "still resolve",
+    "still resolves",
+)
+
+
 def registry_marker_metadata(
     symbol: Callable[..., object],
     *,
@@ -162,6 +206,179 @@ def registry_marker_metadata(
         qualname=qualname,
         line=line,
     )
+
+
+def _node_text_for_closure_check(payload: MarkerPayload) -> str:
+    return " ".join(
+        part.strip().lower()
+        for part in (payload.reason, payload.reasoning.summary)
+        if part.strip()
+    )
+
+
+def _append_closure_payload_violations(
+    *,
+    object_id: str,
+    node_kind: str,
+    status_hint: str,
+    marker_payload: MarkerPayload,
+    rel_path: str,
+    qualname: str,
+    violations: list[WorkstreamClosureViolation],
+) -> None:
+    if status_hint == "landed":
+        if marker_payload.lifecycle_state is not MarkerLifecycleState.LANDED:
+            violations.append(
+                WorkstreamClosureViolation(
+                    object_id=object_id,
+                    node_kind=node_kind,
+                    code="landed_requires_landed_lifecycle",
+                    message=(
+                        f"{object_id}: landed {node_kind} must use landed marker lifecycle"
+                    ),
+                    rel_path=rel_path,
+                    qualname=qualname,
+                )
+            )
+        if marker_payload.reasoning.blocking_dependencies:
+            violations.append(
+                WorkstreamClosureViolation(
+                    object_id=object_id,
+                    node_kind=node_kind,
+                    code="landed_forbids_blocking_dependencies",
+                    message=(
+                        f"{object_id}: landed {node_kind} must not retain blocking dependencies"
+                    ),
+                    rel_path=rel_path,
+                    qualname=qualname,
+                )
+            )
+        closure_text = _node_text_for_closure_check(marker_payload)
+        if any(token in closure_text for token in _LANDED_REASON_FORBIDDEN_TOKENS) or not any(
+            token in closure_text for token in _LANDED_REASON_REQUIRED_TOKENS
+        ):
+            violations.append(
+                WorkstreamClosureViolation(
+                    object_id=object_id,
+                    node_kind=node_kind,
+                    code="landed_requires_closed_language",
+                    message=(
+                        f"{object_id}: landed {node_kind} must use recorded/closed language, "
+                        "not active-work phrasing"
+                    ),
+                    rel_path=rel_path,
+                    qualname=qualname,
+                )
+            )
+        return
+    if marker_payload.lifecycle_state is MarkerLifecycleState.LANDED:
+        violations.append(
+            WorkstreamClosureViolation(
+                object_id=object_id,
+                node_kind=node_kind,
+                code="nonlanded_forbids_landed_lifecycle",
+                message=(
+                    f"{object_id}: non-landed {node_kind} must not use landed marker lifecycle"
+                ),
+                rel_path=rel_path,
+                qualname=qualname,
+            )
+        )
+
+
+def validate_workstream_closure_consistency(
+    registries: tuple[WorkstreamRegistry, ...],
+) -> tuple[WorkstreamClosureViolation, ...]:
+    violations: list[WorkstreamClosureViolation] = []
+    for registry in registries:
+        subqueues_by_id = {item.subqueue_id: item for item in registry.subqueues}
+        touchpoints_by_subqueue: dict[str, list[RegisteredTouchpointDefinition]] = {}
+        for touchpoint in registry.touchpoints:
+            touchpoints_by_subqueue.setdefault(touchpoint.subqueue_id, []).append(touchpoint)
+            _append_closure_payload_violations(
+                object_id=touchpoint.touchpoint_id,
+                node_kind="touchpoint",
+                status_hint=touchpoint.status_hint,
+                marker_payload=touchpoint.marker_payload,
+                rel_path=touchpoint.rel_path,
+                qualname=touchpoint.qualname,
+                violations=violations,
+            )
+        for subqueue in registry.subqueues:
+            _append_closure_payload_violations(
+                object_id=subqueue.subqueue_id,
+                node_kind="subqueue",
+                status_hint=subqueue.status_hint,
+                marker_payload=subqueue.marker_payload,
+                rel_path=subqueue.rel_path,
+                qualname=subqueue.qualname,
+                violations=violations,
+            )
+            if subqueue.status_hint == "landed":
+                nonlanded_touchpoints = tuple(
+                    touchpoint.touchpoint_id
+                    for touchpoint in touchpoints_by_subqueue.get(subqueue.subqueue_id, [])
+                    if touchpoint.status_hint != "landed"
+                )
+                if nonlanded_touchpoints:
+                    violations.append(
+                        WorkstreamClosureViolation(
+                            object_id=subqueue.subqueue_id,
+                            node_kind="subqueue",
+                            code="landed_parent_has_nonlanded_descendant",
+                            message=(
+                                f"{subqueue.subqueue_id}: landed subqueue has non-landed touchpoints "
+                                f"{nonlanded_touchpoints}"
+                            ),
+                            rel_path=subqueue.rel_path,
+                            qualname=subqueue.qualname,
+                        )
+                    )
+        _append_closure_payload_violations(
+            object_id=registry.root.root_id,
+            node_kind="root",
+            status_hint=registry.root.status_hint,
+            marker_payload=registry.root.marker_payload,
+            rel_path=registry.root.rel_path,
+            qualname=registry.root.qualname,
+            violations=violations,
+        )
+        if registry.root.status_hint == "landed":
+            nonlanded_subqueues = tuple(
+                subqueue.subqueue_id
+                for subqueue in registry.subqueues
+                if subqueue.status_hint != "landed"
+            )
+            if nonlanded_subqueues:
+                violations.append(
+                    WorkstreamClosureViolation(
+                        object_id=registry.root.root_id,
+                        node_kind="root",
+                        code="landed_parent_has_nonlanded_descendant",
+                        message=(
+                            f"{registry.root.root_id}: landed root has non-landed subqueues "
+                            f"{nonlanded_subqueues}"
+                        ),
+                        rel_path=registry.root.rel_path,
+                        qualname=registry.root.qualname,
+                    )
+                )
+            for subqueue_id in registry.root.subqueue_ids:
+                if subqueue_id not in subqueues_by_id:
+                    violations.append(
+                        WorkstreamClosureViolation(
+                            object_id=registry.root.root_id,
+                            node_kind="root",
+                            code="landed_parent_has_missing_descendant",
+                            message=(
+                                f"{registry.root.root_id}: landed root references missing subqueue "
+                                f"{subqueue_id}"
+                            ),
+                            rel_path=registry.root.rel_path,
+                            qualname=registry.root.qualname,
+                        )
+                    )
+    return tuple(violations)
 
 
 def declared_touchsite_definition(
@@ -247,9 +464,11 @@ __all__ = [
     "RegisteredSubqueueDefinition",
     "RegisteredTouchpointDefinition",
     "RegisteredTouchsiteDefinition",
+    "WorkstreamClosureViolation",
     "WorkstreamRegistry",
     "WorkstreamRegistryMarkerMetadata",
     "declared_touchsite_definition",
     "declared_touchsite_definition_from_symbol",
     "registry_marker_metadata",
+    "validate_workstream_closure_consistency",
 ]

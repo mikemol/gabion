@@ -206,12 +206,6 @@ def _ordered_gap_items(items: Iterable[GapItem], *, source: str) -> list[GapItem
     )
 
 
-def _parse_frontmatter(path: Path) -> tuple[dict[str, object], str]:
-    text = path.read_text(encoding="utf-8")
-    frontmatter, body = parse_lenient_yaml_frontmatter(text)
-    return dict(frontmatter), body
-
-
 def _iter_markdown_paths(root: Path) -> list[Path]:
     return list(
         sort_once(
@@ -228,7 +222,7 @@ def collect_scope_inventory(root: Path) -> ScopeInventory:
         if not path.is_file():
             continue
         rel = path.relative_to(root).as_posix()
-        frontmatter, _ = _parse_frontmatter(path)
+        frontmatter, _ = parse_lenient_yaml_frontmatter(path.read_text(encoding="utf-8"))
         authority = frontmatter.get("doc_authority")
         if authority == "normative":
             normative_docs.append(rel)

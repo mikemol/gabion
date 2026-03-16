@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from gabion.invariants import todo_decorator
+from gabion.invariants import landed_todo_decorator
 from gabion.tooling.policy_substrate.workstream_registry import (
     RegisteredRootDefinition,
     RegisteredSubqueueDefinition,
@@ -11,17 +11,12 @@ from gabion.tooling.policy_substrate.workstream_registry import (
 )
 
 
-@todo_decorator(
-    reason="RCI remains active until invariant-graph runtime context is constructed explicitly instead of being inferred from repo-global state and monkeypatched providers.",
+@landed_todo_decorator(
+    reason="RCI is recorded as landed metadata after invariant-graph runtime context construction converged on explicit injected context instead of repo-global state and monkeypatched providers.",
     reasoning={
-        "summary": "Phase5 touchsite scanning and invariant-graph runtime-policy tests still leak repo-root and imported-provider assumptions instead of using injected runtime context.",
+        "summary": "Phase5 touchsite scanning and invariant-graph runtime-policy tests now use explicit injected runtime context rather than repo-root and imported-provider assumptions, and the completed convergence is recorded as closed queue state.",
         "control": "runtime_context_injection.root",
-        "blocking_dependencies": (
-            "RCI-SQ-001",
-            "RCI-SQ-002",
-            "RCI-SQ-003",
-            "RCI-SQ-004",
-        ),
+        "blocking_dependencies": (),
     },
     owner="gabion.tooling.policy_substrate",
     expiry="RCI closure",
@@ -31,12 +26,12 @@ def _rci_root() -> None:
     return None
 
 
-@todo_decorator(
-    reason="RCI-SQ-001 remains active until phase5 touchsite scanning resolves source from the active invariant-graph build root.",
+@landed_todo_decorator(
+    reason="RCI-SQ-001 is recorded as landed metadata after phase5 touchsite scanning converged on the active invariant-graph build root.",
     reasoning={
-        "summary": "Phase5 touchsite scanning still binds source reads to the repository root instead of the runtime build root used to construct the graph.",
+        "summary": "Phase5 touchsite scanning now resolves source from the runtime build root used to construct the graph, and the completed convergence is recorded as closed subqueue state.",
         "control": "runtime_context_injection.phase5_root_scanning",
-        "blocking_dependencies": ("RCI-TP-001",),
+        "blocking_dependencies": (),
     },
     owner="gabion.tooling.policy_substrate",
     expiry="RCI closure",
@@ -49,12 +44,12 @@ def _rci_sq_phase5_root_injection() -> None:
     return None
 
 
-@todo_decorator(
-    reason="RCI-SQ-002 remains active until invariant-graph library tests construct registry context explicitly instead of mutating imported providers.",
+@landed_todo_decorator(
+    reason="RCI-SQ-002 is recorded as landed metadata after invariant-graph library tests converged on explicit registry-context construction instead of mutating imported providers.",
     reasoning={
-        "summary": "Invariant-graph library tests still disable or replace declared registry providers by monkeypatch instead of passing explicit registry tuples to the builder seam.",
+        "summary": "Invariant-graph library tests now pass explicit registry tuples to the builder seam instead of disabling or replacing declared registry providers by monkeypatch, and the completed cleanup is recorded as closed subqueue state.",
         "control": "runtime_context_injection.library_test_di",
-        "blocking_dependencies": ("RCI-TP-002", "RCI-TP-003"),
+        "blocking_dependencies": (),
     },
     owner="gabion.tooling.runtime_policy",
     expiry="RCI closure",
@@ -67,12 +62,12 @@ def _rci_sq_library_di_cleanup() -> None:
     return None
 
 
-@todo_decorator(
-    reason="RCI-SQ-003 remains active until command and runtime entrypoints accept injected invariant-graph runtime context without new CLI flags.",
+@landed_todo_decorator(
+    reason="RCI-SQ-003 is recorded as landed metadata after command and runtime entrypoints accepted injected invariant-graph runtime context without new CLI flags.",
     reasoning={
-        "summary": "policy_check and tooling.runtime.invariant_graph still internalize repo-root and declared-registry selection, forcing tests to patch globals instead of passing context programmatically.",
+        "summary": "policy_check and tooling.runtime.invariant_graph now accept programmatic runtime context injection instead of internalizing repo-root and declared-registry selection, and the completed cleanup is recorded as closed subqueue state.",
         "control": "runtime_context_injection.command_runtime_di",
-        "blocking_dependencies": ("RCI-TP-004", "RCI-TP-005"),
+        "blocking_dependencies": (),
     },
     owner="gabion.tooling.runtime",
     expiry="RCI closure",
@@ -85,12 +80,12 @@ def _rci_sq_command_di_cleanup() -> None:
     return None
 
 
-@todo_decorator(
-    reason="RCI-SQ-004 remains active until live-repo invariant-graph sentinel assertions are separated from synthetic-root code tests.",
+@landed_todo_decorator(
+    reason="RCI-SQ-004 is recorded as landed metadata after live-repo invariant-graph sentinel assertions were separated from synthetic-root code tests.",
     reasoning={
-        "summary": "Runtime-policy invariant-graph tests still mix live repository state assertions with code-targeted synthetic-root tests, conflating repo-state signals and code signals.",
+        "summary": "Runtime-policy invariant-graph tests now isolate live repository state assertions from code-targeted synthetic-root tests, and the completed separation is recorded as closed subqueue state.",
         "control": "runtime_context_injection.repo_state_sentinels",
-        "blocking_dependencies": ("RCI-TP-006",),
+        "blocking_dependencies": (),
     },
     owner="gabion.tooling.runtime_policy",
     expiry="RCI closure",
@@ -103,12 +98,12 @@ def _rci_sq_repo_state_sentinels() -> None:
     return None
 
 
-@todo_decorator(
-    reason="RCI-TP-001 tracks active-root phase5 touchsite scanning.",
+@landed_todo_decorator(
+    reason="RCI-TP-001 is recorded as landed metadata for active-root phase5 touchsite scanning.",
     reasoning={
-        "summary": "Invariant-graph phase5 scanning should resolve touchsite source from the active build root and fail closed when the runtime root does not contain the declared path.",
+        "summary": "Invariant-graph phase5 scanning now resolves touchsite source from the active build root and fails closed when the runtime root does not contain the declared path, and the completed change is recorded as closed touchpoint state.",
         "control": "runtime_context_injection.phase5_touchsite_root",
-        "blocking_dependencies": ("RCI-SQ-001",),
+        "blocking_dependencies": (),
     },
     owner="gabion.tooling.policy_substrate",
     expiry="RCI closure",
@@ -122,12 +117,12 @@ def _rci_tp_phase5_touchsite_root() -> None:
     return None
 
 
-@todo_decorator(
-    reason="RCI-TP-002 tracks explicit empty-registry injection for pure invariant-graph unit tests.",
+@landed_todo_decorator(
+    reason="RCI-TP-002 is recorded as landed metadata for explicit empty-registry injection in pure invariant-graph unit tests.",
     reasoning={
-        "summary": "Pure synthetic-root invariant-graph tests should use declared_registries=() instead of mutating imported registry providers to simulate no declared workstreams.",
+        "summary": "Pure synthetic-root invariant-graph tests now use declared_registries=() instead of mutating imported registry providers to simulate no declared workstreams, and the completed cleanup is recorded as closed touchpoint state.",
         "control": "runtime_context_injection.empty_registry_tests",
-        "blocking_dependencies": ("RCI-SQ-002",),
+        "blocking_dependencies": (),
     },
     owner="gabion.tooling.runtime_policy",
     expiry="RCI closure",
@@ -141,12 +136,12 @@ def _rci_tp_empty_registry_tests() -> None:
     return None
 
 
-@todo_decorator(
-    reason="RCI-TP-003 tracks explicit synthetic/connectivity registry injection for invariant-graph library tests.",
+@landed_todo_decorator(
+    reason="RCI-TP-003 is recorded as landed metadata for explicit synthetic/connectivity registry injection in invariant-graph library tests.",
     reasoning={
-        "summary": "Invariant-graph library tests that depend on declared workstream context should pass synthetic or connectivity registry tuples directly instead of monkeypatching provider functions.",
+        "summary": "Invariant-graph library tests that depend on declared workstream context now pass synthetic or connectivity registry tuples directly instead of monkeypatching provider functions, and the completed cleanup is recorded as closed touchpoint state.",
         "control": "runtime_context_injection.synthetic_registry_tests",
-        "blocking_dependencies": ("RCI-SQ-002",),
+        "blocking_dependencies": (),
     },
     owner="gabion.tooling.runtime_policy",
     expiry="RCI closure",
@@ -160,12 +155,12 @@ def _rci_tp_synthetic_registry_tests() -> None:
     return None
 
 
-@todo_decorator(
-    reason="RCI-TP-004 tracks repo-root and invariant-registry injection for policy_check programmatic callers.",
+@landed_todo_decorator(
+    reason="RCI-TP-004 is recorded as landed metadata for repo-root and invariant-registry injection in policy_check programmatic callers.",
     reasoning={
-        "summary": "policy_check.main should accept injected repo root and invariant declared registries for tests and synthetic runtime construction without changing CLI shape.",
+        "summary": "policy_check.main now accepts injected repo root and invariant declared registries for tests and synthetic runtime construction without changing CLI shape, and the completed seam addition is recorded as closed touchpoint state.",
         "control": "runtime_context_injection.policy_check_main",
-        "blocking_dependencies": ("RCI-SQ-003",),
+        "blocking_dependencies": (),
     },
     owner="scripts.policy",
     expiry="RCI closure",
@@ -179,12 +174,12 @@ def _rci_tp_policy_check_main() -> None:
     return None
 
 
-@todo_decorator(
-    reason="RCI-TP-005 tracks declared-registry injection for tooling.runtime.invariant_graph programmatic callers.",
+@landed_todo_decorator(
+    reason="RCI-TP-005 is recorded as landed metadata for declared-registry injection in tooling.runtime.invariant_graph programmatic callers.",
     reasoning={
-        "summary": "tooling.runtime.invariant_graph.main should accept injected declared registries for tests and synthetic graph builds while preserving the CLI contract.",
+        "summary": "tooling.runtime.invariant_graph.main now accepts injected declared registries for tests and synthetic graph builds while preserving the CLI contract, and the completed seam addition is recorded as closed touchpoint state.",
         "control": "runtime_context_injection.runtime_invariant_graph_main",
-        "blocking_dependencies": ("RCI-SQ-003",),
+        "blocking_dependencies": (),
     },
     owner="gabion.tooling.runtime",
     expiry="RCI closure",
@@ -198,12 +193,12 @@ def _rci_tp_runtime_invariant_graph_main() -> None:
     return None
 
 
-@todo_decorator(
-    reason="RCI-TP-006 tracks the split between live-repo invariant-graph sentinels and synthetic-root code tests.",
+@landed_todo_decorator(
+    reason="RCI-TP-006 is recorded as landed metadata for the split between live-repo invariant-graph sentinels and synthetic-root code tests.",
     reasoning={
-        "summary": "Live repository state assertions should live in a dedicated sentinel module so repo-state signals and synthetic code-targeted tests do not share the same file.",
+        "summary": "Live repository state assertions now live in a dedicated sentinel module so repo-state signals and synthetic code-targeted tests do not share the same file, and the completed split is recorded as closed touchpoint state.",
         "control": "runtime_context_injection.live_repo_test_split",
-        "blocking_dependencies": ("RCI-SQ-004",),
+        "blocking_dependencies": (),
     },
     owner="gabion.tooling.runtime_policy",
     expiry="RCI closure",
@@ -214,6 +209,25 @@ def _rci_tp_runtime_invariant_graph_main() -> None:
     ],
 )
 def _rci_tp_live_repo_test_split() -> None:
+    return None
+
+
+@landed_todo_decorator(
+    reason="RCI-TP-007 is recorded as landed metadata for removing the deprecated live-repo PSF snapshot from the deterministic invariant-graph test surface.",
+    reasoning={
+        "summary": "The deterministic invariant-graph test surface no longer carries the deprecated live-repo PSF snapshot, and the remaining repo-state sentinel coverage is recorded as closed touchpoint state in the dedicated live-repo module.",
+        "control": "runtime_context_injection.live_repo_snapshot_cleanup",
+        "blocking_dependencies": (),
+    },
+    owner="gabion.tooling.runtime_policy",
+    expiry="RCI closure",
+    links=[
+        {"kind": "object_id", "value": "RCI"},
+        {"kind": "object_id", "value": "RCI-SQ-004"},
+        {"kind": "object_id", "value": "RCI-TP-007"},
+    ],
+)
+def _rci_tp_live_repo_snapshot_cleanup() -> None:
     return None
 
 
@@ -390,7 +404,7 @@ def runtime_context_injection_workstream_registry() -> WorkstreamRegistry:
                 subqueue_id="RCI-SQ-004",
                 title="Live-repo sentinel separation for invariant-graph tests",
                 symbol=_rci_sq_repo_state_sentinels,
-                touchpoint_ids=("RCI-TP-006",),
+                touchpoint_ids=("RCI-TP-006", "RCI-TP-007"),
                 status_hint="landed",
             ),
         ),
@@ -505,6 +519,26 @@ def runtime_context_injection_workstream_registry() -> WorkstreamRegistry:
                     ),
                     _module_touchsite(
                         touchsite_id="RCI-TS-006-B",
+                        rel_path="tests/gabion/tooling/runtime_policy/test_invariant_graph_live_repo.py",
+                        qualname="test_invariant_graph_live_repo",
+                    ),
+                ),
+            ),
+            _touchpoint_definition(
+                root_id=root_id,
+                subqueue_id="RCI-SQ-004",
+                touchpoint_id="RCI-TP-007",
+                title="Deterministic invariant-graph test cleanup for deprecated live-repo snapshot residue",
+                symbol=_rci_tp_live_repo_snapshot_cleanup,
+                status_hint="landed",
+                declared_touchsites=(
+                    _module_touchsite(
+                        touchsite_id="RCI-TS-007-A",
+                        rel_path="tests/gabion/tooling/runtime_policy/test_invariant_graph.py",
+                        qualname="test_invariant_graph",
+                    ),
+                    _module_touchsite(
+                        touchsite_id="RCI-TS-007-B",
                         rel_path="tests/gabion/tooling/runtime_policy/test_invariant_graph_live_repo.py",
                         qualname="test_invariant_graph_live_repo",
                     ),

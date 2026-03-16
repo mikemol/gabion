@@ -8,6 +8,7 @@ import pytest
 from gabion.analysis.foundation.marker_protocol import (
     MarkerKind,
     MarkerKindProfile,
+    MarkerLifecycleState,
     MarkerReasoning,
     marker_identity,
     marker_kind_mapping_config,
@@ -134,6 +135,21 @@ def test_normalize_marker_reasoning_supports_dataclass_mapping_and_scalar() -> N
         control="",
         blocking_dependencies=(),
     )
+
+
+def test_normalize_marker_payload_preserves_landed_lifecycle_state() -> None:
+    payload = normalize_marker_payload(
+        reason="closed item",
+        marker_kind=MarkerKind.TODO,
+        lifecycle_state=MarkerLifecycleState.LANDED,
+        reasoning={
+            "summary": "closed item",
+            "control": "closure.integrity",
+            "blocking_dependencies": [],
+        },
+    )
+    assert payload.lifecycle_state is MarkerLifecycleState.LANDED
+    assert payload.reasoning.blocking_dependencies == ()
 
 
 # gabion:evidence E:function_site::marker_protocol.py::gabion.analysis.marker_protocol.never_marker_payload

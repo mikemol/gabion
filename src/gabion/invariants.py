@@ -263,6 +263,7 @@ def _normalized_invariant_marker_payload(
 ) -> MarkerPayload:
     from gabion.analysis.foundation.marker_protocol import (
         MarkerKind,
+        MarkerLifecycleState,
         never_marker_payload,
         normalize_marker_payload,
         normalize_marker_reasoning,
@@ -284,9 +285,11 @@ def _normalized_invariant_marker_payload(
     extra_env = {
         key: value
         for key, value in env.items()
-        if key not in {"owner", "expiry", "links", "reasoning", "reason"}
+        if key
+        not in {"owner", "expiry", "links", "reasoning", "reason", "lifecycle_state"}
     }
     marker_kind_enum = MarkerKind(marker_kind)
+    lifecycle_state = MarkerLifecycleState(str(env.get("lifecycle_state", "active")).strip().lower())
     if marker_kind_enum is MarkerKind.NEVER:
         return never_marker_payload(
             reason=reason,
@@ -308,6 +311,7 @@ def _normalized_invariant_marker_payload(
         marker_kind=marker_kind_enum,
         owner=owner,
         expiry=expiry,
+        lifecycle_state=lifecycle_state,
         links=links,
     )
 
@@ -461,6 +465,18 @@ def never_decorator(reason: str = "", **env: object) -> Callable[[DecoratableT],
 
 def todo_decorator(reason: str = "", **env: object) -> Callable[[DecoratableT], DecoratableT]:
     return invariant_decorator("todo", reason=reason, **env)
+
+
+def landed_todo_decorator(
+    reason: str = "",
+    **env: object,
+) -> Callable[[DecoratableT], DecoratableT]:
+    return invariant_decorator(
+        "todo",
+        reason=reason,
+        lifecycle_state="landed",
+        **env,
+    )
 
 
 def deprecated_decorator(

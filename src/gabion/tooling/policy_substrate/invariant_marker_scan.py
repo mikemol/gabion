@@ -39,6 +39,7 @@ _MARKER_FUNCTION_NAMES = {
 _MARKER_DECORATOR_NAMES = {
     "gabion.invariants.never_decorator": MarkerKind.NEVER,
     "gabion.invariants.todo_decorator": MarkerKind.TODO,
+    "gabion.invariants.landed_todo_decorator": MarkerKind.TODO,
     "gabion.invariants.deprecated_decorator": MarkerKind.DEPRECATED,
 }
 _INVARIANT_DECORATOR_NAME = "gabion.invariants.invariant_decorator"
@@ -49,6 +50,7 @@ _MARKER_MEMBER_NAMES = frozenset(
         "deprecated",
         "never_decorator",
         "todo_decorator",
+        "landed_todo_decorator",
         "deprecated_decorator",
         "invariant_decorator",
     }
@@ -299,12 +301,20 @@ def _marker_kind_from_decorator_name(resolved_name: str, decorator: ast.Call) ->
     return None
 
 
-def _lifecycle_state(call_or_decorator: ast.Call) -> MarkerLifecycleState:
+def _lifecycle_state(
+    call_or_decorator: ast.Call,
+    *,
+    resolved_name: str = "",
+) -> MarkerLifecycleState:
+    if resolved_name == "gabion.invariants.landed_todo_decorator":
+        return MarkerLifecycleState.LANDED
     lifecycle_value = keyword_string_literal(
         call_or_decorator,
         "lifecycle_state",
         check_deadline_fn=_check_deadline,
     ).lower()
+    if lifecycle_value == MarkerLifecycleState.LANDED.value:
+        return MarkerLifecycleState.LANDED
     if lifecycle_value == MarkerLifecycleState.EXPIRED.value:
         return MarkerLifecycleState.EXPIRED
     if lifecycle_value == MarkerLifecycleState.ROLLED_BACK.value:
@@ -324,9 +334,15 @@ def _missing_fields(payload: MarkerPayload) -> tuple[str, ...]:
         missing.append("reasoning.summary")
     if not payload.reasoning.control.strip():
         missing.append("reasoning.control")
-    if not payload.reasoning.blocking_dependencies:
+    if (
+        payload.lifecycle_state is MarkerLifecycleState.ACTIVE
+        and not payload.reasoning.blocking_dependencies
+    ):
         missing.append("reasoning.blocking_dependencies")
-    if payload.lifecycle_state is not MarkerLifecycleState.ACTIVE:
+    if (
+        payload.lifecycle_state
+        in {MarkerLifecycleState.EXPIRED, MarkerLifecycleState.ROLLED_BACK}
+    ):
         missing.append("lifecycle_state")
     return tuple(missing)
 
@@ -480,7 +496,10 @@ class _InvariantMarkerVisitor(ast.NodeVisitor):
                     "expiry",
                     check_deadline_fn=_check_deadline,
                 ),
-                lifecycle_state=_lifecycle_state(node),
+                lifecycle_state=_lifecycle_state(
+                    node,
+                    resolved_name=resolved_name,
+                ),
                 links=tuple(
                     dict(item)
                     for item in keyword_links_literal(
@@ -555,7 +574,10 @@ class _InvariantMarkerVisitor(ast.NodeVisitor):
                     "expiry",
                     check_deadline_fn=_check_deadline,
                 ),
-                lifecycle_state=_lifecycle_state(decorator),
+                lifecycle_state=_lifecycle_state(
+                    decorator,
+                    resolved_name=resolved_name,
+                ),
                 links=tuple(
                     dict(item)
                     for item in keyword_links_literal(
