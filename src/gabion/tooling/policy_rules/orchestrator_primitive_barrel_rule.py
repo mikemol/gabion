@@ -26,6 +26,23 @@ RULE_NAME = "orchestrator_primitive_barrel"
 _ORCHESTRATOR_PRIMITIVE_BARREL_PATH = "src/gabion/server_core/command_orchestrator_primitives.py"
 _ORCHESTRATOR_PRIMITIVE_MAX_LINES = 2400
 _ORCHESTRATOR_PRIMITIVE_MAX_ALL_SYMBOLS = 220
+_BRIDGE_CONTRACT_REGISTRY_IMPORT = "gabion.server_core.primitive_contract_registry"
+_BRIDGE_CONTRACT_MODULE_PATHS = {
+    "src/gabion/server_core/analysis_primitives.py",
+    "src/gabion/server_core/timeout_runtime.py",
+    "src/gabion/server_core/progress_contracts.py",
+    "src/gabion/server_core/report_projection_runtime.py",
+    "src/gabion/server_core/output_primitives.py",
+    "src/gabion/server_core/progress_primitives.py",
+    "src/gabion/server_core/timeout_primitives.py",
+    "src/gabion/server_core/ingress_contracts.py",
+}
+_FORBIDDEN_BRIDGE_IMPORTS = {
+    "gabion.server_core.command_orchestrator_primitives",
+    "gabion.server_core.report_projection_runtime",
+    "gabion.server_core.progress_contracts",
+    "gabion.server_core.timeout_runtime",
+}
 
 
 @dataclass(frozen=True)
@@ -101,6 +118,14 @@ def collect_violations(
                 ),
             )
         )
+    for bridge_module in _iter_bridge_contract_modules(union_view=union_view):
+        violations.extend(
+            _bridge_contract_import_violations(
+                run_context=context,
+                rel_path=getattr(bridge_module, "rel_path", ""),
+                tree=getattr(bridge_module, "pyast_tree", None),
+            )
+        )
     return violations
 
 
@@ -110,6 +135,66 @@ def _target_module(*, union_view: object):
         if getattr(module, "rel_path", "") == _ORCHESTRATOR_PRIMITIVE_BARREL_PATH:
             return module
     return None
+
+
+def _iter_bridge_contract_modules(*, union_view: object) -> Iterable[object]:
+    for module in getattr(union_view, "modules", ()):
+        rel_path = getattr(module, "rel_path", "")
+        if rel_path in _BRIDGE_CONTRACT_MODULE_PATHS:
+            yield module
+
+
+def _bridge_contract_import_violations(
+    *,
+    run_context: CanonicalRunContext,
+    rel_path: str,
+    tree: ast.AST | None,
+) -> list[Violation]:
+    if tree is None:
+        return []
+    imported_modules = set(_iter_imported_module_names(tree))
+    violations: list[Violation] = []
+    if _BRIDGE_CONTRACT_REGISTRY_IMPORT not in imported_modules:
+        violations.append(
+            _violation(
+                run_context=run_context,
+                rel_path=rel_path,
+                line=1,
+                column=1,
+                kind="bridge_contract_registry_import_missing",
+                message=(
+                    "bridge contract modules must import "
+                    f"{_BRIDGE_CONTRACT_REGISTRY_IMPORT}"
+                ),
+            )
+        )
+    forbidden = sorted(imported_modules & _FORBIDDEN_BRIDGE_IMPORTS)
+    if forbidden:
+        violations.append(
+            _violation(
+                run_context=run_context,
+                rel_path=rel_path,
+                line=1,
+                column=1,
+                kind="bridge_contract_legacy_import",
+                message=(
+                    "bridge contract modules must not depend on legacy or peer bridge modules: "
+                    + ", ".join(forbidden)
+                ),
+            )
+        )
+    return violations
+
+
+def _iter_imported_module_names(tree: ast.AST) -> Iterable[str]:
+    for node in ast.walk(tree):
+        match node:
+            case ast.Import(names=names):
+                for alias in names:
+                    yield alias.name
+            case ast.ImportFrom(module=module):
+                if module:
+                    yield module
 
 
 def _failure_violation(*, run_context: CanonicalRunContext, seed: ScanFailureSeed) -> Violation:

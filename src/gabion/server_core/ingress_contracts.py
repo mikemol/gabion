@@ -5,7 +5,7 @@ from typing import Callable
 
 from gabion.schema import DataflowResponseEnvelopeDTO
 from gabion.server_core.ingress_primitives import ExecuteCommandDeps
-from gabion.server_core import command_orchestrator_primitives as legacy
+from gabion.server_core.primitive_contract_registry import ingress_stage_dependency_defaults
 
 
 @dataclass(frozen=True)
@@ -16,10 +16,11 @@ class IngressStageDeps:
 
 
 def default_ingress_stage_deps() -> IngressStageDeps:
+    defaults = ingress_stage_dependency_defaults()
     return IngressStageDeps(
-        normalize_dataflow_response_fn=legacy._normalize_dataflow_response,
-        materialize_execution_plan_fn=legacy._materialize_execution_plan,
-        default_execute_command_deps_fn=legacy._default_execute_command_deps,
+        normalize_dataflow_response_fn=defaults["normalize_dataflow_response_fn"],
+        materialize_execution_plan_fn=defaults["materialize_execution_plan_fn"],
+        default_execute_command_deps_fn=defaults["default_execute_command_deps_fn"],
     )
 
 

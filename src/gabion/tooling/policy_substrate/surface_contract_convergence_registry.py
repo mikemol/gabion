@@ -531,7 +531,7 @@ def surface_contract_convergence_workstream_registry() -> WorkstreamRegistry:
                 touchpoint_id="SCC-TP-004",
                 title="Registry-backed downstream server-core mirror contracts",
                 symbol=_scc_tp_bridge_layer_two,
-                status_hint="queued",
+                status_hint="landed",
                 declared_touchsites=(
                     _module_touchsite(
                         touchsite_id="SCC-TS-004-A",

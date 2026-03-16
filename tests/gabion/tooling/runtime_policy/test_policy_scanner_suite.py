@@ -561,6 +561,20 @@ def test_policy_scanner_suite_flags_wide_orchestrator_primitive_barrel(tmp_path:
     assert any(item.get("kind") == "line_threshold" for item in violations)
 
 
+def test_policy_scanner_suite_flags_bridge_modules_that_skip_contract_registry(tmp_path: Path) -> None:
+    root = tmp_path
+    _write(root / "src/gabion/server_core/command_orchestrator_primitives.py", "__all__ = []\n")
+    _write(
+        root / "src/gabion/server_core/output_primitives.py",
+        "from gabion.server_core.report_projection_runtime import ReportProjectionRuntime\n",
+    )
+
+    result = _scan_policy_suite(root=root)
+    violations = _violations(result, rule="orchestrator_primitive_barrel")
+    assert any(item.get("kind") == "bridge_contract_registry_import_missing" for item in violations)
+    assert any(item.get("kind") == "bridge_contract_legacy_import" for item in violations)
+
+
 # gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_flags_typing_surface_and_respects_baseline_and_waivers::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
 # gabion:behavior primary=desired
 def test_policy_scanner_suite_flags_typing_surface_and_respects_baseline_and_waivers(tmp_path: Path) -> None:
