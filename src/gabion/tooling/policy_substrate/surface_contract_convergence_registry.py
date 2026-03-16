@@ -496,7 +496,7 @@ def surface_contract_convergence_workstream_registry() -> WorkstreamRegistry:
                 touchpoint_id="SCC-TP-003",
                 title="Registry-backed first-layer server-core primitive contracts",
                 symbol=_scc_tp_bridge_layer_one,
-                status_hint="queued",
+                status_hint="landed",
                 declared_touchsites=(
                     _module_touchsite(
                         touchsite_id="SCC-TS-003-A",

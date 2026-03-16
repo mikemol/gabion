@@ -198,10 +198,11 @@ def test_surface_contract_convergence_workstream_registry_exposes_queue_and_touc
     }
     assert touchpoints["SCC-TP-001"].status_hint == "landed"
     assert touchpoints["SCC-TP-002"].status_hint == "landed"
+    assert touchpoints["SCC-TP-003"].status_hint == "landed"
     assert all(
         touchpoints[touchpoint_id].status_hint == "queued"
         for touchpoint_id in touchpoints
-        if touchpoint_id not in {"SCC-TP-001", "SCC-TP-002"}
+        if touchpoint_id not in {"SCC-TP-001", "SCC-TP-002", "SCC-TP-003"}
     )
     assert {
         (item.rel_path, item.qualname)
