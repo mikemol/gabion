@@ -73,11 +73,6 @@ from gabion.analysis.foundation.timeout_context import (
     check_deadline, deadline_loop_iter, render_deadline_profile_markdown)
 from gabion.commands import (
     check_contract, command_ids, progress_contract as progress_timeline, transport_policy)
-from gabion.runtime.coercion_contract import (
-    CORE_STR_OPTIONAL_POLICY,
-    INT_OPTIONAL_POLICY,
-    MAPPING_OPTIONAL_POLICY,
-)
 from gabion.runtime import deadline_policy, env_policy, path_policy, policy_runtime
 
 DATAFLOW_COMMAND = command_ids.DATAFLOW_COMMAND
@@ -105,6 +100,12 @@ from gabion.tooling.docflow import (
 from gabion.tooling.governance import (
     governance_audit as tooling_governance_audit, ambiguity_contract_policy_check as tooling_ambiguity_contract_policy_check, normative_symdiff as tooling_normative_symdiff)
 from gabion.server_core import command_orchestrator_primitives
+from gabion.server_core.coercion_contract import (
+    _cli_int_optional as _int_optional,
+    _cli_json_object_optional as _json_object_optional,
+    _cli_mapping_optional as _mapping_optional,
+    _cli_str_optional as _str_optional,
+)
 from gabion.tooling.impact import (
     impact_select_tests as tooling_impact_select_tests)
 from gabion.json_types import JSONObject, JSONValue
@@ -674,29 +675,7 @@ def _emit_nonzero_exit_causes(result: JSONObject) -> None:
     result_emitters.emit_nonzero_exit_causes(result)
 
 
-def _int_optional(value: object) -> int | None:
-    if isinstance(value, (complex, bytes, frozenset)):
-        return None
-    return INT_OPTIONAL_POLICY(value)
-
-
-def _str_optional(value: object) -> str | None:
-    if isinstance(value, (complex, bytes, frozenset)):
-        return None
-    return CORE_STR_OPTIONAL_POLICY(value)
-
-
-def _mapping_optional(value: object) -> Mapping[str, object] | None:
-    if isinstance(value, (complex, bytes, frozenset)):
-        return None
-    return MAPPING_OPTIONAL_POLICY(value)
-
-
-def _json_object_optional(value: object) -> JSONObject | None:
-    mapping = _mapping_optional(value)
-    if mapping is None:
-        return None
-    return cast(JSONObject, mapping)
+_json_object_optional = cast(Callable[[object], JSONObject | None], _json_object_optional)
 
 
 def _emit_resume_state_startup_line(

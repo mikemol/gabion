@@ -63,9 +63,9 @@ def _bic_tp_runner_ingress_residue() -> None:
 
 
 @landed_todo_decorator(
-    reason="BIC-SQ-002 is recorded as landed metadata after server-core coercion helpers converged onto one shared carrier.",
+    reason="BIC-SQ-002 is recorded as landed metadata after server-core and CLI optional-value coercion helpers converged onto one shared carrier.",
     reasoning={
-        "summary": "command_orchestrator, command_orchestrator_progress, and downstream consumers now share one coercion carrier, and the convergence is completed and recorded as closed subqueue state.",
+        "summary": "command_orchestrator, command_orchestrator_progress, downstream consumers, and CLI optional-value coercion helpers now share one coercion carrier, and the convergence is completed and recorded as closed subqueue state.",
         "control": "boundary_ingress_convergence.server_core_coercion",
         "blocking_dependencies": (),
     },
@@ -152,6 +152,25 @@ def _bic_tp_server_core_coercion_extract() -> None:
     ],
 )
 def _bic_tp_server_core_coercion_migrate() -> None:
+    return None
+
+
+@landed_todo_decorator(
+    reason="BIC-TP-006 is recorded as landed metadata for CLI delegation onto the shared server-core optional-value coercion carrier.",
+    reasoning={
+        "summary": "cli.py now delegates its optional int, str, mapping, and JSON-object coercion helpers to the shared server-core coercion carrier while preserving the CLI-specific complex/bytes/frozenset rejection semantics, and the completed convergence is recorded as closed touchpoint state.",
+        "control": "boundary_ingress_convergence.cli_coercion_delegate",
+        "blocking_dependencies": (),
+    },
+    owner="gabion.cli",
+    expiry="BIC closure",
+    links=[
+        {"kind": "object_id", "value": "BIC"},
+        {"kind": "object_id", "value": "BIC-SQ-002"},
+        {"kind": "object_id", "value": "BIC-TP-006"},
+    ],
+)
+def _bic_tp_cli_coercion_delegate() -> None:
     return None
 
 
@@ -311,7 +330,7 @@ def boundary_ingress_convergence_workstream_registry() -> WorkstreamRegistry:
                 subqueue_id="BIC-SQ-002",
                 title="Server-core coercion carrier convergence",
                 symbol=_bic_sq_server_core_coercion,
-                touchpoint_ids=("BIC-TP-002", "BIC-TP-003"),
+                touchpoint_ids=("BIC-TP-002", "BIC-TP-003", "BIC-TP-006"),
                 status_hint="landed",
             ),
             _subqueue_definition(
@@ -424,6 +443,31 @@ def boundary_ingress_convergence_workstream_registry() -> WorkstreamRegistry:
                     ),
                     _module_touchsite(
                         touchsite_id="BIC-TS-003-C",
+                        rel_path="tests/gabion/runtime/test_coercion_contract.py",
+                        qualname="test_coercion_contract",
+                    ),
+                ),
+            ),
+            _touchpoint_definition(
+                root_id=root_id,
+                subqueue_id="BIC-SQ-002",
+                touchpoint_id="BIC-TP-006",
+                title="CLI optional-value coercion delegation onto the shared server-core carrier",
+                symbol=_bic_tp_cli_coercion_delegate,
+                status_hint="landed",
+                declared_touchsites=(
+                    _module_touchsite(
+                        touchsite_id="BIC-TS-006-A",
+                        rel_path="src/gabion/server_core/coercion_contract.py",
+                        qualname="coercion_contract",
+                    ),
+                    _module_touchsite(
+                        touchsite_id="BIC-TS-006-B",
+                        rel_path="src/gabion/cli.py",
+                        qualname="cli",
+                    ),
+                    _module_touchsite(
+                        touchsite_id="BIC-TS-006-C",
                         rel_path="tests/gabion/runtime/test_coercion_contract.py",
                         qualname="test_coercion_contract",
                     ),

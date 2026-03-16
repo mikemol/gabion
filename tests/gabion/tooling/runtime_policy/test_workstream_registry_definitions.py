@@ -484,7 +484,11 @@ def test_boundary_ingress_convergence_workstream_registry_exposes_queue_and_touc
         "BIC-SQ-003",
     )
     assert subqueues["BIC-SQ-001"].touchpoint_ids == ("BIC-TP-001", "BIC-TP-005")
-    assert subqueues["BIC-SQ-002"].touchpoint_ids == ("BIC-TP-002", "BIC-TP-003")
+    assert subqueues["BIC-SQ-002"].touchpoint_ids == (
+        "BIC-TP-002",
+        "BIC-TP-003",
+        "BIC-TP-006",
+    )
     assert subqueues["BIC-SQ-003"].touchpoint_ids == ("BIC-TP-004",)
     assert all(item.status_hint == "landed" for item in registry.subqueues)
     assert all(
@@ -496,6 +500,7 @@ def test_boundary_ingress_convergence_workstream_registry_exposes_queue_and_touc
         "BIC-TP-005",
         "BIC-TP-002",
         "BIC-TP-003",
+        "BIC-TP-006",
         "BIC-TP-004",
     }
     assert all(item.status_hint == "landed" for item in registry.touchpoints)
@@ -555,6 +560,14 @@ def test_boundary_ingress_convergence_workstream_registry_exposes_queue_and_touc
             "command_orchestrator_primitives",
         ),
         ("src/gabion/server_core/server_payload_dispatch.py", "server_payload_dispatch"),
+        ("tests/gabion/runtime/test_coercion_contract.py", "test_coercion_contract"),
+    }
+    assert {
+        (item.rel_path, item.qualname)
+        for item in touchpoints["BIC-TP-006"].declared_touchsites
+    } == {
+        ("src/gabion/server_core/coercion_contract.py", "coercion_contract"),
+        ("src/gabion/cli.py", "cli"),
         ("tests/gabion/runtime/test_coercion_contract.py", "test_coercion_contract"),
     }
     assert {

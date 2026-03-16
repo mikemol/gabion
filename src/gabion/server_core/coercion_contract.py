@@ -14,6 +14,7 @@ from gabion.runtime.coercion_contract import (
 )
 
 _NONE_TYPE = type(None)
+_CLI_REJECTED_RUNTIME_TYPES = (complex, bytes, frozenset)
 
 
 def _mapping_or_none(value: object) -> dict[str, object] | None:
@@ -175,6 +176,29 @@ def _float_optional(value: object) -> float | None:
     return FLOAT_ONLY_OPTIONAL_POLICY(value)
 
 
+def _cli_int_optional(value: object) -> int | None:
+    if isinstance(value, _CLI_REJECTED_RUNTIME_TYPES):
+        return None
+    return _int_optional(value)
+
+
+def _cli_str_optional(value: object) -> str | None:
+    if isinstance(value, _CLI_REJECTED_RUNTIME_TYPES):
+        return None
+    return _str_optional(value)
+
+
+def _cli_mapping_optional(value: object) -> dict[str, object] | None:
+    if isinstance(value, _CLI_REJECTED_RUNTIME_TYPES):
+        return None
+    return _object_mapping_optional(value)
+
+
+def _cli_json_object_optional(value: object) -> dict[str, JSONValue] | None:
+    mapping = _cli_mapping_optional(value)
+    return cast(dict[str, JSONValue] | None, mapping)
+
+
 __all__ = [
     "BOOL_OPTIONAL_POLICY",
     "INT_OR_ZERO_POLICY",
@@ -182,6 +206,10 @@ __all__ = [
     "NON_NEGATIVE_FLOAT_OPTIONAL_POLICY",
     "NON_STRING_SEQUENCE_OPTIONAL_POLICY",
     "OBJECT_MAPPING_OPTIONAL_POLICY",
+    "_cli_int_optional",
+    "_cli_json_object_optional",
+    "_cli_mapping_optional",
+    "_cli_str_optional",
     "_bool_optional",
     "_config_path_optional",
     "_float_optional",
