@@ -15,6 +15,9 @@ from gabion.tooling.policy_substrate.surface_contract_convergence_registry impor
 from gabion.tooling.policy_substrate.runtime_context_injection_registry import (
     runtime_context_injection_workstream_registry,
 )
+from gabion.tooling.policy_substrate.boundary_ingress_convergence_registry import (
+    boundary_ingress_convergence_workstream_registry,
+)
 
 
 def test_prf_workstream_registry_exposes_queue_sequence_and_active_playbook_touchpoint() -> None:
@@ -421,6 +424,83 @@ def test_runtime_context_injection_workstream_registry_exposes_queue_and_touchsi
             "tests/gabion/tooling/runtime_policy/test_invariant_graph_live_repo.py",
             "test_invariant_graph_live_repo",
         ),
+    }
+
+
+def test_boundary_ingress_convergence_workstream_registry_exposes_queue_and_touchsites() -> None:
+    registry = boundary_ingress_convergence_workstream_registry()
+    touchpoints = {item.touchpoint_id: item for item in registry.touchpoints}
+    subqueues = {item.subqueue_id: item for item in registry.subqueues}
+
+    assert registry.root.root_id == "BIC"
+    assert registry.tags == ("boundary_ingress_convergence",)
+    assert registry.root.status_hint == "in_progress"
+    assert registry.root.subqueue_ids == (
+        "BIC-SQ-001",
+        "BIC-SQ-002",
+        "BIC-SQ-003",
+    )
+    assert tuple(item.subqueue_id for item in registry.subqueues) == (
+        "BIC-SQ-001",
+        "BIC-SQ-002",
+        "BIC-SQ-003",
+    )
+    assert subqueues["BIC-SQ-001"].touchpoint_ids == ("BIC-TP-001",)
+    assert subqueues["BIC-SQ-002"].touchpoint_ids == ("BIC-TP-002", "BIC-TP-003")
+    assert subqueues["BIC-SQ-003"].touchpoint_ids == ("BIC-TP-004",)
+    assert all(item.status_hint == "in_progress" for item in registry.subqueues)
+    assert set(touchpoints) == {
+        "BIC-TP-001",
+        "BIC-TP-002",
+        "BIC-TP-003",
+        "BIC-TP-004",
+    }
+    assert all(item.status_hint == "queued" for item in registry.touchpoints)
+    assert {
+        (item.rel_path, item.qualname)
+        for item in touchpoints["BIC-TP-001"].declared_touchsites
+    } == {
+        (
+            "src/gabion/cli_support/shared/dataflow_transport_ingress.py",
+            "dataflow_transport_ingress",
+        ),
+        ("src/gabion/cli.py", "cli"),
+        (
+            "src/gabion/tooling/runtime/dataflow_invocation_runner.py",
+            "dataflow_invocation_runner",
+        ),
+    }
+    assert {
+        (item.rel_path, item.qualname)
+        for item in touchpoints["BIC-TP-002"].declared_touchsites
+    } == {
+        ("src/gabion/server_core/coercion_contract.py", "coercion_contract"),
+        ("src/gabion/server_core/command_orchestrator.py", "command_orchestrator"),
+        (
+            "src/gabion/server_core/command_orchestrator_progress.py",
+            "command_orchestrator_progress",
+        ),
+        ("tests/gabion/runtime/test_coercion_contract.py", "test_coercion_contract"),
+    }
+    assert {
+        (item.rel_path, item.qualname)
+        for item in touchpoints["BIC-TP-003"].declared_touchsites
+    } == {
+        (
+            "src/gabion/server_core/command_orchestrator_primitives.py",
+            "command_orchestrator_primitives",
+        ),
+        ("src/gabion/server_core/server_payload_dispatch.py", "server_payload_dispatch"),
+        ("tests/gabion/runtime/test_coercion_contract.py", "test_coercion_contract"),
+    }
+    assert {
+        (item.rel_path, item.qualname)
+        for item in touchpoints["BIC-TP-004"].declared_touchsites
+    } == {
+        ("tests/gabion/cli/cli_commands_cases.py", "cli_commands_cases"),
+        ("tests/gabion/cli/cli_live_repo_cases.py", "cli_live_repo_cases"),
+        ("tests/gabion/cli/test_cli.py", "test_cli"),
+        ("tests/gabion/cli/test_cli_live_repo.py", "test_cli_live_repo"),
     }
 
 

@@ -80,6 +80,7 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
 
     assert projection["queue_id"] == "PSF-007"
     assert graph.workstream_root_ids == (
+        "BIC",
         "CSA-IDR",
         "CSA-IGM",
         "CSA-IVL",

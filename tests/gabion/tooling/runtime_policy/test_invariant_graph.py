@@ -249,6 +249,7 @@ def _deprecated_live_psf_phase5_projection_snapshot() -> None:
     assert len(projection["subqueues"]) == 5
     assert len(projection["touchpoints"]) == 6
     assert graph.workstream_root_ids == (
+        "BIC",
         "CSA-IDR",
         "CSA-IGM",
         "CSA-RGC",
@@ -785,7 +786,7 @@ def _deprecated_live_psf_phase5_projection_snapshot() -> None:
         for item in workstreams_payload.get("workstreams", [])
         if isinstance(item, dict)
     ]
-    assert projected_ids == ["CSA-IDR", "CSA-IGM", "CSA-RGC", "PRF", "PSF-007"]
+    assert projected_ids == ["BIC", "CSA-IDR", "CSA-IGM", "CSA-RGC", "PRF", "PSF-007"]
     prf = next(
         item
         for item in workstreams_payload["workstreams"]

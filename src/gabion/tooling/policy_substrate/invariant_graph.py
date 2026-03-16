@@ -72,6 +72,9 @@ from gabion.tooling.policy_substrate.surface_contract_convergence_registry impor
 from gabion.tooling.policy_substrate.runtime_context_injection_registry import (
     runtime_context_injection_workstream_registry,
 )
+from gabion.tooling.policy_substrate.boundary_ingress_convergence_registry import (
+    boundary_ingress_convergence_workstream_registry,
+)
 from gabion.tooling.policy_substrate.structured_artifact_ingress import (
     StructuredArtifactIdentitySpace,
     TestEvidenceSite,
@@ -9132,6 +9135,9 @@ def _iter_declared_workstream_registries() -> tuple[WorkstreamRegistry, ...]:
     rci_registry = runtime_context_injection_workstream_registry()
     if rci_registry is not None:
         registries.append(rci_registry)
+    bic_registry = boundary_ingress_convergence_workstream_registry()
+    if bic_registry is not None:
+        registries.append(bic_registry)
     registries.extend(connectivity_synergy_workstream_registries())
     return tuple(registries)
 
