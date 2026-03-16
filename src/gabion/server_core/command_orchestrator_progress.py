@@ -3,112 +3,29 @@ from __future__ import annotations
 import hashlib
 import json
 
-from functools import singledispatch
-from typing import Iterator, Mapping, Sequence, cast
+from typing import Iterator, Mapping, Sequence
 
 from gabion.analysis import report_projection_phase_rank
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.invariants import never
 from gabion.json_types import JSONObject, JSONValue
 from gabion.order_contract import sort_once
-from gabion.runtime.coercion_contract import (
-    CORE_STR_OPTIONAL_POLICY,
-    FLOAT_ONLY_OPTIONAL_POLICY,
-    MAPPING_OPTIONAL_POLICY,
-    NON_BOOL_INT_OPTIONAL_POLICY,
+from gabion.server_core.coercion_contract import (
+    _bool_optional,
+    _float_optional,
+    _int_optional,
+    _json_mapping_default_empty,
+    _json_mapping_optional,
+    _non_negative_int_optional,
+    _non_string_sequence_optional,
+    _str_optional,
 )
 from gabion.server_core import dataflow_runtime_contract as runtime_contract
 
 _PHASE_PRIMARY_UNITS: Mapping[str, str] = runtime_contract.PHASE_PRIMARY_UNITS
 
-_NONE_TYPE = type(None)
-
-
 def _canonical_json_text(payload: object) -> str:
     return json.dumps(payload, sort_keys=False, separators=(",", ":"), ensure_ascii=True)
-
-def _json_mapping_optional(value: object) -> dict[str, JSONValue] | None:
-    return cast(dict[str, JSONValue] | None, MAPPING_OPTIONAL_POLICY(value))
-
-def _json_mapping_default_empty(value: object) -> dict[str, JSONValue]:
-    mapping = _json_mapping_optional(value)
-    if mapping is not None:
-        return mapping
-    return {}
-
-def _int_optional(value: object) -> int | None:
-    return NON_BOOL_INT_OPTIONAL_POLICY(value)
-
-def _non_negative_int_optional(value: object) -> int | None:
-    int_value = _int_optional(value)
-    if int_value is None:
-        return None
-    return max(int_value, 0)
-
-@singledispatch
-def _non_string_sequence_optional(value: object) -> Sequence[object] | None:
-    never("unregistered runtime type", value_type=type(value).__name__)
-
-
-@_non_string_sequence_optional.register
-def _sd_reg_3(value: list) -> Sequence[object] | None:
-    return value
-
-
-@_non_string_sequence_optional.register
-def _sd_reg_4(value: tuple) -> Sequence[object] | None:
-    return value
-
-
-@_non_string_sequence_optional.register
-def _sd_reg_5(value: set) -> Sequence[object] | None:
-    return value
-
-
-def _sequence_none(value: object) -> Sequence[object] | None:
-    _ = value
-    return None
-
-
-_non_string_sequence_optional.register(str)(_sequence_none)
-_non_string_sequence_optional.register(dict)(_sequence_none)
-_non_string_sequence_optional.register(int)(_sequence_none)
-_non_string_sequence_optional.register(float)(_sequence_none)
-_non_string_sequence_optional.register(bool)(_sequence_none)
-_non_string_sequence_optional.register(_NONE_TYPE)(_sequence_none)
-
-
-def _str_optional(value: object) -> str | None:
-    return CORE_STR_OPTIONAL_POLICY(value)
-
-
-@singledispatch
-def _bool_optional(value: object) -> bool | None:
-    never("unregistered runtime type", value_type=type(value).__name__)
-
-
-@_bool_optional.register
-def _sd_reg_7(value: bool) -> bool | None:
-    return value
-
-
-def _bool_none(value: object) -> bool | None:
-    _ = value
-    return None
-
-
-_bool_optional.register(int)(_bool_none)
-_bool_optional.register(float)(_bool_none)
-_bool_optional.register(str)(_bool_none)
-_bool_optional.register(list)(_bool_none)
-_bool_optional.register(tuple)(_bool_none)
-_bool_optional.register(set)(_bool_none)
-_bool_optional.register(dict)(_bool_none)
-_bool_optional.register(_NONE_TYPE)(_bool_none)
-
-
-def _float_optional(value: object) -> float | None:
-    return FLOAT_ONLY_OPTIONAL_POLICY(value)
 
 _REPORT_PHASE_RANK_BY_NAME: dict[str, int] = {
     "collection": report_projection_phase_rank("collection"),

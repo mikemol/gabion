@@ -108,6 +108,15 @@ from gabion.server_core.command_reducers import (
     normalize_paths,
     normalize_timeout_total_ticks,
 )
+from gabion.server_core.coercion_contract import (
+    _bool_optional,
+    _config_path_optional,
+    _int_or_zero,
+    _non_empty_string_optional,
+    _non_negative_float_optional,
+    _object_mapping_optional,
+    _string_optional,
+)
 from gabion.server_core.ingress_contracts import default_ingress_stage_deps
 from gabion.server_core.ingress_primitives import ExecuteCommandDeps
 from gabion.server_core.analysis_stage import run_analysis_stage
@@ -183,150 +192,6 @@ _NONE_TYPE = type(None)
 def _bind_server_symbols() -> None:
     """Legacy test hook retained for compatibility after static extraction."""
     return
-
-
-@singledispatch
-def _object_mapping_optional(value: object) -> dict[str, object] | None:
-    never("unregistered runtime type", value_type=type(value).__name__)
-
-
-@_object_mapping_optional.register(dict)
-def _sd_reg_1(value: dict[object, object]) -> dict[str, object] | None:
-    return dict(value)
-
-
-def _object_mapping_none(value: object) -> dict[str, object] | None:
-    _ = value
-    return None
-
-
-_object_mapping_optional.register(list)(_object_mapping_none)
-_object_mapping_optional.register(tuple)(_object_mapping_none)
-_object_mapping_optional.register(set)(_object_mapping_none)
-_object_mapping_optional.register(str)(_object_mapping_none)
-_object_mapping_optional.register(int)(_object_mapping_none)
-_object_mapping_optional.register(float)(_object_mapping_none)
-_object_mapping_optional.register(bool)(_object_mapping_none)
-_object_mapping_optional.register(_NONE_TYPE)(_object_mapping_none)
-
-
-@singledispatch
-def _string_optional(value: object) -> str | None:
-    never("unregistered runtime type", value_type=type(value).__name__)
-
-
-@_string_optional.register
-def _sd_reg_2(value: str) -> str | None:
-    return value
-
-
-def _string_none(value: object) -> str | None:
-    _ = value
-    return None
-
-
-_string_optional.register(int)(_string_none)
-_string_optional.register(float)(_string_none)
-_string_optional.register(bool)(_string_none)
-_string_optional.register(list)(_string_none)
-_string_optional.register(tuple)(_string_none)
-_string_optional.register(set)(_string_none)
-_string_optional.register(dict)(_string_none)
-_string_optional.register(_NONE_TYPE)(_string_none)
-
-
-def _non_empty_string_optional(value: object) -> str | None:
-    text = _string_optional(value)
-    if text:
-        return text
-    return None
-
-
-def _config_path_optional(value: object) -> Path | None:
-    config_text = _string_optional(value)
-    if config_text is None:
-        return None
-    normalized = config_text.strip()
-    if not normalized:
-        return None
-    return Path(normalized)
-
-
-@singledispatch
-def _bool_optional(value: object) -> bool | None:
-    never("unregistered runtime type", value_type=type(value).__name__)
-
-
-@_bool_optional.register
-def _sd_reg_3(value: bool) -> bool | None:
-    return value
-
-
-def _bool_none(value: object) -> bool | None:
-    _ = value
-    return None
-
-
-_bool_optional.register(int)(_bool_none)
-_bool_optional.register(float)(_bool_none)
-_bool_optional.register(str)(_bool_none)
-_bool_optional.register(list)(_bool_none)
-_bool_optional.register(tuple)(_bool_none)
-_bool_optional.register(set)(_bool_none)
-_bool_optional.register(dict)(_bool_none)
-_bool_optional.register(_NONE_TYPE)(_bool_none)
-
-
-@singledispatch
-def _non_negative_float_optional(value: object) -> float | None:
-    never("unregistered runtime type", value_type=type(value).__name__)
-
-
-@_non_negative_float_optional.register
-def _sd_reg_4(value: float) -> float | None:
-    return max(value, 0.0)
-
-
-@_non_negative_float_optional.register
-def _sd_reg_5(value: int) -> float | None:
-    return max(float(value), 0.0)
-
-
-def _float_none(value: object) -> float | None:
-    _ = value
-    return None
-
-
-_non_negative_float_optional.register(str)(_float_none)
-_non_negative_float_optional.register(list)(_float_none)
-_non_negative_float_optional.register(tuple)(_float_none)
-_non_negative_float_optional.register(set)(_float_none)
-_non_negative_float_optional.register(dict)(_float_none)
-_non_negative_float_optional.register(_NONE_TYPE)(_float_none)
-
-
-@singledispatch
-def _int_or_zero(value: object) -> int:
-    never("unregistered runtime type", value_type=type(value).__name__)
-
-
-@_int_or_zero.register
-def _sd_reg_6(value: int) -> int:
-    return int(value)
-
-
-def _zero(value: object) -> int:
-    _ = value
-    return 0
-
-
-_int_or_zero.register(float)(_zero)
-_int_or_zero.register(str)(_zero)
-_int_or_zero.register(list)(_zero)
-_int_or_zero.register(tuple)(_zero)
-_int_or_zero.register(set)(_zero)
-_int_or_zero.register(dict)(_zero)
-_int_or_zero.register(_NONE_TYPE)(_zero)
 
 
 def _aux_operation_mapping_or_never(value: object) -> dict[str, object]:

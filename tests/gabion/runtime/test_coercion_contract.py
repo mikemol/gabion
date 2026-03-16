@@ -8,6 +8,8 @@ from gabion.analysis.surfaces import test_obsolescence_delta
 from gabion.commands import progress_contract
 from gabion.exceptions import NeverThrown
 from gabion.runtime import coercion_contract
+from gabion.server_core import coercion_contract as server_core_coercion_contract
+from gabion.server_core import command_orchestrator
 from gabion.server_core import command_orchestrator_progress
 from gabion.runtime_shape_dispatch import (
     float_optional,
@@ -60,9 +62,42 @@ def test_followon_modules_use_shared_coercion_substrate() -> None:
     assert test_obsolescence_delta._str_optional("item") == "item"
 
 
+def test_server_core_coercion_contract_preserves_orchestrator_edges() -> None:
+    assert server_core_coercion_contract._object_mapping_optional({"ok": 1}) == {"ok": 1}
+    assert server_core_coercion_contract._string_optional("phase") == "phase"
+    assert server_core_coercion_contract._bool_optional(True) is True
+    assert server_core_coercion_contract._bool_optional(1) is None
+    assert server_core_coercion_contract._non_negative_float_optional(True) == 1.0
+    assert server_core_coercion_contract._non_negative_float_optional(-2.0) == 0.0
+    assert server_core_coercion_contract._int_or_zero(True) == 1
+    assert server_core_coercion_contract._int_or_zero("nope") == 0
+    assert server_core_coercion_contract._non_string_sequence_optional(("a", "b")) == ("a", "b")
+    assert server_core_coercion_contract._non_string_sequence_optional({"a", "b"}) == {"a", "b"}
+    assert server_core_coercion_contract._float_optional(1) is None
+    assert server_core_coercion_contract._json_mapping_default_empty(None) == {}
+
+
+def test_server_core_modules_bind_to_shared_coercion_contract() -> None:
+    assert command_orchestrator._bool_optional is server_core_coercion_contract._bool_optional
+    assert (
+        command_orchestrator._non_negative_float_optional
+        is server_core_coercion_contract._non_negative_float_optional
+    )
+    assert command_orchestrator._int_or_zero is server_core_coercion_contract._int_or_zero
+    assert command_orchestrator_progress._bool_optional is server_core_coercion_contract._bool_optional
+    assert (
+        command_orchestrator_progress._non_string_sequence_optional
+        is server_core_coercion_contract._non_string_sequence_optional
+    )
+    assert command_orchestrator_progress._float_optional is server_core_coercion_contract._float_optional
+
+
 def test_coercion_contract_rejects_unregistered_runtime_types() -> None:
     with pytest.raises(NeverThrown, match="unregistered runtime type"):
         coercion_contract.STR_OPTIONAL_POLICY(_UnknownRuntimeValue())
 
     with pytest.raises(NeverThrown, match="unregistered runtime type"):
         progress_contract._mapping_optional(_UnknownRuntimeValue())
+
+    with pytest.raises(NeverThrown, match="unregistered runtime type"):
+        server_core_coercion_contract._bool_optional(_UnknownRuntimeValue())

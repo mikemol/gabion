@@ -341,7 +341,7 @@ def boundary_ingress_convergence_workstream_registry() -> WorkstreamRegistry:
                 touchpoint_id="BIC-TP-002",
                 title="Canonical server-core coercion carrier",
                 symbol=_bic_tp_server_core_coercion_extract,
-                status_hint="queued",
+                status_hint="landed",
                 declared_touchsites=(
                     _module_touchsite(
                         touchsite_id="BIC-TS-002-A",
