@@ -4,12 +4,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-try:
-    import yaml
-except ImportError:  # pragma: no cover - fallback path
-    yaml = None
-
 from gabion.analysis.foundation.timeout_context import check_deadline
+from gabion.frontmatter import parse_lenient_yaml_frontmatter
 from gabion.order_contract import ordered_or_sorted
 from gabion.tooling.runtime.declarative_script_host import (
     DeclarativeScriptSpec,
@@ -75,39 +71,6 @@ def _deadline_scope():
 class Doc:
     frontmatter: dict[str, object]
     body_lines: list[str]
-
-
-def _parse_frontmatter(text: str) -> tuple[dict[str, object], list[str]]:
-    if not text.startswith("---\n"):
-        return {}, text.splitlines()
-    lines = text.splitlines()
-    if lines[0].strip() != "---":
-        return {}, lines
-    fm_lines: list[str] = []
-    idx = 1
-    while idx < len(lines):
-        check_deadline()
-        line = lines[idx]
-        if line.strip() == "---":
-            idx += 1
-            break
-        fm_lines.append(line)
-        idx += 1
-    body_lines = lines[idx:]
-    if yaml is not None:
-        try:
-            parsed = yaml.safe_load("\n".join(fm_lines))
-        except Exception:
-            parsed = None
-        if isinstance(parsed, dict):
-            normalized: dict[str, object] = {}
-            for key, value in parsed.items():
-                check_deadline()
-                normalized[str(key)] = value
-            return normalized, body_lines
-    return {}, body_lines
-
-
 def _normalize_header(header: str) -> str:
     return " ".join(header.strip().lower().split())
 
@@ -130,7 +93,8 @@ def _section_contains_obligations(body_lines: list[str]) -> bool:
 
 def _audit_doc(path: Path) -> list[str]:
     text = path.read_text(encoding="utf-8")
-    frontmatter, body_lines = _parse_frontmatter(text)
+    frontmatter, body = parse_lenient_yaml_frontmatter(text)
+    body_lines = body.splitlines()
     violations: list[str] = []
 
     if frontmatter.get("doc_role") != "in_step":

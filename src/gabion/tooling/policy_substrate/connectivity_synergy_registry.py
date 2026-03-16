@@ -1817,7 +1817,7 @@ def connectivity_synergy_workstream_registries() -> tuple[WorkstreamRegistry, ..
                         structural_path="normative_symdiff::_parse_frontmatter",
                     ),
                 ),
-                status_hint="queued",
+                status_hint="landed",
             ),
         ),
         tags=("ingress_merge",),

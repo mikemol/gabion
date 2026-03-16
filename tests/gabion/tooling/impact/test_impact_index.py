@@ -7,6 +7,7 @@ from pathlib import Path
 import runpy
 from types import SimpleNamespace
 
+from gabion.frontmatter import parse_lenient_yaml_frontmatter
 from gabion.analysis.semantics import impact_index as ii
 from gabion.analysis.semantics.impact_index import (
     ImpactIndexGraph, ImpactLink, build_impact_index, emit_impact_index)
@@ -351,7 +352,7 @@ def test_comment_decorator_frontmatter_and_target_helpers(tmp_path: Path) -> Non
     assert ii._call_name(lambda_expr.value.func) == ""
 
     unclosed = "---\ndoc_targets:\n  - gabion.mod.fn\n"
-    payload, body = ii._parse_frontmatter(unclosed)
+    payload, body = parse_lenient_yaml_frontmatter(unclosed)
     assert payload == {}
     assert body == unclosed
 
@@ -364,7 +365,7 @@ def test_comment_decorator_frontmatter_and_target_helpers(tmp_path: Path) -> Non
         "---\n"
         "body\n"
     )
-    payload, body = ii._parse_frontmatter(with_list)
+    payload, body = parse_lenient_yaml_frontmatter(with_list)
     assert payload["doc_targets"] == ["gabion.mod.fn"]
     assert payload["other"] == "value"
     assert body == "body"

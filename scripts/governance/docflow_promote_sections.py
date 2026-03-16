@@ -16,7 +16,7 @@ import re
 from pathlib import Path
 from typing import Any, Iterable
 
-from gabion.tooling.governance.governance_audit import _parse_frontmatter  # type: ignore
+from gabion.frontmatter import parse_lenient_yaml_frontmatter
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.order_contract import ordered_or_sorted
 from gabion.tooling.runtime.declarative_script_host import (
@@ -237,7 +237,7 @@ def _update_section_reviews(
 
 def _update_doc(path: Path, anchors: AnchorMap, *, add_sections: bool, anchorize: bool) -> bool:
     text = path.read_text(encoding="utf-8")
-    fm, body = _parse_frontmatter(text)
+    fm, body = parse_lenient_yaml_frontmatter(text)
     if not fm:
         return False
     fm = _normalize_frontmatter(path, dict(fm))
@@ -364,7 +364,7 @@ def _run_invocation(invocation: ScriptInvocation) -> int:
         all_docs: dict[str, dict[str, Any]] = {}
         for path in doc_paths:
             check_deadline()
-            fm, _ = _parse_frontmatter(path.read_text(encoding="utf-8"))
+            fm, _ = parse_lenient_yaml_frontmatter(path.read_text(encoding="utf-8"))
             if not fm:
                 continue
             all_docs[path.as_posix()] = dict(fm)

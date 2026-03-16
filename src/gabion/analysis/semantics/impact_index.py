@@ -8,12 +8,8 @@ from dataclasses import dataclass, field
 from io import StringIO
 from pathlib import Path
 from typing import Any, Iterable
+from gabion.frontmatter import parse_lenient_yaml_frontmatter
 from gabion.invariants import never
-
-try:
-    import yaml
-except ImportError:  # pragma: no cover - handled as empty frontmatter payload.
-    yaml = None
 
 from gabion.analysis.dataflow.io.dataflow_projection_helpers import report_projection_spec_rows
 from gabion.analysis.foundation.json_types import JSONValue
@@ -345,7 +341,7 @@ def _links_from_doc(*, path: Path, root: Path, symbols: set[str]) -> list[Impact
     if text is None:
         return list()
     rel = _relative(path, root)
-    frontmatter, body = _parse_frontmatter(text)
+    frontmatter, body = parse_lenient_yaml_frontmatter(text)
     source = rel
     explicit = _coerce_target_list(frontmatter.get("doc_targets"))
     if explicit:
@@ -917,35 +913,6 @@ def _attribute_path(node: ast.Attribute) -> list[str]:
                 return [*prefix, node.attr]
             return list()
     return list()
-# gabion:ambiguity_boundary
-def _parse_frontmatter(text: str) -> tuple[dict[str, JSONValue], str]:
-    if not text.startswith("---\n"):
-        return {}, text
-    lines = text.splitlines()
-    end = None
-    for index in range(1, len(lines)):
-        check_deadline()
-        if lines[index].strip() == "---":
-            end = index
-            break
-    if end is None:
-        return {}, text
-    raw = lines[1:end]
-    body = "\n".join(lines[end + 1 :])
-    if yaml is not None:
-        try:
-            parsed = yaml.safe_load("\n".join(raw))
-        except Exception:
-            parsed = None
-        if isinstance(parsed, dict):
-            normalized: dict[str, JSONValue] = {}
-            for key, value in parsed.items():
-                check_deadline()
-                normalized[str(key)] = value
-            return normalized, body
-    return {}, body
-
-
 def _coerce_target_list(value: object) -> list[str]:
     match value:
         case str() as string_value:

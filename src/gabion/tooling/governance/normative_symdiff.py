@@ -15,6 +15,7 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from typing import Callable, Iterable, Mapping
 
+from gabion.frontmatter import parse_lenient_yaml_frontmatter
 from gabion.order_contract import sort_once
 from gabion.tooling.governance import governance_audit
 from gabion.invariants import never
@@ -278,10 +279,8 @@ def _ordered_gap_items(items: Iterable[GapItem], *, source: str) -> list[GapItem
 
 def _parse_frontmatter(path: Path) -> tuple[dict[str, object], str]:
     text = path.read_text(encoding="utf-8")
-    frontmatter, body = governance_audit._parse_frontmatter(text)
-    mapping = _mapping_optional(frontmatter)
-    normalized = dict(mapping) if mapping is not None else {}
-    return normalized, body
+    frontmatter, body = parse_lenient_yaml_frontmatter(text)
+    return dict(frontmatter), body
 
 
 def _iter_markdown_paths(root: Path) -> list[Path]:

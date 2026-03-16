@@ -265,7 +265,7 @@ def test_connectivity_synergy_registry_defines_expected_roots_and_subqueues() ->
             "_parse_frontmatter_with_mode",
         ),
     }
-    assert igm_touchpoints["CSA-IGM-TP-005"].status_hint == "queued"
+    assert igm_touchpoints["CSA-IGM-TP-005"].status_hint == "landed"
     assert {
         (item.rel_path, item.qualname)
         for item in igm_touchpoints["CSA-IGM-TP-005"].declared_touchsites

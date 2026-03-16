@@ -28,6 +28,9 @@ TARGETS = (
     "src/gabion/synthesis/**/*.py",
     "src/gabion/refactor/**/*.py",
 )
+SUPPORT_FILES = (
+    "src/gabion/frontmatter.py",
+)
 BASELINE_VERSION = 1
 MODULE_MARKER = "gabion:ambiguity_boundary_module"
 FUNCTION_MARKER = "gabion:ambiguity_boundary"
@@ -879,9 +882,24 @@ def _write_artifact(*, path: Path, payload: dict[str, object]) -> None:
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
+def build_scan_batch(root: Path) -> PolicyScanBatch:
+    candidates: set[Path] = set()
+    for pattern in TARGETS:
+        candidates.update(root.glob(pattern))
+    for rel_path in SUPPORT_FILES:
+        support_path = (root / rel_path).resolve()
+        if support_path.exists():
+            candidates.add(support_path)
+    return build_policy_scan_batch(
+        root=root,
+        target_globs=(),
+        files=tuple(sorted(candidates, key=str)),
+    )
+
+
 def run(root: Path, baseline: Path | None, baseline_write: bool) -> int:
     with deadline_scope_from_ticks(_AMBIGUITY_CONTRACT_DEADLINE_BUDGET):
-        batch = build_policy_scan_batch(root=root, target_globs=TARGETS)
+        batch = build_scan_batch(root)
         ast_violations = collect_violations(batch=batch)
         grade_report = collect_grade_monotonicity(batch=batch)
         grade_violations = [_grade_violation_to_violation(item) for item in grade_report.violations]

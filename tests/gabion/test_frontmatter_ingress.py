@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import pytest
 
-from gabion.frontmatter import FrontmatterParseError, parse_strict_yaml_frontmatter
+from gabion.frontmatter import (
+    FrontmatterParseError,
+    parse_lenient_yaml_frontmatter,
+    parse_strict_yaml_frontmatter,
+)
 from gabion.frontmatter_ingress import (
     FrontmatterDecompositionKind,
     FrontmatterParseMode,
@@ -90,6 +94,53 @@ def test_parse_strict_yaml_frontmatter_preserves_boundary_projection_errors() ->
             ),
             require_parser=True,
         )
+
+
+def test_parse_lenient_yaml_frontmatter_preserves_absent_unterminated_and_invalid_fallbacks() -> None:
+    absent_payload, absent_body = parse_lenient_yaml_frontmatter("## sample")
+    assert absent_payload == {}
+    assert absent_body == "## sample"
+
+    unterminated = "\n".join(
+        [
+            "---",
+            "doc_id: sample_policy_rules",
+        ]
+    )
+    unterminated_payload, unterminated_body = parse_lenient_yaml_frontmatter(
+        unterminated
+    )
+    assert unterminated_payload == {}
+    assert unterminated_body == unterminated
+
+    invalid = "\n".join(
+        [
+            "---",
+            "doc_id: [sample_policy_rules",
+            "---",
+            "## sample",
+        ]
+    )
+    invalid_payload, invalid_body = parse_lenient_yaml_frontmatter(invalid)
+    assert invalid_payload == {}
+    assert invalid_body == "## sample"
+
+    valid_payload, valid_body = parse_lenient_yaml_frontmatter(
+        "\n".join(
+            [
+                "---",
+                "doc_id: sample_policy_rules",
+                "doc_revision: 1",
+                "---",
+                "## sample",
+            ]
+        )
+    )
+    assert valid_payload == {
+        "doc_id": "sample_policy_rules",
+        "doc_revision": 1,
+    }
+    assert valid_body == "## sample"
 
 
 def test_governance_frontmatter_helpers_share_the_ingress_mode_surface() -> None:

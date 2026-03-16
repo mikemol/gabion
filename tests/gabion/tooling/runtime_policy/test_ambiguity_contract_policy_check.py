@@ -9,7 +9,6 @@ from pathlib import Path
 import pytest
 
 from gabion.tooling.governance import ambiguity_contract_policy_check as policy
-from gabion.tooling.runtime.policy_scan_batch import build_policy_scan_batch
 
 
 def _write(path: Path, content: str) -> None:
@@ -76,7 +75,7 @@ def test_ambiguity_contract_collect_violations_respects_boundaries(tmp_path: Pat
         "    pass\n",
     )
 
-    batch = build_policy_scan_batch(root=tmp_path, target_globs=policy.TARGETS)
+    batch = policy.build_scan_batch(tmp_path)
     violations = policy.collect_violations(batch=batch)
     assert violations
     rule_ids = {item.rule_id for item in violations}
@@ -126,7 +125,7 @@ def test_ambiguity_contract_ignores_boundary_dispatch_and_reducer_patterns(
         "    return accepted\n",
     )
 
-    batch = build_policy_scan_batch(root=tmp_path, target_globs=policy.TARGETS)
+    batch = policy.build_scan_batch(tmp_path)
     violations = policy.collect_violations(batch=batch)
     assert not any(item.rule_id == "ACP-006" for item in violations)
 
@@ -195,6 +194,38 @@ def test_ambiguity_contract_helper_predicates_cover_all_sentinels() -> None:
     assert not policy._body_calls_never(wildcard_case.body)
     never_case = ast.parse("match x:\n    case _:\n        never('x')\n").body[0].cases[0]
     assert policy._body_calls_never(never_case.body)
+
+
+def test_ambiguity_contract_support_file_boundary_suppresses_frontmatter_adapter_edges(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "repo"
+    _write(
+        root / "src" / "gabion" / "analysis" / "docs.py",
+        "from gabion.frontmatter import parse_lenient_yaml_frontmatter\n\n"
+        "def caller(raw: str) -> dict[str, object]:\n"
+        "    payload, _body = parse_lenient_yaml_frontmatter(raw)\n"
+        "    return payload\n",
+    )
+    _write(
+        root / "src" / "gabion" / "frontmatter.py",
+        "from __future__ import annotations\n\n"
+        "# gabion:grade_boundary kind=semantic_carrier_adapter name=yaml_frontmatter_boundary\n"
+        "import json\n\n"
+        "def parse_lenient_yaml_frontmatter(raw: str) -> tuple[dict[str, object], str]:\n"
+        "    return json.loads(raw), ''\n",
+    )
+
+    batch = policy.build_scan_batch(root)
+    grade_report = policy.collect_grade_monotonicity(batch=batch)
+
+    assert any(
+        witness.callee_qualname.endswith(".parse_lenient_yaml_frontmatter")
+        and witness.edge_kind == "boundary"
+        and witness.failure_rule_ids == ()
+        for witness in grade_report.witnesses
+    )
+    assert policy.run(root=root, baseline=None, baseline_write=False) == 0
 
 
 # gabion:evidence E:call_footprint::tests/test_ambiguity_contract_policy_check.py::test_ambiguity_contract_baseline_io_and_run_paths::ambiguity_contract_policy_check.py::gabion.tooling.ambiguity_contract_policy_check._load_baseline::ambiguity_contract_policy_check.py::gabion.tooling.ambiguity_contract_policy_check._write_baseline::ambiguity_contract_policy_check.py::gabion.tooling.ambiguity_contract_policy_check.run
