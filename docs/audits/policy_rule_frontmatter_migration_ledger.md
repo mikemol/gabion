@@ -1,5 +1,5 @@
 ---
-doc_revision: 6
+doc_revision: 7
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: policy_rule_frontmatter_migration_ledger
 doc_role: audit
@@ -49,7 +49,7 @@ follow-up corrections discovered during implementation audit.
 | `PRF-006` | Normalize governance loop registry data and render `docs/governance_control_loops.md` plus `docs/governance_loop_matrix.md` from a shared catalog | `landed` | `docs/governance_control_loops.yaml` now owns the shared registry data and `scripts/policy/render_governance_loop_docs.py` renders the generated blocks in both governance loop docs. |
 | `PRF-007` | Render policy-rule playbooks from markdown frontmatter for `docs/policy_rules/ambiguity_contract.md` and `docs/policy_rules/grade_monotonicity.md` | `landed` | The renderer now owns frontmatter-backed playbook sections; `grade_monotonicity.md` keeps its `GMP-*` sections manual because they remain the runtime-consumed canonical violation playbooks. |
 | `PRF-008` | Autodenormalize clause-backed obligation decks for `AGENTS.md` and `CONTRIBUTING.md` from a small audience-specific clause catalog | `landed` | `docs/clause_obligation_decks.yaml` and `scripts/policy/render_clause_obligation_decks.py` now own the clause-backed bullet decks while surrounding workflow prose stays hand-authored. |
-| `PRF-009` | Extend cheat-sheet mechanization to generate guardrail/validation sections from governance catalogs | `queued` | Use the loop registry and clause catalogs as inputs once PRF-006 and PRF-008 converge. |
+| `PRF-009` | Extend cheat-sheet mechanization to generate guardrail/validation sections from governance catalogs | `landed` | `docs/enforceable_rules_catalog.yaml` now owns the remaining repetitive cheat-sheet sections, and `scripts/policy/render_enforceable_rules_cheat_sheet.py` renders the rule matrix, guardrail table, and quick-validation bundle with loop-domain validation against `docs/governance_control_loops.yaml`. |
 
 ## Notes
 
@@ -63,8 +63,9 @@ follow-up corrections discovered during implementation audit.
   it treated the cheat-sheet Rule Matrix as a process-relative runtime surface
   for governance planning, so the matrix moved through structured catalog
   ownership before any broader full-document generation pass.
-- The current follow-on order is deliberate:
+- The current follow-on order is complete:
   1. shared governance loop registry feeding both control-loop prose and loop matrix (`PRF-006`)
   2. policy-rule playbook rendering from canonical markdown frontmatter (`PRF-007`)
   3. clause-backed obligation-deck generation for agent/contributor docs (`PRF-008`)
-  4. second-phase cheat-sheet section generation from those stabilized catalogs (`PRF-009`, next queued slice)
+  4. second-phase cheat-sheet section generation from those stabilized catalogs (`PRF-009`)
+- The PRF queue is now landed end-to-end. Any future documentation mechanization should open a successor queue rather than reusing the frontmatter-migration lifecycle.

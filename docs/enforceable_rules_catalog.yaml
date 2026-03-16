@@ -224,3 +224,132 @@ rule_matrix:
           href: ../POLICY_SEED.md#change_protocol
       operational_check: mise exec -- python -m gabion docflow --root . --fail-on-violations --sppf-gh-ref-mode required
       failure_signal: Missing/invalid frontmatter or policy-linkage findings in docflow output.
+implementation_guardrails:
+  rows:
+    - change_type: "Workflow/CI YAML (`.github/workflows/*`)"
+      loop_domains:
+        - security/workflows
+      mandatory_checks:
+        - mise exec -- python -m scripts.policy_check --workflows
+        - run posture check when token is available
+      prohibited_shortcuts:
+        - Unpinned actions
+        - disallowed actions
+        - weak actor guards
+        - broad token writes on self-hosted paths
+      required_evidence_artifacts:
+        - Policy-check pass output
+        - workflow diff with explicit guard clauses
+      source_clauses:
+        - label: POLICY_SEED.md#policy_seed §4
+          href: ../POLICY_SEED.md#policy_seed
+        - label: CONTRIBUTING.md#contributing_contract
+          href: ../CONTRIBUTING.md#contributing_contract
+    - change_type: "Server semantic core (`src/gabion/server.py`, analysis modules)"
+      loop_domains:
+        - dataflow grammar
+      mandatory_checks:
+        - mise exec -- python -m gabion check
+        - targeted pytest for behavior and decision schemas
+      prohibited_shortcuts:
+        - Core-flow ambiguity patching via ad-hoc alternation/sentinels
+        - semantic-core compatibility wrappers/dual-shape bridges
+        - CLI-side semantic duplication
+      required_evidence_artifacts:
+        - Deterministic semantic outputs
+        - test evidence updates when obligations change
+      source_clauses:
+        - label: POLICY_SEED.md#policy_seed §4.8
+          href: ../POLICY_SEED.md#policy_seed
+        - label: AGENTS.md#agent_obligations
+          href: ../AGENTS.md#agent_obligations
+        - label: glossary.md#decision_protocol
+          href: ../glossary.md#decision_protocol
+    - change_type: "Tooling/CLI wrappers (`src/gabion/tooling/*`, `src/gabion/cli.py`)"
+      loop_domains:
+        - LSP architecture
+      mandatory_checks:
+        - Verify server-delegated semantics via pytest and CLI integration checks
+      prohibited_shortcuts:
+        - Reimplementing analysis logic in wrappers
+        - bypassing `mise` execution norms for repo tooling
+      required_evidence_artifacts:
+        - Consistent telemetry/report behavior
+        - stable evidence carrier outputs
+      source_clauses:
+        - label: README.md#repo_contract
+          href: ../README.md#repo_contract
+        - label: AGENTS.md#agent_obligations
+          href: ../AGENTS.md#agent_obligations
+    - change_type: "Tests/evidence mapping (`tests/*`, `out/test_evidence.json`)"
+      loop_domains:
+        - execution coverage
+      mandatory_checks:
+        - Rule-triad tests
+        - coverage/evidence checks
+        - evidence extraction drift check
+      prohibited_shortcuts:
+        - Counting line coverage as sole proof
+        - uncited invariant claims without witness mapping
+      required_evidence_artifacts:
+        - "`out/test_evidence.json` (canonical)"
+        - coverage artifacts under `artifacts/test_runs/`
+      source_clauses:
+        - label: docs/coverage_semantics.md#coverage_semantics
+          href: ./coverage_semantics.md#coverage_semantics
+        - label: glossary.md#evidence_surface
+          href: ../glossary.md#evidence_surface
+    - change_type: "Docs/governance (`*.md`)"
+      loop_domains:
+        - docs/docflow
+      mandatory_checks:
+        - mise exec -- python -m gabion docflow --root . --fail-on-violations --sppf-gh-ref-mode required
+        - update `doc_revision` for conceptual changes
+        - keep review notes explicit
+      prohibited_shortcuts:
+        - Mechanical review stamping
+        - uncited new mandatory rules
+        - policy weakening without protocol update
+      required_evidence_artifacts:
+        - Docflow pass output
+        - citation-backed clause links in changed docs
+      source_clauses:
+        - label: POLICY_SEED.md#change_protocol
+          href: ../POLICY_SEED.md#change_protocol
+        - label: CONTRIBUTING.md#contributing_contract
+          href: ../CONTRIBUTING.md#contributing_contract
+        - label: AGENTS.md#agent_obligations
+          href: ../AGENTS.md#agent_obligations
+quick_validation:
+  required_commands:
+    - command: mise exec -- python -m scripts.policy_check --workflows
+      loop_domains:
+        - security/workflows
+    - command: mise exec -- python -m gabion docflow --root . --fail-on-violations --sppf-gh-ref-mode required
+      loop_domains:
+        - docs/docflow
+    - command: mise exec -- python scripts/no_monkeypatch_policy_check.py --root .
+      loop_domains: []
+    - command: mise exec -- python scripts/branchless_policy_check.py --root .
+      loop_domains: []
+    - command: mise exec -- python scripts/defensive_fallback_policy_check.py --root .
+      loop_domains: []
+    - command: mise exec -- python -m gabion ambiguity-contract-gate --root .
+      loop_domains: []
+    - command: mise exec -- python scripts/order_lifetime_check.py --root .
+      loop_domains: []
+    - command: mise exec -- python scripts/structural_hash_policy_check.py --root .
+      loop_domains: []
+    - command: mise exec -- python -m gabion check
+      loop_domains:
+        - dataflow grammar
+    - command: mise exec -- python -m pytest --cov=src/gabion --cov-branch --cov-report=term-missing --cov-fail-under=100
+      loop_domains:
+        - execution coverage
+    - command: mise exec -- python -m scripts.extract_test_evidence --root . --tests tests --out out/test_evidence.json
+      loop_domains: []
+    - command: git diff --exit-code out/test_evidence.json
+      loop_domains: []
+  optional_commands:
+    - command: mise exec -- python -m gabion status-consistency --fail-on-violations
+      loop_domains: []

@@ -18,6 +18,7 @@ def test_prf_workstream_registry_exposes_queue_sequence_and_active_playbook_touc
 
     assert registry.root.root_id == "PRF"
     assert registry.tags == ("registry_convergence",)
+    assert registry.root.status_hint == "landed"
     assert registry.root.subqueue_ids == (
         "PRF-001",
         "PRF-002",
@@ -48,7 +49,7 @@ def test_prf_workstream_registry_exposes_queue_sequence_and_active_playbook_touc
     assert subqueues["PRF-007"].touchpoint_ids == ("PRF-TP-007",)
     assert subqueues["PRF-008"].status_hint == "landed"
     assert subqueues["PRF-008"].touchpoint_ids == ("PRF-TP-008",)
-    assert subqueues["PRF-009"].status_hint == "queued"
+    assert subqueues["PRF-009"].status_hint == "landed"
     assert subqueues["PRF-009"].touchpoint_ids == ("PRF-TP-009",)
     assert all(
         item.touchpoint_ids == ()
@@ -110,6 +111,22 @@ def test_prf_workstream_registry_exposes_queue_sequence_and_active_playbook_touc
         (
             "scripts/policy/render_clause_obligation_decks.py",
             "render_clause_obligation_decks",
+        ),
+    }
+    assert {
+        (item.rel_path, item.qualname)
+        for item in touchpoints["PRF-TP-009"].declared_touchsites
+    } >= {
+        ("docs/enforceable_rules_cheat_sheet.md", "enforceable_rules_cheat_sheet"),
+        ("docs/enforceable_rules_catalog.yaml", "enforceable_rules_catalog"),
+        ("docs/governance_control_loops.yaml", "governance_control_loops"),
+        (
+            "src/gabion/tooling/policy_substrate/enforceable_rules_cheat_sheet.py",
+            "render_enforceable_rules_cheat_sheet",
+        ),
+        (
+            "scripts/policy/render_enforceable_rules_cheat_sheet.py",
+            "render_enforceable_rules_cheat_sheet",
         ),
     }
 

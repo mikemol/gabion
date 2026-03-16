@@ -112,11 +112,11 @@ def _todo_metadata(
 
 
 @todo_decorator(
-    reason="PRF migration queue remains machine-projected while the remaining cheat-sheet mechanization follow-on is sequenced.",
+    reason="PRF migration queue remains machine-projected as landed metadata after the cheat-sheet mechanization follow-on converged.",
     reasoning={
-        "summary": "PRF landed the markdown-frontmatter migration, governance-loop registry mechanization, policy-rule playbook rendering, and clause-deck generation and now advances through the remaining cheat-sheet follow-on work.",
+        "summary": "PRF landed the markdown-frontmatter migration, governance-loop registry mechanization, policy-rule playbook rendering, clause-deck generation, and cheat-sheet follow-on rendering.",
         "control": "prf.queue.policy_rule_frontmatter_migration",
-        "blocking_dependencies": ("PRF-009",),
+        "blocking_dependencies": (),
     },
     owner="gabion.tooling.policy_substrate",
     expiry="graph workstream generalization superseded",
@@ -290,11 +290,11 @@ def _prf_008() -> None:
 
 
 @todo_decorator(
-    reason="PRF-009 is queued until the loop and clause catalogs can feed a broader cheat-sheet renderer without scraping markdown prose.",
+    reason="PRF-009 remains recorded as landed metadata once the remaining cheat-sheet guardrail and validation sections moved to generated catalog ownership.",
     reasoning={
-        "summary": "Extend cheat-sheet generation beyond the Rule Matrix to guardrails and validation bundles from the stabilized governance catalogs.",
+        "summary": "The cheat sheet now renders guardrails and validation bundles from the stabilized governance catalogs beyond the original Rule Matrix slice.",
         "control": "prf.item.cheat_sheet_guardrails_renderer",
-        "blocking_dependencies": ("PRF-008", "PRF-TP-009"),
+        "blocking_dependencies": (),
     },
     owner="gabion.tooling.policy_substrate",
     expiry="broader cheat-sheet generation converged",
@@ -376,11 +376,11 @@ def _prf_tp_008() -> None:
 
 
 @todo_decorator(
-    reason="PRF-TP-009 remains queued while cheat-sheet guardrails and validation bundles remain hand-authored.",
+    reason="PRF-TP-009 remains recorded as landed metadata once cheat-sheet guardrails and validation bundles moved to generated catalog ownership.",
     reasoning={
-        "summary": "Once the loop and clause catalogs stabilize, the remaining repetitive cheat-sheet sections should render from those same structured governance sources.",
+        "summary": "The remaining repetitive cheat-sheet sections now render from the stabilized loop and rule catalogs rather than staying hand-authored.",
         "control": "prf.touchpoint.cheat_sheet_guardrails_renderer",
-        "blocking_dependencies": ("PRF-009",),
+        "blocking_dependencies": (),
     },
     owner="gabion.tooling.policy_substrate",
     expiry="broader cheat-sheet generation converged",
@@ -413,7 +413,7 @@ def iter_prf_queues() -> tuple[PolicyRuleFrontmatterMigrationQueueDefinition, ..
             structural_identity=structural_id,
             marker_identity=marker_id,
             marker_payload=payload,
-            status_hint="",
+            status_hint="landed",
             subqueue_ids=(
                 "PRF-001",
                 "PRF-002",
@@ -491,7 +491,7 @@ def iter_prf_subqueues() -> tuple[PolicyRuleFrontmatterMigrationSubqueueDefiniti
                     "PRF-006": "landed",
                     "PRF-007": "landed",
                     "PRF-008": "landed",
-                    "PRF-009": "queued",
+                    "PRF-009": "landed",
                 }.get(subqueue_id, "landed"),
                 touchpoint_ids={
                     "PRF-006": ("PRF-TP-006",),
@@ -767,6 +767,36 @@ def prf_workstream_registry() -> WorkstreamRegistry:
                             node_kind="document",
                             surface="policy_rule_frontmatter_migration_touchsite",
                             structural_path="prf.touchsite::PRF-TS-009-B",
+                        ),
+                        declared_touchsite_definition(
+                            touchsite_id="PRF-TS-009-C",
+                            rel_path="docs/governance_control_loops.yaml",
+                            qualname="governance_control_loops",
+                            boundary_name="governance_control_loops",
+                            line=1,
+                            node_kind="document",
+                            surface="policy_rule_frontmatter_migration_touchsite",
+                            structural_path="prf.touchsite::PRF-TS-009-C",
+                        ),
+                        declared_touchsite_definition(
+                            touchsite_id="PRF-TS-009-D",
+                            rel_path="src/gabion/tooling/policy_substrate/enforceable_rules_cheat_sheet.py",
+                            qualname="render_enforceable_rules_cheat_sheet",
+                            boundary_name="render_enforceable_rules_cheat_sheet",
+                            line=1,
+                            node_kind="module",
+                            surface="policy_rule_frontmatter_migration_touchsite",
+                            structural_path="prf.touchsite::PRF-TS-009-D",
+                        ),
+                        declared_touchsite_definition(
+                            touchsite_id="PRF-TS-009-E",
+                            rel_path="scripts/policy/render_enforceable_rules_cheat_sheet.py",
+                            qualname="render_enforceable_rules_cheat_sheet",
+                            boundary_name="render_enforceable_rules_cheat_sheet",
+                            line=1,
+                            node_kind="module",
+                            surface="policy_rule_frontmatter_migration_touchsite",
+                            structural_path="prf.touchsite::PRF-TS-009-E",
                         ),
                     ),
                 }[item.touchpoint_id],

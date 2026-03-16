@@ -1,5 +1,5 @@
 ---
-doc_revision: 15
+doc_revision: 16
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: enforceable_rules_cheat_sheet
 doc_role: reference
@@ -20,6 +20,8 @@ doc_requires:
   - docs/coverage_semantics.md#coverage_semantics
   - docs/publishing_practices.md#publishing_practices
   - docs/normative_clause_index.md#normative_clause_index
+  - docs/enforceable_rules_catalog.yaml
+  - docs/governance_control_loops.yaml
   - docs/allowed_actions.txt
   - in/in-23.md#in_in_23
   - in/in-24.md#in_in_24
@@ -176,17 +178,24 @@ _This Rule Matrix is generated from `docs/enforceable_rules_catalog.yaml` via `m
 
 ## Implementation Guardrails by Change Type
 
+<!-- BEGIN:generated_implementation_guardrails -->
+_This guardrail table is generated from `docs/enforceable_rules_catalog.yaml` with loop-domain validation against `docs/governance_control_loops.yaml` via `mise exec -- python -m scripts.policy.render_enforceable_rules_cheat_sheet`._
+
 | Change Type | Mandatory Checks | Prohibited Shortcuts | Required Evidence Artifacts | Source Clause(s) |
 | --- | --- | --- | --- | --- |
-| Workflow/CI YAML (`.github/workflows/*`) | `python -m scripts.policy_check --workflows`; run posture check when token is available. | Unpinned actions, disallowed actions, weak actor guards, broad token writes on self-hosted paths. | Policy-check pass output; workflow diff with explicit guard clauses. | [`POLICY_SEED.md#policy_seed` §4](../POLICY_SEED.md#policy_seed), [`CONTRIBUTING.md#contributing_contract`](../CONTRIBUTING.md#contributing_contract) |
-| Server semantic core (`src/gabion/server.py`, analysis modules) | `gabion check`, targeted pytest for behavior and decision schemas. | Core-flow ambiguity patching via ad-hoc alternation/sentinels, semantic-core compatibility wrappers/dual-shape bridges, CLI-side semantic duplication. | Deterministic semantic outputs and test evidence updates when obligations change. | [`POLICY_SEED.md#policy_seed` §4.8](../POLICY_SEED.md#policy_seed), [`AGENTS.md#agent_obligations`](../AGENTS.md#agent_obligations), [`glossary.md#decision_protocol`](../glossary.md#decision_protocol) |
-| Tooling/CLI wrappers (`src/gabion/tooling/*`, `src/gabion/cli.py`) | Verify server-delegated semantics via pytest and CLI integration checks. | Reimplementing analysis logic in wrappers; bypassing `mise` execution norms for repo tooling. | Consistent telemetry/report behavior and stable evidence carrier outputs. | [`README.md#repo_contract`](../README.md#repo_contract), [`AGENTS.md#agent_obligations`](../AGENTS.md#agent_obligations) |
-| Tests/evidence mapping (`tests/*`, `out/test_evidence.json`) | Rule-triad tests; coverage/evidence checks; evidence extraction drift check. | Counting line coverage as sole proof; uncited invariant claims without witness mapping. | `out/test_evidence.json` (canonical), coverage artifacts under `artifacts/test_runs/`. | [`docs/coverage_semantics.md#coverage_semantics`](./coverage_semantics.md#coverage_semantics), [`glossary.md#evidence_surface`](../glossary.md#evidence_surface) |
-| Docs/governance (`*.md`) | `gabion docflow`; update `doc_revision` for conceptual changes; keep review notes explicit. | Mechanical review stamping, uncited new mandatory rules, policy weakening without protocol update. | Docflow pass output and citation-backed clause links in changed docs. | [`POLICY_SEED.md#change_protocol`](../POLICY_SEED.md#change_protocol), [`CONTRIBUTING.md#contributing_contract`](../CONTRIBUTING.md#contributing_contract), [`AGENTS.md#agent_obligations`](../AGENTS.md#agent_obligations) |
+| Workflow/CI YAML (`.github/workflows/*`) | `mise exec -- python -m scripts.policy_check --workflows`; run posture check when token is available | Unpinned actions; disallowed actions; weak actor guards; broad token writes on self-hosted paths | Policy-check pass output; workflow diff with explicit guard clauses | [POLICY_SEED.md#policy_seed §4](../POLICY_SEED.md#policy_seed), [CONTRIBUTING.md#contributing_contract](../CONTRIBUTING.md#contributing_contract) |
+| Server semantic core (`src/gabion/server.py`, analysis modules) | `mise exec -- python -m gabion check`; targeted pytest for behavior and decision schemas | Core-flow ambiguity patching via ad-hoc alternation/sentinels; semantic-core compatibility wrappers/dual-shape bridges; CLI-side semantic duplication | Deterministic semantic outputs; test evidence updates when obligations change | [POLICY_SEED.md#policy_seed §4.8](../POLICY_SEED.md#policy_seed), [AGENTS.md#agent_obligations](../AGENTS.md#agent_obligations), [glossary.md#decision_protocol](../glossary.md#decision_protocol) |
+| Tooling/CLI wrappers (`src/gabion/tooling/*`, `src/gabion/cli.py`) | Verify server-delegated semantics via pytest and CLI integration checks | Reimplementing analysis logic in wrappers; bypassing `mise` execution norms for repo tooling | Consistent telemetry/report behavior; stable evidence carrier outputs | [README.md#repo_contract](../README.md#repo_contract), [AGENTS.md#agent_obligations](../AGENTS.md#agent_obligations) |
+| Tests/evidence mapping (`tests/*`, `out/test_evidence.json`) | Rule-triad tests; coverage/evidence checks; evidence extraction drift check | Counting line coverage as sole proof; uncited invariant claims without witness mapping | `out/test_evidence.json` (canonical); coverage artifacts under `artifacts/test_runs/` | [docs/coverage_semantics.md#coverage_semantics](./coverage_semantics.md#coverage_semantics), [glossary.md#evidence_surface](../glossary.md#evidence_surface) |
+| Docs/governance (`*.md`) | `mise exec -- python -m gabion docflow --root . --fail-on-violations --sppf-gh-ref-mode required`; update `doc_revision` for conceptual changes; keep review notes explicit | Mechanical review stamping; uncited new mandatory rules; policy weakening without protocol update | Docflow pass output; citation-backed clause links in changed docs | [POLICY_SEED.md#change_protocol](../POLICY_SEED.md#change_protocol), [CONTRIBUTING.md#contributing_contract](../CONTRIBUTING.md#contributing_contract), [AGENTS.md#agent_obligations](../AGENTS.md#agent_obligations) |
+<!-- END:generated_implementation_guardrails -->
 
 ## Quick Validation Commands
 
 Run these from repo root.
+
+<!-- BEGIN:generated_quick_validation_commands -->
+_This validation bundle is generated from `docs/enforceable_rules_catalog.yaml` with loop-domain validation against `docs/governance_control_loops.yaml` via `mise exec -- python -m scripts.policy.render_enforceable_rules_cheat_sheet`._
 
 ```bash
 mise exec -- python -m scripts.policy_check --workflows
@@ -208,6 +217,7 @@ Optional governance sanity:
 ```bash
 mise exec -- python -m gabion status-consistency --fail-on-violations
 ```
+<!-- END:generated_quick_validation_commands -->
 
 Pass/fail interpretation:
 - Nonzero exit on any required command means at least one enforceable clause is
@@ -228,10 +238,11 @@ Any new or modified rule entry in this file must include:
 1. At least one canonical source anchor citation.
 2. A concrete operational check command/script/test.
 3. A concrete failure signal that can block acceptance.
-4. If the change is inside the generated Rule Matrix block, update
-   `docs/enforceable_rules_catalog.yaml` and rerun
+4. If the change is inside any generated cheat-sheet block, update
+   `docs/enforceable_rules_catalog.yaml` (and `docs/governance_control_loops.yaml`
+   when loop-domain references change) and rerun
    `mise exec -- python -m scripts.policy.render_enforceable_rules_cheat_sheet`
-   instead of editing the generated block directly.
+   instead of editing generated blocks directly.
 
 This update discipline follows `POLICY_SEED.md#change_protocol` and preserves
 "authoritative by proxy" status without creating a new normative root.
