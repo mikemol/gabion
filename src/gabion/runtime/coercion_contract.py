@@ -41,6 +41,14 @@ def _json_list_identity(value: object) -> list[JSONValue]:
     return cast(list[JSONValue], value)
 
 
+def _list_identity(value: object) -> list[object]:
+    return cast(list[object], value)
+
+
+def _tuple_to_list(value: object) -> list[object]:
+    return list(cast(tuple[object, ...], value))
+
+
 def _string_identity(value: object) -> str:
     return cast(str, value)
 
@@ -103,11 +111,36 @@ STR_OPTIONAL_POLICY = RuntimeOptionalCoercion[str](
     ),
 )
 
+CORE_STR_OPTIONAL_POLICY = RuntimeOptionalCoercion[str](
+    policy_name="core_str_optional",
+    cases=(
+        RuntimeCoercionCase((str,), _string_identity),
+        RuntimeCoercionCase((int, float, bool, dict, list, tuple, set, _NONE_TYPE), _none),
+    ),
+)
+
 MAPPING_OPTIONAL_POLICY = RuntimeOptionalCoercion[dict[str, object]](
     policy_name="mapping_optional",
     cases=(
         RuntimeCoercionCase((dict,), _mapping_identity),
         RuntimeCoercionCase((list, tuple, set, str, int, float, bool, _NONE_TYPE), _none),
+    ),
+)
+
+LIST_OPTIONAL_POLICY = RuntimeOptionalCoercion[list[object]](
+    policy_name="list_optional",
+    cases=(
+        RuntimeCoercionCase((list,), _list_identity),
+        RuntimeCoercionCase((dict, tuple, set, str, int, float, bool, _NONE_TYPE), _none),
+    ),
+)
+
+LIST_OR_TUPLE_TO_LIST_OPTIONAL_POLICY = RuntimeOptionalCoercion[list[object]](
+    policy_name="list_or_tuple_to_list_optional",
+    cases=(
+        RuntimeCoercionCase((list,), _list_identity),
+        RuntimeCoercionCase((tuple,), _tuple_to_list),
+        RuntimeCoercionCase((dict, set, str, int, float, bool, _NONE_TYPE), _none),
     ),
 )
 
@@ -136,6 +169,14 @@ FLOAT_OPTIONAL_POLICY = RuntimeOptionalCoercion[float](
         RuntimeCoercionCase((int,), _float_from_number),
         RuntimeCoercionCase((float,), _float_identity),
         RuntimeCoercionCase((str, dict, list, tuple, set, bytes, bytearray, _NONE_TYPE), _none),
+    ),
+)
+
+FLOAT_ONLY_OPTIONAL_POLICY = RuntimeOptionalCoercion[float](
+    policy_name="float_only_optional",
+    cases=(
+        RuntimeCoercionCase((float,), _float_identity),
+        RuntimeCoercionCase((int, bool, str, dict, list, tuple, set, _NONE_TYPE), _none),
     ),
 )
 
@@ -170,11 +211,15 @@ STRING_KEY_DICT_OPTIONAL_POLICY = RuntimeOptionalCoercion[dict[str, object]](
 INT_OPTIONAL_POLICY = NON_BOOL_INT_OPTIONAL_POLICY
 
 __all__ = [
+    "CORE_STR_OPTIONAL_POLICY",
+    "FLOAT_ONLY_OPTIONAL_POLICY",
     "FLOAT_OPTIONAL_POLICY",
     "INT_LIKE_OPTIONAL_POLICY",
     "INT_OPTIONAL_POLICY",
     "JSON_LIST_OPTIONAL_POLICY",
     "JSON_MAPPING_OPTIONAL_POLICY",
+    "LIST_OPTIONAL_POLICY",
+    "LIST_OR_TUPLE_TO_LIST_OPTIONAL_POLICY",
     "MAPPING_OPTIONAL_POLICY",
     "NON_BOOL_FLOAT_OPTIONAL_POLICY",
     "NON_BOOL_INT_OPTIONAL_POLICY",

@@ -4,13 +4,19 @@ import hashlib
 import json
 
 from functools import singledispatch
-from typing import Iterator, Mapping, Sequence
+from typing import Iterator, Mapping, Sequence, cast
 
 from gabion.analysis import report_projection_phase_rank
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.invariants import never
 from gabion.json_types import JSONObject, JSONValue
 from gabion.order_contract import sort_once
+from gabion.runtime.coercion_contract import (
+    CORE_STR_OPTIONAL_POLICY,
+    FLOAT_ONLY_OPTIONAL_POLICY,
+    MAPPING_OPTIONAL_POLICY,
+    NON_BOOL_INT_OPTIONAL_POLICY,
+)
 from gabion.server_core import dataflow_runtime_contract as runtime_contract
 
 _PHASE_PRIMARY_UNITS: Mapping[str, str] = runtime_contract.PHASE_PRIMARY_UNITS
@@ -21,29 +27,8 @@ _NONE_TYPE = type(None)
 def _canonical_json_text(payload: object) -> str:
     return json.dumps(payload, sort_keys=False, separators=(",", ":"), ensure_ascii=True)
 
-@singledispatch
 def _json_mapping_optional(value: object) -> dict[str, JSONValue] | None:
-    never("unregistered runtime type", value_type=type(value).__name__)
-
-
-@_json_mapping_optional.register(dict)
-def _sd_reg_1(value: dict[str, JSONValue]) -> dict[str, JSONValue] | None:
-    return value
-
-
-def _json_mapping_none(value: object) -> dict[str, JSONValue] | None:
-    _ = value
-    return None
-
-
-_json_mapping_optional.register(list)(_json_mapping_none)
-_json_mapping_optional.register(tuple)(_json_mapping_none)
-_json_mapping_optional.register(set)(_json_mapping_none)
-_json_mapping_optional.register(str)(_json_mapping_none)
-_json_mapping_optional.register(int)(_json_mapping_none)
-_json_mapping_optional.register(float)(_json_mapping_none)
-_json_mapping_optional.register(bool)(_json_mapping_none)
-_json_mapping_optional.register(_NONE_TYPE)(_json_mapping_none)
+    return cast(dict[str, JSONValue] | None, MAPPING_OPTIONAL_POLICY(value))
 
 def _json_mapping_default_empty(value: object) -> dict[str, JSONValue]:
     mapping = _json_mapping_optional(value)
@@ -51,29 +36,8 @@ def _json_mapping_default_empty(value: object) -> dict[str, JSONValue]:
         return mapping
     return {}
 
-@singledispatch
 def _int_optional(value: object) -> int | None:
-    never("unregistered runtime type", value_type=type(value).__name__)
-
-
-@_int_optional.register
-def _sd_reg_2(value: int) -> int | None:
-    return value
-
-
-def _int_none(value: object) -> int | None:
-    _ = value
-    return None
-
-
-_int_optional.register(bool)(_int_none)
-_int_optional.register(float)(_int_none)
-_int_optional.register(str)(_int_none)
-_int_optional.register(list)(_int_none)
-_int_optional.register(tuple)(_int_none)
-_int_optional.register(set)(_int_none)
-_int_optional.register(dict)(_int_none)
-_int_optional.register(_NONE_TYPE)(_int_none)
+    return NON_BOOL_INT_OPTIONAL_POLICY(value)
 
 def _non_negative_int_optional(value: object) -> int | None:
     int_value = _int_optional(value)
@@ -114,29 +78,8 @@ _non_string_sequence_optional.register(bool)(_sequence_none)
 _non_string_sequence_optional.register(_NONE_TYPE)(_sequence_none)
 
 
-@singledispatch
 def _str_optional(value: object) -> str | None:
-    never("unregistered runtime type", value_type=type(value).__name__)
-
-
-@_str_optional.register
-def _sd_reg_6(value: str) -> str | None:
-    return value
-
-
-def _str_none(value: object) -> str | None:
-    _ = value
-    return None
-
-
-_str_optional.register(int)(_str_none)
-_str_optional.register(float)(_str_none)
-_str_optional.register(bool)(_str_none)
-_str_optional.register(list)(_str_none)
-_str_optional.register(tuple)(_str_none)
-_str_optional.register(set)(_str_none)
-_str_optional.register(dict)(_str_none)
-_str_optional.register(_NONE_TYPE)(_str_none)
+    return CORE_STR_OPTIONAL_POLICY(value)
 
 
 @singledispatch
@@ -164,29 +107,8 @@ _bool_optional.register(dict)(_bool_none)
 _bool_optional.register(_NONE_TYPE)(_bool_none)
 
 
-@singledispatch
 def _float_optional(value: object) -> float | None:
-    never("unregistered runtime type", value_type=type(value).__name__)
-
-
-@_float_optional.register
-def _sd_reg_8(value: float) -> float | None:
-    return value
-
-
-def _float_none(value: object) -> float | None:
-    _ = value
-    return None
-
-
-_float_optional.register(int)(_float_none)
-_float_optional.register(bool)(_float_none)
-_float_optional.register(str)(_float_none)
-_float_optional.register(list)(_float_none)
-_float_optional.register(tuple)(_float_none)
-_float_optional.register(set)(_float_none)
-_float_optional.register(dict)(_float_none)
-_float_optional.register(_NONE_TYPE)(_float_none)
+    return FLOAT_ONLY_OPTIONAL_POLICY(value)
 
 _REPORT_PHASE_RANK_BY_NAME: dict[str, int] = {
     "collection": report_projection_phase_rank("collection"),

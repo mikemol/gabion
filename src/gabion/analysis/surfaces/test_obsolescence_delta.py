@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from functools import singledispatch
 from itertools import chain
 from pathlib import Path
-from typing import Callable, Iterable, Mapping
+from typing import Callable, Iterable, Mapping, cast
 
 from gabion.analysis.semantics import evidence_keys
 from gabion.analysis.surfaces import test_obsolescence
@@ -28,6 +27,11 @@ from gabion.json_types import JSONValue
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.invariants import never
 from gabion.order_contract import sort_once
+from gabion.runtime.coercion_contract import (
+    CORE_STR_OPTIONAL_POLICY,
+    LIST_OPTIONAL_POLICY,
+    MAPPING_OPTIONAL_POLICY,
+)
 
 BASELINE_VERSION = 2
 DELTA_VERSION = 1
@@ -53,70 +57,19 @@ class ObsolescenceBaseline:
     generated_by_spec: dict[str, JSONValue]
 
 
-@singledispatch
 # gabion:ambiguity_boundary
 def _mapping_optional(value: JSONValue) -> dict[str, JSONValue] | None:
-    never("unregistered runtime type", value_type=type(value).__name__)
+    return cast(dict[str, JSONValue] | None, MAPPING_OPTIONAL_POLICY(value))
 
 
-@_mapping_optional.register(dict)
-# gabion:ambiguity_boundary
-def _sd_reg_1(value: dict[str, JSONValue]) -> dict[str, JSONValue] | None:
-    return value
-
-
-# gabion:ambiguity_boundary
-def _none_mapping(value: JSONValue) -> dict[str, JSONValue] | None:
-    _ = value
-    return None
-
-
-for _mapping_none_type in (list, tuple, set, str, int, float, bool, type(None)):
-    _mapping_optional.register(_mapping_none_type)(_none_mapping)
-
-
-@singledispatch
 # gabion:ambiguity_boundary
 def _list_optional(value: JSONValue) -> list[JSONValue] | None:
-    never("unregistered runtime type", value_type=type(value).__name__)
+    return cast(list[JSONValue] | None, LIST_OPTIONAL_POLICY(value))
 
 
-@_list_optional.register(list)
-# gabion:ambiguity_boundary
-def _sd_reg_2(value: list[JSONValue]) -> list[JSONValue] | None:
-    return value
-
-
-# gabion:ambiguity_boundary
-def _none_list(value: JSONValue) -> list[JSONValue] | None:
-    _ = value
-    return None
-
-
-for _list_none_type in (dict, tuple, set, str, int, float, bool, type(None)):
-    _list_optional.register(_list_none_type)(_none_list)
-
-
-@singledispatch
 # gabion:ambiguity_boundary
 def _str_optional(value: JSONValue) -> str | None:
-    never("unregistered runtime type", value_type=type(value).__name__)
-
-
-@_str_optional.register(str)
-# gabion:ambiguity_boundary
-def _sd_reg_3(value: str) -> str | None:
-    return value
-
-
-# gabion:ambiguity_boundary
-def _none_str(value: JSONValue) -> str | None:
-    _ = value
-    return None
-
-
-for _str_none_type in (dict, list, tuple, set, int, float, bool, type(None)):
-    _str_optional.register(_str_none_type)(_none_str)
+    return CORE_STR_OPTIONAL_POLICY(value)
 
 
 def _mapping_entries(value: JSONValue) -> list[dict[str, JSONValue]]:

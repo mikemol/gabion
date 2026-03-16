@@ -17,6 +17,11 @@ from typing import Callable, Iterable, Mapping
 
 from gabion.frontmatter import parse_lenient_yaml_frontmatter
 from gabion.order_contract import sort_once
+from gabion.runtime.coercion_contract import (
+    CORE_STR_OPTIONAL_POLICY,
+    LIST_OR_TUPLE_TO_LIST_OPTIONAL_POLICY,
+    MAPPING_OPTIONAL_POLICY,
+)
 from gabion.tooling.governance import governance_audit
 from gabion.invariants import never
 
@@ -137,92 +142,16 @@ def _message_path_prefix(message: str) -> str | None:
     return prefix
 
 
-@singledispatch
 def _mapping_optional(value: object):
-    never("unregistered runtime type", value_type=type(value).__name__)
+    return MAPPING_OPTIONAL_POLICY(value)
 
 
-@_mapping_optional.register(dict)
-def _sd_reg_7(value: dict[object, object]):
-    return value
-
-
-def _none_mapping(value: object):
-    _ = value
-    return None
-
-
-for _mapping_none_type in (
-    list,
-    tuple,
-    set,
-    str,
-    int,
-    float,
-    bool,
-    type(None),
-):
-    _mapping_optional.register(_mapping_none_type)(_none_mapping)
-
-
-@singledispatch
 def _list_optional(value: object):
-    never("unregistered runtime type", value_type=type(value).__name__)
+    return LIST_OR_TUPLE_TO_LIST_OPTIONAL_POLICY(value)
 
 
-@_list_optional.register(list)
-def _sd_reg_8(value: list[object]):
-    return value
-
-
-@_list_optional.register(tuple)
-def _sd_reg_9(value: tuple[object, ...]):
-    return list(value)
-
-
-def _none_list(value: object):
-    _ = value
-    return None
-
-
-for _list_none_type in (
-    dict,
-    set,
-    str,
-    int,
-    float,
-    bool,
-    type(None),
-):
-    _list_optional.register(_list_none_type)(_none_list)
-
-
-@singledispatch
 def _str_optional(value: object):
-    never("unregistered runtime type", value_type=type(value).__name__)
-
-
-@_str_optional.register(str)
-def _sd_reg_10(value: str):
-    return value
-
-
-def _none_str(value: object):
-    _ = value
-    return None
-
-
-for _str_none_type in (
-    dict,
-    list,
-    tuple,
-    set,
-    int,
-    float,
-    bool,
-    type(None),
-):
-    _str_optional.register(_str_none_type)(_none_str)
+    return CORE_STR_OPTIONAL_POLICY(value)
 
 
 def _mapping_entries(values: object) -> list[Mapping[object, object]]:

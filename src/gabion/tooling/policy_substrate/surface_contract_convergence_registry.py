@@ -461,7 +461,7 @@ def surface_contract_convergence_workstream_registry() -> WorkstreamRegistry:
                 touchpoint_id="SCC-TP-002",
                 title="Follow-on migration of duplicate coercion helper families",
                 symbol=_scc_tp_coercion_followons,
-                status_hint="queued",
+                status_hint="landed",
                 declared_touchsites=(
                     _module_touchsite(
                         touchsite_id="SCC-TS-002-A",

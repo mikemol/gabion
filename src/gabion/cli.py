@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from contextlib import contextmanager
 from enum import Enum
-from functools import partial, singledispatch
+from functools import partial
 from typing import Callable, Generator, List, Literal, Mapping, MutableMapping, Optional, TypeAlias, cast
 import argparse
 import json
@@ -73,6 +73,11 @@ from gabion.analysis.foundation.timeout_context import (
     check_deadline, deadline_loop_iter, render_deadline_profile_markdown)
 from gabion.commands import (
     boundary_order, check_contract, command_ids, progress_contract as progress_timeline, transport_policy)
+from gabion.runtime.coercion_contract import (
+    CORE_STR_OPTIONAL_POLICY,
+    INT_OPTIONAL_POLICY,
+    MAPPING_OPTIONAL_POLICY,
+)
 from gabion.runtime import deadline_policy, env_policy, path_policy, policy_runtime
 
 DATAFLOW_COMMAND = command_ids.DATAFLOW_COMMAND
@@ -705,86 +710,29 @@ def _emit_nonzero_exit_causes(result: JSONObject) -> None:
     result_emitters.emit_nonzero_exit_causes(result)
 
 
-def _none_optional_int(value: object) -> int | None:
-    _ = value
-    return None
-
-
-@singledispatch
 def _int_optional(value: object) -> int | None:
-    never("unregistered runtime type", value_type=type(value).__name__)
+    if isinstance(value, (complex, bytes, frozenset)):
+        return None
+    return INT_OPTIONAL_POLICY(value)
 
 
-@_int_optional.register
-def _sd_reg_1(value: int) -> int | None:
-    return value
-
-
-@_int_optional.register
-def _sd_reg_2(value: bool) -> int | None:
-    _ = value
-    return None
-
-
-for _runtime_type in (str, float, complex, bytes, dict, list, tuple, set, frozenset, type(None)):
-    _int_optional.register(_runtime_type)(_none_optional_int)
-
-
-def _none_optional_str(value: object) -> str | None:
-    _ = value
-    return None
-
-
-@singledispatch
 def _str_optional(value: object) -> str | None:
-    never("unregistered runtime type", value_type=type(value).__name__)
+    if isinstance(value, (complex, bytes, frozenset)):
+        return None
+    return CORE_STR_OPTIONAL_POLICY(value)
 
 
-@_str_optional.register
-def _sd_reg_3(value: str) -> str | None:
-    return value
-
-
-for _runtime_type in (int, float, bool, complex, bytes, dict, list, tuple, set, frozenset, type(None)):
-    _str_optional.register(_runtime_type)(_none_optional_str)
-
-
-def _none_optional_mapping(value: object) -> Mapping[str, object] | None:
-    _ = value
-    return None
-
-
-@singledispatch
 def _mapping_optional(value: object) -> Mapping[str, object] | None:
-    never("unregistered runtime type", value_type=type(value).__name__)
+    if isinstance(value, (complex, bytes, frozenset)):
+        return None
+    return MAPPING_OPTIONAL_POLICY(value)
 
 
-@_mapping_optional.register
-def _sd_reg_4(value: dict) -> Mapping[str, object] | None:
-    return value
-
-
-for _runtime_type in (str, int, float, bool, complex, bytes, list, tuple, set, frozenset, type(None)):
-    _mapping_optional.register(_runtime_type)(_none_optional_mapping)
-
-
-def _none_optional_json_object(value: object) -> JSONObject | None:
-    _ = value
-    return None
-
-
-@singledispatch
 def _json_object_optional(value: object) -> JSONObject | None:
-    never("unregistered runtime type", value_type=type(value).__name__)
-
-
-@_json_object_optional.register
-def _sd_reg_5(value: dict) -> JSONObject | None:
-    return cast(JSONObject, value)
-
-
-for _runtime_type in (str, int, float, bool, complex, bytes, list, tuple, set, frozenset, type(None)):
-    _json_object_optional.register(_runtime_type)(_none_optional_json_object)
+    mapping = _mapping_optional(value)
+    if mapping is None:
+        return None
+    return cast(JSONObject, mapping)
 
 
 def _emit_resume_state_startup_line(
