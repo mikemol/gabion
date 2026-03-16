@@ -22,11 +22,11 @@ doc_reviewed_as_of:
   glossary.md#contract: 1
   docs/normative_clause_index.md#normative_clause_index: 3
 doc_review_notes:
-  README.md#repo_contract: "Reviewed README.md rev2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
-  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev120/section v2; clause-backed architectural-invariant bullets now render from the shared clause-obligation catalog while contributor workflow prose remains hand-authored."
-  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev57 (runtime is now process-relative across program, analysis, formal, planning, and governance workflows); the generated clause deck remains policy-compatible."
-  glossary.md#contract: "Reviewed glossary.md#contract rev46 (runtime scope is process-relative and the distinction ladder remains part of the semantic contract) while clause-backed obligation bullets move to generated rendering."
-  docs/normative_clause_index.md#normative_clause_index: "Reviewed normative_clause_index rev17/section v3; generated clause-backed bullets now resolve canonical clause links from the clause index."
+  README.md#repo_contract: "Reviewed README.md#repo_contract rev84/section v2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md#contributing_contract rev120/section v2; clause-backed architectural-invariant bullets now render from the shared clause-obligation catalog while contributor workflow prose remains hand-authored."
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md#policy_seed rev57/section v2 (runtime is now process-relative across program, analysis, formal, planning, and governance workflows); the generated clause deck remains policy-compatible."
+  glossary.md#contract: "Reviewed glossary.md#contract rev47/section v1 (runtime scope is process-relative and the distinction ladder remains part of the semantic contract) while clause-backed obligation bullets move to generated rendering."
+  docs/normative_clause_index.md#normative_clause_index: "Reviewed docs/normative_clause_index.md#normative_clause_index rev18/section v3; generated clause-backed bullets now resolve canonical clause links from the clause index."
 doc_sections:
   agent_obligations: 2
 doc_section_requires:

@@ -169,7 +169,7 @@ def test_surface_contract_convergence_workstream_registry_exposes_queue_and_touc
 
     assert registry.root.root_id == "SCC"
     assert registry.tags == ("contract_convergence",)
-    assert registry.root.status_hint == "in_progress"
+    assert registry.root.status_hint == "landed"
     assert registry.root.subqueue_ids == (
         "SCC-SQ-001",
         "SCC-SQ-002",
@@ -186,7 +186,7 @@ def test_surface_contract_convergence_workstream_registry_exposes_queue_and_touc
     assert subqueues["SCC-SQ-002"].touchpoint_ids == ("SCC-TP-003", "SCC-TP-004")
     assert subqueues["SCC-SQ-003"].touchpoint_ids == ("SCC-TP-005", "SCC-TP-006")
     assert subqueues["SCC-SQ-004"].touchpoint_ids == ("SCC-TP-007",)
-    assert all(item.status_hint == "in_progress" for item in registry.subqueues)
+    assert all(item.status_hint == "landed" for item in registry.subqueues)
     assert set(touchpoints) == {
         "SCC-TP-001",
         "SCC-TP-002",
@@ -202,6 +202,7 @@ def test_surface_contract_convergence_workstream_registry_exposes_queue_and_touc
     assert touchpoints["SCC-TP-004"].status_hint == "landed"
     assert touchpoints["SCC-TP-005"].status_hint == "landed"
     assert touchpoints["SCC-TP-006"].status_hint == "landed"
+    assert touchpoints["SCC-TP-007"].status_hint == "landed"
     assert all(
         touchpoints[touchpoint_id].status_hint == "queued"
         for touchpoint_id in touchpoints
@@ -213,6 +214,7 @@ def test_surface_contract_convergence_workstream_registry_exposes_queue_and_touc
             "SCC-TP-004",
             "SCC-TP-005",
             "SCC-TP-006",
+            "SCC-TP-007",
         }
     )
     assert {

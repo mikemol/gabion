@@ -63,6 +63,18 @@ def test_format_docflow_violation_doc_review_pin_branches() -> None:
         )
         == "AGENTS.md: doc_reviewed_as_of[README.md#repo_contract] must be an integer"
     )
+    assert (
+        audit_impl._format_docflow_violation(
+            {
+                "row_kind": "doc_review_note_revision",
+                "path": "AGENTS.md",
+                "req": "README.md#repo_contract",
+                "expected_doc_revision": 84,
+                "expected_section_revision": 2,
+            }
+        )
+        == "AGENTS.md: doc_review_notes[README.md#repo_contract] must mention rev84 and section v2"
+    )
 
 
 # gabion:behavior primary=desired

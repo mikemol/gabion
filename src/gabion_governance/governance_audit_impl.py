@@ -120,6 +120,17 @@ GOVERNANCE_DOCS = CORE_GOVERNANCE_DOCS + [
     "docs/sppf_checklist.md",
 ]
 
+_REVIEW_NOTE_REVISION_LINT_DOCS = frozenset(
+    {
+        "AGENTS.md",
+        "README.md",
+        "CONTRIBUTING.md",
+        "POLICY_SEED.md",
+        "glossary.md",
+        "docs/normative_clause_index.md",
+    }
+)
+
 GOVERNANCE_CONTROL_LOOPS_DOC = "docs/governance_control_loops.md"
 
 NORMATIVE_LOOP_DOMAINS = (
@@ -369,6 +380,7 @@ _DOCFLOW_PREDICATE_NAMES = frozenset(
         "missing_explicit_ref",
         "review_pin_mismatch",
         "missing_review_note",
+        "review_note_revision_mismatch",
         "commutation_unreciprocated",
         "evidence_row",
         "evidence_kind",
@@ -703,6 +715,11 @@ def _docflow_predicates() -> dict[str, Callable[[Mapping[str, JSONValue], Mappin
     def _missing_review_note(row: Mapping[str, JSONValue], _: Mapping[str, JSONValue]) -> bool:
         return _is_row(row, "doc_review_note") and not bool(row.get("note_present", False))
 
+    def _review_note_revision_mismatch(
+        row: Mapping[str, JSONValue], _: Mapping[str, JSONValue]
+    ) -> bool:
+        return _is_row(row, "doc_review_note_revision") and not bool(row.get("match", False))
+
     def _commute_unreciprocated(row: Mapping[str, JSONValue], _: Mapping[str, JSONValue]) -> bool:
         return _is_row(row, "doc_commute_edge") and not bool(row.get("reciprocated", False))
 
@@ -758,6 +775,7 @@ def _docflow_predicates() -> dict[str, Callable[[Mapping[str, JSONValue], Mappin
         "missing_explicit_ref": _missing_explicit_ref,
         "review_pin_mismatch": _review_pin_mismatch,
         "missing_review_note": _missing_review_note,
+        "review_note_revision_mismatch": _review_note_revision_mismatch,
         "commutation_unreciprocated": _commute_unreciprocated,
         "evidence_row": _evidence_row,
         "evidence_kind": _evidence_kind,
@@ -821,6 +839,14 @@ DOCFLOW_AUDIT_INVARIANTS = [
         name="docflow:missing_review_note",
         kind="never",
         matcher=_make_invariant_matcher("docflow:missing_review_note", ["missing_review_note"]),
+    ),
+    DocflowInvariant(
+        name="docflow:review_note_revision_mismatch",
+        kind="never",
+        matcher=_make_invariant_matcher(
+            "docflow:review_note_revision_mismatch",
+            ["review_note_revision_mismatch"],
+        ),
     ),
     DocflowInvariant(
         name="docflow:commutation_unreciprocated",
@@ -1881,6 +1907,19 @@ def _doc_ref_base(ref: str) -> str:
     return _split_doc_ref(ref)[0]
 
 
+def _review_note_mentions_expected_revisions(
+    *,
+    note: str,
+    expected_doc_revision: int,
+    expected_section_revision: int | None,
+) -> bool:
+    if f"rev{expected_doc_revision}" not in note:
+        return False
+    if expected_section_revision is None:
+        return True
+    return f"section v{expected_section_revision}" in note
+
+
 def _add_section_revisions(
     revisions: dict[str, int],
     *,
@@ -1975,6 +2014,7 @@ def _docflow_invariant_rows(
                     }
                 )
         requires = fm.get("doc_requires", [])
+        requires_list = requires if isinstance(requires, list) else []
         if isinstance(requires, list):
             for req in requires:
                 check_deadline()
@@ -2017,6 +2057,38 @@ def _docflow_invariant_rows(
                 )
         reviewed = fm.get("doc_reviewed_as_of")
         review_notes = fm.get("doc_review_notes")
+        if rel in _REVIEW_NOTE_REVISION_LINT_DOCS and requires_list:
+            for req in requires_list:
+                check_deadline()
+                if not isinstance(req, str):
+                    continue
+                note = review_notes.get(req) if isinstance(review_notes, dict) else None
+                if not isinstance(note, str) or not note.strip():
+                    continue
+                req_base, req_anchor = _split_doc_ref(req)
+                dep_doc = docs.get(req_base)
+                if dep_doc is None:
+                    continue
+                dep_doc_revision = dep_doc.frontmatter.get("doc_revision")
+                if not isinstance(dep_doc_revision, int):
+                    continue
+                expected_section_revision = revisions.get(req) if req_anchor is not None else None
+                if req_anchor is not None and not isinstance(expected_section_revision, int):
+                    continue
+                rows.append(
+                    {
+                        "row_kind": "doc_review_note_revision",
+                        **base,
+                        "req": req,
+                        "expected_doc_revision": dep_doc_revision,
+                        "expected_section_revision": expected_section_revision,
+                        "match": _review_note_mentions_expected_revisions(
+                            note=note,
+                            expected_doc_revision=dep_doc_revision,
+                            expected_section_revision=expected_section_revision,
+                        ),
+                    }
+                )
         if isinstance(requires, list) and requires:
             for req in requires:
                 check_deadline()
@@ -2237,6 +2309,20 @@ def _format_doc_review_note_violation(row: Mapping[str, JSONValue], path: str) -
     return f"{path}: doc_review_notes[{req}] missing or empty"
 
 
+def _format_doc_review_note_revision_violation(
+    row: Mapping[str, JSONValue], path: str
+) -> str:
+    req = row.get("req", "?")
+    expected_doc_revision = row.get("expected_doc_revision", "?")
+    expected_section_revision = row.get("expected_section_revision")
+    if isinstance(expected_section_revision, int):
+        return (
+            f"{path}: doc_review_notes[{req}] must mention "
+            f"rev{expected_doc_revision} and section v{expected_section_revision}"
+        )
+    return f"{path}: doc_review_notes[{req}] must mention rev{expected_doc_revision}"
+
+
 def _format_doc_commute_edge_violation(row: Mapping[str, JSONValue], path: str) -> str:
     other = row.get("other", "?")
     if not bool(row.get("target_exists", False)):
@@ -2267,6 +2353,7 @@ _DOCFLOW_VIOLATION_FORMATTERS: dict[str, Callable[[Mapping[str, JSONValue], str]
     "doc_requires_ref": _format_doc_requires_ref_violation,
     "doc_review_pin": _format_doc_review_pin_violation,
     "doc_review_note": _format_doc_review_note_violation,
+    "doc_review_note_revision": _format_doc_review_note_revision_violation,
     "doc_commute_edge": _format_doc_commute_edge_violation,
     "doc_loop_entry": _format_doc_loop_entry_violation,
     "doc_loop_matrix_gate": _format_doc_loop_matrix_gate_violation,

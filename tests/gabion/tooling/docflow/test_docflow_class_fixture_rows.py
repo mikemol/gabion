@@ -80,6 +80,22 @@ def _contradictions_for(
     ]
 
 
+def _fixture_doc(
+    *,
+    doc_id: str,
+    doc_revision: int,
+    doc_sections: dict[str, int] | None = None,
+) -> audit_tools.Doc:
+    return audit_tools.Doc(
+        frontmatter={
+            "doc_id": doc_id,
+            "doc_revision": doc_revision,
+            "doc_sections": {} if doc_sections is None else doc_sections,
+        },
+        body="",
+    )
+
+
 # gabion:behavior primary=verboten facets=missing
 def test_dfx_mer_001_missing_explicit_reference_minimal() -> None:
     rel = "tmp_docs/in/fx_missing_explicit_reference_minimal.md"
@@ -284,3 +300,59 @@ def test_dfx_mgr_002_missing_governance_ref_partial_roots() -> None:
     )
     assert len(contradictions) == 2
     assert all(row["source_row_kind"] == "doc_missing_governance_ref" for row in contradictions)
+
+
+# gabion:behavior primary=verboten facets=stale_metadata
+def test_dfx_rnr_001_review_note_revision_lint_requires_doc_and_section_markers() -> None:
+    rel = "AGENTS.md"
+    req = "README.md#repo_contract"
+    fm = _fixture_frontmatter(
+        doc_id="agents",
+        doc_authority="normative",
+        doc_requires=[req],
+        doc_reviewed_as_of={req: 2},
+        doc_review_notes={
+            req: "Reviewed README.md rev84 (repo contract still aligns with agent obligations)."
+        },
+    )
+    docs = {
+        rel: audit_tools.Doc(frontmatter=fm, body=req),
+        "README.md": _fixture_doc(
+            doc_id="readme",
+            doc_revision=84,
+            doc_sections={"repo_contract": 2},
+        ),
+    }
+
+    with audit_tools._audit_deadline_scope():
+        rows, warnings = audit_tools._docflow_invariant_rows(
+            docs=docs,
+            revisions={"README.md#repo_contract": 2},
+            core_set=set(),
+            missing_frontmatter=set(),
+        )
+        compliance = audit_tools._docflow_compliance_rows(
+            rows,
+            invariants=[
+                _never_invariant(
+                    "docflow:review_note_revision_mismatch",
+                    "review_note_revision_mismatch",
+                )
+            ],
+        )
+
+    assert warnings == []
+    review_rows = _matching_rows(rows, row_kind="doc_review_note_revision", path=rel)
+    assert len(review_rows) == 1
+    assert review_rows[0]["req"] == req
+    assert review_rows[0]["expected_doc_revision"] == 84
+    assert review_rows[0]["expected_section_revision"] == 2
+    assert review_rows[0]["match"] is False
+
+    contradictions = _contradictions_for(
+        compliance,
+        invariant="docflow:review_note_revision_mismatch",
+        path=rel,
+    )
+    assert len(contradictions) == 1
+    assert contradictions[0]["source_row_kind"] == "doc_review_note_revision"

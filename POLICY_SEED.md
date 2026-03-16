@@ -26,12 +26,12 @@ doc_reviewed_as_of:
   docs/publishing_practices.md#publishing_practices: 1
   docs/coverage_semantics.md#coverage_semantics: 1
 doc_review_notes:
-  README.md#repo_contract: "Reviewed README.md rev2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
-  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
-  AGENTS.md#agent_obligations: "Reviewed AGENTS.md rev2 (required validation stack, forward-remediation preference, and ci_watch failure-bundle triage guidance)."
-  glossary.md#contract: "Reviewed glossary.md#contract rev46 (runtime is now defined process-relatively and the admissibility ladder remains aligned with policy)."
-  docs/publishing_practices.md#publishing_practices: "Publishing guidance reviewed (anchor v1); policy unaffected."
-  docs/coverage_semantics.md#coverage_semantics: "Reviewed docs/coverage_semantics.md#coverage_semantics v1 (glossary-lifted projection + explicit core anchors); policy references remain accurate."
+  README.md#repo_contract: "Reviewed README.md#repo_contract rev84/section v2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md#contributing_contract rev120/section v2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance remain aligned)."
+  AGENTS.md#agent_obligations: "Reviewed AGENTS.md#agent_obligations rev36/section v2 (required validation stack, forward-remediation preference, and ci_watch failure-bundle triage guidance remain aligned)."
+  glossary.md#contract: "Reviewed glossary.md#contract rev47/section v1 (runtime is now defined process-relatively and the admissibility ladder remains aligned with policy)."
+  docs/publishing_practices.md#publishing_practices: "Reviewed docs/publishing_practices.md#publishing_practices rev28/section v1; policy unaffected."
+  docs/coverage_semantics.md#coverage_semantics: "Reviewed docs/coverage_semantics.md#coverage_semantics rev21/section v1 (glossary-lifted projection + explicit core anchors); policy references remain accurate."
 doc_sections:
   policy_seed: 2
   change_protocol: 3

@@ -26,13 +26,13 @@ doc_reviewed_as_of:
   glossary.md#contract: 1
   docs/coverage_semantics.md#coverage_semantics: 1
 doc_review_notes:
-  README.md#repo_contract: "Reviewed README.md rev2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
-  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev120/section v2; clause-backed architectural-invariant bullets now render from the shared clause-obligation catalog while contributor workflow prose stays hand-authored."
-  AGENTS.md#agent_obligations: "Reviewed AGENTS.md rev36/section v2; the shared clause-obligation catalog keeps the contributor and agent clause decks aligned without duplicating workflow prose."
-  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev57 (runtime is now process-relative across program, analysis, formal, planning, and governance workflows); the generated clause deck remains policy-compatible."
-  docs/normative_clause_index.md#normative_clause_index: "Reviewed normative_clause_index rev17/section v3; generated contributor clause-backed bullets now resolve canonical links from the clause index."
-  glossary.md#contract: "Reviewed glossary.md#contract rev46 (runtime scope is process-relative and the distinction ladder remains part of the semantic contract) while clause-backed invariant bullets move to generated rendering."
-  docs/coverage_semantics.md#coverage_semantics: "Reviewed docs/coverage_semantics.md#coverage_semantics v1 (glossary-lifted projection + explicit core anchors); contributor guidance unchanged."
+  README.md#repo_contract: "Reviewed README.md#repo_contract rev84/section v2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md#contributing_contract rev120/section v2; clause-backed architectural-invariant bullets now render from the shared clause-obligation catalog while contributor workflow prose stays hand-authored."
+  AGENTS.md#agent_obligations: "Reviewed AGENTS.md#agent_obligations rev36/section v2; the shared clause-obligation catalog keeps the contributor and agent clause decks aligned without duplicating workflow prose."
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md#policy_seed rev57/section v2 (runtime is now process-relative across program, analysis, formal, planning, and governance workflows); the generated clause deck remains policy-compatible."
+  docs/normative_clause_index.md#normative_clause_index: "Reviewed docs/normative_clause_index.md#normative_clause_index rev18/section v3; generated contributor clause-backed bullets now resolve canonical links from the clause index."
+  glossary.md#contract: "Reviewed glossary.md#contract rev47/section v1 (runtime scope is process-relative and the distinction ladder remains part of the semantic contract) while clause-backed invariant bullets move to generated rendering."
+  docs/coverage_semantics.md#coverage_semantics: "Reviewed docs/coverage_semantics.md#coverage_semantics rev21/section v1 (glossary-lifted projection + explicit core anchors); contributor guidance unchanged."
 doc_sections:
   contributing_contract: 2
 doc_section_requires:

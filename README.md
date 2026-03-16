@@ -21,11 +21,11 @@ doc_reviewed_as_of:
   CONTRIBUTING.md#contributing_contract: 2
   docs/normative_clause_index.md#normative_clause_index: 3
 doc_review_notes:
-  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev56 (added runtime-distinction admissibility invariant to the core policy set)."
-  glossary.md#contract: "Reviewed glossary.md#contract rev45 (added runtime-distinction admissibility contract to the semantic typing discipline)."
-  AGENTS.md#agent_obligations: "Reviewed AGENTS.md rev2 (required validation stack, forward-remediation preference, and ci_watch failure-bundle triage guidance)."
-  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
-  docs/normative_clause_index.md#normative_clause_index: "Reviewed normative_clause_index rev15 (added NCI-RUNTIME-DISTINCTION-LADDER canonical clause)."
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md#policy_seed rev57/section v2 (process-relative runtime and the runtime-distinction ladder remain canonical policy)."
+  glossary.md#contract: "Reviewed glossary.md#contract rev47/section v1 (runtime scope and admissibility remain part of the semantic typing discipline)."
+  AGENTS.md#agent_obligations: "Reviewed AGENTS.md#agent_obligations rev36/section v2 (required validation stack, forward-remediation preference, and ci_watch failure-bundle triage guidance remain aligned)."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md#contributing_contract rev120/section v2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance remain aligned)."
+  docs/normative_clause_index.md#normative_clause_index: "Reviewed docs/normative_clause_index.md#normative_clause_index rev18/section v3 (canonical clause links remain aligned with the current governance set)."
 doc_sections:
   repo_contract: 2
 doc_section_requires:

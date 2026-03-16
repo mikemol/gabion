@@ -393,7 +393,7 @@ def surface_contract_convergence_workstream_registry() -> WorkstreamRegistry:
                 "SCC-SQ-003",
                 "SCC-SQ-004",
             ),
-            status_hint="in_progress",
+            status_hint="landed",
         ),
         subqueues=(
             _subqueue_definition(
@@ -402,7 +402,7 @@ def surface_contract_convergence_workstream_registry() -> WorkstreamRegistry:
                 title="Runtime-shape coercion substrate convergence",
                 symbol=_scc_sq_coercion_substrate,
                 touchpoint_ids=("SCC-TP-001", "SCC-TP-002"),
-                status_hint="in_progress",
+                status_hint="landed",
             ),
             _subqueue_definition(
                 root_id=root_id,
@@ -410,7 +410,7 @@ def surface_contract_convergence_workstream_registry() -> WorkstreamRegistry:
                 title="Server-core primitive bridge contract convergence",
                 symbol=_scc_sq_server_core_bridge_contracts,
                 touchpoint_ids=("SCC-TP-003", "SCC-TP-004"),
-                status_hint="in_progress",
+                status_hint="landed",
             ),
             _subqueue_definition(
                 root_id=root_id,
@@ -418,7 +418,7 @@ def surface_contract_convergence_workstream_registry() -> WorkstreamRegistry:
                 title="Indexed dataflow compatibility-boundary retirement",
                 symbol=_scc_sq_indexed_dataflow_boundary,
                 touchpoint_ids=("SCC-TP-005", "SCC-TP-006"),
-                status_hint="in_progress",
+                status_hint="landed",
             ),
             _subqueue_definition(
                 root_id=root_id,
@@ -426,7 +426,7 @@ def surface_contract_convergence_workstream_registry() -> WorkstreamRegistry:
                 title="Core governance review-note metadata consistency",
                 symbol=_scc_sq_review_note_consistency,
                 touchpoint_ids=("SCC-TP-007",),
-                status_hint="in_progress",
+                status_hint="landed",
             ),
         ),
         touchpoints=(
@@ -666,7 +666,7 @@ def surface_contract_convergence_workstream_registry() -> WorkstreamRegistry:
                 touchpoint_id="SCC-TP-007",
                 title="Core-governance review-note consistency lint and normalization",
                 symbol=_scc_tp_review_note_lint,
-                status_hint="queued",
+                status_hint="landed",
                 declared_touchsites=(
                     _module_touchsite(
                         touchsite_id="SCC-TS-007-A",
