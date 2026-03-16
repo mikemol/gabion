@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 __all__ = [
+    "coercion_contract",
     "deadline_policy",
     "env_policy",
     "json_io",

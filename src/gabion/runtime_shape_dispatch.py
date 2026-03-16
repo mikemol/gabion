@@ -1,119 +1,30 @@
 from __future__ import annotations
 
-from functools import singledispatch
-
-from gabion.invariants import never
 from gabion.json_types import JSONValue
-
-_NONE_TYPE = type(None)
-
-
-def _none_mapping(value: object):
-    _ = value
-    return None
-
-
-@singledispatch
-def json_mapping_optional(value: object):
-    never("unregistered runtime type", value_type=type(value).__name__)
+from gabion.runtime.coercion_contract import (
+    FLOAT_OPTIONAL_POLICY,
+    INT_OPTIONAL_POLICY,
+    JSON_LIST_OPTIONAL_POLICY,
+    JSON_MAPPING_OPTIONAL_POLICY,
+    STR_OPTIONAL_POLICY,
+)
 
 
-@json_mapping_optional.register(dict)
-def _sd_reg_1(value: dict[str, JSONValue]):
-    return value
+def json_mapping_optional(value: object) -> dict[str, JSONValue] | None:
+    return JSON_MAPPING_OPTIONAL_POLICY(value)
 
 
-for _runtime_type in (list, tuple, set, str, int, float, bool, bytes, bytearray, _NONE_TYPE):
-    json_mapping_optional.register(_runtime_type)(_none_mapping)
+def json_list_optional(value: object) -> list[JSONValue] | None:
+    return JSON_LIST_OPTIONAL_POLICY(value)
 
 
-def _none_list(value: object):
-    _ = value
-    return None
+def str_optional(value: object) -> str | None:
+    return STR_OPTIONAL_POLICY(value)
 
 
-@singledispatch
-def json_list_optional(value: object):
-    never("unregistered runtime type", value_type=type(value).__name__)
+def int_optional(value: object) -> int | None:
+    return INT_OPTIONAL_POLICY(value)
 
 
-@json_list_optional.register(list)
-def _sd_reg_2(value: list[JSONValue]):
-    return value
-
-
-for _runtime_type in (tuple, set, dict, str, int, float, bool, bytes, bytearray, _NONE_TYPE):
-    json_list_optional.register(_runtime_type)(_none_list)
-
-
-def _none_str(value: object):
-    _ = value
-    return None
-
-
-@singledispatch
-def str_optional(value: object):
-    never("unregistered runtime type", value_type=type(value).__name__)
-
-
-@str_optional.register(str)
-def _sd_reg_3(value: str):
-    return value
-
-
-for _runtime_type in (int, float, bool, dict, list, tuple, set, bytes, bytearray, _NONE_TYPE):
-    str_optional.register(_runtime_type)(_none_str)
-
-
-def _none_int(value: object):
-    _ = value
-    return None
-
-
-@singledispatch
-def int_optional(value: object):
-    never("unregistered runtime type", value_type=type(value).__name__)
-
-
-@int_optional.register(int)
-def _sd_reg_4(value: int):
-    return value
-
-
-@int_optional.register(bool)
-def _sd_reg_5(value: bool):
-    _ = value
-    return None
-
-
-for _runtime_type in (float, str, dict, list, tuple, set, bytes, bytearray, _NONE_TYPE):
-    int_optional.register(_runtime_type)(_none_int)
-
-
-def _none_float(value: object):
-    _ = value
-    return None
-
-
-@singledispatch
-def float_optional(value: object):
-    never("unregistered runtime type", value_type=type(value).__name__)
-
-
-@float_optional.register(float)
-def _sd_reg_6(value: float):
-    return value
-
-
-@float_optional.register(int)
-def _sd_reg_7(value: int):
-    return float(value)
-
-
-@float_optional.register(bool)
-def _sd_reg_8(value: bool):
-    return float(value)
-
-
-for _runtime_type in (str, dict, list, tuple, set, bytes, bytearray, _NONE_TYPE):
-    float_optional.register(_runtime_type)(_none_float)
+def float_optional(value: object) -> float | None:
+    return FLOAT_OPTIONAL_POLICY(value)

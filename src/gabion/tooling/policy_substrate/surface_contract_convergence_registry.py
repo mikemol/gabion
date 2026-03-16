@@ -436,7 +436,7 @@ def surface_contract_convergence_workstream_registry() -> WorkstreamRegistry:
                 touchpoint_id="SCC-TP-001",
                 title="Canonical coercion contract for runtime_shape_dispatch and progress_contract",
                 symbol=_scc_tp_coercion_pair,
-                status_hint="queued",
+                status_hint="landed",
                 declared_touchsites=(
                     _module_touchsite(
                         touchsite_id="SCC-TS-001-A",

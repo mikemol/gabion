@@ -1,12 +1,19 @@
 from __future__ import annotations
 
-from functools import singledispatch
 from typing import Mapping
 
 from gabion.commands.progress_transition import (
     normalize_progress_transition_from_phase_progress, transition_reason_from_phase_progress)
-from gabion.invariants import never
 from gabion.order_contract import sort_once
+from gabion.runtime.coercion_contract import (
+    INT_LIKE_OPTIONAL_POLICY,
+    MAPPING_OPTIONAL_POLICY,
+    NON_BOOL_FLOAT_OPTIONAL_POLICY,
+    NON_BOOL_INT_OPTIONAL_POLICY,
+    ROW_FLOAT_OPTIONAL_POLICY,
+    STRING_KEY_DICT_OPTIONAL_POLICY,
+    STR_OPTIONAL_POLICY,
+)
 from gabion.schema import CanonicalProgressEventPayloadDTO
 
 LSP_PROGRESS_NOTIFICATION_METHOD = "$/progress"
@@ -39,162 +46,32 @@ _PHASE_TIMELINE_COLUMNS: tuple[str, ...] = (
 )
 
 
-_NONE_TYPE = type(None)
-
-
-@singledispatch
 def _mapping_optional(value: object) -> dict[str, object] | None:
-    never("unregistered runtime type", value_type=type(value).__name__)
+    return MAPPING_OPTIONAL_POLICY(value)
 
 
-@_mapping_optional.register(dict)
-def _sd_reg_1(value: dict[str, object]) -> dict[str, object] | None:
-    return value
-
-
-def _mapping_none(value: object) -> dict[str, object] | None:
-    _ = value
-    return None
-
-
-for _runtime_type in (list, tuple, set, str, int, float, bool, _NONE_TYPE):
-    _mapping_optional.register(_runtime_type)(_mapping_none)
-
-
-@singledispatch
 def _str_optional(value: object) -> str | None:
-    never("unregistered runtime type", value_type=type(value).__name__)
+    return STR_OPTIONAL_POLICY(value)
 
 
-@_str_optional.register(str)
-def _sd_reg_2(value: str) -> str | None:
-    return value
-
-
-def _str_none(value: object) -> str | None:
-    _ = value
-    return None
-
-
-for _runtime_type in (int, float, bool, list, tuple, set, dict, _NONE_TYPE):
-    _str_optional.register(_runtime_type)(_str_none)
-
-
-@singledispatch
 def _int_non_bool_optional(value: object) -> int | None:
-    never("unregistered runtime type", value_type=type(value).__name__)
+    return NON_BOOL_INT_OPTIONAL_POLICY(value)
 
 
-@_int_non_bool_optional.register(int)
-def _sd_reg_3(value: int) -> int | None:
-    return value
-
-
-@_int_non_bool_optional.register(bool)
-def _sd_reg_4(value: bool) -> int | None:
-    _ = value
-    return None
-
-
-def _int_none(value: object) -> int | None:
-    _ = value
-    return None
-
-
-for _runtime_type in (float, str, list, tuple, set, dict, _NONE_TYPE):
-    _int_non_bool_optional.register(_runtime_type)(_int_none)
-
-
-@singledispatch
 def _int_like_optional(value: object) -> int | bool | None:
-    never("unregistered runtime type", value_type=type(value).__name__)
+    return INT_LIKE_OPTIONAL_POLICY(value)
 
 
-@_int_like_optional.register(int)
-def _sd_reg_5(value: int) -> int | bool | None:
-    return value
-
-
-@_int_like_optional.register(bool)
-def _sd_reg_6(value: bool) -> int | bool | None:
-    return value
-
-
-def _int_like_none(value: object) -> int | bool | None:
-    _ = value
-    return None
-
-
-for _runtime_type in (float, str, list, tuple, set, dict, _NONE_TYPE):
-    _int_like_optional.register(_runtime_type)(_int_like_none)
-
-
-@singledispatch
 def _float_non_bool_optional(value: object) -> float | None:
-    never("unregistered runtime type", value_type=type(value).__name__)
+    return NON_BOOL_FLOAT_OPTIONAL_POLICY(value)
 
 
-@_float_non_bool_optional.register(float)
-def _sd_reg_7(value: float) -> float | None:
-    return float(value)
-
-
-@_float_non_bool_optional.register(int)
-def _sd_reg_8(value: int) -> float | None:
-    return float(value)
-
-
-@_float_non_bool_optional.register(bool)
-def _sd_reg_9(value: bool) -> float | None:
-    _ = value
-    return None
-
-
-def _float_none(value: object) -> float | None:
-    _ = value
-    return None
-
-
-for _runtime_type in (str, list, tuple, set, dict, _NONE_TYPE):
-    _float_non_bool_optional.register(_runtime_type)(_float_none)
-
-
-@singledispatch
 def _float_row_optional(value: object) -> float | None:
-    never("unregistered runtime type", value_type=type(value).__name__)
+    return ROW_FLOAT_OPTIONAL_POLICY(value)
 
 
-@_float_row_optional.register(float)
-def _sd_reg_10(value: float) -> float | None:
-    return float(value)
-
-
-@_float_row_optional.register(int)
-def _sd_reg_11(value: int) -> float | None:
-    return float(value)
-
-
-@_float_row_optional.register(bool)
-def _sd_reg_12(value: bool) -> float | None:
-    return float(value)
-
-
-for _runtime_type in (str, list, tuple, set, dict, _NONE_TYPE):
-    _float_row_optional.register(_runtime_type)(_float_none)
-
-
-@singledispatch
 def _str_key_dict_optional(value: object) -> dict[str, object] | None:
-    never("unregistered runtime type", value_type=type(value).__name__)
-
-
-@_str_key_dict_optional.register(dict)
-def _sd_reg_13(value: dict[object, object]) -> dict[str, object] | None:
-    return {str(key): value[key] for key in value}
-
-
-for _runtime_type in (list, tuple, set, str, int, float, bool, _NONE_TYPE):
-    _str_key_dict_optional.register(_runtime_type)(_mapping_none)
+    return STRING_KEY_DICT_OPTIONAL_POLICY(value)
 
 
 def _text(value: object) -> str:
