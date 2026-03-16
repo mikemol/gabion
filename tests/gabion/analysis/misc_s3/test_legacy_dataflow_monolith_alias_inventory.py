@@ -17,6 +17,14 @@ def test_monolith_alias_inventory_matches_materialized_surface() -> None:
     assert "post_phase_analysis" in {
         group["group_id"] for group in inventory["module_groups"]
     }
+    assert inventory["owner_adapter_count"] == 5
+    assert inventory["owner_adapter_modules"] == (
+        "gabion.analysis.dataflow.engine.dataflow_indexed_file_scan_alias_adapter_compatibility",
+        "gabion.analysis.dataflow.engine.dataflow_indexed_file_scan_alias_adapter_decision",
+        "gabion.analysis.dataflow.engine.dataflow_indexed_file_scan_alias_adapter_runtime",
+        "gabion.analysis.dataflow.engine.dataflow_indexed_file_scan_alias_adapter_analysis",
+        "gabion.analysis.dataflow.engine.dataflow_indexed_file_scan_alias_adapter_projection",
+    )
     assert "_emit_report" in inventory["exported_names"]
     assert "analyze_file" in inventory["exported_names"]
     assert "FunctionNode" in inventory["exported_names"]
@@ -38,6 +46,10 @@ def test_monolith_retirement_telemetry_exposes_remaining_hot_spots() -> None:
     assert telemetry["exported_alias_count"] == len(
         monolith.DATAFLOW_INDEXED_FILE_SCAN_ALIAS_SURFACE_INVENTORY["exported_names"]
     )
+    assert telemetry["owner_adapter_count"] == 5
+    assert telemetry["owner_adapter_modules"] == monolith.DATAFLOW_INDEXED_FILE_SCAN_ALIAS_SURFACE_INVENTORY[
+        "owner_adapter_modules"
+    ]
     assert telemetry["owner_module_spread"] >= 8
     assert telemetry["remaining_hot_spots"]
     assert telemetry["remaining_hot_spots"][0] == {

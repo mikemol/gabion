@@ -1,0 +1,118 @@
+# gabion:ambiguity_boundary_module
+# gabion:grade_boundary kind=semantic_carrier_adapter name=dataflow_indexed_file_scan_alias_adapter_compatibility
+from __future__ import annotations
+
+"""Compatibility and foundational alias groups for the legacy monolith path."""
+
+from gabion.analysis.dataflow.engine.dataflow_indexed_file_scan_alias_contract import (
+    AliasGroupSpec,
+    alias_group,
+    module_alias,
+)
+
+COMPATIBILITY_ALIAS_GROUPS: tuple[AliasGroupSpec, ...] = (
+    alias_group(
+        'compatibility_support',
+        'Compatibility Support',
+        module_alias(
+            'gabion.ingest.python_ingest',
+            'ingest_python_file',
+            'iter_python_paths',
+        ),
+        module_alias(
+            'gabion.analysis.core.visitors',
+            'ImportVisitor',
+            'ParentAnnotator',
+            'UseVisitor',
+        ),
+        module_alias(
+            'gabion.analysis.foundation.json_types',
+            'JSONObject',
+            'JSONValue',
+        ),
+        module_alias(
+            'gabion.analysis.aspf.aspf',
+            'Alt',
+            'Forest',
+            'Node',
+            'NodeId',
+        ),
+        module_alias(
+            'gabion.analysis.semantics',
+            'evidence_keys',
+        ),
+        module_alias(
+            'gabion.analysis.core.type_fingerprints',
+            'Fingerprint',
+            'FingerprintDimension',
+            'PrimeRegistry',
+            'TypeConstructorRegistry',
+            '_collect_base_atoms',
+            '_collect_constructors',
+            'SynthRegistry',
+            'build_synth_registry',
+            'build_fingerprint_registry',
+            'build_synth_registry_from_payload',
+            'bundle_fingerprint_dimensional',
+            'format_fingerprint',
+            'fingerprint_carrier_soundness',
+            'fingerprint_identity_payload',
+            'synth_registry_payload',
+        ),
+        module_alias(
+            'gabion.analysis.core.forest_spec',
+            'ForestSpec',
+            'build_forest_spec',
+            'default_forest_spec',
+            'forest_spec_metadata',
+        ),
+        module_alias(
+            'gabion.analysis.foundation.timeout_context',
+            'Deadline',
+            'GasMeter',
+            'TimeoutExceeded',
+            'TimeoutTickCarrier',
+            'build_timeout_context_from_stack',
+            'check_deadline',
+            'deadline_loop_iter',
+            'deadline_clock_scope',
+            'deadline_scope',
+            'forest_scope',
+            'reset_forest',
+            'set_forest',
+        ),
+        module_alias(
+            'gabion.analysis.foundation.resume_codec',
+            'allowed_path_lookup',
+            'int_str_pairs_from_sequence',
+            'iter_valid_key_entries',
+            'load_resume_map',
+            'load_allowed_paths_from_sequence',
+            'mapping_payload',
+            'mapping_sections',
+            'mapping_default_empty',
+            'mapping_optional',
+            'payload_with_format',
+            'payload_with_phase',
+            'sequence_optional',
+            'str_list_from_sequence',
+            'str_map_from_mapping',
+            'str_pair_set_from_sequence',
+            'str_set_from_sequence',
+            'str_tuple_from_sequence',
+        ),
+        module_alias(
+            'gabion.analysis.projection.projection_registry',
+            'DEADLINE_OBLIGATIONS_SUMMARY_SPEC',
+            'LINT_FINDINGS_SPEC',
+            'REPORT_SECTION_LINES_SPEC',
+            'WL_REFINEMENT_SPEC',
+        ),
+        module_alias(
+            'gabion.analysis.core.deprecated_substrate',
+            'DeprecatedExtractionArtifacts',
+            'DeprecatedFiber',
+            'detect_report_section_extinction',
+        ),
+    ),
+)

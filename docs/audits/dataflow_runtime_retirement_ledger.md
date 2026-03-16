@@ -1,5 +1,5 @@
 ---
-doc_revision: 2
+doc_revision: 3
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: dataflow_runtime_retirement_ledger
 doc_role: audit
@@ -40,6 +40,13 @@ Deterministic probe contract:
 Compatibility boundary telemetry carriers:
 - `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py::DATAFLOW_INDEXED_FILE_SCAN_ALIAS_SURFACE_INVENTORY`
 - `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py::DATAFLOW_INDEXED_FILE_SCAN_RETIREMENT_TELEMETRY`
+
+Owner-domain adapter inventory modules:
+- `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan_alias_adapter_compatibility.py`
+- `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan_alias_adapter_decision.py`
+- `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan_alias_adapter_runtime.py`
+- `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan_alias_adapter_analysis.py`
+- `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan_alias_adapter_projection.py`
 
 Rows: `36`
 Status counts: proven=36, intentional_drift=0, blocked=0

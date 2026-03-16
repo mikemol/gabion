@@ -1,5 +1,5 @@
 ---
-doc_revision: 5
+doc_revision: 6
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: legacy_dataflow_monolith_test_replacement_matrix
 doc_role: audit
@@ -36,6 +36,7 @@ Rows are initialized from current `tests/` imports of `gabion.analysis.legacy_da
 | Runtime-coupled test file | Domain | Replacement test surface | Replacement module(s) | Removal CU | Status | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
 | `tests/test_alias_return_propagation.py` | `D1/D2/D3/D4/D5/D6` | `owner-module replacement coverage` | `dataflow_indexed_file_scan; owner modules` | `CU-RT-FINAL-2` | `retargeted` | Retargeted to direct owner imports. |
+| `tests/gabion/analysis/misc_s3/test_legacy_dataflow_monolith_alias_inventory.py` | `D1/D2/D3/D4/D5/D6` | `compatibility boundary telemetry assertions` | `dataflow_indexed_file_scan; owner-domain alias adapters` | `CU-SCC-06` | `retained` | Keeps the legacy monolith path observable as a boundary-only alias surface while direct owner imports remain the default elsewhere. |
 | `tests/test_ambiguity_helpers.py` | `D3` | `ambiguity helper assertions` | `dataflow_ambiguity_helpers; dataflow_reporting` | `CU-RT-01` | `retargeted` | Retargeted to direct owner imports. |
 | `tests/test_broad_type_lint.py` | `D5` | `broad type lint assertions` | `dataflow_lint_helpers; dataflow_pipeline` | `CU-RT-01` | `retargeted` | Retargeted to direct owner imports. |
 | `tests/test_callsite_evidence_helper.py` | `D1/D2/D3/D4/D5/D6` | `owner-module replacement coverage` | `dataflow_indexed_file_scan; owner modules` | `CU-RT-FINAL-2` | `retargeted` | Retargeted to direct owner imports. |

@@ -596,30 +596,65 @@ def surface_contract_convergence_workstream_registry() -> WorkstreamRegistry:
                 touchpoint_id="SCC-TP-006",
                 title="Owner-domain adapter deflation for indexed dataflow facade",
                 symbol=_scc_tp_indexed_adapter_deflation,
-                status_hint="queued",
+                status_hint="landed",
                 declared_touchsites=(
                     _module_touchsite(
                         touchsite_id="SCC-TS-006-A",
                         rel_path="src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py",
                         qualname="dataflow_indexed_file_scan",
                     ),
-                    _document_touchsite(
+                    _module_touchsite(
                         touchsite_id="SCC-TS-006-B",
+                        rel_path="src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan_alias_inventory.py",
+                        qualname="dataflow_indexed_file_scan_alias_inventory",
+                    ),
+                    _module_touchsite(
+                        touchsite_id="SCC-TS-006-C",
+                        rel_path="src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan_alias_contract.py",
+                        qualname="dataflow_indexed_file_scan_alias_contract",
+                    ),
+                    _module_touchsite(
+                        touchsite_id="SCC-TS-006-D",
+                        rel_path="src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan_alias_adapter_compatibility.py",
+                        qualname="dataflow_indexed_file_scan_alias_adapter_compatibility",
+                    ),
+                    _module_touchsite(
+                        touchsite_id="SCC-TS-006-E",
+                        rel_path="src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan_alias_adapter_decision.py",
+                        qualname="dataflow_indexed_file_scan_alias_adapter_decision",
+                    ),
+                    _module_touchsite(
+                        touchsite_id="SCC-TS-006-F",
+                        rel_path="src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan_alias_adapter_runtime.py",
+                        qualname="dataflow_indexed_file_scan_alias_adapter_runtime",
+                    ),
+                    _module_touchsite(
+                        touchsite_id="SCC-TS-006-G",
+                        rel_path="src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan_alias_adapter_analysis.py",
+                        qualname="dataflow_indexed_file_scan_alias_adapter_analysis",
+                    ),
+                    _module_touchsite(
+                        touchsite_id="SCC-TS-006-H",
+                        rel_path="src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan_alias_adapter_projection.py",
+                        qualname="dataflow_indexed_file_scan_alias_adapter_projection",
+                    ),
+                    _document_touchsite(
+                        touchsite_id="SCC-TS-006-I",
                         rel_path="docs/audits/dataflow_runtime_debt_ledger.md",
                         qualname="dataflow_runtime_debt_ledger",
                     ),
                     _document_touchsite(
-                        touchsite_id="SCC-TS-006-C",
+                        touchsite_id="SCC-TS-006-J",
                         rel_path="docs/audits/dataflow_runtime_retirement_ledger.md",
                         qualname="dataflow_runtime_retirement_ledger",
                     ),
                     _document_touchsite(
-                        touchsite_id="SCC-TS-006-D",
+                        touchsite_id="SCC-TS-006-K",
                         rel_path="docs/audits/dataflow_legacy_monolith_test_replacement_matrix.md",
                         qualname="dataflow_legacy_monolith_test_replacement_matrix",
                     ),
                     _document_touchsite(
-                        touchsite_id="SCC-TS-006-E",
+                        touchsite_id="SCC-TS-006-L",
                         rel_path="docs/compatibility_layer_debt_register.md",
                         qualname="compatibility_layer_debt_register",
                     ),

@@ -201,6 +201,7 @@ def test_surface_contract_convergence_workstream_registry_exposes_queue_and_touc
     assert touchpoints["SCC-TP-003"].status_hint == "landed"
     assert touchpoints["SCC-TP-004"].status_hint == "landed"
     assert touchpoints["SCC-TP-005"].status_hint == "landed"
+    assert touchpoints["SCC-TP-006"].status_hint == "landed"
     assert all(
         touchpoints[touchpoint_id].status_hint == "queued"
         for touchpoint_id in touchpoints
@@ -211,6 +212,7 @@ def test_surface_contract_convergence_workstream_registry_exposes_queue_and_touc
             "SCC-TP-003",
             "SCC-TP-004",
             "SCC-TP-005",
+            "SCC-TP-006",
         }
     )
     assert {
@@ -262,6 +264,34 @@ def test_surface_contract_convergence_workstream_registry_exposes_queue_and_touc
         (
             "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan.py",
             "dataflow_indexed_file_scan",
+        ),
+        (
+            "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan_alias_inventory.py",
+            "dataflow_indexed_file_scan_alias_inventory",
+        ),
+        (
+            "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan_alias_contract.py",
+            "dataflow_indexed_file_scan_alias_contract",
+        ),
+        (
+            "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan_alias_adapter_compatibility.py",
+            "dataflow_indexed_file_scan_alias_adapter_compatibility",
+        ),
+        (
+            "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan_alias_adapter_decision.py",
+            "dataflow_indexed_file_scan_alias_adapter_decision",
+        ),
+        (
+            "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan_alias_adapter_runtime.py",
+            "dataflow_indexed_file_scan_alias_adapter_runtime",
+        ),
+        (
+            "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan_alias_adapter_analysis.py",
+            "dataflow_indexed_file_scan_alias_adapter_analysis",
+        ),
+        (
+            "src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan_alias_adapter_projection.py",
+            "dataflow_indexed_file_scan_alias_adapter_projection",
         ),
         (
             "docs/audits/dataflow_runtime_debt_ledger.md",
