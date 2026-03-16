@@ -112,11 +112,11 @@ def _todo_metadata(
 
 
 @todo_decorator(
-    reason="PRF migration queue remains machine-projected while governance and policy-doc mechanization follow-ons are sequenced.",
+    reason="PRF migration queue remains machine-projected while the remaining policy-doc mechanization follow-ons are sequenced.",
     reasoning={
-        "summary": "PRF landed the markdown-frontmatter migration and now sequences governance-loop, policy-playbook, clause-deck, and cheat-sheet follow-on mechanization work.",
+        "summary": "PRF landed the markdown-frontmatter migration plus governance-loop registry mechanization and now sequences the remaining policy-playbook, clause-deck, and cheat-sheet follow-on work.",
         "control": "prf.queue.policy_rule_frontmatter_migration",
-        "blocking_dependencies": ("PRF-006",),
+        "blocking_dependencies": (),
     },
     owner="gabion.tooling.policy_substrate",
     expiry="graph workstream generalization superseded",
@@ -227,11 +227,11 @@ def _prf_005() -> None:
 
 
 @todo_decorator(
-    reason="PRF-006 remains active while governance loop docs migrate to a shared normalized registry plus renderer path.",
+    reason="PRF-006 remains recorded as landed metadata once governance loop docs moved to a shared normalized registry plus renderer path.",
     reasoning={
         "summary": "Governance loop semantics should move out of duplicated prose and into a shared structured registry that renders both the loop registry and the gate matrix.",
         "control": "prf.item.governance_loop_registry_renderer",
-        "blocking_dependencies": ("PRF-TP-006",),
+        "blocking_dependencies": (),
     },
     owner="gabion.tooling.policy_substrate",
     expiry="governance loop registry generation converged",
@@ -248,11 +248,11 @@ def _prf_006() -> None:
 
 
 @todo_decorator(
-    reason="PRF-007 is queued until the governance-loop registry renderer establishes the next policy-doc mechanization pattern.",
+    reason="PRF-007 remains queued until a dedicated correction unit opens the policy-rule playbook renderer slice.",
     reasoning={
         "summary": "Render the ambiguity-contract and grade-monotonicity playbooks from their canonical markdown-frontmatter rules.",
         "control": "prf.item.policy_rule_playbook_renderer",
-        "blocking_dependencies": ("PRF-006", "PRF-TP-007"),
+        "blocking_dependencies": ("PRF-TP-007",),
     },
     owner="gabion.tooling.policy_substrate",
     expiry="policy rule playbook generation converged",
@@ -269,11 +269,11 @@ def _prf_007() -> None:
 
 
 @todo_decorator(
-    reason="PRF-008 is queued until the clause-backed governance catalogs stabilize enough to render repetitive obligation decks safely.",
+    reason="PRF-008 remains queued until a dedicated correction unit opens the clause-backed obligation-deck renderer slice.",
     reasoning={
         "summary": "Generate the repetitive clause-backed obligation bullets in AGENTS and CONTRIBUTING from a small audience-specific catalog.",
         "control": "prf.item.clause_backed_obligation_decks",
-        "blocking_dependencies": ("PRF-006", "PRF-TP-008"),
+        "blocking_dependencies": ("PRF-TP-008",),
     },
     owner="gabion.tooling.policy_substrate",
     expiry="clause-backed obligation deck generation converged",
@@ -294,7 +294,7 @@ def _prf_008() -> None:
     reasoning={
         "summary": "Extend cheat-sheet generation beyond the Rule Matrix to guardrails and validation bundles from the stabilized governance catalogs.",
         "control": "prf.item.cheat_sheet_guardrails_renderer",
-        "blocking_dependencies": ("PRF-006", "PRF-008", "PRF-TP-009"),
+        "blocking_dependencies": ("PRF-008", "PRF-TP-009"),
     },
     owner="gabion.tooling.policy_substrate",
     expiry="broader cheat-sheet generation converged",
@@ -310,11 +310,11 @@ def _prf_009() -> None:
 
 
 @todo_decorator(
-    reason="PRF-TP-006 remains active while governance loop docs move to a shared structured registry.",
+    reason="PRF-TP-006 remains recorded as landed metadata once governance loop docs moved to a shared structured registry.",
     reasoning={
         "summary": "The next mechanization slice is the shared governance loop registry that should render both governance loop docs from one catalog.",
         "control": "prf.touchpoint.governance_loop_registry_renderer",
-        "blocking_dependencies": ("PRF-006",),
+        "blocking_dependencies": (),
     },
     owner="gabion.tooling.policy_substrate",
     expiry="governance loop registry generation converged",
@@ -488,7 +488,7 @@ def iter_prf_subqueues() -> tuple[PolicyRuleFrontmatterMigrationSubqueueDefiniti
                 marker_payload=payload,
                 status_hint={
                     "PRF-005": "landed",
-                    "PRF-006": "",
+                    "PRF-006": "landed",
                     "PRF-007": "queued",
                     "PRF-008": "queued",
                     "PRF-009": "queued",

@@ -11,7 +11,7 @@ from gabion.tooling.policy_substrate.projection_semantic_fragment_phase5_registr
 )
 
 
-def test_prf_workstream_registry_exposes_queue_sequence_and_active_governance_touchpoint() -> None:
+def test_prf_workstream_registry_exposes_queue_sequence_and_landed_governance_touchpoint() -> None:
     registry = prf_workstream_registry()
     touchpoints = {item.touchpoint_id: item for item in registry.touchpoints}
     subqueues = {item.subqueue_id: item for item in registry.subqueues}
@@ -42,7 +42,7 @@ def test_prf_workstream_registry_exposes_queue_sequence_and_active_governance_to
     )
     assert subqueues["PRF-005"].status_hint == "landed"
     assert subqueues["PRF-005"].touchpoint_ids == ()
-    assert subqueues["PRF-006"].status_hint == ""
+    assert subqueues["PRF-006"].status_hint == "landed"
     assert subqueues["PRF-006"].touchpoint_ids == ("PRF-TP-006",)
     assert subqueues["PRF-007"].status_hint == "queued"
     assert subqueues["PRF-007"].touchpoint_ids == ("PRF-TP-007",)

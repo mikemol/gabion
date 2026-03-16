@@ -1,5 +1,5 @@
 ---
-doc_revision: 6
+doc_revision: 7
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: governance_control_loops
 doc_role: policy
@@ -15,6 +15,7 @@ doc_requires:
   - POLICY_SEED.md#policy_seed
   - CONTRIBUTING.md#contributing_contract
   - glossary.md#contract
+  - docs/governance_control_loops.yaml
 doc_reviewed_as_of:
   README.md#repo_contract: 2
   AGENTS.md#agent_obligations: 2
@@ -24,11 +25,11 @@ doc_reviewed_as_of:
 doc_review_notes:
   README.md#repo_contract: "Reviewed README.md rev2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
   AGENTS.md#agent_obligations: "Reviewed AGENTS.md rev2 (required validation stack, forward-remediation preference, and ci_watch failure-bundle triage guidance)."
-  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev2 (forward-remediation order, ci_watch failure-bundle durability, and enforced execution-coverage policy wording)."
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev2 (forward-remediation order, ci_watch failure-bundle durability, and enforced execution-coverage policy wording); generated loop registry remains governance-compatible."
   CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
-  glossary.md#contract: "Glossary contract reviewed; loop predicates remain semantically coherent with enforcement terms."
+  glossary.md#contract: "Glossary contract reviewed; loop predicates remain semantically coherent with enforcement terms while the registry moves to a generated catalog surface."
 doc_sections:
-  governance_control_loops: 1
+  governance_control_loops: 2
 doc_section_requires:
   governance_control_loops:
     - README.md#repo_contract
@@ -40,29 +41,29 @@ doc_section_reviews:
   governance_control_loops:
     README.md#repo_contract:
       dep_version: 2
-      self_version_at_review: 1
+      self_version_at_review: 2
       outcome: no_change
       note: "Repo contract rev2 reviewed; command and artifact guidance remains aligned."
     AGENTS.md#agent_obligations:
       dep_version: 2
-      self_version_at_review: 1
+      self_version_at_review: 2
       outcome: no_change
       note: "Agent obligations rev2 reviewed; clause and cadence links remain aligned."
     POLICY_SEED.md#policy_seed:
       dep_version: 2
-      self_version_at_review: 1
+      self_version_at_review: 2
       outcome: no_change
-      note: "Policy seed rev2 reviewed; governance obligations remain aligned."
+      note: "Policy seed rev2 reviewed; governance obligations remain aligned while loop registry sections move to structured rendering."
     CONTRIBUTING.md#contributing_contract:
       dep_version: 2
-      self_version_at_review: 1
+      self_version_at_review: 2
       outcome: no_change
       note: "Contributor contract rev2 reviewed; dual-sensor cadence and correction gates remain aligned."
     glossary.md#contract:
       dep_version: 1
-      self_version_at_review: 1
+      self_version_at_review: 2
       outcome: no_change
-      note: "Glossary contract reviewed; loop predicates remain semantically aligned."
+      note: "Glossary contract reviewed; loop predicates remain semantically aligned while the registry body moves to structured rendering."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
 loop_domains:
   - security/workflows
@@ -91,6 +92,9 @@ It is coupled to `README.md#repo_contract`, `AGENTS.md#agent_obligations`,
 `POLICY_SEED.md#policy_seed`, `CONTRIBUTING.md#contributing_contract`, and
 `glossary.md#contract`.
 
+<!-- BEGIN:generated_governance_loop_registry -->
+_The registry sections below are generated from `docs/governance_control_loops.yaml` via `mise exec -- python -m scripts.policy.render_governance_loop_docs`._
+
 ## Correction modes
 
 - `advisory`: emit diagnostics and summary only; do not block execution.
@@ -99,17 +103,14 @@ It is coupled to `README.md#repo_contract`, `AGENTS.md#agent_obligations`,
 
 ## Transition criteria
 
-Loop transitions are governed by `warning_threshold` and `blocking_threshold` values in
-`docs/governance_rules.yaml`:
-
-1. `advisory -> ratchet` when warning-threshold events recur and no override token is recorded.
-2. `ratchet -> hard-fail` when blocking-threshold events recur under ratchet mode.
-3. `hard-fail -> ratchet|advisory` only with an explicit override token and annotated rationale.
+1. advisory -> ratchet when warning-threshold events recur and no override token is recorded.
+2. ratchet -> hard-fail when blocking-threshold events recur under ratchet mode.
+3. hard-fail -> ratchet|advisory only with an explicit override token and annotated rationale.
 
 ## Bounded-step correction rules
 
 1. Baseline writes require explicit `--write-*` flags.
-2. Strictness reduction requires both:
+2. Strictness reduction requires both
 - `GABION_POLICY_OVERRIDE_TOKEN`
 - `GABION_POLICY_OVERRIDE_RATIONALE`
 3. Delta gates use shared severity mapping from `docs/governance_rules.yaml`; ad-hoc threshold branching is prohibited.
@@ -132,7 +133,7 @@ Each loop entry must define:
 ### 1) security/workflows
 
 - **sensor:** workflow YAML and posture probes from `python -m scripts.policy_check --workflows` and `python -m scripts.policy_check --posture`.
-- **state artifact:** `.github/workflows/*.yml` and policy posture snapshots under `artifacts/out/policy_posture*.json`.
+- **state artifact:** .github/workflows/*.yml and policy posture snapshots under `artifacts/out/policy_posture*.json`.
 - **target predicate:** all workflow actions are pinned to allow-listed full SHAs and self-hosted trust boundaries satisfy the prime invariant.
 - **error signal:** policy-check non-zero exit or posture violations.
 - **actuator:** patch workflow files, refresh allow-list expectations, and rerun policy checks.
@@ -153,7 +154,7 @@ Each loop entry must define:
 
 ### 3) LSP architecture
 
-Clause links: [`NCI-LSP-FIRST`](docs/normative_clause_index.md#clause-lsp-first), [`NCI-COMMAND-MATURITY-PARITY`](docs/normative_clause_index.md#clause-command-maturity-parity).
+Clause links: [NCI-LSP-FIRST](docs/normative_clause_index.md#clause-lsp-first), [NCI-COMMAND-MATURITY-PARITY](docs/normative_clause_index.md#clause-command-maturity-parity).
 
 - **sensor:** server/CLI split checks and governance contract conformance checks.
 - **state artifact:** `src/gabion/server.py`, `src/gabion/cli.py`, and audit outputs under `artifacts/audit_reports/`.
@@ -188,7 +189,7 @@ Clause links: [`NCI-LSP-FIRST`](docs/normative_clause_index.md#clause-lsp-first)
 
 ### 6) execution coverage
 
-Clause links: [`NCI-DUAL-SENSOR-CORRECTION-LOOP`](docs/normative_clause_index.md#clause-dual-sensor-correction-loop), [`NCI-SHIFT-AMBIGUITY-LEFT`](docs/normative_clause_index.md#clause-shift-ambiguity-left).
+Clause links: [NCI-DUAL-SENSOR-CORRECTION-LOOP](docs/normative_clause_index.md#clause-dual-sensor-correction-loop), [NCI-SHIFT-AMBIGUITY-LEFT](docs/normative_clause_index.md#clause-shift-ambiguity-left).
 
 - **sensor:** strict coverage gate (`pytest --cov=src/gabion --cov-branch --cov-fail-under=100`) in local repro and CI.
 - **state artifact:** terminal coverage report plus `artifacts/test_runs/coverage.xml`.
@@ -201,7 +202,7 @@ Clause links: [`NCI-DUAL-SENSOR-CORRECTION-LOOP`](docs/normative_clause_index.md
 
 ### 7) GitHub status API process
 
-Clause links: [`NCI-DUAL-SENSOR-CORRECTION-LOOP`](docs/normative_clause_index.md#clause-dual-sensor-correction-loop), [`NCI-CONTROLLER-ADAPTATION-LAW`](docs/normative_clause_index.md#clause-controller-adaptation-law).
+Clause links: [NCI-DUAL-SENSOR-CORRECTION-LOOP](docs/normative_clause_index.md#clause-dual-sensor-correction-loop), [NCI-CONTROLLER-ADAPTATION-LAW](docs/normative_clause_index.md#clause-controller-adaptation-law).
 
 - **sensor:** API invocation outcomes for `gh api` / `gh run view --json` monitoring calls.
 - **state artifact:** CI-watch summaries and local monitoring transcripts.
@@ -209,12 +210,12 @@ Clause links: [`NCI-DUAL-SENSOR-CORRECTION-LOOP`](docs/normative_clause_index.md
 - **error signal:** any API transport/auth/rate-limit error during monitoring or forensics.
 - **actuator:** remediate the API-access process itself (query consolidation, cadence control, fallback wiring, and parse robustness) in a dedicated correction unit; backoff-only responses are insufficient.
 - **max correction step:** one monitoring-process patchset per blocking API error class.
-- **verification command:** one-call-per-interval high-density status query plus local parse checks over returned JSON.
+- **verification command:** `one-call-per-interval high-density status query plus local parse checks over returned JSON.`.
 - **escalation threshold:** repeated API error for the same access path after one process-remediation step.
 
 ## Second-order controller loop (cybernetic meta-loop)
 
-Clause links: [`NCI-CONTROLLER-ADAPTATION-LAW`](docs/normative_clause_index.md#clause-controller-adaptation-law), [`NCI-OVERRIDE-LIFECYCLE`](docs/normative_clause_index.md#clause-override-lifecycle), [`NCI-CONTROLLER-DRIFT-LIFECYCLE`](docs/normative_clause_index.md#clause-controller-drift-lifecycle).
+Clause links: [NCI-CONTROLLER-ADAPTATION-LAW](docs/normative_clause_index.md#clause-controller-adaptation-law), [NCI-OVERRIDE-LIFECYCLE](docs/normative_clause_index.md#clause-override-lifecycle), [NCI-CONTROLLER-DRIFT-LIFECYCLE](docs/normative_clause_index.md#clause-controller-drift-lifecycle).
 
 Second-order governance closes drift between normative anchors and enforcement scripts.
 This loop governs first-order loop integrity and prevents controller drift.
@@ -227,7 +228,8 @@ This loop governs first-order loop integrity and prevents controller drift.
 - **max correction step:** one coherent governance patchset across policy + workflow + tooling.
 - **verification command:** `mise exec -- python scripts/governance_controller_audit.py --out artifacts/out/controller_drift.json`.
 - **escalation threshold:** repeated high-severity controller drift after one correction step.
+
+<!-- END:generated_governance_loop_registry -->
 ## DSL evaluation flow
 
 Control-loop gate semantics are authored as DSL sources (`docs/governance_rules.yaml`, `docs/policy_rules.yaml`, `docs/aspf_opportunity_rules.yaml`) and normalized by `src/gabion/policy_dsl/compile.py`, validated in `src/gabion/policy_dsl/typecheck.py`, and executed by `src/gabion/policy_dsl/eval.py`.
-

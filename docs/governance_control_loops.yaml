@@ -1,0 +1,165 @@
+version: 1
+correction_modes:
+  - mode: advisory
+    description: emit diagnostics and summary only; do not block execution.
+  - mode: ratchet
+    description: allow bounded movement only toward tighter policy; block regressions.
+  - mode: hard-fail
+    description: block any blocking-threshold regression immediately.
+transition_criteria:
+  - advisory -> ratchet when warning-threshold events recur and no override token is recorded.
+  - ratchet -> hard-fail when blocking-threshold events recur under ratchet mode.
+  - hard-fail -> ratchet|advisory only with an explicit override token and annotated rationale.
+bounded_step_correction_rules:
+  - statement: Baseline writes require explicit `--write-*` flags.
+  - statement: Strictness reduction requires both
+    required_values:
+      - GABION_POLICY_OVERRIDE_TOKEN
+      - GABION_POLICY_OVERRIDE_RATIONALE
+  - statement: Delta gates use shared severity mapping from `docs/governance_rules.yaml`; ad-hoc threshold branching is prohibited.
+normalized_loop_schema:
+  - sensor
+  - state artifact
+  - target predicate
+  - error signal
+  - actuator
+  - max correction step
+  - verification command
+  - escalation threshold
+first_order_loops:
+  - domain: security/workflows
+    sensor: workflow YAML and posture probes from `python -m scripts.policy_check --workflows` and `python -m scripts.policy_check --posture`.
+    state_artifact: .github/workflows/*.yml and policy posture snapshots under `artifacts/out/policy_posture*.json`.
+    target_predicate: all workflow actions are pinned to allow-listed full SHAs and self-hosted trust boundaries satisfy the prime invariant.
+    error_signal: policy-check non-zero exit or posture violations.
+    actuator: patch workflow files, refresh allow-list expectations, and rerun policy checks.
+    max_correction_step: one workflow guardrail patchset per iteration.
+    verification_command: mise exec -- python -m scripts.policy_check --workflows && mise exec -- python -m scripts.policy_check --posture
+    escalation_threshold: any prime-invariant contradiction or unresolved posture failure after one correction step.
+  - domain: docs/docflow
+    sensor: docflow compliance emitters in `src/gabion/tooling/governance_audit.py` and `gabion docflow`.
+    state_artifact: "`artifacts/out/docflow_compliance.json`, `artifacts/out/docflow_compliance_delta.json`, and `artifacts/audit_reports/docflow_compliance.md`."
+    target_predicate: normative docs satisfy frontmatter/review invariants, contradiction delta remains zero, and every required loop domain is declared.
+    error_signal: docflow violations or positive contradiction delta.
+    actuator: update governance docs, references, review pins, and loop declarations.
+    max_correction_step: one coherent doc revision cycle.
+    verification_command: mise exec -- python -m gabion docflow --fail-on-violations
+    escalation_threshold: repeated docflow violation after one coherent cycle.
+  - domain: LSP architecture
+    clauses:
+      - label: NCI-LSP-FIRST
+        href: docs/normative_clause_index.md#clause-lsp-first
+      - label: NCI-COMMAND-MATURITY-PARITY
+        href: docs/normative_clause_index.md#clause-command-maturity-parity
+    sensor: server/CLI split checks and governance contract conformance checks.
+    state_artifact: "`src/gabion/server.py`, `src/gabion/cli.py`, and audit outputs under `artifacts/audit_reports/`."
+    target_predicate: LSP-first invariant holds; semantic logic remains server-owned and CLI stays thin.
+    error_signal: architecture drift findings or policy-contradiction findings.
+    actuator: migrate semantics from CLI to server boundaries and restore thin-client behavior.
+    max_correction_step: one refactor slice per drift source.
+    verification_command: scripts/checks.sh --no-docflow
+    escalation_threshold: semantic duplication remains after one refactor slice.
+  - domain: dataflow grammar
+    sensor: "`gabion check` dataflow audit and synthesis outputs."
+    state_artifact: "`artifacts/audit_reports/dataflow_report.md`, `artifacts/out/dataflow_raw.json`, and synthesis outputs."
+    target_predicate: recurring cross-boundary bundles are reified or documented via `# dataflow-bundle:` markers.
+    error_signal: tier violations, decision-surface lint findings, or failed check contracts.
+    actuator: reify bundles, tighten contracts, and remove sentinel control outcomes.
+    max_correction_step: one bundle-family reification or equivalent Tier-3 documentation set.
+    verification_command: mise exec -- python -m gabion check
+    escalation_threshold: unresolved Tier-2 violations after one reification step.
+  - domain: baseline ratchets
+    sensor: baseline delta guards and refresh tooling.
+    state_artifact: "`baselines/docflow_compliance_baseline.json`, `artifacts/out/docflow_compliance.json`, `artifacts/out/docflow_compliance_delta.json`."
+    target_predicate: baseline refresh does not mask new contradictions and ratchet movement is monotone toward stricter compliance.
+    error_signal: refresh refusal, positive contradiction delta, or drift inconsistent with current audit output.
+    actuator: run guarded refresh via `python -m scripts.refresh_baselines`, inspect deltas, then update.
+    max_correction_step: one guarded baseline refresh transaction.
+    verification_command: mise exec -- python -m scripts.refresh_baselines --docflow --timeout 600
+    escalation_threshold: guard rejects refresh twice for the same unresolved source.
+  - domain: execution coverage
+    clauses:
+      - label: NCI-DUAL-SENSOR-CORRECTION-LOOP
+        href: docs/normative_clause_index.md#clause-dual-sensor-correction-loop
+      - label: NCI-SHIFT-AMBIGUITY-LEFT
+        href: docs/normative_clause_index.md#clause-shift-ambiguity-left
+    sensor: strict coverage gate (`pytest --cov=src/gabion --cov-branch --cov-fail-under=100`) in local repro and CI.
+    state_artifact: terminal coverage report plus `artifacts/test_runs/coverage.xml`.
+    target_predicate: total and branch coverage remain at 100% with no uncovered semantic-core regressions.
+    error_signal: any coverage drop below gate.
+    actuator: open a dedicated fix-forward correction unit to cover the uncovered branches/lines; prefer simplification/reification where feasible before adding broad compatibility behavior.
+    max_correction_step: one coverage-blocking surface per push.
+    verification_command: mise exec -- python -m pytest --cov=src/gabion --cov-branch --cov-report=term-missing --cov-fail-under=100
+    escalation_threshold: repeated coverage failure for the same uncovered surface after one correction step.
+  - domain: GitHub status API process
+    clauses:
+      - label: NCI-DUAL-SENSOR-CORRECTION-LOOP
+        href: docs/normative_clause_index.md#clause-dual-sensor-correction-loop
+      - label: NCI-CONTROLLER-ADAPTATION-LAW
+        href: docs/normative_clause_index.md#clause-controller-adaptation-law
+    sensor: API invocation outcomes for `gh api` / `gh run view --json` monitoring calls.
+    state_artifact: CI-watch summaries and local monitoring transcripts.
+    target_predicate: status monitoring remains low-noise, high-density, and error-free under workstream cadence bounds.
+    error_signal: any API transport/auth/rate-limit error during monitoring or forensics.
+    actuator: remediate the API-access process itself (query consolidation, cadence control, fallback wiring, and parse robustness) in a dedicated correction unit; backoff-only responses are insufficient.
+    max_correction_step: one monitoring-process patchset per blocking API error class.
+    verification_command: one-call-per-interval high-density status query plus local parse checks over returned JSON.
+    escalation_threshold: repeated API error for the same access path after one process-remediation step.
+second_order_loops:
+  - title: Second-order controller loop (cybernetic meta-loop)
+    clauses:
+      - label: NCI-CONTROLLER-ADAPTATION-LAW
+        href: docs/normative_clause_index.md#clause-controller-adaptation-law
+      - label: NCI-OVERRIDE-LIFECYCLE
+        href: docs/normative_clause_index.md#clause-override-lifecycle
+      - label: NCI-CONTROLLER-DRIFT-LIFECYCLE
+        href: docs/normative_clause_index.md#clause-controller-drift-lifecycle
+    preamble:
+      - Second-order governance closes drift between normative anchors and enforcement scripts.
+      - This loop governs first-order loop integrity and prevents controller drift.
+    sensor: "`scripts/governance_controller_audit.py` reading controller anchors and command references."
+    state_artifact: "`artifacts/out/controller_drift.json`."
+    target_predicate: every normative controller anchor has a live enforcing check, and every enforcing check has a normative anchor.
+    error_signal: policy clauses without checks, checks without anchors, contradictory anchors, or stale command references.
+    actuator: update normative anchors and workflow/script wiring together in one patchset.
+    max_correction_step: one coherent governance patchset across policy + workflow + tooling.
+    verification_command: mise exec -- python scripts/governance_controller_audit.py --out artifacts/out/controller_drift.json
+    escalation_threshold: repeated high-severity controller drift after one correction step.
+matrix_rows:
+  - gate_id: obsolescence_opaque
+    loop_domain: baseline ratchets
+    sensor_command: mise exec -- python -m gabion.tooling.obsolescence_delta_gate
+    state_artifact_paths:
+      - artifacts/out/test_obsolescence_delta.json
+    override_note: strictness reductions require `GABION_POLICY_OVERRIDE_TOKEN` + `GABION_POLICY_OVERRIDE_RATIONALE`.
+  - gate_id: obsolescence_unmapped
+    loop_domain: baseline ratchets
+    sensor_command: mise exec -- python -m gabion.tooling.obsolescence_delta_unmapped_gate
+    state_artifact_paths:
+      - artifacts/out/test_obsolescence_delta.json
+    override_note: strictness reductions require `GABION_POLICY_OVERRIDE_TOKEN` + `GABION_POLICY_OVERRIDE_RATIONALE`.
+  - gate_id: annotation_orphaned
+    loop_domain: baseline ratchets
+    sensor_command: mise exec -- python -m gabion.tooling.annotation_drift_orphaned_gate
+    state_artifact_paths:
+      - artifacts/out/test_annotation_drift_delta.json
+    override_note: strictness reductions require `GABION_POLICY_OVERRIDE_TOKEN` + `GABION_POLICY_OVERRIDE_RATIONALE`.
+  - gate_id: ambiguity
+    loop_domain: baseline ratchets
+    sensor_command: mise exec -- python -m gabion.tooling.ambiguity_delta_gate
+    state_artifact_paths:
+      - artifacts/out/ambiguity_delta.json
+    override_note: strictness reductions require `GABION_POLICY_OVERRIDE_TOKEN` + `GABION_POLICY_OVERRIDE_RATIONALE`.
+  - gate_id: docflow
+    loop_domain: docs/docflow
+    sensor_command: mise exec -- python -m gabion.tooling.docflow_delta_gate
+    state_artifact_paths:
+      - artifacts/out/docflow_compliance_delta.json
+    override_note: strictness reductions require `GABION_POLICY_OVERRIDE_TOKEN` + `GABION_POLICY_OVERRIDE_RATIONALE`.
+  - gate_id: docflow_packet_loop
+    loop_domain: docs/docflow
+    sensor_command: mise exec -- python scripts/policy/docflow_packet_enforce.py --root . --packets artifacts/out/docflow_warning_doc_packets.json --baseline docs/baselines/docflow_packet_baseline.json --out artifacts/out/docflow_packet_enforcement.json --debt-out artifacts/out/docflow_packet_debt_ledger.json --check --run-proving-tests
+    state_artifact_paths:
+      - artifacts/out/docflow_packet_enforcement.json
+      - artifacts/out/docflow_packet_debt_ledger.json
+    override_note: baseline movement remains explicit via `--write-baseline` in a dedicated correction unit with documented rationale.
