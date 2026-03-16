@@ -641,6 +641,14 @@ def test_connectivity_synergy_workstream_registries_expose_expected_roots_and_to
     assert (
         next(
             item
+            for item in by_root["CSA-IGM"].subqueues
+            if item.subqueue_id == "CSA-IGM-SQ-004"
+        ).touchpoint_ids
+        == ("CSA-IGM-TP-004", "CSA-IGM-TP-007")
+    )
+    assert (
+        next(
+            item
             for item in by_root["CSA-RGC"].subqueues
             if item.subqueue_id == "CSA-RGC-SQ-002"
         ).touchpoint_ids
@@ -668,6 +676,7 @@ def test_connectivity_synergy_workstream_registries_expose_expected_roots_and_to
         )
     )
     assert igm_touchpoints["CSA-IGM-TP-005"].status_hint == "landed"
+    assert igm_touchpoints["CSA-IGM-TP-007"].status_hint == "landed"
     assert rgc_touchpoints["CSA-RGC-TP-009"].status_hint == "landed"
     assert rgc_touchpoints["CSA-RGC-TP-010"].status_hint == "landed"
     assert rgc_touchpoints["CSA-RGC-TP-011"].status_hint == "landed"
@@ -712,6 +721,23 @@ def test_connectivity_synergy_workstream_registries_expose_expected_roots_and_to
         (
             "src/gabion/tooling/runtime/git_state_artifact.py",
             "build_git_state_artifact_payload",
+        ),
+    }
+    assert {
+        (item.rel_path, item.qualname)
+        for item in igm_touchpoints["CSA-IGM-TP-007"].declared_touchsites
+    } >= {
+        (
+            "src/gabion/tooling/runtime/git_state_artifact.py",
+            "collect_git_state_command_outputs",
+        ),
+        (
+            "src/gabion/tooling/runtime/git_state_artifact.py",
+            "assemble_git_state_artifact_payload",
+        ),
+        (
+            "tests/gabion/tooling/runtime_policy/test_git_state_artifact.py",
+            "test_assemble_git_state_artifact_payload_supports_injected_command_outputs",
         ),
     }
     assert {

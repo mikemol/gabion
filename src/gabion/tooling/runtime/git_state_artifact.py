@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import json
+from dataclasses import dataclass
 from pathlib import Path
 import re
 import subprocess
-from typing import TypedDict
+from typing import Callable, TypedDict
 
 from gabion.order_contract import ordered_or_sorted
 
@@ -44,6 +45,21 @@ class GitStatePayload(TypedDict):
     entries: list[GitStateEntry]
 
 
+GitCommandRunner = Callable[[Path, tuple[str, ...]], str]
+
+
+@dataclass(frozen=True)
+class GitStateCommandOutputs:
+    head_sha: str
+    branch: str
+    upstream: str
+    committed_name_status: str
+    staged_name_status: str
+    unstaged_name_status: str
+    untracked_paths: str
+    head_diff: str
+
+
 _UNIFIED_DIFF_HUNK_RE = re.compile(
     r"^@@ -\d+(?:,\d+)? \+(?P<start>\d+)(?:,(?P<count>\d+))? @@"
 )
@@ -69,6 +85,48 @@ def _git_output(*, root: Path, args: tuple[str, ...]) -> str:
     except (subprocess.CalledProcessError, OSError):
         return ""
     return completed.stdout.strip()
+
+
+def collect_git_state_command_outputs(
+    *,
+    root: Path,
+    git_command_runner: GitCommandRunner = lambda root, args: _git_output(
+        root=root,
+        args=args,
+    ),
+) -> GitStateCommandOutputs:
+    resolved_root = root.resolve()
+    return GitStateCommandOutputs(
+        head_sha=git_command_runner(resolved_root, ("rev-parse", "HEAD")),
+        branch=git_command_runner(
+            resolved_root,
+            ("rev-parse", "--abbrev-ref", "HEAD"),
+        ),
+        upstream=git_command_runner(
+            resolved_root,
+            ("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"),
+        ),
+        committed_name_status=git_command_runner(
+            resolved_root,
+            ("show", "--name-status", "--find-renames", "--format=", "HEAD"),
+        ),
+        staged_name_status=git_command_runner(
+            resolved_root,
+            ("diff", "--cached", "--name-status", "--find-renames"),
+        ),
+        unstaged_name_status=git_command_runner(
+            resolved_root,
+            ("diff", "--name-status", "--find-renames"),
+        ),
+        untracked_paths=git_command_runner(
+            resolved_root,
+            ("ls-files", "--others", "--exclude-standard"),
+        ),
+        head_diff=git_command_runner(
+            resolved_root,
+            ("diff", "HEAD", "--unified=0", "--find-renames", "--no-color"),
+        ),
+    )
 
 
 def _parse_name_status_output(
@@ -197,46 +255,27 @@ def _attach_current_line_spans(
     return resolved
 
 
-def build_git_state_artifact_payload(*, root: Path) -> GitStatePayload:
+def assemble_git_state_artifact_payload(
+    *,
+    root: Path,
+    command_outputs: GitStateCommandOutputs,
+) -> GitStatePayload:
     root = root.resolve()
-    head_sha = _git_output(root=root, args=("rev-parse", "HEAD"))
-    branch = _git_output(root=root, args=("rev-parse", "--abbrev-ref", "HEAD"))
-    upstream = _git_output(
-        root=root,
-        args=("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"),
-    )
     committed = _parse_name_status_output(
-        payload=_git_output(
-            root=root,
-            args=("show", "--name-status", "--find-renames", "--format=", "HEAD"),
-        ),
+        payload=command_outputs.committed_name_status,
         state_class="committed",
     )
     staged = _parse_name_status_output(
-        payload=_git_output(
-            root=root,
-            args=("diff", "--cached", "--name-status", "--find-renames"),
-        ),
+        payload=command_outputs.staged_name_status,
         state_class="staged",
     )
     unstaged = _parse_name_status_output(
-        payload=_git_output(
-            root=root,
-            args=("diff", "--name-status", "--find-renames"),
-        ),
+        payload=command_outputs.unstaged_name_status,
         state_class="unstaged",
     )
-    untracked = _parse_untracked_output(
-        _git_output(
-            root=root,
-            args=("ls-files", "--others", "--exclude-standard"),
-        )
-    )
+    untracked = _parse_untracked_output(command_outputs.untracked_paths)
     current_line_spans_by_path = _parse_current_line_spans_by_path(
-        _git_output(
-            root=root,
-            args=("diff", "HEAD", "--unified=0", "--find-renames", "--no-color"),
-        )
+        command_outputs.head_diff
     )
     committed = _attach_current_line_spans(
         entries=committed,
@@ -275,10 +314,10 @@ def build_git_state_artifact_payload(*, root: Path) -> GitStatePayload:
         .isoformat(timespec="seconds")
         .replace("+00:00", "Z"),
         root=str(root),
-        head_sha=head_sha,
-        branch=branch,
-        upstream=upstream,
-        is_detached=branch == "HEAD",
+        head_sha=command_outputs.head_sha,
+        branch=command_outputs.branch,
+        upstream=command_outputs.upstream,
+        is_detached=command_outputs.branch == "HEAD",
         summary=GitStateSummary(
             committed_count=len(committed),
             staged_count=len(staged),
@@ -286,6 +325,24 @@ def build_git_state_artifact_payload(*, root: Path) -> GitStatePayload:
             untracked_count=len(untracked),
         ),
         entries=entries,
+    )
+
+
+def build_git_state_artifact_payload(
+    *,
+    root: Path,
+    git_command_runner: GitCommandRunner = lambda root, args: _git_output(
+        root=root,
+        args=args,
+    ),
+) -> GitStatePayload:
+    command_outputs = collect_git_state_command_outputs(
+        root=root,
+        git_command_runner=git_command_runner,
+    )
+    return assemble_git_state_artifact_payload(
+        root=root,
+        command_outputs=command_outputs,
     )
 
 

@@ -674,6 +674,25 @@ def _csa_igm_tp_structured_artifact_ingress() -> None:
 
 
 @landed_todo_decorator(
+    reason="CSA-IGM-TP-007 is recorded as landed metadata for separation of git command collection from git-state semantic assembly through an injectable command runner seam.",
+    reasoning={
+        "summary": "git_state_artifact now isolates subprocess-backed git collection from pure semantic payload assembly through a typed raw-output carrier and injectable command runner, and that completed ingress cleanup is recorded as landed touchpoint state.",
+        "control": "connectivity_synergy.ingress_merge.git_state_runner_seam",
+        "blocking_dependencies": (),
+    },
+    owner="gabion.tooling.runtime",
+    expiry="CSA-IGM closure",
+    links=[
+        {"kind": "object_id", "value": "CSA-IGM"},
+        {"kind": "object_id", "value": "CSA-IGM-SQ-004"},
+        {"kind": "object_id", "value": "CSA-IGM-TP-007"},
+    ],
+)
+def _csa_igm_tp_git_state_runner_seam() -> None:
+    return None
+
+
+@landed_todo_decorator(
     reason="CSA-IGM-TP-005 is recorded as landed metadata for public lenient frontmatter parsing and migration of local and private frontmatter parsers onto the canonical ingress helper.",
     reasoning={
         "summary": "Frontmatter callers now use the public lenient mapping and body helper instead of split private governance adapters and local lenient parsers, and that completed convergence is recorded as landed touchpoint state.",
@@ -1532,7 +1551,7 @@ def connectivity_synergy_workstream_registries() -> tuple[WorkstreamRegistry, ..
                 root_id="CSA-IGM",
                 subqueue_id="CSA-IGM-SQ-004",
                 title="Structured XML/JSON artifact ingress adapters for test, perf, and planner sensors",
-                touchpoint_ids=("CSA-IGM-TP-004",),
+                touchpoint_ids=("CSA-IGM-TP-004", "CSA-IGM-TP-007"),
                 symbol=_csa_igm_sq_structured_artifact_ingress,
             ),
         ),
@@ -1804,6 +1823,44 @@ def connectivity_synergy_workstream_registries() -> tuple[WorkstreamRegistry, ..
                         line=1747,
                         surface="structured_artifact_ingress",
                         structural_path="load_git_state_artifact",
+                    ),
+                ),
+            ),
+            _touchpoint_definition(
+                root_id="CSA-IGM",
+                subqueue_id="CSA-IGM-SQ-004",
+                touchpoint_id="CSA-IGM-TP-007",
+                title="Git-state transport collection and semantic assembly split",
+                symbol=_csa_igm_tp_git_state_runner_seam,
+                status_hint="landed",
+                declared_touchsites=(
+                    _function_touchsite(
+                        touchsite_id="CSA-IGM-TS-036",
+                        rel_path="src/gabion/tooling/runtime/git_state_artifact.py",
+                        qualname="collect_git_state_command_outputs",
+                        line=90,
+                        surface="structured_artifact_ingress",
+                        structural_path="collect_git_state_command_outputs",
+                        status_hint="landed",
+                    ),
+                    _function_touchsite(
+                        touchsite_id="CSA-IGM-TS-037",
+                        rel_path="src/gabion/tooling/runtime/git_state_artifact.py",
+                        qualname="assemble_git_state_artifact_payload",
+                        line=258,
+                        surface="structured_artifact_ingress",
+                        structural_path="assemble_git_state_artifact_payload",
+                        status_hint="landed",
+                    ),
+                    _function_touchsite(
+                        touchsite_id="CSA-IGM-TS-038",
+                        rel_path="tests/gabion/tooling/runtime_policy/test_git_state_artifact.py",
+                        qualname="test_assemble_git_state_artifact_payload_supports_injected_command_outputs",
+                        line=90,
+                        surface="structured_artifact_ingress",
+                        structural_path="test_assemble_git_state_artifact_payload_supports_injected_command_outputs",
+                        seam_class="surviving_test_seam",
+                        status_hint="landed",
                     ),
                 ),
             ),
