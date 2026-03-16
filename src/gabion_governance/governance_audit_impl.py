@@ -4241,9 +4241,9 @@ def _tooling_warnings(root: Path, docs: dict[str, Doc]) -> List[str]:
     if checks_script.exists():
         doc = docs.get("CONTRIBUTING.md")
         body = doc.body if doc is not None else ""
-        if "scripts/checks.sh" not in body:
+        if "gabion checks" not in body:
             warnings.append(
-                "CONTRIBUTING.md: scripts/checks.sh present but not documented"
+                "CONTRIBUTING.md: gabion checks present via scripts/checks.sh wrapper but not documented"
             )
     return warnings
 

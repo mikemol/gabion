@@ -160,6 +160,7 @@ def test_policy_check_writes_local_ci_repro_contract_artifact(tmp_path: Path) ->
     assert "workflow:ci.yml:checks" in surface_ids
     assert "workflow:ci.yml:dataflow-grammar" in surface_ids
     assert "workflow:pr-dataflow-grammar.yml:dataflow-grammar" in surface_ids
+    assert "tooling_command:gabion:checks:docflow" in surface_ids
     assert "tooling_command:gabion:ci-local-repro:checks" in surface_ids
     assert "tooling_command:gabion:ci-local-repro:pr-dataflow" in surface_ids
     assert "local_script:scripts/ci_local_repro.sh:wrapper" in surface_ids
@@ -167,7 +168,9 @@ def test_policy_check_writes_local_ci_repro_contract_artifact(tmp_path: Path) ->
     assert "local_script:scripts/ci/ci_cycle.py:watch" in surface_ids
     assert "ci-repro:local-checks->workflow-checks" in relation_ids
     assert "ci-repro:script-wrapper->local-checks" in relation_ids
+    assert "ci-repro:checks-wrapper->gabion-checks-docflow" in relation_ids
     assert surface_statuses["workflow:ci.yml:checks"] == "pass"
+    assert surface_statuses["tooling_command:gabion:checks:docflow"] == "pass"
     assert surface_statuses["tooling_command:gabion:ci-local-repro:checks"] == "pass"
     assert surface_statuses["tooling_command:gabion:ci-local-repro:pr-dataflow"] == "pass"
     assert surface_statuses["local_script:scripts/ci_local_repro.sh:wrapper"] == "pass"

@@ -100,7 +100,7 @@ repeatable under automation.
 ## How to use it (lightweight)
 
 1. **Doer** proposes a change on `stage`.
-2. **Judge** runs `scripts/checks.sh --no-docflow` and reviews any policy or
+2. **Judge** runs `mise exec -- python -m gabion checks --no-docflow` and reviews any policy or
    dataflow violations.
 3. **Witness** updates governance docs or the checklist if the change shifts
    the repo's obligations.

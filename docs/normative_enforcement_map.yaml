@@ -232,7 +232,7 @@ clauses:
       - scripts/policy/docflow_packetize.py
       - scripts/policy/docflow_packet_enforce.py
       - docs/baselines/docflow_packet_baseline.json
-      - scripts/checks.sh
+      - src/gabion/tooling/runtime/checks_runtime.py
     ci_anchors:
       - workflow: .github/workflows/ci.yml
         job: checks

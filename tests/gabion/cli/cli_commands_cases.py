@@ -41,6 +41,7 @@ def test_cli_help_lists_tooling_subcommands() -> None:
     result = _invoke(runner, ["--help"])
     assert result.exit_code == 0
     assert "docflow-delta-emit" in result.output
+    assert "checks" in result.output
     assert "ambiguity-contract-gate" in result.output
     assert "normative-symdiff" in result.output
     assert "invariant-graph" in result.output
@@ -56,6 +57,7 @@ def test_cli_tooling_subcommand_help_invocations() -> None:
     runner = CliRunner()
     for command_name in (
         "docflow-delta-emit",
+        "checks",
         "ambiguity-contract-gate",
         "normative-symdiff",
         "invariant-graph",
@@ -92,6 +94,7 @@ def test_cli_tooling_wrappers_and_argparse_exit_handling() -> None:
             self.args = args
 
     argv_seen: list[list[str]] = []
+    checks_args: list[list[str]] = []
     ci_local_repro_args: list[list[str]] = []
     ambiguity_args: list[list[str]] = []
     symdiff_args: list[list[str]] = []
@@ -102,6 +105,7 @@ def test_cli_tooling_wrappers_and_argparse_exit_handling() -> None:
             "docflow-delta-emit": lambda: 13,
         },
         with_argv={
+            "checks": lambda argv: (checks_args.append(list(argv or [])) or 21),
             "ci-watch": lambda argv: (ci_watch_args.append(list(argv or [])) or 18),
             "ci-local-repro": lambda argv: (ci_local_repro_args.append(list(argv or [])) or 20),
             "ambiguity-contract-gate": lambda argv: (ambiguity_args.append(list(argv or [])) or 16),
@@ -123,6 +127,9 @@ def test_cli_tooling_wrappers_and_argparse_exit_handling() -> None:
         with pytest.raises(typer.Exit) as exc:
             cli.invariant_graph(_Ctx(["summary"]))  # type: ignore[arg-type]
         assert exc.value.exit_code == 19
+        with pytest.raises(typer.Exit) as exc:
+            cli.checks(_Ctx(["--docflow-only"]))  # type: ignore[arg-type]
+        assert exc.value.exit_code == 21
         with pytest.raises(typer.Exit) as exc:
             cli.ci_local_repro(_Ctx(["--checks-only"]))  # type: ignore[arg-type]
         assert exc.value.exit_code == 20
@@ -151,6 +158,7 @@ def test_cli_tooling_wrappers_and_argparse_exit_handling() -> None:
     assert ambiguity_args == [["--root", ".", "--baseline", "b.json"]]
     assert symdiff_args == [["--root", ".", "--json-out", "out.json"]]
     assert invariant_graph_args == [["summary"]]
+    assert checks_args == [["--docflow-only"]]
     assert ci_local_repro_args == [["--checks-only"]]
     assert ci_watch_args == [
         [
@@ -188,6 +196,7 @@ def test_tooling_passthrough_commands_forward_nonzero_exit_codes() -> None:
             "docflow-delta-emit": lambda: 10,
         },
         with_argv={
+            "checks": lambda _argv: 15,
             "ambiguity-contract-gate": lambda _argv: 11,
             "normative-symdiff": lambda _argv: 12,
             "invariant-graph": lambda _argv: 13,
@@ -202,6 +211,9 @@ def test_tooling_passthrough_commands_forward_nonzero_exit_codes() -> None:
             cli.docflow_delta_emit()
         assert exc.value.exit_code == 10
 
+        with pytest.raises(typer.Exit) as exc:
+            cli.checks(_Ctx(["--dataflow-only"]))  # type: ignore[arg-type]
+        assert exc.value.exit_code == 15
         with pytest.raises(typer.Exit) as exc:
             cli.ambiguity_contract_gate(_Ctx(["--root", "."]))  # type: ignore[arg-type]
         assert exc.value.exit_code == 11

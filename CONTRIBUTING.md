@@ -579,8 +579,9 @@ scripts/clean_artifacts.sh
 
 Run all checks in one sweep:
 ```
-scripts/checks.sh
+mise exec -- python -m gabion checks
 ```
+`scripts/checks.sh` remains as a thin wrapper around the canonical `gabion checks` command.
 
 Reproduce the `ci.yml` workflow locally (checks + dataflow jobs):
 ```
@@ -626,19 +627,19 @@ phase telemetry is written to:
 
 Run CI checks (docflow omitted):
 ```
-scripts/checks.sh --no-docflow
+mise exec -- python -m gabion checks --no-docflow
 ```
 
 Run targeted checks:
 ```
-scripts/checks.sh --docflow-only
-scripts/checks.sh --dataflow-only
-scripts/checks.sh --tests-only
+mise exec -- python -m gabion checks --docflow-only
+mise exec -- python -m gabion checks --dataflow-only
+mise exec -- python -m gabion checks --tests-only
 ```
 
 Preview what will run:
 ```
-scripts/checks.sh --list
+mise exec -- python -m gabion checks --list
 ```
 
 Baseline refresh helpers:

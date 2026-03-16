@@ -128,9 +128,10 @@ Default cumulative import rule:
    `status: success`;
 2. failed entries are kept for history but excluded from default import chains.
 
-Repo scripts (`checks.sh`, `ci_local_repro.sh`, `refresh_baselines.py`,
-`audit_snapshot.sh`, and `run-dataflow-stage`) apply this handoff by default
-and expose `--no-aspf-handoff` escape hatches.
+The canonical local checks command (`gabion checks`) plus the repo wrappers
+(`checks.sh`, `ci_local_repro.sh`, `refresh_baselines.py`, `audit_snapshot.sh`,
+and `run-dataflow-stage`) apply this handoff by default and expose
+`--no-aspf-handoff` escape hatches.
 
 ## Artifacts and Controls
 

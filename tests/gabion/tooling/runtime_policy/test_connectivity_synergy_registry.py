@@ -417,7 +417,7 @@ def test_connectivity_synergy_registry_defines_expected_roots_and_subqueues() ->
     }
     assert rgc_touchpoints["CSA-RGC-TP-009"].status_hint == "landed"
     assert rgc_touchpoints["CSA-RGC-TP-010"].status_hint == "landed"
-    assert rgc_touchpoints["CSA-RGC-TP-011"].status_hint == "queued"
+    assert rgc_touchpoints["CSA-RGC-TP-011"].status_hint == "landed"
     assert {
         (item.rel_path, item.qualname)
         for item in rgc_touchpoints["CSA-RGC-TP-009"].declared_touchsites
@@ -469,12 +469,12 @@ def test_connectivity_synergy_registry_defines_expected_roots_and_subqueues() ->
         for item in rgc_touchpoints["CSA-RGC-TP-011"].declared_touchsites
     } >= {
         (
-            "src/gabion/tooling/runtime/ci_local_repro.py",
-            "_checks_steps",
+            "src/gabion/tooling/runtime/checks_runtime.py",
+            "build_ci_checks_steps",
         ),
         (
             "src/gabion/cli_support/tooling_commands.py",
-            "tooling_commands#ci_local_repro",
+            "tooling_commands#checks",
         ),
         (
             "scripts/checks.sh",

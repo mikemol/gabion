@@ -62,7 +62,7 @@ def _minimal_governance_loop_catalog_yaml() -> str:
             "    error_signal: architecture drift",
             "    actuator: patch cli/server",
             "    max_correction_step: one patch",
-            "    verification_command: mise exec -- python scripts/checks.sh --no-docflow",
+            "    verification_command: mise exec -- python -m gabion checks --no-docflow",
             "    escalation_threshold: one recurrence",
             "  - domain: baseline ratchets",
             "    sensor: baselines",

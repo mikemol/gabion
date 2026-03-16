@@ -57,7 +57,7 @@ first_order_loops:
     error_signal: architecture drift findings or policy-contradiction findings.
     actuator: migrate semantics from CLI to server boundaries and restore thin-client behavior.
     max_correction_step: one refactor slice per drift source.
-    verification_command: scripts/checks.sh --no-docflow
+    verification_command: mise exec -- python -m gabion checks --no-docflow
     escalation_threshold: semantic duplication remains after one refactor slice.
   - domain: dataflow grammar
     sensor: "`gabion check` dataflow audit and synthesis outputs."

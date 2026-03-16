@@ -162,7 +162,7 @@ Clause links: [NCI-LSP-FIRST](docs/normative_clause_index.md#clause-lsp-first), 
 - **error signal:** architecture drift findings or policy-contradiction findings.
 - **actuator:** migrate semantics from CLI to server boundaries and restore thin-client behavior.
 - **max correction step:** one refactor slice per drift source.
-- **verification command:** `scripts/checks.sh --no-docflow`.
+- **verification command:** `mise exec -- python -m gabion checks --no-docflow`.
 - **escalation threshold:** semantic duplication remains after one refactor slice.
 
 ### 4) dataflow grammar

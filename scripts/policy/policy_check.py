@@ -594,6 +594,9 @@ def _build_local_ci_repro_contract_payload(*, repo_root: Path) -> dict[str, obje
     ci_local_repro_runtime_text = _read_text_if_exists(
         repo_root / "src" / "gabion" / "tooling" / "runtime" / "ci_local_repro.py"
     )
+    checks_runtime_text = _read_text_if_exists(
+        repo_root / "src" / "gabion" / "tooling" / "runtime" / "checks_runtime.py"
+    )
     ci_cycle_text = _read_text_if_exists(repo_root / "scripts" / "ci" / "ci_cycle.py")
     workflow_checks_capabilities = (
         _CiReproCapabilitySpec(
@@ -934,6 +937,81 @@ def _build_local_ci_repro_contract_payload(*, repo_root: Path) -> dict[str, obje
             commands=("python -m gabion ci-local-repro --pr-dataflow-only",),
         ),
         _CiReproSurfaceSpec(
+            surface_id="tooling_command:gabion:checks:dataflow",
+            surface_kind="tooling_command",
+            title="gabion checks dataflow lane",
+            summary="Canonical local dataflow verification lane exposed through gabion checks.",
+            source_ref="src/gabion/tooling/runtime/checks_runtime.py",
+            mode="dataflow-only",
+            capabilities=(
+                _CiReproCapabilitySpec(
+                    capability_id="lsp_parity_gate",
+                    summary="Run the LSP parity gate for gabion.check.",
+                    source_alternatives=(("lsp-parity-gate",),),
+                ),
+                _CiReproCapabilitySpec(
+                    capability_id="gabion_check_run",
+                    summary="Run gabion check in the fast local verification lane.",
+                    source_alternatives=(("check", "run"),),
+                ),
+                _CiReproCapabilitySpec(
+                    capability_id="status_watch",
+                    summary="Optionally watch remote CI after the local dataflow lane.",
+                    source_alternatives=(("ci-watch",),),
+                    command_alternatives=(("--status-watch",),),
+                ),
+            ),
+            artifacts=("artifacts/out/aspf_handoff_manifest.json",),
+            commands=("python -m gabion checks --dataflow-only",),
+        ),
+        _CiReproSurfaceSpec(
+            surface_id="tooling_command:gabion:checks:docflow",
+            surface_kind="tooling_command",
+            title="gabion checks docflow lane",
+            summary="Canonical local docflow verification lane exposed through gabion checks.",
+            source_ref="src/gabion/tooling/runtime/checks_runtime.py",
+            mode="docflow-only",
+            capabilities=(
+                _CiReproCapabilitySpec(
+                    capability_id="strict_docflow",
+                    summary="Run strict docflow with required GH-reference mode.",
+                    source_alternatives=(("gabion", "docflow"),),
+                ),
+                _CiReproCapabilitySpec(
+                    capability_id="docflow_packet_loop",
+                    summary="Run docflow packetize plus packet enforce with proving tests.",
+                    source_alternatives=(
+                        (
+                            "scripts/policy/docflow_packetize.py",
+                            "scripts/policy/docflow_packet_enforce.py",
+                        ),
+                    ),
+                ),
+            ),
+            artifacts=(
+                "artifacts/out/docflow_compliance.json",
+                "artifacts/out/docflow_packet_enforcement.json",
+            ),
+            commands=("python -m gabion checks --docflow-only",),
+        ),
+        _CiReproSurfaceSpec(
+            surface_id="tooling_command:gabion:checks:tests",
+            surface_kind="tooling_command",
+            title="gabion checks tests lane",
+            summary="Canonical local pytest/JUnit verification lane exposed through gabion checks.",
+            source_ref="src/gabion/tooling/runtime/checks_runtime.py",
+            mode="tests-only",
+            capabilities=(
+                _CiReproCapabilitySpec(
+                    capability_id="pytest_junit",
+                    summary="Run pytest with JUnit output in the fast local verification lane.",
+                    source_alternatives=(("pytest", "--junitxml"),),
+                ),
+            ),
+            artifacts=("artifacts/test_runs/junit.xml",),
+            commands=("python -m gabion checks --tests-only",),
+        ),
+        _CiReproSurfaceSpec(
             surface_id="local_script:scripts/ci_local_repro.sh:wrapper",
             surface_kind="local_repro_wrapper",
             title="ci_local_repro shell wrapper",
@@ -951,21 +1029,17 @@ def _build_local_ci_repro_contract_payload(*, repo_root: Path) -> dict[str, obje
         ),
         _CiReproSurfaceSpec(
             surface_id="local_script:scripts/checks.sh:dataflow",
-            surface_kind="local_verification_lane",
-            title="Narrow local dataflow verification lane",
-            summary="Fast local verification path for dataflow and optional status-watch.",
+            surface_kind="local_repro_wrapper",
+            title="checks.sh dataflow wrapper",
+            summary="Shell wrapper that dispatches the narrow local dataflow lane into gabion checks.",
             source_ref="scripts/checks.sh",
             mode="dataflow-only",
             capabilities=(
                 _CiReproCapabilitySpec(
-                    capability_id="lsp_parity_gate",
-                    summary="Run the LSP parity gate for gabion.check.",
-                    source_alternatives=(("gabion lsp-parity-gate",),),
-                ),
-                _CiReproCapabilitySpec(
-                    capability_id="gabion_check_run",
-                    summary="Run gabion check in the fast local verification lane.",
-                    source_alternatives=(("gabion check run",),),
+                    capability_id="dispatch_gabion_checks_dataflow",
+                    summary="Dispatch the wrapper into gabion checks for the dataflow lane.",
+                    source_alternatives=(("-m gabion checks",),),
+                    command_alternatives=(("--dataflow-only",),),
                 ),
             ),
             artifacts=("artifacts/out/aspf_handoff_manifest.json",),
@@ -973,26 +1047,17 @@ def _build_local_ci_repro_contract_payload(*, repo_root: Path) -> dict[str, obje
         ),
         _CiReproSurfaceSpec(
             surface_id="local_script:scripts/checks.sh:docflow",
-            surface_kind="local_verification_lane",
-            title="Narrow local docflow verification lane",
-            summary="Fast local verification path for strict docflow and packet enforcement.",
+            surface_kind="local_repro_wrapper",
+            title="checks.sh docflow wrapper",
+            summary="Shell wrapper that dispatches the narrow local docflow lane into gabion checks.",
             source_ref="scripts/checks.sh",
             mode="docflow-only",
             capabilities=(
                 _CiReproCapabilitySpec(
-                    capability_id="strict_docflow",
-                    summary="Run strict docflow with required GH-reference mode.",
-                    source_alternatives=(("gabion docflow",),),
-                ),
-                _CiReproCapabilitySpec(
-                    capability_id="docflow_packet_loop",
-                    summary="Run docflow packetize plus packet enforce with proving tests.",
-                    source_alternatives=(
-                        (
-                            "scripts/policy/docflow_packetize.py",
-                            "scripts/policy/docflow_packet_enforce.py",
-                        ),
-                    ),
+                    capability_id="dispatch_gabion_checks_docflow",
+                    summary="Dispatch the wrapper into gabion checks for the docflow lane.",
+                    source_alternatives=(("-m gabion checks",),),
+                    command_alternatives=(("--docflow-only",),),
                 ),
             ),
             artifacts=(
@@ -1003,16 +1068,17 @@ def _build_local_ci_repro_contract_payload(*, repo_root: Path) -> dict[str, obje
         ),
         _CiReproSurfaceSpec(
             surface_id="local_script:scripts/checks.sh:tests",
-            surface_kind="local_verification_lane",
-            title="Narrow local test verification lane",
-            summary="Fast local verification path for the pytest/JUnit gate.",
+            surface_kind="local_repro_wrapper",
+            title="checks.sh tests wrapper",
+            summary="Shell wrapper that dispatches the narrow local tests lane into gabion checks.",
             source_ref="scripts/checks.sh",
             mode="tests-only",
             capabilities=(
                 _CiReproCapabilitySpec(
-                    capability_id="pytest_junit",
-                    summary="Run pytest with JUnit output in the fast local verification lane.",
-                    source_alternatives=(("pytest", "--junitxml"),),
+                    capability_id="dispatch_gabion_checks_tests",
+                    summary="Dispatch the wrapper into gabion checks for the tests lane.",
+                    source_alternatives=(("-m gabion checks",),),
+                    command_alternatives=(("--tests-only",),),
                 ),
             ),
             artifacts=("artifacts/test_runs/junit.xml",),
@@ -1053,7 +1119,12 @@ def _build_local_ci_repro_contract_payload(*, repo_root: Path) -> dict[str, obje
             pr_doc,
             job_name="dataflow-grammar",
         ),
-        "tooling_command:gabion:ci-local-repro:checks": ci_local_repro_runtime_text,
+        "tooling_command:gabion:checks:dataflow": checks_runtime_text,
+        "tooling_command:gabion:checks:docflow": checks_runtime_text,
+        "tooling_command:gabion:checks:tests": checks_runtime_text,
+        "tooling_command:gabion:ci-local-repro:checks": "\n".join(
+            item for item in (ci_local_repro_runtime_text, checks_runtime_text) if item
+        ),
         "tooling_command:gabion:ci-local-repro:dataflow": ci_local_repro_runtime_text,
         "tooling_command:gabion:ci-local-repro:pr-dataflow": ci_local_repro_runtime_text,
         "local_script:scripts/ci_local_repro.sh:wrapper": ci_local_repro_text,
@@ -1117,25 +1188,46 @@ def _build_local_ci_repro_contract_payload(*, repo_root: Path) -> dict[str, obje
             summary="scripts/ci_local_repro.sh dispatches to gabion ci-local-repro for PR dataflow parity.",
         ),
         _CiReproRelationSpec(
-            relation_id="ci-repro:checks-dataflow->local-checks",
+            relation_id="ci-repro:gabion-checks-dataflow->local-checks",
             relation_kind="supports",
+            source_surface_id="tooling_command:gabion:checks:dataflow",
+            target_surface_id="tooling_command:gabion:ci-local-repro:checks",
+            summary="gabion checks --dataflow-only is a narrower local dataflow verification lane supporting the broader CI reproduction loop.",
+        ),
+        _CiReproRelationSpec(
+            relation_id="ci-repro:gabion-checks-docflow->local-checks",
+            relation_kind="supports",
+            source_surface_id="tooling_command:gabion:checks:docflow",
+            target_surface_id="tooling_command:gabion:ci-local-repro:checks",
+            summary="gabion checks --docflow-only is a narrower local docflow verification lane supporting the broader CI reproduction loop.",
+        ),
+        _CiReproRelationSpec(
+            relation_id="ci-repro:gabion-checks-tests->local-checks",
+            relation_kind="supports",
+            source_surface_id="tooling_command:gabion:checks:tests",
+            target_surface_id="tooling_command:gabion:ci-local-repro:checks",
+            summary="gabion checks --tests-only is a narrower local test verification lane supporting the broader CI reproduction loop.",
+        ),
+        _CiReproRelationSpec(
+            relation_id="ci-repro:checks-wrapper->gabion-checks-dataflow",
+            relation_kind="dispatches",
             source_surface_id="local_script:scripts/checks.sh:dataflow",
-            target_surface_id="tooling_command:gabion:ci-local-repro:checks",
-            summary="scripts/checks.sh --dataflow-only is a narrower local dataflow verification lane supporting the broader CI reproduction loop.",
+            target_surface_id="tooling_command:gabion:checks:dataflow",
+            summary="scripts/checks.sh --dataflow-only dispatches to gabion checks for the dataflow lane.",
         ),
         _CiReproRelationSpec(
-            relation_id="ci-repro:checks-docflow->local-checks",
-            relation_kind="supports",
+            relation_id="ci-repro:checks-wrapper->gabion-checks-docflow",
+            relation_kind="dispatches",
             source_surface_id="local_script:scripts/checks.sh:docflow",
-            target_surface_id="tooling_command:gabion:ci-local-repro:checks",
-            summary="scripts/checks.sh --docflow-only is a narrower local docflow verification lane supporting the broader CI reproduction loop.",
+            target_surface_id="tooling_command:gabion:checks:docflow",
+            summary="scripts/checks.sh --docflow-only dispatches to gabion checks for the docflow lane.",
         ),
         _CiReproRelationSpec(
-            relation_id="ci-repro:checks-tests->local-checks",
-            relation_kind="supports",
+            relation_id="ci-repro:checks-wrapper->gabion-checks-tests",
+            relation_kind="dispatches",
             source_surface_id="local_script:scripts/checks.sh:tests",
-            target_surface_id="tooling_command:gabion:ci-local-repro:checks",
-            summary="scripts/checks.sh --tests-only is a narrower local test verification lane supporting the broader CI reproduction loop.",
+            target_surface_id="tooling_command:gabion:checks:tests",
+            summary="scripts/checks.sh --tests-only dispatches to gabion checks for the tests lane.",
         ),
         _CiReproRelationSpec(
             relation_id="ci-repro:ci-cycle->workflow-ci",
