@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
@@ -92,7 +93,7 @@ def render_markdown(payload: Mapping[str, JSONValue]) -> str:
     doc = ReportDoc("out_test_annotation_drift")
     doc.lines(spec_metadata_lines_from_payload(payload))
     doc.section("Summary")
-    doc.codeblock(summary)
+    doc.codeblock(json.dumps(summary, indent=2, sort_keys=False))
     doc.line()
     orphaned: list[Mapping[str, JSONValue]] = []
     legacy: list[Mapping[str, JSONValue]] = []

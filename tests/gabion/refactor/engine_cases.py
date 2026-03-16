@@ -246,6 +246,8 @@ def test_refactor_engine_ambient_rewrite_threaded_parameter(tmp_path: Path) -> N
     replacement = plan.edits[0].replacement
     assert "from contextvars import ContextVar" in replacement
     assert "_ambient_get_ctx" in replacement
+    assert "def sink(ctx: CtxBundle | None = None):" in replacement
+    assert "def route(ctx: CtxBundle | None = None):" in replacement
     assert "if ctx is None" in replacement
     assert "return sink()" in replacement
     assert any(entry.kind == "AMBIENT_REWRITE" and entry.status == "applied" for entry in plan.rewrite_plans)

@@ -1039,7 +1039,8 @@ def _run_post_phase(
         post_work_done += 1
         _emit_post_phase_progress(marker="lint:done")
 
-    _emit_post_phase_progress(marker="complete")
+    if post_work_total > 0:
+        _emit_post_phase_progress(marker="complete")
     analysis_profile_stage_ns["analysis.post"] += time.monotonic_ns() - post_started_ns
     return _PostPhaseResult(
         deadline_obligations=deadline_obligations,

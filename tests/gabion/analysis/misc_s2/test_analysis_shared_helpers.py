@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -71,7 +72,7 @@ def test_report_doc_emit_renders_markdown() -> None:
     doc.header(2, "Overview")
     doc.section("Summary")
     doc.bullets(["one", "two"])
-    doc.codeblock({"k": 1})
+    doc.codeblock(json.dumps({"k": 1}, indent=2, sort_keys=False))
     doc.table(["name", "count"], [["alpha", 1], ["beta", 2]])
     rendered = doc.emit()
     assert "doc_id: unit_report" in rendered

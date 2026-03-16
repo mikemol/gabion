@@ -15,7 +15,7 @@ from gabion.refactor.model import (
 from gabion.refactor.loop_generator import plan_loop_generator_rewrite as _plan_loop_generator_rewrite
 import gabion.refactor.cst_shared as cst_shared
 from gabion.analysis.foundation.timeout_context import check_deadline
-from gabion.invariants import never
+from gabion.invariants import decision_protocol, grade_boundary, never
 from gabion.order_contract import sort_once
 
 
@@ -1555,6 +1555,24 @@ def _param_lookup_outcome(candidate: cst.Param) -> _ParamLookupOutcome:
     return _ParamLookupOutcome(found=True, param=candidate)
 
 
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="refactor.ambient_rewrite_param_ingress",
+)
+@decision_protocol
+def _ambient_rewrite_param_ingress(
+    *,
+    param: cst.Param,
+    context_name: str,
+    protocol_hint: str,
+) -> cst.Param:
+    if param.name.value != context_name:
+        return param
+    if param.annotation is not None:
+        return param
+    return param.with_changes(annotation=_ambient_default_annotation(protocol_hint))
+
+
 def _ambient_rewrite_param(
     *,
     param: cst.Param,
@@ -1670,7 +1688,11 @@ else:
         updated_params = list(
             map(
                 lambda param: _ambient_rewrite_param(
-                    param=param,
+                    param=_ambient_rewrite_param_ingress(
+                        param=param,
+                        context_name=context_name,
+                        protocol_hint=self.protocol_hint,
+                    ),
                     context_name=context_name,
                     protocol_hint=self.protocol_hint,
                 ),

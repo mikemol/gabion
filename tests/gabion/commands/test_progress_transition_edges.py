@@ -283,6 +283,33 @@ def test_validate_progress_transition_rejects_mutated_terminal_replay() -> None:
     assert decision.reason == "invalid_terminal_replay_mutated_state"
 
 
+# gabion:evidence E:call_footprint::tests/test_progress_transition_edges.py::test_validate_progress_transition_allows_terminal_state_change_without_parent_index_advance::progress_transition.py::gabion.commands.progress_transition.validate_progress_transition
+# gabion:behavior primary=desired
+def test_validate_progress_transition_allows_terminal_state_change_without_parent_index_advance() -> None:
+    previous = normalize_progress_transition_boundary(
+        phase="post",
+        analysis_state="analysis_post_in_progress",
+        event_kind="progress",
+        primary_unit="post_tasks",
+        primary_done=6,
+        primary_total=6,
+        progress_marker="deadline_obligations:start",
+    )
+    current = normalize_progress_transition_boundary(
+        phase="post",
+        analysis_state="succeeded",
+        event_kind="terminal",
+        primary_unit="post_tasks",
+        primary_done=6,
+        primary_total=6,
+        progress_marker=None,
+    )
+    decision = validate_progress_transition(previous=previous, current=current)
+    assert decision.valid is True
+    assert decision.reason == "terminal_transition"
+    assert decision.effective_event_kind == "terminal"
+
+
 # gabion:evidence E:call_footprint::tests/test_progress_transition_edges.py::test_validate_progress_transition_allows_checkpoint_terminal_replay_as_parent_hold::progress_transition.py::gabion.commands.progress_transition.validate_progress_transition
 # gabion:behavior primary=verboten facets=edge
 def test_validate_progress_transition_allows_checkpoint_terminal_replay_as_parent_hold() -> None:

@@ -752,6 +752,12 @@ def validate_progress_transition(
                 effective_event_kind=effective_event_kind,
                 suppress_emit=True,
             )
+    if effective_event_kind == "terminal":
+        return ProgressTransitionDecision(
+            valid=True,
+            reason="terminal_transition",
+            effective_event_kind=effective_event_kind,
+        )
     same_phase = current.phase == previous.phase
     parent_identity_changed = current.analysis_state != previous.analysis_state
     parent_index_changed = _parent_index_changed(previous, current)
@@ -804,12 +810,6 @@ def validate_progress_transition(
         return ProgressTransitionDecision(
             valid=False,
             reason="invalid_terminal_keepalive_without_terminal_state",
-            effective_event_kind=effective_event_kind,
-        )
-    if effective_event_kind == "terminal":
-        return ProgressTransitionDecision(
-            valid=True,
-            reason="terminal_transition",
             effective_event_kind=effective_event_kind,
         )
     return ProgressTransitionDecision(
