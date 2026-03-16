@@ -1,0 +1,50 @@
+version: 1
+decks:
+  - deck_id: agents_required_behavior_clauses
+    doc_path: AGENTS.md
+    begin_marker: "<!-- BEGIN:generated_agent_clause_obligations -->"
+    end_marker: "<!-- END:generated_agent_clause_obligations -->"
+    entries:
+      - clause_id: NCI-ACTIONS-PINNED
+        template: "Action pinning: {clause_link}."
+      - clause_id: NCI-ACTIONS-ALLOWLIST
+        template: "Action allow-list: {clause_link}."
+      - clause_id: NCI-LSP-FIRST
+        template: "Preserve {clause_link}."
+      - clause_id: NCI-RUNTIME-PROCESS-RELATIVE
+        template: "Enforce process-relative runtime policy: {clause_link}."
+      - clause_id: NCI-RUNTIME-DISTINCTION-LADDER
+        template: "Enforce runtime distinction admissibility: {clause_link}."
+      - clause_id: NCI-SHIFT-AMBIGUITY-LEFT
+        template: "Enforce {clause_link} in semantic core refactors."
+      - clause_id: NCI-COMMAND-MATURITY-PARITY
+        template: "Enforce command maturity/carrier/parity policy: {clause_link}."
+      - clause_id: NCI-CONTROLLER-DRIFT-LIFECYCLE
+        template: "Enforce controller-drift override lifecycle policy: {clause_link}."
+      - clause_id: NCI-DUAL-SENSOR-CORRECTION-LOOP
+        template: "Enforce temporal dual-sensor correction loop policy: {clause_link}."
+      - clause_id: NCI-CORRECTION-UNIT-COMMIT-BOUNDARY
+        template: "Enforce correction-unit git drainage and commit-boundary policy: {clause_link}."
+      - clause_id: NCI-DOCFLOW-CLOSED-LOOP
+        template: "Enforce packetized docflow control-loop policy: {clause_link}."
+  - deck_id: contributing_architectural_invariant_clauses
+    doc_path: CONTRIBUTING.md
+    begin_marker: "<!-- BEGIN:generated_contributor_clause_invariants -->"
+    end_marker: "<!-- END:generated_contributor_clause_invariants -->"
+    entries:
+      - clause_id: NCI-LSP-FIRST
+        template: "**LSP-first invariant:** {clause_link}."
+      - clause_id: NCI-CONTROLLER-DRIFT-LIFECYCLE
+        template: "**Controller drift + override lifecycle:** {clause_link}."
+      - clause_id: NCI-COMMAND-MATURITY-PARITY
+        template: "**Maturity/transport policy:** {clause_link}."
+      - clause_id: NCI-DUAL-SENSOR-CORRECTION-LOOP
+        template: "**Temporal dual-sensor correction loop:** {clause_link} (mandatory for agents; recommendation-level interoperability guidance for contributors)."
+      - clause_id: NCI-DOCFLOW-CLOSED-LOOP
+        template: "**Packetized docflow closed loop:** {clause_link} (net-new warning/contradiction rows fail, debt drift is explicit and age-bounded)."
+      - clause_id: NCI-RUNTIME-PROCESS-RELATIVE
+        template: "**Process-relative runtime policy:** {clause_link}."
+      - clause_id: NCI-RUNTIME-DISTINCTION-LADDER
+        template: "**Runtime distinction admissibility:** {clause_link}."
+      - clause_id: NCI-RUNTIME-NARROWING-BOUNDARY
+        template: "**Runtime narrowing boundary contract:** {clause_link}."

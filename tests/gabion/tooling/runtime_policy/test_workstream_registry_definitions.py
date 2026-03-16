@@ -44,9 +44,9 @@ def test_prf_workstream_registry_exposes_queue_sequence_and_active_playbook_touc
     assert subqueues["PRF-005"].touchpoint_ids == ()
     assert subqueues["PRF-006"].status_hint == "landed"
     assert subqueues["PRF-006"].touchpoint_ids == ("PRF-TP-006",)
-    assert subqueues["PRF-007"].status_hint == ""
+    assert subqueues["PRF-007"].status_hint == "landed"
     assert subqueues["PRF-007"].touchpoint_ids == ("PRF-TP-007",)
-    assert subqueues["PRF-008"].status_hint == "queued"
+    assert subqueues["PRF-008"].status_hint == "landed"
     assert subqueues["PRF-008"].touchpoint_ids == ("PRF-TP-008",)
     assert subqueues["PRF-009"].status_hint == "queued"
     assert subqueues["PRF-009"].touchpoint_ids == ("PRF-TP-009",)
@@ -94,6 +94,22 @@ def test_prf_workstream_registry_exposes_queue_sequence_and_active_playbook_touc
         (
             "scripts/policy/render_policy_rule_playbooks.py",
             "render_policy_rule_playbooks",
+        ),
+    }
+    assert {
+        (item.rel_path, item.qualname)
+        for item in touchpoints["PRF-TP-008"].declared_touchsites
+    } >= {
+        ("AGENTS.md", "AGENTS.md#agent_obligations"),
+        ("CONTRIBUTING.md", "CONTRIBUTING.md#contributing_contract"),
+        ("docs/clause_obligation_decks.yaml", "clause_obligation_decks"),
+        (
+            "src/gabion/tooling/policy_substrate/clause_obligation_decks.py",
+            "render_clause_obligation_decks",
+        ),
+        (
+            "scripts/policy/render_clause_obligation_decks.py",
+            "render_clause_obligation_decks",
         ),
     }
 

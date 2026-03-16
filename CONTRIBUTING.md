@@ -1,5 +1,5 @@
 ---
-doc_revision: 119
+doc_revision: 120
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -16,6 +16,7 @@ doc_requires:
   - docs/normative_clause_index.md#normative_clause_index
   - glossary.md#contract
   - docs/coverage_semantics.md#coverage_semantics
+  - docs/clause_obligation_decks.yaml
 doc_reviewed_as_of:
   README.md#repo_contract: 2
   CONTRIBUTING.md#contributing_contract: 2
@@ -26,11 +27,11 @@ doc_reviewed_as_of:
   docs/coverage_semantics.md#coverage_semantics: 1
 doc_review_notes:
   README.md#repo_contract: "Reviewed README.md rev2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
-  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
-  AGENTS.md#agent_obligations: "Reviewed AGENTS.md rev2 (required validation stack, forward-remediation preference, and ci_watch failure-bundle triage guidance)."
-  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev57 (runtime is now process-relative across program, analysis, formal, planning, and governance workflows)."
-  docs/normative_clause_index.md#normative_clause_index: "Reviewed normative_clause_index rev16 (added NCI-RUNTIME-PROCESS-RELATIVE alongside the runtime-distinction ladder)."
-  glossary.md#contract: "Reviewed glossary.md#contract rev46 (runtime scope is process-relative and the distinction ladder remains part of the semantic contract)."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev120/section v2; clause-backed architectural-invariant bullets now render from the shared clause-obligation catalog while contributor workflow prose stays hand-authored."
+  AGENTS.md#agent_obligations: "Reviewed AGENTS.md rev36/section v2; the shared clause-obligation catalog keeps the contributor and agent clause decks aligned without duplicating workflow prose."
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev57 (runtime is now process-relative across program, analysis, formal, planning, and governance workflows); the generated clause deck remains policy-compatible."
+  docs/normative_clause_index.md#normative_clause_index: "Reviewed normative_clause_index rev17/section v3; generated contributor clause-backed bullets now resolve canonical links from the clause index."
+  glossary.md#contract: "Reviewed glossary.md#contract rev46 (runtime scope is process-relative and the distinction ladder remains part of the semantic contract) while clause-backed invariant bullets move to generated rendering."
   docs/coverage_semantics.md#coverage_semantics: "Reviewed docs/coverage_semantics.md#coverage_semantics v1 (glossary-lifted projection + explicit core anchors); contributor guidance unchanged."
 doc_sections:
   contributing_contract: 2
@@ -53,22 +54,22 @@ doc_section_reviews:
       dep_version: 2
       self_version_at_review: 2
       outcome: no_change
-      note: "Agent obligations rev2 reviewed; clause and cadence links remain aligned."
+      note: "Agent obligations section v2 reviewed; the shared clause catalog keeps contributor-facing and agent-facing clause decks aligned."
     POLICY_SEED.md#policy_seed:
       dep_version: 2
       self_version_at_review: 2
       outcome: no_change
-      note: "Policy seed rev57 reviewed; contributor workflow remains aligned with process-relative runtime and the distinction ladder."
+      note: "Policy seed rev57 reviewed; contributor workflow remains aligned with process-relative runtime and the distinction ladder while clause-backed bullets move to generated rendering."
     docs/normative_clause_index.md#normative_clause_index:
       dep_version: 3
       self_version_at_review: 2
       outcome: no_change
-      note: "Clause index rev16 reviewed; contributor contract semantics remain aligned with the new runtime clauses."
+      note: "Clause index section v3 reviewed; contributor clause-backed bullets now resolve canonical links from the shared clause catalog."
     glossary.md#contract:
       dep_version: 1
       self_version_at_review: 2
       outcome: no_change
-      note: "Glossary rev46 reviewed; semantic typing now includes process-relative runtime and the distinction ladder without changing contributor workflow."
+      note: "Glossary rev46 reviewed; semantic typing still includes process-relative runtime and the distinction ladder while clause-backed invariant bullets move to generated rendering."
     docs/coverage_semantics.md#coverage_semantics:
       dep_version: 1
       self_version_at_review: 2
@@ -104,6 +105,9 @@ valid.
 - Mechanical version stamping is prohibited and treated as a governance breach.
 
 ## Architectural invariants (normative)
+<!-- BEGIN:generated_contributor_clause_invariants -->
+_The clause-backed bullets below are generated from `docs/clause_obligation_decks.yaml` and `docs/normative_clause_index.md` via `mise exec -- python -m scripts.policy.render_clause_obligation_decks`._
+
 - **LSP-first invariant:** [`NCI-LSP-FIRST`](docs/normative_clause_index.md#clause-lsp-first).
 - **Controller drift + override lifecycle:** [`NCI-CONTROLLER-DRIFT-LIFECYCLE`](docs/normative_clause_index.md#clause-controller-drift-lifecycle).
 - **Maturity/transport policy:** [`NCI-COMMAND-MATURITY-PARITY`](docs/normative_clause_index.md#clause-command-maturity-parity).
@@ -112,6 +116,7 @@ valid.
 - **Process-relative runtime policy:** [`NCI-RUNTIME-PROCESS-RELATIVE`](docs/normative_clause_index.md#clause-runtime-process-relative).
 - **Runtime distinction admissibility:** [`NCI-RUNTIME-DISTINCTION-LADDER`](docs/normative_clause_index.md#clause-runtime-distinction-ladder).
 - **Runtime narrowing boundary contract:** [`NCI-RUNTIME-NARROWING-BOUNDARY`](docs/normative_clause_index.md#clause-runtime-narrowing-boundary).
+<!-- END:generated_contributor_clause_invariants -->
 - **Semantic ownership boundary:** user-facing semantics must live in server command handlers and be exposed as `gabion` subcommands. `scripts/` are orchestration wrappers (CI/bootstrap/audit), never canonical semantic engines.
 - **Single source of truth:** diagnostics and code actions must be derived from
   the server, not duplicated in client code.

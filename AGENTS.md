@@ -1,5 +1,5 @@
 ---
-doc_revision: 35
+doc_revision: 36
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: agents
 doc_role: agent
@@ -14,6 +14,7 @@ doc_requires:
   - POLICY_SEED.md#policy_seed
   - glossary.md#contract
   - docs/normative_clause_index.md#normative_clause_index
+  - docs/clause_obligation_decks.yaml
 doc_reviewed_as_of:
   README.md#repo_contract: 2
   CONTRIBUTING.md#contributing_contract: 2
@@ -22,10 +23,10 @@ doc_reviewed_as_of:
   docs/normative_clause_index.md#normative_clause_index: 3
 doc_review_notes:
   README.md#repo_contract: "Reviewed README.md rev2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
-  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance)."
-  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev57 (runtime is now process-relative across program, analysis, formal, planning, and governance workflows)."
-  glossary.md#contract: "Reviewed glossary.md#contract rev46 (runtime scope is process-relative and the distinction ladder remains part of the semantic contract)."
-  docs/normative_clause_index.md#normative_clause_index: "Reviewed normative_clause_index rev17 (added correction-unit git drainage and commit-boundary clause guidance)."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev120/section v2; clause-backed architectural-invariant bullets now render from the shared clause-obligation catalog while contributor workflow prose remains hand-authored."
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev57 (runtime is now process-relative across program, analysis, formal, planning, and governance workflows); the generated clause deck remains policy-compatible."
+  glossary.md#contract: "Reviewed glossary.md#contract rev46 (runtime scope is process-relative and the distinction ladder remains part of the semantic contract) while clause-backed obligation bullets move to generated rendering."
+  docs/normative_clause_index.md#normative_clause_index: "Reviewed normative_clause_index rev17/section v3; generated clause-backed bullets now resolve canonical clause links from the clause index."
 doc_sections:
   agent_obligations: 2
 doc_section_requires:
@@ -46,22 +47,22 @@ doc_section_reviews:
       dep_version: 2
       self_version_at_review: 2
       outcome: no_change
-      note: "Contributor contract rev2 reviewed; dual-sensor cadence and correction gates remain aligned."
+      note: "Contributor contract section v2 reviewed; generated clause-backed invariant bullets stay aligned with the agent-facing obligation deck."
     POLICY_SEED.md#policy_seed:
       dep_version: 2
       self_version_at_review: 2
       outcome: no_change
-      note: "Policy seed rev57 reviewed; process-relative runtime fits existing agent obligations."
+      note: "Policy seed rev57 reviewed; process-relative runtime fits existing agent obligations while clause-backed bullets move to generated rendering."
     glossary.md#contract:
       dep_version: 1
       self_version_at_review: 2
       outcome: no_change
-      note: "Glossary rev46 reviewed; process-relative runtime and the distinction ladder are now part of semantic typing discipline."
+      note: "Glossary rev46 reviewed; process-relative runtime and the distinction ladder remain part of semantic typing discipline while clause-backed bullets render from the shared catalog."
     docs/normative_clause_index.md#normative_clause_index:
       dep_version: 3
       self_version_at_review: 2
       outcome: no_change
-      note: "Clause index rev17 reviewed; agent workflow now includes a canonical correction-unit git drainage and commit-boundary clause."
+      note: "Clause index section v3 reviewed; the generated obligation deck now resolves canonical clause links from the shared clause catalog."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_invariants:
   - read_policy_glossary_first
@@ -93,10 +94,13 @@ Semantic correctness is governed by `[glossary.md#contract](glossary.md#contract
 - Read `POLICY_SEED.md#policy_seed` and `[glossary.md#contract](glossary.md#contract)` before proposing or applying changes.
 - If a request conflicts with `POLICY_SEED.md#policy_seed`, stop and ask for guidance.
 - Do not weaken or bypass self-hosted runner protections.
-- Action pinning: [`NCI-ACTIONS-PINNED`](docs/normative_clause_index.md#clause-actions-pinned).
-- Action allow-list: [`NCI-ACTIONS-ALLOWLIST`](docs/normative_clause_index.md#clause-actions-allowlist).
 - When changing workflows, run the policy checks (once the scripts exist) and
   surface any violations explicitly.
+<!-- BEGIN:generated_agent_clause_obligations -->
+_The clause-backed bullets below are generated from `docs/clause_obligation_decks.yaml` and `docs/normative_clause_index.md` via `mise exec -- python -m scripts.policy.render_clause_obligation_decks`._
+
+- Action pinning: [`NCI-ACTIONS-PINNED`](docs/normative_clause_index.md#clause-actions-pinned).
+- Action allow-list: [`NCI-ACTIONS-ALLOWLIST`](docs/normative_clause_index.md#clause-actions-allowlist).
 - Preserve [`NCI-LSP-FIRST`](docs/normative_clause_index.md#clause-lsp-first).
 - Enforce process-relative runtime policy: [`NCI-RUNTIME-PROCESS-RELATIVE`](docs/normative_clause_index.md#clause-runtime-process-relative).
 - Enforce runtime distinction admissibility: [`NCI-RUNTIME-DISTINCTION-LADDER`](docs/normative_clause_index.md#clause-runtime-distinction-ladder).
@@ -106,6 +110,7 @@ Semantic correctness is governed by `[glossary.md#contract](glossary.md#contract
 - Enforce temporal dual-sensor correction loop policy: [`NCI-DUAL-SENSOR-CORRECTION-LOOP`](docs/normative_clause_index.md#clause-dual-sensor-correction-loop).
 - Enforce correction-unit git drainage and commit-boundary policy: [`NCI-CORRECTION-UNIT-COMMIT-BOUNDARY`](docs/normative_clause_index.md#clause-correction-unit-commit-boundary).
 - Enforce packetized docflow control-loop policy: [`NCI-DOCFLOW-CLOSED-LOOP`](docs/normative_clause_index.md#clause-docflow-closed-loop).
+<!-- END:generated_agent_clause_obligations -->
 - Treat coverage-gate drops as dedicated fix-forward correction-unit signals; do not use rollback-first reasoning when coverage regresses.
 - Treat any GitHub API error during monitoring/forensics as a process-remediation signal for API access; do not respond with backoff-only behavior.
 - When a workstream sets an API polling cadence cap, obey the cap and maximize data per query.
