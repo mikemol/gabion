@@ -1,5 +1,5 @@
 ---
-doc_revision: 4
+doc_revision: 5
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: policy_rule_frontmatter_migration_ledger
 doc_role: audit
@@ -16,13 +16,13 @@ doc_requires:
 doc_reviewed_as_of:
   POLICY_SEED.md#policy_seed: 57
   glossary.md#contract: 46
-  docs/policy_rules/ambiguity_contract.md: 1
-  docs/policy_rules/grade_monotonicity.md: 2
+  docs/policy_rules/ambiguity_contract.md: 2
+  docs/policy_rules/grade_monotonicity.md: 4
 doc_review_notes:
   POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED rev57; process-relative runtime now applies to policy/governance workflows, so this ledger continues to treat documentation mechanization as an active runtime planning surface."
   glossary.md#contract: "Reviewed glossary rev46; runtime scope and admissibility-ladder terminology remain aligned with this ledger's policy-document mechanization queue."
-  docs/policy_rules/ambiguity_contract.md: "Reviewed rev1; the ambiguity-contract markdown rule doc is now an authoritative source of truth for DSL-evaluated rule guidance."
-  docs/policy_rules/grade_monotonicity.md: "Reviewed rev3; per-violation `GMP-*` guidance now lives in the markdown playbook body and is emitted from that source."
+  docs/policy_rules/ambiguity_contract.md: "Reviewed rev2; frontmatter-backed ambiguity playbook sections now render from canonical markdown guidance while the document remains the authoritative DSL rule source."
+  docs/policy_rules/grade_monotonicity.md: "Reviewed rev4; the summary rule playbook now renders from markdown frontmatter while the `GMP-*` sections remain the canonical per-violation guidance consumed by runtime policy tooling."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_owner: maintainer
 ---
@@ -43,7 +43,7 @@ follow-up corrections discovered during implementation audit.
 | `PRF-004` | Remove duplicated `GMP-*` guidance text from Python so grade playbooks are fully markdown-authoritative | `landed` | Per-violation grade guidance is now parsed from `docs/policy_rules/grade_monotonicity.md` and emitted from that markdown source instead of duplicated runtime strings. |
 | `PRF-005` | Bootstrap a machine-readable catalog + renderer for `docs/enforceable_rules_cheat_sheet.md` Rule Matrix | `landed` | The first mechanically-owned subset is now the Rule Matrix: `docs/enforceable_rules_catalog.yaml` owns the rows and `scripts/policy/render_enforceable_rules_cheat_sheet.py` renders the generated block, while the rest of the cheat sheet remains hand-authored. |
 | `PRF-006` | Normalize governance loop registry data and render `docs/governance_control_loops.md` plus `docs/governance_loop_matrix.md` from a shared catalog | `landed` | `docs/governance_control_loops.yaml` now owns the shared registry data and `scripts/policy/render_governance_loop_docs.py` renders the generated blocks in both governance loop docs. |
-| `PRF-007` | Render policy-rule playbooks from markdown frontmatter for `docs/policy_rules/ambiguity_contract.md` and `docs/policy_rules/grade_monotonicity.md` | `queued` | Both docs already carry canonical `rules:` data and then restate that same structure manually in body prose. |
+| `PRF-007` | Render policy-rule playbooks from markdown frontmatter for `docs/policy_rules/ambiguity_contract.md` and `docs/policy_rules/grade_monotonicity.md` | `in_progress` | The new renderer owns frontmatter-backed playbook sections; `grade_monotonicity.md` keeps its `GMP-*` sections manual because they remain the runtime-consumed canonical violation playbooks. |
 | `PRF-008` | Autodenormalize clause-backed obligation decks for `AGENTS.md` and `CONTRIBUTING.md` from a small audience-specific clause catalog | `queued` | Restrict generation to repetitive clause bullet decks and keep explanatory workflow prose hand-authored. |
 | `PRF-009` | Extend cheat-sheet mechanization to generate guardrail/validation sections from governance catalogs | `queued` | Use the loop registry and clause catalogs as inputs once PRF-006 and PRF-008 converge. |
 

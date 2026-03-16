@@ -1,5 +1,5 @@
 ---
-doc_revision: 3
+doc_revision: 4
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: grade_monotonicity_policy_rules
 doc_role: policy
@@ -14,15 +14,20 @@ doc_requires:
   - glossary.md#contract
   - docs/shift_ambiguity_left_protocol.md#shift_ambiguity_left_protocol
 doc_reviewed_as_of:
-  POLICY_SEED.md#policy_seed: 55
-  glossary.md#contract: 44
+  POLICY_SEED.md#policy_seed: 57
+  glossary.md#contract: 46
   docs/shift_ambiguity_left_protocol.md#shift_ambiguity_left_protocol: 3
 doc_review_notes:
-  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED rev55; grade monotonicity remains a blocking governance surface for downstream contract regressions."
-  glossary.md#contract: "Reviewed glossary rev44; contract, bundle, and decision-protocol terminology remain aligned with these grade playbooks."
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED rev57; grade monotonicity remains a blocking governance surface for downstream contract regressions while frontmatter-backed summary playbooks move to generated rendering."
+  glossary.md#contract: "Reviewed glossary rev46; contract, bundle, and decision-protocol terminology remain aligned while the summary playbook section renders from canonical frontmatter guidance."
   docs/shift_ambiguity_left_protocol.md#shift_ambiguity_left_protocol: "Reviewed the protocol card rev3; these grade playbooks specialize the same upstream-normalization bias."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_owner: maintainer
+playbook_rendering:
+  references:
+    grade_monotonicity.new_violations:
+      - label: Shift-Ambiguity-Left Protocol
+        href: ../shift_ambiguity_left_protocol.md#shift_ambiguity_left_protocol
 rules:
   - rule_id: grade_monotonicity.new_violations
     domain: grade_monotonicity
@@ -60,21 +65,25 @@ rules:
 This document is the authoritative playbook body for grade-monotonicity policy
 guidance and per-violation remediation references.
 
+<!-- BEGIN:generated_policy_rule_playbooks -->
+_The playbook sections below are generated from this document's `rules:` frontmatter via `mise exec -- python -m scripts.policy.render_policy_rule_playbooks`._
+
 <a id="grade-monotonicity-new-violations"></a>
 ## `grade_monotonicity.new_violations`
 
-Meaning: one or more call edges regressed the caller-to-callee grade contract.
+Meaning: a downstream call edge has widened structure, decision work, or complexity beyond its caller contract
 
 Preferred response:
-- locate the earliest fiber seam where the widening first appears
-- discharge the alternation there
-- keep downstream edges monotone in structure, cardinality, and work
+- move normalization and alternation to the earliest lawful seam, then keep downstream edges monotone in structure and work
 
 Avoid:
-- pushing the same ambiguity or complexity into a deeper helper
-- compensating with more branches instead of a stricter carrier
-
+- do not reintroduce Optional, sentinel, or multi-shape carriers after a stricter caller has already normalized them
+- do not hide higher complexity behind an ordinary core edge without an explicit named boundary
 Reference: [Shift-Ambiguity-Left Protocol](../shift_ambiguity_left_protocol.md#shift_ambiguity_left_protocol).
+<!-- END:generated_policy_rule_playbooks -->
+
+The `GMP-*` sections below remain the canonical per-violation playbooks consumed
+by `src/gabion/tooling/policy_substrate/grade_monotonicity_semantic.py`.
 
 <a id="gmp-001"></a>
 ## `GMP-001`

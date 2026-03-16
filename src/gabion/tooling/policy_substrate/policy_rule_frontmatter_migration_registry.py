@@ -114,9 +114,9 @@ def _todo_metadata(
 @todo_decorator(
     reason="PRF migration queue remains machine-projected while the remaining policy-doc mechanization follow-ons are sequenced.",
     reasoning={
-        "summary": "PRF landed the markdown-frontmatter migration plus governance-loop registry mechanization and now sequences the remaining policy-playbook, clause-deck, and cheat-sheet follow-on work.",
+        "summary": "PRF landed the markdown-frontmatter migration plus governance-loop registry mechanization and now advances through policy-playbook, clause-deck, and cheat-sheet follow-on work.",
         "control": "prf.queue.policy_rule_frontmatter_migration",
-        "blocking_dependencies": (),
+        "blocking_dependencies": ("PRF-007",),
     },
     owner="gabion.tooling.policy_substrate",
     expiry="graph workstream generalization superseded",
@@ -248,7 +248,7 @@ def _prf_006() -> None:
 
 
 @todo_decorator(
-    reason="PRF-007 remains queued until a dedicated correction unit opens the policy-rule playbook renderer slice.",
+    reason="PRF-007 remains active while policy-rule playbook docs move from duplicated prose to frontmatter-backed generated sections.",
     reasoning={
         "summary": "Render the ambiguity-contract and grade-monotonicity playbooks from their canonical markdown-frontmatter rules.",
         "control": "prf.item.policy_rule_playbook_renderer",
@@ -269,11 +269,11 @@ def _prf_007() -> None:
 
 
 @todo_decorator(
-    reason="PRF-008 remains queued until a dedicated correction unit opens the clause-backed obligation-deck renderer slice.",
+    reason="PRF-008 remains queued until the policy-rule playbook renderer slice lands and a dedicated correction unit opens the clause-backed obligation-deck renderer.",
     reasoning={
         "summary": "Generate the repetitive clause-backed obligation bullets in AGENTS and CONTRIBUTING from a small audience-specific catalog.",
         "control": "prf.item.clause_backed_obligation_decks",
-        "blocking_dependencies": ("PRF-TP-008",),
+        "blocking_dependencies": ("PRF-007", "PRF-TP-008"),
     },
     owner="gabion.tooling.policy_substrate",
     expiry="clause-backed obligation deck generation converged",
@@ -332,9 +332,9 @@ def _prf_tp_006() -> None:
 
 
 @todo_decorator(
-    reason="PRF-TP-007 remains queued while policy-rule playbook docs wait for the next renderer pattern after governance-loop mechanization.",
+    reason="PRF-TP-007 remains active while policy-rule playbook docs move to generated frontmatter-backed sections.",
     reasoning={
-        "summary": "The ambiguity-contract and grade-monotonicity docs already carry canonical rules metadata and should eventually render their playbook bodies from that carrier.",
+        "summary": "The ambiguity-contract and grade-monotonicity docs already carry canonical rules metadata and now render their frontmatter-backed playbook bodies from that carrier.",
         "control": "prf.touchpoint.policy_rule_playbook_renderer",
         "blocking_dependencies": ("PRF-007",),
     },
@@ -489,7 +489,7 @@ def iter_prf_subqueues() -> tuple[PolicyRuleFrontmatterMigrationSubqueueDefiniti
                 status_hint={
                     "PRF-005": "landed",
                     "PRF-006": "landed",
-                    "PRF-007": "queued",
+                    "PRF-007": "",
                     "PRF-008": "queued",
                     "PRF-009": "queued",
                 }.get(subqueue_id, "landed"),
@@ -663,6 +663,26 @@ def prf_workstream_registry() -> WorkstreamRegistry:
                             node_kind="document",
                             surface="policy_rule_frontmatter_migration_touchsite",
                             structural_path="prf.touchsite::PRF-TS-007-B",
+                        ),
+                        declared_touchsite_definition(
+                            touchsite_id="PRF-TS-007-C",
+                            rel_path="src/gabion/tooling/policy_substrate/policy_rule_playbook_docs.py",
+                            qualname="render_policy_rule_playbook_docs",
+                            boundary_name="render_policy_rule_playbook_docs",
+                            line=1,
+                            node_kind="module",
+                            surface="policy_rule_frontmatter_migration_touchsite",
+                            structural_path="prf.touchsite::PRF-TS-007-C",
+                        ),
+                        declared_touchsite_definition(
+                            touchsite_id="PRF-TS-007-D",
+                            rel_path="scripts/policy/render_policy_rule_playbooks.py",
+                            qualname="render_policy_rule_playbooks",
+                            boundary_name="render_policy_rule_playbooks",
+                            line=1,
+                            node_kind="module",
+                            surface="policy_rule_frontmatter_migration_touchsite",
+                            structural_path="prf.touchsite::PRF-TS-007-D",
                         ),
                     ),
                     "PRF-TP-008": (
