@@ -362,10 +362,7 @@ def test_surface_contract_convergence_workstream_registry_exposes_queue_and_touc
         for item in touchpoints["SCC-TP-008"].declared_touchsites
     } >= {
         ("src/gabion/server_core/command_orchestrator.py", "command_orchestrator"),
-        (
-            "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py",
-            "dataflow_pipeline",
-        ),
+        ("src/gabion/config.py", "config"),
     }
 
 

@@ -238,9 +238,9 @@ def _scc_tp_review_note_lint() -> None:
 
 
 @landed_todo_decorator(
-    reason="SCC-TP-008 is recorded as landed metadata for typed option-bundle reification across orchestration and dataflow hot paths.",
+    reason="SCC-TP-008 is recorded as landed metadata for typed option-bundle reification across orchestration hot paths.",
     reasoning={
-        "summary": "Recurring execution, auxiliary-artifact, and analysis option families now cross hot-path boundaries through typed bundles instead of large ad hoc parameter sets, and the completed reification is recorded as closed touchpoint state.",
+        "summary": "Recurring execution and auxiliary-artifact option families now cross orchestration hot-path boundaries through typed bundles instead of large ad hoc parameter sets, with the supporting fingerprint-config boundary normalization recorded alongside the closed touchpoint state.",
         "control": "surface_contract_convergence.bundle_reification_touchpoint",
         "blocking_dependencies": (),
     },
@@ -499,7 +499,7 @@ def surface_contract_convergence_workstream_registry() -> WorkstreamRegistry:
                 root_id=root_id,
                 subqueue_id="SCC-SQ-001",
                 touchpoint_id="SCC-TP-008",
-                title="Typed option-bundle reification for orchestration and dataflow hot paths",
+                title="Typed option-bundle reification for orchestration hot paths",
                 symbol=_scc_tp_bundle_reification,
                 status_hint="landed",
                 declared_touchsites=(
@@ -510,8 +510,8 @@ def surface_contract_convergence_workstream_registry() -> WorkstreamRegistry:
                     ),
                     _module_touchsite(
                         touchsite_id="SCC-TS-008-B",
-                        rel_path="src/gabion/analysis/dataflow/engine/dataflow_pipeline.py",
-                        qualname="dataflow_pipeline",
+                        rel_path="src/gabion/config.py",
+                        qualname="config",
                     ),
                 ),
             ),
