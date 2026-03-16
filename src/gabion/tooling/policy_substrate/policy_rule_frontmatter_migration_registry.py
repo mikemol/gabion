@@ -8,9 +8,6 @@ from typing import Callable
 from gabion.analysis.aspf.aspf_lattice_algebra import canonical_structural_identity
 from gabion.analysis.foundation.marker_protocol import MarkerPayload, marker_identity
 from gabion.invariants import invariant_decorations, todo_decorator
-from gabion.tooling.policy_substrate.enforceable_rules_cheat_sheet import (
-    render_rule_matrix_block,
-)
 from gabion.tooling.policy_substrate.site_identity import canonical_site_identity
 from gabion.tooling.policy_substrate.workstream_registry import (
     RegisteredRootDefinition,
@@ -115,11 +112,11 @@ def _todo_metadata(
 
 
 @todo_decorator(
-    reason="PRF migration queue remains machine-projected while cheat-sheet mechanization is bootstrapped.",
+    reason="PRF migration queue remains machine-projected while governance and policy-doc mechanization follow-ons are sequenced.",
     reasoning={
-        "summary": "PRF landed the markdown-frontmatter migration and now carries the first cheat-sheet mechanization follow-up so policy-document governance remains queue-visible.",
+        "summary": "PRF landed the markdown-frontmatter migration and now sequences governance-loop, policy-playbook, clause-deck, and cheat-sheet follow-on mechanization work.",
         "control": "prf.queue.policy_rule_frontmatter_migration",
-        "blocking_dependencies": ("PRF-005",),
+        "blocking_dependencies": ("PRF-006",),
     },
     owner="gabion.tooling.policy_substrate",
     expiry="graph workstream generalization superseded",
@@ -210,11 +207,11 @@ def _prf_004() -> None:
 
 
 @todo_decorator(
-    reason="PRF-005 remains active until the cheat-sheet Rule Matrix is owned by a structured catalog and renderer path.",
+    reason="PRF-005 remains recorded as landed metadata once the cheat-sheet Rule Matrix moved to structured catalog ownership.",
     reasoning={
         "summary": "Bootstrap the first mechanically-owned cheat-sheet surface with a structured rule catalog plus renderer.",
         "control": "prf.item.enforceable_rules_cheat_sheet_catalog",
-        "blocking_dependencies": ("PRF-TP-005",),
+        "blocking_dependencies": (),
     },
     owner="gabion.tooling.policy_substrate",
     expiry="cheat-sheet matrix generation converged",
@@ -230,23 +227,172 @@ def _prf_005() -> None:
 
 
 @todo_decorator(
-    reason="PRF-TP-005 remains active while the cheat-sheet Rule Matrix migrates from prose-maintained rows to structured rendering.",
+    reason="PRF-006 remains active while governance loop docs migrate to a shared normalized registry plus renderer path.",
     reasoning={
-        "summary": "The Rule Matrix now has a structured catalog and renderer seam that still needs convergence as the rest of the cheat sheet remains hand-authored.",
-        "control": "prf.touchpoint.enforceable_rules_cheat_sheet_rule_matrix",
-        "blocking_dependencies": ("PRF-005",),
+        "summary": "Governance loop semantics should move out of duplicated prose and into a shared structured registry that renders both the loop registry and the gate matrix.",
+        "control": "prf.item.governance_loop_registry_renderer",
+        "blocking_dependencies": ("PRF-TP-006",),
     },
     owner="gabion.tooling.policy_substrate",
-    expiry="cheat-sheet matrix generation converged",
+    expiry="governance loop registry generation converged",
     links=[
         {"kind": "object_id", "value": "PRF"},
-        {"kind": "object_id", "value": "PRF-005"},
-        {"kind": "object_id", "value": "PRF-TP-005"},
+        {"kind": "object_id", "value": "PRF-006"},
+        {"kind": "doc_id", "value": "policy_rule_frontmatter_migration_ledger"},
+        {"kind": "doc_id", "value": "governance_control_loops"},
+        {"kind": "doc_id", "value": "governance_loop_matrix"},
+    ],
+)
+def _prf_006() -> None:
+    return None
+
+
+@todo_decorator(
+    reason="PRF-007 is queued until the governance-loop registry renderer establishes the next policy-doc mechanization pattern.",
+    reasoning={
+        "summary": "Render the ambiguity-contract and grade-monotonicity playbooks from their canonical markdown-frontmatter rules.",
+        "control": "prf.item.policy_rule_playbook_renderer",
+        "blocking_dependencies": ("PRF-006", "PRF-TP-007"),
+    },
+    owner="gabion.tooling.policy_substrate",
+    expiry="policy rule playbook generation converged",
+    links=[
+        {"kind": "object_id", "value": "PRF"},
+        {"kind": "object_id", "value": "PRF-007"},
+        {"kind": "doc_id", "value": "policy_rule_frontmatter_migration_ledger"},
+        {"kind": "doc_id", "value": "ambiguity_contract_policy_rules"},
+        {"kind": "doc_id", "value": "grade_monotonicity_policy_rules"},
+    ],
+)
+def _prf_007() -> None:
+    return None
+
+
+@todo_decorator(
+    reason="PRF-008 is queued until the clause-backed governance catalogs stabilize enough to render repetitive obligation decks safely.",
+    reasoning={
+        "summary": "Generate the repetitive clause-backed obligation bullets in AGENTS and CONTRIBUTING from a small audience-specific catalog.",
+        "control": "prf.item.clause_backed_obligation_decks",
+        "blocking_dependencies": ("PRF-006", "PRF-TP-008"),
+    },
+    owner="gabion.tooling.policy_substrate",
+    expiry="clause-backed obligation deck generation converged",
+    links=[
+        {"kind": "object_id", "value": "PRF"},
+        {"kind": "object_id", "value": "PRF-008"},
+        {"kind": "doc_id", "value": "policy_rule_frontmatter_migration_ledger"},
+        {"kind": "doc_id", "value": "agents"},
+        {"kind": "doc_id", "value": "contributing"},
+    ],
+)
+def _prf_008() -> None:
+    return None
+
+
+@todo_decorator(
+    reason="PRF-009 is queued until the loop and clause catalogs can feed a broader cheat-sheet renderer without scraping markdown prose.",
+    reasoning={
+        "summary": "Extend cheat-sheet generation beyond the Rule Matrix to guardrails and validation bundles from the stabilized governance catalogs.",
+        "control": "prf.item.cheat_sheet_guardrails_renderer",
+        "blocking_dependencies": ("PRF-006", "PRF-008", "PRF-TP-009"),
+    },
+    owner="gabion.tooling.policy_substrate",
+    expiry="broader cheat-sheet generation converged",
+    links=[
+        {"kind": "object_id", "value": "PRF"},
+        {"kind": "object_id", "value": "PRF-009"},
         {"kind": "doc_id", "value": "policy_rule_frontmatter_migration_ledger"},
         {"kind": "doc_id", "value": "enforceable_rules_cheat_sheet"},
     ],
 )
-def _prf_tp_005() -> None:
+def _prf_009() -> None:
+    return None
+
+
+@todo_decorator(
+    reason="PRF-TP-006 remains active while governance loop docs move to a shared structured registry.",
+    reasoning={
+        "summary": "The next mechanization slice is the shared governance loop registry that should render both governance loop docs from one catalog.",
+        "control": "prf.touchpoint.governance_loop_registry_renderer",
+        "blocking_dependencies": ("PRF-006",),
+    },
+    owner="gabion.tooling.policy_substrate",
+    expiry="governance loop registry generation converged",
+    links=[
+        {"kind": "object_id", "value": "PRF"},
+        {"kind": "object_id", "value": "PRF-006"},
+        {"kind": "object_id", "value": "PRF-TP-006"},
+        {"kind": "doc_id", "value": "policy_rule_frontmatter_migration_ledger"},
+        {"kind": "doc_id", "value": "governance_control_loops"},
+        {"kind": "doc_id", "value": "governance_loop_matrix"},
+    ],
+)
+def _prf_tp_006() -> None:
+    return None
+
+
+@todo_decorator(
+    reason="PRF-TP-007 remains queued while policy-rule playbook docs wait for the next renderer pattern after governance-loop mechanization.",
+    reasoning={
+        "summary": "The ambiguity-contract and grade-monotonicity docs already carry canonical rules metadata and should eventually render their playbook bodies from that carrier.",
+        "control": "prf.touchpoint.policy_rule_playbook_renderer",
+        "blocking_dependencies": ("PRF-007",),
+    },
+    owner="gabion.tooling.policy_substrate",
+    expiry="policy rule playbook generation converged",
+    links=[
+        {"kind": "object_id", "value": "PRF"},
+        {"kind": "object_id", "value": "PRF-007"},
+        {"kind": "object_id", "value": "PRF-TP-007"},
+        {"kind": "doc_id", "value": "policy_rule_frontmatter_migration_ledger"},
+        {"kind": "doc_id", "value": "ambiguity_contract_policy_rules"},
+        {"kind": "doc_id", "value": "grade_monotonicity_policy_rules"},
+    ],
+)
+def _prf_tp_007() -> None:
+    return None
+
+
+@todo_decorator(
+    reason="PRF-TP-008 remains queued while clause-backed obligation decks stay hand-authored.",
+    reasoning={
+        "summary": "The repetitive clause bullet decks in AGENTS and CONTRIBUTING should eventually be rendered from an audience-scoped clause selection catalog.",
+        "control": "prf.touchpoint.clause_backed_obligation_decks",
+        "blocking_dependencies": ("PRF-008",),
+    },
+    owner="gabion.tooling.policy_substrate",
+    expiry="clause-backed obligation deck generation converged",
+    links=[
+        {"kind": "object_id", "value": "PRF"},
+        {"kind": "object_id", "value": "PRF-008"},
+        {"kind": "object_id", "value": "PRF-TP-008"},
+        {"kind": "doc_id", "value": "policy_rule_frontmatter_migration_ledger"},
+        {"kind": "doc_id", "value": "agents"},
+        {"kind": "doc_id", "value": "contributing"},
+    ],
+)
+def _prf_tp_008() -> None:
+    return None
+
+
+@todo_decorator(
+    reason="PRF-TP-009 remains queued while cheat-sheet guardrails and validation bundles remain hand-authored.",
+    reasoning={
+        "summary": "Once the loop and clause catalogs stabilize, the remaining repetitive cheat-sheet sections should render from those same structured governance sources.",
+        "control": "prf.touchpoint.cheat_sheet_guardrails_renderer",
+        "blocking_dependencies": ("PRF-009",),
+    },
+    owner="gabion.tooling.policy_substrate",
+    expiry="broader cheat-sheet generation converged",
+    links=[
+        {"kind": "object_id", "value": "PRF"},
+        {"kind": "object_id", "value": "PRF-009"},
+        {"kind": "object_id", "value": "PRF-TP-009"},
+        {"kind": "doc_id", "value": "policy_rule_frontmatter_migration_ledger"},
+        {"kind": "doc_id", "value": "enforceable_rules_cheat_sheet"},
+    ],
+)
+def _prf_tp_009() -> None:
     return None
 
 
@@ -268,7 +414,17 @@ def iter_prf_queues() -> tuple[PolicyRuleFrontmatterMigrationQueueDefinition, ..
             marker_identity=marker_id,
             marker_payload=payload,
             status_hint="",
-            subqueue_ids=("PRF-001", "PRF-002", "PRF-003", "PRF-004", "PRF-005"),
+            subqueue_ids=(
+                "PRF-001",
+                "PRF-002",
+                "PRF-003",
+                "PRF-004",
+                "PRF-005",
+                "PRF-006",
+                "PRF-007",
+                "PRF-008",
+                "PRF-009",
+            ),
         ),
     )
 
@@ -284,6 +440,26 @@ def iter_prf_subqueues() -> tuple[PolicyRuleFrontmatterMigrationSubqueueDefiniti
             "PRF-005",
             "Bootstrap the enforceable-rules cheat-sheet catalog + renderer",
             _prf_005,
+        ),
+        (
+            "PRF-006",
+            "Normalize governance loop registry data and render governance loop docs",
+            _prf_006,
+        ),
+        (
+            "PRF-007",
+            "Render ambiguity-contract and grade-monotonicity playbooks from markdown frontmatter",
+            _prf_007,
+        ),
+        (
+            "PRF-008",
+            "Autodenormalize clause-backed obligation decks in AGENTS and CONTRIBUTING",
+            _prf_008,
+        ),
+        (
+            "PRF-009",
+            "Extend cheat-sheet generation to guardrails and validation bundles",
+            _prf_009,
         ),
     ):
         (
@@ -310,41 +486,80 @@ def iter_prf_subqueues() -> tuple[PolicyRuleFrontmatterMigrationSubqueueDefiniti
                 structural_identity=structural_id,
                 marker_identity=marker_id,
                 marker_payload=payload,
-                status_hint="" if subqueue_id == "PRF-005" else "landed",
-                touchpoint_ids=() if subqueue_id != "PRF-005" else ("PRF-TP-005",),
+                status_hint={
+                    "PRF-005": "landed",
+                    "PRF-006": "",
+                    "PRF-007": "queued",
+                    "PRF-008": "queued",
+                    "PRF-009": "queued",
+                }.get(subqueue_id, "landed"),
+                touchpoint_ids={
+                    "PRF-006": ("PRF-TP-006",),
+                    "PRF-007": ("PRF-TP-007",),
+                    "PRF-008": ("PRF-TP-008",),
+                    "PRF-009": ("PRF-TP-009",),
+                }.get(subqueue_id, ()),
             )
         )
     return tuple(definitions)
 
 
 def iter_prf_touchpoints() -> tuple[PolicyRuleFrontmatterMigrationTouchpointDefinition, ...]:
-    (
-        payload,
-        marker_id,
-        site_id,
-        structural_id,
-        rel_path,
-        qualname,
-        line,
-    ) = _todo_metadata(
-        _prf_tp_005,
-        surface="policy_rule_frontmatter_migration_touchpoint",
-        structural_path="prf.touchpoint::PRF-TP-005",
-    )
-    return (
-        PolicyRuleFrontmatterMigrationTouchpointDefinition(
-            touchpoint_id="PRF-TP-005",
-            subqueue_id="PRF-005",
-            title="Own the Rule Matrix through a structured catalog + renderer",
-            rel_path=rel_path,
-            qualname=qualname,
-            line=line,
-            site_identity=site_id,
-            structural_identity=structural_id,
-            marker_identity=marker_id,
-            marker_payload=payload,
+    definitions: list[PolicyRuleFrontmatterMigrationTouchpointDefinition] = []
+    for touchpoint_id, subqueue_id, title, symbol in (
+        (
+            "PRF-TP-006",
+            "PRF-006",
+            "Render governance loop registry and matrix from a shared structured catalog",
+            _prf_tp_006,
         ),
-    )
+        (
+            "PRF-TP-007",
+            "PRF-007",
+            "Render policy-rule playbook sections from markdown frontmatter",
+            _prf_tp_007,
+        ),
+        (
+            "PRF-TP-008",
+            "PRF-008",
+            "Generate clause-backed obligation decks for agent/contributor docs",
+            _prf_tp_008,
+        ),
+        (
+            "PRF-TP-009",
+            "PRF-009",
+            "Generate cheat-sheet guardrails and validation bundles from governance catalogs",
+            _prf_tp_009,
+        ),
+    ):
+        (
+            payload,
+            marker_id,
+            site_id,
+            structural_id,
+            rel_path,
+            qualname,
+            line,
+        ) = _todo_metadata(
+            symbol,
+            surface="policy_rule_frontmatter_migration_touchpoint",
+            structural_path=f"prf.touchpoint::{touchpoint_id}",
+        )
+        definitions.append(
+            PolicyRuleFrontmatterMigrationTouchpointDefinition(
+                touchpoint_id=touchpoint_id,
+                subqueue_id=subqueue_id,
+                title=title,
+                rel_path=rel_path,
+                qualname=qualname,
+                line=line,
+                site_identity=site_id,
+                structural_identity=structural_id,
+                marker_identity=marker_id,
+                marker_payload=payload,
+            )
+        )
+    return tuple(definitions)
 
 
 def prf_workstream_registry() -> WorkstreamRegistry:
@@ -395,35 +610,116 @@ def prf_workstream_registry() -> WorkstreamRegistry:
                 structural_identity=item.structural_identity,
                 marker_identity=item.marker_identity,
                 marker_payload=item.marker_payload,
-                declared_touchsites=(
-                    declared_touchsite_definition(
-                        touchsite_id="PRF-TS-005-A",
-                        rel_path="docs/enforceable_rules_cheat_sheet.md",
-                        qualname="enforceable_rules_cheat_sheet#generated_rule_matrix",
-                        boundary_name="enforceable_rules_cheat_sheet#generated_rule_matrix",
-                        line=1,
-                        node_kind="document",
-                        surface="policy_rule_frontmatter_migration_touchsite",
-                        structural_path="prf.touchsite::PRF-TS-005-A",
+                declared_touchsites={
+                    "PRF-TP-006": (
+                        declared_touchsite_definition(
+                            touchsite_id="PRF-TS-006-A",
+                            rel_path="docs/governance_control_loops.md",
+                            qualname="governance_control_loops#registry",
+                            boundary_name="governance_control_loops#registry",
+                            line=1,
+                            node_kind="document",
+                            surface="policy_rule_frontmatter_migration_touchsite",
+                            structural_path="prf.touchsite::PRF-TS-006-A",
+                        ),
+                        declared_touchsite_definition(
+                            touchsite_id="PRF-TS-006-B",
+                            rel_path="docs/governance_loop_matrix.md",
+                            qualname="governance_loop_matrix#generated_matrix",
+                            boundary_name="governance_loop_matrix#generated_matrix",
+                            line=1,
+                            node_kind="document",
+                            surface="policy_rule_frontmatter_migration_touchsite",
+                            structural_path="prf.touchsite::PRF-TS-006-B",
+                        ),
+                        declared_touchsite_definition(
+                            touchsite_id="PRF-TS-006-C",
+                            rel_path="docs/governance_rules.yaml",
+                            qualname="governance_rules.gates",
+                            boundary_name="governance_rules.gates",
+                            line=1,
+                            node_kind="document",
+                            surface="policy_rule_frontmatter_migration_touchsite",
+                            structural_path="prf.touchsite::PRF-TS-006-C",
+                        ),
                     ),
-                    declared_touchsite_definition(
-                        touchsite_id="PRF-TS-005-B",
-                        rel_path="docs/enforceable_rules_catalog.yaml",
-                        qualname="enforceable_rules_catalog.rule_matrix",
-                        boundary_name="enforceable_rules_catalog.rule_matrix",
-                        line=1,
-                        node_kind="document",
-                        surface="policy_rule_frontmatter_migration_touchsite",
-                        structural_path="prf.touchsite::PRF-TS-005-B",
+                    "PRF-TP-007": (
+                        declared_touchsite_definition(
+                            touchsite_id="PRF-TS-007-A",
+                            rel_path="docs/policy_rules/ambiguity_contract.md",
+                            qualname="ambiguity_contract_policy_rules",
+                            boundary_name="ambiguity_contract_policy_rules",
+                            line=1,
+                            node_kind="document",
+                            surface="policy_rule_frontmatter_migration_touchsite",
+                            structural_path="prf.touchsite::PRF-TS-007-A",
+                        ),
+                        declared_touchsite_definition(
+                            touchsite_id="PRF-TS-007-B",
+                            rel_path="docs/policy_rules/grade_monotonicity.md",
+                            qualname="grade_monotonicity_policy_rules",
+                            boundary_name="grade_monotonicity_policy_rules",
+                            line=1,
+                            node_kind="document",
+                            surface="policy_rule_frontmatter_migration_touchsite",
+                            structural_path="prf.touchsite::PRF-TS-007-B",
+                        ),
                     ),
-                    declared_touchsite_definition_from_symbol(
-                        render_rule_matrix_block,
-                        touchsite_id="PRF-TS-005-C",
-                        boundary_name="render_rule_matrix_block",
-                        surface="policy_rule_frontmatter_migration_touchsite",
-                        structural_path="prf.touchsite::PRF-TS-005-C",
+                    "PRF-TP-008": (
+                        declared_touchsite_definition(
+                            touchsite_id="PRF-TS-008-A",
+                            rel_path="AGENTS.md",
+                            qualname="AGENTS.md#agent_obligations",
+                            boundary_name="AGENTS.md#agent_obligations",
+                            line=1,
+                            node_kind="document",
+                            surface="policy_rule_frontmatter_migration_touchsite",
+                            structural_path="prf.touchsite::PRF-TS-008-A",
+                        ),
+                        declared_touchsite_definition(
+                            touchsite_id="PRF-TS-008-B",
+                            rel_path="CONTRIBUTING.md",
+                            qualname="CONTRIBUTING.md#contributing_contract",
+                            boundary_name="CONTRIBUTING.md#contributing_contract",
+                            line=1,
+                            node_kind="document",
+                            surface="policy_rule_frontmatter_migration_touchsite",
+                            structural_path="prf.touchsite::PRF-TS-008-B",
+                        ),
+                        declared_touchsite_definition(
+                            touchsite_id="PRF-TS-008-C",
+                            rel_path="docs/normative_clause_index.md",
+                            qualname="normative_clause_index",
+                            boundary_name="normative_clause_index",
+                            line=1,
+                            node_kind="document",
+                            surface="policy_rule_frontmatter_migration_touchsite",
+                            structural_path="prf.touchsite::PRF-TS-008-C",
+                        ),
                     ),
-                ),
+                    "PRF-TP-009": (
+                        declared_touchsite_definition(
+                            touchsite_id="PRF-TS-009-A",
+                            rel_path="docs/enforceable_rules_cheat_sheet.md",
+                            qualname="enforceable_rules_cheat_sheet",
+                            boundary_name="enforceable_rules_cheat_sheet",
+                            line=1,
+                            node_kind="document",
+                            surface="policy_rule_frontmatter_migration_touchsite",
+                            structural_path="prf.touchsite::PRF-TS-009-A",
+                        ),
+                        declared_touchsite_definition(
+                            touchsite_id="PRF-TS-009-B",
+                            rel_path="docs/enforceable_rules_catalog.yaml",
+                            qualname="enforceable_rules_catalog",
+                            boundary_name="enforceable_rules_catalog",
+                            line=1,
+                            node_kind="document",
+                            surface="policy_rule_frontmatter_migration_touchsite",
+                            structural_path="prf.touchsite::PRF-TS-009-B",
+                        ),
+                    ),
+                }[item.touchpoint_id],
             )
             for item in touchpoint_definitions
         ),

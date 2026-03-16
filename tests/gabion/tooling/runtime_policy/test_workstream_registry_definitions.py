@@ -11,7 +11,7 @@ from gabion.tooling.policy_substrate.projection_semantic_fragment_phase5_registr
 )
 
 
-def test_prf_workstream_registry_exposes_active_root_and_cheat_sheet_touchpoint() -> None:
+def test_prf_workstream_registry_exposes_queue_sequence_and_active_governance_touchpoint() -> None:
     registry = prf_workstream_registry()
     touchpoints = {item.touchpoint_id: item for item in registry.touchpoints}
     subqueues = {item.subqueue_id: item for item in registry.subqueues}
@@ -24,6 +24,10 @@ def test_prf_workstream_registry_exposes_active_root_and_cheat_sheet_touchpoint(
         "PRF-003",
         "PRF-004",
         "PRF-005",
+        "PRF-006",
+        "PRF-007",
+        "PRF-008",
+        "PRF-009",
     )
     assert tuple(item.subqueue_id for item in registry.subqueues) == (
         "PRF-001",
@@ -31,27 +35,45 @@ def test_prf_workstream_registry_exposes_active_root_and_cheat_sheet_touchpoint(
         "PRF-003",
         "PRF-004",
         "PRF-005",
+        "PRF-006",
+        "PRF-007",
+        "PRF-008",
+        "PRF-009",
     )
-    assert subqueues["PRF-005"].touchpoint_ids == ("PRF-TP-005",)
+    assert subqueues["PRF-005"].status_hint == "landed"
+    assert subqueues["PRF-005"].touchpoint_ids == ()
+    assert subqueues["PRF-006"].status_hint == ""
+    assert subqueues["PRF-006"].touchpoint_ids == ("PRF-TP-006",)
+    assert subqueues["PRF-007"].status_hint == "queued"
+    assert subqueues["PRF-007"].touchpoint_ids == ("PRF-TP-007",)
+    assert subqueues["PRF-008"].status_hint == "queued"
+    assert subqueues["PRF-008"].touchpoint_ids == ("PRF-TP-008",)
+    assert subqueues["PRF-009"].status_hint == "queued"
+    assert subqueues["PRF-009"].touchpoint_ids == ("PRF-TP-009",)
     assert all(
         item.touchpoint_ids == ()
         for item in registry.subqueues
-        if item.subqueue_id != "PRF-005"
+        if item.subqueue_id in {"PRF-001", "PRF-002", "PRF-003", "PRF-004", "PRF-005"}
     )
-    assert set(touchpoints) == {"PRF-TP-005"}
+    assert set(touchpoints) == {
+        "PRF-TP-006",
+        "PRF-TP-007",
+        "PRF-TP-008",
+        "PRF-TP-009",
+    }
     assert {
         (item.rel_path, item.qualname)
-        for item in touchpoints["PRF-TP-005"].declared_touchsites
+        for item in touchpoints["PRF-TP-006"].declared_touchsites
     } >= {
         (
-            "docs/enforceable_rules_cheat_sheet.md",
-            "enforceable_rules_cheat_sheet#generated_rule_matrix",
+            "docs/governance_control_loops.md",
+            "governance_control_loops#registry",
         ),
-        ("docs/enforceable_rules_catalog.yaml", "enforceable_rules_catalog.rule_matrix"),
         (
-            "src/gabion/tooling/policy_substrate/enforceable_rules_cheat_sheet.py",
-            "render_rule_matrix_block",
+            "docs/governance_loop_matrix.md",
+            "governance_loop_matrix#generated_matrix",
         ),
+        ("docs/governance_rules.yaml", "governance_rules.gates"),
     }
 
 
