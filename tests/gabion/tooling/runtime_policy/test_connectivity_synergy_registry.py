@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+import dataclasses
+
 from gabion.analysis.foundation.marker_protocol import MarkerLifecycleState
 from gabion.tooling.policy_substrate import invariant_graph
 from gabion.tooling.policy_substrate.connectivity_synergy_registry import (
+    _ConnectivityCatalogRegistry,
+    _validate_connectivity_catalog_bindings,
+    connectivity_synergy_registry_catalog,
     connectivity_synergy_workstream_registries,
 )
 from tests.path_helpers import REPO_ROOT
@@ -289,6 +294,32 @@ def test_connectivity_synergy_registry_defines_expected_roots_and_subqueues() ->
             "test_assemble_git_state_artifact_payload_supports_injected_command_outputs",
         ),
     }
+
+
+def test_connectivity_synergy_registry_catalog_preserves_root_order() -> None:
+    catalog = connectivity_synergy_registry_catalog()
+    registries = connectivity_synergy_workstream_registries()
+    by_root = {registry.root.root_id: registry for registry in registries}
+    idr_touchpoints = {
+        item.touchpoint_id: item for item in by_root["CSA-IDR"].touchpoints
+    }
+    igm_touchpoints = {
+        item.touchpoint_id: item for item in by_root["CSA-IGM"].touchpoints
+    }
+    ivl_touchpoints = {
+        item.touchpoint_id: item for item in by_root["CSA-IVL"].touchpoints
+    }
+    perf_touchpoints = ivl_touchpoints
+    rgc_touchpoints = {
+        item.touchpoint_id: item for item in by_root["CSA-RGC"].touchpoints
+    }
+    assert tuple(item.root.root_id for item in catalog) == (
+        "CSA-IDR",
+        "CSA-IGM",
+        "CSA-IVL",
+        "CSA-RGC",
+    )
+
     assert {
         item.rel_path for item in igm_touchpoints["CSA-IGM-TP-002"].declared_touchsites
     } >= {
@@ -827,6 +858,42 @@ def test_connectivity_synergy_registry_defines_expected_roots_and_subqueues() ->
             "_join_kernel_vm_alignment_artifact",
         ),
     }
+
+def test_connectivity_synergy_registry_catalog_validator_detects_binding_drift() -> None:
+    catalog = connectivity_synergy_registry_catalog()
+    igm_catalog = next(item for item in catalog if item.root.root_id == "CSA-IGM")
+    broken_touchpoint = next(
+        item
+        for item in igm_catalog.touchpoints
+        if item.definition.touchpoint_id == "CSA-IGM-TP-007"
+    )
+    broken_links = tuple(
+        link
+        for link in broken_touchpoint.definition.marker_payload.links
+        if link.value != "CSA-IGM-TP-007"
+    )
+    broken_catalog = _ConnectivityCatalogRegistry(
+        root=igm_catalog.root,
+        subqueues=igm_catalog.subqueues,
+        touchpoints=tuple(
+            item
+            if item.definition.touchpoint_id != "CSA-IGM-TP-007"
+            else type(item)(
+                definition=dataclasses.replace(
+                    broken_touchpoint.definition,
+                    marker_payload=dataclasses.replace(
+                        broken_touchpoint.definition.marker_payload,
+                        links=broken_links,
+                    ),
+                )
+            )
+            for item in igm_catalog.touchpoints
+        ),
+        tags=igm_catalog.tags,
+    )
+
+    violations = _validate_connectivity_catalog_bindings((broken_catalog,))
+    assert "CSA-IGM-TP-007: touchpoint marker links missing touchpoint object id" in violations
 
 
 def test_connectivity_synergy_graph_exposes_cross_root_dependencies_and_mixed_root_lane() -> None:

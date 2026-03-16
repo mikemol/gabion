@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from gabion.invariants import landed_todo_decorator, todo_decorator
 from gabion.tooling.policy_substrate.workstream_registry import (
     RegisteredRootDefinition,
@@ -1293,7 +1295,117 @@ def _static_touchsite(
     )
 
 
-def connectivity_synergy_workstream_registries() -> tuple[WorkstreamRegistry, ...]:
+@dataclass(frozen=True)
+class _ConnectivityCatalogTouchpoint:
+    definition: RegisteredTouchpointDefinition
+
+
+@dataclass(frozen=True)
+class _ConnectivityCatalogSubqueue:
+    definition: RegisteredSubqueueDefinition
+
+
+@dataclass(frozen=True)
+class _ConnectivityCatalogRegistry:
+    root: RegisteredRootDefinition
+    subqueues: tuple[_ConnectivityCatalogSubqueue, ...]
+    touchpoints: tuple[_ConnectivityCatalogTouchpoint, ...]
+    tags: tuple[str, ...]
+
+
+def _catalog_from_workstream_registry(
+    registry: WorkstreamRegistry,
+) -> _ConnectivityCatalogRegistry:
+    return _ConnectivityCatalogRegistry(
+        root=registry.root,
+        subqueues=tuple(
+            _ConnectivityCatalogSubqueue(definition=item) for item in registry.subqueues
+        ),
+        touchpoints=tuple(
+            _ConnectivityCatalogTouchpoint(definition=item)
+            for item in registry.touchpoints
+        ),
+        tags=registry.tags,
+    )
+
+
+def _render_connectivity_catalog_registry(
+    catalog: _ConnectivityCatalogRegistry,
+) -> WorkstreamRegistry:
+    return WorkstreamRegistry(
+        root=catalog.root,
+        subqueues=tuple(item.definition for item in catalog.subqueues),
+        touchpoints=tuple(item.definition for item in catalog.touchpoints),
+        tags=catalog.tags,
+    )
+
+
+def _validate_connectivity_catalog_bindings(
+    catalogs: tuple[_ConnectivityCatalogRegistry, ...],
+) -> tuple[str, ...]:
+    errors: list[str] = []
+    for catalog in catalogs:
+        root_link_ids = {
+            link.value
+            for link in catalog.root.marker_payload.links
+            if link.kind.value == "object_id"
+        }
+        if catalog.root.root_id not in root_link_ids:
+            errors.append(f"{catalog.root.root_id}: root marker links missing root object id")
+        subqueue_ids = {item.definition.subqueue_id for item in catalog.subqueues}
+        touchpoint_ids = {item.definition.touchpoint_id for item in catalog.touchpoints}
+        for subqueue in catalog.subqueues:
+            definition = subqueue.definition
+            subqueue_link_ids = {
+                link.value
+                for link in definition.marker_payload.links
+                if link.kind.value == "object_id"
+            }
+            if definition.root_id != catalog.root.root_id:
+                errors.append(
+                    f"{definition.subqueue_id}: subqueue root mismatch for {catalog.root.root_id}"
+                )
+            if definition.subqueue_id not in subqueue_link_ids:
+                errors.append(
+                    f"{definition.subqueue_id}: subqueue marker links missing subqueue object id"
+                )
+            missing_touchpoints = tuple(
+                item for item in definition.touchpoint_ids if item not in touchpoint_ids
+            )
+            if missing_touchpoints:
+                errors.append(
+                    f"{definition.subqueue_id}: missing touchpoints {missing_touchpoints}"
+                )
+        for touchpoint in catalog.touchpoints:
+            definition = touchpoint.definition
+            touchpoint_link_ids = {
+                link.value
+                for link in definition.marker_payload.links
+                if link.kind.value == "object_id"
+            }
+            if definition.root_id != catalog.root.root_id:
+                errors.append(
+                    f"{definition.touchpoint_id}: touchpoint root mismatch for {catalog.root.root_id}"
+                )
+            if definition.subqueue_id not in subqueue_ids:
+                errors.append(
+                    f"{definition.touchpoint_id}: touchpoint references missing subqueue {definition.subqueue_id}"
+                )
+            if definition.touchpoint_id not in touchpoint_link_ids:
+                errors.append(
+                    f"{definition.touchpoint_id}: touchpoint marker links missing touchpoint object id"
+                )
+    return tuple(errors)
+
+
+def connectivity_synergy_registry_catalog() -> tuple[_ConnectivityCatalogRegistry, ...]:
+    return tuple(
+        _catalog_from_workstream_registry(registry)
+        for registry in _legacy_connectivity_synergy_workstream_registries()
+    )
+
+
+def _legacy_connectivity_synergy_workstream_registries() -> tuple[WorkstreamRegistry, ...]:
     idr_registry = WorkstreamRegistry(
         root=_root_definition(
             root_id="CSA-IDR",
@@ -3116,4 +3228,17 @@ def connectivity_synergy_workstream_registries() -> tuple[WorkstreamRegistry, ..
     return (idr_registry, igm_registry, ivl_registry, rgc_registry)
 
 
-__all__ = ["connectivity_synergy_workstream_registries"]
+def connectivity_synergy_workstream_registries() -> tuple[WorkstreamRegistry, ...]:
+    catalog = connectivity_synergy_registry_catalog()
+    errors = _validate_connectivity_catalog_bindings(catalog)
+    if errors:
+        raise ValueError(
+            "connectivity synergy registry catalog drift: " + "; ".join(errors)
+        )
+    return tuple(_render_connectivity_catalog_registry(entry) for entry in catalog)
+
+
+__all__ = [
+    "connectivity_synergy_registry_catalog",
+    "connectivity_synergy_workstream_registries",
+]
