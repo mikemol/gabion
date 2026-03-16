@@ -42,6 +42,9 @@ from gabion_governance.compliance_render.decision_contracts import (
 )
 from gabion_governance.consolidation_audit import parse_lint_entry as _parse_lint_entry
 from gabion_governance.consolidation_audit import parse_surface_line
+from gabion_governance.governance_doc_registry import (
+    load_governance_docflow_registry,
+)
 from gabion_governance.docflow_audit import (
     AgentDirective,
     Doc,
@@ -99,47 +102,13 @@ def _sorted(values: Iterable[object], *, key: Callable[[object], object] | None 
     )
 
 
-# --- Docflow audit constants ---
-
-CORE_GOVERNANCE_DOCS = [
-    "POLICY_SEED.md",
-    "glossary.md",
-    "README.md",
-    "CONTRIBUTING.md",
-    "AGENTS.md",
-]
-
-GOVERNANCE_DOCS = CORE_GOVERNANCE_DOCS + [
-    "docs/governance_control_loops.md",
-    "docs/governance_loop_matrix.md",
-    "docs/publishing_practices.md",
-    "docs/influence_index.md",
-    "docs/coverage_semantics.md",
-    "docs/normative_clause_index.md",
-    "docs/matrix_acceptance.md",
-    "docs/sppf_checklist.md",
-]
-
-_REVIEW_NOTE_REVISION_LINT_DOCS = frozenset(
-    {
-        "AGENTS.md",
-        "README.md",
-        "CONTRIBUTING.md",
-        "POLICY_SEED.md",
-        "glossary.md",
-        "docs/normative_clause_index.md",
-    }
-)
-
-GOVERNANCE_CONTROL_LOOPS_DOC = "docs/governance_control_loops.md"
-
-NORMATIVE_LOOP_DOMAINS = (
-    "security/workflows",
-    "docs/docflow",
-    "LSP architecture",
-    "dataflow grammar",
-    "baseline ratchets",
-)
+_GOVERNANCE_DOCFLOW_REGISTRY = load_governance_docflow_registry()
+CORE_GOVERNANCE_DOCS = _GOVERNANCE_DOCFLOW_REGISTRY.core_governance_docs
+GOVERNANCE_DOCS = _GOVERNANCE_DOCFLOW_REGISTRY.governance_docs
+NORMATIVE_LOOP_DOMAINS = _GOVERNANCE_DOCFLOW_REGISTRY.normative_loop_domains
+REQUIRED_FIELDS = _GOVERNANCE_DOCFLOW_REGISTRY.required_frontmatter_fields
+LIST_FIELDS = _GOVERNANCE_DOCFLOW_REGISTRY.list_frontmatter_fields
+MAP_FIELDS = _GOVERNANCE_DOCFLOW_REGISTRY.map_frontmatter_fields
 
 
 def _iter_in_governance_relpaths(root: Path) -> list[str]:
@@ -171,38 +140,16 @@ def _iter_out_governance_relpaths(root: Path) -> list[str]:
 def _iter_default_docflow_relpaths(root: Path) -> list[str]:
     relpaths: list[str] = []
     seen: set[str] = set()
-    for rel in [*GOVERNANCE_DOCS, *_iter_in_governance_relpaths(root)]:
+    for rel in [
+        *_GOVERNANCE_DOCFLOW_REGISTRY.governance_docs,
+        *_iter_in_governance_relpaths(root),
+    ]:
         check_deadline()
         if rel in seen:
             continue
         seen.add(rel)
         relpaths.append(rel)
     return relpaths
-
-REQUIRED_FIELDS = [
-    "doc_id",
-    "doc_role",
-    "doc_scope",
-    "doc_authority",
-    "doc_requires",
-    "doc_reviewed_as_of",
-    "doc_review_notes",
-    "doc_change_protocol",
-]
-LIST_FIELDS = {
-    "doc_scope",
-    "doc_requires",
-    "doc_commutes_with",
-    "doc_invariants",
-    "doc_erasure",
-}
-MAP_FIELDS = {
-    "doc_reviewed_as_of",
-    "doc_review_notes",
-    "doc_sections",
-    "doc_section_requires",
-    "doc_section_reviews",
-}
 
 FOREST_FALLBACK_MARKER = "FOREST_FALLBACK_USED"
 FOREST_FALLBACK_WARNING_CLASS = "consolidation.forest_fallback"
@@ -1292,7 +1239,7 @@ def _emit_docflow_suite_artifacts(
     invariant_rows, _ = _docflow_invariant_rows(
         docs=docs,
         revisions=revisions,
-        core_set=set(CORE_GOVERNANCE_DOCS),
+        core_set=set(_GOVERNANCE_DOCFLOW_REGISTRY.core_governance_docs),
         missing_frontmatter=missing_frontmatter,
         base_meta=_suite_base_meta,
     )
@@ -1949,7 +1896,7 @@ def _docflow_invariant_rows(
 ) -> tuple[list[dict[str, object]], list[str]]:
     rows: list[dict[str, object]] = []
     warnings: list[str] = []
-    control_loop_doc = docs.get(GOVERNANCE_CONTROL_LOOPS_DOC)
+    control_loop_doc = docs.get(_GOVERNANCE_DOCFLOW_REGISTRY.governance_control_loops_doc)
     declared_domains: set[str] = set()
     if control_loop_doc is not None:
         fm_domains = control_loop_doc.frontmatter.get("loop_domains")
@@ -1973,7 +1920,7 @@ def _docflow_invariant_rows(
         body = payload.body
         doc_id = fm.get("doc_id") if isinstance(fm.get("doc_id"), str) else None
         base = base_meta(rel, doc_id)
-        for field in REQUIRED_FIELDS:
+        for field in _GOVERNANCE_DOCFLOW_REGISTRY.required_frontmatter_fields:
             check_deadline()
             rows.append(
                 {
@@ -1983,7 +1930,7 @@ def _docflow_invariant_rows(
                     "present": field in fm,
                 }
             )
-        for field in ("doc_scope", "doc_requires"):
+        for field in _GOVERNANCE_DOCFLOW_REGISTRY.list_frontmatter_fields:
             check_deadline()
             if field in fm:
                 rows.append(
@@ -1995,13 +1942,7 @@ def _docflow_invariant_rows(
                         "valid": isinstance(fm.get(field), list),
                     }
                 )
-        for field in (
-            "doc_reviewed_as_of",
-            "doc_review_notes",
-            "doc_sections",
-            "doc_section_requires",
-            "doc_section_reviews",
-        ):
+        for field in _GOVERNANCE_DOCFLOW_REGISTRY.map_frontmatter_fields:
             check_deadline()
             if field in fm:
                 rows.append(
@@ -2057,7 +1998,7 @@ def _docflow_invariant_rows(
                 )
         reviewed = fm.get("doc_reviewed_as_of")
         review_notes = fm.get("doc_review_notes")
-        if rel in _REVIEW_NOTE_REVISION_LINT_DOCS and requires_list:
+        if rel in _GOVERNANCE_DOCFLOW_REGISTRY.review_note_revision_lint_docs and requires_list:
             for req in requires_list:
                 check_deadline()
                 if not isinstance(req, str):
@@ -2146,7 +2087,7 @@ def _docflow_invariant_rows(
                     }
                 )
     loop_base = base_meta(
-        GOVERNANCE_CONTROL_LOOPS_DOC,
+        _GOVERNANCE_DOCFLOW_REGISTRY.governance_control_loops_doc,
         (
             control_loop_doc.frontmatter.get("doc_id")
             if control_loop_doc is not None
@@ -2154,7 +2095,7 @@ def _docflow_invariant_rows(
             else None
         ),
     )
-    for domain in NORMATIVE_LOOP_DOMAINS:
+    for domain in _GOVERNANCE_DOCFLOW_REGISTRY.normative_loop_domains:
         check_deadline()
         rows.append(
             {
@@ -3390,7 +3331,7 @@ def _docflow_cycles(
     if not isinstance(nodes, dict) or not isinstance(edges, list):
         return []
     lifted = lift_roles or set()
-    core = set(CORE_GOVERNANCE_DOCS)
+    core = set(_GOVERNANCE_DOCFLOW_REGISTRY.core_governance_docs)
     adjacency: dict[str, set[str]] = {
         key: set() for key in nodes.keys()
     }
@@ -4212,7 +4153,7 @@ def _docflow_audit_context(
         check_deadline()
         path = root / rel
         if not path.exists():
-            if rel in GOVERNANCE_DOCS:
+            if rel in _GOVERNANCE_DOCFLOW_REGISTRY.governance_docs:
                 violations.append(f"missing governance doc: {rel}")
             continue
         _load_doc(path, rel)
@@ -4244,8 +4185,8 @@ def _docflow_audit_context(
             continue
         implication_docs[rel] = Doc(frontmatter=fm, body=body)
 
-    governance_set = set(GOVERNANCE_DOCS)
-    core_set = set(CORE_GOVERNANCE_DOCS)
+    governance_set = set(_GOVERNANCE_DOCFLOW_REGISTRY.governance_docs)
+    core_set = set(_GOVERNANCE_DOCFLOW_REGISTRY.core_governance_docs)
 
     revisions: dict[str, int] = {}
     for rel, payload in docs.items():

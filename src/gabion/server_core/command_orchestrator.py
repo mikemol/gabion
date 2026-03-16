@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+from collections.abc import Mapping as MappingABC
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from functools import singledispatch
@@ -90,6 +91,7 @@ from gabion.config import (
     exception_defaults,
     exception_never_list,
     fingerprint_defaults,
+    fingerprint_spec_items,
     merge_payload,
     taint_boundary_registry,
     taint_defaults,
@@ -199,6 +201,21 @@ def _aux_operation_mapping_or_never(value: object) -> dict[str, object]:
     if normalized_mapping is not None:
         return normalized_mapping
     never("invalid aux operation payload", payload_type=type(value).__name__)
+
+
+def _plain_json_value(value: object) -> object:
+    match value:
+        case MappingABC() as mapping_value:
+            return {
+                str(key): _plain_json_value(mapping_value[key])
+                for key in mapping_value
+            }
+        case list() as items:
+            return [_plain_json_value(item) for item in items]
+        case tuple() as items:
+            return [_plain_json_value(item) for item in items]
+        case _:
+            return value
 
 
 def _mode_kind_or_empty(mode: tuple[bool, str]) -> str:
@@ -771,12 +788,16 @@ def _emit_annotation_drift_outputs(
         report_root = Path(root)
         out_dir, artifact_dir = _output_dirs(report_root)
         if emit_test_annotation_drift:
-            report_json = json.dumps(drift_payload, indent=2, sort_keys=False) + "\n"
+            report_json = json.dumps(
+                _plain_json_value(drift_payload),
+                indent=2,
+                sort_keys=False,
+            ) + "\n"
             report_md = test_annotation_drift.render_markdown(drift_payload)
             (artifact_dir / "test_annotation_drift.json").write_text(report_json)
             (out_dir / "test_annotation_drift.md").write_text(report_md)
-            response["test_annotation_drift_summary"] = drift_payload.get(
-                "summary", {}
+            response["test_annotation_drift_summary"] = _plain_json_value(
+                drift_payload.get("summary", {})
             )
         if emit_test_annotation_drift_delta or write_test_annotation_drift_baseline:
             summary = drift_payload.get("summary", {})
@@ -810,14 +831,18 @@ def _emit_annotation_drift_outputs(
                 delta_payload = test_annotation_drift_delta.build_delta_payload(
                     baseline, current, baseline_path=str(baseline_path)
                 )
-                report_json = json.dumps(delta_payload, indent=2, sort_keys=False) + "\n"
+                report_json = json.dumps(
+                    _plain_json_value(delta_payload),
+                    indent=2,
+                    sort_keys=False,
+                ) + "\n"
                 report_md = test_annotation_drift_delta.render_markdown(delta_payload)
                 (artifact_dir / "test_annotation_drift_delta.json").write_text(
                     report_json
                 )
                 (out_dir / "test_annotation_drift_delta.md").write_text(report_md)
-                response["test_annotation_drift_delta_summary"] = delta_payload.get(
-                    "summary", {}
+                response["test_annotation_drift_delta_summary"] = _plain_json_value(
+                    delta_payload.get("summary", {})
                 )
 
 
@@ -899,7 +924,11 @@ def _emit_test_obsolescence_outputs(
                 active_summary=classification.active_summary,
             )
             (artifact_dir / "test_obsolescence_state.json").write_text(
-                json.dumps(state_payload, indent=2, sort_keys=False) + "\n"
+                json.dumps(
+                    _plain_json_value(state_payload),
+                    indent=2,
+                    sort_keys=False,
+                ) + "\n"
             )
 
     if emit_test_obsolescence and obsolescence_candidates is not None:
@@ -908,13 +937,19 @@ def _emit_test_obsolescence_outputs(
             obsolescence_candidates, obsolescence_summary or {}
         )
         out_dir, artifact_dir = _output_dirs(report_root)
-        report_json = json.dumps(report_payload, indent=2, sort_keys=False) + "\n"
+        report_json = json.dumps(
+            _plain_json_value(report_payload),
+            indent=2,
+            sort_keys=False,
+        ) + "\n"
         report_md = test_obsolescence.render_markdown(
             obsolescence_candidates, obsolescence_summary or {}
         )
         (artifact_dir / "test_obsolescence_report.json").write_text(report_json)
         (out_dir / "test_obsolescence_report.md").write_text(report_md)
-        response["test_obsolescence_summary"] = obsolescence_summary or {}
+        response["test_obsolescence_summary"] = _plain_json_value(
+            obsolescence_summary or {}
+        )
         response["test_obsolescence_active_summary"] = obsolescence_active_summary or {}
 
     if (
@@ -950,12 +985,16 @@ def _emit_test_obsolescence_outputs(
                 baseline, current, baseline_path=str(baseline_path)
             )
             out_dir, artifact_dir = _output_dirs(report_root)
-            report_json = json.dumps(delta_payload, indent=2, sort_keys=False) + "\n"
+            report_json = json.dumps(
+                _plain_json_value(delta_payload),
+                indent=2,
+                sort_keys=False,
+            ) + "\n"
             report_md = test_obsolescence_delta.render_markdown(delta_payload)
             (artifact_dir / "test_obsolescence_delta.json").write_text(report_json)
             (out_dir / "test_obsolescence_delta.md").write_text(report_md)
-            response["test_obsolescence_delta_summary"] = delta_payload.get(
-                "summary", {}
+            response["test_obsolescence_delta_summary"] = _plain_json_value(
+                delta_payload.get("summary", {})
             )
 
 
@@ -998,7 +1037,11 @@ def _emit_ambiguity_outputs(
                 ambiguity_witnesses,
             )
             (artifact_dir / "ambiguity_state.json").write_text(
-                json.dumps(state_payload, indent=2, sort_keys=False) + "\n"
+                json.dumps(
+                    _plain_json_value(state_payload),
+                    indent=2,
+                    sort_keys=False,
+                ) + "\n"
             )
         ambiguity_baseline_payload = ambiguity_delta.build_baseline_payload(
             ambiguity_witnesses,
@@ -1039,11 +1082,17 @@ def _emit_ambiguity_outputs(
                 baseline, current, baseline_path=str(baseline_path)
             )
             out_dir, artifact_dir = _output_dirs(report_root)
-            report_json = json.dumps(delta_payload, indent=2, sort_keys=False) + "\n"
+            report_json = json.dumps(
+                _plain_json_value(delta_payload),
+                indent=2,
+                sort_keys=False,
+            ) + "\n"
             report_md = ambiguity_delta.render_markdown(delta_payload)
             (artifact_dir / "ambiguity_delta.json").write_text(report_json)
             (out_dir / "ambiguity_delta.md").write_text(report_md)
-            response["ambiguity_delta_summary"] = delta_payload.get("summary", {})
+            response["ambiguity_delta_summary"] = _plain_json_value(
+                delta_payload.get("summary", {})
+            )
 
 
 def _normalize_taint_marker_rows(*, analysis: AnalysisResult) -> list[dict[str, object]]:
@@ -1227,7 +1276,11 @@ def _emit_taint_outputs(
     out_dir, artifact_dir = _output_dirs(report_root)
     if emit_taint_state:
         (artifact_dir / "taint_state.json").write_text(
-            json.dumps(state_payload, indent=2, sort_keys=False) + "\n"
+            json.dumps(
+                _plain_json_value(state_payload),
+                indent=2,
+                sort_keys=False,
+            ) + "\n"
         )
         response["taint_state_summary"] = state.summary
     if (emit_taint_delta or write_taint_baseline):
@@ -1259,13 +1312,19 @@ def _emit_taint_outputs(
                 current_baseline,
                 baseline_path=str(baseline_path),
             )
-            report_json = json.dumps(delta_payload, indent=2, sort_keys=False) + "\n"
+            report_json = json.dumps(
+                _plain_json_value(delta_payload),
+                indent=2,
+                sort_keys=False,
+            ) + "\n"
             report_md = taint_delta.render_markdown(
                 cast(Mapping[str, JSONValue], delta_payload)
             )
             (artifact_dir / "taint_delta.json").write_text(report_json)
             (out_dir / "taint_delta.md").write_text(report_md)
-            response["taint_delta_summary"] = delta_payload.get("summary", {})
+            response["taint_delta_summary"] = _plain_json_value(
+                delta_payload.get("summary", {})
+            )
     if emit_taint_lifecycle:
         readiness_payload = taint_lifecycle.build_readiness_payload(
             taint_state_payload=cast(Mapping[str, JSONValue], state_payload),
@@ -1280,13 +1339,25 @@ def _emit_taint_outputs(
             current_profile=taint_profile_name,
         )
         (out_dir / "quotient_protocol_readiness.json").write_text(
-            json.dumps(readiness_payload, indent=2, sort_keys=False) + "\n"
+            json.dumps(
+                _plain_json_value(readiness_payload),
+                indent=2,
+                sort_keys=False,
+            ) + "\n"
         )
         (out_dir / "quotient_promotion_decision.json").write_text(
-            json.dumps(promotion_payload, indent=2, sort_keys=False) + "\n"
+            json.dumps(
+                _plain_json_value(promotion_payload),
+                indent=2,
+                sort_keys=False,
+            ) + "\n"
         )
         (out_dir / "quotient_demotion_incidents.json").write_text(
-            json.dumps(demotion_payload, indent=2, sort_keys=False) + "\n"
+            json.dumps(
+                _plain_json_value(demotion_payload),
+                indent=2,
+                sort_keys=False,
+            ) + "\n"
         )
         response["quotient_protocol_readiness"] = readiness_payload
         response["quotient_promotion_decision"] = promotion_payload
@@ -1295,52 +1366,18 @@ def _emit_taint_outputs(
 
 def _apply_auxiliary_artifact_outputs(
     *,
-    response: dict[str, object],
-    analysis: AnalysisResult,
-    root: str,
-    paths: list[Path],
-    config: AuditConfig,
-    name_filter_bundle: DataflowNameFilterBundle,
-    emit_test_obsolescence: bool,
-    emit_test_obsolescence_state: bool,
-    test_obsolescence_state_path: object,
-    emit_test_obsolescence_delta: bool,
-    write_test_obsolescence_baseline: bool,
-    emit_test_evidence_suggestions: bool,
-    emit_call_clusters: bool,
-    emit_call_cluster_consolidation: bool,
-    emit_test_annotation_drift: bool,
-    emit_semantic_coverage_map: bool,
-    test_annotation_drift_state_path: object,
-    semantic_coverage_mapping_path: object,
-    emit_test_annotation_drift_delta: bool,
-    write_test_annotation_drift_baseline: bool,
-    emit_ambiguity_delta: bool,
-    emit_ambiguity_state: bool,
-    ambiguity_state_path: object,
-    write_ambiguity_baseline: bool,
-    emit_taint_delta: bool,
-    emit_taint_state: bool,
-    taint_state_path: object,
-    write_taint_baseline: bool,
-    emit_taint_lifecycle: bool,
-    taint_profile_name: str,
-    taint_boundary_registry_payload: object,
-    obsolescence_baseline_path: Path | None,
-    annotation_drift_baseline_path: Path | None,
-    ambiguity_baseline_path: Path | None,
-    taint_baseline_path: Path | None,
+    context: _AuxiliaryArtifactOutputContext,
 ) -> None:
-    if emit_test_evidence_suggestions:
-        report_root = Path(root)
+    if context.options.emit_test_evidence_suggestions:
+        report_root = Path(context.root)
         evidence_path = report_root / "out" / "test_evidence.json"
         entries = test_evidence_suggestions.load_test_evidence(str(evidence_path))
         suggestions, summary = test_evidence_suggestions.suggest_evidence(
             entries,
             root=report_root,
-            paths=paths,
-            forest=analysis.forest,
-            config=config,
+            paths=context.paths,
+            forest=context.analysis.forest,
+            config=context.config,
         )
         suggestions_payload = test_evidence_suggestions.render_json_payload(
             suggestions, summary
@@ -1350,17 +1387,17 @@ def _apply_auxiliary_artifact_outputs(
         report_json = json.dumps(suggestions_payload, indent=2, sort_keys=False) + "\n"
         (artifact_dir / "test_evidence_suggestions.json").write_text(report_json)
         (out_dir / "test_evidence_suggestions.md").write_text(report_md)
-        response["test_evidence_suggestions_summary"] = (
+        context.response["test_evidence_suggestions_summary"] = (
             suggestions_payload.get("summary", {})
         )
-    if emit_call_clusters:
-        report_root = Path(root)
+    if context.options.emit_call_clusters:
+        report_root = Path(context.root)
         evidence_path = report_root / "out" / "test_evidence.json"
         clusters_payload = call_clusters.build_call_clusters_payload(
-            paths,
+            context.paths,
             root=report_root,
             evidence_path=evidence_path,
-            config=config,
+            config=context.config,
         )
         report_md = call_clusters.render_markdown(clusters_payload)
         clusters_summary = {
@@ -1376,9 +1413,9 @@ def _apply_auxiliary_artifact_outputs(
         ) + "\n"
         (artifact_dir / "call_clusters.json").write_text(report_json)
         (out_dir / "call_clusters.md").write_text(report_md)
-        response["call_clusters_summary"] = clusters_summary
-    if emit_call_cluster_consolidation:
-        report_root = Path(root)
+        context.response["call_clusters_summary"] = clusters_summary
+    if context.options.emit_call_cluster_consolidation:
+        report_root = Path(context.root)
         evidence_path = report_root / "out" / "test_evidence.json"
         consolidation_payload = (
             call_cluster_consolidation.build_call_cluster_consolidation_payload(
@@ -1395,88 +1432,88 @@ def _apply_auxiliary_artifact_outputs(
         )
         (artifact_dir / "call_cluster_consolidation.json").write_text(report_json)
         (out_dir / "call_cluster_consolidation.md").write_text(report_md)
-        response["call_cluster_consolidation_summary"] = {
+        context.response["call_cluster_consolidation_summary"] = {
             "clusters": consolidation_payload.summary.clusters,
             "tests": consolidation_payload.summary.tests,
             "replacements": consolidation_payload.summary.replacements,
             "min_cluster_size": consolidation_payload.summary.min_cluster_size,
         }
     _emit_annotation_drift_outputs(
-        response=response,
-        root=root,
-        paths=paths,
-        test_annotation_drift_state_path=test_annotation_drift_state_path,
-        emit_test_annotation_drift=emit_test_annotation_drift,
-        emit_test_annotation_drift_delta=emit_test_annotation_drift_delta,
-        write_test_annotation_drift_baseline=write_test_annotation_drift_baseline,
-        annotation_drift_baseline_path=annotation_drift_baseline_path,
+        response=context.response,
+        root=context.root,
+        paths=context.paths,
+        test_annotation_drift_state_path=context.options.test_annotation_drift_state_path,
+        emit_test_annotation_drift=context.options.emit_test_annotation_drift,
+        emit_test_annotation_drift_delta=context.options.emit_test_annotation_drift_delta,
+        write_test_annotation_drift_baseline=context.options.write_test_annotation_drift_baseline,
+        annotation_drift_baseline_path=context.options.annotation_drift_baseline_path_override,
     )
 
-    if emit_semantic_coverage_map:
-        report_root = Path(root)
+    if context.options.emit_semantic_coverage_map:
+        report_root = Path(context.root)
         _out_dir, artifact_dir = _output_dirs(report_root)
         mapping_path = (
-            Path(str(semantic_coverage_mapping_path))
-            if semantic_coverage_mapping_path
+            Path(str(context.options.semantic_coverage_mapping_path))
+            if context.options.semantic_coverage_mapping_path
             else report_root / "out" / "semantic_coverage_mapping.json"
         )
         evidence_path = report_root / "out" / "test_evidence.json"
         semantic_payload = semantic_coverage_map.build_semantic_coverage_payload(
-            paths=paths,
-            root=Path(root),
+            paths=context.paths,
+            root=Path(context.root),
             mapping_path=mapping_path,
             evidence_path=evidence_path,
-            exclude=name_filter_bundle.exclude_dirs,
+            exclude=context.name_filter_bundle.exclude_dirs,
         )
-        report_md = semantic_coverage_map.render_markdown(semantic_payload)
+        report_md = _render_semantic_coverage_markdown(semantic_payload)
         semantic_coverage_map.write_semantic_coverage(
             semantic_payload,
             output_path=artifact_dir / "semantic_coverage_map.json",
         )
         (report_root / "artifacts" / "audit_reports").mkdir(parents=True, exist_ok=True)
         (report_root / "artifacts" / "audit_reports" / "semantic_coverage_map.md").write_text(report_md)
-        response["semantic_coverage_map_summary"] = semantic_payload.get("summary", {})
+        context.response["semantic_coverage_map_summary"] = semantic_payload.get("summary", {})
 
     _emit_test_obsolescence_outputs(
-        response=response,
-        root=root,
-        emit_test_obsolescence=emit_test_obsolescence,
-        emit_test_obsolescence_state=emit_test_obsolescence_state,
-        test_obsolescence_state_path=test_obsolescence_state_path,
-        emit_test_obsolescence_delta=emit_test_obsolescence_delta,
-        write_test_obsolescence_baseline=write_test_obsolescence_baseline,
-        obsolescence_baseline_path=obsolescence_baseline_path,
+        response=context.response,
+        root=context.root,
+        emit_test_obsolescence=context.options.emit_test_obsolescence,
+        emit_test_obsolescence_state=context.options.emit_test_obsolescence_state,
+        test_obsolescence_state_path=context.options.test_obsolescence_state_path,
+        emit_test_obsolescence_delta=context.options.emit_test_obsolescence_delta,
+        write_test_obsolescence_baseline=context.options.write_test_obsolescence_baseline,
+        obsolescence_baseline_path=context.options.obsolescence_baseline_path_override,
     )
     _emit_ambiguity_outputs(
-        response=response,
-        analysis=analysis,
-        root=root,
-        ambiguity_state_path=ambiguity_state_path,
-        emit_ambiguity_delta=emit_ambiguity_delta,
-        emit_ambiguity_state=emit_ambiguity_state,
-        write_ambiguity_baseline=write_ambiguity_baseline,
-        ambiguity_baseline_path=ambiguity_baseline_path,
+        response=context.response,
+        analysis=context.analysis,
+        root=context.root,
+        ambiguity_state_path=context.options.ambiguity_state_path,
+        emit_ambiguity_delta=context.options.emit_ambiguity_delta,
+        emit_ambiguity_state=context.options.emit_ambiguity_state,
+        write_ambiguity_baseline=context.options.write_ambiguity_baseline,
+        ambiguity_baseline_path=context.options.ambiguity_baseline_path_override,
     )
     taint_outputs_requested = bool(
-        taint_state_path
-        or emit_taint_delta
-        or emit_taint_state
-        or write_taint_baseline
-        or emit_taint_lifecycle
+        context.options.taint_state_path
+        or context.options.emit_taint_delta
+        or context.options.emit_taint_state
+        or context.options.write_taint_baseline
+        or context.options.emit_taint_lifecycle
     )
     if taint_outputs_requested:
         _emit_taint_outputs(
-            response=response,
-            analysis=analysis,
-            root=root,
-            taint_state_path=taint_state_path,
-            emit_taint_delta=emit_taint_delta,
-            emit_taint_state=emit_taint_state,
-            write_taint_baseline=write_taint_baseline,
-            emit_taint_lifecycle=emit_taint_lifecycle,
-            taint_profile_name=taint_profile_name,
-            taint_boundary_registry_payload=taint_boundary_registry_payload,
-            taint_baseline_path=taint_baseline_path,
+            response=context.response,
+            analysis=context.analysis,
+            root=context.root,
+            taint_state_path=context.options.taint_state_path,
+            emit_taint_delta=context.options.emit_taint_delta,
+            emit_taint_state=context.options.emit_taint_state,
+            write_taint_baseline=context.options.write_taint_baseline,
+            emit_taint_lifecycle=context.options.emit_taint_lifecycle,
+            taint_profile_name=context.options.taint_profile,
+            taint_boundary_registry_payload=context.options.taint_boundary_registry,
+            taint_baseline_path=context.options.taint_baseline_path_override,
         )
 
 
@@ -1507,6 +1544,17 @@ class _PrimaryOutputArtifacts:
     synthesis_plan: JSONObject | None
     refactor_plan_payload: JSONObject | None
     structure_metrics_payload: JSONObject | None
+
+
+@dataclass(frozen=True)
+class _AuxiliaryArtifactOutputContext:
+    response: dict[str, object]
+    analysis: AnalysisResult
+    root: str
+    paths: list[Path]
+    config: AuditConfig
+    name_filter_bundle: DataflowNameFilterBundle
+    options: _ExecutionPayloadOptions
 
 
 @dataclass(frozen=True)
@@ -3291,12 +3339,33 @@ def _copy_json_mapping(payload: Mapping[str, JSONValue]) -> JSONObject:
     return dict(payload)
 
 
-def _fingerprint_spec_item_selected(item: tuple[object, object]) -> bool:
-    return not str(item[0]).startswith("synth_")
-
-
 def _artifact_trace_surface(artifact_key: str) -> str:
     return "delta_payload" if "delta" in artifact_key else "delta_state"
+
+
+def _render_semantic_coverage_markdown(payload: Mapping[str, JSONValue]) -> str:
+    lines: list[str] = ["Summary:", "```"]
+    lines.extend(
+        json.dumps(payload.get("summary", {}), indent=2, sort_keys=False).splitlines()
+        or [""]
+    )
+    lines.append("```")
+    section_rows = (
+        ("Mapped obligations", payload.get("mapped_obligations", [])),
+        ("Unmapped obligations", payload.get("unmapped_obligations", [])),
+        ("Dead mapping entries", payload.get("dead_mapping_entries", [])),
+        ("Duplicate mapping entries", payload.get("duplicate_mapping_entries", [])),
+    )
+    for title, section_payload in section_rows:
+        if not section_payload:
+            continue
+        lines.extend(("", f"{title}:", "```"))
+        lines.extend(
+            json.dumps(section_payload, indent=2, sort_keys=False).splitlines()
+            or [""]
+        )
+        lines.append("```")
+    return "\n".join(lines).rstrip() + "\n"
 
 
 def _emit_trace_artifacts_payloads(
@@ -4373,45 +4442,15 @@ def _build_success_response(
         )
 
     _apply_auxiliary_artifact_outputs(
-        response=response,
-        analysis=analysis,
-        root=context.root,
-        paths=context.paths,
-        config=context.config,
-        name_filter_bundle=context.name_filter_bundle,
-        emit_test_obsolescence=context.options.emit_test_obsolescence,
-        emit_test_obsolescence_state=context.options.emit_test_obsolescence_state,
-        test_obsolescence_state_path=context.options.test_obsolescence_state_path,
-        emit_test_obsolescence_delta=context.options.emit_test_obsolescence_delta,
-        write_test_obsolescence_baseline=context.options.write_test_obsolescence_baseline,
-        emit_test_evidence_suggestions=context.options.emit_test_evidence_suggestions,
-        emit_call_clusters=context.options.emit_call_clusters,
-        emit_call_cluster_consolidation=context.options.emit_call_cluster_consolidation,
-        emit_test_annotation_drift=context.options.emit_test_annotation_drift,
-        emit_semantic_coverage_map=context.options.emit_semantic_coverage_map,
-        test_annotation_drift_state_path=context.options.test_annotation_drift_state_path,
-        semantic_coverage_mapping_path=context.options.semantic_coverage_mapping_path,
-        emit_test_annotation_drift_delta=context.options.emit_test_annotation_drift_delta,
-        write_test_annotation_drift_baseline=(
-            context.options.write_test_annotation_drift_baseline
+        context=_AuxiliaryArtifactOutputContext(
+            response=response,
+            analysis=analysis,
+            root=context.root,
+            paths=context.paths,
+            config=context.config,
+            name_filter_bundle=context.name_filter_bundle,
+            options=context.options,
         ),
-        emit_ambiguity_delta=context.options.emit_ambiguity_delta,
-        emit_ambiguity_state=context.options.emit_ambiguity_state,
-        ambiguity_state_path=context.options.ambiguity_state_path,
-        write_ambiguity_baseline=context.options.write_ambiguity_baseline,
-        emit_taint_delta=context.options.emit_taint_delta,
-        emit_taint_state=context.options.emit_taint_state,
-        taint_state_path=context.options.taint_state_path,
-        write_taint_baseline=context.options.write_taint_baseline,
-        emit_taint_lifecycle=context.options.emit_taint_lifecycle,
-        taint_profile_name=context.options.taint_profile,
-        taint_boundary_registry_payload=context.options.taint_boundary_registry,
-        obsolescence_baseline_path=context.options.obsolescence_baseline_path_override,
-        annotation_drift_baseline_path=(
-            context.options.annotation_drift_baseline_path_override
-        ),
-        ambiguity_baseline_path=context.options.ambiguity_baseline_path_override,
-        taint_baseline_path=context.options.taint_baseline_path_override,
     )
     trace_artifact_pairs = (
         ("test_obsolescence_delta_summary", "emit:test_obsolescence_delta"),
@@ -4448,7 +4487,7 @@ def _build_success_response(
             context.aspf_trace_state.one_cell_metadata,
             fillvalue={},
         ):
-            payload = cell.as_dict()
+            payload = dict(cell.as_dict())
             payload["kind"] = str(metadata.get("kind", ""))
             payload["surface"] = str(metadata.get("surface", ""))
             materialized_one_cells.append(payload)
@@ -4983,12 +5022,7 @@ def execute_command_total(
         fingerprint_registry: PrimeRegistry | None = None
         fingerprint_index: dict[Fingerprint, set[str]] = {}
         constructor_registry: TypeConstructorRegistry | None = None
-        fingerprint_spec: dict[str, JSONValue] = dict(
-            filter(
-                _fingerprint_spec_item_selected,
-                fingerprint_section.items(),
-            )
-        )
+        fingerprint_spec = fingerprint_spec_items(fingerprint_section)
         if fingerprint_spec:
             registry, index = build_fingerprint_registry(fingerprint_spec)
             if index:

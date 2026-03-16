@@ -11,6 +11,9 @@ from gabion.tooling.policy_substrate import invariant_graph
 from gabion.tooling.runtime import invariant_graph as invariant_graph_runtime
 
 
+pytestmark = pytest.mark.live_repo_signal
+
+
 def test_build_invariant_graph_materializes_planning_chart_overlay_live_repo() -> None:
     graph = invariant_graph.build_invariant_graph(REPO_ROOT)
     payload = graph.as_payload()

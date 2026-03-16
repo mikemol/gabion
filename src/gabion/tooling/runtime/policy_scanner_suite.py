@@ -3,8 +3,9 @@ from __future__ import annotations
 from collections import deque
 import itertools
 import json
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable, Literal
 from gabion.tooling.policy_substrate.policy_scanner_identity import (
     PolicyScannerIdentitySpace,
     canonical_policy_scanner_site_identity,
@@ -49,6 +50,34 @@ _TEST_SUBPROCESS_HYGIENE_ALLOWLIST = Path("docs/policy/test_subprocess_hygiene_a
 _TEST_SLEEP_HYGIENE_ALLOWLIST = Path("docs/policy/test_sleep_hygiene_allowlist.txt")
 
 _BOUNDARY_MARKER = "gabion:boundary_normalization_module"
+
+
+BatchKind = Literal["inventory", "src", "test", "boundary"]
+
+
+@dataclass(frozen=True)
+class _PolicyScannerRuleManifestEntry:
+    rule_id: str
+    module: object
+    batch_kind: BatchKind
+    serializer: Callable[[object], dict[str, object]]
+    baseline_path: Path | None = None
+    waiver_path: Path | None = None
+    waiver_loader: Callable[[Path], object] | None = None
+    invalid_waiver_builder: Callable[[Path, object, PolicyScannerIdentitySpace], dict[str, object]] | None = None
+    allowlist_path: Path | None = None
+    collector_name: str = "collect_violations"
+    ingress_collector_name: str | None = None
+
+
+@dataclass(frozen=True)
+class _PolicyScannerScanContext:
+    root: Path
+    identities: PolicyScannerIdentitySpace
+    inventory_batch: object
+    src_batch: object
+    test_batch: object
+    boundary_batch: object
 
 
 def _boundary_scoped_files(
@@ -146,340 +175,108 @@ def scan_policy_suite(
         files=boundary_scope_files,
         identities=identity_space,
     )
-    branchless_allowed = _load_rule_baseline_keys(
-        module=branchless_rule,
-        baseline_path=resolved_root / _BRANCHLESS_BASELINE,
-    )
-    defensive_allowed = _load_rule_baseline_keys(
-        module=defensive_fallback_rule,
-        baseline_path=resolved_root / _DEFENSIVE_BASELINE,
-    )
-    typing_surface_allowed = _load_rule_baseline_keys(
-        module=typing_surface_rule,
-        baseline_path=resolved_root / _TYPING_SURFACE_BASELINE,
-    )
-    runtime_narrowing_boundary_allowed = _load_rule_baseline_keys(
-        module=runtime_narrowing_boundary_rule,
-        baseline_path=resolved_root / _RUNTIME_NARROWING_BOUNDARY_BASELINE,
-    )
-    aspf_normalization_idempotence_allowed = _load_rule_baseline_keys(
-        module=aspf_normalization_idempotence_rule,
-        baseline_path=resolved_root / _ASPF_NORMALIZATION_IDEMPOTENCE_BASELINE,
-    )
-    typing_surface_waiver_result = typing_surface_rule.load_waivers(
-        resolved_root / _TYPING_SURFACE_WAIVERS,
-    )
-    runtime_narrowing_boundary_waiver_result = runtime_narrowing_boundary_rule.load_waivers(
-        resolved_root / _RUNTIME_NARROWING_BOUNDARY_WAIVERS,
-    )
-
-    violations_by_rule: dict[str, list[dict[str, Any]]] = {
-        "no_monkeypatch": [],
-        "branchless": [],
-        "defensive_fallback": [],
-        "fiber_loop_structure_contract": [],
-        "fiber_filter_processor_contract": [],
-        "fiber_return_shape_contract": [],
-        "fiber_scalar_sentinel_contract": [],
-        "fiber_type_dispatch_contract": [],
-        "no_anonymous_tuple": [],
-        "no_mutable_dict": [],
-        "no_scalar_conversion_boundary": [],
-        "no_legacy_monolith_import": [],
-        "orchestrator_primitive_barrel": [],
-        "typing_surface": [],
-        "runtime_narrowing_boundary": [],
-        "aspf_normalization_idempotence": [],
-        "boundary_core_contract": [],
-        "fiber_normalization_contract": [],
-        "test_subprocess_hygiene": [],
-        "test_sleep_hygiene": [],
-    }
-
-    for invalid in typing_surface_waiver_result.invalid_waivers:
-        violations_by_rule["typing_surface"].append(
-            _with_scanner_identity(
-                {
-                    "path": _TYPING_SURFACE_WAIVERS.as_posix(),
-                    "line": int(invalid.index),
-                    "column": 1,
-                    "qualname": "<waiver>",
-                    "kind": "invalid_waiver",
-                    "scope": "waiver",
-                    "annotation": "<none>",
-                    "message": f"invalid typing-surface waiver metadata: {invalid.reason}",
-                    "key": f"{_TYPING_SURFACE_WAIVERS.as_posix()}:<waiver>:{int(invalid.index)}:invalid_waiver",
-                    "render": f"{_TYPING_SURFACE_WAIVERS.as_posix()}:{int(invalid.index)}:1: invalid_waiver: {invalid.reason}",
-                },
-                rule_id="typing_surface",
-                identities=identity_space,
-            )
-        )
-
-    for invalid in runtime_narrowing_boundary_waiver_result.invalid_waivers:
-        violations_by_rule["runtime_narrowing_boundary"].append(
-            _with_scanner_identity(
-                {
-                    "path": _RUNTIME_NARROWING_BOUNDARY_WAIVERS.as_posix(),
-                    "line": int(invalid.index),
-                    "column": 1,
-                    "qualname": "<waiver>",
-                    "kind": "invalid_waiver",
-                    "call": "<none>",
-                    "message": f"invalid runtime-narrowing-boundary waiver metadata: {invalid.reason}",
-                    "key": f"{_RUNTIME_NARROWING_BOUNDARY_WAIVERS.as_posix()}:<waiver>:{int(invalid.index)}:invalid_waiver",
-                    "render": f"{_RUNTIME_NARROWING_BOUNDARY_WAIVERS.as_posix()}:{int(invalid.index)}:1: invalid_waiver: {invalid.reason}",
-                },
-                rule_id="runtime_narrowing_boundary",
-                identities=identity_space,
-            )
-        )
-
-    legacy_monolith_violations = no_legacy_monolith_import_rule.collect_violations(
-        batch=inventory_batch,
-    )
-    violations_by_rule["no_legacy_monolith_import"].extend(
-        _serialize_rule_violations(
-            rule_id="no_legacy_monolith_import",
-            violations=legacy_monolith_violations,
-            serializer=_serialize_legacy_monolith,
-            identities=identity_space,
-        )
-    )
-    orchestrator_barrel_violations = orchestrator_primitive_barrel_rule.collect_violations(
-        batch=inventory_batch,
-    )
-    violations_by_rule["orchestrator_primitive_barrel"].extend(
-        _serialize_rule_violations(
-            rule_id="orchestrator_primitive_barrel",
-            violations=orchestrator_barrel_violations,
-            serializer=_serialize_orchestrator_primitive_barrel,
-            identities=identity_space,
-        )
-    )
-    no_mp_violations = no_monkeypatch_rule.collect_violations(batch=inventory_batch)
-    violations_by_rule["no_monkeypatch"].extend(
-        _serialize_rule_violations(
-            rule_id="no_monkeypatch",
-            violations=no_mp_violations,
-            serializer=_serialize_no_monkeypatch,
-            identities=identity_space,
-        )
-    )
-    branchless_violations = _filter_baseline_violations(
-        branchless_rule.collect_violations(batch=src_batch),
-        allowed_keys=branchless_allowed,
-    )
-    violations_by_rule["branchless"].extend(
-        _serialize_rule_violations(
-            rule_id="branchless",
-            violations=branchless_violations,
-            serializer=_serialize_branchless,
-            identities=identity_space,
-        )
-    )
-    defensive_violations = _filter_baseline_violations(
-        defensive_fallback_rule.collect_violations(batch=src_batch),
-        allowed_keys=defensive_allowed,
-    )
-    violations_by_rule["defensive_fallback"].extend(
-        _serialize_rule_violations(
-            rule_id="defensive_fallback",
-            violations=defensive_violations,
-            serializer=_serialize_defensive,
-            identities=identity_space,
-        )
-    )
-    loop_structure_violations = fiber_loop_structure_contract_rule.collect_violations(
-        batch=src_batch,
-    )
-    violations_by_rule["fiber_loop_structure_contract"].extend(
-        _serialize_rule_violations(
-            rule_id="fiber_loop_structure_contract",
-            violations=loop_structure_violations,
-            serializer=_serialize_fiber_loop_structure_contract,
-            identities=identity_space,
-        )
-    )
-    filter_processor_violations = fiber_filter_processor_contract_rule.collect_violations(
-        batch=src_batch,
-    )
-    violations_by_rule["fiber_filter_processor_contract"].extend(
-        _serialize_rule_violations(
-            rule_id="fiber_filter_processor_contract",
-            violations=filter_processor_violations,
-            serializer=_serialize_fiber_filter_processor_contract,
-            identities=identity_space,
-        )
-    )
-    return_shape_violations = fiber_return_shape_contract_rule.collect_violations(
-        batch=src_batch,
-    )
-    violations_by_rule["fiber_return_shape_contract"].extend(
-        _serialize_rule_violations(
-            rule_id="fiber_return_shape_contract",
-            violations=return_shape_violations,
-            serializer=_serialize_fiber_return_shape_contract,
-            identities=identity_space,
-        )
-    )
-    scalar_sentinel_violations = fiber_scalar_sentinel_contract_rule.collect_violations(
-        batch=src_batch,
-    )
-    violations_by_rule["fiber_scalar_sentinel_contract"].extend(
-        _serialize_rule_violations(
-            rule_id="fiber_scalar_sentinel_contract",
-            violations=scalar_sentinel_violations,
-            serializer=_serialize_fiber_scalar_sentinel_contract,
-            identities=identity_space,
-        )
-    )
-    type_dispatch_violations = fiber_type_dispatch_contract_rule.collect_violations(
-        batch=src_batch,
-    )
-    violations_by_rule["fiber_type_dispatch_contract"].extend(
-        _serialize_rule_violations(
-            rule_id="fiber_type_dispatch_contract",
-            violations=type_dispatch_violations,
-            serializer=_serialize_fiber_type_dispatch_contract,
-            identities=identity_space,
-        )
-    )
-    no_anonymous_tuple_violations = no_anonymous_tuple_rule.collect_violations(
-        batch=src_batch,
-    )
-    violations_by_rule["no_anonymous_tuple"].extend(
-        _serialize_rule_violations(
-            rule_id="no_anonymous_tuple",
-            violations=no_anonymous_tuple_violations,
-            serializer=_serialize_no_anonymous_tuple,
-            identities=identity_space,
-        )
-    )
-    no_mutable_dict_violations = no_mutable_dict_rule.collect_violations(
-        batch=src_batch,
-    )
-    violations_by_rule["no_mutable_dict"].extend(
-        _serialize_rule_violations(
-            rule_id="no_mutable_dict",
-            violations=no_mutable_dict_violations,
-            serializer=_serialize_no_mutable_dict,
-            identities=identity_space,
-        )
-    )
-    no_scalar_conversion_boundary_violations = (
-        no_scalar_conversion_boundary_rule.collect_violations(
-            batch=src_batch,
-        )
-    )
-    violations_by_rule["no_scalar_conversion_boundary"].extend(
-        _serialize_rule_violations(
-            rule_id="no_scalar_conversion_boundary",
-            violations=no_scalar_conversion_boundary_violations,
-            serializer=_serialize_no_scalar_conversion_boundary,
-            identities=identity_space,
-        )
-    )
-    typing_surface_violations = _filter_baseline_violations(
-        typing_surface_rule.collect_violations(batch=src_batch),
-        allowed_keys=(typing_surface_allowed | typing_surface_waiver_result.allowed_keys),
-    )
-    violations_by_rule["typing_surface"].extend(
-        _serialize_rule_violations(
-            rule_id="typing_surface",
-            violations=typing_surface_violations,
-            serializer=_serialize_typing_surface,
-            identities=identity_space,
-        )
-    )
-    runtime_narrowing_boundary_violations = _filter_baseline_violations(
-        runtime_narrowing_boundary_rule.collect_violations(batch=src_batch),
-        allowed_keys=(
-            runtime_narrowing_boundary_allowed
-            | runtime_narrowing_boundary_waiver_result.allowed_keys
-        ),
-    )
-    violations_by_rule["runtime_narrowing_boundary"].extend(
-        _serialize_rule_violations(
-            rule_id="runtime_narrowing_boundary",
-            violations=runtime_narrowing_boundary_violations,
-            serializer=_serialize_runtime_narrowing_boundary,
-            identities=identity_space,
-        )
-    )
-    aspf_normalization_idempotence_violations = _filter_baseline_violations(
-        aspf_normalization_idempotence_rule.collect_violations(batch=src_batch),
-        allowed_keys=aspf_normalization_idempotence_allowed,
-    )
-    aspf_ingress_violations = aspf_normalization_idempotence_rule.collect_ingress_violations(
+    context = _PolicyScannerScanContext(
         root=resolved_root,
-        baseline_path=(resolved_root / _ASPF_NORMALIZATION_IDEMPOTENCE_BASELINE),
+        identities=identity_space,
+        inventory_batch=inventory_batch,
+        src_batch=src_batch,
+        test_batch=test_batch,
+        boundary_batch=boundary_batch,
     )
-    violations_by_rule["aspf_normalization_idempotence"].extend(
-        _serialize_rule_violations(
-            rule_id="aspf_normalization_idempotence",
-            violations=aspf_ingress_violations,
-            serializer=_serialize_aspf_normalization_idempotence,
-            identities=identity_space,
-        )
-    )
-    violations_by_rule["aspf_normalization_idempotence"].extend(
-        _serialize_rule_violations(
-            rule_id="aspf_normalization_idempotence",
-            violations=aspf_normalization_idempotence_violations,
-            serializer=_serialize_aspf_normalization_idempotence,
-            identities=identity_space,
-        )
-    )
-    boundary_core_contract_violations = boundary_core_contract_rule.collect_violations(
-        batch=boundary_batch,
-    )
-    violations_by_rule["boundary_core_contract"].extend(
-        _serialize_rule_violations(
-            rule_id="boundary_core_contract",
-            violations=boundary_core_contract_violations,
-            serializer=_serialize_boundary_core_contract,
-            identities=identity_space,
-        )
-    )
-    fiber_contract_violations = fiber_normalization_contract_rule.collect_violations(
-        batch=boundary_batch,
-    )
-    violations_by_rule["fiber_normalization_contract"].extend(
-        _serialize_rule_violations(
-            rule_id="fiber_normalization_contract",
-            violations=fiber_contract_violations,
-            serializer=_serialize_fiber_normalization_contract,
-            identities=identity_space,
-        )
-    )
-    test_subprocess_hygiene_violations = test_subprocess_hygiene_rule.collect_violations(
-        batch=test_batch,
-        allowlist_path=resolved_root / _TEST_SUBPROCESS_HYGIENE_ALLOWLIST,
-    )
-    violations_by_rule["test_subprocess_hygiene"].extend(
-        _serialize_rule_violations(
-            rule_id="test_subprocess_hygiene",
-            violations=test_subprocess_hygiene_violations,
-            serializer=_serialize_test_subprocess_hygiene,
-            identities=identity_space,
-        )
-    )
-    test_sleep_hygiene_violations = test_sleep_hygiene_rule.collect_violations(
-        batch=test_batch,
-        allowlist_path=resolved_root / _TEST_SLEEP_HYGIENE_ALLOWLIST,
-    )
-    violations_by_rule["test_sleep_hygiene"].extend(
-        _serialize_rule_violations(
-            rule_id="test_sleep_hygiene",
-            violations=test_sleep_hygiene_violations,
-            serializer=_serialize_test_sleep_hygiene,
-            identities=identity_space,
-        )
-    )
+    manifest = _policy_scanner_rule_manifest()
+    violations_by_rule: dict[str, list[dict[str, Any]]] = {
+        entry.rule_id: _scan_manifest_rule(entry=entry, context=context)
+        for entry in manifest
+    }
 
     _drain(_iter_sort_violations_by_rule(violations_by_rule))
     return violations_by_rule
+
+
+def _scan_manifest_rule(
+    *,
+    entry: _PolicyScannerRuleManifestEntry,
+    context: _PolicyScannerScanContext,
+) -> list[dict[str, object]]:
+    allowed_keys = set()
+    rows: list[dict[str, object]] = []
+    if entry.baseline_path is not None:
+        allowed_keys |= _load_rule_baseline_keys(
+            module=entry.module,
+            baseline_path=context.root / entry.baseline_path,
+        )
+    if entry.waiver_path is not None and entry.waiver_loader is not None:
+        waiver_result = entry.waiver_loader(context.root / entry.waiver_path)
+        allowed_keys |= set(getattr(waiver_result, "allowed_keys", set()))
+        if entry.invalid_waiver_builder is not None:
+            rows.extend(
+                _build_invalid_waiver_rows(
+                    entry=entry,
+                    invalid_waivers=getattr(waiver_result, "invalid_waivers", ()),
+                    identities=context.identities,
+                )
+            )
+    collector = getattr(entry.module, entry.collector_name)
+    kwargs: dict[str, object] = {"batch": _select_policy_scan_batch(entry, context)}
+    if entry.allowlist_path is not None:
+        kwargs["allowlist_path"] = context.root / entry.allowlist_path
+    violations = collector(**kwargs)
+    rows.extend(
+        _serialize_rule_violations(
+            rule_id=entry.rule_id,
+            violations=_filter_baseline_violations(violations, allowed_keys=allowed_keys),
+            serializer=entry.serializer,
+            identities=context.identities,
+        )
+    )
+    if entry.ingress_collector_name is not None and entry.baseline_path is not None:
+        ingress_violations = getattr(entry.module, entry.ingress_collector_name)(
+            root=context.root,
+            baseline_path=context.root / entry.baseline_path,
+        )
+        rows.extend(
+            _serialize_rule_violations(
+                rule_id=entry.rule_id,
+                violations=ingress_violations,
+                serializer=entry.serializer,
+                identities=context.identities,
+            )
+        )
+    return rows
+
+
+def _build_invalid_waiver_rows(
+    *,
+    entry: _PolicyScannerRuleManifestEntry,
+    invalid_waivers: Iterable[object],
+    identities: PolicyScannerIdentitySpace,
+) -> list[dict[str, object]]:
+    if entry.waiver_path is None or entry.invalid_waiver_builder is None:
+        return []
+    return [
+        _with_scanner_identity(
+            entry.invalid_waiver_builder(entry.waiver_path, invalid, identities),
+            rule_id=entry.rule_id,
+            identities=identities,
+        )
+        for invalid in invalid_waivers
+    ]
+
+
+def _select_policy_scan_batch(
+    entry: _PolicyScannerRuleManifestEntry,
+    context: _PolicyScannerScanContext,
+) -> object:
+    match entry.batch_kind:
+        case "inventory":
+            return context.inventory_batch
+        case "src":
+            return context.src_batch
+        case "test":
+            return context.test_batch
+        case "boundary":
+            return context.boundary_batch
+    raise ValueError(f"unknown policy scanner batch kind: {entry.batch_kind}")
 
 
 def _drain(items: Iterable[object]) -> None:
@@ -1219,6 +1016,222 @@ def _serialize_test_sleep_hygiene(violation: object) -> dict[str, object]:
         "structured_hash": getattr(violation, "structured_hash", ""),
         "render": getattr(violation, "render")(),
     }
+
+
+def _typing_surface_invalid_waiver_payload(
+    waiver_path: Path,
+    invalid: object,
+    _identities: PolicyScannerIdentitySpace,
+) -> dict[str, object]:
+    return {
+        "path": waiver_path.as_posix(),
+        "line": int(getattr(invalid, "index")),
+        "column": 1,
+        "qualname": "<waiver>",
+        "kind": "invalid_waiver",
+        "scope": "waiver",
+        "annotation": "<none>",
+        "message": (
+            "invalid typing-surface waiver metadata: "
+            f"{getattr(invalid, 'reason')}"
+        ),
+        "key": (
+            f"{waiver_path.as_posix()}:<waiver>:{int(getattr(invalid, 'index'))}:"
+            "invalid_waiver"
+        ),
+        "render": (
+            f"{waiver_path.as_posix()}:{int(getattr(invalid, 'index'))}:1: "
+            f"invalid_waiver: {getattr(invalid, 'reason')}"
+        ),
+    }
+
+
+def _runtime_narrowing_invalid_waiver_payload(
+    waiver_path: Path,
+    invalid: object,
+    _identities: PolicyScannerIdentitySpace,
+) -> dict[str, object]:
+    return {
+        "path": waiver_path.as_posix(),
+        "line": int(getattr(invalid, "index")),
+        "column": 1,
+        "qualname": "<waiver>",
+        "kind": "invalid_waiver",
+        "call": "<none>",
+        "message": (
+            "invalid runtime-narrowing-boundary waiver metadata: "
+            f"{getattr(invalid, 'reason')}"
+        ),
+        "key": (
+            f"{waiver_path.as_posix()}:<waiver>:{int(getattr(invalid, 'index'))}:"
+            "invalid_waiver"
+        ),
+        "render": (
+            f"{waiver_path.as_posix()}:{int(getattr(invalid, 'index'))}:1: "
+            f"invalid_waiver: {getattr(invalid, 'reason')}"
+        ),
+    }
+
+
+def _validate_policy_scanner_manifest(
+    manifest: tuple[_PolicyScannerRuleManifestEntry, ...],
+) -> tuple[str, ...]:
+    errors: list[str] = []
+    rule_ids: set[str] = set()
+    for entry in manifest:
+        if entry.rule_id in rule_ids:
+            errors.append(f"duplicate policy scanner rule id: {entry.rule_id}")
+        rule_ids.add(entry.rule_id)
+        if entry.waiver_path is not None and entry.waiver_loader is None:
+            errors.append(f"{entry.rule_id}: waiver path requires waiver loader")
+        if entry.allowlist_path is not None and entry.batch_kind != "test":
+            errors.append(f"{entry.rule_id}: allowlist path requires test batch")
+        if entry.ingress_collector_name is not None and entry.baseline_path is None:
+            errors.append(f"{entry.rule_id}: ingress collector requires baseline path")
+    return tuple(errors)
+
+
+def _policy_scanner_rule_manifest() -> tuple[_PolicyScannerRuleManifestEntry, ...]:
+    manifest = (
+        _PolicyScannerRuleManifestEntry(
+            rule_id="no_monkeypatch",
+            module=no_monkeypatch_rule,
+            batch_kind="inventory",
+            serializer=_serialize_no_monkeypatch,
+        ),
+        _PolicyScannerRuleManifestEntry(
+            rule_id="branchless",
+            module=branchless_rule,
+            batch_kind="src",
+            serializer=_serialize_branchless,
+            baseline_path=_BRANCHLESS_BASELINE,
+        ),
+        _PolicyScannerRuleManifestEntry(
+            rule_id="defensive_fallback",
+            module=defensive_fallback_rule,
+            batch_kind="src",
+            serializer=_serialize_defensive,
+            baseline_path=_DEFENSIVE_BASELINE,
+        ),
+        _PolicyScannerRuleManifestEntry(
+            rule_id="fiber_loop_structure_contract",
+            module=fiber_loop_structure_contract_rule,
+            batch_kind="src",
+            serializer=_serialize_fiber_loop_structure_contract,
+        ),
+        _PolicyScannerRuleManifestEntry(
+            rule_id="fiber_filter_processor_contract",
+            module=fiber_filter_processor_contract_rule,
+            batch_kind="src",
+            serializer=_serialize_fiber_filter_processor_contract,
+        ),
+        _PolicyScannerRuleManifestEntry(
+            rule_id="fiber_return_shape_contract",
+            module=fiber_return_shape_contract_rule,
+            batch_kind="src",
+            serializer=_serialize_fiber_return_shape_contract,
+        ),
+        _PolicyScannerRuleManifestEntry(
+            rule_id="fiber_scalar_sentinel_contract",
+            module=fiber_scalar_sentinel_contract_rule,
+            batch_kind="src",
+            serializer=_serialize_fiber_scalar_sentinel_contract,
+        ),
+        _PolicyScannerRuleManifestEntry(
+            rule_id="fiber_type_dispatch_contract",
+            module=fiber_type_dispatch_contract_rule,
+            batch_kind="src",
+            serializer=_serialize_fiber_type_dispatch_contract,
+        ),
+        _PolicyScannerRuleManifestEntry(
+            rule_id="no_anonymous_tuple",
+            module=no_anonymous_tuple_rule,
+            batch_kind="src",
+            serializer=_serialize_no_anonymous_tuple,
+        ),
+        _PolicyScannerRuleManifestEntry(
+            rule_id="no_mutable_dict",
+            module=no_mutable_dict_rule,
+            batch_kind="src",
+            serializer=_serialize_no_mutable_dict,
+        ),
+        _PolicyScannerRuleManifestEntry(
+            rule_id="no_scalar_conversion_boundary",
+            module=no_scalar_conversion_boundary_rule,
+            batch_kind="src",
+            serializer=_serialize_no_scalar_conversion_boundary,
+        ),
+        _PolicyScannerRuleManifestEntry(
+            rule_id="no_legacy_monolith_import",
+            module=no_legacy_monolith_import_rule,
+            batch_kind="inventory",
+            serializer=_serialize_legacy_monolith,
+        ),
+        _PolicyScannerRuleManifestEntry(
+            rule_id="orchestrator_primitive_barrel",
+            module=orchestrator_primitive_barrel_rule,
+            batch_kind="inventory",
+            serializer=_serialize_orchestrator_primitive_barrel,
+        ),
+        _PolicyScannerRuleManifestEntry(
+            rule_id="typing_surface",
+            module=typing_surface_rule,
+            batch_kind="src",
+            serializer=_serialize_typing_surface,
+            baseline_path=_TYPING_SURFACE_BASELINE,
+            waiver_path=_TYPING_SURFACE_WAIVERS,
+            waiver_loader=typing_surface_rule.load_waivers,
+            invalid_waiver_builder=_typing_surface_invalid_waiver_payload,
+        ),
+        _PolicyScannerRuleManifestEntry(
+            rule_id="runtime_narrowing_boundary",
+            module=runtime_narrowing_boundary_rule,
+            batch_kind="src",
+            serializer=_serialize_runtime_narrowing_boundary,
+            baseline_path=_RUNTIME_NARROWING_BOUNDARY_BASELINE,
+            waiver_path=_RUNTIME_NARROWING_BOUNDARY_WAIVERS,
+            waiver_loader=runtime_narrowing_boundary_rule.load_waivers,
+            invalid_waiver_builder=_runtime_narrowing_invalid_waiver_payload,
+        ),
+        _PolicyScannerRuleManifestEntry(
+            rule_id="aspf_normalization_idempotence",
+            module=aspf_normalization_idempotence_rule,
+            batch_kind="src",
+            serializer=_serialize_aspf_normalization_idempotence,
+            baseline_path=_ASPF_NORMALIZATION_IDEMPOTENCE_BASELINE,
+            ingress_collector_name="collect_ingress_violations",
+        ),
+        _PolicyScannerRuleManifestEntry(
+            rule_id="boundary_core_contract",
+            module=boundary_core_contract_rule,
+            batch_kind="boundary",
+            serializer=_serialize_boundary_core_contract,
+        ),
+        _PolicyScannerRuleManifestEntry(
+            rule_id="fiber_normalization_contract",
+            module=fiber_normalization_contract_rule,
+            batch_kind="boundary",
+            serializer=_serialize_fiber_normalization_contract,
+        ),
+        _PolicyScannerRuleManifestEntry(
+            rule_id="test_subprocess_hygiene",
+            module=test_subprocess_hygiene_rule,
+            batch_kind="test",
+            serializer=_serialize_test_subprocess_hygiene,
+            allowlist_path=_TEST_SUBPROCESS_HYGIENE_ALLOWLIST,
+        ),
+        _PolicyScannerRuleManifestEntry(
+            rule_id="test_sleep_hygiene",
+            module=test_sleep_hygiene_rule,
+            batch_kind="test",
+            serializer=_serialize_test_sleep_hygiene,
+            allowlist_path=_TEST_SLEEP_HYGIENE_ALLOWLIST,
+        ),
+    )
+    errors = _validate_policy_scanner_manifest(manifest)
+    if errors:
+        raise ValueError("; ".join(errors))
+    return manifest
 
 
 __all__ = [

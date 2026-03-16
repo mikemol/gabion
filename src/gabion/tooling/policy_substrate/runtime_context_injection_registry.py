@@ -231,6 +231,25 @@ def _rci_tp_live_repo_snapshot_cleanup() -> None:
     return None
 
 
+@landed_todo_decorator(
+    reason="RCI-TP-008 is recorded as landed metadata for explicit live-repo signal markers and dedicated runtime-policy sentinel modules.",
+    reasoning={
+        "summary": "Runtime-policy repo-state signal tests now live behind dedicated sentinel modules plus a narrow live_repo_signal marker instead of sharing general semantic-contract surfaces, and the completed isolation is recorded as closed touchpoint state.",
+        "control": "runtime_context_injection.live_repo_signal_markers",
+        "blocking_dependencies": (),
+    },
+    owner="gabion.tooling.runtime_policy",
+    expiry="RCI closure",
+    links=[
+        {"kind": "object_id", "value": "RCI"},
+        {"kind": "object_id", "value": "RCI-SQ-004"},
+        {"kind": "object_id", "value": "RCI-TP-008"},
+    ],
+)
+def _rci_tp_live_repo_signal_marker_split() -> None:
+    return None
+
+
 def _root_definition(
     *,
     root_id: str,
@@ -404,7 +423,7 @@ def runtime_context_injection_workstream_registry() -> WorkstreamRegistry:
                 subqueue_id="RCI-SQ-004",
                 title="Live-repo sentinel separation for invariant-graph tests",
                 symbol=_rci_sq_repo_state_sentinels,
-                touchpoint_ids=("RCI-TP-006", "RCI-TP-007"),
+                touchpoint_ids=("RCI-TP-006", "RCI-TP-007", "RCI-TP-008"),
                 status_hint="landed",
             ),
         ),
@@ -541,6 +560,36 @@ def runtime_context_injection_workstream_registry() -> WorkstreamRegistry:
                         touchsite_id="RCI-TS-007-B",
                         rel_path="tests/gabion/tooling/runtime_policy/test_invariant_graph_live_repo.py",
                         qualname="test_invariant_graph_live_repo",
+                    ),
+                ),
+            ),
+            _touchpoint_definition(
+                root_id=root_id,
+                subqueue_id="RCI-SQ-004",
+                touchpoint_id="RCI-TP-008",
+                title="Dedicated live-repo marker and sentinel split for runtime-policy repo-state tests",
+                symbol=_rci_tp_live_repo_signal_marker_split,
+                status_hint="landed",
+                declared_touchsites=(
+                    _module_touchsite(
+                        touchsite_id="RCI-TS-008-A",
+                        rel_path="tests/gabion/tooling/runtime_policy/test_invariant_graph_live_repo.py",
+                        qualname="test_invariant_graph_live_repo",
+                    ),
+                    _module_touchsite(
+                        touchsite_id="RCI-TS-008-B",
+                        rel_path="tests/gabion/tooling/runtime_policy/test_connectivity_synergy_registry_live_repo.py",
+                        qualname="test_connectivity_synergy_registry_live_repo",
+                    ),
+                    _module_touchsite(
+                        touchsite_id="RCI-TS-008-C",
+                        rel_path="tests/gabion/tooling/runtime_policy/test_kernel_vm_alignment_artifact_live_repo.py",
+                        qualname="test_kernel_vm_alignment_artifact_live_repo",
+                    ),
+                    _module_touchsite(
+                        touchsite_id="RCI-TS-008-D",
+                        rel_path="tests/gabion/tooling/runtime_policy/test_identity_grammar_completion_artifact_live_repo.py",
+                        qualname="test_identity_grammar_completion_artifact_live_repo",
                     ),
                 ),
             ),

@@ -3,22 +3,12 @@ from __future__ import annotations
 import dataclasses
 
 from gabion.analysis.foundation.marker_protocol import MarkerLifecycleState
-from gabion.tooling.policy_substrate import invariant_graph
 from gabion.tooling.policy_substrate.connectivity_synergy_registry import (
     _ConnectivityCatalogRegistry,
     _validate_connectivity_catalog_bindings,
     connectivity_synergy_registry_catalog,
     connectivity_synergy_workstream_registries,
 )
-from tests.path_helpers import REPO_ROOT
-
-
-def _work_item_node(graph: invariant_graph.InvariantGraph, object_id: str):
-    return next(
-        node
-        for node in invariant_graph.trace_nodes(graph, object_id)
-        if node.node_kind == "synthetic_work_item"
-    )
 
 
 def test_connectivity_synergy_registry_defines_expected_roots_and_subqueues() -> None:
@@ -129,6 +119,10 @@ def test_connectivity_synergy_registry_defines_expected_roots_and_subqueues() ->
         "CSA-RGC-TP-002",
         "CSA-RGC-TP-009",
     )
+    assert rgc_subqueues["CSA-RGC-SQ-001"].touchpoint_ids == (
+        "CSA-RGC-TP-001",
+        "CSA-RGC-TP-014",
+    )
     assert rgc_subqueues["CSA-RGC-SQ-003"].touchpoint_ids == (
         "CSA-RGC-TP-003",
         "CSA-RGC-TP-010",
@@ -153,6 +147,7 @@ def test_connectivity_synergy_registry_defines_expected_roots_and_subqueues() ->
         "CSA-RGC-TP-007",
         "CSA-RGC-TP-011",
         "CSA-RGC-TP-012",
+        "CSA-RGC-TP-015",
     )
     assert (
         idr_touchpoints["CSA-IDR-TP-001"].marker_payload.lifecycle_state
@@ -176,6 +171,14 @@ def test_connectivity_synergy_registry_defines_expected_roots_and_subqueues() ->
     )
     assert (
         rgc_touchpoints["CSA-RGC-TP-011"].marker_payload.lifecycle_state
+        is MarkerLifecycleState.LANDED
+    )
+    assert (
+        rgc_touchpoints["CSA-RGC-TP-014"].marker_payload.lifecycle_state
+        is MarkerLifecycleState.LANDED
+    )
+    assert (
+        rgc_touchpoints["CSA-RGC-TP-015"].marker_payload.lifecycle_state
         is MarkerLifecycleState.LANDED
     )
     assert set(
@@ -508,6 +511,8 @@ def test_connectivity_synergy_registry_catalog_preserves_root_order() -> None:
     assert rgc_touchpoints["CSA-RGC-TP-010"].status_hint == "landed"
     assert rgc_touchpoints["CSA-RGC-TP-011"].status_hint == "landed"
     assert rgc_touchpoints["CSA-RGC-TP-012"].status_hint == "landed"
+    assert rgc_touchpoints["CSA-RGC-TP-014"].status_hint == "landed"
+    assert rgc_touchpoints["CSA-RGC-TP-015"].status_hint == "landed"
     assert {
         (item.rel_path, item.qualname)
         for item in rgc_touchpoints["CSA-RGC-TP-009"].declared_touchsites
@@ -610,6 +615,32 @@ def test_connectivity_synergy_registry_catalog_preserves_root_order() -> None:
         (
             "tests/gabion/tooling/runtime_policy/test_workstream_closure_consistency.py",
             "test_workstream_closure_consistency",
+        ),
+    }
+    assert {
+        (item.rel_path, item.qualname)
+        for item in rgc_touchpoints["CSA-RGC-TP-014"].declared_touchsites
+    } >= {
+        (
+            "src/gabion_governance/governance_doc_registry.py",
+            "load_governance_docflow_registry",
+        ),
+        (
+            "src/gabion_governance/governance_audit_impl.py",
+            "_docflow_invariant_rows",
+        ),
+    }
+    assert {
+        (item.rel_path, item.qualname)
+        for item in rgc_touchpoints["CSA-RGC-TP-015"].declared_touchsites
+    } >= {
+        (
+            "src/gabion/tooling/runtime/policy_scanner_suite.py",
+            "_policy_scanner_rule_manifest",
+        ),
+        (
+            "src/gabion/tooling/runtime/policy_scanner_suite.py",
+            "scan_policy_suite",
         ),
     }
     assert {
@@ -894,240 +925,3 @@ def test_connectivity_synergy_registry_catalog_validator_detects_binding_drift()
 
     violations = _validate_connectivity_catalog_bindings((broken_catalog,))
     assert "CSA-IGM-TP-007: touchpoint marker links missing touchpoint object id" in violations
-
-
-def test_connectivity_synergy_graph_exposes_cross_root_dependencies_and_mixed_root_lane() -> None:
-    graph = invariant_graph.build_invariant_graph(REPO_ROOT)
-    node_by_id = graph.node_by_id()
-    edges_from = graph.edges_from()
-
-    assert {
-        "CSA-IDR",
-        "CSA-IGM",
-        "CSA-IVL",
-        "CSA-RGC",
-        "PRF",
-        "PSF-007",
-        "RCI",
-    }.issubset(set(graph.workstream_root_ids))
-
-    csa_rgc_sq3 = _work_item_node(graph, "CSA-RGC-SQ-003")
-    assert any(
-        node_by_id[edge.target_id].matches_raw_id("CSA-RGC-SQ-002")
-        for edge in edges_from.get(csa_rgc_sq3.node_id, ())
-        if edge.edge_kind == "depends_on"
-    )
-
-    csa_rgc_sq4 = _work_item_node(graph, "CSA-RGC-SQ-004")
-    assert any(
-        node_by_id[edge.target_id].matches_raw_id("CSA-IGM-SQ-002")
-        for edge in edges_from.get(csa_rgc_sq4.node_id, ())
-        if edge.edge_kind == "depends_on"
-    )
-
-    csa_rgc_sq5 = _work_item_node(graph, "CSA-RGC-SQ-005")
-    assert any(
-        node_by_id[edge.target_id].matches_raw_id("CSA-RGC-SQ-004")
-        for edge in edges_from.get(csa_rgc_sq5.node_id, ())
-        if edge.edge_kind == "depends_on"
-    )
-
-    csa_rgc_sq6 = _work_item_node(graph, "CSA-RGC-SQ-006")
-    assert any(
-        node_by_id[edge.target_id].matches_raw_id("CSA-IGM-SQ-004")
-        for edge in edges_from.get(csa_rgc_sq6.node_id, ())
-        if edge.edge_kind == "depends_on"
-    )
-    assert any(
-        node_by_id[edge.target_id].matches_raw_id("CSA-RGC-SQ-004")
-        for edge in edges_from.get(csa_rgc_sq6.node_id, ())
-        if edge.edge_kind == "depends_on"
-    )
-    assert any(
-        node_by_id[edge.target_id].matches_raw_id("CSA-RGC-SQ-005")
-        for edge in edges_from.get(csa_rgc_sq6.node_id, ())
-        if edge.edge_kind == "depends_on"
-    )
-    assert any(
-        node_by_id[edge.target_id].matches_raw_id("CSA-RGC-TP-007")
-        for edge in edges_from.get(csa_rgc_sq6.node_id, ())
-        if edge.edge_kind == "depends_on"
-    )
-
-    csa_rgc_tp7 = _work_item_node(graph, "CSA-RGC-TP-007")
-    assert any(
-        node_by_id[edge.target_id].matches_raw_id("CSA-IGM-SQ-004")
-        for edge in edges_from.get(csa_rgc_tp7.node_id, ())
-        if edge.edge_kind == "depends_on"
-    )
-    assert any(
-        node_by_id[edge.target_id].matches_raw_id("CSA-IVL-SQ-004")
-        for edge in edges_from.get(csa_rgc_tp7.node_id, ())
-        if edge.edge_kind == "depends_on"
-    )
-    assert any(
-        node_by_id[edge.target_id].matches_raw_id("CSA-RGC-SQ-005")
-        for edge in edges_from.get(csa_rgc_tp7.node_id, ())
-        if edge.edge_kind == "depends_on"
-    )
-    assert any(
-        node_by_id[edge.target_id].matches_raw_id("CSA-RGC-SQ-006")
-        for edge in edges_from.get(csa_rgc_tp7.node_id, ())
-        if edge.edge_kind == "depends_on"
-    )
-    csa_rgc_sq7 = _work_item_node(graph, "CSA-RGC-SQ-007")
-    assert any(
-        node_by_id[edge.target_id].matches_raw_id("CSA-RGC-SQ-004")
-        for edge in edges_from.get(csa_rgc_sq7.node_id, ())
-        if edge.edge_kind == "depends_on"
-    )
-    assert any(
-        node_by_id[edge.target_id].matches_raw_id("CSA-RGC-TP-008")
-        for edge in edges_from.get(csa_rgc_sq7.node_id, ())
-        if edge.edge_kind == "depends_on"
-    )
-
-    csa_rgc_tp8 = _work_item_node(graph, "CSA-RGC-TP-008")
-    assert any(
-        node_by_id[edge.target_id].matches_raw_id("CSA-IVL-SQ-001")
-        for edge in edges_from.get(csa_rgc_tp8.node_id, ())
-        if edge.edge_kind == "depends_on"
-    )
-    assert any(
-        node_by_id[edge.target_id].matches_raw_id("CSA-RGC-SQ-004")
-        for edge in edges_from.get(csa_rgc_tp8.node_id, ())
-        if edge.edge_kind == "depends_on"
-    )
-    assert any(
-        node_by_id[edge.target_id].matches_raw_id("CSA-RGC-SQ-007")
-        for edge in edges_from.get(csa_rgc_tp8.node_id, ())
-        if edge.edge_kind == "depends_on"
-    )
-
-    csa_idr_sq2 = _work_item_node(graph, "CSA-IDR-SQ-002")
-    assert any(
-        node_by_id[edge.target_id].matches_raw_id("PSF-007")
-        for edge in edges_from.get(csa_idr_sq2.node_id, ())
-        if edge.edge_kind == "depends_on"
-    )
-
-    csa_ivl_sq3 = _work_item_node(graph, "CSA-IVL-SQ-003")
-    assert any(
-        node_by_id[edge.target_id].matches_raw_id("CSA-IVL-SQ-002")
-        for edge in edges_from.get(csa_ivl_sq3.node_id, ())
-        if edge.edge_kind == "depends_on"
-    )
-
-    csa_ivl_sq4 = _work_item_node(graph, "CSA-IVL-SQ-004")
-    assert any(
-        node_by_id[edge.target_id].matches_raw_id("CSA-IVL-SQ-002")
-        for edge in edges_from.get(csa_ivl_sq4.node_id, ())
-        if edge.edge_kind == "depends_on"
-    )
-
-    csa_ivl_sq5 = _work_item_node(graph, "CSA-IVL-SQ-005")
-    assert any(
-        node_by_id[edge.target_id].matches_raw_id("CSA-IVL-SQ-001")
-        for edge in edges_from.get(csa_ivl_sq5.node_id, ())
-        if edge.edge_kind == "depends_on"
-    )
-    assert any(
-        node_by_id[edge.target_id].matches_raw_id("CSA-RGC-SQ-004")
-        for edge in edges_from.get(csa_ivl_sq5.node_id, ())
-        if edge.edge_kind == "depends_on"
-    )
-    csa_igm_sq4 = _work_item_node(graph, "CSA-IGM-SQ-004")
-    assert any(
-        node_by_id[edge.target_id].matches_raw_id("CSA-IGM-SQ-001")
-        for edge in edges_from.get(csa_igm_sq4.node_id, ())
-        if edge.edge_kind == "depends_on"
-    )
-    assert _work_item_node(graph, "CSA-IGM-SQ-004").doc_ids == (
-        "connectivity_synergy_audit",
-    )
-    assert _work_item_node(graph, "CSA-IGM-TP-004").doc_ids == (
-        "connectivity_synergy_audit",
-    )
-    assert _work_item_node(graph, "CSA-IVL").doc_ids == ("connectivity_synergy_audit",)
-    assert _work_item_node(graph, "CSA-RGC-SQ-004").doc_ids == (
-        "connectivity_synergy_audit",
-    )
-    assert _work_item_node(graph, "CSA-RGC-SQ-006").doc_ids == (
-        "connectivity_synergy_audit",
-    )
-    assert set(_work_item_node(graph, "CSA-RGC-SQ-007").doc_ids) == {
-        "connectivity_synergy_audit",
-        "ttl_kernel_semantics",
-    }
-    assert _work_item_node(graph, "CSA-IVL-TP-001").doc_ids == (
-        "connectivity_synergy_audit",
-    )
-    assert _work_item_node(graph, "CSA-IVL-TP-005").doc_ids == (
-        "connectivity_synergy_audit",
-    )
-    assert _work_item_node(graph, "CSA-RGC-TP-004").doc_ids == (
-        "connectivity_synergy_audit",
-    )
-    assert _work_item_node(graph, "CSA-RGC-TP-006").doc_ids == (
-        "connectivity_synergy_audit",
-    )
-    assert set(_work_item_node(graph, "CSA-RGC-TP-008").doc_ids) == {
-        "connectivity_synergy_audit",
-        "ttl_kernel_semantics",
-    }
-    assert set(_work_item_node(graph, "CSA-RGC-TP-007").doc_ids) == {
-        "connectivity_synergy_audit",
-        "influence_index",
-        "sppf_checklist",
-    }
-    assert set(_work_item_node(graph, "CSA-RGC-SQ-005").doc_ids) == {
-        "connectivity_synergy_audit",
-        "influence_index",
-        "sppf_checklist",
-    }
-    assert set(_work_item_node(graph, "CSA-RGC-TP-005").doc_ids) == {
-        "connectivity_synergy_audit",
-        "influence_index",
-        "sppf_checklist",
-    }
-
-    workstreams = invariant_graph.build_invariant_workstreams(graph, root=REPO_ROOT)
-    recommended_code_followup = workstreams.recommended_repo_code_followup()
-    assert recommended_code_followup is not None
-    assert recommended_code_followup.followup_family in {
-        "coverage_gap",
-        "structural_cut",
-    }
-    assert recommended_code_followup.selection_scope_kind in {
-        "singleton",
-        "mixed_root_followup_family",
-    }
-    if recommended_code_followup.selection_scope_kind == "mixed_root_followup_family":
-        scope_roots = set(
-            recommended_code_followup.selection_scope_id.split(":", 1)[1].split(",")
-        )
-        assert recommended_code_followup.selection_scope_id.startswith("coverage_gap:")
-        assert {
-            item.owner_root_object_id
-            for item in recommended_code_followup.cofrontier_followup_cohort
-        } == scope_roots
-        assert scope_roots.issuperset(
-            {"BIC", "CSA-IDR", "CSA-IGM", "CSA-RGC", "PSF-007", "RCI"}
-        )
-    else:
-        assert recommended_code_followup.owner_root_object_id in {
-            "BIC",
-            "CSA-IDR",
-            "CSA-IGM",
-            "CSA-IVL",
-            "CSA-RGC",
-            "PSF-007",
-            "RCI",
-        }
-
-    recommended_code_lane = workstreams.recommended_repo_code_followup_lane()
-    assert recommended_code_lane is not None
-    assert set(recommended_code_lane.root_object_ids).issubset(
-        {"BIC", "CSA-IDR", "CSA-IGM", "CSA-IVL", "CSA-RGC", "PSF-007", "RCI"}
-    )
-    assert recommended_code_lane.root_object_ids

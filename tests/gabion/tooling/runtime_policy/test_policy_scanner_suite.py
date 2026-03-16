@@ -71,6 +71,58 @@ def test_policy_scanner_suite_runtime_exports_scan_only() -> None:
     assert not hasattr(policy_scanner_suite, "policy_suite_decision")
 
 
+def test_policy_scanner_rule_manifest_preserves_expected_rule_order_and_paths() -> None:
+    manifest = policy_scanner_suite._policy_scanner_rule_manifest()
+
+    assert tuple(item.rule_id for item in manifest) == (
+        "no_monkeypatch",
+        "branchless",
+        "defensive_fallback",
+        "fiber_loop_structure_contract",
+        "fiber_filter_processor_contract",
+        "fiber_return_shape_contract",
+        "fiber_scalar_sentinel_contract",
+        "fiber_type_dispatch_contract",
+        "no_anonymous_tuple",
+        "no_mutable_dict",
+        "no_scalar_conversion_boundary",
+        "no_legacy_monolith_import",
+        "orchestrator_primitive_barrel",
+        "typing_surface",
+        "runtime_narrowing_boundary",
+        "aspf_normalization_idempotence",
+        "boundary_core_contract",
+        "fiber_normalization_contract",
+        "test_subprocess_hygiene",
+        "test_sleep_hygiene",
+    )
+    by_rule = {item.rule_id: item for item in manifest}
+    assert by_rule["branchless"].baseline_path == Path(
+        "baselines/branchless_policy_baseline.json"
+    )
+    assert by_rule["typing_surface"].waiver_path == Path(
+        "baselines/typing_surface_policy_waivers.json"
+    )
+    assert by_rule["test_sleep_hygiene"].allowlist_path == Path(
+        "docs/policy/test_sleep_hygiene_allowlist.txt"
+    )
+
+
+def test_policy_scanner_manifest_validator_detects_duplicate_rule_ids() -> None:
+    manifest = policy_scanner_suite._policy_scanner_rule_manifest()
+    broken = manifest + (
+        policy_scanner_suite._PolicyScannerRuleManifestEntry(
+            rule_id=manifest[0].rule_id,
+            module=manifest[0].module,
+            batch_kind=manifest[0].batch_kind,
+            serializer=manifest[0].serializer,
+        ),
+    )
+
+    violations = policy_scanner_suite._validate_policy_scanner_manifest(broken)
+    assert violations == ("duplicate policy scanner rule id: no_monkeypatch",)
+
+
 # gabion:evidence E:call_footprint::tests/test_policy_scanner_suite.py::test_policy_scanner_suite_scan_result_shape::policy_scanner_suite.py::gabion.tooling.policy_scanner_suite.scan_policy_suite
 # gabion:behavior primary=desired
 def test_policy_scanner_suite_scan_result_shape(tmp_path: Path) -> None:

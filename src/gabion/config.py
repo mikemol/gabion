@@ -3,9 +3,10 @@ from __future__ import annotations
 from datetime import date, datetime, time
 from functools import singledispatch
 from pathlib import Path
-from typing import TypeAlias
+from typing import TypeAlias, cast
 import tomllib
 from gabion.analysis.foundation.timeout_context import check_deadline
+from gabion.json_types import JSONValue
 from gabion.invariants import never
 
 DEFAULT_CONFIG_NAME = "gabion.toml"
@@ -70,6 +71,29 @@ def fingerprint_defaults(
 ) -> TomlTable:
     data = load_config(root=root, config_path=config_path)
     return _toml_table_default_empty(data.get("fingerprints", {}))
+
+
+def _fingerprint_spec_value_supported(value: TomlValue) -> bool:
+    match value:
+        case None | str():
+            return True
+        case list() as items:
+            return all(isinstance(item, str) for item in items)
+        case _:
+            return False
+
+
+def fingerprint_spec_items(section: TomlTable) -> dict[str, JSONValue]:
+    return {
+        str(key): cast(JSONValue, value)
+        for key, value in section.items()
+        if (
+            not str(key).startswith("synth_")
+            and not str(key).startswith("seed_")
+            and str(key) != "fingerprint_seed_path"
+            and _fingerprint_spec_value_supported(value)
+        )
+    }
 
 
 def taint_defaults(

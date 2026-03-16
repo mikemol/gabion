@@ -237,6 +237,25 @@ def _scc_tp_review_note_lint() -> None:
     return None
 
 
+@landed_todo_decorator(
+    reason="SCC-TP-008 is recorded as landed metadata for typed option-bundle reification across orchestration and dataflow hot paths.",
+    reasoning={
+        "summary": "Recurring execution, auxiliary-artifact, and analysis option families now cross hot-path boundaries through typed bundles instead of large ad hoc parameter sets, and the completed reification is recorded as closed touchpoint state.",
+        "control": "surface_contract_convergence.bundle_reification_touchpoint",
+        "blocking_dependencies": (),
+    },
+    owner="gabion.server_core",
+    expiry="SCC closure",
+    links=[
+        {"kind": "object_id", "value": "SCC"},
+        {"kind": "object_id", "value": "SCC-SQ-001"},
+        {"kind": "object_id", "value": "SCC-TP-008"},
+    ],
+)
+def _scc_tp_bundle_reification() -> None:
+    return None
+
+
 def _root_definition(
     *,
     root_id: str,
@@ -387,7 +406,7 @@ def surface_contract_convergence_workstream_registry() -> WorkstreamRegistry:
                 subqueue_id="SCC-SQ-001",
                 title="Runtime-shape coercion substrate convergence",
                 symbol=_scc_sq_coercion_substrate,
-                touchpoint_ids=("SCC-TP-001", "SCC-TP-002"),
+                touchpoint_ids=("SCC-TP-001", "SCC-TP-002", "SCC-TP-008"),
                 status_hint="landed",
             ),
             _subqueue_definition(
@@ -473,6 +492,26 @@ def surface_contract_convergence_workstream_registry() -> WorkstreamRegistry:
                         touchsite_id="SCC-TS-002-E",
                         rel_path="src/gabion/analysis/surfaces/test_obsolescence_delta.py",
                         qualname="test_obsolescence_delta",
+                    ),
+                ),
+            ),
+            _touchpoint_definition(
+                root_id=root_id,
+                subqueue_id="SCC-SQ-001",
+                touchpoint_id="SCC-TP-008",
+                title="Typed option-bundle reification for orchestration and dataflow hot paths",
+                symbol=_scc_tp_bundle_reification,
+                status_hint="landed",
+                declared_touchsites=(
+                    _module_touchsite(
+                        touchsite_id="SCC-TS-008-A",
+                        rel_path="src/gabion/server_core/command_orchestrator.py",
+                        qualname="command_orchestrator",
+                    ),
+                    _module_touchsite(
+                        touchsite_id="SCC-TS-008-B",
+                        rel_path="src/gabion/analysis/dataflow/engine/dataflow_pipeline.py",
+                        qualname="dataflow_pipeline",
                     ),
                 ),
             ),

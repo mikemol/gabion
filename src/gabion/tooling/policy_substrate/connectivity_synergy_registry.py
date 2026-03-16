@@ -979,6 +979,44 @@ def _csa_rgc_tp_workstream_closure_hardening() -> None:
     return None
 
 
+@landed_todo_decorator(
+    reason="CSA-RGC-TP-014 is recorded as landed metadata for moving governance doc inventory and frontmatter schema into a declarative governance registry.",
+    reasoning={
+        "summary": "Governance document membership, review-note lint scope, and frontmatter field classes now resolve from a dedicated declarative governance registry instead of duplicated constants in governance_audit_impl, and the completed convergence is recorded as landed touchpoint state.",
+        "control": "connectivity_synergy.registry_convergence.governance_doc_registry",
+        "blocking_dependencies": (),
+    },
+    owner="gabion_governance",
+    expiry="CSA-RGC closure",
+    links=[
+        {"kind": "object_id", "value": "CSA-RGC"},
+        {"kind": "object_id", "value": "CSA-RGC-SQ-001"},
+        {"kind": "object_id", "value": "CSA-RGC-TP-014"},
+    ],
+)
+def _csa_rgc_tp_governance_doc_registry() -> None:
+    return None
+
+
+@landed_todo_decorator(
+    reason="CSA-RGC-TP-015 is recorded as landed metadata for moving policy scanner suite topology into a declarative manifest.",
+    reasoning={
+        "summary": "Rule order, baseline and waiver paths, allowlists, and collector wiring for policy_scanner_suite now resolve from one declarative manifest instead of hand-authored imperative orchestration, and the completed convergence is recorded as landed touchpoint state.",
+        "control": "connectivity_synergy.registry_convergence.policy_scanner_manifest",
+        "blocking_dependencies": (),
+    },
+    owner="gabion.tooling.runtime",
+    expiry="CSA-RGC closure",
+    links=[
+        {"kind": "object_id", "value": "CSA-RGC"},
+        {"kind": "object_id", "value": "CSA-RGC-SQ-006"},
+        {"kind": "object_id", "value": "CSA-RGC-TP-015"},
+    ],
+)
+def _csa_rgc_tp_policy_scanner_manifest() -> None:
+    return None
+
+
 @todo_decorator(
     reason="CSA-IVL-TP-001 tracks workflow convergence, lattice witness construction, and invariant-workstream projection surfaces that currently govern refresh cost.",
     reasoning={
@@ -2058,7 +2096,7 @@ def _legacy_connectivity_synergy_workstream_registries() -> tuple[WorkstreamRegi
                 root_id="CSA-RGC",
                 subqueue_id="CSA-RGC-SQ-001",
                 title="Governance document inventory externalization from hardcoded Python constants",
-                touchpoint_ids=("CSA-RGC-TP-001",),
+                touchpoint_ids=("CSA-RGC-TP-001", "CSA-RGC-TP-014"),
                 symbol=_csa_rgc_sq_governance_inventory,
             ),
             _subqueue_definition(
@@ -2098,6 +2136,7 @@ def _legacy_connectivity_synergy_workstream_registries() -> tuple[WorkstreamRegi
                     "CSA-RGC-TP-007",
                     "CSA-RGC-TP-011",
                     "CSA-RGC-TP-012",
+                    "CSA-RGC-TP-015",
                 ),
                 symbol=_csa_rgc_sq_control_loop_artifact_graph,
             ),
@@ -2141,6 +2180,34 @@ def _legacy_connectivity_synergy_workstream_registries() -> tuple[WorkstreamRegi
                         touchsite_id="CSA-RGC-TS-005",
                         qualname="MAP_FIELDS",
                         line=188,
+                    ),
+                ),
+            ),
+            _touchpoint_definition(
+                root_id="CSA-RGC",
+                subqueue_id="CSA-RGC-SQ-001",
+                touchpoint_id="CSA-RGC-TP-014",
+                title="Declarative governance doc inventory and frontmatter schema registry",
+                symbol=_csa_rgc_tp_governance_doc_registry,
+                status_hint="landed",
+                declared_touchsites=(
+                    _function_touchsite(
+                        touchsite_id="CSA-RGC-TS-014-A",
+                        rel_path="src/gabion_governance/governance_doc_registry.py",
+                        qualname="load_governance_docflow_registry",
+                        line=20,
+                        surface="governance_registry_catalog",
+                        structural_path="load_governance_docflow_registry",
+                        status_hint="landed",
+                    ),
+                    _function_touchsite(
+                        touchsite_id="CSA-RGC-TS-014-B",
+                        rel_path="src/gabion_governance/governance_audit_impl.py",
+                        qualname="_docflow_invariant_rows",
+                        line=1884,
+                        surface="governance_registry_catalog_consumer",
+                        structural_path="_docflow_invariant_rows",
+                        status_hint="landed",
                     ),
                 ),
             ),
@@ -2419,6 +2486,34 @@ def _legacy_connectivity_synergy_workstream_registries() -> tuple[WorkstreamRegi
                         line=1127,
                         surface="control_loop_artifact",
                         structural_path="ci_local_repro::main",
+                    ),
+                ),
+            ),
+            _touchpoint_definition(
+                root_id="CSA-RGC",
+                subqueue_id="CSA-RGC-SQ-006",
+                touchpoint_id="CSA-RGC-TP-015",
+                title="Declarative policy scanner rule manifest and generated scan wiring",
+                symbol=_csa_rgc_tp_policy_scanner_manifest,
+                status_hint="landed",
+                declared_touchsites=(
+                    _function_touchsite(
+                        touchsite_id="CSA-RGC-TS-015-A",
+                        rel_path="src/gabion/tooling/runtime/policy_scanner_suite.py",
+                        qualname="_policy_scanner_rule_manifest",
+                        line=1073,
+                        surface="policy_scanner_manifest",
+                        structural_path="_policy_scanner_rule_manifest",
+                        status_hint="landed",
+                    ),
+                    _function_touchsite(
+                        touchsite_id="CSA-RGC-TS-015-B",
+                        rel_path="src/gabion/tooling/runtime/policy_scanner_suite.py",
+                        qualname="scan_policy_suite",
+                        line=104,
+                        surface="policy_scanner_manifest_consumer",
+                        structural_path="scan_policy_suite",
+                        status_hint="landed",
                     ),
                 ),
             ),

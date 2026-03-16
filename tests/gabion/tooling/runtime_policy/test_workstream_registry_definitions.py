@@ -197,7 +197,11 @@ def test_surface_contract_convergence_workstream_registry_exposes_queue_and_touc
         "SCC-SQ-003",
         "SCC-SQ-004",
     )
-    assert subqueues["SCC-SQ-001"].touchpoint_ids == ("SCC-TP-001", "SCC-TP-002")
+    assert subqueues["SCC-SQ-001"].touchpoint_ids == (
+        "SCC-TP-001",
+        "SCC-TP-002",
+        "SCC-TP-008",
+    )
     assert subqueues["SCC-SQ-002"].touchpoint_ids == ("SCC-TP-003", "SCC-TP-004")
     assert subqueues["SCC-SQ-003"].touchpoint_ids == ("SCC-TP-005", "SCC-TP-006")
     assert subqueues["SCC-SQ-004"].touchpoint_ids == ("SCC-TP-007",)
@@ -214,6 +218,7 @@ def test_surface_contract_convergence_workstream_registry_exposes_queue_and_touc
         "SCC-TP-005",
         "SCC-TP-006",
         "SCC-TP-007",
+        "SCC-TP-008",
     }
     assert touchpoints["SCC-TP-001"].status_hint == "landed"
     assert touchpoints["SCC-TP-002"].status_hint == "landed"
@@ -222,6 +227,7 @@ def test_surface_contract_convergence_workstream_registry_exposes_queue_and_touc
     assert touchpoints["SCC-TP-005"].status_hint == "landed"
     assert touchpoints["SCC-TP-006"].status_hint == "landed"
     assert touchpoints["SCC-TP-007"].status_hint == "landed"
+    assert touchpoints["SCC-TP-008"].status_hint == "landed"
     assert all(
         item.marker_payload.lifecycle_state is MarkerLifecycleState.LANDED
         for item in registry.touchpoints
@@ -238,6 +244,7 @@ def test_surface_contract_convergence_workstream_registry_exposes_queue_and_touc
             "SCC-TP-005",
             "SCC-TP-006",
             "SCC-TP-007",
+            "SCC-TP-008",
         }
     )
     assert {
@@ -350,6 +357,16 @@ def test_surface_contract_convergence_workstream_registry_exposes_queue_and_touc
             "docs/normative_clause_index.md#normative_clause_index",
         ),
     }
+    assert {
+        (item.rel_path, item.qualname)
+        for item in touchpoints["SCC-TP-008"].declared_touchsites
+    } >= {
+        ("src/gabion/server_core/command_orchestrator.py", "command_orchestrator"),
+        (
+            "src/gabion/analysis/dataflow/engine/dataflow_pipeline.py",
+            "dataflow_pipeline",
+        ),
+    }
 
 
 def test_runtime_context_injection_workstream_registry_exposes_queue_and_touchsites() -> None:
@@ -376,7 +393,11 @@ def test_runtime_context_injection_workstream_registry_exposes_queue_and_touchsi
     assert subqueues["RCI-SQ-001"].touchpoint_ids == ("RCI-TP-001",)
     assert subqueues["RCI-SQ-002"].touchpoint_ids == ("RCI-TP-002", "RCI-TP-003")
     assert subqueues["RCI-SQ-003"].touchpoint_ids == ("RCI-TP-004", "RCI-TP-005")
-    assert subqueues["RCI-SQ-004"].touchpoint_ids == ("RCI-TP-006", "RCI-TP-007")
+    assert subqueues["RCI-SQ-004"].touchpoint_ids == (
+        "RCI-TP-006",
+        "RCI-TP-007",
+        "RCI-TP-008",
+    )
     assert all(item.status_hint == "landed" for item in registry.subqueues)
     assert all(
         item.marker_payload.lifecycle_state is MarkerLifecycleState.LANDED
@@ -390,6 +411,7 @@ def test_runtime_context_injection_workstream_registry_exposes_queue_and_touchsi
         "RCI-TP-005",
         "RCI-TP-006",
         "RCI-TP-007",
+        "RCI-TP-008",
     }
     assert all(item.status_hint == "landed" for item in registry.touchpoints)
     assert all(
@@ -460,6 +482,27 @@ def test_runtime_context_injection_workstream_registry_exposes_queue_and_touchsi
         (
             "tests/gabion/tooling/runtime_policy/test_invariant_graph_live_repo.py",
             "test_invariant_graph_live_repo",
+        ),
+    }
+    assert {
+        (item.rel_path, item.qualname)
+        for item in touchpoints["RCI-TP-008"].declared_touchsites
+    } == {
+        (
+            "tests/gabion/tooling/runtime_policy/test_connectivity_synergy_registry_live_repo.py",
+            "test_connectivity_synergy_registry_live_repo",
+        ),
+        (
+            "tests/gabion/tooling/runtime_policy/test_identity_grammar_completion_artifact_live_repo.py",
+            "test_identity_grammar_completion_artifact_live_repo",
+        ),
+        (
+            "tests/gabion/tooling/runtime_policy/test_invariant_graph_live_repo.py",
+            "test_invariant_graph_live_repo",
+        ),
+        (
+            "tests/gabion/tooling/runtime_policy/test_kernel_vm_alignment_artifact_live_repo.py",
+            "test_kernel_vm_alignment_artifact_live_repo",
         ),
     }
 
@@ -673,13 +716,24 @@ def test_connectivity_synergy_workstream_registries_expose_expected_roots_and_to
             "CSA-RGC-TP-007",
             "CSA-RGC-TP-011",
             "CSA-RGC-TP-012",
+            "CSA-RGC-TP-015",
         )
+    )
+    assert (
+        next(
+            item
+            for item in by_root["CSA-RGC"].subqueues
+            if item.subqueue_id == "CSA-RGC-SQ-001"
+        ).touchpoint_ids
+        == ("CSA-RGC-TP-001", "CSA-RGC-TP-014")
     )
     assert igm_touchpoints["CSA-IGM-TP-005"].status_hint == "landed"
     assert igm_touchpoints["CSA-IGM-TP-007"].status_hint == "landed"
     assert rgc_touchpoints["CSA-RGC-TP-009"].status_hint == "landed"
     assert rgc_touchpoints["CSA-RGC-TP-010"].status_hint == "landed"
     assert rgc_touchpoints["CSA-RGC-TP-011"].status_hint == "landed"
+    assert rgc_touchpoints["CSA-RGC-TP-014"].status_hint == "landed"
+    assert rgc_touchpoints["CSA-RGC-TP-015"].status_hint == "landed"
 
     assert {
         (item.rel_path, item.qualname)
@@ -842,6 +896,32 @@ def test_connectivity_synergy_workstream_registries_expose_expected_roots_and_to
         (
             "tests/gabion/tooling/runtime_policy/test_workstream_closure_consistency.py",
             "test_workstream_closure_consistency",
+        ),
+    }
+    assert {
+        (item.rel_path, item.qualname)
+        for item in rgc_touchpoints["CSA-RGC-TP-014"].declared_touchsites
+    } >= {
+        (
+            "src/gabion_governance/governance_doc_registry.py",
+            "load_governance_docflow_registry",
+        ),
+        (
+            "src/gabion_governance/governance_audit_impl.py",
+            "_docflow_invariant_rows",
+        ),
+    }
+    assert {
+        (item.rel_path, item.qualname)
+        for item in rgc_touchpoints["CSA-RGC-TP-015"].declared_touchsites
+    } >= {
+        (
+            "src/gabion/tooling/runtime/policy_scanner_suite.py",
+            "_policy_scanner_rule_manifest",
+        ),
+        (
+            "src/gabion/tooling/runtime/policy_scanner_suite.py",
+            "scan_policy_suite",
         ),
     }
     assert {
