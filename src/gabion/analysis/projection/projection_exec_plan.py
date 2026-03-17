@@ -21,7 +21,7 @@ from gabion.analysis.projection.projection_normalize import (
     _normalize_value,
 )
 from gabion.analysis.projection.projection_spec import ProjectionSpec
-from gabion.invariants import decision_protocol, grade_boundary, never
+from gabion.invariants import decision_protocol, never
 
 
 @dataclass(frozen=True)
@@ -46,10 +46,6 @@ class _EmitExecutionPlanningDecision(_ExecutionPlanningDecision):
     execution_op: ExecutionProjectionOp
 
 
-@grade_boundary(
-    kind="semantic_carrier_adapter",
-    name="projection_exec_plan.execution_ops_from_spec",
-)
 @decision_protocol
 def execution_ops_from_spec(spec: ProjectionSpec) -> tuple[ExecutionProjectionOp, ...]:
     execution_ops: list[ExecutionProjectionOp] = []
@@ -80,10 +76,6 @@ def execution_ops_from_spec(spec: ProjectionSpec) -> tuple[ExecutionProjectionOp
     return tuple(execution_ops)
 
 
-@grade_boundary(
-    kind="semantic_carrier_adapter",
-    name="projection_exec_plan.plan_execution_op",
-)
 def _plan_execution_op(
     *,
     source_index: int,
@@ -232,10 +224,6 @@ def _plan_execution_op(
             )  # pragma: no cover - never() raises
 
 
-@grade_boundary(
-    kind="semantic_carrier_adapter",
-    name="projection_exec_plan.plan_traverse_execution_op",
-)
 def _plan_traverse_execution_op(
     *,
     source_index: int,

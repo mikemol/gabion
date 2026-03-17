@@ -15,7 +15,7 @@ from gabion.tooling.policy_substrate.workstream_registry import (
     RegisteredTouchpointDefinition,
     WorkstreamRegistry,
 )
-from gabion.invariants import invariant_decorations, todo_decorator
+from gabion.invariants import invariant_decorations, landed_todo_decorator, todo_decorator
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 
@@ -319,12 +319,12 @@ def _psf_007_tp_semantic_fragment_compile() -> None:
     return None
 
 
-@todo_decorator(
-    reason="PSF-007 touchpoint for projection_exec_plan.py remains active.",
+@landed_todo_decorator(
+    reason="PSF-007-TP-005 is recorded as landed after all semantic_carrier_adapter grade_boundaries were removed from projection_exec_plan.py.",
     reasoning={
-        "summary": "projection_exec_plan.py still carries the typed execution planning touchsites for PSF-007.",
+        "summary": "All three grade_boundary decorators (execution_ops_from_spec, _plan_execution_op, _plan_traverse_execution_op) have been removed from projection_exec_plan.py; surviving_boundary_names is empty as declared.",
         "control": "psf007.touchpoint.projection_exec_plan",
-        "blocking_dependencies": ("PSF-007-SQ-005",),
+        "blocking_dependencies": (),
     },
     owner="gabion.analysis.projection",
     expiry="PSF-007 closure",
@@ -632,6 +632,7 @@ def phase5_workstream_registry() -> WorkstreamRegistry:
                 structural_identity=item.structural_identity,
                 marker_identity=item.marker_identity,
                 marker_payload=item.marker_payload,
+                status_hint="landed" if item.marker_payload.lifecycle_state == "landed" else "",
                 collapse_private_helpers=item.collapse_private_helpers,
                 surviving_boundary_names=item.surviving_boundary_names,
                 declared_counterfactual_actions=item.declared_counterfactual_actions,
