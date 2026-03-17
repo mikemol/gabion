@@ -1,5 +1,5 @@
 ---
-doc_revision: 54
+doc_revision: 55
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: influence_index
 doc_role: index
@@ -149,3 +149,4 @@ Status legend:
 - in/in-56.md — **queued** (graded execution strategy for quotient classes with deterministic routing and budgets.)
 - in/in-57.md — **queued** (governance ratchets for quotient integrity, assignment debt, and routing quality floors.)
 - in/in-58.md — **queued** (convergence and promotion lifecycle protocol for quotient plus graded optimization rollout.)
+- in/in-59.md — **queued** (GitHub issue content ingestion into the planning substrate invariant graph.)
