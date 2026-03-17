@@ -6,7 +6,7 @@ from gabion.commands import check_contract
 from gabion.json_types import JSONObject
 from gabion.runtime import deadline_policy, path_policy
 
-DEFAULT_CLI_TIMEOUT_TICKS = 100
+DEFAULT_CLI_TIMEOUT_TICKS = 7_500
 DEFAULT_CLI_TIMEOUT_TICK_NS = 1_000_000
 STDOUT_ALIAS = "-"
 STDOUT_PATH = "/dev/stdout"

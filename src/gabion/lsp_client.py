@@ -176,7 +176,7 @@ def run_command(
     notification_callback: Callable[[JSONObject], None] | None = None,
 ) -> JSONObject:
     if timeout_ticks is None:
-        timeout_ticks = 100
+        timeout_ticks = 7_500
     ticks_value = int(timeout_ticks)
     tick_ns_value = int(timeout_tick_ns)
     if ticks_value <= 0:
