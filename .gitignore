@@ -11,6 +11,7 @@ venv/
 .coverage.*
 artifacts/*
 !artifacts/.gitkeep
+.claude/
 
 out/test_evidence_suggestions.json
 out/test_evidence_suggestions.md
