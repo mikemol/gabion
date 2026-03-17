@@ -1874,9 +1874,11 @@ def load_junit_failure_artifact(
         raw_name = str(testcase.attrib.get("name", "")).strip()
         if not raw_name:
             continue
-        rel_test_path = _normalize_rel_path(root, testcase.attrib.get("file"))
         line = int(testcase.attrib.get("line", 0) or 0)
         classname = str(testcase.attrib.get("classname", "")).strip()
+        rel_test_path = _normalize_rel_path(root, testcase.attrib.get("file"))
+        if not rel_test_path and classname:
+            rel_test_path = _rel_path_from_pytest_classname(classname)
         test_id = raw_name
         if rel_test_path:
             class_suffix = classname.split(".")[-1].strip() if classname else ""
@@ -1913,6 +1915,19 @@ def load_junit_failure_artifact(
         source=source,
         failures=tuple(failures),
     )
+
+
+def _rel_path_from_pytest_classname(classname: str) -> str:
+    parts = [part.strip() for part in classname.split(".") if part.strip()]
+    if not parts:
+        return ""
+    last_test_index = max(
+        (index for index, part in enumerate(parts) if part.startswith("test_")),
+        default=-1,
+    )
+    if last_test_index < 0:
+        return ""
+    return "/".join(parts[: last_test_index + 1]) + ".py"
 
 
 def load_docflow_compliance_artifact(

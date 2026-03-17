@@ -82,6 +82,7 @@ class RegisteredTouchpointDefinition:
         RegisteredCounterfactualActionDefinition, ...
     ] = ()
     declared_touchsites: tuple[RegisteredTouchsiteDefinition, ...] = ()
+    test_path_prefixes: tuple[str, ...] = ()
     scan_touchsites: bool = False
 
 

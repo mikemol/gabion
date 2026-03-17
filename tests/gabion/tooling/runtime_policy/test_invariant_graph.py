@@ -14,6 +14,9 @@ from gabion.tooling.policy_substrate import invariant_graph
 from gabion.tooling.policy_substrate.projection_semantic_fragment_phase5_registry import (
     phase5_workstream_registry,
 )
+from gabion.tooling.policy_substrate.unit_test_readiness_registry import (
+    unit_test_readiness_workstream_registry,
+)
 from gabion.tooling.policy_substrate.policy_queue_identity import PolicyQueueIdentitySpace
 from gabion.tooling.policy_substrate.structured_artifact_ingress import (
     StructuredArtifactIdentitySpace,
@@ -2854,6 +2857,140 @@ def test_build_invariant_graph_joins_pytest_failures_and_couples_them_to_work(
     assert payload["touchpoints"][0]["test_failure_count"] == 1
     assert payload["touchpoints"][0]["touchsites"][0]["failing_test_case_count"] == 1
     assert payload["touchpoints"][0]["touchsites"][0]["test_failure_count"] == 1
+
+
+def test_build_invariant_graph_routes_junit_failures_into_unit_test_readiness_touchpoints(
+    tmp_path: Path,
+) -> None:
+    root = write_minimal_invariant_repo(tmp_path)
+    (root / "artifacts" / "test_runs").mkdir(parents=True, exist_ok=True)
+    (root / "artifacts" / "test_runs" / "junit.xml").write_text(
+        "\n".join(
+            [
+                "<?xml version=\"1.0\" encoding=\"utf-8\"?>",
+                "<testsuites>",
+                "  <testsuite name=\"pytest\" tests=\"1\" failures=\"1\" errors=\"0\">",
+                "    <testcase classname=\"tests.gabion.tooling.ci.test_ci_governance_scripts\" name=\"test_policy_check_test_behavior_contract_reports_missing\" file=\"tests/gabion/tooling/ci/test_ci_governance_scripts.py\" line=\"192\">",
+                "      <failure message=\"AttributeError\">boom</failure>",
+                "    </testcase>",
+                "  </testsuite>",
+                "</testsuites>",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    graph = invariant_graph.build_invariant_graph(
+        root,
+        declared_registries=(unit_test_readiness_workstream_registry(),),
+    )
+
+    utr_touchpoint_node = next(
+        node
+        for node in graph.nodes
+        if node.node_kind == "synthetic_work_item" and node.matches_raw_id("UTR-TP-005")
+    )
+    test_case_node = next(node for node in graph.nodes if node.node_kind == "test_case")
+    test_failure_node = next(
+        node for node in graph.nodes if node.node_kind == "test_failure"
+    )
+    edges = {(edge.edge_kind, edge.source_id, edge.target_id) for edge in graph.edges}
+    assert ("covered_by", utr_touchpoint_node.node_id, test_case_node.node_id) in edges
+    assert ("fails_on", test_failure_node.node_id, utr_touchpoint_node.node_id) in edges
+    assert ("blocks", test_failure_node.node_id, utr_touchpoint_node.node_id) in edges
+
+    workstreams_payload = invariant_graph.build_invariant_workstreams(
+        graph, root=root
+    ).as_payload()
+    utr_workstream = next(
+        item for item in workstreams_payload["workstreams"] if item["object_id"] == "UTR"
+    )
+    utr_touchpoint = next(
+        item for item in utr_workstream["touchpoints"] if item["object_id"] == "UTR-TP-005"
+    )
+    assert utr_touchpoint["failing_test_case_count"] == 1
+    assert utr_touchpoint["test_failure_count"] == 1
+    assert utr_workstream["failing_test_case_count"] == 1
+    assert utr_workstream["test_failure_count"] == 1
+
+
+def test_build_invariant_graph_does_not_false_couple_unmatched_unit_test_readiness_failures(
+    tmp_path: Path,
+) -> None:
+    root = write_minimal_invariant_repo(tmp_path)
+    (root / "artifacts" / "test_runs").mkdir(parents=True, exist_ok=True)
+    (root / "artifacts" / "test_runs" / "junit.xml").write_text(
+        "\n".join(
+            [
+                "<?xml version=\"1.0\" encoding=\"utf-8\"?>",
+                "<testsuites>",
+                "  <testsuite name=\"pytest\" tests=\"1\" failures=\"1\" errors=\"0\">",
+                "    <testcase classname=\"tests.test_other\" name=\"test_other\" file=\"tests/test_other.py\" line=\"7\">",
+                "      <failure message=\"AssertionError\">boom</failure>",
+                "    </testcase>",
+                "  </testsuite>",
+                "</testsuites>",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    graph = invariant_graph.build_invariant_graph(
+        root,
+        declared_registries=(unit_test_readiness_workstream_registry(),),
+    )
+    workstreams_payload = invariant_graph.build_invariant_workstreams(
+        graph, root=root
+    ).as_payload()
+    utr_workstream = next(
+        item for item in workstreams_payload["workstreams"] if item["object_id"] == "UTR"
+    )
+    assert utr_workstream["failing_test_case_count"] == 0
+    assert utr_workstream["test_failure_count"] == 0
+    assert all(
+        item["failing_test_case_count"] == 0 for item in utr_workstream["touchpoints"]
+    )
+
+
+def test_build_invariant_graph_clears_unit_test_readiness_indicator_when_matching_test_is_green(
+    tmp_path: Path,
+) -> None:
+    root = write_minimal_invariant_repo(tmp_path)
+    (root / "artifacts" / "test_runs").mkdir(parents=True, exist_ok=True)
+    (root / "artifacts" / "test_runs" / "junit.xml").write_text(
+        "\n".join(
+            [
+                "<?xml version=\"1.0\" encoding=\"utf-8\"?>",
+                "<testsuites>",
+                "  <testsuite name=\"pytest\" tests=\"1\" failures=\"0\" errors=\"0\">",
+                "    <testcase classname=\"tests.gabion.tooling.ci.test_ci_governance_scripts\" name=\"test_policy_check_test_behavior_contract_reports_missing\" file=\"tests/gabion/tooling/ci/test_ci_governance_scripts.py\" line=\"192\" />",
+                "  </testsuite>",
+                "</testsuites>",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    graph = invariant_graph.build_invariant_graph(
+        root,
+        declared_registries=(unit_test_readiness_workstream_registry(),),
+    )
+    workstreams_payload = invariant_graph.build_invariant_workstreams(
+        graph, root=root
+    ).as_payload()
+    utr_workstream = next(
+        item for item in workstreams_payload["workstreams"] if item["object_id"] == "UTR"
+    )
+    utr_touchpoint = next(
+        item for item in utr_workstream["touchpoints"] if item["object_id"] == "UTR-TP-005"
+    )
+    assert utr_touchpoint["failing_test_case_count"] == 0
+    assert utr_touchpoint["test_failure_count"] == 0
+    assert utr_workstream["failing_test_case_count"] == 0
+    assert utr_workstream["test_failure_count"] == 0
 
 
 def test_build_invariant_graph_joins_sppf_and_inbox_governance_sources(

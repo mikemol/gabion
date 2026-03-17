@@ -236,7 +236,7 @@ def test_connectivity_synergy_graph_exposes_cross_root_dependencies_and_mixed_ro
             for item in recommended_code_followup.cofrontier_followup_cohort
         } == scope_roots
         assert scope_roots.issubset(
-            {"BIC", "CSA-IDR", "CSA-IGM", "CSA-RGC", "PSF-007", "RCI"}
+            {"BIC", "CSA-IDR", "CSA-IGM", "CSA-RGC", "PSF-007", "RCI", "UTR"}
         )
     else:
         assert recommended_code_followup.owner_root_object_id in {
@@ -247,11 +247,23 @@ def test_connectivity_synergy_graph_exposes_cross_root_dependencies_and_mixed_ro
             "CSA-RGC",
             "PSF-007",
             "RCI",
+            "UTR",
         }
 
     recommended_code_lane = workstreams.recommended_repo_code_followup_lane()
     assert recommended_code_lane is not None
     assert set(recommended_code_lane.root_object_ids).issubset(
-        {"BIC", "CSA-IDR", "CSA-IGM", "CSA-IVL", "CSA-RGC", "PRF", "PSF-007", "RCI", "SCC"}
+        {
+            "BIC",
+            "CSA-IDR",
+            "CSA-IGM",
+            "CSA-IVL",
+            "CSA-RGC",
+            "PRF",
+            "PSF-007",
+            "RCI",
+            "SCC",
+            "UTR",
+        }
     )
     assert recommended_code_lane.root_object_ids

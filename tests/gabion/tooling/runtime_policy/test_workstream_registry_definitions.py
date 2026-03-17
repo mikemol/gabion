@@ -19,6 +19,9 @@ from gabion.tooling.policy_substrate.runtime_context_injection_registry import (
 from gabion.tooling.policy_substrate.boundary_ingress_convergence_registry import (
     boundary_ingress_convergence_workstream_registry,
 )
+from gabion.tooling.policy_substrate.unit_test_readiness_registry import (
+    unit_test_readiness_workstream_registry,
+)
 
 
 def test_prf_workstream_registry_exposes_queue_sequence_and_active_playbook_touchpoint() -> None:
@@ -619,6 +622,68 @@ def test_boundary_ingress_convergence_workstream_registry_exposes_queue_and_touc
         ("tests/gabion/cli/test_cli.py", "test_cli"),
         ("tests/gabion/cli/test_cli_live_repo.py", "test_cli_live_repo"),
     }
+
+
+def test_unit_test_readiness_workstream_registry_exposes_selector_clusters() -> None:
+    registry = unit_test_readiness_workstream_registry()
+    subqueues = {item.subqueue_id: item for item in registry.subqueues}
+    touchpoints = {item.touchpoint_id: item for item in registry.touchpoints}
+
+    assert registry.root.root_id == "UTR"
+    assert registry.tags == ("unit_test_readiness",)
+    assert registry.root.status_hint == "in_progress"
+    assert registry.root.subqueue_ids == (
+        "UTR-SQ-001",
+        "UTR-SQ-002",
+        "UTR-SQ-003",
+        "UTR-SQ-004",
+    )
+    assert tuple(item.subqueue_id for item in registry.subqueues) == (
+        "UTR-SQ-001",
+        "UTR-SQ-002",
+        "UTR-SQ-003",
+        "UTR-SQ-004",
+    )
+    assert subqueues["UTR-SQ-001"].touchpoint_ids == ("UTR-TP-001", "UTR-TP-002")
+    assert subqueues["UTR-SQ-002"].touchpoint_ids == ("UTR-TP-003", "UTR-TP-004")
+    assert subqueues["UTR-SQ-003"].touchpoint_ids == (
+        "UTR-TP-005",
+        "UTR-TP-006",
+        "UTR-TP-007",
+    )
+    assert subqueues["UTR-SQ-004"].touchpoint_ids == ("UTR-TP-008",)
+    assert all(item.status_hint == "in_progress" for item in registry.subqueues)
+    assert set(touchpoints) == {
+        "UTR-TP-001",
+        "UTR-TP-002",
+        "UTR-TP-003",
+        "UTR-TP-004",
+        "UTR-TP-005",
+        "UTR-TP-006",
+        "UTR-TP-007",
+        "UTR-TP-008",
+    }
+    assert all(item.status_hint == "queued" for item in touchpoints.values())
+    assert touchpoints["UTR-TP-001"].test_path_prefixes == (
+        "tests/gabion/analysis/evidence/",
+        "tests/gabion/analysis/type/",
+        "tests/gabion/config/",
+        "tests/gabion/analysis/indexed_scan/",
+        "tests/gabion/analysis/structure/",
+        "tests/gabion/analysis/forest/",
+        "tests/gabion/analysis/call_cluster/",
+    )
+    assert touchpoints["UTR-TP-005"].test_path_prefixes == (
+        "tests/gabion/tooling/ci/test_ci_governance_scripts.py",
+    )
+    assert touchpoints["UTR-TP-006"].test_path_prefixes == (
+        "tests/gabion/tooling/policy/test_render_generated_artifact_manifest.py",
+    )
+    assert touchpoints["UTR-TP-008"].test_path_prefixes == (
+        "tests/gabion/server_core/test_command_orchestrator.py",
+        "tests/gabion/server/test_server.py",
+        "tests/gabion/runtime/test_runtime_kernel_contracts.py",
+    )
 
 
 def test_connectivity_synergy_workstream_registries_expose_expected_roots_and_touchsites() -> None:

@@ -75,6 +75,9 @@ from gabion.tooling.policy_substrate.runtime_context_injection_registry import (
 from gabion.tooling.policy_substrate.boundary_ingress_convergence_registry import (
     boundary_ingress_convergence_workstream_registry,
 )
+from gabion.tooling.policy_substrate.unit_test_readiness_registry import (
+    unit_test_readiness_workstream_registry,
+)
 from gabion.tooling.policy_substrate.structured_artifact_ingress import (
     StructuredArtifactIdentitySpace,
     TestEvidenceSite,
@@ -8483,6 +8486,7 @@ class _InvariantGraphBuildState:
     object_owner_node_ids: dict[str, str]
     workstream_root_ids: list[str]
     declared_workstream_ids: set[str]
+    touchpoint_test_path_prefixes: dict[str, tuple[str, ...]]
     structured_artifact_identities: StructuredArtifactIdentitySpace
 
 
@@ -8498,6 +8502,7 @@ def _new_build_state(root: Path) -> _InvariantGraphBuildState:
         object_owner_node_ids={},
         workstream_root_ids=[],
         declared_workstream_ids=set(),
+        touchpoint_test_path_prefixes={},
         structured_artifact_identities=StructuredArtifactIdentitySpace(),
     )
 
@@ -9066,6 +9071,10 @@ def _enrich_workstream_registry(
             marker_node_id_by_marker_id=marker_node_id_by_marker_id,
             status_hint=touchpoint_definition.status_hint,
         )
+        if touchpoint_definition.test_path_prefixes:
+            state.touchpoint_test_path_prefixes[
+                state.object_node_ids[primary_touchpoint_object_id]
+            ] = touchpoint_definition.test_path_prefixes
 
     root_node_id = state.object_node_ids[primary_root_object_id]
     for subqueue_id in root_definition.subqueue_ids:
@@ -9138,6 +9147,9 @@ def _iter_declared_workstream_registries() -> tuple[WorkstreamRegistry, ...]:
     bic_registry = boundary_ingress_convergence_workstream_registry()
     if bic_registry is not None:
         registries.append(bic_registry)
+    utr_registry = unit_test_readiness_workstream_registry()
+    if utr_registry is not None:
+        registries.append(utr_registry)
     registries.extend(connectivity_synergy_workstream_registries())
     return tuple(registries)
 
@@ -9154,6 +9166,20 @@ def _path_variants(raw_path: str) -> tuple[str, ...]:
     if basename and basename != normalized:
         return (normalized, basename)
     return (normalized,)
+
+
+def _normalize_test_selector_prefix(raw_path: str) -> str:
+    return raw_path.strip().replace("\\", "/")
+
+
+def _test_path_matches_prefix(*, rel_path: str, prefix: str) -> bool:
+    normalized_path = _normalize_test_selector_prefix(rel_path)
+    normalized_prefix = _normalize_test_selector_prefix(prefix)
+    if not normalized_path or not normalized_prefix:
+        return False
+    if normalized_prefix.endswith("/"):
+        return normalized_path.startswith(normalized_prefix)
+    return normalized_path == normalized_prefix
 
 
 @dataclass(frozen=True)
@@ -9593,6 +9619,41 @@ def _join_test_failures(state: _InvariantGraphBuildState) -> None:
             traceback_text=failure.traceback_text,
         ):
             _add_edge(state, "fails_on", failure_node_id, matched_node_id)
+
+
+def _join_touchpoint_test_selectors(state: _InvariantGraphBuildState) -> None:
+    if not state.touchpoint_test_path_prefixes:
+        return
+    failing_test_case_ids: set[str] = set()
+    failure_ids_by_test_case_id: defaultdict[str, set[str]] = defaultdict(set)
+    for edge in state.edges:
+        if edge.edge_kind != "fails_with":
+            continue
+        source_node = state.nodes_by_id.get(edge.source_id)
+        target_node = state.nodes_by_id.get(edge.target_id)
+        if source_node is None or target_node is None:
+            continue
+        if source_node.node_kind != "test_case" or target_node.node_kind != "test_failure":
+            continue
+        failing_test_case_ids.add(edge.source_id)
+        failure_ids_by_test_case_id[edge.source_id].add(edge.target_id)
+    for touchpoint_node_id, prefixes in state.touchpoint_test_path_prefixes.items():
+        for test_case_node_id in failing_test_case_ids:
+            test_case_node = state.nodes_by_id.get(test_case_node_id)
+            if test_case_node is None or not test_case_node.rel_path:
+                continue
+            if not any(
+                _test_path_matches_prefix(
+                    rel_path=test_case_node.rel_path,
+                    prefix=prefix,
+                )
+                for prefix in prefixes
+            ):
+                continue
+            _add_edge(state, "covered_by", touchpoint_node_id, test_case_node_id)
+            for failure_node_id in failure_ids_by_test_case_id.get(test_case_node_id, ()):
+                _add_edge(state, "fails_on", failure_node_id, touchpoint_node_id)
+                _add_edge(state, "blocks", failure_node_id, touchpoint_node_id)
 
 
 def _markdown_frontmatter(
@@ -11711,6 +11772,7 @@ def _build_base_invariant_graph(
     _join_policy_signals(state)
     _join_test_coverage(state)
     _join_test_failures(state)
+    _join_touchpoint_test_selectors(state)
     _join_governance_convergence_sources(state)
     _join_control_loop_artifacts(state)
     return _graph_from_build_state(state)
