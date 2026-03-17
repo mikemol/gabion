@@ -1,0 +1,765 @@
+version: 1
+families:
+  - family_id: governance_docflow
+    title: Governance, docflow, and controller artifacts
+    description: Stable artifacts emitted by docflow, governance audits, packetization, and controller-drift enforcement.
+  - family_id: planning_projection
+    title: Planning, policy, and projection artifacts
+    description: Stable artifacts emitted by workflow policy checks, planning-substrate projection, and queue renderers.
+  - family_id: testing_coverage
+    title: Test, evidence, and coverage artifacts
+    description: Stable artifacts emitted by the standard evidence-index and pytest coverage flows.
+  - family_id: dataflow_deadline_handoff
+    title: Dataflow, deadline, and handoff artifacts
+    description: Stable artifacts emitted by the CI dataflow stage, timeout/deadline summarization, and ASPF handoff flows.
+  - family_id: runtime_conditional
+    title: Conditional runtime analysis artifacts
+    description: Stable artifacts emitted on ordinary but path-conditional analysis/reporting branches in the semantic runtime.
+
+artifacts:
+  - artifact_id: docflow_suite_graph
+    family_id: governance_docflow
+    paths:
+      - artifacts/docflow_suite_forest.json
+      - artifacts/docflow_suite_relation.json
+    format: json
+    process_domain: docflow
+    emitter_kind: command
+    source: gabion docflow
+    source_refs:
+      - src/gabion_governance/governance_audit_impl.py
+    conditional: false
+    trigger_condition: emitted on normal docflow runs
+    regeneration:
+      - mise exec -- python -m gabion docflow --root . --fail-on-violations --sppf-gh-ref-mode required
+    primary_consumers:
+      - gabion docflow
+      - governance audits
+    notes: Suite-site forest and relation carriers feed downstream docflow analysis.
+
+  - artifact_id: docflow_compliance_bundle
+    family_id: governance_docflow
+    paths:
+      - artifacts/out/docflow_compliance.json
+      - artifacts/audit_reports/docflow_compliance.md
+    format: json+md
+    process_domain: docflow
+    emitter_kind: command
+    source: gabion docflow
+    source_refs:
+      - src/gabion_governance/governance_audit_impl.py
+    conditional: false
+    trigger_condition: emitted on normal docflow runs
+    regeneration:
+      - mise exec -- python -m gabion docflow --root . --fail-on-violations --sppf-gh-ref-mode required
+    primary_consumers:
+      - scripts/policy/docflow_packetize.py
+      - governance_loop_docs
+    notes: Core contradiction and warning surface for docflow.
+
+  - artifact_id: docflow_canonicality_bundle
+    family_id: governance_docflow
+    paths:
+      - artifacts/out/docflow_canonicality.json
+      - artifacts/audit_reports/docflow_canonicality.md
+    format: json+md
+    process_domain: docflow
+    emitter_kind: command
+    source: gabion docflow
+    source_refs:
+      - src/gabion_governance/governance_audit_impl.py
+    conditional: false
+    trigger_condition: emitted on normal docflow runs
+    regeneration:
+      - mise exec -- python -m gabion docflow --root . --fail-on-violations --sppf-gh-ref-mode required
+    primary_consumers:
+      - gabion docflow
+    notes: Canonicality-specific docflow projection.
+
+  - artifact_id: docflow_cycles_bundle
+    family_id: governance_docflow
+    paths:
+      - artifacts/out/docflow_cycles.json
+      - artifacts/audit_reports/docflow_cycles.md
+    format: json+md
+    process_domain: docflow
+    emitter_kind: command
+    source: gabion docflow
+    source_refs:
+      - src/gabion_governance/governance_audit_impl.py
+    conditional: false
+    trigger_condition: emitted on normal docflow runs
+    regeneration:
+      - mise exec -- python -m gabion docflow --root . --fail-on-violations --sppf-gh-ref-mode required
+    primary_consumers:
+      - gabion docflow
+    notes: Dependency-cycle projection for docflow surfaces.
+
+  - artifact_id: docflow_change_protocol_bundle
+    family_id: governance_docflow
+    paths:
+      - artifacts/out/docflow_change_protocol.json
+      - artifacts/audit_reports/docflow_change_protocol.md
+    format: json+md
+    process_domain: docflow
+    emitter_kind: command
+    source: gabion docflow
+    source_refs:
+      - src/gabion_governance/governance_audit_impl.py
+    conditional: false
+    trigger_condition: emitted on normal docflow runs
+    regeneration:
+      - mise exec -- python -m gabion docflow --root . --fail-on-violations --sppf-gh-ref-mode required
+    primary_consumers:
+      - gabion docflow
+    notes: Change-protocol projection for normative docs.
+
+  - artifact_id: docflow_section_reviews_bundle
+    family_id: governance_docflow
+    paths:
+      - artifacts/out/docflow_section_reviews.json
+      - artifacts/audit_reports/docflow_section_reviews.md
+    format: json+md
+    process_domain: docflow
+    emitter_kind: command
+    source: gabion docflow
+    source_refs:
+      - src/gabion_governance/governance_audit_impl.py
+    conditional: false
+    trigger_condition: emitted on normal docflow runs
+    regeneration:
+      - mise exec -- python -m gabion docflow --root . --fail-on-violations --sppf-gh-ref-mode required
+    primary_consumers:
+      - scripts/policy/docflow_packetize.py
+      - scripts/policy/docflow_packet_enforce.py
+    notes: Section-review carrier used by the packet loop.
+
+  - artifact_id: docflow_implication_matrices
+    family_id: governance_docflow
+    paths:
+      - artifacts/out/docflow_implication_matrices.json
+    format: json
+    process_domain: docflow
+    emitter_kind: command
+    source: gabion docflow
+    source_refs:
+      - src/gabion_governance/governance_audit_impl.py
+    conditional: false
+    trigger_condition: emitted on normal docflow runs
+    regeneration:
+      - mise exec -- python -m gabion docflow --root . --fail-on-violations --sppf-gh-ref-mode required
+    primary_consumers:
+      - gabion docflow
+    notes: Machine-readable implication matrix projection.
+
+  - artifact_id: agent_instruction_drift_bundle
+    family_id: governance_docflow
+    paths:
+      - artifacts/out/agent_instruction_drift.json
+      - artifacts/audit_reports/agent_instruction_drift.md
+    format: json+md
+    process_domain: docflow
+    emitter_kind: command
+    source: gabion docflow
+    source_refs:
+      - src/gabion_governance/governance_audit_impl.py
+    conditional: false
+    trigger_condition: emitted on normal docflow runs
+    regeneration:
+      - mise exec -- python -m gabion docflow --root . --fail-on-violations --sppf-gh-ref-mode required
+    primary_consumers:
+      - gabion docflow
+    notes: Drift report for agent-instruction graph consistency.
+
+  - artifact_id: sppf_dependency_graph
+    family_id: governance_docflow
+    paths:
+      - artifacts/sppf_dependency_graph.json
+    format: json
+    process_domain: docflow
+    emitter_kind: command
+    source: gabion docflow
+    source_refs:
+      - src/gabion_governance/governance_audit_impl.py
+    conditional: false
+    trigger_condition: emitted on strict docflow runs
+    regeneration:
+      - mise exec -- python -m gabion docflow --root . --fail-on-violations --sppf-gh-ref-mode required
+    primary_consumers:
+      - SPPF status checks
+      - status consistency analysis
+    notes: JSON dependency graph used by SPPF governance surfaces.
+
+  - artifact_id: status_consistency_bundle
+    family_id: governance_docflow
+    paths:
+      - artifacts/out/status_consistency.json
+      - artifacts/audit_reports/status_consistency.md
+    format: json+md
+    process_domain: governance
+    emitter_kind: command
+    source: gabion status-consistency
+    source_refs:
+      - src/gabion_governance/governance_audit_impl.py
+    conditional: false
+    trigger_condition: emitted when the status-consistency command runs
+    regeneration:
+      - mise exec -- python -m gabion status-consistency --fail-on-violations
+    primary_consumers:
+      - governance review
+      - SPPF lifecycle checks
+    notes: Separate governance command, but part of ordinary repo governance tooling.
+
+  - artifact_id: docflow_packetization_bundle
+    family_id: governance_docflow
+    paths:
+      - artifacts/out/docflow_warning_doc_packets.json
+      - artifacts/out/docflow_warning_doc_packet_summary.json
+    format: json
+    process_domain: docflow
+    emitter_kind: command
+    source: scripts/policy/docflow_packetize.py
+    source_refs:
+      - scripts/policy/docflow_packetize.py
+    conditional: false
+    trigger_condition: emitted on normal packetization runs
+    regeneration:
+      - mise exec -- python -m scripts.policy.docflow_packetize
+    primary_consumers:
+      - scripts/policy/docflow_packet_enforce.py
+      - CI audit workflow
+    notes: Packetized warning rows and packet summary for the docflow closed loop.
+
+  - artifact_id: docflow_packet_enforcement_bundle
+    family_id: governance_docflow
+    paths:
+      - artifacts/out/docflow_packet_enforcement.json
+      - artifacts/out/docflow_packet_debt_ledger.json
+    format: json
+    process_domain: docflow
+    emitter_kind: command
+    source: scripts/policy/docflow_packet_enforce.py
+    source_refs:
+      - scripts/policy/docflow_packet_enforce.py
+    conditional: false
+    trigger_condition: emitted on normal packet-enforcement runs
+    regeneration:
+      - mise exec -- python -m scripts.policy.docflow_packet_enforce --check
+    primary_consumers:
+      - CI audit workflow
+      - governance debt review
+    notes: Enforcement result plus age-bounded debt ledger.
+
+  - artifact_id: controller_drift_audit
+    family_id: governance_docflow
+    paths:
+      - artifacts/out/controller_drift.json
+    format: json
+    process_domain: governance
+    emitter_kind: command
+    source: scripts/governance/governance_controller_audit.py
+    source_refs:
+      - scripts/governance/governance_controller_audit.py
+    conditional: false
+    trigger_condition: emitted on controller-drift audit runs
+    regeneration:
+      - mise exec -- python scripts/governance/governance_controller_audit.py --out artifacts/out/controller_drift.json
+    primary_consumers:
+      - scripts/ci/ci_controller_drift_gate.py
+      - invariant graph ingress
+    notes: Second-order controller-loop state artifact.
+
+  - artifact_id: controller_drift_gate_state
+    family_id: governance_docflow
+    paths:
+      - artifacts/out/governance_override_record.json
+      - artifacts/out/controller_drift_gate_history.json
+    format: json
+    process_domain: governance
+    emitter_kind: workflow_step
+    source: .github/workflows/ci.yml audit job controller-drift gate steps
+    source_refs:
+      - .github/workflows/ci.yml
+      - scripts/ci/ci_override_record_emit.py
+      - scripts/ci/ci_controller_drift_gate.py
+    conditional: false
+    trigger_condition: emitted on normal CI audit runs
+    regeneration:
+      - mise exec -- python scripts/ci/ci_override_record_emit.py --out artifacts/out/governance_override_record.json
+      - mise exec -- python scripts/ci/ci_controller_drift_gate.py --drift-artifact artifacts/out/controller_drift.json --override-record artifacts/out/governance_override_record.json --history artifacts/out/controller_drift_gate_history.json
+    primary_consumers:
+      - controller-drift gate
+      - uploaded CI artifacts
+    notes: Override lifecycle record plus branch-local controller-drift history.
+
+  - artifact_id: governance_telemetry_bundle
+    family_id: governance_docflow
+    paths:
+      - artifacts/out/governance_telemetry.json
+      - artifacts/out/governance_telemetry_history.json
+      - artifacts/audit_reports/governance_telemetry.md
+      - artifacts/audit_reports/ci_step_timings.json
+    format: json+md
+    process_domain: governance
+    emitter_kind: workflow_step
+    source: .github/workflows/ci.yml audit job governance telemetry emit
+    source_refs:
+      - .github/workflows/ci.yml
+      - scripts/governance/governance_telemetry_emit.py
+      - scripts/ci/ci_step_timing_capture.py
+    conditional: false
+    trigger_condition: emitted on normal CI audit runs
+    regeneration:
+      - mise exec -- python scripts/governance/governance_telemetry_emit.py --run-id local --timings artifacts/audit_reports/ci_step_timings.json --history artifacts/out/governance_telemetry_history.json --json-out artifacts/out/governance_telemetry.json --md-out artifacts/audit_reports/governance_telemetry.md
+    primary_consumers:
+      - uploaded CI artifacts
+      - governance trend review
+    notes: Step timings are an input carrier for telemetry and are included with the emitted telemetry bundle because CI treats them as one operational surface.
+
+  - artifact_id: workflow_policy_quotients
+    family_id: planning_projection
+    paths:
+      - out/quotient_governance_report.json
+      - out/quotient_ratchet_delta.json
+      - out/quotient_policy_violations.json
+      - out/quotient_protocol_readiness.json
+      - out/quotient_promotion_decision.json
+      - out/quotient_demotion_incidents.json
+      - artifacts/out/local_ci_repro_contract.json
+    format: json
+    process_domain: local_validation
+    emitter_kind: command
+    source: scripts/policy/policy_check.py --workflows
+    source_refs:
+      - scripts/policy/policy_check.py
+    conditional: false
+    trigger_condition: emitted on normal workflow-policy checks
+    regeneration:
+      - mise exec -- python -m scripts.policy.policy_check --workflows
+    primary_consumers:
+      - governance review
+      - invariant graph ingress
+    notes: Workflow-policy quotients are written even when no explicit policy-check result path is requested.
+
+  - artifact_id: policy_check_projection_bundle
+    family_id: planning_projection
+    paths:
+      - artifacts/out/policy_check_result.json
+      - artifacts/out/invariant_graph.json
+      - artifacts/out/invariant_workstreams.json
+      - artifacts/out/invariant_ledger_projections.json
+    format: json
+    process_domain: ci_checks
+    emitter_kind: workflow_step
+    source: .github/workflows/ci.yml audit job policy_check --workflows --output
+    source_refs:
+      - .github/workflows/ci.yml
+      - scripts/policy/policy_check.py
+    conditional: true
+    trigger_condition: emitted when policy_check is run with the stable CI output path
+    regeneration:
+      - mise exec -- python scripts/policy/policy_check.py --workflows --output artifacts/out/policy_check_result.json
+    primary_consumers:
+      - scripts/policy/policy_scanner_suite.py
+      - project manager view
+      - invariant graph tooling
+    notes: These are workflow-stable outputs, not generic CLI defaults.
+
+  - artifact_id: policy_check_auxiliary_artifacts
+    family_id: planning_projection
+    paths:
+      - artifacts/out/ingress_merge_parity.json
+      - artifacts/out/git_state.json
+      - artifacts/out/cross_origin_witness_contract.json
+      - artifacts/out/kernel_vm_alignment.json
+      - artifacts/out/identity_grammar_completion.json
+    format: json
+    process_domain: ci_checks
+    emitter_kind: workflow_step
+    source: .github/workflows/ci.yml audit job policy_check auxiliary artifact writes
+    source_refs:
+      - .github/workflows/ci.yml
+      - scripts/policy/policy_check.py
+    conditional: true
+    trigger_condition: emitted when policy_check is run with the stable CI output path
+    regeneration:
+      - mise exec -- python scripts/policy/policy_check.py --workflows --output artifacts/out/policy_check_result.json
+    primary_consumers:
+      - invariant graph ingress
+      - hotspot and projection queue tooling
+    notes: Auxiliary planning and ingress artifacts written adjacent to the CI policy-check result.
+
+  - artifact_id: projection_semantic_fragment_queue_bundle
+    family_id: planning_projection
+    paths:
+      - artifacts/out/projection_semantic_fragment_queue.json
+      - artifacts/out/projection_semantic_fragment_queue.md
+    format: json+md
+    process_domain: ci_checks
+    emitter_kind: workflow_step
+    source: .github/workflows/ci.yml audit job policy_check projection queue write
+    source_refs:
+      - .github/workflows/ci.yml
+      - scripts/policy/policy_check.py
+      - scripts/policy/projection_semantic_fragment_queue.py
+    conditional: true
+    trigger_condition: emitted when policy_check is run with the stable CI output path
+    regeneration:
+      - mise exec -- python scripts/policy/policy_check.py --workflows --output artifacts/out/policy_check_result.json
+    primary_consumers:
+      - projection queue review
+      - uploaded CI artifacts
+    notes: Derived from the policy-check result carrier.
+
+  - artifact_id: hotspot_neighborhood_queue_bundle
+    family_id: planning_projection
+    paths:
+      - artifacts/out/hotspot_neighborhood_queue.json
+      - artifacts/out/hotspot_neighborhood_queue.md
+    format: json+md
+    process_domain: policy_suite
+    emitter_kind: command
+    source: scripts/policy/policy_scanner_suite.py --out-dir artifacts/out
+    source_refs:
+      - scripts/policy/policy_scanner_suite.py
+      - scripts/policy/hotspot_neighborhood_queue.py
+    conditional: false
+    trigger_condition: emitted on normal policy-scanner-suite runs
+    regeneration:
+      - mise exec -- python scripts/policy/policy_scanner_suite.py --root . --out-dir artifacts/out
+    primary_consumers:
+      - uploaded CI artifacts
+      - hotspot review
+    notes: Primary queue artifact emitted by the policy scanner suite.
+
+  - artifact_id: structural_policy_results
+    family_id: planning_projection
+    paths:
+      - artifacts/out/structural_hash_result.json
+      - artifacts/out/deprecated_nonerasability_result.json
+      - out/deprecated_fibers_current.json
+    format: json
+    process_domain: ci_checks
+    emitter_kind: workflow_step
+    source: .github/workflows/ci.yml audit job structural hash and deprecated-nonerasability steps
+    source_refs:
+      - .github/workflows/ci.yml
+      - scripts/policy/structural_hash_policy_check.py
+      - scripts/policy/deprecated_nonerasability_policy_check.py
+    conditional: false
+    trigger_condition: emitted on normal CI audit runs
+    regeneration:
+      - mise exec -- python scripts/policy/structural_hash_policy_check.py --root . --output artifacts/out/structural_hash_result.json
+      - mise exec -- python scripts/policy/deprecated_nonerasability_policy_check.py --baseline out/deprecated_fibers_baseline.json --current out/deprecated_fibers_current.json --output artifacts/out/deprecated_nonerasability_result.json
+    primary_consumers:
+      - uploaded CI artifacts
+      - governance review
+    notes: Includes the generated current deprecated-fiber snapshot consumed by the nonerasability gate.
+
+  - artifact_id: test_evidence_index
+    family_id: testing_coverage
+    paths:
+      - out/test_evidence.json
+    format: json
+    process_domain: local_validation
+    emitter_kind: command
+    source: scripts/misc/extract_test_evidence.py
+    source_refs:
+      - scripts/misc/extract_test_evidence.py
+    conditional: false
+    trigger_condition: emitted on normal evidence-index refresh runs
+    regeneration:
+      - mise exec -- python -m scripts.misc.extract_test_evidence --root . --tests tests --out out/test_evidence.json
+    primary_consumers:
+      - invariant graph ingress
+      - impact and obsolescence tooling
+    notes: Canonical test-evidence carrier.
+
+  - artifact_id: test_behavior_index
+    family_id: testing_coverage
+    paths:
+      - out/test_behavior.json
+    format: json
+    process_domain: local_validation
+    emitter_kind: command
+    source: scripts/misc/extract_test_behavior.py
+    source_refs:
+      - scripts/misc/extract_test_behavior.py
+    conditional: false
+    trigger_condition: emitted on normal behavior-index refresh runs
+    regeneration:
+      - mise exec -- python -m scripts.misc.extract_test_behavior --root . --tests tests --out out/test_behavior.json
+    primary_consumers:
+      - behavior-index drift checks
+    notes: Canonical test-behavior carrier.
+
+  - artifact_id: pytest_coverage_bundle
+    family_id: testing_coverage
+    paths:
+      - artifacts/test_runs/coverage.xml
+      - artifacts/test_runs/htmlcov/**
+    format: xml+directory_tree
+    process_domain: ci_checks
+    emitter_kind: workflow_step
+    source: .github/workflows/ci.yml audit job pytest coverage step
+    source_refs:
+      - .github/workflows/ci.yml
+    conditional: false
+    trigger_condition: emitted on normal CI pytest runs
+    regeneration:
+      - mise exec -- python -m pytest --cov=src/gabion --cov-branch --cov-report=xml:artifacts/test_runs/coverage.xml --cov-report=html:artifacts/test_runs/htmlcov --cov-fail-under=100
+    primary_consumers:
+      - coverage review
+      - uploaded CI artifacts
+    notes: Coverage XML plus HTML tree emitted by the CI pytest step.
+
+  - artifact_id: pytest_execution_bundle
+    family_id: testing_coverage
+    paths:
+      - artifacts/test_runs/junit.xml
+      - artifacts/test_runs/pytest.log
+    format: xml+log
+    process_domain: ci_checks
+    emitter_kind: workflow_step
+    source: .github/workflows/ci.yml audit job pytest execution step
+    source_refs:
+      - .github/workflows/ci.yml
+    conditional: false
+    trigger_condition: emitted on normal CI pytest runs
+    regeneration:
+      - mise exec -- python -m pytest --junitxml artifacts/test_runs/junit.xml --log-file artifacts/test_runs/pytest.log --log-file-level=INFO
+    primary_consumers:
+      - uploaded CI artifacts
+      - invariant graph ingress
+    notes: JUnit and log surfaces emitted by the CI pytest step.
+
+  - artifact_id: dataflow_report_bundle
+    family_id: dataflow_deadline_handoff
+    paths:
+      - artifacts/audit_reports/dataflow_report.md
+      - artifacts/audit_reports/dataflow_report_stage_*.md
+    format: md
+    process_domain: dataflow_stage
+    emitter_kind: workflow_step
+    source: .github/workflows/ci.yml dataflow-grammar job finalize dataflow outcome
+    source_refs:
+      - .github/workflows/ci.yml
+      - scripts/ci/ci_finalize_dataflow_outcome.py
+    conditional: true
+    trigger_condition: emitted by the normal dataflow-stage flow when stage/final reports exist
+    regeneration:
+      - mise exec -- python -m gabion --carrier direct --timeout 130000000000000ns run-dataflow-stage --debug-dump-interval-seconds 60 --stage-strictness-profile "run=high"
+    primary_consumers:
+      - uploaded CI artifacts
+      - audit review
+    notes: Stage reports are path-conditional because the runtime may emit zero or more stage snapshots.
+
+  - artifact_id: deadline_profile_bundle
+    family_id: dataflow_deadline_handoff
+    paths:
+      - artifacts/out/deadline_profile.json
+      - artifacts/out/deadline_profile.md
+      - artifacts/out/deadline_profile_stage_*.json
+      - artifacts/out/deadline_profile_stage_*.md
+    format: json+md
+    process_domain: runtime_timeout
+    emitter_kind: runtime_path
+    source: run-dataflow-stage / server orchestrator timeout and profiling paths
+    source_refs:
+      - .github/workflows/ci.yml
+      - src/gabion/server_core/command_orchestrator.py
+    conditional: true
+    trigger_condition: emitted when deadline profiling or stage timeout profiling is exercised
+    regeneration:
+      - mise exec -- python -m gabion --carrier direct --timeout 130000000000000ns run-dataflow-stage --debug-dump-interval-seconds 60 --stage-strictness-profile "run=high"
+    primary_consumers:
+      - scripts/deadline/deadline_profile_ci_summary.py
+      - uploaded CI artifacts
+    notes: Ordinary supported timeout/profiling branch, but not guaranteed on every run.
+
+  - artifact_id: deadline_profile_ci_summary_bundle
+    family_id: dataflow_deadline_handoff
+    paths:
+      - artifacts/out/deadline_profile_ci_summary.json
+      - artifacts/out/deadline_profile_ci_summary.md
+    format: json+md
+    process_domain: dataflow_stage
+    emitter_kind: workflow_step
+    source: .github/workflows/ci.yml dataflow-grammar job deadline profile summary
+    source_refs:
+      - .github/workflows/ci.yml
+      - scripts/deadline/deadline_profile_ci_summary.py
+    conditional: true
+    trigger_condition: emitted when artifacts/out/deadline_profile.json exists
+    regeneration:
+      - mise exec -- python -m scripts.deadline_profile_ci_summary --allow-missing-local --step-summary /tmp/step_summary.md
+    primary_consumers:
+      - uploaded CI artifacts
+    notes: CI summary is explicitly conditional on the base deadline profile being present.
+
+  - artifact_id: aspf_handoff_state_bundle
+    family_id: dataflow_deadline_handoff
+    paths:
+      - artifacts/out/aspf_handoff_manifest.json
+      - artifacts/out/aspf_state/**
+    format: json+directory_tree
+    process_domain: dataflow_stage
+    emitter_kind: workflow_step
+    source: .github/workflows/ci.yml dataflow-grammar and audit jobs ASPF handoff flow
+    source_refs:
+      - .github/workflows/ci.yml
+      - scripts/misc/aspf_handoff.py
+      - src/gabion/tooling/runtime/aspf_handoff.py
+    conditional: false
+    trigger_condition: emitted on normal handoff-enabled dataflow and audit runs
+    regeneration:
+      - mise exec -- python scripts/misc/aspf_handoff.py run --root . --manifest artifacts/out/aspf_handoff_manifest.json --state-root artifacts/out/aspf_state -- true
+    primary_consumers:
+      - CI handoff restore paths
+      - uploaded CI artifacts
+      - deadline and check runtimes
+    notes: Directory tree row documents the stable handoff state root rather than individual handoff files.
+
+  - artifact_id: annotation_drift_bundle
+    family_id: runtime_conditional
+    paths:
+      - artifacts/out/test_annotation_drift.json
+      - out/test_annotation_drift.md
+      - artifacts/out/test_annotation_drift_delta.json
+      - out/test_annotation_drift_delta.md
+    format: json+md
+    process_domain: runtime_timeout
+    emitter_kind: runtime_path
+    source: server_core command orchestrator auxiliary artifact outputs
+    source_refs:
+      - src/gabion/server_core/command_orchestrator.py
+    conditional: true
+    trigger_condition: emitted when annotation drift reporting or delta emission is requested
+    regeneration:
+      - mise exec -- python -m gabion --carrier direct --timeout 130000000000000ns check delta-gates
+    primary_consumers:
+      - governance telemetry
+      - delta gates
+    notes: Ordinary supported runtime branch; emitted only when the corresponding flags are active.
+
+  - artifact_id: obsolescence_bundle
+    family_id: runtime_conditional
+    paths:
+      - artifacts/out/test_obsolescence_state.json
+      - artifacts/out/test_obsolescence_report.json
+      - out/test_obsolescence_report.md
+      - artifacts/out/test_obsolescence_delta.json
+      - out/test_obsolescence_delta.md
+    format: json+md
+    process_domain: runtime_timeout
+    emitter_kind: runtime_path
+    source: server_core command orchestrator auxiliary artifact outputs
+    source_refs:
+      - src/gabion/server_core/command_orchestrator.py
+    conditional: true
+    trigger_condition: emitted when obsolescence state/report/delta emission is requested
+    regeneration:
+      - mise exec -- python -m gabion --carrier direct --timeout 130000000000000ns check delta-gates
+    primary_consumers:
+      - governance telemetry
+      - obsolescence delta gates
+    notes: Includes the state carrier plus report and delta projections.
+
+  - artifact_id: ambiguity_bundle
+    family_id: runtime_conditional
+    paths:
+      - artifacts/out/ambiguity_state.json
+      - artifacts/out/ambiguity_delta.json
+      - out/ambiguity_delta.md
+    format: json+md
+    process_domain: runtime_timeout
+    emitter_kind: runtime_path
+    source: server_core command orchestrator auxiliary artifact outputs
+    source_refs:
+      - src/gabion/server_core/command_orchestrator.py
+    conditional: true
+    trigger_condition: emitted when ambiguity state or delta emission is requested
+    regeneration:
+      - mise exec -- python -m gabion --carrier direct --timeout 130000000000000ns check delta-gates
+    primary_consumers:
+      - governance telemetry
+      - ambiguity delta gates
+    notes: Ambiguity baseline writes are intentionally excluded because they are explicit baseline-management inputs, not generated defaults.
+
+  - artifact_id: taint_bundle
+    family_id: runtime_conditional
+    paths:
+      - artifacts/out/taint_state.json
+      - artifacts/out/taint_delta.json
+      - out/taint_delta.md
+    format: json+md
+    process_domain: runtime_timeout
+    emitter_kind: runtime_path
+    source: server_core command orchestrator auxiliary artifact outputs
+    source_refs:
+      - src/gabion/server_core/command_orchestrator.py
+    conditional: true
+    trigger_condition: emitted when taint state or delta emission is requested
+    regeneration:
+      - mise exec -- python -m gabion --carrier direct --timeout 130000000000000ns check delta-gates
+    primary_consumers:
+      - taint delta review
+      - governance telemetry
+    notes: Readiness/promotion/demotion quotient files are documented under the workflow-policy quotient bundle because they converge on shared stable paths.
+
+  - artifact_id: test_evidence_suggestions_bundle
+    family_id: runtime_conditional
+    paths:
+      - artifacts/out/test_evidence_suggestions.json
+      - out/test_evidence_suggestions.md
+    format: json+md
+    process_domain: runtime_timeout
+    emitter_kind: runtime_path
+    source: server_core command orchestrator auxiliary artifact outputs
+    source_refs:
+      - src/gabion/server_core/command_orchestrator.py
+    conditional: true
+    trigger_condition: emitted when evidence-suggestion reporting is requested
+    regeneration:
+      - mise exec -- python -m gabion --carrier direct --timeout 130000000000000ns check delta-bundle
+    primary_consumers:
+      - evidence review
+    notes: Suggestion surface built from the canonical test-evidence index.
+
+  - artifact_id: call_clusters_bundle
+    family_id: runtime_conditional
+    paths:
+      - artifacts/out/call_clusters.json
+      - out/call_clusters.md
+    format: json+md
+    process_domain: runtime_timeout
+    emitter_kind: runtime_path
+    source: server_core command orchestrator auxiliary artifact outputs
+    source_refs:
+      - src/gabion/server_core/command_orchestrator.py
+    conditional: true
+    trigger_condition: emitted when call-cluster reporting is requested
+    regeneration:
+      - mise exec -- python -m gabion --carrier direct --timeout 130000000000000ns check delta-bundle
+    primary_consumers:
+      - clustering review
+    notes: Cluster summary surface derived from the test-evidence carrier.
+
+  - artifact_id: call_cluster_consolidation_bundle
+    family_id: runtime_conditional
+    paths:
+      - artifacts/out/call_cluster_consolidation.json
+      - out/call_cluster_consolidation.md
+    format: json+md
+    process_domain: runtime_timeout
+    emitter_kind: runtime_path
+    source: server_core command orchestrator auxiliary artifact outputs
+    source_refs:
+      - src/gabion/server_core/command_orchestrator.py
+    conditional: true
+    trigger_condition: emitted when call-cluster consolidation reporting is requested
+    regeneration:
+      - mise exec -- python -m gabion --carrier direct --timeout 130000000000000ns check delta-bundle
+    primary_consumers:
+      - consolidation review
+    notes: Consolidation output sits on the same supported runtime reporting surface as call clusters.

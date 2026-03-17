@@ -322,7 +322,7 @@ def _psf_007_tp_semantic_fragment_compile() -> None:
 @landed_todo_decorator(
     reason="PSF-007-TP-005 is recorded as landed after all semantic_carrier_adapter grade_boundaries were removed from projection_exec_plan.py.",
     reasoning={
-        "summary": "All three grade_boundary decorators (execution_ops_from_spec, _plan_execution_op, _plan_traverse_execution_op) have been removed from projection_exec_plan.py; surviving_boundary_names is empty as declared.",
+        "summary": "PSF-007-TP-005 is recorded as landed: all three grade_boundary decorators (execution_ops_from_spec, _plan_execution_op, _plan_traverse_execution_op) were removed from projection_exec_plan.py and surviving_boundary_names is empty as declared.",
         "control": "psf007.touchpoint.projection_exec_plan",
         "blocking_dependencies": (),
     },

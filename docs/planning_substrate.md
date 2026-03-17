@@ -1,5 +1,5 @@
 ---
-doc_revision: 2
+doc_revision: 3
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: planning_substrate
 doc_role: architecture
@@ -13,19 +13,16 @@ doc_requires:
   - CONTRIBUTING.md#contributing_contract
   - POLICY_SEED.md#policy_seed
   - glossary.md#contract
-  - docs/planning_chart_architecture.md
 doc_reviewed_as_of:
   README.md#repo_contract: 2
   CONTRIBUTING.md#contributing_contract: 2
   POLICY_SEED.md#policy_seed: 2
   glossary.md#contract: 1
-  docs/planning_chart_architecture.md: 2
 doc_review_notes:
   README.md#repo_contract: "Reviewed README.md#repo_contract rev84/section v2 (planning artifacts and the repo-local project-manager view remain tooling surfaces, not user-facing product features)."
   CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md#contributing_contract rev120/section v2 (correction-unit validation, git drainage, and workflow checks govern planning-substrate changes)."
   POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md#policy_seed rev57/section v2 (planning workflows are process-relative runtime and planning distinctions must remain constructible, reachable, observable, and coverable)."
   glossary.md#contract: "Reviewed glossary.md#contract rev47/section v1 (queue/root/subqueue/workstream_registry semantics remain canonical for the planner overlay)."
-  docs/planning_chart_architecture.md: "Reviewed docs/planning_chart_architecture.md rev2 (the planning chart remains a phase-local overlay inside the broader planning substrate and now points readers to the full substrate guide)."
 doc_sections:
   planning_substrate: 1
   runtime_model: 1

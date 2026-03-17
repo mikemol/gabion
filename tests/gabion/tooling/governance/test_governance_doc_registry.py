@@ -18,7 +18,6 @@ def test_governance_docflow_registry_exposes_inventory_and_schema_catalog() -> N
     )
     assert registry.governance_docs[:5] == registry.core_governance_docs
     assert "docs/normative_clause_index.md" in registry.governance_docs
-    assert "docs/planning_chart_architecture.md" in registry.governance_docs
     assert "docs/planning_substrate.md" in registry.governance_docs
     assert registry.review_note_revision_lint_docs == frozenset(
         {
