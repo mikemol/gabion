@@ -1,5 +1,5 @@
 ---
-doc_revision: 1
+doc_revision: 2
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: planning_substrate
 doc_role: architecture
@@ -67,14 +67,15 @@ The substrate is not just one file. It is the coordinated system centered on:
 
 This document covers the whole substrate. The narrower planning-chart phase
 model is documented separately in
-[`docs/planning_chart_architecture.md`](planning_chart_architecture.md).
+[`docs/planning_chart_architecture.md#planning_chart_architecture`](planning_chart_architecture.md#planning_chart_architecture).
 
 <a id="runtime_model"></a>
 ## Runtime model
 
 The substrate treats planning as a real runtime, not as static prose. That
-follows the policy/glossary rule that runtime is process-relative and that a
-runtime distinction is valid only if it is constructible, reachable,
+follows [POLICY_SEED.md#policy_seed](../POLICY_SEED.md#policy_seed) and
+[glossary.md#contract](../glossary.md#contract): runtime is process-relative
+and a runtime distinction is valid only if it is constructible, reachable,
 observable, and coverable.
 
 In the planning substrate, the main runtime distinctions are:

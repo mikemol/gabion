@@ -25,7 +25,7 @@ doc_review_notes:
   POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md#policy_seed rev57/section v2 (runtime is now process-relative and the distinction ladder remains canonical policy)."
   README.md#repo_contract: "Reviewed README.md#repo_contract rev84/section v2 (removed stale ASPF action-plan CLI/examples; continuation docs now state/delta only)."
   CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md#contributing_contract rev120/section v2 (two-stage dual-sensor cadence, correction-unit validation stack, and strict-coverage trigger guidance remain aligned)."
-  AGENTS.md#agent_obligations: "Reviewed AGENTS.md#agent_obligations rev36/section v2 (agent workflow now includes correction-unit git drainage and hunk-granular commit guidance)."
+  AGENTS.md#agent_obligations: "Reviewed AGENTS.md#agent_obligations rev37/section v2 (agent workflow keeps correction-unit git drainage guidance and now adds practical quick-start direction for the shared instruction surface)."
   glossary.md#contract: "Reviewed glossary.md#contract rev47/section v1 (runtime scope stays process-relative; queue/root/subqueue/workstream-registry semantics now distinguish planner envelopes from rooted registry ownership)."
 doc_sections:
   normative_clause_index: 3

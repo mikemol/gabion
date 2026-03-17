@@ -33,6 +33,8 @@ def load_governance_docflow_registry() -> GovernanceDocflowRegistry:
         "docs/coverage_semantics.md",
         "docs/normative_clause_index.md",
         "docs/matrix_acceptance.md",
+        "docs/planning_chart_architecture.md",
+        "docs/planning_substrate.md",
         "docs/sppf_checklist.md",
     )
     return GovernanceDocflowRegistry(
