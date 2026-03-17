@@ -81,6 +81,16 @@ and guides their reification into dataclass-based Protocols.
 This repo contains scaffolded infrastructure plus a prototype dataflow audit.
 Synthesis and refactoring exist as evolving prototypes and are intentionally
 conservative.
+
+## Conceptual Framework & Paradigm
+
+Gabion operates under a rigorous, self-referential normative matrix. What initially appears to be a dense network of bureaucratic constraints is actually a mathematical system executing against itself. To navigate this repository effectively, developers should understand four core principles:
+
+* **Automated Governance:** The repository enforces intense structural boundaries, such as closed-loop packetized documentation debt and strict ambiguity discharge. These are not manual bureaucratic hurdles meant to be held in a developer's head; they are automated, continuous measurement tools. The automation acts as a frictionless engine, allowing the developer to maintain flow state while the system automatically rejects structurally invalid deltas.
+* **Correct-by-Construction (Edge-Primary Validation):** Rather than relying on node-heavy defensive programming or arbitrary fallback branches, Gabion employs an edge-primary philosophy. We use strict static analysis and `never()` invariants to mathematically prove that invalid transitions (edges) are behaviorally unreachable. This shifts runtime defensive programming into compile-time structural proof, demanding 100% branch coverage.
+* **2nd-Order Cybernetics & Fixed Points:** Gabion redefines "runtime" to include processes like CI execution and docflow audits. To prevent the infinite regress of a system perpetually auditing its own audits, Gabion is designed as a topographical crucible seeking a mathematical fixed point. When the topographical reality of the codebase exactly matches its normative policy, the delta zeroes out, and the system stabilizes.
+* **The Teleology (Endgame Payload):** While currently pointed at itself to aggressively mature its own structural integrity, Gabion is not merely a meta-circular research environment. The ultimate objective is to expose Gabion as an importable Python module, a Language Server (LSP), and a Model Context Protocol (MCP) server. This will provide developers and AI agents with rigorously verified, topographical maps of *arbitrary* software.
+
 <!-- BEGIN:project_manager_view -->
 ## Live Project Manager View
 
