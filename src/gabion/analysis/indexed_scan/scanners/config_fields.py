@@ -56,9 +56,8 @@ def iter_config_fields(
         match node:
             case ast.ClassDef() as class_node:
                 pass
-            case _:
+            case ast.AST():
                 continue
-                never("unreachable wildcard match fall-through")
         decorators = {getattr(d, "id", None) for d in class_node.decorator_list}
         is_dataclass = "dataclass" in decorators
         is_config = class_node.name.endswith("Config")
@@ -73,9 +72,10 @@ def iter_config_fields(
                     match raw_name:
                         case str() as field_name if is_config or field_name.endswith("_fn"):
                             fields.add(field_name)
-                        case _:
+                        case str():
                             pass
-                            never("unreachable wildcard match fall-through")
+                        case object():
+                            pass
                 case ast.Assign(targets=targets):
                     for target in targets:
                         deps.check_deadline_fn()
@@ -83,12 +83,12 @@ def iter_config_fields(
                         match raw_name:
                             case str() as field_name if is_config or field_name.endswith("_fn"):
                                 fields.add(field_name)
-                            case _:
+                            case str():
                                 pass
-                                never("unreachable wildcard match fall-through")
-                case _:
+                            case object():
+                                pass
+                case ast.stmt():
                     pass
-                    never("unreachable wildcard match fall-through")
         if fields:
             bundles[class_node.name] = fields
     return bundles

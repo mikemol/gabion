@@ -363,15 +363,12 @@ def _bundle_counts_from_snapshot(snapshot: JSONObject) -> dict[tuple[str, ...], 
                                 match bundle:
                                     case list() as bundle_items:
                                         counts[tuple(bundle_items)] += 1
-                                    case _:
+                                    case object():
                                         pass
-                                        never("unreachable wildcard match fall-through")
-                        case _:
+                        case object():
                             pass
-                            never("unreachable wildcard match fall-through")
-            case _:
+            case object():
                 pass
-                never("unreachable wildcard match fall-through")
     return counts
 
 

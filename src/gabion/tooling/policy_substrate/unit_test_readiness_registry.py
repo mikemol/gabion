@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from gabion.invariants import todo_decorator
+from gabion.invariants import landed_todo_decorator, todo_decorator
 from gabion.tooling.policy_substrate.workstream_registry import (
     RegisteredRootDefinition,
     RegisteredSubqueueDefinition,
@@ -102,11 +102,12 @@ def _utr_sq_server_runtime_envelope() -> None:
     return None
 
 
-@todo_decorator(
-    reason="UTR-TP-001 remains queued until helper normalization regressions in evidence, type, config, and adjacent helper surfaces are remediated.",
+@landed_todo_decorator(
+    reason="UTR-TP-001 is recorded as landed metadata after helper normalization regressions in evidence, type, config, and adjacent helper surfaces were remediated.",
     reasoning={
-        "summary": "The red suite still reaches helper-level never() fall-throughs in evidence, type, config, indexed-scan, structure, forest, and call-cluster paths.",
+        "summary": "Helper-level normalization and strictification surfaces now discharge lawful ignored variants structurally, and the cleared helper-regression cluster is recorded as closed touchpoint state.",
         "control": "unit_test_readiness.helper_normalization.touchpoint",
+        "blocking_dependencies": (),
     },
     owner="gabion.analysis",
     expiry="UTR closure",
@@ -392,7 +393,7 @@ def unit_test_readiness_workstream_registry() -> WorkstreamRegistry:
                 touchpoint_id="UTR-TP-001",
                 title="Helper normalization and never() fall-through regressions",
                 symbol=_utr_tp_helper_normalization,
-                status_hint="queued",
+                status_hint="landed",
                 test_path_prefixes=(
                     "tests/gabion/analysis/evidence/",
                     "tests/gabion/analysis/type/",

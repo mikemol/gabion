@@ -80,9 +80,10 @@ def _str_int_pairs(value: object) -> list[tuple[str, int]]:
             match (key, raw_value):
                 case (str() as key_text, int() as value_int):
                     out.append((key_text, value_int))
-                case _:
+                case (str(), _):
                     pass
-                    never("unreachable wildcard match fall-through")
+                case object(), object():
+                    pass
     return out
 
 
@@ -394,9 +395,8 @@ class PrimeRegistry:
                         for key, value in _str_int_pairs(section_map.get("bit_positions")):
                             check_deadline()
                             flat_bits[_raw_key(namespace_text, key)] = value
-                    case _:
+                    case object():
                         pass
-                        never("unreachable wildcard match fall-through")
             _apply_registry_payload(
                 {
                     "primes": flat_primes,
@@ -778,12 +778,10 @@ def _normalize_type_list(value: object) -> list[str]:
                         items.extend(
                             [part.strip() for part in item_text.split(",") if part.strip()]
                         )
-                    case _:
+                    case object():
                         pass
-                        never("unreachable wildcard match fall-through")
-        case _:
+        case object():
             pass
-            never("unreachable wildcard match fall-through")
     return [item for item in items if item]
 
 

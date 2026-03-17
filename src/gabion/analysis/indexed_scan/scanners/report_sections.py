@@ -38,10 +38,9 @@ def extract_report_sections(
             case str() as active_marker:
                 active_section_id = active_marker
                 sections.setdefault(active_marker, [])
-            case _:
+            case None:
                 if active_section_id:
                     sections[active_section_id].append(raw_line)
-                never("unreachable wildcard match fall-through")
     return sections
 
 

@@ -132,10 +132,8 @@ def _path_name(path: object) -> str:
     match name:
         case str() as path_name:
             return path_name
-        case _:
-            pass
-            never("unreachable wildcard match fall-through")
-    return str(path)
+        case object():
+            return f"{path}"
 
 
 def _is_json_scalar(value: object) -> bool:

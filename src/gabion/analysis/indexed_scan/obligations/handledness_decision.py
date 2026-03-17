@@ -85,10 +85,8 @@ def decide_handledness(
                     if exception_name
                     else "consider a typed except clause to dominate this raise path"
                 )
-        case _:
+        case object():
             pass
-
-            never("unreachable wildcard match fall-through")
     if handler_kind is None and exception_name == "SystemExit":
         handler_kind = "convert"
         handler_boundary = "process exit"

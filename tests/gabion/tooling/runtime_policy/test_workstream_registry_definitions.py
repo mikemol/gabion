@@ -663,7 +663,12 @@ def test_unit_test_readiness_workstream_registry_exposes_selector_clusters() -> 
         "UTR-TP-007",
         "UTR-TP-008",
     }
-    assert all(item.status_hint == "queued" for item in touchpoints.values())
+    assert touchpoints["UTR-TP-001"].status_hint == "landed"
+    assert all(
+        item.status_hint == "queued"
+        for touchpoint_id, item in touchpoints.items()
+        if touchpoint_id != "UTR-TP-001"
+    )
     assert touchpoints["UTR-TP-001"].test_path_prefixes == (
         "tests/gabion/analysis/evidence/",
         "tests/gabion/analysis/type/",

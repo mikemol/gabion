@@ -779,9 +779,8 @@ def _index_nodes_by_scope(
             case ast.FunctionDef() | ast.AsyncFunctionDef():
                 scopes = tuple(_enclosing_scopes(node, parents))
                 index[(scopes, node.name)] = node
-            case _:
+            case ast.AST():
                 pass
-                never("unreachable wildcard match fall-through")
     return index
 
 
@@ -813,9 +812,8 @@ def _call_symbol_refs(call: ast.Call) -> list[str]:
             name = _attribute_chain(attr)
             if name:
                 refs.append(name)
-        case _:
+        case ast.AST():
             pass
-            never("unreachable wildcard match fall-through")
     for arg in call.args:
         name = _expr_symbol_ref(arg)
         if name:
@@ -1285,12 +1283,10 @@ def _normalize_evidence_list(value: object) -> list[str]:
                         items.append(display)
                     case {"display": str() as display}:
                         items.append(display)
-                    case _:
+                    case object():
                         pass
-                        never("unreachable wildcard match fall-through")
-        case _:
+        case object():
             return list()
-            never("unreachable wildcard match fall-through")
     cleaned = [item.strip() for item in items if item.strip()]
     return sort_once(set(cleaned), source = 'src/gabion/analysis/test_evidence_suggestions.py:1195')
 def _summarize_unmapped(
