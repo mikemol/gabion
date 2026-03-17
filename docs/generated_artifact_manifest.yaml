@@ -363,7 +363,8 @@ artifacts:
       - scripts/policy/policy_scanner_suite.py
       - project manager view
       - invariant graph tooling
-    notes: These are workflow-stable outputs, not generic CLI defaults.
+      - UTR workstream inspection
+    notes: These are workflow-stable outputs, not generic CLI defaults. `artifacts/out/invariant_workstreams.json` is the stable projection surface where `UTR` becomes visible when this workflow-owned output path is written.
 
   - artifact_id: policy_check_auxiliary_artifacts
     family_id: planning_projection
@@ -531,7 +532,8 @@ artifacts:
     primary_consumers:
       - uploaded CI artifacts
       - invariant graph ingress
-    notes: JUnit and log surfaces emitted by the CI pytest step.
+      - UTR synthetic root
+    notes: JUnit and log surfaces emitted by the CI pytest step; these are the canonical feed artifacts for `UTR` current-indicator refresh.
 
   - artifact_id: dataflow_report_bundle
     family_id: dataflow_deadline_handoff

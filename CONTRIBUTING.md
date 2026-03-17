@@ -285,6 +285,22 @@ Recommended loop:
 5. Validate locally with the correction-unit stack, then stage/commit/push immediately.
 6. Continue iterating while multiple CI runs may be in flight; treat new fallout as subsequent correction units.
 
+### Full-suite red / unit-test readiness
+
+When the full pytest suite is red, treat that as a current-indicator signal for
+the synthetic `UTR` root rather than as one undifferentiated backlog.
+
+Use the canonical junit/log feed:
+
+```bash
+mise exec -- python -m pytest --junitxml artifacts/test_runs/junit.xml --log-file artifacts/test_runs/pytest.log --log-file-level=INFO
+```
+
+Then chase one `UTR` touchpoint-sized correction unit at a time, refreshing the
+feed between correction units so the planner-visible indicators actually move.
+The detailed operational loop is documented in
+[`docs/unit_test_readiness_playbook.md`](docs/unit_test_readiness_playbook.md).
+
 Coverage/API signal handling:
 
 - Treat strict-coverage regressions as actionable correction-unit triggers; fix forward with focused coverage remediation units rather than rollback-first changes.

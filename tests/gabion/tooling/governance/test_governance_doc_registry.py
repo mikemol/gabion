@@ -17,8 +17,10 @@ def test_governance_docflow_registry_exposes_inventory_and_schema_catalog() -> N
         "AGENTS.md",
     )
     assert registry.governance_docs[:5] == registry.core_governance_docs
+    assert "docs/generated_artifact_manifest.md" in registry.governance_docs
     assert "docs/normative_clause_index.md" in registry.governance_docs
     assert "docs/planning_substrate.md" in registry.governance_docs
+    assert "docs/unit_test_readiness_playbook.md" in registry.governance_docs
     assert registry.review_note_revision_lint_docs == frozenset(
         {
             "AGENTS.md",

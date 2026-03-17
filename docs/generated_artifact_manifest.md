@@ -1,5 +1,5 @@
 ---
-doc_revision: 1
+doc_revision: 2
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: generated_artifact_manifest
 doc_role: reference
@@ -38,6 +38,14 @@ doc_owner: maintainer
 
 This document inventories the stable generated artifacts that arise in normal
 repo operation.
+
+Cross-references:
+
+- [README.md#repo_contract](../README.md#repo_contract)
+- [CONTRIBUTING.md#contributing_contract](../CONTRIBUTING.md#contributing_contract)
+- [POLICY_SEED.md#policy_seed](../POLICY_SEED.md#policy_seed)
+- [glossary.md#contract](../glossary.md#contract)
+- [docs/governance_control_loops.md#governance_control_loops](./governance_control_loops.md#governance_control_loops)
 
 For this document, “normal repo operation” includes:
 
@@ -100,7 +108,7 @@ Stable artifacts emitted by workflow policy checks, planning-substrate projectio
 | Artifact ID | Path(s) | Format | Emitted by | Trigger | Regeneration | Primary consumers | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `workflow_policy_quotients` | `out/quotient_governance_report.json`<br>`out/quotient_ratchet_delta.json`<br>`out/quotient_policy_violations.json`<br>`out/quotient_protocol_readiness.json`<br>`out/quotient_promotion_decision.json`<br>`out/quotient_demotion_incidents.json`<br>`artifacts/out/local_ci_repro_contract.json` | `json` | command: scripts/policy/policy_check.py --workflows | always - emitted on normal workflow-policy checks | `mise exec -- python -m scripts.policy.policy_check --workflows` | `governance review`<br>`invariant graph ingress` | Workflow-policy quotients are written even when no explicit policy-check result path is requested. |
-| `policy_check_projection_bundle` | `artifacts/out/policy_check_result.json`<br>`artifacts/out/invariant_graph.json`<br>`artifacts/out/invariant_workstreams.json`<br>`artifacts/out/invariant_ledger_projections.json` | `json` | workflow_step: .github/workflows/ci.yml audit job policy_check --workflows --output | conditional - emitted when policy_check is run with the stable CI output path | `mise exec -- python scripts/policy/policy_check.py --workflows --output artifacts/out/policy_check_result.json` | `scripts/policy/policy_scanner_suite.py`<br>`project manager view`<br>`invariant graph tooling` | These are workflow-stable outputs, not generic CLI defaults. |
+| `policy_check_projection_bundle` | `artifacts/out/policy_check_result.json`<br>`artifacts/out/invariant_graph.json`<br>`artifacts/out/invariant_workstreams.json`<br>`artifacts/out/invariant_ledger_projections.json` | `json` | workflow_step: .github/workflows/ci.yml audit job policy_check --workflows --output | conditional - emitted when policy_check is run with the stable CI output path | `mise exec -- python scripts/policy/policy_check.py --workflows --output artifacts/out/policy_check_result.json` | `scripts/policy/policy_scanner_suite.py`<br>`project manager view`<br>`invariant graph tooling`<br>`UTR workstream inspection` | These are workflow-stable outputs, not generic CLI defaults. `artifacts/out/invariant_workstreams.json` is the stable projection surface where `UTR` becomes visible when this workflow-owned output path is written. |
 | `policy_check_auxiliary_artifacts` | `artifacts/out/ingress_merge_parity.json`<br>`artifacts/out/git_state.json`<br>`artifacts/out/cross_origin_witness_contract.json`<br>`artifacts/out/kernel_vm_alignment.json`<br>`artifacts/out/identity_grammar_completion.json` | `json` | workflow_step: .github/workflows/ci.yml audit job policy_check auxiliary artifact writes | conditional - emitted when policy_check is run with the stable CI output path | `mise exec -- python scripts/policy/policy_check.py --workflows --output artifacts/out/policy_check_result.json` | `invariant graph ingress`<br>`hotspot and projection queue tooling` | Auxiliary planning and ingress artifacts written adjacent to the CI policy-check result. |
 | `projection_semantic_fragment_queue_bundle` | `artifacts/out/projection_semantic_fragment_queue.json`<br>`artifacts/out/projection_semantic_fragment_queue.md` | `json+md` | workflow_step: .github/workflows/ci.yml audit job policy_check projection queue write | conditional - emitted when policy_check is run with the stable CI output path | `mise exec -- python scripts/policy/policy_check.py --workflows --output artifacts/out/policy_check_result.json` | `projection queue review`<br>`uploaded CI artifacts` | Derived from the policy-check result carrier. |
 | `hotspot_neighborhood_queue_bundle` | `artifacts/out/hotspot_neighborhood_queue.json`<br>`artifacts/out/hotspot_neighborhood_queue.md` | `json+md` | command: scripts/policy/policy_scanner_suite.py --out-dir artifacts/out | always - emitted on normal policy-scanner-suite runs | `mise exec -- python scripts/policy/policy_scanner_suite.py --root . --out-dir artifacts/out` | `uploaded CI artifacts`<br>`hotspot review` | Primary queue artifact emitted by the policy scanner suite. |
@@ -115,7 +123,7 @@ Stable artifacts emitted by the standard evidence-index and pytest coverage flow
 | `test_evidence_index` | `out/test_evidence.json` | `json` | command: scripts/misc/extract_test_evidence.py | always - emitted on normal evidence-index refresh runs | `mise exec -- python -m scripts.misc.extract_test_evidence --root . --tests tests --out out/test_evidence.json` | `invariant graph ingress`<br>`impact and obsolescence tooling` | Canonical test-evidence carrier. |
 | `test_behavior_index` | `out/test_behavior.json` | `json` | command: scripts/misc/extract_test_behavior.py | always - emitted on normal behavior-index refresh runs | `mise exec -- python -m scripts.misc.extract_test_behavior --root . --tests tests --out out/test_behavior.json` | `behavior-index drift checks` | Canonical test-behavior carrier. |
 | `pytest_coverage_bundle` | `artifacts/test_runs/coverage.xml`<br>`artifacts/test_runs/htmlcov/**` | `xml+directory_tree` | workflow_step: .github/workflows/ci.yml audit job pytest coverage step | always - emitted on normal CI pytest runs | `mise exec -- python -m pytest --cov=src/gabion --cov-branch --cov-report=xml:artifacts/test_runs/coverage.xml --cov-report=html:artifacts/test_runs/htmlcov --cov-fail-under=100` | `coverage review`<br>`uploaded CI artifacts` | Coverage XML plus HTML tree emitted by the CI pytest step. |
-| `pytest_execution_bundle` | `artifacts/test_runs/junit.xml`<br>`artifacts/test_runs/pytest.log` | `xml+log` | workflow_step: .github/workflows/ci.yml audit job pytest execution step | always - emitted on normal CI pytest runs | `mise exec -- python -m pytest --junitxml artifacts/test_runs/junit.xml --log-file artifacts/test_runs/pytest.log --log-file-level=INFO` | `uploaded CI artifacts`<br>`invariant graph ingress` | JUnit and log surfaces emitted by the CI pytest step. |
+| `pytest_execution_bundle` | `artifacts/test_runs/junit.xml`<br>`artifacts/test_runs/pytest.log` | `xml+log` | workflow_step: .github/workflows/ci.yml audit job pytest execution step | always - emitted on normal CI pytest runs | `mise exec -- python -m pytest --junitxml artifacts/test_runs/junit.xml --log-file artifacts/test_runs/pytest.log --log-file-level=INFO` | `uploaded CI artifacts`<br>`invariant graph ingress`<br>`UTR synthetic root` | JUnit and log surfaces emitted by the CI pytest step; these are the canonical feed artifacts for `UTR` current-indicator refresh. |
 
 ## Dataflow, deadline, and handoff artifacts
 

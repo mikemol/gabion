@@ -1,5 +1,5 @@
 ---
-doc_revision: 10
+doc_revision: 11
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: user_workflows
 doc_role: guide
@@ -217,6 +217,28 @@ mise exec -- python -m gabion check run \
 5. Open the extension output channel to interpret run state:
    - normal: steady diagnostic refresh + no repeated cold-start messages,
    - fallback/cold path: explicit re-index/re-parse style logs after settings changes.
+
+## 5) Full-suite unit-test readiness loop
+
+Use this loop when the full pytest suite is red and you want the planning
+substrate to expose the current failure clusters through `UTR`.
+
+### Seed the canonical feed
+```bash
+mise exec -- python -m pytest --junitxml artifacts/test_runs/junit.xml --log-file artifacts/test_runs/pytest.log --log-file-level=INFO
+mise exec -- python -m gabion.tooling.runtime.invariant_graph workstream --object-id UTR
+```
+
+### Refresh between correction units
+```bash
+mise exec -- python -m pytest --lf --junitxml artifacts/test_runs/junit.xml --log-file artifacts/test_runs/pytest.log --log-file-level=INFO
+mise exec -- python -m gabion.tooling.runtime.invariant_graph workstream --object-id UTR
+```
+
+Use one `UTR` touchpoint per correction unit. A targeted green slice does not
+move `UTR` until the junit feed is refreshed. The detailed interpretation and
+closeout procedure lives in
+[`docs/unit_test_readiness_playbook.md`](unit_test_readiness_playbook.md).
 
 ### Validate after editor changes
 ```bash

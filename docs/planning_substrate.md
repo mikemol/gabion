@@ -1,5 +1,5 @@
 ---
-doc_revision: 3
+doc_revision: 4
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: planning_substrate
 doc_role: architecture
@@ -279,6 +279,33 @@ including:
 
 This is the layer that turns graph structure into actionable planning output.
 
+### Synthetic readiness roots
+
+Not every root is an ownership queue. Some roots are synthetic planner
+overlays that summarize cross-cutting operational state from artifact evidence.
+
+`UTR` (`unit_test_readiness`) is the current example. It does not own semantic
+surfaces the way `SCC`, `RCI`, or `BIC` do. Instead it tracks repo-drain
+readiness for the full unit-test suite by coupling junit-derived `test_case`
+and `test_failure` nodes to declared touchpoints through
+`RegisteredTouchpointDefinition.test_path_prefixes`.
+
+That coupling has a few important consequences:
+
+- the root-level failing-test count is the count of unique failing test cases
+  currently matched into `UTR`,
+- touchpoint counts can overlap when one failing file intentionally belongs to
+  more than one readiness bucket,
+- a touchpoint may be recorded as landed while the root and sibling touchpoints
+  remain active,
+- a targeted green run is not enough to claim movement; the junit feed must be
+  refreshed so the current indicators disappear from the projection.
+
+`UTR` is therefore a planner-visible current-indicator root, not a replacement
+for owner roots or a prose-only incident register. The operational loop for
+seeding, refreshing, and closing it is documented in
+[`docs/unit_test_readiness_playbook.md`](unit_test_readiness_playbook.md).
+
 ### 5. Planning-chart overlay
 
 The planning chart is a further overlay computed from the graph and workstream
@@ -348,6 +375,17 @@ mise exec -- python -m gabion.tooling.runtime.invariant_graph blockers --object-
 mise exec -- python -m scripts.policy.project_manager_view
 ```
 
+For `UTR`, the canonical feed/inspection loop is:
+
+```bash
+mise exec -- python -m pytest --junitxml artifacts/test_runs/junit.xml --log-file artifacts/test_runs/pytest.log --log-file-level=INFO
+mise exec -- python -m gabion.tooling.runtime.invariant_graph workstream --object-id UTR
+```
+
+When the stable projection artifacts are being written through the normal
+runtime path, `UTR` is also visible in
+`artifacts/out/invariant_workstreams.json`.
+
 The policy gate also consumes planning-substrate state through:
 
 ```bash
@@ -416,6 +454,7 @@ points:
 | `src/gabion/tooling/policy_substrate/workstream_registry.py` | Core registry dataclasses and closure validation. |
 | `src/gabion/tooling/policy_substrate/invariant_marker_scan.py` | AST marker scan and marker-payload recovery. |
 | `src/gabion/tooling/policy_substrate/invariant_graph.py` | Graph construction, registry aggregation, and planner projections. |
+| `src/gabion/tooling/policy_substrate/unit_test_readiness_registry.py` | Synthetic full-suite readiness root driven by junit failure selectors. |
 | `src/gabion/tooling/policy_substrate/planning_chart.py` | Phase-local planning-chart overlay. |
 | `src/gabion/tooling/runtime/invariant_graph.py` | CLI/runtime entrypoint for building and querying planning artifacts. |
 | `src/gabion/tooling/policy_substrate/project_manager_view.py` | Downstream rendering of planning artifacts into the README-facing PM view. |
@@ -427,6 +466,7 @@ points:
 ## Related documents
 
 - [`docs/planning_chart_architecture.md`](planning_chart_architecture.md)
+- [`docs/unit_test_readiness_playbook.md`](unit_test_readiness_playbook.md)
 - [`docs/governance_control_loops.md`](governance_control_loops.md)
 - [`README.md#repo_contract`](../README.md#repo_contract)
 - [`CONTRIBUTING.md#contributing_contract`](../CONTRIBUTING.md#contributing_contract)
