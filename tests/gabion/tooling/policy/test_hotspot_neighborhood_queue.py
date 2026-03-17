@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from gabion.tooling.policy_substrate.policy_scanner_identity import (
+from gabion.tooling.runtime.policy_scanner_identity import (
     PolicyScannerIdentitySpace,
     canonical_policy_scanner_site_identity,
     canonical_policy_scanner_structural_identity,

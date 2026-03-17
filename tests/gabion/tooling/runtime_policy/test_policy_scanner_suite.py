@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from gabion.policy_dsl import PolicyDomain, evaluate_policy
-from gabion.tooling.policy_substrate.policy_scanner_identity import (
+from gabion.tooling.runtime.policy_scanner_identity import (
     POLICY_SCANNER_ZONE,
     PolicyScannerIdentitySpace,
 )
