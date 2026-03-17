@@ -12,7 +12,12 @@ from gabion.analysis.projection.projection_exec_protocol import (
 )
 from gabion.analysis.projection.projection_exec_plan import (
     _EmitExecutionPlanningDecision,
+    _NormalizedProjectExecutionOp,
+    _NormalizedSkipExecutionOp,
+    _NormalizedTraverseExecutionOp,
     _SkipExecutionPlanningDecision,
+    _normalize_execution_op,
+    _normalize_traverse_execution_op,
     _plan_execution_op,
     _plan_traverse_execution_op,
     execution_ops_from_spec,
@@ -130,17 +135,19 @@ def test_execution_ops_from_spec_skips_negative_limit() -> None:
 # gabion:evidence E:function_site::projection_exec_plan.py::gabion.analysis.projection.projection_exec_plan._plan_execution_op
 # gabion:behavior primary=desired facets=edge
 def test_plan_execution_op_emits_and_skips_with_typed_decisions() -> None:
-    skipped = _plan_execution_op(
+    skipped_normalized = _normalize_execution_op(
         source_index=1,
-        op_name="project",
-        params={"fields": []},
+        op=ProjectionOp(op="project", params={"fields": []}),
     )
-    emitted = _plan_execution_op(
+    emitted_normalized = _normalize_execution_op(
         source_index=2,
-        op_name="project",
-        params={"fields": ["status", "status", "id"]},
+        op=ProjectionOp(op="project", params={"fields": ["status", "status", "id"]}),
     )
+    skipped = _plan_execution_op(normalized_op=skipped_normalized)
+    emitted = _plan_execution_op(normalized_op=emitted_normalized)
 
+    assert isinstance(skipped_normalized, _NormalizedSkipExecutionOp)
+    assert isinstance(emitted_normalized, _NormalizedProjectExecutionOp)
     assert isinstance(skipped, _SkipExecutionPlanningDecision)
     assert skipped.source_index == 1
     assert skipped.op_name == "project"
@@ -158,12 +165,12 @@ def test_plan_execution_op_emits_and_skips_with_typed_decisions() -> None:
 # gabion:evidence E:function_site::projection_exec_plan.py::gabion.analysis.projection.projection_exec_plan._plan_traverse_execution_op
 # gabion:behavior primary=desired facets=edge
 def test_plan_traverse_execution_op_normalizes_defaults_and_explicit_values() -> None:
-    skipped = _plan_traverse_execution_op(
+    skipped_normalized = _normalize_traverse_execution_op(
         source_index=3,
         op_name="traverse",
         params={"field": {"bad": True}},
     )
-    defaulted = _plan_traverse_execution_op(
+    defaulted_normalized = _normalize_traverse_execution_op(
         source_index=4,
         op_name="traverse",
         params={
@@ -175,7 +182,7 @@ def test_plan_traverse_execution_op_normalizes_defaults_and_explicit_values() ->
             "index": True,
         },
     )
-    explicit = _plan_traverse_execution_op(
+    explicit_normalized = _normalize_traverse_execution_op(
         source_index=5,
         op_name="traverse",
         params={
@@ -187,7 +194,13 @@ def test_plan_traverse_execution_op_normalizes_defaults_and_explicit_values() ->
             "index": " idx ",
         },
     )
+    skipped = _plan_execution_op(normalized_op=skipped_normalized)
+    defaulted = _plan_traverse_execution_op(normalized_op=defaulted_normalized)
+    explicit = _plan_traverse_execution_op(normalized_op=explicit_normalized)
 
+    assert isinstance(skipped_normalized, _NormalizedSkipExecutionOp)
+    assert isinstance(defaulted_normalized, _NormalizedTraverseExecutionOp)
+    assert isinstance(explicit_normalized, _NormalizedTraverseExecutionOp)
     assert isinstance(skipped, _SkipExecutionPlanningDecision)
     assert skipped.source_index == 3
     assert skipped.op_name == "traverse"
