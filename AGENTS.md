@@ -1,5 +1,5 @@
 ---
-doc_revision: 36
+doc_revision: 37
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: agents
 doc_role: agent
@@ -96,6 +96,26 @@ Semantic correctness is governed by `[glossary.md#contract](glossary.md#contract
 - Do not weaken or bypass self-hosted runner protections.
 - When changing workflows, run the policy checks (once the scripts exist) and
   surface any violations explicitly.
+
+## Project quick start
+- Use the root `AGENTS.md` as the workspace instruction surface; do not add a parallel `.github/copilot-instructions.md` for this repo.
+- Bootstrap the repo with `make bootstrap`.
+- If the environment is already bootstrapped, prefer `mise exec -- python -m pip install -e .` for package installs and `mise trust --yes` if `mise` reports an untrusted config.
+- Prefer `mise exec -- python ...` for repo-local tooling; bare `python`, `pytest`, and ad-hoc virtualenv selection can drift from the pinned toolchain.
+- Common local commands: `make test`, `make dataflow`, `make docflow`, and `make check`.
+
+## Architecture quick reference
+- `src/gabion/server.py` and `src/gabion/server_core/` own semantic command behavior and command orchestration.
+- `src/gabion/cli.py` and `src/gabion/cli_support/` are thin clients over the semantic core; do not reimplement analysis logic there.
+- `src/gabion/analysis/`, `src/gabion/synthesis/`, and `src/gabion/refactor/` are core logic zones that should consume normalized, typed inputs.
+- `scripts/` are orchestration wrappers for bootstrap, CI reproduction, policy checks, and audits; keep user-facing semantics in `gabion` subcommands.
+- For clause-backed workflow and implementation checks, start with `docs/enforceable_rules_cheat_sheet.md#enforceable_rules_cheat_sheet` and `docs/normative_clause_index.md#normative_clause_index`.
+
+## Working defaults
+- Normalize ambiguity at ingress. Semantic-core paths should prefer DTO validation, Protocol/dataclass reification, and explicit decision surfaces over repeated `if`/`elif` shape checks.
+- Treat Markdown edits as governed surfaces: maintain frontmatter, bump `doc_revision` for conceptual changes, and keep `doc_review_notes` tied to real dependency reviews.
+- When a task touches validation or governance outputs, inspect `artifacts/out/`, `artifacts/audit_reports/`, and `artifacts/test_runs/` before assuming the failure mode.
+- For command or workflow work, inspect `README.md#repo_contract`, `CONTRIBUTING.md#contributing_contract`, and `docs/governance_control_loops.md#governance_control_loops` before changing behavior.
 <!-- BEGIN:generated_agent_clause_obligations -->
 _The clause-backed bullets below are generated from `docs/clause_obligation_decks.yaml` and `docs/normative_clause_index.md` via `mise exec -- python -m scripts.policy.render_clause_obligation_decks`._
 
