@@ -9,7 +9,18 @@ from gabion.analysis.aspf.aspf_lattice_algebra import (
     canonical_structural_identity,
 )
 from gabion.analysis.foundation.artifact_ordering import canonical_mapping_keys
-from gabion.analysis.kernel_vm.object_images import AugmentedRule
+from gabion.analysis.kernel_vm.object_images import (
+    AugmentedRule,
+    ClosedRuleCell,
+    RulePolarity,
+    WitnessDomain,
+    PredicateDomain,
+    SupportReflection,
+    SelectQuery,
+    TriplePattern,
+    JoinPattern,
+    AntiJoinPattern,
+)
 from gabion.json_types import JSONObject
 from gabion.invariants import grade_boundary
 from gabion.runtime_shape_dispatch import json_list_optional, json_mapping_optional
@@ -19,6 +30,15 @@ if TYPE_CHECKING:
 
 
 _AUGMENTED_RULE_OBJECT_IMAGE = AugmentedRule
+_CLOSED_RULE_CELL_OBJECT_IMAGE = ClosedRuleCell
+_RULE_POLARITY_OBJECT_IMAGE = RulePolarity
+_WITNESS_DOMAIN_OBJECT_IMAGE = WitnessDomain
+_PREDICATE_DOMAIN_OBJECT_IMAGE = PredicateDomain
+_SUPPORT_REFLECTION_OBJECT_IMAGE = SupportReflection
+_SELECT_QUERY_OBJECT_IMAGE = SelectQuery
+_TRIPLE_PATTERN_OBJECT_IMAGE = TriplePattern
+_JOIN_PATTERN_OBJECT_IMAGE = JoinPattern
+_ANTI_JOIN_PATTERN_OBJECT_IMAGE = AntiJoinPattern
 
 
 class SemanticOpKind(str):

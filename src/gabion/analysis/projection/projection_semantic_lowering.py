@@ -5,7 +5,18 @@ from enum import Enum
 from collections.abc import Mapping
 from functools import singledispatch
 
-from gabion.analysis.kernel_vm.object_images import AugmentedRule
+from gabion.analysis.kernel_vm.object_images import (
+    AugmentedRule,
+    ClosedRuleCell,
+    RulePolarity,
+    WitnessDomain,
+    PredicateDomain,
+    SupportReflection,
+    SelectQuery,
+    TriplePattern,
+    JoinPattern,
+    AntiJoinPattern,
+)
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.analysis.projection.projection_normalize import spec_hash
 from gabion.analysis.projection.projection_spec import ProjectionOp, ProjectionSpec
@@ -37,6 +48,15 @@ class BridgeProjectionKind(str, Enum):
 
 
 _AUGMENTED_RULE_OBJECT_IMAGE = AugmentedRule
+_CLOSED_RULE_CELL_OBJECT_IMAGE = ClosedRuleCell
+_RULE_POLARITY_OBJECT_IMAGE = RulePolarity
+_WITNESS_DOMAIN_OBJECT_IMAGE = WitnessDomain
+_PREDICATE_DOMAIN_OBJECT_IMAGE = PredicateDomain
+_SUPPORT_REFLECTION_OBJECT_IMAGE = SupportReflection
+_SELECT_QUERY_OBJECT_IMAGE = SelectQuery
+_TRIPLE_PATTERN_OBJECT_IMAGE = TriplePattern
+_JOIN_PATTERN_OBJECT_IMAGE = JoinPattern
+_ANTI_JOIN_PATTERN_OBJECT_IMAGE = AntiJoinPattern
 
 
 @dataclass(frozen=True)
