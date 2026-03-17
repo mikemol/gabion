@@ -8,7 +8,7 @@ import json
 from typing import Callable, Iterable, Mapping, Sequence
 
 from gabion.invariants import never
-from gabion.tooling.policy_substrate.policy_scanner_identity import (
+from gabion.tooling.runtime.policy_scanner_identity import (
     PolicyScannerIdentity,
     PolicyScannerIdentitySpace,
     canonical_policy_scanner_site_identity,

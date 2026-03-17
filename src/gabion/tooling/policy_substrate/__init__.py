@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from .aspf_union_view import ASPFUnionView, CSTParseFailureEvent, UnionModuleView, build_aspf_union_view
 from .dataflow_fibration import (
     BoundaryCrossing,
     BranchWitnessRequest,
@@ -52,7 +51,6 @@ from .policy_event_kind import (
     policy_event_kind_scalar,
 )
 from .projection_lens import LensEvent, LensSite, ProjectionLensSpec, run_projection_lenses
-from .rule_runtime import SubstrateDecoration, cst_failure_seeds, decorate_failure, decorate_site, new_run_context
 from .scalar_flow_index import (
     ScalarFlowIndex,
     build_scalar_flow_index,
@@ -66,11 +64,9 @@ from .site_identity import canonical_site_identity
 from .taint_intervals import TaintInterval, build_taint_intervals
 
 __all__ = [
-    "ASPFUnionView",
     "BoundaryCrossing",
     "BranchWitnessRequest",
     "CallEdgeGradeWitness",
-    "CSTParseFailureEvent",
     "ConditionOverlap",
     "DataFiber",
     "DataflowEdge",
@@ -96,15 +92,12 @@ __all__ = [
     "PolicyEventKind",
     "ProtocolDischargeLevel",
     "ProjectionLensSpec",
-    "SubstrateDecoration",
     "ScalarFlowIndex",
     "TaintInterval",
     "UnmappedWitness",
     "ViolationWitness",
-    "UnionModuleView",
     "WorkGrowthClass",
     "branch_required_symbols",
-    "build_aspf_union_view",
     "build_dataflow_fiber_bundle_for_qualname",
     "build_fiber_bundle_for_qualname",
     "build_scalar_flow_index",
@@ -112,10 +105,7 @@ __all__ = [
     "canonical_structural_identity",
     "compute_lattice_witness",
     "coerce_policy_event_kind",
-    "cst_failure_seeds",
     "canonical_site_identity",
-    "decorate_failure",
-    "decorate_site",
     "eta_data_to_exec",
     "eta_exec_to_data",
     "evaluate_condition_overlaps",
@@ -128,7 +118,6 @@ __all__ = [
     "is_string_format_call",
     "join",
     "meet",
-    "new_run_context",
     "policy_event_kind_from_scalar",
     "policy_event_kind_segments",
     "policy_event_kind_sort_key",

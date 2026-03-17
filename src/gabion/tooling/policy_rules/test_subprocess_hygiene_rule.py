@@ -9,8 +9,8 @@ from pathlib import Path
 from typing import Iterable
 
 from gabion.analysis.foundation.event_algebra import CanonicalRunContext
-from gabion.tooling.policy_substrate import (
-    build_aspf_union_view,
+from gabion.tooling.policy_substrate.aspf_union_view import build_aspf_union_view
+from gabion.tooling.policy_substrate.rule_runtime import (
     cst_failure_seeds,
     decorate_failure,
     decorate_site,

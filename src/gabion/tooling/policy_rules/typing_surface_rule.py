@@ -12,8 +12,8 @@ from gabion.runtime_shape_dispatch import (
     json_list_optional as _json_list_optional,
     json_mapping_optional as _json_mapping_optional,
 )
-from gabion.tooling.policy_substrate import (
-    build_aspf_union_view,
+from gabion.tooling.policy_substrate.aspf_union_view import build_aspf_union_view
+from gabion.tooling.policy_substrate.rule_runtime import (
     cst_failure_seeds,
     decorate_failure,
     decorate_site,

@@ -16,8 +16,8 @@ from gabion.tooling.policy_rules.fiber_diagnostics import (
     FiberCounterfactualBoundary,
     FiberTraceEvent,
 )
-from gabion.tooling.policy_substrate import (
-    build_aspf_union_view,
+from gabion.tooling.policy_substrate.aspf_union_view import build_aspf_union_view
+from gabion.tooling.policy_substrate.rule_runtime import (
     cst_failure_seeds,
     decorate_site,
     new_run_context,

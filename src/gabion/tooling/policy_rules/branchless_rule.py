@@ -14,13 +14,15 @@ from gabion.tooling.policy_substrate import (
     FiberBundle,
     FrontierWitness,
     branch_required_symbols,
-    build_aspf_union_view,
     build_fiber_bundle_for_qualname,
     compute_lattice_witness,
+    frontier_failure_witness,
+)
+from gabion.tooling.policy_substrate.aspf_union_view import build_aspf_union_view
+from gabion.tooling.policy_substrate.rule_runtime import (
     cst_failure_seeds,
     decorate_failure,
     decorate_site,
-    frontier_failure_witness,
     new_run_context,
 )
 from gabion.tooling.policy_rules.fiber_diagnostics import (

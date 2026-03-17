@@ -19,7 +19,7 @@ from gabion.tooling.policy_substrate.identity_zone import (
     HierarchicalIdentityGrammar,
     IdentityCarrier,
 )
-from gabion.tooling.policy_substrate.policy_scanner_identity import (
+from gabion.tooling.runtime.policy_scanner_identity import (
     POLICY_SCANNER_ZONE,
     policy_scanner_carrier_from_payload,
 )

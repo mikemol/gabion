@@ -8,15 +8,17 @@ from dataclasses import dataclass
 from gabion.analysis.foundation.event_algebra import CanonicalRunContext
 from gabion.tooling.policy_substrate import (
     ScalarFlowIndex,
-    build_aspf_union_view,
     build_scalar_flow_index,
+    is_dunder_str_call,
+    is_string_format_call,
+    scalar_cast_name,
+)
+from gabion.tooling.policy_substrate.aspf_union_view import build_aspf_union_view
+from gabion.tooling.policy_substrate.rule_runtime import (
     cst_failure_seeds,
     decorate_failure,
     decorate_site,
-    is_dunder_str_call,
-    is_string_format_call,
     new_run_context,
-    scalar_cast_name,
 )
 from gabion.tooling.policy_rules.fiber_diagnostics import (
     FiberApplicabilityBounds,
