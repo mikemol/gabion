@@ -1,5 +1,5 @@
 ---
-doc_revision: 1
+doc_revision: 2
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: planning_chart_architecture
 doc_role: architecture
@@ -25,6 +25,11 @@ doc_owner: maintainer
 ---
 
 # Planning chart architecture
+
+This document covers only the phase-local planning-chart overlay. For the full
+planning substrate, including registry authoring, invariant-graph aggregation,
+artifacts, queue semantics, and operating rules, see
+[`docs/planning_substrate.md`](planning_substrate.md).
 
 The planning substrate now carries a domain-neutral planning chart with three explicit phases:
 
