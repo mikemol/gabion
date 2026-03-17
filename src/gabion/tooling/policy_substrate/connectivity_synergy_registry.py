@@ -27,7 +27,10 @@ from gabion.tooling.policy_substrate.workstream_registry import (
     },
     owner="gabion.tooling.policy_substrate",
     expiry="CSA-IDR closure",
-    links=[{"kind": "object_id", "value": "CSA-IDR"}],
+    links=[
+        {"kind": "doc_id", "value": "connectivity_synergy_audit"},
+        {"kind": "object_id", "value": "CSA-IDR"},
+    ],
 )
 def _csa_idr_root() -> None:
     return None
@@ -47,7 +50,10 @@ def _csa_idr_root() -> None:
     },
     owner="gabion.tooling.policy_substrate",
     expiry="CSA-IGM closure",
-    links=[{"kind": "object_id", "value": "CSA-IGM"}],
+    links=[
+        {"kind": "doc_id", "value": "connectivity_synergy_audit"},
+        {"kind": "object_id", "value": "CSA-IGM"},
+    ],
 )
 def _csa_igm_root() -> None:
     return None
@@ -71,7 +77,10 @@ def _csa_igm_root() -> None:
     },
     owner="gabion.tooling.policy_substrate",
     expiry="CSA-RGC closure",
-    links=[{"kind": "object_id", "value": "CSA-RGC"}],
+    links=[
+        {"kind": "doc_id", "value": "connectivity_synergy_audit"},
+        {"kind": "object_id", "value": "CSA-RGC"},
+    ],
 )
 def _csa_rgc_root() -> None:
     return None
