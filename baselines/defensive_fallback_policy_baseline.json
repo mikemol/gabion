@@ -2,3700 +2,2008 @@
   "version": 1,
   "violations": [
     {
-      "path": "src/gabion/analysis/artifact_ordering.py",
-      "line": 43,
-      "column": 9,
-      "qualname": "canonical_field_display_parts",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/aspf.py",
-      "line": 144,
-      "column": 5,
-      "qualname": "_canonicalize_evidence",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/call_cluster_consolidation.py",
-      "line": 270,
-      "column": 5,
-      "qualname": "_targets_signature",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/call_cluster_consolidation.py",
-      "line": 275,
-      "column": 9,
-      "qualname": "_targets_signature",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/call_cluster_consolidation.py",
-      "line": 68,
-      "column": 13,
-      "qualname": "build_call_cluster_consolidation_payload",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/call_cluster_consolidation.py",
-      "line": 146,
-      "column": 9,
-      "qualname": "build_call_cluster_consolidation_payload",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/call_cluster_consolidation.py",
-      "line": 212,
-      "column": 13,
-      "qualname": "render_markdown",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/call_cluster_consolidation.py",
-      "line": 230,
-      "column": 9,
-      "qualname": "render_markdown",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/call_clusters.py",
-      "line": 102,
-      "column": 9,
-      "qualname": "build_call_clusters_payload",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/call_clusters.py",
-      "line": 152,
-      "column": 9,
-      "qualname": "render_markdown",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 10663,
-      "column": 9,
-      "qualname": "_accumulate_class_index_for_tree",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 6496,
-      "column": 9,
-      "qualname": "_ambiguity_suite_relation",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 8021,
-      "column": 17,
-      "qualname": "_analysis_index_resolved_call_edges",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 14115,
-      "column": 13,
-      "qualname": "_analysis_index_resume_variants",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 14118,
-      "column": 13,
-      "qualname": "_analysis_index_resume_variants",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 10098,
-      "column": 9,
-      "qualname": "_analyze_file_internal._emit_file_profile",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 10070,
-      "column": 9,
-      "qualname": "_analyze_file_internal._emit_scan_progress",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 10073,
-      "column": 9,
-      "qualname": "_analyze_file_internal._emit_scan_progress",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 7714,
-      "column": 9,
-      "qualname": "_build_analysis_index._emit_index_progress",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 7719,
-      "column": 9,
-      "qualname": "_build_analysis_index._emit_index_progress",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 1633,
-      "column": 9,
-      "qualname": "_build_property_hook_callable_index",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 1636,
-      "column": 9,
-      "qualname": "_build_property_hook_callable_index",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 13445,
-      "column": 9,
-      "qualname": "_build_reuse_replacement_map",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 13449,
-      "column": 13,
-      "qualname": "_build_reuse_replacement_map",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 13178,
-      "column": 9,
-      "qualname": "_bundle_counts_from_snapshot",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 13183,
-      "column": 13,
-      "qualname": "_bundle_counts_from_snapshot",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 13188,
-      "column": 17,
-      "qualname": "_bundle_counts_from_snapshot",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 12544,
-      "column": 9,
-      "qualname": "_bundle_projection_from_forest",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 12547,
-      "column": 9,
-      "qualname": "_bundle_projection_from_forest",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 12568,
-      "column": 9,
-      "qualname": "_bundle_projection_from_forest",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 5541,
-      "column": 9,
-      "qualname": "_call_nodes_for_tree",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 5544,
-      "column": 9,
-      "qualname": "_call_nodes_for_tree",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 9939,
-      "column": 9,
-      "qualname": "_callsite_evidence_for_bundle",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 5667,
-      "column": 9,
-      "qualname": "_collect_call_edges_from_forest",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 5679,
-      "column": 13,
-      "qualname": "_collect_call_edges_from_forest",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 5528,
-      "column": 9,
-      "qualname": "_collect_call_nodes_by_path",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 5711,
-      "column": 9,
-      "qualname": "_collect_call_resolution_obligations_from_forest",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 11081,
-      "column": 9,
-      "qualname": "_collect_closure_lambda_factories",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 11088,
-      "column": 17,
-      "qualname": "_collect_closure_lambda_factories",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 11868,
-      "column": 17,
-      "qualname": "_collect_constant_flow_details._fold",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 12392,
-      "column": 13,
-      "qualname": "_collect_dataclass_registry",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 12403,
-      "column": 9,
-      "qualname": "_collect_dataclass_registry",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 5423,
-      "column": 13,
-      "qualname": "_collect_deadline_function_facts",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 5438,
-      "column": 9,
-      "qualname": "_collect_deadline_function_facts",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 5316,
-      "column": 9,
-      "qualname": "_collect_deadline_local_info",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 4788,
-      "column": 13,
-      "qualname": "_collect_exception_obligations",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 4566,
-      "column": 13,
-      "qualname": "_collect_handledness_witnesses",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 4668,
-      "column": 13,
-      "qualname": "_collect_handledness_witnesses",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 11021,
-      "column": 9,
-      "qualname": "_collect_lambda_bindings_by_caller",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 11025,
-      "column": 9,
-      "qualname": "_collect_lambda_bindings_by_caller",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 10959,
-      "column": 9,
-      "qualname": "_collect_lambda_function_infos",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 10962,
-      "column": 9,
-      "qualname": "_collect_lambda_function_infos",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 1748,
-      "column": 9,
-      "qualname": "_collect_local_class_bases",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 4972,
-      "column": 13,
-      "qualname": "_collect_never_invariants",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 3626,
-      "column": 17,
-      "qualname": "_compute_fingerprint_matches",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 3725,
-      "column": 17,
-      "qualname": "_compute_fingerprint_provenance",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 9483,
-      "column": 17,
-      "qualname": "_compute_fingerprint_synth",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 3551,
-      "column": 17,
-      "qualname": "_compute_fingerprint_warnings",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 12420,
-      "column": 9,
-      "qualname": "_dataclass_registry_for_tree",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 4732,
-      "column": 9,
-      "qualname": "_dead_env_map",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 4736,
-      "column": 9,
-      "qualname": "_dead_env_map",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 4739,
-      "column": 9,
-      "qualname": "_dead_env_map",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 6266,
-      "column": 9,
-      "qualname": "_deadline_loop_forwarded_params",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 6271,
-      "column": 13,
-      "qualname": "_deadline_loop_forwarded_params",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 7358,
-      "column": 5,
-      "qualname": "_decision_param_lint_line",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 14391,
-      "column": 9,
-      "qualname": "_deserialize_bundle_sites_for_resume",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 14396,
-      "column": 13,
-      "qualname": "_deserialize_bundle_sites_for_resume",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 13793,
-      "column": 5,
-      "qualname": "_deserialize_call_args",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 13823,
-      "column": 9,
-      "qualname": "_deserialize_call_args_list",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 13980,
-      "column": 5,
-      "qualname": "_deserialize_class_info_for_resume",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 13881,
-      "column": 5,
-      "qualname": "_deserialize_function_info_for_resume",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 13888,
-      "column": 5,
-      "qualname": "_deserialize_function_info_for_resume",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 13891,
-      "column": 5,
-      "qualname": "_deserialize_function_info_for_resume",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 13898,
-      "column": 9,
-      "qualname": "_deserialize_function_info_for_resume",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 13916,
-      "column": 9,
-      "qualname": "_deserialize_function_info_for_resume",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 13932,
-      "column": 9,
-      "qualname": "_deserialize_function_info_for_resume",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 13935,
-      "column": 9,
-      "qualname": "_deserialize_function_info_for_resume",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 14312,
-      "column": 9,
-      "qualname": "_deserialize_groups_for_resume",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 14317,
-      "column": 13,
-      "qualname": "_deserialize_groups_for_resume",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 14432,
-      "column": 9,
-      "qualname": "_deserialize_invariants_for_resume",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 14436,
-      "column": 9,
-      "qualname": "_deserialize_invariants_for_resume",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 14345,
-      "column": 9,
-      "qualname": "_deserialize_param_spans_for_resume",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 14350,
-      "column": 13,
-      "qualname": "_deserialize_param_spans_for_resume",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 13716,
-      "column": 9,
-      "qualname": "_deserialize_param_use",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 13720,
-      "column": 9,
-      "qualname": "_deserialize_param_use",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 13726,
-      "column": 13,
-      "qualname": "_deserialize_param_use",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 13736,
-      "column": 9,
-      "qualname": "_deserialize_param_use",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 13765,
-      "column": 9,
-      "qualname": "_deserialize_param_use_map",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 14051,
-      "column": 13,
-      "qualname": "_deserialize_symbol_table_for_resume",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 14070,
-      "column": 13,
-      "qualname": "_deserialize_symbol_table_for_resume",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 14078,
-      "column": 13,
-      "qualname": "_deserialize_symbol_table_for_resume",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 14086,
-      "column": 13,
-      "qualname": "_deserialize_symbol_table_for_resume",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 11140,
-      "column": 9,
-      "qualname": "_direct_lambda_callee_by_call_span",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 11144,
-      "column": 9,
-      "qualname": "_direct_lambda_callee_by_call_span",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 4463,
-      "column": 9,
-      "qualname": "_eval_bool_expr",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 4489,
-      "column": 9,
-      "qualname": "_eval_bool_expr",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 1417,
-      "column": 5,
-      "qualname": "_extract_invariant_from_expr",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 1421,
-      "column": 5,
-      "qualname": "_extract_invariant_from_expr",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 1425,
-      "column": 5,
-      "qualname": "_extract_invariant_from_expr",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 3911,
-      "column": 9,
-      "qualname": "_find_provenance_entry_for_site",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 2725,
-      "column": 9,
-      "qualname": "_imported_helper_targets",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 3058,
-      "column": 9,
-      "qualname": "_indexed_pass_ingress_members",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 3067,
-      "column": 13,
-      "qualname": "_indexed_pass_ingress_members",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 3069,
-      "column": 13,
-      "qualname": "_indexed_pass_ingress_members",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 15219,
-      "column": 17,
-      "qualname": "_infer_synthesis_field_types",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 10338,
-      "column": 5,
-      "qualname": "_is_broad_internal_type",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 5108,
-      "column": 5,
-      "qualname": "_is_deadline_origin_call",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 12254,
-      "column": 5,
-      "qualname": "_iter_config_fields",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 12259,
-      "column": 9,
-      "qualname": "_iter_config_fields",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 5173,
-      "column": 9,
-      "qualname": "_iter_marks_ambient",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 8496,
-      "column": 9,
-      "qualname": "_lint_lines_from_call_ambiguities",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 8499,
-      "column": 9,
-      "qualname": "_lint_lines_from_call_ambiguities",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 7183,
-      "column": 9,
-      "qualname": "_lint_relation_from_forest",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 7098,
-      "column": 9,
-      "qualname": "_lint_rows_from_lines",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 14828,
-      "column": 9,
-      "qualname": "_load_analysis_collection_resume_payload",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 14840,
-      "column": 9,
-      "qualname": "_load_analysis_collection_resume_payload",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 14843,
-      "column": 9,
-      "qualname": "_load_analysis_collection_resume_payload",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 14257,
-      "column": 13,
-      "qualname": "_load_analysis_index_resume_payload",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 14263,
-      "column": 13,
-      "qualname": "_load_analysis_index_resume_payload",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 14273,
-      "column": 13,
-      "qualname": "_load_analysis_index_resume_payload",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 14276,
-      "column": 13,
-      "qualname": "_load_analysis_index_resume_payload",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 5926,
-      "column": 17,
-      "qualname": "_materialize_call_candidates",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 6331,
-      "column": 9,
-      "qualname": "_materialize_projection_spec_rows",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 8689,
-      "column": 9,
-      "qualname": "_materialize_statement_suite_contains._emit_body_suite",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 8910,
-      "column": 9,
-      "qualname": "_materialize_structured_suite_sites",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 8576,
-      "column": 9,
-      "qualname": "_never_invariant_lint_lines",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 5619,
-      "column": 5,
-      "qualname": "_node_to_function_suite_id",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 3499,
-      "column": 9,
-      "qualname": "_param_annotations_by_path",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 2645,
-      "column": 5,
-      "qualname": "_parse_failure_sink",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 9054,
-      "column": 9,
-      "qualname": "_populate_bundle_forest._emit_progress",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 9057,
-      "column": 9,
-      "qualname": "_populate_bundle_forest._emit_progress",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 9029,
-      "column": 9,
-      "qualname": "_populate_bundle_forest._notify_progress",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 2944,
-      "column": 9,
-      "qualname": "_raw_sorted_callsite_counts",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 2949,
-      "column": 13,
-      "qualname": "_raw_sorted_callsite_counts",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 2951,
-      "column": 13,
-      "qualname": "_raw_sorted_callsite_counts",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 5168,
-      "column": 9,
-      "qualname": "_record_call_span",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 7294,
-      "column": 9,
-      "qualname": "_report_section_line_relation",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 1792,
-      "column": 9,
-      "qualname": "_resolve_local_method_in_hierarchy",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 10789,
-      "column": 5,
-      "qualname": "_resolve_method_in_hierarchy",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 9642,
-      "column": 9,
-      "qualname": "_return_aliases",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 9624,
-      "column": 9,
-      "qualname": "_return_aliases._alias_from_expr",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 14374,
-      "column": 13,
-      "qualname": "_serialize_bundle_sites_for_resume",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 7506,
-      "column": 5,
-      "qualname": "_sorted_text",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 8662,
-      "column": 5,
-      "qualname": "_suite_span_from_statements",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 6796,
-      "column": 9,
-      "qualname": "_summarize_call_ambiguities",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 6950,
-      "column": 9,
-      "qualname": "_summarize_never_invariants",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 15431,
-      "column": 17,
-      "qualname": "build_refactor_plan",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 13312,
-      "column": 9,
-      "qualname": "compute_structure_reuse",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 13315,
-      "column": 9,
-      "qualname": "compute_structure_reuse",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 13321,
-      "column": 13,
-      "qualname": "compute_structure_reuse",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 13324,
-      "column": 13,
-      "qualname": "compute_structure_reuse",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 13330,
-      "column": 17,
-      "qualname": "compute_structure_reuse",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 13390,
-      "column": 9,
-      "qualname": "compute_structure_reuse",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 12895,
-      "column": 9,
-      "qualname": "extract_report_sections",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 13479,
-      "column": 9,
-      "qualname": "render_reuse_lemma_stubs",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/legacy_dataflow_monolith.py",
-      "line": 465,
-      "column": 13,
-      "qualname": "resolve_star",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/dataflow_bundle_iteration.py",
-      "line": 65,
-      "column": 9,
-      "qualname": "_collect_local_dataclasses",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/dataflow_bundle_iteration.py",
-      "line": 136,
-      "column": 9,
-      "qualname": "_resolve_dataclass_fields",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/dataflow_bundle_iteration.py",
-      "line": 372,
-      "column": 9,
-      "qualname": "iter_dataclass_call_bundle_effects",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/dataflow_bundle_iteration.py",
-      "line": 380,
-      "column": 9,
-      "qualname": "iter_dataclass_call_bundle_effects",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/dataflow_callee_resolution.py",
-      "line": 249,
-      "column": 5,
-      "qualname": "_resolve_class_hierarchy",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/dataflow_callee_resolution.py",
-      "line": 187,
-      "column": 5,
-      "qualname": "_resolve_symbol_table",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/dataflow_callee_resolution.py",
-      "line": 310,
-      "column": 9,
-      "qualname": "apply_callee_resolution_ops",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/dataflow_decision_surfaces.py",
-      "line": 65,
-      "column": 9,
-      "qualname": "compute_fingerprint_coherence",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/dataflow_decision_surfaces.py",
-      "line": 155,
-      "column": 9,
-      "qualname": "compute_fingerprint_rewrite_plans",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/dataflow_decision_surfaces.py",
-      "line": 166,
-      "column": 13,
-      "qualname": "compute_fingerprint_rewrite_plans",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/dataflow_decision_surfaces.py",
-      "line": 184,
-      "column": 9,
-      "qualname": "compute_fingerprint_rewrite_plans",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/dataflow_decision_surfaces.py",
-      "line": 187,
-      "column": 9,
-      "qualname": "compute_fingerprint_rewrite_plans",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/dataflow_exception_obligations.py",
-      "line": 142,
-      "column": 5,
-      "qualname": "_builtin_exception_class",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/dataflow_exception_obligations.py",
-      "line": 26,
-      "column": 5,
-      "qualname": "exception_param_names",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/dataflow_exception_obligations.py",
-      "line": 41,
-      "column": 5,
-      "qualname": "exception_type_name",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/dataflow_exception_obligations.py",
-      "line": 92,
-      "column": 5,
-      "qualname": "handler_type_names",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/dataflow_obligations.py",
-      "line": 583,
-      "column": 9,
-      "qualname": "_append_call_arg_obligations",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/dataflow_obligations.py",
-      "line": 217,
-      "column": 9,
-      "qualname": "_append_default_param_obligations",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/dataflow_obligations.py",
-      "line": 521,
-      "column": 9,
-      "qualname": "_append_loop_obligations",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/dataflow_obligations.py",
-      "line": 524,
-      "column": 9,
-      "qualname": "_append_loop_obligations",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/dataflow_obligations.py",
-      "line": 182,
-      "column": 9,
-      "qualname": "_append_origin_obligations",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/dataflow_obligations.py",
-      "line": 409,
-      "column": 9,
-      "qualname": "_append_recursive_obligations",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/dataflow_obligations.py",
-      "line": 289,
-      "column": 9,
-      "qualname": "_append_resolution_obligations",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/dataflow_obligations.py",
-      "line": 304,
-      "column": 9,
-      "qualname": "_append_resolution_obligations",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/dataflow_obligations.py",
-      "line": 341,
-      "column": 9,
-      "qualname": "_append_resolution_obligations",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/dataflow_obligations.py",
-      "line": 988,
-      "column": 17,
-      "qualname": "_collect_forwarded_params",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/dataflow_obligations.py",
-      "line": 950,
-      "column": 21,
-      "qualname": "_collect_trusted_params",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/dataflow_obligations.py",
-      "line": 1048,
-      "column": 9,
-      "qualname": "collect_deadline_obligations._emit_progress",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/dataflow_obligations.py",
-      "line": 1051,
-      "column": 9,
-      "qualname": "collect_deadline_obligations._emit_progress",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/dataflow_pipeline.py",
-      "line": 965,
-      "column": 13,
-      "qualname": "analyze_paths._emit_collection_progress",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/dataflow_pipeline.py",
-      "line": 968,
-      "column": 13,
-      "qualname": "analyze_paths._emit_collection_progress",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/dataflow_pipeline.py",
-      "line": 998,
-      "column": 13,
-      "qualname": "analyze_paths._emit_phase_progress",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/dataflow_run_outputs.py",
-      "line": 293,
-      "column": 5,
-      "qualname": "emit_optional_dot_output",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/dataflow_run_outputs.py",
-      "line": 331,
-      "column": 5,
-      "qualname": "emit_report_output",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/dataflow_run_outputs.py",
-      "line": 243,
-      "column": 5,
-      "qualname": "merge_overlap_threshold",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/decision_flow.py",
-      "line": 65,
-      "column": 9,
-      "qualname": "build_decision_tables",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/derivation_cache.py",
-      "line": 99,
-      "column": 9,
-      "qualname": "materialize",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/derivation_persistence.py",
-      "line": 109,
-      "column": 5,
-      "qualname": "_node_id_from_payload",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/derivation_persistence.py",
-      "line": 59,
-      "column": 5,
-      "qualname": "hydrate_graph_from_checkpoint",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/derivation_persistence.py",
-      "line": 62,
-      "column": 5,
-      "qualname": "hydrate_graph_from_checkpoint",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/derivation_persistence.py",
-      "line": 66,
-      "column": 9,
-      "qualname": "hydrate_graph_from_checkpoint",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/derivation_persistence.py",
-      "line": 72,
-      "column": 9,
-      "qualname": "hydrate_graph_from_checkpoint",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/derivation_persistence.py",
-      "line": 43,
-      "column": 5,
-      "qualname": "read_derivation_checkpoint",
+      "path": "src/gabion/analysis/aspf/aspf_lattice_algebra.py",
+      "qualname": "_as_dict_items",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "ac7707e299b0407ef43109d6348287eb4eca816e7943985eb08d25f385e1d5c3"
     },
     {
-      "path": "src/gabion/analysis/derivation_persistence.py",
-      "line": 48,
-      "column": 5,
-      "qualname": "read_derivation_checkpoint",
+      "path": "src/gabion/analysis/aspf/aspf_lattice_algebra.py",
+      "qualname": "_as_string_list",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "110197b54b8eb8bfc2fb4202c46927b0820635c4ed20e4f94a9fd8c3bba2eaa5"
     },
     {
-      "path": "src/gabion/analysis/evidence.py",
-      "line": 91,
-      "column": 9,
-      "qualname": "exception_obligation_summary_for_site",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/evidence.py",
-      "line": 64,
-      "column": 9,
-      "qualname": "from_payload",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/evidence.py",
-      "line": 18,
-      "column": 5,
-      "qualname": "normalize_bundle_key",
+      "path": "src/gabion/analysis/aspf/aspf_lattice_algebra.py",
+      "qualname": "_frontier_from_payload",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/evidence_keys.py",
-      "line": 411,
-      "column": 17,
-      "qualname": "render_display",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/evidence_keys.py",
-      "line": 425,
-      "column": 17,
-      "qualname": "render_display",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
+      "structured_hash": "355f1417a7b118346de909d538b2230817357c42f309dfb0ea60aeac0b8bbb5f"
     },
     {
-      "path": "src/gabion/analysis/forest_spec.py",
-      "line": 357,
-      "column": 5,
-      "qualname": "_sorted_strings",
+      "path": "src/gabion/analysis/aspf/aspf_lattice_algebra.py",
+      "qualname": "_violation_from_payload",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/forest_spec.py",
-      "line": 263,
-      "column": 13,
-      "qualname": "forest_spec_from_dict",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/impact_index.py",
-      "line": 379,
-      "column": 9,
-      "qualname": "_build_graph_payload",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/impact_index.py",
-      "line": 424,
-      "column": 9,
-      "qualname": "_build_graph_payload",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/impact_index.py",
-      "line": 951,
-      "column": 9,
-      "qualname": "_collect_symbol_universe",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
+      "structured_hash": "f732b0fe80e40a626dde08a344e36563b3d315e7cc31cd3dc5b6dd6cf91265f4"
     },
     {
-      "path": "src/gabion/analysis/impact_index.py",
-      "line": 812,
-      "column": 9,
-      "qualname": "_decorator_targets",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/impact_index.py",
-      "line": 623,
-      "column": 9,
-      "qualname": "_iter_local_calls",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/impact_index.py",
-      "line": 636,
-      "column": 9,
-      "qualname": "_iter_local_names",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/impact_index.py",
-      "line": 328,
-      "column": 5,
-      "qualname": "_links_from_doc",
+      "path": "src/gabion/analysis/aspf/aspf_lattice_algebra.py",
+      "qualname": "_violation_payload",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "2103aaaaa7c8f5c0b00726a713c1be6f9f5671a4299792c4d91cbc7545d3b936"
     },
     {
-      "path": "src/gabion/analysis/impact_index.py",
-      "line": 237,
-      "column": 5,
-      "qualname": "_links_from_test",
+      "path": "src/gabion/analysis/core/forest_spec.py",
+      "qualname": "_string_key_mapping",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "65dab65ba4fa8d8ab1d55f6a5393b12a48a0c7e35f1e64beb7b85c99e7ad7d11"
     },
     {
-      "path": "src/gabion/analysis/impact_index.py",
-      "line": 240,
-      "column": 5,
-      "qualname": "_links_from_test",
+      "path": "src/gabion/analysis/core/type_fingerprints.py",
+      "qualname": "_mapping_default_empty",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/projection_exec.py",
-      "line": 176,
-      "column": 9,
-      "qualname": "_apply_select",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
+      "structured_hash": "6e7db2abc311f754f9847dff85dbc7e054bc68061d2528978a5b5883c95704b1"
     },
     {
-      "path": "src/gabion/analysis/projection_exec.py",
-      "line": 270,
-      "column": 9,
-      "qualname": "_apply_traverse",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/projection_exec.py",
-      "line": 203,
-      "column": 5,
-      "qualname": "_count_by_params_from_map",
+      "path": "src/gabion/analysis/dataflow/engine/dataflow_event_algebra_adapter.py",
+      "qualname": "_normalized_nonempty_str_list",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "46fcfa1516e5a425b82b548258d04be45d1316c414f54245b1ac631b3ea17209"
     },
     {
-      "path": "src/gabion/analysis/projection_exec.py",
-      "line": 186,
-      "column": 5,
-      "qualname": "_project_params_from_map",
+      "path": "src/gabion/analysis/dataflow/engine/dataflow_event_algebra_adapter.py",
+      "qualname": "_positive_int_optional",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "2f739a336d64492863f338eafd8785fac661a53d6fe480bae15ca774daed39f5"
     },
     {
-      "path": "src/gabion/analysis/projection_exec.py",
-      "line": 295,
-      "column": 5,
-      "qualname": "_sort_params_from_map",
+      "path": "src/gabion/analysis/dataflow/engine/dataflow_function_index_helpers.py",
+      "qualname": "_annotation_text",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/projection_exec.py",
-      "line": 300,
-      "column": 9,
-      "qualname": "_sort_params_from_map",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/projection_exec.py",
-      "line": 304,
-      "column": 9,
-      "qualname": "_sort_params_from_map",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
+      "structured_hash": "1b6ec14f11eb0ffc1c0cd5a829d22dd5861350d82cc7cfc6f801f789de2ed63e"
     },
     {
-      "path": "src/gabion/analysis/projection_exec.py",
-      "line": 237,
-      "column": 5,
-      "qualname": "_traverse_params_from_map",
+      "path": "src/gabion/analysis/dataflow/engine/dataflow_function_index_helpers.py",
+      "qualname": "_node_span",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/projection_exec.py",
-      "line": 81,
-      "column": 9,
-      "qualname": "apply_spec",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/projection_exec.py",
-      "line": 95,
-      "column": 13,
-      "qualname": "apply_spec",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/projection_exec.py",
-      "line": 102,
-      "column": 13,
-      "qualname": "apply_spec",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/projection_exec.py",
-      "line": 109,
-      "column": 13,
-      "qualname": "apply_spec",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
+      "structured_hash": "2e499007f4df3e386100394ba2dd778776eb121bb4481a93496e4e158a59aca5"
     },
     {
-      "path": "src/gabion/analysis/projection_exec.py",
-      "line": 116,
-      "column": 13,
-      "qualname": "apply_spec",
+      "path": "src/gabion/analysis/dataflow/engine/dataflow_function_index_helpers.py",
+      "qualname": "_param_defaults",
       "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
+      "structured_hash": "fe7a3407087fb740bdacbbebe920edaef0b74afc9b7219240f97353b8d0f6d08"
     },
     {
-      "path": "src/gabion/analysis/projection_exec.py",
-      "line": 131,
-      "column": 13,
-      "qualname": "apply_spec",
+      "path": "src/gabion/analysis/dataflow/engine/dataflow_function_index_helpers.py",
+      "qualname": "_param_defaults",
       "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
+      "structured_hash": "1ca5b168931ed75332c86988eb9e05c81d1be6e1d68b8978a7124dba1e812cfa"
     },
     {
-      "path": "src/gabion/analysis/projection_spec.py",
-      "line": 90,
-      "column": 5,
-      "qualname": "_op_payload_from_entry",
+      "path": "src/gabion/analysis/indexed_scan/scanners/config_fields.py",
+      "qualname": "iter_config_fields",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "fcfa70fe8dafb8a5b74f5f49989402f2ba4162d382f23133537e4051f7380909"
     },
     {
-      "path": "src/gabion/analysis/projection_spec.py",
-      "line": 77,
-      "column": 5,
+      "path": "src/gabion/analysis/projection/projection_spec.py",
       "qualname": "_op_payloads_from_pipeline",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "1c0fdae9370df1bef6ced443bd3518ff806510f8ba1253faa1e7ee6055fbfc4f"
     },
     {
-      "path": "src/gabion/analysis/resume_codec.py",
-      "line": 128,
-      "column": 5,
-      "qualname": "int_str_pairs_from_sequence",
+      "path": "src/gabion/analysis/semantics/evidence_keys.py",
+      "qualname": "_mapping_default_empty",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "d9904daeae2d89cc87106fbaa58bd46395b60f92670e5906539e639e8a147328"
     },
     {
-      "path": "src/gabion/analysis/resume_codec.py",
-      "line": 134,
-      "column": 9,
-      "qualname": "int_str_pairs_from_sequence",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/resume_codec.py",
-      "line": 137,
-      "column": 9,
-      "qualname": "int_str_pairs_from_sequence",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/resume_codec.py",
-      "line": 117,
-      "column": 5,
-      "qualname": "int_tuple4_or_none",
+      "path": "src/gabion/analysis/semantics/evidence_keys.py",
+      "qualname": "_sequence_default_empty",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "37638c79159525f3e335066d993fd560afe2894e5d7cc169251d5a0e2e06ab50"
     },
     {
-      "path": "src/gabion/analysis/resume_codec.py",
-      "line": 170,
-      "column": 9,
-      "qualname": "iter_valid_key_entries",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/resume_codec.py",
-      "line": 192,
-      "column": 5,
-      "qualname": "load_allowed_paths_from_sequence",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/resume_codec.py",
-      "line": 198,
-      "column": 9,
-      "qualname": "load_allowed_paths_from_sequence",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/resume_codec.py",
-      "line": 223,
-      "column": 9,
-      "qualname": "load_resume_map",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/resume_codec.py",
-      "line": 66,
-      "column": 5,
-      "qualname": "mapping_or_empty",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/resume_codec.py",
-      "line": 58,
-      "column": 9,
-      "qualname": "mapping_sections",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/resume_codec.py",
-      "line": 41,
-      "column": 5,
-      "qualname": "payload_with_format",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/resume_codec.py",
-      "line": 28,
-      "column": 5,
-      "qualname": "payload_with_phase",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/resume_codec.py",
-      "line": 76,
-      "column": 5,
-      "qualname": "sequence_or_none",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/resume_codec.py",
-      "line": 78,
-      "column": 5,
-      "qualname": "sequence_or_none",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/resume_codec.py",
-      "line": 85,
-      "column": 5,
-      "qualname": "str_list_from_sequence",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/resume_codec.py",
-      "line": 105,
-      "column": 5,
-      "qualname": "str_map_from_mapping",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/resume_codec.py",
-      "line": 155,
-      "column": 9,
-      "qualname": "str_pair_set_from_sequence",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/semantic_coverage_map.py",
-      "line": 227,
-      "column": 9,
-      "qualname": "_artifact_evidence_index",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/semantic_coverage_map.py",
-      "line": 169,
-      "column": 5,
-      "qualname": "load_mapping_entries",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/semantic_coverage_map.py",
-      "line": 172,
-      "column": 5,
-      "qualname": "load_mapping_entries",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/semantic_coverage_map.py",
-      "line": 177,
-      "column": 9,
-      "qualname": "load_mapping_entries",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/test_annotation_drift.py",
-      "line": 91,
-      "column": 13,
-      "qualname": "render_markdown",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/test_evidence_suggestions.py",
-      "line": 908,
-      "column": 9,
-      "qualname": "_build_forest_evidence_index",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/test_evidence_suggestions.py",
-      "line": 911,
-      "column": 9,
-      "qualname": "_build_forest_evidence_index",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/test_evidence_suggestions.py",
-      "line": 762,
-      "column": 9,
-      "qualname": "_call_module_literals",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/test_evidence_suggestions.py",
-      "line": 746,
-      "column": 9,
-      "qualname": "_call_symbol_refs",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/test_evidence_suggestions.py",
-      "line": 928,
-      "column": 5,
-      "qualname": "_evidence_for_alt",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/test_evidence_suggestions.py",
-      "line": 931,
-      "column": 5,
-      "qualname": "_evidence_for_alt",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/test_evidence_suggestions.py",
-      "line": 941,
-      "column": 5,
-      "qualname": "_evidence_for_alt",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/test_evidence_suggestions.py",
-      "line": 667,
-      "column": 5,
+      "path": "src/gabion/analysis/surfaces/test_evidence_suggestions.py",
       "qualname": "_find_module_level_calls",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "fbb815283819fecc3e7a8175b25b505ed1a9754ddfa79d8c96b6c72939466904"
     },
     {
-      "path": "src/gabion/analysis/test_evidence_suggestions.py",
-      "line": 520,
-      "column": 9,
-      "qualname": "_graph_suggestions",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/test_evidence_suggestions.py",
-      "line": 534,
-      "column": 13,
-      "qualname": "_graph_suggestions",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/test_evidence_suggestions.py",
-      "line": 511,
-      "column": 13,
-      "qualname": "_graph_suggestions._resolved_callees",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/test_evidence_suggestions.py",
-      "line": 710,
-      "column": 9,
-      "qualname": "_index_nodes_by_scope",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/test_evidence_suggestions.py",
-      "line": 723,
-      "column": 9,
-      "qualname": "_iter_outer_calls",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/test_evidence_suggestions.py",
-      "line": 837,
-      "column": 5,
-      "qualname": "_resolve_module_literal",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/test_evidence_suggestions.py",
-      "line": 814,
-      "column": 5,
-      "qualname": "_resolve_symbol_target",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/test_evidence_suggestions.py",
-      "line": 821,
-      "column": 5,
-      "qualname": "_resolve_symbol_target",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/test_evidence_suggestions.py",
-      "line": 405,
-      "column": 9,
-      "qualname": "collect_call_footprints",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/test_evidence_suggestions.py",
-      "line": 395,
-      "column": 13,
-      "qualname": "collect_call_footprints._resolved_callees",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/test_evidence_suggestions.py",
-      "line": 113,
-      "column": 9,
-      "qualname": "load_test_evidence",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/test_obsolescence.py",
-      "line": 104,
-      "column": 5,
-      "qualname": "_parse_risk_registry_payload",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/test_obsolescence.py",
-      "line": 108,
-      "column": 9,
+      "path": "src/gabion/analysis/surfaces/test_obsolescence.py",
       "qualname": "_parse_risk_registry_payload",
       "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
+      "structured_hash": "ec8ab1e98ccf400bde2788da958a1f20220ac581e6364c7fd012b49f5e7eed32"
     },
     {
-      "path": "src/gabion/analysis/test_obsolescence.py",
-      "line": 111,
-      "column": 9,
-      "qualname": "_parse_risk_registry_payload",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/test_obsolescence.py",
-      "line": 31,
-      "column": 9,
-      "qualname": "from_payload",
+      "path": "src/gabion/analysis/surfaces/test_obsolescence_delta.py",
+      "qualname": "_normalized_test_id",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "55b2fd1403f35d6115eab06b3c698c66671f21f012ebbf6a5dfde91190c3dddb"
     },
     {
-      "path": "src/gabion/analysis/test_obsolescence.py",
-      "line": 65,
-      "column": 9,
-      "qualname": "load_test_evidence",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/test_obsolescence_delta.py",
-      "line": 428,
-      "column": 9,
-      "qualname": "_parse_evidence_index",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/test_obsolescence_delta.py",
-      "line": 431,
-      "column": 9,
-      "qualname": "_parse_evidence_index",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/test_obsolescence_delta.py",
-      "line": 515,
-      "column": 5,
+      "path": "src/gabion/analysis/surfaces/test_obsolescence_delta.py",
       "qualname": "_section_list",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "6678f34bfed6fac437e8edfa937557668fda6e71dbc78877885a1f1c5fc37426"
     },
     {
-      "path": "src/gabion/analysis/test_obsolescence_delta.py",
-      "line": 518,
-      "column": 5,
+      "path": "src/gabion/analysis/surfaces/test_obsolescence_delta.py",
       "qualname": "_section_list",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/test_obsolescence_delta.py",
-      "line": 364,
-      "column": 9,
-      "qualname": "_tests_from_candidates",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/test_obsolescence_delta.py",
-      "line": 87,
-      "column": 13,
-      "qualname": "parse_baseline_payload",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/test_obsolescence_state.py",
-      "line": 67,
-      "column": 13,
-      "qualname": "parse_state_payload",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/timeout_context.py",
-      "line": 428,
-      "column": 5,
-      "qualname": "_deadline_profile_snapshot",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/timeout_context.py",
-      "line": 366,
-      "column": 5,
-      "qualname": "_record_deadline_check",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/timeout_context.py",
-      "line": 371,
-      "column": 5,
-      "qualname": "_record_deadline_check",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/timeout_context.py",
-      "line": 665,
-      "column": 5,
-      "qualname": "record_deadline_io",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/timeout_context.py",
-      "line": 599,
-      "column": 13,
-      "qualname": "render_deadline_profile_markdown",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/timeout_context.py",
-      "line": 620,
-      "column": 13,
-      "qualname": "render_deadline_profile_markdown",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/timeout_context.py",
-      "line": 641,
-      "column": 13,
-      "qualname": "render_deadline_profile_markdown",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/type_fingerprints.py",
-      "line": 838,
-      "column": 5,
-      "qualname": "_apply_registry_payload",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/type_fingerprints.py",
-      "line": 847,
-      "column": 13,
-      "qualname": "_apply_registry_payload",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/type_fingerprints.py",
-      "line": 854,
-      "column": 13,
-      "qualname": "_apply_registry_payload",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/type_fingerprints.py",
-      "line": 794,
-      "column": 9,
-      "qualname": "build_synth_registry_from_payload",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/type_fingerprints.py",
-      "line": 995,
-      "column": 9,
-      "qualname": "fingerprint_bitmask",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/type_fingerprints.py",
-      "line": 242,
-      "column": 9,
-      "qualname": "load_seed_payload",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/type_fingerprints.py",
-      "line": 252,
-      "column": 13,
-      "qualname": "load_seed_payload",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/analysis/type_fingerprints.py",
-      "line": 632,
-      "column": 9,
-      "qualname": "synth_dimension_for",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/visitors.py",
-      "line": 311,
-      "column": 9,
-      "qualname": "_alias_from_call",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/visitors.py",
-      "line": 319,
-      "column": 13,
-      "qualname": "_alias_from_call",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/visitors.py",
-      "line": 329,
-      "column": 13,
-      "qualname": "_alias_from_call",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/visitors.py",
-      "line": 364,
-      "column": 13,
-      "qualname": "_bind_return_alias",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/visitors.py",
-      "line": 272,
-      "column": 9,
-      "qualname": "_bind_sequence",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/visitors.py",
-      "line": 274,
-      "column": 9,
-      "qualname": "_bind_sequence",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/visitors.py",
-      "line": 118,
-      "column": 9,
-      "qualname": "_record_forward",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/visitors.py",
-      "line": 121,
-      "column": 9,
-      "qualname": "_record_forward",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/visitors.py",
-      "line": 436,
-      "column": 9,
-      "qualname": "visit_AnnAssign",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/visitors.py",
-      "line": 521,
-      "column": 9,
-      "qualname": "visit_Attribute",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/visitors.py",
-      "line": 477,
-      "column": 9,
-      "qualname": "visit_Name",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/visitors.py",
-      "line": 549,
-      "column": 9,
-      "qualname": "visit_Subscript",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/analysis/wl_refinement.py",
-      "line": 262,
-      "column": 5,
-      "qualname": "_seed_struct",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "6678f34bfed6fac437e8edfa937557668fda6e71dbc78877885a1f1c5fc37426"
     },
     {
       "path": "src/gabion/cli.py",
-      "line": 2662,
-      "column": 5,
-      "qualname": "_checkpoint_requires_chunk_artifacts",
-      "kind": "sentinel_return",
-      "message": "broad exception handler returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/cli.py",
-      "line": 2664,
-      "column": 5,
-      "qualname": "_checkpoint_requires_chunk_artifacts",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/cli.py",
-      "line": 2667,
-      "column": 5,
-      "qualname": "_checkpoint_requires_chunk_artifacts",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/cli.py",
-      "line": 2670,
-      "column": 5,
-      "qualname": "_checkpoint_requires_chunk_artifacts",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/cli.py",
-      "line": 1730,
-      "column": 5,
-      "qualname": "_emit_analysis_resume_summary",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/cli.py",
-      "line": 590,
-      "column": 5,
-      "qualname": "_emit_timeout_profile_artifacts",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/cli.py",
-      "line": 593,
-      "column": 5,
-      "qualname": "_emit_timeout_profile_artifacts",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/cli.py",
-      "line": 690,
-      "column": 5,
-      "qualname": "_emit_timeout_progress_artifacts",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/cli.py",
-      "line": 693,
-      "column": 5,
-      "qualname": "_emit_timeout_progress_artifacts",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/cli.py",
-      "line": 411,
-      "column": 5,
-      "qualname": "_is_stdout_target",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/cli.py",
-      "line": 661,
-      "column": 17,
-      "qualname": "_render_timeout_progress_markdown",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/cli.py",
-      "line": 670,
-      "column": 13,
-      "qualname": "_render_timeout_progress_markdown",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/cli.py",
-      "line": 2571,
-      "column": 17,
-      "qualname": "_restore_dataflow_resume_checkpoint_from_github_artifacts",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/cli.py",
-      "line": 2523,
-      "column": 9,
-      "qualname": "_restore_dataflow_resume_checkpoint_from_github_artifacts._artifact_is_candidate",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/cli.py",
-      "line": 2529,
-      "column": 9,
-      "qualname": "_restore_dataflow_resume_checkpoint_from_github_artifacts._artifact_is_candidate",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/cli.py",
-      "line": 1800,
-      "column": 9,
-      "qualname": "_run_dataflow_raw_argv._on_notification",
-      "kind": "sentinel_pass",
-      "message": "swallows invalid path with pass"
-    },
-    {
-      "path": "src/gabion/cli.py",
-      "line": 1814,
-      "column": 9,
       "qualname": "_run_dataflow_raw_argv._on_notification",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "1291291186d7c6bc45dbcdc16f74f1ed0f2a519d2dc2a6008f93fab15910a1b4"
     },
     {
-      "path": "src/gabion/cli.py",
-      "line": 2084,
-      "column": 9,
-      "qualname": "check._on_notification",
-      "kind": "sentinel_pass",
-      "message": "swallows invalid path with pass"
-    },
-    {
-      "path": "src/gabion/cli.py",
-      "line": 2098,
-      "column": 9,
-      "qualname": "check._on_notification",
+      "path": "src/gabion/cli_support/shared/dataflow_runtime_common.py",
+      "qualname": "normalize_optional_output_target",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "f6fbe5312cbaabdd0f45e1af2beda04114f0f8944acd2b6da30f7ee4f3608d94"
+    },
+    {
+      "path": "src/gabion/cli_support/shared/result_emitters.py",
+      "qualname": "emit_analysis_resume_summary",
+      "kind": "sentinel_return",
+      "structured_hash": "a5ebedfe941c3e507bb02d908c1e53dcc68b2a98ba98eee43beb46bdb0e2138d"
+    },
+    {
+      "path": "src/gabion/cli_support/shared/result_emitters.py",
+      "qualname": "emit_timeout_profile_artifacts",
+      "kind": "sentinel_return",
+      "structured_hash": "95fcb4b9f998106bf842c868c13845ea6d1de89549cb9061259613d9b96f6515"
+    },
+    {
+      "path": "src/gabion/cli_support/shared/result_emitters.py",
+      "qualname": "emit_timeout_profile_artifacts",
+      "kind": "sentinel_return",
+      "structured_hash": "95fcb4b9f998106bf842c868c13845ea6d1de89549cb9061259613d9b96f6515"
+    },
+    {
+      "path": "src/gabion/cli_support/shared/result_emitters.py",
+      "qualname": "parse_lint_line_entry",
+      "kind": "sentinel_return",
+      "structured_hash": "05f24c2e6ac0b420a42f6638ef93fbbb398a80c002e94276976d357a2225a250"
+    },
+    {
+      "path": "src/gabion/cli_support/shared/timeout_progress.py",
+      "qualname": "render_timeout_progress_markdown",
+      "kind": "sentinel_continue",
+      "structured_hash": "5a60560b09a6de522b1c0fe994a57fe361c99634e654ce8c2948f575c55827c5"
+    },
+    {
+      "path": "src/gabion/commands/dispatch_registry.py",
+      "qualname": "executor_for_transport",
+      "kind": "sentinel_return",
+      "structured_hash": "a85cfabb8b0af0f7594d4bdcb5fd6d1c0836381a9d058f92fd0901352ee541e7"
     },
     {
       "path": "src/gabion/commands/progress_contract.py",
-      "line": 21,
-      "column": 5,
+      "qualname": "_coerced_non_negative_int_like_optional",
+      "kind": "sentinel_return",
+      "structured_hash": "892bb226b1713a4f9935a849fd75e807367eaf24273e8cb7c96ede2135a42643"
+    },
+    {
+      "path": "src/gabion/commands/progress_contract.py",
       "qualname": "_progress_value_from_notification",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "24fa5ee54f91801ebe56170f293a151aefbe0095321977c29f619f390270adcd"
     },
     {
       "path": "src/gabion/commands/progress_contract.py",
-      "line": 26,
-      "column": 5,
       "qualname": "_progress_value_from_notification",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "24fa5ee54f91801ebe56170f293a151aefbe0095321977c29f619f390270adcd"
     },
     {
       "path": "src/gabion/commands/progress_contract.py",
-      "line": 56,
-      "column": 5,
-      "qualname": "checkpoint_intro_timeline_from_progress_notification",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/commands/progress_contract.py",
-      "line": 59,
-      "column": 5,
-      "qualname": "checkpoint_intro_timeline_from_progress_notification",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/commands/progress_contract.py",
-      "line": 95,
-      "column": 5,
       "qualname": "phase_progress_dimensions_summary",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "fb1df6dc9be5b6d80d134ae3b9f75b6dd3816218b5ab9561ff68bd0aa64c6d0f"
     },
     {
       "path": "src/gabion/commands/progress_contract.py",
-      "line": 98,
-      "column": 5,
       "qualname": "phase_progress_dimensions_summary",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "fb1df6dc9be5b6d80d134ae3b9f75b6dd3816218b5ab9561ff68bd0aa64c6d0f"
     },
     {
       "path": "src/gabion/commands/progress_contract.py",
-      "line": 106,
-      "column": 9,
       "qualname": "phase_progress_dimensions_summary",
       "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
+      "structured_hash": "a85163475d252f79c9f397c96195b5e213a2649f01e5c4a795411af12cae3493"
     },
     {
       "path": "src/gabion/commands/progress_contract.py",
-      "line": 227,
-      "column": 5,
+      "qualname": "phase_progress_dimensions_summary",
+      "kind": "sentinel_continue",
+      "structured_hash": "a85163475d252f79c9f397c96195b5e213a2649f01e5c4a795411af12cae3493"
+    },
+    {
+      "path": "src/gabion/commands/progress_contract.py",
       "qualname": "phase_progress_from_progress_notification",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "61bb6373420af4a4893ecbb0acba48651332b93ccc1729b9cc736177e67c139b"
     },
     {
       "path": "src/gabion/commands/progress_contract.py",
-      "line": 359,
-      "column": 5,
+      "qualname": "phase_progress_from_progress_notification",
+      "kind": "sentinel_return",
+      "structured_hash": "0321be0c6d5b6ac977c91316478aa3ae964576425018559ad3fccaef5f5891fd"
+    },
+    {
+      "path": "src/gabion/commands/progress_contract.py",
+      "qualname": "phase_progress_from_progress_notification",
+      "kind": "sentinel_return",
+      "structured_hash": "0321be0c6d5b6ac977c91316478aa3ae964576425018559ad3fccaef5f5891fd"
+    },
+    {
+      "path": "src/gabion/commands/progress_contract.py",
+      "qualname": "phase_progress_from_progress_notification",
+      "kind": "sentinel_return",
+      "structured_hash": "0321be0c6d5b6ac977c91316478aa3ae964576425018559ad3fccaef5f5891fd"
+    },
+    {
+      "path": "src/gabion/commands/progress_contract.py",
       "qualname": "phase_timeline_from_progress_notification",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "567415d0fdeb515d7839479668c8a201b33789fc26bae83fd64e22f353f3556f"
     },
     {
-      "path": "src/gabion/commands/progress_contract.py",
-      "line": 35,
-      "column": 5,
-      "qualname": "resume_checkpoint_from_progress_notification",
+      "path": "src/gabion/commands/progress_transition.py",
+      "qualname": "_normalized_active_path_nodes",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "37c5884178a9f035771281bca2b2a349299bdabab1dc1c34d5984b8670badbf1"
     },
     {
-      "path": "src/gabion/commands/progress_contract.py",
-      "line": 38,
-      "column": 5,
-      "qualname": "resume_checkpoint_from_progress_notification",
+      "path": "src/gabion/commands/progress_transition.py",
+      "qualname": "_normalized_active_path_nodes",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "37c5884178a9f035771281bca2b2a349299bdabab1dc1c34d5984b8670badbf1"
+    },
+    {
+      "path": "src/gabion/commands/progress_transition.py",
+      "qualname": "_normalized_child_payload_sequence",
+      "kind": "sentinel_return",
+      "structured_hash": "5b1fba5f3c36187175d3a96a640f66a9fe2af315f73e7abeb7650840ab055b34"
+    },
+    {
+      "path": "src/gabion/commands/progress_transition.py",
+      "qualname": "_normalized_child_payload_sequence",
+      "kind": "sentinel_return",
+      "structured_hash": "5b1fba5f3c36187175d3a96a640f66a9fe2af315f73e7abeb7650840ab055b34"
+    },
+    {
+      "path": "src/gabion/commands/progress_transition.py",
+      "qualname": "_normalized_child_payloads",
+      "kind": "sentinel_return",
+      "structured_hash": "8852571a2af886ed9cb32ac277d5721a1ce67693605d4ff3d9ed1ce75ef29dd0"
+    },
+    {
+      "path": "src/gabion/commands/progress_transition.py",
+      "qualname": "_normalized_children",
+      "kind": "sentinel_return",
+      "structured_hash": "f7990c77e40d72210f2f5978173841943c415a1892b38cda615900531bfeee06"
+    },
+    {
+      "path": "src/gabion/commands/progress_transition.py",
+      "qualname": "_normalized_children",
+      "kind": "sentinel_return",
+      "structured_hash": "f7990c77e40d72210f2f5978173841943c415a1892b38cda615900531bfeee06"
+    },
+    {
+      "path": "src/gabion/commands/progress_transition.py",
+      "qualname": "_resolve_child_path",
+      "kind": "sentinel_return",
+      "structured_hash": "4690100621260499c4c0d4030940d05778c4623e9afcf799cc233f6f25333d0f"
+    },
+    {
+      "path": "src/gabion/commands/progress_transition.py",
+      "qualname": "normalize_progress_transition_from_phase_progress",
+      "kind": "sentinel_return",
+      "structured_hash": "31875a99ebaddb0947dd116a74bce5cc41cf4c67ba05da7b903eac58f27deeb6"
     },
     {
       "path": "src/gabion/config.py",
-      "line": 25,
-      "column": 5,
       "qualname": "_load_toml",
       "kind": "sentinel_return",
-      "message": "broad exception handler returns sentinel fallback"
+      "structured_hash": "01565eb476df03e6547f20b04f3095f433cd4434c01008abd1a13ebc6a910fa8"
     },
     {
       "path": "src/gabion/config.py",
-      "line": 142,
-      "column": 5,
-      "qualname": "dataflow_deadline_roots",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/config.py",
-      "line": 144,
-      "column": 5,
-      "qualname": "dataflow_deadline_roots",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/config.py",
-      "line": 126,
-      "column": 5,
-      "qualname": "decision_ignore_list",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/config.py",
-      "line": 128,
-      "column": 5,
-      "qualname": "decision_ignore_list",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/config.py",
-      "line": 118,
-      "column": 5,
-      "qualname": "decision_require_tiers",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/config.py",
-      "line": 120,
-      "column": 5,
-      "qualname": "decision_require_tiers",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/config.py",
-      "line": 104,
-      "column": 5,
-      "qualname": "decision_tier_map",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/config.py",
-      "line": 106,
-      "column": 5,
-      "qualname": "decision_tier_map",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/config.py",
-      "line": 134,
-      "column": 5,
-      "qualname": "exception_never_list",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/config.py",
-      "line": 136,
-      "column": 5,
-      "qualname": "exception_never_list",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/config.py",
-      "line": 154,
-      "column": 9,
       "qualname": "merge_payload",
       "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
+      "structured_hash": "efa1ea669c89709f7d9baf485171fb85eba9f1fae6c5c8bff6f9edb7a73bb00e"
+    },
+    {
+      "path": "src/gabion/invariants.py",
+      "qualname": "_normalized_marker_links",
+      "kind": "sentinel_return",
+      "structured_hash": "7b261c7360b34955b9bc3ede5566cc43523460ef3d693ea30edd0ae7412657f5"
+    },
+    {
+      "path": "src/gabion/invariants.py",
+      "qualname": "_normalized_marker_links",
+      "kind": "sentinel_continue",
+      "structured_hash": "916f6916a17218bb54771c0156aa020e7451397eeadb45dffc01bbe455107403"
     },
     {
       "path": "src/gabion/lsp_client.py",
-      "line": 339,
-      "column": 9,
       "qualname": "run_command_direct._send_notification",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/lsp_client.py",
-      "line": 341,
-      "column": 9,
-      "qualname": "run_command_direct._send_notification",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "6578c88f47931f32259ad17608a600c701b95014bcf498bcc15fd291f492c610"
     },
     {
       "path": "src/gabion/order_contract.py",
-      "line": 405,
-      "column": 5,
-      "qualname": "_canonical_allowlist_enforced",
+      "qualname": "_deadline_clock_if_available",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "c3dab0caadc08f56862141c306ccd0703f446ddf7046f4a675cd5338b14a2e14"
     },
     {
       "path": "src/gabion/order_contract.py",
-      "line": 462,
-      "column": 5,
       "qualname": "_explicit_sort_requested",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "7a6a0ef74312cd4259052c827b578f04ac0c4acd316aa456fb8d68abf88bc600"
     },
     {
-      "path": "src/gabion/order_contract.py",
-      "line": 383,
-      "column": 5,
-      "qualname": "_order_policy_from_env",
+      "path": "src/gabion/policy_dsl/eval.py",
+      "qualname": "_eval_predicate",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "ffbe6f18fdd4a43189114c7282983d9e2da66397402fc752bd195017b7620ab9"
     },
     {
-      "path": "src/gabion/refactor/engine.py",
-      "line": 1237,
-      "column": 9,
-      "qualname": "_already_wrapped",
+      "path": "src/gabion/policy_dsl/eval.py",
+      "qualname": "_get_path",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "afe39b3f46a735f038039597a12507a43f56e8f7d79b71824f3419a61929243d"
     },
     {
-      "path": "src/gabion/refactor/engine.py",
-      "line": 392,
-      "column": 9,
-      "qualname": "_collect_import_context",
+      "path": "src/gabion/policy_dsl/registry.py",
+      "qualname": "_build_registry_for_root",
       "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
+      "structured_hash": "75f866ed1933651f5c9bdf2a93064393274e009746e1385743076e8238eed8b0"
     },
     {
       "path": "src/gabion/refactor/engine.py",
-      "line": 399,
-      "column": 21,
-      "qualname": "_collect_import_context",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/refactor/engine.py",
-      "line": 412,
-      "column": 17,
-      "qualname": "_collect_import_context",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/refactor/engine.py",
-      "line": 416,
-      "column": 21,
-      "qualname": "_collect_import_context",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/refactor/engine.py",
-      "line": 418,
-      "column": 21,
-      "qualname": "_collect_import_context",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/refactor/engine.py",
-      "line": 640,
-      "column": 9,
-      "qualname": "_has_contextvars_import",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/refactor/engine.py",
-      "line": 644,
-      "column": 13,
-      "qualname": "_has_contextvars_import",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/refactor/engine.py",
-      "line": 648,
-      "column": 13,
-      "qualname": "_has_contextvars_import",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/refactor/engine.py",
-      "line": 270,
-      "column": 9,
-      "qualname": "_has_typing_import",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/refactor/engine.py",
-      "line": 315,
-      "column": 9,
-      "qualname": "_has_typing_overload_import",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/refactor/engine.py",
-      "line": 319,
-      "column": 13,
-      "qualname": "_has_typing_overload_import",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/refactor/engine.py",
-      "line": 324,
-      "column": 13,
-      "qualname": "_has_typing_overload_import",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/refactor/engine.py",
-      "line": 292,
-      "column": 9,
-      "qualname": "_has_typing_protocol_import",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/refactor/engine.py",
-      "line": 296,
-      "column": 13,
-      "qualname": "_has_typing_protocol_import",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/refactor/engine.py",
-      "line": 301,
-      "column": 13,
-      "qualname": "_has_typing_protocol_import",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/refactor/engine.py",
-      "line": 338,
-      "column": 9,
-      "qualname": "_has_warnings_import",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/refactor/engine.py",
-      "line": 223,
-      "column": 5,
-      "qualname": "_is_docstring",
+      "qualname": "_import_from_alias_pairs_for_item",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "37be112465b924272eca8c05ad2eb77b61673aeff42af4a6296c74a2d611f1fa"
     },
     {
       "path": "src/gabion/refactor/engine.py",
-      "line": 230,
-      "column": 5,
-      "qualname": "_is_import",
+      "qualname": "_import_from_alias_pairs_for_item",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "37be112465b924272eca8c05ad2eb77b61673aeff42af4a6296c74a2d611f1fa"
     },
     {
       "path": "src/gabion/refactor/engine.py",
-      "line": 1216,
-      "column": 13,
-      "qualname": "_is_target_call",
+      "qualname": "_import_module_name_from_alias",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "b65778b673f1771e730fd6857c67e42ca524ff74a92afce37c54ac7c68b58e4d"
     },
     {
       "path": "src/gabion/refactor/engine.py",
-      "line": 248,
-      "column": 5,
-      "qualname": "_module_expr_to_str",
+      "qualname": "_import_module_names_for_item",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "88aa5ee148964f8da638407da9e7df255ae946fd5efddbd56784fa3fe3263e7b"
     },
     {
       "path": "src/gabion/refactor/engine.py",
-      "line": 558,
-      "column": 9,
-      "qualname": "_rewrite_call_sites_in_project",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
+      "qualname": "_imported_target_pair_for_alias",
+      "kind": "sentinel_return",
+      "structured_hash": "9fceac6a6d7317e1aa992516c937c37d55863f58fc767f348081bca6c31f5060"
+    },
+    {
+      "path": "src/gabion/refactor/engine.py",
+      "qualname": "_imported_target_pairs_for_item",
+      "kind": "sentinel_return",
+      "structured_hash": "2278e99fbba01f1519071ef1e65c20921f442b57c970949b605c465d6304ea7e"
+    },
+    {
+      "path": "src/gabion/refactor/engine.py",
+      "qualname": "_imported_target_pairs_for_item",
+      "kind": "sentinel_return",
+      "structured_hash": "2278e99fbba01f1519071ef1e65c20921f442b57c970949b605c465d6304ea7e"
+    },
+    {
+      "path": "src/gabion/refactor/engine.py",
+      "qualname": "_iter_statement_items",
+      "kind": "sentinel_return",
+      "structured_hash": "2aec7215a2115723d5be0210b055e403fd447993a43909eab63494fc956b6b85"
+    },
+    {
+      "path": "src/gabion/refactor/engine.py",
+      "qualname": "_module_alias_pair",
+      "kind": "sentinel_return",
+      "structured_hash": "65fbe76bb695bbb666eea9ab7b1fbbf70336aedc3fc1fb8cc8f2c5f449e3cc56"
+    },
+    {
+      "path": "src/gabion/refactor/engine.py",
+      "qualname": "_module_alias_pair_for_import_alias",
+      "kind": "sentinel_return",
+      "structured_hash": "75361c272b9814bc94e7b9ebdef70228805e00cd2c4f9998b4e40c07079ab26b"
+    },
+    {
+      "path": "src/gabion/refactor/engine.py",
+      "qualname": "_module_alias_pairs_for_import_item",
+      "kind": "sentinel_return",
+      "structured_hash": "85779d605c9770370202a912462d57ffab28e8180fdbc74e724856bed6e35d2a"
+    },
+    {
+      "path": "src/gabion/refactor/loop_generator.py",
+      "qualname": "_next_trampoline_target",
+      "kind": "sentinel_return",
+      "structured_hash": "fedaca54780bbd0056ceba50a40d4e75192c10d764fec325f8e91cb916518688"
+    },
+    {
+      "path": "src/gabion/refactor/loop_generator.py",
+      "qualname": "_optional_suite_statements",
+      "kind": "sentinel_return",
+      "structured_hash": "2415ae7157f0e2975586927d9fd20be0b0f5f52fa73500aee95c58c16814ca5d"
     },
     {
       "path": "src/gabion/runtime/json_io.py",
-      "line": 42,
-      "column": 5,
       "qualname": "load_json_object_path",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "7b280c03e42ac092a6594ec8601137e33550fc617e96bf2ce06acca7571b262c"
     },
     {
       "path": "src/gabion/runtime/json_io.py",
-      "line": 53,
-      "column": 5,
       "qualname": "load_json_object_text",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "92f99d5bed86dc54e8403dd38c481400e5512f56121745b60a939f772e0a0a20"
     },
     {
       "path": "src/gabion/server.py",
-      "line": 1417,
-      "column": 5,
       "qualname": "_analysis_index_resume_hydrated_count",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "f7c7015fa4fbddf01b5a694118e01e6421ea36f61f5e793c926972508175e86f"
     },
     {
       "path": "src/gabion/server.py",
-      "line": 1420,
-      "column": 5,
-      "qualname": "_analysis_index_resume_hydrated_count",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 1484,
-      "column": 5,
       "qualname": "_analysis_index_resume_summary",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "47ec4f5d7292c3067f8b3e7c831332ec2d1839ee5856027876a506c3ad88810d"
     },
     {
       "path": "src/gabion/server.py",
-      "line": 1496,
-      "column": 5,
-      "qualname": "_analysis_index_resume_summary_payload",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 696,
-      "column": 5,
-      "qualname": "_analysis_manifest_digest_from_witness",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 701,
-      "column": 9,
-      "qualname": "_analysis_manifest_digest_from_witness",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 704,
-      "column": 9,
-      "qualname": "_analysis_manifest_digest_from_witness",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 718,
-      "column": 5,
-      "qualname": "_analysis_manifest_digest_from_witness",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 741,
-      "column": 5,
-      "qualname": "_analysis_manifest_digest_from_witness",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 743,
-      "column": 5,
-      "qualname": "_analysis_manifest_digest_from_witness",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 745,
-      "column": 5,
-      "qualname": "_analysis_manifest_digest_from_witness",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 747,
-      "column": 5,
-      "qualname": "_analysis_manifest_digest_from_witness",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 1258,
-      "column": 13,
-      "qualname": "_build_phase_progress_v2",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 1775,
-      "column": 5,
-      "qualname": "_coerce_section_lines",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 2704,
-      "column": 9,
-      "qualname": "_collection_components_preview_lines",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 2709,
-      "column": 13,
-      "qualname": "_collection_components_preview_lines",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 2711,
-      "column": 13,
-      "qualname": "_collection_components_preview_lines",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 4239,
-      "column": 13,
       "qualname": "_execute_impact_total",
       "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
+      "structured_hash": "ddc46a4d7142c2b58237e6c18bfc8f1e797ddbfdc4b6b39515b881b88b77924c"
     },
     {
       "path": "src/gabion/server.py",
-      "line": 4244,
-      "column": 17,
-      "qualname": "_execute_impact_total",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 436,
-      "column": 9,
-      "qualname": "_externalize_collection_resume_states",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 2739,
-      "column": 9,
-      "qualname": "_groups_by_path_from_collection_resume",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 2744,
-      "column": 13,
-      "qualname": "_groups_by_path_from_collection_resume",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 2746,
-      "column": 13,
-      "qualname": "_groups_by_path_from_collection_resume",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 2753,
-      "column": 17,
-      "qualname": "_groups_by_path_from_collection_resume",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 4072,
-      "column": 13,
       "qualname": "_impact_collect_edges",
       "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
+      "structured_hash": "14dfc323e941646c37b26b55fde7db0c51b084b6d7cae920cc384fdeb8f54581"
     },
     {
       "path": "src/gabion/server.py",
-      "line": 4076,
-      "column": 17,
       "qualname": "_impact_collect_edges",
       "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
+      "structured_hash": "3bdc884f97fc01bbc3a5f08a68a74e90180badfeb15b4e0b746626374a96ee08"
     },
     {
       "path": "src/gabion/server.py",
-      "line": 4078,
-      "column": 17,
-      "qualname": "_impact_collect_edges",
+      "qualname": "_parse_impact_diff_ranges._iter_spans",
       "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
+      "structured_hash": "5128cb84f62dafc3ddaca9a8a3a41614017d802ee025031aa30c81c6c3de2e19"
     },
     {
       "path": "src/gabion/server.py",
-      "line": 4082,
-      "column": 17,
-      "qualname": "_impact_collect_edges",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
+      "qualname": "_payload_mapping",
+      "kind": "sentinel_return",
+      "structured_hash": "6920d4ac57110fceb1235b9bc9833d551a97d87a7131f78ffe813808a1e33831"
     },
     {
       "path": "src/gabion/server.py",
-      "line": 1351,
-      "column": 9,
+      "qualname": "_phase_progress_payload_carrier",
+      "kind": "sentinel_return",
+      "structured_hash": "b0c9243bad9af636faf603d99b6200303903ac1c4bfd13a504e6967456b2bf1c"
+    },
+    {
+      "path": "src/gabion/server_core/coercion_contract.py",
+      "qualname": "_cli_int_optional",
+      "kind": "sentinel_return",
+      "structured_hash": "df45bf48d7751900ad62edede2906bec89270168f742c4aab94aefd7f5d0c70c"
+    },
+    {
+      "path": "src/gabion/server_core/coercion_contract.py",
+      "qualname": "_cli_mapping_optional",
+      "kind": "sentinel_return",
+      "structured_hash": "59c958a83e7d0287f5a3b41a97dea676d50a6d1a4d972d3c979d5f5fa36a5cf2"
+    },
+    {
+      "path": "src/gabion/server_core/coercion_contract.py",
+      "qualname": "_cli_str_optional",
+      "kind": "sentinel_return",
+      "structured_hash": "5187a6da892ff26adfdb41eee420cc152eb11e4ca5bafff45cacf3d7b55dac2c"
+    },
+    {
+      "path": "src/gabion/server_core/coercion_contract.py",
+      "qualname": "_config_path_optional",
+      "kind": "sentinel_return",
+      "structured_hash": "bc548439d3949dff87e2dee373ab30b090586c467d6070ddc4579fa5c11eeb31"
+    },
+    {
+      "path": "src/gabion/server_core/coercion_contract.py",
+      "qualname": "_non_negative_int_optional",
+      "kind": "sentinel_return",
+      "structured_hash": "9288161ddd7fa5ca8cd995d5123683e9b2d13bb95fe309a63fa11b81806b0e63"
+    },
+    {
+      "path": "src/gabion/server_core/command_orchestrator_primitives.py",
+      "qualname": "_bootstrap_existing_reason",
+      "kind": "sentinel_return",
+      "structured_hash": "39beec4d2407c60f9a76eaaf4d171a9fda9b39c573b978331b3c32f4602078df"
+    },
+    {
+      "path": "src/gabion/server_core/command_orchestrator_primitives.py",
+      "qualname": "_phase_dimension_fragment",
+      "kind": "sentinel_return",
+      "structured_hash": "7ababe565f41c5bfc30ccf54707d7ca46aef9e6fad07f0d03862ee2a54e213b3"
+    },
+    {
+      "path": "src/gabion/server_core/command_orchestrator_primitives.py",
+      "qualname": "_phase_dimension_fragment",
+      "kind": "sentinel_return",
+      "structured_hash": "7ababe565f41c5bfc30ccf54707d7ca46aef9e6fad07f0d03862ee2a54e213b3"
+    },
+    {
+      "path": "src/gabion/server_core/command_orchestrator_primitives.py",
+      "qualname": "_phase_progress_dimensions_summary",
+      "kind": "sentinel_return",
+      "structured_hash": "c623cf7502dbacff01f9b2c3e04c7f20c010e2ecfd9e0950f86787d1a15bb06f"
+    },
+    {
+      "path": "src/gabion/server_core/command_orchestrator_primitives.py",
+      "qualname": "_phase_progress_dimensions_summary",
+      "kind": "sentinel_return",
+      "structured_hash": "c623cf7502dbacff01f9b2c3e04c7f20c010e2ecfd9e0950f86787d1a15bb06f"
+    },
+    {
+      "path": "src/gabion/server_core/command_orchestrator_progress.py",
+      "qualname": "_analysis_index_resume_hydrated_count",
+      "kind": "sentinel_return",
+      "structured_hash": "8a8eaeccbb782a652d8fa5a5216a45b14dec849bf51ad609530b22d17f551a35"
+    },
+    {
+      "path": "src/gabion/server_core/command_orchestrator_progress.py",
       "qualname": "_in_progress_scan_states",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
+      "kind": "sentinel_return",
+      "structured_hash": "e4775c9faa5b05424f66572c440a61b06c7e3a0740ee37cf0389cf480137ef98"
     },
     {
-      "path": "src/gabion/server.py",
-      "line": 1360,
-      "column": 9,
+      "path": "src/gabion/server_core/command_orchestrator_progress.py",
       "qualname": "_in_progress_scan_states",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 574,
-      "column": 9,
-      "qualname": "_inflate_collection_resume_states",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 221,
-      "column": 5,
-      "qualname": "_is_stdout_target",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "e4775c9faa5b05424f66572c440a61b06c7e3a0740ee37cf0389cf480137ef98"
     },
     {
-      "path": "src/gabion/server.py",
-      "line": 2989,
-      "column": 5,
-      "qualname": "_latest_report_phase",
+      "path": "src/gabion/server_core/command_orchestrator_progress.py",
+      "qualname": "_normalized_dimension_row",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "8f0621e151e649be6681e2f9035138eec5e2fb0eb32e68183d52e9c674d7fc55"
     },
     {
-      "path": "src/gabion/server.py",
-      "line": 2995,
-      "column": 9,
-      "qualname": "_latest_report_phase",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 959,
-      "column": 5,
-      "qualname": "_load_analysis_resume_checkpoint",
+      "path": "src/gabion/server_core/command_orchestrator_progress.py",
+      "qualname": "_normalized_dimension_row",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "8f0621e151e649be6681e2f9035138eec5e2fb0eb32e68183d52e9c674d7fc55"
     },
     {
-      "path": "src/gabion/server.py",
-      "line": 966,
-      "column": 9,
-      "qualname": "_load_analysis_resume_checkpoint",
+      "path": "src/gabion/server_core/command_orchestrator_progress.py",
+      "qualname": "_normalized_hydrated_paths_count",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "ae7f047eadf850fe4397915999c2fc848f574655c8119b68c0283bc08fa8c432"
     },
     {
-      "path": "src/gabion/server.py",
-      "line": 969,
-      "column": 5,
-      "qualname": "_load_analysis_resume_checkpoint",
+      "path": "src/gabion/server_core/server_payload_dispatch.py",
+      "qualname": "_boundary_control_optional",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "46e57dbd38b9943f8350a4b68213e3771133102dd8bb57e03ffb73ddadf0285d"
     },
     {
-      "path": "src/gabion/server.py",
-      "line": 972,
-      "column": 5,
-      "qualname": "_load_analysis_resume_checkpoint",
+      "path": "src/gabion/server_core/server_payload_dispatch.py",
+      "qualname": "_dimension_row_optional",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "c08547249e974d5fb01ef26e503f0a2569060601f52c4f1d77167b56925a30a7"
     },
     {
-      "path": "src/gabion/server.py",
-      "line": 993,
-      "column": 5,
-      "qualname": "_load_analysis_resume_checkpoint_manifest",
+      "path": "src/gabion/server_core/server_payload_dispatch.py",
+      "qualname": "_dimension_row_optional",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "c08547249e974d5fb01ef26e503f0a2569060601f52c4f1d77167b56925a30a7"
     },
     {
-      "path": "src/gabion/server.py",
-      "line": 1002,
-      "column": 5,
-      "qualname": "_load_analysis_resume_checkpoint_manifest",
+      "path": "src/gabion/server_core/server_payload_dispatch.py",
+      "qualname": "_phase_progress_payload",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "eba87eaf94ca09ac1e57fe56c40cb11cd09922731f1cbcde75ecf46b7d2ae6e1"
     },
     {
-      "path": "src/gabion/server.py",
-      "line": 1007,
-      "column": 5,
-      "qualname": "_load_analysis_resume_checkpoint_manifest",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 1884,
-      "column": 5,
-      "qualname": "_load_report_phase_checkpoint",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 1892,
-      "column": 5,
-      "qualname": "_load_report_phase_checkpoint",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 1898,
-      "column": 9,
-      "qualname": "_load_report_phase_checkpoint",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 1901,
-      "column": 5,
-      "qualname": "_load_report_phase_checkpoint",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 1906,
-      "column": 9,
-      "qualname": "_load_report_phase_checkpoint",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 1812,
-      "column": 9,
-      "qualname": "_load_report_section_journal",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 2255,
-      "column": 5,
-      "qualname": "_markdown_table_cell",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 3531,
-      "column": 21,
-      "qualname": "_materialize_execution_plan",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 3988,
-      "column": 9,
-      "qualname": "_parse_impact_diff_ranges",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 2263,
-      "column": 5,
-      "qualname": "_phase_progress_dimensions_summary",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 2266,
-      "column": 5,
-      "qualname": "_phase_progress_dimensions_summary",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 2275,
-      "column": 9,
-      "qualname": "_phase_progress_dimensions_summary",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 1752,
-      "column": 5,
-      "qualname": "_resolve_report_phase_checkpoint_path",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 1738,
-      "column": 5,
-      "qualname": "_resolve_report_section_journal_path",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 2325,
-      "column": 5,
-      "qualname": "_resume_checkpoint_descriptor_from_progress_value",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 2958,
-      "column": 9,
-      "qualname": "_split_incremental_obligations",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 3123,
-      "column": 5,
-      "qualname": "_truthy_flag",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 1959,
-      "column": 5,
-      "qualname": "_write_bootstrap_incremental_artifacts",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 1921,
-      "column": 5,
-      "qualname": "_write_report_phase_checkpoint",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 1929,
-      "column": 9,
-      "qualname": "_write_report_phase_checkpoint",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/server.py",
-      "line": 1829,
-      "column": 5,
-      "qualname": "_write_report_section_journal",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/server_core/command_orchestrator.py",
-      "line": 1365,
-      "column": 17,
-      "qualname": "_create_progress_emitter.emit_lsp_progress",
-      "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
-    },
-    {
-      "path": "src/gabion/synthesis/emission.py",
-      "line": 21,
-      "column": 5,
-      "qualname": "_sorted_protocols",
-      "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
-    },
-    {
-      "path": "src/gabion/tooling/delta_emit_runtime.py",
-      "line": 207,
-      "column": 5,
+      "path": "src/gabion/tooling/delta/delta_emit_runtime.py",
       "qualname": "flush_pending_timeline_row_if_due",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "aef2057f143299940fef490a06ddd14cdbc54c3feaebaae8b811b5b891a8e4c9"
     },
     {
-      "path": "src/gabion/tooling/delta_emit_runtime.py",
-      "line": 169,
-      "column": 5,
+      "path": "src/gabion/tooling/delta/delta_emit_runtime.py",
       "qualname": "maybe_emit_timeline_row",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "1c562042fb0a53f286e553952a2026648e212bb7a5c108223efc109b741f557d"
     },
     {
-      "path": "src/gabion/tooling/delta_emit_runtime.py",
-      "line": 110,
-      "column": 5,
+      "path": "src/gabion/tooling/delta/delta_emit_runtime.py",
       "qualname": "supports_notification_callback",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "4ee358947d3c12304d1fd3505e76c425ca5ac3aa6da54daaca1d5dd73c542139"
     },
     {
-      "path": "src/gabion/tooling/delta_gate.py",
-      "line": 109,
-      "column": 9,
-      "qualname": "_nested_int",
+      "path": "src/gabion/tooling/delta/delta_state_emit.py",
+      "qualname": "_phase_progress_from_notification",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "2371f7b79dba40174b30f3b62f0ffba38ca379a27c32c5bebfc9ff7e0f94ae8e"
     },
     {
-      "path": "src/gabion/tooling/docflow_delta_emit.py",
-      "line": 51,
-      "column": 5,
+      "path": "src/gabion/tooling/docflow/docflow_delta_emit.py",
       "qualname": "_changed_paths_from_git",
       "kind": "sentinel_return",
-      "message": "broad exception handler returns sentinel fallback"
+      "structured_hash": "a01321dfab29f3eef3b31b5e383ad306aa9081fc6264d4744218c9771751faed"
     },
     {
-      "path": "src/gabion/tooling/impact_select_tests.py",
-      "line": 39,
-      "column": 9,
-      "qualname": "_parse_changed_lines",
+      "path": "src/gabion/tooling/governance/ambiguity_contract_policy_check.py",
+      "qualname": "_baseline_violation_entries",
+      "kind": "sentinel_return",
+      "structured_hash": "0a9194685f8578eb0d3c92b892f393b4681529876eeaf7bd65abe5bf221d531a"
+    },
+    {
+      "path": "src/gabion/tooling/governance/ambiguity_contract_policy_check.py",
+      "qualname": "_baseline_violation_entries",
+      "kind": "sentinel_return",
+      "structured_hash": "0a9194685f8578eb0d3c92b892f393b4681529876eeaf7bd65abe5bf221d531a"
+    },
+    {
+      "path": "src/gabion/tooling/governance/ambiguity_contract_policy_check.py",
+      "qualname": "_guidance_payload",
+      "kind": "sentinel_return",
+      "structured_hash": "ec11066a47ccf203449840a42c670e44826bb4ebed78e8b34605a2528471223d"
+    },
+    {
+      "path": "src/gabion/tooling/governance/ambiguity_contract_policy_check.py",
+      "qualname": "_is_probe_state_recovery",
+      "kind": "sentinel_return",
+      "structured_hash": "3b81b5a5c500a6b636b2b8238102efef44726b439a9d6598a4d29a04d1e48c48"
+    },
+    {
+      "path": "src/gabion/tooling/governance/ambiguity_contract_policy_check.py",
+      "qualname": "_render_guidance_lines",
+      "kind": "sentinel_return",
+      "structured_hash": "a4a676db28ee8f9549c571e5a25e8ce5f17713214aef6915535b3cb5089a5999"
+    },
+    {
+      "path": "src/gabion/tooling/governance/normative_symdiff.py",
+      "qualname": "_workflow_anchor_errors",
       "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
+      "structured_hash": "43979d58b9dd44dc7240875a6f58bf503d06b4554e8aa44748e355ecfdad1624"
     },
     {
-      "path": "src/gabion/tooling/impact_select_tests.py",
-      "line": 42,
-      "column": 9,
-      "qualname": "_parse_changed_lines",
+      "path": "src/gabion/tooling/governance/normative_symdiff.py",
+      "qualname": "analyze_clause_enforcement",
       "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
+      "structured_hash": "33b8d4b50bade94cf1688dba43b974feeb29f6d87d3e0d53759586bb42c1c4e5"
     },
     {
-      "path": "src/gabion/tooling/impact_select_tests.py",
-      "line": 160,
-      "column": 9,
+      "path": "src/gabion/tooling/governance/normative_symdiff.py",
+      "qualname": "analyze_clause_enforcement",
+      "kind": "sentinel_continue",
+      "structured_hash": "33b8d4b50bade94cf1688dba43b974feeb29f6d87d3e0d53759586bb42c1c4e5"
+    },
+    {
+      "path": "src/gabion/tooling/governance/normative_symdiff.py",
+      "qualname": "render_markdown",
+      "kind": "sentinel_continue",
+      "structured_hash": "2d4599263c4dcfcb4352fb89b5e84eff30f62c14f10329f0e8f1c3b95b85787c"
+    },
+    {
+      "path": "src/gabion/tooling/governance/normative_symdiff.py",
+      "qualname": "render_markdown",
+      "kind": "sentinel_continue",
+      "structured_hash": "738c3c98a81e099c620b25aa8c29a9732afbd991dbc24e5684add8a7c3728d7c"
+    },
+    {
+      "path": "src/gabion/tooling/governance/override_record.py",
+      "qualname": "_is_non_empty_text",
+      "kind": "sentinel_return",
+      "structured_hash": "53d6b411941054ce152dbf823746840940f9cd6b1c31ac23fe0ebcb7a693bf13"
+    },
+    {
+      "path": "src/gabion/tooling/impact/diff_evidence_index.py",
+      "qualname": "parse_changed_lines",
+      "kind": "sentinel_continue",
+      "structured_hash": "0afc5accc146a1111b0dd3c9dcacaf76c9fd9dd93657840712ee3521260f43f1"
+    },
+    {
+      "path": "src/gabion/tooling/impact/diff_evidence_index.py",
+      "qualname": "parse_changed_lines",
+      "kind": "sentinel_continue",
+      "structured_hash": "0afc5accc146a1111b0dd3c9dcacaf76c9fd9dd93657840712ee3521260f43f1"
+    },
+    {
+      "path": "src/gabion/tooling/impact/impact_select_tests.py",
       "qualname": "_select_tests",
       "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
+      "structured_hash": "9c61a8c16facbcb32b70c1bba45c109bd4782caa6a4cbfc53710ea3041f06402"
     },
     {
-      "path": "src/gabion/tooling/impact_select_tests.py",
-      "line": 170,
-      "column": 9,
+      "path": "src/gabion/tooling/impact/impact_select_tests.py",
       "qualname": "_select_tests",
       "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
+      "structured_hash": "9c61a8c16facbcb32b70c1bba45c109bd4782caa6a4cbfc53710ea3041f06402"
     },
     {
-      "path": "src/gabion/tooling/impact_select_tests.py",
-      "line": 173,
-      "column": 13,
+      "path": "src/gabion/tooling/impact/impact_select_tests.py",
       "qualname": "_select_tests",
       "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
+      "structured_hash": "6ec3c29673649a937f633a93983dfb8caf241b6d49e5b770a0a3068a0bbd6afd"
     },
     {
-      "path": "src/gabion/tooling/impact_select_tests.py",
-      "line": 176,
-      "column": 13,
+      "path": "src/gabion/tooling/impact/impact_select_tests.py",
       "qualname": "_select_tests",
       "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
+      "structured_hash": "6ec3c29673649a937f633a93983dfb8caf241b6d49e5b770a0a3068a0bbd6afd"
     },
     {
-      "path": "src/gabion/tooling/run_dataflow_stage.py",
-      "line": 314,
-      "column": 5,
+      "path": "src/gabion/tooling/impact/impact_select_tests.py",
+      "qualname": "_select_tests",
+      "kind": "sentinel_continue",
+      "structured_hash": "9c61a8c16facbcb32b70c1bba45c109bd4782caa6a4cbfc53710ea3041f06402"
+    },
+    {
+      "path": "src/gabion/tooling/impact/impact_select_tests.py",
+      "qualname": "_select_tests",
+      "kind": "sentinel_continue",
+      "structured_hash": "9c61a8c16facbcb32b70c1bba45c109bd4782caa6a4cbfc53710ea3041f06402"
+    },
+    {
+      "path": "src/gabion/tooling/impact/impact_select_tests.py",
+      "qualname": "_select_tests",
+      "kind": "sentinel_continue",
+      "structured_hash": "6ec3c29673649a937f633a93983dfb8caf241b6d49e5b770a0a3068a0bbd6afd"
+    },
+    {
+      "path": "src/gabion/tooling/impact/impact_select_tests.py",
+      "qualname": "_select_tests",
+      "kind": "sentinel_continue",
+      "structured_hash": "6ec3c29673649a937f633a93983dfb8caf241b6d49e5b770a0a3068a0bbd6afd"
+    },
+    {
+      "path": "src/gabion/tooling/impact/impact_select_tests.py",
+      "qualname": "_select_tests",
+      "kind": "sentinel_continue",
+      "structured_hash": "6ec3c29673649a937f633a93983dfb8caf241b6d49e5b770a0a3068a0bbd6afd"
+    },
+    {
+      "path": "src/gabion/tooling/policy_rules/fiber_return_shape_contract_rule.py",
+      "qualname": "_all_passthrough_args",
+      "kind": "sentinel_return",
+      "structured_hash": "28140d332001dac5e88d03dd7f81a5732b5cc12d4630a11cc961757af65ef44d"
+    },
+    {
+      "path": "src/gabion/tooling/policy_rules/fiber_return_shape_contract_rule.py",
+      "qualname": "_is_inline_passthrough_candidate",
+      "kind": "sentinel_return",
+      "structured_hash": "1958efca0d54a2fc088b73a05ab640c03804eb425411fa67fe7d698431be59ee"
+    },
+    {
+      "path": "src/gabion/tooling/policy_rules/fiber_type_dispatch_contract_rule.py",
+      "qualname": "_iter_dispatch_parameter_annotation",
+      "kind": "sentinel_return",
+      "structured_hash": "6013d090a807daf50d358cc73bcba5d1224331d0b2defa5b971c22e5da6b6ea7"
+    },
+    {
+      "path": "src/gabion/tooling/policy_rules/orchestrator_primitive_barrel_rule.py",
+      "qualname": "_bridge_contract_import_violations",
+      "kind": "sentinel_return",
+      "structured_hash": "2669c8eb7c0e228fbefc4dd6bcebdeb76a3f2c29994eea4e6561be9f3a678667"
+    },
+    {
+      "path": "src/gabion/tooling/policy_rules/runtime_narrowing_boundary_rule.py",
+      "qualname": "_load_baseline",
+      "kind": "sentinel_continue",
+      "structured_hash": "158bc7e03312a1da8570a5ec0f487b419e4e0586d868cc4d2370bc8c34ce0f86"
+    },
+    {
+      "path": "src/gabion/tooling/policy_rules/typing_surface_rule.py",
+      "qualname": "_check_annotation",
+      "kind": "sentinel_return",
+      "structured_hash": "2d3120c3aba054a7c18e9017ce15fbd7b8678151d9accf7ebb275843a8c5dd8e"
+    },
+    {
+      "path": "src/gabion/tooling/policy_rules/typing_surface_rule.py",
+      "qualname": "_check_annotation",
+      "kind": "sentinel_return",
+      "structured_hash": "2d3120c3aba054a7c18e9017ce15fbd7b8678151d9accf7ebb275843a8c5dd8e"
+    },
+    {
+      "path": "src/gabion/tooling/policy_rules/typing_surface_rule.py",
+      "qualname": "_is_dict_str_object",
+      "kind": "sentinel_return",
+      "structured_hash": "0d0c3a61b09f9750b1b9ed6003051e63650f4acf01e445aa328c3fc5a2c9596b"
+    },
+    {
+      "path": "src/gabion/tooling/policy_rules/typing_surface_rule.py",
+      "qualname": "_is_dict_str_object",
+      "kind": "sentinel_return",
+      "structured_hash": "0d0c3a61b09f9750b1b9ed6003051e63650f4acf01e445aa328c3fc5a2c9596b"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/grade_monotonicity_semantic.py",
+      "qualname": "_callsite_context_optional",
+      "kind": "sentinel_return",
+      "structured_hash": "eff0ea26567aefefe28f79a7aff88a6575b2081acbb1df0bc56d347adb32aa4c"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/grade_monotonicity_semantic.py",
+      "qualname": "_decision_flow_membership",
+      "kind": "sentinel_continue",
+      "structured_hash": "7daa27b8436f9a1f0d96d015b1a0759a335f7a1e0c5cd6c0ed7d42443c9f48f9"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/grade_monotonicity_semantic.py",
+      "qualname": "_edge_failure_rule_ids",
+      "kind": "sentinel_return",
+      "structured_hash": "7eddff2d9f8e8c8e9a6b4b3be8fe9a124291ae53c1855cdcff5dbe462caf9427"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/grade_monotonicity_semantic.py",
+      "qualname": "_grade_boundary_from_expr",
+      "kind": "sentinel_return",
+      "structured_hash": "a58a0db962dbcbaf894aa6cada1200adb316a74c6053c3d313fe0aae62a0725f"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/grade_monotonicity_semantic.py",
+      "qualname": "_looks_like_shape_membership_probe",
+      "kind": "sentinel_return",
+      "structured_hash": "b23090077e8e621d5704545733d53a560af2900c77f6dee0d4fd5cf205adee3e"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/grade_monotonicity_semantic.py",
+      "qualname": "_node_span_optional",
+      "kind": "sentinel_return",
+      "structured_hash": "18d7a6ae9ad65a759a0a0dab949e894369a2dd2299721a7a90876a5de0bd42d4"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/grade_monotonicity_semantic.py",
+      "qualname": "_observe_output_expr",
+      "kind": "sentinel_return",
+      "structured_hash": "21aeb427ebcaee20022f5909165b182ad6d078019ed28fafac7ba98b5ebf0eee"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/grade_monotonicity_semantic.py",
+      "qualname": "_parse_grade_boundary_fields",
+      "kind": "sentinel_return",
+      "structured_hash": "877588da433117a8fc07a602b3106434b4839dd4e5802b9138504d386af1dd44"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/grade_monotonicity_semantic.py",
+      "qualname": "_parse_grade_boundary_fields",
+      "kind": "sentinel_return",
+      "structured_hash": "877588da433117a8fc07a602b3106434b4839dd4e5802b9138504d386af1dd44"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/grade_monotonicity_semantic.py",
+      "qualname": "_parse_grade_boundary_marker",
+      "kind": "sentinel_return",
+      "structured_hash": "1b0d32d73b0c2ab06c5493e335b0775689ca14cd6aebffc26b8fcf90b72d37e4"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/grade_monotonicity_semantic.py",
+      "qualname": "_parse_playbook_section",
+      "kind": "sentinel_return",
+      "structured_hash": "81ec810dbcd5469fd0dd27ae590cfdc810a73629b5ec42ae2678f187960ede42"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/grade_monotonicity_semantic.py",
+      "qualname": "_playbook_sections._flush",
+      "kind": "sentinel_return",
+      "structured_hash": "81dd29dd6ee6d6349b433c5d2842912e436b72aa8c4e4a931f19e180d4dda0fb"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/grade_monotonicity_semantic.py",
+      "qualname": "_visit_call",
+      "kind": "sentinel_return",
+      "structured_hash": "e564e825db1980d36e7e874bfa2f624e726408f8c69eed42446db1a441b27377"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/grade_monotonicity_semantic.py",
+      "qualname": "grade_monotonicity_governance_priority_rank",
+      "kind": "sentinel_return",
+      "structured_hash": "c2ba9f08725db64055ea072dc6b5a75df76519a7d632523c68a7421849f1eac9"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_doc_ids_payload",
+      "kind": "sentinel_return",
+      "structured_hash": "ffd5c78c0e465bd240b60f40fdfab9c60a0eb0e18a2ac5693a4f2dbf6fbb5795"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_documentation_followup_lane",
+      "kind": "sentinel_return",
+      "structured_hash": "ca1470349235a82bc8dd1d8a57c06736bd9d38a9c66730d5fbadbec1285ba084"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_dotted_name",
+      "kind": "sentinel_return",
+      "structured_hash": "5c46295e637fbb736363c57e74eb3c4ce09a7726a7cafecefb7a7d8ab0a752ec"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_extract_touchsite_ids",
+      "kind": "sentinel_return",
+      "structured_hash": "70f8b608ff338a46da107bb93384db71e2a5ae58b6228ea6d28539adcba8316d"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_extract_touchsite_ids",
+      "kind": "sentinel_continue",
+      "structured_hash": "69c7188270487f6aead659036a340d2e732a5443feaa2118e2147e0a3dbe8142"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_extract_touchsite_ids",
+      "kind": "sentinel_continue",
+      "structured_hash": "69c7188270487f6aead659036a340d2e732a5443feaa2118e2147e0a3dbe8142"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_extract_touchsite_ids",
+      "kind": "sentinel_continue",
+      "structured_hash": "a16c256d7ef1e12378ff6c3fa8e19acae7ff3ff4cab4dd0bd033098ca06ace04"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_governance_priority_bonus",
+      "kind": "sentinel_return",
+      "structured_hash": "aabf32a637982f4851f8b1179b8e2c1e03d3727001a56a5d05ff70b092746ca9"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_health_summary_payload",
+      "kind": "sentinel_return",
+      "structured_hash": "dd112633bc216ef4406dac5caa64e644139441d851761677dcdfe2669c22c405"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_join_controller_drift_artifact",
+      "kind": "sentinel_return",
+      "structured_hash": "bf3d024caf02239a15f3a5565a3271b06fedd702d49c83608c33579a6b946a2b"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_join_cross_origin_witness_contract_artifact",
+      "kind": "sentinel_return",
+      "structured_hash": "3235d56d351c6c54fe7b72145bd82b9a228e1817c8479339f90ab663e7d80b4d"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_join_docflow_compliance_artifact",
+      "kind": "sentinel_return",
+      "structured_hash": "3a0c73c291061643482958e1c3148814c52fd01c89e2d042417cdd06c236832b"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_join_docflow_packet_enforcement",
+      "kind": "sentinel_return",
+      "structured_hash": "bd0f4fadef385278bb15db0e112b6fd49a35086b8c80cb8512cd4ac2ea84d060"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_join_docflow_provenance_artifact",
+      "kind": "sentinel_return",
+      "structured_hash": "fe618d7e2fd6c90e537f976d5b9cfd932efae2f2c0c095a028f3266fad316b9e"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_join_git_state_artifact",
+      "kind": "sentinel_return",
+      "structured_hash": "432838066174cba421aa73df157f528b6e5a1a24afa6dd6835cc2adbe9b21e64"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_join_identity_grammar_completion_artifact",
+      "kind": "sentinel_return",
+      "structured_hash": "73f2648aec9b22eacfa9662e5b083573064ba50c1cf79cef680e885b22451d7a"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_join_ingress_merge_parity_artifact",
+      "kind": "sentinel_return",
+      "structured_hash": "7e10629ac6ed985e497ef2973cb473ee8ce47dc2f83a3dec83cab407f8d97650"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_join_kernel_vm_alignment_artifact",
+      "kind": "sentinel_return",
+      "structured_hash": "ff625da6d05da032cb2617a8236026a7b06534f245820f583c6a228127ad1aa1"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_join_local_ci_repro_contract_artifact",
+      "kind": "sentinel_return",
+      "structured_hash": "5a0b74f77a45d1c3ff45cab91c69b83d6e8850c28803b1adb1e0dc637ee8efa4"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_join_local_repro_closure_ledger",
+      "kind": "sentinel_return",
+      "structured_hash": "fd36eaf939636cda80e40d50f2083af8acda231ebec3cbe2a8c9ef44a7d0a7bc"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_join_policy_signals",
+      "kind": "sentinel_return",
+      "structured_hash": "e80cccb6f0019bf7cb77ce951b5c4530539878a4182e698a5000532b08b2ba53"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_join_policy_signals",
+      "kind": "sentinel_continue",
+      "structured_hash": "5eab34f18c6785c3798b8b9f54debd6211afd607ff699af73c8d5a349a41882e"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_join_policy_signals",
+      "kind": "sentinel_continue",
+      "structured_hash": "5eab34f18c6785c3798b8b9f54debd6211afd607ff699af73c8d5a349a41882e"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_join_policy_signals",
+      "kind": "sentinel_continue",
+      "structured_hash": "d61ddf351d2052157c6c7d4aa88d9243b6d4a26afd4dbdeb98f12cc4e5526c70"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_join_sppf_dependency_graph",
+      "kind": "sentinel_return",
+      "structured_hash": "e64181806e6455c5b2ba4694939fc658c8029ea08c4c0d469611df5ae6a61c3e"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_join_sppf_dependency_graph",
+      "kind": "sentinel_return",
+      "structured_hash": "e64181806e6455c5b2ba4694939fc658c8029ea08c4c0d469611df5ae6a61c3e"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_join_sppf_dependency_graph",
+      "kind": "sentinel_continue",
+      "structured_hash": "1756ae11cb49cf8ce507e37731e23ea135c64f960aaa83dc50ca1c746a661e60"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_join_sppf_dependency_graph",
+      "kind": "sentinel_continue",
+      "structured_hash": "1756ae11cb49cf8ce507e37731e23ea135c64f960aaa83dc50ca1c746a661e60"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_join_sppf_dependency_graph",
+      "kind": "sentinel_continue",
+      "structured_hash": "1756ae11cb49cf8ce507e37731e23ea135c64f960aaa83dc50ca1c746a661e60"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_join_test_coverage",
+      "kind": "sentinel_return",
+      "structured_hash": "f869617e722de09dbbe6a0f0a57b91a56366ecf16a4b93987fbaafcb20a10db1"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_join_test_failures",
+      "kind": "sentinel_return",
+      "structured_hash": "480fc18b91b40964ced239edb483d0872bcb60c2033cc84924b363984a8cd171"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_join_touchpoint_test_selectors",
+      "kind": "sentinel_continue",
+      "structured_hash": "fb677e6b89ebb026dd8603eee467c4d8b0bfc04aabc556fa72d92d4a74c94644"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_join_touchpoint_test_selectors",
+      "kind": "sentinel_continue",
+      "structured_hash": "775c6b98cf55229cac817cb0f3b6495bb62afddc1137e3edfd8559c8220327b3"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_owner_choice_margin_components",
+      "kind": "sentinel_return",
+      "structured_hash": "f3867d8cae377f7b47e9bc045f63a0f033b0e1b68130b3479912ebf01e28aeab"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_policy_ids_payload",
+      "kind": "sentinel_return",
+      "structured_hash": "c04a16e21579292956ee1a74e44db900d9686a48efa111b895c4a2f1337d4d17"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_recommended_cut_cross_kind_tradeoff",
+      "kind": "sentinel_return",
+      "structured_hash": "f423ab49cbb08d163da291be37113d69799e3296da71d92f50c052412eadb1fc"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_recommended_cut_cross_kind_tradeoff",
+      "kind": "sentinel_return",
+      "structured_hash": "f423ab49cbb08d163da291be37113d69799e3296da71d92f50c052412eadb1fc"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_recommended_cut_decision_protocol",
+      "kind": "sentinel_return",
+      "structured_hash": "6909f105f60d742c5f3a8d213bf7698f074ffd1e9c2a7c8efbf24d67c41a6f85"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_recommended_cut_frontier_explanation",
+      "kind": "sentinel_return",
+      "structured_hash": "27924ed562917cb996636040191071b91ad4b54a2576e90bc84371a59a5ef0c2"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_recommended_cut_frontier_stability",
+      "kind": "sentinel_return",
+      "structured_hash": "c04537a47c44d2ad898d3afb697df637b357166062e2587b308c147a3abeaa9e"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_recommended_cut_object_id",
+      "kind": "sentinel_return",
+      "structured_hash": "f2275c1e1d474f429d30ece130483fe2c2d045896832c7c675b7cbf0349f4f3e"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_recommended_cut_object_id",
+      "kind": "sentinel_return",
+      "structured_hash": "f2275c1e1d474f429d30ece130483fe2c2d045896832c7c675b7cbf0349f4f3e"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_recommended_cut_object_id",
+      "kind": "sentinel_return",
+      "structured_hash": "f2275c1e1d474f429d30ece130483fe2c2d045896832c7c675b7cbf0349f4f3e"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_recommended_cut_same_kind_tradeoff",
+      "kind": "sentinel_return",
+      "structured_hash": "8e880707f1d93df3cc3191a0d7c10bf6412324c1779342948c06d679fe796d51"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_recommended_cut_same_kind_tradeoff",
+      "kind": "sentinel_return",
+      "structured_hash": "8e880707f1d93df3cc3191a0d7c10bf6412324c1779342948c06d679fe796d51"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_recommended_repo_followup_cross_class_tradeoff",
+      "kind": "sentinel_return",
+      "structured_hash": "6f6ff3f5bc2d3c09d7e609c8b9f981631076f9a75377f8d8bd476356b6a2201e"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_recommended_repo_followup_cross_class_tradeoff",
+      "kind": "sentinel_return",
+      "structured_hash": "6f6ff3f5bc2d3c09d7e609c8b9f981631076f9a75377f8d8bd476356b6a2201e"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_recommended_repo_followup_decision_protocol",
+      "kind": "sentinel_return",
+      "structured_hash": "450321f9bb6f81fc4c5712ca9ce4c8af3096cf01b9811b3847dd42f1d423d78a"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_recommended_repo_followup_frontier_explanation",
+      "kind": "sentinel_return",
+      "structured_hash": "14f12bb14809543e39bab5e7fe1dde5fc398032d544fb845306e21d004a5cdd8"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_recommended_repo_followup_frontier_triad",
+      "kind": "sentinel_return",
+      "structured_hash": "fe848de30f52557f6aa1f2e25e05c62b01730ab5908644a8bcd5259f0568d8cd"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_recommended_repo_followup_same_class_tradeoff",
+      "kind": "sentinel_return",
+      "structured_hash": "66c5f4ab5c34583cf75b95c3aade7499cfc6318d74410e615cdff3b30ec5931c"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_recommended_repo_followup_same_class_tradeoff",
+      "kind": "sentinel_return",
+      "structured_hash": "66c5f4ab5c34583cf75b95c3aade7499cfc6318d74410e615cdff3b30ec5931c"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_repo_diagnostic_candidate_owner_seed_object_id",
+      "kind": "sentinel_return",
+      "structured_hash": "3f162b734a0fc3c12f79ea7d853932230eeca1fdfb17529416e5604e361ed7c9"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_visit_function",
+      "kind": "sentinel_continue",
+      "structured_hash": "bcce1851132c65d86fae5ef6593fd78b46e32f5ebdf6cfd7e4d8012c06530427"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_workstream_payloads_by_object_id",
+      "kind": "sentinel_return",
+      "structured_hash": "c8124eadbff1b8c97907698e95700289a71ad013ffe321f8dc858517d760107c"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "_workstream_payloads_by_object_id",
+      "kind": "sentinel_continue",
+      "structured_hash": "79a8ae6c4232da5b8d7c4592e9611f3277dc1082d5d4360d176f483893d27f0b"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "misaligned_target_doc_ids",
+      "kind": "sentinel_return",
+      "structured_hash": "948fd60b24470092e3a585e3a710e6e2d72ba324a7d009c278edc2b57629488b"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_graph.py",
+      "qualname": "recommended_doc_followup_target_doc_id",
+      "kind": "sentinel_return",
+      "structured_hash": "a4f92fb30895114953ee7f8340aeacbf7e5af695fe89a8f40a686a6570774abb"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_marker_scan.py",
+      "qualname": "_dotted_name",
+      "kind": "sentinel_return",
+      "structured_hash": "eeb2bb6ef886da009fb345d2f8f3bb0f065595607414b7fe9afef7c4dfdf7848"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_marker_scan.py",
+      "qualname": "_keyword_reasoning_literal",
+      "kind": "sentinel_continue",
+      "structured_hash": "a2c28738a6669e9af643156688ab2311e4fed04627398eb884e495cf50a4a53b"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_marker_scan.py",
+      "qualname": "_keyword_reasoning_literal",
+      "kind": "sentinel_continue",
+      "structured_hash": "11815ad9309a942aa19108524c9de301d91bff05e664be5412f8b4a848af8464"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_marker_scan.py",
+      "qualname": "_visit_decorated_symbol",
+      "kind": "sentinel_continue",
+      "structured_hash": "095debd1425a783180cccff6b7a0b0b890c451f8f2ea7fb020c174257e59743a"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/invariant_marker_scan.py",
+      "qualname": "_visit_decorated_symbol",
+      "kind": "sentinel_continue",
+      "structured_hash": "095debd1425a783180cccff6b7a0b0b890c451f8f2ea7fb020c174257e59743a"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/planning_chart.py",
+      "qualname": "build_planning_chart_summary",
+      "kind": "sentinel_continue",
+      "structured_hash": "f988970d096e926ecf08e7045c044e0e106ec53c82b0b63fd3df9c5f9d8af38e"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/planning_chart.py",
+      "qualname": "build_planning_chart_summary",
+      "kind": "sentinel_continue",
+      "structured_hash": "f988970d096e926ecf08e7045c044e0e106ec53c82b0b63fd3df9c5f9d8af38e"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/planning_chart.py",
+      "qualname": "build_planning_chart_summary",
+      "kind": "sentinel_continue",
+      "structured_hash": "f988970d096e926ecf08e7045c044e0e106ec53c82b0b63fd3df9c5f9d8af38e"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/planning_chart.py",
+      "qualname": "build_planning_chart_summary",
+      "kind": "sentinel_continue",
+      "structured_hash": "774612cb178f9f15fc58530339188d02042b161138b418b81d45bfe57aee4330"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/planning_chart.py",
+      "qualname": "build_planning_chart_summary",
+      "kind": "sentinel_continue",
+      "structured_hash": "774612cb178f9f15fc58530339188d02042b161138b418b81d45bfe57aee4330"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/policy_rule_playbook_docs.py",
+      "qualname": "_references_by_rule",
+      "kind": "sentinel_return",
+      "structured_hash": "df32fadf75c4f088904177ebc1bcf07da3fa23f21abce88548f0fadaea3fc3a4"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/policy_rule_playbook_docs.py",
+      "qualname": "_references_by_rule",
+      "kind": "sentinel_return",
+      "structured_hash": "df32fadf75c4f088904177ebc1bcf07da3fa23f21abce88548f0fadaea3fc3a4"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/policy_rule_playbook_docs.py",
+      "qualname": "_string_items",
+      "kind": "sentinel_return",
+      "structured_hash": "6b035f12bd945576ef9c61239f224b3e0701fc1f261ee2c949a29203e5222810"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/policy_rule_playbook_docs.py",
+      "qualname": "load_playbook_sections",
+      "kind": "sentinel_continue",
+      "structured_hash": "3757aa29abb0367a35a4ab88a5600bfd9090becfbdf8bf63b0e5e50466c2b815"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/ranking_signal_dsl.py",
+      "qualname": "_resolve_path_values",
+      "kind": "sentinel_continue",
+      "structured_hash": "86d336d1e49857c39181b086fef6e55a7a506d27387ebd1901117d38c3e76d66"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/scalar_flow_index.py",
+      "qualname": "_is_string_add",
+      "kind": "sentinel_return",
+      "structured_hash": "feda1dff0b830a28ebf5044c1c9b295a3ca5992ea63e25387503ae5d2e1fcd90"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structural_anti_pattern_contract.py",
+      "qualname": "_has_prefiltered_append",
+      "kind": "sentinel_return",
+      "structured_hash": "f7f2db5fd1c0c207b9b2cfb51b5d88c58890dacdf57821c44dfdc637334279c3"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structural_anti_pattern_contract.py",
+      "qualname": "_is_append_or_extend_to_names",
+      "kind": "sentinel_return",
+      "structured_hash": "63520ae0680c985fbf0a96d27503387f72dd6f622207a3f1dd4f368ece8ef248"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structural_anti_pattern_contract.py",
+      "qualname": "_is_ast_walk_call",
+      "kind": "sentinel_return",
+      "structured_hash": "684f44d2a08dbf0d62079213dc56d1def30c9ab9e79940d96ac4739831ab3ba9"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structural_anti_pattern_contract.py",
+      "qualname": "_is_ast_walk_call",
+      "kind": "sentinel_return",
+      "structured_hash": "684f44d2a08dbf0d62079213dc56d1def30c9ab9e79940d96ac4739831ab3ba9"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structural_anti_pattern_contract.py",
+      "qualname": "_is_len_guard",
+      "kind": "sentinel_return",
+      "structured_hash": "c3824289eb6d45dfba21603952900efdc400085dfc6d998faa0eab317180c531"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structural_anti_pattern_contract.py",
+      "qualname": "_is_len_guard",
+      "kind": "sentinel_return",
+      "structured_hash": "c3824289eb6d45dfba21603952900efdc400085dfc6d998faa0eab317180c531"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structural_anti_pattern_contract.py",
+      "qualname": "_iter_wildcard_soft_fallthrough_findings",
+      "kind": "sentinel_continue",
+      "structured_hash": "f290b63b07f67a642251e1b2d8413f26737a38e00b124e4d5945e5c5e2e023eb"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structural_anti_pattern_contract.py",
+      "qualname": "_returns_tuple_of_names",
+      "kind": "sentinel_return",
+      "structured_hash": "d14da586f6a69d68a0eb0281210733b883dfd4194ff897f039c5689f62f41c66"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "_adapter_parity_case",
+      "kind": "sentinel_return",
+      "structured_hash": "f3d9e0c8f4c66f64faa5a0a8a509a2a715b82af9b09465d872d1b11247fafb12"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "_first_lint_field",
+      "kind": "sentinel_return",
+      "structured_hash": "730bb3a9b99aa4e30eb86ba3a710509437af4ec67c09e5127189ac2382fdf9cc"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "_first_lint_field",
+      "kind": "sentinel_return",
+      "structured_hash": "730bb3a9b99aa4e30eb86ba3a710509437af4ec67c09e5127189ac2382fdf9cc"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "_git_state_artifact_from_payload",
+      "kind": "sentinel_return",
+      "structured_hash": "bacf0250667558569e5fb919173160bc20d70d25e882d7b9085ea530132a93b4"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "_git_state_artifact_from_payload",
+      "kind": "sentinel_continue",
+      "structured_hash": "750aa29bb59c621e87ca03246a9c51e3aac333cb44ff324059494900c6a7bfe6"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "_git_state_artifact_from_payload",
+      "kind": "sentinel_continue",
+      "structured_hash": "2a72fbf336e5ff6e7c1bf826494465fe6b411a979f00fa12049e2d242540bf72"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "_policy_source_uniqueness_case",
+      "kind": "sentinel_continue",
+      "structured_hash": "c8435ca56d72d7bde463c18b900ab74c8d352da8dc5a3db02d6609f9f58acca4"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_controller_drift_artifact",
+      "kind": "sentinel_return",
+      "structured_hash": "db73a235d17aea433b9561ef637b6c150dd56d04f13cc62f5dbc36253477d08f"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_controller_drift_artifact",
+      "kind": "sentinel_continue",
+      "structured_hash": "088606ceecba1a37dec674904ebb767aee49bdeaf08ad033740fa3619e2255e7"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_cross_origin_witness_contract_artifact",
+      "kind": "sentinel_return",
+      "structured_hash": "baaddac4888b2043241cc12615e14e0435f8bcf50f192506d51b2eeaef1d35ab"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_cross_origin_witness_contract_artifact",
+      "kind": "sentinel_continue",
+      "structured_hash": "f50b791b74a4d5ee7f7d0e391315e2892502f973fd711bf09a6655876cacf462"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_cross_origin_witness_contract_artifact",
+      "kind": "sentinel_continue",
+      "structured_hash": "f50b791b74a4d5ee7f7d0e391315e2892502f973fd711bf09a6655876cacf462"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_cross_origin_witness_contract_artifact",
+      "kind": "sentinel_continue",
+      "structured_hash": "03d2be2f772f0c9e8803932c9588371f28e25985e6387535183182ccb91acd1e"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_docflow_compliance_artifact",
+      "kind": "sentinel_return",
+      "structured_hash": "29283fc66a1527c0c1fcd95a6455da4fefb868e80f5360395a44cbbb0e66a226"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_docflow_compliance_artifact",
+      "kind": "sentinel_continue",
+      "structured_hash": "0f64499a635effe93d3ea310f7e74954f602486ed3cf267aa4d76cc78576000a"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_docflow_compliance_artifact",
+      "kind": "sentinel_continue",
+      "structured_hash": "0f64499a635effe93d3ea310f7e74954f602486ed3cf267aa4d76cc78576000a"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_docflow_compliance_artifact",
+      "kind": "sentinel_continue",
+      "structured_hash": "0f64499a635effe93d3ea310f7e74954f602486ed3cf267aa4d76cc78576000a"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_docflow_compliance_artifact",
+      "kind": "sentinel_continue",
+      "structured_hash": "0f64499a635effe93d3ea310f7e74954f602486ed3cf267aa4d76cc78576000a"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_docflow_packet_enforcement_artifact",
+      "kind": "sentinel_return",
+      "structured_hash": "3d567f984822830bc467b189eed7433ad4d6fc36222931e8f99676aaeed1090e"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_docflow_packet_enforcement_artifact",
+      "kind": "sentinel_continue",
+      "structured_hash": "0b20ea91d30a7194fc40e3dbceeeb040bc747522f8e9d82a328dd78b9aa79262"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_identity_grammar_completion_artifact",
+      "kind": "sentinel_return",
+      "structured_hash": "676bffb485d0a48e16b3b44c89efda9d72ea788c001fa80712eab0c4c7197300"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_identity_grammar_completion_artifact",
+      "kind": "sentinel_continue",
+      "structured_hash": "cdb371171915303e5fdaba67e5b9ac3f054796e8433bedbd790e4fe0e9a2f0eb"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_identity_grammar_completion_artifact",
+      "kind": "sentinel_continue",
+      "structured_hash": "cdb371171915303e5fdaba67e5b9ac3f054796e8433bedbd790e4fe0e9a2f0eb"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_ingress_merge_parity_artifact",
+      "kind": "sentinel_return",
+      "structured_hash": "d43ff66d93ef6d6766591a5d1d545fad811b280880fcb4cbebcdcae42b36d5b5"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_ingress_merge_parity_artifact",
+      "kind": "sentinel_continue",
+      "structured_hash": "9c95f7e3fc6125b2b88d8eec501525deceb232eb83ca675f57fa3cfc034732b4"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_ingress_merge_parity_artifact",
+      "kind": "sentinel_continue",
+      "structured_hash": "62b6a1623dc8a6fe8762a4bf209afd4313e05535b7b88a1f1d48c3a460bc3960"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_junit_failure_artifact",
+      "kind": "sentinel_continue",
+      "structured_hash": "31100215622fba0d8d93b7a5ab925146241b5d16b41d687305648994f5093414"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_kernel_vm_alignment_artifact",
+      "kind": "sentinel_return",
+      "structured_hash": "67211496af285d62fedd6cba038036db51f118552da1ed99aecdfbec84a8ab03"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_kernel_vm_alignment_artifact",
+      "kind": "sentinel_continue",
+      "structured_hash": "9e78254acc235c1153ca5390a5f93ce64fe8426047846bad4b7b4794f1a65e79"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_kernel_vm_alignment_artifact",
+      "kind": "sentinel_continue",
+      "structured_hash": "f8d300f7b8dbc2b56adeabf2fcde0a87d2bfdb513b17c8dcf914619aa3a6db70"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_kernel_vm_alignment_artifact",
+      "kind": "sentinel_continue",
+      "structured_hash": "9e78254acc235c1153ca5390a5f93ce64fe8426047846bad4b7b4794f1a65e79"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_kernel_vm_alignment_artifact._evidence_refs",
+      "kind": "sentinel_continue",
+      "structured_hash": "c4e3c92459b7c602c7a481177c084d18ea2be77fb73d3946acb23142baf5319a"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_local_ci_repro_contract_artifact",
+      "kind": "sentinel_return",
+      "structured_hash": "c361d5d92924553b850a978e6db896952f02dc3b7c52351b1a88e68623f0c1d9"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_local_ci_repro_contract_artifact",
+      "kind": "sentinel_continue",
+      "structured_hash": "888fe788056a9bcbd5446cb93a3712e27ccd688c4c41b2a19ae0a11661b3f490"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_local_ci_repro_contract_artifact",
+      "kind": "sentinel_continue",
+      "structured_hash": "8d42c35243fd6a7e984d411ccba537e04f4d6abb060c42d061d02b0cadba0891"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_local_ci_repro_contract_artifact",
+      "kind": "sentinel_continue",
+      "structured_hash": "1d208de4653c9e4168c0d8663d2141d51176559916f3dc3ccc95a05017534ced"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_local_ci_repro_contract_artifact",
+      "kind": "sentinel_continue",
+      "structured_hash": "1d208de4653c9e4168c0d8663d2141d51176559916f3dc3ccc95a05017534ced"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_local_ci_repro_contract_artifact",
+      "kind": "sentinel_continue",
+      "structured_hash": "8d42c35243fd6a7e984d411ccba537e04f4d6abb060c42d061d02b0cadba0891"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_local_ci_repro_contract_artifact",
+      "kind": "sentinel_continue",
+      "structured_hash": "8d42c35243fd6a7e984d411ccba537e04f4d6abb060c42d061d02b0cadba0891"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_local_ci_repro_contract_artifact",
+      "kind": "sentinel_continue",
+      "structured_hash": "888fe788056a9bcbd5446cb93a3712e27ccd688c4c41b2a19ae0a11661b3f490"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_local_repro_closure_ledger_artifact",
+      "kind": "sentinel_return",
+      "structured_hash": "4fa64efc27688998d23e4d95eab87e80720e897dfe1a7bb18b0c41750b076b1b"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_local_repro_closure_ledger_artifact",
+      "kind": "sentinel_continue",
+      "structured_hash": "9043dd45bcbfe55a1696f28be947bcd70f56dbefd70a17ae8ec719b87116cc05"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_test_evidence_artifact",
+      "kind": "sentinel_return",
+      "structured_hash": "f56a3a576056a31ce670fd8e621d79407930fc57e5509fe6eee0d8b3fbfdc968"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_test_evidence_artifact",
+      "kind": "sentinel_return",
+      "structured_hash": "f56a3a576056a31ce670fd8e621d79407930fc57e5509fe6eee0d8b3fbfdc968"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_test_evidence_artifact",
+      "kind": "sentinel_continue",
+      "structured_hash": "95506c6df07417ea5dc5af9284f184bbd17873685176531c977fec94a25a2418"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_test_evidence_artifact",
+      "kind": "sentinel_continue",
+      "structured_hash": "95506c6df07417ea5dc5af9284f184bbd17873685176531c977fec94a25a2418"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_test_evidence_artifact",
+      "kind": "sentinel_continue",
+      "structured_hash": "c327c3b27cbc901ec46d0150878dd0242e26f6846b7c46793057d94551f03fb8"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_test_evidence_artifact",
+      "kind": "sentinel_continue",
+      "structured_hash": "c327c3b27cbc901ec46d0150878dd0242e26f6846b7c46793057d94551f03fb8"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "qualname": "load_test_evidence_artifact",
+      "kind": "sentinel_continue",
+      "structured_hash": "c327c3b27cbc901ec46d0150878dd0242e26f6846b7c46793057d94551f03fb8"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/view_dsl.py",
+      "qualname": "collection_items",
+      "kind": "sentinel_return",
+      "structured_hash": "5526a279233a773c34c9dc69bba48b416d139ed3669aa209c4d9fa9a9fcf8080"
+    },
+    {
+      "path": "src/gabion/tooling/policy_substrate/view_dsl.py",
+      "qualname": "eval_int",
+      "kind": "sentinel_return",
+      "structured_hash": "3c2c83d688f20a21be461cbc4cc00ce06f1fdd08f070a2e0513598e15c60cd08"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/declarative_script_host.py",
+      "qualname": "_normalized_default",
+      "kind": "sentinel_return",
+      "structured_hash": "a74df85f5cb1c22bb8eae981fbc03ab3c5f4b6273181c00a29719d08f92b0829"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/declarative_script_host.py",
+      "qualname": "_normalized_sequence_default",
+      "kind": "sentinel_return",
+      "structured_hash": "31362ce9c281e0983f6e919500d0f60bbdc3787b4a5cdf246c67ff2ccbff9788"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/git_state_artifact.py",
+      "qualname": "_parse_current_line_spans_by_path",
+      "kind": "sentinel_continue",
+      "structured_hash": "4b0c786c40b9f6ceb0248f7fa0ca667236b8f2b2d678c47fefa227d3267ab01d"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/identity_grammar_completion_artifact.py",
+      "qualname": "_count_symbol_calls",
+      "kind": "sentinel_continue",
+      "structured_hash": "fe7e14a27a59f2e3edf646d7376719645f8016c8f692c7e825cbcb2c357ec286"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/identity_grammar_completion_artifact.py",
+      "qualname": "_qualname_segment",
+      "kind": "sentinel_return",
+      "structured_hash": "9a314106c76c33dfe658aaeaf081acbfd519e9ffab91ef06a31dac2017976a82"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/identity_grammar_completion_artifact.py",
+      "qualname": "_qualname_segment",
+      "kind": "sentinel_return",
+      "structured_hash": "7aa2e43a310efc4918ea04475e4640f1b1820ea36cb9d2566989c7ccc77862b3"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/identity_grammar_completion_artifact.py",
+      "qualname": "_qualname_segment",
+      "kind": "sentinel_return",
+      "structured_hash": "9a314106c76c33dfe658aaeaf081acbfd519e9ffab91ef06a31dac2017976a82"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/invariant_graph.py",
+      "qualname": "_ledger_projection_item",
+      "kind": "sentinel_return",
+      "structured_hash": "2fcd55868a91eb24b8ff638d62d81ee972958ea977ee9775e8c8eca9ea867eb5"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/invariant_graph.py",
+      "qualname": "_load_impacted_tests",
+      "kind": "sentinel_return",
+      "structured_hash": "51e6b0bb41e8f3c8375f58fc03ea0c7bc5267707d691f137410740534c0ca13e"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/invariant_graph.py",
+      "qualname": "_load_impacted_tests",
+      "kind": "sentinel_return",
+      "structured_hash": "51e6b0bb41e8f3c8375f58fc03ea0c7bc5267707d691f137410740534c0ca13e"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/invariant_graph.py",
+      "qualname": "_load_impacted_tests",
+      "kind": "sentinel_return",
+      "structured_hash": "51e6b0bb41e8f3c8375f58fc03ea0c7bc5267707d691f137410740534c0ca13e"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/invariant_graph.py",
+      "qualname": "_load_impacted_tests",
+      "kind": "sentinel_return",
+      "structured_hash": "51e6b0bb41e8f3c8375f58fc03ea0c7bc5267707d691f137410740534c0ca13e"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/invariant_graph.py",
+      "qualname": "_load_profile_observations",
+      "kind": "sentinel_return",
+      "structured_hash": "32350e0bc5c74057448077ec06c8b55f84a789573a8f242eae748d9b15f82d21"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/invariant_graph.py",
+      "qualname": "_load_profile_observations",
+      "kind": "sentinel_return",
+      "structured_hash": "32350e0bc5c74057448077ec06c8b55f84a789573a8f242eae748d9b15f82d21"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/invariant_graph.py",
+      "qualname": "_load_profile_observations",
+      "kind": "sentinel_continue",
+      "structured_hash": "1544b4f79cbfc3820f0a4865acd7edc86af6e5264fba248a81fe2e9a326db96d"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/invariant_graph.py",
+      "qualname": "_load_profile_observations",
+      "kind": "sentinel_continue",
+      "structured_hash": "1544b4f79cbfc3820f0a4865acd7edc86af6e5264fba248a81fe2e9a326db96d"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/invariant_graph.py",
+      "qualname": "_match_profile_observations",
+      "kind": "sentinel_continue",
+      "structured_hash": "390ad2f59ee20007b23edb3eee8477cda7bdd1c8640b64e72e171c33deac2512"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/invariant_graph.py",
+      "qualname": "_perf_infimum_buckets",
+      "kind": "sentinel_continue",
+      "structured_hash": "d6397aefed404a345c490b4e766c30862a63243d3e78e00787c9fe1b6b75d154"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/invariant_graph.py",
+      "qualname": "_print_ledger",
+      "kind": "sentinel_continue",
+      "structured_hash": "3a39084f0cb900ebb2478f1dde542e961db6d819d4bd517ba087e6f7a098dc35"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/invariant_graph.py",
+      "qualname": "_profile_observation_from_payload",
+      "kind": "sentinel_return",
+      "structured_hash": "b48e60172049c98de4215a860a0d135421b76b9d77a7553b55ed820975e4a7ce"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/invariant_graph.py",
+      "qualname": "_profile_observation_from_payload",
+      "kind": "sentinel_return",
+      "structured_hash": "b48e60172049c98de4215a860a0d135421b76b9d77a7553b55ed820975e4a7ce"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/invariant_graph.py",
+      "qualname": "_resolve_perf_dsl_overlay",
+      "kind": "sentinel_continue",
+      "structured_hash": "5e526b0fd743095409282b295fbc40bb51908409ae14577f4abc9e8c799a8ed8"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/perf_artifact.py",
+      "qualname": "build_cprofile_perf_artifact_payload",
+      "kind": "sentinel_continue",
+      "structured_hash": "abfb8db10fac22a91552925b85332bd29f730c1d7f7391f15f69ce7fe2317821"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/policy_scan_batch.py",
+      "qualname": "_iter_normalized_paths",
+      "kind": "sentinel_continue",
+      "structured_hash": "0a484a89b5d07321f25e606c10e8e531430f622f06978554faf35aa61b671aae"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/policy_scanner_identity.py",
+      "qualname": "policy_scanner_carrier_from_payload",
+      "kind": "sentinel_continue",
+      "structured_hash": "17c12192ced8c1d0be78842e031ed1aefc8247e27093c077de0652e1f517b887"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/policy_scanner_identity.py",
+      "qualname": "policy_scanner_carrier_from_payload",
+      "kind": "sentinel_continue",
+      "structured_hash": "17c12192ced8c1d0be78842e031ed1aefc8247e27093c077de0652e1f517b887"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/policy_scanner_identity.py",
+      "qualname": "policy_scanner_carrier_from_payload",
+      "kind": "sentinel_continue",
+      "structured_hash": "17c12192ced8c1d0be78842e031ed1aefc8247e27093c077de0652e1f517b887"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/policy_scanner_suite.py",
+      "qualname": "_build_invalid_waiver_rows",
+      "kind": "sentinel_return",
+      "structured_hash": "f1b47edac8528e7d4adc64f5a2f3fa33b858831ae6d52b1098fceb10ef542382"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/policy_scanner_suite.py",
+      "qualname": "_lattice_witness_payload",
+      "kind": "sentinel_return",
+      "structured_hash": "d664ceeaceac7e635710e58e18a7d578aed399fd5b82439f2d4b8ba68d525d8d"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/projection_fiber_semantics_summary.py",
+      "qualname": "_list_of_mappings",
+      "kind": "sentinel_return",
+      "structured_hash": "b5982b5a9e251a9cc3e1de93547fb172f5d5cbd4ee889e799d36489f6be9a15d"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/projection_fiber_semantics_summary.py",
+      "qualname": "_mapping_string",
+      "kind": "sentinel_return",
+      "structured_hash": "ad943fdf0d247e2ca0428a1b6ced0f836e6cb85e360b37dc71c79427432ea201"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/projection_fiber_semantics_summary.py",
+      "qualname": "_projection_fiber_semantic_previews",
+      "kind": "sentinel_continue",
+      "structured_hash": "3699123c618650969e00c65f9bf1662dd0eeec9737ccca7bc7993b152c6ed948"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/projection_fiber_semantics_summary.py",
+      "qualname": "_projection_fiber_semantic_previews",
+      "kind": "sentinel_continue",
+      "structured_hash": "3699123c618650969e00c65f9bf1662dd0eeec9737ccca7bc7993b152c6ed948"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/projection_fiber_semantics_summary.py",
+      "qualname": "_projection_fiber_semantic_previews",
+      "kind": "sentinel_continue",
+      "structured_hash": "09b122200811b3efa222be51ccf40c4552fead10dbf2abb8a87c4c13e8c0a7f3"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/projection_fiber_semantics_summary.py",
+      "qualname": "_projection_semantic_spec_name",
+      "kind": "sentinel_return",
+      "structured_hash": "088bf78c8e110bab89b67265befcd52b5c122fb7e8c3933957a2ca27ab32428b"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/projection_fiber_semantics_summary.py",
+      "qualname": "_required_mapping_string",
+      "kind": "sentinel_return",
+      "structured_hash": "0e20a36e72dbf678d40aaa662be3405376086a5cfd8bc0309c35e1692371ae60"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/projection_fiber_semantics_summary.py",
+      "qualname": "_semantic_rows_by_structural_identity",
+      "kind": "sentinel_continue",
+      "structured_hash": "c0de2979107130e454ee107e9648bdcc7b344dcb0145582fee38ef0ce2e64522"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/projection_fiber_semantics_summary.py",
+      "qualname": "projection_fiber_decision_from_payload",
+      "kind": "sentinel_return",
+      "structured_hash": "d5b1ce2b9145368c1d581da128b6394aa5e890ac8178dc82146ad47558ca529a"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/projection_fiber_semantics_summary.py",
+      "qualname": "projection_fiber_semantic_bundle_count_from_payload",
+      "kind": "sentinel_return",
+      "structured_hash": "f34617cee4d97ce730a465cc503050ea2da8e6e874fffa8b887fa27989b38f4b"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/projection_fiber_semantics_summary.py",
+      "qualname": "projection_fiber_semantic_previews_from_payload",
+      "kind": "sentinel_return",
+      "structured_hash": "33b8c35026edf052b782cd5245913e95fc09c9fd7ef257f3eff0b41521b195bc"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/projection_fiber_semantics_summary.py",
+      "qualname": "projection_fiber_semantic_row_count_from_payload",
+      "kind": "sentinel_return",
+      "structured_hash": "aa18a5223c01996f2ad206411e5ede80d34e47efe6a13be61cbbf1117358a917"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/projection_fiber_semantics_summary.py",
+      "qualname": "projection_fiber_semantic_spec_names_from_payload",
+      "kind": "sentinel_return",
+      "structured_hash": "ca65fb19275ec3aabe6b76d066ed1bb936525477589a7b1b12e1bbac137afe44"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/run_dataflow_stage.py",
       "qualname": "_append_lines",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "8394a95f5f5957b7759cd7438de6945ffb352fc37bdb6407acc639520899924a"
     },
     {
-      "path": "src/gabion/tooling/run_dataflow_stage.py",
-      "line": 188,
-      "column": 9,
+      "path": "src/gabion/tooling/runtime/run_dataflow_stage.py",
       "qualname": "_obligation_rows_from_timeout_payload",
       "kind": "sentinel_continue",
-      "message": "continues without explicit decision outcome"
+      "structured_hash": "70eba8cbc513eab7d37be11a23444b473af42e832663c41cca22897a0084ea1c"
     },
     {
-      "path": "src/gabion/tooling/run_dataflow_stage.py",
-      "line": 276,
-      "column": 5,
+      "path": "src/gabion/tooling/runtime/run_dataflow_stage.py",
       "qualname": "_obligation_trace_summary_lines",
       "kind": "sentinel_return",
-      "message": "returns sentinel fallback"
+      "structured_hash": "00ef875abd1cef5f50e175f3117deb8e1188a9616e8c34cd5788895e470fcb6f"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/run_dataflow_stage.py",
+      "qualname": "_parse_stage_command_envelope",
+      "kind": "sentinel_return",
+      "structured_hash": "d5f2433d658aa6a1cd08f7577dc1786d3e1309b161322427623d6f0f283074f2"
+    },
+    {
+      "path": "src/gabion/tooling/runtime/run_dataflow_stage.py",
+      "qualname": "_timeout_payload_from_aspf_state",
+      "kind": "sentinel_return",
+      "structured_hash": "8d28275ebf0b496152e0e0fd805bddf884e1215a2c290695b91fe05de357fbc9"
     }
   ]
 }

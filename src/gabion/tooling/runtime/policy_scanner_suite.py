@@ -41,6 +41,7 @@ from gabion.tooling.policy_rules.fiber_diagnostics import (
 from gabion.tooling.runtime.policy_scan_batch import build_policy_scan_batch
 _BRANCHLESS_BASELINE = Path("baselines/branchless_policy_baseline.json")
 _DEFENSIVE_BASELINE = Path("baselines/defensive_fallback_policy_baseline.json")
+_NO_MONKEYPATCH_BASELINE = Path("baselines/no_monkeypatch_policy_baseline.json")
 _TYPING_SURFACE_BASELINE = Path("baselines/typing_surface_policy_baseline.json")
 _TYPING_SURFACE_WAIVERS = Path("baselines/typing_surface_policy_waivers.json")
 _RUNTIME_NARROWING_BOUNDARY_BASELINE = Path("baselines/runtime_narrowing_boundary_policy_baseline.json")
@@ -1098,6 +1099,7 @@ def _policy_scanner_rule_manifest() -> tuple[_PolicyScannerRuleManifestEntry, ..
             module=no_monkeypatch_rule,
             batch_kind="inventory",
             serializer=_serialize_no_monkeypatch,
+            baseline_path=_NO_MONKEYPATCH_BASELINE,
         ),
         _PolicyScannerRuleManifestEntry(
             rule_id="branchless",

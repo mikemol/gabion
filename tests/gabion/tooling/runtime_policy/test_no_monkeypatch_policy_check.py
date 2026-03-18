@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from gabion.tooling.policy_rules import no_monkeypatch_rule as policy
@@ -55,6 +56,22 @@ def test_no_monkeypatch_policy_check_writes_policy_result_output(tmp_path: Path)
     out = tmp_path / "out/no_monkeypatch.json"
     result = policy.run(root=tmp_path, output=out)
     assert result == 0
-    payload = __import__("json").loads(out.read_text(encoding="utf-8"))
+    payload = json.loads(out.read_text(encoding="utf-8"))
     assert payload["rule_id"] == "no_monkeypatch"
     assert payload["status"] == "pass"
+
+
+# gabion:behavior primary=desired
+def test_no_monkeypatch_policy_baseline_write_and_filter(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "tests" / "test_bad.py",
+        "def test_bad(monkeypatch):\n"
+        "    monkeypatch.setattr('x', 'y')\n",
+    )
+    baseline = tmp_path / "baselines" / "no_monkeypatch_policy_baseline.json"
+
+    assert policy.run(root=tmp_path, baseline=baseline, baseline_write=True) == 0
+    assert baseline.exists()
+    payload = json.loads(baseline.read_text(encoding="utf-8"))
+    assert payload["version"] == policy.BASELINE_VERSION
+    assert policy.run(root=tmp_path, baseline=baseline) == 0

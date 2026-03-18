@@ -99,6 +99,9 @@ def test_policy_scanner_rule_manifest_preserves_expected_rule_order_and_paths() 
         "test_sleep_hygiene",
     )
     by_rule = {item.rule_id: item for item in manifest}
+    assert by_rule["no_monkeypatch"].baseline_path == Path(
+        "baselines/no_monkeypatch_policy_baseline.json"
+    )
     assert by_rule["branchless"].baseline_path == Path(
         "baselines/branchless_policy_baseline.json"
     )

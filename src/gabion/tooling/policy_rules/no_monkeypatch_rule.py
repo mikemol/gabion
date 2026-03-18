@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import ast
 import hashlib
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
@@ -27,9 +28,11 @@ from gabion.tooling.runtime.policy_scan_batch import (
     ScanFailureSeed,
     build_policy_scan_batch,
     iter_failure_seeds,
+    load_structured_violation_baseline_keys,
 )
 
 RULE_NAME = "no_monkeypatch"
+BASELINE_VERSION = 1
 TARGET_GLOBS = (
     "tests/**/*.py",
     "src/**/*.py",
@@ -360,9 +363,58 @@ def _serialize_violation(violation: Violation) -> dict[str, object]:
     }
 
 
-def run(*, root: Path, output: Path | None = None) -> int:
+def _load_baseline(path: Path) -> set[str]:
+    return load_structured_violation_baseline_keys(
+        path=path,
+        migrate_hash=lambda path_value, qualname, kind, column, message: _structured_hash(
+            path_value,
+            qualname,
+            kind,
+            str(column),
+            message,
+        ),
+    )
+
+
+def _write_baseline(*, path: Path, violations: list[Violation]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "version": BASELINE_VERSION,
+        "violations": [
+            _serialize_violation(violation)
+            for violation in sorted(
+                violations,
+                key=lambda item: (item.path, item.qualname, item.line, item.kind),
+            )
+        ],
+    }
+    path.write_text(json.dumps(payload, indent=2, sort_keys=False) + "\n", encoding="utf-8")
+
+
+def run(
+    *,
+    root: Path,
+    output: Path | None = None,
+    baseline: Path | None = None,
+    baseline_write: bool = False,
+) -> int:
     batch = build_policy_scan_batch(root=root, target_globs=TARGET_GLOBS)
     violations = collect_violations(batch=batch)
+    if baseline_write:
+        if baseline is None:
+            raise SystemExit("--baseline is required with --baseline-write")
+        _write_baseline(path=baseline, violations=violations)
+        print(f"wrote no_monkeypatch policy baseline to {baseline}")
+        return 0
+
+    if baseline is not None:
+        allowed = _load_baseline(baseline)
+        violations = [
+            violation
+            for violation in violations
+            if violation.key not in allowed
+        ]
+
     status = "pass" if not violations else "fail"
     if output is not None:
         write_policy_result(
@@ -389,9 +441,17 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", default=".")
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--baseline", default=None)
+    parser.add_argument("--baseline-write", action="store_true")
     args = parser.parse_args(argv)
     output = next(_iter_resolved_output_paths(args.output), None)
-    return run(root=Path(args.root).resolve(), output=output)
+    baseline = next(_iter_resolved_output_paths(Path(args.baseline) if args.baseline else None), None)
+    return run(
+        root=Path(args.root).resolve(),
+        output=output,
+        baseline=baseline,
+        baseline_write=bool(args.baseline_write),
+    )
 
 
 def _iter_resolved_output_paths(raw_output: Path | None) -> Iterable[Path]:

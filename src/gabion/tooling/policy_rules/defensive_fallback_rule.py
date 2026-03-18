@@ -5,7 +5,7 @@ import argparse
 import ast
 import hashlib
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
@@ -402,7 +402,12 @@ def _write_baseline(*, path: Path, violations: list[Violation]) -> None:
     payload = {
         "version": BASELINE_VERSION,
         "violations": [
-            asdict(violation)
+            {
+                "path": violation.path,
+                "qualname": violation.qualname,
+                "kind": violation.kind,
+                "structured_hash": violation.structured_hash,
+            }
             for violation in sorted(
                 violations,
                 key=lambda item: (item.path, item.qualname, item.line, item.kind),

@@ -5,7 +5,7 @@ import argparse
 import ast
 import hashlib
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
@@ -325,7 +325,12 @@ def _write_baseline(*, path: Path, violations: list[Violation]) -> None:
     payload = {
         "version": BASELINE_VERSION,
         "violations": [
-            _violation_payload(violation)
+            {
+                "path": violation.path,
+                "qualname": violation.qualname,
+                "kind": violation.kind,
+                "structured_hash": violation.structured_hash,
+            }
             for violation in sorted(
                 violations,
                 key=lambda item: (item.path, item.qualname, item.line, item.kind),
@@ -333,16 +338,6 @@ def _write_baseline(*, path: Path, violations: list[Violation]) -> None:
         ],
     }
     path.write_text(json.dumps(payload, indent=2, sort_keys=False) + "\n", encoding="utf-8")
-
-
-def _violation_payload(violation: Violation) -> dict[str, object]:
-    payload = asdict(violation)
-    payload["lattice_witness"] = _lattice_payload(violation.lattice_witness)
-    return payload
-
-
-def _lattice_payload(frontier: FrontierWitness) -> dict[str, object]:
-    return frontier.as_payload()
 
 
 def run(*, root: Path, baseline: Path | None = None, baseline_write: bool = False) -> int:
