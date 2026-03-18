@@ -104,6 +104,15 @@ valid.
   dependency interaction.
 - Mechanical version stamping is prohibited and treated as a governance breach.
 
+## Friction funnel (normative)
+- When meaningful repo-navigation or operational friction is encountered during
+  planning or execution, record it in
+  [`docs/audits/friction.md#friction_funnel`](docs/audits/friction.md#friction_funnel).
+- Use the raw observation schema:
+  `Trigger`, `Friction`, `Impact`, `Hypothesis`.
+- Keep fixes or landed outcomes in the funnel's `Resolution Notes` section
+  rather than rewriting raw observations.
+
 ## Architectural invariants (normative)
 <!-- BEGIN:generated_contributor_clause_invariants -->
 _The clause-backed bullets below are generated from `docs/clause_obligation_decks.yaml` and `docs/normative_clause_index.md` via `mise exec -- python -m scripts.policy.render_clause_obligation_decks`._

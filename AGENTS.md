@@ -96,6 +96,10 @@ Semantic correctness is governed by `[glossary.md#contract](glossary.md#contract
 - Do not weaken or bypass self-hosted runner protections.
 - When changing workflows, run the policy checks (once the scripts exist) and
   surface any violations explicitly.
+- When meaningful repo-navigation or operational friction is encountered during
+  planning or execution, record a raw observation in
+  [`docs/audits/friction.md#friction_funnel`](docs/audits/friction.md#friction_funnel)
+  using the `Trigger`/`Friction`/`Impact`/`Hypothesis` schema.
 
 ## Project quick start
 - Use the root `AGENTS.md` as the workspace instruction surface; do not add a parallel `.github/copilot-instructions.md` for this repo.
