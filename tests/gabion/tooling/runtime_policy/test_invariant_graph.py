@@ -143,6 +143,7 @@ def _synthetic_workstreams_payload(workstreams: list[dict[str, object]]) -> dict
     }
 
 
+# gabion:behavior primary=desired
 def test_build_invariant_graph_scans_decorated_symbols_and_marker_callsites(
     tmp_path: Path,
 ) -> None:
@@ -172,6 +173,7 @@ def test_build_invariant_graph_scans_decorated_symbols_and_marker_callsites(
     )
 
 
+# gabion:behavior primary=desired
 def test_invariant_graph_write_and_load_round_trip(
     tmp_path: Path,
 ) -> None:
@@ -192,6 +194,7 @@ def test_invariant_graph_write_and_load_round_trip(
     assert reloaded.planning_chart_summary == graph.planning_chart_summary
 
 
+# gabion:behavior primary=desired
 def test_phase5_touchsite_scan_uses_active_build_root_and_fails_closed_when_missing(
     tmp_path: Path,
 ) -> None:
@@ -208,6 +211,7 @@ def test_phase5_touchsite_scan_uses_active_build_root_and_fails_closed_when_miss
     assert "src/gabion/analysis/projection/semantic_fragment.py" in str(exc_info.value)
 
 
+# gabion:behavior primary=desired
 def test_injected_repo_followup_plateau_reports_mixed_root_scope(
     tmp_path: Path,
 ) -> None:
@@ -237,6 +241,7 @@ def test_injected_repo_followup_plateau_reports_mixed_root_scope(
     assert recommended_code_followup.cofrontier_followup_count == 5
 
 
+# gabion:behavior primary=desired
 def test_injected_repo_followup_plateau_preserves_root_provenance(
     tmp_path: Path,
 ) -> None:
@@ -272,6 +277,7 @@ def test_injected_repo_followup_plateau_preserves_root_provenance(
     }
 
 
+# gabion:behavior primary=desired
 def test_planner_queue_overlay_uses_envelops_without_reusing_contains(
     tmp_path: Path,
 ) -> None:
@@ -315,6 +321,7 @@ def test_planner_queue_overlay_uses_envelops_without_reusing_contains(
     assert any(count >= 2 for count in envelop_counts_by_target.values())
 
 
+# gabion:behavior primary=desired
 def test_workstream_projection_surfaces_policy_and_diagnostic_remediation_families() -> None:
     space = PolicyQueueIdentitySpace()
     workstream_id = space.workstream_id("WS-SYNTH")
@@ -519,6 +526,7 @@ def test_workstream_projection_surfaces_policy_and_diagnostic_remediation_famili
     )
 
 
+# gabion:behavior primary=desired
 def test_workstream_projection_uses_ranking_signal_score_to_break_diagnostic_ties() -> None:
     space = PolicyQueueIdentitySpace()
     workstream_id = space.workstream_id("WS-RANK")
@@ -681,6 +689,7 @@ def test_workstream_projection_uses_ranking_signal_score_to_break_diagnostic_tie
     )
 
 
+# gabion:behavior primary=desired
 def test_workstream_projection_prefers_actionable_coverage_gap_over_counterfactual_blocked_cut() -> None:
     space = PolicyQueueIdentitySpace()
     workstream_id = space.workstream_id("WS-CF")
@@ -849,6 +858,7 @@ def test_workstream_projection_prefers_actionable_coverage_gap_over_counterfactu
     assert projection.recommended_remediation_family() == "coverage_gap"
 
 
+# gabion:behavior primary=desired
 def test_build_invariant_graph_joins_declared_counterfactual_actions_via_registry_injection(
     tmp_path: Path,
 ) -> None:
@@ -903,6 +913,7 @@ def test_build_invariant_graph_joins_declared_counterfactual_actions_via_registr
     ] == 1
 
 
+# gabion:behavior primary=desired
 def test_repo_diagnostic_lane_attributes_candidate_owner_from_exact_path() -> None:
     space = PolicyQueueIdentitySpace()
     workstream_id = space.workstream_id("WS-OWNER")
@@ -1208,6 +1219,7 @@ def test_repo_diagnostic_lane_attributes_candidate_owner_from_exact_path() -> No
     )
 
 
+# gabion:behavior primary=desired
 def test_repo_diagnostic_lane_ranks_structural_proximity_owner_over_seed() -> None:
     space = PolicyQueueIdentitySpace()
     workstream_id = space.workstream_id("WS-PROX")
@@ -1520,6 +1532,7 @@ def test_repo_diagnostic_lane_ranks_structural_proximity_owner_over_seed() -> No
     assert followup.title == "resolve grade:GMP-PROX ownership via WS-PROX"
 
 
+# gabion:behavior primary=desired
 def test_ranked_repo_followups_prefers_stronger_owner_resolution_score() -> None:
     space = PolicyQueueIdentitySpace()
     exact_workstream_id = space.workstream_id("WS-OWNER")
@@ -1894,6 +1907,7 @@ def test_ranked_repo_followups_prefers_stronger_owner_resolution_score() -> None
     assert projection.recommended_repo_followup() == ranked[0]
 
 
+# gabion:behavior primary=desired
 def test_runtime_invariant_graph_cli_build_summary_trace_and_blockers(
     tmp_path: Path,
     capsys,
@@ -1960,6 +1974,7 @@ def test_runtime_invariant_graph_cli_build_summary_trace_and_blockers(
     assert "no blocker chains" in blocker_output
 
 
+# gabion:behavior primary=desired
 def test_runtime_invariant_graph_cli_blast_radius_flags_impacted_tests(
     tmp_path: Path,
     capsys,
@@ -2049,6 +2064,7 @@ def test_runtime_invariant_graph_cli_blast_radius_flags_impacted_tests(
     assert "tests/test_sample.py::test_decorated [impacted]" in blast_radius_output
 
 
+# gabion:behavior primary=desired
 def test_runtime_invariant_graph_cli_perf_heat_maps_profile_artifacts(
     tmp_path: Path,
     capsys,
@@ -2228,6 +2244,7 @@ def test_runtime_invariant_graph_cli_perf_heat_maps_profile_artifacts(
     assert "- <none>" in perf_heat_output
 
 
+# gabion:behavior primary=desired
 def test_perf_dsl_overlay_resolves_doc_targets_to_invariant_candidates(
     tmp_path: Path,
 ) -> None:
@@ -2265,6 +2282,7 @@ def test_perf_dsl_overlay_resolves_doc_targets_to_invariant_candidates(
     assert {node.qualname for node in candidate_nodes} == {"decorated"}
 
 
+# gabion:behavior primary=desired
 def test_perf_dsl_overlay_reuses_shared_doc_selector_for_inferred_targets(
     tmp_path: Path,
 ) -> None:
@@ -2314,6 +2332,7 @@ def test_perf_dsl_overlay_reuses_shared_doc_selector_for_inferred_targets(
     assert {node.qualname for node in candidate_nodes} == {"decorated"}
 
 
+# gabion:behavior primary=desired
 def test_perf_dsl_overlay_infers_script_symbols_from_shared_selector(tmp_path: Path) -> None:
     _write(
         tmp_path / "scripts" / "policy" / "policy_check.py",
@@ -2377,6 +2396,7 @@ def test_perf_dsl_overlay_infers_script_symbols_from_shared_selector(tmp_path: P
     assert overlay.candidate_node_ids == ("script-main",)
 
 
+# gabion:behavior primary=desired
 def test_perf_infimum_buckets_use_meet_over_containment_topology() -> None:
     graph = invariant_graph.InvariantGraph(
         root=str(REPO_ROOT),
@@ -2544,6 +2564,7 @@ def test_perf_infimum_buckets_use_meet_over_containment_topology() -> None:
     assert buckets[0].total_inclusive_value == 8.0
 
 
+# gabion:behavior primary=desired
 def test_build_invariant_graph_joins_policy_signals_and_test_coverage(
     tmp_path: Path,
 ) -> None:
@@ -2624,6 +2645,7 @@ def test_build_invariant_graph_joins_policy_signals_and_test_coverage(
     )
 
 
+# gabion:behavior primary=desired
 def test_build_invariant_graph_joins_pytest_failures_and_couples_them_to_work(
     tmp_path: Path,
 ) -> None:
@@ -2859,6 +2881,7 @@ def test_build_invariant_graph_joins_pytest_failures_and_couples_them_to_work(
     assert payload["touchpoints"][0]["touchsites"][0]["test_failure_count"] == 1
 
 
+# gabion:behavior primary=desired
 def test_build_invariant_graph_routes_junit_failures_into_unit_test_readiness_touchpoints(
     tmp_path: Path,
 ) -> None:
@@ -2915,6 +2938,7 @@ def test_build_invariant_graph_routes_junit_failures_into_unit_test_readiness_to
     assert utr_workstream["test_failure_count"] == 1
 
 
+# gabion:behavior primary=desired
 def test_build_invariant_graph_does_not_false_couple_unmatched_unit_test_readiness_failures(
     tmp_path: Path,
 ) -> None:
@@ -2954,6 +2978,7 @@ def test_build_invariant_graph_does_not_false_couple_unmatched_unit_test_readine
     )
 
 
+# gabion:behavior primary=desired
 def test_build_invariant_graph_clears_unit_test_readiness_indicator_when_matching_test_is_green(
     tmp_path: Path,
 ) -> None:
@@ -2993,6 +3018,7 @@ def test_build_invariant_graph_clears_unit_test_readiness_indicator_when_matchin
     assert utr_workstream["test_failure_count"] == 0
 
 
+# gabion:behavior primary=desired
 def test_build_invariant_graph_joins_sppf_and_inbox_governance_sources(
     tmp_path: Path,
 ) -> None:
@@ -3112,6 +3138,7 @@ def test_build_invariant_graph_joins_sppf_and_inbox_governance_sources(
     )
 
 
+# gabion:behavior primary=desired
 def test_build_invariant_graph_joins_control_loop_artifacts(
     tmp_path: Path,
     monkeypatch,
@@ -3713,6 +3740,7 @@ def test_build_invariant_graph_joins_control_loop_artifacts(
     assert tp8["readiness_class"] == "diagnostic_blocked"
 
 
+# gabion:behavior primary=desired
 def test_build_invariant_graph_joins_docflow_issue_lifecycle_nodes(
     tmp_path: Path,
 ) -> None:
@@ -3851,6 +3879,7 @@ def test_build_invariant_graph_joins_docflow_issue_lifecycle_nodes(
     assert invariant_graph.trace_nodes(graph, "done-on-stage")
 
 
+# gabion:behavior primary=desired
 def test_docflow_issue_lifecycle_rules_emit_ranking_pressure_for_csa_rgc_tp_007(
     tmp_path: Path,
 ) -> None:
@@ -3989,6 +4018,7 @@ def test_docflow_issue_lifecycle_rules_emit_ranking_pressure_for_csa_rgc_tp_007(
     )
 
 
+# gabion:behavior primary=desired
 def test_build_invariant_graph_joins_ingress_merge_parity_artifact(
     tmp_path: Path,
     monkeypatch,
@@ -4061,6 +4091,7 @@ def test_build_invariant_graph_joins_ingress_merge_parity_artifact(
     assert invariant_graph.trace_nodes(graph, "frontmatter_adapter_projection_parity")
 
 
+# gabion:behavior primary=desired
 def test_build_invariant_graph_joins_git_state_artifact(
     tmp_path: Path,
 ) -> None:
@@ -4136,6 +4167,7 @@ def test_build_invariant_graph_joins_git_state_artifact(
     assert invariant_graph.trace_nodes(graph, "src/example.py")
 
 
+# gabion:behavior primary=desired
 def test_build_invariant_graph_prefers_live_git_state_over_stale_artifact(
     tmp_path: Path,
 ) -> None:
@@ -4207,6 +4239,7 @@ def test_build_invariant_graph_prefers_live_git_state_over_stale_artifact(
     assert payload["diagnostic_summary"]["orphaned_workspace_change_count"] == 0
 
 
+# gabion:behavior primary=desired
 def test_git_state_dirty_graph_participant_exerts_workspace_preservation_pressure(
     tmp_path: Path,
 ) -> None:
@@ -4323,6 +4356,7 @@ def test_git_state_dirty_graph_participant_exerts_workspace_preservation_pressur
     ]
 
 
+# gabion:behavior primary=desired
 def test_git_state_dirty_nonoverlap_change_emits_orphaned_workspace_pressure(
     tmp_path: Path,
 ) -> None:
@@ -4453,6 +4487,7 @@ def test_git_state_dirty_nonoverlap_change_emits_orphaned_workspace_pressure(
     )
 
 
+# gabion:behavior primary=desired
 def test_build_invariant_graph_joins_cross_origin_witness_contract_artifact(
     tmp_path: Path,
 ) -> None:
@@ -4536,6 +4571,7 @@ def test_build_invariant_graph_joins_cross_origin_witness_contract_artifact(
     assert invariant_graph.trace_nodes(graph, "src/gabion/sample_alpha.py")
 
 
+# gabion:behavior primary=desired
 def test_build_invariant_graph_splits_orphan_policy_signals_by_source_seed(
     tmp_path: Path,
 ) -> None:
@@ -4592,6 +4628,7 @@ def test_build_invariant_graph_splits_orphan_policy_signals_by_source_seed(
     ]
 
 
+# gabion:behavior primary=desired
 def test_build_invariant_graph_fails_closed_on_declared_workstream_dependency(
     tmp_path: Path,
 ) -> None:
@@ -4628,6 +4665,7 @@ def test_build_invariant_graph_fails_closed_on_declared_workstream_dependency(
         )
 
 
+# gabion:behavior primary=desired
 def test_compare_invariant_workstreams_classifies_reduced_and_relocated() -> None:
     before_payload = _synthetic_workstreams_payload(
         [
@@ -4756,6 +4794,7 @@ def test_compare_invariant_workstreams_classifies_reduced_and_relocated() -> Non
     assert by_object_id["WS-RELOCATE"].removed_touchsite_ids == ("TS-OLD",)
 
 
+# gabion:behavior primary=desired
 def test_compare_invariant_ledger_projections_synthesizes_doc_targets_and_actions() -> None:
     before_payload = _synthetic_workstreams_payload(
         [
@@ -4821,6 +4860,7 @@ def test_compare_invariant_ledger_projections_synthesizes_doc_targets_and_action
     )
 
 
+# gabion:behavior primary=desired
 def test_build_invariant_ledger_delta_projections_groups_append_targets() -> None:
     before_payload = _synthetic_workstreams_payload(
         [
@@ -4886,6 +4926,7 @@ def test_build_invariant_ledger_delta_projections_groups_append_targets() -> Non
     assert grouped[0][1][0].object_id == "WS-REDUCE"
 
 
+# gabion:behavior primary=desired
 def test_build_invariant_ledger_alignments_detects_append_pending_existing_object(
     tmp_path: Path,
 ) -> None:
@@ -4966,6 +5007,7 @@ def test_build_invariant_ledger_alignments_detects_append_pending_existing_objec
     assert payload["alignments"][0]["summary_present"] is False
 
 
+# gabion:behavior primary=desired
 def test_runtime_invariant_graph_cli_compare_reports_workstream_drift(
     tmp_path: Path,
     capsys,

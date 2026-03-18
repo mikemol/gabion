@@ -184,6 +184,7 @@ def _lowered_projection_fiber_negated_existential_image_plan():
     return lower_projection_spec_to_semantic_plan(spec)
 
 
+# gabion:behavior primary=desired
 def test_projection_semantic_lowering_compilation_is_deterministic() -> None:
     row = _row()
     lowering_plan = _lowered_projection_fiber_frontier_plan()
@@ -194,6 +195,7 @@ def test_projection_semantic_lowering_compilation_is_deterministic() -> None:
     assert first == second
 
 
+# gabion:behavior primary=desired
 def test_projection_semantic_lowering_compilation_preserves_identity_and_trace() -> None:
     row = _row()
     lowering_plan = _lowered_projection_fiber_frontier_plan()
@@ -223,6 +225,7 @@ def test_projection_semantic_lowering_compilation_preserves_identity_and_trace()
     assert binding.sparql_plan_id == sparql_plan["plan_id"]
 
 
+# gabion:behavior primary=desired
 def test_projection_semantic_lowering_compiles_reflective_boundary_face() -> None:
     row = _row()
     lowering_plan = _lowered_projection_fiber_reflective_boundary_plan()
@@ -245,6 +248,7 @@ def test_projection_semantic_lowering_compiles_reflective_boundary_face() -> Non
     ]
 
 
+# gabion:behavior primary=desired
 def test_projection_semantic_lowering_compiles_reflection_surface() -> None:
     row = _row()
     lowering_plan = _lowered_projection_fiber_reflection_plan()
@@ -263,6 +267,7 @@ def test_projection_semantic_lowering_compiles_reflection_surface() -> None:
     assert sparql_plan["source_structural_identity"] == row["structural_identity"]
 
 
+# gabion:behavior primary=desired
 def test_projection_semantic_lowering_compiles_support_reflection_surface() -> None:
     row = _row()
     lowering_plan = _lowered_projection_fiber_support_reflection_plan()
@@ -285,6 +290,7 @@ def test_projection_semantic_lowering_compiles_support_reflection_surface() -> N
     ]
 
 
+# gabion:behavior primary=desired
 def test_projection_semantic_lowering_compiles_context_wedge_surface() -> None:
     row = _row()
     lowering_plan = _lowered_projection_fiber_context_wedge_plan()
@@ -306,6 +312,7 @@ def test_projection_semantic_lowering_compiles_context_wedge_surface() -> None:
     ]
 
 
+# gabion:behavior primary=desired
 def test_projection_semantic_lowering_compiles_reindex_surface() -> None:
     row = _row()
     lowering_plan = _lowered_projection_fiber_reindex_plan()
@@ -327,6 +334,7 @@ def test_projection_semantic_lowering_compiles_reindex_surface() -> None:
     assert sparql_plan["anti_join_filters"] == []
 
 
+# gabion:behavior primary=desired
 def test_projection_semantic_lowering_compiles_existential_image_surface() -> None:
     row = _row()
     lowering_plan = _lowered_projection_fiber_existential_image_plan()
@@ -348,6 +356,7 @@ def test_projection_semantic_lowering_compiles_existential_image_surface() -> No
     assert sparql_plan["anti_join_filters"] == []
 
 
+# gabion:behavior primary=desired
 def test_projection_semantic_lowering_acknowledges_witness_synthesis_surface() -> None:
     row = _row()
     lowering_plan = _lowered_projection_fiber_witness_synthesis_plan()
@@ -359,6 +368,7 @@ def test_projection_semantic_lowering_acknowledges_witness_synthesis_surface() -
     assert compiled.compiled_sparql_plans == ()
 
 
+# gabion:behavior primary=desired
 def test_projection_semantic_lowering_compiles_negated_existential_image_surface() -> None:
     row = _row()
     lowering_plan = _lowered_projection_fiber_negated_existential_image_plan()

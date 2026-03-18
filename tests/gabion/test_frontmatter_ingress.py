@@ -15,6 +15,7 @@ from gabion.frontmatter_ingress import (
 from gabion_governance import governance_audit_impl
 
 
+# gabion:behavior primary=desired
 def test_parse_frontmatter_document_exposes_typed_document_and_field_identities() -> None:
     carrier = parse_frontmatter_document(
         "\n".join(
@@ -56,6 +57,7 @@ def test_parse_frontmatter_document_exposes_typed_document_and_field_identities(
     assert carrier.fields[0].identity.wire() != str(carrier.fields[0].identity)
 
 
+# gabion:behavior primary=desired
 def test_parse_strict_yaml_frontmatter_preserves_boundary_projection_errors() -> None:
     with pytest.raises(FrontmatterParseError, match="unterminated YAML frontmatter"):
         parse_strict_yaml_frontmatter(
@@ -96,6 +98,7 @@ def test_parse_strict_yaml_frontmatter_preserves_boundary_projection_errors() ->
         )
 
 
+# gabion:behavior primary=desired
 def test_parse_lenient_yaml_frontmatter_preserves_absent_unterminated_and_invalid_fallbacks() -> None:
     absent_payload, absent_body = parse_lenient_yaml_frontmatter("## sample")
     assert absent_payload == {}
@@ -143,6 +146,7 @@ def test_parse_lenient_yaml_frontmatter_preserves_absent_unterminated_and_invali
     assert valid_body == "## sample"
 
 
+# gabion:behavior primary=desired
 def test_governance_frontmatter_helpers_share_the_ingress_mode_surface() -> None:
     valid = "\n".join(
         [

@@ -11,6 +11,7 @@ from gabion.tooling.policy_substrate.connectivity_synergy_registry import (
 )
 
 
+# gabion:behavior primary=desired
 def test_connectivity_synergy_registry_defines_expected_roots_and_subqueues() -> None:
     registries = connectivity_synergy_workstream_registries()
     by_root = {registry.root.root_id: registry for registry in registries}
@@ -299,6 +300,7 @@ def test_connectivity_synergy_registry_defines_expected_roots_and_subqueues() ->
     }
 
 
+# gabion:behavior primary=desired
 def test_connectivity_synergy_registry_catalog_preserves_root_order() -> None:
     catalog = connectivity_synergy_registry_catalog()
     registries = connectivity_synergy_workstream_registries()
@@ -890,6 +892,7 @@ def test_connectivity_synergy_registry_catalog_preserves_root_order() -> None:
         ),
     }
 
+# gabion:behavior primary=desired
 def test_connectivity_synergy_registry_catalog_validator_detects_binding_drift() -> None:
     catalog = connectivity_synergy_registry_catalog()
     igm_catalog = next(item for item in catalog if item.root.root_id == "CSA-IGM")

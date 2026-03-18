@@ -130,6 +130,7 @@ def test_execute_command_total_starts_and_stops_identity_shadow_session(
     )
 
 
+# gabion:behavior primary=desired
 def test_execute_command_total_uses_protocol_notify_when_send_notification_missing(
     tmp_path: Path,
 ) -> None:

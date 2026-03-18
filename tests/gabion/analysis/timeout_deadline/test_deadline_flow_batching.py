@@ -6,6 +6,7 @@ from gabion.analysis.foundation import timeout_context as tc
 from gabion.deadline_clock import GasMeter
 
 
+# gabion:behavior primary=desired
 def test_project_deadline_flow_window_uses_model_budget_and_growth_guardrail(
     monkeypatch,
 ) -> None:
@@ -34,6 +35,7 @@ def test_project_deadline_flow_window_uses_model_budget_and_growth_guardrail(
     assert projection.items_per_ns_ewma == pytest.approx(0.05)
 
 
+# gabion:behavior primary=desired
 def test_project_deadline_flow_window_uses_time_budget_when_it_is_tighter(
     monkeypatch,
 ) -> None:
@@ -64,6 +66,7 @@ def test_project_deadline_flow_window_uses_time_budget_when_it_is_tighter(
     assert projection.next_window == 2
 
 
+# gabion:behavior primary=desired
 def test_project_deadline_flow_window_uses_vegas_style_backoff_on_cost_spike(
     monkeypatch,
 ) -> None:
@@ -96,6 +99,7 @@ def test_project_deadline_flow_window_uses_vegas_style_backoff_on_cost_spike(
     assert projection.items_per_ns_ewma == pytest.approx(0.036875)
 
 
+# gabion:behavior primary=desired
 def test_project_deadline_flow_window_prefers_best_recent_throughput_over_ewma(
     monkeypatch,
 ) -> None:
@@ -125,6 +129,7 @@ def test_project_deadline_flow_window_prefers_best_recent_throughput_over_ewma(
     assert projection.best_items_per_ns == pytest.approx(0.0095)
 
 
+# gabion:behavior primary=desired
 def test_deadline_loop_iter_batches_polls_by_observed_tick_rate(monkeypatch) -> None:
     deadline_checks: list[int] = []
     consume_deadline_ticks = tc.consume_deadline_ticks

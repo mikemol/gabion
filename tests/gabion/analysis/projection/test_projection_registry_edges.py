@@ -71,6 +71,7 @@ def test_build_registered_specs_uses_configured_gas_limit() -> None:
     assert specs
 
 
+# gabion:behavior primary=desired
 def test_projection_fiber_frontier_spec_is_registered_with_declared_quotient_face() -> None:
     specs = build_registered_specs()
     assert PROJECTION_FIBER_FRONTIER_SPEC in specs.values()
@@ -79,6 +80,7 @@ def test_projection_fiber_frontier_spec_is_registered_with_declared_quotient_fac
     assert project_op.params["quotient_face"] == "projection_fiber.frontier"
 
 
+# gabion:behavior primary=desired
 def test_projection_fiber_reflective_boundary_spec_is_registered_with_declared_quotient_face() -> None:
     specs = build_registered_specs()
     assert PROJECTION_FIBER_REFLECTIVE_BOUNDARY_SPEC in specs.values()
@@ -87,6 +89,7 @@ def test_projection_fiber_reflective_boundary_spec_is_registered_with_declared_q
     assert project_op.params["quotient_face"] == "projection_fiber.reflective_boundary"
 
 
+# gabion:behavior primary=desired
 def test_projection_fiber_reflection_spec_is_registered_with_declared_surface() -> None:
     specs = build_registered_specs()
     assert PROJECTION_FIBER_REFLECTION_SPEC in specs.values()
@@ -95,6 +98,7 @@ def test_projection_fiber_reflection_spec_is_registered_with_declared_surface() 
     assert reflect_op.params["surface"] == "projection_fiber"
 
 
+# gabion:behavior primary=desired
 def test_projection_fiber_support_reflection_spec_is_registered_with_declared_surface() -> None:
     specs = build_registered_specs()
     assert PROJECTION_FIBER_SUPPORT_REFLECTION_SPEC in specs.values()
@@ -103,6 +107,7 @@ def test_projection_fiber_support_reflection_spec_is_registered_with_declared_su
     assert reflect_op.params["surface"] == "projection_fiber"
 
 
+# gabion:behavior primary=desired
 def test_projection_fiber_context_wedge_spec_is_registered_with_declared_surface() -> None:
     specs = build_registered_specs()
     assert PROJECTION_FIBER_CONTEXT_WEDGE_SPEC in specs.values()
@@ -111,6 +116,7 @@ def test_projection_fiber_context_wedge_spec_is_registered_with_declared_surface
     assert wedge_op.params["surface"] == "projection_fiber"
 
 
+# gabion:behavior primary=desired
 def test_projection_fiber_reindex_spec_is_registered_with_declared_surface() -> None:
     specs = build_registered_specs()
     assert PROJECTION_FIBER_REINDEX_SPEC in specs.values()
@@ -119,6 +125,7 @@ def test_projection_fiber_reindex_spec_is_registered_with_declared_surface() -> 
     assert reindex_op.params["surface"] == "projection_fiber"
 
 
+# gabion:behavior primary=desired
 def test_projection_fiber_existential_image_spec_is_registered_with_declared_surface() -> None:
     specs = build_registered_specs()
     assert PROJECTION_FIBER_EXISTENTIAL_IMAGE_SPEC in specs.values()
@@ -127,6 +134,7 @@ def test_projection_fiber_existential_image_spec_is_registered_with_declared_sur
     assert existential_image_op.params["surface"] == "projection_fiber"
 
 
+# gabion:behavior primary=desired
 def test_projection_fiber_witness_synthesis_spec_is_registered_with_declared_surface() -> None:
     specs = build_registered_specs()
     assert PROJECTION_FIBER_WITNESS_SYNTHESIS_SPEC in specs.values()
@@ -135,6 +143,7 @@ def test_projection_fiber_witness_synthesis_spec_is_registered_with_declared_sur
     assert synthesize_op.params["surface"] == "projection_fiber"
 
 
+# gabion:behavior primary=desired
 def test_projection_fiber_negated_existential_image_spec_is_registered_with_declared_surface() -> None:
     specs = build_registered_specs()
     assert PROJECTION_FIBER_NEGATED_EXISTENTIAL_IMAGE_SPEC in specs.values()

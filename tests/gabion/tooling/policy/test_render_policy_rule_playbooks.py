@@ -5,6 +5,7 @@ from pathlib import Path
 from gabion.tooling.policy_substrate import policy_rule_playbook_docs
 
 
+# gabion:behavior primary=desired
 def test_load_playbook_sections_uses_frontmatter_guidance_and_references() -> None:
     repo_root = Path(__file__).resolve().parents[4]
     ambiguity_sections = policy_rule_playbook_docs.load_playbook_sections(
@@ -40,6 +41,7 @@ def test_load_playbook_sections_uses_frontmatter_guidance_and_references() -> No
     )
 
 
+# gabion:behavior primary=desired
 def test_render_playbook_blocks_rewrite_generated_regions_without_touching_manual_tail(
     tmp_path: Path,
 ) -> None:

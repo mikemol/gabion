@@ -33,6 +33,7 @@ def _row() -> CanonicalWitnessedSemanticRow:
     return reflect_projection_fiber_witness(context=context, witness=witness)
 
 
+# gabion:behavior primary=desired
 def test_projection_fiber_reflect_compilers_are_deterministic() -> None:
     row = _row()
 
@@ -45,6 +46,7 @@ def test_projection_fiber_reflect_compilers_are_deterministic() -> None:
     assert first_sparql == second_sparql
 
 
+# gabion:behavior primary=desired
 def test_projection_fiber_reflect_compilers_preserve_carrier_identity_and_trace() -> None:
     row = _row()
 

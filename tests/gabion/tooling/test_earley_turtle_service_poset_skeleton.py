@@ -37,6 +37,7 @@ def _request_monotone_counts(trace, attr: str) -> bool:
     return all(_is_monotone(counts) for counts in counts_by_request.values())
 
 
+# gabion:behavior primary=desired
 def test_run_turtle_service_poset_skeleton_finds_first_directive_witness() -> None:
     module = _load_module()
 
@@ -93,6 +94,7 @@ def test_run_turtle_service_poset_skeleton_finds_first_directive_witness() -> No
     )
 
 
+# gabion:behavior primary=desired
 def test_service_poset_router_stream_scan_packs_real_ambiguity() -> None:
     module = _load_module()
 
@@ -133,6 +135,7 @@ def test_service_poset_router_stream_scan_packs_real_ambiguity() -> None:
     )
 
 
+# gabion:behavior primary=desired
 def test_service_poset_router_predictor_runs_as_needscan_coroutine() -> None:
     module = _load_module()
 
@@ -162,6 +165,7 @@ def test_service_poset_router_predictor_runs_as_needscan_coroutine() -> None:
     assert _request_monotone_counts(router.predictor_trace, "candidate_ids")
 
 
+# gabion:behavior primary=desired
 def test_run_turtle_service_poset_skeleton_exhausts_cleanly_for_missing_symbol() -> None:
     module = _load_module()
 

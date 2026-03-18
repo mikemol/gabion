@@ -292,6 +292,7 @@ def test_build_opportunities_payload_emits_materialize_and_fungible_candidates(
     assert fungible_plan["rule_id"] == "aspf.opportunity.fungible_execution_path_substitution"
 
 
+# gabion:behavior primary=desired
 def test_execution_fibration_boundary_materializes_iterator_once(tmp_path: Path) -> None:
     state = aspf_execution_fibration.start_execution_trace(
         root=tmp_path,

@@ -8,6 +8,7 @@ from gabion.analysis.projection.projection_semantic_lowering import (
 from gabion.analysis.projection.projection_spec import ProjectionOp, ProjectionSpec
 
 
+# gabion:behavior primary=desired
 def test_lower_projection_spec_classifies_rfc_layers() -> None:
     spec = ProjectionSpec(
         spec_version=1,
@@ -38,6 +39,7 @@ def test_lower_projection_spec_classifies_rfc_layers() -> None:
     )
 
 
+# gabion:behavior primary=desired
 def test_lower_projection_spec_promotes_declared_quotient_face() -> None:
     spec = ProjectionSpec(
         spec_version=1,
@@ -64,6 +66,7 @@ def test_lower_projection_spec_promotes_declared_quotient_face() -> None:
     assert lowered.presentation_ops[0].source_op == "sort"
 
 
+# gabion:behavior primary=desired
 def test_lower_projection_spec_promotes_reflective_boundary_face() -> None:
     spec = ProjectionSpec(
         spec_version=1,
@@ -94,6 +97,7 @@ def test_lower_projection_spec_promotes_reflective_boundary_face() -> None:
     assert lowered.presentation_ops[0].source_op == "sort"
 
 
+# gabion:behavior primary=desired
 def test_lower_projection_spec_promotes_reflect_surface() -> None:
     spec = ProjectionSpec(
         spec_version=1,
@@ -117,6 +121,7 @@ def test_lower_projection_spec_promotes_reflect_surface() -> None:
     assert lowered.bridge_ops == ()
 
 
+# gabion:behavior primary=desired
 def test_lower_projection_spec_promotes_support_reflect_surface() -> None:
     spec = ProjectionSpec(
         spec_version=1,
@@ -140,6 +145,7 @@ def test_lower_projection_spec_promotes_support_reflect_surface() -> None:
     assert lowered.bridge_ops == ()
 
 
+# gabion:behavior primary=desired
 def test_lower_projection_spec_promotes_synthesize_witness_surface() -> None:
     spec = ProjectionSpec(
         spec_version=1,
@@ -163,6 +169,7 @@ def test_lower_projection_spec_promotes_synthesize_witness_surface() -> None:
     assert lowered.bridge_ops == ()
 
 
+# gabion:behavior primary=desired
 def test_lower_projection_spec_promotes_wedge_surface() -> None:
     spec = ProjectionSpec(
         spec_version=1,
@@ -186,6 +193,7 @@ def test_lower_projection_spec_promotes_wedge_surface() -> None:
     assert lowered.bridge_ops == ()
 
 
+# gabion:behavior primary=desired
 def test_lower_projection_spec_promotes_reindex_surface() -> None:
     spec = ProjectionSpec(
         spec_version=1,
@@ -209,6 +217,7 @@ def test_lower_projection_spec_promotes_reindex_surface() -> None:
     assert lowered.bridge_ops == ()
 
 
+# gabion:behavior primary=desired
 def test_lower_projection_spec_promotes_existential_image_surface() -> None:
     spec = ProjectionSpec(
         spec_version=1,
@@ -232,6 +241,7 @@ def test_lower_projection_spec_promotes_existential_image_surface() -> None:
     assert lowered.bridge_ops == ()
 
 
+# gabion:behavior primary=desired
 def test_lower_projection_spec_promotes_negate_surface() -> None:
     spec = ProjectionSpec(
         spec_version=1,
@@ -255,6 +265,7 @@ def test_lower_projection_spec_promotes_negate_surface() -> None:
     assert lowered.bridge_ops == ()
 
 
+# gabion:behavior primary=desired
 def test_project_quotient_face_metadata_is_lowered() -> None:
     spec = ProjectionSpec(
         spec_version=1,
@@ -275,6 +286,7 @@ def test_project_quotient_face_metadata_is_lowered() -> None:
     assert lowered.semantic_ops[0].params["quotient_face"] == "projection_fiber.frontier"
 
 
+# gabion:behavior primary=desired
 def test_reflect_semantic_metadata_is_lowered() -> None:
     spec = ProjectionSpec(
         spec_version=1,

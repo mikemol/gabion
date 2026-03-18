@@ -149,6 +149,7 @@ def _sample_payload() -> dict[str, object]:
     }
 
 
+# gabion:behavior primary=desired
 def test_analyze_summarizes_portfolio_and_sorts_by_pressure() -> None:
     view = project_manager_view.analyze(
         payload=_sample_payload(),
@@ -172,6 +173,7 @@ def test_analyze_summarizes_portfolio_and_sorts_by_pressure() -> None:
     assert view.workstreams[1].recommended_followup.object_id == "PSF-007-TP-001"
 
 
+# gabion:behavior primary=desired
 def test_render_markdown_includes_summary_table_and_mermaid() -> None:
     view = project_manager_view.analyze(
         payload=_sample_payload(),
@@ -190,6 +192,7 @@ def test_render_markdown_includes_summary_table_and_mermaid() -> None:
     assert "flowchart TB" in markdown
 
 
+# gabion:behavior primary=desired
 def test_render_readme_section_includes_actions_and_workstream_table() -> None:
     view = project_manager_view.analyze(
         payload=_sample_payload(),
@@ -207,6 +210,7 @@ def test_render_readme_section_includes_actions_and_workstream_table() -> None:
     assert "project_manager_view.json" in section
 
 
+# gabion:behavior primary=desired
 def test_run_writes_json_markdown_mermaid_and_updates_readme(tmp_path: Path) -> None:
     source_artifact = tmp_path / "artifacts/out/invariant_workstreams.json"
     json_out = tmp_path / "artifacts/out/project_manager_view.json"
@@ -259,6 +263,7 @@ def test_run_writes_json_markdown_mermaid_and_updates_readme(tmp_path: Path) -> 
     assert "stale body" not in readme_text
 
 
+# gabion:behavior primary=desired
 def test_run_raises_when_readme_markers_are_missing(tmp_path: Path) -> None:
     source_artifact = tmp_path / "artifacts/out/invariant_workstreams.json"
     json_out = tmp_path / "artifacts/out/project_manager_view.json"

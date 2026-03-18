@@ -240,12 +240,14 @@ def test_run_writes_json_and_markdown_outputs(tmp_path: Path) -> None:
     assert "## Large-Zone Backlog" not in markdown
 
 
+# gabion:behavior primary=desired
 def test_main_requires_explicit_source_artifact() -> None:
     with pytest.raises(SystemExit) as excinfo:
         hotspot_neighborhood_queue.main([])
     assert excinfo.value.code == 2
 
 
+# gabion:behavior primary=desired
 def test_run_from_payload_writes_json_and_markdown_outputs(tmp_path: Path) -> None:
     out = tmp_path / "artifacts/out/hotspot_neighborhood_queue.json"
     md = tmp_path / "artifacts/out/hotspot_neighborhood_queue.md"
@@ -273,6 +275,7 @@ def test_run_from_payload_writes_json_and_markdown_outputs(tmp_path: Path) -> No
     assert "# Hotspot Neighborhood Queue" in markdown
 
 
+# gabion:behavior primary=desired
 def test_run_from_inputs_writes_json_and_markdown_outputs(tmp_path: Path) -> None:
     out = tmp_path / "artifacts/out/hotspot_neighborhood_queue.json"
     md = tmp_path / "artifacts/out/hotspot_neighborhood_queue.md"
@@ -301,6 +304,7 @@ def test_run_from_inputs_writes_json_and_markdown_outputs(tmp_path: Path) -> Non
     assert "# Hotspot Neighborhood Queue" in markdown
 
 
+# gabion:behavior primary=desired
 def test_run_from_inputs_reads_projection_fiber_semantics_from_policy_check_result(
     tmp_path: Path,
 ) -> None:
@@ -375,6 +379,7 @@ def test_run_from_inputs_reads_projection_fiber_semantics_from_policy_check_resu
     )
 
 
+# gabion:behavior primary=desired
 def test_load_projection_fiber_semantics_from_policy_check_result_reads_policy_check_artifact(
     monkeypatch: object,
 ) -> None:
@@ -400,6 +405,7 @@ def test_load_projection_fiber_semantics_from_policy_check_result_reads_policy_c
     ) == projection_fiber_semantics
 
 
+# gabion:behavior primary=desired
 def test_load_projection_fiber_semantics_from_policy_check_result_fail_closed_when_child_artifact_missing(
     tmp_path: Path,
     monkeypatch: object,
@@ -423,6 +429,7 @@ def test_load_projection_fiber_semantics_from_policy_check_result_fail_closed_wh
     assert "rule_id=policy_check" in str(excinfo.value)
 
 
+# gabion:behavior primary=desired
 def test_load_projection_fiber_semantics_from_policy_check_result_fail_closed_when_rule_id_mismatches(
     monkeypatch: object,
 ) -> None:
@@ -440,6 +447,7 @@ def test_load_projection_fiber_semantics_from_policy_check_result_fail_closed_wh
     assert "rule_id=policy_check" in str(excinfo.value)
 
 
+# gabion:behavior primary=desired
 def test_load_projection_fiber_semantics_from_policy_check_result_returns_none_when_policy_check_payload_has_no_semantics(
     tmp_path: Path,
 ) -> None:
@@ -466,6 +474,7 @@ def test_load_projection_fiber_semantics_from_policy_check_result_returns_none_w
     assert projection_fiber_semantics is None
 
 
+# gabion:behavior primary=desired
 def test_run_reads_projection_fiber_summary_from_policy_results_payload(
     tmp_path: Path,
 ) -> None:

@@ -7,6 +7,7 @@ from gabion.tooling.policy_substrate import policy_artifact_stream as stream
 from gabion.tooling.policy_substrate.policy_queue_identity import PolicyQueueIdentitySpace
 
 
+# gabion:behavior primary=desired
 def test_write_json_matches_render_json_value_for_recursive_artifact_units(
     tmp_path: Path,
 ) -> None:
@@ -119,6 +120,7 @@ def test_write_json_matches_render_json_value_for_recursive_artifact_units(
     )
 
 
+# gabion:behavior primary=desired
 def test_write_json_does_not_delegate_to_render_json_value(
     tmp_path: Path,
     monkeypatch,
@@ -148,6 +150,7 @@ def test_write_json_does_not_delegate_to_render_json_value(
     assert json.loads(output_path.read_text(encoding="utf-8")) == {"value": "ok"}
 
 
+# gabion:behavior primary=desired
 def test_artifact_stream_uses_default_renderer_for_typed_identities() -> None:
     identity_space = PolicyQueueIdentitySpace()
     touchpoint = identity_space.touchpoint_id("PSF-007-TP-005")

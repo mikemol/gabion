@@ -94,6 +94,7 @@ def test_run_emits_hotspot_queue_without_projection_semantic_fragment_artifacts(
     assert "projection_fiber_semantic_previews" in hotspot_payload["source"]
 
 
+# gabion:behavior primary=desired
 def test_run_passes_canonical_inputs_to_hotspot_queue(
     tmp_path: Path,
     monkeypatch: object,
@@ -159,6 +160,7 @@ def test_run_passes_canonical_inputs_to_hotspot_queue(
     assert not (out_dir / "policy_suite_results.json").exists()
 
 
+# gabion:behavior primary=desired
 def test_run_resolves_changed_paths_at_wrapper_boundary(
     tmp_path: Path,
     monkeypatch: object,
@@ -233,6 +235,7 @@ def test_run_resolves_changed_paths_at_wrapper_boundary(
     assert captured["changed_paths"] == {"src/gabion/example_boundary.py"}
 
 
+# gabion:behavior primary=desired
 def test_run_passes_minimal_boundary_shape_with_policy_check_result_path(
     tmp_path: Path,
     monkeypatch: object,
@@ -282,6 +285,7 @@ def test_run_passes_minimal_boundary_shape_with_policy_check_result_path(
     assert not (out_dir / "policy_suite_results.json").exists()
 
 
+# gabion:behavior primary=desired
 def test_run_prints_nonempty_violation_families_from_runtime_result(
     tmp_path: Path,
     monkeypatch: object,

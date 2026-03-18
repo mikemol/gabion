@@ -6,6 +6,7 @@ from gabion_governance.governance_doc_registry import (
 )
 
 
+# gabion:behavior primary=desired
 def test_governance_docflow_registry_exposes_inventory_and_schema_catalog() -> None:
     registry = load_governance_docflow_registry()
 
@@ -57,6 +58,7 @@ def test_governance_docflow_registry_exposes_inventory_and_schema_catalog() -> N
     )
 
 
+# gabion:behavior primary=desired
 def test_governance_audit_impl_uses_shared_governance_docflow_registry() -> None:
     assert (
         governance_audit_impl._GOVERNANCE_DOCFLOW_REGISTRY

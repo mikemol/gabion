@@ -108,6 +108,7 @@ def _node(
     )
 
 
+# gabion:behavior primary=desired
 def test_build_planning_chart_summary_supports_injected_rules() -> None:
     graph = InvariantGraph(
         root="/repo",
@@ -279,6 +280,7 @@ def test_build_planning_chart_summary_supports_injected_rules() -> None:
     ]
 
 
+# gabion:behavior primary=desired
 def test_build_planning_chart_identity_grammar_anchors_unresolved_refs() -> None:
     summary = PlanningChartSummary(
         item_count=1,
@@ -316,6 +318,7 @@ def test_build_planning_chart_identity_grammar_anchors_unresolved_refs() -> None
     assert {item.morphism_kind for item in bundle.morphisms} == {"derived_from"}
 
 
+# gabion:behavior primary=desired
 def test_build_planning_chart_identity_grammar_tracks_resolved_zone_carriers() -> None:
     summary = PlanningChartSummary(
         item_count=1,

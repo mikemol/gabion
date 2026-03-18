@@ -208,6 +208,7 @@ def test_run_writes_json_and_markdown_outputs(tmp_path: Path) -> None:
     assert markdown_out.exists()
 
 
+# gabion:behavior primary=desired
 def test_phase5_structure_prefers_colocated_invariant_workstreams_artifact(
     tmp_path: Path,
     monkeypatch,
@@ -353,6 +354,7 @@ def test_analyze_accepts_phase5_workstreams_projection_directly_without_loading(
     assert phase5_structure["current_frontier"]["object_id"] == "PSF-007-TP-999"
 
 
+# gabion:behavior primary=desired
 def test_analyze_marks_semantic_op_expansion_landed_when_witness_synthesis_is_present() -> None:
     payload = _policy_check_payload()
     report = payload["projection_fiber_semantics"]["report"]
@@ -377,6 +379,7 @@ def test_analyze_marks_semantic_op_expansion_landed_when_witness_synthesis_is_pr
     assert queue["next_queue_ids"] == ["PSF-004", "PSF-007"]
 
 
+# gabion:behavior primary=desired
 def test_analyze_marks_friendly_surface_convergence_landed_when_all_declared_specs_compile() -> None:
     payload = _policy_check_payload()
     report = payload["projection_fiber_semantics"]["report"]
@@ -408,6 +411,7 @@ def test_analyze_marks_friendly_surface_convergence_landed_when_all_declared_spe
     assert queue["next_queue_ids"] == ["PSF-007"]
 
 
+# gabion:behavior primary=desired
 def test_analyze_marks_phase5_landed_when_adapter_markers_are_retired(
     monkeypatch,
 ) -> None:
@@ -443,6 +447,7 @@ def test_analyze_marks_phase5_landed_when_adapter_markers_are_retired(
     assert items["PSF-007"]["planning_chain"] is None
 
 
+# gabion:behavior primary=desired
 def test_analyze_requires_phase5_frontier_when_phase5_is_in_progress(
     monkeypatch,
 ) -> None:

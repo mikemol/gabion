@@ -22,6 +22,7 @@ def _load_module():
     return module
 
 
+# gabion:behavior primary=desired
 def test_run_kernel_turtle_earley_skeleton_builds_prime_backed_aspf_items() -> None:
     module = _load_module()
 

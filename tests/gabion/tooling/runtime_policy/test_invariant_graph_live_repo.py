@@ -14,6 +14,7 @@ from gabion.tooling.runtime import invariant_graph as invariant_graph_runtime
 pytestmark = pytest.mark.live_repo_signal
 
 
+# gabion:behavior primary=desired
 def test_build_invariant_graph_materializes_planning_chart_overlay_live_repo() -> None:
     graph = invariant_graph.build_invariant_graph(REPO_ROOT)
     payload = graph.as_payload()
@@ -43,6 +44,7 @@ def test_build_invariant_graph_materializes_planning_chart_overlay_live_repo() -
     )
 
 
+# gabion:behavior primary=desired
 def test_build_invariant_workstreams_includes_planning_chart_summary_live_repo() -> None:
     graph = invariant_graph.build_invariant_graph(REPO_ROOT)
     workstreams = invariant_graph.build_invariant_workstreams(graph, root=REPO_ROOT)
@@ -51,6 +53,7 @@ def test_build_invariant_workstreams_includes_planning_chart_summary_live_repo()
     assert payload["planning_chart_summary"] == graph.as_payload()["planning_chart_summary"]
 
 
+# gabion:behavior primary=desired
 @pytest.mark.skip(
     reason=(
         "Deprecated live-repo snapshot test; replaced by injected workstream "
@@ -96,6 +99,7 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
     )
 
 
+# gabion:behavior primary=desired
 def test_runtime_invariant_graph_cli_blockers_reports_psf007_chains(
     tmp_path: Path,
     capsys,

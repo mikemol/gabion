@@ -8,6 +8,7 @@ from scripts.governance import docflow_promote_sections
 from scripts.misc import extract_test_evidence
 
 
+# gabion:behavior primary=desired
 def test_audit_in_step_structure_main_accepts_positional_paths(
     tmp_path: Path,
     capsys,
@@ -27,6 +28,7 @@ def test_audit_in_step_structure_main_accepts_positional_paths(
     assert "missing frontmatter field 'doc_id'" in capsys.readouterr().out
 
 
+# gabion:behavior primary=desired
 def test_extract_test_evidence_main_writes_output_from_hosted_runtime(
     tmp_path: Path,
 ) -> None:
@@ -57,6 +59,7 @@ def test_extract_test_evidence_main_writes_output_from_hosted_runtime(
     assert payload["tests"][0]["test_id"].endswith("tests/test_sample.py::test_sample")
 
 
+# gabion:behavior primary=desired
 def test_docflow_promote_sections_main_adds_declared_sections(
     tmp_path: Path,
     capsys,

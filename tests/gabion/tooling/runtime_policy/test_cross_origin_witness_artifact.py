@@ -7,6 +7,7 @@ from gabion.tooling.runtime.cross_origin_witness_artifact import (
 )
 
 
+# gabion:behavior primary=desired
 def test_build_cross_origin_witness_contract_artifact_payload_captures_remap_and_overlap_rows(
     tmp_path: Path,
 ) -> None:

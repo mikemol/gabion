@@ -275,6 +275,7 @@ def test_selection_and_cofibration_failure_edges() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_aspf_cofibration_laws.py::tests.test_aspf_cofibration_laws.test_identity_layer_projection_contract_guards
+# gabion:behavior primary=desired
 def test_identity_layer_projection_contract_guards() -> None:
     broken = FingerprintIdentityLayers(
         canonical=CanonicalAspfPathPayload(representative="a", basis_path=("a",)),
@@ -318,6 +319,7 @@ def test_identity_layer_projection_contract_guards() -> None:
 
 
 # gabion:evidence E:function_site::tests/test_aspf_cofibration_laws.py::tests.test_aspf_cofibration_laws.test_fingerprint_identity_layers_guard_invalid_canonical_payload
+# gabion:behavior primary=desired
 def test_fingerprint_identity_layers_guard_invalid_canonical_payload() -> None:
     with pytest.raises(NeverThrown, match="canonical identity representative must be non-empty"):
         fingerprint_identity_layers(

@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 
 
+# gabion:behavior primary=desired
 def test_monolith_alias_inventory_matches_materialized_surface() -> None:
     monolith = importlib.import_module(
         "gabion.analysis.dataflow.engine.dataflow_indexed_file_scan"
@@ -36,6 +37,7 @@ def test_monolith_alias_inventory_matches_materialized_surface() -> None:
     ).analyze_file
 
 
+# gabion:behavior primary=desired
 def test_monolith_retirement_telemetry_exposes_remaining_hot_spots() -> None:
     monolith = importlib.import_module(
         "gabion.analysis.dataflow.engine.dataflow_indexed_file_scan"

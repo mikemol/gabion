@@ -8,6 +8,7 @@ from gabion.tooling.policy_substrate.ranking_signal_dsl import (
 )
 
 
+# gabion:behavior primary=desired
 def test_evaluate_ranking_signal_rules_supports_report_and_entry_matches() -> None:
     carrier = {
         "issue_lifecycle_fetch_status": "partial_error",

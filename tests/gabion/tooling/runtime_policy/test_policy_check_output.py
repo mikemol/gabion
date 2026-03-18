@@ -382,6 +382,7 @@ def test_policy_check_output_carries_projection_fiber_semantics_on_block(
     assert semantics["error_messages"] == ["frontier witness incomplete"]
 
 
+# gabion:behavior primary=desired
 def test_policy_check_workflows_output_emits_invariant_graph_artifact(
     tmp_path: Path,
     monkeypatch: object,
@@ -510,6 +511,7 @@ def test_policy_check_workflows_requires_output_to_emit_invariant_artifacts(
     assert not (tmp_path / "invariant_ledger_projections.json").exists()
 
 
+# gabion:behavior primary=desired
 def test_policy_check_workflows_emits_perf_artifact_when_requested(
     tmp_path: Path,
     monkeypatch: object,
@@ -596,6 +598,7 @@ def test_policy_check_workflows_emits_perf_artifact_when_requested(
     assert sample["artifact_node"]["structural_identity"]
 
 
+# gabion:behavior primary=desired
 def test_policy_check_perf_artifact_includes_output_phase_writers(
     tmp_path: Path,
     monkeypatch: object,

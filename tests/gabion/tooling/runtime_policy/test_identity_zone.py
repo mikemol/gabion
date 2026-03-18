@@ -20,6 +20,7 @@ class _DecompositionKind(StrEnum):
     PATH = "path"
 
 
+# gabion:behavior primary=desired
 def test_identity_local_interner_dedupes_atoms_without_rewriting() -> None:
     interner = IdentityLocalInterner[_Namespace]()
 
@@ -31,6 +32,7 @@ def test_identity_local_interner_dedupes_atoms_without_rewriting() -> None:
     assert first.wire() == "carrier:a"
 
 
+# gabion:behavior primary=desired
 def test_hierarchical_identity_grammar_dedupes_isomorphic_witnesses() -> None:
     interner = IdentityLocalInterner[_Namespace]()
     carrier = IdentityCarrier(
@@ -63,6 +65,7 @@ def test_hierarchical_identity_grammar_dedupes_isomorphic_witnesses() -> None:
     assert len(grammar.bundle().kernel_congruences) == 1
 
 
+# gabion:behavior primary=desired
 def test_hierarchical_identity_grammar_does_not_mutate_origin_local_identity() -> None:
     interner = IdentityLocalInterner[_Namespace]()
     canonical = interner.identity(namespace=_Namespace.ITEM, token="carrier:a")

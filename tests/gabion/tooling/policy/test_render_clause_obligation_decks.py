@@ -5,6 +5,7 @@ from pathlib import Path
 from gabion.tooling.policy_substrate import clause_obligation_decks
 
 
+# gabion:behavior primary=desired
 def test_render_clause_obligation_decks_use_catalog_and_clause_index() -> None:
     repo_root = Path(__file__).resolve().parents[4]
     catalog = clause_obligation_decks.load_catalog(
@@ -32,6 +33,7 @@ def test_render_clause_obligation_decks_use_catalog_and_clause_index() -> None:
     assert "[`NCI-RUNTIME-DISTINCTION-LADDER`]" in rendered_contributing
 
 
+# gabion:behavior primary=desired
 def test_run_rewrites_generated_clause_obligation_blocks_and_check_detects_drift(
     tmp_path: Path,
 ) -> None:

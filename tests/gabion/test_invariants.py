@@ -57,6 +57,7 @@ def test_decision_and_boundary_markers_return_original_callable() -> None:
     assert invariants.grade_boundary(kind="semantic_carrier_adapter", name="demo")(_sample) is _sample
 
 
+# gabion:behavior primary=desired
 def test_grade_boundary_carrier_supports_with_scope() -> None:
     marker = invariants.grade_boundary(
         kind="aggregation_materialization",

@@ -53,6 +53,7 @@ def _seed_root_runtime(module, *, symbol: str = "directive", max_tokens: int = 9
     return coordinator, root_demand, root_derivation
 
 
+# gabion:behavior primary=desired
 def test_run_turtle_cover_poset_skeleton_finds_first_directive_witness() -> None:
     module = _load_module()
 
@@ -94,6 +95,7 @@ def test_run_turtle_cover_poset_skeleton_finds_first_directive_witness() -> None
     assert isinstance(result.last_joined_delta, module.CompleterDelta)
 
 
+# gabion:behavior primary=desired
 def test_fixed_point_coordinator_observe_scan_demand_packs_real_ambiguity() -> None:
     module = _load_module()
 
@@ -126,6 +128,7 @@ def test_fixed_point_coordinator_observe_scan_demand_packs_real_ambiguity() -> N
     )
 
 
+# gabion:behavior primary=desired
 def test_live_suspended_derivations_use_cover_objects() -> None:
     module = _load_module()
     coordinator, _, root_derivation = _seed_root_runtime(module)
@@ -219,6 +222,7 @@ def test_live_suspended_derivations_use_cover_objects() -> None:
     )
 
 
+# gabion:behavior primary=desired
 def test_cover_kernel_uses_trace_only_waits_and_cover_traces() -> None:
     module = _load_module()
 
@@ -282,6 +286,7 @@ def test_cover_kernel_uses_trace_only_waits_and_cover_traces() -> None:
     )
 
 
+# gabion:behavior primary=desired
 def test_completion_resolution_wakes_on_unsatisfied_path() -> None:
     module = _load_module()
     coordinator, _, root_derivation = _seed_root_runtime(module)
@@ -333,6 +338,7 @@ def test_completion_resolution_wakes_on_unsatisfied_path() -> None:
     )
 
 
+# gabion:behavior primary=desired
 def test_derivation_invariants_hold_for_completed_runtime() -> None:
     module = _load_module()
     coordinator = module.FixedPointCoordinator.create(max_tokens=96)
@@ -358,6 +364,7 @@ def test_derivation_invariants_hold_for_completed_runtime() -> None:
             assert shell.status in terminal_statuses
 
 
+# gabion:behavior primary=desired
 def test_requeue_derivation_rejects_non_runnable_shell_status() -> None:
     module = _load_module()
     coordinator, _, root_derivation = _seed_root_runtime(module)
@@ -375,6 +382,7 @@ def test_requeue_derivation_rejects_non_runnable_shell_status() -> None:
     assert module.DerivationStatus.WAITING_PREDICTION_COVER in str(exc_info.value)
 
 
+# gabion:behavior primary=desired
 def test_derivation_invariant_rejects_multiple_wait_set_registrations() -> None:
     module = _load_module()
     coordinator, _, root_derivation = _seed_root_runtime(module)
@@ -402,6 +410,7 @@ def test_derivation_invariant_rejects_multiple_wait_set_registrations() -> None:
     assert str(root_live.wait_condition) in str(exc_info.value)
 
 
+# gabion:behavior primary=desired
 def test_run_turtle_cover_poset_skeleton_unsatisfied_for_missing_symbol() -> None:
     module = _load_module()
 

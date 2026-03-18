@@ -11,6 +11,7 @@ from tests.path_helpers import REPO_ROOT
 pytestmark = pytest.mark.live_repo_signal
 
 
+# gabion:behavior primary=desired
 def test_build_kernel_vm_alignment_artifact_payload_live_repo_drops_only_augmented_rule_runtime_object_gap() -> None:
     payload = build_kernel_vm_alignment_artifact_payload(root=REPO_ROOT)
     residue_ids = {item["residue_id"] for item in payload["residues"]}

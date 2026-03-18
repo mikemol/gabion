@@ -103,6 +103,7 @@ def test_grade_monotonicity_boundary_marker_allows_cost_escalation(tmp_path: Pat
     assert "GMP-007" not in witness.failure_rule_ids
 
 
+# gabion:behavior primary=desired
 def test_grade_monotonicity_decorator_boundary_allows_whole_function_scope(
     tmp_path: Path,
 ) -> None:
@@ -130,6 +131,7 @@ def test_grade_monotonicity_decorator_boundary_allows_whole_function_scope(
     assert "GMP-007" not in witness.failure_rule_ids
 
 
+# gabion:behavior primary=desired
 def test_grade_monotonicity_callsite_boundary_scope_is_local(tmp_path: Path) -> None:
     _write(
         tmp_path / "src" / "gabion" / "analysis" / "scoped.py",
@@ -170,6 +172,7 @@ def test_grade_monotonicity_callsite_boundary_scope_is_local(tmp_path: Path) -> 
     assert "GMP-007" in ordinary_witness.failure_rule_ids
 
 
+# gabion:behavior primary=desired
 def test_grade_monotonicity_semantic_carrier_boundary_suppresses_adapter_edges(
     tmp_path: Path,
 ) -> None:
@@ -262,6 +265,7 @@ def test_grade_monotonicity_materialized_local_output_counts_for_cardinality(
     assert witness.callee_grade.work_growth_class.name == "LINEAR"
 
 
+# gabion:behavior primary=desired
 def test_grade_monotonicity_keys_follow_structural_identity_not_line_motion(
     tmp_path: Path,
 ) -> None:
@@ -332,6 +336,7 @@ def test_grade_monotonicity_protocol_discharge_uses_explicit_marker(tmp_path: Pa
     assert protocol_grade.runtime_classification_count >= 1
 
 
+# gabion:behavior primary=desired
 def test_grade_monotonicity_governance_priority_ranks_follow_playbook() -> None:
     assert (
         grade_monotonicity_semantic.grade_monotonicity_governance_priority_rank(

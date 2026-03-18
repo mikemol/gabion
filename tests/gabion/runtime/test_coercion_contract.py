@@ -26,6 +26,7 @@ class _UnknownRuntimeValue:
     pass
 
 
+# gabion:behavior primary=desired
 def test_runtime_shape_dispatch_preserves_bool_numeric_edges() -> None:
     assert json_mapping_optional({"ok": 1}) == {"ok": 1}
     assert json_mapping_optional(b"bytes") is None
@@ -37,6 +38,7 @@ def test_runtime_shape_dispatch_preserves_bool_numeric_edges() -> None:
     assert float_optional(True) == 1.0
 
 
+# gabion:behavior primary=desired
 def test_shared_coercion_contract_preserves_progress_contract_policies() -> None:
     assert coercion_contract.MAPPING_OPTIONAL_POLICY({"phase": "post"}) == {"phase": "post"}
     assert coercion_contract.NON_BOOL_INT_OPTIONAL_POLICY(True) is None
@@ -50,6 +52,7 @@ def test_shared_coercion_contract_preserves_progress_contract_policies() -> None
     assert coercion_contract.CORE_STR_OPTIONAL_POLICY("value") == "value"
 
 
+# gabion:behavior primary=desired
 def test_followon_modules_use_shared_coercion_substrate() -> None:
     assert cli._int_optional(complex(1, 2)) is None
     assert cli._str_optional(b"bytes") is None
@@ -64,6 +67,7 @@ def test_followon_modules_use_shared_coercion_substrate() -> None:
     assert test_obsolescence_delta._str_optional("item") == "item"
 
 
+# gabion:behavior primary=desired
 def test_server_core_coercion_contract_preserves_orchestrator_edges() -> None:
     assert server_core_coercion_contract._object_mapping_optional({"ok": 1}) == {"ok": 1}
     assert server_core_coercion_contract._string_optional("phase") == "phase"
@@ -79,6 +83,7 @@ def test_server_core_coercion_contract_preserves_orchestrator_edges() -> None:
     assert server_core_coercion_contract._json_mapping_default_empty(None) == {}
 
 
+# gabion:behavior primary=desired
 def test_server_core_modules_bind_to_shared_coercion_contract() -> None:
     assert cli._int_optional is server_core_coercion_contract._cli_int_optional
     assert cli._str_optional is server_core_coercion_contract._cli_str_optional
@@ -111,6 +116,7 @@ def test_server_core_modules_bind_to_shared_coercion_contract() -> None:
     )
 
 
+# gabion:behavior primary=desired
 def test_coercion_contract_rejects_unregistered_runtime_types() -> None:
     with pytest.raises(NeverThrown, match="unregistered runtime type"):
         coercion_contract.STR_OPTIONAL_POLICY(_UnknownRuntimeValue())

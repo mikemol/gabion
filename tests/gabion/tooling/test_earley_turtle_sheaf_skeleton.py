@@ -22,6 +22,7 @@ def _load_module():
     return module
 
 
+# gabion:behavior primary=desired
 def test_run_turtle_sheaf_earley_skeleton_scans_presheaf_into_parsed_sections() -> None:
     module = _load_module()
 

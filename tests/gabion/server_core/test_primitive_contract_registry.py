@@ -16,6 +16,7 @@ from gabion.server_core.timeout_runtime import TimeoutStageRuntime
 from gabion.server_core.timeout_primitives import TimeoutPrimitives, default_timeout_primitives
 
 
+# gabion:behavior primary=desired
 def test_first_layer_contract_registry_specs_cover_expected_bridge_surfaces() -> None:
     assert set(PRIMITIVE_CONTRACT_SPECS) >= {
         "AnalysisPrimitives",
@@ -30,6 +31,7 @@ def test_first_layer_contract_registry_specs_cover_expected_bridge_surfaces() ->
     assert INGRESS_STAGE_DEPENDENCY_DEFAULTS["normalize_dataflow_response_fn"] is legacy._normalize_dataflow_response
 
 
+# gabion:behavior primary=desired
 def test_generated_first_layer_contracts_preserve_legacy_members() -> None:
     assert AnalysisPrimitives.analysis_resume_progress is legacy._analysis_resume_progress
     assert AnalysisPrimitives.groups_by_path_from_collection_resume is legacy._groups_by_path_from_collection_resume
@@ -45,11 +47,13 @@ def test_generated_first_layer_contracts_preserve_legacy_members() -> None:
     assert TimeoutPrimitives.deadline_profile_sample_interval is legacy._deadline_profile_sample_interval
 
 
+# gabion:behavior primary=desired
 def test_default_analysis_primitives_instantiates_generated_contract() -> None:
     primitives = default_analysis_primitives()
     assert primitives.analysis_index_resume_signature is legacy._analysis_index_resume_signature
 
 
+# gabion:behavior primary=desired
 def test_mirror_contract_defaults_and_ingress_defaults_preserve_registry_sources() -> None:
     output_primitives = default_output_primitives()
     progress_primitives = default_progress_primitives()

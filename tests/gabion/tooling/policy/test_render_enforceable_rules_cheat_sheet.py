@@ -98,6 +98,7 @@ def _minimal_governance_loop_catalog_yaml() -> str:
     )
 
 
+# gabion:behavior primary=desired
 def test_render_cheat_sheet_generated_blocks_use_catalogs() -> None:
     repo_root = Path(__file__).resolve().parents[4]
     catalog = enforceable_rules_cheat_sheet.load_catalog(
@@ -123,6 +124,7 @@ def test_render_cheat_sheet_generated_blocks_use_catalogs() -> None:
     assert "scripts/no_monkeypatch_policy_check.py" in rendered_validation
 
 
+# gabion:behavior primary=desired
 def test_run_rewrites_generated_cheat_sheet_blocks_and_check_detects_drift(
     tmp_path: Path,
 ) -> None:

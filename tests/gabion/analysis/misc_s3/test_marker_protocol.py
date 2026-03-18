@@ -137,6 +137,7 @@ def test_normalize_marker_reasoning_supports_dataclass_mapping_and_scalar() -> N
     )
 
 
+# gabion:behavior primary=desired
 def test_normalize_marker_payload_preserves_landed_lifecycle_state() -> None:
     payload = normalize_marker_payload(
         reason="closed item",

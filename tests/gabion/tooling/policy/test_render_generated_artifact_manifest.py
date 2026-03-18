@@ -97,6 +97,7 @@ def _command_orchestrator_expected_paths(repo_root: Path) -> set[str]:
     return artifact_paths | out_paths
 
 
+# gabion:behavior primary=desired
 def test_load_catalog_and_rendered_block_cover_real_catalog() -> None:
     repo_root = Path(__file__).resolve().parents[4]
     catalog = generated_artifact_manifest.load_catalog(
@@ -115,6 +116,7 @@ def test_load_catalog_and_rendered_block_cover_real_catalog() -> None:
     assert "`policy_check_projection_bundle`" in rendered
 
 
+# gabion:behavior primary=desired
 def test_run_rewrites_generated_artifact_manifest_block_and_check_detects_drift(
     tmp_path: Path,
 ) -> None:
@@ -198,6 +200,7 @@ def test_run_rewrites_generated_artifact_manifest_block_and_check_detects_drift(
     )
 
 
+# gabion:behavior primary=desired
 def test_load_catalog_rejects_duplicate_artifact_ids(tmp_path: Path) -> None:
     catalog_path = tmp_path / "generated_artifact_manifest.yaml"
     catalog_path.write_text(
@@ -243,6 +246,7 @@ def test_load_catalog_rejects_duplicate_artifact_ids(tmp_path: Path) -> None:
         generated_artifact_manifest.load_catalog(catalog_path)
 
 
+# gabion:behavior primary=desired
 def test_repo_manifest_covers_expected_normal_course_artifacts() -> None:
     repo_root = Path(__file__).resolve().parents[4]
     catalog = generated_artifact_manifest.load_catalog(
@@ -264,6 +268,7 @@ def test_repo_manifest_covers_expected_normal_course_artifacts() -> None:
     assert expected_paths <= manifest_paths
 
 
+# gabion:behavior primary=desired
 def test_generated_artifact_manifest_doc_is_up_to_date() -> None:
     repo_root = Path(__file__).resolve().parents[4]
     assert (

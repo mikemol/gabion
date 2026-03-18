@@ -13,6 +13,7 @@ from gabion.tooling.policy_substrate.view_dsl import (
 )
 
 
+# gabion:behavior primary=desired
 def test_view_dsl_supports_path_collection_and_coalesce() -> None:
     payload = {
         "workstreams": [
@@ -42,6 +43,7 @@ def test_view_dsl_supports_path_collection_and_coalesce() -> None:
     ) == {"object_id": "CSA-IVL-TP-002"}
 
 
+# gabion:behavior primary=desired
 def test_view_dsl_supports_add_and_weighted_sums() -> None:
     payload = {
         "surviving_touchsite_count": 4,

@@ -30,6 +30,7 @@ from gabion.tooling.policy_substrate.structural_anti_pattern_convergence_registr
 )
 
 
+# gabion:behavior primary=desired
 def test_prf_workstream_registry_exposes_queue_sequence_and_active_playbook_touchpoint() -> None:
     registry = prf_workstream_registry()
     touchpoints = {item.touchpoint_id: item for item in registry.touchpoints}
@@ -157,6 +158,7 @@ def test_prf_workstream_registry_exposes_queue_sequence_and_active_playbook_touc
     }
 
 
+# gabion:behavior primary=desired
 def test_phase5_workstream_registry_exposes_touchpoint_scan_contract() -> None:
     registry = phase5_workstream_registry()
     touchpoints = {item.touchpoint_id: item for item in registry.touchpoints}
@@ -185,6 +187,7 @@ def test_phase5_workstream_registry_exposes_touchpoint_scan_contract() -> None:
     )
 
 
+# gabion:behavior primary=desired
 def test_surface_contract_convergence_workstream_registry_exposes_queue_and_touchsites() -> None:
     registry = surface_contract_convergence_workstream_registry()
     touchpoints = {item.touchpoint_id: item for item in registry.touchpoints}
@@ -375,6 +378,7 @@ def test_surface_contract_convergence_workstream_registry_exposes_queue_and_touc
     }
 
 
+# gabion:behavior primary=desired
 def test_runtime_context_injection_workstream_registry_exposes_queue_and_touchsites() -> None:
     registry = runtime_context_injection_workstream_registry()
     touchpoints = {item.touchpoint_id: item for item in registry.touchpoints}
@@ -513,6 +517,7 @@ def test_runtime_context_injection_workstream_registry_exposes_queue_and_touchsi
     }
 
 
+# gabion:behavior primary=desired
 def test_boundary_ingress_convergence_workstream_registry_exposes_queue_and_touchsites() -> None:
     registry = boundary_ingress_convergence_workstream_registry()
     touchpoints = {item.touchpoint_id: item for item in registry.touchpoints}
@@ -630,6 +635,7 @@ def test_boundary_ingress_convergence_workstream_registry_exposes_queue_and_touc
     }
 
 
+# gabion:behavior primary=desired
 def test_unit_test_readiness_workstream_registry_exposes_selector_clusters() -> None:
     registry = unit_test_readiness_workstream_registry()
     subqueues = {item.subqueue_id: item for item in registry.subqueues}
@@ -697,6 +703,7 @@ def test_unit_test_readiness_workstream_registry_exposes_selector_clusters() -> 
     )
 
 
+# gabion:behavior primary=desired
 def test_structural_anti_pattern_convergence_workstream_registry_exposes_contract_root() -> None:
     registry = structural_anti_pattern_convergence_workstream_registry()
     subqueues = {item.subqueue_id: item for item in registry.subqueues}
@@ -753,12 +760,14 @@ def test_structural_anti_pattern_convergence_workstream_registry_exposes_contrac
     }
 
 
+# gabion:behavior primary=desired
 def test_declared_workstream_registries_include_structural_anti_pattern_convergence_root() -> None:
     assert "SAC" in {
         registry.root.root_id for registry in declared_workstream_registries()
     }
 
 
+# gabion:behavior primary=desired
 def test_connectivity_synergy_workstream_registries_expose_expected_roots_and_touchsites() -> None:
     registries = connectivity_synergy_workstream_registries()
     by_root = {registry.root.root_id: registry for registry in registries}

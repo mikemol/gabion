@@ -24,6 +24,7 @@ def _options(tmp_path: Path) -> checks_runtime.ChecksCommandOptions:
     )
 
 
+# gabion:behavior primary=desired
 def test_build_local_checks_steps_cover_canonical_lane_surface(tmp_path: Path) -> None:
     (tmp_path / "baselines").mkdir(parents=True, exist_ok=True)
     (tmp_path / "baselines" / "dataflow_baseline.txt").write_text("", encoding="utf-8")
@@ -39,6 +40,7 @@ def test_build_local_checks_steps_cover_canonical_lane_surface(tmp_path: Path) -
     assert any("pytest" in command for command in commands)
 
 
+# gabion:behavior primary=desired
 def test_checks_main_list_respects_lane_selection(
     tmp_path: Path,
     monkeypatch,
@@ -58,6 +60,7 @@ def test_checks_main_list_respects_lane_selection(
     assert "lsp parity gate" not in captured.err
 
 
+# gabion:behavior primary=desired
 def test_checks_wrapper_is_thin_delegate() -> None:
     script = (Path(__file__).resolve().parents[3] / "scripts" / "checks.sh").read_text(
         encoding="utf-8"

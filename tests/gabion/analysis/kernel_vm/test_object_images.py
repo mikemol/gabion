@@ -3,6 +3,7 @@ from __future__ import annotations
 from gabion.analysis.kernel_vm.object_images import AugmentedRule
 
 
+# gabion:behavior primary=desired
 def test_augmented_rule_carrier_preserves_ttl_backed_identity_structure() -> None:
     assert AugmentedRule.label == "AugmentedRule"
     assert AugmentedRule.object_id > 0

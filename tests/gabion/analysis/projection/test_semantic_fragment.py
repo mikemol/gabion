@@ -161,6 +161,7 @@ def test_stable_json_key_is_order_invariant_for_nested_json_shapes() -> None:
     assert _stable_json_key({"a": 1}) != _stable_json_key({"a": [1]})
 
 
+# gabion:behavior primary=desired
 def test_projection_fiber_structural_identity_ignores_line_motion_when_structure_is_stable() -> None:
     first = reflect_projection_fiber_witness(
         context=_projection_context(),

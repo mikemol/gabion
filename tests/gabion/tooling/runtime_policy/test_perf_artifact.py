@@ -23,6 +23,7 @@ def _load_module(module_name: str, path: Path):
     return module
 
 
+# gabion:behavior primary=desired
 def test_build_cprofile_perf_artifact_payload_profiles_repo_function(
     tmp_path: Path,
 ) -> None:
@@ -62,6 +63,7 @@ def test_build_cprofile_perf_artifact_payload_profiles_repo_function(
     assert "artifact_node" not in sample
 
 
+# gabion:behavior primary=desired
 def test_build_cprofile_perf_artifact_payload_enriches_structural_identity_from_graph(
     tmp_path: Path,
 ) -> None:

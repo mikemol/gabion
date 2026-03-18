@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 
+# gabion:behavior primary=desired
 def test_live_repo_signal_marker_registered(pytestconfig) -> None:
     assert any(
         marker.split(":", 1)[0].strip() == "live_repo_signal"
@@ -10,6 +11,7 @@ def test_live_repo_signal_marker_registered(pytestconfig) -> None:
     )
 
 
+# gabion:behavior primary=desired
 def test_deterministic_runtime_policy_modules_do_not_retain_moved_live_repo_roots() -> None:
     repo_root = Path(__file__).resolve().parents[4]
     assert "REPO_ROOT" not in (

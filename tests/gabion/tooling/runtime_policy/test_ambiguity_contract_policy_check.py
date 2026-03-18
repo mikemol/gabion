@@ -104,6 +104,7 @@ def test_ambiguity_contract_collect_violations_respects_boundaries(tmp_path: Pat
     assert "docs/policy_rules/ambiguity_contract.md#acp-007" in rendered_nullable
 
 
+# gabion:behavior primary=desired
 def test_ambiguity_contract_ignores_boundary_dispatch_and_reducer_patterns(
     tmp_path: Path,
 ) -> None:
@@ -196,6 +197,7 @@ def test_ambiguity_contract_helper_predicates_cover_all_sentinels() -> None:
     assert policy._body_calls_never(never_case.body)
 
 
+# gabion:behavior primary=desired
 def test_ambiguity_contract_support_file_boundary_suppresses_frontmatter_adapter_edges(
     tmp_path: Path,
 ) -> None:
@@ -291,6 +293,7 @@ def test_ambiguity_contract_baseline_io_and_run_paths(tmp_path: Path) -> None:
     assert policy._load_baseline(non_list) == set()
 
 
+# gabion:behavior primary=desired
 def test_ambiguity_contract_run_renders_top_level_playbook_guidance(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

@@ -5,6 +5,7 @@ from pathlib import Path
 from gabion.tooling.policy_substrate import governance_loop_docs
 
 
+# gabion:behavior primary=desired
 def test_render_governance_loop_blocks_use_shared_catalog() -> None:
     repo_root = Path(__file__).resolve().parents[4]
     catalog = governance_loop_docs.load_governance_loop_catalog(
@@ -30,6 +31,7 @@ def test_render_governance_loop_blocks_use_shared_catalog() -> None:
     assert "`hard-fail`" in rendered_matrix
 
 
+# gabion:behavior primary=desired
 def test_run_rewrites_generated_governance_blocks_and_check_detects_drift(
     tmp_path: Path,
 ) -> None:

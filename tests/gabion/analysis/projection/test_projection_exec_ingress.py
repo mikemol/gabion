@@ -43,6 +43,7 @@ def _apply_spec(
     )
 
 
+# gabion:behavior primary=desired
 def test_execution_ops_from_spec_normalizes_presentation_ops() -> None:
     spec = ProjectionSpec(
         spec_version=1,
@@ -93,6 +94,7 @@ def test_execution_ops_from_spec_normalizes_presentation_ops() -> None:
     )
 
 
+# gabion:behavior primary=desired
 def test_execution_ops_from_spec_erases_semantic_metadata_and_semantic_only_ops() -> None:
     spec = ProjectionSpec(
         spec_version=1,
@@ -121,6 +123,7 @@ def test_execution_ops_from_spec_erases_semantic_metadata_and_semantic_only_ops(
     )
 
 
+# gabion:behavior primary=desired
 def test_execution_ops_from_spec_skips_negative_limit() -> None:
     spec = ProjectionSpec(
         spec_version=1,
@@ -230,6 +233,7 @@ def test_plan_traverse_execution_op_normalizes_defaults_and_explicit_values() ->
     )
 
 
+# gabion:behavior primary=desired
 def test_apply_spec_handles_invalid_and_semantic_only_ops_at_exec_ingress() -> None:
     rows = [
         {"group": ["a"], "value": 1},
@@ -267,6 +271,7 @@ def test_apply_spec_handles_invalid_and_semantic_only_ops_at_exec_ingress() -> N
     assert result == [{"group": ["a"], "count": 2}]
 
 
+# gabion:behavior primary=desired
 def test_apply_spec_traverse_skips_when_field_invalid() -> None:
     rows = [{"items": [1, 2, 3]}]
     spec = ProjectionSpec(
@@ -278,6 +283,7 @@ def test_apply_spec_traverse_skips_when_field_invalid() -> None:
     assert _apply_spec(spec, rows) == rows
 
 
+# gabion:behavior primary=desired
 def test_apply_spec_erases_semantic_projection_compatibility_at_exec_ingress() -> None:
     spec = ProjectionSpec(
         spec_version=1,

@@ -248,6 +248,7 @@ def test_run_check_writes_artifact_and_fails_on_unsuppressed_findings(tmp_path: 
     assert int(counts.get("unsuppressed_total", 0)) > 0
 
 
+# gabion:behavior primary=desired
 def test_landed_todo_marker_is_scanned_as_valid(tmp_path: Path) -> None:
     _write(tmp_path / "pyproject.toml", _minimal_pyproject())
     _write(tmp_path / "src" / "gabion" / "__init__.py", "")

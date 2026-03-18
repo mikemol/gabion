@@ -35,6 +35,7 @@ def _write_json(path: Path, payload: object) -> None:
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
+# gabion:behavior primary=desired
 def test_load_docflow_packet_enforcement_artifact_uses_typed_row_identities(
     tmp_path: Path,
 ) -> None:
@@ -95,6 +96,7 @@ def test_load_docflow_packet_enforcement_artifact_uses_typed_row_identities(
     }
 
 
+# gabion:behavior primary=desired
 def test_load_docflow_compliance_artifact_uses_typed_row_and_obligation_identities(
     tmp_path: Path,
 ) -> None:
@@ -195,6 +197,7 @@ def test_load_docflow_compliance_artifact_uses_typed_row_and_obligation_identiti
     assert obligation.identity.wire() != str(obligation.identity)
 
 
+# gabion:behavior primary=desired
 def test_load_docflow_compliance_artifact_extracts_issue_lifecycle_state(
     tmp_path: Path,
 ) -> None:
@@ -274,6 +277,7 @@ def test_load_docflow_compliance_artifact_extracts_issue_lifecycle_state(
     assert lifecycle.identity.item_kind == "issue_lifecycle"
 
 
+# gabion:behavior primary=desired
 def test_load_kernel_vm_alignment_artifact_uses_typed_binding_and_residue_identities(
     tmp_path: Path,
 ) -> None:
@@ -392,6 +396,7 @@ def test_load_kernel_vm_alignment_artifact_uses_typed_binding_and_residue_identi
     )
 
 
+# gabion:behavior primary=desired
 def test_load_identity_grammar_completion_artifact_uses_typed_surface_and_residue_identities(
     tmp_path: Path,
 ) -> None:
@@ -478,6 +483,7 @@ def test_load_identity_grammar_completion_artifact_uses_typed_surface_and_residu
     assert artifact.residues[0].residue_kind == "raw_string_grouping_in_core_queue_logic"
 
 
+# gabion:behavior primary=desired
 def test_load_controller_drift_artifact_extracts_markdown_doc_paths(
     tmp_path: Path,
 ) -> None:
@@ -522,6 +528,7 @@ def test_load_controller_drift_artifact_extracts_markdown_doc_paths(
     assert finding.identity.wire() != str(finding.identity)
 
 
+# gabion:behavior primary=desired
 def test_load_local_repro_closure_ledger_artifact_preserves_validation_statuses(
     tmp_path: Path,
 ) -> None:
@@ -559,6 +566,7 @@ def test_load_local_repro_closure_ledger_artifact_preserves_validation_statuses(
     assert entry.identity.wire() != str(entry.identity)
 
 
+# gabion:behavior primary=desired
 def test_load_local_ci_repro_contract_artifact_preserves_surface_and_relation_statuses(
     tmp_path: Path,
 ) -> None:
@@ -664,6 +672,7 @@ def test_load_local_ci_repro_contract_artifact_preserves_surface_and_relation_st
     assert str(failing_surface.identity) == "Local CI reproduction checks lane"
 
 
+# gabion:behavior primary=desired
 def test_load_git_state_artifact_uses_typed_state_entry_identities(
     tmp_path: Path,
 ) -> None:
@@ -727,6 +736,7 @@ def test_load_git_state_artifact_uses_typed_state_entry_identities(
     )
 
 
+# gabion:behavior primary=desired
 def test_load_cross_origin_witness_contract_artifact_uses_typed_row_identities(
     tmp_path: Path,
 ) -> None:
@@ -799,6 +809,7 @@ def test_load_cross_origin_witness_contract_artifact_uses_typed_row_identities(
     assert row.identity.wire() != str(row.identity)
 
 
+# gabion:behavior primary=desired
 def test_load_test_evidence_and_junit_failure_artifacts_share_ingress_contract(
     tmp_path: Path,
 ) -> None:
@@ -875,6 +886,7 @@ def test_load_test_evidence_and_junit_failure_artifacts_share_ingress_contract(
     assert evidence.cases[0].identity.canonical.atom_id != junit.failures[0].identity.canonical.atom_id
 
 
+# gabion:behavior primary=desired
 def test_build_and_load_ingress_merge_parity_artifact_uses_typed_case_identities(
     tmp_path: Path,
 ) -> None:

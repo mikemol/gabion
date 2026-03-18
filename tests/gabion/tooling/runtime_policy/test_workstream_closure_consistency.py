@@ -185,6 +185,7 @@ def _registry(
     )
 
 
+# gabion:behavior primary=desired
 def test_validate_workstream_closure_consistency_accepts_well_formed_landed_registry() -> None:
     violations = validate_workstream_closure_consistency(
         (_registry(root_landed=True, subqueue_landed=True, touchpoint_landed=True),)
@@ -192,6 +193,7 @@ def test_validate_workstream_closure_consistency_accepts_well_formed_landed_regi
     assert violations == ()
 
 
+# gabion:behavior primary=desired
 def test_validate_workstream_closure_consistency_flags_landed_active_lifecycle() -> None:
     registry = _registry(
         root_landed=True,
@@ -211,6 +213,7 @@ def test_validate_workstream_closure_consistency_flags_landed_active_lifecycle()
     }
 
 
+# gabion:behavior primary=desired
 def test_validate_workstream_closure_consistency_flags_landed_active_language() -> None:
     registry = _registry(
         root_landed=True,
@@ -226,6 +229,7 @@ def test_validate_workstream_closure_consistency_flags_landed_active_language() 
     assert {item.code for item in violations} >= {"landed_requires_closed_language"}
 
 
+# gabion:behavior primary=desired
 def test_validate_workstream_closure_consistency_flags_landed_parent_with_open_descendant() -> None:
     registry = _registry(
         root_landed=True,
@@ -238,6 +242,7 @@ def test_validate_workstream_closure_consistency_flags_landed_parent_with_open_d
     }
 
 
+# gabion:behavior primary=desired
 def test_policy_check_workflows_emits_workstream_closure_drift(
     tmp_path: Path,
     monkeypatch: object,

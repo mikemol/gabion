@@ -11,6 +11,7 @@ from tests.path_helpers import REPO_ROOT
 pytestmark = pytest.mark.live_repo_signal
 
 
+# gabion:behavior primary=desired
 def test_build_identity_grammar_completion_artifact_payload_captures_open_residues() -> None:
     payload = build_identity_grammar_completion_artifact_payload(root=REPO_ROOT)
 

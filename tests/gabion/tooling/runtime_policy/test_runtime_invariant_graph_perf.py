@@ -70,6 +70,7 @@ def _sample_repo(tmp_path: Path) -> Path:
     return tmp_path
 
 
+# gabion:behavior primary=desired
 def test_runtime_invariant_graph_cli_perf_heat_maps_profile_artifacts(
     tmp_path: Path,
     capsys,
@@ -251,6 +252,7 @@ def test_runtime_invariant_graph_cli_perf_heat_maps_profile_artifacts(
     assert "- <none>" in perf_heat_output
 
 
+# gabion:behavior primary=desired
 def test_perf_dsl_overlay_resolves_doc_targets_to_invariant_candidates(
     tmp_path: Path,
 ) -> None:
@@ -288,6 +290,7 @@ def test_perf_dsl_overlay_resolves_doc_targets_to_invariant_candidates(
     assert {node.qualname for node in candidate_nodes} == {"decorated"}
 
 
+# gabion:behavior primary=desired
 def test_perf_dsl_overlay_reuses_shared_doc_selector_for_inferred_targets(
     tmp_path: Path,
 ) -> None:
@@ -337,6 +340,7 @@ def test_perf_dsl_overlay_reuses_shared_doc_selector_for_inferred_targets(
     assert {node.qualname for node in candidate_nodes} == {"decorated"}
 
 
+# gabion:behavior primary=desired
 def test_perf_dsl_overlay_infers_script_symbols_from_shared_selector(tmp_path: Path) -> None:
     _write(
         tmp_path / "scripts" / "policy" / "policy_check.py",
@@ -400,6 +404,7 @@ def test_perf_dsl_overlay_infers_script_symbols_from_shared_selector(tmp_path: P
     assert overlay.candidate_node_ids == ("script-main",)
 
 
+# gabion:behavior primary=desired
 def test_perf_infimum_buckets_use_meet_over_containment_topology() -> None:
     graph = invariant_graph.InvariantGraph(
         root=".",

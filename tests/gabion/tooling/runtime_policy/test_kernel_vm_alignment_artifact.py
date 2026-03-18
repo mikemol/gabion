@@ -12,6 +12,7 @@ def _write(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
+# gabion:behavior primary=desired
 def test_build_kernel_vm_alignment_artifact_payload_counts_imported_and_assigned_runtime_symbols(
     tmp_path: Path,
 ) -> None:

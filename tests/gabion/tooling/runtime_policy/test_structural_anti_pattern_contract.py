@@ -11,6 +11,7 @@ def _write(path: Path, text: str) -> None:
     path.write_text(text, encoding="utf-8")
 
 
+# gabion:behavior primary=desired
 def test_collect_findings_flags_targeted_structural_anti_patterns(tmp_path: Path) -> None:
     sample = tmp_path / "src" / "pkg" / "sample.py"
     _write(
@@ -56,6 +57,7 @@ def choose(value):
     assert "wildcard_soft_fallthrough" in codes
 
 
+# gabion:behavior primary=desired
 def test_collect_findings_does_not_flag_filter_first_streaming_shapes(tmp_path: Path) -> None:
     sample = tmp_path / "src" / "pkg" / "clean.py"
     _write(
@@ -88,6 +90,7 @@ def expand(targets):
     assert contract.collect_findings_for_path(sample, root=tmp_path) == []
 
 
+# gabion:behavior primary=desired
 def test_run_writes_artifact_and_fails_in_check_mode_when_findings_exist(tmp_path: Path) -> None:
     sample = tmp_path / "src" / "pkg" / "sample.py"
     _write(

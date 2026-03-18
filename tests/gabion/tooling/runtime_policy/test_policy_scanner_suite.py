@@ -66,11 +66,13 @@ def _scan_policy_suite(
     )
 
 
+# gabion:behavior primary=desired
 def test_policy_scanner_suite_runtime_exports_scan_only() -> None:
     assert policy_scanner_suite.__all__ == ["scan_policy_suite"]
     assert not hasattr(policy_scanner_suite, "policy_suite_decision")
 
 
+# gabion:behavior primary=desired
 def test_policy_scanner_rule_manifest_preserves_expected_rule_order_and_paths() -> None:
     manifest = policy_scanner_suite._policy_scanner_rule_manifest()
 
@@ -108,6 +110,7 @@ def test_policy_scanner_rule_manifest_preserves_expected_rule_order_and_paths() 
     )
 
 
+# gabion:behavior primary=desired
 def test_policy_scanner_manifest_validator_detects_duplicate_rule_ids() -> None:
     manifest = policy_scanner_suite._policy_scanner_rule_manifest()
     broken = manifest + (
@@ -211,6 +214,7 @@ def test_policy_scanner_suite_scan_result_shape(tmp_path: Path) -> None:
     assert identity["provenance"]["decomposition_wires"]
 
 
+# gabion:behavior primary=desired
 def test_policy_scan_batch_interns_module_and_parse_failure_inputs(tmp_path: Path) -> None:
     root = tmp_path
     identities = PolicyScannerIdentitySpace()
@@ -235,6 +239,7 @@ def test_policy_scan_batch_interns_module_and_parse_failure_inputs(tmp_path: Pat
     assert seeds[0].identity == batch.parse_failures[0].identity
 
 
+# gabion:behavior primary=desired
 def test_policy_scanner_suite_reuses_injected_identity_space(tmp_path: Path) -> None:
     root = tmp_path
     identities = PolicyScannerIdentitySpace()
@@ -252,6 +257,7 @@ def test_policy_scanner_suite_reuses_injected_identity_space(tmp_path: Path) -> 
     assert first_violation["structural_identity"] == second_violation["structural_identity"]
 
 
+# gabion:behavior primary=desired
 def test_policy_scanner_identity_exposes_zone_carrier_view() -> None:
     identities = PolicyScannerIdentitySpace()
     carrier = identities.item_carrier(
@@ -613,6 +619,7 @@ def test_policy_scanner_suite_flags_wide_orchestrator_primitive_barrel(tmp_path:
     assert any(item.get("kind") == "line_threshold" for item in violations)
 
 
+# gabion:behavior primary=desired
 def test_policy_scanner_suite_flags_bridge_modules_that_skip_contract_registry(tmp_path: Path) -> None:
     root = tmp_path
     _write(root / "src/gabion/server_core/command_orchestrator_primitives.py", "__all__ = []\n")
@@ -995,6 +1002,7 @@ def test_policy_scanner_suite_runtime_result_excludes_external_projection_semant
     ]
 
 
+# gabion:behavior primary=desired
 def test_projection_fiber_semantic_helpers_require_canonical_payload_shape() -> None:
     assert projection_fiber_decision_from_payload(
         {

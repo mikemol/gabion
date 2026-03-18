@@ -26,6 +26,7 @@ def _git(root: Path, *args: str) -> str:
     return completed.stdout.strip()
 
 
+# gabion:behavior primary=desired
 def test_build_git_state_artifact_payload_captures_repo_state_classes(
     tmp_path: Path,
 ) -> None:
@@ -87,6 +88,7 @@ def test_build_git_state_artifact_payload_captures_repo_state_classes(
     )
 
 
+# gabion:behavior primary=desired
 def test_assemble_git_state_artifact_payload_supports_injected_command_outputs(
     tmp_path: Path,
 ) -> None:
@@ -135,6 +137,7 @@ def test_assemble_git_state_artifact_payload_supports_injected_command_outputs(
     )
 
 
+# gabion:behavior primary=desired
 def test_build_git_state_artifact_payload_allows_injected_command_runner(
     tmp_path: Path,
 ) -> None:

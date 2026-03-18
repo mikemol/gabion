@@ -17,6 +17,7 @@ def _work_item_node(graph: invariant_graph.InvariantGraph, object_id: str):
     )
 
 
+# gabion:behavior primary=desired
 def test_connectivity_synergy_graph_exposes_cross_root_dependencies_and_mixed_root_lane() -> None:
     graph = invariant_graph.build_invariant_graph(REPO_ROOT)
     node_by_id = graph.node_by_id()

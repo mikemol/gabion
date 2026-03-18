@@ -15,6 +15,7 @@ from gabion.tooling.runtime.declarative_script_host import (
 )
 
 
+# gabion:behavior primary=desired
 def test_invoke_script_binds_deadline_and_typed_arguments(tmp_path: Path) -> None:
     output_path = tmp_path / "out.txt"
     observed: dict[str, object] = {}
@@ -83,6 +84,7 @@ def test_invoke_script_binds_deadline_and_typed_arguments(tmp_path: Path) -> Non
     assert output_path.read_text(encoding="utf-8") == "ok\n"
 
 
+# gabion:behavior primary=desired
 def test_invoke_script_supports_sequence_and_positional_arguments() -> None:
     observed: dict[str, object] = {}
 

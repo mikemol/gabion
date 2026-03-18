@@ -17,6 +17,7 @@ def _write(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
+# gabion:behavior primary=desired
 def test_semantic_lattice_convergence_request_order_is_deterministic(
     tmp_path: Path,
     monkeypatch: object,
@@ -65,6 +66,7 @@ def test_semantic_lattice_convergence_request_order_is_deterministic(
     )
 
 
+# gabion:behavior primary=desired
 def test_semantic_lattice_convergence_parse_and_read_failures_increment_error_count(
     tmp_path: Path,
     monkeypatch: object,
@@ -103,6 +105,7 @@ def test_semantic_lattice_convergence_parse_and_read_failures_increment_error_co
     assert all("obligation_state" not in row for row in witness_rows)
 
 
+# gabion:behavior primary=desired
 def test_semantic_lattice_convergence_counts_incomplete_or_violation_once_per_request(
     tmp_path: Path,
     monkeypatch: object,
@@ -145,6 +148,7 @@ def test_semantic_lattice_convergence_counts_incomplete_or_violation_once_per_re
     assert witness_row["witness_violation"] is True
 
 
+# gabion:behavior primary=desired
 def test_semantic_convergence_payload_stays_pre_transform_shape() -> None:
     source = Path("src/gabion/tooling/policy_substrate/lattice_convergence_semantic.py").read_text(
         encoding="utf-8"
@@ -152,6 +156,7 @@ def test_semantic_convergence_payload_stays_pre_transform_shape() -> None:
     assert "obligation_state" not in source
 
 
+# gabion:behavior primary=desired
 def test_semantic_lattice_convergence_linkage_checks_frontier_payload_contract() -> None:
     codes = {
         item.code for item in lattice_convergence_semantic._collect_linkage_diagnostics()
@@ -161,6 +166,7 @@ def test_semantic_lattice_convergence_linkage_checks_frontier_payload_contract()
     assert "lattice_linkage_frontier_payload_invalid" not in codes
 
 
+# gabion:behavior primary=desired
 def test_semantic_lattice_convergence_emits_canonical_semantic_rows_for_real_witnesses(
     tmp_path: Path,
     monkeypatch: object,
@@ -276,6 +282,7 @@ def test_semantic_lattice_convergence_emits_canonical_semantic_rows_for_real_wit
     assert payload["witness_rows"] == []
 
 
+# gabion:behavior primary=desired
 def test_semantic_lattice_convergence_is_lazy_until_first_pull(
     tmp_path: Path,
     monkeypatch: object,
@@ -313,6 +320,7 @@ def test_semantic_lattice_convergence_is_lazy_until_first_pull(
     assert state["yield_calls"] == 1
 
 
+# gabion:behavior primary=desired
 def test_semantic_lattice_convergence_partial_pull_only_demands_requested_slice(
     tmp_path: Path,
     monkeypatch: object,
@@ -352,6 +360,7 @@ def test_semantic_lattice_convergence_partial_pull_only_demands_requested_slice(
     assert state["yield_calls"] == 1
 
 
+# gabion:behavior primary=desired
 def test_semantic_lattice_convergence_uses_iter_not_direct_compute(
     tmp_path: Path,
     monkeypatch: object,
@@ -389,6 +398,7 @@ def test_semantic_lattice_convergence_uses_iter_not_direct_compute(
     assert report.evaluated_request_count >= 1
 
 
+# gabion:behavior primary=desired
 def test_semantic_lattice_convergence_cold_warm_cache_parity(
     tmp_path: Path,
     monkeypatch: object,

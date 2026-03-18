@@ -10,6 +10,7 @@ from gabion.tooling.delta import delta_gate
 from gabion.tooling.governance import ambiguity_contract_policy_check as ambiguity_policy
 
 
+# gabion:behavior primary=desired
 def test_compile_document_accepts_markdown_frontmatter_rules(tmp_path: Path) -> None:
     path = tmp_path / "docs" / "policy_rules" / "sample.md"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -49,6 +50,7 @@ def test_compile_document_accepts_markdown_frontmatter_rules(tmp_path: Path) -> 
     }
 
 
+# gabion:behavior primary=desired
 def test_compile_document_rejects_missing_markdown_playbook_anchor(tmp_path: Path) -> None:
     path = tmp_path / "docs" / "policy_rules" / "missing_anchor.md"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -76,6 +78,7 @@ def test_compile_document_rejects_missing_markdown_playbook_anchor(tmp_path: Pat
     assert [item.code for item in issues] == ["missing_playbook_anchor"]
 
 
+# gabion:behavior primary=desired
 def test_compile_document_rejects_blank_markdown_playbook_anchor(tmp_path: Path) -> None:
     path = tmp_path / "docs" / "policy_rules" / "blank_anchor.md"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -102,6 +105,7 @@ def test_compile_document_rejects_blank_markdown_playbook_anchor(tmp_path: Path)
     assert [item.code for item in issues] == ["invalid_playbook_anchor"]
 
 
+# gabion:behavior primary=desired
 def test_compile_document_rejects_duplicate_markdown_body_anchors(tmp_path: Path) -> None:
     path = tmp_path / "docs" / "policy_rules" / "duplicate_anchor.md"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -132,6 +136,7 @@ def test_compile_document_rejects_duplicate_markdown_body_anchors(tmp_path: Path
     assert [item.code for item in issues] == ["duplicate_playbook_anchor"]
 
 
+# gabion:behavior primary=desired
 def test_compile_document_rejects_non_mapping_rule_entries(tmp_path: Path) -> None:
     path = tmp_path / "docs" / "policy_rules" / "bad_rules.md"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -161,6 +166,7 @@ def test_compile_document_rejects_non_mapping_rule_entries(tmp_path: Path) -> No
     assert [item.code for item in issues] == ["invalid_rule"]
 
 
+# gabion:behavior primary=desired
 def test_compile_document_rejects_invalid_markdown_frontmatter(tmp_path: Path) -> None:
     path = tmp_path / "docs" / "policy_rules" / "bad_frontmatter.md"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -179,6 +185,7 @@ def test_compile_document_rejects_invalid_markdown_frontmatter(tmp_path: Path) -
     assert [item.code for item in issues] == ["invalid_frontmatter"]
 
 
+# gabion:behavior primary=desired
 def test_registry_rejects_duplicate_rule_ids_across_yaml_and_markdown(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     (docs / "policy_rules").mkdir(parents=True, exist_ok=True)
@@ -229,6 +236,7 @@ def test_registry_rejects_duplicate_rule_ids_across_yaml_and_markdown(tmp_path: 
         raise AssertionError("expected duplicate rule source failure")
 
 
+# gabion:behavior primary=desired
 def test_registry_rule_ids_are_unique_and_stable() -> None:
     first = [rule.rule_id for rule in build_registry().program.rules]
     second = [rule.rule_id for rule in build_registry().program.rules]
@@ -236,6 +244,7 @@ def test_registry_rule_ids_are_unique_and_stable() -> None:
     assert len(first) == len(set(first))
 
 
+# gabion:behavior primary=desired
 def test_governance_gate_dsl_matches_blocking_threshold() -> None:
     decision = evaluate_policy(
         domain=PolicyDomain.GOVERNANCE_GATE,
@@ -247,6 +256,7 @@ def test_governance_gate_dsl_matches_blocking_threshold() -> None:
     assert decision.rule_id == "gate.obsolescence_opaque.blocking"
 
 
+# gabion:behavior primary=desired
 def test_docflow_baseline_missing_uses_skip_rule() -> None:
     decision = evaluate_policy(
         domain=PolicyDomain.GOVERNANCE_GATE,
@@ -255,11 +265,13 @@ def test_docflow_baseline_missing_uses_skip_rule() -> None:
     assert decision.rule_id == "gate.docflow.baseline_missing"
 
 
+# gabion:behavior primary=desired
 def test_delta_gate_value_helpers_remain_compatible() -> None:
     payload = {"summary": {"opaque_evidence": {"delta": "2"}}}
     assert delta_gate.obsolescence_opaque_delta_value(payload) == 2
 
 
+# gabion:behavior primary=desired
 def test_scanner_result_uses_dsl_decision_shape() -> None:
     decision = evaluate_policy(
         domain=PolicyDomain.POLICY_SCANNER,
@@ -275,6 +287,7 @@ def test_scanner_result_uses_dsl_decision_shape() -> None:
     assert decision.outcome.value == "block"
 
 
+# gabion:behavior primary=desired
 def test_ambiguity_contract_run_uses_dsl_blocking_rule(monkeypatch: object, tmp_path: Path) -> None:
     violation = ambiguity_policy.Violation(
         rule_id="ACP-003",
@@ -290,6 +303,7 @@ def test_ambiguity_contract_run_uses_dsl_blocking_rule(monkeypatch: object, tmp_
     assert exit_code == 1
 
 
+# gabion:behavior primary=desired
 def test_ambiguity_contract_summary_rule_emits_playbook_guidance() -> None:
     decision = evaluate_policy(
         domain=PolicyDomain.AMBIGUITY_CONTRACT,
@@ -316,6 +330,7 @@ def test_ambiguity_contract_summary_rule_emits_playbook_guidance() -> None:
     }
 
 
+# gabion:behavior primary=desired
 def test_aspf_rule_engine_classifies_two_cell() -> None:
     decision = aspf_rule_engine.classify_aspf_opportunity(
         {"witness": {"two_cell": True, "cofibration": False}}
@@ -323,6 +338,7 @@ def test_aspf_rule_engine_classifies_two_cell() -> None:
     assert decision.rule_id == "aspf.opportunity.two_cell"
 
 
+# gabion:behavior primary=desired
 def test_aspf_rule_engine_classifies_fungible_observation_kind() -> None:
     decision = aspf_rule_engine.classify_aspf_opportunity(
         {
@@ -334,12 +350,14 @@ def test_aspf_rule_engine_classifies_fungible_observation_kind() -> None:
     assert decision.rule_id == "aspf.opportunity.fungible_execution_path_substitution"
 
 
+# gabion:behavior primary=desired
 def test_registry_python_source_does_not_inline_scanner_rule_ids() -> None:
     source = Path("src/gabion/policy_dsl/registry.py").read_text(encoding="utf-8")
     assert "scanner.branchless.blocking" not in source
     assert "ambiguity.new_violations" not in source
 
 
+# gabion:behavior primary=desired
 def test_ambiguity_ast_event_rules_are_dsl_backed() -> None:
     decision = evaluate_policy(
         domain=PolicyDomain.AMBIGUITY_CONTRACT_AST,
@@ -472,6 +490,7 @@ def test_grade_monotonicity_summary_rules_are_dsl_backed() -> None:
     assert clean.rule_id == "grade_monotonicity.ok"
 
 
+# gabion:behavior primary=desired
 def test_grade_monotonicity_violation_guidance_uses_markdown_playbooks() -> None:
     from gabion.tooling.policy_substrate import grade_monotonicity_semantic as grade_semantic
 
@@ -486,6 +505,7 @@ def test_grade_monotonicity_violation_guidance_uses_markdown_playbooks() -> None
     }
 
 
+# gabion:behavior primary=desired
 def test_governance_adapter_emits_baseline_missing_rule() -> None:
     source = Path("src/gabion/tooling/governance/governance_rules.py").read_text(
         encoding="utf-8"
@@ -493,11 +513,13 @@ def test_governance_adapter_emits_baseline_missing_rule() -> None:
     assert ".baseline_missing" in source
 
 
+# gabion:behavior primary=desired
 def test_delta_gate_no_python_docflow_baseline_branch() -> None:
     source = Path("src/gabion/tooling/delta/delta_gate.py").read_text(encoding="utf-8")
     assert "baseline_missing = bool(payload.get" not in source
 
 
+# gabion:behavior primary=desired
 def test_migrated_modules_use_dsl_evaluator() -> None:
     ambiguity_source = Path(
         "src/gabion/tooling/governance/ambiguity_contract_policy_check.py"
@@ -514,6 +536,7 @@ def test_migrated_modules_use_dsl_evaluator() -> None:
     assert "first_match(" not in delta_source
 
 
+# gabion:behavior primary=desired
 def test_aspf_opportunity_taxonomy_no_python_predicate_registry() -> None:
     source = Path("src/gabion/analysis/foundation/aspf_visitors_impl.py").read_text(
         encoding="utf-8"
@@ -523,6 +546,7 @@ def test_aspf_opportunity_taxonomy_no_python_predicate_registry() -> None:
     assert "classify_aspf_opportunity(" in source
 
 
+# gabion:behavior primary=desired
 def test_projection_rule_blocks_on_unerased_semantic_row_with_boundary_trace() -> None:
     decision = evaluate_policy(
         domain=PolicyDomain.PROJECTION_FIBER,
@@ -542,6 +566,7 @@ def test_projection_rule_blocks_on_unerased_semantic_row_with_boundary_trace() -
     assert decision.rule_id == "projection_fiber.convergence.blocking"
 
 
+# gabion:behavior primary=desired
 def test_projection_rule_passes_after_discharge_on_semantic_row() -> None:
     decision = evaluate_policy(
         domain=PolicyDomain.PROJECTION_FIBER,
@@ -561,6 +586,7 @@ def test_projection_rule_passes_after_discharge_on_semantic_row() -> None:
     assert decision.rule_id == "projection_fiber.convergence.ok"
 
 
+# gabion:behavior primary=desired
 def test_projection_rule_passes_when_unresolved_row_has_no_boundary_trace() -> None:
     decision = evaluate_policy(
         domain=PolicyDomain.PROJECTION_FIBER,
@@ -576,12 +602,14 @@ def test_projection_rule_passes_when_unresolved_row_has_no_boundary_trace() -> N
     assert decision.rule_id == "projection_fiber.convergence.ok"
 
 
+# gabion:behavior primary=desired
 def test_projection_fiber_registry_has_no_legacy_projection_transforms() -> None:
     transforms = tuple(build_registry().program.transforms)
     transform_ids = tuple(item.transform_id for item in transforms)
     assert "projection.unmapped_intro" not in transform_ids
 
 
+# gabion:behavior primary=desired
 def test_aspf_lattice_algebra_has_no_projection_transform_runtime() -> None:
     source = Path("src/gabion/analysis/aspf/aspf_lattice_algebra.py").read_text(
         encoding="utf-8"
@@ -594,6 +622,7 @@ def test_aspf_lattice_algebra_has_no_projection_transform_runtime() -> None:
     assert "empty_recombination_frontier" not in source
 
 
+# gabion:behavior primary=desired
 def test_policy_substrate_exports_no_legacy_recombination_surface() -> None:
     adapter_source = Path(
         "src/gabion/tooling/policy_substrate/dataflow_fibration.py"
@@ -611,6 +640,7 @@ def test_policy_substrate_exports_no_legacy_recombination_surface() -> None:
         assert symbol not in package_source
 
 
+# gabion:behavior primary=desired
 def test_opportunity_rule_ids_deterministic_order() -> None:
     first = tuple(
         rule.rule_id
@@ -625,6 +655,7 @@ def test_opportunity_rule_ids_deterministic_order() -> None:
     assert "aspf.opportunity.materialize_load_fusion" in first
 
 
+# gabion:behavior primary=desired
 def test_policy_check_lattice_convergence_uses_semantic_collector_and_dsl() -> None:
     source = Path("scripts/policy/policy_check.py").read_text(encoding="utf-8")
     assert "iter_semantic_lattice_convergence" in source

@@ -39,6 +39,7 @@ def _options(tmp_path: Path) -> ci_local_repro.LocalCiReproOptions:
     )
 
 
+# gabion:behavior primary=desired
 def test_checks_steps_cover_ci_parity_surface(tmp_path: Path) -> None:
     steps = ci_local_repro._checks_steps(_options(tmp_path))
     commands = [tuple(step.command) for step in steps]
@@ -56,6 +57,7 @@ def test_checks_steps_cover_ci_parity_surface(tmp_path: Path) -> None:
     )
 
 
+# gabion:behavior primary=desired
 def test_pr_dataflow_steps_cover_stage_ci_and_render_report(tmp_path: Path) -> None:
     steps = ci_local_repro._pr_dataflow_steps(_options(tmp_path))
     commands = [tuple(step.command) for step in steps]

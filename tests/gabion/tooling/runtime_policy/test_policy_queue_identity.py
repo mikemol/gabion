@@ -10,6 +10,7 @@ from gabion.tooling.policy_substrate.policy_queue_identity import (
 )
 
 
+# gabion:behavior primary=desired
 def test_policy_queue_identity_interns_structural_decompositions() -> None:
     identity_space = PolicyQueueIdentitySpace()
 
@@ -38,6 +39,7 @@ def test_policy_queue_identity_interns_structural_decompositions() -> None:
     }
 
 
+# gabion:behavior primary=desired
 def test_policy_queue_identity_view_payload_is_boundary_only() -> None:
     identity_space = PolicyQueueIdentitySpace()
     subqueue = identity_space.subqueue_id("PSF-007-SQ-001")
@@ -55,6 +57,7 @@ def test_policy_queue_identity_view_payload_is_boundary_only() -> None:
     )
 
 
+# gabion:behavior primary=desired
 def test_policy_queue_identity_exposes_artifact_node_binding_carrier() -> None:
     identity_space = PolicyQueueIdentitySpace()
     artifact_node = identity_space.artifact_node_id(
@@ -77,6 +80,7 @@ def test_policy_queue_identity_exposes_artifact_node_binding_carrier() -> None:
     assert payload["line"] == 14
 
 
+# gabion:behavior primary=desired
 def test_planner_queue_identity_is_deterministic_and_decodable() -> None:
     identity_space = PolicyQueueIdentitySpace()
     queue_id = identity_space.planner_queue_id(

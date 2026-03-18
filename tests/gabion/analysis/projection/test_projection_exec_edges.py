@@ -176,6 +176,7 @@ def test_apply_execution_ops_skips_empty_typed_ops() -> None:
     assert result == rows
 
 
+# gabion:behavior primary=desired
 def test_apply_execution_ops_applies_limit_directly() -> None:
     rows = [{"group": "a"}, {"group": "b"}, {"group": "c"}]
     result = apply_execution_ops(

@@ -105,6 +105,7 @@ def test_analyze_paths_rejects_invalid_phase_progress_callback() -> None:
         )
 
 
+# gabion:behavior primary=desired
 def test_analyze_paths_emits_structured_edge_and_post_phase_progress(
     tmp_path: Path,
 ) -> None:
