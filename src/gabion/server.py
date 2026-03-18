@@ -457,39 +457,11 @@ def _load_aspf_resume_state(
     include_delta_records: bool = False,
     diagnostic_tail_limit: int = 32,
 ) -> JSONObject | None:
-    latest_manifest_digest: str | None = None
-    latest_resume_source: str | None = None
-    for path in import_state_paths:
-        raw_payload = cast(
-            Mapping[str, object],
-            json.loads(path.read_text(encoding="utf-8")),
-        )
-        manifest_digest = str(raw_payload.get("analysis_manifest_digest", "") or "")
-        latest_manifest_digest = manifest_digest or latest_manifest_digest
-        resume_source = str(raw_payload.get("resume_source", "") or "")
-        latest_resume_source = resume_source or latest_resume_source
-    projection, mutation_count, mutation_tail = aspf_resume_state.fold_resume_mutations(
-        snapshot={},
-        mutations=aspf_resume_state.iter_resume_mutations(
-            state_paths=import_state_paths,
-        ),
-        tail_limit=diagnostic_tail_limit,
+    return orchestrator_primitives._load_aspf_resume_state(
+        import_state_paths=import_state_paths,
+        include_delta_records=include_delta_records,
+        diagnostic_tail_limit=diagnostic_tail_limit,
     )
-    payload: JSONObject = {
-        "resume_projection": projection,
-        "delta_record_count": mutation_count,
-        "delta_records_tail": list(mutation_tail),
-        "analysis_manifest_digest": latest_manifest_digest,
-        "resume_source": latest_resume_source,
-    }
-    if include_delta_records:
-        payload["delta_records"] = [
-            dict(record)
-            for record in aspf_resume_state.iter_resume_mutations(
-                state_paths=import_state_paths,
-            )
-        ]
-    return payload
 
 
 def _analysis_resume_progress(

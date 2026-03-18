@@ -301,6 +301,7 @@ def _load_aspf_resume_state(
 ) -> JSONObject | None:
     latest_manifest_digest: str | None = None
     latest_resume_source: str | None = None
+    latest_has_resume_projection = False
     for path in import_state_paths:
         raw_payload = cast(
             Mapping[str, object],
@@ -310,17 +311,36 @@ def _load_aspf_resume_state(
         latest_manifest_digest = manifest_digest or latest_manifest_digest
         resume_source = str(raw_payload.get("resume_source", "") or "")
         latest_resume_source = resume_source or latest_resume_source
-    projection, mutation_count, mutation_tail = aspf_resume_state.fold_resume_mutations(
-        snapshot={},
-        mutations=aspf_resume_state.iter_resume_mutations(
-            state_paths=import_state_paths,
-        ),
-        tail_limit=diagnostic_tail_limit,
-    )
+        latest_has_resume_projection = "resume_projection" in raw_payload
+    if latest_has_resume_projection:
+        projection = cast(
+            JSONObject,
+            aspf_resume_state.load_latest_resume_projection_from_state_files(
+                state_paths=import_state_paths,
+            )
+            or {},
+        )
+    else:
+        projection = {}
+    mutation_count = 0
+    mutation_tail: list[JSONObject] = []
+    for record in aspf_resume_state.iter_resume_mutations(state_paths=import_state_paths):
+        mutation_count += 1
+        if not latest_has_resume_projection:
+            projection, _, _ = aspf_resume_state.fold_resume_mutations(
+                snapshot=projection,
+                mutations=(record,),
+                tail_limit=0,
+            )
+        if diagnostic_tail_limit <= 0:
+            continue
+        mutation_tail.append(dict(record))
+        if len(mutation_tail) > diagnostic_tail_limit:
+            mutation_tail.pop(0)
     payload: JSONObject = {
         "resume_projection": projection,
         "delta_record_count": mutation_count,
-        "delta_records_tail": list(mutation_tail),
+        "delta_records_tail": mutation_tail,
         "analysis_manifest_digest": latest_manifest_digest,
         "resume_source": latest_resume_source,
     }

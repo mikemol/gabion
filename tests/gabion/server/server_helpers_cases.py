@@ -547,3 +547,33 @@ def test_load_aspf_resume_state_folds_jsonl_mutations_with_bounded_tail(tmp_path
     )
     assert with_history is not None
     assert [record["seq"] for record in with_history["delta_records"]] == [1, 2, 3]
+
+
+# gabion:evidence E:function_site::server.py::gabion.server._load_aspf_resume_state
+# gabion:behavior primary=desired
+def test_load_aspf_resume_state_preserves_snapshot_collection_resume_when_delta_is_incomplete(
+    tmp_path: Path,
+) -> None:
+    server = _load()
+
+    state_path = tmp_path / "0001_step.snapshot.json"
+    state_path.write_text(
+        '{"analysis_manifest_digest":"manifest-1","resume_source":"handoff","resume_projection":{"collection_resume":{"completed_paths":["module.py"],"in_progress_scan_by_path":{},"semantic_progress":{}}},"delta_ledger":{"records":[{"seq":1,"mutation_target":"semantic_surfaces.groups_by_path","mutation_value":{"module.py":[]}}]}}',
+        encoding="utf-8",
+    )
+
+    payload = server._load_aspf_resume_state(
+        import_state_paths=(state_path,),
+        diagnostic_tail_limit=2,
+    )
+
+    assert payload is not None
+    assert payload["analysis_manifest_digest"] == "manifest-1"
+    assert payload["resume_source"] == "handoff"
+    assert payload["delta_record_count"] == 1
+    assert payload["resume_projection"]["collection_resume"] == {
+        "completed_paths": ["module.py"],
+        "in_progress_scan_by_path": {},
+        "semantic_progress": {},
+    }
+    assert [record["seq"] for record in payload["delta_records_tail"]] == [1]

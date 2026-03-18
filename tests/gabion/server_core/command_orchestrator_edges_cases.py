@@ -482,6 +482,80 @@ def test_run_analysis_with_progress_skips_checkpoint_serialized_event_when_timel
     )
 
 
+# gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._prepare_analysis_resume_state
+# gabion:behavior primary=desired
+def test_prepare_analysis_resume_state_accepts_snapshot_first_aspf_resume_payload(
+    tmp_path: Path,
+) -> None:
+    orchestrator._bind_server_symbols()
+    source_path = tmp_path / "module.py"
+    source_path.write_text("def f() -> int:\n    return 1\n", encoding="utf-8")
+    deps = server._default_execute_command_deps()
+    input_manifest = deps.analysis.analysis_input_manifest_fn(
+        root=tmp_path,
+        file_paths=[source_path],
+        recursive=True,
+        include_invariant_propositions=False,
+        include_wl_refinement=False,
+        config=orchestrator.AuditConfig(project_root=tmp_path),
+    )
+    manifest_digest = deps.analysis.analysis_input_manifest_digest_fn(input_manifest)
+    snapshot_path = tmp_path / "0001_step.snapshot.json"
+    snapshot_path.write_text(
+        '{"analysis_manifest_digest":"'
+        + manifest_digest
+        + '","resume_source":"handoff","resume_projection":{"collection_resume":{"completed_paths":["'
+        + str(source_path)
+        + '"],"in_progress_scan_by_path":{},"semantic_progress":{}}},"delta_ledger":{"records":[{"seq":1,"mutation_target":"semantic_surfaces.groups_by_path","mutation_value":{"'
+        + str(source_path)
+        + '":[]}}]}}',
+        encoding="utf-8",
+    )
+    state = orchestrator._AnalysisResumePreparationState(
+        analysis_resume_state_path=None,
+        analysis_resume_input_witness=None,
+        analysis_resume_input_manifest_digest=None,
+        analysis_resume_total_files=0,
+        analysis_resume_reused_files=0,
+        analysis_resume_state_status=None,
+        analysis_resume_state_compatibility_status=None,
+        analysis_resume_intro_payload=None,
+        analysis_resume_intro_timeline_header=None,
+        analysis_resume_intro_timeline_row=None,
+        report_section_witness_digest=None,
+        phase_checkpoint_state={},
+        semantic_progress_cumulative=None,
+        last_collection_resume_payload=None,
+    )
+    runtime_state = orchestrator.CommandRuntimeState(latest_collection_progress={})
+
+    _file_paths_for_run, collection_resume_payload = orchestrator._prepare_analysis_resume_state(
+        execute_deps=deps,
+        aspf_trace_state=None,
+        needs_analysis=True,
+        normalized_ingest=orchestrator.NormalizedIngestBundle(
+            language_id="python",
+            file_paths=(source_path,),
+            parsed_units=(),
+        ),
+        root=str(tmp_path),
+        payload={},
+        aspf_import_state=[str(snapshot_path)],
+        no_recursive=False,
+        report_path=False,
+        include_wl_refinement=False,
+        config=orchestrator.AuditConfig(project_root=tmp_path),
+        report_output_path=None,
+        state=state,
+        runtime_state=runtime_state,
+    )
+
+    assert collection_resume_payload is not None
+    assert state.analysis_resume_state_status == "aspf_state_loaded"
+    assert state.analysis_resume_state_compatibility_status == "aspf_state_compatible"
+    assert state.analysis_resume_reused_files == 1
+
+
 # gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._persist_timeout_resume_state
 # gabion:behavior primary=verboten facets=edge,timeout
 def test_persist_timeout_resume_state_skips_checkpoint_event_when_timeline_disabled(

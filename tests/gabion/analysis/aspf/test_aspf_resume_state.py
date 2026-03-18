@@ -27,6 +27,21 @@ def _state_payload(*, projection_value: int, seq: int) -> dict[str, object]:
     }
 
 
+def _snapshot_resume_payload(
+    *,
+    resume_projection: dict[str, object],
+    records: list[dict[str, object]] | None = None,
+) -> dict[str, object]:
+    return {
+        "resume_projection": resume_projection,
+        "delta_ledger": {
+            "format_version": 1,
+            "trace_id": "aspf-trace:test",
+            "records": records or [],
+        },
+    }
+
+
 # gabion:behavior primary=desired
 def test_iter_delta_records_streams_state_and_jsonl_inputs(tmp_path: Path) -> None:
     state_path = tmp_path / "state.snapshot.json"
@@ -89,6 +104,50 @@ def test_load_resume_projection_compatibility_wrapper_uses_streaming_internals(
 
     assert projection == {"projection_value": 2}
     assert [record["seq"] for record in records] == [1, 2]
+
+
+# gabion:behavior primary=desired
+def test_load_resume_projection_from_state_files_preserves_snapshot_collection_resume(
+    tmp_path: Path,
+) -> None:
+    state_path = tmp_path / "0001.snapshot.json"
+    state_path.write_text(
+        json.dumps(
+            _snapshot_resume_payload(
+                resume_projection={
+                    "collection_resume": {
+                        "completed_paths": ["module.py"],
+                        "in_progress_scan_by_path": {},
+                        "semantic_progress": {},
+                    }
+                },
+                records=[
+                    {
+                        "seq": 1,
+                        "event_kind": "resume",
+                        "phase": "load",
+                        "analysis_state": None,
+                        "mutation_target": "semantic_surfaces.groups_by_path",
+                        "mutation_value": {"module.py": []},
+                        "one_cell_ref": None,
+                    }
+                ],
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    projection, records = aspf_resume_state.load_resume_projection_from_state_files(
+        state_paths=(state_path,)
+    )
+
+    assert projection is not None
+    assert projection["collection_resume"] == {
+        "completed_paths": ["module.py"],
+        "in_progress_scan_by_path": {},
+        "semantic_progress": {},
+    }
+    assert [record["seq"] for record in records] == [1]
 
 
 # gabion:behavior primary=desired
