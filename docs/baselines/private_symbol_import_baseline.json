@@ -1,6 +1,111 @@
 {
   "entries": [
     {
+      "importer": "src/gabion/analysis/aspf/aspf.py",
+      "module_path": "gabion.analysis.foundation.aspf_impl",
+      "symbol": "_canonicalize_evidence"
+    },
+    {
+      "importer": "src/gabion/analysis/aspf/aspf.py",
+      "module_path": "gabion.analysis.foundation.aspf_impl",
+      "symbol": "_canonicalize_evidence_value"
+    },
+    {
+      "importer": "src/gabion/analysis/aspf/aspf_execution_fibration.py",
+      "module_path": "gabion.analysis.foundation.aspf_execution_fibration_impl",
+      "symbol": "_ImportedTraceMergeVisitor"
+    },
+    {
+      "importer": "src/gabion/analysis/aspf/aspf_execution_fibration.py",
+      "module_path": "gabion.analysis.foundation.aspf_execution_fibration_impl",
+      "symbol": "_as_wire_value"
+    },
+    {
+      "importer": "src/gabion/analysis/aspf/aspf_execution_fibration.py",
+      "module_path": "gabion.analysis.foundation.aspf_execution_fibration_impl",
+      "symbol": "_build_trace_replay_iterators"
+    },
+    {
+      "importer": "src/gabion/analysis/aspf/aspf_execution_fibration.py",
+      "module_path": "gabion.analysis.foundation.aspf_execution_fibration_impl",
+      "symbol": "_iter_delta_records"
+    },
+    {
+      "importer": "src/gabion/analysis/aspf/aspf_execution_fibration.py",
+      "module_path": "gabion.analysis.foundation.aspf_execution_fibration_impl",
+      "symbol": "_iter_trace_events"
+    },
+    {
+      "importer": "src/gabion/analysis/aspf/aspf_execution_fibration.py",
+      "module_path": "gabion.analysis.foundation.aspf_execution_fibration_impl",
+      "symbol": "_iter_two_cell_witnesses"
+    },
+    {
+      "importer": "src/gabion/analysis/aspf/aspf_execution_fibration.py",
+      "module_path": "gabion.analysis.foundation.aspf_execution_fibration_impl",
+      "symbol": "_merge_two_cell_payload"
+    },
+    {
+      "importer": "src/gabion/analysis/aspf/aspf_execution_fibration.py",
+      "module_path": "gabion.analysis.foundation.aspf_execution_fibration_impl",
+      "symbol": "_normalize_stream_trace_payload"
+    },
+    {
+      "importer": "src/gabion/analysis/aspf/aspf_execution_fibration.py",
+      "module_path": "gabion.analysis.foundation.aspf_execution_fibration_impl",
+      "symbol": "_publish_event"
+    },
+    {
+      "importer": "src/gabion/analysis/aspf/aspf_execution_fibration.py",
+      "module_path": "gabion.analysis.foundation.aspf_execution_fibration_impl",
+      "symbol": "_semantic_surface_sequence"
+    },
+    {
+      "importer": "src/gabion/analysis/aspf/aspf_mutation_log.py",
+      "module_path": "gabion.analysis.foundation.aspf_mutation_log_impl",
+      "symbol": "_decode_varint"
+    },
+    {
+      "importer": "src/gabion/analysis/aspf/aspf_mutation_log.py",
+      "module_path": "gabion.analysis.foundation.aspf_mutation_log_impl",
+      "symbol": "_encode_length_delimited"
+    },
+    {
+      "importer": "src/gabion/analysis/aspf/aspf_mutation_log.py",
+      "module_path": "gabion.analysis.foundation.aspf_mutation_log_impl",
+      "symbol": "_encode_uint64"
+    },
+    {
+      "importer": "src/gabion/analysis/aspf/aspf_mutation_log.py",
+      "module_path": "gabion.analysis.foundation.aspf_mutation_log_impl",
+      "symbol": "_encode_varint"
+    },
+    {
+      "importer": "src/gabion/analysis/aspf/aspf_mutation_log.py",
+      "module_path": "gabion.analysis.foundation.aspf_mutation_log_impl",
+      "symbol": "_parse_wire_fields"
+    },
+    {
+      "importer": "src/gabion/analysis/aspf/aspf_mutation_log.py",
+      "module_path": "gabion.analysis.foundation.aspf_mutation_log_impl",
+      "symbol": "_wire_bytes_to_object"
+    },
+    {
+      "importer": "src/gabion/analysis/aspf/aspf_visitors.py",
+      "module_path": "gabion.analysis.foundation.aspf_visitors_impl",
+      "symbol": "_normalize_two_cell_witness_for_replay"
+    },
+    {
+      "importer": "src/gabion/analysis/core/wl_refinement.py",
+      "module_path": "gabion.analysis.core.wl_refinement_ingress",
+      "symbol": "_EmitWLExecution"
+    },
+    {
+      "importer": "src/gabion/analysis/core/wl_refinement.py",
+      "module_path": "gabion.analysis.core.wl_refinement_ingress",
+      "symbol": "_SkipWLExecution"
+    },
+    {
       "importer": "src/gabion/analysis/dataflow/engine/dataflow_ambiguity_helpers.py",
       "module_path": "gabion.analysis.dataflow.engine.dataflow_projection_materialization",
       "symbol": "_ambiguity_suite_relation"
@@ -528,12 +633,7 @@
     {
       "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_runtime.py",
       "module_path": "gabion.analysis.dataflow.io.dataflow_parse_helpers",
-      "symbol": "_parse_module_tree_or_none"
-    },
-    {
-      "importer": "src/gabion/analysis/dataflow/engine/dataflow_deadline_summary.py",
-      "module_path": "gabion.analysis.dataflow.engine.dataflow_projection_materialization",
-      "symbol": "_format_span_fields"
+      "symbol": "_parse_module_tree_optional"
     },
     {
       "importer": "src/gabion/analysis/dataflow/engine/dataflow_documented_bundles.py",
@@ -1153,6 +1253,11 @@
     {
       "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
       "module_path": "gabion.analysis.dataflow.io.dataflow_parse_helpers",
+      "symbol": "_ParseModuleFailure"
+    },
+    {
+      "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
+      "module_path": "gabion.analysis.dataflow.io.dataflow_parse_helpers",
       "symbol": "_ParseModuleStage"
     },
     {
@@ -1173,7 +1278,7 @@
     {
       "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
       "module_path": "gabion.analysis.dataflow.io.dataflow_parse_helpers",
-      "symbol": "_parse_module_tree_or_none"
+      "symbol": "_parse_module_tree_optional"
     },
     {
       "importer": "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
@@ -1406,6 +1511,121 @@
       "symbol": "_forbid_adhoc_bundle_discovery"
     },
     {
+      "importer": "src/gabion/analysis/foundation/identity_shadow_runtime.py",
+      "module_path": "gabion.analysis.foundation.event_algebra",
+      "symbol": "_iter_canonical_event_json_items"
+    },
+    {
+      "importer": "src/gabion/analysis/projection/projection_exec_plan.py",
+      "module_path": "gabion.analysis.projection.projection_exec_plan_ingress",
+      "symbol": "_EmitExecutionPlanningDecision"
+    },
+    {
+      "importer": "src/gabion/analysis/projection/projection_exec_plan.py",
+      "module_path": "gabion.analysis.projection.projection_exec_plan_ingress",
+      "symbol": "_NormalizedCountByExecutionOp"
+    },
+    {
+      "importer": "src/gabion/analysis/projection/projection_exec_plan.py",
+      "module_path": "gabion.analysis.projection.projection_exec_plan_ingress",
+      "symbol": "_NormalizedExecutionOp"
+    },
+    {
+      "importer": "src/gabion/analysis/projection/projection_exec_plan.py",
+      "module_path": "gabion.analysis.projection.projection_exec_plan_ingress",
+      "symbol": "_NormalizedLimitExecutionOp"
+    },
+    {
+      "importer": "src/gabion/analysis/projection/projection_exec_plan.py",
+      "module_path": "gabion.analysis.projection.projection_exec_plan_ingress",
+      "symbol": "_NormalizedProjectExecutionOp"
+    },
+    {
+      "importer": "src/gabion/analysis/projection/projection_exec_plan.py",
+      "module_path": "gabion.analysis.projection.projection_exec_plan_ingress",
+      "symbol": "_NormalizedSelectExecutionOp"
+    },
+    {
+      "importer": "src/gabion/analysis/projection/projection_exec_plan.py",
+      "module_path": "gabion.analysis.projection.projection_exec_plan_ingress",
+      "symbol": "_NormalizedSkipExecutionOp"
+    },
+    {
+      "importer": "src/gabion/analysis/projection/projection_exec_plan.py",
+      "module_path": "gabion.analysis.projection.projection_exec_plan_ingress",
+      "symbol": "_NormalizedSortExecutionOp"
+    },
+    {
+      "importer": "src/gabion/analysis/projection/projection_exec_plan.py",
+      "module_path": "gabion.analysis.projection.projection_exec_plan_ingress",
+      "symbol": "_NormalizedTraverseExecutionOp"
+    },
+    {
+      "importer": "src/gabion/analysis/projection/projection_exec_plan.py",
+      "module_path": "gabion.analysis.projection.projection_exec_plan_ingress",
+      "symbol": "_SkipExecutionPlanningDecision"
+    },
+    {
+      "importer": "src/gabion/analysis/projection/projection_exec_plan.py",
+      "module_path": "gabion.analysis.projection.projection_exec_plan_ingress",
+      "symbol": "_normalize_execution_op"
+    },
+    {
+      "importer": "src/gabion/analysis/projection/projection_exec_plan.py",
+      "module_path": "gabion.analysis.projection.projection_exec_plan_ingress",
+      "symbol": "_normalize_execution_ops"
+    },
+    {
+      "importer": "src/gabion/analysis/projection/projection_exec_plan.py",
+      "module_path": "gabion.analysis.projection.projection_exec_plan_ingress",
+      "symbol": "_normalize_traverse_execution_op"
+    },
+    {
+      "importer": "src/gabion/analysis/projection/projection_exec_plan.py",
+      "module_path": "gabion.analysis.projection.projection_exec_plan_ingress",
+      "symbol": "_plan_execution_op"
+    },
+    {
+      "importer": "src/gabion/analysis/projection/projection_exec_plan.py",
+      "module_path": "gabion.analysis.projection.projection_exec_plan_ingress",
+      "symbol": "_plan_traverse_execution_op"
+    },
+    {
+      "importer": "src/gabion/analysis/projection/projection_exec_plan_ingress.py",
+      "module_path": "gabion.analysis.projection.projection_normalize",
+      "symbol": "_extract_predicates"
+    },
+    {
+      "importer": "src/gabion/analysis/projection/projection_exec_plan_ingress.py",
+      "module_path": "gabion.analysis.projection.projection_normalize",
+      "symbol": "_normalize_fields"
+    },
+    {
+      "importer": "src/gabion/analysis/projection/projection_exec_plan_ingress.py",
+      "module_path": "gabion.analysis.projection.projection_normalize",
+      "symbol": "_normalize_group_fields"
+    },
+    {
+      "importer": "src/gabion/analysis/projection/projection_exec_plan_ingress.py",
+      "module_path": "gabion.analysis.projection.projection_normalize",
+      "symbol": "_normalize_limit"
+    },
+    {
+      "importer": "src/gabion/analysis/projection/projection_exec_plan_ingress.py",
+      "module_path": "gabion.analysis.projection.projection_normalize",
+      "symbol": "_normalize_predicates"
+    },
+    {
+      "importer": "src/gabion/analysis/projection/projection_exec_plan_ingress.py",
+      "module_path": "gabion.analysis.projection.projection_normalize",
+      "symbol": "_normalize_sort_by"
+    },
+    {
+      "importer": "src/gabion/analysis/projection/projection_exec_plan_ingress.py",
+      "module_path": "gabion.analysis.projection.projection_normalize",
+      "symbol": "_normalize_value"
+    },
+    {
       "importer": "src/gabion/analysis/surfaces/test_evidence_suggestions.py",
       "module_path": "gabion.analysis.dataflow.engine.dataflow_evidence_helpers",
       "symbol": "_alt_input"
@@ -1456,9 +1676,64 @@
       "symbol": "_iter_paths"
     },
     {
+      "importer": "src/gabion/cli.py",
+      "module_path": "gabion.server_core.coercion_contract",
+      "symbol": "_cli_int_optional"
+    },
+    {
+      "importer": "src/gabion/cli.py",
+      "module_path": "gabion.server_core.coercion_contract",
+      "symbol": "_cli_json_object_optional"
+    },
+    {
+      "importer": "src/gabion/cli.py",
+      "module_path": "gabion.server_core.coercion_contract",
+      "symbol": "_cli_mapping_optional"
+    },
+    {
+      "importer": "src/gabion/cli.py",
+      "module_path": "gabion.server_core.coercion_contract",
+      "symbol": "_cli_str_optional"
+    },
+    {
       "importer": "src/gabion/ingest/python_adapter.py",
       "module_path": "gabion.analysis.dataflow.engine.dataflow_ingest_helpers",
       "symbol": "_collect_functions"
+    },
+    {
+      "importer": "src/gabion/server_core/command_orchestrator.py",
+      "module_path": "gabion.server_core.coercion_contract",
+      "symbol": "_bool_optional"
+    },
+    {
+      "importer": "src/gabion/server_core/command_orchestrator.py",
+      "module_path": "gabion.server_core.coercion_contract",
+      "symbol": "_config_path_optional"
+    },
+    {
+      "importer": "src/gabion/server_core/command_orchestrator.py",
+      "module_path": "gabion.server_core.coercion_contract",
+      "symbol": "_int_or_zero"
+    },
+    {
+      "importer": "src/gabion/server_core/command_orchestrator.py",
+      "module_path": "gabion.server_core.coercion_contract",
+      "symbol": "_non_empty_string_optional"
+    },
+    {
+      "importer": "src/gabion/server_core/command_orchestrator.py",
+      "module_path": "gabion.server_core.coercion_contract",
+      "symbol": "_non_negative_float_optional"
+    },
+    {
+      "importer": "src/gabion/server_core/command_orchestrator.py",
+      "module_path": "gabion.server_core.coercion_contract",
+      "symbol": "_object_mapping_optional"
+    },
+    {
+      "importer": "src/gabion/server_core/command_orchestrator.py",
+      "module_path": "gabion.server_core.coercion_contract",
+      "symbol": "_string_optional"
     },
     {
       "importer": "src/gabion/server_core/command_orchestrator.py",
@@ -1484,6 +1759,201 @@
       "importer": "src/gabion/server_core/command_orchestrator.py",
       "module_path": "gabion.server_core.command_orchestrator_primitives",
       "symbol": "_truthy_flag"
+    },
+    {
+      "importer": "src/gabion/server_core/command_orchestrator_primitives.py",
+      "module_path": "gabion.server_core.coercion_contract",
+      "symbol": "_bool_optional"
+    },
+    {
+      "importer": "src/gabion/server_core/command_orchestrator_primitives.py",
+      "module_path": "gabion.server_core.coercion_contract",
+      "symbol": "_float_optional"
+    },
+    {
+      "importer": "src/gabion/server_core/command_orchestrator_primitives.py",
+      "module_path": "gabion.server_core.coercion_contract",
+      "symbol": "_int_optional"
+    },
+    {
+      "importer": "src/gabion/server_core/command_orchestrator_primitives.py",
+      "module_path": "gabion.server_core.coercion_contract",
+      "symbol": "_json_mapping_default_empty"
+    },
+    {
+      "importer": "src/gabion/server_core/command_orchestrator_primitives.py",
+      "module_path": "gabion.server_core.coercion_contract",
+      "symbol": "_json_mapping_optional"
+    },
+    {
+      "importer": "src/gabion/server_core/command_orchestrator_primitives.py",
+      "module_path": "gabion.server_core.coercion_contract",
+      "symbol": "_non_negative_int_optional"
+    },
+    {
+      "importer": "src/gabion/server_core/command_orchestrator_primitives.py",
+      "module_path": "gabion.server_core.coercion_contract",
+      "symbol": "_non_string_sequence_optional"
+    },
+    {
+      "importer": "src/gabion/server_core/command_orchestrator_primitives.py",
+      "module_path": "gabion.server_core.coercion_contract",
+      "symbol": "_str_optional"
+    },
+    {
+      "importer": "src/gabion/server_core/command_orchestrator_primitives.py",
+      "module_path": "gabion.server_core.command_orchestrator_progress",
+      "symbol": "_analysis_index_resume_hydrated_count"
+    },
+    {
+      "importer": "src/gabion/server_core/command_orchestrator_primitives.py",
+      "module_path": "gabion.server_core.command_orchestrator_progress",
+      "symbol": "_analysis_index_resume_signature"
+    },
+    {
+      "importer": "src/gabion/server_core/command_orchestrator_primitives.py",
+      "module_path": "gabion.server_core.command_orchestrator_progress",
+      "symbol": "_analysis_resume_progress"
+    },
+    {
+      "importer": "src/gabion/server_core/command_orchestrator_primitives.py",
+      "module_path": "gabion.server_core.command_orchestrator_progress",
+      "symbol": "_build_phase_progress_v2"
+    },
+    {
+      "importer": "src/gabion/server_core/command_orchestrator_primitives.py",
+      "module_path": "gabion.server_core.command_orchestrator_progress",
+      "symbol": "_collection_semantic_progress"
+    },
+    {
+      "importer": "src/gabion/server_core/command_orchestrator_primitives.py",
+      "module_path": "gabion.server_core.command_orchestrator_progress",
+      "symbol": "_in_progress_scan_states"
+    },
+    {
+      "importer": "src/gabion/server_core/command_orchestrator_primitives.py",
+      "module_path": "gabion.server_core.command_orchestrator_progress",
+      "symbol": "_normalize_progress_work"
+    },
+    {
+      "importer": "src/gabion/server_core/command_orchestrator_primitives.py",
+      "module_path": "gabion.server_core.command_orchestrator_progress",
+      "symbol": "_report_projection_phase_rank_optional"
+    },
+    {
+      "importer": "src/gabion/server_core/command_orchestrator_progress.py",
+      "module_path": "gabion.server_core.coercion_contract",
+      "symbol": "_bool_optional"
+    },
+    {
+      "importer": "src/gabion/server_core/command_orchestrator_progress.py",
+      "module_path": "gabion.server_core.coercion_contract",
+      "symbol": "_float_optional"
+    },
+    {
+      "importer": "src/gabion/server_core/command_orchestrator_progress.py",
+      "module_path": "gabion.server_core.coercion_contract",
+      "symbol": "_int_optional"
+    },
+    {
+      "importer": "src/gabion/server_core/command_orchestrator_progress.py",
+      "module_path": "gabion.server_core.coercion_contract",
+      "symbol": "_json_mapping_default_empty"
+    },
+    {
+      "importer": "src/gabion/server_core/command_orchestrator_progress.py",
+      "module_path": "gabion.server_core.coercion_contract",
+      "symbol": "_json_mapping_optional"
+    },
+    {
+      "importer": "src/gabion/server_core/command_orchestrator_progress.py",
+      "module_path": "gabion.server_core.coercion_contract",
+      "symbol": "_non_negative_int_optional"
+    },
+    {
+      "importer": "src/gabion/server_core/command_orchestrator_progress.py",
+      "module_path": "gabion.server_core.coercion_contract",
+      "symbol": "_non_string_sequence_optional"
+    },
+    {
+      "importer": "src/gabion/server_core/command_orchestrator_progress.py",
+      "module_path": "gabion.server_core.coercion_contract",
+      "symbol": "_str_optional"
+    },
+    {
+      "importer": "src/gabion/server_core/server_payload_dispatch.py",
+      "module_path": "gabion.server_core.coercion_contract",
+      "symbol": "_bool_optional"
+    },
+    {
+      "importer": "src/gabion/server_core/server_payload_dispatch.py",
+      "module_path": "gabion.server_core.coercion_contract",
+      "symbol": "_float_optional"
+    },
+    {
+      "importer": "src/gabion/server_core/server_payload_dispatch.py",
+      "module_path": "gabion.server_core.coercion_contract",
+      "symbol": "_int_optional"
+    },
+    {
+      "importer": "src/gabion/server_core/server_payload_dispatch.py",
+      "module_path": "gabion.server_core.coercion_contract",
+      "symbol": "_json_mapping_default_empty"
+    },
+    {
+      "importer": "src/gabion/server_core/server_payload_dispatch.py",
+      "module_path": "gabion.server_core.coercion_contract",
+      "symbol": "_json_mapping_optional"
+    },
+    {
+      "importer": "src/gabion/server_core/server_payload_dispatch.py",
+      "module_path": "gabion.server_core.coercion_contract",
+      "symbol": "_non_negative_int_optional"
+    },
+    {
+      "importer": "src/gabion/server_core/server_payload_dispatch.py",
+      "module_path": "gabion.server_core.coercion_contract",
+      "symbol": "_non_string_sequence_optional"
+    },
+    {
+      "importer": "src/gabion/server_core/server_payload_dispatch.py",
+      "module_path": "gabion.server_core.coercion_contract",
+      "symbol": "_str_optional"
+    },
+    {
+      "importer": "src/gabion/tooling/policy_substrate/grade_monotonicity_semantic.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_helpers",
+      "symbol": "_build_analysis_index"
+    },
+    {
+      "importer": "src/gabion/tooling/policy_substrate/grade_monotonicity_semantic.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_helpers",
+      "symbol": "_collect_call_edges"
+    },
+    {
+      "importer": "src/gabion/tooling/policy_substrate/grade_monotonicity_semantic.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_helpers",
+      "symbol": "_collect_recursive_functions"
+    },
+    {
+      "importer": "src/gabion/tooling/policy_substrate/grade_monotonicity_semantic.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_deadline_helpers",
+      "symbol": "_resolve_callee_outcome"
+    },
+    {
+      "importer": "src/gabion/tooling/policy_substrate/grade_monotonicity_semantic.py",
+      "module_path": "gabion.analysis.dataflow.engine.dataflow_evidence_helpers",
+      "symbol": "_module_name"
+    },
+    {
+      "importer": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "module_path": "gabion.policy_dsl.registry",
+      "symbol": "_build_registry_for_root"
+    },
+    {
+      "importer": "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+      "module_path": "gabion.server_core.command_orchestrator_primitives",
+      "symbol": "_normalize_dataflow_response"
     },
     {
       "importer": "tests/gabion/analysis/alias/test_alias_return_propagation.py",
@@ -1602,23 +2072,18 @@
     },
     {
       "importer": "tests/gabion/analysis/misc_s1/test_wl_refinement.py",
-      "module_path": "gabion.analysis.core.wl_refinement",
-      "symbol": "_bool_param"
+      "module_path": "gabion.analysis.core.wl_refinement_ingress",
+      "symbol": "_normalize_wl_refinement_params"
     },
     {
       "importer": "tests/gabion/analysis/misc_s1/test_wl_refinement.py",
-      "module_path": "gabion.analysis.core.wl_refinement",
-      "symbol": "_int_param"
+      "module_path": "gabion.analysis.core.wl_refinement_ingress",
+      "symbol": "_normalized_seed_values"
     },
     {
       "importer": "tests/gabion/analysis/misc_s1/test_wl_refinement.py",
-      "module_path": "gabion.analysis.core.wl_refinement",
+      "module_path": "gabion.analysis.core.wl_refinement_ingress",
       "symbol": "_seed_struct"
-    },
-    {
-      "importer": "tests/gabion/analysis/misc_s1/test_wl_refinement.py",
-      "module_path": "gabion.analysis.core.wl_refinement",
-      "symbol": "_string_list_param"
     },
     {
       "importer": "tests/gabion/analysis/misc_s2/test_property_hook_manifest.py",
@@ -1737,16 +2202,6 @@
     },
     {
       "importer": "tests/gabion/analysis/projection/test_projection_exec_edges.py",
-      "module_path": "gabion.analysis.projection.projection_exec",
-      "symbol": "_hashable"
-    },
-    {
-      "importer": "tests/gabion/analysis/projection/test_projection_exec_edges.py",
-      "module_path": "gabion.analysis.projection.projection_exec",
-      "symbol": "_sort_value"
-    },
-    {
-      "importer": "tests/gabion/analysis/projection/test_projection_exec_edges.py",
       "module_path": "gabion.analysis.projection.projection_normalize",
       "symbol": "_extract_predicates"
     },
@@ -1781,6 +2236,51 @@
       "symbol": "_normalize_value"
     },
     {
+      "importer": "tests/gabion/analysis/projection/test_projection_exec_ingress.py",
+      "module_path": "gabion.analysis.projection.projection_exec_plan",
+      "symbol": "_EmitExecutionPlanningDecision"
+    },
+    {
+      "importer": "tests/gabion/analysis/projection/test_projection_exec_ingress.py",
+      "module_path": "gabion.analysis.projection.projection_exec_plan",
+      "symbol": "_NormalizedProjectExecutionOp"
+    },
+    {
+      "importer": "tests/gabion/analysis/projection/test_projection_exec_ingress.py",
+      "module_path": "gabion.analysis.projection.projection_exec_plan",
+      "symbol": "_NormalizedSkipExecutionOp"
+    },
+    {
+      "importer": "tests/gabion/analysis/projection/test_projection_exec_ingress.py",
+      "module_path": "gabion.analysis.projection.projection_exec_plan",
+      "symbol": "_NormalizedTraverseExecutionOp"
+    },
+    {
+      "importer": "tests/gabion/analysis/projection/test_projection_exec_ingress.py",
+      "module_path": "gabion.analysis.projection.projection_exec_plan",
+      "symbol": "_SkipExecutionPlanningDecision"
+    },
+    {
+      "importer": "tests/gabion/analysis/projection/test_projection_exec_ingress.py",
+      "module_path": "gabion.analysis.projection.projection_exec_plan",
+      "symbol": "_normalize_execution_op"
+    },
+    {
+      "importer": "tests/gabion/analysis/projection/test_projection_exec_ingress.py",
+      "module_path": "gabion.analysis.projection.projection_exec_plan",
+      "symbol": "_normalize_traverse_execution_op"
+    },
+    {
+      "importer": "tests/gabion/analysis/projection/test_projection_exec_ingress.py",
+      "module_path": "gabion.analysis.projection.projection_exec_plan",
+      "symbol": "_plan_execution_op"
+    },
+    {
+      "importer": "tests/gabion/analysis/projection/test_projection_exec_ingress.py",
+      "module_path": "gabion.analysis.projection.projection_exec_plan",
+      "symbol": "_plan_traverse_execution_op"
+    },
+    {
       "importer": "tests/gabion/analysis/projection/test_projection_registry_edges.py",
       "module_path": "gabion.analysis.projection.projection_registry",
       "symbol": "_projection_registry_gas_limit"
@@ -1789,6 +2289,21 @@
       "importer": "tests/gabion/analysis/projection/test_projection_spec.py",
       "module_path": "gabion.analysis.projection.projection_normalize",
       "symbol": "_normalize_predicates"
+    },
+    {
+      "importer": "tests/gabion/analysis/projection/test_semantic_fragment.py",
+      "module_path": "gabion.analysis.projection.semantic_fragment",
+      "symbol": "_canonical_value_materialization"
+    },
+    {
+      "importer": "tests/gabion/analysis/projection/test_semantic_fragment.py",
+      "module_path": "gabion.analysis.projection.semantic_fragment",
+      "symbol": "_normalize_value"
+    },
+    {
+      "importer": "tests/gabion/analysis/projection/test_semantic_fragment.py",
+      "module_path": "gabion.analysis.projection.semantic_fragment",
+      "symbol": "_stable_json_key"
     },
     {
       "importer": "tests/gabion/analysis/projection/test_suite_order_projection_spec.py",
@@ -1944,6 +2459,11 @@
       "importer": "tests/gabion/analysis/visitors/visitors_unit_cases.py",
       "module_path": "gabion.analysis.dataflow.engine.dataflow_function_semantics",
       "symbol": "_normalize_key_expr"
+    },
+    {
+      "importer": "tests/gabion/cli/cli_live_repo_cases.py",
+      "module_path": "tests.gabion.cli.cli_commands_cases",
+      "symbol": "_invoke"
     },
     {
       "importer": "tests/gabion/config/config_fields_cases.py",
@@ -2108,7 +2628,17 @@
     {
       "importer": "tests/gabion/tooling/governance/test_docflow_domain_service.py",
       "module_path": "gabion_governance.governance_audit_impl",
-      "symbol": "_make_invariant_spec"
+      "symbol": "_make_invariant_matcher"
+    },
+    {
+      "importer": "tests/gabion/tooling/runtime_policy/test_connectivity_synergy_registry.py",
+      "module_path": "gabion.tooling.policy_substrate.connectivity_synergy_registry",
+      "symbol": "_ConnectivityCatalogRegistry"
+    },
+    {
+      "importer": "tests/gabion/tooling/runtime_policy/test_connectivity_synergy_registry.py",
+      "module_path": "gabion.tooling.policy_substrate.connectivity_synergy_registry",
+      "symbol": "_validate_connectivity_catalog_bindings"
     },
     {
       "importer": "tests/gabion/tooling/runtime_policy/test_override_record.py",
@@ -2139,6 +2669,11 @@
       "importer": "tests/gabion/tooling/sppf/test_sppf_status_audit.py",
       "module_path": "scripts.sppf.sppf_status_audit",
       "symbol": "_normalize_influence_status"
+    },
+    {
+      "importer": "tests/test_policy_dsl.py",
+      "module_path": "gabion.policy_dsl.registry",
+      "symbol": "_build_registry_for_root"
     }
   ]
 }

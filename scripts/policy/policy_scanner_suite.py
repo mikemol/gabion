@@ -4,7 +4,12 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 import subprocess
+import sys
 from typing import Iterable
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from gabion.policy_dsl import PolicyDomain, evaluate_policy
 from gabion.tooling.runtime import policy_scanner_suite as runtime_policy_scanner_suite
