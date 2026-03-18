@@ -1,3 +1,6 @@
+# gabion:ambiguity_boundary_module
+# gabion:boundary_normalization_module
+# gabion:grade_boundary kind=semantic_carrier_adapter name=dataflow_reporting_helpers
 from __future__ import annotations
 
 import ast
@@ -142,11 +145,11 @@ def _materialize_projection_spec_rows(
     row_to_site: Callable[[Mapping[str, JSONValue]], object],
 ) -> None:
     spec_identity = projection_spec_hash(spec)
-    spec_site = forest.add_spec_site(
+    spec_site = forest.add_versioned_spec_site(
         spec_hash=spec_identity,
         spec_name=str(spec.name),
         spec_domain=str(spec.domain),
-        spec_version=int(spec.spec_version) if spec.spec_version else None,
+        spec_version=int(spec.spec_version),
     )
     for row in projected:
         check_deadline()
@@ -663,40 +666,35 @@ def format_invariant_propositions(entries) -> list[str]:
     return [_format_invariant_proposition(prop) for prop in entries]
 
 
+def _never_protocol_entries(entries: list[JSONObject]) -> Iterable[JSONObject]:
+    return (entry for entry in entries if entry.get("protocol") == "never")
+
+
+def _non_dead_never_protocol_entries(entries: list[JSONObject]) -> Iterable[JSONObject]:
+    return (
+        entry
+        for entry in _never_protocol_entries(entries)
+        if entry.get("status") != "DEAD"
+    )
+
+
 def exception_protocol_evidence(entries: list[JSONObject]) -> list[str]:
     check_deadline()
-    lines: list[str] = []
-    for entry in entries:
-        check_deadline()
-        if entry.get("protocol") != "never":
-            continue
-        exception_id = entry.get("exception_path_id", "?")
-        exception_name = entry.get("exception_name") or "?"
-        status = entry.get("status", "UNKNOWN")
-        lines.append(
-            f"{exception_id} exception={exception_name} protocol=never status={status}"
-        )
-    return lines
+    return [
+        f"{entry.get('exception_path_id', '?')} exception={entry.get('exception_name') or '?'} protocol=never status={entry.get('status', 'UNKNOWN')}"
+        for entry in _never_protocol_entries(entries)
+        for _ in (check_deadline(),)
+    ]
 
 
 def exception_protocol_warnings(entries: list[JSONObject]) -> list[str]:
     check_deadline()
-    warnings: list[str] = []
-    for entry in entries:
-        check_deadline()
-        if entry.get("protocol") != "never":
-            continue
-        if entry.get("status") == "DEAD":
-            continue
-        site = cast(Mapping[str, JSONValue], entry.get("site", {}) or {})
-        path = site.get("path", "?")
-        function = site.get("function", "?")
-        exception_name = entry.get("exception_name") or "?"
-        status = entry.get("status", "UNKNOWN")
-        warnings.append(
-            f"{path}:{function} raises {exception_name} (protocol=never, status={status})"
-        )
-    return warnings
+    return [
+        f"{site.get('path', '?')}:{site.get('function', '?')} raises {entry.get('exception_name') or '?'} (protocol=never, status={entry.get('status', 'UNKNOWN')})"
+        for entry in _non_dead_never_protocol_entries(entries)
+        for _ in (check_deadline(),)
+        for site in (cast(Mapping[str, JSONValue], entry.get("site", {}) or {}),)
+    ]
 
 
 def parse_failure_violation_lines(entries: list[JSONObject]) -> list[str]:
@@ -728,43 +726,32 @@ def parse_failure_violation_lines(entries: list[JSONObject]) -> list[str]:
 
 def runtime_obligation_violation_lines(entries: list[JSONObject]) -> list[str]:
     check_deadline()
-    violations: list[str] = []
-    for entry in sort_once(
-        entries,
-        key=lambda item: (
-            str(item.get("contract", "")),
-            str(item.get("kind", "")),
-            str(item.get("section_id", "")),
-            str(item.get("phase", "")),
-            str(item.get("detail", "")),
-        ),
-        source="runtime_obligation_violation_lines",
-    ):
-        check_deadline()
-        if str(entry.get("status", "")).upper() != "VIOLATION":
-            continue
-        contract = str(entry.get("contract", "runtime_contract"))
-        kind = str(entry.get("kind", "unknown"))
-        section_id = entry.get("section_id")
-        phase = entry.get("phase")
-        detail = str(entry.get("detail", "")).strip()
-        section_text = _str_optional(section_id)
-        phase_text = _str_optional(phase)
-        section_part = (
-            f" section={section_text}"
-            if section_text is not None and section_text
-            else ""
+    return [
+        (
+            f"{contract} {kind}"
+            f"{f' section={section_text}' if section_text else ''}"
+            f"{f' phase={phase_text}' if phase_text else ''}"
+            f"{f' detail={detail}' if detail else ''}"
+        ).strip()
+        for entry in sort_once(
+            entries,
+            key=lambda item: (
+                str(item.get("contract", "")),
+                str(item.get("kind", "")),
+                str(item.get("section_id", "")),
+                str(item.get("phase", "")),
+                str(item.get("detail", "")),
+            ),
+            source="runtime_obligation_violation_lines",
         )
-        phase_part = (
-            f" phase={phase_text}"
-            if phase_text is not None and phase_text
-            else ""
-        )
-        text = f"{contract} {kind}{section_part}{phase_part}".strip()
-        if detail:
-            text = f"{text} detail={detail}"
-        violations.append(text)
-    return violations
+        for _ in (check_deadline(),)
+        if str(entry.get("status", "")).upper() == "VIOLATION"
+        for contract in (str(entry.get("contract", "runtime_contract")),)
+        for kind in (str(entry.get("kind", "unknown")),)
+        for detail in (str(entry.get("detail", "")).strip(),)
+        for section_text in (_str_optional(entry.get("section_id")),)
+        for phase_text in (_str_optional(entry.get("phase")),)
+    ]
 
 
 def render_type_mermaid(

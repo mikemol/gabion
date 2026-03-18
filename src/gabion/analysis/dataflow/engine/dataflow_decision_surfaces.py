@@ -1,3 +1,6 @@
+# gabion:ambiguity_boundary_module
+# gabion:boundary_normalization_module
+# gabion:grade_boundary kind=semantic_carrier_adapter name=dataflow_decision_surfaces
 """Decision-surface helpers extracted from ``legacy_dataflow_monolith``.
 
 These helpers are intentionally dependency-light and receive runtime hooks
@@ -9,7 +12,9 @@ migrate incrementally.
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
+from itertools import islice
 import re
+from typing import TypeGuard
 
 from gabion.analysis.foundation.json_types import JSONObject
 from gabion.analysis.foundation.resume_codec import sequence_optional
@@ -29,6 +34,15 @@ _PR412_REWRITE_PLAN_RAW_IDENTITY_SURFACE = todo(
     owner="gabion.analysis.dataflow.engine",
     links=[{"kind": "object_id", "value": "pr:412"}],
 )
+
+
+def _normalized_glossary_matches(entry: JSONObject) -> list[str]:
+    raw_matches = sequence_optional(entry.get("glossary_matches"), allow_str=False) or ()
+    return [str(match) for match in raw_matches]
+
+
+def _has_glossary_ambiguity(entry: JSONObject) -> bool:
+    return len(_normalized_glossary_matches(entry)) >= 2
 
 
 def summarize_deadness_witnesses(
@@ -70,48 +84,42 @@ def compute_fingerprint_coherence(
 ) -> list[JSONObject]:
     check_deadline()
     sort_values = ordered_or_sorted
-    witnesses: list[JSONObject] = []
-    for entry in entries:
-        check_deadline()
-        matches = entry.get("glossary_matches") or []
-        match matches:
-            case list() as match_list if len(match_list) >= 2:
-                path = entry.get("path")
-                function = entry.get("function")
-                bundle = entry.get("bundle")
-                provenance_id = entry.get("provenance_id")
-                base_keys = entry.get("base_keys") or []
-                ctor_keys = entry.get("ctor_keys") or []
-                bundle_key = ",".join(bundle or [])
-                witnesses.append(
-                    {
-                        "coherence_id": f"{path}:{function}:{bundle_key}:glossary-ambiguity",
-                        "site": {
-                            "path": path,
-                            "function": function,
-                            "bundle": bundle,
-                        },
-                        "boundary": {
-                            "base_keys": base_keys,
-                            "ctor_keys": ctor_keys,
-                            "synth_version": synth_version,
-                        },
-                        "alternatives": sort_values(
-                            set(str(m) for m in match_list),
-                            source="_compute_fingerprint_coherence.alternatives",
-                        ),
-                        "fork_signature": "glossary-ambiguity",
-                        "frack_path": ["provenance", "glossary"],
-                        "result": "UNKNOWN",
-                        "remainder": {"glossary_matches": match_list},
-                        "provenance_id": provenance_id,
-                    }
-                )
-            case _:
-                pass
-                never("unreachable wildcard match fall-through")
+
+    def _iter_witnesses() -> Iterable[JSONObject]:
+        for entry in filter(_has_glossary_ambiguity, entries):
+            check_deadline()
+            match_list = _normalized_glossary_matches(entry)
+            path = entry.get("path")
+            function = entry.get("function")
+            bundle = entry.get("bundle")
+            provenance_id = entry.get("provenance_id")
+            base_keys = entry.get("base_keys") or []
+            ctor_keys = entry.get("ctor_keys") or []
+            bundle_key = ",".join(bundle or [])
+            yield {
+                "coherence_id": f"{path}:{function}:{bundle_key}:glossary-ambiguity",
+                "site": {
+                    "path": path,
+                    "function": function,
+                    "bundle": bundle,
+                },
+                "boundary": {
+                    "base_keys": base_keys,
+                    "ctor_keys": ctor_keys,
+                    "synth_version": synth_version,
+                },
+                "alternatives": sort_values(
+                    set(match_list),
+                    source="_compute_fingerprint_coherence.alternatives",
+                ),
+                "fork_signature": "glossary-ambiguity",
+                "frack_path": ["provenance", "glossary"],
+                "result": "UNKNOWN",
+                "remainder": {"glossary_matches": match_list},
+                "provenance_id": provenance_id,
+            }
     return sort_values(
-        witnesses,
+        _iter_witnesses(),
         source="_compute_fingerprint_coherence.witnesses",
         key=lambda entry: (
             str(entry.get("site", {}).get("path", "")),
@@ -190,101 +198,155 @@ def compute_fingerprint_rewrite_plans(
                 summary["total"] += 1
 
     plans: list[JSONObject] = []
-    for entry in provenance:
+    provenance_with_glossary_ambiguity = filter(_has_glossary_ambiguity, provenance)
+    for entry in provenance_with_glossary_ambiguity:
         check_deadline()
-        matches = entry.get("glossary_matches") or []
         site = site_from_payload(entry)
-        match matches, site:
-            case list() as match_list, site_candidate if (
-                len(match_list) >= 2
-                and site_candidate is not None
-                and site_candidate.path
-                and site_candidate.function
-            ):
-                site = site_candidate
-                bundle_key = site.bundle_key()
-                coherence_entry = coherence_map.get(site.key())
-                coherence_id = coherence_entry.get("coherence_id") if coherence_entry else None
-                candidates = sort_values(
-                    set(str(m) for m in match_list),
-                    source="_compute_fingerprint_rewrite_plans.candidates",
-                )
-                pre_exception_summary: object = None
-                if include_exception_predicates:
-                    pre_exception_summary = exception_summary_map.get(
-                        site.key(),
-                        {"UNKNOWN": 0, "DEAD": 0, "HANDLED": 0, "total": 0},
+        match_list = _normalized_glossary_matches(entry)
+        site_is_usable = bool(site is not None and site.path and site.function)
+        if not site_is_usable:
+            continue
+        site = site
+        bundle_key = site.bundle_key()
+        coherence_entry = coherence_map.get(site.key())
+        coherence_id = coherence_entry.get("coherence_id") if coherence_entry else None
+        candidates = sort_values(
+            set(match_list),
+            source="_compute_fingerprint_rewrite_plans.candidates",
+        )
+        pre_exception_summary: object = None
+        if include_exception_predicates:
+            pre_exception_summary = exception_summary_map.get(
+                site.key(),
+                {"UNKNOWN": 0, "DEAD": 0, "HANDLED": 0, "total": 0},
+            )
+        pre_payload: JSONObject = {
+            "base_keys": entry.get("base_keys") or [],
+            "ctor_keys": entry.get("ctor_keys") or [],
+            "glossary_matches": match_list,
+            "remainder": entry.get("remainder") or {},
+            "synth_version": synth_version,
+            **(
+                {
+                    "canonical_identity_contract": entry.get(
+                        "canonical_identity_contract"
                     )
-                pre_payload: JSONObject = {
-                    "base_keys": entry.get("base_keys") or [],
-                    "ctor_keys": entry.get("ctor_keys") or [],
-                    "glossary_matches": match_list,
-                    "remainder": entry.get("remainder") or {},
-                    "synth_version": synth_version,
-                    **(
+                }
+                if entry.get("canonical_identity_contract") is not None
+                else {}
+            ),
+            **(
+                {"exception_obligations_summary": pre_exception_summary}
+                if pre_exception_summary is not None
+                else {}
+            ),
+        }
+        verification_predicates: list[JSONObject] = [
+            {"kind": "base_conservation", "expect": True},
+            {"kind": "ctor_coherence", "expect": True},
+            {
+                "kind": "match_strata",
+                "expect": "exact",
+                "candidates": candidates,
+            },
+            {
+                "kind": "remainder_non_regression",
+                "expect": "no-new-remainder",
+            },
+            {
+                "kind": "witness_obligation_non_regression",
+                "expect": "stable",
+            },
+            *(
+                [
+                    {
+                        "kind": "exception_obligation_non_regression",
+                        "expect": "XV1",
+                    }
+                ]
+                if include_exception_predicates
+                else []
+            ),
+        ]
+
+        def _make_plan(
+            *,
+            kind: str,
+            suffix: str,
+            selector: JSONObject,
+            parameters: JSONObject,
+            post_expectation: JSONObject,
+            predicates: list[JSONObject],
+        ) -> JSONObject:
+            non_regression_gates: list[str] = []
+            for predicate in predicates:
+                kind_value = predicate.get("kind")
+                match kind_value:
+                    case str() as kind_text if kind_text.endswith("non_regression"):
+                        non_regression_gates.append(kind_text)
+            return {
+                "plan_id": (
+                    f"rewrite:{site.path}:{site.function}:{bundle_key}:"
+                    f"glossary-ambiguity:{suffix}"
+                ),
+                "status": "UNVERIFIED",
+                "site": {
+                    "path": site.path,
+                    "function": site.function,
+                    "bundle": list(site.bundle),
+                },
+                "pre": dict(pre_payload),
+                "rewrite": {
+                    "kind": kind,
+                    "selector": selector,
+                    "parameters": parameters,
+                },
+                "evidence": {
+                    "provenance_id": entry.get("provenance_id"),
+                    "coherence_id": coherence_id,
+                    "fingerprint_matches": candidates,
+                    "witness_obligations": [
                         {
+                            "witness_ref": entry.get("provenance_id"),
+                            "required": True,
+                            "kind": "provenance",
+                        },
+                        {
+                            "witness_ref": coherence_id,
+                            "required": coherence_id is not None,
+                            "kind": "coherence",
+                        },
+                        {
+                            "witness_ref": str(
+                                entry.get("provenance_id")
+                                or f"aspf-class:{site.path}:{site.function}:{bundle_key}"
+                            ),
+                            "required": entry.get("canonical_identity_contract") is not None,
+                            "kind": "aspf_structure_class_equivalence",
                             "canonical_identity_contract": entry.get(
                                 "canonical_identity_contract"
-                            )
-                        }
-                        if entry.get("canonical_identity_contract") is not None
-                        else {}
-                    ),
-                    **(
-                        {"exception_obligations_summary": pre_exception_summary}
-                        if pre_exception_summary is not None
-                        else {}
-                    ),
-                }
-                verification_predicates: list[JSONObject] = [
-                    {"kind": "base_conservation", "expect": True},
-                    {"kind": "ctor_coherence", "expect": True},
-                    {
-                        "kind": "match_strata",
-                        "expect": "exact",
-                        "candidates": candidates,
-                    },
-                    {
-                        "kind": "remainder_non_regression",
-                        "expect": "no-new-remainder",
-                    },
-                    {
-                        "kind": "witness_obligation_non_regression",
-                        "expect": "stable",
-                    },
-                    *(
-                        [
-                            {
-                                "kind": "exception_obligation_non_regression",
-                                "expect": "XV1",
-                            }
-                        ]
-                        if include_exception_predicates
-                        else []
-                    ),
-                ]
+                            ),
+                        },
+                    ],
+                },
+                "post_expectation": post_expectation,
+                "verification": {
+                    "mode": "re-audit",
+                    "status": "UNVERIFIED",
+                    "predicates": predicates,
+                    "non_regression_gates": non_regression_gates,
+                },
+            }
 
-                def _make_plan(
-                    *,
-                    kind: str,
-                    suffix: str,
-                    selector: JSONObject,
-                    parameters: JSONObject,
-                    post_expectation: JSONObject,
-                    predicates: list[JSONObject],
-                ) -> JSONObject:
-                    non_regression_gates: list[str] = []
-                    for predicate in predicates:
-                        kind_value = predicate.get("kind")
-                        match kind_value:
-                            case str() as kind_text if kind_text.endswith("non_regression"):
-                                non_regression_gates.append(kind_text)
-                    return {
+        def _abstain(kind: RewritePlanKind, reason: str, preconditions: list[str]) -> None:
+            plans.append(
+                attach_plan_schema(
+                    {
                         "plan_id": (
                             f"rewrite:{site.path}:{site.function}:{bundle_key}:"
-                            f"glossary-ambiguity:{suffix}"
+                            f"glossary-ambiguity:{kind.value.lower().replace('_', '-')}:abstain"
                         ),
-                        "status": "UNVERIFIED",
+                        "status": "ABSTAINED",
                         "site": {
                             "path": site.path,
                             "function": site.function,
@@ -292,211 +354,148 @@ def compute_fingerprint_rewrite_plans(
                         },
                         "pre": dict(pre_payload),
                         "rewrite": {
-                            "kind": kind,
-                            "selector": selector,
-                            "parameters": parameters,
+                            "kind": kind.value,
+                            "selector": {"bundle": list(site.bundle)},
+                            "parameters": {},
                         },
                         "evidence": {
                             "provenance_id": entry.get("provenance_id"),
                             "coherence_id": coherence_id,
-                            "fingerprint_matches": candidates,
-                            "witness_obligations": [
-                                {
-                                    "witness_ref": entry.get("provenance_id"),
-                                    "required": True,
-                                    "kind": "provenance",
-                                },
-                                {
-                                    "witness_ref": coherence_id,
-                                    "required": coherence_id is not None,
-                                    "kind": "coherence",
-                                },
-                                {
-                                    "witness_ref": str(
-                                        entry.get("provenance_id")
-                                        or f"aspf-class:{site.path}:{site.function}:{bundle_key}"
-                                    ),
-                                    "required": entry.get("canonical_identity_contract") is not None,
-                                    "kind": "aspf_structure_class_equivalence",
-                                    "canonical_identity_contract": entry.get(
-                                        "canonical_identity_contract"
-                                    ),
-                                },
-                            ],
                         },
-                        "post_expectation": post_expectation,
+                        "post_expectation": {},
                         "verification": {
                             "mode": "re-audit",
-                            "status": "UNVERIFIED",
-                            "predicates": predicates,
-                            "non_regression_gates": non_regression_gates,
+                            "status": "ABSTAINED",
+                            "predicates": [],
+                        },
+                        "abstention": {
+                            "reason": reason,
+                            "required_preconditions": preconditions,
                         },
                     }
+                )
+            )
 
-                def _abstain(kind: RewritePlanKind, reason: str, preconditions: list[str]) -> None:
-                    plans.append(
-                        attach_plan_schema(
-                            {
-                                "plan_id": (
-                                    f"rewrite:{site.path}:{site.function}:{bundle_key}:"
-                                    f"glossary-ambiguity:{kind.value.lower().replace('_', '-')}:abstain"
-                                ),
-                                "status": "ABSTAINED",
-                                "site": {
-                                    "path": site.path,
-                                    "function": site.function,
-                                    "bundle": list(site.bundle),
-                                },
-                                "pre": dict(pre_payload),
-                                "rewrite": {
-                                    "kind": kind.value,
-                                    "selector": {"bundle": list(site.bundle)},
-                                    "parameters": {},
-                                },
-                                "evidence": {
-                                    "provenance_id": entry.get("provenance_id"),
-                                    "coherence_id": coherence_id,
-                                },
-                                "post_expectation": {},
-                                "verification": {
-                                    "mode": "re-audit",
-                                    "status": "ABSTAINED",
-                                    "predicates": [],
-                                },
-                                "abstention": {
-                                    "reason": reason,
-                                    "required_preconditions": preconditions,
-                                },
-                            }
-                        )
-                    )
+        plans.append(
+            attach_plan_schema(
+                _make_plan(
+                    kind=RewritePlanKind.BUNDLE_ALIGN.value,
+                    suffix="bundle-align",
+                    selector={"bundle": list(site.bundle)},
+                    parameters={"candidates": candidates},
+                    post_expectation={
+                        "match_strata": "exact",
+                        "base_conservation": True,
+                        "ctor_coherence": True,
+                    },
+                    predicates=list(verification_predicates),
+                )
+            )
+        )
 
-                plans.append(
-                    attach_plan_schema(
-                        _make_plan(
-                            kind=RewritePlanKind.BUNDLE_ALIGN.value,
-                            suffix="bundle-align",
-                            selector={"bundle": list(site.bundle)},
-                            parameters={"candidates": candidates},
-                            post_expectation={
-                                "match_strata": "exact",
-                                "base_conservation": True,
-                                "ctor_coherence": True,
-                            },
-                            predicates=list(verification_predicates),
-                        )
+        ctor_keys = list(entry.get("ctor_keys") or [])
+        if ctor_keys:
+            plans.append(
+                attach_plan_schema(
+                    _make_plan(
+                        kind=RewritePlanKind.CTOR_NORMALIZE.value,
+                        suffix="ctor-normalize",
+                        selector={"bundle": list(site.bundle)},
+                        parameters={
+                            "target_ctor_keys": ctor_keys,
+                            "candidates": candidates,
+                        },
+                        post_expectation={
+                            "ctor_normalized": True,
+                            "match_strata": "exact",
+                            "base_conservation": True,
+                        },
+                        predicates=[
+                            {"kind": "base_conservation", "expect": True},
+                            {"kind": "ctor_coherence", "expect": True},
+                            {"kind": "match_strata", "expect": "exact", "candidates": candidates},
+                            {"kind": "remainder_non_regression", "expect": "no-new-remainder"},
+                            *(
+                                [{"kind": "exception_obligation_non_regression", "expect": "XV1"}]
+                                if include_exception_predicates
+                                else []
+                            ),
+                        ],
                     )
                 )
+            )
+        else:
+            _abstain(
+                RewritePlanKind.CTOR_NORMALIZE,
+                "ctor normalization requires constructor evidence",
+                ["ctor_keys_present"],
+            )
 
-                ctor_keys = list(entry.get("ctor_keys") or [])
-                if ctor_keys:
-                    plans.append(
-                        attach_plan_schema(
-                            _make_plan(
-                                kind=RewritePlanKind.CTOR_NORMALIZE.value,
-                                suffix="ctor-normalize",
-                                selector={"bundle": list(site.bundle)},
-                                parameters={
-                                    "target_ctor_keys": ctor_keys,
-                                    "candidates": candidates,
-                                },
-                                post_expectation={
-                                    "ctor_normalized": True,
-                                    "match_strata": "exact",
-                                    "base_conservation": True,
-                                },
-                                predicates=[
-                                    {"kind": "base_conservation", "expect": True},
-                                    {"kind": "ctor_coherence", "expect": True},
-                                    {"kind": "match_strata", "expect": "exact", "candidates": candidates},
-                                    {"kind": "remainder_non_regression", "expect": "no-new-remainder"},
-                                    *(
-                                        [{"kind": "exception_obligation_non_regression", "expect": "XV1"}]
-                                        if include_exception_predicates
-                                        else []
-                                    ),
-                                ],
-                            )
-                        )
+        if candidates:
+            plans.append(
+                attach_plan_schema(
+                    _make_plan(
+                        kind=RewritePlanKind.SURFACE_CANONICALIZE.value,
+                        suffix="surface-canonicalize",
+                        selector={"bundle": list(site.bundle), "glossary_matches": match_list},
+                        parameters={"canonical_candidate": candidates[0], "candidates": candidates},
+                        post_expectation={
+                            "match_strata": "exact",
+                            "surface_canonicalized": True,
+                            "base_conservation": True,
+                        },
+                        predicates=[
+                            {"kind": "base_conservation", "expect": True},
+                            {"kind": "match_strata", "expect": "exact", "candidates": candidates},
+                            {"kind": "remainder_non_regression", "expect": "no-new-remainder"},
+                            *(
+                                [{"kind": "exception_obligation_non_regression", "expect": "XV1"}]
+                                if include_exception_predicates
+                                else []
+                            ),
+                        ],
                     )
-                else:
-                    _abstain(
-                        RewritePlanKind.CTOR_NORMALIZE,
-                        "ctor normalization requires constructor evidence",
-                        ["ctor_keys_present"],
-                    )
+                )
+            )
+        else:
+            _abstain(
+                RewritePlanKind.SURFACE_CANONICALIZE,
+                "surface canonicalization requires at least one glossary candidate",
+                ["candidates_non_empty"],
+            )
 
-                if candidates:
-                    plans.append(
-                        attach_plan_schema(
-                            _make_plan(
-                                kind=RewritePlanKind.SURFACE_CANONICALIZE.value,
-                                suffix="surface-canonicalize",
-                                selector={"bundle": list(site.bundle), "glossary_matches": match_list},
-                                parameters={"canonical_candidate": candidates[0], "candidates": candidates},
-                                post_expectation={
-                                    "match_strata": "exact",
-                                    "surface_canonicalized": True,
-                                    "base_conservation": True,
-                                },
-                                predicates=[
-                                    {"kind": "base_conservation", "expect": True},
-                                    {"kind": "match_strata", "expect": "exact", "candidates": candidates},
-                                    {"kind": "remainder_non_regression", "expect": "no-new-remainder"},
-                                    *(
-                                        [{"kind": "exception_obligation_non_regression", "expect": "XV1"}]
-                                        if include_exception_predicates
-                                        else []
-                                    ),
-                                ],
-                            )
-                        )
+        if candidates and len(match_list) >= 2:
+            plans.append(
+                attach_plan_schema(
+                    _make_plan(
+                        kind=RewritePlanKind.AMBIENT_REWRITE.value,
+                        suffix="ambient-rewrite",
+                        selector={"bundle": list(site.bundle)},
+                        parameters={"strategy": "context-explicit", "candidates": candidates},
+                        post_expectation={
+                            "match_strata": "exact",
+                            "ambient_normalized": True,
+                            "base_conservation": True,
+                        },
+                        predicates=[
+                            {"kind": "base_conservation", "expect": True},
+                            {"kind": "match_strata", "expect": "exact", "candidates": candidates},
+                            {"kind": "remainder_non_regression", "expect": "no-new-remainder"},
+                            *(
+                                [{"kind": "exception_obligation_non_regression", "expect": "XV1"}]
+                                if include_exception_predicates
+                                else []
+                            ),
+                        ],
                     )
-                else:
-                    _abstain(
-                        RewritePlanKind.SURFACE_CANONICALIZE,
-                        "surface canonicalization requires at least one glossary candidate",
-                        ["candidates_non_empty"],
-                    )
-
-                if candidates and len(match_list) >= 2:
-                    plans.append(
-                        attach_plan_schema(
-                            _make_plan(
-                                kind=RewritePlanKind.AMBIENT_REWRITE.value,
-                                suffix="ambient-rewrite",
-                                selector={"bundle": list(site.bundle)},
-                                parameters={"strategy": "context-explicit", "candidates": candidates},
-                                post_expectation={
-                                    "match_strata": "exact",
-                                    "ambient_normalized": True,
-                                    "base_conservation": True,
-                                },
-                                predicates=[
-                                    {"kind": "base_conservation", "expect": True},
-                                    {"kind": "match_strata", "expect": "exact", "candidates": candidates},
-                                    {"kind": "remainder_non_regression", "expect": "no-new-remainder"},
-                                    *(
-                                        [{"kind": "exception_obligation_non_regression", "expect": "XV1"}]
-                                        if include_exception_predicates
-                                        else []
-                                    ),
-                                ],
-                            )
-                        )
-                    )
-                else:
-                    _abstain(
-                        RewritePlanKind.AMBIENT_REWRITE,
-                        "ambient rewrite requires unresolved glossary ambiguity",
-                        ["candidates_non_empty", "glossary_ambiguity_present"],
-                    )
-            case _:
-                pass
-                never("unreachable wildcard match fall-through")
-        if not has_rewrite_inputs:
-            has_rewrite_inputs = has_rewrite_inputs
-
+                )
+            )
+        else:
+            _abstain(
+                RewritePlanKind.AMBIENT_REWRITE,
+                "ambient rewrite requires unresolved glossary ambiguity",
+                ["candidates_non_empty", "glossary_ambiguity_present"],
+            )
     return normalize_rewrite_plan_order(plans)
 
 
@@ -527,6 +526,20 @@ def summarize_rewrite_plans(
     return lines
 
 
+type LintLocation = tuple[str, int, int, str]
+
+
+def _is_lint_location(value: object) -> TypeGuard[LintLocation]:
+    return (
+        isinstance(value, tuple)
+        and len(value) == 4
+        and isinstance(value[0], str)
+        and isinstance(value[1], int)
+        and isinstance(value[2], int)
+        and isinstance(value[3], str)
+    )
+
+
 def parse_lint_location(line: str) -> object:
     match = re.match(r"^(?P<path>[^:]+):(?P<line>\d+):(?P<col>\d+)", line)
     if not match:
@@ -543,6 +556,25 @@ def parse_lint_location(line: str) -> object:
     return path, lineno, col, remainder
 
 
+def _parsed_lint_locations(
+    entries: Iterable[str],
+    *,
+    check_deadline: Callable[[], None],
+) -> Iterable[LintLocation]:
+    def _parse_entry(entry: str) -> object:
+        check_deadline()
+        return parse_lint_location(entry)
+
+    return filter(_is_lint_location, map(_parse_entry, entries))
+
+
+def _constant_smell_location_candidates(entry: str) -> Iterable[str]:
+    yield entry
+    sample = extract_smell_sample(entry)
+    if sample is not None:
+        yield sample
+
+
 def lint_lines_from_bundle_evidence(
     evidence: Iterable[str],
     *,
@@ -550,16 +582,13 @@ def lint_lines_from_bundle_evidence(
     lint_line: Callable[[str, int, int, str, str], str],
 ) -> list[str]:
     check_deadline()
-    lines: list[str] = []
-    for entry in evidence:
-        check_deadline()
-        parsed = parse_lint_location(entry)
-        if not parsed:
-            continue
-        path, lineno, col, remainder = parsed
-        message = remainder or "undocumented bundle"
-        lines.append(lint_line(path, lineno, col, "GABION_BUNDLE_UNDOC", message))
-    return lines
+    return [
+        lint_line(path, lineno, col, "GABION_BUNDLE_UNDOC", remainder or "undocumented bundle")
+        for path, lineno, col, remainder in _parsed_lint_locations(
+            evidence,
+            check_deadline=check_deadline,
+        )
+    ]
 
 
 def lint_lines_from_type_evidence(
@@ -569,16 +598,13 @@ def lint_lines_from_type_evidence(
     lint_line: Callable[[str, int, int, str, str], str],
 ) -> list[str]:
     check_deadline()
-    lines: list[str] = []
-    for entry in evidence:
-        check_deadline()
-        parsed = parse_lint_location(entry)
-        if not parsed:
-            continue
-        path, lineno, col, remainder = parsed
-        message = remainder or "type-flow evidence"
-        lines.append(lint_line(path, lineno, col, "GABION_TYPE_FLOW", message))
-    return lines
+    return [
+        lint_line(path, lineno, col, "GABION_TYPE_FLOW", remainder or "type-flow evidence")
+        for path, lineno, col, remainder in _parsed_lint_locations(
+            evidence,
+            check_deadline=check_deadline,
+        )
+    ]
 
 
 def lint_lines_from_unused_arg_smells(
@@ -588,16 +614,13 @@ def lint_lines_from_unused_arg_smells(
     lint_line: Callable[[str, int, int, str, str], str],
 ) -> list[str]:
     check_deadline()
-    lines: list[str] = []
-    for entry in smells:
-        check_deadline()
-        parsed = parse_lint_location(entry)
-        if not parsed:
-            continue
-        path, lineno, col, remainder = parsed
-        message = remainder or "unused argument flow"
-        lines.append(lint_line(path, lineno, col, "GABION_UNUSED_ARG", message))
-    return lines
+    return [
+        lint_line(path, lineno, col, "GABION_UNUSED_ARG", remainder or "unused argument flow")
+        for path, lineno, col, remainder in _parsed_lint_locations(
+            smells,
+            check_deadline=check_deadline,
+        )
+    ]
 
 
 def extract_smell_sample(entry: str) -> object:
@@ -614,16 +637,14 @@ def lint_lines_from_constant_smells(
     lint_line: Callable[[str, int, int, str, str], str],
 ) -> list[str]:
     check_deadline()
-    lines: list[str] = []
-    for entry in smells:
-        check_deadline()
-        parsed = parse_lint_location(entry)
-        if not parsed:
-            sample = extract_smell_sample(entry)
-            if sample:
-                parsed = parse_lint_location(sample)
-        if not parsed:
-            continue
-        path, lineno, col, _ = parsed
-        lines.append(lint_line(path, lineno, col, "GABION_CONST_FLOW", entry))
-    return lines
+    return [
+        lint_line(path, lineno, col, "GABION_CONST_FLOW", entry)
+        for entry in smells
+        for path, lineno, col, _ in islice(
+            _parsed_lint_locations(
+                _constant_smell_location_candidates(entry),
+                check_deadline=check_deadline,
+            ),
+            1,
+        )
+    ]

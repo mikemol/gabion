@@ -1,8 +1,11 @@
+# gabion:ambiguity_boundary_module
+# gabion:boundary_normalization_module
+# gabion:grade_boundary kind=semantic_carrier_adapter name=dataflow_refactor_planning
 from __future__ import annotations
 
 import json
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 
 from gabion.analysis.dataflow.engine.dataflow_analysis_index import _build_analysis_index
@@ -11,6 +14,7 @@ from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import _resolve_c
 from gabion.analysis.dataflow.engine.dataflow_ingest_helpers import resolve_analysis_paths
 from gabion.analysis.core.forest_signature import build_forest_signature_from_groups
 from gabion.analysis.foundation.json_types import JSONObject
+from gabion.analysis.foundation.resume_codec import mapping_optional
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.order_contract import sort_once
 from gabion.synthesis.schedule import topological_schedule
@@ -33,6 +37,12 @@ def _partial_forest_signature_metadata(
         "forest_signature_partial": True,
         "forest_signature_basis": basis,
     }
+
+
+def _suggested_entry_payloads(suggested: Iterable[JSONObject]) -> Iterator[dict[object, object]]:
+    for entry in filter(mapping_optional, suggested):
+        check_deadline()
+        yield entry
 
 
 def build_refactor_plan(
@@ -199,18 +209,9 @@ def render_reuse_lemma_stubs(reuse: JSONObject) -> str:
         lines.append("")
         return "\n".join(lines)
 
-    suggested_entries: list[dict[object, object]] = []
-    for entry in suggested:
-        check_deadline()
-        match entry:
-            case dict() as suggested_entry:
-                suggested_entries.append(suggested_entry)
-            case _:
-                continue
-                never("unreachable wildcard match fall-through")
     plan_artifacts: list[JSONObject] = []
     for entry in sort_once(
-        suggested_entries,
+        _suggested_entry_payloads(suggested),
         key=lambda item: (
             str(item.get("kind", "")),
             str(item.get("suggested_name", "")),

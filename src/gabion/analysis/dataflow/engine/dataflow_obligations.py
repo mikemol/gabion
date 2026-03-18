@@ -161,13 +161,9 @@ class _DeadlineObligationBuilder:
         suite_node = self.forest.nodes.get(suite_id)
         suite_meta = suite_node.meta if suite_node is not None else {}
         site_payload = cast(dict[str, object], entry["site"])
-        suite_identity = suite_meta.get("suite_id")
-        match suite_identity:
-            case str() as suite_identity_text if suite_identity_text:
-                site_payload["suite_id"] = suite_identity_text
-            case _:
-                pass
-                never("unreachable wildcard match fall-through")
+        match suite_meta.get("suite_id"):
+            case str() as suite_identity if suite_identity:
+                site_payload["suite_id"] = suite_identity
         site_payload["suite_kind"] = suite_kind
         paramset_id = self.forest.add_paramset(bundle)
         evidence: dict[str, object] = {

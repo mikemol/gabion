@@ -1,3 +1,6 @@
+# gabion:ambiguity_boundary_module
+# gabion:boundary_normalization_module
+# gabion:grade_boundary kind=semantic_carrier_adapter name=dataflow_raw_runtime
 from __future__ import annotations
 
 """Owned raw runtime entry surface extracted from legacy_dataflow_monolith."""
@@ -279,8 +282,8 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _normalize_transparent_decorators(
-    value: object,
-) -> object:
+    value: str | list[str] | tuple[str, ...] | set[str],
+) -> set[str] | None:
     check_deadline()
     items: list[str] = []
     match value:
@@ -294,11 +297,7 @@ def _normalize_transparent_decorators(
                         parts = [part.strip() for part in item_text.split(",") if part.strip()]
                         items.extend(parts)
                     case _:
-                        pass
                         never("unreachable wildcard match fall-through")
-        case _:
-            pass
-            never("unreachable wildcard match fall-through")
     if items:
         return set(items)
     return None
@@ -472,9 +471,13 @@ def _run_impl(
     strictness = merged.get("strictness") or "high"
     if strictness not in {"high", "low"}:
         strictness = "high"
-    transparent_decorators = _normalize_transparent_decorators(
-        merged.get("transparent_decorators")
-    )
+    raw_transparent_decorators = merged.get("transparent_decorators")
+    if raw_transparent_decorators is None:
+        transparent_decorators = None
+    else:
+        transparent_decorators = _normalize_transparent_decorators(
+            raw_transparent_decorators
+        )
     deadline_roots = set(dataflow_deadline_roots(merged))
     adapter_payload = dataflow_adapter_payload(merged)
     required_analysis_surfaces: set[str] = set()
@@ -486,7 +489,6 @@ def _run_impl(
                 if normalized_surface:
                     required_analysis_surfaces.add(normalized_surface)
             case _:
-                pass
                 never("unreachable wildcard match fall-through")
     config = AuditConfig(
         project_root=Path(args.root),

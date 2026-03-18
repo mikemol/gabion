@@ -1,3 +1,6 @@
+# gabion:ambiguity_boundary_module
+# gabion:boundary_normalization_module
+# gabion:grade_boundary kind=semantic_carrier_adapter name=dataflow_reporting
 from __future__ import annotations
 
 import os
@@ -30,6 +33,10 @@ class _ReportSectionKey:
 class _ReportEmitState:
     lines: list[str]
     violations: list[str]
+
+
+def _is_json_object(value: object) -> bool:
+    return isinstance(value, dict)
 
 
 def _default_parse_witness_contract_violations() -> list[str]:
@@ -336,14 +343,8 @@ def _append_report_tail_sections(
             unsupported_by_adapter,
             check_deadline=check_deadline,
         )
-        for diagnostic in unsupported_by_adapter:
+        for diagnostic in filter(_is_json_object, unsupported_by_adapter):
             check_deadline()
-            match diagnostic:
-                case dict():
-                    pass
-                case _:
-                    continue
-                    never("unreachable wildcard match fall-through")
             if bool(dict(diagnostic).get("required_by_policy", False)):
                 surface = str(dict(diagnostic).get("surface", ""))
                 adapter = str(dict(diagnostic).get("adapter", "native"))

@@ -1,3 +1,6 @@
+# gabion:ambiguity_boundary_module
+# gabion:boundary_normalization_module
+# gabion:grade_boundary kind=semantic_carrier_adapter name=dataflow_lint_helpers
 from __future__ import annotations
 
 """Lint and deadness helper ownership module during runtime retirement."""
@@ -6,6 +9,7 @@ import json
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import cache
+from itertools import chain
 from pathlib import Path
 from typing import Any, Mapping, cast
 
@@ -37,6 +41,17 @@ from gabion.invariants import decision_protocol, never
 from gabion.order_contract import sort_once
 
 _NEVER_STATUS_ORDER = {"VIOLATION": 0, "OBLIGATION": 1, "PROVEN_UNREACHABLE": 2}
+
+
+def _call_ambiguity_entry_payloads(
+    entries: Iterable[JSONObject],
+) -> Iterable[tuple[JSONObject, Mapping[str, object]]]:
+    for entry in filter(mapping_optional, entries):
+        check_deadline()
+        site_mapping = mapping_optional(entry.get("site"))
+        if site_mapping is None:
+            continue
+        yield entry, site_mapping
 
 _analysis_collection_resume_path_key = _resume_analysis_collection_resume_path_key
 
@@ -86,6 +101,39 @@ def _project_lint_rows_from_forest_default(*, forest):
     return _project_lint_rows_from_forest(forest=forest)
 
 
+def _count_value_or_zero(value: object) -> int:
+    try:
+        return int(value) if value is not None else 0
+    except (TypeError, ValueError):
+        return 0
+
+
+def _valid_projected_lint_rows(
+    projected: list[dict[str, JSONValue]],
+) -> Iterable[tuple[str, int, int, str, str]]:
+    for row in projected:
+        check_deadline()
+        path = str(row.get("path", "") or "")
+        code = str(row.get("code", "") or "")
+        message = str(row.get("message", "") or "")
+        if not path or not code:
+            continue
+        try:
+            line = int(row.get("line", 1) or 1)
+            col = int(row.get("col", 1) or 1)
+        except (TypeError, ValueError):
+            continue
+        yield path, line, col, code, message
+
+
+def _never_protocol_entries(entries: list[JSONObject]) -> Iterable[JSONObject]:
+    return (
+        entry
+        for entry in entries
+        if entry.get("protocol") == "never" and entry.get("status") != "DEAD"
+    )
+
+
 def _compute_lint_lines(
     *,
     forest,
@@ -119,64 +167,56 @@ def _compute_lint_lines(
     constant_lint_lines = _lint_lines_from_constant_smells(constant_smells)
     unused_arg_lint_lines = _lint_lines_from_unused_arg_smells(unused_arg_smells)
 
-    lint_rows: list[dict[str, JSONValue]] = []
-    lint_rows.extend(_lint_rows_from_lines(bundle_lint_lines, source="bundle_evidence"))
-    lint_rows.extend(_lint_rows_from_lines(type_lint_lines, source="type_evidence"))
-    lint_rows.extend(
-        _lint_rows_from_lines(ambiguity_lint_lines, source="ambiguity_witnesses")
-    )
-    lint_rows.extend(
-        _lint_rows_from_lines(exception_lint_lines, source="exception_obligations")
-    )
-    lint_rows.extend(_lint_rows_from_lines(never_lint_lines, source="never_invariants"))
-    lint_rows.extend(
-        _lint_rows_from_lines(deadline_lint_lines, source="deadline_obligations")
-    )
-    lint_rows.extend(_lint_rows_from_lines(decision_lint_lines, source="decision_surfaces"))
-    lint_rows.extend(_lint_rows_from_lines(broad_type_lint_lines, source="broad_type"))
-    lint_rows.extend(_lint_rows_from_lines(constant_lint_lines, source="constant_smells"))
-    lint_rows.extend(
-        _lint_rows_from_lines(unused_arg_lint_lines, source="unused_arg_smells")
+    lint_rows = list(
+        chain(
+            _lint_rows_from_lines(bundle_lint_lines, source="bundle_evidence"),
+            _lint_rows_from_lines(type_lint_lines, source="type_evidence"),
+            _lint_rows_from_lines(
+                ambiguity_lint_lines, source="ambiguity_witnesses"
+            ),
+            _lint_rows_from_lines(
+                exception_lint_lines, source="exception_obligations"
+            ),
+            _lint_rows_from_lines(never_lint_lines, source="never_invariants"),
+            _lint_rows_from_lines(
+                deadline_lint_lines, source="deadline_obligations"
+            ),
+            _lint_rows_from_lines(decision_lint_lines, source="decision_surfaces"),
+            _lint_rows_from_lines(broad_type_lint_lines, source="broad_type"),
+            _lint_rows_from_lines(constant_lint_lines, source="constant_smells"),
+            _lint_rows_from_lines(
+                unused_arg_lint_lines, source="unused_arg_smells"
+            ),
+        )
     )
 
     _materialize_lint_rows(forest=forest, rows=lint_rows)
     projected = project_lint_rows_from_forest_fn(forest=forest)
     if not projected:
         return []
-
-    rendered: list[str] = []
-    for row in projected:
-        check_deadline()
-        path = str(row.get("path", "") or "")
-        code = str(row.get("code", "") or "")
-        message = str(row.get("message", "") or "")
-        if not path or not code:
-            continue
-        try:
-            line = int(row.get("line", 1) or 1)
-            col = int(row.get("col", 1) or 1)
-        except (TypeError, ValueError):
-            continue
-        rendered.append(_lint_line(path, line, col, code, message))
-    return rendered
+    return [
+        _lint_line(path, line, col, code, message)
+        for path, line, col, code, message in _valid_projected_lint_rows(projected)
+    ]
 
 
 def _deadline_lint_lines(entries: list[JSONObject]) -> list[str]:
     check_deadline()
-    lines: list[str] = []
-    for entry in entries:
-        check_deadline()
-        site = mapping_optional(entry.get("site")) or {}
-        path = str(site.get("path", "") or "")
-        line, col = _span_line_col(entry.get("span"))
-        if not path:
-            continue
-        status = entry.get("status", "UNKNOWN")
-        kind = entry.get("kind", "?")
-        detail = entry.get("detail", "")
-        message = f"{status} {kind} {detail}".strip()
-        lines.append(_lint_line(path, line or 1, col or 1, "GABION_DEADLINE", message))
-    return lines
+    return [
+        _lint_line(
+            path,
+            line or 1,
+            col or 1,
+            "GABION_DEADLINE",
+            f"{entry.get('status', 'UNKNOWN')} {entry.get('kind', '?')} {entry.get('detail', '')}".strip(),
+        )
+        for entry in entries
+        for _ in (check_deadline(),)
+        for site in (mapping_optional(entry.get("site")) or {},)
+        for path in (str(site.get("path", "") or ""),)
+        if path
+        for line, col in (_span_line_col(entry.get("span")),)
+    ]
 
 
 def _collect_bundle_evidence_lines(
@@ -500,23 +540,21 @@ def _deadness_witnesses_from_constant_details(
 
 def _exception_protocol_lint_lines(entries: list[JSONObject]) -> list[str]:
     check_deadline()
-    lines: list[str] = []
-    for entry in entries:
-        check_deadline()
-        if entry.get("protocol") != "never":
-            continue
-        if entry.get("status") == "DEAD":
-            continue
-        exception_id = str(entry.get("exception_path_id", ""))
-        parsed = _parse_exception_path_id(exception_id)
-        if not parsed:
-            continue
-        path, lineno, col = parsed
-        exception_name = entry.get("exception_name") or "?"
-        status = entry.get("status", "UNKNOWN")
-        message = f"never-throw exception {exception_name} (status={status})"
-        lines.append(_lint_line(path, lineno, col, "GABION_EXC_NEVER", message))
-    return lines
+    return [
+        _lint_line(
+            path,
+            lineno,
+            col,
+            "GABION_EXC_NEVER",
+            f"never-throw exception {entry.get('exception_name') or '?'} (status={entry.get('status', 'UNKNOWN')})",
+        )
+        for entry in _never_protocol_entries(entries)
+        for _ in (check_deadline(),)
+        for exception_id in (str(entry.get("exception_path_id", "")),)
+        for parsed in (_parse_exception_path_id(exception_id),)
+        if parsed
+        for path, lineno, col in (parsed,)
+    ]
 
 
 @dataclass(frozen=True)
@@ -725,35 +763,20 @@ def _lint_lines_from_type_evidence(evidence: Iterable[str]) -> list[str]:
 
 def _lint_lines_from_call_ambiguities(entries: Iterable[JSONObject]) -> list[str]:
     check_deadline()
-    lines: list[str] = []
-    for entry in entries:
-        check_deadline()
-        match entry:
-            case dict() as entry_payload:
-                pass
-            case _:
-                continue
-                never("unreachable wildcard match fall-through")
-        site = entry_payload.get("site", {})
-        match site:
-            case dict() as site_mapping:
-                pass
-            case _:
-                continue
-                never("unreachable wildcard match fall-through")
-        path = str(site_mapping.get("path", "") or "")
-        if not path:
-            continue
-        lineno, col = _span_line_col(site_mapping.get("span"))
-        candidate_count = entry_payload.get("candidate_count")
-        try:
-            count_value = int(candidate_count) if candidate_count is not None else 0
-        except (TypeError, ValueError):
-            count_value = 0
-        kind = str(entry_payload.get("kind", "") or "ambiguity")
-        message = f"{kind} candidates={count_value}"
-        lines.append(_lint_line(path, lineno or 1, col or 1, "GABION_AMBIGUITY", message))
-    return lines
+    return [
+        _lint_line(
+            path,
+            lineno or 1,
+            col or 1,
+            "GABION_AMBIGUITY",
+            f"{str(entry_payload.get('kind', '') or 'ambiguity')} candidates={count_value}",
+        )
+        for entry_payload, site_mapping in _call_ambiguity_entry_payloads(entries)
+        for path in (str(site_mapping.get("path", "") or ""),)
+        if path
+        for lineno, col in (_span_line_col(site_mapping.get("span")),)
+        for count_value in (_count_value_or_zero(entry_payload.get("candidate_count")),)
+    ]
 
 
 def _lint_lines_from_constant_smells(smells: Iterable[str]) -> list[str]:

@@ -1,3 +1,6 @@
+# gabion:ambiguity_boundary_module
+# gabion:boundary_normalization_module
+# gabion:grade_boundary kind=semantic_carrier_adapter name=dataflow_report_rendering
 """Rendering adapters extracted from ``legacy_dataflow_monolith``."""
 
 from __future__ import annotations
@@ -9,6 +12,10 @@ from gabion.analysis.foundation.artifact_ordering import (
     canonical_count_summary_items, canonical_field_display_parts, canonical_protocol_specs, canonical_string_values)
 from gabion.analysis.foundation.json_types import JSONObject
 from gabion.invariants import never
+
+
+def _json_object_diagnostics(diagnostics: list[JSONObject]) -> list[JSONObject]:
+    return [diagnostic for diagnostic in diagnostics if isinstance(diagnostic, dict)]
 
 
 def render_synthesis_section(
@@ -68,14 +75,8 @@ def render_unsupported_by_adapter_section(
     check_deadline: Callable[[], None],
 ) -> list[str]:
     lines: list[str] = []
-    for diagnostic in diagnostics:
+    for diagnostic in _json_object_diagnostics(diagnostics):
         check_deadline()
-        match diagnostic:
-            case dict():
-                pass
-            case _:
-                continue
-                never("unreachable wildcard match fall-through")
         surface = str(diagnostic.get("surface", ""))
         adapter = str(diagnostic.get("adapter", "native"))
         required = bool(diagnostic.get("required_by_policy", False))
