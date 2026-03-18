@@ -22,13 +22,14 @@ def _suite_fixture() -> tuple[tuple[str, tuple[int, int, int, int]], ...]:
 def _canonical_suite_order_facets(
     forest: Forest,
 ) -> list[tuple[tuple[object, ...], tuple[tuple[str, object], ...]]]:
-    canonical_rows: list[tuple[tuple[object, ...], tuple[tuple[str, object], ...]]] = []
-    for alt in forest.alts:
-        if alt.kind != "SpecFacet" or alt.evidence.get("spec_name") != "suite_order":
-            continue
-        evidence = tuple(sorted((str(key), value) for key, value in alt.evidence.items()))
-        canonical_rows.append((alt.inputs, evidence))
-    return canonical_rows
+    return [
+        (
+            alt.inputs,
+            tuple(sorted((str(key), value) for key, value in alt.evidence.items())),
+        )
+        for alt in forest.alts
+        if alt.kind == "SpecFacet" and alt.evidence.get("spec_name") == "suite_order"
+    ]
 
 
 # gabion:evidence E:call_footprint::tests/test_suite_order_projection_spec.py::test_suite_order_spec_materializes_spec_facets::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._materialize_suite_order_spec
@@ -77,7 +78,7 @@ def test_suite_order_projection_gauge_fixing_is_deterministic() -> None:
     for suite_kind, span in _suite_fixture():
         right.add_suite_site("mod.py", "mod.fn", suite_kind, span=span)
 
-    right.add_spec_site(
+    right.add_versioned_spec_site(
         spec_hash="preexisting",
         spec_name="suite_order",
         spec_domain="suite_order",
@@ -97,7 +98,7 @@ def test_suite_order_noncanonical_representatives_collapse_to_same_relation() ->
     noncanonical = Forest()
 
     canonical.add_suite_site("mod.py", "mod.fn", "loop", span=(2, 0, 3, 1))
-    noncanonical.add_spec_site(
+    noncanonical.add_versioned_spec_site(
         spec_hash="spec",
         spec_name="suite_order",
         spec_domain="suite_order",

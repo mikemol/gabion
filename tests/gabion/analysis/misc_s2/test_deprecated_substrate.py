@@ -10,7 +10,13 @@ from gabion.analysis.core.deprecated_substrate import (
 # gabion:behavior primary=allowed_unwanted facets=deprecated
 def test_deprecated_requires_canonical_path_and_blocker_payload() -> None:
     blocker = DeprecatedBlocker(blocker_id="B1", kind="owner", summary="needs owner")
-    fiber = deprecated(canonical_aspf_path=("pkg", "fn"), blockers=(blocker,))
+    fiber = deprecated(
+        canonical_aspf_path=("pkg", "fn"),
+        blockers=(blocker,),
+        lifecycle=DeprecatedLifecycleState.ACTIVE,
+        fiber_id="aspf:pkg/fn",
+        resolution_metadata={},
+    )
     assert fiber.fiber_id == "aspf:pkg/fn"
 
 
@@ -32,7 +38,13 @@ def test_extraction_pipeline_is_deterministic() -> None:
         depends_on=("B1",),
     )
     fibers = (
-        deprecated(canonical_aspf_path=("a", "b"), blockers=(blocker,)),
+        deprecated(
+            canonical_aspf_path=("a", "b"),
+            blockers=(blocker,),
+            lifecycle=DeprecatedLifecycleState.BLOCKED,
+            fiber_id="aspf:a/b",
+            resolution_metadata={},
+        ),
     )
     artifacts = build_deprecated_extraction_artifacts(
         perf_samples=samples,
@@ -93,7 +105,7 @@ def test_blocker_and_fiber_payload_edges() -> None:
         }
     )
     assert fiber.blocker_payload[0].blocker_id == "B4"
-    assert fiber.resolution_metadata is None
+    assert fiber.resolution_metadata == {}
 
     resolved_without_sequence_blockers = DeprecatedFiber.from_payload(
         {
@@ -112,20 +124,35 @@ def test_deprecated_constructor_and_gating_edges() -> None:
     blocker = DeprecatedBlocker(blocker_id="B5", kind="owner", summary="owner needed")
 
     with pytest.raises(ValueError):
-        deprecated(canonical_aspf_path=(), blockers=(blocker,))
+        deprecated(
+            canonical_aspf_path=(),
+            blockers=(blocker,),
+            lifecycle=DeprecatedLifecycleState.ACTIVE,
+            fiber_id="aspf:pkg",
+            resolution_metadata={},
+        )
     with pytest.raises(ValueError):
-        deprecated(canonical_aspf_path=("pkg",), blockers=())
+        deprecated(
+            canonical_aspf_path=("pkg",),
+            blockers=(),
+            lifecycle=DeprecatedLifecycleState.ACTIVE,
+            fiber_id="aspf:pkg",
+            resolution_metadata={},
+        )
     with pytest.raises(ValueError):
         deprecated(
             canonical_aspf_path=("pkg",),
             blockers=(),
             lifecycle=DeprecatedLifecycleState.RESOLVED,
+            fiber_id="aspf:pkg",
+            resolution_metadata={},
         )
 
     resolved = deprecated(
         canonical_aspf_path=("pkg", "resolved"),
         blockers=(),
         lifecycle=DeprecatedLifecycleState.RESOLVED,
+        fiber_id="aspf:pkg/resolved",
         resolution_metadata={"ticket": "GH-1"},
     )
     assert resolved.fiber_id == "aspf:pkg/resolved"
@@ -133,12 +160,20 @@ def test_deprecated_constructor_and_gating_edges() -> None:
     explicit = deprecated(
         canonical_aspf_path=("pkg", "explicit"),
         blockers=(blocker,),
+        lifecycle=DeprecatedLifecycleState.ACTIVE,
         fiber_id="custom:fiber",
+        resolution_metadata={},
     )
     assert explicit.fiber_id == "custom:fiber"
 
     previous = (
-        deprecated(canonical_aspf_path=("pkg", "missing"), blockers=(blocker,)),
+        deprecated(
+            canonical_aspf_path=("pkg", "missing"),
+            blockers=(blocker,),
+            lifecycle=DeprecatedLifecycleState.ACTIVE,
+            fiber_id="aspf:pkg/missing",
+            resolution_metadata={},
+        ),
         resolved,
     )
     continuity = check_semantic_fiber_continuity(

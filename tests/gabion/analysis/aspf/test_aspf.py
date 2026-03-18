@@ -113,7 +113,7 @@ def test_to_json_omits_meta_for_nodes_without_metadata() -> None:
 # gabion:behavior primary=desired
 def test_add_spec_site_records_optional_spec_fields() -> None:
     forest = Forest()
-    node_id = forest.add_spec_site(
+    node_id = forest.add_versioned_spec_site(
         spec_hash="abc123",
         spec_name="demo",
         spec_domain="analysis",

@@ -10,7 +10,7 @@ from gabion.json_types import JSONValue
 from gabion.invariants import never
 from gabion.order_contract import sort_once
 
-
+# gabion:grade_boundary kind=semantic_carrier_adapter name=canonical.canon
 def canon(value: object) -> JSONValue:
     check_deadline()
     match value:
@@ -24,20 +24,14 @@ def canon(value: object) -> JSONValue:
             return {key: canon(value_mapping[key]) for key in keys}
         case tuple() as tuple_value:
             return [canon(item) for item in tuple_value]
+        case ["ms", pairs] as multiset_value if sequence_optional(pairs) is not None:
+            return _canon_multiset(multiset_value)
         case list() as list_value:
-            if _looks_multiset(list_value):
-                return _canon_multiset(list_value)
             return [canon(item) for item in list_value]
-        case set() as set_value:
-            never(
-                "canon() does not accept unordered set inputs",
-                value_type=type(set_value).__name__,
-            )
+        case set():
+            never("canon() does not accept unordered set inputs")
         case _:
-            never(
-                "canon() received non-JSON value",
-                value_type=type(value).__name__,
-            )
+            never("canon() received non-JSON value")
 
 
 def encode_canon(value: object) -> str:
@@ -55,13 +49,6 @@ def digest_index(value: object) -> str:
     encoded = encode_canon(value).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
 
-
-def _looks_multiset(value: list[object]) -> bool:
-    match value:
-        case [marker, pairs]:
-            return marker == "ms" and sequence_optional(pairs) is not None
-        case _:
-            never("unreachable wildcard match fall-through")
 def _canon_multiset(value: list[object]) -> JSONValue:
     marker = value[0] if value else None
     if marker != "ms":

@@ -9,8 +9,12 @@ from gabion.analysis.aspf.aspf import Forest, NodeId
 from gabion.analysis import AuditConfig, analyze_paths
 from gabion.analysis.projection.projection_spec import ProjectionSpec
 from gabion.analysis.projection.projection_registry import WL_REFINEMENT_SPEC
-from gabion.analysis.core.wl_refinement import (
-    _bool_param, _int_param, _seed_struct, _string_list_param, emit_wl_refinement_facets)
+from gabion.analysis.core.wl_refinement import emit_wl_refinement_facets
+from gabion.analysis.core.wl_refinement_ingress import (
+    _normalize_wl_refinement_params,
+    _normalized_seed_values,
+    _seed_struct,
+)
 from gabion.exceptions import NeverThrown
 from gabion.invariants import (
     InvariantProfile,
@@ -230,14 +234,20 @@ def test_emit_wl_refinement_facets_no_targets_is_noop() -> None:
     assert not forest.alts
 
 
-# gabion:evidence E:call_footprint::tests/test_wl_refinement.py::test_wl_refinement_private_param_helpers_and_seed_struct::wl_refinement.py::gabion.analysis.wl_refinement._bool_param::wl_refinement.py::gabion.analysis.wl_refinement._int_param::wl_refinement.py::gabion.analysis.wl_refinement._seed_struct::wl_refinement.py::gabion.analysis.wl_refinement._string_list_param
+# gabion:evidence E:call_footprint::tests/test_wl_refinement.py::test_wl_refinement_param_normalization_and_seed_struct::wl_refinement.py::gabion.analysis.wl_refinement._normalize_wl_refinement_params::wl_refinement.py::gabion.analysis.wl_refinement._seed_struct
 # gabion:behavior primary=desired
-def test_wl_refinement_private_param_helpers_and_seed_struct() -> None:
-    params = {"flag_true": "yes", "flag_false": "off", "steps": "bad", "fields": []}
-    assert _bool_param(params, "flag_true", False) is True
-    assert _bool_param(params, "flag_false", True) is False
-    assert _int_param(params, "steps", 9) == 9
-    assert _string_list_param(params, "fields", default=("suite_kind",)) == ("suite_kind",)
+def test_wl_refinement_param_normalization_and_seed_struct() -> None:
+    params = {
+        "stabilize_early": "yes",
+        "require_injective_on_scope": "off",
+        "steps": "bad",
+        "seed_fields": [],
+    }
+    normalized = _normalize_wl_refinement_params(params)
+    assert normalized.stabilize_early is True
+    assert normalized.require_injective is False
+    assert normalized.steps == 2
+    assert normalized.seed_fields == ("suite_kind",)
 
     forest = Forest()
     site = forest.add_suite_site(
@@ -247,26 +257,54 @@ def test_wl_refinement_private_param_helpers_and_seed_struct() -> None:
         span=(1, 0, 1, 2),
     )
     forest.nodes[site].meta.update(
-        {"complex": object(), "tags": ["a"], "attrs": {"x": 1}}
+        {"complex": {"parts": ["a", 1]}, "tags": ["a"], "attrs": {"x": 1}}
     )
-    seed = _seed_struct(
+    seed_values = _normalized_seed_values(
         node_id=site,
         forest=forest,
         seed_fields=("degree", "complex", "tags", "attrs", "suite_kind"),
         degree=2,
     )
+    seed = _seed_struct(
+        seed_values=seed_values,
+    )
     assert seed["degree"] == 2
-    assert isinstance(seed["complex"], str)
+    assert seed["complex"] == {"parts": ["a", 1]}
     assert seed["tags"] == ["a"]
     assert seed["attrs"] == {"x": 1}
     assert _seed_struct(
-        node_id=NodeId(kind="SuiteSite", key=("missing.py", "mod.fn", "body")),
-        forest=forest,
-        seed_fields=("suite_kind",),
-        degree=0,
-    ) == {}
-    assert _bool_param({"flag": 1}, "flag", False) is True
-    assert _bool_param({"flag": "maybe"}, "flag", False) is False
+        seed_values=_normalized_seed_values(
+            node_id=site,
+            forest=forest,
+            seed_fields=("suite_kind",),
+            degree=0,
+        ),
+    ) == {"suite_kind": "function"}
+    explicit = _normalize_wl_refinement_params(
+        {
+            "stabilize_early": 1,
+            "require_injective_on_scope": "maybe",
+        }
+    )
+    assert explicit.stabilize_early is True
+    assert explicit.require_injective is False
+
+    with pytest.raises(NeverThrown):
+        _normalized_seed_values(
+            node_id=NodeId(kind="SuiteSite", key=("missing.py", "mod.fn", "body")),
+            forest=forest,
+            seed_fields=("suite_kind",),
+            degree=0,
+        )
+
+    forest.nodes[site].meta["complex"] = object()
+    with pytest.raises(NeverThrown):
+        _normalized_seed_values(
+            node_id=site,
+            forest=forest,
+            seed_fields=("complex",),
+            degree=0,
+        )
 
 
 # gabion:evidence E:call_footprint::tests/test_wl_refinement.py::test_emit_wl_refinement_covers_duplicate_neighbor_counts_and_skip_non_targets::wl_refinement.py::gabion.analysis.wl_refinement.emit_wl_refinement_facets
@@ -292,13 +330,23 @@ def test_emit_wl_refinement_covers_duplicate_neighbor_counts_and_skip_non_target
 # gabion:evidence E:call_footprint::tests/test_wl_refinement.py::test_emit_wl_refinement_stabilize_early_branch::test_wl_refinement.py::tests.test_wl_refinement._build_suite_forest::test_wl_refinement.py::tests.test_wl_refinement._wl_facet_payload::wl_refinement.py::gabion.analysis.wl_refinement.emit_wl_refinement_facets
 # gabion:behavior primary=desired
 def test_emit_wl_refinement_stabilize_early_branch() -> None:
-    forest = _build_suite_forest(child_kinds=("if_body",))
+    forest = Forest()
+    forest.add_suite_site("mod.py", "pkg.mod.fn", "function")
+    spec = ProjectionSpec(
+        spec_version=1,
+        name="wl_refinement_stable",
+        domain="wl_refinement",
+        params={
+            **WL_REFINEMENT_SPEC.params,
+            "seed_fields": [],
+            "steps": 4,
+        },
+    )
     emit_wl_refinement_facets(
         forest=forest,
-        spec=WL_REFINEMENT_SPEC,
-        canon_fn=lambda _value: "stable",
+        spec=spec,
     )
     nodes, facets = _wl_facet_payload(forest)
     assert len(nodes) == 1
-    assert len(facets) == 2
+    assert len(facets) == 1
     assert {facet.get("evidence", {}).get("wl_step") for facet in facets} == {0}

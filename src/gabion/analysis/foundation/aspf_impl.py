@@ -61,6 +61,50 @@ def _canonicalize_intern_identity(node_id: NodeId) -> _InternIdentity:
     )
 
 
+# gabion:grade_boundary kind=semantic_carrier_adapter name=aspf_impl._intern_projection_spec_site
+def _intern_projection_spec_site(
+    forest: "Forest",
+    *,
+    spec_hash: str,
+    spec_name: str,
+    spec_domain: str,
+) -> NodeId:
+    key: NodeKey = ("projection_spec", spec_hash, "spec")
+    meta: dict[str, object] = {
+        "path": "projection_spec",
+        "qual": spec_hash,
+        "suite_kind": "spec",
+        "spec_name": spec_name,
+        "spec_hash": spec_hash,
+    }
+    if spec_domain:
+        meta["spec_domain"] = spec_domain
+    return forest._intern_node(NodeId(kind="SuiteSite", key=key), meta)
+
+
+# gabion:grade_boundary kind=semantic_carrier_adapter name=aspf_impl._intern_versioned_projection_spec_site
+def _intern_versioned_projection_spec_site(
+    forest: "Forest",
+    *,
+    spec_hash: str,
+    spec_name: str,
+    spec_domain: str,
+    spec_version: int,
+) -> NodeId:
+    key: NodeKey = ("projection_spec", spec_hash, "spec")
+    meta: dict[str, object] = {
+        "path": "projection_spec",
+        "qual": spec_hash,
+        "suite_kind": "spec",
+        "spec_name": spec_name,
+        "spec_hash": spec_hash,
+        "spec_version": spec_version,
+    }
+    if spec_domain:
+        meta["spec_domain"] = spec_domain
+    return forest._intern_node(NodeId(kind="SuiteSite", key=key), meta)
+
+
 @dataclass(frozen=True)
 class NodeId:
     kind: str
@@ -450,32 +494,37 @@ class Forest:
         # dataflow-bundle: child, parent
         return self.add_alt("SuiteContains", (parent, child), evidence=evidence)
 
+    # gabion:grade_boundary kind=semantic_carrier_adapter name=aspf_impl.add_spec_site
     def add_spec_site(
         self,
         *,
         spec_hash: str,
         spec_name: str,
-        spec_domain: object = None,
-        spec_version: object = None,
+        spec_domain: str = "",
     ) -> NodeId:
-        key: NodeKey = ("projection_spec", spec_hash, "spec")
-        node_id = NodeId(kind="SuiteSite", key=key)
-        meta: dict[str, object] = {
-            "path": "projection_spec",
-            "qual": spec_hash,
-            "suite_kind": "spec",
-            "spec_name": spec_name,
-            "spec_hash": spec_hash,
-        }
-        if spec_domain:
-            meta["spec_domain"] = str(spec_domain)
-        match spec_version:
-            case int() as normalized_spec_version:
-                meta["spec_version"] = int(normalized_spec_version)
-            case _:
-                pass
-                never("unreachable wildcard match fall-through")
-        return self._intern_node(node_id, meta)
+        return _intern_projection_spec_site(
+            self,
+            spec_hash=spec_hash,
+            spec_name=spec_name,
+            spec_domain=spec_domain,
+        )
+
+    # gabion:grade_boundary kind=semantic_carrier_adapter name=aspf_impl.add_versioned_spec_site
+    def add_versioned_spec_site(
+        self,
+        *,
+        spec_hash: str,
+        spec_name: str,
+        spec_domain: str = "",
+        spec_version: int,
+    ) -> NodeId:
+        return _intern_versioned_projection_spec_site(
+            self,
+            spec_hash=spec_hash,
+            spec_name=spec_name,
+            spec_domain=spec_domain,
+            spec_version=spec_version,
+        )
 
     def add_alt(
         self,

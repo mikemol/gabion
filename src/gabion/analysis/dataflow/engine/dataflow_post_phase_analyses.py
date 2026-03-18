@@ -5,7 +5,7 @@ from __future__ import annotations
 import ast
 from collections import defaultdict
 from dataclasses import dataclass, field
-from functools import singledispatch
+from functools import partial, singledispatch
 from pathlib import Path
 from typing import Callable, Iterable, Sequence, cast
 
@@ -536,42 +536,25 @@ def _names_in_expr(expr: ast.AST) -> set[str]:
     return names
 
 
-def _eval_value_expr(expr: ast.AST, env: dict[str, JSONValue]):
-    return _eval_value_expr_impl(
-        expr,
-        env,
-        check_deadline_fn=check_deadline,
-    )
+_eval_value_expr = partial(
+    _eval_value_expr_impl,
+    check_deadline_fn=check_deadline,
+)
 
+_eval_bool_expr = partial(
+    _eval_bool_expr_impl,
+    check_deadline_fn=check_deadline,
+)
 
-def _eval_bool_expr(expr: ast.AST, env: dict[str, JSONValue]):
-    return _eval_bool_expr_impl(
-        expr,
-        env,
-        check_deadline_fn=check_deadline,
-    )
+_branch_reachability_under_env = partial(
+    _branch_reachability_under_env_impl,
+    check_deadline_fn=check_deadline,
+    node_in_block_fn=_node_in_block,
+)
 
+_is_reachability_false = _is_reachability_false_impl
 
-def _branch_reachability_under_env(
-    node: ast.AST,
-    parents: dict[ast.AST, ast.AST],
-    env: dict[str, JSONValue],
-):
-    return _branch_reachability_under_env_impl(
-        node,
-        parents,
-        env,
-        check_deadline_fn=check_deadline,
-        node_in_block_fn=_node_in_block,
-    )
-
-
-def _is_reachability_false(reachability) -> bool:
-    return _is_reachability_false_impl(reachability)
-
-
-def _is_reachability_true(reachability) -> bool:
-    return _is_reachability_true_impl(reachability)
+_is_reachability_true = _is_reachability_true_impl
 
 
 def _dead_env_map(

@@ -1,32 +1,96 @@
+# gabion:ambiguity_boundary_module
+# gabion:boundary_normalization_module
+# gabion:grade_boundary kind=semantic_carrier_adapter name=dataflow_deadline_collector
 from __future__ import annotations
 
 import ast
+from dataclasses import dataclass
 from collections.abc import Callable
-from functools import singledispatch, singledispatchmethod
 
 from gabion.invariants import never
-from gabion.runtime_shape_dispatch import str_optional
 
 
-@singledispatch
 def _is_deadline_loop_iter_callee(func: ast.AST) -> bool:
-    never("unregistered runtime type", value_type=type(func).__name__)
+    match func:
+        case ast.Name(id="deadline_loop_iter") | ast.Attribute(attr="deadline_loop_iter"):
+            return True
+        case ast.AST():
+            return False
+        case _:
+            never("deadline callee classifier must receive AST nodes")
 
 
-@_is_deadline_loop_iter_callee.register(ast.AST)
-def _is_deadline_loop_iter_callee_default(func: ast.AST) -> bool:
-    del func
-    return False
+@dataclass(frozen=True)
+class _DeadlineCallMark:
+    ambient_check: bool = False
+    checked_params: tuple[str, ...] = ()
 
 
-@_is_deadline_loop_iter_callee.register(ast.Name)
-def _is_deadline_loop_iter_callee_name(func: ast.Name) -> bool:
-    return func.id == "deadline_loop_iter"
+def _classify_deadline_call(
+    *,
+    func: ast.AST,
+    args: list[ast.AST],
+    params: frozenset[str],
+    deadline_check_methods: frozenset[str],
+) -> _DeadlineCallMark:
+    match func:
+        case ast.Attribute(attr=attr, value=value):
+            checked_params: list[str] = []
+            if attr in deadline_check_methods:
+                match value:
+                    case ast.Name(id=owner_name) if owner_name in params:
+                        checked_params.append(owner_name)
+            if attr == "check_deadline" and args:
+                match args[0]:
+                    case ast.Name(id=first_name) if first_name in params:
+                        checked_params.append(first_name)
+            return _DeadlineCallMark(
+                ambient_check=(attr == "deadline_loop_iter")
+                or (attr in {"check_deadline", "require_deadline"} and not args),
+                checked_params=tuple(checked_params),
+            )
+        case ast.Name(id=func_name):
+            checked_params: tuple[str, ...] = ()
+            if func_name == "check_deadline" and args:
+                match args[0]:
+                    case ast.Name(id=first_name) if first_name in params:
+                        checked_params = (first_name,)
+            return _DeadlineCallMark(
+                ambient_check=(func_name == "deadline_loop_iter")
+                or (func_name in {"check_deadline", "require_deadline"} and not args),
+                checked_params=checked_params,
+            )
+        case ast.AST():
+            return _DeadlineCallMark()
+        case _:
+            never("deadline call classifier must receive AST nodes")
 
 
-@_is_deadline_loop_iter_callee.register(ast.Attribute)
-def _is_deadline_loop_iter_callee_attribute(func: ast.Attribute) -> bool:
-    return func.attr == "deadline_loop_iter"
+# gabion:grade_boundary kind=semantic_carrier_adapter name=dataflow_deadline_collector._apply_deadline_call_mark
+def _apply_deadline_call_mark(
+    *,
+    collector: object,
+    node: ast.Call,
+    params: set[str],
+    deadline_check_methods: frozenset[str],
+) -> None:
+    collector._record_call_span(node)
+    call_mark = _classify_deadline_call(
+        func=node.func,
+        args=node.args,
+        params=params,
+        deadline_check_methods=deadline_check_methods,
+    )
+    if call_mark.ambient_check:
+        if collector._loop_stack:
+            collector._loop_stack[-1].ambient_check = True
+        else:
+            collector.ambient_check = True
+    for name in call_mark.checked_params:
+        if collector._loop_stack:
+            collector._loop_stack[-1].check_params.add(name)
+        else:
+            collector.check_params.add(name)
 
 
 def make_deadline_function_collector(
@@ -35,7 +99,7 @@ def make_deadline_function_collector(
     check_deadline_fn: Callable[[], None],
     deadline_loop_facts_ctor: Callable[..., object],
 ):
-    deadline_check_methods = {"check", "expired"}
+    deadline_check_methods = frozenset({"check", "expired"})
 
     class _DeadlineFunctionCollector(ast.NodeVisitor):
         def __init__(self, root: ast.AST, params: set[str]) -> None:
@@ -47,18 +111,6 @@ def make_deadline_function_collector(
             self.loop_sites: list[object] = []
             self._loop_stack: list[object] = []
             self.assignments: list[tuple[list[ast.AST], object, object]] = []
-
-        def _mark_param_check(self, name: str) -> None:
-            if self._loop_stack:
-                self._loop_stack[-1].check_params.add(name)
-            else:
-                self.check_params.add(name)
-
-        def _mark_ambient_check(self) -> None:
-            if self._loop_stack:
-                self._loop_stack[-1].ambient_check = True
-            else:
-                self.ambient_check = True
 
         def _record_call_span(self, node: ast.AST) -> None:
             if self._loop_stack:
@@ -73,7 +125,6 @@ def make_deadline_function_collector(
                 case _:
                     return False
 
-                    never("unreachable wildcard match fall-through")
         def _visit_loop_body(
             self,
             node: ast.AST,
@@ -131,53 +182,15 @@ def make_deadline_function_collector(
             self.visit(node.test)
             self._visit_loop_body(node, "while")
 
+        # gabion:grade_boundary kind=semantic_carrier_adapter name=dataflow_deadline_collector.visit_Call
         def visit_Call(self, node: ast.Call) -> None:
-            self._record_call_span(node)
-            self._mark_deadline_call(node.func, node.args)
+            _apply_deadline_call_mark(
+                collector=self,
+                node=node,
+                params=self._params,
+                deadline_check_methods=deadline_check_methods,
+            )
             self.generic_visit(node)
-
-        @singledispatchmethod
-        def _mark_deadline_call(self, func: ast.AST, args: list[ast.AST]) -> None:
-            never("unregistered runtime type", value_type=type(func).__name__)
-
-        @_mark_deadline_call.register(ast.AST)
-        def _mark_deadline_call_default(self, func: ast.AST, args: list[ast.AST]) -> None:
-            del func, args
-            return
-
-        @_mark_deadline_call.register(ast.Attribute)
-        def _mark_deadline_call_attribute(
-            self,
-            func: ast.Attribute,
-            args: list[ast.AST],
-        ) -> None:
-            if func.attr == "deadline_loop_iter":
-                self._mark_ambient_check()
-
-            owner_name = str_optional(func.value)
-            if owner_name is not None and func.attr in deadline_check_methods and owner_name in self._params:
-                self._mark_param_check(owner_name)
-
-            if func.attr == "check_deadline":
-                first_name = str_optional(args[0]) if args else None
-                if first_name is not None and first_name in self._params:
-                    self._mark_param_check(first_name)
-
-            if func.attr in {"check_deadline", "require_deadline"} and not args:
-                self._mark_ambient_check()
-
-        @_mark_deadline_call.register(ast.Name)
-        def _mark_deadline_call_name(self, func: ast.Name, args: list[ast.AST]) -> None:
-            if func.id == "deadline_loop_iter":
-                self._mark_ambient_check()
-
-            if func.id == "check_deadline":
-                first_name = str_optional(args[0]) if args else None
-                if first_name is not None and first_name in self._params:
-                    self._mark_param_check(first_name)
-
-            if func.id in {"check_deadline", "require_deadline"} and not args:
-                self._mark_ambient_check()
 
         def visit_Assign(self, node: ast.Assign) -> None:
             self.assignments.append((node.targets, node.value, node_span_fn(node)))

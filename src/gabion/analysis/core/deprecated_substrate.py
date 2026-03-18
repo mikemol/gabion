@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import StrEnum
 from collections.abc import Mapping, Sequence
 
@@ -49,36 +49,25 @@ class DeprecatedFiber:
     fiber_id: str
     canonical_aspf_path: tuple[str, ...]
     lifecycle: DeprecatedLifecycleState
-    blocker_payload: tuple[DeprecatedBlocker, ...] = ()
-    resolution_metadata: object = None
+    blocker_payload: tuple[DeprecatedBlocker, ...]
+    resolution_metadata: dict[str, object]
 
     @classmethod
+    # gabion:grade_boundary kind=semantic_carrier_adapter name=deprecated_substrate.DeprecatedFiber.from_payload
     def from_payload(cls, payload: Mapping[str, object]) -> "DeprecatedFiber":
-        path_raw = payload.get("canonical_aspf_path", ())
-        match path_raw:
-            case str() | bytes():
-                raise ValueError("canonical_aspf_path must be a sequence")
-        path_sequence = sequence_optional(path_raw, allow_str=False) or ()
-        path = tuple(str(item).strip() for item in path_sequence if str(item).strip())
-        lifecycle = DeprecatedLifecycleState(str(payload.get("lifecycle", "active") or "active"))
-        blockers_raw = payload.get("blocker_payload", ())
-        blockers: list[DeprecatedBlocker] = []
-        blockers_sequence = sequence_optional(blockers_raw, allow_str=False) or ()
-        for item in blockers_sequence:
-            blocker_payload = mapping_optional(item)
-            if blocker_payload is not None:
-                blockers.append(DeprecatedBlocker.from_payload(blocker_payload))
-        metadata = None
-        resolution_metadata_payload = payload.get("resolution_metadata")
-        match resolution_metadata_payload:
-            case Mapping() as resolution_metadata:
-                metadata = resolution_metadata
+        (
+            canonical_aspf_path,
+            blocker_payload,
+            lifecycle,
+            fiber_id,
+            resolution_metadata,
+        ) = _decoded_deprecated_fiber_inputs(payload)
         return deprecated(
-            canonical_aspf_path=path,
-            blockers=tuple(blockers),
+            canonical_aspf_path=canonical_aspf_path,
+            blockers=blocker_payload,
             lifecycle=lifecycle,
-            fiber_id=str(payload.get("fiber_id", "") or "").strip() or None,
-            resolution_metadata=metadata,
+            fiber_id=fiber_id,
+            resolution_metadata=resolution_metadata,
         )
 
 
@@ -86,9 +75,9 @@ def deprecated(
     *,
     canonical_aspf_path: Sequence[str],
     blockers: Sequence[DeprecatedBlocker],
-    lifecycle: DeprecatedLifecycleState = DeprecatedLifecycleState.ACTIVE,
-    fiber_id: object = None,
-    resolution_metadata: object = None,
+    lifecycle: DeprecatedLifecycleState,
+    fiber_id: str,
+    resolution_metadata: dict[str, object],
 ) -> DeprecatedFiber:
     path = tuple(str(item).strip() for item in canonical_aspf_path if str(item).strip())
     if not path:
@@ -96,23 +85,63 @@ def deprecated(
     blocker_payload = tuple(blockers)
     if lifecycle is not DeprecatedLifecycleState.RESOLVED and not blocker_payload:
         raise ValueError("deprecated() requires blocker payload unless lifecycle is resolved")
-    if lifecycle is DeprecatedLifecycleState.RESOLVED and resolution_metadata is None:
+    if lifecycle is DeprecatedLifecycleState.RESOLVED and not resolution_metadata:
         raise ValueError("resolved deprecated fiber requires resolution metadata")
-    if fiber_id is None:
-        fiber_id = "aspf:" + "/".join(path)
-    resolved_metadata: object = None
-    match resolution_metadata:
-        case Mapping() as metadata_mapping:
-            resolved_metadata = metadata_mapping
-        case _:
-            resolved_metadata = None
-            never("unreachable wildcard match fall-through")
     return DeprecatedFiber(
-        fiber_id=str(fiber_id),
+        fiber_id=fiber_id,
         canonical_aspf_path=path,
         lifecycle=lifecycle,
         blocker_payload=blocker_payload,
-        resolution_metadata=resolved_metadata,
+        resolution_metadata=resolution_metadata,
+    )
+
+
+# gabion:grade_boundary kind=semantic_carrier_adapter name=deprecated_substrate._decoded_deprecated_fiber_inputs
+def _decoded_deprecated_fiber_inputs(
+    payload: Mapping[str, object],
+) -> tuple[
+    tuple[str, ...],
+    tuple[DeprecatedBlocker, ...],
+    DeprecatedLifecycleState,
+    str,
+    dict[str, object],
+]:
+    path_raw = payload.get("canonical_aspf_path", ())
+    match path_raw:
+        case str() | bytes():
+            raise ValueError("canonical_aspf_path must be a sequence")
+    path_sequence = sequence_optional(path_raw, allow_str=False) or ()
+    canonical_aspf_path = tuple(
+        str(item).strip() for item in path_sequence if str(item).strip()
+    )
+
+    blockers_raw = payload.get("blocker_payload", ())
+    blockers_sequence = sequence_optional(blockers_raw, allow_str=False) or ()
+    blocker_payload = tuple(
+        DeprecatedBlocker.from_payload(blocker_mapping)
+        for item in blockers_sequence
+        for blocker_mapping in (mapping_optional(item),)
+        if blocker_mapping is not None
+    )
+
+    lifecycle = DeprecatedLifecycleState(
+        str(payload.get("lifecycle", "active") or "active")
+    )
+    resolution_metadata_payload = mapping_optional(payload.get("resolution_metadata"))
+    resolution_metadata = (
+        dict(resolution_metadata_payload)
+        if resolution_metadata_payload is not None
+        else {}
+    )
+    fiber_id = str(payload.get("fiber_id", "") or "").strip()
+    if not fiber_id:
+        fiber_id = "aspf:" + "/".join(canonical_aspf_path)
+    return (
+        canonical_aspf_path,
+        blocker_payload,
+        lifecycle,
+        fiber_id,
+        resolution_metadata,
     )
 
 
@@ -148,12 +177,7 @@ def ingest_perf_samples(samples: Sequence[Mapping[str, object]]) -> tuple[PerfSa
         stack = tuple(str(item).strip() for item in stack_sequence if str(item).strip())
         if stack:
             weight_raw = sample.get("weight", 1)
-            match weight_raw:
-                case int() as weight_value if weight_value > 0:
-                    weight = int(weight_value)
-                case _:
-                    weight = 1
-                    never("unreachable wildcard match fall-through")
+            weight = int(weight_raw) if type(weight_raw) is int and weight_raw > 0 else 1
             parsed.append(PerfSample(stack=stack, weight=weight))
     return tuple(parsed)
 
