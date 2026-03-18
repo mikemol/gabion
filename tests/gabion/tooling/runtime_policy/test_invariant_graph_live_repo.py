@@ -92,6 +92,7 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         "CSA-IVL",
         "CSA-RGC",
         "DGR",
+        "PSN",
         "PRF",
         "PSF-007",
         "RCI",

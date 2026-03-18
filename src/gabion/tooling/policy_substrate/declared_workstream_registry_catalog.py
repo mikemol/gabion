@@ -21,6 +21,9 @@ from gabion.tooling.policy_substrate.dataflow_grammar_readiness_registry import 
 from gabion.tooling.policy_substrate.policy_rule_frontmatter_migration_registry import (
     prf_workstream_registry,
 )
+from gabion.tooling.policy_substrate.public_surface_normalization_registry import (
+    public_surface_normalization_workstream_registry,
+)
 from gabion.tooling.policy_substrate.projection_semantic_fragment_phase5_registry import (
     phase5_workstream_registry,
 )
@@ -98,6 +101,10 @@ def declared_workstream_registry_catalog() -> tuple[
         DeclaredWorkstreamRegistryProvider(
             provider_id="wrd",
             loader=wrapper_retirement_drain_workstream_registry,
+        ),
+        DeclaredWorkstreamRegistryProvider(
+            provider_id="psn",
+            loader=public_surface_normalization_workstream_registry,
         ),
         DeclaredWorkstreamRegistryFamilyProvider(
             provider_id="connectivity_synergy",

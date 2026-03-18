@@ -10,6 +10,9 @@ from gabion.tooling.policy_substrate.invariant_graph import (
 from gabion.tooling.policy_substrate.policy_rule_frontmatter_migration_registry import (
     prf_workstream_registry,
 )
+from gabion.tooling.policy_substrate.public_surface_normalization_registry import (
+    public_surface_normalization_workstream_registry,
+)
 from gabion.tooling.policy_substrate.projection_semantic_fragment_phase5_registry import (
     phase5_workstream_registry,
 )
@@ -932,6 +935,91 @@ def test_wrapper_retirement_drain_workstream_registry_exposes_migration_program(
 
 
 # gabion:behavior primary=desired
+def test_public_surface_normalization_workstream_registry_exposes_drain_program() -> None:
+    registry = public_surface_normalization_workstream_registry()
+    subqueues = {item.subqueue_id: item for item in registry.subqueues}
+    touchpoints = {item.touchpoint_id: item for item in registry.touchpoints}
+
+    assert registry.root.root_id == "PSN"
+    assert registry.tags == ("public_surface_normalization",)
+    assert registry.root.status_hint == "in_progress"
+    assert registry.root.marker_payload.lifecycle_state is MarkerLifecycleState.ACTIVE
+    assert registry.root.subqueue_ids == (
+        "PSN-SQ-001",
+        "PSN-SQ-002",
+        "PSN-SQ-003",
+        "PSN-SQ-004",
+    )
+    assert tuple(item.subqueue_id for item in registry.subqueues) == (
+        "PSN-SQ-001",
+        "PSN-SQ-002",
+        "PSN-SQ-003",
+        "PSN-SQ-004",
+    )
+    assert subqueues["PSN-SQ-001"].status_hint == "in_progress"
+    assert subqueues["PSN-SQ-001"].touchpoint_ids == ("PSN-TP-001", "PSN-TP-002")
+    assert subqueues["PSN-SQ-002"].status_hint == "in_progress"
+    assert subqueues["PSN-SQ-002"].touchpoint_ids == ("PSN-TP-003",)
+    assert subqueues["PSN-SQ-003"].status_hint == "in_progress"
+    assert subqueues["PSN-SQ-003"].touchpoint_ids == (
+        "PSN-TP-004",
+        "PSN-TP-005",
+        "PSN-TP-006",
+    )
+    assert subqueues["PSN-SQ-004"].status_hint == "in_progress"
+    assert subqueues["PSN-SQ-004"].touchpoint_ids == ("PSN-TP-007", "PSN-TP-008")
+    assert all(
+        item.marker_payload.lifecycle_state is MarkerLifecycleState.ACTIVE
+        for item in registry.subqueues
+    )
+    assert set(touchpoints) == {
+        "PSN-TP-001",
+        "PSN-TP-002",
+        "PSN-TP-003",
+        "PSN-TP-004",
+        "PSN-TP-005",
+        "PSN-TP-006",
+        "PSN-TP-007",
+        "PSN-TP-008",
+    }
+    assert all(item.status_hint == "queued" for item in registry.touchpoints)
+    assert all(
+        item.marker_payload.lifecycle_state is MarkerLifecycleState.ACTIVE
+        for item in registry.touchpoints
+    )
+    assert {
+        (item.rel_path, item.qualname)
+        for item in touchpoints["PSN-TP-001"].declared_touchsites
+    } >= {
+        ("src/gabion/cli.py", "_TOOLING_ARGV_RUNNERS"),
+        ("src/gabion/tooling/runtime/policy_check_cli.py", "main"),
+        ("src/gabion/tooling/runtime/docflow_packetize_cli.py", "main"),
+        ("src/gabion/tooling/runtime/docflow_packet_enforce_cli.py", "main"),
+    }
+    assert {
+        (item.rel_path, item.qualname)
+        for item in touchpoints["PSN-TP-003"].declared_touchsites
+    } >= {
+        ("src/gabion/tooling/governance/governance_audit.py", "BOUNDARY_ADAPTER_METADATA"),
+        ("src/gabion_governance/governance_entrypoint.py", "main"),
+        ("src/gabion_governance/docflow_command.py", "run_docflow_cli"),
+        ("src/gabion_governance/status_consistency_command.py", "run_status_consistency_cli"),
+    }
+    assert {
+        link.value
+        for link in touchpoints["PSN-TP-001"].marker_payload.links
+        if link.kind == "object_id"
+    } >= {"PSN", "PSN-SQ-001", "PSN-TP-001", "WRD-TP-002", "WRD-TP-004"}
+    assert {
+        (item.rel_path, item.qualname)
+        for item in touchpoints["PSN-TP-007"].declared_touchsites
+    } >= {
+        ("scripts/policy/private_symbol_import_guard.py", "main"),
+        ("scripts/policy/policy_check.py", "main"),
+    }
+
+
+# gabion:behavior primary=desired
 def test_declared_workstream_registries_include_structural_anti_pattern_convergence_root() -> None:
     assert "SAC" in {
         registry.root.root_id for registry in declared_workstream_registries()
@@ -948,6 +1036,13 @@ def test_declared_workstream_registries_include_dataflow_grammar_readiness_root(
 # gabion:behavior primary=desired
 def test_declared_workstream_registries_include_wrapper_retirement_drain_root() -> None:
     assert "WRD" in {
+        registry.root.root_id for registry in declared_workstream_registries()
+    }
+
+
+# gabion:behavior primary=desired
+def test_declared_workstream_registries_include_public_surface_normalization_root() -> None:
+    assert "PSN" in {
         registry.root.root_id for registry in declared_workstream_registries()
     }
 
