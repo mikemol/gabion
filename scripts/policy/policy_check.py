@@ -16,6 +16,10 @@ from typing import Mapping
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(REPO_ROOT / "src"))
+
 from gabion.analysis.surfaces.test_behavior import (
     collect_test_behavior_contract_violations,
 )
@@ -46,7 +50,6 @@ except ImportError:  # pragma: no cover - handled as a hard error at runtime.
     yaml = None
 
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW_DIR = REPO_ROOT / ".github" / "workflows"
 
 ALLOWED_ACTIONS_FILE = REPO_ROOT / "docs" / "allowed_actions.txt"
