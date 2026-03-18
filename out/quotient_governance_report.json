@@ -7,6 +7,6 @@
   },
   "sources": {
     "workflows": ".github/workflows/*.yml",
-    "policy_check": "scripts/policy/policy_check.py --workflows"
+    "policy_check": "gabion policy check --workflows"
   }
 }
