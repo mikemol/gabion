@@ -14,6 +14,9 @@ from gabion.tooling.policy_substrate import invariant_graph
 from gabion.tooling.policy_substrate.projection_semantic_fragment_phase5_registry import (
     phase5_workstream_registry,
 )
+from gabion.tooling.policy_substrate.dataflow_grammar_readiness_registry import (
+    dataflow_grammar_readiness_workstream_registry,
+)
 from gabion.tooling.policy_substrate.unit_test_readiness_registry import (
     unit_test_readiness_workstream_registry,
 )
@@ -42,6 +45,61 @@ def _write(path: Path, content: str) -> None:
 def _write_json(path: Path, payload: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
+def _write_dataflow_terminal_outcome(
+    root: Path,
+    *,
+    terminal_status: str,
+    terminal_exit: int = 0,
+    terminal_state: str = "done",
+    terminal_stage: str = "RUN",
+    attempts_run: int = 1,
+) -> None:
+    _write_json(
+        root / "artifacts" / "audit_reports" / "dataflow_terminal_outcome.json",
+        {
+            "format_version": 1,
+            "terminal_exit": terminal_exit,
+            "terminal_state": terminal_state,
+            "terminal_stage": terminal_stage,
+            "terminal_status": terminal_status,
+            "attempts_run": attempts_run,
+        },
+    )
+
+
+def _write_dataflow_obligation_trace(
+    root: Path,
+    *,
+    complete: bool,
+    incompleteness_markers: tuple[str, ...] = (),
+    obligations: list[dict[str, object]] | None = None,
+) -> None:
+    obligation_rows = obligations or []
+    _write_json(
+        root / "artifacts" / "out" / "obligation_trace.json",
+        {
+            "trace_version": 1,
+            "complete": complete,
+            "incompleteness_markers": list(incompleteness_markers),
+            "summary": {
+                "total": len(obligation_rows),
+                "satisfied": sum(
+                    1 for row in obligation_rows if row.get("status") == "satisfied"
+                ),
+                "unsatisfied": sum(
+                    1 for row in obligation_rows if row.get("status") == "unsatisfied"
+                ),
+                "skipped_by_policy": sum(
+                    1
+                    for row in obligation_rows
+                    if row.get("status") == "skipped_by_policy"
+                ),
+            },
+            "obligations": obligation_rows,
+        },
+    )
 
 
 def _git(root: Path, *args: str) -> str:
@@ -3016,6 +3074,191 @@ def test_build_invariant_graph_clears_unit_test_readiness_indicator_when_matchin
     assert utr_touchpoint["test_failure_count"] == 0
     assert utr_workstream["failing_test_case_count"] == 0
     assert utr_workstream["test_failure_count"] == 0
+
+
+# gabion:behavior primary=desired
+def test_build_invariant_graph_routes_dataflow_terminal_hard_failures_into_dgr_touchpoints(
+    tmp_path: Path,
+) -> None:
+    root = write_minimal_invariant_repo(tmp_path)
+    _write_dataflow_terminal_outcome(
+        root,
+        terminal_status="hard_failure",
+        terminal_exit=2,
+        terminal_state="failed",
+    )
+
+    graph = invariant_graph.build_invariant_graph(
+        root,
+        declared_registries=(dataflow_grammar_readiness_workstream_registry(),),
+    )
+
+    dgr_touchpoint_node = next(
+        node
+        for node in graph.nodes
+        if node.node_kind == "synthetic_work_item" and node.matches_raw_id("DGR-TP-001")
+    )
+    terminal_node = next(
+        node for node in graph.nodes if node.node_kind == "dataflow_terminal_outcome"
+    )
+    edges = {(edge.edge_kind, edge.source_id, edge.target_id) for edge in graph.edges}
+    assert ("blocks", terminal_node.node_id, dgr_touchpoint_node.node_id) in edges
+
+    workstreams_payload = invariant_graph.build_invariant_workstreams(
+        graph, root=root
+    ).as_payload()
+    dgr_workstream = next(
+        item for item in workstreams_payload["workstreams"] if item["object_id"] == "DGR"
+    )
+    dgr_touchpoint = next(
+        item for item in dgr_workstream["touchpoints"] if item["object_id"] == "DGR-TP-001"
+    )
+    assert dgr_touchpoint["dataflow_terminal_failure_count"] == 1
+    assert dgr_touchpoint["dataflow_timeout_resume_count"] == 0
+    assert dgr_workstream["dataflow_terminal_failure_count"] == 1
+    assert dgr_workstream["dataflow_timeout_resume_count"] == 0
+
+
+# gabion:behavior primary=desired
+def test_build_invariant_graph_routes_timeout_resume_and_incomplete_markers_into_dgr_touchpoints(
+    tmp_path: Path,
+) -> None:
+    root = write_minimal_invariant_repo(tmp_path)
+    _write_dataflow_terminal_outcome(
+        root,
+        terminal_status="timeout_resume",
+        terminal_exit=2,
+        terminal_state="timed_out_progress_resume",
+    )
+    _write_dataflow_obligation_trace(
+        root,
+        complete=False,
+        incompleteness_markers=("terminal_non_success", "timeout_or_partial_run"),
+    )
+
+    graph = invariant_graph.build_invariant_graph(
+        root,
+        declared_registries=(dataflow_grammar_readiness_workstream_registry(),),
+    )
+
+    dgr_touchpoint_node = next(
+        node
+        for node in graph.nodes
+        if node.node_kind == "synthetic_work_item" and node.matches_raw_id("DGR-TP-002")
+    )
+    terminal_node = next(
+        node for node in graph.nodes if node.node_kind == "dataflow_terminal_outcome"
+    )
+    edges = {(edge.edge_kind, edge.source_id, edge.target_id) for edge in graph.edges}
+    assert ("blocks", terminal_node.node_id, dgr_touchpoint_node.node_id) in edges
+
+    workstreams_payload = invariant_graph.build_invariant_workstreams(
+        graph, root=root
+    ).as_payload()
+    dgr_workstream = next(
+        item for item in workstreams_payload["workstreams"] if item["object_id"] == "DGR"
+    )
+    dgr_touchpoint = next(
+        item for item in dgr_workstream["touchpoints"] if item["object_id"] == "DGR-TP-002"
+    )
+    assert dgr_touchpoint["dataflow_timeout_resume_count"] == 1
+    assert dgr_workstream["dataflow_timeout_resume_count"] == 1
+
+
+# gabion:behavior primary=desired
+def test_build_invariant_graph_routes_dataflow_obligation_rows_into_dgr_touchpoints(
+    tmp_path: Path,
+) -> None:
+    root = write_minimal_invariant_repo(tmp_path)
+    _write_dataflow_terminal_outcome(root, terminal_status="success")
+    _write_dataflow_obligation_trace(
+        root,
+        complete=True,
+        obligations=[
+            {
+                "id": "obl-1",
+                "stage_id": "run",
+                "rule_evaluated": "contract_a:kind_a",
+                "trigger_evidence": "detail-a",
+                "required_action": "fix-a",
+                "status": "unsatisfied",
+                "raw_status": "VIOLATION",
+                "contract": "contract_a",
+                "kind": "kind_a",
+                "section_id": "intro",
+                "phase": "run",
+            },
+            {
+                "id": "obl-2",
+                "stage_id": "run",
+                "rule_evaluated": "contract_b:kind_b",
+                "trigger_evidence": "detail-b",
+                "required_action": "fix-b",
+                "status": "skipped_by_policy",
+                "raw_status": "OBLIGATION",
+                "contract": "contract_b",
+                "kind": "kind_b",
+                "section_id": "summary",
+                "phase": "cleanup",
+            },
+        ],
+    )
+
+    graph = invariant_graph.build_invariant_graph(
+        root,
+        declared_registries=(dataflow_grammar_readiness_workstream_registry(),),
+    )
+
+    node_kind_counts = graph.as_payload()["counts"]["node_kind_counts"]
+    assert node_kind_counts["dataflow_obligation"] == 2
+
+    workstreams_payload = invariant_graph.build_invariant_workstreams(
+        graph, root=root
+    ).as_payload()
+    dgr_workstream = next(
+        item for item in workstreams_payload["workstreams"] if item["object_id"] == "DGR"
+    )
+    unsatisfied_touchpoint = next(
+        item for item in dgr_workstream["touchpoints"] if item["object_id"] == "DGR-TP-003"
+    )
+    skipped_touchpoint = next(
+        item for item in dgr_workstream["touchpoints"] if item["object_id"] == "DGR-TP-004"
+    )
+    assert unsatisfied_touchpoint["dataflow_unsatisfied_obligation_count"] == 1
+    assert skipped_touchpoint["dataflow_skipped_obligation_count"] == 1
+    assert dgr_workstream["dataflow_unsatisfied_obligation_count"] == 1
+    assert dgr_workstream["dataflow_skipped_obligation_count"] == 1
+
+
+# gabion:behavior primary=desired
+def test_build_invariant_graph_clears_dgr_indicator_when_local_dataflow_run_is_complete(
+    tmp_path: Path,
+) -> None:
+    root = write_minimal_invariant_repo(tmp_path)
+    _write_dataflow_terminal_outcome(root, terminal_status="success")
+    _write_dataflow_obligation_trace(root, complete=True)
+
+    graph = invariant_graph.build_invariant_graph(
+        root,
+        declared_registries=(dataflow_grammar_readiness_workstream_registry(),),
+    )
+    workstreams_payload = invariant_graph.build_invariant_workstreams(
+        graph, root=root
+    ).as_payload()
+    dgr_workstream = next(
+        item for item in workstreams_payload["workstreams"] if item["object_id"] == "DGR"
+    )
+    assert dgr_workstream["dataflow_terminal_failure_count"] == 0
+    assert dgr_workstream["dataflow_timeout_resume_count"] == 0
+    assert dgr_workstream["dataflow_unsatisfied_obligation_count"] == 0
+    assert dgr_workstream["dataflow_skipped_obligation_count"] == 0
+    assert all(
+        item["dataflow_terminal_failure_count"] == 0
+        and item["dataflow_timeout_resume_count"] == 0
+        and item["dataflow_unsatisfied_obligation_count"] == 0
+        and item["dataflow_skipped_obligation_count"] == 0
+        for item in dgr_workstream["touchpoints"]
+    )
 
 
 # gabion:behavior primary=desired

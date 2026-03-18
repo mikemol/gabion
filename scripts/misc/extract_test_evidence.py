@@ -103,4 +103,9 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(
+        "Removed direct script entrypoint: scripts/misc/extract_test_evidence.py. "
+        "Use `gabion repo extract-test-evidence`. "
+        "See docs/user_workflows.md#user_workflows and "
+        "docs/normative_clause_index.md#clause-command-maturity-parity."
+    )

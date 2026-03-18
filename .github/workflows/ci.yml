@@ -48,24 +48,24 @@ jobs:
           .venv/bin/python -m gabion \
             --carrier direct \
             --timeout 130000000000000ns \
-            run-dataflow-stage \
-            --debug-dump-interval-seconds 60 \
-            --stage-strictness-profile "run=high"
+            check delta-bundle \
+            --report artifacts/audit_reports/dataflow_report.md \
+            --strictness high
       - name: Finalize dataflow audit outcome
         if: always()
         env:
-          TERMINAL_EXIT: ${{ steps.dataflow_stage.outputs.exit_code }}
-          TERMINAL_STATE: ${{ steps.dataflow_stage.outputs.analysis_state }}
-          TERMINAL_STAGE: ${{ steps.dataflow_stage.outputs.terminal_stage }}
-          TERMINAL_STATUS: ${{ steps.dataflow_stage.outputs.terminal_status }}
-          ATTEMPTS_RUN: ${{ steps.dataflow_stage.outputs.attempts_run }}
+          STEP_OUTCOME: ${{ steps.dataflow_stage.outcome }}
         run: |
+          terminal_exit=0
+          if [ "${STEP_OUTCOME}" != "success" ]; then
+            terminal_exit=1
+          fi
           .venv/bin/python scripts/ci/ci_finalize_dataflow_outcome.py \
-            --terminal-exit "${TERMINAL_EXIT:-}" \
-            --terminal-state "${TERMINAL_STATE:-none}" \
-            --terminal-stage "${TERMINAL_STAGE:-none}" \
-            --terminal-status "${TERMINAL_STATUS:-unknown}" \
-            --attempts-run "${ATTEMPTS_RUN:-0}"
+            --terminal-exit "${terminal_exit}" \
+            --terminal-state "none" \
+            --terminal-stage "none" \
+            --terminal-status "unknown" \
+            --attempts-run "0"
       - name: Deadline profile summary
         if: always()
         run: |
@@ -130,13 +130,13 @@ jobs:
           .venv/bin/uv pip sync requirements.lock
           .venv/bin/uv pip install -e .
       - name: CLI ci-watch surface
-        run: .venv/bin/python -m gabion ci-watch --help
+        run: .venv/bin/python -m gabion ci watch --help
       - name: Policy check (workflows)
-        run: .venv/bin/python -m scripts.policy.policy_check --workflows
+        run: .venv/bin/python -m gabion policy check --workflows
       - name: Policy check (ambiguity contract)
-        run: .venv/bin/python -m scripts.policy.policy_check --ambiguity-contract
+        run: .venv/bin/python -m gabion policy check --ambiguity-contract
       - name: Policy check (tier2 residue contract)
-        run: .venv/bin/python -m scripts.policy.policy_check --tier2-residue-contract
+        run: .venv/bin/python -m gabion policy check --tier2-residue-contract
       - name: Policy check (posture)
         if: github.event_name == 'push'
         env:
@@ -146,12 +146,12 @@ jobs:
             echo "POLICY_GITHUB_TOKEN not set; skipping posture check."
             exit 0
           fi
-          .venv/bin/python -m scripts.policy.policy_check --posture
+          .venv/bin/python -m gabion policy check --posture
       - name: Docflow audit
         run: .venv/bin/python -m gabion docflow --root . --fail-on-violations --sppf-gh-ref-mode required
       - name: Docflow packetize
         run: |
-          .venv/bin/python scripts/policy/docflow_packetize.py \
+          .venv/bin/python -m gabion policy docflow-packetize \
             --root . \
             --compliance artifacts/out/docflow_compliance.json \
             --section-reviews artifacts/out/docflow_section_reviews.json \
@@ -175,9 +175,9 @@ jobs:
           if [ -n "${BEFORE_SHA:-}" ] && [ "${BEFORE_SHA}" != "0000000000000000000000000000000000000000" ]; then
             args+=(--base-sha "${BEFORE_SHA}" --head-sha "${AFTER_SHA}")
           fi
-          .venv/bin/python scripts/policy/docflow_packet_enforce.py "${args[@]}"
+          .venv/bin/python -m gabion policy docflow-packet-enforce "${args[@]}"
       - name: SPPF status drift audit
-        run: .venv/bin/python -m scripts.sppf.sppf_status_audit --root .
+        run: .venv/bin/python -m gabion sppf status-audit --root .
       - name: SPPF issue lifecycle validation (non-mutating)
         if: github.event_name == 'push'
         env:
@@ -203,7 +203,7 @@ jobs:
               rev_range="HEAD~20..HEAD"
             fi
           fi
-          .venv/bin/python -m scripts.sppf.sppf_sync \
+          .venv/bin/python -m gabion sppf sync \
             --validate \
             --only-when-relevant \
             --range "$rev_range" \
@@ -212,15 +212,15 @@ jobs:
             --require-label status/pending-release
       - name: Test evidence index
         run: |
-          .venv/bin/python -m scripts.misc.extract_test_evidence --root . --tests tests --out out/test_evidence.json
+          .venv/bin/python -m gabion repo extract-test-evidence --root . --tests tests --out out/test_evidence.json
           git diff --exit-code out/test_evidence.json
       - name: Test behavior index
         run: |
-          .venv/bin/python -m scripts.misc.extract_test_behavior --root . --tests tests --out out/test_behavior.json
+          .venv/bin/python -m gabion repo extract-test-behavior --root . --tests tests --out out/test_behavior.json
           git diff --exit-code out/test_behavior.json
       - name: Policy check workflows
         run: |
-          .venv/bin/python scripts/policy/policy_check.py --workflows --output artifacts/out/policy_check_result.json
+          .venv/bin/python -m gabion policy check --workflows --output artifacts/out/policy_check_result.json
       - name: Structural hash policy check
         run: |
           .venv/bin/python scripts/policy/structural_hash_policy_check.py --root . --output artifacts/out/structural_hash_result.json
@@ -239,7 +239,7 @@ jobs:
           if [ -n "${BEFORE_SHA:-}" ] && [ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ] && [ -n "${AFTER_SHA:-}" ]; then
             args+=(--base-sha "$BEFORE_SHA" --head-sha "$AFTER_SHA")
           fi
-          .venv/bin/python scripts/policy/policy_scanner_suite.py "${args[@]}"
+          .venv/bin/python -m gabion policy scanner "${args[@]}"
       - name: Restore controller drift gate history
         continue-on-error: true
         env:
@@ -264,7 +264,7 @@ jobs:
           gh api "$history_url" > artifacts/out/controller_drift_gate_history.zip
           python -c 'import zipfile; from pathlib import Path; z=Path("artifacts/out/controller_drift_gate_history.zip"); zipfile.ZipFile(z).extractall("artifacts/out"); z.unlink(missing_ok=True)'
       - name: Controller drift audit
-        run: .venv/bin/python scripts/governance/governance_controller_audit.py --out artifacts/out/controller_drift.json
+        run: .venv/bin/python -m gabion governance controller-audit --out artifacts/out/controller_drift.json
       - name: Override lifecycle record emit
         run: .venv/bin/python scripts/ci/ci_override_record_emit.py --out artifacts/out/governance_override_record.json
       - name: Controller drift gate
@@ -290,7 +290,7 @@ jobs:
             --log-file-level=INFO
       - name: Delta bundle
         run: |
-          .venv/bin/python scripts/misc/aspf_handoff.py run \
+          .venv/bin/python -m gabion aspf handoff run \
             --root . \
             --session-id "${GABION_ASPF_HANDOFF_SESSION}" \
             --step-id "ci.checks.delta-bundle" \
@@ -310,7 +310,7 @@ jobs:
             check delta-gates
       - name: Governance telemetry emit
         run: |
-          .venv/bin/python scripts/governance/governance_telemetry_emit.py \
+          .venv/bin/python -m gabion governance telemetry-emit \
             --run-id "${{ github.run_id }}-${{ github.run_attempt }}" \
             --timings artifacts/audit_reports/ci_step_timings.json \
             --history artifacts/out/governance_telemetry_history.json \

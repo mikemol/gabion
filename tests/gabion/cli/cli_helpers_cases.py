@@ -4031,7 +4031,7 @@ def test_run_sppf_sync_label_only_branch() -> None:
 # gabion:behavior primary=verboten facets=error
 def test_sppf_sync_command_handles_runner_errors() -> None:
     runner = CliRunner()
-    result = runner.invoke(cli.app, ["sppf-sync", "--range", "__not_a_rev_range__"])
+    result = runner.invoke(cli.app, ["sppf", "sync", "--range", "__not_a_rev_range__"])
     assert result.exit_code == 2
 
 

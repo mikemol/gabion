@@ -205,7 +205,15 @@ def test_ci_watch_failure_can_skip_artifact_collection(tmp_path: Path) -> None:
         deps=deps,
     )
     assert rc == 1
-    assert commands == [["gh", "run", "watch", "98765", "--exit-status"]]
+    assert commands == [[
+        "gh",
+        "run",
+        "watch",
+        "98765",
+        "--exit-status",
+        "--interval",
+        "60",
+    ]]
     assert list(tmp_path.iterdir()) == []
     assert stderr_messages == []
 
@@ -242,7 +250,15 @@ def test_ci_watch_success_does_not_collect_failure_artifacts(tmp_path: Path) -> 
         deps=deps,
     )
     assert rc == 0
-    assert commands == [["gh", "run", "watch", "55555", "--exit-status"]]
+    assert commands == [[
+        "gh",
+        "run",
+        "watch",
+        "55555",
+        "--exit-status",
+        "--interval",
+        "60",
+    ]]
     assert list(tmp_path.iterdir()) == []
     assert stderr_messages == []
 

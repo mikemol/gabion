@@ -315,4 +315,9 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(
+        "Removed direct script entrypoint: scripts/governance/governance_controller_audit.py. "
+        "Use `gabion governance controller-audit`. "
+        "See docs/user_workflows.md#user_workflows and "
+        "docs/normative_clause_index.md#clause-command-maturity-parity."
+    )

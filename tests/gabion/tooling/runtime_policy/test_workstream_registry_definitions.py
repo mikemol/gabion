@@ -22,11 +22,17 @@ from gabion.tooling.policy_substrate.runtime_context_injection_registry import (
 from gabion.tooling.policy_substrate.boundary_ingress_convergence_registry import (
     boundary_ingress_convergence_workstream_registry,
 )
+from gabion.tooling.policy_substrate.dataflow_grammar_readiness_registry import (
+    dataflow_grammar_readiness_workstream_registry,
+)
 from gabion.tooling.policy_substrate.unit_test_readiness_registry import (
     unit_test_readiness_workstream_registry,
 )
 from gabion.tooling.policy_substrate.structural_anti_pattern_convergence_registry import (
     structural_anti_pattern_convergence_workstream_registry,
+)
+from gabion.tooling.policy_substrate.wrapper_retirement_drain_registry import (
+    wrapper_retirement_drain_workstream_registry,
 )
 
 
@@ -704,6 +710,58 @@ def test_unit_test_readiness_workstream_registry_exposes_selector_clusters() -> 
 
 
 # gabion:behavior primary=desired
+def test_dataflow_grammar_readiness_workstream_registry_exposes_local_signal_clusters() -> None:
+    registry = dataflow_grammar_readiness_workstream_registry()
+    subqueues = {item.subqueue_id: item for item in registry.subqueues}
+    touchpoints = {item.touchpoint_id: item for item in registry.touchpoints}
+
+    assert registry.root.root_id == "DGR"
+    assert registry.tags == ("dataflow_grammar_readiness",)
+    assert registry.root.status_hint == "in_progress"
+    assert registry.root.subqueue_ids == ("DGR-SQ-001", "DGR-SQ-002")
+    assert tuple(item.subqueue_id for item in registry.subqueues) == (
+        "DGR-SQ-001",
+        "DGR-SQ-002",
+    )
+    assert subqueues["DGR-SQ-001"].touchpoint_ids == ("DGR-TP-001", "DGR-TP-002")
+    assert subqueues["DGR-SQ-002"].touchpoint_ids == ("DGR-TP-003", "DGR-TP-004")
+    assert all(item.status_hint == "in_progress" for item in registry.subqueues)
+    assert set(touchpoints) == {
+        "DGR-TP-001",
+        "DGR-TP-002",
+        "DGR-TP-003",
+        "DGR-TP-004",
+    }
+    assert all(item.status_hint == "queued" for item in registry.touchpoints)
+    assert (
+        touchpoints["DGR-TP-001"].dataflow_signal_selector is not None
+        and touchpoints["DGR-TP-001"].dataflow_signal_selector.terminal_statuses
+        == ("hard_failure",)
+    )
+    assert (
+        touchpoints["DGR-TP-002"].dataflow_signal_selector is not None
+        and touchpoints["DGR-TP-002"].dataflow_signal_selector.terminal_statuses
+        == ("timeout_resume",)
+    )
+    assert (
+        touchpoints["DGR-TP-002"].dataflow_signal_selector is not None
+        and touchpoints["DGR-TP-002"].dataflow_signal_selector.incompleteness_markers
+        == ("terminal_non_success", "timeout_or_partial_run")
+    )
+    assert (
+        touchpoints["DGR-TP-003"].dataflow_signal_selector is not None
+        and touchpoints["DGR-TP-003"].dataflow_signal_selector.obligation_statuses
+        == ("unsatisfied",)
+    )
+    assert (
+        touchpoints["DGR-TP-004"].dataflow_signal_selector is not None
+        and touchpoints["DGR-TP-004"].dataflow_signal_selector.obligation_statuses
+        == ("skipped_by_policy",)
+    )
+    assert all(not item.test_path_prefixes for item in registry.touchpoints)
+
+
+# gabion:behavior primary=desired
 def test_structural_anti_pattern_convergence_workstream_registry_exposes_contract_root() -> None:
     registry = structural_anti_pattern_convergence_workstream_registry()
     subqueues = {item.subqueue_id: item for item in registry.subqueues}
@@ -761,8 +819,135 @@ def test_structural_anti_pattern_convergence_workstream_registry_exposes_contrac
 
 
 # gabion:behavior primary=desired
+def test_wrapper_retirement_drain_workstream_registry_exposes_migration_program() -> None:
+    registry = wrapper_retirement_drain_workstream_registry()
+    subqueues = {item.subqueue_id: item for item in registry.subqueues}
+    touchpoints = {item.touchpoint_id: item for item in registry.touchpoints}
+
+    assert registry.root.root_id == "WRD"
+    assert registry.tags == ("wrapper_retirement",)
+    assert registry.root.status_hint == "landed"
+    assert registry.root.marker_payload.lifecycle_state is MarkerLifecycleState.LANDED
+    assert registry.root.subqueue_ids == (
+        "WRD-SQ-001",
+        "WRD-SQ-002",
+        "WRD-SQ-003",
+        "WRD-SQ-004",
+        "WRD-SQ-005",
+    )
+    assert tuple(item.subqueue_id for item in registry.subqueues) == (
+        "WRD-SQ-001",
+        "WRD-SQ-002",
+        "WRD-SQ-003",
+        "WRD-SQ-004",
+        "WRD-SQ-005",
+    )
+    assert subqueues["WRD-SQ-001"].status_hint == "landed"
+    assert subqueues["WRD-SQ-001"].touchpoint_ids == (
+        "WRD-TP-001",
+        "WRD-TP-002",
+        "WRD-TP-003",
+    )
+    assert subqueues["WRD-SQ-002"].status_hint == "landed"
+    assert subqueues["WRD-SQ-002"].touchpoint_ids == ("WRD-TP-004", "WRD-TP-005")
+    assert subqueues["WRD-SQ-003"].status_hint == "landed"
+    assert subqueues["WRD-SQ-003"].touchpoint_ids == ("WRD-TP-006",)
+    assert subqueues["WRD-SQ-004"].status_hint == "landed"
+    assert subqueues["WRD-SQ-004"].touchpoint_ids == ("WRD-TP-007",)
+    assert subqueues["WRD-SQ-005"].status_hint == "landed"
+    assert subqueues["WRD-SQ-005"].touchpoint_ids == ("WRD-TP-008",)
+    assert all(
+        item.marker_payload.lifecycle_state is MarkerLifecycleState.LANDED
+        for item in registry.subqueues
+    )
+    assert set(touchpoints) == {
+        "WRD-TP-001",
+        "WRD-TP-002",
+        "WRD-TP-003",
+        "WRD-TP-004",
+        "WRD-TP-005",
+        "WRD-TP-006",
+        "WRD-TP-007",
+        "WRD-TP-008",
+    }
+    assert touchpoints["WRD-TP-001"].status_hint == "landed"
+    assert touchpoints["WRD-TP-002"].status_hint == "landed"
+    assert touchpoints["WRD-TP-003"].status_hint == "landed"
+    assert touchpoints["WRD-TP-004"].status_hint == "landed"
+    assert touchpoints["WRD-TP-005"].status_hint == "landed"
+    assert touchpoints["WRD-TP-006"].status_hint == "landed"
+    assert touchpoints["WRD-TP-007"].status_hint == "landed"
+    assert touchpoints["WRD-TP-008"].status_hint == "landed"
+    assert all(
+        item.marker_payload.lifecycle_state is MarkerLifecycleState.LANDED
+        for item in registry.touchpoints
+    )
+    assert {
+        (item.rel_path, item.qualname)
+        for item in touchpoints["WRD-TP-001"].declared_touchsites
+    } >= {
+        ("src/gabion/tooling/runtime/run_dataflow_stage.py", "main"),
+        (
+            "src/gabion/cli_support/tooling_commands.py",
+            "register_tooling_passthrough_commands.<locals>.run_dataflow_stage",
+        ),
+        ("docs/user_workflows.md", "user_workflows"),
+        (".github/workflows/ci.yml", "ci_workflow_dataflow_grammar_invocation"),
+    }
+    assert {
+        (item.rel_path, item.qualname)
+        for item in touchpoints["WRD-TP-008"].declared_touchsites
+    } >= {
+        ("docs/user_workflows.md", "user_workflows"),
+        ("README.md", "repo_contract"),
+        ("CONTRIBUTING.md", "contributing_contract"),
+        (".github/workflows/ci.yml", "ci_workflow_wrapper_invocations"),
+        ("docs/generated_artifact_manifest.md", "generated_artifact_manifest"),
+        ("docs/generated_artifact_manifest.yaml", "generated_artifact_manifest"),
+        ("docs/governance_control_loops.yaml", "governance_control_loops"),
+        ("docs/governance_loop_matrix.md", "governance_loop_matrix"),
+        (".github/workflows/pr-dataflow-grammar.yml", "pr_dataflow_grammar_workflow_wrapper_invocations"),
+        (".github/workflows/release-tag.yml", "release_tag_workflow_wrapper_invocations"),
+        (".github/workflows/auto-test-tag.yml", "auto_test_tag_workflow_wrapper_invocations"),
+        (".github/workflows/release-testpypi.yml", "release_testpypi_workflow_wrapper_invocations"),
+        (".github/workflows/release-pypi.yml", "release_pypi_workflow_wrapper_invocations"),
+        ("Makefile", "make_targets_wrapper_guidance"),
+        ("scripts/policy/policy_check.py", "main"),
+    }
+    assert {
+        (item.rel_path, item.qualname)
+        for item in touchpoints["WRD-TP-007"].declared_touchsites
+    } >= {
+        ("scripts/release/release_tag.py", "main"),
+        ("scripts/release/release_read_project_version.py", "main"),
+        ("scripts/release/release_set_test_version.py", "main"),
+        ("scripts/release/release_verify_test_tag.py", "main"),
+        ("scripts/release/release_verify_pypi_tag.py", "main"),
+        ("scripts/misc/extract_test_evidence.py", "main"),
+        ("scripts/misc/extract_test_behavior.py", "main"),
+        ("scripts/misc/refresh_baselines.py", "main"),
+        ("scripts/audit_snapshot.sh", "audit_snapshot_wrapper"),
+        ("scripts/latest_snapshot.sh", "latest_snapshot_wrapper"),
+    }
+
+
+# gabion:behavior primary=desired
 def test_declared_workstream_registries_include_structural_anti_pattern_convergence_root() -> None:
     assert "SAC" in {
+        registry.root.root_id for registry in declared_workstream_registries()
+    }
+
+
+# gabion:behavior primary=desired
+def test_declared_workstream_registries_include_dataflow_grammar_readiness_root() -> None:
+    assert "DGR" in {
+        registry.root.root_id for registry in declared_workstream_registries()
+    }
+
+
+# gabion:behavior primary=desired
+def test_declared_workstream_registries_include_wrapper_retirement_drain_root() -> None:
+    assert "WRD" in {
         registry.root.root_id for registry in declared_workstream_registries()
     }
 

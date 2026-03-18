@@ -86,12 +86,30 @@ IMPACT_COMMAND = command_ids.IMPACT_COMMAND
 LSP_PARITY_GATE_COMMAND = command_ids.LSP_PARITY_GATE_COMMAND
 from gabion.lsp_client import run_command, run_command_direct
 from gabion.tooling.runtime import (
+    audit_snapshot_cli as tooling_audit_snapshot_cli,
+    aspf_handoff_cli as tooling_aspf_handoff_cli,
     checks_runtime as tooling_checks_runtime,
     ci_local_repro as tooling_ci_local_repro,
     ci_watch as tooling_ci_watch,
+    docflow_packet_enforce_cli as tooling_docflow_packet_enforce_cli,
+    docflow_packetize_cli as tooling_docflow_packetize_cli,
+    extract_test_behavior_cli as tooling_extract_test_behavior_cli,
+    extract_test_evidence_cli as tooling_extract_test_evidence_cli,
+    governance_controller_audit_cli as tooling_governance_controller_audit_cli,
+    governance_telemetry_emit_cli as tooling_governance_telemetry_emit_cli,
     invariant_graph as tooling_invariant_graph,
+    latest_snapshot_cli as tooling_latest_snapshot_cli,
+    policy_check_cli as tooling_policy_check_cli,
+    policy_scanner_cli as tooling_policy_scanner_cli,
+    refresh_baselines_cli as tooling_refresh_baselines_cli,
+    release_read_project_version_cli as tooling_release_read_project_version_cli,
+    release_set_test_version_cli as tooling_release_set_test_version_cli,
+    release_tag_cli as tooling_release_tag_cli,
+    release_verify_pypi_tag_cli as tooling_release_verify_pypi_tag_cli,
+    release_verify_test_tag_cli as tooling_release_verify_test_tag_cli,
+    sppf_status_audit_cli as tooling_sppf_status_audit_cli,
+    sppf_sync_cli as tooling_sppf_sync_cli,
     tool_specs,
-    run_dataflow_stage as tooling_run_dataflow_stage,
 )
 from gabion.tooling.delta import (
     delta_advisory as tooling_delta_advisory)
@@ -139,7 +157,21 @@ check_taint_app = typer.Typer(
     help="Taint modalities.",
     invoke_without_command=True,
 )
+ci_app = typer.Typer(add_completion=False, help="CI command family.", invoke_without_command=True)
+aspf_app = typer.Typer(add_completion=False, help="ASPF command family.", invoke_without_command=True)
+policy_app = typer.Typer(add_completion=False, help="Policy command family.", invoke_without_command=True)
+governance_app = typer.Typer(add_completion=False, help="Governance command family.", invoke_without_command=True)
+sppf_app = typer.Typer(add_completion=False, help="SPPF command family.", invoke_without_command=True)
+release_app = typer.Typer(add_completion=False, help="Release command family.", invoke_without_command=True)
+repo_app = typer.Typer(add_completion=False, help="Repo utility command family.", invoke_without_command=True)
 app.add_typer(check_app, name="check")
+app.add_typer(ci_app, name="ci")
+app.add_typer(aspf_app, name="aspf")
+app.add_typer(policy_app, name="policy")
+app.add_typer(governance_app, name="governance")
+app.add_typer(sppf_app, name="sppf")
+app.add_typer(release_app, name="release")
+app.add_typer(repo_app, name="repo")
 check_app.add_typer(check_obsolescence_app, name="obsolescence")
 check_app.add_typer(check_annotation_drift_app, name="annotation-drift")
 check_app.add_typer(check_ambiguity_app, name="ambiguity")
@@ -1144,8 +1176,7 @@ def _context_run_sppf_sync(ctx: typer.Context) -> Callable[..., int]:
     return _context_cli_deps(ctx).run_sppf_sync_fn
 
 
-@app.command("sppf-sync")
-def sppf_sync(
+def _run_sppf_sync_typer(
     ctx: typer.Context,
     rev_range: Optional[str] = typer.Option(
         None,
@@ -1172,8 +1203,7 @@ def sppf_sync(
         "--dry-run",
         help="Print gh commands without executing.",
     ),
-) -> None:
-    """Sync SPPF checklist-linked GitHub issues from commit messages."""
+    ) -> None:
     deps = _context_cli_deps(ctx)
     with _cli_deadline_scope():
         try:
@@ -1188,6 +1218,16 @@ def sppf_sync(
             typer.secho(str(exc), err=True, fg=typer.colors.RED)
             raise typer.Exit(code=2) from exc
         raise typer.Exit(code=exit_code)
+
+
+@app.command("sppf-sync", hidden=True)
+def sppf_sync() -> None:
+    raise typer.BadParameter(
+        "Removed command: sppf-sync. "
+        "Use `gabion sppf sync`. "
+        "See `docs/user_workflows.md#user_workflows` and "
+        "`docs/normative_clause_index.md#clause-command-maturity-parity`."
+    )
 
 
 @app.command("docflow")
@@ -1585,11 +1625,29 @@ _TOOLING_NO_ARG_RUNNERS: dict[str, Callable[[], int]] = {
     "docflow-delta-emit": tooling_docflow_delta_emit.main,
 }
 _TOOLING_ARGV_RUNNERS: dict[str, Callable[[list[str] | None], int]] = {
+    "aspf.handoff": tooling_aspf_handoff_cli.main,
     "checks": tooling_checks_runtime.main,
-    "ci-local-repro": tooling_ci_local_repro.main,
-    "ci-watch": tooling_ci_watch.main,
+    "ci.local-repro": tooling_ci_local_repro.main,
+    "ci.watch": tooling_ci_watch.main,
+    "policy.docflow-packet-enforce": tooling_docflow_packet_enforce_cli.main,
+    "policy.docflow-packetize": tooling_docflow_packetize_cli.main,
+    "governance.controller-audit": tooling_governance_controller_audit_cli.main,
+    "governance.telemetry-emit": tooling_governance_telemetry_emit_cli.main,
+    "policy.check": tooling_policy_check_cli.main,
+    "policy.scanner": tooling_policy_scanner_cli.main,
+    "release.read-project-version": tooling_release_read_project_version_cli.main,
+    "release.set-test-version": tooling_release_set_test_version_cli.main,
+    "release.tag": tooling_release_tag_cli.main,
+    "release.verify-pypi-tag": tooling_release_verify_pypi_tag_cli.main,
+    "release.verify-test-tag": tooling_release_verify_test_tag_cli.main,
+    "repo.audit-snapshot": tooling_audit_snapshot_cli.main,
+    "repo.extract-test-behavior": tooling_extract_test_behavior_cli.main,
+    "repo.extract-test-evidence": tooling_extract_test_evidence_cli.main,
+    "repo.latest-snapshot": tooling_latest_snapshot_cli.main,
+    "repo.refresh-baselines": tooling_refresh_baselines_cli.main,
+    "sppf.status-audit": tooling_sppf_status_audit_cli.main,
+    "sppf.sync": tooling_sppf_sync_cli.main,
     "impact-select-tests": tooling_impact_select_tests.main,
-    "run-dataflow-stage": tooling_run_dataflow_stage.main,
     "ambiguity-contract-gate": tooling_ambiguity_contract_policy_check.main,
     "normative-symdiff": tooling_normative_symdiff.main,
     "invariant-graph": tooling_invariant_graph.main,
@@ -1628,6 +1686,237 @@ def _run_tooling_with_argv(command_name: str, argv: list[str]) -> int:
     )
 
 
+def _legacy_wrapper_message(command_name: str, replacement_command: str) -> str:
+    return (
+        f"Removed command: {command_name}. "
+        f"Use `{replacement_command}`. "
+        "See `docs/user_workflows.md#user_workflows` and "
+        "`docs/normative_clause_index.md#clause-command-maturity-parity`."
+    )
+
+
+@ci_app.command(
+    "local-repro",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def ci_local_repro_namespace(ctx: typer.Context) -> None:
+    raise typer.Exit(code=_run_tooling_with_argv("ci.local-repro", list(ctx.args)))
+
+
+@ci_app.command(
+    "watch",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def ci_watch_namespace(ctx: typer.Context) -> None:
+    raise typer.Exit(code=_run_tooling_with_argv("ci.watch", list(ctx.args)))
+
+
+@aspf_app.command(
+    "handoff",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def aspf_handoff_namespace(ctx: typer.Context) -> None:
+    raise typer.Exit(code=_run_tooling_with_argv("aspf.handoff", list(ctx.args)))
+
+
+@policy_app.command(
+    "check",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def policy_check_namespace(ctx: typer.Context) -> None:
+    raise typer.Exit(code=_run_tooling_with_argv("policy.check", list(ctx.args)))
+
+
+@policy_app.command(
+    "scanner",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def policy_scanner_namespace(ctx: typer.Context) -> None:
+    raise typer.Exit(code=_run_tooling_with_argv("policy.scanner", list(ctx.args)))
+
+
+@policy_app.command(
+    "docflow-packetize",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def policy_docflow_packetize_namespace(ctx: typer.Context) -> None:
+    raise typer.Exit(
+        code=_run_tooling_with_argv("policy.docflow-packetize", list(ctx.args))
+    )
+
+
+@policy_app.command(
+    "docflow-packet-enforce",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def policy_docflow_packet_enforce_namespace(ctx: typer.Context) -> None:
+    raise typer.Exit(
+        code=_run_tooling_with_argv("policy.docflow-packet-enforce", list(ctx.args))
+    )
+
+
+@governance_app.command(
+    "controller-audit",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def governance_controller_audit_namespace(ctx: typer.Context) -> None:
+    raise typer.Exit(
+        code=_run_tooling_with_argv("governance.controller-audit", list(ctx.args))
+    )
+
+
+@governance_app.command(
+    "telemetry-emit",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def governance_telemetry_emit_namespace(ctx: typer.Context) -> None:
+    raise typer.Exit(
+        code=_run_tooling_with_argv("governance.telemetry-emit", list(ctx.args))
+    )
+
+
+@sppf_app.command("sync")
+def sppf_sync_namespace(
+    ctx: typer.Context,
+    rev_range: Optional[str] = typer.Option(
+        None,
+        "--range",
+        help="Git revision range (default: origin/stage..HEAD if available).",
+    ),
+    comment: bool = typer.Option(
+        False,
+        "--comment",
+        help="Comment on each referenced issue with commit summary.",
+    ),
+    close: bool = typer.Option(
+        False,
+        "--close",
+        help="Close each referenced issue with a summary comment.",
+    ),
+    label: Optional[str] = typer.Option(
+        None,
+        "--label",
+        help="Apply a label to each referenced issue.",
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Print gh commands without executing.",
+    ),
+) -> None:
+    """Sync SPPF checklist-linked GitHub issues from commit messages."""
+    _run_sppf_sync_typer(
+        ctx,
+        rev_range=rev_range,
+        comment=comment,
+        close=close,
+        label=label,
+        dry_run=dry_run,
+    )
+
+
+@sppf_app.command(
+    "status-audit",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def sppf_status_audit_namespace(ctx: typer.Context) -> None:
+    raise typer.Exit(code=_run_tooling_with_argv("sppf.status-audit", list(ctx.args)))
+
+
+@release_app.command(
+    "tag",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def release_tag_namespace(ctx: typer.Context) -> None:
+    raise typer.Exit(code=_run_tooling_with_argv("release.tag", list(ctx.args)))
+
+
+@release_app.command(
+    "read-project-version",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def release_read_project_version_namespace(ctx: typer.Context) -> None:
+    raise typer.Exit(
+        code=_run_tooling_with_argv("release.read-project-version", list(ctx.args))
+    )
+
+
+@release_app.command(
+    "set-test-version",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def release_set_test_version_namespace(ctx: typer.Context) -> None:
+    raise typer.Exit(
+        code=_run_tooling_with_argv("release.set-test-version", list(ctx.args))
+    )
+
+
+@release_app.command(
+    "verify-test-tag",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def release_verify_test_tag_namespace(ctx: typer.Context) -> None:
+    raise typer.Exit(
+        code=_run_tooling_with_argv("release.verify-test-tag", list(ctx.args))
+    )
+
+
+@release_app.command(
+    "verify-pypi-tag",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def release_verify_pypi_tag_namespace(ctx: typer.Context) -> None:
+    raise typer.Exit(
+        code=_run_tooling_with_argv("release.verify-pypi-tag", list(ctx.args))
+    )
+
+
+@repo_app.command(
+    "extract-test-evidence",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def repo_extract_test_evidence_namespace(ctx: typer.Context) -> None:
+    raise typer.Exit(
+        code=_run_tooling_with_argv("repo.extract-test-evidence", list(ctx.args))
+    )
+
+
+@repo_app.command(
+    "extract-test-behavior",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def repo_extract_test_behavior_namespace(ctx: typer.Context) -> None:
+    raise typer.Exit(
+        code=_run_tooling_with_argv("repo.extract-test-behavior", list(ctx.args))
+    )
+
+
+@repo_app.command(
+    "refresh-baselines",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def repo_refresh_baselines_namespace(ctx: typer.Context) -> None:
+    raise typer.Exit(
+        code=_run_tooling_with_argv("repo.refresh-baselines", list(ctx.args))
+    )
+
+
+@repo_app.command(
+    "audit-snapshot",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def repo_audit_snapshot_namespace(ctx: typer.Context) -> None:
+    raise typer.Exit(code=_run_tooling_with_argv("repo.audit-snapshot", list(ctx.args)))
+
+
+@repo_app.command(
+    "latest-snapshot",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def repo_latest_snapshot_namespace(ctx: typer.Context) -> None:
+    raise typer.Exit(code=_run_tooling_with_argv("repo.latest-snapshot", list(ctx.args)))
+
+
 @app.command("delta-state-emit", hidden=True)
 def removed_delta_state_emit() -> None:
     raise typer.BadParameter(
@@ -1639,6 +1928,65 @@ def removed_delta_state_emit() -> None:
 def removed_delta_triplets() -> None:
     raise typer.BadParameter(
         "Removed command: delta-triplets. Use `gabion check delta-gates`."
+    )
+
+
+@app.command("aspf-handoff", hidden=True)
+def removed_aspf_handoff() -> None:
+    raise typer.BadParameter(_legacy_wrapper_message("aspf-handoff", "gabion aspf handoff"))
+
+
+@app.command("policy-check", hidden=True)
+def removed_policy_check() -> None:
+    raise typer.BadParameter(_legacy_wrapper_message("policy-check", "gabion policy check"))
+
+
+@app.command("policy-scanner", hidden=True)
+def removed_policy_scanner() -> None:
+    raise typer.BadParameter(_legacy_wrapper_message("policy-scanner", "gabion policy scanner"))
+
+
+@app.command("docflow-packetize", hidden=True)
+def removed_docflow_packetize() -> None:
+    raise typer.BadParameter(
+        _legacy_wrapper_message("docflow-packetize", "gabion policy docflow-packetize")
+    )
+
+
+@app.command("docflow-packet-enforce", hidden=True)
+def removed_docflow_packet_enforce() -> None:
+    raise typer.BadParameter(
+        _legacy_wrapper_message(
+            "docflow-packet-enforce",
+            "gabion policy docflow-packet-enforce",
+        )
+    )
+
+
+@app.command("governance-controller-audit", hidden=True)
+def removed_governance_controller_audit() -> None:
+    raise typer.BadParameter(
+        _legacy_wrapper_message(
+            "governance-controller-audit",
+            "gabion governance controller-audit",
+        )
+    )
+
+
+@app.command("governance-telemetry-emit", hidden=True)
+def removed_governance_telemetry_emit() -> None:
+    raise typer.BadParameter(
+        _legacy_wrapper_message(
+            "governance-telemetry-emit",
+            "gabion governance telemetry-emit",
+        )
+    )
+
+
+@app.command("sppf-status-audit", hidden=True)
+def removed_sppf_status_audit() -> None:
+    raise typer.BadParameter(
+        _legacy_wrapper_message("sppf-status-audit", "gabion sppf status-audit")
     )
 
 

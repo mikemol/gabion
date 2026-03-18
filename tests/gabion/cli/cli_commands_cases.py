@@ -44,10 +44,15 @@ def test_cli_help_lists_tooling_subcommands() -> None:
     assert "ambiguity-contract-gate" in result.output
     assert "normative-symdiff" in result.output
     assert "invariant-graph" in result.output
-    assert "ci-local-repro" in result.output
+    assert "ci" in result.output
+    assert "policy" in result.output
+    assert "governance" in result.output
+    assert "sppf" in result.output
+    assert "release" in result.output
+    assert "repo" in result.output
     assert "impact-select-tests" in result.output
-    assert "run-dataflow-stage" in result.output
-    assert "ci-watch" in result.output
+    assert "run-dataflow-stage" not in result.output
+    assert "ci-watch" not in result.output
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_tooling_subcommand_help_invocations::cli.py::gabion.cli.app
@@ -60,13 +65,41 @@ def test_cli_tooling_subcommand_help_invocations() -> None:
         "ambiguity-contract-gate",
         "normative-symdiff",
         "invariant-graph",
-        "ci-local-repro",
+        "ci",
+        "policy",
+        "governance",
+        "sppf",
+        "release",
+        "repo",
         "impact-select-tests",
-        "run-dataflow-stage",
-        "ci-watch",
     ):
         result = _invoke(runner, [command_name, "--help"])
         assert result.exit_code == 0, command_name
+    for argv in (
+        ["ci", "local-repro", "--help"],
+        ["ci", "watch", "--help"],
+        ["aspf", "handoff", "--help"],
+        ["policy", "check", "--help"],
+        ["policy", "scanner", "--help"],
+        ["policy", "docflow-packetize", "--help"],
+        ["policy", "docflow-packet-enforce", "--help"],
+        ["governance", "controller-audit", "--help"],
+        ["governance", "telemetry-emit", "--help"],
+        ["sppf", "sync", "--help"],
+        ["sppf", "status-audit", "--help"],
+        ["release", "tag", "--help"],
+        ["release", "read-project-version", "--help"],
+        ["release", "set-test-version", "--help"],
+        ["release", "verify-test-tag", "--help"],
+        ["release", "verify-pypi-tag", "--help"],
+        ["repo", "extract-test-evidence", "--help"],
+        ["repo", "extract-test-behavior", "--help"],
+        ["repo", "refresh-baselines", "--help"],
+        ["repo", "audit-snapshot", "--help"],
+        ["repo", "latest-snapshot", "--help"],
+    ):
+        result = _invoke(runner, argv)
+        assert result.exit_code == 0, " ".join(argv)
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_tooling_wrappers_and_argparse_exit_handling::cli.py::gabion.cli._invoke_argparse_command::cli.py::gabion.cli.docflow_delta_emit::cli.py::gabion.cli.ambiguity_contract_gate::cli.py::gabion.cli.impact_select_tests::cli.py::gabion.cli.run_dataflow_stage
@@ -105,13 +138,12 @@ def test_cli_tooling_wrappers_and_argparse_exit_handling() -> None:
         },
         with_argv={
             "checks": lambda argv: (checks_args.append(list(argv or [])) or 21),
-            "ci-watch": lambda argv: (ci_watch_args.append(list(argv or [])) or 18),
-            "ci-local-repro": lambda argv: (ci_local_repro_args.append(list(argv or [])) or 20),
+            "ci.watch": lambda argv: (ci_watch_args.append(list(argv or [])) or 18),
+            "ci.local-repro": lambda argv: (ci_local_repro_args.append(list(argv or [])) or 20),
             "ambiguity-contract-gate": lambda argv: (ambiguity_args.append(list(argv or [])) or 16),
             "normative-symdiff": lambda argv: (symdiff_args.append(list(argv or [])) or 17),
             "invariant-graph": lambda argv: (invariant_graph_args.append(list(argv or [])) or 19),
             "impact-select-tests": lambda argv: (argv_seen.append(list(argv or [])) or 14),
-            "run-dataflow-stage": lambda argv: (_ for _ in ()).throw(SystemExit(15)),
         },
     ):
         with pytest.raises(typer.Exit) as exc:
@@ -130,27 +162,33 @@ def test_cli_tooling_wrappers_and_argparse_exit_handling() -> None:
             cli.checks(_Ctx(["--docflow-only"]))  # type: ignore[arg-type]
         assert exc.value.exit_code == 21
         with pytest.raises(typer.Exit) as exc:
-            cli.ci_local_repro(_Ctx(["--checks-only"]))  # type: ignore[arg-type]
+            cli.ci_local_repro_namespace(_Ctx(["--checks-only"]))  # type: ignore[arg-type]
         assert exc.value.exit_code == 20
         with pytest.raises(typer.Exit) as exc:
             cli.impact_select_tests(_Ctx(["--root", "."]))  # type: ignore[arg-type]
         assert exc.value.exit_code == 14
         with pytest.raises(typer.Exit) as exc:
-            cli.run_dataflow_stage(_Ctx(["--stage-id", "run"]))  # type: ignore[arg-type]
-        assert exc.value.exit_code == 15
-        with pytest.raises(typer.Exit) as exc:
-            cli.ci_watch(
-                run_id="123",
-                branch="stage",
-                workflow="ci",
-                status=None,
-                prefer_active=False,
-                download_artifacts_on_failure=True,
-                artifact_output_root=Path("artifacts/out/ci_watch"),
-                artifact_name=["test-runs"],
-                collect_failed_logs=False,
-                summary_json=Path("artifacts/out/ci_watch_summary.json"),
-            )
+            cli.ci_watch_namespace(
+                _Ctx(
+                    [
+                        "--branch",
+                        "stage",
+                        "--run-id",
+                        "123",
+                        "--workflow",
+                        "ci",
+                        "--no-prefer-active",
+                        "--download-artifacts-on-failure",
+                        "--artifact-output-root",
+                        "artifacts/out/ci_watch",
+                        "--artifact-name",
+                        "test-runs",
+                        "--no-collect-failed-logs",
+                        "--summary-json",
+                        "artifacts/out/ci_watch_summary.json",
+                    ]
+                )
+            )  # type: ignore[arg-type]
         assert exc.value.exit_code == 18
 
     assert argv_seen == [["--root", "."]]
@@ -199,7 +237,7 @@ def test_tooling_passthrough_commands_forward_nonzero_exit_codes() -> None:
             "ambiguity-contract-gate": lambda _argv: 11,
             "normative-symdiff": lambda _argv: 12,
             "invariant-graph": lambda _argv: 13,
-            "ci-local-repro": lambda _argv: 14,
+            "ci.local-repro": lambda _argv: 14,
         },
     ):
         with pytest.raises(typer.Exit) as exc:
@@ -224,7 +262,7 @@ def test_tooling_passthrough_commands_forward_nonzero_exit_codes() -> None:
             cli.invariant_graph(_Ctx(["summary"]))  # type: ignore[arg-type]
         assert exc.value.exit_code == 13
         with pytest.raises(typer.Exit) as exc:
-            cli.ci_local_repro(_Ctx(["--checks-only"]))  # type: ignore[arg-type]
+            cli.ci_local_repro_namespace(_Ctx(["--checks-only"]))  # type: ignore[arg-type]
         assert exc.value.exit_code == 14
 # gabion:behavior primary=verboten facets=error
 def test_removed_delta_wrapper_commands_emit_migration_errors() -> None:
@@ -235,6 +273,30 @@ def test_removed_delta_wrapper_commands_emit_migration_errors() -> None:
     removed_triplets = _invoke(runner, ["delta-triplets"])
     assert removed_triplets.exit_code != 0
     assert "delta-gates" in removed_triplets.output
+
+
+# gabion:behavior primary=verboten facets=error
+def test_legacy_flat_tooling_commands_emit_namespace_migration_errors() -> None:
+    runner = CliRunner()
+    expectations = {
+        "ci-local-repro": "gabion ci local-repro",
+        "ci-watch": "gabion ci watch",
+        "run-dataflow-stage": "gabion check delta-bundle",
+        "aspf-handoff": "gabion aspf handoff",
+        "policy-check": "gabion policy check",
+        "policy-scanner": "gabion policy scanner",
+        "docflow-packetize": "gabion policy docflow-packetize",
+        "docflow-packet-enforce": "gabion policy docflow-packet-enforce",
+        "governance-controller-audit": "gabion governance controller-audit",
+        "governance-telemetry-emit": "gabion governance telemetry-emit",
+        "sppf-sync": "gabion sppf sync",
+        "sppf-status-audit": "gabion sppf status-audit",
+    }
+    for command_name, replacement in expectations.items():
+        result = _invoke(runner, [command_name])
+        assert result.exit_code != 0, command_name
+        normalized_output = " ".join(result.output.replace("│", " ").split())
+        assert replacement in normalized_output, command_name
 
 
 # gabion:behavior primary=desired

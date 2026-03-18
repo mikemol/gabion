@@ -10,6 +10,7 @@ import typer
 from gabion.commands import check_contract
 from gabion.cli_support.shared.runtime_deps import CliRuntimeDeps
 from gabion.json_types import JSONObject
+from gabion.tooling.runtime import terminal_outcome_projector
 
 CheckArtifactFlags = check_contract.CheckArtifactFlags
 DataflowFilterBundle = check_contract.DataflowFilterBundle
@@ -253,6 +254,20 @@ def run_check_command(
     emit_analysis_resume_summary_fn(result)
     emit_nonzero_exit_causes_fn(result)
     local_exit_code = int(result.get("exit_code", 0))
+    if report is not None:
+        terminal_outcome = terminal_outcome_projector.project_terminal_outcome(
+            terminal_outcome_projector.TerminalOutcomeInput(
+                terminal_exit=local_exit_code,
+                terminal_state=str(result.get("analysis_state") or "none"),
+                terminal_stage="run",
+                terminal_status="unknown",
+                attempts_run=1,
+            )
+        )
+        terminal_outcome_projector.write_terminal_outcome_artifact(
+            report.parent / "dataflow_terminal_outcome.json",
+            terminal_outcome,
+        )
     if local_exit_code != 0:
         raise typer.Exit(code=local_exit_code)
     if status_watch_options is None:

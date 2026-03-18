@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from scripts.misc import aspf_handoff as aspf_handoff_script
+from gabion.tooling.runtime import aspf_handoff_cli as aspf_handoff_script
 
 
 # gabion:evidence E:call_footprint::tests/test_aspf_handoff_script.py::test_script_prepare_and_record_roundtrip::aspf_handoff.py::scripts.aspf_handoff.main

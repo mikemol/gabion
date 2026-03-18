@@ -38,7 +38,7 @@ def test_policy_check_requires_policy_check_output_before_policy_scanner_suite()
             "jobs": {
                 "checks": {
                     "steps": [
-                        {"run": ".venv/bin/python scripts/policy/policy_scanner_suite.py --root . --out-dir artifacts/out"},
+                        {"run": ".venv/bin/python -m gabion policy scanner --root . --out-dir artifacts/out"},
                     ]
                 }
             }
@@ -49,9 +49,9 @@ def test_policy_check_requires_policy_check_output_before_policy_scanner_suite()
     assert errors == [
         (
             ".github/workflows/ci.yml: workflow must invoke "
-            "scripts/policy/policy_check.py --workflows --output "
+            "gabion policy check --workflows --output "
             "artifacts/out/policy_check_result.json before "
-            "scripts/policy/policy_scanner_suite.py"
+            "gabion policy scanner"
         )
     ]
 
@@ -67,11 +67,11 @@ def test_policy_check_accepts_policy_check_output_before_policy_scanner_suite() 
                     "steps": [
                         {
                             "run": (
-                                ".venv/bin/python scripts/policy/policy_check.py "
+                                ".venv/bin/python -m gabion policy check "
                                 "--workflows --output artifacts/out/policy_check_result.json"
                             )
                         },
-                        {"run": ".venv/bin/python scripts/policy/policy_scanner_suite.py --root . --out-dir artifacts/out"},
+                        {"run": ".venv/bin/python -m gabion policy scanner --root . --out-dir artifacts/out"},
                     ]
                 }
             }
@@ -93,7 +93,7 @@ def test_policy_check_workflow_reason_code_classification() -> None:
     )
     assert (
         policy_check._workflow_reason_code(
-            ".github/workflows/release-tag.yml: release_tag.py missing (required for release tagging)"
+            ".github/workflows/release-tag.yml: release tag implementation missing (required for release tagging)"
         )
         == "WF53_RELEASE_TAG_ENTRYPOINT"
     )
@@ -105,7 +105,7 @@ def test_policy_check_workflow_reason_code_classification() -> None:
     )
     assert (
         policy_check._workflow_reason_code(
-            ".github/workflows/ci.yml: workflow must invoke scripts/policy/policy_check.py --workflows --output artifacts/out/policy_check_result.json before scripts/policy/policy_scanner_suite.py"
+            ".github/workflows/ci.yml: workflow must invoke gabion policy check --workflows --output artifacts/out/policy_check_result.json before gabion policy scanner"
         )
         == "WF57_ENTRYPOINT_MISSING"
     )
@@ -116,8 +116,8 @@ def test_policy_check_workflow_reason_code_classification() -> None:
 def test_policy_check_writes_workflow_governance_artifacts(tmp_path: Path) -> None:
     policy_check._write_workflow_governance_artifacts(
         errors=[
-            ".github/workflows/ci.yml: ci workflow must invoke scripts/policy/policy_scanner_suite.py",
-            ".github/workflows/pr-dataflow-grammar.yml: workflow must invoke scripts/policy/policy_check.py --workflows --output artifacts/out/policy_check_result.json before scripts/policy/policy_scanner_suite.py",
+            ".github/workflows/ci.yml: ci workflow must invoke gabion policy scanner",
+            ".github/workflows/pr-dataflow-grammar.yml: workflow must invoke gabion policy check --workflows --output artifacts/out/policy_check_result.json before gabion policy scanner",
             ".github/workflows/release-pypi.yml:publish: release-pypi workflow must verify tag equals main/next/release",
         ],
         output_root=tmp_path,
@@ -161,22 +161,18 @@ def test_policy_check_writes_local_ci_repro_contract_artifact(tmp_path: Path) ->
     assert "workflow:ci.yml:dataflow-grammar" in surface_ids
     assert "workflow:pr-dataflow-grammar.yml:dataflow-grammar" in surface_ids
     assert "tooling_command:gabion:checks:docflow" in surface_ids
-    assert "tooling_command:gabion:ci-local-repro:checks" in surface_ids
-    assert "tooling_command:gabion:ci-local-repro:pr-dataflow" in surface_ids
-    assert "local_script:scripts/ci_local_repro.sh:wrapper" in surface_ids
+    assert "tooling_command:gabion:ci:local-repro:checks" in surface_ids
+    assert "tooling_command:gabion:ci:local-repro:pr-dataflow" in surface_ids
     assert "local_script:scripts/checks.sh:docflow" in surface_ids
     assert "local_script:scripts/ci/ci_cycle.py:watch" in surface_ids
     assert "ci-repro:local-checks->workflow-checks" in relation_ids
-    assert "ci-repro:script-wrapper->local-checks" in relation_ids
     assert "ci-repro:checks-wrapper->gabion-checks-docflow" in relation_ids
     assert surface_statuses["workflow:ci.yml:checks"] == "pass"
     assert surface_statuses["tooling_command:gabion:checks:docflow"] == "pass"
-    assert surface_statuses["tooling_command:gabion:ci-local-repro:checks"] == "pass"
-    assert surface_statuses["tooling_command:gabion:ci-local-repro:pr-dataflow"] == "pass"
-    assert surface_statuses["local_script:scripts/ci_local_repro.sh:wrapper"] == "pass"
+    assert surface_statuses["tooling_command:gabion:ci:local-repro:checks"] == "pass"
+    assert surface_statuses["tooling_command:gabion:ci:local-repro:pr-dataflow"] == "pass"
     assert relation_statuses["ci-repro:local-checks->workflow-checks"] == "pass"
     assert relation_statuses["ci-repro:local-pr-dataflow->workflow-pr-dataflow"] == "pass"
-    assert relation_statuses["ci-repro:script-wrapper->local-checks"] == "pass"
 
 
 # gabion:evidence E:function_site::test_ci_governance_scripts.py::tests.test_ci_governance_scripts.test_policy_check_test_behavior_contract_reports_missing

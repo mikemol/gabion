@@ -431,4 +431,9 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(
+        "Removed direct script entrypoint: scripts/policy/docflow_packet_enforce.py. "
+        "Use `gabion policy docflow-packet-enforce`. "
+        "See docs/user_workflows.md#user_workflows and "
+        "docs/normative_clause_index.md#clause-command-maturity-parity."
+    )

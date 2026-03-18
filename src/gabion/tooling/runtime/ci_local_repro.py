@@ -285,7 +285,7 @@ def _run_optional_posture(options: LocalCiReproOptions) -> None:
         print("POLICY_GITHUB_TOKEN not set; skipping posture check (matches CI skip path).")
         return
     subprocess.run(
-        [str(options.python_bin), "-m", "scripts.policy.policy_check", "--posture"],
+        [str(options.python_bin), "-m", "gabion", "policy", "check", "--posture"],
         check=True,
         cwd=options.root,
         env={**os.environ, "POLICY_GITHUB_TOKEN": token},
@@ -305,7 +305,9 @@ def _run_optional_sppf_sync(options: LocalCiReproOptions) -> None:
     command = [
         str(options.python_bin),
         "-m",
-        "scripts.sppf.sppf_sync",
+        "gabion",
+        "sppf",
+        "sync",
         "--validate",
         "--only-when-relevant",
         "--range",
@@ -613,7 +615,10 @@ def _pr_dataflow_steps(options: LocalCiReproOptions) -> tuple[LocalCiReproStep, 
             label="pr-dataflow: policy_check --workflows --output artifacts/out/policy_check_result.json",
             command=(
                 str(options.python_bin),
-                "scripts/policy/policy_check.py",
+                "-m",
+                "gabion",
+                "policy",
+                "check",
                 "--workflows",
                 "--output",
                 "artifacts/out/policy_check_result.json",
@@ -624,7 +629,10 @@ def _pr_dataflow_steps(options: LocalCiReproOptions) -> tuple[LocalCiReproStep, 
             label="pr-dataflow: policy scanner suite",
             command=(
                 str(options.python_bin),
-                "scripts/policy/policy_scanner_suite.py",
+                "-m",
+                "gabion",
+                "policy",
+                "scanner",
                 "--root",
                 ".",
                 "--out-dir",
@@ -643,7 +651,7 @@ def _pr_dataflow_steps(options: LocalCiReproOptions) -> tuple[LocalCiReproStep, 
         ),
         LocalCiReproStep(
             label="pr-dataflow: controller drift audit (advisory)",
-            command=(str(options.python_bin), "scripts/governance/governance_controller_audit.py", "--out", "artifacts/out/controller_drift.json"),
+            command=(str(options.python_bin), "-m", "gabion", "governance", "controller-audit", "--out", "artifacts/out/controller_drift.json"),
             mode="pr-dataflow",
         ),
         LocalCiReproStep(

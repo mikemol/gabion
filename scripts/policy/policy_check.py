@@ -506,7 +506,10 @@ def _workflow_reason_code(error: str) -> str:
         return "WF57_ENTRYPOINT_MISSING"
     if "workflow must invoke" in normalized:
         return "WF57_ENTRYPOINT_MISSING"
-    if "release tag workflow must use" in normalized or "release_tag.py missing" in normalized:
+    if (
+        "release tag workflow must use gabion release tag" in normalized
+        or "release tag implementation missing" in normalized
+    ):
         return "WF53_RELEASE_TAG_ENTRYPOINT"
     if "must derive tag from pyproject.toml" in normalized:
         return "WF53_VERSION_DERIVATION"
@@ -662,7 +665,6 @@ def _build_local_ci_repro_contract_payload(*, repo_root: Path) -> dict[str, obje
     ci_doc = _load_yaml(workflow_dir / "ci.yml")
     pr_doc = _load_yaml(workflow_dir / "pr-dataflow-grammar.yml")
     checks_text = _read_text_if_exists(repo_root / "scripts" / "checks.sh")
-    ci_local_repro_text = _read_text_if_exists(repo_root / "scripts" / "ci_local_repro.sh")
     ci_local_repro_runtime_text = _read_text_if_exists(
         repo_root / "src" / "gabion" / "tooling" / "runtime" / "ci_local_repro.py"
     )
@@ -676,7 +678,9 @@ def _build_local_ci_repro_contract_payload(*, repo_root: Path) -> dict[str, obje
             summary="Materialize the workflow policy artifact before downstream policy tooling.",
             source_alternatives=(
                 (
-                    "scripts/policy/policy_check.py",
+                    "gabion",
+                    "policy",
+                    "check",
                     "--workflows",
                     "artifacts/out/policy_check_result.json",
                 ),
@@ -704,8 +708,12 @@ def _build_local_ci_repro_contract_payload(*, repo_root: Path) -> dict[str, obje
             summary="Run docflow packetize plus packet enforce with proving tests.",
             source_alternatives=(
                 (
-                    "scripts/policy/docflow_packetize.py",
-                    "scripts/policy/docflow_packet_enforce.py",
+                    "gabion",
+                    "policy",
+                    "docflow-packetize",
+                    "gabion",
+                    "policy",
+                    "docflow-packet-enforce",
                     "--run-proving-tests",
                 ),
             ),
@@ -713,14 +721,16 @@ def _build_local_ci_repro_contract_payload(*, repo_root: Path) -> dict[str, obje
         _CiReproCapabilitySpec(
             capability_id="sppf_status_audit",
             summary="Run the local SPPF status audit.",
-            source_alternatives=(("scripts.sppf.sppf_status_audit",),),
+            source_alternatives=(("gabion", "sppf", "status-audit"),),
         ),
         _CiReproCapabilitySpec(
             capability_id="sppf_issue_lifecycle_validation",
             summary="Validate SPPF issue lifecycle labels on the active rev range.",
             source_alternatives=(
                 (
-                    "scripts.sppf.sppf_sync",
+                    "gabion",
+                    "sppf",
+                    "sync",
                     "--validate",
                     "--require-label",
                     "done-on-stage",
@@ -734,7 +744,9 @@ def _build_local_ci_repro_contract_payload(*, repo_root: Path) -> dict[str, obje
             summary="Refresh test evidence and fail on drift.",
             source_alternatives=(
                 (
-                    "scripts.misc.extract_test_evidence",
+                    "gabion",
+                    "repo",
+                    "extract-test-evidence",
                     "git",
                     "diff",
                     "--exit-code",
@@ -747,7 +759,9 @@ def _build_local_ci_repro_contract_payload(*, repo_root: Path) -> dict[str, obje
             summary="Refresh test behavior metadata and fail on drift.",
             source_alternatives=(
                 (
-                    "scripts.misc.extract_test_behavior",
+                    "gabion",
+                    "repo",
+                    "extract-test-behavior",
                     "git",
                     "diff",
                     "--exit-code",
@@ -758,7 +772,7 @@ def _build_local_ci_repro_contract_payload(*, repo_root: Path) -> dict[str, obje
         _CiReproCapabilitySpec(
             capability_id="policy_scanner_suite",
             summary="Run the policy scanner suite after policy-check output exists.",
-            source_alternatives=(("scripts/policy/policy_scanner_suite.py",),),
+            source_alternatives=(("gabion", "policy", "scanner"),),
         ),
         _CiReproCapabilitySpec(
             capability_id="structural_hash_policy_check",
@@ -773,7 +787,7 @@ def _build_local_ci_repro_contract_payload(*, repo_root: Path) -> dict[str, obje
         _CiReproCapabilitySpec(
             capability_id="controller_drift_audit",
             summary="Materialize the controller drift artifact.",
-            source_alternatives=(("scripts/governance/governance_controller_audit.py",),),
+            source_alternatives=(("gabion", "governance", "controller-audit"),),
         ),
         _CiReproCapabilitySpec(
             capability_id="controller_override_record",
@@ -810,14 +824,14 @@ def _build_local_ci_repro_contract_payload(*, repo_root: Path) -> dict[str, obje
         _CiReproCapabilitySpec(
             capability_id="governance_telemetry_emit",
             summary="Emit governance telemetry from the checks lane timings.",
-            source_alternatives=(("scripts/governance/governance_telemetry_emit.py",),),
+            source_alternatives=(("gabion", "governance", "telemetry-emit"),),
         ),
     )
     workflow_dataflow_capabilities = (
         _CiReproCapabilitySpec(
             capability_id="run_dataflow_stage",
-            summary="Run the direct-carrier dataflow stage.",
-            source_alternatives=(("run-dataflow-stage",),),
+            summary="Run the direct-carrier dataflow stage through gabion check delta-bundle.",
+            source_alternatives=(("check", "delta-bundle"),),
         ),
         _CiReproCapabilitySpec(
             capability_id="terminal_outcome_finalize",
@@ -850,7 +864,9 @@ def _build_local_ci_repro_contract_payload(*, repo_root: Path) -> dict[str, obje
             summary="Materialize the workflow policy artifact before downstream policy tooling.",
             source_alternatives=(
                 (
-                    "scripts/policy/policy_check.py",
+                    "gabion",
+                    "policy",
+                    "check",
                     "--workflows",
                     "artifacts/out/policy_check_result.json",
                 ),
@@ -859,7 +875,7 @@ def _build_local_ci_repro_contract_payload(*, repo_root: Path) -> dict[str, obje
         _CiReproCapabilitySpec(
             capability_id="policy_scanner_suite",
             summary="Run the policy scanner suite in the PR grammar lane.",
-            source_alternatives=(("scripts/policy/policy_scanner_suite.py",),),
+            source_alternatives=(("gabion", "policy", "scanner"),),
         ),
         _CiReproCapabilitySpec(
             capability_id="governance_pr_template",
@@ -869,7 +885,7 @@ def _build_local_ci_repro_contract_payload(*, repo_root: Path) -> dict[str, obje
         _CiReproCapabilitySpec(
             capability_id="controller_drift_audit",
             summary="Materialize the controller drift artifact in advisory mode.",
-            source_alternatives=(("scripts/governance/governance_controller_audit.py",),),
+            source_alternatives=(("gabion", "governance", "controller-audit"),),
         ),
         _CiReproCapabilitySpec(
             capability_id="impact_select_tests",
@@ -909,9 +925,9 @@ def _build_local_ci_repro_contract_payload(*, repo_root: Path) -> dict[str, obje
                 "out/test_evidence.json",
             ),
             commands=(
-                "python -m scripts.policy.policy_check --workflows --output artifacts/out/policy_check_result.json",
+                "python -m gabion policy check --workflows --output artifacts/out/policy_check_result.json",
                 "python -m gabion docflow --root . --fail-on-violations --sppf-gh-ref-mode required",
-                "python scripts/policy/docflow_packet_enforce.py --check --run-proving-tests",
+                "python -m gabion policy docflow-packet-enforce --check --run-proving-tests",
                 "python -m pytest --junitxml artifacts/test_runs/junit.xml",
             ),
         ),
@@ -929,7 +945,8 @@ def _build_local_ci_repro_contract_payload(*, repo_root: Path) -> dict[str, obje
                 "artifacts/out/aspf_handoff_manifest.json",
             ),
             commands=(
-                "python -m gabion run-dataflow-stage",
+                "python -m gabion aspf handoff run",
+                "python -m gabion check delta-bundle",
                 "python scripts/ci/ci_finalize_dataflow_outcome.py",
                 "python -m scripts.deadline_profile_ci_summary",
             ),
@@ -950,17 +967,17 @@ def _build_local_ci_repro_contract_payload(*, repo_root: Path) -> dict[str, obje
                 "artifacts/dataflow_grammar/report.md",
             ),
             commands=(
-                "python scripts/policy/policy_check.py --workflows --output artifacts/out/policy_check_result.json",
-                "python scripts/policy/policy_scanner_suite.py --root . --out-dir artifacts/out",
+                "python -m gabion policy check --workflows --output artifacts/out/policy_check_result.json",
+                "python -m gabion policy scanner --root . --out-dir artifacts/out",
                 "python -m gabion impact-select-tests",
                 "python -m pytest --junitxml artifacts/test_runs/junit.xml",
                 "python -m gabion check raw --report artifacts/dataflow_grammar/report.md",
             ),
         ),
         _CiReproSurfaceSpec(
-            surface_id="tooling_command:gabion:ci-local-repro:checks",
+            surface_id="tooling_command:gabion:ci:local-repro:checks",
             surface_kind="tooling_command",
-            title="gabion ci-local-repro checks lane",
+            title="gabion ci local-repro checks lane",
             summary="gabion command host for local reproduction of the ci.yml checks job.",
             source_ref="src/gabion/tooling/runtime/ci_local_repro.py",
             mode="checks-only",
@@ -974,12 +991,12 @@ def _build_local_ci_repro_contract_payload(*, repo_root: Path) -> dict[str, obje
                 "artifacts/test_runs/coverage.xml",
                 "out/test_evidence.json",
             ),
-            commands=("python -m gabion ci-local-repro --checks-only",),
+            commands=("python -m gabion ci local-repro --checks-only",),
         ),
         _CiReproSurfaceSpec(
-            surface_id="tooling_command:gabion:ci-local-repro:dataflow",
+            surface_id="tooling_command:gabion:ci:local-repro:dataflow",
             surface_kind="tooling_command",
-            title="gabion ci-local-repro dataflow lane",
+            title="gabion ci local-repro dataflow lane",
             summary="gabion command host for local reproduction of the ci.yml dataflow-grammar job.",
             source_ref="src/gabion/tooling/runtime/ci_local_repro.py",
             mode="dataflow-only",
@@ -989,12 +1006,12 @@ def _build_local_ci_repro_contract_payload(*, repo_root: Path) -> dict[str, obje
                 "artifacts/out/deadline_profile_ci_summary.json",
                 "artifacts/out/aspf_handoff_manifest.json",
             ),
-            commands=("python -m gabion ci-local-repro --dataflow-only",),
+            commands=("python -m gabion ci local-repro --dataflow-only",),
         ),
         _CiReproSurfaceSpec(
-            surface_id="tooling_command:gabion:ci-local-repro:pr-dataflow",
+            surface_id="tooling_command:gabion:ci:local-repro:pr-dataflow",
             surface_kind="tooling_command",
-            title="gabion ci-local-repro PR dataflow lane",
+            title="gabion ci local-repro PR dataflow lane",
             summary="gabion command host for local reproduction of the PR dataflow workflow.",
             source_ref="src/gabion/tooling/runtime/ci_local_repro.py",
             mode="pr-dataflow-only",
@@ -1006,7 +1023,7 @@ def _build_local_ci_repro_contract_payload(*, repo_root: Path) -> dict[str, obje
                 "artifacts/test_runs/coverage.xml",
                 "artifacts/audit_reports/impact_selection.json",
             ),
-            commands=("python -m gabion ci-local-repro --pr-dataflow-only",),
+            commands=("python -m gabion ci local-repro --pr-dataflow-only",),
         ),
         _CiReproSurfaceSpec(
             surface_id="tooling_command:gabion:checks:dataflow",
@@ -1029,7 +1046,7 @@ def _build_local_ci_repro_contract_payload(*, repo_root: Path) -> dict[str, obje
                 _CiReproCapabilitySpec(
                     capability_id="status_watch",
                     summary="Optionally watch remote CI after the local dataflow lane.",
-                    source_alternatives=(("ci-watch",),),
+                    source_alternatives=(("gabion", "ci", "watch"),),
                     command_alternatives=(("--status-watch",),),
                 ),
             ),
@@ -1054,8 +1071,8 @@ def _build_local_ci_repro_contract_payload(*, repo_root: Path) -> dict[str, obje
                     summary="Run docflow packetize plus packet enforce with proving tests.",
                     source_alternatives=(
                         (
-                            "scripts/policy/docflow_packetize.py",
-                            "scripts/policy/docflow_packet_enforce.py",
+                            "docflow-packetize",
+                            "docflow-packet-enforce",
                         ),
                     ),
                 ),
@@ -1082,22 +1099,6 @@ def _build_local_ci_repro_contract_payload(*, repo_root: Path) -> dict[str, obje
             ),
             artifacts=("artifacts/test_runs/junit.xml",),
             commands=("python -m gabion checks --tests-only",),
-        ),
-        _CiReproSurfaceSpec(
-            surface_id="local_script:scripts/ci_local_repro.sh:wrapper",
-            surface_kind="local_repro_wrapper",
-            title="ci_local_repro shell wrapper",
-            summary="Bootstrap wrapper that dispatches into gabion ci-local-repro.",
-            source_ref="scripts/ci_local_repro.sh",
-            mode="wrapper",
-            capabilities=(
-                _CiReproCapabilitySpec(
-                    capability_id="dispatch_ci_local_repro",
-                    summary="Bootstrap the repo venv and dispatch into gabion ci-local-repro.",
-                    source_alternatives=(("-m gabion ci-local-repro",),),
-                ),
-            ),
-            commands=("scripts/ci_local_repro.sh --checks-only",),
         ),
         _CiReproSurfaceSpec(
             surface_id="local_script:scripts/checks.sh:dataflow",
@@ -1160,7 +1161,7 @@ def _build_local_ci_repro_contract_payload(*, repo_root: Path) -> dict[str, obje
             surface_id="local_script:scripts/ci/ci_cycle.py:watch",
             surface_kind="remote_watch_lane",
             title="Push-and-watch CI cycle helper",
-            summary="Local helper that creates a no-op correction unit and watches remote CI through gabion ci-watch.",
+            summary="Local helper that creates a no-op correction unit and watches remote CI through gabion ci watch.",
             source_ref="scripts/ci/ci_cycle.py",
             mode="watch",
             capabilities=(
@@ -1173,7 +1174,7 @@ def _build_local_ci_repro_contract_payload(*, repo_root: Path) -> dict[str, obje
                 _CiReproCapabilitySpec(
                     capability_id="ci_watch",
                     summary="Watch the remote CI workflow after pushing the correction unit.",
-                    source_alternatives=(("gabion", "ci-watch"),),
+                    source_alternatives=(("gabion", "ci", "watch"),),
                     command_alternatives=(("--watch",),),
                 ),
             ),
@@ -1194,12 +1195,11 @@ def _build_local_ci_repro_contract_payload(*, repo_root: Path) -> dict[str, obje
         "tooling_command:gabion:checks:dataflow": checks_runtime_text,
         "tooling_command:gabion:checks:docflow": checks_runtime_text,
         "tooling_command:gabion:checks:tests": checks_runtime_text,
-        "tooling_command:gabion:ci-local-repro:checks": "\n".join(
+        "tooling_command:gabion:ci:local-repro:checks": "\n".join(
             item for item in (ci_local_repro_runtime_text, checks_runtime_text) if item
         ),
-        "tooling_command:gabion:ci-local-repro:dataflow": ci_local_repro_runtime_text,
-        "tooling_command:gabion:ci-local-repro:pr-dataflow": ci_local_repro_runtime_text,
-        "local_script:scripts/ci_local_repro.sh:wrapper": ci_local_repro_text,
+        "tooling_command:gabion:ci:local-repro:dataflow": ci_local_repro_runtime_text,
+        "tooling_command:gabion:ci:local-repro:pr-dataflow": ci_local_repro_runtime_text,
         "local_script:scripts/checks.sh:dataflow": checks_text,
         "local_script:scripts/checks.sh:docflow": checks_text,
         "local_script:scripts/checks.sh:tests": checks_text,
@@ -1220,64 +1220,43 @@ def _build_local_ci_repro_contract_payload(*, repo_root: Path) -> dict[str, obje
         _CiReproRelationSpec(
             relation_id="ci-repro:local-checks->workflow-checks",
             relation_kind="reproduces",
-            source_surface_id="tooling_command:gabion:ci-local-repro:checks",
+            source_surface_id="tooling_command:gabion:ci:local-repro:checks",
             target_surface_id="workflow:ci.yml:checks",
-            summary="gabion ci-local-repro --checks-only reproduces the ci.yml checks job locally.",
+            summary="gabion ci local-repro --checks-only reproduces the ci.yml checks job locally.",
         ),
         _CiReproRelationSpec(
             relation_id="ci-repro:local-dataflow->workflow-dataflow",
             relation_kind="reproduces",
-            source_surface_id="tooling_command:gabion:ci-local-repro:dataflow",
+            source_surface_id="tooling_command:gabion:ci:local-repro:dataflow",
             target_surface_id="workflow:ci.yml:dataflow-grammar",
-            summary="gabion ci-local-repro --dataflow-only reproduces the ci.yml dataflow-grammar job locally.",
+            summary="gabion ci local-repro --dataflow-only reproduces the ci.yml dataflow-grammar job locally.",
         ),
         _CiReproRelationSpec(
             relation_id="ci-repro:local-pr-dataflow->workflow-pr-dataflow",
             relation_kind="reproduces",
-            source_surface_id="tooling_command:gabion:ci-local-repro:pr-dataflow",
+            source_surface_id="tooling_command:gabion:ci:local-repro:pr-dataflow",
             target_surface_id="workflow:pr-dataflow-grammar.yml:dataflow-grammar",
-            summary="gabion ci-local-repro --pr-dataflow-only reproduces the PR dataflow workflow locally.",
-        ),
-        _CiReproRelationSpec(
-            relation_id="ci-repro:script-wrapper->local-checks",
-            relation_kind="dispatches",
-            source_surface_id="local_script:scripts/ci_local_repro.sh:wrapper",
-            target_surface_id="tooling_command:gabion:ci-local-repro:checks",
-            summary="scripts/ci_local_repro.sh dispatches to gabion ci-local-repro for checks parity.",
-        ),
-        _CiReproRelationSpec(
-            relation_id="ci-repro:script-wrapper->local-dataflow",
-            relation_kind="dispatches",
-            source_surface_id="local_script:scripts/ci_local_repro.sh:wrapper",
-            target_surface_id="tooling_command:gabion:ci-local-repro:dataflow",
-            summary="scripts/ci_local_repro.sh dispatches to gabion ci-local-repro for dataflow parity.",
-        ),
-        _CiReproRelationSpec(
-            relation_id="ci-repro:script-wrapper->local-pr-dataflow",
-            relation_kind="dispatches",
-            source_surface_id="local_script:scripts/ci_local_repro.sh:wrapper",
-            target_surface_id="tooling_command:gabion:ci-local-repro:pr-dataflow",
-            summary="scripts/ci_local_repro.sh dispatches to gabion ci-local-repro for PR dataflow parity.",
+            summary="gabion ci local-repro --pr-dataflow-only reproduces the PR dataflow workflow locally.",
         ),
         _CiReproRelationSpec(
             relation_id="ci-repro:gabion-checks-dataflow->local-checks",
             relation_kind="supports",
             source_surface_id="tooling_command:gabion:checks:dataflow",
-            target_surface_id="tooling_command:gabion:ci-local-repro:checks",
+            target_surface_id="tooling_command:gabion:ci:local-repro:checks",
             summary="gabion checks --dataflow-only is a narrower local dataflow verification lane supporting the broader CI reproduction loop.",
         ),
         _CiReproRelationSpec(
             relation_id="ci-repro:gabion-checks-docflow->local-checks",
             relation_kind="supports",
             source_surface_id="tooling_command:gabion:checks:docflow",
-            target_surface_id="tooling_command:gabion:ci-local-repro:checks",
+            target_surface_id="tooling_command:gabion:ci:local-repro:checks",
             summary="gabion checks --docflow-only is a narrower local docflow verification lane supporting the broader CI reproduction loop.",
         ),
         _CiReproRelationSpec(
             relation_id="ci-repro:gabion-checks-tests->local-checks",
             relation_kind="supports",
             source_surface_id="tooling_command:gabion:checks:tests",
-            target_surface_id="tooling_command:gabion:ci-local-repro:checks",
+            target_surface_id="tooling_command:gabion:ci:local-repro:checks",
             summary="gabion checks --tests-only is a narrower local test verification lane supporting the broader CI reproduction loop.",
         ),
         _CiReproRelationSpec(
@@ -1344,7 +1323,7 @@ def _build_local_ci_repro_contract_payload(*, repo_root: Path) -> dict[str, obje
     return {
         "schema_version": 2,
         "artifact_kind": "local_ci_repro_contract",
-        "generated_by": "scripts/policy/policy_check.py --workflows",
+        "generated_by": "gabion policy check --workflows",
         "summary": (
             "Declarative local/remote CI reproduction topology for workflow parity, "
             "bounded local verification lanes, and remote status-watch orchestration."
@@ -1427,7 +1406,7 @@ def _write_workflow_governance_artifacts(
         },
         "sources": {
             "workflows": ".github/workflows/*.yml",
-            "policy_check": "scripts/policy/policy_check.py --workflows",
+            "policy_check": "gabion policy check --workflows",
         },
     }
     ratchet_delta = {
@@ -1853,9 +1832,9 @@ def _check_release_tag_workflow(doc, path, errors):
                 f"{path}:{name}: release tag workflow must guard on repository owner"
             )
         steps = job.get("steps", [])
-        if not _step_run_contains_any(steps, {"scripts/release/release_tag.py"}):
+        if not _step_run_contains_any(steps, {"gabion release tag"}):
             errors.append(
-                f"{path}:{name}: release tag workflow must use scripts/release/release_tag.py"
+                f"{path}:{name}: release tag workflow must use gabion release tag"
             )
     script_path = REPO_ROOT / "scripts" / "release" / "release_tag.py"
     if script_path.exists():
@@ -1871,10 +1850,10 @@ def _check_release_tag_workflow(doc, path, errors):
         missing = [token for token in required_tokens if token not in script_text]
         if missing:
             errors.append(
-                f"{path}: release_tag.py missing required guard tokens: {missing}"
+                f"{path}: release tag implementation missing required guard tokens: {missing}"
             )
     else:
-        errors.append(f"{path}: release_tag.py missing (required for release tagging)")
+        errors.append(f"{path}: release tag implementation missing (required for release tagging)")
 
 
 def _check_auto_test_tag_workflow(doc, path, errors):
@@ -1910,7 +1889,7 @@ def _check_auto_test_tag_workflow(doc, path, errors):
             errors.append(
                 f"{path}:{name}: auto test tag workflow must verify next mirrors main"
             )
-        if not _step_run_contains_any(steps, {"scripts/release/release_read_project_version.py"}):
+        if not _step_run_contains_any(steps, {"gabion release read-project-version"}):
             errors.append(
                 f"{path}:{name}: auto test tag workflow must derive tag from pyproject.toml"
             )
@@ -2080,8 +2059,8 @@ def _check_ci_script_entrypoints(doc, path, errors):
         "scripts/ci/ci_finalize_dataflow_outcome.py",
         "scripts/ci/ci_controller_drift_gate.py",
         "scripts/ci/ci_override_record_emit.py",
-        "scripts/policy/policy_scanner_suite.py",
-        "scripts/misc/aspf_handoff.py run",
+        "gabion policy scanner",
+        "gabion aspf handoff run",
         "check delta-bundle",
         "check delta-gates",
     }
@@ -2114,18 +2093,18 @@ def _check_policy_scanner_suite_entrypoints(doc, path, errors):
         raw_steps = job.get("steps", [])
         if isinstance(raw_steps, list):
             steps.extend(raw_steps)
-    if not _step_run_contains_any(steps, {"scripts/policy/policy_scanner_suite.py"}):
-        errors.append(f"{path}: workflow must invoke scripts/policy/policy_scanner_suite.py")
+    if not _step_run_contains_any(steps, {"gabion policy scanner"}):
+        errors.append(f"{path}: workflow must invoke gabion policy scanner")
     required_policy_check_tokens = {
-        "scripts/policy/policy_check.py",
+        "gabion policy check",
         "--workflows",
         "artifacts/out/policy_check_result.json",
     }
     if not _step_run_contains_tokens(steps, required_policy_check_tokens):
         errors.append(
-            f"{path}: workflow must invoke scripts/policy/policy_check.py --workflows "
+            f"{path}: workflow must invoke gabion policy check --workflows "
             "--output artifacts/out/policy_check_result.json before "
-            "scripts/policy/policy_scanner_suite.py"
+            "gabion policy scanner"
         )
     deprecated_scanner_tokens = {
         "scripts/no_monkeypatch_policy_check.py",
@@ -2137,7 +2116,7 @@ def _check_policy_scanner_suite_entrypoints(doc, path, errors):
         if _step_run_contains_any(steps, {token}):
             errors.append(
                 f"{path}: workflow must not invoke legacy scanner entrypoint {token}; "
-                "use scripts/policy/policy_scanner_suite.py"
+                "use gabion policy scanner"
             )
 
 
@@ -2218,9 +2197,6 @@ def _check_release_testpypi_workflow(doc, path, errors):
         "origin/next",
         "TAG_SHA",
     }
-    required_scripts = {
-        "scripts/release/release_verify_test_tag.py",
-    }
     for name, job in jobs.items():
         check_deadline()
         cond = _normalize_if(job.get("if"))
@@ -2236,12 +2212,13 @@ def _check_release_testpypi_workflow(doc, path, errors):
                 f"{path}:{name}: release-testpypi workflow_run must guard on actor"
             )
         steps = job.get("steps", [])
-        if not (
-            _step_run_contains_tokens(steps, required_tokens)
-            or _step_run_contains_any(steps, required_scripts)
-        ):
+        if not _step_run_contains_any(steps, {"gabion release verify-test-tag"}):
             errors.append(
                 f"{path}:{name}: release-testpypi workflow must verify tag equals main/next"
+            )
+        if not _step_run_contains_any(steps, {"gabion release set-test-version"}):
+            errors.append(
+                f"{path}:{name}: release-testpypi workflow must set version from test tag"
             )
 
 
@@ -2266,9 +2243,6 @@ def _check_release_pypi_workflow(doc, path, errors):
         "origin/release",
         "TAG_SHA",
     }
-    required_scripts = {
-        "scripts/release/release_verify_pypi_tag.py",
-    }
     for name, job in jobs.items():
         check_deadline()
         cond = _normalize_if(job.get("if"))
@@ -2284,10 +2258,7 @@ def _check_release_pypi_workflow(doc, path, errors):
                 f"{path}:{name}: release-pypi workflow_run must guard on actor"
             )
         steps = job.get("steps", [])
-        if not (
-            _step_run_contains_tokens(steps, required_tokens)
-            or _step_run_contains_any(steps, required_scripts)
-        ):
+        if not _step_run_contains_any(steps, {"gabion release verify-pypi-tag"}):
             errors.append(
                 f"{path}:{name}: release-pypi workflow must verify tag equals main/next/release"
             )
@@ -3304,7 +3275,7 @@ def main(
                     status="pass" if returncode == 0 else "fail",
                     violations=violations,
                     baseline_mode="none",
-                    source_tool="scripts/policy/policy_check.py",
+                    source_tool="gabion policy check",
                     input_scope={"checks": requested_checks},
                 )
                 if lattice_convergence_result is not None:
@@ -3359,7 +3330,7 @@ def main(
                     path=args.perf_artifact,
                     profile=perf_profile,
                     root=repo_root,
-                    command=("scripts/policy/policy_check.py", *raw_argv),
+                    command=("gabion", "policy", "check", *raw_argv),
                     requested_checks=requested_checks,
                     returncode=returncode,
                     graph_artifact=graph_artifact,
@@ -3392,4 +3363,9 @@ def main(
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(
+        "Removed direct script entrypoint: scripts/policy/policy_check.py. "
+        "Use `gabion policy check`. "
+        "See docs/user_workflows.md#user_workflows and "
+        "docs/normative_clause_index.md#clause-command-maturity-parity."
+    )

@@ -33,6 +33,8 @@ from gabion_governance import governance_audit_impl
 class StructuredArtifactKind(StrEnum):
     TEST_EVIDENCE = "test_evidence"
     JUNIT_FAILURES = "junit_failures"
+    DATAFLOW_TERMINAL_OUTCOME = "dataflow_terminal_outcome"
+    DATAFLOW_OBLIGATION_TRACE = "dataflow_obligation_trace"
     DOCFLOW_COMPLIANCE = "docflow_compliance"
     DOCFLOW_PACKET_ENFORCEMENT = "docflow_packet_enforcement"
     CONTROLLER_DRIFT = "controller_drift"
@@ -516,6 +518,61 @@ class JUnitFailureArtifact:
 
     def __str__(self) -> str:
         return f"{self.source.rel_path} ({len(self.failures)} failures)"
+
+
+@dataclass(frozen=True)
+class DataflowTerminalOutcomeArtifact:
+    identity: StructuredArtifactIdentity
+    source: StructuredArtifactSource
+    terminal_exit: int
+    terminal_state: str
+    terminal_stage: str
+    terminal_status: str
+    attempts_run: int
+
+    def __str__(self) -> str:
+        return (
+            f"{self.source.rel_path} status={self.terminal_status} "
+            f"stage={self.terminal_stage}"
+        )
+
+
+@dataclass(frozen=True)
+class DataflowObligationTraceRow:
+    identity: StructuredArtifactIdentity
+    obligation_id: str
+    stage_id: str
+    rule_evaluated: str
+    trigger_evidence: str
+    required_action: str
+    status: str
+    raw_status: str
+    contract: str
+    kind: str
+    section_id: str
+    phase: str
+
+    def __str__(self) -> str:
+        return self.obligation_id or self.rule_evaluated or self.identity.wire()
+
+
+@dataclass(frozen=True)
+class DataflowObligationTraceArtifact:
+    identity: StructuredArtifactIdentity
+    source: StructuredArtifactSource
+    complete: bool
+    incompleteness_markers: tuple[str, ...]
+    total: int
+    satisfied: int
+    unsatisfied: int
+    skipped_by_policy: int
+    obligations: tuple[DataflowObligationTraceRow, ...]
+
+    def __str__(self) -> str:
+        return (
+            f"{self.source.rel_path} total={self.total} "
+            f"unsatisfied={self.unsatisfied}"
+        )
 
 
 @dataclass(frozen=True)
@@ -1930,6 +1987,106 @@ def _rel_path_from_pytest_classname(classname: str) -> str:
     return "/".join(parts[: last_test_index + 1]) + ".py"
 
 
+def load_dataflow_terminal_outcome_artifact(
+    *,
+    root: Path,
+    rel_path: str,
+    identities: StructuredArtifactIdentitySpace,
+) -> DataflowTerminalOutcomeArtifact | None:
+    payload = _load_json_mapping_artifact(root / rel_path)
+    if payload is None:
+        return None
+    source = StructuredArtifactSource(
+        rel_path=rel_path,
+        schema_version=int(payload.get("format_version", 0) or 0),
+    )
+    identity = identities.artifact_id(
+        artifact_kind=StructuredArtifactKind.DATAFLOW_TERMINAL_OUTCOME,
+        source_path=rel_path,
+        label=rel_path,
+    )
+    return DataflowTerminalOutcomeArtifact(
+        identity=identity,
+        source=source,
+        terminal_exit=int(payload.get("terminal_exit", 0) or 0),
+        terminal_state=str(payload.get("terminal_state", "") or "none"),
+        terminal_stage=str(payload.get("terminal_stage", "") or "none"),
+        terminal_status=str(payload.get("terminal_status", "") or "unknown"),
+        attempts_run=int(payload.get("attempts_run", 0) or 0),
+    )
+
+
+def load_dataflow_obligation_trace_artifact(
+    *,
+    root: Path,
+    rel_path: str,
+    identities: StructuredArtifactIdentitySpace,
+) -> DataflowObligationTraceArtifact | None:
+    payload = _load_json_mapping_artifact(root / rel_path)
+    if payload is None:
+        return None
+    source = StructuredArtifactSource(
+        rel_path=rel_path,
+        schema_version=int(payload.get("trace_version", 0) or 0),
+    )
+    identity = identities.artifact_id(
+        artifact_kind=StructuredArtifactKind.DATAFLOW_OBLIGATION_TRACE,
+        source_path=rel_path,
+        label=rel_path,
+    )
+    summary = payload.get("summary", {})
+    summary_mapping = summary if isinstance(summary, Mapping) else {}
+    obligations: list[DataflowObligationTraceRow] = []
+    raw_obligations = payload.get("obligations", [])
+    if isinstance(raw_obligations, list):
+        for index, raw_entry in enumerate(raw_obligations, start=1):
+            if not isinstance(raw_entry, Mapping):
+                continue
+            obligation_id = str(raw_entry.get("id", "")).strip()
+            row_identity = identities.item_id(
+                artifact_kind=StructuredArtifactKind.DATAFLOW_OBLIGATION_TRACE,
+                source_path=rel_path,
+                item_kind="obligation",
+                item_key=obligation_id or f"obligation-{index}",
+                label=obligation_id
+                or str(raw_entry.get("rule_evaluated", "")).strip()
+                or f"obligation-{index}",
+            )
+            obligations.append(
+                DataflowObligationTraceRow(
+                    identity=row_identity,
+                    obligation_id=obligation_id,
+                    stage_id=str(raw_entry.get("stage_id", "")).strip(),
+                    rule_evaluated=str(raw_entry.get("rule_evaluated", "")).strip(),
+                    trigger_evidence=str(raw_entry.get("trigger_evidence", "")).strip(),
+                    required_action=str(raw_entry.get("required_action", "")).strip(),
+                    status=str(raw_entry.get("status", "")).strip(),
+                    raw_status=str(raw_entry.get("raw_status", "")).strip(),
+                    contract=str(raw_entry.get("contract", "")).strip(),
+                    kind=str(raw_entry.get("kind", "")).strip(),
+                    section_id=str(raw_entry.get("section_id", "")).strip(),
+                    phase=str(raw_entry.get("phase", "")).strip(),
+                )
+            )
+    raw_markers = payload.get("incompleteness_markers", [])
+    markers = (
+        tuple(str(item).strip() for item in raw_markers if str(item).strip())
+        if isinstance(raw_markers, list)
+        else ()
+    )
+    return DataflowObligationTraceArtifact(
+        identity=identity,
+        source=source,
+        complete=bool(payload.get("complete", False)),
+        incompleteness_markers=markers,
+        total=int(summary_mapping.get("total", len(obligations)) or 0),
+        satisfied=int(summary_mapping.get("satisfied", 0) or 0),
+        unsatisfied=int(summary_mapping.get("unsatisfied", 0) or 0),
+        skipped_by_policy=int(summary_mapping.get("skipped_by_policy", 0) or 0),
+        obligations=tuple(obligations),
+    )
+
+
 def load_docflow_compliance_artifact(
     *,
     root: Path,
@@ -3207,6 +3364,9 @@ __all__ = [
     "CrossOriginWitnessContractCase",
     "CrossOriginWitnessFieldCheck",
     "CrossOriginWitnessRow",
+    "DataflowObligationTraceArtifact",
+    "DataflowObligationTraceRow",
+    "DataflowTerminalOutcomeArtifact",
     "DocflowCommit",
     "DocflowComplianceArtifact",
     "DocflowComplianceRow",
@@ -3251,6 +3411,8 @@ __all__ = [
     "build_ingress_merge_parity_artifact",
     "load_cross_origin_witness_contract_artifact",
     "load_controller_drift_artifact",
+    "load_dataflow_obligation_trace_artifact",
+    "load_dataflow_terminal_outcome_artifact",
     "load_docflow_compliance_artifact",
     "load_docflow_packet_enforcement_artifact",
     "load_git_state_artifact",

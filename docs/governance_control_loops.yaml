@@ -158,7 +158,7 @@ matrix_rows:
     override_note: strictness reductions require `GABION_POLICY_OVERRIDE_TOKEN` + `GABION_POLICY_OVERRIDE_RATIONALE`.
   - gate_id: docflow_packet_loop
     loop_domain: docs/docflow
-    sensor_command: mise exec -- python scripts/policy/docflow_packet_enforce.py --root . --packets artifacts/out/docflow_warning_doc_packets.json --baseline docs/baselines/docflow_packet_baseline.json --out artifacts/out/docflow_packet_enforcement.json --debt-out artifacts/out/docflow_packet_debt_ledger.json --check --run-proving-tests
+    sensor_command: mise exec -- python -m gabion policy docflow-packet-enforce --root . --packets artifacts/out/docflow_warning_doc_packets.json --baseline docs/baselines/docflow_packet_baseline.json --out artifacts/out/docflow_packet_enforcement.json --debt-out artifacts/out/docflow_packet_debt_ledger.json --check --run-proving-tests
     state_artifact_paths:
       - artifacts/out/docflow_packet_enforcement.json
       - artifacts/out/docflow_packet_debt_ledger.json

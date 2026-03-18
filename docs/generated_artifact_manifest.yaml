@@ -53,7 +53,7 @@ artifacts:
     regeneration:
       - mise exec -- python -m gabion docflow --root . --fail-on-violations --sppf-gh-ref-mode required
     primary_consumers:
-      - scripts/policy/docflow_packetize.py
+      - gabion policy docflow-packetize
       - governance_loop_docs
     notes: Core contradiction and warning surface for docflow.
 
@@ -130,8 +130,8 @@ artifacts:
     regeneration:
       - mise exec -- python -m gabion docflow --root . --fail-on-violations --sppf-gh-ref-mode required
     primary_consumers:
-      - scripts/policy/docflow_packetize.py
-      - scripts/policy/docflow_packet_enforce.py
+      - gabion policy docflow-packetize
+      - gabion policy docflow-packet-enforce
     notes: Section-review carrier used by the packet loop.
 
   - artifact_id: docflow_implication_matrices
@@ -218,15 +218,15 @@ artifacts:
     format: json
     process_domain: docflow
     emitter_kind: command
-    source: scripts/policy/docflow_packetize.py
+    source: gabion policy docflow-packetize
     source_refs:
-      - scripts/policy/docflow_packetize.py
+      - src/gabion/tooling/runtime/docflow_packetize_cli.py
     conditional: false
     trigger_condition: emitted on normal packetization runs
     regeneration:
-      - mise exec -- python -m scripts.policy.docflow_packetize
+      - mise exec -- python -m gabion policy docflow-packetize
     primary_consumers:
-      - scripts/policy/docflow_packet_enforce.py
+      - gabion policy docflow-packet-enforce
       - CI audit workflow
     notes: Packetized warning rows and packet summary for the docflow closed loop.
 
@@ -238,13 +238,13 @@ artifacts:
     format: json
     process_domain: docflow
     emitter_kind: command
-    source: scripts/policy/docflow_packet_enforce.py
+    source: gabion policy docflow-packet-enforce
     source_refs:
-      - scripts/policy/docflow_packet_enforce.py
+      - src/gabion/tooling/runtime/docflow_packet_enforce_cli.py
     conditional: false
     trigger_condition: emitted on normal packet-enforcement runs
     regeneration:
-      - mise exec -- python -m scripts.policy.docflow_packet_enforce --check
+      - mise exec -- python -m gabion policy docflow-packet-enforce --check
     primary_consumers:
       - CI audit workflow
       - governance debt review
@@ -257,13 +257,13 @@ artifacts:
     format: json
     process_domain: governance
     emitter_kind: command
-    source: scripts/governance/governance_controller_audit.py
+    source: gabion governance controller-audit
     source_refs:
-      - scripts/governance/governance_controller_audit.py
+      - src/gabion/tooling/runtime/governance_controller_audit_cli.py
     conditional: false
     trigger_condition: emitted on controller-drift audit runs
     regeneration:
-      - mise exec -- python scripts/governance/governance_controller_audit.py --out artifacts/out/controller_drift.json
+      - mise exec -- python -m gabion governance controller-audit --out artifacts/out/controller_drift.json
     primary_consumers:
       - scripts/ci/ci_controller_drift_gate.py
       - invariant graph ingress
@@ -305,12 +305,12 @@ artifacts:
     source: .github/workflows/ci.yml audit job governance telemetry emit
     source_refs:
       - .github/workflows/ci.yml
-      - scripts/governance/governance_telemetry_emit.py
+      - src/gabion/tooling/runtime/governance_telemetry_emit_cli.py
       - scripts/ci/ci_step_timing_capture.py
     conditional: false
     trigger_condition: emitted on normal CI audit runs
     regeneration:
-      - mise exec -- python scripts/governance/governance_telemetry_emit.py --run-id local --timings artifacts/audit_reports/ci_step_timings.json --history artifacts/out/governance_telemetry_history.json --json-out artifacts/out/governance_telemetry.json --md-out artifacts/audit_reports/governance_telemetry.md
+      - mise exec -- python -m gabion governance telemetry-emit --run-id local --timings artifacts/audit_reports/ci_step_timings.json --history artifacts/out/governance_telemetry_history.json --json-out artifacts/out/governance_telemetry.json --md-out artifacts/audit_reports/governance_telemetry.md
     primary_consumers:
       - uploaded CI artifacts
       - governance trend review
@@ -329,13 +329,13 @@ artifacts:
     format: json
     process_domain: local_validation
     emitter_kind: command
-    source: scripts/policy/policy_check.py --workflows
+    source: gabion policy check --workflows
     source_refs:
-      - scripts/policy/policy_check.py
+      - src/gabion/tooling/runtime/policy_check_cli.py
     conditional: false
     trigger_condition: emitted on normal workflow-policy checks
     regeneration:
-      - mise exec -- python -m scripts.policy.policy_check --workflows
+      - mise exec -- python -m gabion policy check --workflows
     primary_consumers:
       - governance review
       - invariant graph ingress
@@ -354,13 +354,13 @@ artifacts:
     source: .github/workflows/ci.yml audit job policy_check --workflows --output
     source_refs:
       - .github/workflows/ci.yml
-      - scripts/policy/policy_check.py
+      - src/gabion/tooling/runtime/policy_check_cli.py
     conditional: true
     trigger_condition: emitted when policy_check is run with the stable CI output path
     regeneration:
-      - mise exec -- python scripts/policy/policy_check.py --workflows --output artifacts/out/policy_check_result.json
+      - mise exec -- python -m gabion policy check --workflows --output artifacts/out/policy_check_result.json
     primary_consumers:
-      - scripts/policy/policy_scanner_suite.py
+      - gabion policy scanner
       - project manager view
       - invariant graph tooling
       - UTR workstream inspection
@@ -380,11 +380,11 @@ artifacts:
     source: .github/workflows/ci.yml audit job policy_check auxiliary artifact writes
     source_refs:
       - .github/workflows/ci.yml
-      - scripts/policy/policy_check.py
+      - src/gabion/tooling/runtime/policy_check_cli.py
     conditional: true
     trigger_condition: emitted when policy_check is run with the stable CI output path
     regeneration:
-      - mise exec -- python scripts/policy/policy_check.py --workflows --output artifacts/out/policy_check_result.json
+      - mise exec -- python -m gabion policy check --workflows --output artifacts/out/policy_check_result.json
     primary_consumers:
       - invariant graph ingress
       - hotspot and projection queue tooling
@@ -401,12 +401,12 @@ artifacts:
     source: .github/workflows/ci.yml audit job policy_check projection queue write
     source_refs:
       - .github/workflows/ci.yml
-      - scripts/policy/policy_check.py
+      - src/gabion/tooling/runtime/policy_check_cli.py
       - scripts/policy/projection_semantic_fragment_queue.py
     conditional: true
     trigger_condition: emitted when policy_check is run with the stable CI output path
     regeneration:
-      - mise exec -- python scripts/policy/policy_check.py --workflows --output artifacts/out/policy_check_result.json
+      - mise exec -- python -m gabion policy check --workflows --output artifacts/out/policy_check_result.json
     primary_consumers:
       - projection queue review
       - uploaded CI artifacts
@@ -420,14 +420,14 @@ artifacts:
     format: json+md
     process_domain: policy_suite
     emitter_kind: command
-    source: scripts/policy/policy_scanner_suite.py --out-dir artifacts/out
+    source: gabion policy scanner --root . --out-dir artifacts/out
     source_refs:
-      - scripts/policy/policy_scanner_suite.py
+      - src/gabion/tooling/runtime/policy_scanner_cli.py
       - scripts/policy/hotspot_neighborhood_queue.py
     conditional: false
     trigger_condition: emitted on normal policy-scanner-suite runs
     regeneration:
-      - mise exec -- python scripts/policy/policy_scanner_suite.py --root . --out-dir artifacts/out
+      - mise exec -- python -m gabion policy scanner --root . --out-dir artifacts/out
     primary_consumers:
       - uploaded CI artifacts
       - hotspot review
@@ -464,13 +464,13 @@ artifacts:
     format: json
     process_domain: local_validation
     emitter_kind: command
-    source: scripts/misc/extract_test_evidence.py
+    source: gabion repo extract-test-evidence
     source_refs:
-      - scripts/misc/extract_test_evidence.py
+      - gabion repo extract-test-evidence
     conditional: false
     trigger_condition: emitted on normal evidence-index refresh runs
     regeneration:
-      - mise exec -- python -m scripts.misc.extract_test_evidence --root . --tests tests --out out/test_evidence.json
+      - mise exec -- python -m gabion repo extract-test-evidence --root . --tests tests --out out/test_evidence.json
     primary_consumers:
       - invariant graph ingress
       - impact and obsolescence tooling
@@ -483,13 +483,13 @@ artifacts:
     format: json
     process_domain: local_validation
     emitter_kind: command
-    source: scripts/misc/extract_test_behavior.py
+    source: gabion repo extract-test-behavior
     source_refs:
-      - scripts/misc/extract_test_behavior.py
+      - gabion repo extract-test-behavior
     conditional: false
     trigger_condition: emitted on normal behavior-index refresh runs
     regeneration:
-      - mise exec -- python -m scripts.misc.extract_test_behavior --root . --tests tests --out out/test_behavior.json
+      - mise exec -- python -m gabion repo extract-test-behavior --root . --tests tests --out out/test_behavior.json
     primary_consumers:
       - behavior-index drift checks
     notes: Canonical test-behavior carrier.
@@ -556,6 +556,47 @@ artifacts:
       - audit review
     notes: Stage reports are path-conditional because the runtime may emit zero or more stage snapshots.
 
+  - artifact_id: dataflow_terminal_outcome_bundle
+    family_id: dataflow_deadline_handoff
+    paths:
+      - artifacts/audit_reports/dataflow_terminal_outcome.json
+    format: json
+    process_domain: dataflow_stage
+    emitter_kind: runtime_path
+    source: run-dataflow-stage terminal outcome projection path
+    source_refs:
+      - src/gabion/tooling/runtime/run_dataflow_stage.py
+      - src/gabion/tooling/runtime/terminal_outcome_projector.py
+    conditional: true
+    trigger_condition: emitted when run-dataflow-stage completes with at least one stage result
+    regeneration:
+      - mise exec -- python -m gabion --carrier direct --timeout 130000000000000ns run-dataflow-stage --debug-dump-interval-seconds 60 --stage-strictness-profile "run=high"
+    primary_consumers:
+      - invariant graph ingress
+      - DGR synthetic root
+      - audit review
+    notes: Structured terminal outcome carrier for local and CI-shaped dataflow-stage runs.
+
+  - artifact_id: dataflow_obligation_trace_bundle
+    family_id: dataflow_deadline_handoff
+    paths:
+      - artifacts/out/obligation_trace.json
+    format: json
+    process_domain: dataflow_stage
+    emitter_kind: runtime_path
+    source: run-dataflow-stage obligation trace projection path
+    source_refs:
+      - src/gabion/tooling/runtime/run_dataflow_stage.py
+    conditional: true
+    trigger_condition: emitted when run-dataflow-stage completes with obligation-trace projection enabled
+    regeneration:
+      - mise exec -- python -m gabion --carrier direct --timeout 130000000000000ns run-dataflow-stage --debug-dump-interval-seconds 60 --stage-strictness-profile "run=high"
+    primary_consumers:
+      - invariant graph ingress
+      - DGR synthetic root
+      - audit review
+    notes: Structured obligation-trace carrier used for local dataflow readiness and timeout-contract inspection.
+
   - artifact_id: deadline_profile_bundle
     family_id: dataflow_deadline_handoff
     paths:
@@ -610,12 +651,12 @@ artifacts:
     source: .github/workflows/ci.yml dataflow-grammar and audit jobs ASPF handoff flow
     source_refs:
       - .github/workflows/ci.yml
-      - scripts/misc/aspf_handoff.py
+      - gabion aspf handoff
       - src/gabion/tooling/runtime/aspf_handoff.py
     conditional: false
     trigger_condition: emitted on normal handoff-enabled dataflow and audit runs
     regeneration:
-      - mise exec -- python scripts/misc/aspf_handoff.py run --root . --manifest artifacts/out/aspf_handoff_manifest.json --state-root artifacts/out/aspf_state -- true
+      - mise exec -- python -m gabion aspf handoff run --root . --manifest artifacts/out/aspf_handoff_manifest.json --state-root artifacts/out/aspf_state -- true
     primary_consumers:
       - CI handoff restore paths
       - uploaded CI artifacts

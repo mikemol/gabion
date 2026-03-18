@@ -235,11 +235,11 @@ mise exec -- python -m gabion check run \
   --aspf-opportunities-json artifacts/out/aspf_opportunities.json
 ```
 
-For script orchestration, use `scripts/misc/aspf_handoff.py` to reserve state paths
+For orchestration, use `gabion aspf handoff` to reserve state paths
 and cumulative imports through `artifacts/out/aspf_handoff_manifest.json`.
 The canonical local checks surface is `mise exec -- python -m gabion checks`.
-The repo wrappers `scripts/checks.sh`, `scripts/ci_local_repro.sh`,
-`python -m scripts.refresh_baselines`, and `scripts/audit_snapshot.sh` now enable this
+The repo helpers `scripts/checks.sh`, `gabion ci local-repro`,
+`gabion repo refresh-baselines`, and `gabion repo audit-snapshot` now enable this
 handoff loop by default (disable with `--no-aspf-handoff`).
 
 Phase-1 ASPF outputs:
@@ -344,12 +344,12 @@ Payload schema: `docs/synthesis_payload.md`.
 
 Capture an audit snapshot (reports + DOT graph under `artifacts/`):
 ```
-scripts/audit_snapshot.sh
+mise exec -- python -m gabion repo audit-snapshot
 ```
 Snapshots now include a synthesis plan JSON and protocol stub file.
 Show the latest snapshot paths:
 ```
-scripts/latest_snapshot.sh
+mise exec -- python -m gabion repo latest-snapshot
 ```
 
 ## Editor integration

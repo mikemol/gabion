@@ -121,15 +121,15 @@ def register_tooling_passthrough_commands(
 
     @app.command(
         "ci-local-repro",
+        hidden=True,
         context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
     )
-    def ci_local_repro(ctx: typer.Context) -> None:
-        """Run the local CI reproduction protocol through the gabion CLI."""
-        raise typer.Exit(
-            code=run_tooling_with_argv_fn(
-                "ci-local-repro",
-                list(ctx.args),
-            )
+    def ci_local_repro(_ctx: typer.Context) -> None:
+        raise typer.BadParameter(
+            "Removed command: ci-local-repro. "
+            "Use `gabion ci local-repro`. "
+            "See `docs/user_workflows.md#user_workflows` and "
+            "`docs/normative_clause_index.md#clause-command-maturity-parity`."
         )
 
     @app.command(
@@ -145,17 +145,13 @@ def register_tooling_passthrough_commands(
             )
         )
 
-    @app.command(
-        "run-dataflow-stage",
-        context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
-    )
-    def run_dataflow_stage(ctx: typer.Context) -> None:
-        """Run a single dataflow stage with CI-aligned outputs."""
-        raise typer.Exit(
-            code=run_tooling_with_argv_fn(
-                "run-dataflow-stage",
-                list(ctx.args),
-            )
+    @app.command("run-dataflow-stage", hidden=True)
+    def run_dataflow_stage() -> None:
+        raise typer.BadParameter(
+            "Removed command: run-dataflow-stage. "
+            "Use `gabion check delta-bundle`. "
+            "See `docs/user_workflows.md#user_workflows` and "
+            "`docs/normative_clause_index.md#clause-command-maturity-parity`."
         )
 
     @app.command(
@@ -269,71 +265,18 @@ def register_ci_watch_command(
     status_watch_options_ctor: StatusWatchOptionsCtor,
     run_tooling_with_argv_fn: RunToolingWithArgvFn,
 ) -> Callable[..., None]:
-    @app.command("ci-watch")
-    def ci_watch(
-        run_id: str | None = typer.Option(
-            None,
-            "--run-id",
-            help="Specific run id to watch (skips lookup).",
-        ),
-        branch: str = typer.Option(
-            "stage",
-            "--branch",
-            help="Branch to watch (default: stage).",
-        ),
-        workflow: str | None = typer.Option(
-            None,
-            "--workflow",
-            help="Optional workflow name or file filter.",
-        ),
-        status: str | None = typer.Option(
-            None,
-            "--status",
-            help="Optional status filter for fallback run lookup.",
-        ),
-        prefer_active: bool = typer.Option(
-            True,
-            "--prefer-active/--no-prefer-active",
-            help="Prefer in-progress/queued runs during run lookup.",
-        ),
-        download_artifacts_on_failure: bool = typer.Option(
-            True,
-            "--download-artifacts-on-failure/--no-download-artifacts-on-failure",
-            help="Collect failure metadata/logs/artifacts when watched run fails.",
-        ),
-        artifact_output_root: Path = typer.Option(
+    @app.command("ci-watch", hidden=True)
+    def ci_watch() -> None:
+        _ = (
             default_status_watch_artifact_root,
-            "--artifact-output-root",
-            help="Root path for failure bundle collection.",
-        ),
-        artifact_name: list[str] | None = typer.Option(
-            None,
-            "--artifact-name",
-            help="Artifact name filter (repeatable).",
-        ),
-        collect_failed_logs: bool = typer.Option(
-            True,
-            "--collect-failed-logs/--no-collect-failed-logs",
-            help="Collect `gh run view --log-failed` output on failure.",
-        ),
-        summary_json: Path | None = typer.Option(
-            None,
-            "--summary-json",
-            help="Write watch/collection summary JSON to this path.",
-        ),
-    ) -> None:
-        options = status_watch_options_ctor(
-            branch=branch,
-            run_id=run_id,
-            status=status,
-            workflow=workflow,
-            prefer_active=prefer_active,
-            download_artifacts_on_failure=download_artifacts_on_failure,
-            artifact_output_root=artifact_output_root,
-            artifact_names=tuple(artifact_name or []),
-            collect_failed_logs=collect_failed_logs,
-            summary_json=summary_json,
+            status_watch_options_ctor,
+            run_tooling_with_argv_fn,
         )
-        raise typer.Exit(code=run_tooling_with_argv_fn("ci-watch", options.to_argv()))
+        raise typer.BadParameter(
+            "Removed command: ci-watch. "
+            "Use `gabion ci watch`. "
+            "See `docs/user_workflows.md#user_workflows` and "
+            "`docs/normative_clause_index.md#clause-command-maturity-parity`."
+        )
 
     return ci_watch

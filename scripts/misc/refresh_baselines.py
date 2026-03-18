@@ -784,9 +784,9 @@ def main(
 
 
 if __name__ == "__main__":
-    try:
-        raise SystemExit(main())
-    except RefreshBaselinesSubprocessFailure as failure:
-        artifact_path = _write_failure_artifact(failure)
-        print(f"refresh_baselines failure artifact: {artifact_path}", file=sys.stderr)
-        raise SystemExit(1)
+    raise SystemExit(
+        "Removed direct script entrypoint: scripts/misc/refresh_baselines.py. "
+        "Use `gabion repo refresh-baselines`. "
+        "See docs/user_workflows.md#user_workflows and "
+        "docs/normative_clause_index.md#clause-command-maturity-parity."
+    )

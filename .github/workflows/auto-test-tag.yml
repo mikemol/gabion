@@ -46,7 +46,7 @@ jobs:
           echo "target_sha=$MAIN_SHA" >> "$GITHUB_OUTPUT"
       - name: Read version
         id: version
-        run: python scripts/release/release_read_project_version.py --output "$GITHUB_OUTPUT"
+        run: python -m gabion release read-project-version --output "$GITHUB_OUTPUT"
       - name: Create test tag if missing
         id: tag
         run: |

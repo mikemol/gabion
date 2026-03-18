@@ -22,4 +22,9 @@ main = sync_core.main
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(
+        "Removed direct script entrypoint: scripts/sppf/sppf_sync.py. "
+        "Use `gabion sppf sync`. "
+        "See docs/user_workflows.md#user_workflows and "
+        "docs/normative_clause_index.md#clause-command-maturity-parity."
+    )

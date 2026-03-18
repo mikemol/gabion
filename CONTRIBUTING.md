@@ -314,15 +314,15 @@ Interoperability/tolerance expectation:
 Correction-unit validation stack (recommended interoperability baseline):
 
 ```bash
-mise exec -- python -m scripts.policy_check --workflows
-mise exec -- python -m scripts.policy_check --ambiguity-contract
+mise exec -- python -m gabion policy check --workflows
+mise exec -- python -m gabion policy check --ambiguity-contract
 mise exec -- python -m gabion docflow --root . --fail-on-violations --sppf-gh-ref-mode required
-mise exec -- python scripts/policy/docflow_packetize.py --root . --compliance artifacts/out/docflow_compliance.json --section-reviews artifacts/out/docflow_section_reviews.json --out artifacts/out/docflow_warning_doc_packets.json --summary-out artifacts/out/docflow_warning_doc_packet_summary.json
-mise exec -- python scripts/policy/docflow_packet_enforce.py --root . --packets artifacts/out/docflow_warning_doc_packets.json --baseline docs/baselines/docflow_packet_baseline.json --out artifacts/out/docflow_packet_enforcement.json --debt-out artifacts/out/docflow_packet_debt_ledger.json --check --run-proving-tests
+mise exec -- python -m gabion policy docflow-packetize --root . --compliance artifacts/out/docflow_compliance.json --section-reviews artifacts/out/docflow_section_reviews.json --out artifacts/out/docflow_warning_doc_packets.json --summary-out artifacts/out/docflow_warning_doc_packet_summary.json
+mise exec -- python -m gabion policy docflow-packet-enforce --root . --packets artifacts/out/docflow_warning_doc_packets.json --baseline docs/baselines/docflow_packet_baseline.json --out artifacts/out/docflow_packet_enforcement.json --debt-out artifacts/out/docflow_packet_debt_ledger.json --check --run-proving-tests
 mise exec -- env PYTHONPATH=. python scripts/policy/private_symbol_import_guard.py --check --allowlist docs/policy/private_symbol_import_allowlist.txt --baseline docs/baselines/private_symbol_import_baseline.json --out out/private_symbol_import_report.json
 mise exec -- python -m pytest -q tests/test_ingest_adapter_contract.py
 mise exec -- python -m pytest -q <targeted-tests>
-mise exec -- python -m scripts.extract_test_evidence --root . --tests tests --out out/test_evidence.json
+mise exec -- python -m gabion repo extract-test-evidence --root . --tests tests --out out/test_evidence.json
 git diff --exit-code out/test_evidence.json
 ```
 
@@ -527,12 +527,12 @@ Payload schema: `docs/synthesis_payload.md`.
 
 Capture an audit snapshot (reports + DOT graph under `artifacts/`):
 ```
-scripts/audit_snapshot.sh
+mise exec -- python -m gabion repo audit-snapshot
 ```
 Snapshots now include a synthesis plan JSON and protocol stub file.
 Show the latest snapshot paths:
 ```
-scripts/latest_snapshot.sh
+mise exec -- python -m gabion repo latest-snapshot
 ```
 
 Install git hooks (optional):
@@ -601,33 +601,33 @@ mise exec -- python -m gabion checks
 
 Reproduce the `ci.yml` workflow locally (checks + dataflow jobs):
 ```
-scripts/ci_local_repro.sh
+gabion ci local-repro
 ```
 
 Run only one CI job locally when iterating:
 ```
-scripts/ci_local_repro.sh --checks-only
-scripts/ci_local_repro.sh --dataflow-only
+gabion ci local-repro --checks-only
+gabion ci local-repro --dataflow-only
 ```
 
 Reproduce the PR dataflow status-check path locally:
 ```
-scripts/ci_local_repro.sh --pr-dataflow-only --pr-base-sha <base-sha> --pr-head-sha <head-sha>
+gabion ci local-repro --pr-dataflow-only --pr-base-sha <base-sha> --pr-head-sha <head-sha>
 ```
-`--pr-base-sha`/`--pr-head-sha` are optional; when omitted, the script falls
+`--pr-base-sha`/`--pr-head-sha` are optional; when omitted, the command falls
 back to environment values or local branch ancestry.
 PR mode now also runs the governance template check and controller-drift audit.
-The audited normative-doc registry consumed by `scripts/governance/governance_controller_audit.py` is single-sourced in `POLICY_SEED.md#change_protocol` via `controller-normative-doc:` markers; update that list there (not in multiple docs) when governance anchors move.
+The audited normative-doc registry consumed by `gabion governance controller-audit` is single-sourced in `POLICY_SEED.md#change_protocol` via `controller-normative-doc:` markers; update that list there (not in multiple docs) when governance anchors move.
 For stricter parity with `.github/workflows/pr-dataflow-grammar.yml`, use:
 ```
-scripts/ci_local_repro.sh --pr-dataflow-only --verify-pr-stage-ci --pr-stage-ci-timeout-minutes 70
+gabion ci local-repro --pr-dataflow-only --verify-pr-stage-ci --pr-stage-ci-timeout-minutes 70
 ```
 When governance/template checks need PR body context, provide one with:
 ```
-scripts/ci_local_repro.sh --pr-dataflow-only --pr-body-file <path-to-pr-body.md>
+gabion ci local-repro --pr-dataflow-only --pr-body-file <path-to-pr-body.md>
 ```
 
-SPPF lifecycle validation in that script defaults to auto (run when GH auth is
+SPPF lifecycle validation defaults to auto (run when GH auth is
 available); use `--skip-sppf-sync` to bypass or `--run-sppf-sync` to require it.
 GitHub-interactive steps prefer authenticated `gh` API calls (`gh auth status`).
 If `gh` auth is unavailable, set `GH_TOKEN` or `GITHUB_TOKEN` explicitly for
@@ -635,7 +635,7 @@ non-interactive fallback paths.
 `gh` does not mint a new ephemeral PAT here; it uses your existing local auth.
 For long-running dataflow reproductions, set
 `GABION_DATAFLOW_DEBUG_DUMP_INTERVAL_SECONDS=<seconds>` to emit periodic
-state dumps; you can also send `SIGUSR1` to `gabion run-dataflow-stage`
+state dumps; you can also send `SIGUSR1` to `gabion check delta-bundle`
 to force an immediate dump. CI uses a 60-second interval by default. Unified
 phase telemetry is written to:
 - `artifacts/audit_reports/dataflow_phase_timeline.md` (human-readable table)
@@ -764,20 +764,20 @@ If `POLICY_GITHUB_TOKEN` is set, the CI workflow also runs the posture check
 - Action allow-list: [`NCI-ACTIONS-ALLOWLIST`](docs/normative_clause_index.md#clause-actions-allowlist).
 - Self-hosted jobs must use the required labels and actor guard.
 Allow-listed actions are defined in `docs/allowed_actions.txt` and enforced by
-`python -m scripts.policy_check`.
+`gabion policy check`.
 
-Workflow policy checks live in `python -m scripts.policy_check` (requires `pyyaml`).
+Workflow policy checks live in `gabion policy check` (requires `pyyaml`).
 Run:
 ```
 mise exec -- python -m pip install pyyaml
-mise exec -- python -m scripts.policy_check --workflows
+mise exec -- python -m gabion policy check --workflows
 mise exec -- python scripts/ci_seed_dataflow_checkpoint.py
 mise exec -- python scripts/ci/ci_finalize_dataflow_outcome.py --terminal-exit 0
 mise exec -- python scripts/ci/ci_controller_drift_gate.py --drift-artifact artifacts/out/controller_drift.json
 ```
 Posture checks require `POLICY_GITHUB_TOKEN` with admin read access:
 ```
-mise exec -- python -m scripts.policy_check --posture
+mise exec -- python -m gabion policy check --posture
 ```
 
 ## Doc front-matter

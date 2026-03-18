@@ -91,11 +91,14 @@ def test_build_psf_phase5_projection_matches_current_live_repo_state() -> None:
         "CSA-IGM",
         "CSA-IVL",
         "CSA-RGC",
+        "DGR",
         "PRF",
         "PSF-007",
         "RCI",
+        "SAC",
         "SCC",
         "UTR",
+        "WRD",
     )
 
 

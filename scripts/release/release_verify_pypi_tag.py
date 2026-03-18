@@ -72,4 +72,9 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(
+        "Removed direct script entrypoint: scripts/release/release_verify_pypi_tag.py. "
+        "Use `gabion release verify-pypi-tag`. "
+        "See docs/user_workflows.md#user_workflows and "
+        "docs/normative_clause_index.md#clause-command-maturity-parity."
+    )

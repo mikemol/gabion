@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import inspect
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Literal
 
 from gabion.analysis.aspf.aspf_lattice_algebra import canonical_structural_identity
 from gabion.analysis.foundation.marker_protocol import (
@@ -62,6 +62,19 @@ class RegisteredCounterfactualActionDefinition:
     object_ids: tuple[str, ...] = ()
 
 
+DataflowTerminalStatus = Literal["success", "timeout_resume", "hard_failure"]
+DataflowObligationStatus = Literal["satisfied", "unsatisfied", "skipped_by_policy"]
+
+
+@dataclass(frozen=True)
+class RegisteredDataflowSignalSelector:
+    terminal_statuses: tuple[DataflowTerminalStatus, ...] = ()
+    obligation_statuses: tuple[DataflowObligationStatus, ...] = ()
+    obligation_contracts: tuple[str, ...] = ()
+    obligation_kinds: tuple[str, ...] = ()
+    incompleteness_markers: tuple[str, ...] = ()
+
+
 @dataclass(frozen=True)
 class RegisteredTouchpointDefinition:
     root_id: str
@@ -83,6 +96,7 @@ class RegisteredTouchpointDefinition:
     ] = ()
     declared_touchsites: tuple[RegisteredTouchsiteDefinition, ...] = ()
     test_path_prefixes: tuple[str, ...] = ()
+    dataflow_signal_selector: RegisteredDataflowSignalSelector | None = None
     scan_touchsites: bool = False
 
 
@@ -461,6 +475,7 @@ def declared_touchsite_definition_from_symbol(
 
 __all__ = [
     "RegisteredCounterfactualActionDefinition",
+    "RegisteredDataflowSignalSelector",
     "RegisteredRootDefinition",
     "RegisteredSubqueueDefinition",
     "RegisteredTouchpointDefinition",

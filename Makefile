@@ -28,7 +28,7 @@ lsp-smoke:
 	mise exec -- python -m scripts.lsp_smoke_test --root .
 
 audit-snapshot:
-	scripts/audit_snapshot.sh
+	mise exec -- python -m gabion repo audit-snapshot
 
 audit-latest:
-	scripts/latest_snapshot.sh
+	mise exec -- python -m gabion repo latest-snapshot

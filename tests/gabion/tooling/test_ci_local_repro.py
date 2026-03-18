@@ -45,8 +45,8 @@ def test_checks_steps_cover_ci_parity_surface(tmp_path: Path) -> None:
     commands = [tuple(step.command) for step in steps]
 
     assert any("--tier2-residue-contract" in command for command in commands)
-    assert any("scripts/policy/docflow_packetize.py" in command for command in commands)
-    assert any("scripts/policy/docflow_packet_enforce.py" in command for command in commands)
+    assert any("docflow-packetize" in command for command in commands)
+    assert any("docflow-packet-enforce" in command for command in commands)
     assert any("scripts/ci/ci_override_record_emit.py" in command for command in commands)
     assert any("scripts/ci/ci_controller_drift_gate.py" in command for command in commands)
     assert any("lsp-parity-gate" in command for command in commands)

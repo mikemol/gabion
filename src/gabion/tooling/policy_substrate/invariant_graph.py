@@ -1,3 +1,13 @@
+"""Invariant graph construction and workstream projection runtime.
+
+Navigation index:
+- graph model and identity helpers: top of module
+- structured artifact ingress and signal joins: artifact loader families
+- workstream graph materialization and projections: mid-module graph builders
+- declared registry catalog: delegated to
+  gabion.tooling.policy_substrate.declared_workstream_registry_catalog
+- runtime payload render/write helpers: lower emission and serialization zones
+"""
 from __future__ import annotations
 
 import ast
@@ -60,29 +70,13 @@ from gabion.tooling.policy_substrate.ranking_signal_dsl import (
     RankingSignalRule,
     evaluate_ranking_signal_rules,
 )
-from gabion.tooling.policy_substrate.policy_rule_frontmatter_migration_registry import (
-    prf_workstream_registry,
-)
-from gabion.tooling.policy_substrate.projection_semantic_fragment_phase5_registry import (
-    phase5_workstream_registry,
-)
-from gabion.tooling.policy_substrate.surface_contract_convergence_registry import (
-    surface_contract_convergence_workstream_registry,
-)
-from gabion.tooling.policy_substrate.runtime_context_injection_registry import (
-    runtime_context_injection_workstream_registry,
-)
-from gabion.tooling.policy_substrate.boundary_ingress_convergence_registry import (
-    boundary_ingress_convergence_workstream_registry,
-)
-from gabion.tooling.policy_substrate.unit_test_readiness_registry import (
-    unit_test_readiness_workstream_registry,
-)
-from gabion.tooling.policy_substrate.structural_anti_pattern_convergence_registry import (
-    structural_anti_pattern_convergence_workstream_registry,
+from gabion.tooling.policy_substrate.declared_workstream_registry_catalog import (
+    declared_workstream_registries as _declared_workstream_registries,
 )
 from gabion.tooling.policy_substrate.structured_artifact_ingress import (
     StructuredArtifactIdentitySpace,
+    load_dataflow_obligation_trace_artifact,
+    load_dataflow_terminal_outcome_artifact,
     TestEvidenceSite,
     load_controller_drift_artifact,
     load_identity_grammar_completion_artifact,
@@ -97,9 +91,6 @@ from gabion.tooling.policy_substrate.structured_artifact_ingress import (
     load_local_repro_closure_ledger_artifact,
     load_test_evidence_artifact,
 )
-from gabion.tooling.policy_substrate.connectivity_synergy_registry import (
-    connectivity_synergy_workstream_registries,
-)
 from gabion.tooling.policy_substrate.planning_chart import (
     PlanningChartRule,
     PlanningChartSummary,
@@ -111,6 +102,7 @@ from gabion.tooling.policy_substrate.site_identity import (
 )
 from gabion.tooling.policy_substrate.workstream_registry import (
     RegisteredCounterfactualActionDefinition,
+    RegisteredDataflowSignalSelector,
     RegisteredRootDefinition,
     RegisteredSubqueueDefinition,
     RegisteredTouchpointDefinition,
@@ -122,6 +114,10 @@ _FORMAT_VERSION = 1
 _AMBIGUITY_ARTIFACT = Path("artifacts/out/ambiguity_contract_policy_check.json")
 _TEST_EVIDENCE_ARTIFACT = Path("out/test_evidence.json")
 _JUNIT_TEST_RESULTS_ARTIFACT = Path("artifacts/test_runs/junit.xml")
+_DATAFLOW_TERMINAL_OUTCOME_ARTIFACT = Path(
+    "artifacts/audit_reports/dataflow_terminal_outcome.json"
+)
+_DATAFLOW_OBLIGATION_TRACE_ARTIFACT = Path("artifacts/out/obligation_trace.json")
 _SPPF_DEPENDENCY_GRAPH_ARTIFACT = Path("artifacts/sppf_dependency_graph.json")
 _DOCFLOW_COMPLIANCE_ARTIFACT = Path("artifacts/out/docflow_compliance.json")
 _DOCFLOW_PACKET_ENFORCEMENT_ARTIFACT = Path(
@@ -1955,6 +1951,10 @@ class InvariantTouchpointProjection:
     ranking_signal_score: int = 0
     failing_test_case_count: int = 0
     test_failure_count: int = 0
+    dataflow_terminal_failure_count: int = 0
+    dataflow_timeout_resume_count: int = 0
+    dataflow_unsatisfied_obligation_count: int = 0
+    dataflow_skipped_obligation_count: int = 0
     counterfactual_action_count: int = 0
     viable_counterfactual_action_count: int = 0
     blocked_counterfactual_action_count: int = 0
@@ -1986,6 +1986,10 @@ class InvariantTouchpointProjection:
             "ranking_signal_score": self.ranking_signal_score,
             "failing_test_case_count": self.failing_test_case_count,
             "test_failure_count": self.test_failure_count,
+            "dataflow_terminal_failure_count": self.dataflow_terminal_failure_count,
+            "dataflow_timeout_resume_count": self.dataflow_timeout_resume_count,
+            "dataflow_unsatisfied_obligation_count": self.dataflow_unsatisfied_obligation_count,
+            "dataflow_skipped_obligation_count": self.dataflow_skipped_obligation_count,
             "counterfactual_action_count": self.counterfactual_action_count,
             "viable_counterfactual_action_count": self.viable_counterfactual_action_count,
             "blocked_counterfactual_action_count": self.blocked_counterfactual_action_count,
@@ -2016,6 +2020,10 @@ class InvariantSubqueueProjection:
     ranking_signal_score: int = 0
     failing_test_case_count: int = 0
     test_failure_count: int = 0
+    dataflow_terminal_failure_count: int = 0
+    dataflow_timeout_resume_count: int = 0
+    dataflow_unsatisfied_obligation_count: int = 0
+    dataflow_skipped_obligation_count: int = 0
     counterfactual_action_count: int = 0
     viable_counterfactual_action_count: int = 0
     blocked_counterfactual_action_count: int = 0
@@ -2043,6 +2051,10 @@ class InvariantSubqueueProjection:
             "ranking_signal_score": self.ranking_signal_score,
             "failing_test_case_count": self.failing_test_case_count,
             "test_failure_count": self.test_failure_count,
+            "dataflow_terminal_failure_count": self.dataflow_terminal_failure_count,
+            "dataflow_timeout_resume_count": self.dataflow_timeout_resume_count,
+            "dataflow_unsatisfied_obligation_count": self.dataflow_unsatisfied_obligation_count,
+            "dataflow_skipped_obligation_count": self.dataflow_skipped_obligation_count,
             "counterfactual_action_count": self.counterfactual_action_count,
             "viable_counterfactual_action_count": self.viable_counterfactual_action_count,
             "blocked_counterfactual_action_count": self.blocked_counterfactual_action_count,
@@ -2076,6 +2088,10 @@ class InvariantWorkstreamProjection:
     doc_alignment_summary: InvariantLedgerAlignmentSummary | None = None
     failing_test_case_count: int = 0
     test_failure_count: int = 0
+    dataflow_terminal_failure_count: int = 0
+    dataflow_timeout_resume_count: int = 0
+    dataflow_unsatisfied_obligation_count: int = 0
+    dataflow_skipped_obligation_count: int = 0
     counterfactual_action_count: int = 0
     viable_counterfactual_action_count: int = 0
     blocked_counterfactual_action_count: int = 0
@@ -2960,6 +2976,10 @@ class InvariantWorkstreamProjection:
             "ranking_signal_score": self.ranking_signal_score,
             "failing_test_case_count": self.failing_test_case_count,
             "test_failure_count": self.test_failure_count,
+            "dataflow_terminal_failure_count": self.dataflow_terminal_failure_count,
+            "dataflow_timeout_resume_count": self.dataflow_timeout_resume_count,
+            "dataflow_unsatisfied_obligation_count": self.dataflow_unsatisfied_obligation_count,
+            "dataflow_skipped_obligation_count": self.dataflow_skipped_obligation_count,
             "counterfactual_action_count": self.counterfactual_action_count,
             "viable_counterfactual_action_count": self.viable_counterfactual_action_count,
             "blocked_counterfactual_action_count": self.blocked_counterfactual_action_count,
@@ -8485,6 +8505,7 @@ class _InvariantGraphBuildState:
     workstream_root_ids: list[str]
     declared_workstream_ids: set[str]
     touchpoint_test_path_prefixes: dict[str, tuple[str, ...]]
+    touchpoint_dataflow_signal_selectors: dict[str, RegisteredDataflowSignalSelector]
     structured_artifact_identities: StructuredArtifactIdentitySpace
 
 
@@ -8501,6 +8522,7 @@ def _new_build_state(root: Path) -> _InvariantGraphBuildState:
         workstream_root_ids=[],
         declared_workstream_ids=set(),
         touchpoint_test_path_prefixes={},
+        touchpoint_dataflow_signal_selectors={},
         structured_artifact_identities=StructuredArtifactIdentitySpace(),
     )
 
@@ -9073,6 +9095,10 @@ def _enrich_workstream_registry(
             state.touchpoint_test_path_prefixes[
                 state.object_node_ids[primary_touchpoint_object_id]
             ] = touchpoint_definition.test_path_prefixes
+        if touchpoint_definition.dataflow_signal_selector is not None:
+            state.touchpoint_dataflow_signal_selectors[
+                state.object_node_ids[primary_touchpoint_object_id]
+            ] = touchpoint_definition.dataflow_signal_selector
 
     root_node_id = state.object_node_ids[primary_root_object_id]
     for subqueue_id in root_definition.subqueue_ids:
@@ -9128,35 +9154,8 @@ def _enrich_workstream_registry(
             )
 
 
-def _iter_declared_workstream_registries() -> tuple[WorkstreamRegistry, ...]:
-    registries = []
-    phase5_registry = phase5_workstream_registry()
-    if phase5_registry is not None:
-        registries.append(phase5_registry)
-    prf_registry = prf_workstream_registry()
-    if prf_registry is not None:
-        registries.append(prf_registry)
-    scc_registry = surface_contract_convergence_workstream_registry()
-    if scc_registry is not None:
-        registries.append(scc_registry)
-    rci_registry = runtime_context_injection_workstream_registry()
-    if rci_registry is not None:
-        registries.append(rci_registry)
-    bic_registry = boundary_ingress_convergence_workstream_registry()
-    if bic_registry is not None:
-        registries.append(bic_registry)
-    utr_registry = unit_test_readiness_workstream_registry()
-    if utr_registry is not None:
-        registries.append(utr_registry)
-    sac_registry = structural_anti_pattern_convergence_workstream_registry()
-    if sac_registry is not None:
-        registries.append(sac_registry)
-    registries.extend(connectivity_synergy_workstream_registries())
-    return tuple(registries)
-
-
 def declared_workstream_registries() -> tuple[WorkstreamRegistry, ...]:
-    return _iter_declared_workstream_registries()
+    return _declared_workstream_registries()
 
 
 def _path_variants(raw_path: str) -> tuple[str, ...]:
@@ -9657,6 +9656,148 @@ def _join_touchpoint_test_selectors(state: _InvariantGraphBuildState) -> None:
             for failure_node_id in failure_ids_by_test_case_id.get(test_case_node_id, ()):
                 _add_edge(state, "fails_on", failure_node_id, touchpoint_node_id)
                 _add_edge(state, "blocks", failure_node_id, touchpoint_node_id)
+
+
+def _dataflow_terminal_selector_matches(
+    *,
+    selector: RegisteredDataflowSignalSelector,
+    terminal_status: str,
+    incompleteness_markers: tuple[str, ...],
+) -> bool:
+    if not selector.terminal_statuses:
+        return False
+    if terminal_status not in selector.terminal_statuses:
+        return False
+    if selector.incompleteness_markers:
+        marker_set = set(incompleteness_markers)
+        return all(marker in marker_set for marker in selector.incompleteness_markers)
+    return True
+
+
+def _dataflow_obligation_selector_matches(
+    *,
+    selector: RegisteredDataflowSignalSelector,
+    obligation_status: str,
+    contract: str,
+    kind: str,
+) -> bool:
+    if not selector.obligation_statuses:
+        return False
+    if obligation_status not in selector.obligation_statuses:
+        return False
+    if selector.obligation_contracts and contract not in selector.obligation_contracts:
+        return False
+    if selector.obligation_kinds and kind not in selector.obligation_kinds:
+        return False
+    return True
+
+
+def _join_touchpoint_dataflow_signal_selectors(state: _InvariantGraphBuildState) -> None:
+    if not state.touchpoint_dataflow_signal_selectors:
+        return
+    terminal_artifact = load_dataflow_terminal_outcome_artifact(
+        root=state.root,
+        rel_path=_DATAFLOW_TERMINAL_OUTCOME_ARTIFACT.as_posix(),
+        identities=state.structured_artifact_identities,
+    )
+    obligation_artifact = load_dataflow_obligation_trace_artifact(
+        root=state.root,
+        rel_path=_DATAFLOW_OBLIGATION_TRACE_ARTIFACT.as_posix(),
+        identities=state.structured_artifact_identities,
+    )
+    terminal_node_id = ""
+    incompleteness_markers: tuple[str, ...] = ()
+    if terminal_artifact is not None:
+        terminal_node_id = (
+            f"dataflow_terminal_outcome:{stable_hash(terminal_artifact.identity.wire())}"
+        )
+        terminal_node = _synthetic_node(
+            node_id=terminal_node_id,
+            title=(
+                "dataflow terminal outcome "
+                f"{terminal_artifact.terminal_status or 'unknown'}"
+            ),
+            ref_kind="dataflow_terminal_outcome",
+            value=terminal_artifact.identity.wire(),
+            object_ids=tuple(
+                item
+                for item in (
+                    terminal_artifact.identity.wire(),
+                    terminal_artifact.terminal_status,
+                    terminal_artifact.terminal_stage,
+                )
+                if item
+            ),
+            reasoning_summary=(
+                "terminal_status={status} exit={exit_code} state={state} attempts={attempts}".format(
+                    status=terminal_artifact.terminal_status,
+                    exit_code=terminal_artifact.terminal_exit,
+                    state=terminal_artifact.terminal_state,
+                    attempts=terminal_artifact.attempts_run,
+                )
+            ),
+            reasoning_control="invariant_graph.dataflow_terminal_outcome",
+            rel_path=_DATAFLOW_TERMINAL_OUTCOME_ARTIFACT.as_posix(),
+            node_kind="dataflow_terminal_outcome",
+            status_hint=terminal_artifact.terminal_status,
+        )
+        _add_node(state, terminal_node, replace=True)
+        _link_node_refs(state, terminal_node)
+    if obligation_artifact is not None:
+        incompleteness_markers = obligation_artifact.incompleteness_markers
+    for touchpoint_node_id, selector in state.touchpoint_dataflow_signal_selectors.items():
+        if terminal_node_id and terminal_artifact is not None and _dataflow_terminal_selector_matches(
+            selector=selector,
+            terminal_status=terminal_artifact.terminal_status,
+            incompleteness_markers=incompleteness_markers,
+        ):
+            _add_edge(state, "blocks", terminal_node_id, touchpoint_node_id)
+        if obligation_artifact is None:
+            continue
+        for obligation in obligation_artifact.obligations:
+            if not _dataflow_obligation_selector_matches(
+                selector=selector,
+                obligation_status=obligation.status,
+                contract=obligation.contract,
+                kind=obligation.kind,
+            ):
+                continue
+            obligation_node_id = (
+                f"dataflow_obligation:{stable_hash(obligation.identity.wire())}"
+            )
+            obligation_node = _synthetic_node(
+                node_id=obligation_node_id,
+                title=obligation.rule_evaluated or obligation.obligation_id,
+                ref_kind="dataflow_obligation",
+                value=obligation.identity.wire(),
+                object_ids=tuple(
+                    item
+                    for item in (
+                        obligation.identity.wire(),
+                        obligation.obligation_id,
+                        obligation.rule_evaluated,
+                        obligation.contract,
+                        obligation.kind,
+                        obligation.status,
+                    )
+                    if item
+                ),
+                reasoning_summary=(
+                    "status={status} rule={rule} contract={contract} kind={kind}".format(
+                        status=obligation.status or "<unset>",
+                        rule=obligation.rule_evaluated or "<unset>",
+                        contract=obligation.contract or "<unset>",
+                        kind=obligation.kind or "<unset>",
+                    )
+                ),
+                reasoning_control="invariant_graph.dataflow_obligation_trace",
+                rel_path=_DATAFLOW_OBLIGATION_TRACE_ARTIFACT.as_posix(),
+                node_kind="dataflow_obligation",
+                status_hint=obligation.status,
+            )
+            _add_node(state, obligation_node, replace=True)
+            _link_node_refs(state, obligation_node)
+            _add_edge(state, "blocks", obligation_node_id, touchpoint_node_id)
 
 
 def _markdown_frontmatter(
@@ -11761,7 +11902,7 @@ def _build_base_invariant_graph(
         marker_node_id_by_marker_id[graph_node.marker_id] = graph_node.node_id
         _link_node_refs(state, graph_node)
     registries = (
-        _iter_declared_workstream_registries()
+        _declared_workstream_registries()
         if declared_registries is None
         else declared_registries
     )
@@ -11776,6 +11917,7 @@ def _build_base_invariant_graph(
     _join_test_coverage(state)
     _join_test_failures(state)
     _join_touchpoint_test_selectors(state)
+    _join_touchpoint_dataflow_signal_selectors(state)
     _join_governance_convergence_sources(state)
     _join_control_loop_artifacts(state)
     return _graph_from_build_state(state)
@@ -12157,6 +12299,38 @@ def _build_invariant_workstreams_projection(
         }
         return tuple(_sorted(list(direct_failure_ids | covered_failure_ids)))
 
+    def _dataflow_terminal_ids(
+        node_ids: Iterable[str],
+        *,
+        terminal_status: str,
+    ) -> tuple[str, ...]:
+        terminal_ids = {
+            edge.source_id
+            for node_id in node_ids
+            for edge in edges_to.get(node_id, ())
+            if edge.edge_kind == "blocks"
+            and node_by_id.get(edge.source_id, None) is not None
+            and node_by_id[edge.source_id].node_kind == "dataflow_terminal_outcome"
+            and node_by_id[edge.source_id].status_hint == terminal_status
+        }
+        return tuple(_sorted(list(terminal_ids)))
+
+    def _dataflow_obligation_ids(
+        node_ids: Iterable[str],
+        *,
+        obligation_status: str,
+    ) -> tuple[str, ...]:
+        obligation_ids = {
+            edge.source_id
+            for node_id in node_ids
+            for edge in edges_to.get(node_id, ())
+            if edge.edge_kind == "blocks"
+            and node_by_id.get(edge.source_id, None) is not None
+            and node_by_id[edge.source_id].node_kind == "dataflow_obligation"
+            and node_by_id[edge.source_id].status_hint == obligation_status
+        }
+        return tuple(_sorted(list(obligation_ids)))
+
     def _diagnostic_count(node_ids: Iterable[str]) -> int:
         return sum(len(diagnostics_by_node_id.get(node_id, ())) for node_id in node_ids)
 
@@ -12296,6 +12470,30 @@ def _build_invariant_workstreams_projection(
             ranking_signal_score=_ranking_signal_score(touchpoint_descendants),
             failing_test_case_count=len(_failing_test_case_ids(touchpoint_descendants)),
             test_failure_count=len(_test_failure_ids(touchpoint_descendants)),
+            dataflow_terminal_failure_count=len(
+                _dataflow_terminal_ids(
+                    touchpoint_descendants,
+                    terminal_status="hard_failure",
+                )
+            ),
+            dataflow_timeout_resume_count=len(
+                _dataflow_terminal_ids(
+                    touchpoint_descendants,
+                    terminal_status="timeout_resume",
+                )
+            ),
+            dataflow_unsatisfied_obligation_count=len(
+                _dataflow_obligation_ids(
+                    touchpoint_descendants,
+                    obligation_status="unsatisfied",
+                )
+            ),
+            dataflow_skipped_obligation_count=len(
+                _dataflow_obligation_ids(
+                    touchpoint_descendants,
+                    obligation_status="skipped_by_policy",
+                )
+            ),
             counterfactual_action_count=_counterfactual_action_count(
                 touchpoint_descendants
             ),
@@ -12361,6 +12559,30 @@ def _build_invariant_workstreams_projection(
             ranking_signal_score=_ranking_signal_score(subqueue_descendants),
             failing_test_case_count=len(_failing_test_case_ids(subqueue_descendants)),
             test_failure_count=len(_test_failure_ids(subqueue_descendants)),
+            dataflow_terminal_failure_count=len(
+                _dataflow_terminal_ids(
+                    subqueue_descendants,
+                    terminal_status="hard_failure",
+                )
+            ),
+            dataflow_timeout_resume_count=len(
+                _dataflow_terminal_ids(
+                    subqueue_descendants,
+                    terminal_status="timeout_resume",
+                )
+            ),
+            dataflow_unsatisfied_obligation_count=len(
+                _dataflow_obligation_ids(
+                    subqueue_descendants,
+                    obligation_status="unsatisfied",
+                )
+            ),
+            dataflow_skipped_obligation_count=len(
+                _dataflow_obligation_ids(
+                    subqueue_descendants,
+                    obligation_status="skipped_by_policy",
+                )
+            ),
             counterfactual_action_count=_counterfactual_action_count(
                 subqueue_descendants
             ),
@@ -12447,6 +12669,30 @@ def _build_invariant_workstreams_projection(
             touchpoints=_stream_from_iterable(_iter_touchpoints),
             failing_test_case_count=len(_failing_test_case_ids(root_descendants)),
             test_failure_count=len(_test_failure_ids(root_descendants)),
+            dataflow_terminal_failure_count=len(
+                _dataflow_terminal_ids(
+                    root_descendants,
+                    terminal_status="hard_failure",
+                )
+            ),
+            dataflow_timeout_resume_count=len(
+                _dataflow_terminal_ids(
+                    root_descendants,
+                    terminal_status="timeout_resume",
+                )
+            ),
+            dataflow_unsatisfied_obligation_count=len(
+                _dataflow_obligation_ids(
+                    root_descendants,
+                    obligation_status="unsatisfied",
+                )
+            ),
+            dataflow_skipped_obligation_count=len(
+                _dataflow_obligation_ids(
+                    root_descendants,
+                    obligation_status="skipped_by_policy",
+                )
+            ),
             counterfactual_action_count=_counterfactual_action_count(root_descendants),
             viable_counterfactual_action_count=_viable_counterfactual_action_count(
                 root_descendants

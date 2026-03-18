@@ -116,7 +116,7 @@ mise exec -- python -m gabion check run \
 
 ### Terminal B: remote status-check lane
 ```bash
-mise exec -- python -m gabion ci-watch --branch stage --workflow ci
+mise exec -- python -m gabion ci watch --branch stage --workflow ci
 ```
 
 On watched-run failure, collect run metadata/logs/artifacts into:
@@ -126,7 +126,7 @@ On watched-run failure, collect run metadata/logs/artifacts into:
 Use explicit artifact filters when only selected bundles are needed:
 
 ```bash
-mise exec -- python -m gabion ci-watch \
+mise exec -- python -m gabion ci watch \
   --branch stage \
   --workflow ci \
   --artifact-name test-runs \
@@ -179,7 +179,7 @@ mise exec -- python -m gabion check run \
 
 ### Use helper-driven cumulative planning
 ```bash
-mise exec -- python scripts/misc/aspf_handoff.py prepare \
+gabion aspf handoff prepare \
   --session-id session-a \
   --step-id script-a.check.run \
   --command-profile check.run

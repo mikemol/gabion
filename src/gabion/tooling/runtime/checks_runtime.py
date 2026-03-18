@@ -56,7 +56,10 @@ class ChecksCommandOptions:
 def packet_enforce_command(options: CiChecksOptions) -> tuple[str, ...]:
     args = [
         str(options.python_bin),
-        "scripts/policy/docflow_packet_enforce.py",
+        "-m",
+        "gabion",
+        "policy",
+        "docflow-packet-enforce",
         "--root",
         ".",
         "--packets",
@@ -93,7 +96,10 @@ def delta_bundle_command(options: CiChecksOptions) -> tuple[str, ...]:
         return tuple(inner)
     return (
         str(options.python_bin),
-        "scripts/misc/aspf_handoff.py",
+        "-m",
+        "gabion",
+        "aspf",
+        "handoff",
         "run",
         "--root",
         ".",
@@ -115,7 +121,10 @@ def delta_bundle_command(options: CiChecksOptions) -> tuple[str, ...]:
 def build_ci_checks_steps(options: CiChecksOptions) -> tuple[ToolingStep, ...]:
     scanner_command = [
         str(options.python_bin),
-        "scripts/policy/policy_scanner_suite.py",
+        "-m",
+        "gabion",
+        "policy",
+        "scanner",
         "--root",
         ".",
         "--out-dir",
@@ -126,19 +135,19 @@ def build_ci_checks_steps(options: CiChecksOptions) -> tuple[ToolingStep, ...]:
     steps = [
         ToolingStep(
             label="checks: policy_check --workflows",
-            command=(str(options.python_bin), "-m", "scripts.policy.policy_check", "--workflows"),
+            command=(str(options.python_bin), "-m", "gabion", "policy", "check", "--workflows"),
             timed=True,
             mode="checks",
         ),
         ToolingStep(
             label="checks: policy_check --ambiguity-contract",
-            command=(str(options.python_bin), "-m", "scripts.policy.policy_check", "--ambiguity-contract"),
+            command=(str(options.python_bin), "-m", "gabion", "policy", "check", "--ambiguity-contract"),
             timed=True,
             mode="checks",
         ),
         ToolingStep(
             label="checks: policy_check --tier2-residue-contract",
-            command=(str(options.python_bin), "-m", "scripts.policy.policy_check", "--tier2-residue-contract"),
+            command=(str(options.python_bin), "-m", "gabion", "policy", "check", "--tier2-residue-contract"),
             timed=True,
             mode="checks",
         ),
@@ -162,7 +171,10 @@ def build_ci_checks_steps(options: CiChecksOptions) -> tuple[ToolingStep, ...]:
             label="checks: docflow packetize",
             command=(
                 str(options.python_bin),
-                "scripts/policy/docflow_packetize.py",
+                "-m",
+                "gabion",
+                "policy",
+                "docflow-packetize",
                 "--root",
                 ".",
                 "--compliance",
@@ -183,17 +195,17 @@ def build_ci_checks_steps(options: CiChecksOptions) -> tuple[ToolingStep, ...]:
         ),
         ToolingStep(
             label="checks: sppf_status_audit",
-            command=(str(options.python_bin), "-m", "scripts.sppf.sppf_status_audit", "--root", "."),
+            command=(str(options.python_bin), "-m", "gabion", "sppf", "status-audit", "--root", "."),
             mode="checks",
         ),
         ToolingStep(
             label="checks: extract_test_evidence",
-            command=(str(options.python_bin), "-m", "scripts.misc.extract_test_evidence", "--root", ".", "--tests", "tests", "--out", "out/test_evidence.json"),
+            command=(str(options.python_bin), "-m", "gabion", "repo", "extract-test-evidence", "--root", ".", "--tests", "tests", "--out", "out/test_evidence.json"),
             mode="checks",
         ),
         ToolingStep(
             label="checks: extract_test_behavior",
-            command=(str(options.python_bin), "-m", "scripts.misc.extract_test_behavior", "--root", ".", "--tests", "tests", "--out", "out/test_behavior.json"),
+            command=(str(options.python_bin), "-m", "gabion", "repo", "extract-test-behavior", "--root", ".", "--tests", "tests", "--out", "out/test_behavior.json"),
             mode="checks",
         ),
         ToolingStep(
@@ -210,7 +222,10 @@ def build_ci_checks_steps(options: CiChecksOptions) -> tuple[ToolingStep, ...]:
             label="checks: policy_check --workflows --output artifacts/out/policy_check_result.json",
             command=(
                 str(options.python_bin),
-                "scripts/policy/policy_check.py",
+                "-m",
+                "gabion",
+                "policy",
+                "check",
                 "--workflows",
                 "--output",
                 "artifacts/out/policy_check_result.json",
@@ -243,7 +258,7 @@ def build_ci_checks_steps(options: CiChecksOptions) -> tuple[ToolingStep, ...]:
         ),
         ToolingStep(
             label="checks: controller drift audit",
-            command=(str(options.python_bin), "scripts/governance/governance_controller_audit.py", "--out", "artifacts/out/controller_drift.json"),
+            command=(str(options.python_bin), "-m", "gabion", "governance", "controller-audit", "--out", "artifacts/out/controller_drift.json"),
             mode="checks",
         ),
         ToolingStep(
@@ -307,7 +322,7 @@ def build_ci_checks_steps(options: CiChecksOptions) -> tuple[ToolingStep, ...]:
             label="checks: governance telemetry emit",
             command=(
                 str(options.python_bin),
-                "scripts/governance/governance_telemetry_emit.py",
+                "-m", "gabion", "governance", "telemetry-emit",
                 "--run-id",
                 options.step_timing_run_id,
                 "--timings",
@@ -369,7 +384,9 @@ def _aspf_handoff_command(
         return inner
     return (
         str(options.python_bin),
-        "scripts/misc/aspf_handoff.py",
+        "-m",
+        "gabion",
+        "aspf-handoff",
         "run",
         "--root",
         ".",
@@ -440,7 +457,8 @@ def build_local_checks_steps(options: ChecksCommandOptions) -> tuple[ToolingStep
                         str(options.python_bin),
                         "-m",
                         "gabion",
-                        "ci-watch",
+                        "ci",
+                        "watch",
                         "--branch",
                         options.status_watch_branch,
                         "--workflow",
@@ -469,7 +487,10 @@ def build_local_checks_steps(options: ChecksCommandOptions) -> tuple[ToolingStep
                     label="checks: docflow packetize",
                     command=(
                         str(options.python_bin),
-                        "scripts/policy/docflow_packetize.py",
+                        "-m",
+                        "gabion",
+                        "policy",
+                        "docflow-packetize",
                         "--root",
                         ".",
                         "--compliance",
@@ -487,7 +508,10 @@ def build_local_checks_steps(options: ChecksCommandOptions) -> tuple[ToolingStep
                     label="checks: docflow packet enforce",
                     command=(
                         str(options.python_bin),
-                        "scripts/policy/docflow_packet_enforce.py",
+                        "-m",
+                        "gabion",
+                        "policy",
+                        "docflow-packet-enforce",
                         "--root",
                         ".",
                         "--packets",
@@ -507,7 +531,7 @@ def build_local_checks_steps(options: ChecksCommandOptions) -> tuple[ToolingStep
                 ),
                 ToolingStep(
                     label="checks: sppf_status_audit",
-                    command=(str(options.python_bin), "-m", "scripts.sppf.sppf_status_audit", "--root", "."),
+                    command=(str(options.python_bin), "-m", "gabion", "sppf", "status-audit", "--root", "."),
                     mode="docflow",
                 ),
             )
@@ -539,7 +563,7 @@ def render_local_checks_listing(options: ChecksCommandOptions) -> tuple[str, ...
         lines.append("- dataflow (gabion check run)")
         if options.run_status_watch:
             lines.append(
-                f"- status watch (gabion ci-watch --branch {options.status_watch_branch} --workflow {options.status_watch_workflow})"
+                f"- status watch (gabion ci watch --branch {options.status_watch_branch} --workflow {options.status_watch_workflow})"
             )
         if options.aspf_handoff_enabled:
             lines.append("- aspf handoff (state + cumulative imports)")

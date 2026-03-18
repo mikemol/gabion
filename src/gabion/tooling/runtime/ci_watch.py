@@ -22,6 +22,7 @@ _DEFAULT_TIMEOUT_BUDGET = DeadlineBudget(
     tick_ns=_DEFAULT_TIMEOUT_TICK_NS,
 )
 _DEFAULT_FAILURE_ARTIFACT_ROOT = Path("artifacts/out/ci_watch")
+_WATCH_INTERVAL_SECONDS = 60
 _COLLECTION_FAILURE_EXIT = 2
 
 RunCommand = Callable[..., subprocess.CompletedProcess[str]]
@@ -507,7 +508,15 @@ def run_watch(
         if not run_id:
             raise SystemExit(f"No runs found for branch {options.branch}")
         watch_proc = active_deps.run(
-            ["gh", "run", "watch", run_id, "--exit-status"],
+            [
+                "gh",
+                "run",
+                "watch",
+                run_id,
+                "--exit-status",
+                "--interval",
+                str(_WATCH_INTERVAL_SECONDS),
+            ],
             check=False,
         )
         watch_rc = watch_proc.returncode

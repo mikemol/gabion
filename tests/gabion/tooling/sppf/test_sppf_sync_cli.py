@@ -23,7 +23,8 @@ def test_sppf_sync_cli_maps_flags_to_runner() -> None:
     result = runner.invoke(
         cli.app,
         [
-            "sppf-sync",
+            "sppf",
+            "sync",
             "--range",
             "HEAD~3..HEAD",
             "--comment",
