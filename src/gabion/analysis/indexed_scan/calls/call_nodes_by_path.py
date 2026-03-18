@@ -1,3 +1,6 @@
+# gabion:ambiguity_boundary_module
+# gabion:boundary_normalization_module
+# gabion:grade_boundary kind=semantic_carrier_adapter name=call_nodes_by_path
 from __future__ import annotations
 
 import ast
@@ -31,6 +34,10 @@ class CollectCallNodesByPathDeps:
     parse_module_tree_fn: Callable[..., object]
 
 
+def _is_call_node(node: ast.AST) -> bool:
+    return isinstance(node, ast.Call)
+
+
 def call_nodes_for_tree(
     tree: ast.AST,
     *,
@@ -38,14 +45,8 @@ def call_nodes_for_tree(
 ) -> dict[tuple[int, int, int, int], list[ast.Call]]:
     deps.check_deadline_fn()
     span_map: dict[tuple[int, int, int, int], list[ast.Call]] = defaultdict(list)
-    for node in ast.walk(tree):
+    for call_node in filter(_is_call_node, ast.walk(tree)):
         deps.check_deadline_fn()
-        match node:
-            case ast.Call() as call_node:
-                pass
-            case _:
-                continue
-                never("unreachable wildcard match fall-through")
         span = deps.node_span_fn(call_node)
         if span is not None:
             span_map[span].append(call_node)

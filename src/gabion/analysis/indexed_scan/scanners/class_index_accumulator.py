@@ -1,10 +1,12 @@
+# gabion:ambiguity_boundary_module
+# gabion:boundary_normalization_module
+# gabion:grade_boundary kind=semantic_carrier_adapter name=class_index_accumulator
 from __future__ import annotations
 
 import ast
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, cast
-from gabion.invariants import never
 
 
 @dataclass(frozen=True)
@@ -15,6 +17,10 @@ class AccumulateClassIndexForTreeDeps:
     enclosing_class_scopes_fn: Callable[..., list[str]]
     base_identifier_fn: Callable[..., object]
     class_info_ctor: Callable[..., object]
+
+
+def _is_class_def_node(node: ast.AST) -> bool:
+    return isinstance(node, ast.ClassDef)
 
 
 def accumulate_class_index_for_tree(
@@ -29,14 +35,8 @@ def accumulate_class_index_for_tree(
     parents = deps.parent_annotator_ctor()
     parents.visit(tree)
     module = deps.module_name_fn(path, project_root)
-    for node in ast.walk(tree):
+    for class_node in filter(_is_class_def_node, ast.walk(tree)):
         deps.check_deadline_fn()
-        match node:
-            case ast.ClassDef() as class_node:
-                pass
-            case _:
-                continue
-                never("unreachable wildcard match fall-through")
         scopes = deps.enclosing_class_scopes_fn(class_node, parents.parents)
         qual_parts = [module] if module else []
         qual_parts.extend(scopes)

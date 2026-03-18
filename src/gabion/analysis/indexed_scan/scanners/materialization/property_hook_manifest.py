@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
+from collections.abc import Iterator
 from typing import Callable, Mapping, Sequence, cast
 
 from gabion.analysis.dataflow.engine.dataflow_contracts import InvariantProposition
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue
+from gabion.analysis.foundation.resume_codec import mapping_optional
 from gabion.invariants import never
 
 
@@ -22,6 +24,29 @@ class PropertyHookManifestDeps:
 class PropertyHookCallableIndexDeps:
     check_deadline_fn: Callable[[], None]
     sort_once_fn: Callable[..., list[object]]
+
+
+def _hook_payloads(
+    hooks: Sequence[JSONValue], *, check_deadline_fn: Callable[[], None]
+) -> Iterator[JSONObject]:
+    for hook in filter(mapping_optional, hooks):
+        check_deadline_fn()
+        yield hook
+
+
+# gabion:ambiguity_boundary
+# gabion:boundary_normalization
+# gabion:grade_boundary kind=semantic_carrier_adapter name=property_hook_manifest._hook_callable_entries
+def _hook_callable_entries(
+    hooks: Sequence[JSONValue], *, check_deadline_fn: Callable[[], None]
+) -> Iterator[tuple[str, str]]:
+    for hook_payload in _hook_payloads(hooks, check_deadline_fn=check_deadline_fn):
+        check_deadline_fn()
+        for callable_payload in filter(mapping_optional, (hook_payload.get("callable"),)):
+            path = str(callable_payload.get("path", "") or "")
+            qual = str(callable_payload.get("qual", "") or "")
+            if path and qual:
+                yield (f"{path}:{qual}", str(hook_payload.get("hook_id", "") or ""))
 
 
 def generate_property_hook_manifest(
@@ -127,26 +152,12 @@ def build_property_hook_callable_index(
     deps: PropertyHookCallableIndexDeps,
 ) -> list[JSONObject]:
     callables: dict[str, list[str]] = defaultdict(list)
-    for hook in hooks:
+    for scope, hook_id in _hook_callable_entries(
+        hooks,
+        check_deadline_fn=deps.check_deadline_fn,
+    ):
         deps.check_deadline_fn()
-        match hook:
-            case dict() as hook_payload:
-                pass
-            case _:
-                continue
-                never("unreachable wildcard match fall-through")
-        callable_payload = hook_payload.get("callable")
-        match callable_payload:
-            case dict() as callable_mapping:
-                pass
-            case _:
-                continue
-                never("unreachable wildcard match fall-through")
-        path = str(callable_mapping.get("path", "") or "")
-        qual = str(callable_mapping.get("qual", "") or "")
-        if not path or not qual:
-            continue
-        callables[f"{path}:{qual}"].append(str(hook_payload.get("hook_id", "") or ""))
+        callables[scope].append(hook_id)
     return [
         {
             "scope": scope,

@@ -1,3 +1,6 @@
+# gabion:ambiguity_boundary_module
+# gabion:boundary_normalization_module
+# gabion:grade_boundary kind=semantic_carrier_adapter name=call_ambiguity_summary
 from __future__ import annotations
 
 from functools import cache
@@ -8,7 +11,7 @@ from gabion.analysis.foundation.json_types import JSONObject, JSONValue
 from gabion.analysis.projection.projection_exec import apply_execution_ops
 from gabion.analysis.projection.projection_exec_plan import execution_ops_from_spec
 from gabion.analysis.projection.projection_registry import AMBIGUITY_SUMMARY_SPEC
-from gabion.invariants import decision_protocol, never
+from gabion.invariants import decision_protocol
 
 
 @dataclass(frozen=True)
@@ -26,6 +29,10 @@ def _ambiguity_summary_execution_ops():
     return execution_ops_from_spec(AMBIGUITY_SUMMARY_SPEC)
 
 
+def _entry_payloads(entries: list[JSONObject]) -> list[JSONObject]:
+    return [entry for entry in entries if isinstance(entry, dict)]
+
+
 def summarize_call_ambiguities(
     entries: list[JSONObject],
     *,
@@ -36,22 +43,11 @@ def summarize_call_ambiguities(
     if not entries:
         return []
     relation: list[dict[str, JSONValue]] = []
-    for entry in entries:
+    for entry_payload in _entry_payloads(entries):
         deps.check_deadline_fn()
-        match entry:
-            case dict() as entry_payload:
-                pass
-            case _:
-                continue
-                never("unreachable wildcard match fall-through")
         kind = str(entry_payload.get("kind", "") or "unknown")
         site_payload = entry_payload.get("site", {})
-        match site_payload:
-            case dict() as site_mapping:
-                pass
-            case _:
-                site_mapping = {}
-                never("unreachable wildcard match fall-through")
+        site_mapping = site_payload if isinstance(site_payload, dict) else {}
         path = str(site_mapping.get("path", "") or "")
         function = str(site_mapping.get("function", "") or "")
         span = site_mapping.get("span")

@@ -15,6 +15,9 @@ from gabion.analysis.derivation.derivation_cache import (
 from gabion.analysis.derivation.derivation_contract import DerivationOp
 from gabion.analysis.derivation.derivation_persistence import (
     DERIVATION_CACHE_FORMAT_VERSION,
+    InvalidDerivationCheckpoint,
+    LoadedDerivationCheckpoint,
+    MissingDerivationCheckpoint,
     hydrate_graph_from_checkpoint,
     read_derivation_checkpoint,
     write_derivation_checkpoint,
@@ -307,37 +310,37 @@ def test_derivation_persistence_roundtrip_and_hydrate(tmp_path: Path) -> None:
     write_derivation_checkpoint(path=checkpoint, runtime=runtime)
 
     loaded = read_derivation_checkpoint(path=checkpoint)
-    assert isinstance(loaded, dict)
-    assert loaded.get("format_version") == 1
+    assert isinstance(loaded, LoadedDerivationCheckpoint)
+    assert loaded.runtime_payload.get("format_version") == 1
 
     restored = hydrate_graph_from_checkpoint(
         graph=DerivationCacheRuntime(max_entries=4).graph,
-        runtime_payload=loaded,
+        runtime_payload=loaded.runtime_payload,
     )
     assert restored >= 1
 
     checkpoint.write_text("{\"format_version\": 1}")
-    assert read_derivation_checkpoint(path=checkpoint) is None
+    assert isinstance(read_derivation_checkpoint(path=checkpoint), InvalidDerivationCheckpoint)
 
     checkpoint.write_text(
         f"{{\"format_version\": {DERIVATION_CACHE_FORMAT_VERSION}, \"runtime\": []}}"
     )
-    assert read_derivation_checkpoint(path=checkpoint) is None
+    assert isinstance(read_derivation_checkpoint(path=checkpoint), InvalidDerivationCheckpoint)
 
 
 # gabion:evidence E:function_site::derivation_persistence.py::gabion.analysis.derivation_persistence.read_derivation_checkpoint
 # gabion:behavior primary=verboten facets=invalid
 def test_derivation_persistence_read_checkpoint_invalid_inputs(tmp_path: Path) -> None:
     missing_path = tmp_path / "missing.json"
-    assert read_derivation_checkpoint(path=missing_path) is None
+    assert isinstance(read_derivation_checkpoint(path=missing_path), MissingDerivationCheckpoint)
 
     bad_path = tmp_path / "bad.json"
     bad_path.write_text("{", encoding="utf-8")
-    assert read_derivation_checkpoint(path=bad_path) is None
+    assert isinstance(read_derivation_checkpoint(path=bad_path), InvalidDerivationCheckpoint)
 
     list_path = tmp_path / "list.json"
     list_path.write_text("[]", encoding="utf-8")
-    assert read_derivation_checkpoint(path=list_path) is None
+    assert isinstance(read_derivation_checkpoint(path=list_path), InvalidDerivationCheckpoint)
 
 
 # gabion:evidence E:function_site::derivation_persistence.py::gabion.analysis.derivation_persistence.hydrate_graph_from_checkpoint
@@ -365,8 +368,8 @@ def test_derivation_persistence_hydrate_graph_guards() -> None:
 # gabion:evidence E:function_site::derivation_persistence.py::gabion.analysis.derivation_persistence._node_id_from_payload
 # gabion:behavior primary=desired
 def test_derivation_persistence_node_payload_conversion_guards() -> None:
-    assert derivation_persistence._node_id_from_payload("bad") is None
-    assert derivation_persistence._node_id_from_payload({"key": "value"}) is None
+    assert derivation_persistence._is_node_id_payload("bad") is False
+    assert derivation_persistence._is_node_id_payload({"key": "value"}) is False
 
     node_id = derivation_persistence._node_id_from_payload(
         {"kind": "Derivation", "key": "raw"}

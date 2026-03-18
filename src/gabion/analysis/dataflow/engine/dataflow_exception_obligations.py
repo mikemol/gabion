@@ -1,3 +1,6 @@
+# gabion:ambiguity_boundary_module
+# gabion:boundary_normalization_module
+# gabion:grade_boundary kind=semantic_carrier_adapter name=dataflow_exception_obligations
 """Exception-obligation helpers extracted from ``legacy_dataflow_monolith``."""
 
 from __future__ import annotations
@@ -6,9 +9,9 @@ import ast
 import builtins
 from collections.abc import Callable, Mapping
 from enum import StrEnum
+from functools import singledispatch
 
 from gabion.order_contract import sort_once
-from gabion.invariants import never
 
 _AST_UNPARSE_ERROR_TYPES = (
     AttributeError,
@@ -17,65 +20,68 @@ _AST_UNPARSE_ERROR_TYPES = (
     RecursionError,
 )
 
-
 class _EvalDecision(StrEnum):
     TRUE = "true"
     FALSE = "false"
     UNKNOWN = "unknown"
 
 
+@singledispatch
+def _exception_target_expr(expr: ast.AST) -> ast.AST:
+    return expr
+
+
+@_exception_target_expr.register(ast.Call)
+def _exception_target_expr_for_call(expr: ast.Call) -> ast.AST:
+    return expr.func
+
+
 def exception_param_names(
-    expr: object,
+    expr: ast.AST,
     params: set[str],
     *,
     check_deadline: Callable[[], None],
 ) -> list[str]:
     check_deadline()
-    names: set[str] = set()
-    match expr:
-        case ast.AST() as expression:
-            for node in ast.walk(expression):
-                check_deadline()
-                match node:
-                    case ast.Name(id=name_text) if name_text in params:
-                        names.add(name_text)
-                    case _:
-                        pass
-                        never("unreachable wildcard match fall-through")
-        case _:
-            pass
-            never("unreachable wildcard match fall-through")
-    return sort_once(names, source="_exception_param_names.names")
+    return sort_once(
+        {
+            node.id
+            for node in ast.walk(expr)
+            if isinstance(node, ast.Name) and node.id in params
+        },
+        source="_exception_param_names.names",
+    )
 
 
 def exception_type_name(
-    expr: object,
+    expr: ast.AST,
     *,
     decorator_name: Callable[[ast.AST], object],
 ) -> object:
-    match expr:
-        case ast.Call(func=call_target):
-            return decorator_name(call_target)
-        case ast.AST() as expression:
-            return decorator_name(expression)
-        case _:
-            return None
+    return decorator_name(_exception_target_expr(expr))
 
 
-            never("unreachable wildcard match fall-through")
+@singledispatch
+def _handler_type_is_broad(expr: ast.AST) -> bool:
+    return False
+
+
+@_handler_type_is_broad.register(ast.Name)
+def _handler_name_is_broad(expr: ast.Name) -> bool:
+    return expr.id in {"Exception", "BaseException"}
+
+
+@_handler_type_is_broad.register(ast.Attribute)
+def _handler_attribute_is_broad(expr: ast.Attribute) -> bool:
+    return expr.attr in {"Exception", "BaseException"}
+
+
 def handler_is_broad(handler: ast.ExceptHandler) -> bool:
     if handler.type is None:
         return True
-    match handler.type:
-        case ast.Name(id=name_text):
-            return name_text in {"Exception", "BaseException"}
-        case ast.Attribute(attr=attr_text):
-            return attr_text in {"Exception", "BaseException"}
-        case _:
-            return False
+    return _handler_type_is_broad(handler.type)
 
 
-            never("unreachable wildcard match fall-through")
 def handler_label(handler: ast.ExceptHandler) -> str:
     if handler.type is None:
         return "except:"
@@ -103,33 +109,52 @@ def node_in_try_body(
     return False
 
 
+@singledispatch
+def _handler_type_names_from_expr(
+    handler_expr: ast.AST,
+    *,
+    decorator_name: Callable[[ast.AST], object],
+    check_deadline: Callable[[], None],
+) -> tuple[str, ...]:
+    name = decorator_name(handler_expr)
+    return (str(name),) if name else ()
+
+
+@_handler_type_names_from_expr.register(ast.Tuple)
+def _handler_type_names_from_tuple(
+    handler_expr: ast.Tuple,
+    *,
+    decorator_name: Callable[[ast.AST], object],
+    check_deadline: Callable[[], None],
+) -> tuple[str, ...]:
+    names: list[str] = []
+    for elt in handler_expr.elts:
+        check_deadline()
+        name = decorator_name(elt)
+        if name:
+            names.append(str(name))
+    return tuple(names)
+
+
 def handler_type_names(
-    handler_type: object,
+    handler_type: ast.AST | None,
     *,
     decorator_name: Callable[[ast.AST], object],
     check_deadline: Callable[[], None],
 ) -> tuple[str, ...]:
     check_deadline()
-    match handler_type:
-        case ast.Tuple(elts=elements):
-            names: list[str] = []
-            for elt in elements:
-                check_deadline()
-                name = decorator_name(elt)
-                if name:
-                    names.append(str(name))
-            return tuple(names)
-        case ast.AST() as handler_expr:
-            name = decorator_name(handler_expr)
-            return (str(name),) if name else ()
-        case _:
-            return ()
+    if handler_type is None:
+        return ()
+    return _handler_type_names_from_expr(
+        handler_type,
+        decorator_name=decorator_name,
+        check_deadline=check_deadline,
+    )
 
 
-            never("unreachable wildcard match fall-through")
 def exception_handler_compatibility(
-    exception_name: object,
-    handler_type: object,
+    exception_name: str | None,
+    handler_type: ast.AST | None,
     *,
     decorator_name: Callable[[ast.AST], object],
     check_deadline: Callable[[], None],
@@ -144,12 +169,11 @@ def exception_handler_compatibility(
     )
     if not handler_names:
         return "unknown"
-    match exception_name:
-        case str() as exception_name_text:
-            exception_cls = _builtin_exception_class(exception_name_text)
-        case _:
-            exception_cls = None
-            never("unreachable wildcard match fall-through")
+    exception_cls = (
+        _builtin_exception_class(exception_name)
+        if exception_name is not None
+        else None
+    )
     if exception_cls is None:
         return "unknown"
     any_unknown = False
@@ -166,11 +190,9 @@ def exception_handler_compatibility(
 
 def _builtin_exception_class(name: str) -> object:
     value = getattr(builtins, name, None)
-    match value:
-        case type() as value_type:
-            if issubclass(value_type, BaseException):
-                return value_type
-            return None
-        case _:
-            return None
-            never("unreachable wildcard match fall-through")
+    try:
+        if issubclass(value, BaseException):
+            return value
+    except TypeError:
+        return None
+    return None
