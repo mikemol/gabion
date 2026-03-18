@@ -246,13 +246,11 @@ def _dotted_name(node: ast.AST) -> str:
 
 
 def _dotted_name_parts(node: ast.AST) -> tuple[str, ...]:
-    match node:
-        case ast.Name(id=identifier):
-            return (identifier,)
-        case ast.Attribute(value=value, attr=attr):
-            return (*_dotted_name_parts(value), attr)
-        case _:
-            return ()
+    if isinstance(node, ast.Name):
+        return (node.id,)
+    if isinstance(node, ast.Attribute):
+        return (*_dotted_name_parts(node.value), node.attr)
+    return ()
 
 
 def _structured_hash(*parts: str) -> str:
@@ -267,25 +265,16 @@ def _load_baseline(path: Path) -> set[str]:
     if not path.exists():
         return set()
     payload = json_mapping_optional(json.loads(path.read_text(encoding="utf-8")))
-    match payload:
-        case None:
-            return set()
-        case _:
-            pass
+    if payload is None:
+        return set()
     raw_items = json_list_optional(payload.get("violations"))
-    match raw_items:
-        case None:
-            return set()
-        case _:
-            pass
+    if raw_items is None:
+        return set()
     keys: set[str] = set()
     for item in raw_items:
         item_mapping = json_mapping_optional(item)
-        match item_mapping:
-            case None:
-                continue
-            case _:
-                pass
+        if item_mapping is None:
+            continue
         path_value = str(item_mapping.get("path", "") or "")
         qualname = str(item_mapping.get("qualname", "") or "")
         kind = str(item_mapping.get("kind", "") or "")
@@ -295,29 +284,20 @@ def _load_baseline(path: Path) -> set[str]:
         line = item_mapping.get("line")
         if not path_value or not qualname or not kind:
             continue
-        match structured_hash:
-            case str() as structured_hash_value if structured_hash_value:
-                keys.add(f"{path_value}:{qualname}:{kind}:{structured_hash_value}")
-                continue
-            case _:
-                pass
-        match column:
-            case int() as column_value if call:
-                migrated_hash = _structured_hash(
-                    path_value,
-                    qualname,
-                    kind,
-                    call,
-                    str(column_value),
-                )
-                keys.add(f"{path_value}:{qualname}:{kind}:{migrated_hash}")
-            case _:
-                pass
-        match line:
-            case int() as line_value:
-                keys.add(f"{path_value}:{qualname}:{line_value}:{kind}")
-            case _:
-                pass
+        if isinstance(structured_hash, str) and structured_hash:
+            keys.add(f"{path_value}:{qualname}:{kind}:{structured_hash}")
+            continue
+        if isinstance(column, int) and call:
+            migrated_hash = _structured_hash(
+                path_value,
+                qualname,
+                kind,
+                call,
+                str(column),
+            )
+            keys.add(f"{path_value}:{qualname}:{kind}:{migrated_hash}")
+        if isinstance(line, int):
+            keys.add(f"{path_value}:{qualname}:{line}:{kind}")
     return keys
 
 
@@ -325,30 +305,21 @@ def load_waivers(path: Path) -> WaiverLoadResult:
     if not path.exists():
         return WaiverLoadResult(allowed_keys=set(), invalid_waivers=[])
     payload = json_mapping_optional(json.loads(path.read_text(encoding="utf-8")))
-    match payload:
-        case None:
-            return WaiverLoadResult(allowed_keys=set(), invalid_waivers=[InvalidWaiver(index=0, reason="waiver payload must be an object")])
-        case _:
-            pass
+    if payload is None:
+        return WaiverLoadResult(allowed_keys=set(), invalid_waivers=[InvalidWaiver(index=0, reason="waiver payload must be an object")])
 
     waivers_raw = json_list_optional(payload.get("waivers"))
-    match waivers_raw:
-        case None:
-            return WaiverLoadResult(allowed_keys=set(), invalid_waivers=[InvalidWaiver(index=0, reason="waivers must be a list")])
-        case _:
-            pass
+    if waivers_raw is None:
+        return WaiverLoadResult(allowed_keys=set(), invalid_waivers=[InvalidWaiver(index=0, reason="waivers must be a list")])
 
     required = ("path", "qualname", "kind", "rationale", "scope", "expiry", "owner")
     allowed_keys: set[str] = set()
     invalid_waivers: list[InvalidWaiver] = []
     for index, waiver in enumerate(waivers_raw, start=1):
         waiver_mapping = json_mapping_optional(waiver)
-        match waiver_mapping:
-            case None:
-                invalid_waivers.append(InvalidWaiver(index=index, reason="waiver must be an object"))
-                continue
-            case _:
-                pass
+        if waiver_mapping is None:
+            invalid_waivers.append(InvalidWaiver(index=index, reason="waiver must be an object"))
+            continue
         missing = [field for field in required if field not in waiver_mapping]
         if missing:
             invalid_waivers.append(InvalidWaiver(index=index, reason=f"missing fields: {', '.join(missing)}"))
@@ -362,33 +333,25 @@ def load_waivers(path: Path) -> WaiverLoadResult:
         if not path_value or not qualname or kind not in {"isinstance_call", "cast_call"}:
             invalid_waivers.append(InvalidWaiver(index=index, reason="path, qualname, and valid kind are required"))
             continue
-        match structured_hash:
-            case str() as structured_hash_value if structured_hash_value:
-                allowed_keys.add(f"{path_value}:{qualname}:{kind}:{structured_hash_value}")
-                continue
-            case _:
-                pass
+        if isinstance(structured_hash, str) and structured_hash:
+            allowed_keys.add(f"{path_value}:{qualname}:{kind}:{structured_hash}")
+            continue
         call = str(waiver_mapping.get("call", "") or "")
         column = waiver_mapping.get("column")
-        match column:
-            case int() as column_value if call:
-                migrated_hash = _structured_hash(
-                    path_value,
-                    qualname,
-                    kind,
-                    call,
-                    str(column_value),
-                )
-                allowed_keys.add(f"{path_value}:{qualname}:{kind}:{migrated_hash}")
-                continue
-            case _:
-                pass
-        match line:
-            case int() as line_value:
-                allowed_keys.add(f"{path_value}:{qualname}:{line_value}:{kind}")
-            case _:
-                invalid_waivers.append(InvalidWaiver(index=index, reason="line_or_structured_hash_required"))
-                continue
+        if isinstance(column, int) and call:
+            migrated_hash = _structured_hash(
+                path_value,
+                qualname,
+                kind,
+                call,
+                str(column),
+            )
+            allowed_keys.add(f"{path_value}:{qualname}:{kind}:{migrated_hash}")
+            continue
+        if isinstance(line, int):
+            allowed_keys.add(f"{path_value}:{qualname}:{line}:{kind}")
+            continue
+        invalid_waivers.append(InvalidWaiver(index=index, reason="line_or_structured_hash_required"))
 
     return WaiverLoadResult(allowed_keys=allowed_keys, invalid_waivers=invalid_waivers)
 

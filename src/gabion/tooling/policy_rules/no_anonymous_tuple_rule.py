@@ -70,51 +70,39 @@ class _AnonymousTupleVisitor(ast.NodeVisitor):
         self._visit_scoped(node=node)
 
     def visit_Return(self, node: ast.Return) -> None:
-        match node.value:
-            case ast.Tuple():
-                self._record(
-                    node=node,
-                    kind="tuple_return",
-                    message="anonymous tuple return; define a DTO with named fields",
-                )
-            case _:
-                pass
+        if isinstance(node.value, ast.Tuple):
+            self._record(
+                node=node,
+                kind="tuple_return",
+                message="anonymous tuple return; define a DTO with named fields",
+            )
         self.generic_visit(node)
 
     def visit_Assign(self, node: ast.Assign) -> None:
-        match node.value:
-            case ast.Tuple():
-                self._record(
-                    node=node,
-                    kind="tuple_assignment",
-                    message="anonymous tuple assignment; define a DTO with named fields",
-                )
-            case _:
-                pass
+        if isinstance(node.value, ast.Tuple):
+            self._record(
+                node=node,
+                kind="tuple_assignment",
+                message="anonymous tuple assignment; define a DTO with named fields",
+            )
         self.generic_visit(node)
 
     def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
-        match node.value:
-            case ast.Tuple():
-                self._record(
-                    node=node,
-                    kind="tuple_assignment",
-                    message="anonymous tuple assignment; define a DTO with named fields",
-                )
-            case _:
-                pass
+        if isinstance(node.value, ast.Tuple):
+            self._record(
+                node=node,
+                kind="tuple_assignment",
+                message="anonymous tuple assignment; define a DTO with named fields",
+            )
         self.generic_visit(node)
 
     def visit_Yield(self, node: ast.Yield) -> None:
-        match node.value:
-            case ast.Tuple():
-                self._record(
-                    node=node,
-                    kind="tuple_yield",
-                    message="anonymous tuple yield; define a DTO with named fields",
-                )
-            case _:
-                pass
+        if isinstance(node.value, ast.Tuple):
+            self._record(
+                node=node,
+                kind="tuple_yield",
+                message="anonymous tuple yield; define a DTO with named fields",
+            )
         self.generic_visit(node)
 
     def visit_Call(self, node: ast.Call) -> None:
@@ -185,34 +173,23 @@ def _tuple_argument_violations(
     run_context: CanonicalRunContext,
     call_node: ast.Call,
 ) -> tuple[Violation, ...]:
-    violations: list[Violation] = []
-    for arg in call_node.args:
-        match arg:
-            case ast.Tuple():
-                line = int(getattr(arg, "lineno", 1) or 1)
-                column = int(getattr(arg, "col_offset", 0) or 0) + 1
-                violations.append(
-                    _violation(
-                        run_context=run_context,
-                        rel_path=path,
-                        qualname=qualname,
-                        line=line,
-                        column=column,
-                        kind="tuple_argument",
-                        message="anonymous tuple argument; define a DTO and pass named fields",
-                    )
-                )
-            case _:
-                pass
-    return tuple(violations)
+    return tuple(
+        _violation(
+            run_context=run_context,
+            rel_path=path,
+            qualname=qualname,
+            line=int(getattr(arg, "lineno", 1) or 1),
+            column=int(getattr(arg, "col_offset", 0) or 0) + 1,
+            kind="tuple_argument",
+            message="anonymous tuple argument; define a DTO and pass named fields",
+        )
+        for arg in call_node.args
+        if isinstance(arg, ast.Tuple)
+    )
 
 
 def _is_tuple_constructor(func: ast.AST) -> bool:
-    match func:
-        case ast.Name(id="tuple"):
-            return True
-        case _:
-            return False
+    return isinstance(func, ast.Name) and func.id == "tuple"
 
 
 def _failure_violation(*, run_context: CanonicalRunContext, seed: ScanFailureSeed) -> Violation:

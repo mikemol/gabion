@@ -4,6 +4,7 @@ from __future__ import annotations
 import ast
 import hashlib
 import re
+from typing import TypeGuard
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -95,19 +96,15 @@ def collect_violations(*, batch: PolicyScanBatch) -> list[Violation]:
             lines = module.source.splitlines()
             if _module_has_boundary_marker(lines):
                 annotation_events = _annotation_events(lines)
-                for node in module.tree.body:
-                    match node:
-                        case ast.FunctionDef() | ast.AsyncFunctionDef():
-                            violations.extend(
-                                _function_violations(
-                                    rel_path=module.rel_path,
-                                    node=node,
-                                    annotations=annotation_events,
-                                    run_context=run_context,
-                                )
-                            )
-                        case _:
-                            pass
+                for node in filter(_is_function_like, module.tree.body):
+                    violations.extend(
+                        _function_violations(
+                            rel_path=module.rel_path,
+                            node=node,
+                            annotations=annotation_events,
+                            run_context=run_context,
+                        )
+                    )
         return violations
 
 
@@ -191,24 +188,21 @@ def _module_has_boundary_marker(lines: list[str]) -> bool:
 
 
 def _annotation_events(lines: list[str]) -> tuple[_NormalizationEvent, ...]:
-    events: list[_NormalizationEvent] = []
-    for idx, raw in enumerate(lines, start=1):
-        match = _TAINT_RE.search(raw)
-        if not match:
-            continue
-        kind, input_slot, klass = match.groups()
-        events.append(
-            _NormalizationEvent(
-                line=idx,
-                column=1,
-                normalization_class=klass,
-                input_slot=input_slot,
-                kind=kind,
-                phase_hint="annotation",
-                pre_core=False,
-            )
+    return tuple(
+        _NormalizationEvent(
+            line=idx,
+            column=1,
+            normalization_class=klass,
+            input_slot=input_slot,
+            kind=kind,
+            phase_hint="annotation",
+            pre_core=False,
         )
-    return tuple(events)
+        for idx, raw in enumerate(lines, start=1)
+        for match in (_TAINT_RE.search(raw),)
+        if match is not None
+        for kind, input_slot, klass in (match.groups(),)
+    )
 
 
 def _function_violations(
@@ -239,16 +233,12 @@ def _function_violations(
                 )
             )
 
-    for child in ast.walk(node):
-        match child:
-            case ast.Call():
-                line = int(getattr(child, "lineno", 1) or 1)
-                pre_core = first_core_line is None or line < first_core_line
-                event = _syntax_event_from_call(child, pre_core=pre_core)
-                if event is not None:
-                    events.append(event)
-            case _:
-                pass
+    for child in filter(_is_call, ast.walk(node)):
+        line = int(getattr(child, "lineno", 1) or 1)
+        pre_core = first_core_line is None or line < first_core_line
+        event = _syntax_event_from_call(child, pre_core=pre_core)
+        if event is not None:
+            events.append(event)
 
     if not events:
         return []
@@ -355,18 +345,14 @@ def _function_violations(
 
 def _first_core_call_line(node: ast.FunctionDef | ast.AsyncFunctionDef) -> int | None:
     best: int | None = None
-    for child in ast.walk(node):
-        match child:
-            case ast.Call():
-                dotted = _dotted_name(child.func)
-                if dotted is not None and (
-                    dotted.endswith("_core") or "_core." in dotted
-                ):
-                    line = int(getattr(child, "lineno", 1) or 1)
-                    if best is None or line < best:
-                        best = line
-            case _:
-                pass
+    for child in filter(_is_call, ast.walk(node)):
+        dotted = _dotted_name(child.func)
+        if dotted is not None and (
+            dotted.endswith("_core") or "_core." in dotted
+        ):
+            line = int(getattr(child, "lineno", 1) or 1)
+            if best is None or line < best:
+                best = line
     return best
 
 
@@ -442,17 +428,15 @@ def _syntax_event_from_call(
 
 
 def _expr_slot(expr: ast.AST) -> str | None:
-    match expr:
-        case ast.Name(id=identifier):
-            return identifier
-        case ast.Attribute(value=value, attr=attr):
-            base = _expr_slot(value)
-            if base:
-                return f"{base}.{attr}"
-        case ast.Subscript(value=value):
-            return _expr_slot(value)
-        case _:
-            pass
+    if isinstance(expr, ast.Name):
+        return expr.id
+    if isinstance(expr, ast.Attribute):
+        base = _expr_slot(expr.value)
+        if base:
+            return f"{base}.{expr.attr}"
+        return None
+    if isinstance(expr, ast.Subscript):
+        return _expr_slot(expr.value)
     return None
 
 
@@ -475,16 +459,23 @@ def _derive_flow_identity(
 
 
 def _dotted_name(node: ast.AST) -> str | None:
-    match node:
-        case ast.Name(id=identifier):
-            return identifier
-        case ast.Attribute(value=value, attr=attr):
-            parent = _dotted_name(value)
-            if parent is not None:
-                return f"{parent}.{attr}"
-        case _:
-            pass
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        parent = _dotted_name(node.value)
+        if parent is not None:
+            return f"{parent}.{node.attr}"
     return None
+
+
+def _is_function_like(
+    node: ast.AST,
+) -> TypeGuard[ast.FunctionDef | ast.AsyncFunctionDef]:
+    return isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+
+
+def _is_call(node: ast.AST) -> TypeGuard[ast.Call]:
+    return isinstance(node, ast.Call)
 
 
 def _structured_hash(*parts: str) -> str:

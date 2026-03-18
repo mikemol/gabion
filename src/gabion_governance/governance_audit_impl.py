@@ -115,41 +115,35 @@ def _iter_in_governance_relpaths(root: Path) -> list[str]:
     in_root = root / "in"
     if not in_root.exists():
         return []
-    relpaths: list[str] = []
-    for path in _sorted(in_root.glob("in-*.md")):
-        check_deadline()
-        if not isinstance(path, Path):
-            continue
-        relpaths.append(path.relative_to(root).as_posix())
-    return relpaths
+    return [
+        path.relative_to(root).as_posix()
+        for path in _sorted(in_root.glob("in-*.md"))
+        for _ in (check_deadline(),)
+    ]
 
 
 def _iter_out_governance_relpaths(root: Path) -> list[str]:
     out_root = root / "out"
     if not out_root.exists():
         return []
-    relpaths: list[str] = []
-    for path in _sorted(out_root.glob("out-*.md")):
-        check_deadline()
-        if not isinstance(path, Path):
-            continue
-        relpaths.append(path.relative_to(root).as_posix())
-    return relpaths
+    return [
+        path.relative_to(root).as_posix()
+        for path in _sorted(out_root.glob("out-*.md"))
+        for _ in (check_deadline(),)
+    ]
 
 
 def _iter_default_docflow_relpaths(root: Path) -> list[str]:
-    relpaths: list[str] = []
-    seen: set[str] = set()
-    for rel in [
-        *_GOVERNANCE_DOCFLOW_REGISTRY.governance_docs,
-        *_iter_in_governance_relpaths(root),
-    ]:
-        check_deadline()
-        if rel in seen:
-            continue
-        seen.add(rel)
-        relpaths.append(rel)
-    return relpaths
+    return list(
+        dict.fromkeys(
+            rel
+            for rel in (
+                *_GOVERNANCE_DOCFLOW_REGISTRY.governance_docs,
+                *_iter_in_governance_relpaths(root),
+            )
+            for _ in (check_deadline(),)
+        )
+    )
 
 FOREST_FALLBACK_MARKER = "FOREST_FALLBACK_USED"
 FOREST_FALLBACK_WARNING_CLASS = "consolidation.forest_fallback"
@@ -282,36 +276,37 @@ def _parse_sppf_tag(payload: str) -> dict[str, str]:
 
 
 def _parse_doc_ref(value: str) -> list[tuple[str, int | None]]:
-    refs: list[tuple[str, int | None]] = []
-    for part in SPPF_DOC_REF_SPLIT_RE.split(value):
-        check_deadline()
-        chunk = part.strip()
-        if not chunk:
-            continue
-        if chunk.startswith("in/"):
-            chunk = chunk[3:]
-        name, _, rev = chunk.partition("@")
-        name = name.strip()
-        if not name:
-            continue
-        if name.endswith(".md"):
-            name = name[:-3]
-        if name.startswith("in-") and name[3:].isdigit():
-            doc_id = name
-        elif name.startswith("in-") and name[3:].split("/")[0].isdigit():
-            doc_id = name.split("/", 1)[0]
-        elif name.startswith("docs/") or "/" in name or name.endswith(".md"):
-            doc_id = name if name.endswith(".md") else f"{name}.md"
-        else:
-            doc_id = name
-        rev_value: int | None = None
-        if rev:
-            try:
-                rev_value = int(rev)
-            except ValueError:
-                rev_value = None
-        refs.append((doc_id, rev_value))
-    return refs
+    def _iter_refs() -> Iterable[tuple[str, int | None]]:
+        for part in SPPF_DOC_REF_SPLIT_RE.split(value):
+            check_deadline()
+            chunk = part.strip()
+            if not chunk:
+                continue
+            if chunk.startswith("in/"):
+                chunk = chunk[3:]
+            name, _, rev = chunk.partition("@")
+            name = name.strip()
+            if not name:
+                continue
+            if name.endswith(".md"):
+                name = name[:-3]
+            if name.startswith("in-") and name[3:].isdigit():
+                doc_id = name
+            elif name.startswith("in-") and name[3:].split("/")[0].isdigit():
+                doc_id = name.split("/", 1)[0]
+            elif name.startswith("docs/") or "/" in name or name.endswith(".md"):
+                doc_id = name if name.endswith(".md") else f"{name}.md"
+            else:
+                doc_id = name
+            rev_value: int | None = None
+            if rev:
+                try:
+                    rev_value = int(rev)
+                except ValueError:
+                    rev_value = None
+            yield doc_id, rev_value
+
+    return list(_iter_refs())
 
 
 def _format_doc_ref(doc_id: str, rev: int | None) -> str:
@@ -532,16 +527,14 @@ def _compose_doc_dependency_matrices(
         requires = fm.get("doc_requires", [])
         if not isinstance(requires, list):
             return []
-        deps: list[str] = []
-        for item in requires:
-            check_deadline()
-            if not isinstance(item, str):
-                continue
-            base = str(_doc_ref_base(item))
-            if not base.endswith(".md"):
-                continue
-            deps.append(base)
-        return deps
+        return [
+            base
+            for item in requires
+            for _ in (check_deadline(),)
+            if isinstance(item, str)
+            for base in (str(_doc_ref_base(item)),)
+            if base.endswith(".md")
+        ]
 
     def _notion_identity(notion: dict[str, JSONValue]) -> tuple[object, ...]:
         anchor = notion.get("anchor")
@@ -1625,52 +1618,53 @@ def _sppf_status_triplet_violations(root: Path) -> list[str]:
 
     checklist_records = _collect_checklist_statuses(root)
     influence_records = _collect_influence_rows(root)
-    violations: list[str] = []
-
     doc_ids = _sorted(in_records)
-    for doc_id in doc_ids:
-        check_deadline()
-        in_rec = in_records.get(doc_id)
-        checklist_rec = checklist_records.get(doc_id)
-        influence_rec = influence_records.get(doc_id)
-        if in_rec is None or checklist_rec is None or influence_rec is None:
-            continue
-        if not isinstance(in_rec.get("status"), str) or not isinstance(checklist_rec.get("status"), str):
-            continue
-        if not isinstance(influence_rec.get("status"), str):
-            continue
-        declared = str(in_rec["status"])
-        checklist_status = str(checklist_rec["status"])
-        influence_status = str(influence_rec["status"])
-        has_override = bool(in_rec.get("override")) or bool(checklist_rec.get("override")) or bool(influence_rec.get("override"))
-        if has_override:
-            continue
-
-        allowed_influence = DECLARATION_TO_INFLUENCE_MAP.get(declared, set())
-        allowed_checklist = DECLARATION_TO_CHECKLIST_MAP.get(declared, set())
-        expected_checklist = INFLUENCE_STATUS_MAP.get(influence_status)
-        consistent = (
+    return [
+        "status-triplet conflict for "
+        f"{doc_id}: {in_ref} declares={declared!r}; "
+        f"{check_ref} checklist={checklist_status!r}; "
+        f"{index_ref} summary={influence_status!r}. "
+        f"Use marker '{STATUS_TRIPLET_OVERRIDE_MARKER}' on one of these records to acknowledge an intentional divergence."
+        for doc_id in doc_ids
+        for _ in (check_deadline(),)
+        for in_rec in (in_records.get(doc_id),)
+        for checklist_rec in (checklist_records.get(doc_id),)
+        for influence_rec in (influence_records.get(doc_id),)
+        if in_rec is not None and checklist_rec is not None and influence_rec is not None
+        if isinstance(in_rec.get("status"), str)
+        if isinstance(checklist_rec.get("status"), str)
+        if isinstance(influence_rec.get("status"), str)
+        for declared in (str(in_rec["status"]),)
+        for checklist_status in (str(checklist_rec["status"]),)
+        for influence_status in (str(influence_rec["status"]),)
+        if not (
+            bool(in_rec.get("override"))
+            or bool(checklist_rec.get("override"))
+            or bool(influence_rec.get("override"))
+        )
+        for allowed_influence in (DECLARATION_TO_INFLUENCE_MAP.get(declared, set()),)
+        for allowed_checklist in (DECLARATION_TO_CHECKLIST_MAP.get(declared, set()),)
+        for expected_checklist in (INFLUENCE_STATUS_MAP.get(influence_status),)
+        if not (
             influence_status in allowed_influence
             and checklist_status in allowed_checklist
             and (expected_checklist is None or checklist_status == expected_checklist)
         )
-        if consistent:
-            continue
-
-        in_line = in_rec.get("line_no")
-        check_line = checklist_rec.get("line_no")
-        index_line = influence_rec.get("line_no")
-        in_ref = f"in/{doc_id}.md:{in_line}" if in_line else f"in/{doc_id}.md"
-        check_ref = f"docs/sppf_checklist.md:{check_line}" if check_line else "docs/sppf_checklist.md"
-        index_ref = f"docs/influence_index.md:{index_line}" if index_line else "docs/influence_index.md"
-        violations.append(
-            "status-triplet conflict for "
-            f"{doc_id}: {in_ref} declares={declared!r}; "
-            f"{check_ref} checklist={checklist_status!r}; "
-            f"{index_ref} summary={influence_status!r}. "
-            f"Use marker '{STATUS_TRIPLET_OVERRIDE_MARKER}' on one of these records to acknowledge an intentional divergence."
+        for in_line in (in_rec.get("line_no"),)
+        for check_line in (checklist_rec.get("line_no"),)
+        for index_line in (influence_rec.get("line_no"),)
+        for in_ref in (f"in/{doc_id}.md:{in_line}" if in_line else f"in/{doc_id}.md",)
+        for check_ref in (
+            f"docs/sppf_checklist.md:{check_line}"
+            if check_line
+            else "docs/sppf_checklist.md",
         )
-    return violations
+        for index_ref in (
+            f"docs/influence_index.md:{index_line}"
+            if index_line
+            else "docs/influence_index.md",
+        )
+    ]
 
 
 def _in_doc_revisions(root: Path) -> dict[str, int]:
@@ -2161,34 +2155,35 @@ def _load_test_evidence(root: Path) -> dict[str, object] | None:
 
 
 def _evidence_rows_from_test_evidence(payload: dict[str, JSONValue]) -> list[dict[str, object]]:
-    rows: list[dict[str, object]] = []
     evidence_index = payload.get("evidence_index")
     if not isinstance(evidence_index, list):
-        return rows
-    for entry in evidence_index:
-        check_deadline()
-        if not isinstance(entry, dict):
-            continue
-        key = entry.get("key")
-        if not isinstance(key, dict):
-            continue
-        normalized = evidence_keys.normalize_key(key)
-        evidence_id = evidence_keys.key_identity(normalized)
-        display = entry.get("display")
-        if not isinstance(display, str) or not display.strip():
-            display = evidence_keys.render_display(normalized)
-        rows.append(
-            {
-                "row_kind": "evidence_key",
-                "evidence_id": evidence_id,
-                "evidence_kind": normalized.get("k"),
-                "evidence_key": normalized,
-                "evidence_display": display,
-                "evidence_source": "test_evidence",
-                "tests": entry.get("tests", []),
-            }
+        return []
+    return [
+        {
+            "row_kind": "evidence_key",
+            "evidence_id": evidence_id,
+            "evidence_kind": normalized.get("k"),
+            "evidence_key": normalized,
+            "evidence_display": display,
+            "evidence_source": "test_evidence",
+            "tests": entry.get("tests", []),
+        }
+        for entry in evidence_index
+        for _ in (check_deadline(),)
+        if isinstance(entry, dict)
+        for key in (entry.get("key"),)
+        if isinstance(key, dict)
+        for normalized in (evidence_keys.normalize_key(key),)
+        for evidence_id in (evidence_keys.key_identity(normalized),)
+        for raw_display in (entry.get("display"),)
+        for display in (
+            (
+                raw_display
+                if isinstance(raw_display, str) and raw_display.strip()
+                else evidence_keys.render_display(normalized)
+            ),
         )
-    return rows
+    ]
 
 
 def _impact_rows(root: Path) -> list[dict[str, object]]:
@@ -2557,13 +2552,87 @@ def _render_docflow_compliance_md(
     *,
     obligations: DocflowObligationResult | None = None,
 ) -> list[str]:
+    def _obligation_lines() -> Iterable[str]:
+        if obligations is None:
+            return ()
+        return (
+            "- "
+            f"{entry.get('obligation_id')}: "
+            f"{str(entry.get('status') or 'unknown') if entry.get('triggered') is True else 'inactive'} "
+            f"({entry.get('enforcement')})"
+            for entry in obligations.entries
+            for _ in (check_deadline(),)
+        )
+
+    def _status_lines(status: str) -> Iterable[str]:
+        if status == "contradicts":
+            return (
+                f"- {'; '.join(parts)}"
+                for row in rows
+                for _ in (check_deadline(),)
+                if row.get("status") == status
+                for invariant in (row.get("invariant", "?"),)
+                for path in (row.get("path"),)
+                for qual in (row.get("qual"),)
+                for source_kind in (row.get("source_row_kind"),)
+                for detail in (row.get("detail"),)
+                for parts in (
+                    [
+                        *([f"invariant={invariant}"]),
+                        *( [f"path={path}"] if path else []),
+                        *( [f"qual={qual}"] if qual else []),
+                        *( [f"row={source_kind}"] if source_kind else []),
+                        *( [f"detail={detail}"] if detail else []),
+                    ],
+                )
+            )
+        if status == "proposed":
+            return (
+                f"- {'; '.join(parts)}"
+                for row in rows
+                for _ in (check_deadline(),)
+                if row.get("status") == status
+                for invariant in (row.get("invariant", "?"),)
+                for detail in (row.get("detail"),)
+                for match_count in (row.get("match_count"),)
+                for would_violate in (row.get("would_violate"),)
+                for parts in (
+                    [
+                        *([f"invariant={invariant}"]),
+                        *( [f"matches={match_count}"] if match_count is not None else []),
+                        *( ["would_violate=true"] if would_violate is True else []),
+                        *( [f"detail={detail}"] if detail else []),
+                    ],
+                )
+            )
+        return (
+            f"- {'; '.join(parts)}"
+            for row in rows
+            for _ in (check_deadline(),)
+            if row.get("status") == status
+            for evidence_id in (row.get("evidence_id", "?"),)
+            for evidence_kind in (row.get("evidence_kind"),)
+            for evidence_display in (row.get("evidence_display"),)
+            for parts in (
+                [
+                    *([f"id={evidence_id}"]),
+                    *( [f"kind={evidence_kind}"] if evidence_kind else []),
+                    *( [f"display={evidence_display}"] if evidence_display else []),
+                ],
+            )
+        )
+
     summary = _summarize_docflow_compliance(rows)
-    lines: list[str] = []
-    lines.append("Docflow compliance report")
-    lines.append(f"- compliant: {summary.get('compliant', 0)}")
-    lines.append(f"- contradicts: {summary.get('contradicts', 0)}")
-    lines.append(f"- proposed: {summary.get('proposed', 0)}")
-    lines.append(f"- excess: {summary.get('excess', 0)}")
+    contradiction_lines = list(_status_lines("contradicts"))
+    proposed_lines = list(_status_lines("proposed"))
+    excess_lines = list(_status_lines("excess"))
+    lines = [
+        "Docflow compliance report",
+        f"- compliant: {summary.get('compliant', 0)}",
+        f"- contradicts: {summary.get('contradicts', 0)}",
+        f"- proposed: {summary.get('proposed', 0)}",
+        f"- excess: {summary.get('excess', 0)}",
+    ]
     if obligations is not None:
         obligation_summary = obligations.summary
         lines.append(
@@ -2575,77 +2644,19 @@ def _render_docflow_compliance_md(
         )
     lines.append("")
     if obligations is not None:
-        lines.append("Obligations:")
-        for entry in obligations.entries:
-            check_deadline()
-            state = "inactive"
-            if entry.get("triggered") is True:
-                state = str(entry.get("status") or "unknown")
-            lines.append(
-                "- "
-                f"{entry.get('obligation_id')}: {state} "
-                f"({entry.get('enforcement')})"
-            )
-        lines.append("")
-    lines.append("Contradictions:")
-    for row in rows:
-        check_deadline()
-        if row.get("status") != "contradicts":
-            continue
-        invariant = row.get("invariant", "?")
-        path = row.get("path")
-        qual = row.get("qual")
-        source_kind = row.get("source_row_kind")
-        detail = row.get("detail")
-        parts = [f"invariant={invariant}"]
-        if path:
-            parts.append(f"path={path}")
-        if qual:
-            parts.append(f"qual={qual}")
-        if source_kind:
-            parts.append(f"row={source_kind}")
-        if detail:
-            parts.append(f"detail={detail}")
-        lines.append(f"- {'; '.join(parts)}")
-    if not any(row.get("status") == "contradicts" for row in rows):
-        lines.append("- (none)")
-    lines.append("")
-    lines.append("Proposed invariants (not enforced):")
-    for row in rows:
-        check_deadline()
-        if row.get("status") != "proposed":
-            continue
-        invariant = row.get("invariant", "?")
-        detail = row.get("detail")
-        match_count = row.get("match_count")
-        would_violate = row.get("would_violate")
-        parts = [f"invariant={invariant}"]
-        if match_count is not None:
-            parts.append(f"matches={match_count}")
-        if would_violate is True:
-            parts.append("would_violate=true")
-        if detail:
-            parts.append(f"detail={detail}")
-        lines.append(f"- {'; '.join(parts)}")
-    if not any(row.get("status") == "proposed" for row in rows):
-        lines.append("- (none)")
-    lines.append("")
-    lines.append("Excess evidence:")
-    for row in rows:
-        check_deadline()
-        if row.get("status") != "excess":
-            continue
-        evidence_id = row.get("evidence_id", "?")
-        evidence_kind = row.get("evidence_kind")
-        evidence_display = row.get("evidence_display")
-        parts = [f"id={evidence_id}"]
-        if evidence_kind:
-            parts.append(f"kind={evidence_kind}")
-        if evidence_display:
-            parts.append(f"display={evidence_display}")
-        lines.append(f"- {'; '.join(parts)}")
-    if not any(row.get("status") == "excess" for row in rows):
-        lines.append("- (none)")
+        lines.extend(["Obligations:", *list(_obligation_lines()), ""])
+    lines.extend(
+        [
+            "Contradictions:",
+            *(contradiction_lines or ["- (none)"]),
+            "",
+            "Proposed invariants (not enforced):",
+            *(proposed_lines or ["- (none)"]),
+            "",
+            "Excess evidence:",
+            *(excess_lines or ["- (none)"]),
+        ]
+    )
     return lines
 
 
@@ -2811,32 +2822,30 @@ def _agent_scope_root(path: str) -> str:
 
 def _extract_mandatory_directives(path: str, doc: Doc) -> list[AgentDirective]:
     lines = doc.body.splitlines()
-    directives: list[AgentDirective] = []
-    in_required_behavior = False
-    for line_no, raw in enumerate(lines, start=1):
-        check_deadline()
-        line = raw.strip()
-        if line.startswith("## "):
-            in_required_behavior = line.lower() == "## required behavior"
-            continue
-        if not line.startswith("-"):
-            continue
-        text = line[1:].strip()
-        if not text:
-            continue
-        mandatory = in_required_behavior or _directive_is_mandatory(text)
-        directives.append(
-            AgentDirective(
+    def _iter_directives() -> Iterable[AgentDirective]:
+        in_required_behavior = False
+        for line_no, raw in enumerate(lines, start=1):
+            check_deadline()
+            line = raw.strip()
+            if line.startswith("## "):
+                in_required_behavior = line.lower() == "## required behavior"
+                continue
+            if not line.startswith("-"):
+                continue
+            text = line[1:].strip()
+            if not text:
+                continue
+            yield AgentDirective(
                 source=path,
                 scope_root=_agent_scope_root(path),
                 line=line_no,
                 text=text,
                 normalized=_directive_normalized(text),
-                mandatory=mandatory,
+                mandatory=(in_required_behavior or _directive_is_mandatory(text)),
                 delta_marked=("delta:" in text.lower() or "[delta]" in text.lower()),
             )
-        )
-    return directives
+
+    return list(_iter_directives())
 
 
 def _directive_reference_entries(path: str, doc: Doc) -> list[tuple[str, int]]:
@@ -3360,27 +3369,23 @@ def _docflow_cycles(
             adjacency.setdefault(src, set()).add(dst)
             adjacency.setdefault(dst, set())
     components = _docflow_strongly_connected_components(adjacency)
-    cycles: list[dict[str, object]] = []
-    for comp in components:
-        check_deadline()
-        if not comp:
-            continue
-        has_self = any(node in adjacency.get(node, set()) for node in comp)
-        if len(comp) == 1 and not has_self:
-            continue
-        ordered = _sorted(comp)
-        kind = "non_core"
-        if set(ordered).issubset(core):
-            kind = "core"
-        elif set(ordered) & core:
-            kind = "mixed"
-        cycles.append(
-            {
-                "nodes": ordered,
-                "kind": kind,
-                "size": len(ordered),
-            }
-        )
+    cycles = [
+        {
+            "nodes": ordered,
+            "kind": (
+                "core"
+                if set(ordered).issubset(core)
+                else "mixed" if set(ordered) & core else "non_core"
+            ),
+            "size": len(ordered),
+        }
+        for comp in components
+        for _ in (check_deadline(),)
+        if comp
+        for has_self in (any(node in adjacency.get(node, set()) for node in comp),)
+        if len(comp) != 1 or has_self
+        for ordered in (_sorted(comp),)
+    ]
     cycles.sort(key=lambda entry: (entry.get("kind"), entry.get("size", 0), entry.get("nodes")))
     return cycles
 
@@ -3391,52 +3396,51 @@ def _render_docflow_cycles_md(
     projection_cycles: list[dict[str, object]],
     projection_label: str,
 ) -> list[str]:
-    lines: list[str] = []
-    lines.append("Docflow dependency cycles")
+    lines: list[str] = ["Docflow dependency cycles"]
     if not raw_cycles:
         lines.append("- none")
         return lines
     lines.append("Summary (raw graph):")
-    counts: dict[str, int] = {}
-    for entry in raw_cycles:
-        check_deadline()
-        kind = str(entry.get("kind", "unknown"))
-        counts[kind] = counts.get(kind, 0) + 1
-    for kind in _sorted(counts):
-        check_deadline()
-        lines.append(f"- {kind}: {counts[kind]}")
+    counts = Counter(
+        str(entry.get("kind", "unknown"))
+        for entry in raw_cycles
+        for _ in (check_deadline(),)
+    )
+    lines.extend(f"- {kind}: {counts[kind]}" for kind in _sorted(counts))
     lines.append("")
     lines.append(f"Summary ({projection_label}):")
-    projection_counts: dict[str, int] = {}
-    for entry in projection_cycles:
-        check_deadline()
-        kind = str(entry.get("kind", "unknown"))
-        projection_counts[kind] = projection_counts.get(kind, 0) + 1
+    projection_counts = Counter(
+        str(entry.get("kind", "unknown"))
+        for entry in projection_cycles
+        for _ in (check_deadline(),)
+    )
     if projection_counts:
-        for kind in _sorted(projection_counts):
-            check_deadline()
-            lines.append(f"- {kind}: {projection_counts[kind]}")
+        lines.extend(
+            f"- {kind}: {projection_counts[kind]}"
+            for kind in _sorted(projection_counts)
+            for _ in (check_deadline(),)
+        )
     else:
         lines.append("- none")
     lines.append("")
     lines.append("Cycles (raw graph):")
-    for entry in raw_cycles:
-        check_deadline()
-        nodes = entry.get("nodes", [])
-        if not isinstance(nodes, list):
-            continue
-        kind = entry.get("kind", "unknown")
-        lines.append(f"- ({kind}) {', '.join(nodes)}")
+    lines.extend(
+        f"- ({entry.get('kind', 'unknown')}) {', '.join(nodes)}"
+        for entry in raw_cycles
+        for _ in (check_deadline(),)
+        for nodes in (entry.get("nodes", []),)
+        if isinstance(nodes, list)
+    )
     lines.append("")
     lines.append(f"Cycles ({projection_label}):")
     if projection_cycles:
-        for entry in projection_cycles:
-            check_deadline()
-            nodes = entry.get("nodes", [])
-            if not isinstance(nodes, list):
-                continue
-            kind = entry.get("kind", "unknown")
-            lines.append(f"- ({kind}) {', '.join(nodes)}")
+        lines.extend(
+            f"- ({entry.get('kind', 'unknown')}) {', '.join(nodes)}"
+            for entry in projection_cycles
+            for _ in (check_deadline(),)
+            for nodes in (entry.get("nodes", []),)
+            if isinstance(nodes, list)
+        )
     else:
         lines.append("- none")
     lines.append("")
@@ -4011,30 +4015,25 @@ def _parse_docflow_invariant_entry(entry: object) -> DocflowInvariant | None:
 
 
 def _parse_inline_docflow_invariants(rel: str, body: str) -> list[DocflowInvariant]:
-    invariants: list[DocflowInvariant] = []
     pattern = re.compile(r"docflow:\s*(never|require)\(([^)]*)\)")
-    for lineno, line in enumerate(body.splitlines(), start=1):
-        check_deadline()
-        for match in pattern.finditer(line):
-            check_deadline()
-            kind = match.group(1).strip().lower()
-            raw_pred = match.group(2).strip()
-            if not raw_pred:
-                continue
-            predicates = [part.strip() for part in raw_pred.split(",") if part.strip()]
-            name = f"docflow:{rel}:{lineno}:{kind}"
-            matcher = _parse_docflow_predicate_matcher(predicates=predicates)
-            if matcher is None:
-                continue
-            invariants.append(
-                DocflowInvariant(
-                    name=name,
-                    kind=cast(Literal["never", "require"], kind),
-                    matcher=matcher,
-                    status="active",
-                )
-            )
-    return invariants
+    return [
+        DocflowInvariant(
+            name=f"docflow:{rel}:{lineno}:{kind}",
+            kind=cast(Literal["never", "require"], kind),
+            matcher=matcher,
+            status="active",
+        )
+        for lineno, line in enumerate(body.splitlines(), start=1)
+        for _ in (check_deadline(),)
+        for match in pattern.finditer(line)
+        for __ in (check_deadline(),)
+        for kind in (match.group(1).strip().lower(),)
+        for raw_pred in (match.group(2).strip(),)
+        if raw_pred
+        for predicates in ([part.strip() for part in raw_pred.split(",") if part.strip()],)
+        for matcher in (_parse_docflow_predicate_matcher(predicates=predicates),)
+        if matcher is not None
+    ]
 
 
 def _collect_docflow_invariants(
@@ -4571,21 +4570,18 @@ def _decision_tier_candidates(lint_path: Path, *, tier: int, output_format: str)
 
 
 def _parse_surfaces(lines: Iterable[str], *, value_encoded: bool) -> list[DecisionSurface]:
-    surfaces: list[DecisionSurface] = []
-    for line in lines:
-        check_deadline()
-        outcome = parse_surface_line(line, value_encoded=value_encoded)
-        if outcome is None:
-            continue
-        surfaces.append(
-            DecisionSurface(
-                path=outcome.path,
-                qual=outcome.qual,
-                params=outcome.params,
-                meta=outcome.meta,
-            )
+    return [
+        DecisionSurface(
+            path=outcome.path,
+            qual=outcome.qual,
+            params=outcome.params,
+            meta=outcome.meta,
         )
-    return surfaces
+        for line in lines
+        for _ in (check_deadline(),)
+        for outcome in (parse_surface_line(line, value_encoded=value_encoded),)
+        if outcome is not None
+    ]
 
 
 def _surfaces_from_forest(
@@ -4666,14 +4662,13 @@ def _surfaces_from_forest(
 
 
 def _parse_lint_entries(lines: Iterable[str]) -> list[LintEntry]:
-    entries: list[LintEntry] = []
-    for line in lines:
-        check_deadline()
-        parsed = _parse_lint_entry(line)
-        if parsed is None:
-            continue
-        entries.append(parsed)
-    return entries
+    return [
+        parsed
+        for line in lines
+        for _ in (check_deadline(),)
+        for parsed in (_parse_lint_entry(line),)
+        if parsed is not None
+    ]
 
 
 def _render_bundle_candidates(
@@ -4681,19 +4676,23 @@ def _render_bundle_candidates(
     *,
     max_examples: int,
 ) -> list[str]:
-    lines: list[str] = []
-    for params, surfaces in _sorted(
-        bundle_counts.items(), key=lambda kv: (-len(kv[1]), kv[0])
-    ):
-        check_deadline()
-        if len(surfaces) < 2:
-            continue
-        bundle = ", ".join(params)
-        lines.append(f"- Bundle candidate `{bundle}` appears in {len(surfaces)} functions:")
-        for surface in surfaces[:max_examples]:
-            check_deadline()
-            lines.append(f"  - {surface.path}:{surface.qual} ({surface.meta})")
-    return lines
+    return [
+        line
+        for params, surfaces in _sorted(
+            bundle_counts.items(), key=lambda kv: (-len(kv[1]), kv[0])
+        )
+        for _ in (check_deadline(),)
+        if len(surfaces) >= 2
+        for bundle in (", ".join(params),)
+        for line in (
+            f"- Bundle candidate `{bundle}` appears in {len(surfaces)} functions:",
+            *(
+                f"  - {surface.path}:{surface.qual} ({surface.meta})"
+                for surface in surfaces[:max_examples]
+                for __ in (check_deadline(),)
+            ),
+        )
+    ]
 
 
 def _render_param_clusters(
@@ -4701,18 +4700,22 @@ def _render_param_clusters(
     *,
     max_examples: int,
 ) -> list[str]:
-    lines: list[str] = []
-    for param, surfaces in _sorted(
-        param_to_surfaces.items(), key=lambda kv: (-len(kv[1]), kv[0])
-    ):
-        check_deadline()
-        if len(surfaces) < 2:
-            continue
-        lines.append(f"- Param `{param}` appears in {len(surfaces)} functions:")
-        for surface in surfaces[:max_examples]:
-            check_deadline()
-            lines.append(f"  - {surface.path}:{surface.qual} ({surface.meta})")
-    return lines
+    return [
+        line
+        for param, surfaces in _sorted(
+            param_to_surfaces.items(), key=lambda kv: (-len(kv[1]), kv[0])
+        )
+        for _ in (check_deadline(),)
+        if len(surfaces) >= 2
+        for line in (
+            f"- Param `{param}` appears in {len(surfaces)} functions:",
+            *(
+                f"  - {surface.path}:{surface.qual} ({surface.meta})"
+                for surface in surfaces[:max_examples]
+                for __ in (check_deadline(),)
+            ),
+        )
+    ]
 
 
 def _render_higher_order_candidates(
@@ -4722,25 +4725,26 @@ def _render_higher_order_candidates(
     min_files: int,
     max_examples: int,
 ) -> list[str]:
-    lines: list[str] = []
-    for params, surfaces in _sorted(
-        bundle_counts.items(), key=lambda kv: (-len(kv[1]), kv[0])
-    ):
-        check_deadline()
-        if len(surfaces) < min_functions:
-            continue
-        file_count = len({s.path for s in surfaces})
-        if file_count < min_files:
-            continue
-        bundle = ", ".join(params)
-        lines.append(
-            f"- Higher-order bundle `{bundle}` appears in {len(surfaces)} functions "
-            f"across {file_count} files:"
+    return [
+        line
+        for params, surfaces in _sorted(
+            bundle_counts.items(), key=lambda kv: (-len(kv[1]), kv[0])
         )
-        for surface in surfaces[:max_examples]:
-            check_deadline()
-            lines.append(f"  - {surface.path}:{surface.qual} ({surface.meta})")
-    return lines
+        for _ in (check_deadline(),)
+        if len(surfaces) >= min_functions
+        for file_count in (len({s.path for s in surfaces}),)
+        if file_count >= min_files
+        for bundle in (", ".join(params),)
+        for line in (
+            f"- Higher-order bundle `{bundle}` appears in {len(surfaces)} functions "
+            f"across {file_count} files:",
+            *(
+                f"  - {surface.path}:{surface.qual} ({surface.meta})"
+                for surface in surfaces[:max_examples]
+                for __ in (check_deadline(),)
+            ),
+        )
+    ]
 
 
 def _build_suggestions(

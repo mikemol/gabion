@@ -164,26 +164,20 @@ class _TypeDispatchVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_Subscript(self, node: ast.Subscript) -> None:
-        match node:
-            case ast.Subscript(
-                value=ast.Name(id=table_name),
-                slice=slice_node,
-            ):
-                slice_expr = _subscript_slice_expr(slice_node)
-                if _is_type_call(slice_expr):
-                    self._record_violation(
-                        node=slice_expr,
-                        kind="dispatch_table_lookup",
-                        message=(
-                            "manual type-keyed dispatch table lookup is prohibited; "
-                            "use singledispatch registration"
-                        ),
-                        guard_form="dispatch_table_lookup",
-                        input_slot=f"dispatch_table:{table_name}",
-                        event_kind="syntax:dispatch_table_lookup",
-                    )
-            case _:
-                pass
+        if isinstance(node.value, ast.Name):
+            slice_expr = _subscript_slice_expr(node.slice)
+            if _is_type_call(slice_expr):
+                self._record_violation(
+                    node=slice_expr,
+                    kind="dispatch_table_lookup",
+                    message=(
+                        "manual type-keyed dispatch table lookup is prohibited; "
+                        "use singledispatch registration"
+                    ),
+                    guard_form="dispatch_table_lookup",
+                    input_slot=f"dispatch_table:{node.value.id}",
+                    event_kind="syntax:dispatch_table_lookup",
+                )
         self.generic_visit(node)
 
     def _visit_function_like(
@@ -460,29 +454,32 @@ def _failure_violation(
 def _guard_forms(expr: ast.AST) -> tuple[str, ...]:
     forms: list[str] = []
     for node in ast.walk(expr):
-        match node:
-            case ast.Call(func=ast.Name(id="isinstance")):
-                forms.append("isinstance_guard")
-            case ast.Compare(left=left, ops=ops, comparators=comparators):
-                terms = (left, *comparators)
-                if any(_is_type_call(term) for term in terms):
-                    operators = tuple(_operator_label(op) for op in ops)
-                    if any(
-                        label in {"is", "is_not", "eq", "not_eq"}
-                        for label in operators
-                    ):
-                        forms.append("type_compare_guard")
-            case _:
-                pass
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "isinstance"
+        ):
+            forms.append("isinstance_guard")
+            continue
+        if isinstance(node, ast.Compare):
+            terms = (node.left, *node.comparators)
+            if any(_is_type_call(term) for term in terms):
+                operators = tuple(_operator_label(op) for op in node.ops)
+                if any(
+                    label in {"is", "is_not", "eq", "not_eq"}
+                    for label in operators
+                ):
+                    forms.append("type_compare_guard")
     return tuple(forms)
 
 
 def _is_type_call(expr: ast.AST) -> bool:
-    match expr:
-        case ast.Call(func=ast.Name(id="type"), args=args):
-            return bool(args)
-        case _:
-            return False
+    return (
+        isinstance(expr, ast.Call)
+        and isinstance(expr.func, ast.Name)
+        and expr.func.id == "type"
+        and bool(expr.args)
+    )
 
 
 def _operator_label(operator: ast.cmpop) -> str:
@@ -512,52 +509,52 @@ def _operator_label(operator: ast.cmpop) -> str:
 
 
 def _dispatch_table_lookup_from_call(node: ast.Call) -> tuple[str, ast.AST] | None:
-    match node:
-        case ast.Call(
-            func=ast.Attribute(value=ast.Name(id=table_name), attr="get"),
-            args=[first_arg, *_],
-        ):
-            if _is_type_call(first_arg):
-                return (table_name, first_arg)
-            return None
-        case _:
-            return None
+    if (
+        isinstance(node.func, ast.Attribute)
+        and node.func.attr == "get"
+        and isinstance(node.func.value, ast.Name)
+        and node.args
+        and _is_type_call(node.args[0])
+    ):
+        return (node.func.value.id, node.args[0])
+    return None
 
 
 def _subscript_slice_expr(slice_node: ast.AST) -> ast.AST:
-    match slice_node:
-        case ast.Index(value=value):
-            return value
-        case _:
-            return slice_node
+    if isinstance(slice_node, ast.Index):
+        return slice_node.value
+    return slice_node
 
 
 def _has_singledispatch_decorator(
     function_node: ast.FunctionDef | ast.AsyncFunctionDef,
 ) -> bool:
     for decorator in function_node.decorator_list:
-        match decorator:
-            case ast.Name(id=decorator_name):
-                if decorator_name in {"singledispatch", "singledispatchmethod"}:
-                    return True
-            case ast.Attribute(attr=decorator_name):
-                if decorator_name in {"singledispatch", "singledispatchmethod"}:
-                    return True
-            case _:
-                pass
+        if isinstance(decorator, ast.Name):
+            if decorator.id in {"singledispatch", "singledispatchmethod"}:
+                return True
+            continue
+        if isinstance(decorator, ast.Attribute):
+            if decorator.attr in {"singledispatch", "singledispatchmethod"}:
+                return True
     return False
 
 
 def _has_never_call(body: Sequence[ast.stmt]) -> bool:
     for statement in body:
         for node in ast.walk(statement):
-            match node:
-                case ast.Call(func=ast.Name(id="never")):
-                    return True
-                case ast.Call(func=ast.Attribute(attr="never")):
-                    return True
-                case _:
-                    pass
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id == "never"
+            ):
+                return True
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "never"
+            ):
+                return True
     return False
 
 
@@ -566,15 +563,17 @@ def _iter_dispatch_register_type_expr(
     decorator: ast.AST,
     function_node: ast.FunctionDef | ast.AsyncFunctionDef,
 ) -> tuple[ast.AST, ...]:
-    match decorator:
-        case ast.Attribute(attr="register"):
-            return _iter_dispatch_parameter_annotation(function_node)
-        case ast.Call(func=ast.Attribute(attr="register"), args=args):
-            if args:
-                return (args[0],)
-            return _iter_dispatch_parameter_annotation(function_node)
-        case _:
-            return ()
+    if isinstance(decorator, ast.Attribute) and decorator.attr == "register":
+        return _iter_dispatch_parameter_annotation(function_node)
+    if (
+        isinstance(decorator, ast.Call)
+        and isinstance(decorator.func, ast.Attribute)
+        and decorator.func.attr == "register"
+    ):
+        if decorator.args:
+            return (decorator.args[0],)
+        return _iter_dispatch_parameter_annotation(function_node)
+    return ()
 
 
 def _iter_dispatch_parameter_annotation(
@@ -594,42 +593,38 @@ def _iter_dispatch_parameter_annotation(
 
 
 def _is_abstract_register_type(type_expr: ast.AST) -> bool:
-    match type_expr:
-        case ast.Name(id=name):
-            return name in _ABSTRACT_REGISTER_TYPES
-        case ast.Attribute():
-            parts = _attribute_parts(type_expr)
-            if not parts:
-                return False
-            head = parts[0]
-            tail = parts[-1]
-            if tail not in _ABSTRACT_REGISTER_TYPES:
-                return False
-            return head in {"typing", "collections", "abc"}
-        case ast.Subscript(value=value):
-            return _is_abstract_register_type(value)
-        case ast.BinOp(op=ast.BitOr(), left=left, right=right):
-            return (
-                _is_abstract_register_type(left)
-                or _is_abstract_register_type(right)
-            )
-        case ast.Tuple(elts=elts):
-            return any(_is_abstract_register_type(elt) for elt in elts)
-        case _:
+    if isinstance(type_expr, ast.Name):
+        return type_expr.id in _ABSTRACT_REGISTER_TYPES
+    if isinstance(type_expr, ast.Attribute):
+        parts = _attribute_parts(type_expr)
+        if not parts:
             return False
+        head = parts[0]
+        tail = parts[-1]
+        if tail not in _ABSTRACT_REGISTER_TYPES:
+            return False
+        return head in {"typing", "collections", "abc"}
+    if isinstance(type_expr, ast.Subscript):
+        return _is_abstract_register_type(type_expr.value)
+    if isinstance(type_expr, ast.BinOp) and isinstance(type_expr.op, ast.BitOr):
+        return (
+            _is_abstract_register_type(type_expr.left)
+            or _is_abstract_register_type(type_expr.right)
+        )
+    if isinstance(type_expr, ast.Tuple):
+        return any(_is_abstract_register_type(elt) for elt in type_expr.elts)
+    return False
 
 
 def _attribute_parts(expr: ast.AST) -> tuple[str, ...]:
-    match expr:
-        case ast.Name(id=name):
-            return (name,)
-        case ast.Attribute(value=value, attr=attr):
-            parent = _attribute_parts(value)
-            if parent:
-                return (*parent, attr)
-            return (attr,)
-        case _:
-            return ()
+    if isinstance(expr, ast.Name):
+        return (expr.id,)
+    if isinstance(expr, ast.Attribute):
+        parent = _attribute_parts(expr.value)
+        if parent:
+            return (*parent, expr.attr)
+        return (expr.attr,)
+    return ()
 
 
 def _derive_flow_identity(

@@ -6,10 +6,11 @@ import ast
 from collections import defaultdict, deque
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from functools import singledispatch
 import json
 from pathlib import Path
 import tomllib
-from typing import Any
+from typing import Any, Iterator
 
 from gabion.order_contract import ordered_or_sorted
 from gabion.tooling.policy_substrate.invariant_marker_scan import (
@@ -67,6 +68,112 @@ class ModuleData:
     attr_calls: list[tuple[str, str]]
     attr_call_args: list[tuple[str, str]]
     attr_decorators: list[tuple[str, str]]
+
+
+def _is_gabion_import_node(node: ast.AST) -> bool:
+    return isinstance(node, (ast.Import, ast.ImportFrom))
+
+
+def _has_duplicate_symbol_defs(item: tuple[tuple[str, str], list[SymbolDef]]) -> bool:
+    return len(item[1]) > 1
+
+
+def _is_cross_module_public_duplicate(item: tuple[str, list[SymbolDef]]) -> bool:
+    return len({defn.module for defn in item[1]}) > 1
+
+
+@singledispatch
+def _symbol_defs_for_stmt(
+    stmt: ast.stmt,
+    *,
+    module: str,
+    rel_path: str,
+    marker_index: dict[tuple[str, str, int], InvariantMarker],
+) -> Iterator[SymbolDef]:
+    return iter(())
+
+
+def _symbol_def(
+    *,
+    module: str,
+    rel_path: str,
+    name: str,
+    kind: str,
+    lineno: int,
+    decorator_list: list[ast.expr],
+    marker_index: dict[tuple[str, str, int], InvariantMarker],
+) -> SymbolDef:
+    return SymbolDef(
+        module=module,
+        rel_path=rel_path,
+        symbol=name,
+        kind=kind,
+        lineno=int(lineno),
+        has_register_decorator=_has_register_decorator(decorator_list),
+        invariant_marker=_invariant_marker_from_scan_entry(
+            rel_path=rel_path,
+            symbol=name,
+            line=int(lineno),
+            marker_index=marker_index,
+        ),
+    )
+
+
+@_symbol_defs_for_stmt.register(ast.FunctionDef)
+def _symbol_defs_for_function_stmt(
+    stmt: ast.FunctionDef,
+    *,
+    module: str,
+    rel_path: str,
+    marker_index: dict[tuple[str, str, int], InvariantMarker],
+) -> Iterator[SymbolDef]:
+    yield _symbol_def(
+        module=module,
+        rel_path=rel_path,
+        name=stmt.name,
+        kind="function",
+        lineno=stmt.lineno,
+        decorator_list=stmt.decorator_list,
+        marker_index=marker_index,
+    )
+
+
+@_symbol_defs_for_stmt.register(ast.AsyncFunctionDef)
+def _symbol_defs_for_async_function_stmt(
+    stmt: ast.AsyncFunctionDef,
+    *,
+    module: str,
+    rel_path: str,
+    marker_index: dict[tuple[str, str, int], InvariantMarker],
+) -> Iterator[SymbolDef]:
+    yield _symbol_def(
+        module=module,
+        rel_path=rel_path,
+        name=stmt.name,
+        kind="async_function",
+        lineno=stmt.lineno,
+        decorator_list=stmt.decorator_list,
+        marker_index=marker_index,
+    )
+
+
+@_symbol_defs_for_stmt.register(ast.ClassDef)
+def _symbol_defs_for_class_stmt(
+    stmt: ast.ClassDef,
+    *,
+    module: str,
+    rel_path: str,
+    marker_index: dict[tuple[str, str, int], InvariantMarker],
+) -> Iterator[SymbolDef]:
+    yield _symbol_def(
+        module=module,
+        rel_path=rel_path,
+        name=stmt.name,
+        kind="class",
+        lineno=stmt.lineno,
+        decorator_list=stmt.decorator_list,
+        marker_index=marker_index,
+    )
 
 
 class _SymbolUseAnalyzer(ast.NodeVisitor):
@@ -134,13 +241,10 @@ class _SymbolUseAnalyzer(ast.NodeVisitor):
             self.visit(node.value)
 
     def visit_Call(self, node: ast.Call) -> None:
-        match node.func:
-            case ast.Name(id=name):
-                self.call_names.add(name)
-            case ast.Attribute(value=ast.Name(id=alias), attr=attr):
-                self.attr_calls.append((alias, attr))
-            case _:
-                pass
+        if isinstance(node.func, ast.Name):
+            self.call_names.add(node.func.id)
+        elif isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name):
+            self.attr_calls.append((node.func.value.id, node.func.attr))
 
         self.visit(node.func)
         self._call_arg_depth += 1
@@ -246,63 +350,18 @@ def _collect_module_data(*, root: Path) -> dict[str, ModuleData]:
         module_aliases: dict[str, str] = {}
         defs: list[SymbolDef] = []
 
-        for node in tree.body:
-            match node:
-                case ast.FunctionDef(name=name, lineno=lineno):
-                    defs.append(
-                        SymbolDef(
-                            module=module,
-                            rel_path=rel_path,
-                            symbol=name,
-                            kind="function",
-                            lineno=int(lineno),
-                            has_register_decorator=_has_register_decorator(node.decorator_list),
-                            invariant_marker=_invariant_marker_from_scan_entry(
-                                rel_path=rel_path,
-                                symbol=name,
-                                line=int(lineno),
-                                marker_index=marker_index,
-                            ),
-                        )
-                    )
-                case ast.AsyncFunctionDef(name=name, lineno=lineno):
-                    defs.append(
-                        SymbolDef(
-                            module=module,
-                            rel_path=rel_path,
-                            symbol=name,
-                            kind="async_function",
-                            lineno=int(lineno),
-                            has_register_decorator=_has_register_decorator(node.decorator_list),
-                            invariant_marker=_invariant_marker_from_scan_entry(
-                                rel_path=rel_path,
-                                symbol=name,
-                                line=int(lineno),
-                                marker_index=marker_index,
-                            ),
-                        )
-                    )
-                case ast.ClassDef(name=name, lineno=lineno):
-                    defs.append(
-                        SymbolDef(
-                            module=module,
-                            rel_path=rel_path,
-                            symbol=name,
-                            kind="class",
-                            lineno=int(lineno),
-                            has_register_decorator=_has_register_decorator(node.decorator_list),
-                            invariant_marker=_invariant_marker_from_scan_entry(
-                                rel_path=rel_path,
-                                symbol=name,
-                                line=int(lineno),
-                                marker_index=marker_index,
-                            ),
-                        )
-                    )
-                case _:
-                    pass
+        defs.extend(
+            defn
+            for node in tree.body
+            for defn in _symbol_defs_for_stmt(
+                node,
+                module=module,
+                rel_path=rel_path,
+                marker_index=marker_index,
+            )
+        )
 
-        for node in ast.walk(tree):
+        for node in filter(_is_gabion_import_node, ast.walk(tree)):
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     if not alias.name.startswith("gabion"):
@@ -665,9 +724,8 @@ def _collect_duplicate_findings(
                 public_symbol_defs[defn.symbol].append(defn)
 
     same_module: list[dict[str, Any]] = []
-    for (module_name, symbol), defs in by_module_symbol.items():
-        if len(defs) <= 1:
-            continue
+    duplicate_module_symbol_defs = filter(_has_duplicate_symbol_defs, by_module_symbol.items())
+    for (module_name, symbol), defs in duplicate_module_symbol_defs:
         peer_lines = _sorted([int(defn.lineno) for defn in defs])
         for defn in _sorted(defs, key=lambda item: item.lineno):
             canonical = canonical_defs.get((defn.module, defn.symbol), defn)
@@ -687,10 +745,8 @@ def _collect_duplicate_findings(
             same_module.append(finding)
 
     cross_module_public: list[dict[str, Any]] = []
-    for symbol, defs in public_symbol_defs.items():
-        modules_for_symbol = {defn.module for defn in defs}
-        if len(modules_for_symbol) <= 1:
-            continue
+    cross_module_public_defs = filter(_is_cross_module_public_duplicate, public_symbol_defs.items())
+    for symbol, defs in cross_module_public_defs:
         peer_locations = _sorted(
             [f"{defn.module}:{defn.lineno}" for defn in defs]
         )

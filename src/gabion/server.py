@@ -13,7 +13,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Callable, Literal, Mapping, Protocol, Sequence, cast
+from typing import Callable, Iterator, Literal, Mapping, Protocol, Sequence, cast
 from urllib.parse import unquote, urlparse
 
 from pygls.lsp.server import LanguageServer
@@ -310,26 +310,23 @@ def _analysis_input_witness(
 
     def _normalize_ast_value(value: _ASTWitnessValue) -> JSONValue:
         check_deadline()
-        match value:
-            case ast.AST() as ast_value:
-                fields: JSONObject = {}
-                for name, raw_field in ast.iter_fields(ast_value):
-                    check_deadline()
-                    fields[name] = _normalize_ast_value(raw_field)
-                attrs: JSONObject = {}
-                for name in getattr(ast_value, "_attributes", ()):
-                    check_deadline()
-                    attrs[name] = _normalize_scalar(getattr(ast_value, name, None))
-                payload: JSONObject = {
-                    "_py": "ast",
-                    "node": type(ast_value).__name__,
-                    "fields": fields,
-                }
-                if attrs:
-                    payload["attrs"] = attrs
-                return payload
-            case _:
-                pass
+        if isinstance(value, ast.AST):
+            fields: JSONObject = {}
+            for name, raw_field in ast.iter_fields(value):
+                check_deadline()
+                fields[name] = _normalize_ast_value(raw_field)
+            attrs: JSONObject = {}
+            for name in getattr(value, "_attributes", ()):
+                check_deadline()
+                attrs[name] = _normalize_scalar(getattr(value, name, None))
+            payload: JSONObject = {
+                "_py": "ast",
+                "node": type(value).__name__,
+                "fields": fields,
+            }
+            if attrs:
+                payload["attrs"] = attrs
+            return payload
         value_type = type(value)
         if value_type is list:
             return [_normalize_ast_value(item) for item in value]
@@ -2122,35 +2119,36 @@ def _normalize_impact_change_entry(entry: object) -> ImpactSpan | None:
 
 def _parse_impact_diff_ranges(diff_text: str) -> list[ImpactSpan]:
     check_deadline()
-    spans: list[ImpactSpan] = []
     current_path = ""
-    for raw_line in diff_text.splitlines():
-        check_deadline()
-        line = raw_line.rstrip("\n")
-        file_match = _IMPACT_DIFF_FILE_RE.match(line)
-        if file_match is not None:
-            current_path = str(file_match.group("path") or "").strip()
-            if current_path == "/dev/null":
-                current_path = ""
-            continue
-        if not current_path:
-            continue
-        hunk_match = _IMPACT_DIFF_HUNK_RE.match(line)
-        if hunk_match is None:
-            continue
-        start_line = int(hunk_match.group("start"))
-        count_text = hunk_match.group("count")
-        count = int(count_text) if count_text else 1
-        if count <= 0:
-            count = 1
-        spans.append(
-            ImpactSpan(
+
+    def _iter_spans() -> Iterator[ImpactSpan]:
+        nonlocal current_path
+        for raw_line in diff_text.splitlines():
+            check_deadline()
+            line = raw_line.rstrip("\n")
+            file_match = _IMPACT_DIFF_FILE_RE.match(line)
+            if file_match is not None:
+                current_path = str(file_match.group("path") or "").strip()
+                if current_path == "/dev/null":
+                    current_path = ""
+                continue
+            if not current_path:
+                continue
+            hunk_match = _IMPACT_DIFF_HUNK_RE.match(line)
+            if hunk_match is None:
+                continue
+            start_line = int(hunk_match.group("start"))
+            count_text = hunk_match.group("count")
+            count = int(count_text) if count_text else 1
+            if count <= 0:
+                count = 1
+            yield ImpactSpan(
                 path=current_path,
                 start_line=start_line,
                 end_line=start_line + count - 1,
             )
-        )
-    return spans
+
+    return list(_iter_spans())
 
 
 def _impact_path_is_test(path: str) -> bool:
@@ -2196,6 +2194,33 @@ def _impact_functions_from_tree(path: str, tree: ast.AST) -> list[ImpactFunction
     return out
 
 
+def _is_impact_call_node(node: ast.AST) -> bool:
+    return isinstance(node, ast.Call)
+
+
+def _impact_call_nodes(tree: ast.AST) -> Iterator[ast.Call]:
+    return filter(_is_impact_call_node, ast.walk(tree))
+
+
+def _is_supported_impact_call(call_node: ast.Call) -> bool:
+    return isinstance(call_node.func, (ast.Name, ast.Attribute))
+
+
+def _impact_supported_callee_name(call_node: ast.Call) -> str:
+    if isinstance(call_node.func, ast.Name):
+        return call_node.func.id
+    if isinstance(call_node.func, ast.Attribute):
+        return call_node.func.attr
+    never("unsupported impact call node", value_type=type(call_node.func).__name__)
+    return ""
+
+
+def _iter_supported_impact_calls(tree: ast.AST) -> Iterator[tuple[ast.Call, str]]:
+    for call_node in deadline_loop_iter(filter(_is_supported_impact_call, _impact_call_nodes(tree))):
+        check_deadline()
+        yield call_node, _impact_supported_callee_name(call_node)
+
+
 def _impact_collect_edges(
     *,
     functions_by_qual: Mapping[str, ImpactFunction],
@@ -2224,20 +2249,8 @@ def _impact_collect_edges(
             caller = by_path_qual.get((fn.path, fn.qual))
             if caller is None:
                 continue
-            for node in deadline_loop_iter(ast.walk(tree)):
+            for call_node, callee_name in deadline_loop_iter(_iter_supported_impact_calls(tree)):
                 check_deadline()
-                match node:
-                    case ast.Call() as call_node:
-                        pass
-                    case _:
-                        continue
-                match call_node.func:
-                    case ast.Name(id=callee_name):
-                        pass
-                    case ast.Attribute(attr=callee_name):
-                        pass
-                    case _:
-                        continue
                 line = _non_negative_int_optional(getattr(call_node, "lineno", None))
                 end_line = _non_negative_int_optional(getattr(call_node, "end_lineno", line))
                 if line is None or end_line is None:

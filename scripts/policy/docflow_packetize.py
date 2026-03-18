@@ -63,38 +63,30 @@ def _active_compliance_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
     rows = payload.get("rows")
     if not isinstance(rows, list):
         return []
-    selected: list[dict[str, Any]] = []
-    for row in rows:
-        if not isinstance(row, dict):
-            continue
-        if row.get("row_kind") != "docflow_compliance":
-            continue
-        if row.get("status") not in _ACTIVE_COMPLIANCE_STATUSES:
-            continue
-        path = row.get("path")
-        if not isinstance(path, str) or not path:
-            continue
-        selected.append(row)
-    return selected
+    return [
+        row
+        for row in rows
+        if isinstance(row, dict)
+        if row.get("row_kind") == "docflow_compliance"
+        if row.get("status") in _ACTIVE_COMPLIANCE_STATUSES
+        for path in (row.get("path"),)
+        if isinstance(path, str) and bool(path)
+    ]
 
 
 def _active_section_review_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
     rows = payload.get("rows")
     if not isinstance(rows, list):
         return []
-    selected: list[dict[str, Any]] = []
-    for row in rows:
-        if not isinstance(row, dict):
-            continue
-        if row.get("row_kind") != "doc_section_review":
-            continue
-        if row.get("status") not in _ACTIVE_SECTION_REVIEW_STATUSES:
-            continue
-        path = row.get("path")
-        if not isinstance(path, str) or not path:
-            continue
-        selected.append(row)
-    return selected
+    return [
+        row
+        for row in rows
+        if isinstance(row, dict)
+        if row.get("row_kind") == "doc_section_review"
+        if row.get("status") in _ACTIVE_SECTION_REVIEW_STATUSES
+        for path in (row.get("path"),)
+        if isinstance(path, str) and bool(path)
+    ]
 
 
 def _frontmatter_owner(root: Path, rel_path: str) -> str | None:
@@ -142,23 +134,19 @@ def _scan_stale_anchors(root: Path, rel_path: str) -> list[dict[str, Any]]:
     except OSError:
         return []
 
-    stale: list[dict[str, Any]] = []
     seen: set[str] = set()
-    for match in _ANCHOR_PATH_RE.finditer(text):
-        anchor_path = match.group("path")
-        if anchor_path in seen:
-            continue
-        seen.add(anchor_path)
-        if (root / anchor_path).exists():
-            continue
-        stale.append(
-            {
-                "anchor_path": anchor_path,
-                "symbol": match.group("symbol"),
-                "suggestions": _anchor_suggestions(root, anchor_path),
-            }
-        )
-    return stale
+    return [
+        {
+            "anchor_path": anchor_path,
+            "symbol": match.group("symbol"),
+            "suggestions": _anchor_suggestions(root, anchor_path),
+        }
+        for match in _ANCHOR_PATH_RE.finditer(text)
+        for anchor_path in (match.group("path"),)
+        if anchor_path not in seen
+        for _ in (seen.add(anchor_path),)
+        if not (root / anchor_path).exists()
+    ]
 
 
 def _looks_version_domain_mismatch(row: dict[str, Any]) -> bool:

@@ -7,7 +7,7 @@ import re
 import subprocess
 import sys
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, Iterator
 
 from gabion.tooling.runtime.deadline_runtime import (
     DeadlineBudget,
@@ -102,17 +102,26 @@ def _collect_commits(rev_range: str) -> list[CommitInfo]:
     except subprocess.CalledProcessError as exc:
         raise SystemExit(f"git log failed for range {rev_range}: {exc}")
 
-    commits: list[CommitInfo] = []
-    for record in raw.split("\x1e"):
-        check_deadline()
-        if not record.strip():
-            continue
-        parts = record.split("\x1f")
-        if len(parts) < 3:
-            continue
-        sha, subject, body = parts[0].strip(), parts[1].strip(), parts[2].strip()
-        commits.append(CommitInfo(sha=sha, subject=subject, body=body))
-    return commits
+    def _iter_commits() -> Iterator[CommitInfo]:
+        for record in raw.split("\x1e"):
+            check_deadline()
+            if not record.strip():
+                continue
+            parts = record.split("\x1f")
+            if len(parts) < 3:
+                continue
+            sha, subject, body = parts[0].strip(), parts[1].strip(), parts[2].strip()
+            yield CommitInfo(sha=sha, subject=subject, body=body)
+
+    return list(_iter_commits())
+
+
+def _is_issue_label_payload(label: object) -> bool:
+    return isinstance(label, dict) and isinstance(label.get("name"), str)
+
+
+def _label_names(labels_data: list[object]) -> tuple[str, ...]:
+    return tuple(str(label["name"]) for label in filter(_is_issue_label_payload, labels_data))
 
 
 def _extract_issue_ids(text: str) -> set[str]:
@@ -204,37 +213,13 @@ def _fetch_issue(
             f"GH-{issue_id}: issue lookup failed. Ensure the issue exists and GH auth is configured (gh auth status)."
         ) from exc
     payload = json.loads(raw)
-    labels: list[str] = []
-    state = ""
-    url = ""
-    match payload:
-        case {"state": state_value, "labels": list() as labels_data, "url": url_value}:
-            state = str(state_value).lower()
-            url = str(url_value)
-            for label in labels_data:
-                check_deadline()
-                match label:
-                    case {"name": str(name)}:
-                        labels.append(name)
-                    case _:
-                        continue
-        case {"state": state_value, "labels": list() as labels_data}:
-            state = str(state_value).lower()
-            for label in labels_data:
-                check_deadline()
-                match label:
-                    case {"name": str(name)}:
-                        labels.append(name)
-                    case _:
-                        continue
-        case {"state": state_value, "url": url_value}:
-            state = str(state_value).lower()
-            url = str(url_value)
-        case {"state": state_value}:
-            state = str(state_value).lower()
-        case _:
-            pass
-    return IssueLifecycle(issue_id=issue_id, state=state, labels=tuple(labels), url=url)
+    if not isinstance(payload, dict):
+        return IssueLifecycle(issue_id=issue_id, state="", labels=(), url="")
+    state = str(payload.get("state", "")).lower()
+    url = str(payload.get("url", "")) if "url" in payload else ""
+    labels_data = payload.get("labels")
+    labels = _label_names(labels_data) if isinstance(labels_data, list) else ()
+    return IssueLifecycle(issue_id=issue_id, state=state, labels=labels, url=url)
 
 
 def _validate_issue_lifecycle(

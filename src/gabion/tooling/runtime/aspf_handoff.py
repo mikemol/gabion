@@ -6,7 +6,7 @@ import json
 import os
 from pathlib import Path
 import re
-from typing import Literal, Mapping
+from typing import Iterator, Literal, Mapping
 
 from gabion.invariants import never
 from gabion.json_types import JSONObject, JSONValue
@@ -68,19 +68,20 @@ class HandoffEventReducer:
     @staticmethod
     def apply(state: HandoffProjectionState, event: HandoffEvent) -> HandoffProjectionState:
         manifest = {str(key): state.manifest[key] for key in state.manifest}
-        match event:
-            case PrepareStepEvent():
-                normalized = _normalize_manifest_for_session(
-                    manifest,
-                    session_id=event.session_id,
-                    root=Path(event.root).resolve(),
-                )
-                entries = _manifest_entries(normalized)
-                entries.append({str(key): event.entry[key] for key in event.entry})
-                normalized["entries"] = entries
-                return HandoffProjectionState(manifest=normalized)
-            case _:
-                pass
+        if isinstance(event, PrepareStepEvent):
+            normalized = _normalize_manifest_for_session(
+                manifest,
+                session_id=event.session_id,
+                root=Path(event.root).resolve(),
+            )
+            normalized["entries"] = [
+                *_manifest_entries(normalized),
+                {str(key): event.entry[key] for key in event.entry},
+            ]
+            return HandoffProjectionState(manifest=normalized)
+        if not isinstance(event, RecordStepEvent):
+            never("unknown handoff event reducer input", value_type=type(event).__name__)
+            return HandoffProjectionState(manifest=manifest)
 
         if str(manifest.get("session_id")) != event.session_id:
             return HandoffProjectionState(manifest=manifest)
@@ -294,27 +295,24 @@ def _import_state_paths_for_policy(
         raise ValueError(
             f"unsupported resume import policy: {resume_import_policy}"
         )
-    paths: list[Path] = []
-    for raw_entry in entries:
-        status = str(raw_entry.get("status", "")).strip().lower()
-        analysis_state = str(raw_entry.get("analysis_state", "")).strip()
-        include = status == "success"
-        if (
-            not include
-            and resume_import_policy == "success_or_resumable_timeout"
-            and analysis_state == _RESUMABLE_TIMEOUT_ANALYSIS_STATE
-        ):
-            include = True
-        if not include:
-            continue
-        state_path = str(raw_entry.get("state_path", "")).strip()
-        if not state_path:
-            continue
-        resolved_state_path = _path_from_manifest_ref(state_path, root=root)
-        if not resolved_state_path.exists():
-            continue
-        paths.append(resolved_state_path)
-    return paths
+    def _iter_paths() -> Iterator[Path]:
+        for raw_entry in entries:
+            status = str(raw_entry.get("status", "")).strip().lower()
+            analysis_state = str(raw_entry.get("analysis_state", "")).strip()
+            include = status == "success" or (
+                resume_import_policy == "success_or_resumable_timeout"
+                and analysis_state == _RESUMABLE_TIMEOUT_ANALYSIS_STATE
+            )
+            if not include:
+                continue
+            state_path = str(raw_entry.get("state_path", "")).strip()
+            if not state_path:
+                continue
+            resolved_state_path = _path_from_manifest_ref(state_path, root=root)
+            if resolved_state_path.exists():
+                yield resolved_state_path
+
+    return list(_iter_paths())
 
 
 def _write_manifest(path: Path, payload: Mapping[str, object]) -> None:
@@ -356,37 +354,33 @@ def _events_from_manifest_payload(payload: Mapping[str, JSONValue]) -> list[Hand
     session_id = str(manifest.get("session_id", "")).strip()
     if not session_id:
         return []
-    events: list[HandoffEvent] = []
-    for raw_entry in _manifest_entries(manifest):
-        events.append(
-            PrepareStepEvent(
+    def _iter_events() -> Iterator[HandoffEvent]:
+        for raw_entry in _manifest_entries(manifest):
+            yield PrepareStepEvent(
                 event="prepare_step",
                 session_id=session_id,
                 root=str(root),
                 entry={str(key): raw_entry[key] for key in raw_entry},
             )
-        )
-        status = str(raw_entry.get("status", "")).strip()
-        if status == "started":
-            continue
-        sequence = raw_entry.get("sequence")
-        match sequence:
-            case int() as sequence_value:
-                sequence = sequence_value
-            case _:
-                raise AssertionError("record_step sequence must be an int")
-        events.append(
-            RecordStepEvent(
-                event="record_step",
-                session_id=session_id,
-                sequence=sequence,
-                status=status,
-                exit_code=_optional_int(raw_entry.get("exit_code")),
-                analysis_state=_optional_str(raw_entry.get("analysis_state")),
-                completed_at_utc=_optional_str(raw_entry.get("completed_at_utc")),
-            )
-        )
-    return events
+            status = str(raw_entry.get("status", "")).strip()
+            if status == "started":
+                continue
+            sequence = raw_entry.get("sequence")
+            match sequence:
+                case int() as sequence_value:
+                    yield RecordStepEvent(
+                        event="record_step",
+                        session_id=session_id,
+                        sequence=sequence_value,
+                        status=status,
+                        exit_code=_optional_int(raw_entry.get("exit_code")),
+                        analysis_state=_optional_str(raw_entry.get("analysis_state")),
+                        completed_at_utc=_optional_str(raw_entry.get("completed_at_utc")),
+                    )
+                case _:
+                    raise AssertionError("record_step sequence must be an int")
+
+    return list(_iter_events())
 
 
 def _event_from_payload(payload: Mapping[str, JSONValue]) -> HandoffEvent | None:
@@ -489,18 +483,20 @@ def _manifest_entries(payload: Mapping[str, JSONValue]) -> list[JSONObject]:
     entries_raw = payload.get("entries", [])
     match entries_raw:
         case list() as raw_entries:
-            entries: list[JSONObject] = []
-            for raw_entry in raw_entries:
-                match raw_entry:
-                    case dict() as entry_mapping:
-                        entries.append(
-                            {str(key): entry_mapping[key] for key in entry_mapping}
-                        )
-                    case _:
-                        raise AssertionError("manifest entries must be mappings")
-            return entries
+            return [
+                _manifest_entry_mapping(raw_entry)
+                for raw_entry in raw_entries
+            ]
         case _:
             raise AssertionError("manifest entries must be a list")
+
+
+def _manifest_entry_mapping(raw_entry: JSONValue) -> JSONObject:
+    match raw_entry:
+        case dict() as entry_mapping:
+            return {str(key): entry_mapping[key] for key in entry_mapping}
+        case _:
+            raise AssertionError("manifest entries must be mappings")
 
 
 # gabion:decision_protocol

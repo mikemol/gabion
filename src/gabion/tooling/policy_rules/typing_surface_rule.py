@@ -4,6 +4,7 @@ from __future__ import annotations
 import ast
 import hashlib
 import json
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -112,17 +113,13 @@ class _TypingSurfaceVisitor(ast.NodeVisitor):
         self._qualname_stack.pop()
 
     def _check_annotation(self, annotation: ast.AST, *, node: ast.AST) -> None:
-        match self._scope:
-            case None:
-                return
-            case str() as scope:
-                pass
+        scope = self._scope
+        if scope is None:
+            return
         kind = _annotation_kind(annotation)
-        match kind:
-            case None:
-                return
-            case str() as kind_text:
-                pass
+        if kind is None:
+            return
+        kind_text = kind
         line = int(getattr(node, "lineno", 1) or 1)
         column = int(getattr(node, "col_offset", 0) or 0) + 1
         qualname = ".".join(self._qualname_stack) if self._qualname_stack else "<module>"
@@ -189,16 +186,16 @@ def _iter_function_annotations(
     for arg in (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs):
         if arg.annotation is not None:
             annotation_pairs.append((arg.annotation, arg))
-    match node.args.vararg:
-        case ast.arg(annotation=ast.AST() as annotation):
-            annotation_pairs.append((annotation, node))
-        case _:
-            pass
-    match node.args.kwarg:
-        case ast.arg(annotation=ast.AST() as annotation):
-            annotation_pairs.append((annotation, node))
-        case _:
-            pass
+    if (
+        isinstance(node.args.vararg, ast.arg)
+        and isinstance(node.args.vararg.annotation, ast.AST)
+    ):
+        annotation_pairs.append((node.args.vararg.annotation, node))
+    if (
+        isinstance(node.args.kwarg, ast.arg)
+        and isinstance(node.args.kwarg.annotation, ast.AST)
+    ):
+        annotation_pairs.append((node.args.kwarg.annotation, node))
     return tuple(annotation_pairs)
 
 
@@ -223,13 +220,12 @@ def _annotation_kind(annotation: ast.AST) -> str | None:
 
 
 def _is_any(node: ast.AST) -> bool:
-    match node:
-        case ast.Name(id="Any"):
-            return True
-        case ast.Attribute(attr="Any"):
-            return True
-        case _:
-            return False
+    return (
+        isinstance(node, ast.Name)
+        and node.id == "Any"
+        or isinstance(node, ast.Attribute)
+        and node.attr == "Any"
+    )
 
 
 def _is_bare_object(node: ast.AST) -> bool:
@@ -237,28 +233,26 @@ def _is_bare_object(node: ast.AST) -> bool:
 
 
 def _is_dict_str_object(node: ast.AST) -> bool:
-    match node:
-        case ast.Subscript(value=value, slice=slice_node):
-            base_name = _dotted_name(value)
-            if base_name not in {"dict", "typing.Dict", "Dict"}:
-                return False
-            match slice_node:
-                case ast.Tuple(elts=[key_node, value_node]):
-                    return _is_str_node(key_node) and _is_bare_object(value_node)
-                case _:
-                    return False
-        case _:
-            return False
+    if not isinstance(node, ast.Subscript):
+        return False
+    base_name = _dotted_name(node.value)
+    if base_name not in {"dict", "typing.Dict", "Dict"}:
+        return False
+    if (
+        not isinstance(node.slice, ast.Tuple)
+        or len(node.slice.elts) != 2
+    ):
+        return False
+    key_node, value_node = node.slice.elts
+    return _is_str_node(key_node) and _is_bare_object(value_node)
 
 
 def _is_str_node(node: ast.AST) -> bool:
-    match node:
-        case ast.Name(id="str"):
-            return True
-        case ast.Constant(value="str"):
-            return True
-        case _:
-            return False
+    if isinstance(node, ast.Name):
+        return node.id == "str"
+    if isinstance(node, ast.Constant):
+        return node.value == "str"
+    return False
 
 
 def _dotted_name(node: ast.AST) -> str:
@@ -266,13 +260,123 @@ def _dotted_name(node: ast.AST) -> str:
 
 
 def _dotted_name_parts(node: ast.AST) -> tuple[str, ...]:
-    match node:
-        case ast.Name(id=identifier):
-            return (identifier,)
-        case ast.Attribute(value=value, attr=attr):
-            return (*_dotted_name_parts(value), attr)
-        case _:
-            return ()
+    if isinstance(node, ast.Name):
+        return (node.id,)
+    if isinstance(node, ast.Attribute):
+        return (*_dotted_name_parts(node.value), node.attr)
+    return ()
+
+
+def _baseline_item_mappings(raw_items: list[object]) -> Iterable[dict[str, object]]:
+    return (
+        item
+        for raw_item in raw_items
+        for item in (_json_mapping_optional(raw_item),)
+        if item is not None
+    )
+
+
+def _waiver_mappings(
+    raw_waivers: list[object],
+) -> Iterable[tuple[int, dict[str, object]]]:
+    return (
+        (index, waiver)
+        for index, raw in enumerate(raw_waivers, start=1)
+        for waiver in (_json_mapping_optional(raw),)
+        if waiver is not None
+    )
+
+
+def _load_baseline(path: Path) -> set[str]:
+    if not path.exists():
+        return set()
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload_mapping = _json_mapping_optional(payload)
+    if payload_mapping is None:
+        return set()
+    raw_items = _json_list_optional(payload_mapping.get("violations"))
+    if raw_items is None:
+        return set()
+    keys: set[str] = set()
+    for item in _baseline_item_mappings(raw_items):
+        path_value = str(item.get("path", "") or "")
+        qualname = str(item.get("qualname", "") or "")
+        kind = str(item.get("kind", "") or "")
+        structured_hash = item.get("structured_hash")
+        scope = str(item.get("scope", "") or "")
+        annotation = str(item.get("annotation", "") or "")
+        column = item.get("column")
+        line = item.get("line")
+        if not path_value or not qualname or not kind:
+            continue
+        if isinstance(structured_hash, str) and structured_hash:
+            keys.add(f"{path_value}:{qualname}:{kind}:{structured_hash}")
+            continue
+        if isinstance(column, int) and scope and annotation:
+            migrated_hash = _structured_hash(
+                path_value,
+                qualname,
+                kind,
+                scope,
+                annotation,
+                str(column),
+            )
+            keys.add(f"{path_value}:{qualname}:{kind}:{migrated_hash}")
+        if isinstance(line, int):
+            keys.add(f"{path_value}:{qualname}:{line}:{kind}")
+    return keys
+
+
+def load_waivers(path: Path) -> WaiverLoadResult:
+    if not path.exists():
+        return WaiverLoadResult(allowed_keys=set(), invalid_waivers=[])
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload_mapping = _json_mapping_optional(payload)
+    if payload_mapping is None:
+        return WaiverLoadResult(allowed_keys=set(), invalid_waivers=[InvalidWaiver(index=0, reason="waiver_file_not_object")])
+    raw_waivers = _json_list_optional(payload_mapping.get("waivers"))
+    if raw_waivers is None:
+        return WaiverLoadResult(allowed_keys=set(), invalid_waivers=[InvalidWaiver(index=0, reason="waivers_not_list")])
+
+    keys: set[str] = set()
+    invalid: list[InvalidWaiver] = []
+    required = ("path", "qualname", "kind", "rationale", "scope", "expiry", "owner")
+    invalid.extend(
+        InvalidWaiver(index=index, reason="waiver_not_object")
+        for index, raw in enumerate(raw_waivers, start=1)
+        if _json_mapping_optional(raw) is None
+    )
+    for index, waiver in _waiver_mappings(raw_waivers):
+        missing = [field for field in required if waiver.get(field) in (None, "")]
+        if missing:
+            invalid.append(InvalidWaiver(index=index, reason=f"missing_fields:{','.join(missing)}"))
+            continue
+        structured_hash = waiver.get("structured_hash")
+        line = waiver.get("line")
+        if isinstance(structured_hash, str) and structured_hash:
+            key = f"{waiver['path']}:{waiver['qualname']}:{waiver['kind']}:{structured_hash}"
+            keys.add(key)
+            continue
+        scope = str(waiver.get("scope", "") or "")
+        annotation = str(waiver.get("annotation", "") or "")
+        column = waiver.get("column")
+        if isinstance(column, int) and scope and annotation:
+            migrated_hash = _structured_hash(
+                str(waiver["path"]),
+                str(waiver["qualname"]),
+                str(waiver["kind"]),
+                scope,
+                annotation,
+                str(column),
+            )
+            keys.add(f"{waiver['path']}:{waiver['qualname']}:{waiver['kind']}:{migrated_hash}")
+            continue
+        if isinstance(line, int):
+            key = f"{waiver['path']}:{waiver['qualname']}:{line}:{waiver['kind']}"
+            keys.add(key)
+            continue
+        invalid.append(InvalidWaiver(index=index, reason="line_or_structured_hash_required"))
+    return WaiverLoadResult(allowed_keys=keys, invalid_waivers=invalid)
 
 
 def _structured_hash(*parts: str) -> str:
@@ -337,132 +441,3 @@ def _failure_violation(*, run_context: CanonicalRunContext, seed: ScanFailureSee
             str(seed.column),
         ),
     )
-
-
-def _load_baseline(path: Path) -> set[str]:
-    if not path.exists():
-        return set()
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    payload_mapping = _json_mapping_optional(payload)
-    match payload_mapping:
-        case None:
-            return set()
-        case _:
-            pass
-    raw_items = _json_list_optional(payload_mapping.get("violations"))
-    match raw_items:
-        case None:
-            return set()
-        case _:
-            pass
-    keys: set[str] = set()
-    for raw_item in raw_items:
-        item = _json_mapping_optional(raw_item)
-        match item:
-            case None:
-                continue
-            case _:
-                pass
-        path_value = str(item.get("path", "") or "")
-        qualname = str(item.get("qualname", "") or "")
-        kind = str(item.get("kind", "") or "")
-        structured_hash = item.get("structured_hash")
-        scope = str(item.get("scope", "") or "")
-        annotation = str(item.get("annotation", "") or "")
-        column = item.get("column")
-        line = item.get("line")
-        if not path_value or not qualname or not kind:
-            continue
-        match structured_hash:
-            case str() as structured_hash_value if structured_hash_value:
-                keys.add(f"{path_value}:{qualname}:{kind}:{structured_hash_value}")
-                continue
-            case _:
-                pass
-        match column:
-            case int() as column_value if scope and annotation:
-                migrated_hash = _structured_hash(
-                    path_value,
-                    qualname,
-                    kind,
-                    scope,
-                    annotation,
-                    str(column_value),
-                )
-                keys.add(f"{path_value}:{qualname}:{kind}:{migrated_hash}")
-            case _:
-                pass
-        match line:
-            case int() as line_value:
-                keys.add(f"{path_value}:{qualname}:{line_value}:{kind}")
-            case _:
-                pass
-    return keys
-
-
-def load_waivers(path: Path) -> WaiverLoadResult:
-    if not path.exists():
-        return WaiverLoadResult(allowed_keys=set(), invalid_waivers=[])
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    payload_mapping = _json_mapping_optional(payload)
-    match payload_mapping:
-        case None:
-            return WaiverLoadResult(allowed_keys=set(), invalid_waivers=[InvalidWaiver(index=0, reason="waiver_file_not_object")])
-        case _:
-            pass
-    raw_waivers = _json_list_optional(payload_mapping.get("waivers"))
-    match raw_waivers:
-        case None:
-            return WaiverLoadResult(allowed_keys=set(), invalid_waivers=[InvalidWaiver(index=0, reason="waivers_not_list")])
-        case _:
-            pass
-
-    keys: set[str] = set()
-    invalid: list[InvalidWaiver] = []
-    required = ("path", "qualname", "kind", "rationale", "scope", "expiry", "owner")
-    for index, raw in enumerate(raw_waivers, start=1):
-        waiver = _json_mapping_optional(raw)
-        match waiver:
-            case None:
-                invalid.append(InvalidWaiver(index=index, reason="waiver_not_object"))
-                continue
-            case _:
-                pass
-        missing = [field for field in required if waiver.get(field) in (None, "")]
-        if missing:
-            invalid.append(InvalidWaiver(index=index, reason=f"missing_fields:{','.join(missing)}"))
-            continue
-        structured_hash = waiver.get("structured_hash")
-        line = waiver.get("line")
-        match structured_hash:
-            case str() as structured_hash_value if structured_hash_value:
-                key = f"{waiver['path']}:{waiver['qualname']}:{waiver['kind']}:{structured_hash_value}"
-                keys.add(key)
-                continue
-            case _:
-                pass
-        scope = str(waiver.get("scope", "") or "")
-        annotation = str(waiver.get("annotation", "") or "")
-        column = waiver.get("column")
-        match column:
-            case int() as column_value if scope and annotation:
-                migrated_hash = _structured_hash(
-                    str(waiver["path"]),
-                    str(waiver["qualname"]),
-                    str(waiver["kind"]),
-                    scope,
-                    annotation,
-                    str(column_value),
-                )
-                keys.add(f"{waiver['path']}:{waiver['qualname']}:{waiver['kind']}:{migrated_hash}")
-                continue
-            case _:
-                pass
-        match line:
-            case int() as line_value:
-                key = f"{waiver['path']}:{waiver['qualname']}:{line_value}:{waiver['kind']}"
-                keys.add(key)
-            case _:
-                invalid.append(InvalidWaiver(index=index, reason="line_or_structured_hash_required"))
-                continue
-    return WaiverLoadResult(allowed_keys=keys, invalid_waivers=invalid)
