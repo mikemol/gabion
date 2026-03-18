@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
+from typing import TypeGuard
 from tests.path_helpers import REPO_ROOT
 
 from gabion.analysis.aspf.aspf import Forest
@@ -11,11 +12,13 @@ from tests.order_helpers import contract_sorted
 _DEADLINE_SYMBOLS = {"check_deadline", "deadline_scope", "deadline_loop_iter"}
 
 
+def _is_call_node(node: ast.AST) -> TypeGuard[ast.Call]:
+    return isinstance(node, ast.Call)
+
+
 def _uses_deadline_symbol(path: Path) -> bool:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Call):
-            continue
+    for node in filter(_is_call_node, ast.walk(tree)):
         if isinstance(node.func, ast.Name) and node.func.id in _DEADLINE_SYMBOLS:
             return True
         if isinstance(node.func, ast.Attribute) and node.func.attr in _DEADLINE_SYMBOLS:

@@ -78,6 +78,9 @@ from gabion.tooling.policy_substrate.boundary_ingress_convergence_registry impor
 from gabion.tooling.policy_substrate.unit_test_readiness_registry import (
     unit_test_readiness_workstream_registry,
 )
+from gabion.tooling.policy_substrate.structural_anti_pattern_convergence_registry import (
+    structural_anti_pattern_convergence_workstream_registry,
+)
 from gabion.tooling.policy_substrate.structured_artifact_ingress import (
     StructuredArtifactIdentitySpace,
     TestEvidenceSite,
@@ -2790,8 +2793,7 @@ class InvariantWorkstreamProjection:
     def remediation_lanes(self) -> tuple[InvariantRemediationLane, ...]:
         return self._remediation_lanes
 
-    @cached_property
-    def _remediation_lanes(self) -> tuple[InvariantRemediationLane, ...]:
+    def _iter_remediation_lanes(self) -> Iterable[InvariantRemediationLane]:
         health_summary = self.health_summary()
         touchpoint_cuts = self.ranked_touchpoint_cuts()
         subqueue_cuts = self.ranked_subqueue_cuts()
@@ -2814,7 +2816,6 @@ class InvariantWorkstreamProjection:
                 0,
             ),
         )
-        lanes: list[InvariantRemediationLane] = []
         for remediation_family, blocker_class, touchsite_count in lane_specs:
             matching_touchpoint_cuts = tuple(
                 candidate
@@ -2848,29 +2849,30 @@ class InvariantWorkstreamProjection:
             best_subqueue_cut = (
                 matching_subqueue_cuts[0] if matching_subqueue_cuts else None
             )
-            best_cut_candidates = [
+            best_cut_candidates = tuple(
                 candidate
                 for candidate in (best_touchpoint_cut, best_subqueue_cut)
                 if candidate is not None
-            ]
+            )
             best_cut = (
                 None
                 if not best_cut_candidates
                 else _sorted(best_cut_candidates, key=_cut_sort_key)[0]
             )
-            lanes.append(
-                InvariantRemediationLane(
-                    remediation_family=remediation_family,
-                    blocker_class=blocker_class,
-                    touchsite_count=touchsite_count,
-                    touchpoint_cut_count=len(matching_touchpoint_cuts),
-                    subqueue_cut_count=len(matching_subqueue_cuts),
-                    best_touchpoint_cut=best_touchpoint_cut,
-                    best_subqueue_cut=best_subqueue_cut,
-                    best_cut=best_cut,
-                )
+            yield InvariantRemediationLane(
+                remediation_family=remediation_family,
+                blocker_class=blocker_class,
+                touchsite_count=touchsite_count,
+                touchpoint_cut_count=len(matching_touchpoint_cuts),
+                subqueue_cut_count=len(matching_subqueue_cuts),
+                best_touchpoint_cut=best_touchpoint_cut,
+                best_subqueue_cut=best_subqueue_cut,
+                best_cut=best_cut,
             )
-        return tuple(lanes)
+
+    @cached_property
+    def _remediation_lanes(self) -> tuple[InvariantRemediationLane, ...]:
+        return tuple(self._iter_remediation_lanes())
 
     def documentation_followup_lane(self) -> InvariantDocumentationFollowupLane | None:
         return self._documentation_followup_lane
@@ -4895,29 +4897,25 @@ class InvariantWorkstreamsProjection:
             item.kind: item for item in frontier_lane.lane_utility_components
         }
         lane_by_kind = {item.kind: item for item in lane.lane_utility_components}
-        components: list[InvariantScoreComponent] = []
-        for kind in (
-            "best_followup_utility",
-            "lane_breadth_bonus",
-            "lane_class_bonus",
-        ):
-            frontier_component = frontier_by_kind.get(kind)
-            lane_component = lane_by_kind.get(kind)
-            if frontier_component is None or lane_component is None:
-                continue
-            gap = max(0, frontier_component.score - lane_component.score)
-            if gap == 0:
-                continue
-            components.append(
-                InvariantScoreComponent(
-                    kind=f"{kind}_gap",
-                    score=gap,
-                    rationale=(
-                        f"{frontier_component.rationale}->{lane_component.rationale}"
-                    ),
-                )
+        return tuple(
+            InvariantScoreComponent(
+                kind=f"{kind}_gap",
+                score=gap,
+                rationale=(
+                    f"{frontier_component.rationale}->{lane_component.rationale}"
+                ),
             )
-        return tuple(components)
+            for kind in (
+                "best_followup_utility",
+                "lane_breadth_bonus",
+                "lane_class_bonus",
+            )
+            for frontier_component in (frontier_by_kind.get(kind),)
+            for lane_component in (lane_by_kind.get(kind),)
+            if frontier_component is not None and lane_component is not None
+            for gap in (max(0, frontier_component.score - lane_component.score),)
+            if gap > 0
+        )
 
     def recommended_repo_followup_lane(self) -> InvariantRepoFollowupLane | None:
         return self._recommended_repo_followup_lane
@@ -9150,6 +9148,9 @@ def _iter_declared_workstream_registries() -> tuple[WorkstreamRegistry, ...]:
     utr_registry = unit_test_readiness_workstream_registry()
     if utr_registry is not None:
         registries.append(utr_registry)
+    sac_registry = structural_anti_pattern_convergence_workstream_registry()
+    if sac_registry is not None:
+        registries.append(sac_registry)
     registries.extend(connectivity_synergy_workstream_registries())
     return tuple(registries)
 
@@ -9435,21 +9436,23 @@ def _match_test_evidence_node_ids(
 ) -> tuple[str, ...]:
     rel_path = _normalize_rel_path(root, site.path)
     site_qual = site.qualname
-    candidate_ids: list[str] = []
-    for path_variant in _path_variants(rel_path):
-        candidate_ids.extend(index.by_path_exact.get(path_variant, ()))
-        candidate_ids.extend(index.by_path_basename.get(path_variant, ()))
+    candidate_ids = {
+        node_id
+        for path_variant in _path_variants(rel_path)
+        for node_id in (
+            *index.by_path_exact.get(path_variant, ()),
+            *index.by_path_basename.get(path_variant, ()),
+        )
+    }
     if not candidate_ids:
         return ()
-    matched: list[str] = []
-    for node_id in _sorted(list(set(candidate_ids))):
-        node = state.nodes_by_id[node_id]
-        if site_qual and node.qualname and not site_qual.endswith(node.qualname):
-            continue
-        if node.line > 0 and not _site_span_contains_line(site, node.line):
-            continue
-        matched.append(node_id)
-    return tuple(matched)
+    return tuple(
+        node_id
+        for node_id in _sorted(candidate_ids)
+        for node in (state.nodes_by_id[node_id],)
+        if not (site_qual and node.qualname and not site_qual.endswith(node.qualname))
+        if not (node.line > 0 and not _site_span_contains_line(site, node.line))
+    )
 
 
 def _join_test_coverage(state: _InvariantGraphBuildState) -> None:

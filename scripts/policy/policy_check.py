@@ -3,6 +3,8 @@ import cProfile
 import argparse
 import ast
 from contextlib import contextmanager
+from collections.abc import Iterator
+from itertools import chain
 import json
 import os
 import re
@@ -14,6 +16,9 @@ from typing import Mapping
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from gabion.analysis.surfaces.test_behavior import (
+    collect_test_behavior_contract_violations,
+)
 from gabion.tooling.runtime.deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
 from gabion.analysis.timeout_context import Deadline, check_deadline, deadline_clock_scope, deadline_scope
 from gabion.invariants import never
@@ -32,6 +37,8 @@ from gabion.tooling.policy_substrate.lattice_convergence_semantic import (
     iter_semantic_lattice_convergence,
     materialize_semantic_lattice_convergence,
 )
+from gabion.tooling.policy_substrate import structural_anti_pattern_contract
+from scripts.policy import symbol_activity_audit
 
 try:
     import yaml
@@ -62,6 +69,11 @@ _QUOTIENT_DEMOTION_INCIDENTS = _WORKFLOW_POLICY_OUTPUT_ROOT / "quotient_demotion
 _LOCAL_CI_REPRO_CONTRACT = (
     REPO_ROOT / "artifacts" / "out" / "local_ci_repro_contract.json"
 )
+STRUCTURAL_ANTI_PATTERN_CONTRACT_JSON = (
+    REPO_ROOT / "artifacts" / "out" / "structural_anti_pattern_contract.json"
+)
+SYMBOL_ACTIVITY_AUDIT_JSON = REPO_ROOT / "artifacts" / "out" / "symbol_activity_audit.json"
+SYMBOL_ACTIVITY_AUDIT_MD = REPO_ROOT / "artifacts" / "out" / "symbol_activity_audit.md"
 
 _SHA_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 
@@ -2901,6 +2913,153 @@ def _write_invariant_graph_artifact(
     return load_invariant_workstreams(workstreams_path)
 
 
+def _test_behavior_contract_violations(repo_root: Path) -> list[str]:
+    return collect_test_behavior_contract_violations(
+        [repo_root / "tests"],
+        root=repo_root,
+    )
+
+
+def _annotation_text(annotation: ast.AST | None) -> str:
+    if annotation is None:
+        return ""
+    try:
+        return ast.unparse(annotation).replace(" ", "")
+    except Exception:
+        return ""
+
+
+def _is_private_function_node(node: ast.AST) -> bool:
+    return isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith("_")
+
+
+def _is_named_function_node(node: ast.AST) -> bool:
+    return isinstance(node, ast.FunctionDef)
+
+
+def _is_match_case_or_call_node(node: ast.AST) -> bool:
+    return isinstance(node, (ast.match_case, ast.Call))
+
+
+def _payload_args(node: ast.FunctionDef | ast.AsyncFunctionDef) -> Iterator[ast.arg]:
+    return chain(
+        node.args.posonlyargs,
+        node.args.args,
+        node.args.kwonlyargs,
+    )
+
+
+def _is_payload_arg(arg: ast.arg) -> bool:
+    return arg.arg == "payload"
+
+
+def _narrows_payload_to_json_object(arg: ast.arg) -> bool:
+    return _annotation_text(arg.annotation) == "dict[str,object]"
+
+
+def _helper_payload_signature_violations(path: Path) -> list[str]:
+    check_deadline()
+    try:
+        source = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        return [f"{path}: failed to read source ({exc})"]
+    if "# gabion:boundary_normalization_module" in source:
+        return []
+    try:
+        module = ast.parse(source, filename=str(path))
+    except SyntaxError as exc:
+        return [f"{path}: failed to parse source ({exc})"]
+
+    def _iter_violations() -> Iterator[str]:
+        for node in filter(_is_private_function_node, ast.walk(module)):
+            check_deadline()
+            yield from (
+                f"{path}:{int(getattr(arg, 'lineno', 0) or 0)}: "
+                "non-boundary helper payload must not narrow to dict[str, object]"
+                for arg in filter(
+                    _narrows_payload_to_json_object,
+                    filter(_is_payload_arg, _payload_args(node)),
+                )
+            )
+
+    return list(_iter_violations())
+
+
+def check_symbol_activity_audit() -> None:
+    rc = symbol_activity_audit.run(
+        root=REPO_ROOT,
+        out_path=SYMBOL_ACTIVITY_AUDIT_JSON,
+        markdown_out=SYMBOL_ACTIVITY_AUDIT_MD,
+        check=True,
+    )
+    if rc == 0:
+        return
+    try:
+        payload = json.loads(SYMBOL_ACTIVITY_AUDIT_JSON.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        _fail(
+            [
+                "symbol activity audit failed",
+                f"missing or unreadable artifact: {SYMBOL_ACTIVITY_AUDIT_JSON}",
+            ]
+        )
+    bucket_counts = ((payload.get("counts") or {}).get("by_bucket") or {})
+    errors = ["symbol activity audit failed"]
+    for bucket_name in ordered_or_sorted(
+        bucket_counts.keys(),
+        source="policy_check.check_symbol_activity_audit.bucket_names",
+    ):
+        counts = bucket_counts.get(bucket_name) or {}
+        unsuppressed = int(counts.get("unsuppressed", 0) or 0)
+        if unsuppressed <= 0:
+            continue
+        errors.append(f"{bucket_name}: unsuppressed={unsuppressed}")
+    _fail(errors)
+
+
+def check_structural_anti_pattern_contract() -> None:
+    rc = structural_anti_pattern_contract.run(
+        root=REPO_ROOT,
+        out_path=STRUCTURAL_ANTI_PATTERN_CONTRACT_JSON,
+        check=True,
+    )
+    if rc == 0:
+        return
+    try:
+        payload = json.loads(
+            STRUCTURAL_ANTI_PATTERN_CONTRACT_JSON.read_text(encoding="utf-8")
+        )
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        _fail(
+            [
+                "structural anti-pattern contract failed",
+                f"missing or unreadable artifact: {STRUCTURAL_ANTI_PATTERN_CONTRACT_JSON}",
+            ]
+        )
+    findings = payload.get("findings")
+    if not isinstance(findings, list):
+        _fail(
+            [
+                "structural anti-pattern contract failed",
+                f"malformed artifact: {STRUCTURAL_ANTI_PATTERN_CONTRACT_JSON}",
+            ]
+        )
+    errors = ["structural anti-pattern contract failed"]
+    for entry in findings[:25]:
+        if not isinstance(entry, dict):
+            continue
+        rel_path = str(entry.get("rel_path", "") or "")
+        line = int(entry.get("line", 0) or 0)
+        code = str(entry.get("code", "") or "structural_anti_pattern")
+        message = str(entry.get("message", "") or "")
+        location = f"{rel_path}:{line}" if rel_path and line > 0 else rel_path
+        errors.append(f"{location}: {code}: {message}".strip(": "))
+    remaining = len(findings) - 25
+    if remaining > 0:
+        errors.append(f"... {remaining} more findings")
+    _fail(errors)
+
+
 
 def _raw_payload_branching_violations(path: Path) -> list[str]:
     check_deadline()
@@ -2914,12 +3073,11 @@ def _raw_payload_branching_violations(path: Path) -> list[str]:
         return [f"{path}: failed to parse source ({exc})"]
 
     function_ranges: list[tuple[int, int, str]] = []
-    for node in ast.walk(module):
+    for node in filter(_is_named_function_node, ast.walk(module)):
         check_deadline()
-        if isinstance(node, ast.FunctionDef):
-            start = int(getattr(node, "lineno", 0) or 0)
-            end = int(getattr(node, "end_lineno", start) or start)
-            function_ranges.append((start, end, node.name))
+        start = int(getattr(node, "lineno", 0) or 0)
+        end = int(getattr(node, "end_lineno", start) or start)
+        function_ranges.append((start, end, node.name))
 
     def _function_name_for_line(line_no: int) -> str | None:
         check_deadline()
@@ -2978,16 +3136,16 @@ def _raw_payload_branching_violations(path: Path) -> list[str]:
         display_path = str(path)
 
     violations: list[str] = []
-    for node in ast.walk(module):
+    for node in filter(_is_match_case_or_call_node, ast.walk(module)):
         check_deadline()
         if isinstance(node, ast.match_case):
             lineno = int(getattr(node.pattern, "lineno", 0) or 0)
             if lineno > 0 and _pattern_mentions_raw_payload(node.pattern) and not _is_allowed(lineno):
                 violations.append(f"{display_path}:{lineno}: raw Mapping/list match outside boundary decode")
-        if isinstance(node, ast.Call):
-            lineno = int(getattr(node, "lineno", 0) or 0)
-            if lineno > 0 and _isinstance_mentions_raw_payload(node) and not _is_allowed(lineno):
-                violations.append(f"{display_path}:{lineno}: isinstance Mapping/list branch outside boundary decode")
+            continue
+        lineno = int(getattr(node, "lineno", 0) or 0)
+        if lineno > 0 and _isinstance_mentions_raw_payload(node) and not _is_allowed(lineno):
+            violations.append(f"{display_path}:{lineno}: isinstance Mapping/list branch outside boundary decode")
     return violations
 
 
@@ -3040,6 +3198,7 @@ def main(
         parser.add_argument("--tier2-residue-contract", action="store_true", help="run tier-2 residue policy checks")
         parser.add_argument("--adapter-surfaces", action="store_true", help="validate configured adapter surface requirements")
         parser.add_argument("--semantic-core-payload-branching", action="store_true", help="forbid raw Mapping/list payload branching outside boundary decode functions")
+        parser.add_argument("--structural-anti-pattern-contract", action="store_true", help="run structural anti-pattern contract checks")
         parser.add_argument("--aspf-taint-crosswalk", action="store_true", help="require ASPF/taint crosswalk acknowledgement when relevant files change")
         parser.add_argument("--policy-dsl", action="store_true", help="compile/typecheck policy DSL sources")
         parser.add_argument("--output", type=Path, help="optional policy-result artifact path")
@@ -3050,7 +3209,7 @@ def main(
         )
         args = parser.parse_args(argv)
 
-        if not args.workflows and not args.posture and not args.ambiguity_contract and not args.normative_map and not args.tier2_residue_contract and not args.adapter_surfaces and not args.semantic_core_payload_branching and not args.aspf_taint_crosswalk and not args.policy_dsl:
+        if not args.workflows and not args.posture and not args.ambiguity_contract and not args.normative_map and not args.tier2_residue_contract and not args.adapter_surfaces and not args.semantic_core_payload_branching and not args.structural_anti_pattern_contract and not args.aspf_taint_crosswalk and not args.policy_dsl:
             args.workflows = True
 
         requested_checks = tuple(
@@ -3063,6 +3222,7 @@ def main(
                 ("tier2_residue_contract", args.tier2_residue_contract),
                 ("adapter_surfaces", args.adapter_surfaces),
                 ("semantic_core_payload_branching", args.semantic_core_payload_branching),
+                ("structural_anti_pattern_contract", args.structural_anti_pattern_contract),
                 ("aspf_taint_crosswalk", args.aspf_taint_crosswalk),
                 ("policy_dsl", args.policy_dsl),
             )
@@ -3097,6 +3257,8 @@ def main(
                         check_adapter_surface_policy()
                     if args.semantic_core_payload_branching:
                         check_semantic_core_payload_branching()
+                    if args.structural_anti_pattern_contract:
+                        check_structural_anti_pattern_contract()
                     if args.aspf_taint_crosswalk or args.workflows:
                         check_aspf_taint_crosswalk_ack()
                     if args.policy_dsl or args.workflows:

@@ -2,14 +2,17 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
+from typing import TypeGuard
+
+
+def _is_call_node(node: ast.AST) -> TypeGuard[ast.Call]:
+    return isinstance(node, ast.Call)
 
 
 def _sys_path_insert_lines(path: Path) -> list[int]:
     tree = ast.parse(path.read_text(encoding="utf-8"))
     lines: list[int] = []
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Call):
-            continue
+    for node in filter(_is_call_node, ast.walk(tree)):
         func = node.func
         if not isinstance(func, ast.Attribute) or func.attr != "insert":
             continue

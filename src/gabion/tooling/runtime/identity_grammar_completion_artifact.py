@@ -226,15 +226,17 @@ def _count_symbol_calls(
         if parsed is None:
             continue
         module, _ = parsed
-        for node in ast.walk(module):
-            if not isinstance(node, ast.Call):
-                continue
+        for node in filter(_is_call_node, ast.walk(module)):
             func = node.func
             if isinstance(func, ast.Name) and func.id == symbol_name:
                 count += 1
             elif isinstance(func, ast.Attribute) and func.attr == symbol_name:
                 count += 1
     return count
+
+
+def _is_call_node(node: ast.AST) -> bool:
+    return isinstance(node, ast.Call)
 
 
 def _has_raw_string_grouping(root: Path) -> bool:

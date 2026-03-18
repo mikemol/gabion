@@ -4,8 +4,11 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+from collections.abc import Iterator
 from dataclasses import asdict, dataclass
+from itertools import chain
 from pathlib import Path
+from typing import TypeGuard
 
 BOUNDARY_MARKER = "gabion:boundary_normalization_module"
 TARGET_GLOB = "src/gabion/**/*.py"
@@ -72,61 +75,90 @@ def _suggested_annotation(first_param: str, return_annotation: str) -> str | Non
     return None
 
 
-def _first_param_annotation(function_node: ast.FunctionDef | ast.AsyncFunctionDef) -> tuple[int, str] | None:
+def _first_param_annotation(
+    function_node: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> tuple[int, str]:
     params = [*function_node.args.posonlyargs, *function_node.args.args]
-    if not params:
-        return None
     first = params[0]
-    if first.annotation is None:
-        return None
     first_text = _normalize_annotation_text(ast.unparse(first.annotation))
     line = int(getattr(first, "lineno", getattr(function_node, "lineno", 1)) or 1)
     return line, first_text
 
 
-def collect_findings(*, root: Path) -> list[ScoutFinding]:
-    findings: list[ScoutFinding] = []
-    for path in sorted(root.glob(TARGET_GLOB)):
-        if not path.is_file() or any(part == "__pycache__" for part in path.parts):
-            continue
-        try:
-            source = path.read_text(encoding="utf-8")
-        except OSError:
-            continue
-        if not _module_has_boundary_marker(source):
-            continue
-        try:
-            module = ast.parse(source, filename=str(path))
-        except SyntaxError:
-            continue
-        rel = path.relative_to(root).as_posix()
-        for node in ast.walk(module):
-            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                continue
-            if not node.name.startswith("_"):
-                continue
-            payload = _first_param_annotation(node)
-            if payload is None:
-                continue
-            line, first_param = payload
-            if first_param not in FORBIDDEN_FIRST_PARAM_ANNOTATIONS:
-                continue
-            return_annotation = (
+def _has_annotated_first_param(
+    function_node: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> bool:
+    params = [*function_node.args.posonlyargs, *function_node.args.args]
+    return bool(params and params[0].annotation is not None)
+
+
+def _is_private_function_node(
+    node: ast.AST,
+) -> TypeGuard[ast.FunctionDef | ast.AsyncFunctionDef]:
+    return isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith("_")
+
+
+def _is_scout_candidate_path(path: Path) -> bool:
+    return path.is_file() and "__pycache__" not in path.parts
+
+
+def _scout_candidate_paths(root: Path) -> Iterator[Path]:
+    return filter(_is_scout_candidate_path, sorted(root.glob(TARGET_GLOB)))
+
+
+def _annotated_private_function_nodes(
+    module: ast.AST,
+) -> Iterator[tuple[ast.FunctionDef | ast.AsyncFunctionDef, int, str]]:
+    for node in filter(
+        _has_annotated_first_param,
+        filter(_is_private_function_node, ast.walk(module)),
+    ):
+        line, first_param = _first_param_annotation(node)
+        yield node, line, first_param
+
+
+def _iter_findings_for_path(path: Path, *, root: Path) -> Iterator[ScoutFinding]:
+    try:
+        source = path.read_text(encoding="utf-8")
+    except OSError:
+        return iter(())
+    if not _module_has_boundary_marker(source):
+        return iter(())
+    try:
+        module = ast.parse(source, filename=str(path))
+    except SyntaxError:
+        return iter(())
+    rel = path.relative_to(root).as_posix()
+    return (
+        ScoutFinding(
+            path=rel,
+            line=line,
+            function=node.name,
+            first_param=first_param,
+            return_annotation=(
                 _normalize_annotation_text(ast.unparse(node.returns))
                 if node.returns is not None
                 else ""
-            )
-            findings.append(
-                ScoutFinding(
-                    path=rel,
-                    line=line,
-                    function=node.name,
-                    first_param=first_param,
-                    return_annotation=return_annotation,
-                    suggestion=_suggested_annotation(first_param, return_annotation),
-                )
-            )
-    return findings
+            ),
+            suggestion=_suggested_annotation(first_param, return_annotation),
+        )
+        for node, line, first_param in _annotated_private_function_nodes(module)
+        if first_param in FORBIDDEN_FIRST_PARAM_ANNOTATIONS
+        for return_annotation in (
+            _normalize_annotation_text(ast.unparse(node.returns))
+            if node.returns is not None
+            else "",
+        )
+    )
+
+
+def collect_findings(*, root: Path) -> list[ScoutFinding]:
+    return list(
+        chain.from_iterable(
+            _iter_findings_for_path(path, root=root)
+            for path in _scout_candidate_paths(root)
+        )
+    )
 
 
 def parse_args() -> argparse.Namespace:

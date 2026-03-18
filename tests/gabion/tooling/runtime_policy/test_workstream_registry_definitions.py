@@ -4,6 +4,9 @@ from gabion.analysis.foundation.marker_protocol import MarkerLifecycleState
 from gabion.tooling.policy_substrate.connectivity_synergy_registry import (
     connectivity_synergy_workstream_registries,
 )
+from gabion.tooling.policy_substrate.invariant_graph import (
+    declared_workstream_registries,
+)
 from gabion.tooling.policy_substrate.policy_rule_frontmatter_migration_registry import (
     prf_workstream_registry,
 )
@@ -21,6 +24,9 @@ from gabion.tooling.policy_substrate.boundary_ingress_convergence_registry impor
 )
 from gabion.tooling.policy_substrate.unit_test_readiness_registry import (
     unit_test_readiness_workstream_registry,
+)
+from gabion.tooling.policy_substrate.structural_anti_pattern_convergence_registry import (
+    structural_anti_pattern_convergence_workstream_registry,
 )
 
 
@@ -689,6 +695,68 @@ def test_unit_test_readiness_workstream_registry_exposes_selector_clusters() -> 
         "tests/gabion/server/test_server.py",
         "tests/gabion/runtime/test_runtime_kernel_contracts.py",
     )
+
+
+def test_structural_anti_pattern_convergence_workstream_registry_exposes_contract_root() -> None:
+    registry = structural_anti_pattern_convergence_workstream_registry()
+    subqueues = {item.subqueue_id: item for item in registry.subqueues}
+    touchpoints = {item.touchpoint_id: item for item in registry.touchpoints}
+
+    assert registry.root.root_id == "SAC"
+    assert registry.tags == ("structural_convergence",)
+    assert registry.root.status_hint == "in_progress"
+    assert registry.root.subqueue_ids == (
+        "SAC-SQ-001",
+        "SAC-SQ-002",
+        "SAC-SQ-003",
+        "SAC-SQ-004",
+    )
+    assert tuple(item.subqueue_id for item in registry.subqueues) == (
+        "SAC-SQ-001",
+        "SAC-SQ-002",
+        "SAC-SQ-003",
+        "SAC-SQ-004",
+    )
+    assert subqueues["SAC-SQ-001"].touchpoint_ids == ("SAC-TP-001",)
+    assert subqueues["SAC-SQ-002"].touchpoint_ids == ("SAC-TP-002",)
+    assert subqueues["SAC-SQ-003"].touchpoint_ids == ("SAC-TP-003",)
+    assert subqueues["SAC-SQ-004"].touchpoint_ids == ("SAC-TP-004", "SAC-TP-005")
+    assert all(item.status_hint == "in_progress" for item in registry.subqueues)
+    assert set(touchpoints) == {
+        "SAC-TP-001",
+        "SAC-TP-002",
+        "SAC-TP-003",
+        "SAC-TP-004",
+        "SAC-TP-005",
+    }
+    assert all(item.status_hint == "queued" for item in touchpoints.values())
+    assert {
+        (item.rel_path, item.qualname)
+        for item in touchpoints["SAC-TP-005"].declared_touchsites
+    } == {
+        (
+            "src/gabion/tooling/policy_substrate/structural_anti_pattern_contract.py",
+            "collect_findings",
+        ),
+        (
+            "scripts/policy/structural_anti_pattern_contract.py",
+            "main",
+        ),
+        (
+            "scripts/policy/policy_check.py",
+            "check_structural_anti_pattern_contract",
+        ),
+        (
+            "tests/gabion/tooling/runtime_policy/test_structural_anti_pattern_contract.py",
+            "test_collect_findings",
+        ),
+    }
+
+
+def test_declared_workstream_registries_include_structural_anti_pattern_convergence_root() -> None:
+    assert "SAC" in {
+        registry.root.root_id for registry in declared_workstream_registries()
+    }
 
 
 def test_connectivity_synergy_workstream_registries_expose_expected_roots_and_touchsites() -> None:

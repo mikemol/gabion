@@ -60,6 +60,12 @@ def _require_string(raw: object, *, context: str) -> str:
 
 
 def _require_bool(raw: object, *, context: str) -> bool:
+    if isinstance(raw, str):
+        normalized = raw.strip().lower()
+        if normalized == "true":
+            return True
+        if normalized == "false":
+            return False
     if not isinstance(raw, bool):
         raise ValueError(f"{context} must be a boolean")
     return raw
