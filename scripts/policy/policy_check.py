@@ -2698,22 +2698,29 @@ def _load_tier2_residue_baseline(path: Path) -> set[str]:
 
 
 def check_tier2_residue_contract() -> None:
-    from gabion.analysis import dataflow_audit
+    from gabion.analysis.projection import pattern_schema_projection
 
-    source_path = REPO_ROOT / "src" / "gabion" / "analysis" / "dataflow_audit.py"
+    source_path = (
+        REPO_ROOT
+        / "src"
+        / "gabion"
+        / "analysis"
+        / "projection"
+        / "pattern_schema_projection.py"
+    )
     try:
         source = source_path.read_text(encoding="utf-8")
     except OSError as exc:
         _fail([f"tier2 residue policy check failed to read source: {exc}"])
     with deadline_clock_scope(MonotonicClock()):
         with deadline_scope(Deadline.from_timeout_ms(10_000)):
-            instances = dataflow_audit._pattern_schema_matches(
+            instances = pattern_schema_projection.pattern_schema_matches(
                 groups_by_path={},
                 source=source,
                 source_path=source_path,
             )
-            residues = dataflow_audit._tier2_unreified_residue_entries(
-                dataflow_audit._pattern_schema_residue_entries(instances)
+            residues = pattern_schema_projection.tier2_unreified_residue_entries(
+                pattern_schema_projection.pattern_schema_residue_entries(instances)
             )
     current = {
         f"{entry.reason}:{entry.payload.get('kind', '')}:{entry.schema_id}"
