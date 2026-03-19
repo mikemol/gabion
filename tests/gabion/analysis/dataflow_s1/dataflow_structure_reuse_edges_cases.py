@@ -65,7 +65,12 @@ def test_compute_structure_reuse_handles_edges(tmp_path: Path) -> None:
             return ""
         return f"{kind}:{value}:{len(child_hashes)}"
 
-    reuse = da.compute_structure_reuse(snapshot, min_count=1, hash_fn=hash_fn)
+    reuse = da.compute_structure_reuse(
+        snapshot,
+        project_root=tmp_path,
+        min_count=1,
+        hash_fn=hash_fn,
+    )
     assert reuse["format_version"] == 1
     warnings = reuse.get("warnings") or []
     assert any("Missing declared bundle name" in warning for warning in warnings)
@@ -128,11 +133,11 @@ def test_render_reuse_lemma_stubs_skips_invalid_names() -> None:
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_reuse._record::child_count,value E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_reuse::min_count E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_reuse::stale_65d45635a8c6
 # gabion:behavior primary=verboten facets=edge
-def test_compute_structure_reuse_skips_non_list_bundle() -> None:
+def test_compute_structure_reuse_skips_non_list_bundle(tmp_path: Path) -> None:
     da = _load()
     snapshot = {
         "format_version": 1,
-        "root": None,
+        "root": str(tmp_path),
         "files": [
             {
                 "path": "mod.py",
@@ -142,5 +147,5 @@ def test_compute_structure_reuse_skips_non_list_bundle() -> None:
             }
         ],
     }
-    reuse = da.compute_structure_reuse(snapshot, min_count=2)
+    reuse = da.compute_structure_reuse(snapshot, project_root=tmp_path, min_count=2)
     assert reuse["format_version"] == 1

@@ -198,6 +198,7 @@ def test_structure_reuse_cli_matches_server(tmp_path: Path) -> None:
     snapshot.write_text(
         json.dumps(
             {
+                "root": str(tmp_path),
                 "files": [
                     {"functions": [{"bundles": [["a", "b"]], "body_calls": []}]},
                     {"functions": [{"bundles": [["a", "b"]], "body_calls": []}]},

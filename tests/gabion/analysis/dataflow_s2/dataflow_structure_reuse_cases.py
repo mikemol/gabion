@@ -20,11 +20,11 @@ def _load():
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_reuse._record::child_count,value E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_reuse::min_count E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.compute_structure_reuse::stale_647c5a38c22b_2e7dfa65
 # gabion:behavior primary=desired
-def test_compute_structure_reuse_detects_repeated_subtrees() -> None:
+def test_compute_structure_reuse_detects_repeated_subtrees(tmp_path: Path) -> None:
     da = _load()
     snapshot = {
         "format_version": 1,
-        "root": ".",
+        "root": str(tmp_path),
         "files": [
             {
                 "path": "a.py",
@@ -40,7 +40,7 @@ def test_compute_structure_reuse_detects_repeated_subtrees() -> None:
             },
         ],
     }
-    reuse = da.compute_structure_reuse(snapshot, min_count=2)
+    reuse = da.compute_structure_reuse(snapshot, project_root=tmp_path, min_count=2)
     assert reuse["forest_signature_partial"] is True
     assert reuse["forest_signature_basis"] == "missing"
     kinds = {entry.get("kind") for entry in reuse.get("reused", [])}
@@ -113,7 +113,7 @@ def test_structure_reuse_prefers_declared_bundle_names(tmp_path: Path) -> None:
             }
         ],
     }
-    reuse = da.compute_structure_reuse(snapshot, min_count=2)
+    reuse = da.compute_structure_reuse(snapshot, project_root=tmp_path, min_count=2)
     suggestions = reuse.get("suggested_lemmas", [])
     assert any(
         entry.get("kind") == "bundle"
@@ -125,21 +125,21 @@ def test_structure_reuse_prefers_declared_bundle_names(tmp_path: Path) -> None:
 
 
 # gabion:behavior primary=desired
-def test_compute_structure_reuse_candidate_generation_is_deterministic() -> None:
+def test_compute_structure_reuse_candidate_generation_is_deterministic(tmp_path: Path) -> None:
     da = _load()
     snapshot_a = {
-        "root": ".",
+        "root": str(tmp_path),
         "files": [
             {"path": "z.py", "functions": [{"name": "z", "bundles": [["k", "v"], ["x"]]}]},
             {"path": "a.py", "functions": [{"name": "a", "bundles": [["v", "k"], ["x"]]}]},
         ],
     }
     snapshot_b = {
-        "root": ".",
+        "root": str(tmp_path),
         "files": list(reversed(snapshot_a["files"])),
     }
-    reuse_a = da.compute_structure_reuse(snapshot_a, min_count=2)
-    reuse_b = da.compute_structure_reuse(snapshot_b, min_count=2)
+    reuse_a = da.compute_structure_reuse(snapshot_a, project_root=tmp_path, min_count=2)
+    reuse_b = da.compute_structure_reuse(snapshot_b, project_root=tmp_path, min_count=2)
     sig_a = [
         (entry.get("hash"), entry.get("kind"), entry.get("suggested_name"))
         for entry in reuse_a.get("suggested_lemmas", [])
@@ -152,16 +152,18 @@ def test_compute_structure_reuse_candidate_generation_is_deterministic() -> None
 
 
 # gabion:behavior primary=desired
-def test_render_reuse_lemma_stubs_emits_plan_artifacts_from_reuse_suggestions() -> None:
+def test_render_reuse_lemma_stubs_emits_plan_artifacts_from_reuse_suggestions(
+    tmp_path: Path,
+) -> None:
     da = _load()
     snapshot = {
-        "root": ".",
+        "root": str(tmp_path),
         "files": [
             {"path": "a.py", "functions": [{"name": "f", "bundles": [["x", "y"]]}]},
             {"path": "b.py", "functions": [{"name": "g", "bundles": [["y", "x"]]}]},
         ],
     }
-    reuse = da.compute_structure_reuse(snapshot, min_count=2)
+    reuse = da.compute_structure_reuse(snapshot, project_root=tmp_path, min_count=2)
     stubs = da.render_reuse_lemma_stubs(reuse)
     payload = _parse_stub_payload(stubs)
     plans = payload.get("plans", [])

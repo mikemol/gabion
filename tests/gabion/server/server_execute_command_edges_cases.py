@@ -3255,15 +3255,21 @@ def test_execute_structure_reuse_total_edges(tmp_path: Path) -> None:
         _with_timeout({"snapshot": str(snapshot), "min_count": 0}),
     )
     assert result["exit_code"] == 2
+    assert result["errors"] == ["structure snapshot requires explicit string root"]
+    valid_snapshot = tmp_path / "valid_snap.json"
+    valid_snapshot.write_text(
+        json.dumps({"format_version": 1, "root": str(tmp_path), "files": []}),
+        encoding="utf-8",
+    )
     result = server._execute_structure_reuse_total(
         _DummyServer(str(tmp_path)),
-        _with_timeout({"snapshot": str(snapshot), "min_count": 1, "lemma_stubs": "-"}),
+        _with_timeout({"snapshot": str(valid_snapshot), "min_count": 1, "lemma_stubs": "-"}),
     )
     assert "lemma_stubs" in result
     result = server._execute_structure_reuse_total(
         _DummyServer(str(tmp_path)),
         _with_timeout(
-            {"snapshot": str(snapshot), "min_count": 1, "lemma_stubs": "/dev/stdout"}
+            {"snapshot": str(valid_snapshot), "min_count": 1, "lemma_stubs": "/dev/stdout"}
         ),
     )
     assert "lemma_stubs" in result
@@ -4624,7 +4630,8 @@ def test_execute_refactor_loop_generator_rejects_protocol_fields(tmp_path: Path)
 def test_execute_structure_reuse_total_success_without_lemma_stubs(tmp_path: Path) -> None:
     snapshot = tmp_path / "snapshot.json"
     snapshot.write_text(
-        "{\"format_version\": 1, \"root\": null, \"files\": []}"
+        json.dumps({"format_version": 1, "root": str(tmp_path), "files": []}),
+        encoding="utf-8",
     )
     result = server._execute_structure_reuse_total(
         _DummyServer(str(tmp_path)),
@@ -5353,9 +5360,21 @@ def test_execute_structure_reuse_total_additional_error_paths(tmp_path: Path) ->
     assert result["exit_code"] == 2
     assert result["errors"]
 
+    null_root_snapshot = tmp_path / "null_root_snapshot.json"
+    null_root_snapshot.write_text(
+        json.dumps({"format_version": 2, "root": None, "files": []}),
+        encoding="utf-8",
+    )
+    result = server._execute_structure_reuse_total(
+        _DummyServer(str(tmp_path)),
+        _with_timeout({"snapshot": str(null_root_snapshot), "min_count": 1}),
+    )
+    assert result["exit_code"] == 2
+    assert result["errors"] == ["structure snapshot requires explicit string root"]
+
     valid_snapshot = tmp_path / "valid_snapshot.json"
     valid_snapshot.write_text(
-        json.dumps({"format_version": 2, "root": None, "files": []}),
+        json.dumps({"format_version": 2, "root": str(tmp_path), "files": []}),
         encoding="utf-8",
     )
     result = server._execute_structure_reuse_total(

@@ -1754,6 +1754,13 @@ def _parse_structure_reuse_options(payload: Mapping[str, JSONValue]) -> Structur
         min_count=min_count_int,
     )
 
+
+def _structure_reuse_project_root(snapshot: JSONObject) -> Path:
+    root_value = snapshot.get("root")
+    if not isinstance(root_value, str) or not root_value.strip():
+        raise ValueError("structure snapshot requires explicit string root")
+    return Path(root_value)
+
 @server.command(STRUCTURE_DIFF_COMMAND)
 def execute_structure_diff(
     ls: LanguageServer,
@@ -1808,13 +1815,18 @@ def _execute_structure_reuse_total(
             return StructureReuseResponseDTO(exit_code=2, errors=["snapshot path is required"]).model_dump()
         try:
             snapshot = load_structure_snapshot(options.snapshot)
+            project_root = _structure_reuse_project_root(snapshot)
         except ValueError as exc:
             return StructureReuseResponseDTO(exit_code=2, errors=[str(exc)]).model_dump()
         if options.min_count is None:
             return StructureReuseResponseDTO(exit_code=2, errors=["min_count must be an integer"]).model_dump()
         if options.min_count <= 0:
             return StructureReuseResponseDTO(exit_code=2, errors=["min_count must be positive"]).model_dump()
-        reuse = compute_structure_reuse(snapshot, min_count=options.min_count)
+        reuse = compute_structure_reuse(
+            snapshot,
+            project_root=project_root,
+            min_count=options.min_count,
+        )
         response: JSONObject = StructureReuseResponseDTO(exit_code=0, reuse=reuse).model_dump()
         if options.lemma_stubs:
             stubs = render_reuse_lemma_stubs(reuse)

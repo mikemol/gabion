@@ -1,3 +1,6 @@
+# gabion:ambiguity_boundary_module
+# gabion:boundary_normalization_module
+# gabion:grade_boundary kind=semantic_carrier_adapter name=dataflow_structure_reuse
 from __future__ import annotations
 
 from collections import defaultdict
@@ -26,7 +29,7 @@ from gabion.analysis.dataflow.io.forest_signature_metadata import apply_forest_s
 from gabion.analysis.foundation.resume_codec import mapping_default_empty, mapping_optional, sequence_optional
 from gabion.analysis.core.structure_reuse_classes import build_structure_class, structure_class_payload
 from gabion.analysis.foundation.timeout_context import check_deadline
-from gabion.invariants import never, todo
+from gabion.invariants import grade_boundary, never, todo
 from gabion.order_contract import sort_once
 
 _NONE_TYPE = type(None)
@@ -148,21 +151,24 @@ def build_analysis_collection_resume_seed(
     )
 
 
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="dataflow_structure_reuse.compute_structure_reuse",
+)
 def compute_structure_reuse(
-    snapshot,
+    snapshot: JSONObject,
     *,
+    project_root: Path,
     min_count: int = 2,
     hash_fn=None,
-):
+) -> JSONObject:
     check_deadline()
     if min_count < 2:
         min_count = 2
     files = snapshot.get("files") or []
-    root_value = snapshot.get("root")
-    root_path = Path(_string_value(root_value)) if _is_string_value(root_value) else None
     bundle_name_map: dict[tuple[str, ...], set[str]] = {}
-    if root_path is not None and root_path.exists():
-        bundle_name_map = _bundle_name_registry(root_path)
+    if project_root.exists():
+        bundle_name_map = _bundle_name_registry(project_root)
     reuse_map: dict[str, JSONObject] = {}
     warnings: list[str] = []
 

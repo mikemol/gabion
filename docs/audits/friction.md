@@ -1,5 +1,5 @@
 ---
-doc_revision: 23
+doc_revision: 24
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: friction
 doc_role: audit
@@ -1230,3 +1230,33 @@ the owner hides the true origin and keeps dead optionality circulating.
 
 **Workstream/Context:** `PSN` follow-on root-origin strictification after the
 `test_evidence_suggestions` slice.
+
+## FN-027: Artifact-carried metadata can linger as a fake semantic input contract
+
+**Trigger:** Tracing the next root seam in `compute_structure_reuse(...)` after
+the structure-reuse callers had already converged on an explicit
+`project_root: Path`.
+
+**Friction:** The structure-reuse core was still reaching back into the raw
+snapshot JSON for `"root"` even though the live caller chain could publish
+`project_root` directly. The artifact field had outlived its role as emitted
+metadata and was still being treated as if it were the authoritative internal
+carrier.
+
+**Impact:** Humans and LLMs can mistake artifact payload metadata for a live
+semantic-core dependency and keep parsing it deep in the core. That preserves
+fake optionality and makes boundary cleanup look bigger than it really is.
+
+**Hypothesis:** Once an emitted artifact field stops being the first place a
+decision is introduced, it should stop being consumed as an internal carrier.
+Otherwise the artifact shape fossilizes into a pseudo-ingress even after the
+real caller chain has already converged.
+
+**Evidence:**
+- `src/gabion/analysis/dataflow/io/dataflow_structure_reuse.py`
+- `src/gabion/server.py`
+- `tests/gabion/analysis/dataflow_s1/dataflow_structure_reuse_edges_cases.py`
+- `tests/gabion/cli/cli_server_parity_cases.py`
+
+**Workstream/Context:** `PSN-TP-006` follow-on strictification after the
+`impact_index` root-boundary slice.
