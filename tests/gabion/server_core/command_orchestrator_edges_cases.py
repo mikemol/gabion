@@ -40,28 +40,40 @@ def _timeout_context(
         cleanup_grace_ns=100_000_000,
         timeout_total_ns=1_000_000_000,
         analysis_window_ns=900_000_000,
-        analysis_resume_state_path=tmp_path / "resume.json",
-        analysis_resume_input_manifest_digest="digest",
-        last_collection_resume_payload=last_collection_resume_payload,
+        analysis_resume_projection_state=orchestrator.AnalysisResumeProjectionState(
+            runtime_state=orchestrator.AnalysisResumeRuntimeState(
+                state_path=tmp_path / "resume.json",
+                state_status="checkpoint_seeded",
+                reused_files=0,
+                total_files=5,
+            )
+        ),
+        analysis_resume_input_state=orchestrator.AnalysisResumeInputState(
+            manifest_digest="digest",
+            input_witness=None,
+        ),
+        collection_progress_runtime_state=orchestrator.CollectionProgressRuntimeState(
+            collection_resume_progress_state=orchestrator.CollectionResumeProgressState(
+                last_collection_resume_payload=last_collection_resume_payload,
+            ),
+            latest_collection_progress={},
+        ),
         execute_deps=deps,
-        analysis_resume_input_witness=None,
         emit_phase_timeline=False,
         phase_timeline_path=tmp_path / "timeline.md",
-        analysis_resume_total_files=5,
-        analysis_resume_state_status="checkpoint_seeded",
-        analysis_resume_reused_files=0,
         profile_enabled=False,
-        latest_collection_progress={},
-        semantic_progress_cumulative=None,
-        report_output_path=tmp_path / "report.md",
-        projection_rows=[],
-        report_phase_checkpoint_path=tmp_path / "phase.json",
-        report_section_journal_path=tmp_path / "sections.json",
-        report_section_witness_digest=None,
-        phase_checkpoint_state={},
+        report_runtime_state=orchestrator.ReportRuntimeState(
+            projection_state=orchestrator.ReportProjectionState(
+                output_path=tmp_path / "report.md",
+                section_journal_path=tmp_path / "sections.json",
+                phase_checkpoint_path=tmp_path / "phase.json",
+                projection_rows=(),
+            ),
+            checkpoint_state=orchestrator.ReportCheckpointState(),
+        ),
         enable_phase_projection_checkpoints=False,
         forest=Forest(),
-        analysis_resume_intro_payload=None,
+        analysis_resume_intro_state=orchestrator.AnalysisResumeIntroState(),
         runtime_root=tmp_path,
         initial_paths_count_value=1,
         execution_plan=ExecutionPlan(),
@@ -89,7 +101,18 @@ def _analysis_context(
         type_audit=False,
         type_audit_report=False,
         type_audit_max=100,
-        report_path=False,
+        report_request_state=orchestrator.ReportRequestState(
+            report_path=False,
+            runtime_state=orchestrator.ReportRuntimeState(
+                projection_state=orchestrator.ReportProjectionState(
+                    output_path=None,
+                    section_journal_path=tmp_path / "sections.json",
+                    phase_checkpoint_path=tmp_path / "phase.json",
+                    projection_rows=(),
+                ),
+                checkpoint_state=orchestrator.ReportCheckpointState(),
+            ),
+        ),
         include_coherence=False,
         include_rewrite_plans=False,
         include_exception_obligations=False,
@@ -102,24 +125,20 @@ def _analysis_context(
         config=orchestrator.AuditConfig(project_root=tmp_path),
         needs_analysis=True,
         file_paths_for_run=[source_path],
-        analysis_resume_intro_payload=None,
-        analysis_resume_reused_files=0,
-        analysis_resume_total_files=1,
-        analysis_resume_state_path=tmp_path / "resume.json",
-        analysis_resume_state_status="checkpoint_seeded",
-        analysis_resume_input_manifest_digest="digest",
-        analysis_resume_input_witness=None,
-        analysis_resume_intro_timeline_header=None,
-        analysis_resume_intro_timeline_row=None,
+        analysis_resume_intro_state=orchestrator.AnalysisResumeIntroState(),
+        analysis_resume_runtime_state=orchestrator.AnalysisResumeRuntimeState(
+            state_path=tmp_path / "resume.json",
+            state_status="checkpoint_seeded",
+            reused_files=0,
+            total_files=1,
+        ),
+        analysis_resume_input_state=orchestrator.AnalysisResumeInputState(
+            manifest_digest="digest",
+            input_witness=None,
+        ),
         phase_timeline_path=tmp_path / "timeline.md",
         emit_phase_timeline=emit_phase_timeline,
         enable_phase_projection_checkpoints=False,
-        report_output_path=None,
-        projection_rows=[],
-        report_section_journal_path=tmp_path / "sections.json",
-        report_section_witness_digest=None,
-        report_phase_checkpoint_path=tmp_path / "phase.json",
-        phase_checkpoint_state={},
         profile_enabled=False,
         emit_phase_progress_events=False,
         fingerprint_deadness_json=None,
@@ -201,19 +220,24 @@ def test_finalize_report_refactor_enabled_without_payload_keeps_report_stable(
 ) -> None:
     orchestrator._bind_server_symbols()
     outcome = orchestrator._finalize_report_and_violations(
-            context=orchestrator._ReportFinalizationContext(
-                analysis=_empty_analysis_result(),
-                pattern_schema_instances=[],
-                root=str(tmp_path),
-                max_components=1,
-            report_path=True,
-            report_output_path=None,
-            projection_rows=[],
-            report_section_journal_path=tmp_path / "sections.json",
-            report_section_witness_digest=None,
-            report_phase_checkpoint_path=tmp_path / "phase.json",
-            analysis_resume_state_path=None,
-            analysis_resume_reused_files=0,
+        context=orchestrator._ReportFinalizationContext(
+            analysis=_empty_analysis_result(),
+            pattern_schema_instances=[],
+            root=str(tmp_path),
+            max_components=1,
+            report_request_state=orchestrator.ReportRequestState(
+                report_path=True,
+                runtime_state=orchestrator.ReportRuntimeState(
+                    projection_state=orchestrator.ReportProjectionState(
+                        output_path=None,
+                        section_journal_path=tmp_path / "sections.json",
+                        phase_checkpoint_path=tmp_path / "phase.json",
+                        projection_rows=(),
+                    ),
+                    checkpoint_state=orchestrator.ReportCheckpointState(),
+                ),
+            ),
+            analysis_resume_runtime_state=orchestrator.AnalysisResumeRuntimeState(),
             type_audit_report=False,
             baseline_path=None,
             baseline_write=False,
@@ -229,7 +253,6 @@ def test_finalize_report_refactor_enabled_without_payload_keeps_report_stable(
             refactor_plan_json=None,
             refactor_plan_payload=None,
         ),
-        phase_checkpoint_state={},
     )
     assert isinstance(outcome.report, str)
 
@@ -296,14 +319,19 @@ def test_finalize_report_without_report_path_applies_baseline(tmp_path: Path) ->
         pattern_schema_instances=[],
         root=str(tmp_path),
         max_components=1,
-        report_path=False,
-        report_output_path=None,
-        projection_rows=[],
-        report_section_journal_path=tmp_path / "sections.json",
-        report_section_witness_digest=None,
-        report_phase_checkpoint_path=tmp_path / "phase.json",
-        analysis_resume_state_path=None,
-        analysis_resume_reused_files=0,
+        report_request_state=orchestrator.ReportRequestState(
+            report_path=False,
+            runtime_state=orchestrator.ReportRuntimeState(
+                projection_state=orchestrator.ReportProjectionState(
+                    output_path=None,
+                    section_journal_path=tmp_path / "sections.json",
+                    phase_checkpoint_path=tmp_path / "phase.json",
+                    projection_rows=(),
+                ),
+                checkpoint_state=orchestrator.ReportCheckpointState(),
+            ),
+        ),
+        analysis_resume_runtime_state=orchestrator.AnalysisResumeRuntimeState(),
         type_audit_report=False,
         baseline_path=baseline_path,
         baseline_write=False,
@@ -319,10 +347,7 @@ def test_finalize_report_without_report_path_applies_baseline(tmp_path: Path) ->
         refactor_plan_json=None,
         refactor_plan_payload=None,
     )
-    outcome = orchestrator._finalize_report_and_violations(
-        context=context,
-        phase_checkpoint_state={},
-    )
+    outcome = orchestrator._finalize_report_and_violations(context=context)
     assert outcome.report is None
     assert outcome.violations == []
 
@@ -348,28 +373,25 @@ def test_render_timeout_partial_report_handles_non_callable_cache_loader(
         cleanup_grace_ns=100_000_000,
         timeout_total_ns=1_000_000_000,
         analysis_window_ns=900_000_000,
-        analysis_resume_state_path=None,
-        analysis_resume_input_manifest_digest=None,
-        last_collection_resume_payload=None,
+        analysis_resume_projection_state=orchestrator.AnalysisResumeProjectionState(),
+        analysis_resume_input_state=orchestrator.AnalysisResumeInputState(),
+        collection_progress_runtime_state=orchestrator.CollectionProgressRuntimeState(),
         execute_deps=deps,
-        analysis_resume_input_witness=None,
         emit_phase_timeline=False,
         phase_timeline_path=tmp_path / "timeline.md",
-        analysis_resume_total_files=0,
-        analysis_resume_state_status=None,
-        analysis_resume_reused_files=0,
         profile_enabled=False,
-        latest_collection_progress={},
-        semantic_progress_cumulative=None,
-        report_output_path=tmp_path / "report.md",
-        projection_rows=[projection_rows[0]],
-        report_phase_checkpoint_path=tmp_path / "phase.json",
-        report_section_journal_path=tmp_path / "sections.json",
-        report_section_witness_digest=None,
-        phase_checkpoint_state={},
+        report_runtime_state=orchestrator.ReportRuntimeState(
+            projection_state=orchestrator.ReportProjectionState(
+                output_path=tmp_path / "report.md",
+                section_journal_path=tmp_path / "sections.json",
+                phase_checkpoint_path=tmp_path / "phase.json",
+                projection_rows=(projection_rows[0],),
+            ),
+            checkpoint_state=orchestrator.ReportCheckpointState(),
+        ),
         enable_phase_projection_checkpoints=False,
         forest=Forest(),
-        analysis_resume_intro_payload=None,
+        analysis_resume_intro_state=orchestrator.AnalysisResumeIntroState(),
         runtime_root=tmp_path,
         initial_paths_count_value=1,
         execution_plan=ExecutionPlan(),
@@ -399,20 +421,11 @@ def test_prepare_analysis_resume_state_skips_intro_timeline_when_disabled(
     source_path.write_text("def f() -> None:\n    return None\n", encoding="utf-8")
     deps = server._default_execute_command_deps()
     state = orchestrator._AnalysisResumePreparationState(
-        analysis_resume_state_path=None,
-        analysis_resume_input_witness=None,
-        analysis_resume_input_manifest_digest=None,
-        analysis_resume_total_files=0,
-        analysis_resume_reused_files=0,
-        analysis_resume_state_status=None,
-        analysis_resume_state_compatibility_status=None,
-        analysis_resume_intro_payload=None,
-        analysis_resume_intro_timeline_header=None,
-        analysis_resume_intro_timeline_row=None,
-        report_section_witness_digest=None,
-        phase_checkpoint_state={},
-        semantic_progress_cumulative=None,
-        last_collection_resume_payload=None,
+        analysis_resume_projection_state=orchestrator.AnalysisResumeProjectionState(),
+        analysis_resume_input_state=orchestrator.AnalysisResumeInputState(),
+        analysis_resume_intro_state=orchestrator.AnalysisResumeIntroState(),
+        report_runtime_state=orchestrator.ReportRuntimeState(),
+        collection_resume_progress_state=orchestrator.CollectionResumeProgressState(),
     )
     runtime_state = orchestrator.CommandRuntimeState(latest_collection_progress={})
     _file_paths_for_run, collection_resume_payload = orchestrator._prepare_analysis_resume_state(
@@ -435,10 +448,10 @@ def test_prepare_analysis_resume_state_skips_intro_timeline_when_disabled(
         runtime_state=runtime_state,
     )
     assert collection_resume_payload is None
-    assert state.analysis_resume_state_path is None
-    assert state.analysis_resume_state_status == "cold_start"
-    assert state.analysis_resume_intro_timeline_header is None
-    assert state.analysis_resume_intro_timeline_row is None
+    assert state.analysis_resume_projection_state.runtime_state.state_path is None
+    assert state.analysis_resume_projection_state.runtime_state.state_status == "cold_start"
+    assert state.analysis_resume_intro_state.timeline_header is None
+    assert state.analysis_resume_intro_state.timeline_row is None
 
 
 # gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._run_analysis_with_progress
@@ -466,16 +479,17 @@ def test_run_analysis_with_progress_skips_checkpoint_serialized_event_when_timel
         emitted_events=emitted_events,
     )
     state = orchestrator._AnalysisExecutionMutableState(
-        last_collection_resume_payload=None,
-        semantic_progress_cumulative=None,
-        latest_collection_progress={},
+        collection_progress_runtime_state=orchestrator.CollectionProgressRuntimeState(
+            collection_resume_progress_state=orchestrator.CollectionResumeProgressState(),
+            latest_collection_progress={},
+        ),
     )
     outcome = orchestrator._run_analysis_with_progress(
         context=context,
         state=state,
         collection_resume_payload=None,
     )
-    assert outcome.latest_collection_progress["total_files"] == 1
+    assert outcome.collection_progress_runtime_state.latest_collection_progress["total_files"] == 1
     assert not any(
         event.get("analysis_state") == "analysis_collection_checkpoint_serialized"
         for event in emitted_events
@@ -512,20 +526,11 @@ def test_prepare_analysis_resume_state_accepts_snapshot_first_aspf_resume_payloa
         encoding="utf-8",
     )
     state = orchestrator._AnalysisResumePreparationState(
-        analysis_resume_state_path=None,
-        analysis_resume_input_witness=None,
-        analysis_resume_input_manifest_digest=None,
-        analysis_resume_total_files=0,
-        analysis_resume_reused_files=0,
-        analysis_resume_state_status=None,
-        analysis_resume_state_compatibility_status=None,
-        analysis_resume_intro_payload=None,
-        analysis_resume_intro_timeline_header=None,
-        analysis_resume_intro_timeline_row=None,
-        report_section_witness_digest=None,
-        phase_checkpoint_state={},
-        semantic_progress_cumulative=None,
-        last_collection_resume_payload=None,
+        analysis_resume_projection_state=orchestrator.AnalysisResumeProjectionState(),
+        analysis_resume_input_state=orchestrator.AnalysisResumeInputState(),
+        analysis_resume_intro_state=orchestrator.AnalysisResumeIntroState(),
+        report_runtime_state=orchestrator.ReportRuntimeState(),
+        collection_resume_progress_state=orchestrator.CollectionResumeProgressState(),
     )
     runtime_state = orchestrator.CommandRuntimeState(latest_collection_progress={})
 
@@ -551,9 +556,9 @@ def test_prepare_analysis_resume_state_accepts_snapshot_first_aspf_resume_payloa
     )
 
     assert collection_resume_payload is not None
-    assert state.analysis_resume_state_status == "aspf_state_loaded"
-    assert state.analysis_resume_state_compatibility_status == "aspf_state_compatible"
-    assert state.analysis_resume_reused_files == 1
+    assert state.analysis_resume_projection_state.runtime_state.state_status == "aspf_state_loaded"
+    assert state.analysis_resume_projection_state.compatibility_status == "aspf_state_compatible"
+    assert state.analysis_resume_projection_state.runtime_state.reused_files == 1
 
 
 # gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._persist_timeout_resume_state

@@ -86,6 +86,12 @@ class ReportRuntimeState:
     checkpoint_state: ReportCheckpointState = field(default_factory=ReportCheckpointState)
 
 
+@dataclass(frozen=True)
+class ReportRequestState:
+    report_path: object = None
+    runtime_state: ReportRuntimeState = field(default_factory=ReportRuntimeState)
+
+
 class ProgressTraceStateContract(Protocol):
     """Opaque progress trace state transported across progress hooks."""
 

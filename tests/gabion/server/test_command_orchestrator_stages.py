@@ -16,7 +16,7 @@ def test_stage_finalize_success_projects_resume_compatibility() -> None:
         captured["context"] = context
         return orchestrator._SuccessResponseOutcome(
             response={"ok": True},
-            report_runtime_state=orchestrator.ReportRuntimeState(),
+            report_request_state=orchestrator.ReportRequestState(),
         )
 
     stage = orchestrator._ExecuteCommandFinalizeSuccessStage(
@@ -29,15 +29,17 @@ def test_stage_finalize_success_projects_resume_compatibility() -> None:
         config=cast(orchestrator.AuditConfig, SimpleNamespace()),
         options=cast(orchestrator._ExecutionPayloadOptions, SimpleNamespace()),
         name_filter_bundle=cast(orchestrator.DataflowNameFilterBundle, SimpleNamespace()),
-        report_path=None,
-        report_runtime_state=orchestrator.ReportRuntimeState(
-            projection_state=orchestrator.ReportProjectionState(
-                output_path=None,
-                section_journal_path=Path("report_journal.json"),
-                phase_checkpoint_path=None,
-                projection_rows=(),
+        report_request_state=orchestrator.ReportRequestState(
+            report_path=None,
+            runtime_state=orchestrator.ReportRuntimeState(
+                projection_state=orchestrator.ReportProjectionState(
+                    output_path=None,
+                    section_journal_path=Path("report_journal.json"),
+                    phase_checkpoint_path=None,
+                    projection_rows=(),
+                ),
+                checkpoint_state=orchestrator.ReportCheckpointState(),
             ),
-            checkpoint_state=orchestrator.ReportCheckpointState(),
         ),
         analysis_resume_projection_state=orchestrator.AnalysisResumeProjectionState(
             compatibility_status="compatible",
