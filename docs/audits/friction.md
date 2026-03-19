@@ -1,5 +1,5 @@
 ---
-doc_revision: 5
+doc_revision: 6
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: friction
 doc_role: audit
@@ -488,3 +488,54 @@ branches with `isinstance(...)` conditionals cleared `ACP-005` but introduced
   rather than by a direct local cue.
 - `Mind B wedge product`: A small remediation index that maps common rule pairs
   to preferred structural rewrites would save both human and LLM compute.
+
+## FN-008: ASPF taint isomorphism governance is too coarse for low-semantic-drift refactors
+
+**Trigger:** Repeatedly hitting the ASPF taint crosswalk acknowledgement gate
+while making public-surface normalization changes that do not alter emitted
+ASPF identities, witness payloads, or taint semantics.
+
+**Friction:** The current governance model treats a broad set of ASPF-adjacent
+file changes as needing the same heavyweight acknowledgement path. Small
+surface-shape refactors, import-surface publicization, and other semantic-noop
+ownership cleanups still require manual updates to
+`docs/aspf_taint_isomorphism_no_change.yaml`, even when the actual taint
+crosswalk semantics are unchanged and the justification is nearly formulaic.
+
+**Impact:** Correction units pay recurring governance tax that is weakly
+proportional to the real semantic risk. That slows local iteration, adds a
+repeated doc-edit burden, and makes policy compliance feel more like ceremony
+than signal for this class of change.
+
+**Hypothesis:** The current gate is acting as a coarse changed-path proxy for
+ASPF-taint semantic risk because the repo lacks a finer-grained way to
+distinguish "touches ASPF-adjacent code" from "changes ASPF taint/crosswalk
+meaning." The result is safe but over-broad governance.
+
+**Evidence:**
+- repeated `gabion policy check --workflows` failures during PSN slices that
+  only publicized existing owner surfaces
+- repeated updates to `docs/aspf_taint_isomorphism_no_change.yaml` with
+  substantially similar no-change justifications
+- recent touched files:
+  `src/gabion/analysis/aspf/aspf.py`,
+  `src/gabion/analysis/aspf/aspf_execution_fibration.py`,
+  `src/gabion/analysis/foundation/aspf_impl.py`,
+  `src/gabion/analysis/dataflow/engine/dataflow_evidence_helpers.py`
+
+**Workstream/Context:** `PSN` ASPF facade drain and planning/governance helper
+publicization slices.
+
+### Higher-order synthesis
+
+- `AA constructs`: A conservative taint-governance gate is legitimate because
+  ASPF witness/crosswalk drift is high-cost and easy to miss.
+- `AB critiques`: The present trigger surface is so broad that many
+  semantically inert refactors still look like taint-risk events and must pass
+  through the full acknowledgement loop.
+- `Convergence (Mind A)`: The friction is not the existence of taint
+  governance; it is the lack of a finer-grained admissibility test that can
+  cheaply separate semantic drift from public-surface hygiene.
+- `Mind B wedge product`: A better model likely needs a constructible middle
+  tier between "ASPF-adjacent path touched" and "taint/crosswalk meaning
+  changed," so governance effort scales with observable semantic risk.
