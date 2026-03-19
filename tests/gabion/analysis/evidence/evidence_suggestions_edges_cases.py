@@ -223,7 +223,10 @@ def test_build_indices_and_helper_functions(tmp_path: Path) -> None:
         unused_params=set(),
         function_span=(0, 0, 0, 1),
     )
-    index = test_evidence_suggestions._build_test_index({"mod.f": info}, None)
+    index = test_evidence_suggestions._build_test_index(
+        {"mod.f": info},
+        tmp_path / "other",
+    )
     assert list(index.keys())[0].endswith("sample.py::f")
     assert test_evidence_suggestions._rel_path(path, tmp_path / "other") == str(path)
 

@@ -17,7 +17,7 @@ from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import (
     ParentAnnotator, _alt_input, _build_function_index, _build_symbol_table, _collect_class_index, _enclosing_scopes, _is_test_path, _module_name, _paramset_key, _resolve_callee)
 from gabion.analysis.dataflow.engine.dataflow_ingest_helpers import _iter_paths
 from gabion.analysis.foundation.json_types import JSONObject
-from gabion.invariants import grade_boundary, require_not_none
+from gabion.invariants import decision_protocol, grade_boundary, require_not_none
 from gabion.analysis.semantics.report_doc import ReportDoc
 from gabion.order_contract import sort_once
 from gabion.invariants import never
@@ -954,7 +954,7 @@ def _resolve_module_file(
 
 def _build_test_index(
     by_qual: Mapping[str, FunctionInfo],
-    project_root,
+    project_root: Path,
 ) -> dict[str, FunctionInfo]:
     check_deadline()
     index: dict[str, FunctionInfo] = {}
@@ -967,9 +967,8 @@ def _build_test_index(
     return index
 
 
-def _rel_path(path: Path, project_root) -> str:
-    if project_root is None:
-        return str(path)
+@decision_protocol
+def _rel_path(path: Path, project_root: Path) -> str:
     try:
         return str(path.resolve().relative_to(project_root.resolve()))
     except Exception:

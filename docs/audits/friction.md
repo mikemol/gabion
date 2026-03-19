@@ -1,5 +1,5 @@
 ---
-doc_revision: 21
+doc_revision: 22
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: friction
 doc_role: audit
@@ -1175,3 +1175,29 @@ or materialization seam.
 
 **Workstream/Context:** `PSN` schema-audit root-origin slice immediately after
 the snapshot-path owner-collapse tranche.
+
+## FN-025: Test scaffolding can be the last place a dead optional contract survives
+
+**Trigger:** Tracing the next remaining `project_root` ambiguity in
+`test_evidence_suggestions.py` after the product-code caller chain was already
+strict.
+
+**Friction:** The live code path had already converged on a strict root, but an
+edge-case test still called `_build_test_index(..., None)`. That makes the owner
+look like it still needs optional-root support even though the only remaining
+source of that shape is the test harness itself.
+
+**Impact:** Humans and LLMs can overestimate how much compatibility still exists
+in product code and keep dead optionality alive to satisfy tests that are
+actually asserting obsolete behavior.
+
+**Hypothesis:** Once the real caller chain converges, low-level tests often
+become the last refuge of a retired contract shape. If they are not recut
+promptly, they distort the apparent API and slow downstream strictification.
+
+**Evidence:**
+- `src/gabion/analysis/surfaces/test_evidence_suggestions.py`
+- `tests/gabion/analysis/evidence/evidence_suggestions_edges_cases.py`
+
+**Workstream/Context:** `PSN` follow-on strictification after the
+`schema_audit` root-owner slice.
