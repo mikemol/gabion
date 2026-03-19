@@ -1351,7 +1351,7 @@ class SnapshotDiffPayload:
 
 def _diagnostics_for_path(
     path_str: str,
-    project_root: Path | None,
+    project_root: Path,
     *,
     analyze_paths_fn: Callable[..., AnalysisResult] = analyze_paths,
 ) -> list[Diagnostic]:
@@ -2692,7 +2692,9 @@ def code_action(ls: LanguageServer, params: CodeActionParams) -> list[CodeAction
 def did_open(ls: LanguageServer, params) -> None:
     uri = params.text_document.uri
     doc = ls.workspace.get_document(uri)
-    root = Path(ls.workspace.root_path) if ls.workspace.root_path else None
+    if not ls.workspace.root_path:
+        raise ValueError("did_open diagnostics require explicit workspace root_path")
+    root = Path(ls.workspace.root_path)
     diagnostics = _diagnostics_for_path(doc.path, root)
     ls.publish_diagnostics(uri, diagnostics)
 
@@ -2701,7 +2703,9 @@ def did_open(ls: LanguageServer, params) -> None:
 def did_save(ls: LanguageServer, params) -> None:
     uri = params.text_document.uri
     doc = ls.workspace.get_document(uri)
-    root = Path(ls.workspace.root_path) if ls.workspace.root_path else None
+    if not ls.workspace.root_path:
+        raise ValueError("did_save diagnostics require explicit workspace root_path")
+    root = Path(ls.workspace.root_path)
     diagnostics = _diagnostics_for_path(doc.path, root)
     ls.publish_diagnostics(uri, diagnostics)
 

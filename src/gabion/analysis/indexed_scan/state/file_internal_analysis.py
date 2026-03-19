@@ -85,4 +85,3 @@ def analyze_file_internal(
         config=config,
         on_profile=on_profile,
     )
-

@@ -1,5 +1,5 @@
 ---
-doc_revision: 9
+doc_revision: 13
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: friction
 doc_role: audit
@@ -184,6 +184,35 @@ legacy notion-level signal, but not the full recursive implication tree.
 
 Add new friction entries below these imported observations using the schema
 above.
+
+## FN-015: Strict inner carrier, loose outer config
+
+**Trigger:** Tightening the dataflow `project_root` contract after a failed
+helper-level repair in the resume/snapshot path cluster.
+
+**Friction:** The repo had already made inner indexed-scan carriers behave as
+if `project_root` were strict, while the public `AuditConfig` and a few outer
+entry points still allowed omission and local inference. That split contract
+made downstream helpers look like the problem even though the ambiguity was
+still being injected at ingress.
+
+**Impact:** Refactors gravitate toward local "fixes" in path-format helpers,
+then fail ambiguity policy or reintroduce fallback behavior elsewhere. Both
+humans and LLMs burn time chasing the wrong seam because the inner and outer
+surfaces advertise different truths.
+
+**Hypothesis:** The repo normalized one side of the boundary during earlier
+decomposition work but did not finish the ingress cutover, so strict internal
+assumptions and loose public config coexisted long enough to feel normal.
+
+**Evidence:**
+- `src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py`
+- `src/gabion/analysis/dataflow/engine/dataflow_contracts.py`
+- `src/gabion/analysis/dataflow/engine/dataflow_pipeline.py`
+- `src/gabion/analysis/dataflow/io/dataflow_synthesis.py`
+
+**Workstream/Context:** `PSN` paused during the dedicated `project_root`
+ingress-normalization correction unit.
 
 ## FN-001: Production modules named `test_*.py` under `src/`
 
@@ -674,3 +703,187 @@ code, planning metadata, and evidence carriers.
 - `Mind B wedge product`: Better convergence would come from making
   public-surface ownership a shared primitive that planning and evidence layers
   can consume directly instead of copying names as inert strings.
+
+## FN-012: Some PSN seams are really owner-collision repairs, not simple helper promotions
+
+**Trigger:** Burning down the snapshot-path normalization seam under
+`PSN-TP-006`.
+
+**Friction:** The touched private import in `dataflow_snapshot_io.py` was not
+enough to identify the right public owner. A separate public helper already
+existed in `dataflow_resume_paths.py`, but its contract was too loose to serve
+as the canonical PSN target, so the seam still had to converge on the stricter
+local owner instead of simply following the existing public path.
+
+**Impact:** Seam sizing by direct import sites alone is misleading. For an LLM,
+the cheapest “make the imported helper public” move can be the wrong fix when
+the repo already contains an overlapping public owner elsewhere.
+
+**Hypothesis:** Earlier decomposition created utility islands faster than it
+converged owner contracts, so some stable helpers now exist both as local
+implementation detail and as already-public shared utility surfaces, but those
+public siblings do not always satisfy the stricter semantic-core contract that
+PSN needs.
+
+**Evidence:**
+- `src/gabion/analysis/dataflow/io/dataflow_snapshot_io.py`
+- `src/gabion/analysis/dataflow/engine/dataflow_resume_paths.py`
+- `src/gabion/analysis/dataflow/engine/dataflow_lint_helpers.py`
+- `src/gabion/analysis/dataflow/engine/dataflow_fingerprint_helpers.py`
+
+**Workstream/Context:** `PSN-TP-006` snapshot-path normalization seam.
+
+### Higher-order synthesis
+
+- `AA constructs`: It is valid to start from the direct private-import seam
+  because that is the observable violation.
+- `AB critiques`: If owner selection stops at "already public," PSN can still
+  converge on the wrong surface and import policy debt instead of removing it.
+- `Convergence (Mind A)`: The real task is owner convergence under the repo's
+  semantic contract, not just import hygiene or pre-existing publicity.
+- `Mind B wedge product`: A better PSN workflow would distinguish “promote this
+  helper” from “collapse onto the already-public sibling owner” before edits
+  begin.
+
+## FN-013: Boundary markers can legitimize a seam before they improve its contract
+
+**Trigger:** Testing whether `dataflow_resume_paths.normalize_snapshot_path`
+should be repaired by grading it as a semantic carrier boundary.
+
+**Friction:** The marker-only probe was policy-legal, but it still left the
+shared owner on the looser `root: object` contract. That made it too easy to
+stop at “the gate is green” even though the underlying caller/callee contract
+was still broader than it needed to be.
+
+**Impact:** A passing policy gate can conceal an unfinished convergence step.
+For an LLM, that creates a strong temptation to treat legality as completion
+and ship a boundary marker instead of a stricter owner contract.
+
+**Hypothesis:** The repo correctly distinguishes lawful boundaries from core
+logic, but the local optimization pressure of getting back to green can make a
+true-but-incomplete boundary grading look like the final fix unless the agent
+explicitly prefers contract tightening over marker-only relief.
+
+**Evidence:**
+- `src/gabion/analysis/dataflow/engine/dataflow_resume_paths.py`
+- the failed `PSN-TP-006` detour through `normalize_snapshot_path`
+- the subsequent decision to strictify the shared owner and push fallback to
+  caller-local adapters instead
+
+**Workstream/Context:** Dedicated `resume_paths` contract-fix correction unit,
+spun out of paused `PSN-TP-006`.
+
+### Higher-order synthesis
+
+- `AA constructs`: If a seam is genuinely a boundary, grading it explicitly is
+  correct and useful.
+- `AB critiques`: Correct grading can still be an incomplete answer if the
+  boundary contract remains broader than the live callers actually need.
+- `Convergence (Mind A)`: The durable preference is to make the lawful boundary
+  as strict as the observed callers permit, then push any residual fallback
+  outward.
+- `Mind B wedge product`: “Boundary or core?” is not the only question;
+  “maximally strict lawful boundary or convenience boundary?” is the more
+  decision-relevant fork once the seam is known to be real.
+
+## FN-014: A small helper seam can hide a larger ingress-contract mismatch
+
+**Trigger:** Trying to fix `dataflow_resume_paths.normalize_snapshot_path` as an
+isolated correction unit after the optional-root contract surfaced under
+`PSN-TP-006`.
+
+**Friction:** The visible seam was the snapshot-path helper, but the real
+instability sits farther out: `AuditConfig.project_root` remains optional while
+`_IndexedPassContext.project_root` is already modeled as a strict `Path`. Every
+attempt to "just fix the helper" reintroduced fallback logic because the
+upstream ingress contract is still unresolved.
+
+**Impact:** A seemingly local helper repair can turn into repeated false starts.
+For an LLM, this creates expensive thrash: several plausible boundary shapes
+pass a first smell test, but the ambiguity gate keeps revealing that the true
+normalization seam is the broader ingress contract rather than the touched
+utility.
+
+**Hypothesis:** The repo already contains the intended stricter internal shape,
+but the normalization step that should convert optional config state into that
+shape was never fully centralized. As a result, downstream helpers inherit an
+optional-root residue that looks like their problem until policy checks force
+the search back outward.
+
+**Evidence:**
+- `src/gabion/analysis/dataflow/engine/dataflow_contracts.py`
+- `src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py`
+- `src/gabion/analysis/dataflow/engine/dataflow_resume_paths.py`
+- `src/gabion/analysis/dataflow/io/dataflow_snapshot_io.py`
+- the failed helper-only detour through `normalize_snapshot_path_optional_root`
+  and `build_snapshot_path_normalizer(...)`
+
+**Workstream/Context:** Dedicated `resume_paths` contract-fix correction unit,
+paused after ambiguity-policy validation showed the true seam is `project_root`
+ingress normalization.
+
+### Higher-order synthesis
+
+- `AA constructs`: It is reasonable to start from the observed helper seam,
+  because that is where the contract violation first became visible.
+- `AB critiques`: If the upstream carrier mismatch remains, local helper
+  repairs only relocate the ambiguity instead of discharging it.
+- `Convergence (Mind A)`: The durable fix is to normalize `project_root` once
+  at the real ingress boundary and let path helpers stay strictly internal.
+- `Mind B wedge product`: Better repo guidance would surface "latent strict
+  contract already declared upstream" as a first-class diagnostic pattern, so
+  agents look for ingress mismatches earlier instead of burning cycles on local
+  seam repairs.
+
+## FN-016: Ambiguity-gate resistance is often a correction-unit boundary signal
+
+**Trigger:** Reworking the `project_root` ingress-normalization tranche after
+the first strictification pass made `--ambiguity-contract` fail across touched
+downstream helper files such as `dataflow_snapshot_io.py`,
+`dataflow_resume_paths.py`, and `file_internal_analysis.py`.
+
+**Friction:** A broad "make everything strict now" pass can feel locally
+correct, but the ambiguity gate may be telling you that the strictification has
+crossed out of the true ingress seam and into helper/publicization work that
+belongs in a later correction unit. The failure mode is subtle because the
+downstream edits are directionally right, yet still illegal in the current
+boundary shape.
+
+**Impact:** Without recognizing that signal, an LLM can burn cycles trying to
+force the same policy outcome through increasingly contorted helper rewrites.
+That produces exactly the entropy the correction unit was supposed to remove:
+extra touched files, wider validation fallout, and muddled commit boundaries.
+
+**Hypothesis:** The repo's ambiguity and grade gates are acting as a
+work-partition sensor, not just a correctness checker. When a tranche goes
+green only after downstream helper strictification is trimmed back to the true
+ingress seam, that is evidence the later helper work is real but belongs to a
+different correction unit.
+
+**Evidence:**
+- the failed intermediate `--ambiguity-contract` run during strict
+  `project_root` ingress normalization
+- the subsequent rollback of downstream helper strictifications in
+  `dataflow_snapshot_io.py`, `dataflow_resume_paths.py`,
+  `dataflow_function_index_helpers.py`, and
+  `file_internal_analysis.py`
+- the restored green ambiguity gate after narrowing the tranche back to ingress
+  contracts and callsite signatures
+
+**Workstream/Context:** Dedicated dataflow `project_root` ingress-normalization
+correction unit, recut after `FN-014` exposed that the helper seam was not the
+right first landing zone.
+
+### Higher-order synthesis
+
+- `AA constructs`: If strict inputs are the goal, propagating that strictness
+  outward through every reachable helper seems like disciplined follow-through.
+- `AB critiques`: The ambiguity gate is not only checking directionality; it is
+  also checking whether the current correction unit has crossed into a
+  different seam with its own ownership and validation burden.
+- `Convergence (Mind A)`: When the gate resists a downstream helper
+  strictification but accepts the narrowed ingress-only slice, treat that as a
+  trustworthy cue to split the work rather than to push harder.
+- `Mind B wedge product`: The highest-value synthesis is to read policy fallout
+  as boundary discovery. The gate is not merely vetoing code; it is helping
+  locate the lawful correction-unit frontier.

@@ -79,6 +79,7 @@ def _load():
     )
 
     def _resolve_callee(*args, **kwargs):
+        kwargs.setdefault("project_root", Path("."))
         return _resolve_callee_indexed(*args, deps=_resolve_deps, **kwargs)
 
     _outcome_deps = CalleeOutcomeDeps(
@@ -95,6 +96,7 @@ def _load():
     )
 
     def _resolve_callee_outcome(*args, **kwargs):
+        kwargs.setdefault("project_root", Path("."))
         return _resolve_callee_outcome_indexed(*args, deps=_outcome_deps, **kwargs)
 
     return SimpleNamespace(
@@ -247,7 +249,7 @@ def test_resolve_callee_import_and_star() -> None:
         by_name,
         by_qual,
         symbol_table=table,
-        project_root=None,
+        project_root=Path("."),
     )
     assert resolved is callee
 
@@ -265,7 +267,7 @@ def test_resolve_callee_import_and_star() -> None:
         by_name,
         by_qual,
         symbol_table=table,
-        project_root=None,
+        project_root=Path("."),
     )
     assert resolved_star is by_qual["pkg.star.StarFunc"]
 
@@ -292,7 +294,7 @@ def test_resolve_callee_import_filtered_out() -> None:
         by_name,
         by_qual,
         symbol_table=table,
-        project_root=None,
+        project_root=Path("."),
     )
     assert resolved is None
 
@@ -311,7 +313,7 @@ def test_resolve_callee_self_and_base_import() -> None:
         by_name,
         by_qual,
         symbol_table=da.SymbolTable(),
-        project_root=None,
+        project_root=Path("."),
     )
     assert resolved is self_method
 
@@ -331,7 +333,7 @@ def test_resolve_callee_self_and_base_import() -> None:
         by_name,
         by_qual,
         symbol_table=table,
-        project_root=None,
+        project_root=Path("."),
     )
     assert resolved_imported is imported_method
 
@@ -362,7 +364,7 @@ def test_resolve_callee_class_hierarchy() -> None:
         by_name,
         by_qual,
         symbol_table=table,
-        project_root=None,
+        project_root=Path("."),
         class_index=class_index,
     )
     assert resolved is base_method
@@ -402,7 +404,7 @@ def test_resolve_callee_self_class_candidates() -> None:
         by_name,
         by_qual,
         symbol_table=None,
-        project_root=None,
+        project_root=Path("."),
         class_index=class_index,
     )
     assert resolved is method

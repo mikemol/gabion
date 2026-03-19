@@ -187,7 +187,7 @@ def test_dataflow_fingerprint_reporting_parity_with_legacy_decode() -> None:
         groups_by_path,
         annotations_by_path,
         registry=registry,
-        project_root=None,
+        project_root=Path("."),
         index=index,
         ctor_registry=ctor_registry,
     )
@@ -214,7 +214,7 @@ def test_dataflow_fingerprint_provenance_emits_identity_layer_and_selection_witn
         groups_by_path,
         annotations_by_path,
         registry=registry,
-        project_root=None,
+        project_root=Path("."),
         index={},
         ctor_registry=ctor_registry,
     )
@@ -244,7 +244,7 @@ def test_dataflow_fingerprint_provenance_preserves_legacy_adapter_fields() -> No
         groups_by_path,
         annotations_by_path,
         registry=registry,
-        project_root=None,
+        project_root=Path("."),
         index={},
         ctor_registry=ctor_registry,
     )

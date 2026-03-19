@@ -33,7 +33,11 @@ def build(alpha, beta, gamma):
     return Payload(alpha, beta + 1, gamma=make_gamma())
 """
     )
-    bundles = _iter_dataclass_call_bundles(source, parse_failure_witnesses=[])
+    bundles = _iter_dataclass_call_bundles(
+        source,
+        project_root=tmp_path,
+        parse_failure_witnesses=[],
+    )
     assert ("alpha", "beta", "gamma") in bundles
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._iter_dataclass_call_bundles._resolve_fields::call E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._iter_dataclass_call_bundles::dataclass_registry,symbol_table E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_module_exports::import_map,module_name E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._module_name::project_root E:decision_surface/value_encoded::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_module_exports::import_map E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._collect_module_exports::stale_0241d45d9f17_fd4ab092
@@ -100,9 +104,17 @@ def test_dataclass_call_bundles_support_literal_star_args(tmp_path: Path) -> Non
         "    Payload(**{'x': 1, 'y': 2})\n"
     )
     first_witnesses: list[dict[str, object]] = []
-    first = _iter_dataclass_call_bundles(source, parse_failure_witnesses=first_witnesses)
+    first = _iter_dataclass_call_bundles(
+        source,
+        project_root=tmp_path,
+        parse_failure_witnesses=first_witnesses,
+    )
     second_witnesses: list[dict[str, object]] = []
-    second = _iter_dataclass_call_bundles(source, parse_failure_witnesses=second_witnesses)
+    second = _iter_dataclass_call_bundles(
+        source,
+        project_root=tmp_path,
+        parse_failure_witnesses=second_witnesses,
+    )
     assert ("x", "y") in first
     assert first == second
     assert first_witnesses == second_witnesses == []
@@ -123,7 +135,11 @@ def test_dataclass_call_bundles_emit_unresolved_starred_evidence(tmp_path: Path)
         "    Payload(*values)\n"
     )
     witnesses: list[dict[str, object]] = []
-    bundles = _iter_dataclass_call_bundles(source, parse_failure_witnesses=witnesses)
+    bundles = _iter_dataclass_call_bundles(
+        source,
+        project_root=tmp_path,
+        parse_failure_witnesses=witnesses,
+    )
     assert bundles == set()
     assert any(w.get("reason") == "unresolved_starred_positional" for w in witnesses)
 
@@ -144,5 +160,9 @@ def test_dataclass_call_bundles_ignore_attribute_calls_without_symbol_table(
         "def build(module_alias):\n"
         "    return module_alias.Payload(1, 2)\n"
     )
-    bundles = _iter_dataclass_call_bundles(source, parse_failure_witnesses=[])
+    bundles = _iter_dataclass_call_bundles(
+        source,
+        project_root=tmp_path,
+        parse_failure_witnesses=[],
+    )
     assert bundles == set()

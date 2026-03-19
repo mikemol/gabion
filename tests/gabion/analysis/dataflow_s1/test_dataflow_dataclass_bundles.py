@@ -151,7 +151,7 @@ def test_config_and_documented_bundles_error_paths(tmp_path: Path) -> None:
 
 # gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._module_name::project_root E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._module_name::stale_6d71a13c7fb3
 # gabion:behavior primary=desired
-def test_collect_dataclass_registry_without_project_root(tmp_path: Path) -> None:
+def test_collect_dataclass_registry_with_explicit_project_root(tmp_path: Path) -> None:
     da = _load()
     good = tmp_path / "good.py"
     good.write_text(
@@ -166,7 +166,7 @@ def test_collect_dataclass_registry_without_project_root(tmp_path: Path) -> None
     bad.write_text("def broken(:\n")
     registry = da._collect_dataclass_registry(
         [good, bad],
-        project_root=None,
+        project_root=tmp_path,
         parse_failure_witnesses=[],
     )
     assert any(key.endswith(".Config") for key in registry)

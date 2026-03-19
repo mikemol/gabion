@@ -31,7 +31,7 @@ def test_compute_structure_metrics_counts(tmp_path: Path) -> None:
         forest,
         groups_by_path=groups_by_path,
         file_paths=[path_a, path_b],
-        project_root=None,
+        project_root=tmp_path,
         include_all_sites=True,
         ignore_params=set(),
         strictness="high",

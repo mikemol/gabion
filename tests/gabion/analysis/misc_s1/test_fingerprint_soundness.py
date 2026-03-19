@@ -126,7 +126,7 @@ def test_fingerprint_phase_outputs_are_stable_under_permuted_input_order() -> No
             groups,
             annotations,
             registry=registry,
-            project_root=None,
+            project_root=Path("."),
             index=base_index,
             ctor_registry=ctor_registry,
         )

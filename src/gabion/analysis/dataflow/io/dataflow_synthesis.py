@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -34,13 +33,6 @@ from gabion.schema import SynthesisResponse
 from gabion.synthesis import NamingContext, SynthesisConfig, Synthesizer
 from gabion.synthesis.emission import render_protocol_stubs as _render_protocol_stubs
 from gabion.synthesis.merge import merge_bundles
-
-
-def _infer_root(groups_by_path: dict[Path, dict[str, list[set[str]]]]) -> Path:
-    if groups_by_path:
-        common = os.path.commonpath([str(path) for path in groups_by_path])
-        return Path(common)
-    return Path(".")
 
 
 def _partial_forest_signature_metadata(
@@ -146,15 +138,13 @@ class _SynthesisPlanContext:
 def _build_synthesis_plan_context(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     *,
-    project_root,
-    config,
+    project_root: Path,
+    config: AuditConfig,
 ) -> _SynthesisPlanContext:
     check_deadline()
     parse_failure_witnesses: list[JSONObject] = []
-    audit_config = config or AuditConfig(
-        project_root=project_root or _infer_root(groups_by_path)
-    )
-    root = project_root or audit_config.project_root or _infer_root(groups_by_path)
+    audit_config = config
+    root = project_root
     signature_meta = _partial_forest_signature_metadata(groups_by_path)
     path_list = list(groups_by_path.keys())
     analysis_index = _build_analysis_index(
@@ -424,9 +414,9 @@ def _infer_synthesis_field_types(
                         info,
                         context.by_name,
                         context.by_qual,
-                        context.symbol_table,
-                        context.root,
-                        context.class_index,
+                        symbol_table=context.symbol_table,
+                        project_root=context.root,
+                        class_index=context.class_index,
                     )
                     if callee is not None and callee.transparent:
                         callee_params = callee.params
@@ -512,12 +502,12 @@ def _synthesis_payload_from_plan(
 def build_synthesis_plan(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     *,
-    project_root=None,
+    project_root: Path,
     max_tier: int = 2,
     min_bundle_size: int = 2,
     allow_singletons: bool = False,
     merge_overlap_threshold=None,
-    config=None,
+    config: AuditConfig,
     invariant_propositions: Sequence[InvariantProposition] = (),
     property_hook_min_confidence: float = 0.7,
     emit_hypothesis_templates: bool = False,

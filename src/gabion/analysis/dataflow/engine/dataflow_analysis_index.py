@@ -130,7 +130,7 @@ _IndexedPassResult = TypeVar("_IndexedPassResult")
 _ModuleArtifactAcc = TypeVar("_ModuleArtifactAcc")
 _ModuleArtifactOut = TypeVar("_ModuleArtifactOut")
 
-OptionalProjectRoot = Path
+ProjectRoot = Path
 OptionalDecorators = set[str]
 OptionalParseFailures = ParseFailureWitnesses
 OptionalAnalysisIndex = "_AnalysisIndexCarrier | None"
@@ -139,7 +139,7 @@ OptionalAnalysisIndex = "_AnalysisIndexCarrier | None"
 @dataclass(frozen=True)
 class _IndexedPassContext:
     paths: list[Path]
-    project_root: OptionalProjectRoot
+    project_root: ProjectRoot
     ignore_params: set[str]
     strictness: str
     external_filter: bool
@@ -561,9 +561,9 @@ def _analysis_index_resolved_call_edges(
                         info,
                         analysis_index.by_name,
                         analysis_index.by_qual,
-                        analysis_index.symbol_table,
-                        project_root,
-                        analysis_index.class_index,
+                        symbol_table=analysis_index.symbol_table,
+                        project_root=project_root,
+                        class_index=analysis_index.class_index,
                     )
                     if callee is not None and (not require_transparent or callee.transparent):
                         edges.append(_ResolvedCallEdge(caller=info, call=call, callee=callee))
@@ -887,7 +887,7 @@ def _analyze_file_internal(
     )
 
 
-def analyze_file(path: Path, recursive: bool = True, *, config=None):
+def analyze_file(path: Path, recursive: bool = True, *, config):
     groups, spans, _ = _analyze_file_internal(path, recursive=recursive, config=config)
     return groups, spans
 
@@ -1055,7 +1055,7 @@ __all__ = [
     "_IndexedPassSpec",
     "OptionalDecorators",
     "OptionalParseFailures",
-    "OptionalProjectRoot",
+    "ProjectRoot",
     "_sorted_text",
     "_stage_cache_key_aliases",
     "analyze_file",

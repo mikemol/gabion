@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from collections.abc import Mapping
+from pathlib import Path
 
 from gabion.analysis.dataflow.engine.dataflow_callee_resolution_support import (
     _callee_key,
@@ -19,7 +20,7 @@ class CalleeResolutionContext:
     by_name: Mapping[str, list[FunctionInfo]]
     by_qual: Mapping[str, FunctionInfo]
     symbol_table: object
-    project_root: object
+    project_root: Path
     class_index: object
     call: object
     local_lambda_bindings: Mapping[str, tuple[str, ...]]

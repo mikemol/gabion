@@ -60,7 +60,7 @@ class _DeadlineObligationBuilder:
     by_qual: Mapping[str, FunctionInfo]
     facts_by_qual: Mapping[str, _DeadlineFunctionFacts]
     forest: Forest
-    project_root: object
+    project_root: Path
     obligations: list[JSONObject] = field(default_factory=list)
     normalized_snapshot_path_cache: dict[Path, str] = field(default_factory=dict)
     suite_path_name_cache: dict[str, str] = field(default_factory=dict)
@@ -760,7 +760,7 @@ class _DeadlineCollectionContext:
     by_qual: Mapping[str, FunctionInfo]
     symbol_table: object
     class_index: object
-    project_root: object
+    project_root: Path
     config: AuditConfig
     resolve_callee_outcome_fn: Callable[..., _CalleeResolutionOutcome]
 

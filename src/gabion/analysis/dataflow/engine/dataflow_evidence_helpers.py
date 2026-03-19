@@ -322,13 +322,12 @@ def is_test_path(path: Path) -> bool:
     return path.name.startswith("test_")
 
 
-def module_name(path: Path, project_root=None) -> str:
+def module_name(path: Path, project_root: Path) -> str:
     rel = path.with_suffix("")
-    if project_root is not None:
-        try:
-            rel = rel.relative_to(project_root)
-        except ValueError:
-            pass
+    try:
+        rel = rel.relative_to(project_root)
+    except ValueError:
+        pass
     parts = list(rel.parts)
     if parts and parts[0] == "src":
         parts = parts[1:]
@@ -607,8 +606,8 @@ def resolve_callee(
     caller: FunctionInfo,
     by_name: dict[str, list[FunctionInfo]],
     by_qual: dict[str, FunctionInfo],
+    project_root: Path,
     symbol_table=None,
-    project_root=None,
     class_index=None,
     call=None,
     ambiguity_sink=None,

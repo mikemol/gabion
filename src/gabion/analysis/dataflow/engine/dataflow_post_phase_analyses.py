@@ -1232,7 +1232,7 @@ def _dataclass_registry_for_tree(
     path: Path,
     tree: ast.AST,
     *,
-    project_root=None,
+    project_root: Path,
 ) -> dict[str, list[str]]:
     return cast(
         dict[str, list[str]],
@@ -2013,7 +2013,7 @@ def _collect_dataclass_registry(
 def _iter_dataclass_call_bundles(
     path: Path,
     *,
-    project_root=None,
+    project_root: Path,
     symbol_table=None,
     dataclass_registry=None,
     parse_failure_witnesses: ParseFailureWitnesses,

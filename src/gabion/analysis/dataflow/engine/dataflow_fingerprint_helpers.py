@@ -286,7 +286,7 @@ def _compute_fingerprint_provenance(
     annotations_by_path: dict[Path, dict[str, dict[str, object]]],
     *,
     registry: PrimeRegistry,
-    project_root=None,
+    project_root: Path,
     index=None,
     ctor_registry=None,
 ) -> list[JSONObject]:

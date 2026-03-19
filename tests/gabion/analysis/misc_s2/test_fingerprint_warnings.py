@@ -98,6 +98,7 @@ def test_fingerprint_provenance_emits_entries(tmp_path: Path) -> None:
         groups_by_path,
         annotations_by_path,
         registry=registry,
+        project_root=tmp_path,
         index=index,
         ctor_registry=None,
     )
@@ -261,6 +262,7 @@ def test_fingerprint_provenance_skips_none_annotations(tmp_path: Path) -> None:
         groups_by_path,
         annotations_by_path,
         registry=tf.PrimeRegistry(),
+        project_root=tmp_path,
         index=None,
         ctor_registry=None,
     )

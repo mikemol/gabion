@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable
 
 
@@ -33,8 +34,8 @@ def resolve_callee(
     by_name: dict[str, list[object]],
     by_qual: dict[str, object],
     *,
+    project_root: Path,
     symbol_table=None,
-    project_root=None,
     class_index=None,
     call=None,
     ambiguity_sink=None,
@@ -77,8 +78,8 @@ def resolve_callee_outcome(
     by_name: dict[str, list[object]],
     by_qual: dict[str, object],
     *,
+    project_root: Path,
     symbol_table=None,
-    project_root=None,
     class_index=None,
     call=None,
     local_lambda_bindings=None,
@@ -186,4 +187,3 @@ def resolve_callee_outcome(
         callee_key=callee_key,
         candidates=(),
     )
-

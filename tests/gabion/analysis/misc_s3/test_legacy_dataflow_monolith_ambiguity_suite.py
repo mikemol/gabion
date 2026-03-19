@@ -138,4 +138,4 @@ def test_emit_call_ambiguities_requires_span_when_forest() -> None:
     )
     with deadline_scope(Deadline.from_timeout_ms(100)):
         with pytest.raises(NeverThrown):
-            _emit_call_ambiguities([entry], project_root=None, forest=forest)
+            _emit_call_ambiguities([entry], project_root=Path("."), forest=forest)

@@ -645,7 +645,7 @@ def _populate_bundle_forest(
     *,
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     file_paths: list[Path],
-    project_root=None,
+    project_root: Path,
     include_all_sites: bool = True,
     ignore_params=None,
     strictness: str = "high",

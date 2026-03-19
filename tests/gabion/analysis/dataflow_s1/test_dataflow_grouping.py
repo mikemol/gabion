@@ -96,6 +96,10 @@ def test_analyze_file_ambiguous_local_callee(tmp_path: Path) -> None:
     )
     path = tmp_path / "mod.py"
     path.write_text(code)
-    groups, spans = da.analyze_file(path, recursive=True, config=AuditConfig())
+    groups, spans = da.analyze_file(
+        path,
+        recursive=True,
+        config=AuditConfig(project_root=tmp_path),
+    )
     assert "outer.caller" in groups
     assert spans

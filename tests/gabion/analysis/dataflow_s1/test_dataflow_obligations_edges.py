@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from gabion.analysis.dataflow.engine import dataflow_obligations
 
 
@@ -47,7 +49,7 @@ def test_deadline_obligation_builder_skips_suite_id_when_meta_not_nonempty_strin
         by_qual={},
         facts_by_qual={},
         forest=forest,  # type: ignore[arg-type]
-        project_root=None,
+        project_root=Path("."),
     )
     builder.add_obligation(
         path="src/example.py",

@@ -12,7 +12,7 @@ _KernelResult = TypeVar("_KernelResult")
 @dataclass(frozen=True)
 class ScanKernelRequest:
     paths: list[Path]
-    project_root: object
+    project_root: Path
     ignore_params: set[str]
     strictness: str
     external_filter: bool

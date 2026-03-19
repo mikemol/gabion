@@ -439,7 +439,7 @@ def _apply_constructor_plan(
 def iter_dataclass_call_bundle_effects(
     path: Path,
     *,
-    project_root: object = None,
+    project_root: Path,
     symbol_table: object = None,
     dataclass_registry: object = None,
     parse_failure_witnesses: ParseFailureWitnesses,

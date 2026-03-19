@@ -105,6 +105,22 @@ def test_analyze_paths_rejects_invalid_phase_progress_callback() -> None:
         )
 
 
+# gabion:behavior primary=verboten facets=edge,invalid
+def test_analyze_paths_requires_explicit_project_root_config() -> None:
+    _bind()
+    with pytest.raises(TypeError, match="project_root"):
+        dataflow_pipeline.analyze_paths(
+            paths=[],
+            forest=dataflow_pipeline.Forest(),
+            recursive=False,
+            type_audit=False,
+            type_audit_report=False,
+            type_audit_max=1,
+            include_constant_smells=False,
+            include_unused_arg_smells=False,
+        )
+
+
 # gabion:behavior primary=desired
 def test_analyze_paths_emits_structured_edge_and_post_phase_progress(
     tmp_path: Path,

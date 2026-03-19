@@ -54,6 +54,7 @@ def test_diagnostics_for_path_reports_bundle(tmp_path: Path) -> None:
 def test_analysis_witness_config_payload_is_stable() -> None:
     server = _load()
     config = server.AuditConfig(
+        project_root=Path("."),
         exclude_dirs={"z", "a"},
         ignore_params={"tail", "head"},
         strictness="high",
@@ -111,7 +112,7 @@ def test_diagnostics_for_path_is_stable_for_shuffled_bundle_insertion_order() ->
 
     stable = server._diagnostics_for_path(
         "/tmp/sample.py",
-        None,
+        Path("/tmp"),
         analyze_paths_fn=lambda *args, **kwargs: _Result([
             ("a", (1, 0, 1, 1)),
             ("b", (1, 2, 1, 3)),
@@ -119,7 +120,7 @@ def test_diagnostics_for_path_is_stable_for_shuffled_bundle_insertion_order() ->
     )
     shuffled = server._diagnostics_for_path(
         "/tmp/sample.py",
-        None,
+        Path("/tmp"),
         analyze_paths_fn=lambda *args, **kwargs: _Result([
             ("b", (1, 2, 1, 3)),
             ("a", (1, 0, 1, 1)),

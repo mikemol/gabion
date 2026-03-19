@@ -560,7 +560,7 @@ def _exception_protocol_lint_lines(entries: list[JSONObject]) -> list[str]:
 @dataclass(frozen=True)
 class _BroadTypeLintContext:
     paths: list[Path]
-    project_root: object
+    project_root: Path
     ignore_params: set[str]
     strictness: str
     external_filter: bool

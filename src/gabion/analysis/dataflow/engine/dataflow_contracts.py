@@ -24,7 +24,6 @@ from gabion.analysis.core.deprecated_substrate import DeprecatedFiber
 from gabion.analysis.core.forest_spec import ForestSpec
 from gabion.analysis.foundation.timeout_context import check_deadline
 
-OptionalPath = Path | None
 OptionalString = str | None
 OptionalStringSet = set[str] | None
 OptionalFloat = float | None
@@ -215,7 +214,7 @@ class ClassInfo:
 
 @dataclass
 class AuditConfig:
-    project_root: OptionalPath = None
+    project_root: Path
     exclude_dirs: set[str] = field(default_factory=set)
     ignore_params: set[str] = field(default_factory=set)
     decision_ignore_params: set[str] = field(default_factory=set)
@@ -243,7 +242,6 @@ class AuditConfig:
     def is_ignored_path(self, path: Path) -> bool:
         parts = set(path.parts)
         return bool(self.exclude_dirs & parts)
-
 
 @dataclass
 class AnalysisResult:
