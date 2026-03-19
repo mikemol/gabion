@@ -1691,6 +1691,12 @@ class _ContinuationRuntimeContext:
 
 
 @dataclass(frozen=True)
+class _SuccessAnalysisContext:
+    continuation_runtime_context: _ContinuationRuntimeContext
+    report_analysis_state: ReportAnalysisState
+
+
+@dataclass(frozen=True)
 class _AnalysisExecutionContext:
     trace_runtime_context: _TraceRuntimeContext
     runtime_state: CommandRuntimeState
@@ -4347,8 +4353,7 @@ def _compute_analysis_inclusion_flags(
 
 @dataclass(frozen=True)
 class _SuccessResponseContext:
-    continuation_runtime_context: _ContinuationRuntimeContext
-    report_analysis_state: ReportAnalysisState
+    analysis_context: _SuccessAnalysisContext
     paths: list[Path]
     payload: Mapping[str, object]
     config: AuditConfig
@@ -4396,8 +4401,7 @@ class _ExecuteCommandIngressStage:
 
 @dataclass(frozen=True)
 class _ExecuteCommandFinalizeSuccessStage:
-    continuation_runtime_context: _ContinuationRuntimeContext
-    report_analysis_state: ReportAnalysisState
+    analysis_context: _SuccessAnalysisContext
     paths: list[Path]
     payload: Mapping[str, object]
     config: AuditConfig
@@ -4430,11 +4434,15 @@ def _build_success_response(
     *,
     context: _SuccessResponseContext,
 ) -> _SuccessResponseOutcome:
-    trace_runtime_context = context.continuation_runtime_context.trace_runtime_context
-    continuation_state = context.continuation_runtime_context.continuation_state
+    trace_runtime_context = (
+        context.analysis_context.continuation_runtime_context.trace_runtime_context
+    )
+    continuation_state = (
+        context.analysis_context.continuation_runtime_context.continuation_state
+    )
     execute_deps = trace_runtime_context.execute_deps
     aspf_trace_state = trace_runtime_context.aspf_trace_state
-    report_analysis_state = context.report_analysis_state
+    report_analysis_state = context.analysis_context.report_analysis_state
     analysis = cast(AnalysisResult, report_analysis_state.analysis)
     root = report_analysis_state.root
     report_request_state = report_analysis_state.request_state
@@ -4908,33 +4916,37 @@ def _stage_finalize_success(
 ) -> _SuccessResponseOutcome:
     return build_success_response_fn(
         context=_SuccessResponseContext(
-            continuation_runtime_context=_ContinuationRuntimeContext(
-                trace_runtime_context=stage.continuation_runtime_context.trace_runtime_context,
-                continuation_state=AnalysisContinuationState(
-                    resume_state=AnalysisResumeState(
-                        projection_state=AnalysisResumeProjectionState(
-                            runtime_state=(
-                                stage.continuation_runtime_context.continuation_state.resume_state.projection_state.runtime_state
-                            ),
-                            source=(
-                                stage.continuation_runtime_context.continuation_state.resume_state.projection_state.source
-                            ),
-                            compatibility_status=_resume_compatibility_projection_decision(
-                                compatibility_status=(
-                                    stage.continuation_runtime_context.continuation_state.resume_state.projection_state.compatibility_status
-                                )
-                            ),
-                        ),
-                        support_state=(
-                            stage.continuation_runtime_context.continuation_state.resume_state.support_state
-                        ),
+            analysis_context=_SuccessAnalysisContext(
+                continuation_runtime_context=_ContinuationRuntimeContext(
+                    trace_runtime_context=(
+                        stage.analysis_context.continuation_runtime_context.trace_runtime_context
                     ),
-                    collection_progress_runtime_state=(
-                        stage.continuation_runtime_context.continuation_state.collection_progress_runtime_state
+                    continuation_state=AnalysisContinuationState(
+                        resume_state=AnalysisResumeState(
+                            projection_state=AnalysisResumeProjectionState(
+                                runtime_state=(
+                                    stage.analysis_context.continuation_runtime_context.continuation_state.resume_state.projection_state.runtime_state
+                                ),
+                                source=(
+                                    stage.analysis_context.continuation_runtime_context.continuation_state.resume_state.projection_state.source
+                                ),
+                                compatibility_status=_resume_compatibility_projection_decision(
+                                    compatibility_status=(
+                                        stage.analysis_context.continuation_runtime_context.continuation_state.resume_state.projection_state.compatibility_status
+                                    )
+                                ),
+                            ),
+                            support_state=(
+                                stage.analysis_context.continuation_runtime_context.continuation_state.resume_state.support_state
+                            ),
+                        ),
+                        collection_progress_runtime_state=(
+                            stage.analysis_context.continuation_runtime_context.continuation_state.collection_progress_runtime_state
+                        ),
                     ),
                 ),
+                report_analysis_state=stage.analysis_context.report_analysis_state,
             ),
-            report_analysis_state=stage.report_analysis_state,
             paths=stage.paths,
             payload=stage.payload,
             config=stage.config,
@@ -5504,20 +5516,22 @@ def execute_command_total(
         )
         success_outcome = _stage_finalize_success(
             stage=_ExecuteCommandFinalizeSuccessStage(
-                continuation_runtime_context=_ContinuationRuntimeContext(
-                    trace_runtime_context=_TraceRuntimeContext(
-                        execute_deps=execute_deps,
-                        aspf_trace_state=aspf_trace_state,
+                analysis_context=_SuccessAnalysisContext(
+                    continuation_runtime_context=_ContinuationRuntimeContext(
+                        trace_runtime_context=_TraceRuntimeContext(
+                            execute_deps=execute_deps,
+                            aspf_trace_state=aspf_trace_state,
+                        ),
+                        continuation_state=AnalysisContinuationState(
+                            resume_state=analysis_resume_state,
+                            collection_progress_runtime_state=collection_progress_runtime_state,
+                        ),
                     ),
-                    continuation_state=AnalysisContinuationState(
-                        resume_state=analysis_resume_state,
-                        collection_progress_runtime_state=collection_progress_runtime_state,
+                    report_analysis_state=ReportAnalysisState(
+                        analysis=analysis,
+                        root=str(root),
+                        request_state=report_request_state,
                     ),
-                ),
-                report_analysis_state=ReportAnalysisState(
-                    analysis=analysis,
-                    root=str(root),
-                    request_state=report_request_state,
                 ),
                 paths=paths,
                 payload=payload,

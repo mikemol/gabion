@@ -852,45 +852,47 @@ def test_build_success_response_emits_analysis_resume_block_when_resume_source_p
         root=tmp_path,
     )
     context = orchestrator._SuccessResponseContext(
-        continuation_runtime_context=orchestrator._ContinuationRuntimeContext(
-            trace_runtime_context=orchestrator._TraceRuntimeContext(
-                execute_deps=server._default_execute_command_deps(),
-                aspf_trace_state=None,
-            ),
-            continuation_state=orchestrator.AnalysisContinuationState(
-                resume_state=orchestrator.AnalysisResumeState(
-                    projection_state=orchestrator.AnalysisResumeProjectionState(
-                        runtime_state=orchestrator.AnalysisResumeRuntimeState(
-                            state_path=None,
-                            state_status="checkpoint_seeded",
-                            reused_files=1,
-                            total_files=3,
-                        ),
-                        source="resume_manifest",
-                        compatibility_status="compatible",
-                    ),
-                    support_state=orchestrator.AnalysisResumeSupportState(
-                        input_state=orchestrator.AnalysisResumeInputState(
-                            manifest_digest="digest"
-                        )
-                    ),
+        analysis_context=orchestrator._SuccessAnalysisContext(
+            continuation_runtime_context=orchestrator._ContinuationRuntimeContext(
+                trace_runtime_context=orchestrator._TraceRuntimeContext(
+                    execute_deps=server._default_execute_command_deps(),
+                    aspf_trace_state=None,
                 ),
-                collection_progress_runtime_state=orchestrator.CollectionProgressRuntimeState(),
-            ),
-        ),
-        report_analysis_state=orchestrator.ReportAnalysisState(
-            analysis=_empty_analysis_result(),
-            root=str(tmp_path),
-            request_state=orchestrator.ReportRequestState(
-                report_path=False,
-                runtime_state=orchestrator.ReportRuntimeState(
-                    projection_state=orchestrator.ReportProjectionState(
-                        output_path=None,
-                        section_journal_path=tmp_path / "sections.json",
-                        phase_checkpoint_path=tmp_path / "phase.json",
-                        projection_rows=(),
+                continuation_state=orchestrator.AnalysisContinuationState(
+                    resume_state=orchestrator.AnalysisResumeState(
+                        projection_state=orchestrator.AnalysisResumeProjectionState(
+                            runtime_state=orchestrator.AnalysisResumeRuntimeState(
+                                state_path=None,
+                                state_status="checkpoint_seeded",
+                                reused_files=1,
+                                total_files=3,
+                            ),
+                            source="resume_manifest",
+                            compatibility_status="compatible",
+                        ),
+                        support_state=orchestrator.AnalysisResumeSupportState(
+                            input_state=orchestrator.AnalysisResumeInputState(
+                                manifest_digest="digest"
+                            )
+                        ),
                     ),
-                    checkpoint_state=orchestrator.ReportCheckpointState(),
+                    collection_progress_runtime_state=orchestrator.CollectionProgressRuntimeState(),
+                ),
+            ),
+            report_analysis_state=orchestrator.ReportAnalysisState(
+                analysis=_empty_analysis_result(),
+                root=str(tmp_path),
+                request_state=orchestrator.ReportRequestState(
+                    report_path=False,
+                    runtime_state=orchestrator.ReportRuntimeState(
+                        projection_state=orchestrator.ReportProjectionState(
+                            output_path=None,
+                            section_journal_path=tmp_path / "sections.json",
+                            phase_checkpoint_path=tmp_path / "phase.json",
+                            projection_rows=(),
+                        ),
+                        checkpoint_state=orchestrator.ReportCheckpointState(),
+                    ),
                 ),
             ),
         ),

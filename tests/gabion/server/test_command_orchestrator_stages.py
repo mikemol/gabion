@@ -20,33 +20,35 @@ def test_stage_finalize_success_projects_resume_compatibility() -> None:
         )
 
     stage = orchestrator._ExecuteCommandFinalizeSuccessStage(
-        continuation_runtime_context=orchestrator._ContinuationRuntimeContext(
-            trace_runtime_context=orchestrator._TraceRuntimeContext(
-                execute_deps=cast(orchestrator.CommandEffects, SimpleNamespace()),
-                aspf_trace_state=None,
-            ),
-            continuation_state=orchestrator.AnalysisContinuationState(
-                resume_state=orchestrator.AnalysisResumeState(
-                    projection_state=orchestrator.AnalysisResumeProjectionState(
-                        compatibility_status="compatible",
-                    )
+        analysis_context=orchestrator._SuccessAnalysisContext(
+            continuation_runtime_context=orchestrator._ContinuationRuntimeContext(
+                trace_runtime_context=orchestrator._TraceRuntimeContext(
+                    execute_deps=cast(orchestrator.CommandEffects, SimpleNamespace()),
+                    aspf_trace_state=None,
                 ),
-                collection_progress_runtime_state=orchestrator.CollectionProgressRuntimeState(),
-            ),
-        ),
-        report_analysis_state=orchestrator.ReportAnalysisState(
-            analysis=cast(orchestrator.AnalysisResult, SimpleNamespace()),
-            root=".",
-            request_state=orchestrator.ReportRequestState(
-                report_path=None,
-                runtime_state=orchestrator.ReportRuntimeState(
-                    projection_state=orchestrator.ReportProjectionState(
-                        output_path=None,
-                        section_journal_path=Path("report_journal.json"),
-                        phase_checkpoint_path=None,
-                        projection_rows=(),
+                continuation_state=orchestrator.AnalysisContinuationState(
+                    resume_state=orchestrator.AnalysisResumeState(
+                        projection_state=orchestrator.AnalysisResumeProjectionState(
+                            compatibility_status="compatible",
+                        )
                     ),
-                    checkpoint_state=orchestrator.ReportCheckpointState(),
+                    collection_progress_runtime_state=orchestrator.CollectionProgressRuntimeState(),
+                ),
+            ),
+            report_analysis_state=orchestrator.ReportAnalysisState(
+                analysis=cast(orchestrator.AnalysisResult, SimpleNamespace()),
+                root=".",
+                request_state=orchestrator.ReportRequestState(
+                    report_path=None,
+                    runtime_state=orchestrator.ReportRuntimeState(
+                        projection_state=orchestrator.ReportProjectionState(
+                            output_path=None,
+                            section_journal_path=Path("report_journal.json"),
+                            phase_checkpoint_path=None,
+                            projection_rows=(),
+                        ),
+                        checkpoint_state=orchestrator.ReportCheckpointState(),
+                    ),
                 ),
             ),
         ),
@@ -75,7 +77,7 @@ def test_stage_finalize_success_projects_resume_compatibility() -> None:
     assert outcome.response == {"ok": True}
     context = cast(orchestrator._SuccessResponseContext, captured["context"])
     assert (
-        context.continuation_runtime_context.continuation_state.resume_state.projection_state.compatibility_status
+        context.analysis_context.continuation_runtime_context.continuation_state.resume_state.projection_state.compatibility_status
         == "compatible"
     )
 
