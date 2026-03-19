@@ -1,5 +1,5 @@
 ---
-doc_revision: 25
+doc_revision: 26
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: friction
 doc_role: audit
@@ -1291,3 +1291,33 @@ for the same retired omission contract.
 
 **Workstream/Context:** `PSN-TP-006` follow-on strictification while burning
 down the `timeout_context.py` optional-root seam.
+
+## FN-029: Payload fields named `root` can masquerade as filesystem-root seams
+
+**Trigger:** Burning down the remaining root-shape residue in
+`dataflow_post_phase_analyses.py` and `dataflow_event_algebra_adapter.py` as if
+they were the same kind of seam.
+
+**Friction:** `dataflow_post_phase_analyses.py` still had undeclared
+`project_root` owner contracts, but `dataflow_event_algebra_adapter.py` was
+reading a nested payload field named `root` that actually belongs to phase
+progress identity materialization, not filesystem-root publication. The shared
+wording made the second file look like part of the same strictification slice
+even though the ambiguity gate treated it as a different payload-shape/grade
+problem.
+
+**Impact:** Humans and LLMs can over-group superficially similar seams, burn
+time trying to land them together, and then hit policy failures because only
+one of them is actually a root-origin contract issue.
+
+**Hypothesis:** In this repo, any field literally named `root` needs to be
+distinguished early by role: filesystem/project root, identity root, artifact
+root, or payload-local hierarchy root. If that role split is not made at the
+start, cleanup work tends to miscut a payload-shape seam as a path-root seam.
+
+**Evidence:**
+- `src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py`
+- `src/gabion/analysis/dataflow/engine/dataflow_event_algebra_adapter.py`
+
+**Workstream/Context:** `PSN-TP-006` follow-on strictification after the
+`timeout_context.py` project-scope slice.

@@ -807,7 +807,7 @@ def _format_type_flow_site(
     caller_param: str,
     callee_param: str,
     annot: str,
-    project_root,
+    project_root: Path,
 ) -> str:
     """Format a stable, machine-actionable callsite for type-flow evidence."""
     caller_name = _function_key(caller.scope, caller.name)
@@ -877,7 +877,7 @@ def _build_property_hook_callable_index(hooks: Sequence[JSONValue]) -> list[JSON
 def analyze_type_flow_repo_with_map(
     paths: list[Path],
     *,
-    project_root,
+    project_root: Path,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
@@ -914,7 +914,7 @@ def analyze_type_flow_repo_with_map(
 def analyze_type_flow_repo(
     paths: list[Path],
     *,
-    project_root,
+    project_root: Path,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
@@ -938,7 +938,7 @@ def analyze_type_flow_repo(
 def analyze_type_flow_repo_with_evidence(
     paths: list[Path],
     *,
-    project_root,
+    project_root: Path,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
@@ -977,7 +977,7 @@ def analyze_type_flow_repo_with_evidence(
 def analyze_constant_flow_repo(
     paths: list[Path],
     *,
-    project_root,
+    project_root: Path,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
@@ -1015,7 +1015,7 @@ def analyze_constant_flow_repo(
 def analyze_deadness_flow_repo(
     paths: list[Path],
     *,
-    project_root,
+    project_root: Path,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
@@ -1054,7 +1054,7 @@ def analyze_deadness_flow_repo(
 def analyze_unused_arg_flow_repo(
     paths: list[Path],
     *,
-    project_root,
+    project_root: Path,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
@@ -1082,7 +1082,7 @@ def analyze_unused_arg_flow_repo(
 def _infer_type_flow(
     paths: list[Path],
     *,
-    project_root,
+    project_root: Path,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
@@ -1130,7 +1130,7 @@ def _analyze_unused_arg_flow_indexed(
 def _collect_constant_flow_details(
     paths: list[Path],
     *,
-    project_root,
+    project_root: Path,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
@@ -1249,7 +1249,7 @@ def _dataclass_registry_for_tree(
 def _collect_exception_obligations(
     paths: list[Path],
     *,
-    project_root,
+    project_root: Path,
     ignore_params: set[str],
     handledness_witnesses=None,
     deadness_witnesses=None,
@@ -1291,7 +1291,7 @@ def _collect_exception_obligations(
 def _collect_handledness_witnesses(
     paths: list[Path],
     *,
-    project_root,
+    project_root: Path,
     ignore_params: set[str],
 ) -> list[JSONObject]:
     return cast(
@@ -1323,7 +1323,7 @@ def _collect_handledness_witnesses(
 def _collect_never_invariants(
     paths: list[Path],
     *,
-    project_root,
+    project_root: Path,
     ignore_params: set[str],
     forest,
     marker_aliases: Sequence[str] = (),
@@ -1367,7 +1367,7 @@ def _collect_invariant_propositions(
     path: Path,
     *,
     ignore_params: set[str],
-    project_root,
+    project_root: Path,
     emitters: Iterable[Callable[[ast.FunctionDef], Iterable[InvariantProposition]]] = (),
 ) -> list[InvariantProposition]:
     return cast(
@@ -1447,7 +1447,7 @@ def _param_annotations_by_path(
 def analyze_decision_surfaces_repo(
     paths: list[Path],
     *,
-    project_root,
+    project_root: Path,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
@@ -1502,7 +1502,7 @@ def analyze_decision_surfaces_repo(
 def analyze_value_encoded_decisions_repo(
     paths: list[Path],
     *,
-    project_root,
+    project_root: Path,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
@@ -1558,7 +1558,7 @@ def analyze_value_encoded_decisions_repo(
 def run_scan_domain_orchestrator(
     *,
     paths: list[Path],
-    project_root,
+    project_root: Path,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
@@ -1622,7 +1622,7 @@ def _decision_param_lint_line(
     info: "FunctionInfo",
     param: str,
     *,
-    project_root,
+    project_root: Path,
     code: str,
     message: str,
 ):
@@ -1642,7 +1642,7 @@ def _decision_tier_for(
     param: str,
     *,
     tier_map: dict[str, int],
-    project_root,
+    project_root: Path,
 ):
     check_deadline()
     if not tier_map:
@@ -1908,7 +1908,7 @@ def _compute_knob_param_names(
     by_name: dict[str, list[FunctionInfo]],
     by_qual: dict[str, FunctionInfo],
     symbol_table: SymbolTable,
-    project_root,
+    project_root: Path,
     class_index: dict[str, ClassInfo],
     strictness: str,
     analysis_index=None,
