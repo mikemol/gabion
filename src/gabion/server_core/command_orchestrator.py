@@ -113,6 +113,7 @@ from gabion.server_core.command_contract import (
     CommandRuntimeInput,
     CommandRuntimeState,
     ReportCheckpointState,
+    ReportProjectionState,
 )
 from gabion.server_core.command_effects import CommandEffects
 from gabion.server_core.command_reducers import (
@@ -1577,10 +1578,7 @@ class _ReportFinalizationContext:
     root: str
     max_components: int
     report_path: object
-    report_output_path: Path | None
-    projection_rows: list[JSONObject]
-    report_section_journal_path: Path
-    report_phase_checkpoint_path: Path | None
+    report_projection_state: ReportProjectionState
     analysis_resume_runtime_state: AnalysisResumeRuntimeState
     report_checkpoint_state: ReportCheckpointState
     type_audit_report: bool
@@ -1649,10 +1647,7 @@ class _TimeoutCleanupContext:
     emit_phase_timeline: bool
     phase_timeline_path: Path
     profile_enabled: bool
-    report_output_path: Path | None
-    projection_rows: list[JSONObject]
-    report_phase_checkpoint_path: Path | None
-    report_section_journal_path: Path
+    report_projection_state: ReportProjectionState
     report_checkpoint_state: ReportCheckpointState
     enable_phase_projection_checkpoints: bool
     forest: Forest
@@ -1717,10 +1712,7 @@ class _AnalysisExecutionContext:
     phase_timeline_path: Path
     emit_phase_timeline: bool
     enable_phase_projection_checkpoints: bool
-    report_output_path: Path | None
-    projection_rows: list[JSONObject]
-    report_section_journal_path: Path
-    report_phase_checkpoint_path: Path | None
+    report_projection_state: ReportProjectionState
     report_checkpoint_state: ReportCheckpointState
     profile_enabled: bool
     emit_phase_progress_events: bool
@@ -2095,7 +2087,10 @@ def _run_analysis_with_progress(
         last_analysis_index_resume_signature = analysis_index_signature
         if intro_changed:
             last_collection_intro_signature = collection_intro_signature
-        report_projection_ready = bool(context.report_output_path and context.projection_rows)
+        report_projection_ready = bool(
+            context.report_projection_state.output_path
+            and context.report_projection_state.projection_rows
+        )
         if intro_changed and report_projection_ready:
             completed_files = collection_progress["completed_files"]
             _ = _collection_report_flush_due(
@@ -2138,26 +2133,28 @@ def _run_analysis_with_progress(
             partial_report, pending_reasons = _render_incremental_report(
                 analysis_state="analysis_collection_in_progress",
                 progress_payload=persisted_progress_payload,
-                projection_rows=context.projection_rows,
+                projection_rows=list(context.report_projection_state.projection_rows),
                 sections=sections,
             )
             pending_reasons.pop("intro", None)
             _apply_journal_pending_reason(
-                projection_rows=context.projection_rows,
+                projection_rows=list(context.report_projection_state.projection_rows),
                 sections=sections,
                 pending_reasons=pending_reasons,
                 journal_reason=journal_reason,
             )
-            context.report_output_path.parent.mkdir(parents=True, exist_ok=True)
+            context.report_projection_state.output_path.parent.mkdir(
+                parents=True, exist_ok=True
+            )
             _write_text_profiled(
-                context.report_output_path,
+                context.report_projection_state.output_path,
                 partial_report,
                 io_name="report_markdown.write",
             )
             _write_report_section_journal(
-                path=context.report_section_journal_path,
+                path=context.report_projection_state.section_journal_path,
                 witness_digest=context.report_checkpoint_state.section_witness_digest,
-                projection_rows=context.projection_rows,
+                projection_rows=list(context.report_projection_state.projection_rows),
                 sections=sections,
                 pending_reasons=pending_reasons,
             )
@@ -2236,7 +2233,10 @@ def _run_analysis_with_progress(
             phase_progress_v2=phase_progress_v2,
             progress_marker=progress_marker,
         )
-        report_projection_ready = bool(context.report_output_path and context.projection_rows)
+        report_projection_ready = bool(
+            context.report_projection_state.output_path
+            and context.report_projection_state.projection_rows
+        )
         if report_projection_ready:
             projection_started_ns = time.monotonic_ns()
             phase_signature = _projection_phase_signature(
@@ -2295,25 +2295,27 @@ def _run_analysis_with_progress(
                                 phase_progress_v2
                             ),
                         },
-                        projection_rows=context.projection_rows,
+                        projection_rows=list(context.report_projection_state.projection_rows),
                         sections=sections,
                     )
                     _apply_journal_pending_reason(
-                        projection_rows=context.projection_rows,
+                        projection_rows=list(context.report_projection_state.projection_rows),
                         sections=sections,
                         pending_reasons=pending_reasons,
                         journal_reason=journal_reason,
                     )
-                    context.report_output_path.parent.mkdir(parents=True, exist_ok=True)
+                    context.report_projection_state.output_path.parent.mkdir(
+                        parents=True, exist_ok=True
+                    )
                     _write_text_profiled(
-                        context.report_output_path,
+                        context.report_projection_state.output_path,
                         partial_report,
                         io_name="report_markdown.write",
                     )
                     _write_report_section_journal(
-                        path=context.report_section_journal_path,
+                        path=context.report_projection_state.section_journal_path,
                         witness_digest=context.report_checkpoint_state.section_witness_digest,
-                        projection_rows=context.projection_rows,
+                        projection_rows=list(context.report_projection_state.projection_rows),
                         sections=sections,
                         pending_reasons=pending_reasons,
                     )
@@ -3202,7 +3204,7 @@ def _finalize_report_and_violations(
         )
         resolved_sections_for_obligations = extract_report_sections(report_markdown)
         pending_projection_reasons = _pending_projection_reasons(
-            projection_rows=context.projection_rows,
+            projection_rows=list(context.report_projection_state.projection_rows),
             resolved_sections=resolved_sections_for_obligations,
         )
         success_progress_payload: JSONObject = {
@@ -3217,7 +3219,7 @@ def _finalize_report_and_violations(
             ),
             partial_report_written=False,
             report_requested=bool(context.report_path),
-            projection_rows=context.projection_rows,
+            projection_rows=list(context.report_projection_state.projection_rows),
             sections=resolved_sections_for_obligations,
             pending_reasons=pending_projection_reasons,
         )
@@ -3239,12 +3241,15 @@ def _finalize_report_and_violations(
                 effective_violations = []
             else:
                 effective_violations, _ = apply_baseline(violations, baseline_entries)
-        if context.report_output_path and context.projection_rows:
+        if (
+            context.report_projection_state.output_path
+            and context.report_projection_state.projection_rows
+        ):
             resolved_sections = extract_report_sections(report_markdown)
             _write_report_section_journal(
-                path=context.report_section_journal_path,
+                path=context.report_projection_state.section_journal_path,
                 witness_digest=context.report_checkpoint_state.section_witness_digest,
-                projection_rows=context.projection_rows,
+                projection_rows=list(context.report_projection_state.projection_rows),
                 sections=resolved_sections,
             )
             context.report_checkpoint_state.phase_checkpoint_state["post"] = {
@@ -3299,10 +3304,12 @@ def _finalize_report_and_violations(
         ):
             if context.refactor_plan_payload is not None:
                 report = report + render_refactor_plan(context.refactor_plan_payload)
-        if context.report_output_path is not None:
-            context.report_output_path.parent.mkdir(parents=True, exist_ok=True)
+        if context.report_projection_state.output_path is not None:
+            context.report_projection_state.output_path.parent.mkdir(
+                parents=True, exist_ok=True
+            )
             _write_text_profiled(
-                context.report_output_path,
+                context.report_projection_state.output_path,
                 report,
                 io_name="report_markdown.write",
             )
@@ -3548,7 +3555,10 @@ def _render_timeout_partial_report(
     partial_report_written = False
     resolved_sections: dict[str, list[str]] = {}
     pending_reasons: dict[str, str] = {}
-    if context.report_output_path is not None and context.projection_rows:
+    if (
+        context.report_projection_state.output_path is not None
+        and context.report_projection_state.projection_rows
+    ):
         try:
             phase_checkpoint_state = phase_checkpoint_state or {}
             ensure_report_sections_cache = context.ensure_report_sections_cache_fn
@@ -3599,25 +3609,27 @@ def _render_timeout_partial_report(
             partial_report, pending_reasons = _render_incremental_report(
                 analysis_state=analysis_state,
                 progress_payload=progress_payload,
-                projection_rows=context.projection_rows,
+                projection_rows=list(context.report_projection_state.projection_rows),
                 sections=resolved_sections,
             )
             _apply_journal_pending_reason(
-                projection_rows=context.projection_rows,
+                projection_rows=list(context.report_projection_state.projection_rows),
                 sections=resolved_sections,
                 pending_reasons=pending_reasons,
                 journal_reason=journal_reason,
             )
-            context.report_output_path.parent.mkdir(parents=True, exist_ok=True)
+            context.report_projection_state.output_path.parent.mkdir(
+                parents=True, exist_ok=True
+            )
             _write_text_profiled(
-                context.report_output_path,
+                context.report_projection_state.output_path,
                 partial_report,
                 io_name="report_markdown.write",
             )
             _write_report_section_journal(
-                path=context.report_section_journal_path,
+                path=context.report_projection_state.section_journal_path,
                 witness_digest=context.report_checkpoint_state.section_witness_digest,
-                projection_rows=context.projection_rows,
+                projection_rows=list(context.report_projection_state.projection_rows),
                 sections=resolved_sections,
                 pending_reasons=pending_reasons,
             )
@@ -3698,8 +3710,8 @@ def _handle_timeout_cleanup(
                 progress_payload=progress_payload,
                 resume_payload_available=timeout_collection_resume_payload is not None,
                 partial_report_written=partial_report_written,
-                report_requested=context.report_output_path is not None,
-                projection_rows=context.projection_rows,
+                report_requested=context.report_projection_state.output_path is not None,
+                projection_rows=list(context.report_projection_state.projection_rows),
                 sections=resolved_sections,
                 pending_reasons=pending_reasons,
             )
@@ -4260,10 +4272,7 @@ class _SuccessResponseContext:
     options: _ExecutionPayloadOptions
     name_filter_bundle: DataflowNameFilterBundle
     report_path: object
-    report_output_path: Path | None
-    report_section_journal_path: Path
-    report_phase_checkpoint_path: Path | None
-    projection_rows: list[JSONObject]
+    report_projection_state: ReportProjectionState
     analysis_resume_projection_state: AnalysisResumeProjectionState
     analysis_resume_manifest_digest: str | None
     profiling_stage_ns: dict[str, int]
@@ -4320,10 +4329,7 @@ class _ExecuteCommandFinalizeSuccessStage:
     options: _ExecutionPayloadOptions
     name_filter_bundle: DataflowNameFilterBundle
     report_path: object
-    report_output_path: Path | None
-    report_section_journal_path: Path
-    report_phase_checkpoint_path: Path | None
-    projection_rows: list[JSONObject]
+    report_projection_state: ReportProjectionState
     analysis_resume_projection_state: AnalysisResumeProjectionState
     analysis_resume_manifest_digest: str | None
     profiling_stage_ns: dict[str, int]
@@ -4554,10 +4560,7 @@ def _build_success_response(
             root=context.root,
             max_components=context.options.max_components,
             report_path=context.report_path,
-            report_output_path=context.report_output_path,
-            projection_rows=context.projection_rows,
-            report_section_journal_path=context.report_section_journal_path,
-            report_phase_checkpoint_path=context.report_phase_checkpoint_path,
+            report_projection_state=context.report_projection_state,
             analysis_resume_runtime_state=(
                 context.analysis_resume_projection_state.runtime_state
             ),
@@ -4820,10 +4823,7 @@ def _stage_finalize_success(
             options=stage.options,
             name_filter_bundle=stage.name_filter_bundle,
             report_path=stage.report_path,
-            report_output_path=stage.report_output_path,
-            report_section_journal_path=stage.report_section_journal_path,
-            report_phase_checkpoint_path=stage.report_phase_checkpoint_path,
-            projection_rows=stage.projection_rows,
+            report_projection_state=stage.report_projection_state,
             analysis_resume_projection_state=AnalysisResumeProjectionState(
                 runtime_state=stage.analysis_resume_projection_state.runtime_state,
                 source=stage.analysis_resume_projection_state.source,
@@ -4965,6 +4965,12 @@ def execute_command_total(
     projection_rows: list[JSONObject] = (
         execute_deps.analysis.report_projection_spec_rows_fn() if report_output_path else []
     )
+    report_projection_state = ReportProjectionState(
+        output_path=report_output_path,
+        section_journal_path=report_section_journal_path,
+        phase_checkpoint_path=report_phase_checkpoint_path,
+        projection_rows=tuple(projection_rows),
+    )
     enable_phase_projection_checkpoints = False
     collection_resume_progress_state = CollectionResumeProgressState()
     report_sections_cache: dict[str, list[str]] = {}
@@ -5018,13 +5024,13 @@ def execute_command_total(
     raw_initial_paths = payload.get("paths")
     initial_paths_count_value = initial_paths_count(raw_initial_paths)
     execute_deps.output.write_bootstrap_incremental_artifacts_fn(
-        report_output_path=report_output_path,
-        report_section_journal_path=report_section_journal_path,
-        report_phase_checkpoint_path=report_phase_checkpoint_path,
+        report_output_path=report_projection_state.output_path,
+        report_section_journal_path=report_projection_state.section_journal_path,
+        report_phase_checkpoint_path=report_projection_state.phase_checkpoint_path,
         witness_digest=report_checkpoint_state.section_witness_digest,
         root=runtime_input.root,
         paths_requested=initial_paths_count_value,
-        projection_rows=projection_rows,
+        projection_rows=list(report_projection_state.projection_rows),
         phase_checkpoint_state=report_checkpoint_state.phase_checkpoint_state,
     )
     try:
@@ -5104,6 +5110,12 @@ def execute_command_total(
         projection_rows = (
             execute_deps.analysis.report_projection_spec_rows_fn() if report_output_path else []
         )
+        report_projection_state = ReportProjectionState(
+            output_path=report_output_path,
+            section_journal_path=report_section_journal_path,
+            phase_checkpoint_path=report_phase_checkpoint_path,
+            projection_rows=tuple(projection_rows),
+        )
         options = _parse_execution_payload_options(
             payload=payload,
             root=Path(root),
@@ -5123,7 +5135,9 @@ def execute_command_total(
                 representative="gabion.dataflow.start",
                 basis_path=("command", "start"),
             )
-        enable_phase_projection_checkpoints = _checkpoint_projection_decision(report_output_path=report_output_path)
+        enable_phase_projection_checkpoints = _checkpoint_projection_decision(
+            report_output_path=report_projection_state.output_path
+        )
         emit_phase_timeline = False
         phase_timeline_path = Path(root) / "_unused_phase_timeline.md"
         phase_timeline_markdown_path = _phase_timeline_md_path(root=Path(root))
@@ -5346,11 +5360,8 @@ def execute_command_total(
                     phase_timeline_path=phase_timeline_path,
                     emit_phase_timeline=emit_phase_timeline,
                     enable_phase_projection_checkpoints=enable_phase_projection_checkpoints,
-                    report_output_path=report_output_path,
-                    projection_rows=projection_rows,
-                    report_section_journal_path=report_section_journal_path,
+                    report_projection_state=report_projection_state,
                     report_checkpoint_state=report_checkpoint_state,
-                    report_phase_checkpoint_path=report_phase_checkpoint_path,
                     profile_enabled=profile_enabled,
                     emit_phase_progress_events=emit_phase_progress_events,
                     fingerprint_deadness_json=fingerprint_deadness_json,
@@ -5397,11 +5408,8 @@ def execute_command_total(
                 options=options,
                 name_filter_bundle=name_filter_bundle,
                 report_path=report_path,
-                report_output_path=report_output_path,
-                report_section_journal_path=report_section_journal_path,
+                report_projection_state=report_projection_state,
                 report_checkpoint_state=report_checkpoint_state,
-                report_phase_checkpoint_path=report_phase_checkpoint_path,
-                projection_rows=projection_rows,
                 analysis_resume_projection_state=analysis_resume_projection_state,
                 analysis_resume_manifest_digest=analysis_resume_input_state.manifest_digest,
                 profiling_stage_ns=profiling_stage_ns,
@@ -5430,10 +5438,7 @@ def execute_command_total(
                 emit_phase_timeline=emit_phase_timeline,
                 phase_timeline_path=phase_timeline_path,
                 profile_enabled=profile_enabled,
-                report_output_path=report_output_path,
-                projection_rows=projection_rows,
-                report_phase_checkpoint_path=report_phase_checkpoint_path,
-                report_section_journal_path=report_section_journal_path,
+                report_projection_state=report_projection_state,
                 report_checkpoint_state=report_checkpoint_state,
                 enable_phase_projection_checkpoints=enable_phase_projection_checkpoints,
                 forest=forest,

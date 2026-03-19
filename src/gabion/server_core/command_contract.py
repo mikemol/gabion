@@ -72,6 +72,14 @@ class ReportCheckpointState:
     phase_checkpoint_state: JSONObject = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class ReportProjectionState:
+    output_path: Path | None = None
+    section_journal_path: Path = Path(".")
+    phase_checkpoint_path: Path | None = None
+    projection_rows: tuple[JSONObject, ...] = ()
+
+
 class ProgressTraceStateContract(Protocol):
     """Opaque progress trace state transported across progress hooks."""
 

@@ -30,10 +30,12 @@ def test_stage_finalize_success_projects_resume_compatibility() -> None:
         options=cast(orchestrator._ExecutionPayloadOptions, SimpleNamespace()),
         name_filter_bundle=cast(orchestrator.DataflowNameFilterBundle, SimpleNamespace()),
         report_path=None,
-        report_output_path=None,
-        report_section_journal_path=Path("report_journal.json"),
-        report_phase_checkpoint_path=None,
-        projection_rows=[],
+        report_projection_state=orchestrator.ReportProjectionState(
+            output_path=None,
+            section_journal_path=Path("report_journal.json"),
+            phase_checkpoint_path=None,
+            projection_rows=(),
+        ),
         analysis_resume_projection_state=orchestrator.AnalysisResumeProjectionState(
             compatibility_status="compatible",
         ),
