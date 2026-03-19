@@ -22,25 +22,27 @@ def test_stage_finalize_success_projects_resume_compatibility() -> None:
     stage = orchestrator._ExecuteCommandFinalizeSuccessStage(
         execute_deps=cast(orchestrator.CommandEffects, SimpleNamespace()),
         aspf_trace_state=None,
-        analysis=cast(orchestrator.AnalysisResult, SimpleNamespace()),
-        root=".",
+        report_analysis_state=orchestrator.ReportAnalysisState(
+            analysis=cast(orchestrator.AnalysisResult, SimpleNamespace()),
+            root=".",
+            request_state=orchestrator.ReportRequestState(
+                report_path=None,
+                runtime_state=orchestrator.ReportRuntimeState(
+                    projection_state=orchestrator.ReportProjectionState(
+                        output_path=None,
+                        section_journal_path=Path("report_journal.json"),
+                        phase_checkpoint_path=None,
+                        projection_rows=(),
+                    ),
+                    checkpoint_state=orchestrator.ReportCheckpointState(),
+                ),
+            ),
+        ),
         paths=[],
         payload={},
         config=cast(orchestrator.AuditConfig, SimpleNamespace()),
         options=cast(orchestrator._ExecutionPayloadOptions, SimpleNamespace()),
         name_filter_bundle=cast(orchestrator.DataflowNameFilterBundle, SimpleNamespace()),
-        report_request_state=orchestrator.ReportRequestState(
-            report_path=None,
-            runtime_state=orchestrator.ReportRuntimeState(
-                projection_state=orchestrator.ReportProjectionState(
-                    output_path=None,
-                    section_journal_path=Path("report_journal.json"),
-                    phase_checkpoint_path=None,
-                    projection_rows=(),
-                ),
-                checkpoint_state=orchestrator.ReportCheckpointState(),
-            ),
-        ),
         analysis_resume_projection_state=orchestrator.AnalysisResumeProjectionState(
             compatibility_status="compatible",
         ),

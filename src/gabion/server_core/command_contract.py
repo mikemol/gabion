@@ -5,6 +5,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Mapping, Protocol
 
+from gabion.analysis.dataflow.engine.dataflow_contracts import AnalysisResult
 from gabion.json_types import JSONObject, JSONValue
 
 
@@ -90,6 +91,13 @@ class ReportRuntimeState:
 class ReportRequestState:
     report_path: object = None
     runtime_state: ReportRuntimeState = field(default_factory=ReportRuntimeState)
+
+
+@dataclass(frozen=True)
+class ReportAnalysisState:
+    analysis: AnalysisResult | None = None
+    root: str = "."
+    request_state: ReportRequestState = field(default_factory=ReportRequestState)
 
 
 class ProgressTraceStateContract(Protocol):

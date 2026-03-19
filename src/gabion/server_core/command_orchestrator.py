@@ -104,6 +104,7 @@ from gabion.order_contract import OrderPolicy, sort_once
 from gabion.plan import ExecutionPlan, write_execution_plan_artifact
 from gabion.schema import CanonicalProgressEventPayloadDTO, DataflowResponseEnvelopeDTO
 from gabion.server_core.command_contract import (
+    ReportAnalysisState,
     AnalysisResumeIntroState,
     AnalysisResumeInputState,
     AnalysisResumeProjectionState,
@@ -1575,11 +1576,9 @@ class _AuxiliaryArtifactOutputContext:
 
 @dataclass(frozen=True)
 class _ReportFinalizationContext:
-    analysis: AnalysisResult
     pattern_schema_instances: list[object]
-    root: str
+    report_analysis_state: ReportAnalysisState
     max_components: int
-    report_request_state: ReportRequestState
     analysis_resume_runtime_state: AnalysisResumeRuntimeState
     type_audit_report: bool
     baseline_path: Path | None
@@ -3212,21 +3211,25 @@ def _finalize_report_and_violations(
     *,
     context: _ReportFinalizationContext,
 ) -> _ReportFinalizationOutcome:
+    report_analysis_state = context.report_analysis_state
+    analysis = cast(AnalysisResult, report_analysis_state.analysis)
+    root = report_analysis_state.root
+    report_request_state = report_analysis_state.request_state
     report = None
     violations: list[str] = []
     effective_violations: list[str] | None = None
-    if context.report_request_state.report_path:
-        report_carrier = ReportCarrier.from_analysis_result(context.analysis)
+    if report_request_state.report_path:
+        report_carrier = ReportCarrier.from_analysis_result(analysis)
         report_markdown, _ = render_report(
-            context.analysis.groups_by_path,
+            analysis.groups_by_path,
             context.max_components,
-            project_root=Path(context.root),
+            project_root=Path(root),
             report=report_carrier,
         )
         resolved_sections_for_obligations = extract_report_sections(report_markdown)
         pending_projection_reasons = _pending_projection_reasons(
             projection_rows=list(
-                context.report_request_state.runtime_state.projection_state.projection_rows
+                report_request_state.runtime_state.projection_state.projection_rows
             ),
             resolved_sections=resolved_sections_for_obligations,
         )
@@ -3241,9 +3244,9 @@ def _finalize_report_and_violations(
                 context.analysis_resume_runtime_state.reused_files > 0
             ),
             partial_report_written=False,
-            report_requested=bool(context.report_request_state.report_path),
+            report_requested=bool(report_request_state.report_path),
             projection_rows=list(
-                context.report_request_state.runtime_state.projection_state.projection_rows
+                report_request_state.runtime_state.projection_state.projection_rows
             ),
             sections=resolved_sections_for_obligations,
             pending_reasons=pending_projection_reasons,
@@ -3253,9 +3256,9 @@ def _finalize_report_and_violations(
             report_carrier.incremental_report_obligations,
         ) = _split_incremental_obligations(runtime_obligations)
         report_markdown, violations = render_report(
-            context.analysis.groups_by_path,
+            analysis.groups_by_path,
             context.max_components,
-            project_root=Path(context.root),
+            project_root=Path(root),
             report=report_carrier,
         )
         report = report_markdown
@@ -3267,19 +3270,19 @@ def _finalize_report_and_violations(
             else:
                 effective_violations, _ = apply_baseline(violations, baseline_entries)
         if (
-            context.report_request_state.runtime_state.projection_state.output_path
-            and context.report_request_state.runtime_state.projection_state.projection_rows
+            report_request_state.runtime_state.projection_state.output_path
+            and report_request_state.runtime_state.projection_state.projection_rows
         ):
             resolved_sections = extract_report_sections(report_markdown)
             _write_report_section_journal(
-                path=context.report_request_state.runtime_state.projection_state.section_journal_path,
-                witness_digest=context.report_request_state.runtime_state.checkpoint_state.section_witness_digest,
+                path=report_request_state.runtime_state.projection_state.section_journal_path,
+                witness_digest=report_request_state.runtime_state.checkpoint_state.section_witness_digest,
                 projection_rows=list(
-                    context.report_request_state.runtime_state.projection_state.projection_rows
+                    report_request_state.runtime_state.projection_state.projection_rows
                 ),
                 sections=resolved_sections,
             )
-            context.report_request_state.runtime_state.checkpoint_state.phase_checkpoint_state[
+            report_request_state.runtime_state.checkpoint_state.phase_checkpoint_state[
                 "post"
             ] = {
                 "status": "final",
@@ -3291,12 +3294,12 @@ def _finalize_report_and_violations(
         if context.decision_snapshot_path:
             decision_payload = render_decision_snapshot(
                 surfaces=DecisionSnapshotSurfaces(
-                    decision_surfaces=context.analysis.decision_surfaces,
-                    value_decision_surfaces=context.analysis.value_decision_surfaces,
+                    decision_surfaces=analysis.decision_surfaces,
+                    value_decision_surfaces=analysis.value_decision_surfaces,
                 ),
-                forest=context.analysis.forest,
-                project_root=Path(context.root),
-                groups_by_path=context.analysis.groups_by_path,
+                forest=analysis.forest,
+                project_root=Path(root),
+                groups_by_path=analysis.groups_by_path,
                 pattern_schema_instances=context.pattern_schema_instances,
             )
             report = report + "\n" + json.dumps(
@@ -3304,10 +3307,10 @@ def _finalize_report_and_violations(
             )
         if context.structure_tree_path:
             structure_payload = render_structure_snapshot(
-                context.analysis.groups_by_path,
-                forest=context.analysis.forest,
-                project_root=Path(context.root),
-                invariant_propositions=context.analysis.invariant_propositions,
+                analysis.groups_by_path,
+                forest=analysis.forest,
+                project_root=Path(root),
+                invariant_propositions=analysis.invariant_propositions,
             )
             report = report + "\n" + json.dumps(
                 structure_payload, indent=2, sort_keys=False
@@ -3333,36 +3336,36 @@ def _finalize_report_and_violations(
         ):
             if context.refactor_plan_payload is not None:
                 report = report + render_refactor_plan(context.refactor_plan_payload)
-        if context.report_request_state.runtime_state.projection_state.output_path is not None:
-            context.report_request_state.runtime_state.projection_state.output_path.parent.mkdir(
+        if report_request_state.runtime_state.projection_state.output_path is not None:
+            report_request_state.runtime_state.projection_state.output_path.parent.mkdir(
                 parents=True, exist_ok=True
             )
             _write_text_profiled(
-                context.report_request_state.runtime_state.projection_state.output_path,
+                report_request_state.runtime_state.projection_state.output_path,
                 report,
                 io_name="report_markdown.write",
             )
     else:
         violation_carrier = ReportCarrier(
-            forest=context.analysis.forest,
+            forest=analysis.forest,
             type_suggestions=(
-                context.analysis.type_suggestions
+                analysis.type_suggestions
                 if context.type_audit_report
                 else []
             ),
             type_ambiguities=(
-                context.analysis.type_ambiguities
+                analysis.type_ambiguities
                 if context.type_audit_report
                 else []
             ),
-            decision_warnings=context.analysis.decision_warnings,
-            fingerprint_warnings=context.analysis.fingerprint_warnings,
-            parse_failure_witnesses=context.analysis.parse_failure_witnesses,
+            decision_warnings=analysis.decision_warnings,
+            fingerprint_warnings=analysis.fingerprint_warnings,
+            parse_failure_witnesses=analysis.parse_failure_witnesses,
         )
         violations = compute_violations(
-            context.analysis.groups_by_path,
+            analysis.groups_by_path,
             context.max_components,
-            project_root=Path(context.root),
+            project_root=Path(root),
             report=violation_carrier,
         )
         if context.baseline_path is not None:
@@ -3378,7 +3381,7 @@ def _finalize_report_and_violations(
         report=report,
         violations=violations,
         effective_violations=effective_violations,
-        report_runtime_state=context.report_request_state.runtime_state,
+        report_runtime_state=report_request_state.runtime_state,
     )
 
 
@@ -4303,14 +4306,12 @@ def _compute_analysis_inclusion_flags(
 class _SuccessResponseContext:
     execute_deps: ExecuteCommandDeps
     aspf_trace_state: object | None
-    analysis: AnalysisResult
-    root: str
+    report_analysis_state: ReportAnalysisState
     paths: list[Path]
     payload: Mapping[str, object]
     config: AuditConfig
     options: _ExecutionPayloadOptions
     name_filter_bundle: DataflowNameFilterBundle
-    report_request_state: ReportRequestState
     analysis_resume_projection_state: AnalysisResumeProjectionState
     analysis_resume_manifest_digest: str | None
     profiling_stage_ns: dict[str, int]
@@ -4358,14 +4359,12 @@ class _ExecuteCommandIngressStage:
 class _ExecuteCommandFinalizeSuccessStage:
     execute_deps: ExecuteCommandDeps
     aspf_trace_state: object | None
-    analysis: AnalysisResult
-    root: str
+    report_analysis_state: ReportAnalysisState
     paths: list[Path]
     payload: Mapping[str, object]
     config: AuditConfig
     options: _ExecutionPayloadOptions
     name_filter_bundle: DataflowNameFilterBundle
-    report_request_state: ReportRequestState
     analysis_resume_projection_state: AnalysisResumeProjectionState
     analysis_resume_manifest_digest: str | None
     profiling_stage_ns: dict[str, int]
@@ -4396,7 +4395,10 @@ def _build_success_response(
     *,
     context: _SuccessResponseContext,
 ) -> _SuccessResponseOutcome:
-    analysis = context.analysis
+    report_analysis_state = context.report_analysis_state
+    analysis = cast(AnalysisResult, report_analysis_state.analysis)
+    root = report_analysis_state.root
+    report_request_state = report_analysis_state.request_state
     response: dict = {
         "type_suggestions": analysis.type_suggestions,
         "type_ambiguities": analysis.type_ambiguities,
@@ -4483,7 +4485,7 @@ def _build_success_response(
         context=_PrimaryOutputContext(
             analysis=analysis,
             pattern_schema_instances=pattern_schema_instances,
-            root=context.root,
+            root=root,
             paths=context.paths,
             payload=context.payload,
             config=context.config,
@@ -4531,7 +4533,7 @@ def _build_success_response(
         context=_AuxiliaryArtifactOutputContext(
             response=response,
             analysis=analysis,
-            root=context.root,
+            root=root,
             paths=context.paths,
             config=context.config,
             name_filter_bundle=context.name_filter_bundle,
@@ -4590,11 +4592,9 @@ def _build_success_response(
         }
     report_outcome = _finalize_report_and_violations(
         context=_ReportFinalizationContext(
-            analysis=analysis,
             pattern_schema_instances=pattern_schema_instances,
-            root=context.root,
+            report_analysis_state=report_analysis_state,
             max_components=context.options.max_components,
-            report_request_state=context.report_request_state,
             analysis_resume_runtime_state=(
                 context.analysis_resume_projection_state.runtime_state
             ),
@@ -4617,7 +4617,7 @@ def _build_success_response(
     report = report_outcome.report
     effective_violations = report_outcome.effective_violations
     report_request_state = ReportRequestState(
-        report_path=context.report_request_state.report_path,
+        report_path=report_request_state.report_path,
         runtime_state=report_outcome.report_runtime_state,
     )
     if context.options.dot_path and analysis.forest is not None:
@@ -4664,7 +4664,7 @@ def _build_success_response(
     )
     trace_artifacts = context.execute_deps.progress.finalize_trace_fn(
         state=context.aspf_trace_state,
-        root=Path(context.root),
+        root=Path(root),
         semantic_surface_payloads={
             "groups_by_path": analysis.groups_by_path,
             "decision_surfaces": analysis.decision_surfaces,
@@ -4758,7 +4758,10 @@ def _build_success_response(
             _ = identity_seed_unavailable
     return _SuccessResponseOutcome(
         response=_normalize_dataflow_response(response),
-        report_request_state=report_request_state,
+        report_request_state=ReportRequestState(
+            report_path=report_request_state.report_path,
+            runtime_state=report_request_state.runtime_state,
+        ),
     )
 
 
@@ -4851,14 +4854,12 @@ def _stage_finalize_success(
         context=_SuccessResponseContext(
             execute_deps=stage.execute_deps,
             aspf_trace_state=stage.aspf_trace_state,
-            analysis=stage.analysis,
-            root=stage.root,
+            report_analysis_state=stage.report_analysis_state,
             paths=stage.paths,
             payload=stage.payload,
             config=stage.config,
             options=stage.options,
             name_filter_bundle=stage.name_filter_bundle,
-            report_request_state=stage.report_request_state,
             analysis_resume_projection_state=AnalysisResumeProjectionState(
                 runtime_state=stage.analysis_resume_projection_state.runtime_state,
                 source=stage.analysis_resume_projection_state.source,
@@ -5444,14 +5445,16 @@ def execute_command_total(
             stage=_ExecuteCommandFinalizeSuccessStage(
                 execute_deps=execute_deps,
                 aspf_trace_state=aspf_trace_state,
-                analysis=analysis,
-                root=str(root),
+                report_analysis_state=ReportAnalysisState(
+                    analysis=analysis,
+                    root=str(root),
+                    request_state=report_request_state,
+                ),
                 paths=paths,
                 payload=payload,
                 config=config,
                 options=options,
                 name_filter_bundle=name_filter_bundle,
-                report_request_state=report_request_state,
                 analysis_resume_projection_state=analysis_resume_projection_state,
                 analysis_resume_manifest_digest=analysis_resume_input_state.manifest_digest,
                 profiling_stage_ns=profiling_stage_ns,

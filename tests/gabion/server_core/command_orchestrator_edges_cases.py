@@ -221,22 +221,24 @@ def test_finalize_report_refactor_enabled_without_payload_keeps_report_stable(
     orchestrator._bind_server_symbols()
     outcome = orchestrator._finalize_report_and_violations(
         context=orchestrator._ReportFinalizationContext(
-            analysis=_empty_analysis_result(),
             pattern_schema_instances=[],
-            root=str(tmp_path),
-            max_components=1,
-            report_request_state=orchestrator.ReportRequestState(
-                report_path=True,
-                runtime_state=orchestrator.ReportRuntimeState(
-                    projection_state=orchestrator.ReportProjectionState(
-                        output_path=None,
-                        section_journal_path=tmp_path / "sections.json",
-                        phase_checkpoint_path=tmp_path / "phase.json",
-                        projection_rows=(),
+            report_analysis_state=orchestrator.ReportAnalysisState(
+                analysis=_empty_analysis_result(),
+                root=str(tmp_path),
+                request_state=orchestrator.ReportRequestState(
+                    report_path=True,
+                    runtime_state=orchestrator.ReportRuntimeState(
+                        projection_state=orchestrator.ReportProjectionState(
+                            output_path=None,
+                            section_journal_path=tmp_path / "sections.json",
+                            phase_checkpoint_path=tmp_path / "phase.json",
+                            projection_rows=(),
+                        ),
+                        checkpoint_state=orchestrator.ReportCheckpointState(),
                     ),
-                    checkpoint_state=orchestrator.ReportCheckpointState(),
                 ),
             ),
+            max_components=1,
             analysis_resume_runtime_state=orchestrator.AnalysisResumeRuntimeState(),
             type_audit_report=False,
             baseline_path=None,
@@ -315,22 +317,24 @@ def test_finalize_report_without_report_path_applies_baseline(tmp_path: Path) ->
     baseline_path = tmp_path / "baseline.txt"
     baseline_path.write_text("sample violation\n", encoding="utf-8")
     context = orchestrator._ReportFinalizationContext(
-        analysis=_empty_analysis_result(),
         pattern_schema_instances=[],
-        root=str(tmp_path),
-        max_components=1,
-        report_request_state=orchestrator.ReportRequestState(
-            report_path=False,
-            runtime_state=orchestrator.ReportRuntimeState(
-                projection_state=orchestrator.ReportProjectionState(
-                    output_path=None,
-                    section_journal_path=tmp_path / "sections.json",
-                    phase_checkpoint_path=tmp_path / "phase.json",
-                    projection_rows=(),
+        report_analysis_state=orchestrator.ReportAnalysisState(
+            analysis=_empty_analysis_result(),
+            root=str(tmp_path),
+            request_state=orchestrator.ReportRequestState(
+                report_path=False,
+                runtime_state=orchestrator.ReportRuntimeState(
+                    projection_state=orchestrator.ReportProjectionState(
+                        output_path=None,
+                        section_journal_path=tmp_path / "sections.json",
+                        phase_checkpoint_path=tmp_path / "phase.json",
+                        projection_rows=(),
+                    ),
+                    checkpoint_state=orchestrator.ReportCheckpointState(),
                 ),
-                checkpoint_state=orchestrator.ReportCheckpointState(),
             ),
         ),
+        max_components=1,
         analysis_resume_runtime_state=orchestrator.AnalysisResumeRuntimeState(),
         type_audit_report=False,
         baseline_path=baseline_path,

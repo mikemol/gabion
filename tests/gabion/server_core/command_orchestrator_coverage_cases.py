@@ -851,8 +851,22 @@ def test_build_success_response_emits_analysis_resume_block_when_resume_source_p
     context = orchestrator._SuccessResponseContext(
         execute_deps=server._default_execute_command_deps(),
         aspf_trace_state=None,
-        analysis=_empty_analysis_result(),
-        root=str(tmp_path),
+        report_analysis_state=orchestrator.ReportAnalysisState(
+            analysis=_empty_analysis_result(),
+            root=str(tmp_path),
+            request_state=orchestrator.ReportRequestState(
+                report_path=False,
+                runtime_state=orchestrator.ReportRuntimeState(
+                    projection_state=orchestrator.ReportProjectionState(
+                        output_path=None,
+                        section_journal_path=tmp_path / "sections.json",
+                        phase_checkpoint_path=tmp_path / "phase.json",
+                        projection_rows=(),
+                    ),
+                    checkpoint_state=orchestrator.ReportCheckpointState(),
+                ),
+            ),
+        ),
         paths=[],
         payload={},
         config=orchestrator.AuditConfig(project_root=tmp_path),
@@ -862,18 +876,6 @@ def test_build_success_response_emits_analysis_resume_block_when_resume_source_p
             ignore_params=set(),
             decision_ignore_params=set(),
             transparent_decorators=set(),
-        ),
-        report_request_state=orchestrator.ReportRequestState(
-            report_path=False,
-            runtime_state=orchestrator.ReportRuntimeState(
-                projection_state=orchestrator.ReportProjectionState(
-                    output_path=None,
-                    section_journal_path=tmp_path / "sections.json",
-                    phase_checkpoint_path=tmp_path / "phase.json",
-                    projection_rows=(),
-                ),
-                checkpoint_state=orchestrator.ReportCheckpointState(),
-            ),
         ),
         analysis_resume_projection_state=orchestrator.AnalysisResumeProjectionState(
             runtime_state=orchestrator.AnalysisResumeRuntimeState(
