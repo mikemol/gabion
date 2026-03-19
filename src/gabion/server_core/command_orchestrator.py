@@ -112,6 +112,7 @@ from gabion.server_core.command_contract import (
     CollectionResumeProgressState,
     CommandRuntimeInput,
     CommandRuntimeState,
+    ReportCheckpointState,
 )
 from gabion.server_core.command_effects import CommandEffects
 from gabion.server_core.command_reducers import (
@@ -1579,9 +1580,9 @@ class _ReportFinalizationContext:
     report_output_path: Path | None
     projection_rows: list[JSONObject]
     report_section_journal_path: Path
-    report_section_witness_digest: str | None
     report_phase_checkpoint_path: Path | None
     analysis_resume_runtime_state: AnalysisResumeRuntimeState
+    report_checkpoint_state: ReportCheckpointState
     type_audit_report: bool
     baseline_path: Path | None
     baseline_write: bool
@@ -1603,7 +1604,7 @@ class _ReportFinalizationOutcome:
     report: str | None
     violations: list[str]
     effective_violations: list[str]
-    phase_checkpoint_state: JSONObject
+    report_checkpoint_state: ReportCheckpointState
 
 
 def _projection_row_section_id(row: JSONObject) -> str:
@@ -1652,8 +1653,7 @@ class _TimeoutCleanupContext:
     projection_rows: list[JSONObject]
     report_phase_checkpoint_path: Path | None
     report_section_journal_path: Path
-    report_section_witness_digest: str | None
-    phase_checkpoint_state: JSONObject
+    report_checkpoint_state: ReportCheckpointState
     enable_phase_projection_checkpoints: bool
     forest: Forest
     analysis_resume_intro_state: AnalysisResumeIntroState
@@ -1720,9 +1720,8 @@ class _AnalysisExecutionContext:
     report_output_path: Path | None
     projection_rows: list[JSONObject]
     report_section_journal_path: Path
-    report_section_witness_digest: str | None
     report_phase_checkpoint_path: Path | None
-    phase_checkpoint_state: JSONObject
+    report_checkpoint_state: ReportCheckpointState
     profile_enabled: bool
     emit_phase_progress_events: bool
     fingerprint_deadness_json: object
@@ -1751,8 +1750,7 @@ class _AnalysisResumePreparationState:
     analysis_resume_projection_state: AnalysisResumeProjectionState
     analysis_resume_input_state: AnalysisResumeInputState
     analysis_resume_intro_state: AnalysisResumeIntroState
-    report_section_witness_digest: str | None
-    phase_checkpoint_state: JSONObject
+    report_checkpoint_state: ReportCheckpointState
     collection_resume_progress_state: CollectionResumeProgressState
 
 
@@ -1945,12 +1943,18 @@ def _prepare_analysis_resume_state(
                 source=state.analysis_resume_projection_state.source,
                 compatibility_status="cold_start",
             )
-        state.report_section_witness_digest = _report_witness_digest(
+        state.report_checkpoint_state = ReportCheckpointState(
+            section_witness_digest=_report_witness_digest(
             input_witness=state.analysis_resume_input_state.input_witness,
             manifest_digest=state.analysis_resume_input_state.manifest_digest,
+            ),
+            phase_checkpoint_state=state.report_checkpoint_state.phase_checkpoint_state,
         )
         if report_output_path is not None:
-            state.phase_checkpoint_state = {}
+            state.report_checkpoint_state = ReportCheckpointState(
+                section_witness_digest=state.report_checkpoint_state.section_witness_digest,
+                phase_checkpoint_state={},
+            )
     collection_resume = cast(Mapping[str, object], collection_resume_payload or {})
     raw_semantic_progress = cast(
         Mapping[str, object], collection_resume.get("semantic_progress", {})
@@ -2152,13 +2156,13 @@ def _run_analysis_with_progress(
             )
             _write_report_section_journal(
                 path=context.report_section_journal_path,
-                witness_digest=context.report_section_witness_digest,
+                witness_digest=context.report_checkpoint_state.section_witness_digest,
                 projection_rows=context.projection_rows,
                 sections=sections,
                 pending_reasons=pending_reasons,
             )
             context.clear_report_sections_cache_reason_fn()
-            context.phase_checkpoint_state["collection"] = {
+            context.report_checkpoint_state.phase_checkpoint_state["collection"] = {
                 "status": "checkpointed",
                 "work_done": collection_progress["completed_files"],
                 "work_total": collection_progress["total_files"],
@@ -2308,13 +2312,13 @@ def _run_analysis_with_progress(
                     )
                     _write_report_section_journal(
                         path=context.report_section_journal_path,
-                        witness_digest=context.report_section_witness_digest,
+                        witness_digest=context.report_checkpoint_state.section_witness_digest,
                         projection_rows=context.projection_rows,
                         sections=sections,
                         pending_reasons=pending_reasons,
                     )
                     context.clear_report_sections_cache_reason_fn()
-                    context.phase_checkpoint_state[phase] = {
+                    context.report_checkpoint_state.phase_checkpoint_state[phase] = {
                         "status": "checkpointed",
                         "work_done": int(work_done),
                         "work_total": int(work_total),
@@ -3184,7 +3188,6 @@ def _emit_fingerprint_artifact_outputs(
 def _finalize_report_and_violations(
     *,
     context: _ReportFinalizationContext,
-    phase_checkpoint_state: JSONObject,
 ) -> _ReportFinalizationOutcome:
     report = None
     violations: list[str] = []
@@ -3240,11 +3243,11 @@ def _finalize_report_and_violations(
             resolved_sections = extract_report_sections(report_markdown)
             _write_report_section_journal(
                 path=context.report_section_journal_path,
-                witness_digest=context.report_section_witness_digest,
+                witness_digest=context.report_checkpoint_state.section_witness_digest,
                 projection_rows=context.projection_rows,
                 sections=resolved_sections,
             )
-            phase_checkpoint_state["post"] = {
+            context.report_checkpoint_state.phase_checkpoint_state["post"] = {
                 "status": "final",
                 "work_done": 1,
                 "work_total": 1,
@@ -3339,7 +3342,7 @@ def _finalize_report_and_violations(
         report=report,
         violations=violations,
         effective_violations=effective_violations,
-        phase_checkpoint_state=phase_checkpoint_state,
+        report_checkpoint_state=context.report_checkpoint_state,
     )
 
 
@@ -3613,7 +3616,7 @@ def _render_timeout_partial_report(
             )
             _write_report_section_journal(
                 path=context.report_section_journal_path,
-                witness_digest=context.report_section_witness_digest,
+                witness_digest=context.report_checkpoint_state.section_witness_digest,
                 projection_rows=context.projection_rows,
                 sections=resolved_sections,
                 pending_reasons=pending_reasons,
@@ -3648,7 +3651,7 @@ def _handle_timeout_cleanup(
         Deadline(deadline_ns=cleanup_now_ns + max(1, cleanup_window_ns))
     )
     cleanup_timeout_steps: list[str] = []
-    phase_checkpoint_state = context.phase_checkpoint_state
+    phase_checkpoint_state = context.report_checkpoint_state.phase_checkpoint_state
     ensure_report_sections_cache = context.ensure_report_sections_cache_fn
     emit_lsp_progress = context.emit_lsp_progress_fn
 
@@ -4259,14 +4262,13 @@ class _SuccessResponseContext:
     report_path: object
     report_output_path: Path | None
     report_section_journal_path: Path
-    report_section_witness_digest: str | None
     report_phase_checkpoint_path: Path | None
     projection_rows: list[JSONObject]
     analysis_resume_projection_state: AnalysisResumeProjectionState
     analysis_resume_manifest_digest: str | None
     profiling_stage_ns: dict[str, int]
     profiling_counters: dict[str, int]
-    phase_checkpoint_state: JSONObject
+    report_checkpoint_state: ReportCheckpointState
     execution_plan: ExecutionPlan
     collection_progress_runtime_state: CollectionProgressRuntimeState
     emit_lsp_progress_fn: Callable[..., None]
@@ -4277,7 +4279,7 @@ class _SuccessResponseContext:
 @dataclass(frozen=True)
 class _SuccessResponseOutcome:
     response: DataflowResponseEnvelopeDTO
-    phase_checkpoint_state: JSONObject
+    report_checkpoint_state: ReportCheckpointState
 
 
 
@@ -4320,14 +4322,13 @@ class _ExecuteCommandFinalizeSuccessStage:
     report_path: object
     report_output_path: Path | None
     report_section_journal_path: Path
-    report_section_witness_digest: str | None
     report_phase_checkpoint_path: Path | None
     projection_rows: list[JSONObject]
     analysis_resume_projection_state: AnalysisResumeProjectionState
     analysis_resume_manifest_digest: str | None
     profiling_stage_ns: dict[str, int]
     profiling_counters: dict[str, int]
-    phase_checkpoint_state: JSONObject
+    report_checkpoint_state: ReportCheckpointState
     execution_plan: ExecutionPlan
     collection_progress_runtime_state: CollectionProgressRuntimeState
     emit_lsp_progress_fn: Callable[..., None]
@@ -4556,11 +4557,11 @@ def _build_success_response(
             report_output_path=context.report_output_path,
             projection_rows=context.projection_rows,
             report_section_journal_path=context.report_section_journal_path,
-            report_section_witness_digest=context.report_section_witness_digest,
             report_phase_checkpoint_path=context.report_phase_checkpoint_path,
             analysis_resume_runtime_state=(
                 context.analysis_resume_projection_state.runtime_state
             ),
+            report_checkpoint_state=context.report_checkpoint_state,
             type_audit_report=context.options.type_audit_report,
             baseline_path=context.options.baseline_path,
             baseline_write=context.options.baseline_write,
@@ -4576,11 +4577,10 @@ def _build_success_response(
             refactor_plan_json=context.options.refactor_plan_json,
             refactor_plan_payload=plan_payload,
         ),
-        phase_checkpoint_state=context.phase_checkpoint_state,
     )
     report = report_outcome.report
     effective_violations = report_outcome.effective_violations
-    phase_checkpoint_state = report_outcome.phase_checkpoint_state
+    report_checkpoint_state = report_outcome.report_checkpoint_state
     if context.options.dot_path and analysis.forest is not None:
         dot_payload = render_dot(analysis.forest)
         if _is_stdout_target(context.options.dot_path):
@@ -4719,7 +4719,7 @@ def _build_success_response(
             _ = identity_seed_unavailable
     return _SuccessResponseOutcome(
         response=_normalize_dataflow_response(response),
-        phase_checkpoint_state=phase_checkpoint_state,
+        report_checkpoint_state=report_checkpoint_state,
     )
 
 
@@ -4822,7 +4822,6 @@ def _stage_finalize_success(
             report_path=stage.report_path,
             report_output_path=stage.report_output_path,
             report_section_journal_path=stage.report_section_journal_path,
-            report_section_witness_digest=stage.report_section_witness_digest,
             report_phase_checkpoint_path=stage.report_phase_checkpoint_path,
             projection_rows=stage.projection_rows,
             analysis_resume_projection_state=AnalysisResumeProjectionState(
@@ -4835,7 +4834,7 @@ def _stage_finalize_success(
             analysis_resume_manifest_digest=stage.analysis_resume_manifest_digest,
             profiling_stage_ns=stage.profiling_stage_ns,
             profiling_counters=stage.profiling_counters,
-            phase_checkpoint_state=stage.phase_checkpoint_state,
+            report_checkpoint_state=stage.report_checkpoint_state,
             execution_plan=stage.execution_plan,
             collection_progress_runtime_state=stage.collection_progress_runtime_state,
             emit_lsp_progress_fn=stage.emit_lsp_progress_fn,
@@ -4953,7 +4952,7 @@ def execute_command_total(
     analysis_resume_projection_state = AnalysisResumeProjectionState()
     analysis_resume_input_state = AnalysisResumeInputState()
     analysis_resume_intro_state = AnalysisResumeIntroState()
-    report_section_witness_digest: str | None = None
+    report_checkpoint_state = ReportCheckpointState()
     report_output_path = _resolve_report_output_path(
         root=runtime_input.root,
         report_path=runtime_input.report_path_text,
@@ -4967,7 +4966,6 @@ def execute_command_total(
         execute_deps.analysis.report_projection_spec_rows_fn() if report_output_path else []
     )
     enable_phase_projection_checkpoints = False
-    phase_checkpoint_state: JSONObject = {}
     collection_resume_progress_state = CollectionResumeProgressState()
     report_sections_cache: dict[str, list[str]] = {}
     report_sections_cache_reason: str | None = None
@@ -5007,7 +5005,7 @@ def execute_command_total(
             report_sections_cache, report_sections_cache_reason = (
                 execute_deps.output.load_report_section_journal_fn(
                 path=report_section_journal_path,
-                witness_digest=report_section_witness_digest,
+                witness_digest=report_checkpoint_state.section_witness_digest,
                 )
             )
             report_sections_cache_loaded = True
@@ -5023,11 +5021,11 @@ def execute_command_total(
         report_output_path=report_output_path,
         report_section_journal_path=report_section_journal_path,
         report_phase_checkpoint_path=report_phase_checkpoint_path,
-        witness_digest=report_section_witness_digest,
+        witness_digest=report_checkpoint_state.section_witness_digest,
         root=runtime_input.root,
         paths_requested=initial_paths_count_value,
         projection_rows=projection_rows,
-        phase_checkpoint_state=phase_checkpoint_state,
+        phase_checkpoint_state=report_checkpoint_state.phase_checkpoint_state,
     )
     try:
         root = payload.get("root") or ls.workspace.root_path or "."
@@ -5235,8 +5233,7 @@ def execute_command_total(
             analysis_resume_projection_state=analysis_resume_projection_state,
             analysis_resume_input_state=analysis_resume_input_state,
             analysis_resume_intro_state=analysis_resume_intro_state,
-            report_section_witness_digest=report_section_witness_digest,
-            phase_checkpoint_state=phase_checkpoint_state,
+            report_checkpoint_state=report_checkpoint_state,
             collection_resume_progress_state=(
                 collection_progress_runtime_state.collection_resume_progress_state
             ),
@@ -5262,8 +5259,7 @@ def execute_command_total(
         )
         analysis_resume_input_state = analysis_resume_state.analysis_resume_input_state
         analysis_resume_intro_state = analysis_resume_state.analysis_resume_intro_state
-        report_section_witness_digest = analysis_resume_state.report_section_witness_digest
-        phase_checkpoint_state = analysis_resume_state.phase_checkpoint_state
+        report_checkpoint_state = analysis_resume_state.report_checkpoint_state
         collection_progress_runtime_state = CollectionProgressRuntimeState(
             collection_resume_progress_state=(
                 analysis_resume_state.collection_resume_progress_state
@@ -5353,9 +5349,8 @@ def execute_command_total(
                     report_output_path=report_output_path,
                     projection_rows=projection_rows,
                     report_section_journal_path=report_section_journal_path,
-                    report_section_witness_digest=report_section_witness_digest,
+                    report_checkpoint_state=report_checkpoint_state,
                     report_phase_checkpoint_path=report_phase_checkpoint_path,
-                    phase_checkpoint_state=phase_checkpoint_state,
                     profile_enabled=profile_enabled,
                     emit_phase_progress_events=emit_phase_progress_events,
                     fingerprint_deadness_json=fingerprint_deadness_json,
@@ -5404,14 +5399,13 @@ def execute_command_total(
                 report_path=report_path,
                 report_output_path=report_output_path,
                 report_section_journal_path=report_section_journal_path,
-                report_section_witness_digest=report_section_witness_digest,
+                report_checkpoint_state=report_checkpoint_state,
                 report_phase_checkpoint_path=report_phase_checkpoint_path,
                 projection_rows=projection_rows,
                 analysis_resume_projection_state=analysis_resume_projection_state,
                 analysis_resume_manifest_digest=analysis_resume_input_state.manifest_digest,
                 profiling_stage_ns=profiling_stage_ns,
                 profiling_counters=profiling_counters,
-                phase_checkpoint_state=phase_checkpoint_state,
                 execution_plan=execution_plan,
                 collection_progress_runtime_state=collection_progress_runtime_state,
                 emit_lsp_progress_fn=_emit_lsp_progress,
@@ -5419,7 +5413,7 @@ def execute_command_total(
                 identity_shadow_runtime=identity_shadow_runtime,
             )
         )
-        phase_checkpoint_state = success_outcome.phase_checkpoint_state
+        report_checkpoint_state = success_outcome.report_checkpoint_state
         return success_outcome.response
     except TimeoutExceeded as exc:
         return _stage_finalize_timeout(
@@ -5440,8 +5434,7 @@ def execute_command_total(
                 projection_rows=projection_rows,
                 report_phase_checkpoint_path=report_phase_checkpoint_path,
                 report_section_journal_path=report_section_journal_path,
-                report_section_witness_digest=report_section_witness_digest,
-                phase_checkpoint_state=phase_checkpoint_state,
+                report_checkpoint_state=report_checkpoint_state,
                 enable_phase_projection_checkpoints=enable_phase_projection_checkpoints,
                 forest=forest,
                 analysis_resume_intro_state=analysis_resume_intro_state,

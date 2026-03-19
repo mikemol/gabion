@@ -66,6 +66,12 @@ class AnalysisResumeIntroState:
     timeline_row: str | None = None
 
 
+@dataclass(frozen=True)
+class ReportCheckpointState:
+    section_witness_digest: str | None = None
+    phase_checkpoint_state: JSONObject = field(default_factory=dict)
+
+
 class ProgressTraceStateContract(Protocol):
     """Opaque progress trace state transported across progress hooks."""
 

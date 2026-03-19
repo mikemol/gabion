@@ -14,7 +14,10 @@ def test_stage_finalize_success_projects_resume_compatibility() -> None:
 
     def _fake_build_success_response(*, context: object) -> orchestrator._SuccessResponseOutcome:
         captured["context"] = context
-        return orchestrator._SuccessResponseOutcome(response={"ok": True}, phase_checkpoint_state={})
+        return orchestrator._SuccessResponseOutcome(
+            response={"ok": True},
+            report_checkpoint_state=orchestrator.ReportCheckpointState(),
+        )
 
     stage = orchestrator._ExecuteCommandFinalizeSuccessStage(
         execute_deps=cast(orchestrator.CommandEffects, SimpleNamespace()),
@@ -29,7 +32,6 @@ def test_stage_finalize_success_projects_resume_compatibility() -> None:
         report_path=None,
         report_output_path=None,
         report_section_journal_path=Path("report_journal.json"),
-        report_section_witness_digest=None,
         report_phase_checkpoint_path=None,
         projection_rows=[],
         analysis_resume_projection_state=orchestrator.AnalysisResumeProjectionState(
@@ -38,7 +40,7 @@ def test_stage_finalize_success_projects_resume_compatibility() -> None:
         analysis_resume_manifest_digest=None,
         profiling_stage_ns={},
         profiling_counters={},
-        phase_checkpoint_state={},
+        report_checkpoint_state=orchestrator.ReportCheckpointState(),
         execution_plan=cast(orchestrator.ExecutionPlan, SimpleNamespace()),
         collection_progress_runtime_state=orchestrator.CollectionProgressRuntimeState(),
         emit_lsp_progress_fn=lambda **_kwargs: None,
