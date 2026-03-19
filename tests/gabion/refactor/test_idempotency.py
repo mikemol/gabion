@@ -65,7 +65,7 @@ def test_refactor_idempotency(tmp_path: Path) -> None:
         protocol_name="BundleProtocol",
         bundle=list(bundle),
         fields=[FieldSpec(name=name, type_hint="int") for name in bundle],
-        target_path=str(file_path),
+        target_path=file_path,
         target_functions=["g"],
         rationale="Idempotency test",
     )

@@ -38,7 +38,7 @@ def test_loop_generator_rewrite_emits_ops_and_filter(tmp_path: Path) -> None:
 
     plan = RefactorEngine(project_root=tmp_path).plan_loop_generator_rewrite(
         LoopGeneratorRequest(
-            target_path=str(target),
+            target_path=target,
             target_functions=["apply"],
         )
     )
@@ -75,7 +75,7 @@ def test_loop_generator_rewrite_supports_binary_reducer_form(tmp_path: Path) -> 
 
     plan = RefactorEngine(project_root=tmp_path).plan_loop_generator_rewrite(
         LoopGeneratorRequest(
-            target_path=str(target),
+            target_path=target,
             target_functions=["reduce_only"],
         )
     )
@@ -106,7 +106,7 @@ def test_loop_generator_rewrite_rejects_break_without_edits(tmp_path: Path) -> N
 
     plan = RefactorEngine(project_root=tmp_path).plan_loop_generator_rewrite(
         LoopGeneratorRequest(
-            target_path=str(target),
+            target_path=target,
             target_functions=["bad"],
         )
     )
@@ -134,7 +134,7 @@ def test_loop_generator_rewrite_is_idempotent_on_second_pass(tmp_path: Path) -> 
         encoding="utf-8",
     )
     engine = RefactorEngine(project_root=tmp_path)
-    request = LoopGeneratorRequest(target_path=str(target), target_functions=["apply"])
+    request = LoopGeneratorRequest(target_path=target, target_functions=["apply"])
     first = engine.plan_loop_generator_rewrite(request)
     assert first.outcome == RefactorPlanOutcome.APPLIED
     target.write_text(first.edits[0].replacement, encoding="utf-8")
@@ -176,7 +176,7 @@ def test_loop_generator_reference_equivalence_collection_ops(tmp_path: Path) -> 
 
     plan = RefactorEngine(project_root=tmp_path).plan_loop_generator_rewrite(
         LoopGeneratorRequest(
-            target_path=str(target),
+            target_path=target,
             target_functions=["apply"],
         )
     )
@@ -224,7 +224,7 @@ def test_loop_generator_nested_peeling_with_repeated_invocation(tmp_path: Path) 
         encoding="utf-8",
     )
     engine = RefactorEngine(project_root=tmp_path)
-    request = LoopGeneratorRequest(target_path=str(target), target_functions=["nested"])
+    request = LoopGeneratorRequest(target_path=target, target_functions=["nested"])
 
     first = engine.plan_loop_generator_rewrite(request)
     assert first.outcome == RefactorPlanOutcome.APPLIED
@@ -258,7 +258,7 @@ def test_loop_generator_partial_apply_mixed_success_and_failure(tmp_path: Path) 
     )
     plan = RefactorEngine(project_root=tmp_path).plan_loop_generator_rewrite(
         LoopGeneratorRequest(
-            target_path=str(target),
+            target_path=target,
             target_functions=["good", "bad"],
         )
     )
@@ -287,7 +287,7 @@ def test_loop_generator_nested_target_loop_line_selection(tmp_path: Path) -> Non
 
     select_inner = engine.plan_loop_generator_rewrite(
         LoopGeneratorRequest(
-            target_path=str(target),
+            target_path=target,
             target_functions=["nested"],
             target_loop_lines=[3],
         )
@@ -296,7 +296,7 @@ def test_loop_generator_nested_target_loop_line_selection(tmp_path: Path) -> Non
 
     select_outer = engine.plan_loop_generator_rewrite(
         LoopGeneratorRequest(
-            target_path=str(target),
+            target_path=target,
             target_functions=["nested"],
             target_loop_lines=[2],
         )
@@ -306,7 +306,7 @@ def test_loop_generator_nested_target_loop_line_selection(tmp_path: Path) -> Non
 
     select_missing = engine.plan_loop_generator_rewrite(
         LoopGeneratorRequest(
-            target_path=str(target),
+            target_path=target,
             target_functions=["nested"],
             target_loop_lines=[999],
         )

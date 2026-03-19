@@ -12,7 +12,7 @@ from libcst import metadata as cst_metadata
 from libcst import matchers as cst_matchers
 
 from gabion.analysis.foundation.timeout_context import check_deadline
-from gabion.invariants import never
+from gabion.invariants import grade_boundary, never
 import gabion.refactor.cst_shared as cst_shared
 from gabion.refactor.model import (
     LoopGeneratorRequest,
@@ -2321,15 +2321,16 @@ def _append_not_found_rewrite(
     )
 
 
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="refactor.loop_generator_request_ingress",
+)
 def plan_loop_generator_rewrite(
     *,
     request: LoopGeneratorRequest,
-    project_root = None,
 ) -> RefactorPlan:
     check_deadline()
-    path = Path(request.target_path)
-    if project_root is not None and not path.is_absolute():
-        path = project_root / path
+    path = request.target_path
     targets = set(
         filter(
             bool,

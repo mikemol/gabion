@@ -1640,14 +1640,20 @@ def _execute_refactor_total(ls: LanguageServer, payload: dict[str, object]) -> d
         except ValidationError as exc:
             return RefactorProtocolResponseDTO(errors=[str(exc)]).model_dump()
 
-        project_root = None
-        if ls.workspace.root_path:
-            project_root = Path(ls.workspace.root_path)
+        if not ls.workspace.root_path:
+            return RefactorProtocolResponseDTO(
+                errors=["execute_refactor requires explicit workspace root_path"]
+            ).model_dump()
+        project_root = Path(ls.workspace.root_path)
+        normalized_target_path = _normalize_refactor_target_path(
+            target_path=request.target_path,
+            project_root=project_root,
+        )
         engine = RefactorEngine(project_root=project_root)
         if request.kind == "loop_generator":
             plan = engine.plan_loop_generator_rewrite(
                 LoopGeneratorRequestModel(
-                    target_path=request.target_path,
+                    target_path=normalized_target_path,
                     target_functions=list(request.target_functions),
                     target_loop_lines=list(request.target_loop_lines),
                     rationale=request.rationale or "",
@@ -1675,7 +1681,7 @@ def _execute_refactor_total(ls: LanguageServer, payload: dict[str, object]) -> d
                         FieldSpec(name=field.name, type_hint=field.type_hint)
                         for field in request.fields or []
                     ],
-                    target_path=request.target_path,
+                    target_path=normalized_target_path,
                     target_functions=request.target_functions,
                     compatibility_shim=normalized_shim,
                     ambient_rewrite=request.ambient_rewrite,
@@ -1708,6 +1714,13 @@ def _execute_refactor_total(ls: LanguageServer, payload: dict[str, object]) -> d
             errors=plan.errors,
         )
         return response.model_dump()
+
+
+def _normalize_refactor_target_path(*, target_path: str, project_root: Path) -> Path:
+    path = Path(target_path)
+    if path.is_absolute():
+        return path
+    return project_root / path
 
 
 @dataclass(frozen=True)

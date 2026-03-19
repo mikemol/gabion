@@ -20,20 +20,17 @@ from gabion.order_contract import sort_once
 
 
 class RefactorEngine:
-    def __init__(self, project_root = None) -> None:
+    def __init__(self, project_root: Path) -> None:
         self.project_root = project_root
 
     def plan_loop_generator_rewrite(self, request: LoopGeneratorRequest) -> RefactorPlan:
         return _plan_loop_generator_rewrite(
             request=request,
-            project_root=self.project_root,
         )
 
     def plan_protocol_extraction(self, request: RefactorRequest) -> RefactorPlan:
         check_deadline()
-        path = Path(request.target_path)
-        if self.project_root and not path.is_absolute():
-            path = self.project_root / path
+        path = request.target_path
         try:
             source = path.read_text()
         except Exception as exc:
@@ -183,15 +180,14 @@ class RefactorEngine:
             else:
                 new_module = call_edits
                 new_source = new_module.code
-            if self.project_root:
-                project_callsite_edits, project_callsite_warnings = _rewrite_call_sites_in_project(
-                    project_root=self.project_root,
-                    target_path=path,
-                    target_module=validated_target_module_identifier,
-                    protocol_name=protocol,
-                    bundle_fields=bundle_fields,
-                    targets=targets,
-                )
+            project_callsite_edits, project_callsite_warnings = _rewrite_call_sites_in_project(
+                project_root=self.project_root,
+                target_path=path,
+                target_module=validated_target_module_identifier,
+                protocol_name=protocol,
+                bundle_fields=bundle_fields,
+                targets=targets,
+            )
         else:
             new_source = new_module.code
         end_line = len(source.splitlines())

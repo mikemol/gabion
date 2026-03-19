@@ -29,7 +29,7 @@ def test_refactor_engine_handles_missing_file(tmp_path: Path) -> None:
     request = RefactorRequest(
         protocol_name="BundleProtocol",
         bundle=["a"],
-        target_path=str(tmp_path / "missing.py"),
+        target_path=tmp_path / "missing.py",
     )
     plan = RefactorEngine(project_root=tmp_path).plan_protocol_extraction(request)
     assert plan.errors
@@ -43,7 +43,7 @@ def test_refactor_engine_handles_parse_error(tmp_path: Path) -> None:
     request = RefactorRequest(
         protocol_name="BundleProtocol",
         bundle=["a"],
-        target_path=str(target),
+        target_path=target,
     )
     plan = RefactorEngine(project_root=tmp_path).plan_protocol_extraction(request)
     assert plan.errors
@@ -57,7 +57,7 @@ def test_refactor_engine_requires_protocol_name(tmp_path: Path) -> None:
     request = RefactorRequest(
         protocol_name="",
         bundle=["a"],
-        target_path=str(target),
+        target_path=target,
     )
     plan = RefactorEngine(project_root=tmp_path).plan_protocol_extraction(request)
     assert plan.errors
@@ -71,7 +71,7 @@ def test_refactor_engine_requires_bundle_or_fields(tmp_path: Path) -> None:
     request = RefactorRequest(
         protocol_name="BundleProtocol",
         bundle=[],
-        target_path=str(target),
+        target_path=target,
     )
     plan = RefactorEngine(project_root=tmp_path).plan_protocol_extraction(request)
     assert plan.errors
@@ -86,7 +86,7 @@ def test_refactor_engine_invalid_type_hint_warns(tmp_path: Path) -> None:
         protocol_name="BundleProtocol",
         bundle=["a"],
         fields=[FieldSpec(name="a", type_hint="list[")],
-        target_path=str(target),
+        target_path=target,
     )
     plan = RefactorEngine(project_root=tmp_path).plan_protocol_extraction(request)
     assert any("Failed to parse type hint" in warning for warning in plan.warnings)

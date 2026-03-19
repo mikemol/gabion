@@ -939,14 +939,14 @@ def test_plan_loop_generator_rewrite_error_and_noop_paths(tmp_path: Path) -> Non
     engine = RefactorEngine(project_root=tmp_path)
 
     empty_targets = engine.plan_loop_generator_rewrite(
-        LoopGeneratorRequest(target_path="sample.py", target_functions=["", "   "])
+        LoopGeneratorRequest(target_path=tmp_path / "sample.py", target_functions=["", "   "])
     )
     assert empty_targets.outcome == RefactorPlanOutcome.ERROR
     assert "requires non-empty target_functions" in empty_targets.errors[0]
 
     bad_line = engine.plan_loop_generator_rewrite(
         LoopGeneratorRequest(
-            target_path="sample.py",
+            target_path=tmp_path / "sample.py",
             target_functions=["f"],
             target_loop_lines=[0],
         )
@@ -956,7 +956,7 @@ def test_plan_loop_generator_rewrite_error_and_noop_paths(tmp_path: Path) -> Non
 
     missing = engine.plan_loop_generator_rewrite(
         LoopGeneratorRequest(
-            target_path="missing.py",
+            target_path=tmp_path / "missing.py",
             target_functions=["f"],
         )
     )
@@ -967,7 +967,7 @@ def test_plan_loop_generator_rewrite_error_and_noop_paths(tmp_path: Path) -> Non
     bad_source.write_text("def f(:\n", encoding="utf-8")
     parse_fail = engine.plan_loop_generator_rewrite(
         LoopGeneratorRequest(
-            target_path=str(bad_source),
+            target_path=bad_source,
             target_functions=["f"],
         )
     )
@@ -981,7 +981,7 @@ def test_plan_loop_generator_rewrite_error_and_noop_paths(tmp_path: Path) -> Non
     )
     no_match = engine.plan_loop_generator_rewrite(
         LoopGeneratorRequest(
-            target_path=str(sample),
+            target_path=sample,
             target_functions=["missing_target"],
         )
     )
@@ -990,12 +990,12 @@ def test_plan_loop_generator_rewrite_error_and_noop_paths(tmp_path: Path) -> Non
     assert no_match.rewrite_plans and no_match.rewrite_plans[0].status == "ABSTAINED"
 
     applied = engine.plan_loop_generator_rewrite(
-        LoopGeneratorRequest(target_path=str(sample), target_functions=["f"])
+        LoopGeneratorRequest(target_path=sample, target_functions=["f"])
     )
     assert applied.outcome == RefactorPlanOutcome.APPLIED
     sample.write_text(applied.edits[0].replacement, encoding="utf-8")
     no_changes = engine.plan_loop_generator_rewrite(
-        LoopGeneratorRequest(target_path=str(sample), target_functions=["f"])
+        LoopGeneratorRequest(target_path=sample, target_functions=["f"])
     )
     assert no_changes.outcome == RefactorPlanOutcome.NO_CHANGES
     assert any("helper chase from: f" in entry.summary for entry in no_changes.rewrite_plans)
@@ -1014,7 +1014,7 @@ def test_plan_loop_generator_rewrite_error_and_noop_paths(tmp_path: Path) -> Non
         encoding="utf-8",
     )
     cycle_error = engine.plan_loop_generator_rewrite(
-        LoopGeneratorRequest(target_path=str(cycle_target), target_functions=["f"])
+        LoopGeneratorRequest(target_path=cycle_target, target_functions=["f"])
     )
     assert cycle_error.outcome == RefactorPlanOutcome.ERROR
     assert any("helper chase cycle detected" in reason for reason in cycle_error.errors)
@@ -1048,7 +1048,7 @@ def test_plan_loop_generator_target_selection_and_async_errors(tmp_path: Path) -
 
     by_name = engine.plan_loop_generator_rewrite(
         LoopGeneratorRequest(
-            target_path=str(source),
+            target_path=source,
             target_functions=["f"],
         )
     )
@@ -1069,7 +1069,7 @@ def test_plan_loop_generator_target_selection_and_async_errors(tmp_path: Path) -
     )
     exact_line_match = engine.plan_loop_generator_rewrite(
         LoopGeneratorRequest(
-            target_path=str(source),
+            target_path=source,
             target_functions=["g"],
             target_loop_lines=[2],
         )
@@ -1091,7 +1091,7 @@ def test_plan_loop_generator_target_selection_and_async_errors(tmp_path: Path) -
     )
     no_line_match = engine.plan_loop_generator_rewrite(
         LoopGeneratorRequest(
-            target_path=str(source),
+            target_path=source,
             target_functions=["g"],
             target_loop_lines=[999],
         )
@@ -1114,7 +1114,7 @@ def test_plan_loop_generator_target_selection_and_async_errors(tmp_path: Path) -
     )
     multi_line_match = engine.plan_loop_generator_rewrite(
         LoopGeneratorRequest(
-            target_path=str(source),
+            target_path=source,
             target_functions=["g"],
             target_loop_lines=[2, 4],
         )
@@ -1137,7 +1137,7 @@ def test_plan_loop_generator_target_selection_and_async_errors(tmp_path: Path) -
     )
     multi_top_level = engine.plan_loop_generator_rewrite(
         LoopGeneratorRequest(
-            target_path=str(source),
+            target_path=source,
             target_functions=["g"],
         )
     )
@@ -1155,7 +1155,7 @@ def test_plan_loop_generator_target_selection_and_async_errors(tmp_path: Path) -
         encoding="utf-8",
     )
     while_error = engine.plan_loop_generator_rewrite(
-        LoopGeneratorRequest(target_path=str(source), target_functions=["g"])
+        LoopGeneratorRequest(target_path=source, target_functions=["g"])
     )
     assert while_error.outcome == RefactorPlanOutcome.ERROR
     assert "only for-loops are supported" in while_error.errors[0]
@@ -1173,7 +1173,7 @@ def test_plan_loop_generator_target_selection_and_async_errors(tmp_path: Path) -
         encoding="utf-8",
     )
     extra_stmt_error = engine.plan_loop_generator_rewrite(
-        LoopGeneratorRequest(target_path=str(source), target_functions=["g"])
+        LoopGeneratorRequest(target_path=source, target_functions=["g"])
     )
     assert extra_stmt_error.outcome == RefactorPlanOutcome.APPLIED
 
@@ -1189,7 +1189,7 @@ def test_plan_loop_generator_target_selection_and_async_errors(tmp_path: Path) -
         encoding="utf-8",
     )
     async_error = engine.plan_loop_generator_rewrite(
-        LoopGeneratorRequest(target_path=str(source), target_functions=["af"])
+        LoopGeneratorRequest(target_path=source, target_functions=["af"])
     )
     assert async_error.outcome == RefactorPlanOutcome.ERROR
     assert "async functions are not supported" in async_error.errors[0]
@@ -1210,7 +1210,7 @@ def test_plan_loop_generator_target_selection_and_async_errors(tmp_path: Path) -
         encoding="utf-8",
     )
     skip_ineligible = engine.plan_loop_generator_rewrite(
-        LoopGeneratorRequest(target_path=str(source), target_functions=["h"])
+        LoopGeneratorRequest(target_path=source, target_functions=["h"])
     )
     assert skip_ineligible.outcome == RefactorPlanOutcome.APPLIED
 
@@ -1222,7 +1222,7 @@ def test_loop_generator_runs_against_its_own_module() -> None:
     engine = RefactorEngine(project_root=REPO_ROOT)
     plan = engine.plan_loop_generator_rewrite(
         LoopGeneratorRequest(
-            target_path="src/gabion/refactor/loop_generator.py",
+            target_path=REPO_ROOT / "src/gabion/refactor/loop_generator.py",
             target_functions=["_string_literal"],
             rationale="coverage self-application",
         )

@@ -32,7 +32,7 @@ def test_refactor_engine_emits_protocol_stub(tmp_path: Path) -> None:
     request = RefactorRequest(
         protocol_name="BundleProtocol",
         bundle=["alpha", "beta"],
-        target_path=str(target),
+        target_path=target,
         rationale="Unit test",
     )
     plan = RefactorEngine(project_root=tmp_path).plan_protocol_extraction(request)
@@ -63,7 +63,7 @@ def test_refactor_engine_preserves_type_hints(tmp_path: Path) -> None:
             FieldSpec(name="alpha", type_hint="int"),
             FieldSpec(name="beta", type_hint="str"),
         ],
-        target_path=str(target),
+        target_path=target,
         rationale="Unit test",
     )
     plan = RefactorEngine(project_root=tmp_path).plan_protocol_extraction(request)
@@ -93,7 +93,7 @@ def test_refactor_engine_rewrites_signature_and_preamble(tmp_path: Path) -> None
             FieldSpec(name="a", type_hint="int"),
             FieldSpec(name="b", type_hint="int"),
         ],
-        target_path=str(target),
+        target_path=target,
         target_functions=["foo"],
         rationale="Unit test",
     )
@@ -128,7 +128,7 @@ def test_refactor_engine_rewrites_call_sites(tmp_path: Path) -> None:
             FieldSpec(name="a", type_hint="int"),
             FieldSpec(name="b", type_hint="int"),
         ],
-        target_path=str(target),
+        target_path=target,
         target_functions=["foo"],
     )
     plan = RefactorEngine(project_root=tmp_path).plan_protocol_extraction(request)
@@ -171,7 +171,7 @@ def test_refactor_engine_rewrites_imported_call_sites(tmp_path: Path) -> None:
             FieldSpec(name="a", type_hint="int"),
             FieldSpec(name="b", type_hint="int"),
         ],
-        target_path=str(target),
+        target_path=target,
         target_functions=["foo"],
     )
     plan = RefactorEngine(project_root=tmp_path).plan_protocol_extraction(request)
@@ -203,7 +203,7 @@ def test_refactor_engine_emits_compat_shim(tmp_path: Path) -> None:
             FieldSpec(name="a", type_hint="int"),
             FieldSpec(name="b", type_hint="int"),
         ],
-        target_path=str(target),
+        target_path=target,
         target_functions=["foo"],
         compatibility_shim=True,
     )
@@ -237,7 +237,7 @@ def test_refactor_engine_ambient_rewrite_threaded_parameter(tmp_path: Path) -> N
         protocol_name="CtxBundle",
         bundle=["ctx"],
         fields=[FieldSpec(name="ctx", type_hint="CtxBundle")],
-        target_path=str(target),
+        target_path=target,
         target_functions=["sink", "route"],
         ambient_rewrite=True,
     )
@@ -278,7 +278,7 @@ def test_refactor_engine_ambient_rewrite_partial_skip_unsafe(tmp_path: Path) -> 
         protocol_name="CtxBundle",
         bundle=["ctx"],
         fields=[FieldSpec(name="ctx", type_hint="CtxBundle")],
-        target_path=str(target),
+        target_path=target,
         target_functions=["sink", "safe", "unsafe"],
         ambient_rewrite=True,
     )
@@ -307,7 +307,7 @@ def test_refactor_engine_ambient_rewrite_noop_when_no_pattern(tmp_path: Path) ->
         protocol_name="CtxBundle",
         bundle=["ctx"],
         fields=[FieldSpec(name="ctx", type_hint="CtxBundle")],
-        target_path=str(target),
+        target_path=target,
         target_functions=["sink"],
         ambient_rewrite=True,
     )
@@ -588,7 +588,7 @@ def test_refactor_engine_reports_no_changes_outcome(tmp_path: Path) -> None:
         protocol_name="BundleProtocol",
         bundle=["a", "b"],
         fields=[FieldSpec(name="a"), FieldSpec(name="b")],
-        target_path=str(target),
+        target_path=target,
         target_functions=["foo"],
     )
     plan = RefactorEngine(project_root=tmp_path).plan_protocol_extraction(request)
@@ -640,7 +640,7 @@ def test_refactor_engine_rejects_unvalidated_module_identifier(tmp_path: Path) -
         protocol_name="BundleProtocol",
         bundle=["a", "b"],
         fields=[FieldSpec(name="a"), FieldSpec(name="b")],
-        target_path=str(target),
+        target_path=target,
         target_functions=["foo"],
     )
     plan = RefactorEngine(project_root=tmp_path).plan_protocol_extraction(request)

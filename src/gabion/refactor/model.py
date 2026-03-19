@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import List, Tuple
 from gabion.invariants import never
 
@@ -44,7 +45,7 @@ def normalize_compatibility_shim(
 class RefactorRequest:
     protocol_name: str
     bundle: List[str]
-    target_path: str
+    target_path: Path
     fields: List[FieldSpec] = field(default_factory=list)
     target_functions: List[str] = field(default_factory=list)
     compatibility_shim: CompatibilityShimConfig = field(
@@ -63,7 +64,7 @@ class RefactorRequest:
 
 @dataclass(frozen=True)
 class LoopGeneratorRequest:
-    target_path: str
+    target_path: Path
     target_functions: List[str]
     target_loop_lines: List[int] = field(default_factory=list)
     rationale: str = ""

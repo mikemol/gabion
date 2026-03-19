@@ -1,5 +1,5 @@
 ---
-doc_revision: 13
+doc_revision: 15
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: friction
 doc_role: audit
@@ -887,3 +887,99 @@ right first landing zone.
 - `Mind B wedge product`: The highest-value synthesis is to read policy fallout
   as boundary discovery. The gate is not merely vetoing code; it is helping
   locate the lawful correction-unit frontier.
+
+## FN-017: A semantic edge in intent may still be a non-boundary in repo policy
+
+**Trigger:** Trying to strictify `project_root` on
+`dataflow_snapshot_io.render_structure_snapshot(...)`,
+`dataflow_snapshot_io.render_decision_snapshot(...)`, and
+`dataflow_function_index_helpers._module_name(...)` immediately after the
+ingress-normalization tranche landed.
+
+**Friction:** These surfaces look edge-like to a human reader because they are
+rendering helpers and path-normalization helpers. But the ambiguity gate still
+treated them as ordinary internal edges, not as lawful final-boundary sites for
+this correction unit. That means "furthest from core in intent" is not the same
+thing as "currently lawful boundary in repo policy."
+
+**Impact:** An LLM can overfit to architectural intuition and keep pushing
+strictification outward through surfaces that feel like edges, even when the
+repo's policy model says those surfaces still inherit core/helper obligations.
+That wastes momentum and risks turning one good correction unit into a second
+failed slice.
+
+**Hypothesis:** The repo's real boundary model depends on more than human
+semantic naming. Output helpers and path shapers may still be policy-visible as
+ordinary internal functions until they are reified under an explicit boundary or
+ownership model. Without that reification, a signature-only strictification can
+be directionally right but still non-landable.
+
+**Evidence:**
+- the failed ambiguity run after strictifying
+  `dataflow_snapshot_io.py` and `dataflow_function_index_helpers.py`
+- the immediate rollback of that slice while leaving the earlier
+  `project_root` ingress tranche intact
+- the contrast between green targeted pytest/workflows and red
+  `--ambiguity-contract`
+
+**Workstream/Context:** Follow-on `project_root` strictification after
+`GH-214 Strictify dataflow project_root ingress`.
+
+### Higher-order synthesis
+
+- `AA constructs`: Rendering and path-shaping helpers are natural candidates for
+  "push strictness to the outer edge."
+- `AB critiques`: Repo policy is not judging by naming or intuitive role alone;
+  it is judging by the currently declared structural/boundary semantics.
+- `Convergence (Mind A)`: The correct move is to treat this as a boundary-model
+  discovery failure, roll the slice back, and choose the next seam whose
+  lawfulness is clearer.
+- `Mind B wedge product`: There are two different "edges" in play:
+  architectural edges and policy-admitted edges. Progress depends on not
+  conflating them.
+
+## FN-018: Tightened owner contracts still leak if the request carrier stays loose
+
+**Trigger:** Strictifying `project_root` at refactor ingress while
+`RefactorRequest.target_path` and `LoopGeneratorRequest.target_path` still
+entered the core as `str`.
+
+**Friction:** It is easy to tighten a core owner and still leave the incoming
+carrier loose enough that the next layer has to classify shape again. Here the
+core remained stuck deciding whether `target_path` was relative or absolute,
+even after `project_root` itself had been made strict.
+
+**Impact:** An LLM under pressure can mistake that situation for a local helper
+problem and keep adding `Path(...)`, `is_absolute()`, or runtime type checks in
+core methods. That preserves the same ambiguity while merely moving the branch
+site, and the ambiguity gate correctly pushes back.
+
+**Hypothesis:** When a strictification does not commute, inspect the request
+carrier one level upstream before touching more helpers. If the carrier still
+publishes a looser type than the core actually wants, the real fix is to
+reify and normalize there, not to defend the core repeatedly.
+
+**Evidence:**
+- `RefactorRequest.target_path` and `LoopGeneratorRequest.target_path` still
+  being string carriers while refactor core methods wanted `Path`
+- the failed ambiguity run flagging `isinstance(...)` and `path.is_absolute()`
+  as downstream reclassification
+- the cleaner follow-on shape: boundary normalization in `server.py`, strict
+  `Path` carriers in `refactor/model.py`, and direct `Path` consumption in
+  `engine.py` and `loop_generator.py`
+
+**Workstream/Context:** Follow-on refactor-ingress strictification after
+`GH-214 Strictify dataflow project_root ingress`, while continuing the broader
+"push ambiguity to origin" policy burn-down.
+
+### Higher-order synthesis
+
+- `AA constructs`: Once `project_root` is strict, it is tempting to polish the
+  remaining path handling locally in whichever core method still has the branch.
+- `AB critiques`: If the request carrier is still loose, that local polish is
+  fake progress because the branch is being regenerated from upstream shape.
+- `Convergence (Mind A)`: The lawful move is to strictify the request carrier
+  and absolutize it at the outer boundary, then let the core consume one shape.
+- `Mind B wedge product`: The deeper pattern is that "strict owner plus loose
+  request DTO" is a stable ambiguity generator. Eliminating it gives the repo a
+  reusable precedent for future ingress work.

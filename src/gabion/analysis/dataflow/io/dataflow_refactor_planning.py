@@ -120,9 +120,9 @@ def build_refactor_plan(
                     info,
                     by_name,
                     by_qual,
-                    symbol_table,
-                    config.project_root,
-                    class_index,
+                    project_root=config.project_root,
+                    symbol_table=symbol_table,
+                    class_index=class_index,
                 )
                 if (
                     callee is not None

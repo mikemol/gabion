@@ -457,9 +457,9 @@ def _collect_call_ambiguities_indexed(
                     info,
                     context.analysis_index.by_name,
                     context.analysis_index.by_qual,
-                    context.analysis_index.symbol_table,
-                    context.project_root,
-                    context.analysis_index.class_index,
+                    project_root=context.project_root,
+                    symbol_table=context.analysis_index.symbol_table,
+                    class_index=context.analysis_index.class_index,
                     call=call,
                     ambiguity_sink=_sink,
                 )

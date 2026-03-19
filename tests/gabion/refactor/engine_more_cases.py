@@ -16,16 +16,16 @@ def _target_module(module_name: str):
     return _validated_module_identifier(module_name).identifier
 
 
-# gabion:evidence E:call_footprint::tests/test_refactor_engine_more.py::test_plan_protocol_extraction_relative_path_and_fields::engine.py::gabion.refactor.engine.RefactorEngine::model.py::gabion.refactor.model.FieldSpec::model.py::gabion.refactor.model.RefactorRequest
+# gabion:evidence E:call_footprint::tests/test_refactor_engine_more.py::test_plan_protocol_extraction_path_and_fields::engine.py::gabion.refactor.engine.RefactorEngine::model.py::gabion.refactor.model.FieldSpec::model.py::gabion.refactor.model.RefactorRequest
 # gabion:behavior primary=desired
-def test_plan_protocol_extraction_relative_path_and_fields(tmp_path: Path) -> None:
+def test_plan_protocol_extraction_path_and_fields(tmp_path: Path) -> None:
     target = tmp_path / "mod.py"
     target.write_text("def f(a, b):\n    return a\n")
     request = RefactorRequest(
         protocol_name="Bundle",
         bundle=[],
         fields=[FieldSpec(name="a"), FieldSpec(name=""), FieldSpec(name="a"), FieldSpec(name="b")],
-        target_path="mod.py",
+        target_path=target,
     )
     plan = RefactorEngine(project_root=tmp_path).plan_protocol_extraction(request)
     assert plan.errors == []
@@ -43,7 +43,7 @@ def test_plan_protocol_extraction_typing_import_variants(tmp_path: Path) -> None
         RefactorRequest(
             protocol_name="Proto",
             bundle=["a"],
-            target_path=str(mod_typing),
+            target_path=mod_typing,
         )
     )
     assert plan_typing.edits
@@ -55,37 +55,11 @@ def test_plan_protocol_extraction_typing_import_variants(tmp_path: Path) -> None
         RefactorRequest(
             protocol_name="Proto",
             bundle=["a"],
-            target_path=str(mod_protocol),
+            target_path=mod_protocol,
         )
     )
     assert plan_protocol.edits
     assert "class Proto(Protocol)" in plan_protocol.edits[0].replacement
-
-
-# gabion:behavior primary=desired
-def test_plan_protocol_extraction_without_project_root_skips_project_rewrite(
-    tmp_path: Path,
-) -> None:
-    target = tmp_path / "mod.py"
-    target.write_text(
-        "def f(a, b):\n"
-        "    return f(a, b)\n",
-        encoding="utf-8",
-    )
-    request = RefactorRequest(
-        protocol_name="Bundle",
-        bundle=["a", "b"],
-        target_path="mod.py",
-        target_functions=["f"],
-    )
-    cwd = Path.cwd()
-    os.chdir(tmp_path)
-    try:
-        plan = RefactorEngine(project_root=None).plan_protocol_extraction(request)
-    finally:
-        os.chdir(cwd)
-    assert plan.errors == []
-    assert plan.edits
 
 
 # gabion:evidence E:decision_surface/direct::engine.py::gabion.refactor.engine._module_name::project_root E:decision_surface/direct::engine.py::gabion.refactor.engine._module_name::stale_7287d9dfaf67
@@ -315,7 +289,7 @@ def test_refactor_transformer_async_and_no_params(tmp_path: Path) -> None:
         RefactorRequest(
             protocol_name="Bundle",
             bundle=["a"],
-            target_path=str(target),
+            target_path=target,
             target_functions=["f", "C.m"],
         )
     )
@@ -515,7 +489,7 @@ def test_compat_shim_config_controls_imports_and_nodes(tmp_path: Path) -> None:
         RefactorRequest(
             protocol_name="Bundle",
             bundle=["a", "b"],
-            target_path=str(target),
+            target_path=target,
             target_functions=["target"],
             compatibility_shim=CompatibilityShimConfig(
                 enabled=True,
@@ -554,7 +528,7 @@ def test_compat_shim_legacy_wrapper_and_callsite_interop(tmp_path: Path) -> None
         RefactorRequest(
             protocol_name="Bundle",
             bundle=["a", "b"],
-            target_path=str(target),
+            target_path=target,
             target_functions=["target"],
             compatibility_shim=CompatibilityShimConfig(
                 enabled=True,
@@ -599,7 +573,7 @@ def test_plan_protocol_extraction_applies_protocol_when_targets_do_not_match(
         RefactorRequest(
             protocol_name="BundleProtocol",
             bundle=["a"],
-            target_path=str(target),
+            target_path=target,
             target_functions=["missing"],
         )
     )
@@ -622,7 +596,7 @@ def test_plan_protocol_extraction_invalid_module_identifier_errors(
         RefactorRequest(
             protocol_name="BundleProtocol",
             bundle=["a", "b"],
-            target_path=str(target),
+            target_path=target,
             target_functions=["f"],
         )
     )

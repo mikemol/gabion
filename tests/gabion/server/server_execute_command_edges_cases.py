@@ -4545,7 +4545,7 @@ def test_execute_refactor_valid_payload_without_workspace_root(tmp_path: Path) -
             }
         ),
     )
-    assert result.get("errors") == []
+    assert result.get("errors") == ["execute_refactor requires explicit workspace root_path"]
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_refactor_loop_generator_valid_payload::server.py::gabion.server.execute_refactor
@@ -4571,6 +4571,29 @@ def test_execute_refactor_loop_generator_valid_payload(tmp_path: Path) -> None:
     rewrite_plans = result.get("rewrite_plans") or []
     assert rewrite_plans
     assert rewrite_plans[0].get("kind") == "LOOP_GENERATOR"
+
+
+# gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_refactor_normalizes_relative_target_path_against_workspace_root::server.py::gabion.server.execute_refactor
+# gabion:behavior primary=desired
+def test_execute_refactor_normalizes_relative_target_path_against_workspace_root(
+    tmp_path: Path,
+) -> None:
+    module_path = tmp_path / "target.py"
+    module_path.write_text("def f(a, b):\n    return a + b\n")
+    result = server.execute_refactor(
+        _DummyServer(str(tmp_path)),
+        _with_timeout(
+            {
+                "protocol_name": "ExampleProto",
+                "bundle": ["a", "b"],
+                "target_path": "target.py",
+                "target_functions": [],
+            }
+        ),
+    )
+    assert result.get("errors") == []
+    edits = result.get("edits") or []
+    assert edits
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_refactor_loop_generator_rejects_protocol_fields::server.py::gabion.server.execute_refactor
