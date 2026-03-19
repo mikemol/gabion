@@ -6,7 +6,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from gabion.analysis.dataflow.engine.dataflow_bundle_merge import _merge_counts_by_knobs
+from gabion.analysis.dataflow.engine.dataflow_bundle_merge import merge_counts_by_knobs
 from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
     _build_analysis_index,
     _build_call_graph,
@@ -207,7 +207,7 @@ def _collect_synthesis_counts_and_evidence(
         analysis_index=context.analysis_index,
     )
     counts = _bundle_counts(groups_by_path)
-    counts = _merge_counts_by_knobs(counts, knob_names)
+    counts = merge_counts_by_knobs(counts, knob_names)
     bundle_evidence: dict[frozenset[str], set[str]] = defaultdict(set)
     for bundle in counts:
         check_deadline()

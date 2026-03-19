@@ -9,7 +9,7 @@ from tests.order_helpers import contract_sorted
 def _load():
     repo_root = REPO_ROOT
     from gabion.analysis.aspf.aspf import Forest, NodeId
-    from gabion.analysis.dataflow.engine.dataflow_bundle_merge import _merge_counts_by_knobs
+    from gabion.analysis.dataflow.engine.dataflow_bundle_merge import merge_counts_by_knobs
     from gabion.analysis.dataflow.engine.dataflow_contracts import (
         InvariantProposition,
         ReportCarrier,
@@ -33,7 +33,7 @@ def _load():
         NodeId=NodeId,
         ReportCarrier=ReportCarrier,
         _emit_report=emit_report,
-        _merge_counts_by_knobs=_merge_counts_by_knobs,
+        merge_counts_by_knobs=merge_counts_by_knobs,
         _populate_bundle_forest=_populate_bundle_forest,
         _render_mermaid_component=render_mermaid_component,
         _summarize_never_invariants=summarize_never_invariants,
@@ -569,12 +569,12 @@ def test_render_mermaid_component_declared_none_documented(tmp_path: Path) -> No
     assert "Documented bundles" in summary
     assert "(tier-2, documented)" in summary
 
-# gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._merge_counts_by_knobs::knob_names E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan._merge_counts_by_knobs::stale_abb142a389b4
+# gabion:evidence E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.merge_counts_by_knobs::knob_names E:decision_surface/direct::dataflow_indexed_file_scan.py::gabion.analysis.dataflow_indexed_file_scan.merge_counts_by_knobs::stale_abb142a389b4
 # gabion:behavior primary=desired
 def test_merge_counts_by_knobs_merges_subset() -> None:
     da = _load()
     counts = {("a", "b"): 1, ("a", "b", "k"): 2}
-    merged = da._merge_counts_by_knobs(counts, {"k"})
+    merged = da.merge_counts_by_knobs(counts, {"k"})
     assert merged == {("a", "b", "k"): 3}
 
 

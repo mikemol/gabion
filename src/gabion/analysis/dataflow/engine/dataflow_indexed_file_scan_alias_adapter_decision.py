@@ -29,7 +29,7 @@ DECISION_ALIAS_GROUPS: tuple[AliasGroupSpec, ...] = (
         ),
         module_alias(
             'gabion.analysis.dataflow.engine.dataflow_bundle_merge',
-            '_merge_counts_by_knobs',
+            'merge_counts_by_knobs',
         ),
         module_alias(
             'gabion.analysis.dataflow.engine.dataflow_callee_resolution_support',

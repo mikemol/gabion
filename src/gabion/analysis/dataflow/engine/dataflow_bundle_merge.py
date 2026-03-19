@@ -1,3 +1,5 @@
+# gabion:boundary_normalization_module
+# gabion:grade_boundary kind=semantic_carrier_adapter name=dataflow_bundle_merge
 from __future__ import annotations
 
 from collections import defaultdict
@@ -6,7 +8,7 @@ from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.order_contract import sort_once
 
 
-def _merge_counts_by_knobs(
+def merge_counts_by_knobs(
     counts: dict[tuple[str, ...], int],
     knob_names: set[str],
 ) -> dict[tuple[str, ...], int]:
@@ -30,11 +32,10 @@ def _merge_counts_by_knobs(
             tuple(
                 sort_once(
                     target,
-                    source="dataflow_bundle_merge._merge_counts_by_knobs.target",
+                    source="dataflow_bundle_merge.merge_counts_by_knobs.target",
                 )
             )
         ] += count
     return merged
 
-
-__all__ = ["_merge_counts_by_knobs"]
+__all__ = ["merge_counts_by_knobs"]

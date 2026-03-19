@@ -29,7 +29,7 @@ from gabion.analysis.dataflow.io.dataflow_snapshot_io import _normalize_snapshot
 from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
     _analysis_collection_resume_path_key as _resume_analysis_collection_resume_path_key,
 )
-from gabion.analysis.dataflow.engine.dataflow_bundle_merge import _merge_counts_by_knobs as _merge_counts_by_knobs_impl
+from gabion.analysis.dataflow.engine.dataflow_bundle_merge import merge_counts_by_knobs
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue, ParseFailureWitnesses
 from gabion.analysis.projection.projection_exec import apply_execution_ops
 from gabion.analysis.projection.projection_exec_plan import execution_ops_from_spec
@@ -795,10 +795,6 @@ def _lint_lines_from_unused_arg_smells(smells: Iterable[str]) -> list[str]:
     )
 
 
-def _merge_counts_by_knobs(*args, **kwargs):
-    return _merge_counts_by_knobs_impl(*args, **kwargs)
-
-
 def _parse_exception_path_id(value: str):
     parts = value.split(":", 5)
     if len(parts) != 6:
@@ -834,7 +830,7 @@ __all__ = [
     "_lint_lines_from_constant_smells",
     "_lint_lines_from_type_evidence",
     "_lint_lines_from_unused_arg_smells",
-    "_merge_counts_by_knobs",
+    "merge_counts_by_knobs",
     "_normalize_type_name",
     "_parse_exception_path_id",
     "_parse_lint_location",

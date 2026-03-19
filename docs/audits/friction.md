@@ -1,5 +1,5 @@
 ---
-doc_revision: 8
+doc_revision: 9
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: friction
 doc_role: audit
@@ -632,3 +632,45 @@ shared across adjacent modules instead of being retired to one canonical owner.
 - `Mind B wedge product`: Public-surface drains go faster when helper extraction
   and owner convergence happen in the same correction loop rather than as
   separate later cleanups.
+
+## FN-011: Public-surface drains spill into shadow metadata and evidence carriers
+
+**Trigger:** Publicizing `merge_counts_by_knobs` as the owner surface for the
+next bounded `PSN-TP-006` seam.
+
+**Friction:** Renaming the real owner function was only part of the slice. The
+same symbol name also lived in planning touchsites, alias-adapter metadata, and
+test evidence annotations. The code seam was small, but the truthful closure
+surface was wider than the implementation diff first suggested.
+
+**Impact:** Even a narrow owner publicization pays extra maintenance cost across
+several non-obvious surfaces. For an LLM, "the import is fixed" is not enough;
+the agent still has to find and normalize shadow metadata that preserves the
+old private-name story.
+
+**Hypothesis:** The repo has multiple parallel observability layers for semantic
+surfaces, but those layers are not mechanically coupled to owner-name changes.
+As a result, public-surface normalization propagates as a manual fan-out across
+code, planning metadata, and evidence carriers.
+
+**Evidence:**
+- `src/gabion/analysis/dataflow/engine/dataflow_bundle_merge.py`
+- `src/gabion/analysis/dataflow/engine/dataflow_indexed_file_scan_alias_adapter_decision.py`
+- `src/gabion/tooling/policy_substrate/public_surface_normalization_registry.py`
+- `tests/gabion/synthesis/test_types.py`
+- `tests/gabion/analysis/dataflow_s1/dataflow_kitchen_sink_cases.py`
+
+**Workstream/Context:** `PSN-TP-006` bundle-merge owner publicization.
+
+### Higher-order synthesis
+
+- `AA constructs`: Metadata and evidence carriers are legitimate observability
+  surfaces, so they should track public-surface changes.
+- `AB critiques`: When those surfaces are loosely coupled, a tiny refactor
+  turns into a scavenger hunt across unrelated layers.
+- `Convergence (Mind A)`: The friction is not the existence of metadata; it is
+  the lack of a constructible propagation path from owner-surface changes to
+  the shadow layers that narrate those surfaces.
+- `Mind B wedge product`: Better convergence would come from making
+  public-surface ownership a shared primitive that planning and evidence layers
+  can consume directly instead of copying names as inert strings.
