@@ -25,7 +25,7 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
 )
 from gabion.analysis.dataflow.io.dataflow_reporting_helpers import (
     _materialize_projection_spec_rows, bundle_projection_from_forest as _bundle_projection_from_forest, bundle_site_index as _bundle_site_index, connected_components as _connected_components, has_bundles as _has_bundles, render_component_callsite_evidence as _render_component_callsite_evidence)
-from gabion.analysis.dataflow.io.dataflow_snapshot_io import _normalize_snapshot_path
+from gabion.analysis.dataflow.io.dataflow_snapshot_io import normalize_snapshot_path
 from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
     _analysis_collection_resume_path_key as _resume_analysis_collection_resume_path_key,
 )
@@ -503,7 +503,7 @@ def _deadness_witnesses_from_constant_details(
     witnesses: list[JSONObject] = []
     for detail in details:
         check_deadline()
-        path_value = _normalize_snapshot_path(detail.path, project_root)
+        path_value = normalize_snapshot_path(detail.path, project_root)
         predicate = f"{detail.param} != {detail.value}"
         core = [
             f"observed constant {detail.value} across {detail.count} non-test call(s)"
@@ -579,7 +579,7 @@ def _decision_param_lint_line(
 ):
     span = info.param_spans.get(param)
     if span is not None:
-        path = _normalize_snapshot_path(info.path, project_root)
+        path = normalize_snapshot_path(info.path, project_root)
         line, col, _, _ = span
         return _lint_line(path, line + 1, col + 1, code, message)
     return None

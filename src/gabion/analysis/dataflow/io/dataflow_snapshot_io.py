@@ -1,7 +1,9 @@
+# gabion:ambiguity_boundary_module
+# gabion:boundary_normalization_module
+# gabion:grade_boundary kind=semantic_carrier_adapter name=dataflow_snapshot_io
 from __future__ import annotations
 
 import json
-import os
 from collections import defaultdict
 from collections.abc import Sequence
 from pathlib import Path
@@ -27,7 +29,7 @@ from gabion.analysis.foundation.json_types import JSONObject
 from gabion.analysis.projection.pattern_schema_projection import (
     pattern_schema_matches, pattern_schema_snapshot_entries)
 from gabion.analysis.foundation.timeout_context import check_deadline
-from gabion.invariants import never
+from gabion.invariants import decision_protocol, grade_boundary, never
 from gabion.order_contract import sort_once
 
 _REPORT_SECTION_MARKER_PREFIX = "<!-- report-section:"
@@ -82,19 +84,10 @@ def detect_report_section_extinctions(
     )
 
 
-def _infer_root(groups_by_path: dict[Path, dict[str, list[set[str]]]]) -> Path:
-    if groups_by_path:
-        common = os.path.commonpath([str(path) for path in groups_by_path])
-        return Path(common)
-    return Path(".")
-
-
-def _normalize_snapshot_path(path: Path, root: object) -> str:
-    if root is not None:
-        try:
-            return str(path.relative_to(root))
-        except ValueError:
-            pass
+@decision_protocol
+def normalize_snapshot_path(path: Path, root: Path) -> str:
+    if path.is_relative_to(root):
+        return str(path.relative_to(root))
     return str(path)
 
 
@@ -151,16 +144,19 @@ def compute_structure_metrics(
     return metrics
 
 
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="dataflow_snapshot_io.render_structure_snapshot",
+)
 def render_structure_snapshot(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     *,
-    project_root=None,
+    project_root: Path,
     forest: Forest,
     forest_spec=None,
     invariant_propositions: Sequence[InvariantProposition] = (),
 ) -> JSONObject:
     check_deadline()
-    root = project_root or _infer_root(groups_by_path)
     invariant_map: dict[tuple[str, str], list[InvariantProposition]] = {}
     for proposition in invariant_propositions:
         check_deadline()
@@ -172,12 +168,12 @@ def render_structure_snapshot(
     files: list[JSONObject] = []
     for path in sort_once(
         groups_by_path,
-        key=lambda candidate: _normalize_snapshot_path(candidate, root),
+        key=lambda candidate: normalize_snapshot_path(candidate, project_root),
         source="src/gabion/analysis/dataflow_snapshot_io.py:render_structure_snapshot.paths",
     ):
         check_deadline()
         groups = groups_by_path[path]
-        path_key = _normalize_snapshot_path(path, root)
+        path_key = normalize_snapshot_path(path, project_root)
         functions: list[JSONObject] = []
         for fn_name in sort_once(
             groups,
@@ -218,7 +214,7 @@ def render_structure_snapshot(
 
     snapshot: JSONObject = {
         "format_version": 1,
-        "root": str(root) if root is not None else None,
+        "root": str(project_root),
         "files": files,
     }
     spec = forest_spec or default_forest_spec(include_bundle_forest=True)
@@ -227,10 +223,14 @@ def render_structure_snapshot(
     return snapshot
 
 
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="dataflow_snapshot_io.render_decision_snapshot",
+)
 def render_decision_snapshot(
     *,
     surfaces: DecisionSnapshotSurfaces,
-    project_root=None,
+    project_root: Path,
     forest: Forest,
     forest_spec=None,
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
@@ -262,7 +262,7 @@ def render_decision_snapshot(
 
     snapshot: JSONObject = {
         "format_version": 1,
-        "root": str(project_root) if project_root is not None else None,
+        "root": str(project_root),
         "decision_surfaces": sort_once(
             surfaces.decision_surfaces,
             source="src/gabion/analysis/dataflow_snapshot_io.py:render_decision_snapshot.decision",

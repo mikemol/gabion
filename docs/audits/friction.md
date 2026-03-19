@@ -1,5 +1,5 @@
 ---
-doc_revision: 15
+doc_revision: 16
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: friction
 doc_role: audit
@@ -983,3 +983,41 @@ reify and normalize there, not to defend the core repeatedly.
 - `Mind B wedge product`: The deeper pattern is that "strict owner plus loose
   request DTO" is a stable ambiguity generator. Eliminating it gives the repo a
   reusable precedent for future ingress work.
+
+## FN-019: Once ingress ambiguity is removed, the next gate may be a boundary-disclosure failure
+
+**Trigger:** Returning to `project_root` strictification in
+`dataflow_snapshot_io.py` after the dataflow and refactor ingress carriers were
+made strict.
+
+**Friction:** The first failed snapshot/render attempt looked like another
+helper-level `project_root` issue, but once the upstream ambiguity was gone the
+ambiguity gate was actually pointing at two different distinctions:
+- path containment inside `normalize_snapshot_path(...)`
+- undeclared output/materialization boundaries in
+  `render_structure_snapshot(...)` and `render_decision_snapshot(...)`
+
+That is a different class of problem than the original optional-root seam, but
+it emerges only after the origin ambiguity is removed.
+
+**Impact:** Humans and LLMs can misread the next red gate as "the previous
+strictification was wrong" and start reintroducing fallback or optionality.
+That loses momentum and obscures the useful signal: the repo is now ready for a
+more explicit boundary/decision declaration at the downstream owner.
+
+**Hypothesis:** Some repo surfaces are not truly discoverable as boundaries by
+name or directory alone. Once a loose ingress is fixed, the remaining latent
+decision or materialization semantics become newly observable, and the gate
+expects those to be declared rather than inferred from role intuition.
+
+**Evidence:**
+- the first red `--ambiguity-contract` run after strictifying
+  `dataflow_snapshot_io.py`
+- the green rerun after making path containment explicit and declaring the
+  snapshot renderers as semantic-carrier adapters
+- the contrast between already-green focused tests/workflow policy and the
+  initially red ambiguity gate
+
+**Workstream/Context:** `PSN-TP-006` snapshot/render owner slice after
+`GH-214 Strictify refactor target-path ingress and preserve project_root call
+shapes`.

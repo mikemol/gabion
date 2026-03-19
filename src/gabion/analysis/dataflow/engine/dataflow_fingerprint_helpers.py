@@ -12,7 +12,7 @@ from gabion.analysis.aspf.aspf_core import parse_2cell_witness
 from gabion.analysis.aspf.aspf_decision_surface import classify_drift_by_homotopy
 from gabion.analysis.dataflow.engine.dataflow_decision_surfaces import (
     compute_fingerprint_coherence as _ds_compute_fingerprint_coherence, compute_fingerprint_rewrite_plans as _ds_compute_fingerprint_rewrite_plans)
-from gabion.analysis.dataflow.io.dataflow_snapshot_io import _normalize_snapshot_path
+from gabion.analysis.dataflow.io.dataflow_snapshot_io import normalize_snapshot_path
 from gabion.analysis.semantics.evidence import Site, exception_obligation_summary_for_site
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue
 from gabion.analysis.foundation.resume_codec import (
@@ -294,7 +294,7 @@ def _compute_fingerprint_provenance(
     entries: list[JSONObject] = []
     for path, groups in groups_by_path.items():
         check_deadline()
-        path_value = _normalize_snapshot_path(path, project_root)
+        path_value = normalize_snapshot_path(path, project_root)
         annots_by_fn = annotations_by_path.get(path, {})
         for fn_name, bundles in groups.items():
             check_deadline()
