@@ -36,6 +36,14 @@ class CollectionProgressRuntimeState:
     latest_collection_progress: JSONObject = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class AnalysisResumeRuntimeState:
+    state_path: Path | None = None
+    state_status: str | None = None
+    reused_files: int = 0
+    total_files: int = 0
+
+
 class ProgressTraceStateContract(Protocol):
     """Opaque progress trace state transported across progress hooks."""
 
