@@ -545,6 +545,7 @@ def project_report_sections(
     groups_by_path,
     report,
     *,
+    project_root: Path,
     max_phase=None,
     include_previews: bool = False,
     preview_only: bool = False,
@@ -555,6 +556,7 @@ def project_report_sections(
         rendered, _ = render_report(
             groups_by_path,
             max_components=10,
+            project_root=project_root,
             report=report,
         )
         extracted = extract_report_sections(rendered)
@@ -576,6 +578,7 @@ def project_report_sections(
                 spec.section_id,
                 report=report,
                 groups_by_path=groups_by_path,
+                project_root=project_root,
             )
         if lines:
             selected[spec.section_id] = lines

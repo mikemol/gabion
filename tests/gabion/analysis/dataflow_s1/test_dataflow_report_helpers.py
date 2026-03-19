@@ -62,7 +62,7 @@ def _forest_for_groups(
 def test_emit_report_empty_groups() -> None:
     da = _load()
     report, violations = da._emit_report(
-        {}, 3, report=da.ReportCarrier(forest=da.Forest())
+        {}, 3, project_root=Path("."), report=da.ReportCarrier(forest=da.Forest())
     )
     assert "No bundle components detected." in report
     assert violations == []
@@ -114,6 +114,7 @@ def test_emit_report_parse_failure_witnesses() -> None:
     report, violations = da._emit_report(
         {},
         3,
+        project_root=Path("."),
         report=da.ReportCarrier(
             forest=da.Forest(),
             parse_failure_witnesses=[
@@ -142,6 +143,7 @@ def test_emit_report_adds_raw_sorted_contract_violations(tmp_path: Path) -> None
     report, violations = da._emit_report(
         groups_by_path,
         3,
+        project_root=tmp_path,
         report=da.ReportCarrier(forest=da.Forest()),
     )
     assert "Order contract violations" in report
@@ -157,8 +159,9 @@ def test_emit_report_raw_sorted_strict_forbid_env(tmp_path: Path) -> None:
     with env_scope({"GABION_FORBID_RAW_SORTED": "1"}):
         _, violations = da._emit_report(
             groups_by_path,
-            3,
-            report=da.ReportCarrier(forest=da.Forest()),
+        3,
+        project_root=tmp_path,
+        report=da.ReportCarrier(forest=da.Forest()),
         )
     assert any("raw sorted() forbidden" in line for line in violations)
 
@@ -169,6 +172,7 @@ def test_emit_report_execution_pattern_suggestions_are_non_blocking() -> None:
     report, violations = da._emit_report(
         {},
         3,
+        project_root=Path("."),
         report=da.ReportCarrier(forest=da.Forest()),
         execution_pattern_suggestions=[
             "execution_pattern indexed_pass_ingress members=3"
@@ -188,6 +192,7 @@ def test_emit_report_adds_dataflow_pattern_schema_suggestions(tmp_path: Path) ->
     report, violations = da._emit_report(
         groups_by_path,
         3,
+        project_root=tmp_path,
         report=da.ReportCarrier(
             forest=_forest_for_groups(da, groups_by_path, tmp_path),
         ),
@@ -206,6 +211,7 @@ def test_emit_report_adds_pattern_schema_residue_non_blocking(tmp_path: Path) ->
     report, violations = da._emit_report(
         groups_by_path,
         3,
+        project_root=tmp_path,
         report=da.ReportCarrier(
             forest=_forest_for_groups(da, groups_by_path, tmp_path),
         ),
@@ -242,6 +248,7 @@ def test_emit_report_component_summary(tmp_path: Path) -> None:
     report, violations = da._emit_report(
         groups_by_path,
         3,
+        project_root=tmp_path,
         report=da.ReportCarrier(
             forest=forest,
             type_suggestions=["f.a can tighten to int"],
@@ -310,6 +317,7 @@ def test_emit_report_fingerprint_provenance_summary(tmp_path: Path) -> None:
     report, _ = da._emit_report(
         groups_by_path,
         3,
+        project_root=tmp_path,
         report=da.ReportCarrier(
             forest=da.Forest(),
             fingerprint_provenance=entries,
@@ -330,6 +338,7 @@ def test_emit_report_fingerprint_matches_and_synth(tmp_path: Path) -> None:
     report, _ = da._emit_report(
         groups_by_path,
         3,
+        project_root=tmp_path,
         report=da.ReportCarrier(
             forest=forest,
             fingerprint_matches=[
@@ -371,6 +380,7 @@ def test_emit_report_deadness_summary(tmp_path: Path) -> None:
     report, _ = da._emit_report(
         groups_by_path,
         3,
+        project_root=tmp_path,
         report=da.ReportCarrier(
             forest=da.Forest(),
             deadness_witnesses=deadness,
@@ -397,6 +407,7 @@ def test_emit_report_coherence_summary(tmp_path: Path) -> None:
     report, _ = da._emit_report(
         groups_by_path,
         3,
+        project_root=tmp_path,
         report=da.ReportCarrier(
             forest=da.Forest(),
             coherence_witnesses=coherence,
@@ -423,6 +434,7 @@ def test_emit_report_rewrite_plan_summary(tmp_path: Path) -> None:
     report, _ = da._emit_report(
         groups_by_path,
         3,
+        project_root=tmp_path,
         report=da.ReportCarrier(
             forest=da.Forest(),
             rewrite_plans=plans,
@@ -449,6 +461,7 @@ def test_emit_report_exception_obligation_summary(tmp_path: Path) -> None:
     report, _ = da._emit_report(
         groups_by_path,
         3,
+        project_root=tmp_path,
         report=da.ReportCarrier(
             forest=da.Forest(),
             exception_obligations=obligations,
@@ -480,6 +493,7 @@ def test_emit_report_handledness_summary(tmp_path: Path) -> None:
     report, _ = da._emit_report(
         groups_by_path,
         3,
+        project_root=tmp_path,
         report=da.ReportCarrier(
             forest=da.Forest(),
             handledness_witnesses=handled,
@@ -504,7 +518,7 @@ def test_emit_report_anonymous_schema_surfaces(tmp_path: Path) -> None:
     )
     groups_by_path = {path: {}}
     report, _ = da._emit_report(
-        groups_by_path, 3, report=da.ReportCarrier(forest=da.Forest())
+        groups_by_path, 3, project_root=tmp_path, report=da.ReportCarrier(forest=da.Forest())
     )
     assert "Anonymous schema surfaces" in report
     assert "dict[str, Any]" in report
@@ -519,7 +533,7 @@ def test_emit_report_anonymous_schema_surfaces_truncates_long_list(tmp_path: Pat
         lines.append(f"x{idx}: dict[str, object] = {{}}")
     _write(path, "\n".join(lines) + "\n")
     report, _ = da._emit_report(
-        {path: {}}, 3, report=da.ReportCarrier(forest=da.Forest())
+        {path: {}}, 3, project_root=tmp_path, report=da.ReportCarrier(forest=da.Forest())
     )
     assert "Anonymous schema surfaces" in report
     assert "... 1 more" in report
@@ -533,7 +547,7 @@ def test_emit_report_max_components_cutoff(tmp_path: Path) -> None:
     groups_by_path = {path: {"f": [set(["a", "b"])]}}
     forest = _forest_for_groups(da, groups_by_path, tmp_path)
     report, _ = da._emit_report(
-        groups_by_path, 0, report=da.ReportCarrier(forest=forest)
+        groups_by_path, 0, project_root=tmp_path, report=da.ReportCarrier(forest=forest)
     )
     assert "Showing top 0 components" in report
 
@@ -616,8 +630,9 @@ def test_emit_report_tail_skips_empty_pattern_sections_and_non_mapping_adapter_r
     try:
         report, violations = dataflow_reporting.emit_report(
             {},
-            3,
-            report=dataflow_reporting.ReportCarrier(
+        3,
+        project_root=Path("."),
+        report=dataflow_reporting.ReportCarrier(
                 forest=dataflow_reporting.Forest(),
                 unsupported_by_adapter=[
                     "invalid",

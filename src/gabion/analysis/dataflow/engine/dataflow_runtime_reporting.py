@@ -16,7 +16,7 @@ from gabion.order_contract import sort_once
 ReportProjectionPhase = Literal["collection", "forest", "edge", "post"]
 _ReportSectionValue = TypeVar("_ReportSectionValue")
 _PreviewBuild = Callable[
-    [ReportCarrier, dict[Path, dict[str, list[set[str]]]]],
+    [ReportCarrier, dict[Path, dict[str, list[set[str]]]], Path],
     list[str],
 ]
 
@@ -24,6 +24,7 @@ _PreviewBuild = Callable[
 def _preview_build_unset(
     _report: ReportCarrier,
     _groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    _project_root: Path,
 ) -> list[str]:
     return []
 
@@ -34,7 +35,7 @@ class ReportProjectionSpec(Generic[_ReportSectionValue]):
     phase: ReportProjectionPhase
     deps: tuple[str, ...]
     build: Callable[
-        [ReportCarrier, dict[Path, dict[str, list[set[str]]]]],
+        [ReportCarrier, dict[Path, dict[str, list[set[str]]]], Path],
         _ReportSectionValue,
     ]
     render: Callable[[_ReportSectionValue], list[str]]
@@ -53,12 +54,14 @@ def _report_section_no_violations(_lines: list[str]) -> list[str]:
 def _report_section_text(
     report: ReportCarrier,
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    project_root: Path,
     *,
     section_id: str,
 ) -> list[str]:
     rendered, _ = _emit_report(
         groups_by_path,
         max_components=10,
+        project_root=project_root,
         report=report,
     )
     return _extract_report_sections(rendered).get(section_id, [])
@@ -75,9 +78,10 @@ def _report_section_spec(
         section_id=section_id,
         phase=phase,
         deps=deps,
-        build=lambda report, groups_by_path, _section_id=section_id: _report_section_text(
+        build=lambda report, groups_by_path, project_root, _section_id=section_id: _report_section_text(
             report,
             groups_by_path,
+            project_root,
             section_id=_section_id,
         ),
         render=_report_section_identity_render,
@@ -90,11 +94,13 @@ def _compute_violations(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     max_components: int,
     *,
+    project_root: Path,
     report: ReportCarrier,
 ) -> list[str]:
     _, violations = _emit_report(
         groups_by_path,
         max_components,
+        project_root=project_root,
         report=report,
     )
     return sort_once(

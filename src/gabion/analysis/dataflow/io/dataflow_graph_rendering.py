@@ -1,14 +1,16 @@
+# gabion:ambiguity_boundary_module
+# gabion:boundary_normalization_module
+# gabion:grade_boundary kind=semantic_carrier_adapter name=dataflow_graph_rendering
 from __future__ import annotations
 
-import os
 from collections import defaultdict, deque
 from dataclasses import dataclass
 from pathlib import Path
 from gabion.analysis.aspf.aspf import Alt, Forest, NodeId
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue
 from gabion.analysis.foundation.timeout_context import check_deadline
+from gabion.invariants import grade_boundary, never
 from gabion.order_contract import sort_once
-from gabion.invariants import never
 
 
 @dataclass(frozen=True)
@@ -20,7 +22,6 @@ class BundleProjection:
     declared_global: set[tuple[str, ...]]
     declared_by_path: dict[str, set[tuple[str, ...]]]
     documented_by_path: dict[str, set[tuple[str, ...]]]
-    root: Path
     path_lookup: dict[str, Path]
 
 
@@ -53,6 +54,10 @@ def has_bundles(groups_by_path: dict[Path, dict[str, list[set[str]]]]) -> bool:
     return False
 
 
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="dataflow_graph_rendering.bundle_projection_from_forest",
+)
 def bundle_projection_from_forest(
     forest: Forest,
     *,
@@ -108,11 +113,6 @@ def bundle_projection_from_forest(
                 if path:
                     documented_by_path[path].add(bundle_key)
 
-    if file_paths:
-        root = Path(os.path.commonpath([str(path) for path in file_paths]))
-    else:
-        root = Path(".")
-
     path_lookup: dict[str, Path] = {}
     for path in file_paths:
         check_deadline()
@@ -126,7 +126,6 @@ def bundle_projection_from_forest(
         declared_global=declared_global,
         declared_by_path=declared_by_path,
         documented_by_path=documented_by_path,
-        root=root,
         path_lookup=path_lookup,
     )
 

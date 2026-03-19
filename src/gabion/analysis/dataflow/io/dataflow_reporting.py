@@ -3,7 +3,6 @@
 # gabion:grade_boundary kind=semantic_carrier_adapter name=dataflow_reporting
 from __future__ import annotations
 
-import os
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
@@ -369,6 +368,7 @@ def emit_report(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     max_components: int,
     *,
+    project_root: Path,
     report: ReportCarrier,
     execution_pattern_suggestions: tuple[str, ...] = (),
     parse_witness_contract_violations_fn: Callable[[], list[str]] = _default_parse_witness_contract_violations,
@@ -403,11 +403,7 @@ def emit_report(
     resumability_obligations = report.resumability_obligations
     incremental_report_obligations = report.incremental_report_obligations
     has_bundles = _has_bundles(groups_by_path)
-    if groups_by_path:
-        common = os.path.commonpath([str(p) for p in groups_by_path])
-        root = Path(common)
-    else:
-        root = Path(".")
+    root = project_root
     # Use the analyzed file set (not a repo-wide rglob) so reports and schema
     # audits don't accidentally ingest virtualenvs or unrelated files.
     file_paths = (
@@ -419,7 +415,11 @@ def emit_report(
         if groups_by_path
         else []
     )
-    projection = _bundle_projection_from_forest(forest, file_paths=file_paths) if has_bundles else None
+    projection = (
+        _bundle_projection_from_forest(forest, file_paths=file_paths)
+        if has_bundles
+        else None
+    )
     components = (
         _connected_components(projection.nodes, projection.adj)
         if projection is not None
@@ -487,7 +487,7 @@ def emit_report(
                     documented_by_path=projection.documented_by_path,
                     declared_global=projection.declared_global,
                     bundle_site_index=bundle_site_index,
-                    root=projection.root,
+                    root=root,
                     path_lookup=projection.path_lookup,
                 )
                 if evidence:
@@ -544,11 +544,13 @@ def render_report(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     max_components: int,
     *,
+    project_root: Path,
     report: ReportCarrier,
 ) -> tuple[str, list[str]]:
     return emit_report(
         groups_by_path,
         max_components,
+        project_root=project_root,
         report=report,
     )
 
@@ -557,11 +559,13 @@ def compute_violations(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     max_components: int,
     *,
+    project_root: Path,
     report: ReportCarrier,
 ) -> list[str]:
     _, violations = emit_report(
         groups_by_path,
         max_components,
+        project_root=project_root,
         report=report,
     )
     return sort_once(

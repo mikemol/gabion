@@ -40,7 +40,8 @@ def test_report_uses_forest_only_invariant(tmp_path: Path) -> None:
     with env_scope({"GABION_FORBID_ADHOC_BUNDLES": "1"}):
         report, _ = da.render_report(
             analysis.groups_by_path,
-            max_components=3,
-            report=da.ReportCarrier.from_analysis_result(analysis),
+        max_components=3,
+        project_root=tmp_path,
+        report=da.ReportCarrier.from_analysis_result(analysis),
         )
     assert "Dataflow grammar audit" in report

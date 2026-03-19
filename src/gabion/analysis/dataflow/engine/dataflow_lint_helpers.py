@@ -148,6 +148,7 @@ def _compute_lint_lines(
     broad_type_lint_lines,
     constant_smells,
     unused_arg_smells,
+    project_root: Path,
     project_lint_rows_from_forest_fn: Callable[
         ...,
         list[dict[str, JSONValue]],
@@ -157,6 +158,7 @@ def _compute_lint_lines(
         forest=forest,
         groups_by_path=groups_by_path,
         bundle_sites_by_path=bundle_sites_by_path,
+        project_root=project_root,
     )
     bundle_lint_lines = _lint_lines_from_bundle_evidence(bundle_evidence)
     type_lint_lines = _lint_lines_from_type_evidence(type_callsite_evidence)
@@ -224,6 +226,7 @@ def _collect_bundle_evidence_lines(
     forest,
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     bundle_sites_by_path: dict[Path, dict[str, list[list[JSONObject]]]],
+    project_root: Path,
 ) -> list[str]:
     check_deadline()
     if not groups_by_path or not _has_bundles(groups_by_path):
@@ -247,7 +250,7 @@ def _collect_bundle_evidence_lines(
             documented_by_path=projection.documented_by_path,
             declared_global=projection.declared_global,
             bundle_site_index=bundle_site_index,
-            root=projection.root,
+            root=project_root,
             path_lookup=projection.path_lookup,
         )
         evidence_lines.extend(evidence)

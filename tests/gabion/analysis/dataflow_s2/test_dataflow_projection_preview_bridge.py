@@ -104,6 +104,7 @@ def test_preview_section_lines_rich_report_covers_all_sections() -> None:
             section_id,
             report=report,
             groups_by_path=groups,
+            project_root=Path("."),
         )
         assert lines
         assert lines[0].endswith("preview (provisional).")
@@ -112,6 +113,7 @@ def test_preview_section_lines_rich_report_covers_all_sections() -> None:
         "violations",
         report=report,
         groups_by_path=groups,
+        project_root=Path("."),
     )
     assert any("Top known violations:" in line for line in violations)
     assert sum(1 for line in violations if line == "- decision_warning") == 1
@@ -120,6 +122,7 @@ def test_preview_section_lines_rich_report_covers_all_sections() -> None:
         "resumability_obligations",
         report=report,
         groups_by_path=groups,
+        project_root=Path("."),
     )
     assert any("`violations`: `1`" in line for line in resumability)
     assert any("`satisfied`: `1`" in line for line in resumability)
@@ -130,6 +133,7 @@ def test_preview_section_lines_rich_report_covers_all_sections() -> None:
         "parse_failure_witnesses",
         report=report,
         groups_by_path=groups,
+        project_root=Path("."),
     )
     assert any("`stage[ingest]`: `1`" in line for line in parse_failures)
     assert any("`stage[unknown]`: `1`" in line for line in parse_failures)
@@ -144,6 +148,7 @@ def test_preview_section_lines_empty_paths_cover_empty_branches() -> None:
         "components",
         report=report,
         groups_by_path=groups,
+        project_root=Path("."),
     )
     assert not any("forest_alternatives" in line for line in components)
 
@@ -151,6 +156,7 @@ def test_preview_section_lines_empty_paths_cover_empty_branches() -> None:
         "violations",
         report=report,
         groups_by_path=groups,
+        project_root=Path("."),
     )
     assert "- none observed yet" in violations
 
@@ -158,6 +164,7 @@ def test_preview_section_lines_empty_paths_cover_empty_branches() -> None:
         "deadline_summary",
         report=report,
         groups_by_path=groups,
+        project_root=Path("."),
     )
     assert "- no deadline obligations yet" in deadline
 
@@ -165,6 +172,7 @@ def test_preview_section_lines_empty_paths_cover_empty_branches() -> None:
         "deprecated_substrate",
         report=report,
         groups_by_path=groups,
+        project_root=Path("."),
     )
     assert deprecated == [
         "Deprecated substrate preview (provisional).",
@@ -215,6 +223,7 @@ def test_preview_unknown_section_raises_never() -> None:
             "not-a-section",
             report=ReportCarrier(forest=Forest()),
             groups_by_path={},
+            project_root=Path("."),
         )
 
 
@@ -231,14 +240,16 @@ def test_preview_sections_cover_no_sample_and_no_violation_paths() -> None:
         "type_flow",
         report=report,
         groups_by_path={},
-    )
+            project_root=Path("."),
+        )
     assert not any("sample_type_ambiguity" in line for line in type_flow)
 
     resumability = bridge.preview_section_lines(
         "resumability_obligations",
         report=report,
         groups_by_path={},
-    )
+            project_root=Path("."),
+        )
     assert not any("sample_violation" in line for line in resumability)
 
     for section_id in (
@@ -255,5 +266,6 @@ def test_preview_sections_cover_no_sample_and_no_violation_paths() -> None:
             section_id,
             report=report,
             groups_by_path={},
+            project_root=Path("."),
         )
         assert all("sample_" not in line for line in lines)

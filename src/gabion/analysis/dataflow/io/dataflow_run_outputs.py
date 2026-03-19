@@ -343,6 +343,7 @@ def emit_report_output(
         report, violations = emit_report_fn(
             context.analysis.groups_by_path,
             args.max_components,
+            project_root=context.config.project_root,
             report=report_carrier,
         )
         suppressed: list[str] = []
@@ -421,6 +422,7 @@ def emit_console_output_and_violation_gate(
         violations = compute_violations_fn(
             analysis.groups_by_path,
             args.max_components,
+            project_root=context.config.project_root,
             report=violation_carrier,
         )
         if context.baseline_path is not None:

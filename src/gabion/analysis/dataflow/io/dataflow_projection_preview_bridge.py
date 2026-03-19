@@ -17,7 +17,10 @@ from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.invariants import never
 from gabion.order_contract import sort_once
 
-PreviewBuilder = Callable[[ReportCarrier, dict[Path, dict[str, list[set[str]]]]], list[str]]
+PreviewBuilder = Callable[
+    [ReportCarrier, dict[Path, dict[str, list[set[str]]]], Path],
+    list[str],
+]
 
 
 def _known_violation_lines(report: ReportCarrier) -> list[str]:
@@ -41,6 +44,7 @@ def _known_violation_lines(report: ReportCarrier) -> list[str]:
 def _preview_components_section(
     report: ReportCarrier,
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    _project_root: Path,
 ) -> list[str]:
     check_deadline()
     path_count = len(groups_by_path)
@@ -66,6 +70,7 @@ def _preview_components_section(
 def _preview_violations_section(
     report: ReportCarrier,
     _groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    _project_root: Path,
 ) -> list[str]:
     check_deadline()
     known = _known_violation_lines(report)
@@ -86,6 +91,7 @@ def _preview_violations_section(
 def _preview_type_flow_section(
     report: ReportCarrier,
     _groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    _project_root: Path,
 ) -> list[str]:
     check_deadline()
     lines = [
@@ -102,6 +108,7 @@ def _preview_type_flow_section(
 def _preview_deadline_summary_section(
     report: ReportCarrier,
     _groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    _project_root: Path,
 ) -> list[str]:
     check_deadline()
     if not report.deadline_obligations:
@@ -125,10 +132,11 @@ def _make_list_section_preview(
     values: Callable[[ReportCarrier], Sequence[str]],
     sample_label=None,
     extra_count_labels: tuple[tuple[str, Callable[[ReportCarrier], int]], ...] = (),
-) -> Callable[[ReportCarrier, dict[Path, dict[str, list[set[str]]]]], list[str]]:
+) -> Callable[[ReportCarrier, dict[Path, dict[str, list[set[str]]]], Path], list[str]]:
     def _preview(
         report: ReportCarrier,
         _groups_by_path: dict[Path, dict[str, list[set[str]]]],
+        _project_root: Path,
     ) -> list[str]:
         check_deadline()
         series = values(report)
@@ -201,6 +209,7 @@ def _preview_runtime_obligations_section(
 def _preview_resumability_obligations_section(
     report: ReportCarrier,
     _groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    _project_root: Path,
 ) -> list[str]:
     return _preview_runtime_obligations_section(
         title="Resumability obligations",
@@ -211,6 +220,7 @@ def _preview_resumability_obligations_section(
 def _preview_incremental_report_obligations_section(
     report: ReportCarrier,
     _groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    _project_root: Path,
 ) -> list[str]:
     return _preview_runtime_obligations_section(
         title="Incremental report obligations",
@@ -221,6 +231,7 @@ def _preview_incremental_report_obligations_section(
 def _preview_parse_failure_witnesses_section(
     report: ReportCarrier,
     _groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    _project_root: Path,
 ) -> list[str]:
     check_deadline()
     stage_counts: dict[str, int] = defaultdict(int)
@@ -248,6 +259,7 @@ def _preview_parse_failure_witnesses_section(
 def _preview_execution_pattern_suggestions_section(
     report: ReportCarrier,
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    _project_root: Path,
 ) -> list[str]:
     check_deadline()
     function_count = sum(len(groups) for groups in groups_by_path.values())
@@ -263,6 +275,7 @@ def _preview_execution_pattern_suggestions_section(
 def _preview_pattern_schema_residue_section(
     report: ReportCarrier,
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    _project_root: Path,
 ) -> list[str]:
     check_deadline()
     bundle_alternatives = 0
@@ -329,6 +342,7 @@ _preview_context_suggestions_section = _make_list_section_preview(
 def _preview_schema_surfaces_section(
     _report: ReportCarrier,
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    _project_root: Path,
 ) -> list[str]:
     check_deadline()
     return [
@@ -341,6 +355,7 @@ def _preview_schema_surfaces_section(
 def _preview_deprecated_substrate_section(
     report: ReportCarrier,
     _groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    _project_root: Path,
 ) -> list[str]:
     check_deadline()
     lines = [
@@ -381,6 +396,7 @@ def preview_section_lines(
     *,
     report: ReportCarrier,
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    project_root: Path,
 ) -> list[str]:
     preview_builder = _PREVIEW_BUILDERS.get(section_id)
     if preview_builder is None:
@@ -388,7 +404,7 @@ def preview_section_lines(
             "preview section id missing from preview bridge map",
             section_id=section_id,
         )
-    return preview_builder(report, groups_by_path)
+    return preview_builder(report, groups_by_path, project_root)
 
 
 __all__ = ["preview_section_lines"]

@@ -93,6 +93,7 @@ def test_never_invariants_emit_forest_and_report(tmp_path: Path) -> None:
     report, _ = da.render_report(
         analysis.groups_by_path,
         max_components=3,
+        project_root=tmp_path,
         report=da.ReportCarrier.from_analysis_result(analysis),
     )
     assert "Invariant obligations" in report
@@ -256,6 +257,7 @@ def test_never_invariant_report_order_and_evidence(tmp_path: Path) -> None:
     report, _ = da.render_report(
         analysis.groups_by_path,
         max_components=3,
+        project_root=tmp_path,
         report=da.ReportCarrier.from_analysis_result(analysis),
     )
     assert "Invariant obligations:" in report

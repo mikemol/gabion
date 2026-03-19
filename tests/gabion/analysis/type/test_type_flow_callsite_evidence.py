@@ -108,6 +108,7 @@ def test_type_flow_evidence_in_report(tmp_path: Path) -> None:
     report, _ = render_report(
         {path: {}},
         3,
+        project_root=tmp_path,
         report=ReportCarrier(
             forest=Forest(),
             type_suggestions=suggestions,

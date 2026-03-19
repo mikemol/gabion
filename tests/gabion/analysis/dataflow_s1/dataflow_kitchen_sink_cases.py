@@ -157,6 +157,7 @@ def test_kitchen_sink_analysis_outputs(tmp_path: Path) -> None:
     report, violations = render_report(
         analysis.groups_by_path,
         5,
+        project_root=tmp_path,
         report=ReportCarrier.from_analysis_result(analysis),
     )
     report_lc = report.lower()

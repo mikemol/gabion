@@ -67,6 +67,7 @@ def test_config_dataclass_declares_bundle_outside_config_py(tmp_path: Path) -> N
     violations = compute_violations(
         analysis.groups_by_path,
         max_components=10,
+        project_root=tmp_path,
         report=ReportCarrier(forest=analysis.forest),
     )
     joined = "\n".join(violations)

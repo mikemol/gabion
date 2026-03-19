@@ -482,6 +482,7 @@ def test_render_report_includes_ambiguities() -> None:
     report, _ = da.render_report(
         {},
         0,
+        project_root=Path("."),
         report=da.ReportCarrier(
             forest=da.Forest(),
             ambiguity_witnesses=[

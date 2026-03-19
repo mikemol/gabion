@@ -176,6 +176,7 @@ def test_emit_report_includes_value_rewrites(tmp_path: Path) -> None:
     report, _ = da._emit_report(
         groups_by_path,
         1,
+        project_root=tmp_path,
         report=da.ReportCarrier(
             forest=forest,
             value_decision_rewrites=[
@@ -248,6 +249,7 @@ def test_emit_report_includes_decision_surfaces(tmp_path: Path) -> None:
     report, _ = da._emit_report(
         groups_by_path,
         1,
+        project_root=tmp_path,
         report=da.ReportCarrier(
             forest=forest,
             decision_surfaces=["mod.py:f decision surface params: a"],

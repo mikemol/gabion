@@ -1040,6 +1040,7 @@ def _run_post_phase(
             broad_type_lint_lines=broad_type_lint_lines,
             constant_smells=constant_smells,
             unused_arg_smells=unused_arg_smells,
+            project_root=config.project_root,
         )
         post_lint_done = True
         post_work_done += 1

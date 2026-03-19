@@ -3148,6 +3148,7 @@ def _finalize_report_and_violations(
         report_markdown, _ = render_report(
             context.analysis.groups_by_path,
             context.max_components,
+            project_root=Path(context.root),
             report=report_carrier,
         )
         resolved_sections_for_obligations = extract_report_sections(report_markdown)
@@ -3176,6 +3177,7 @@ def _finalize_report_and_violations(
         report_markdown, violations = render_report(
             context.analysis.groups_by_path,
             context.max_components,
+            project_root=Path(context.root),
             report=report_carrier,
         )
         report = report_markdown
@@ -3273,6 +3275,7 @@ def _finalize_report_and_violations(
         violations = compute_violations(
             context.analysis.groups_by_path,
             context.max_components,
+            project_root=Path(context.root),
             report=violation_carrier,
         )
         if context.baseline_path is not None:

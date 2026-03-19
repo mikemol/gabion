@@ -1,5 +1,5 @@
 ---
-doc_revision: 17
+doc_revision: 18
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: friction
 doc_role: audit
@@ -1052,3 +1052,36 @@ matching real use, it becomes ambiguity debt rather than compatibility value.
 
 **Workstream/Context:** `PSN-TP-006` follow-on root-origin burn-down after the
 snapshot-render strictification tranche.
+
+## FN-021: Structural caches turn into hidden ingress policy if they retain origin-derived state
+
+**Trigger:** Continuing the next `PSN-TP-006` report/lint slice after
+`project_root` had already been made strict at the main dataflow and refactor
+ingresses.
+
+**Friction:** `BundleProjection` looked like a purely structural intermediate,
+but it still carried a cached `root` derived from `file_paths`. That let the
+reporting and lint surfaces keep consuming an inferred origin without
+admitting that they were depending on origin policy at all.
+
+**Impact:** The seam is easy to misread as a leaf-helper problem inside
+`_normalize_snapshot_path(...)` or `render_component_callsite_evidence(...)`.
+An LLM under pressure can try to "fix the helper" while leaving the actual
+ambiguity alive in the projection builder. That recreates the same fallback
+behavior under a more indirect name.
+
+**Hypothesis:** When an intermediate dataclass or projection artifact stores a
+value that was inferred from inputs rather than computed from its own semantic
+domain, it is often acting as a disguised ingress boundary. The right move is
+to strip the cached origin-derived field and force real callers to publish the
+strict value explicitly.
+
+**Evidence:**
+- `src/gabion/analysis/dataflow/io/dataflow_graph_rendering.py`
+- `src/gabion/analysis/dataflow/io/dataflow_reporting.py`
+- `src/gabion/analysis/dataflow/engine/dataflow_lint_helpers.py`
+- the green focused rerun only after `BundleProjection.root` was removed and
+  reporting/lint callers started passing explicit `project_root`
+
+**Workstream/Context:** `PSN-TP-006` report/lint projection slice immediately
+after the snapshot-render strictification tranche.

@@ -43,6 +43,7 @@ def test_report_includes_callsite_evidence_for_undocumented_bundle(tmp_path: Pat
     report, _ = render_report(
         analysis.groups_by_path,
         10,
+        project_root=tmp_path,
         report=ReportCarrier.from_analysis_result(analysis),
     )
     assert "Callsite evidence (undocumented bundles):" in report
@@ -82,6 +83,7 @@ def test_report_omits_callsite_evidence_for_documented_bundle(tmp_path: Path) ->
     report, _ = render_report(
         analysis.groups_by_path,
         10,
+        project_root=tmp_path,
         report=ReportCarrier.from_analysis_result(analysis),
     )
     assert "Callsite evidence (undocumented bundles):" in report

@@ -819,6 +819,7 @@ def test_collect_deadline_obligations_full_matrix(tmp_path: Path) -> None:
     report, violations = da._emit_report(
         {},
         0,
+        project_root=Path("."),
         report=da.ReportCarrier(
             forest=da.Forest(),
             deadline_obligations=obligations,
