@@ -584,7 +584,7 @@ def collect_class_index(
 
 def build_function_index(
     paths: list[Path],
-    project_root,
+    project_root: Path,
     ignore_params: set[str],
     strictness: str,
     transparent_decorators=None,

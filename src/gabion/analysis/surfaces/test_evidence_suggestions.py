@@ -419,7 +419,7 @@ def collect_call_footprints(
         return {}
     root_path = Path(root)
     config = config or AuditConfig(project_root=root_path)
-    project_root = config.project_root or root_path
+    project_root = config.project_root
     iter_paths = iter_paths_fn or _iter_paths
     build_function_index = build_function_index_fn or _build_function_index
     build_symbol_table = build_symbol_table_fn or _build_symbol_table
@@ -468,9 +468,9 @@ def collect_call_footprints(
                 info,
                 by_name,
                 by_qual,
-                symbol_table,
-                project_root,
-                class_index,
+                project_root=project_root,
+                symbol_table=symbol_table,
+                class_index=class_index,
             )
             if callee is not None:
                 resolved_callees[callee.qual] = callee
@@ -523,7 +523,7 @@ def _graph_suggestions(
     if not entries:
         return {}, set()
     config = config or AuditConfig(project_root=root)
-    project_root = config.project_root or root
+    project_root = config.project_root
     iter_paths = iter_paths_fn or _iter_paths
     build_function_index = build_function_index_fn or _build_function_index
     build_symbol_table = build_symbol_table_fn or _build_symbol_table
@@ -577,9 +577,9 @@ def _graph_suggestions(
                 info,
                 by_name,
                 by_qual,
-                symbol_table,
-                project_root,
-                class_index,
+                project_root=project_root,
+                symbol_table=symbol_table,
+                class_index=class_index,
             )
             if callee is not None:
                 resolved_callees[callee.qual] = callee
@@ -743,9 +743,9 @@ def _find_module_level_calls(
                 info,
                 dict(by_name),
                 by_qual,
-                symbol_table,
-                project_root,
-                class_index,
+                project_root=project_root,
+                symbol_table=symbol_table,
+                class_index=class_index,
             )
             if callee is None:
                 resolved_module = _resolve_symbol_target(

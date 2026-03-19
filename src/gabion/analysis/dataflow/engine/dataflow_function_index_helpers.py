@@ -20,16 +20,20 @@ from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
 from gabion.analysis.foundation.json_types import JSONObject, ParseFailureWitnesses
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.analysis.foundation.timeout_context import deadline_loop_iter
-from gabion.invariants import never
+from gabion.invariants import decision_protocol, grade_boundary, never
 
 
-def _module_name(path: Path, project_root=None) -> str:
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="dataflow_function_index_helpers.module_name",
+)
+@decision_protocol
+def _module_name(path: Path, project_root: Path) -> str:
     rel = path.with_suffix("")
-    if project_root is not None:
-        try:
-            rel = rel.relative_to(project_root)
-        except ValueError:
-            pass
+    try:
+        rel = rel.relative_to(project_root)
+    except ValueError:
+        pass
     parts = list(rel.parts)
     if parts and parts[0] == "src":
         parts = parts[1:]
@@ -642,7 +646,7 @@ def _collect_calls(
 
 def _build_function_index(
     paths: list[Path],
-    project_root,
+    project_root: Path,
     ignore_params: set[str],
     strictness: str,
     transparent_decorators = None,

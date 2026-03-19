@@ -97,7 +97,7 @@ def test_refactor_engine_invalid_type_hint_warns(tmp_path: Path) -> None:
 def test_module_name_strips_src_prefix(tmp_path: Path) -> None:
     _, _, _, _, _, _module_name, _ = _load()
     path = Path("src") / "pkg" / "mod.py"
-    assert _module_name(path, None) == "pkg.mod"
+    assert _module_name(path, Path("src")) == "pkg.mod"
     rooted = tmp_path / "pkg" / "mod.py"
     assert _module_name(rooted, tmp_path) == "pkg.mod"
 

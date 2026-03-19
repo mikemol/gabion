@@ -344,13 +344,17 @@ def _field_spec_names(field_specs: list[FieldSpec]) -> list[str]:
     return [spec.name for spec in field_specs]
 
 
-def _module_name(path: Path, project_root) -> str:
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="refactor.module_name",
+)
+@decision_protocol
+def _module_name(path: Path, project_root: Path) -> str:
     rel = path.with_suffix("")
-    if project_root is not None:
-        try:
-            rel = rel.relative_to(project_root)
-        except ValueError:
-            pass
+    try:
+        rel = rel.relative_to(project_root)
+    except ValueError:
+        pass
     parts = list(rel.parts)
     if parts and parts[0] == "src":
         parts = parts[1:]

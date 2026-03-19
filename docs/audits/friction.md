@@ -1,5 +1,5 @@
 ---
-doc_revision: 16
+doc_revision: 17
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: friction
 doc_role: audit
@@ -1021,3 +1021,34 @@ expects those to be declared rather than inferred from role intuition.
 **Workstream/Context:** `PSN-TP-006` snapshot/render owner slice after
 `GH-214 Strictify refactor target-path ingress and preserve project_root call
 shapes`.
+
+## FN-020: Performative optionality hides the real boundary
+
+**Trigger:** Chasing the next `project_root` origin after the refactor and
+snapshot ingress slices were already strict.
+
+**Friction:** A surface can still advertise `config=None` or `config.project_root
+or root` long after every real caller has converged on explicit strict input.
+That optionality is no longer carrying legitimate behavior; it is only masking
+the fact that the function is already acting as a true ingress or
+normalization boundary.
+
+**Impact:** Humans and LLMs waste time treating the API as more permissive than
+the repo actually is. That encourages local fallback repairs and delays the
+moment when the boundary gets named and validated as such.
+
+**Hypothesis:** Repo evolution often tightens callers first, leaving the public
+surface lagging behind as a compatibility-shaped shell. Once that shell stops
+matching real use, it becomes ambiguity debt rather than compatibility value.
+
+**Evidence:**
+- `src/gabion/analysis/dataflow/engine/dataflow_pipeline.py` still advertising
+  `config=None` despite real callers already supplying `AuditConfig`
+- `src/gabion/analysis/surfaces/test_evidence_suggestions.py` still carrying
+  `config.project_root or root` after `root` and `AuditConfig.project_root`
+  were both already strict in practice
+- the ambiguity gate only settled once those surfaces were treated as real
+  boundaries/adapters instead of pseudo-flexible helpers
+
+**Workstream/Context:** `PSN-TP-006` follow-on root-origin burn-down after the
+snapshot-render strictification tranche.

@@ -1,3 +1,5 @@
+# gabion:ambiguity_boundary_module
+# gabion:boundary_normalization_module
 from __future__ import annotations
 
 import time
@@ -19,7 +21,7 @@ from gabion.analysis.foundation.timeout_context import (
 from gabion.analysis.core.type_fingerprints import (
     TypeConstructorRegistry, build_fingerprint_registry)
 from gabion.analysis.core.wl_refinement import emit_wl_refinement_facets
-from gabion.invariants import never
+from gabion.invariants import grade_boundary, never
 from gabion.order_contract import sort_once
 
 from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
@@ -250,6 +252,10 @@ def _apply_forest_progress_delta(
         forest_dimensions,
         False,
     )
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="dataflow_pipeline.run_forest_phase",
+)
 def _run_forest_phase(
     *,
     file_paths: list[Path],
@@ -1063,6 +1069,10 @@ def _run_post_phase(
     )
 
 
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="dataflow_pipeline.analyze_paths",
+)
 def analyze_paths(
     paths: list[Path],
     *,
@@ -1087,7 +1097,7 @@ def analyze_paths(
     include_ambiguities: bool = False,
     include_bundle_forest: bool = False,
     include_deadline_obligations: bool = False,
-    config: object = None,
+    config: AuditConfig,
     file_paths_override: object = None,
     collection_resume: object = None,
     on_collection_progress: object = None,
@@ -1141,9 +1151,7 @@ def analyze_paths(
             return
 
     try:
-        if config is None:
-            config = AuditConfig()
-        runtime_config = cast(AuditConfig, config)
+        runtime_config = config
         unsupported_by_adapter: list[JSONObject] = []
         if include_bundle_forest and not _capability_enabled(
             runtime_config.adapter_contract,

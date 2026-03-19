@@ -83,6 +83,7 @@ def test_analyze_paths_rejects_invalid_collection_progress_callback() -> None:
             type_audit_max=1,
             include_constant_smells=False,
             include_unused_arg_smells=False,
+            config=dataflow_pipeline.AuditConfig(project_root=Path(".")),
             on_collection_progress="not-callable",  # type: ignore[arg-type]
         )
 
@@ -101,6 +102,7 @@ def test_analyze_paths_rejects_invalid_phase_progress_callback() -> None:
             type_audit_max=1,
             include_constant_smells=False,
             include_unused_arg_smells=False,
+            config=dataflow_pipeline.AuditConfig(project_root=Path(".")),
             on_phase_progress="not-callable",  # type: ignore[arg-type]
         )
 
@@ -108,7 +110,7 @@ def test_analyze_paths_rejects_invalid_phase_progress_callback() -> None:
 # gabion:behavior primary=verboten facets=edge,invalid
 def test_analyze_paths_requires_explicit_project_root_config() -> None:
     _bind()
-    with pytest.raises(TypeError, match="project_root"):
+    with pytest.raises(TypeError, match="config"):
         dataflow_pipeline.analyze_paths(
             paths=[],
             forest=dataflow_pipeline.Forest(),
