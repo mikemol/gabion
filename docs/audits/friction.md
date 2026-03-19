@@ -1,5 +1,5 @@
 ---
-doc_revision: 19
+doc_revision: 21
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: friction
 doc_role: audit
@@ -1119,3 +1119,59 @@ without adding semantic value.
 
 **Workstream/Context:** `PSN-TP-006` snapshot-path owner collapse after the
 indexed-scan and deadline project-root publication slices.
+
+## FN-023: Single-caller owners can still preserve fake optionality long after their origin has converged
+
+**Trigger:** Resuming PSN after the snapshot-path owner collapse and scanning for
+the next remaining `project_root` ambiguity.
+
+**Friction:** `schema_audit.find_anonymous_schema_surfaces(...)` still advertised
+`project_root: object = None` even though its only live product-code caller in
+`dataflow_reporting.py` already published a strict `Path`. The owner looked
+general-purpose, but the repo had already converged on one real ingress shape.
+
+**Impact:** Humans and LLMs can mistake leftover owner optionality for evidence
+of a broader compatibility requirement and spend time preserving it. That keeps
+fake alternation alive in the owner even after the real upstream source has
+already been narrowed.
+
+**Hypothesis:** Once a function is only called from one strict carrier path,
+optional parameters in the owner are usually historical residue rather than live
+contract. Treating that residue as a compatibility obligation recreates the same
+ambiguity debt that earlier origin-level strictification already paid down.
+
+**Evidence:**
+- `src/gabion/analysis/semantics/schema_audit.py`
+- `src/gabion/analysis/dataflow/io/dataflow_reporting.py`
+- `tests/gabion/analysis/misc_s1/test_schema_audit.py`
+
+**Workstream/Context:** `PSN` follow-on root-origin strictification after
+`GH-214 Collapse duplicate snapshot-path owner surface`.
+
+## FN-024: After strictification, policy may require boundary disclosure before it accepts the slice as lawful
+
+**Trigger:** Tightening `schema_audit` so `project_root` became strict at the
+owner after confirming that its real reporting caller already published `Path`.
+
+**Friction:** The first ambiguity-gate failure was no longer about loose root
+shape. It was about the owner still looking like an ordinary core helper while
+performing a real scan/materialization role. Once the data shape was made
+truthful, the next policy demand was to disclose that boundary explicitly.
+
+**Impact:** Without reading the gate carefully, an LLM can misdiagnose the red
+result as evidence that the strictification was wrong and start reintroducing
+optionality. That backtracks the real progress instead of satisfying the newly
+visible requirement.
+
+**Hypothesis:** In this repo, some owners only become legible as boundaries
+after fake compatibility has been removed. Strictifying the contract first can
+surface a second, legitimate obligation: declare the owner as the real carrier
+or materialization seam.
+
+**Evidence:**
+- `src/gabion/analysis/semantics/schema_audit.py`
+- the first post-strictification `gabion policy check --ambiguity-contract`
+  failure for `schema_audit`
+
+**Workstream/Context:** `PSN` schema-audit root-origin slice immediately after
+the snapshot-path owner-collapse tranche.

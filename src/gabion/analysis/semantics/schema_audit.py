@@ -1,3 +1,6 @@
+# gabion:ambiguity_boundary_module
+# gabion:boundary_normalization_module
+# gabion:grade_boundary kind=semantic_carrier_adapter name=schema_audit
 from __future__ import annotations
 
 import ast
@@ -6,19 +9,19 @@ from pathlib import Path
 import re
 from collections.abc import Iterable
 from gabion.analysis.foundation.timeout_context import check_deadline
-from gabion.invariants import never
+from gabion.invariants import decision_protocol, grade_boundary, never
 from gabion.order_contract import sort_once
 
 
 _DOC_ROLE_RE = re.compile(r"^test_")
 
 
-def _normalize_path(path: Path, root: object) -> str:
-    if root is not None:
-        try:
-            return str(path.relative_to(root))
-        except ValueError:
-            pass
+@decision_protocol
+def _normalize_path(path: Path, root: Path) -> str:
+    try:
+        return str(path.relative_to(root))
+    except ValueError:
+        pass
     return str(path)
 
 
@@ -197,10 +200,14 @@ class _SurfaceVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
 
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="schema_audit.find_anonymous_schema_surfaces",
+)
 def find_anonymous_schema_surfaces(
     paths: Iterable[Path],
     *,
-    project_root: object = None,
+    project_root: Path,
 ) -> list[AnonymousSchemaSurface]:
     """Find uses of dict[str, object] (and containers thereof) in annotations.
 

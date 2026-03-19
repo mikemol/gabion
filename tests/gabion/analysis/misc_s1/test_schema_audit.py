@@ -137,13 +137,6 @@ def test_normalize_path_inside_root_returns_relative(tmp_path: Path) -> None:
     assert sa._normalize_path(path, root) == "pkg/mod.py"
 
 
-# gabion:evidence E:call_footprint::tests/test_schema_audit.py::test_normalize_path_without_root_returns_original_path::schema_audit.py::gabion.analysis.schema_audit._normalize_path
-# gabion:behavior primary=desired
-def test_normalize_path_without_root_returns_original_path(tmp_path: Path) -> None:
-    path = tmp_path / "mod.py"
-    assert sa._normalize_path(path, None) == str(path)
-
-
 # gabion:evidence E:call_footprint::tests/test_schema_audit.py::test_find_anonymous_schema_surfaces_covers_async_without_returns::schema_audit.py::gabion.analysis.schema_audit.find_anonymous_schema_surfaces
 # gabion:behavior primary=desired
 def test_find_anonymous_schema_surfaces_covers_async_without_returns(tmp_path: Path) -> None:
