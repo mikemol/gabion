@@ -56,7 +56,7 @@ from gabion.analysis.surfaces import test_obsolescence_delta
 from gabion.analysis.surfaces import test_obsolescence_state
 from gabion.analysis.surfaces import test_evidence_suggestions
 from gabion.analysis.foundation.timeout_context import (
-    Deadline, GasMeter, TimeoutExceeded, check_deadline, deadline_loop_iter, get_deadline, get_deadline_clock, record_deadline_io, reset_deadline_clock, forest_scope, reset_forest, set_forest, reset_deadline_profile, reset_deadline, set_deadline_profile, set_deadline, set_deadline_clock)
+    Deadline, GasMeter, TimeoutExceeded, check_deadline, deadline_loop_iter, get_deadline, get_deadline_clock, record_deadline_io, reset_deadline_clock, forest_scope, reset_forest, reset_deadline_profile, reset_deadline, scoped_deadline_project_scope, set_deadline_profile, set_deadline, set_deadline_clock, set_forest, unscoped_deadline_project_scope)
 from gabion.exceptions import NeverThrown
 from gabion.invariants import decision_protocol, never
 from gabion.order_contract import OrderPolicy, sort_once
@@ -1229,12 +1229,16 @@ def _deadline_scope_from_payload(payload: Mapping[str, object] | MappingPayloadC
     logical_clock = GasMeter(limit=tick_limit)
     profile_enabled = _truthy_flag(normalized_payload.get("deadline_profile"))
     root_value = normalized_payload.get("root")
-    profile_root = Path(str(root_value)).resolve() if root_value not in (None, "") else None
+    profile_scope = (
+        scoped_deadline_project_scope(Path(str(root_value)))
+        if root_value not in (None, "")
+        else unscoped_deadline_project_scope()
+    )
     with forest_scope(Forest()):
         deadline_token = set_deadline(deadline)
         clock_token = set_deadline_clock(logical_clock)
         profile_token = set_deadline_profile(
-            project_root=profile_root,
+            project_scope=profile_scope,
             enabled=profile_enabled,
             sample_interval=_deadline_profile_sample_interval(
                 normalized_payload,

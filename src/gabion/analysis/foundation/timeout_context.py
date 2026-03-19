@@ -1,4 +1,7 @@
+# gabion:ambiguity_boundary_module
+# gabion:boundary_normalization_module
 # gabion:decision_protocol_module
+# gabion:grade_boundary kind=semantic_carrier_adapter name=timeout_context
 from __future__ import annotations
 
 import inspect
@@ -22,7 +25,7 @@ from gabion.runtime_shape_dispatch import (
 from gabion.deadline_clock import (
     DeadlineClock, DeadlineClockExhausted, GasMeter, MonotonicClock)
 from gabion.exceptions import NeverThrown
-from gabion.invariants import never
+from gabion.invariants import grade_boundary, never
 from gabion.json_types import JSONValue
 
 
@@ -83,6 +86,34 @@ class TimeoutContext:
         if self.progress:
             payload["progress"] = self.progress
         return payload
+
+
+@dataclass(frozen=True)
+class _UnscopedDeadlineProjectScope:
+    key: str = "<unscoped>"
+
+
+@dataclass(frozen=True)
+class _ScopedDeadlineProjectScope:
+    root: Path
+    key: str
+
+
+DeadlineProjectScope = _UnscopedDeadlineProjectScope | _ScopedDeadlineProjectScope
+_UNSCOPED_DEADLINE_PROJECT_SCOPE = _UnscopedDeadlineProjectScope()
+
+
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="timeout_context.scoped_deadline_project_scope",
+)
+def scoped_deadline_project_scope(project_root: Path) -> DeadlineProjectScope:
+    resolved_root = project_root.resolve()
+    return _ScopedDeadlineProjectScope(root=resolved_root, key=str(resolved_root))
+
+
+def unscoped_deadline_project_scope() -> DeadlineProjectScope:
+    return _UNSCOPED_DEADLINE_PROJECT_SCOPE
 
 
 @dataclass(frozen=True)
@@ -623,8 +654,7 @@ class _DeadlineProfileState:
     last_ns: int
     started_wall_ns: int
     last_wall_ns: int
-    project_root: object = None
-    project_root_key: object = None
+    project_scope: DeadlineProjectScope = _UNSCOPED_DEADLINE_PROJECT_SCOPE
     sample_interval: int = 1
     checks_total: int = 0
     sampled_checks_total: int = 0
@@ -632,12 +662,9 @@ class _DeadlineProfileState:
     sample_pending_elapsed_ns: int = 0
     unattributed_elapsed_ns: int = 0
     last_site_id: object = None
-    root_resolution_cache: dict[str, tuple[object, object]] = field(
-        default_factory=dict
-    )
     site_keys: list[_SiteKey] = field(default_factory=list)
     site_ids: dict[_SiteKey, int] = field(default_factory=dict)
-    frame_site_cache: dict[tuple[object, object], int] = field(default_factory=dict)
+    frame_site_cache: dict[tuple[object, str], int] = field(default_factory=dict)
     site_stats: dict[int, _DeadlineSiteStats] = field(default_factory=dict)
     edge_stats: dict[
         tuple[int, int],
@@ -655,20 +682,28 @@ def _current_deadline_mark() -> int:
     return get_deadline_clock().get_mark()
 
 
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="timeout_context._current_deadline_project_scope",
+)
+def _current_deadline_project_scope() -> DeadlineProjectScope:
+    state = _deadline_profile_var.get()
+    if state is None:
+        return _UNSCOPED_DEADLINE_PROJECT_SCOPE
+    return state.project_scope
+
+
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="timeout_context.set_deadline_profile",
+)
 def set_deadline_profile(
     *,
-    project_root = None,
+    project_scope: DeadlineProjectScope,
     enabled: bool = True,
     sample_interval: int = 1,
 ):
     normalized_sample_interval = max(1, int(sample_interval))
-    resolved_root = None
-    root_key = None
-    root_resolution_cache: dict[str, tuple[object, object]] = {}
-    if project_root is not None:
-        resolved_root = project_root.resolve()
-        root_key = str(resolved_root)
-        root_resolution_cache[str(project_root)] = (resolved_root, root_key)
     now = _current_deadline_mark()
     wall_now = _SYSTEM_CLOCK.get_mark()
     state = _DeadlineProfileState(
@@ -677,10 +712,8 @@ def set_deadline_profile(
         last_ns=now,
         started_wall_ns=wall_now,
         last_wall_ns=wall_now,
-        project_root=resolved_root,
-        project_root_key=root_key,
+        project_scope=project_scope,
         sample_interval=normalized_sample_interval,
-        root_resolution_cache=root_resolution_cache,
     )
     return _deadline_profile_var.set(state)
 
@@ -764,37 +797,50 @@ def forest_scope(forest):
 
 def deadline_profile_scope(
     *,
-    project_root = None,
+    project_scope: DeadlineProjectScope,
     enabled: bool = True,
     sample_interval: int = 1,
 ):
     token = set_deadline_profile(
-        project_root=project_root,
+        project_scope=project_scope,
         enabled=enabled,
         sample_interval=sample_interval,
     )
     return _ScopeResetContext(token=token, resetter=reset_deadline_profile)
 
 
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="timeout_context._profile_site_key",
+)
 def _profile_site_key(
     frame: FrameType,
     *,
-    project_root,
+    project_scope: DeadlineProjectScope,
 ) -> _SiteKey:
-    if project_root is None:
-        site_key = _frame_site_key(frame, project_root=None)
-        return site_key
-    try:
-        site_key = _frame_site_key(frame, project_root=project_root)
-        return site_key
-    except NeverThrown:
-        local_site_key = _frame_site_key(frame, project_root=None)
-        fallback_key = _SiteKey(path="<external>", qual=local_site_key.qual)
-        return fallback_key
+    match project_scope:
+        case _UnscopedDeadlineProjectScope():
+            return _frame_site_key(
+                frame,
+                project_scope=_UNSCOPED_DEADLINE_PROJECT_SCOPE,
+            )
+        case _ScopedDeadlineProjectScope():
+            try:
+                return _frame_site_key(frame, project_scope=project_scope)
+            except NeverThrown:
+                local_site_key = _frame_site_key(
+                    frame,
+                    project_scope=_UNSCOPED_DEADLINE_PROJECT_SCOPE,
+                )
+                return _SiteKey(path="<external>", qual=local_site_key.qual)
+    never("invalid deadline project scope", scope_type=type(project_scope).__name__)
 
 
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="timeout_context._record_deadline_check",
+)
 def _record_deadline_check(
-    project_root,
     *,
     frame_getter = inspect.currentframe,
     profile_site_key_fn: Callable[..., _SiteKey] = _profile_site_key,
@@ -809,17 +855,6 @@ def _record_deadline_check(
         )
         if has_caller:
             caller_frame = frame.f_back.f_back
-            effective_root = state.project_root
-            effective_root_key = state.project_root_key
-            if project_root is not None:
-                cache_key = str(project_root)
-                cached_root = state.root_resolution_cache.get(cache_key)
-                if cached_root is None:
-                    resolved_root = project_root.resolve()
-                    resolved_root_key = str(resolved_root)
-                    cached_root = (resolved_root, resolved_root_key)
-                    state.root_resolution_cache[cache_key] = cached_root
-                effective_root, effective_root_key = cached_root
             now = _current_deadline_mark()
             delta = max(0, now - state.last_ns)
             state.last_ns = now
@@ -834,12 +869,12 @@ def _record_deadline_check(
                 state.sample_pending_checks = 0
                 state.sample_pending_elapsed_ns = 0
                 state.sampled_checks_total += sampled_checks
-                frame_cache_key = (caller_frame.f_code, effective_root_key)
+                frame_cache_key = (caller_frame.f_code, state.project_scope.key)
                 site_id = state.frame_site_cache.get(frame_cache_key)
                 if site_id is None:
                     site_key = profile_site_key_fn(
                         caller_frame,
-                        project_root=effective_root,
+                        project_scope=state.project_scope,
                     )
                     site_id = state.site_ids.get(site_key)
                     if site_id is None:
@@ -1227,7 +1262,6 @@ def record_deadline_io(
 def check_deadline(
     deadline = None,
     *,
-    project_root = None,
     forest_spec_id = None,
     forest_signature = None,
     allow_frame_fallback: bool = True,
@@ -1238,12 +1272,11 @@ def check_deadline(
     if clock is None:
         never("deadline clock missing")
     consume_deadline_ticks(
-        project_root=project_root,
         forest_spec_id=forest_spec_id,
         forest_signature=forest_signature,
         allow_frame_fallback=allow_frame_fallback,
     )
-    _record_deadline_check(project_root)
+    _record_deadline_check()
     return
 
 
@@ -1258,7 +1291,6 @@ def deadline_loop_iter(values: Iterable[_LoopItem]) -> Iterator[_LoopItem]:
 def consume_deadline_ticks(
     ticks: int = 1,
     *,
-    project_root = None,
     forest_spec_id = None,
     forest_signature = None,
     allow_frame_fallback: bool = True,
@@ -1274,7 +1306,7 @@ def consume_deadline_ticks(
             raise
         timeout_context = build_timeout_context_from_stack(
             forest=forest,
-            project_root=project_root,
+            project_scope=_current_deadline_project_scope(),
             forest_spec_id=forest_spec_id,
             forest_signature=forest_signature,
             deadline_profile=_deadline_profile_snapshot(),
@@ -1287,10 +1319,14 @@ def _normalize_qualname(qualname: str) -> str:
     return qualname.replace(".<locals>.", ".")
 
 
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="timeout_context._frame_site_key",
+)
 def _frame_site_key(
     frame: FrameType,
     *,
-    project_root,
+    project_scope: DeadlineProjectScope,
 ) -> _SiteKey:
     module = frame.f_globals.get("__name__") or ""
     qualname = _normalize_qualname(frame.f_code.co_qualname or frame.f_code.co_name)
@@ -1299,16 +1335,21 @@ def _frame_site_key(
     else:
         qual = qualname
     path = Path(frame.f_code.co_filename)
-    if project_root is not None:
-        resolved_path = str(path.resolve())
-        root_text = str(project_root)
-        root_prefix = root_text if root_text.endswith(os.sep) else f"{root_text}{os.sep}"
-        if resolved_path != root_text and not resolved_path.startswith(root_prefix):
-            never(
-                "frame outside project_root",
-                path=resolved_path,
-                project_root=root_text,
-            )
+    match project_scope:
+        case _UnscopedDeadlineProjectScope():
+            pass
+        case _ScopedDeadlineProjectScope(root=root):
+            resolved_path = str(path.resolve())
+            root_text = str(root)
+            root_prefix = root_text if root_text.endswith(os.sep) else f"{root_text}{os.sep}"
+            if resolved_path != root_text and not resolved_path.startswith(root_prefix):
+                never(
+                    "frame outside project_root",
+                    path=resolved_path,
+                    project_root=root_text,
+                )
+        case _:
+            never("invalid deadline project scope", scope_type=type(project_scope).__name__)
     site_key = _SiteKey(path=path.name, qual=qual)
     return site_key
 
@@ -1538,19 +1579,26 @@ def _frame_within_resolved_root(frame: FrameType, resolved_root: Path) -> bool:
         return False
 
 
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="timeout_context._iter_project_frames",
+)
 def _iter_project_frames(
     frame_list: Iterable[FrameType],
     *,
-    resolved_root,
+    project_scope: DeadlineProjectScope,
 ) -> Iterator[FrameType]:
-    if resolved_root is None:
-        return iter(frame_list)
-    return iter(
-        filter(
-            lambda frame: _frame_within_resolved_root(frame, resolved_root),
-            frame_list,
-        )
-    )
+    match project_scope:
+        case _UnscopedDeadlineProjectScope():
+            return iter(frame_list)
+        case _ScopedDeadlineProjectScope(root=root):
+            return iter(
+                filter(
+                    lambda frame: _frame_within_resolved_root(frame, root),
+                    frame_list,
+                )
+            )
+    never("invalid deadline project scope", scope_type=type(project_scope).__name__)
 
 
 def _site_from_key_with_fallback(
@@ -1589,13 +1637,13 @@ def _site_index_insert(
 def _iter_timeout_context_sites(
     *,
     frame_list: Iterable[FrameType],
-    resolved_root,
+    project_scope: DeadlineProjectScope,
     site_index: Mapping[_SiteKey, _CallSite],
     allow_frame_fallback: bool,
 ) -> Iterator[_CallSite]:
     keys = map(
-        lambda frame: _frame_site_key(frame, project_root=resolved_root),
-        _iter_project_frames(frame_list, resolved_root=resolved_root),
+        lambda frame: _frame_site_key(frame, project_scope=project_scope),
+        _iter_project_frames(frame_list, project_scope=project_scope),
     )
     if allow_frame_fallback:
         return map(
@@ -1605,10 +1653,14 @@ def _iter_timeout_context_sites(
     return map(site_index.__getitem__, filter(site_index.__contains__, keys))
 
 
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="timeout_context.build_timeout_context_from_stack",
+)
 def build_timeout_context_from_stack(
     *,
     forest,
-    project_root,
+    project_scope: DeadlineProjectScope,
     forest_spec_id = None,
     forest_signature = None,
     deadline_profile = None,
@@ -1621,13 +1673,10 @@ def build_timeout_context_from_stack(
         if frames is not None
         else tuple(map(lambda frame_info: frame_info.frame, inspect.stack()))
     )
-    resolved_root = None
-    if project_root is not None:
-        resolved_root = project_root.resolve()
     sites = tuple(
         _iter_timeout_context_sites(
             frame_list=frame_list,
-            resolved_root=resolved_root,
+            project_scope=project_scope,
             site_index=site_index,
             allow_frame_fallback=allow_frame_fallback,
         )

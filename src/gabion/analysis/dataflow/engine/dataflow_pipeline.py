@@ -6,6 +6,7 @@ import time
 from collections import Counter
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 from typing import cast
 
@@ -48,6 +49,36 @@ _SURFACE_DECISION_SURFACES = "decision-surfaces"
 _SURFACE_TYPE_FLOW = "type-flow"
 _SURFACE_EXCEPTION_OBLIGATIONS = "exception-obligations"
 _SURFACE_REWRITE_PLAN_SUPPORT = "rewrite-plan-support"
+
+
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="dataflow_pipeline._deadline_forest_spec_id",
+)
+def _deadline_forest_spec_id(forest_spec: object) -> str | None:
+    if forest_spec is None:
+        return None
+    forest_spec_id = forest_spec_metadata(forest_spec).get(
+        "generated_by_forest_spec_id"
+    )
+    if not forest_spec_id:
+        return None
+    return str(forest_spec_id)
+
+
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="dataflow_pipeline.check_analysis_deadline",
+)
+def check_analysis_deadline(
+    *,
+    forest_spec: object,
+    allow_frame_fallback: bool,
+) -> None:
+    check_deadline(
+        forest_spec_id=_deadline_forest_spec_id(forest_spec),
+        allow_frame_fallback=allow_frame_fallback,
+    )
 
 
 def _capability_enabled(adapter_contract: object, capability_name: str) -> bool:
@@ -1278,18 +1309,6 @@ def analyze_paths(
             }
         )
 
-        def _deadline_check(*, allow_frame_fallback: bool) -> None:
-            forest_spec_id = None
-            if forest_spec is not None:
-                forest_spec_id = forest_spec_metadata(forest_spec).get(
-                    "generated_by_forest_spec_id"
-                )
-            check_deadline(
-                    project_root=runtime_config.project_root,
-                    forest_spec_id=str(forest_spec_id) if forest_spec_id else None,
-                    allow_frame_fallback=allow_frame_fallback,
-                )
-
         if (
             include_bundle_forest
             or include_decision_surfaces
@@ -1434,7 +1453,10 @@ def analyze_paths(
                 continue
             in_progress_scan_by_path[path] = {"phase": "scan_pending"}
             _emit_collection_progress(force=True)
-            _deadline_check(allow_frame_fallback=True)
+            check_analysis_deadline(
+                forest_spec=forest_spec,
+                allow_frame_fallback=True,
+            )
 
             def _on_file_scan_progress(progress_state: JSONObject) -> None:
                 in_progress_scan_by_path[path] = progress_state
@@ -1514,7 +1536,10 @@ def analyze_paths(
             include_ambiguities=include_ambiguities,
             require_analysis_index_fn=_require_analysis_index,
             emit_phase_progress_fn=_emit_phase_progress,
-            deadline_check_fn=_deadline_check,
+            deadline_check_fn=partial(
+                check_analysis_deadline,
+                forest_spec=forest_spec,
+            ),
             analysis_profile_stage_ns=analysis_profile_stage_ns,
         )
         forest_spec = forest_phase.forest_spec
@@ -1536,7 +1561,10 @@ def analyze_paths(
             include_unused_arg_smells=include_unused_arg_smells,
             require_analysis_index_fn=_require_analysis_index,
             emit_phase_progress_fn=_emit_phase_progress,
-            deadline_check_fn=_deadline_check,
+            deadline_check_fn=partial(
+                check_analysis_deadline,
+                forest_spec=forest_spec,
+            ),
             analysis_profile_stage_ns=analysis_profile_stage_ns,
         )
         type_suggestions = edge_phase.type_suggestions

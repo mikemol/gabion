@@ -1,5 +1,5 @@
 ---
-doc_revision: 24
+doc_revision: 25
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: friction
 doc_role: audit
@@ -1260,3 +1260,34 @@ real caller chain has already converged.
 
 **Workstream/Context:** `PSN-TP-006` follow-on strictification after the
 `impact_index` root-boundary slice.
+
+## FN-028: Strict root repairs keep flushing out preview-path omissions
+
+**Trigger:** Burning down the optional-root problem in
+`analysis.foundation.timeout_context` by replacing `project_root=None` with an
+explicit scoped-vs-unscoped carrier.
+
+**Friction:** Once the main timeout APIs were made strict, the next failures did
+not come from the obvious deadline checks. They came from side paths like
+incremental report previews and timeout-context tests that were still relying on
+omission to mean "unscoped". Those paths had already converged semantically,
+but they had not been forced to publish that intent.
+
+**Impact:** Humans and LLMs can think a strictification slice is complete after
+the primary execution path is clean, then lose time when preview/report/test
+surfaces reintroduce the retired shape. This makes the repo look more
+multi-shape than it really is and encourages helper-local fallbacks.
+
+**Hypothesis:** In this repo, once a root carrier becomes strict, the remaining
+ambiguity often hides in secondary surfaces that were never forced to declare
+scope explicitly. They are not separate domains; they are stale side channels
+for the same retired omission contract.
+
+**Evidence:**
+- `src/gabion/analysis/foundation/timeout_context.py`
+- `src/gabion/server.py`
+- `src/gabion/server_core/command_orchestrator.py`
+- `tests/gabion/analysis/timeout_deadline/test_timeout_context.py`
+
+**Workstream/Context:** `PSN-TP-006` follow-on strictification while burning
+down the `timeout_context.py` optional-root seam.

@@ -11,9 +11,17 @@ import pytest
 import gabion.analysis.foundation.timeout_context as timeout_context
 from gabion.analysis.aspf.aspf import Forest
 from gabion.analysis.foundation.timeout_context import (
-    Deadline, GasMeter, TimeoutContext, TimeoutTickCarrier, TimeoutExceeded, _deadline_profile_snapshot, _freeze_value, _profile_site_key, _record_deadline_check, _site_key_payload, _site_part_from_payload, _site_part_to_payload, _timeout_progress_snapshot, build_timeout_context_from_stack, build_site_index, check_deadline, consume_deadline_ticks, deadline_clock_scope, deadline_profile_scope, deadline_scope, forest_scope, get_deadline_clock, get_deadline, get_forest, pack_call_stack, record_deadline_io, render_deadline_profile_markdown, reset_forest, set_deadline, set_deadline_clock, set_forest, _frame_site_key)
+    Deadline, GasMeter, TimeoutContext, TimeoutTickCarrier, TimeoutExceeded, _deadline_profile_snapshot, _freeze_value, _frame_site_key, _profile_site_key, _record_deadline_check, _site_key_payload, _site_part_from_payload, _site_part_to_payload, _timeout_progress_snapshot, build_timeout_context_from_stack, build_site_index, check_deadline, consume_deadline_ticks, deadline_clock_scope, deadline_profile_scope, deadline_scope, forest_scope, get_deadline, get_deadline_clock, get_forest, pack_call_stack, record_deadline_io, render_deadline_profile_markdown, reset_forest, scoped_deadline_project_scope, set_deadline, set_deadline_clock, set_forest, unscoped_deadline_project_scope)
 from gabion.deadline_clock import DeadlineClockExhausted
 from gabion.exceptions import NeverThrown
+
+
+def _scoped_scope(project_root: Path) -> timeout_context.DeadlineProjectScope:
+    return scoped_deadline_project_scope(project_root)
+
+
+def _unscoped_scope() -> timeout_context.DeadlineProjectScope:
+    return unscoped_deadline_project_scope()
 
 
 @contextmanager
@@ -63,7 +71,7 @@ def test_build_timeout_context_from_stack_uses_forest() -> None:
         def inner() -> object:
             return build_timeout_context_from_stack(
                 forest=forest,
-                project_root=REPO_ROOT,
+                project_scope=_scoped_scope(REPO_ROOT),
             )
 
         qual = f"{__name__}.{inner.__qualname__.replace('.<locals>.', '.')}"
@@ -260,7 +268,7 @@ def test_frame_site_key_outside_root_raises() -> None:
     assert frame is not None
     project_root = REPO_ROOT / "missing_root"
     with pytest.raises(NeverThrown):
-        _frame_site_key(frame, project_root=project_root)
+        _frame_site_key(frame, project_scope=_scoped_scope(project_root))
 
 
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context._frame_site_key E:decision_surface/direct::timeout_context.py::gabion.analysis.timeout_context._frame_site_key::stale_88f48c1fe168
@@ -282,7 +290,7 @@ def test_frame_site_key_without_module_name() -> None:
             )(),
         },
     )()
-    assert _frame_site_key(frame, project_root=None) == timeout_context._SiteKey(
+    assert _frame_site_key(frame, project_scope=_unscoped_scope()) == timeout_context._SiteKey(
         path="mod.py",
         qual="inner",
     )
@@ -408,7 +416,7 @@ def test_build_timeout_context_frame_fallback() -> None:
     assert frame is not None
     context = build_timeout_context_from_stack(
         forest=Forest(),
-        project_root=REPO_ROOT,
+        project_scope=_scoped_scope(REPO_ROOT),
         allow_frame_fallback=True,
         frames=[frame],
     )
@@ -422,7 +430,7 @@ def test_build_timeout_context_progress_classification_no_progress() -> None:
     assert frame is not None
     context = build_timeout_context_from_stack(
         forest=Forest(),
-        project_root=None,
+        project_scope=_unscoped_scope(),
         frames=[frame],
         deadline_profile={"checks_total": 0, "sites": []},
     )
@@ -441,7 +449,7 @@ def test_build_timeout_context_progress_classification_with_progress() -> None:
     forest.add_node("Param", ("x",), {"name": "x"})
     context = build_timeout_context_from_stack(
         forest=forest,
-        project_root=None,
+        project_scope=_unscoped_scope(),
         frames=[frame],
         deadline_profile={"checks_total": 0, "sites": []},
     )
@@ -455,7 +463,7 @@ def test_build_timeout_context_progress_classification_with_progress() -> None:
 # gabion:behavior primary=verboten facets=timeout
 def test_deadline_profile_scope_collects_heat() -> None:
     root = REPO_ROOT
-    with deadline_profile_scope(project_root=root, enabled=True):
+    with deadline_profile_scope(project_scope=_scoped_scope(root), enabled=True):
         with deadline_scope(Deadline.from_timeout_ms(100)):
             check_deadline()
             check_deadline()
@@ -468,7 +476,7 @@ def test_deadline_profile_scope_collects_heat() -> None:
             assert frame is not None
             context = build_timeout_context_from_stack(
                 forest=Forest(),
-                project_root=root,
+                project_scope=_scoped_scope(root),
                 allow_frame_fallback=True,
                 frames=[frame],
             )
@@ -502,7 +510,7 @@ def test_check_deadline_uses_gas_meter_ticks() -> None:
 def test_deadline_profile_uses_logical_ticks_when_clock_injected() -> None:
     with forest_scope(Forest()):
         with deadline_clock_scope(GasMeter(limit=16)):
-            with deadline_profile_scope(enabled=True):
+            with deadline_profile_scope(project_scope=_unscoped_scope(), enabled=True):
                 with deadline_scope(Deadline.from_timeout_ms(1_000)):
                     check_deadline()
                     check_deadline()
@@ -520,13 +528,13 @@ def test_deadline_profile_uses_logical_ticks_when_clock_injected() -> None:
 def test_timeout_progress_reports_tick_budget() -> None:
     forest = Forest()
     with forest_scope(forest):
-        with deadline_profile_scope(enabled=True):
+        with deadline_profile_scope(project_scope=_unscoped_scope(), enabled=True):
             with deadline_scope(Deadline.from_timeout_ms(1_000)):
                 with deadline_clock_scope(GasMeter(limit=5)):
                     check_deadline()
                     context = build_timeout_context_from_stack(
                         forest=forest,
-                        project_root=None,
+                        project_scope=_unscoped_scope(),
                         allow_frame_fallback=True,
                         frames=[],
                     )
@@ -698,10 +706,10 @@ def test_site_part_from_payload_rejects_non_string_filesite_key() -> None:
 def test_deadline_profile_private_helpers_cover_fallback_paths() -> None:
     frame = inspect.currentframe()
     assert frame is not None
-    assert _profile_site_key(frame, project_root=None).qual
+    assert _profile_site_key(frame, project_scope=_unscoped_scope()).qual
     assert Context().run(_deadline_profile_snapshot) is None
-    with deadline_profile_scope(project_root=None, enabled=True):
-        _record_deadline_check(project_root=None, frame_getter=lambda: None)
+    with deadline_profile_scope(project_scope=_unscoped_scope(), enabled=True):
+        _record_deadline_check(frame_getter=lambda: None)
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_record_deadline_check_caches_site_keys_per_code_object::timeout_context.py::gabion.analysis.timeout_context._record_deadline_check
@@ -713,15 +721,14 @@ def test_record_deadline_check_caches_site_keys_per_code_object() -> None:
     def counting_profile_site_key(
         frame: object,
         *,
-        project_root: Path | None,
+        project_scope: timeout_context.DeadlineProjectScope,
     ) -> timeout_context._SiteKey:
         nonlocal calls
         calls += 1
-        return original(frame, project_root=project_root)
+        return original(frame, project_scope=project_scope)
 
     def _site_repeat() -> None:
         _record_deadline_check(
-            project_root=None,
             frame_getter=inspect.currentframe,
             profile_site_key_fn=counting_profile_site_key,
         )
@@ -730,7 +737,7 @@ def test_record_deadline_check_caches_site_keys_per_code_object() -> None:
         deadline=Deadline.from_timeout_ms(1_000),
         clock=GasMeter(limit=8),
     ):
-        with deadline_profile_scope(enabled=True):
+        with deadline_profile_scope(project_scope=_unscoped_scope(), enabled=True):
             _site_repeat()
             _site_repeat()
 
@@ -739,12 +746,11 @@ def test_record_deadline_check_caches_site_keys_per_code_object() -> None:
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_record_deadline_check_resolves_project_root_once_and_caches_it::timeout_context.py::gabion.analysis.timeout_context._deadline_profile_snapshot::timeout_context.py::gabion.analysis.timeout_context._record_deadline_check::timeout_context.py::gabion.analysis.timeout_context.deadline_profile_scope
 # gabion:behavior primary=verboten facets=timeout
-def test_record_deadline_check_resolves_project_root_once_and_caches_it(
+def test_record_deadline_check_reuses_scoped_project_scope_cache(
     tmp_path: Path,
 ) -> None:
     def _site() -> None:
         _record_deadline_check(
-            project_root=tmp_path,
             frame_getter=inspect.currentframe,
         )
 
@@ -752,7 +758,10 @@ def test_record_deadline_check_resolves_project_root_once_and_caches_it(
         deadline=Deadline.from_timeout_ms(1_000),
         clock=GasMeter(limit=16),
     ):
-        with deadline_profile_scope(project_root=None, enabled=True):
+        with deadline_profile_scope(
+            project_scope=_scoped_scope(tmp_path),
+            enabled=True,
+        ):
             _site()
             _site()
             snapshot = _deadline_profile_snapshot()
@@ -767,9 +776,9 @@ def test_record_deadline_check_reuses_existing_site_id_without_reallocating() ->
     def _constant_site_key(
         _frame: object,
         *,
-        project_root: Path | None,
+        project_scope: timeout_context.DeadlineProjectScope,
     ) -> timeout_context._SiteKey:
-        _ = project_root
+        _ = project_scope
         return timeout_context._SiteKey(
             path="tests/test_timeout_context.py",
             qual="constant.qual",
@@ -777,14 +786,12 @@ def test_record_deadline_check_reuses_existing_site_id_without_reallocating() ->
 
     def _site_a() -> None:
         _record_deadline_check(
-            project_root=None,
             frame_getter=inspect.currentframe,
             profile_site_key_fn=_constant_site_key,
         )
 
     def _site_b() -> None:
         _record_deadline_check(
-            project_root=None,
             frame_getter=inspect.currentframe,
             profile_site_key_fn=_constant_site_key,
         )
@@ -793,7 +800,7 @@ def test_record_deadline_check_reuses_existing_site_id_without_reallocating() ->
         deadline=Deadline.from_timeout_ms(1_000),
         clock=GasMeter(limit=16),
     ):
-        with deadline_profile_scope(enabled=True):
+        with deadline_profile_scope(project_scope=_unscoped_scope(), enabled=True):
             _site_a()
             state = timeout_context._deadline_profile_var.get()
             assert state is not None
@@ -814,7 +821,11 @@ def test_deadline_profile_sampling_preserves_total_checks_with_pending_tail() ->
         deadline=Deadline.from_timeout_ms(1_000),
         clock=GasMeter(limit=32),
     ):
-        with deadline_profile_scope(enabled=True, sample_interval=4):
+        with deadline_profile_scope(
+            project_scope=_unscoped_scope(),
+            enabled=True,
+            sample_interval=4,
+        ):
             for _ in range(7):
                 check_deadline()
             snapshot = _deadline_profile_snapshot()
@@ -839,7 +850,7 @@ def test_profile_site_key_falls_back_to_external_path_when_root_misses() -> None
     assert frame is not None
     site_key = _profile_site_key(
         frame,
-        project_root=REPO_ROOT / "missing_root",
+        project_scope=_scoped_scope(REPO_ROOT / "missing_root"),
     )
     assert site_key.path == "<external>"
     assert site_key.qual
@@ -858,7 +869,7 @@ def test_record_deadline_check_keeps_edge_max_gap_when_delta_not_greater() -> No
         deadline=Deadline.from_timeout_ms(1_000),
         clock=GasMeter(limit=16),
     ):
-        with deadline_profile_scope(enabled=True):
+        with deadline_profile_scope(project_scope=_unscoped_scope(), enabled=True):
             _site_a()
             _site_b()
             _site_a()
@@ -882,7 +893,7 @@ def test_record_deadline_check_keeps_edge_max_gap_when_delta_not_greater() -> No
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_record_deadline_io_does_not_lower_max_event_ns::timeout_context.py::gabion.analysis.timeout_context._deadline_profile_snapshot::timeout_context.py::gabion.analysis.timeout_context.deadline_profile_scope::timeout_context.py::gabion.analysis.timeout_context.record_deadline_io
 # gabion:behavior primary=verboten facets=timeout
 def test_record_deadline_io_does_not_lower_max_event_ns() -> None:
-    with deadline_profile_scope(enabled=True):
+    with deadline_profile_scope(project_scope=_unscoped_scope(), enabled=True):
         record_deadline_io(name="io.write", elapsed_ns=5)
         record_deadline_io(name="io.write", elapsed_ns=2)
         snapshot = _deadline_profile_snapshot()
@@ -901,8 +912,8 @@ def test_record_deadline_io_does_not_lower_max_event_ns() -> None:
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_deadline_profile_disabled_scope_noops_profile_recording::timeout_context.py::gabion.analysis.timeout_context._deadline_profile_snapshot::timeout_context.py::gabion.analysis.timeout_context._record_deadline_check::timeout_context.py::gabion.analysis.timeout_context.deadline_profile_scope::timeout_context.py::gabion.analysis.timeout_context.record_deadline_io
 # gabion:behavior primary=verboten facets=timeout
 def test_deadline_profile_disabled_scope_noops_profile_recording() -> None:
-    with deadline_profile_scope(enabled=False):
-        _record_deadline_check(project_root=None)
+    with deadline_profile_scope(project_scope=_unscoped_scope(), enabled=False):
+        _record_deadline_check()
         record_deadline_io(name="io.disabled", elapsed_ns=5)
         assert _deadline_profile_snapshot() is None
 
@@ -914,7 +925,7 @@ def test_build_timeout_context_skips_unmatched_frames() -> None:
     assert frame is not None
     context = build_timeout_context_from_stack(
         forest=Forest(),
-        project_root=REPO_ROOT / "missing_root",
+        project_scope=_scoped_scope(REPO_ROOT / "missing_root"),
         allow_frame_fallback=False,
         frames=[frame],
     )
@@ -951,7 +962,7 @@ def test_deadline_profile_snapshot_omits_gas_fields_for_non_gasmeter_clock() -> 
         deadline=Deadline.from_timeout_ms(100),
         clock=_DummyClock(),
     ):
-        with deadline_profile_scope(enabled=True):
+        with deadline_profile_scope(project_scope=_unscoped_scope(), enabled=True):
             check_deadline()
             snapshot = _deadline_profile_snapshot()
     assert isinstance(snapshot, dict)

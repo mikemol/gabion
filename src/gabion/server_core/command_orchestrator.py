@@ -50,6 +50,7 @@ from gabion.analysis.foundation.timeout_context import (
     reset_deadline_clock,
     reset_deadline_profile,
     reset_forest,
+    scoped_deadline_project_scope,
     set_deadline,
     set_deadline_clock,
     set_deadline_profile,
@@ -2084,6 +2085,7 @@ def _run_analysis_with_progress(
             preview_sections = context.execute_deps.analysis.project_report_sections_fn(
                 preview_groups_by_path,
                 preview_report,
+                project_root=context.config.project_root,
                 max_phase="post",
                 include_previews=True,
                 preview_only=True,
@@ -2217,6 +2219,7 @@ def _run_analysis_with_progress(
                     available_sections = context.execute_deps.analysis.project_report_sections_fn(
                         groups_by_path,
                         report_carrier,
+                        project_root=context.config.project_root,
                         max_phase="post",
                         include_previews=True,
                         preview_only=True,
@@ -3525,6 +3528,7 @@ def _render_timeout_partial_report(
                 preview_sections = context.execute_deps.analysis.project_report_sections_fn(
                     preview_groups_by_path,
                     preview_report,
+                    project_root=context.config.project_root,
                     max_phase="post",
                     include_previews=True,
                     preview_only=True,
@@ -4729,7 +4733,7 @@ def _stage_ingress(
     deadline_token = set_deadline(Deadline(deadline_ns=analysis_deadline_ns))
     deadline_clock_token = set_deadline_clock(GasMeter(limit=timeout_total_ticks))
     profile_token = set_deadline_profile(
-        project_root=runtime_input.root,
+        project_scope=scoped_deadline_project_scope(runtime_input.root),
         enabled=profile_enabled,
         sample_interval=_deadline_profile_sample_interval(payload),
     )
