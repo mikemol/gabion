@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from gabion.analysis.aspf.aspf import Alt, Forest, NodeId
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue
+from gabion.analysis.dataflow.io.dataflow_snapshot_io import normalize_snapshot_path
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.invariants import grade_boundary, never
 from gabion.order_contract import sort_once
@@ -346,16 +347,6 @@ def render_mermaid_component(
 
     return "\n".join(lines), "\n".join(summary_lines)
 
-
-def _normalize_snapshot_path(path: Path, root: object) -> str:
-    if root is not None:
-        try:
-            return str(path.relative_to(root))
-        except ValueError:
-            pass
-    return str(path)
-
-
 def render_component_callsite_evidence(
     *,
     component: list[NodeId],
@@ -434,7 +425,7 @@ def render_component_callsite_evidence(
                 check_deadline()
                 start_line, start_col, end_line, end_col = site["span"]
                 loc = f"{start_line + 1}:{start_col + 1}-{end_line + 1}:{end_col + 1}"
-                rel = _normalize_snapshot_path(path, root)
+                rel = normalize_snapshot_path(path, root)
                 callee = str(site.get("callee") or "")
                 params = ", ".join(site.get("params") or [])
                 slots = ", ".join(site.get("slots") or [])

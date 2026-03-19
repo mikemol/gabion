@@ -1,15 +1,7 @@
 from __future__ import annotations
 
-from contextlib import suppress
 from pathlib import Path
 from typing import Callable, Iterable
-
-
-def normalize_snapshot_path(path: Path, root: object) -> str:
-    normalized = str(path)
-    with suppress(ValueError, TypeError):
-        normalized = str(path.relative_to(root))
-    return normalized
 
 
 # gabion:decision_protocol

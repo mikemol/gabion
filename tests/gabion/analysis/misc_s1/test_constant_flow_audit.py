@@ -351,6 +351,7 @@ def test_compute_lint_lines_uses_injected_projector() -> None:
         forest=forest,
         groups_by_path={},
         bundle_sites_by_path={},
+        project_root=Path("."),
         type_callsite_evidence=[],
         ambiguity_witnesses=[],
         exception_obligations=[],

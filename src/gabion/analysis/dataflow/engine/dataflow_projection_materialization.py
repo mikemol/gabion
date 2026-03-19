@@ -37,12 +37,12 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _collect_dataclass_registry,
     _iter_dataclass_call_bundles,
 )
-from gabion.analysis.dataflow.engine.dataflow_resume_paths import (
-    normalize_snapshot_path as _normalize_snapshot_path_impl,
-)
 from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
     ParseModuleStage,
     parse_module_tree,
+)
+from gabion.analysis.dataflow.io.dataflow_snapshot_io import (
+    normalize_snapshot_path as _normalize_snapshot_path,
 )
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue, ParseFailureWitnesses
 from gabion.analysis.foundation.resume_codec import iter_int_tuple4_from_sequence
@@ -385,10 +385,6 @@ def _format_span_fields(
     )
 
     return _impl(line, col, end_line, end_col)
-
-
-def _normalize_snapshot_path(path, root) -> str:
-    return _normalize_snapshot_path_impl(path, root)
 
 
 def _add_interned_alt(

@@ -52,7 +52,7 @@ RUNTIME_ALIAS_GROUPS: tuple[AliasGroupSpec, ...] = (
         'resume_runtime',
         'Resume Runtime',
         module_alias(
-            'gabion.analysis.dataflow.engine.dataflow_resume_paths',
+            'gabion.analysis.dataflow.io.dataflow_snapshot_io',
             ('normalize_snapshot_path', '_normalize_snapshot_path'),
         ),
         module_alias(

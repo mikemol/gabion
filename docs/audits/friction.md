@@ -1,5 +1,5 @@
 ---
-doc_revision: 18
+doc_revision: 19
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: friction
 doc_role: audit
@@ -1085,3 +1085,37 @@ strict value explicitly.
 
 **Workstream/Context:** `PSN-TP-006` report/lint projection slice immediately
 after the snapshot-render strictification tranche.
+
+## FN-022: Duplicate helper owners preserve dead ambiguity after the real boundary is already strict
+
+**Trigger:** Tracing the remaining snapshot-path `root` ambiguity after the
+report/lint, indexed-scan, and deadline `project_root` slices were already
+green.
+
+**Friction:** The remaining red shape was no longer coming from a live ingress.
+The strict public owner already existed in
+`dataflow_snapshot_io.normalize_snapshot_path(path, root: Path)`, but a second
+copy in `dataflow_resume_paths` still advertised `root: object`, and local
+wrapper functions in `dataflow_post_phase_analyses`,
+`dataflow_projection_materialization`, and `dataflow_graph_rendering` kept that
+dead shape circulating.
+
+**Impact:** Humans and LLMs can waste time chasing a non-existent upstream
+alternation because the codebase still contains multiple near-identical owners
+with different contracts. That slows PSN work and makes it look like ambiguity
+is still entering the system when the real issue is owner duplication drift.
+
+**Hypothesis:** Once a strict owner lands, stale helper copies can keep the old
+signature alive longer than the real behavior. If they are not collapsed
+promptly, they become fossilized pseudo-boundaries that manufacture confusion
+without adding semantic value.
+
+**Evidence:**
+- `src/gabion/analysis/dataflow/io/dataflow_snapshot_io.py`
+- `src/gabion/analysis/dataflow/engine/dataflow_resume_paths.py`
+- `src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py`
+- `src/gabion/analysis/dataflow/engine/dataflow_projection_materialization.py`
+- `src/gabion/analysis/dataflow/io/dataflow_graph_rendering.py`
+
+**Workstream/Context:** `PSN-TP-006` snapshot-path owner collapse after the
+indexed-scan and deadline project-root publication slices.

@@ -31,9 +31,6 @@ from gabion.analysis.dataflow.engine.dataflow_deadline_runtime import (
     _resolve_callee,
     _resolve_callee_outcome,
 )
-from gabion.analysis.dataflow.engine.dataflow_resume_paths import (
-    normalize_snapshot_path as _normalize_snapshot_path,
-)
 from gabion.analysis.indexed_scan.deadline.deadline_runtime import (
     DeadlineArgInfo as _DeadlineArgInfo,
     bind_call_args as _bind_call_args,
@@ -106,7 +103,6 @@ __all__ = [
     "_is_deadline_param",
     "_is_dynamic_dispatch_callee_key",
     "_materialize_call_candidates",
-    "_normalize_snapshot_path",
     "_reachable_from_roots",
     "_resolve_callee",
     "_resolve_callee_outcome",

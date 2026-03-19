@@ -53,7 +53,7 @@ from gabion.analysis.dataflow.engine.dataflow_function_index_helpers import (
     _node_span,
     _param_names,
 )
-from gabion.analysis.dataflow.engine.dataflow_resume_paths import (
+from gabion.analysis.dataflow.io.dataflow_snapshot_io import (
     normalize_snapshot_path as _normalize_snapshot_path,
 )
 from gabion.analysis.dataflow.io.dataflow_parse_helpers import (

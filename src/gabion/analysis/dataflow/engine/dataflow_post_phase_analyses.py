@@ -61,14 +61,14 @@ from gabion.analysis.dataflow.engine.dataflow_exception_obligations import (
     handler_type_names as _exc_handler_type_names,
     node_in_try_body as _exc_node_in_try_body,
 )
-from gabion.analysis.dataflow.engine.dataflow_resume_paths import (
-    normalize_snapshot_path as _normalize_snapshot_path_impl,
-)
 from gabion.analysis.dataflow.engine.dataflow_resume_serialization import (
     _deserialize_invariants_for_resume,
     _invariant_confidence,
     _invariant_digest,
     _normalize_invariant_proposition,
+)
+from gabion.analysis.dataflow.io.dataflow_snapshot_io import (
+    normalize_snapshot_path as _normalize_snapshot_path,
 )
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue, ParseFailureWitnesses
 from gabion.analysis.foundation.resume_codec import (
@@ -702,10 +702,6 @@ def _keyword_links_literal(call: ast.Call) -> list[JSONObject]:
 
 def _never_reason(call: ast.Call):
     return _never_reason_impl(call, check_deadline_fn=check_deadline)
-
-
-def _normalize_snapshot_path(path: Path, root) -> str:
-    return _normalize_snapshot_path_impl(path, root)
 
 
 def _type_from_const_repr(value: str):
