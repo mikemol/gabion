@@ -361,7 +361,7 @@ def _sd_reg_9(value: None, *, timeout: float) -> None:
 
 
 @dataclass(frozen=True)
-class _Trace1CellRecord:
+class Trace1CellRecord:
     kind: str
     source_label: str
     target_label: str
@@ -369,28 +369,6 @@ class _Trace1CellRecord:
     basis_path: tuple[str, ...]
     surface: str | None = None
     metadata: Mapping[str, object] | None = None
-
-    @classmethod
-    def from_values(
-        cls,
-        *,
-        kind: str,
-        source_label: str,
-        target_label: str,
-        representative: str,
-        basis_path: tuple[str, ...],
-        surface: str | None = None,
-        metadata: Mapping[str, object] | None = None,
-    ) -> _Trace1CellRecord:
-        return cls(
-            kind=kind,
-            source_label=source_label,
-            target_label=target_label,
-            representative=representative,
-            basis_path=basis_path,
-            surface=surface,
-            metadata=metadata,
-        )
 
     def emit(self, *, execute_deps: ExecuteCommandDeps, state: object) -> None:
         execute_deps.progress.record_1cell_fn(
@@ -1940,7 +1918,7 @@ def _prepare_analysis_resume_state(
                 support_state=state.analysis_resume_state.support_state,
             )
             if aspf_trace_state is not None:
-                _Trace1CellRecord.from_values(
+                Trace1CellRecord(
                     kind="resume_load",
                     source_label="runtime:aspf_state",
                     target_label="analysis:resume_seed",
@@ -2350,7 +2328,7 @@ def _run_analysis_with_progress(
                         preview_only=True,
                     )
                     if aspf_trace_state is not None:
-                        _Trace1CellRecord.from_values(
+                        Trace1CellRecord(
                             kind="report_projection",
                             source_label="analysis:groups_by_path",
                             target_label="report:sections",
@@ -2474,7 +2452,7 @@ def _run_analysis_with_progress(
     if context.needs_analysis:
         analysis_started_ns = time.monotonic_ns()
         if aspf_trace_state is not None:
-            _Trace1CellRecord.from_values(
+            Trace1CellRecord(
                 kind="analysis_call_start",
                 source_label="runtime:inputs",
                 target_label="analysis:engine",
@@ -2518,7 +2496,7 @@ def _run_analysis_with_progress(
                 ),
             )
         if aspf_trace_state is not None:
-            _Trace1CellRecord.from_values(
+            Trace1CellRecord(
                 kind="analysis_call_end",
                 source_label="analysis:engine",
                 target_label="analysis:result",
@@ -2530,7 +2508,7 @@ def _run_analysis_with_progress(
         )
     else:
         if aspf_trace_state is not None:
-            _Trace1CellRecord.from_values(
+            Trace1CellRecord(
                 kind="analysis_call_skipped",
                 source_label="runtime:inputs",
                 target_label="analysis:result",
@@ -3438,16 +3416,15 @@ def _finalize_report_and_violations(
     )
 
 
-@dataclass(frozen=True)
-class _TimeoutReportOutcome:
+@dataclass(frozen=True, init=False)
+class TimeoutReportOutcome:
     partial_report_written: bool
     resolved_sections: dict[str, list[str]]
     pending_reasons: dict[str, str]
     phase_checkpoint_state: JSONObject
 
-    @classmethod
-    def from_timeout_context(
-        cls,
+    def __init__(
+        self,
         *,
         context: _TimeoutCleanupContext,
         analysis_state: str,
@@ -3455,7 +3432,7 @@ class _TimeoutReportOutcome:
         timeout_collection_resume_payload: JSONObject,
         phase_checkpoint_state: JSONObject,
         mark_cleanup_timeout_fn: Callable[[str], None] | None,
-    ) -> _TimeoutReportOutcome:
+    ) -> None:
         partial_report_written = False
         resolved_sections: dict[str, list[str]] = {}
         pending_reasons: dict[str, str] = {}
@@ -3562,56 +3539,10 @@ class _TimeoutReportOutcome:
             except TimeoutExceeded:
                 if callable(mark_cleanup_timeout_fn):
                     mark_cleanup_timeout_fn("render_timeout_report")
-        return cls(
-            partial_report_written=partial_report_written,
-            resolved_sections=resolved_sections,
-            pending_reasons=pending_reasons,
-            phase_checkpoint_state=phase_checkpoint_state,
-        )
-
-
-@dataclass(frozen=True)
-class _TimeoutPayloadState:
-    timeout_payload: JSONObject
-    progress_payload: JSONObject
-
-    @classmethod
-    def from_timeout_context(
-        cls,
-        *,
-        exc: TimeoutExceeded,
-        context: _TimeoutCleanupContext,
-        mark_cleanup_timeout_fn: Callable[[str], None],
-    ) -> _TimeoutPayloadState:
-        try:
-            timeout_payload = _timeout_context_payload(exc)
-        except TimeoutExceeded:
-            mark_cleanup_timeout_fn("timeout_context_payload")
-            timeout_payload = {
-                "summary": "Analysis timed out.",
-                "progress": {"classification": "timed_out_no_progress"},
-            }
-        progress_payload = dict(
-            cast(Mapping[str, object], timeout_payload.get("progress", {}))
-        )
-        progress_payload["classification"] = str(
-            progress_payload.get("classification", "timed_out_no_progress")
-            or "timed_out_no_progress"
-        )
-        timeout_payload["progress"] = progress_payload
-        progress_payload.setdefault(
-            "timeout_budget",
-            {
-                "total_timeout_ns": context.timeout_total_ns,
-                "analysis_window_ns": context.analysis_window_ns,
-                "cleanup_grace_ns": context.cleanup_grace_ns,
-                "hard_deadline_ns": context.timeout_hard_deadline_ns,
-            },
-        )
-        progress_payload["resume_supported"] = bool(
-            progress_payload.get("resume_supported", False)
-        )
-        return cls(timeout_payload=timeout_payload, progress_payload=progress_payload)
+        object.__setattr__(self, "partial_report_written", partial_report_written)
+        object.__setattr__(self, "resolved_sections", resolved_sections)
+        object.__setattr__(self, "pending_reasons", pending_reasons)
+        object.__setattr__(self, "phase_checkpoint_state", phase_checkpoint_state)
 
 
 def _copy_json_mapping(payload: Mapping[str, JSONValue]) -> JSONObject:
@@ -3647,32 +3578,39 @@ def _render_semantic_coverage_markdown(payload: Mapping[str, JSONValue]) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
-@dataclass(frozen=True)
-class _TraceArtifactResponsePayloadBundle:
+@dataclass(frozen=True, init=False)
+class TraceArtifactResponsePayloadBundle:
     aspf_trace: JSONObject
     aspf_equivalence: JSONObject
     aspf_opportunities: JSONObject
     aspf_delta_ledger: JSONObject
     aspf_state: JSONObject
 
-    @classmethod
-    def from_trace_artifacts(
-        cls,
-        *,
-        trace_artifacts: object,
-    ) -> _TraceArtifactResponsePayloadBundle:
-        return cls(
-            aspf_trace=_copy_json_mapping(trace_artifacts.trace_payload),
-            aspf_equivalence=_copy_json_mapping(
-                trace_artifacts.equivalence_payload
-            ),
-            aspf_opportunities=_copy_json_mapping(
-                trace_artifacts.opportunities_payload
-            ),
-            aspf_delta_ledger=_copy_json_mapping(
-                trace_artifacts.delta_ledger_payload
-            ),
-            aspf_state=_copy_json_mapping(
+    def __init__(self, trace_artifacts: object) -> None:
+        object.__setattr__(
+            self,
+            "aspf_trace",
+            _copy_json_mapping(trace_artifacts.trace_payload),
+        )
+        object.__setattr__(
+            self,
+            "aspf_equivalence",
+            _copy_json_mapping(trace_artifacts.equivalence_payload),
+        )
+        object.__setattr__(
+            self,
+            "aspf_opportunities",
+            _copy_json_mapping(trace_artifacts.opportunities_payload),
+        )
+        object.__setattr__(
+            self,
+            "aspf_delta_ledger",
+            _copy_json_mapping(trace_artifacts.delta_ledger_payload),
+        )
+        object.__setattr__(
+            self,
+            "aspf_state",
+            _copy_json_mapping(
                 trace_artifacts.state_payload
                 if trace_artifacts.state_payload is not None
                 else {}
@@ -3687,26 +3625,24 @@ class _TraceArtifactResponsePayloadBundle:
         response["aspf_state"] = self.aspf_state
 
 
-@dataclass(frozen=True)
-class _TimeoutResumeProgressState:
+@dataclass(frozen=True, init=False)
+class TimeoutResumeProgressState:
     collection_resume_payload: JSONObject
     progress_payload: JSONObject
 
-    @classmethod
-    def from_timeout_context(
-        cls,
+    def __init__(
+        self,
         *,
         context: _TimeoutCleanupContext,
         progress_payload: JSONObject,
-    ) -> _TimeoutResumeProgressState:
+    ) -> None:
         collection_resume = _copy_json_mapping(
             context.continuation_runtime_context.continuation_state.collection_progress_runtime_state.collection_resume_runtime_state.resume_payload
         )
         if not collection_resume:
-            return cls(
-                collection_resume_payload=collection_resume,
-                progress_payload=progress_payload,
-            )
+            object.__setattr__(self, "collection_resume_payload", collection_resume)
+            object.__setattr__(self, "progress_payload", progress_payload)
+            return
         timeout_collection_resume_payload = dict(collection_resume)
         updated_progress_payload = dict(progress_payload)
         resume_progress = _analysis_resume_progress(
@@ -3760,40 +3696,12 @@ class _TimeoutResumeProgressState:
             )
             else classification
         )
-        return cls(
-            collection_resume_payload=timeout_collection_resume_payload,
-            progress_payload=updated_progress_payload,
+        object.__setattr__(
+            self,
+            "collection_resume_payload",
+            timeout_collection_resume_payload,
         )
-
-
-@dataclass(frozen=True)
-class _TimeoutAnalysisOutcome:
-    analysis_state: str
-    classification: str
-    progress_payload: JSONObject
-
-    @classmethod
-    def from_progress_payload(
-        cls,
-        *,
-        progress_payload: JSONObject,
-    ) -> _TimeoutAnalysisOutcome:
-        updated_progress_payload = dict(progress_payload)
-        analysis_state = str(
-            updated_progress_payload.get("classification", "timed_out_no_progress")
-            or "timed_out_no_progress"
-        )
-        updated_progress_payload["resume_supported"] = bool(
-            updated_progress_payload.get("resume_supported")
-        ) or analysis_state == "timed_out_progress_resume"
-        classification = timeout_classification_decision(
-            progress_payload=updated_progress_payload
-        )
-        return cls(
-            analysis_state=analysis_state,
-            classification=classification,
-            progress_payload=updated_progress_payload,
-        )
+        object.__setattr__(self, "progress_payload", updated_progress_payload)
 
 
 def _handle_timeout_cleanup(
@@ -3820,22 +3728,53 @@ def _handle_timeout_cleanup(
         cleanup_timeout_steps.append(step)
 
     try:
-        timeout_payload_state = _TimeoutPayloadState.from_timeout_context(
-            exc=exc,
-            context=context,
-            mark_cleanup_timeout_fn=_mark_cleanup_timeout,
+        try:
+            timeout_payload = _timeout_context_payload(exc)
+        except TimeoutExceeded:
+            _mark_cleanup_timeout("timeout_context_payload")
+            timeout_payload = {
+                "summary": "Analysis timed out.",
+                "progress": {"classification": "timed_out_no_progress"},
+            }
+        progress_payload = dict(
+            cast(Mapping[str, object], timeout_payload.get("progress", {}))
         )
-        timeout_resume_progress_state = _TimeoutResumeProgressState.from_timeout_context(
-            context=context,
-            progress_payload=timeout_payload_state.progress_payload,
+        progress_payload["classification"] = str(
+            progress_payload.get("classification", "timed_out_no_progress")
+            or "timed_out_no_progress"
         )
-        timeout_analysis_outcome = _TimeoutAnalysisOutcome.from_progress_payload(
-            progress_payload=timeout_resume_progress_state.progress_payload
+        timeout_payload["progress"] = progress_payload
+        progress_payload.setdefault(
+            "timeout_budget",
+            {
+                "total_timeout_ns": context.timeout_total_ns,
+                "analysis_window_ns": context.analysis_window_ns,
+                "cleanup_grace_ns": context.cleanup_grace_ns,
+                "hard_deadline_ns": context.timeout_hard_deadline_ns,
+            },
         )
-        timeout_report_outcome = _TimeoutReportOutcome.from_timeout_context(
+        progress_payload["resume_supported"] = bool(
+            progress_payload.get("resume_supported", False)
+        )
+        timeout_resume_progress_state = TimeoutResumeProgressState(
             context=context,
-            analysis_state=timeout_analysis_outcome.analysis_state,
-            progress_payload=timeout_analysis_outcome.progress_payload,
+            progress_payload=progress_payload,
+        )
+        progress_payload = timeout_resume_progress_state.progress_payload
+        analysis_state = str(
+            progress_payload.get("classification", "timed_out_no_progress")
+            or "timed_out_no_progress"
+        )
+        progress_payload["resume_supported"] = bool(
+            progress_payload.get("resume_supported")
+        ) or analysis_state == "timed_out_progress_resume"
+        timeout_classification_value = timeout_classification_decision(
+            progress_payload=progress_payload
+        )
+        timeout_report_outcome = TimeoutReportOutcome(
+            context=context,
+            analysis_state=analysis_state,
+            progress_payload=progress_payload,
             timeout_collection_resume_payload=(
                 timeout_resume_progress_state.collection_resume_payload
             ),
@@ -3848,8 +3787,8 @@ def _handle_timeout_cleanup(
         phase_checkpoint_state = timeout_report_outcome.phase_checkpoint_state
         try:
             obligations = _incremental_progress_obligations(
-                analysis_state=timeout_analysis_outcome.analysis_state,
-                progress_payload=timeout_analysis_outcome.progress_payload,
+                analysis_state=analysis_state,
+                progress_payload=progress_payload,
                 resume_payload_available=bool(
                     timeout_resume_progress_state.collection_resume_payload
                 ),
@@ -3866,12 +3805,10 @@ def _handle_timeout_cleanup(
         except TimeoutExceeded:
             _mark_cleanup_timeout("incremental_obligations")
             obligations = []
-        timeout_analysis_outcome.progress_payload["incremental_obligations"] = obligations
+        progress_payload["incremental_obligations"] = obligations
         if cleanup_timeout_steps:
-            timeout_analysis_outcome.progress_payload["cleanup_truncated"] = True
-            timeout_analysis_outcome.progress_payload["cleanup_timeout_steps"] = (
-                cleanup_timeout_steps
-            )
+            progress_payload["cleanup_truncated"] = True
+            progress_payload["cleanup_timeout_steps"] = cleanup_timeout_steps
         emit_lsp_progress(
             phase="post",
             collection_progress=(
@@ -3882,13 +3819,13 @@ def _handle_timeout_cleanup(
             ),
             include_timing=True,
             done=False,
-            analysis_state=timeout_analysis_outcome.analysis_state,
-            classification=timeout_analysis_outcome.classification,
+            analysis_state=analysis_state,
+            classification=timeout_classification_value,
             progress_marker="cleanup:finalize_response",
             event_kind="progress",
         )
         if aspf_trace_state is not None:
-            _Trace1CellRecord.from_values(
+            Trace1CellRecord(
                 kind="timeout_cleanup",
                 source_label="analysis:engine",
                 target_label="runtime:timeout_context",
@@ -3899,9 +3836,9 @@ def _handle_timeout_cleanup(
         timeout_response: dict[str, object] = {
             "exit_code": 2,
             "timeout": True,
-            "analysis_state": timeout_analysis_outcome.analysis_state,
+            "analysis_state": analysis_state,
             "execution_plan": context.execution_plan.as_json_dict(),
-            "timeout_context": timeout_payload_state.timeout_payload,
+            "timeout_context": timeout_payload,
             "selected_adapter": context.dataflow_capabilities.selected_adapter,
             "supported_analysis_surfaces": list(
                 context.dataflow_capabilities.supported_analysis_surfaces
@@ -3921,11 +3858,11 @@ def _handle_timeout_cleanup(
                 "pattern_schema_residue": [],
                 "rewrite_plans": [],
                 "synthesis_plan": [],
-                "delta_state": timeout_analysis_outcome.progress_payload,
-                "delta_payload": timeout_payload_state.timeout_payload,
+                "delta_state": progress_payload,
+                "delta_payload": timeout_payload,
                 "violation_summary": {
                     "timeout": True,
-                    "analysis_state": timeout_analysis_outcome.analysis_state,
+                    "analysis_state": analysis_state,
                 },
                 "_resume_collection": (
                     timeout_resume_progress_state.collection_resume_payload
@@ -3945,12 +3882,12 @@ def _handle_timeout_cleanup(
                 ),
             },
             exit_code=2,
-            analysis_state=timeout_analysis_outcome.analysis_state,
+            analysis_state=analysis_state,
         )
         if trace_artifacts is not None:
-            _TraceArtifactResponsePayloadBundle.from_trace_artifacts(
-                trace_artifacts=trace_artifacts,
-            ).apply_to_response(response=timeout_response)
+            TraceArtifactResponsePayloadBundle(trace_artifacts).apply_to_response(
+                response=timeout_response
+            )
         emit_lsp_progress(
             phase="post",
             collection_progress=(
@@ -3961,8 +3898,8 @@ def _handle_timeout_cleanup(
             ),
             include_timing=True,
             done=True,
-            analysis_state=timeout_analysis_outcome.analysis_state,
-            classification=timeout_analysis_outcome.classification,
+            analysis_state=analysis_state,
+            classification=timeout_classification_value,
             event_kind="terminal",
         )
         if context.identity_shadow_runtime is not None:
@@ -4621,7 +4558,7 @@ def _build_success_response(
     plan_payload = primary_outputs.refactor_plan_payload
     metrics = primary_outputs.structure_metrics_payload
     if synthesis_plan is not None and aspf_trace_state is not None:
-        _Trace1CellRecord.from_values(
+        Trace1CellRecord(
             kind="artifact_emit",
             source_label="analysis:result",
             target_label="artifact:synthesis_plan",
@@ -4630,7 +4567,7 @@ def _build_success_response(
             surface="synthesis_plan",
         ).emit(execute_deps=execute_deps, state=aspf_trace_state)
     if plan_payload is not None and aspf_trace_state is not None:
-        _Trace1CellRecord.from_values(
+        Trace1CellRecord(
             kind="artifact_emit",
             source_label="analysis:result",
             target_label="artifact:refactor_plan",
@@ -4668,7 +4605,7 @@ def _build_success_response(
             lambda pair: pair[0] in response,
             trace_artifact_pairs,
         ):
-            _Trace1CellRecord.from_values(
+            Trace1CellRecord(
                 kind="artifact_emit",
                 source_label="analysis:result",
                 target_label=f"artifact:{artifact_key}",
@@ -4834,9 +4771,9 @@ def _build_success_response(
         ),
     )
     if trace_artifacts is not None:
-        _TraceArtifactResponsePayloadBundle.from_trace_artifacts(
-            trace_artifacts=trace_artifacts,
-        ).apply_to_response(response=response)
+        TraceArtifactResponsePayloadBundle(trace_artifacts).apply_to_response(
+            response=response
+        )
     emit_lsp_progress = context.emit_lsp_progress_fn
     emit_lsp_progress(
         phase="post",
@@ -5292,7 +5229,7 @@ def execute_command_total(
             payload=payload,
         )
         if aspf_trace_state is not None:
-            _Trace1CellRecord.from_values(
+            Trace1CellRecord(
                 kind="command_start",
                 source_label="runtime:command",
                 target_label="analysis:entry",
