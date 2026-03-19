@@ -1642,8 +1642,7 @@ class _TimeoutCleanupContext:
     cleanup_grace_ns: int
     timeout_total_ns: int
     analysis_window_ns: int
-    continuation_state: AnalysisContinuationState
-    trace_runtime_context: _TraceRuntimeContext
+    continuation_runtime_context: _ContinuationRuntimeContext
     emit_phase_timeline: bool
     phase_timeline_path: Path
     profile_enabled: bool
@@ -1683,6 +1682,12 @@ class _ProgressEmitter:
 class _TraceRuntimeContext:
     execute_deps: ExecuteCommandDeps
     aspf_trace_state: object | None
+
+
+@dataclass(frozen=True)
+class _ContinuationRuntimeContext:
+    trace_runtime_context: _TraceRuntimeContext
+    continuation_state: AnalysisContinuationState
 
 
 @dataclass(frozen=True)
@@ -3508,7 +3513,7 @@ def _persist_timeout_resume_state(
 ) -> JSONObject | None:
     _ = (mark_cleanup_timeout_fn, emit_lsp_progress_fn)
     last_collection_resume_payload = _object_mapping_optional(
-        context.continuation_state.collection_progress_runtime_state.collection_resume_progress_state.last_collection_resume_payload
+        context.continuation_runtime_context.continuation_state.collection_progress_runtime_state.collection_resume_progress_state.last_collection_resume_payload
     )
     if last_collection_resume_payload is not None:
         return _copy_json_mapping(last_collection_resume_payload)
@@ -3526,7 +3531,7 @@ def _load_timeout_resume_progress(
     collection_resume: JSONObject | None = timeout_collection_resume_payload
     if collection_resume is None:
         last_collection_resume_payload = _object_mapping_optional(
-            context.continuation_state.collection_progress_runtime_state.collection_resume_progress_state.last_collection_resume_payload
+            context.continuation_runtime_context.continuation_state.collection_progress_runtime_state.collection_resume_progress_state.last_collection_resume_payload
         )
         if last_collection_resume_payload is not None:
             collection_resume = {
@@ -3539,7 +3544,7 @@ def _load_timeout_resume_progress(
     resume_progress = _analysis_resume_progress(
         collection_resume=collection_resume,
         total_files=(
-            context.continuation_state.resume_state.projection_state.runtime_state.total_files
+            context.continuation_runtime_context.continuation_state.resume_state.projection_state.runtime_state.total_files
         ),
     )
     progress_payload["completed_files"] = resume_progress["completed_files"]
@@ -3571,7 +3576,7 @@ def _load_timeout_resume_progress(
     }
     resume_payload: JSONObject = {"resume_token": resume_token}
     resume_payload["input_witness"] = (
-        context.continuation_state.resume_state.support_state.input_state.input_witness
+        context.continuation_runtime_context.continuation_state.resume_state.support_state.input_state.input_witness
     )
     progress_payload["resume"] = resume_payload
     classification = str(progress_payload.get("classification", "") or "")
@@ -3656,10 +3661,10 @@ def _render_timeout_partial_report(
                 _collection_progress_intro_lines(
                     collection_resume=timeout_collection_resume_payload,
                     total_files=(
-                        context.continuation_state.resume_state.projection_state.runtime_state.total_files
+                        context.continuation_runtime_context.continuation_state.resume_state.projection_state.runtime_state.total_files
                     ),
                     resume_state_intro=(
-                        context.continuation_state.resume_state.support_state.intro_state.payload
+                        context.continuation_runtime_context.continuation_state.resume_state.support_state.intro_state.payload
                     ),
                 )
                 if timeout_collection_resume_payload is not None
@@ -3726,8 +3731,10 @@ def _handle_timeout_cleanup(
     exc: TimeoutExceeded,
     context: _TimeoutCleanupContext,
 ) -> dict:
-    execute_deps = context.trace_runtime_context.execute_deps
-    aspf_trace_state = context.trace_runtime_context.aspf_trace_state
+    trace_runtime_context = context.continuation_runtime_context.trace_runtime_context
+    continuation_state = context.continuation_runtime_context.continuation_state
+    execute_deps = trace_runtime_context.execute_deps
+    aspf_trace_state = trace_runtime_context.aspf_trace_state
     cleanup_now_ns = time.monotonic_ns()
     cleanup_remaining_ns = max(0, context.timeout_hard_deadline_ns - cleanup_now_ns)
     cleanup_window_ns = min(context.cleanup_grace_ns, cleanup_remaining_ns)
@@ -3804,10 +3811,10 @@ def _handle_timeout_cleanup(
         emit_lsp_progress(
             phase="post",
             collection_progress=(
-                context.continuation_state.collection_progress_runtime_state.latest_collection_progress
+                continuation_state.collection_progress_runtime_state.latest_collection_progress
             ),
             semantic_progress=(
-                context.continuation_state.collection_progress_runtime_state.collection_resume_progress_state.semantic_progress_cumulative
+                continuation_state.collection_progress_runtime_state.collection_resume_progress_state.semantic_progress_cumulative
             ),
             include_timing=True,
             done=False,
@@ -3861,17 +3868,17 @@ def _handle_timeout_cleanup(
                     else {}
                 ),
                 "_latest_collection_progress": (
-                    context.continuation_state.collection_progress_runtime_state.latest_collection_progress
+                    continuation_state.collection_progress_runtime_state.latest_collection_progress
                 ),
                 "_semantic_progress": (
-                    context.continuation_state.collection_progress_runtime_state.collection_resume_progress_state.semantic_progress_cumulative
+                    continuation_state.collection_progress_runtime_state.collection_resume_progress_state.semantic_progress_cumulative
                 ),
                 "_analysis_manifest_digest": (
-                    context.continuation_state.resume_state.support_state.input_state.manifest_digest
+                    continuation_state.resume_state.support_state.input_state.manifest_digest
                 ),
-                "_resume_source": context.continuation_state.resume_state.projection_state.source,
+                "_resume_source": continuation_state.resume_state.projection_state.source,
                 "_resume_compatibility_status": (
-                    context.continuation_state.resume_state.projection_state.compatibility_status
+                    continuation_state.resume_state.projection_state.compatibility_status
                 ),
             },
             exit_code=2,
@@ -3885,10 +3892,10 @@ def _handle_timeout_cleanup(
         emit_lsp_progress(
             phase="post",
             collection_progress=(
-                context.continuation_state.collection_progress_runtime_state.latest_collection_progress
+                continuation_state.collection_progress_runtime_state.latest_collection_progress
             ),
             semantic_progress=(
-                context.continuation_state.collection_progress_runtime_state.collection_resume_progress_state.semantic_progress_cumulative
+                continuation_state.collection_progress_runtime_state.collection_resume_progress_state.semantic_progress_cumulative
             ),
             include_timing=True,
             done=True,
@@ -4340,14 +4347,13 @@ def _compute_analysis_inclusion_flags(
 
 @dataclass(frozen=True)
 class _SuccessResponseContext:
-    trace_runtime_context: _TraceRuntimeContext
+    continuation_runtime_context: _ContinuationRuntimeContext
     report_analysis_state: ReportAnalysisState
     paths: list[Path]
     payload: Mapping[str, object]
     config: AuditConfig
     options: _ExecutionPayloadOptions
     name_filter_bundle: DataflowNameFilterBundle
-    continuation_state: AnalysisContinuationState
     profiling_stage_ns: dict[str, int]
     profiling_counters: dict[str, int]
     execution_plan: ExecutionPlan
@@ -4390,14 +4396,13 @@ class _ExecuteCommandIngressStage:
 
 @dataclass(frozen=True)
 class _ExecuteCommandFinalizeSuccessStage:
-    trace_runtime_context: _TraceRuntimeContext
+    continuation_runtime_context: _ContinuationRuntimeContext
     report_analysis_state: ReportAnalysisState
     paths: list[Path]
     payload: Mapping[str, object]
     config: AuditConfig
     options: _ExecutionPayloadOptions
     name_filter_bundle: DataflowNameFilterBundle
-    continuation_state: AnalysisContinuationState
     profiling_stage_ns: dict[str, int]
     profiling_counters: dict[str, int]
     execution_plan: ExecutionPlan
@@ -4425,8 +4430,10 @@ def _build_success_response(
     *,
     context: _SuccessResponseContext,
 ) -> _SuccessResponseOutcome:
-    execute_deps = context.trace_runtime_context.execute_deps
-    aspf_trace_state = context.trace_runtime_context.aspf_trace_state
+    trace_runtime_context = context.continuation_runtime_context.trace_runtime_context
+    continuation_state = context.continuation_runtime_context.continuation_state
+    execute_deps = trace_runtime_context.execute_deps
+    aspf_trace_state = trace_runtime_context.aspf_trace_state
     report_analysis_state = context.report_analysis_state
     analysis = cast(AnalysisResult, report_analysis_state.analysis)
     root = report_analysis_state.root
@@ -4459,53 +4466,46 @@ def _build_success_response(
         "context_suggestions": analysis.context_suggestions,
     }
     if (
-        context.continuation_state.resume_state.projection_state.runtime_state.state_path
+        continuation_state.resume_state.projection_state.runtime_state.state_path
         is not None
-        or context.continuation_state.resume_state.projection_state.source
+        or continuation_state.resume_state.projection_state.source
         != "cold_start"
-        or context.continuation_state.resume_state.projection_state.runtime_state.reused_files
+        or continuation_state.resume_state.projection_state.runtime_state.reused_files
         > 0
     ):
         cache_verdict = _analysis_resume_cache_verdict(
-            status=(
-                context.continuation_state.resume_state.projection_state.runtime_state.state_status
-            ),
-            reused_files=(
-                context.continuation_state.resume_state.projection_state.runtime_state.reused_files
-            ),
-            compatibility_status=(
-                context.continuation_state.resume_state.projection_state.compatibility_status
-            ),
+            status=(continuation_state.resume_state.projection_state.runtime_state.state_status),
+            reused_files=(continuation_state.resume_state.projection_state.runtime_state.reused_files),
+            compatibility_status=(continuation_state.resume_state.projection_state.compatibility_status),
         )
         response["analysis_resume"] = {
             "checkpoint_path": (
                 str(
-                    context.continuation_state.resume_state.projection_state.runtime_state.state_path
+                    continuation_state.resume_state.projection_state.runtime_state.state_path
                 )
-                if context.continuation_state.resume_state.projection_state.runtime_state.state_path
-                is not None
+                if continuation_state.resume_state.projection_state.runtime_state.state_path is not None
                 else None
             ),
-            "source": context.continuation_state.resume_state.projection_state.source,
+            "source": continuation_state.resume_state.projection_state.source,
             "manifest_digest": (
-                context.continuation_state.resume_state.support_state.input_state.manifest_digest
+                continuation_state.resume_state.support_state.input_state.manifest_digest
             ),
             "reused_files": (
-                context.continuation_state.resume_state.projection_state.runtime_state.reused_files
+                continuation_state.resume_state.projection_state.runtime_state.reused_files
             ),
             "total_files": (
-                context.continuation_state.resume_state.projection_state.runtime_state.total_files
+                continuation_state.resume_state.projection_state.runtime_state.total_files
             ),
             "remaining_files": max(
-                context.continuation_state.resume_state.projection_state.runtime_state.total_files
-                - context.continuation_state.resume_state.projection_state.runtime_state.reused_files,
+                continuation_state.resume_state.projection_state.runtime_state.total_files
+                - continuation_state.resume_state.projection_state.runtime_state.reused_files,
                 0,
             ),
             "status": (
-                context.continuation_state.resume_state.projection_state.runtime_state.state_status
+                continuation_state.resume_state.projection_state.runtime_state.state_status
             ),
             "compatibility_status": (
-                context.continuation_state.resume_state.projection_state.compatibility_status
+                continuation_state.resume_state.projection_state.compatibility_status
             ),
             "cache_verdict": cache_verdict,
         }
@@ -4650,7 +4650,7 @@ def _build_success_response(
             report_analysis_state=report_analysis_state,
             max_components=context.options.max_components,
             analysis_resume_runtime_state=(
-                context.continuation_state.resume_state.projection_state.runtime_state
+                continuation_state.resume_state.projection_state.runtime_state
             ),
             type_audit_report=context.options.type_audit_report,
             baseline_path=context.options.baseline_path,
@@ -4756,25 +4756,25 @@ def _build_success_response(
                 "errors": response.get("errors", []),
             },
             "_resume_collection": (
-                context.continuation_state.collection_progress_runtime_state.collection_resume_progress_state.last_collection_resume_payload
+                continuation_state.collection_progress_runtime_state.collection_resume_progress_state.last_collection_resume_payload
                 if _object_mapping_optional(
-                    context.continuation_state.collection_progress_runtime_state.collection_resume_progress_state.last_collection_resume_payload
+                    continuation_state.collection_progress_runtime_state.collection_resume_progress_state.last_collection_resume_payload
                 )
                 is not None
                 else {}
             ),
             "_latest_collection_progress": (
-                context.continuation_state.collection_progress_runtime_state.latest_collection_progress
+                continuation_state.collection_progress_runtime_state.latest_collection_progress
             ),
             "_semantic_progress": (
-                context.continuation_state.collection_progress_runtime_state.collection_resume_progress_state.semantic_progress_cumulative
+                continuation_state.collection_progress_runtime_state.collection_resume_progress_state.semantic_progress_cumulative
             ),
             "_analysis_manifest_digest": (
-                context.continuation_state.resume_state.support_state.input_state.manifest_digest
+                continuation_state.resume_state.support_state.input_state.manifest_digest
             ),
-            "_resume_source": context.continuation_state.resume_state.projection_state.source,
+            "_resume_source": continuation_state.resume_state.projection_state.source,
             "_resume_compatibility_status": (
-                context.continuation_state.resume_state.projection_state.compatibility_status
+                continuation_state.resume_state.projection_state.compatibility_status
             ),
         },
         exit_code=int(response.get("exit_code", 0) or 0),
@@ -4793,10 +4793,10 @@ def _build_success_response(
     emit_lsp_progress(
         phase="post",
         collection_progress=(
-            context.continuation_state.collection_progress_runtime_state.latest_collection_progress
+            continuation_state.collection_progress_runtime_state.latest_collection_progress
         ),
         semantic_progress=(
-            context.continuation_state.collection_progress_runtime_state.collection_resume_progress_state.semantic_progress_cumulative
+            continuation_state.collection_progress_runtime_state.collection_resume_progress_state.semantic_progress_cumulative
         ),
         include_timing=True,
         done=True,
@@ -4908,28 +4908,38 @@ def _stage_finalize_success(
 ) -> _SuccessResponseOutcome:
     return build_success_response_fn(
         context=_SuccessResponseContext(
-            trace_runtime_context=stage.trace_runtime_context,
+            continuation_runtime_context=_ContinuationRuntimeContext(
+                trace_runtime_context=stage.continuation_runtime_context.trace_runtime_context,
+                continuation_state=AnalysisContinuationState(
+                    resume_state=AnalysisResumeState(
+                        projection_state=AnalysisResumeProjectionState(
+                            runtime_state=(
+                                stage.continuation_runtime_context.continuation_state.resume_state.projection_state.runtime_state
+                            ),
+                            source=(
+                                stage.continuation_runtime_context.continuation_state.resume_state.projection_state.source
+                            ),
+                            compatibility_status=_resume_compatibility_projection_decision(
+                                compatibility_status=(
+                                    stage.continuation_runtime_context.continuation_state.resume_state.projection_state.compatibility_status
+                                )
+                            ),
+                        ),
+                        support_state=(
+                            stage.continuation_runtime_context.continuation_state.resume_state.support_state
+                        ),
+                    ),
+                    collection_progress_runtime_state=(
+                        stage.continuation_runtime_context.continuation_state.collection_progress_runtime_state
+                    ),
+                ),
+            ),
             report_analysis_state=stage.report_analysis_state,
             paths=stage.paths,
             payload=stage.payload,
             config=stage.config,
             options=stage.options,
             name_filter_bundle=stage.name_filter_bundle,
-            continuation_state=AnalysisContinuationState(
-                resume_state=AnalysisResumeState(
-                    projection_state=AnalysisResumeProjectionState(
-                        runtime_state=stage.continuation_state.resume_state.projection_state.runtime_state,
-                        source=stage.continuation_state.resume_state.projection_state.source,
-                        compatibility_status=_resume_compatibility_projection_decision(
-                            compatibility_status=stage.continuation_state.resume_state.projection_state.compatibility_status
-                        ),
-                    ),
-                    support_state=stage.continuation_state.resume_state.support_state,
-                ),
-                collection_progress_runtime_state=(
-                    stage.continuation_state.collection_progress_runtime_state
-                ),
-            ),
             profiling_stage_ns=stage.profiling_stage_ns,
             profiling_counters=stage.profiling_counters,
             execution_plan=stage.execution_plan,
@@ -5494,9 +5504,15 @@ def execute_command_total(
         )
         success_outcome = _stage_finalize_success(
             stage=_ExecuteCommandFinalizeSuccessStage(
-                trace_runtime_context=_TraceRuntimeContext(
-                    execute_deps=execute_deps,
-                    aspf_trace_state=aspf_trace_state,
+                continuation_runtime_context=_ContinuationRuntimeContext(
+                    trace_runtime_context=_TraceRuntimeContext(
+                        execute_deps=execute_deps,
+                        aspf_trace_state=aspf_trace_state,
+                    ),
+                    continuation_state=AnalysisContinuationState(
+                        resume_state=analysis_resume_state,
+                        collection_progress_runtime_state=collection_progress_runtime_state,
+                    ),
                 ),
                 report_analysis_state=ReportAnalysisState(
                     analysis=analysis,
@@ -5508,10 +5524,6 @@ def execute_command_total(
                 config=config,
                 options=options,
                 name_filter_bundle=name_filter_bundle,
-                continuation_state=AnalysisContinuationState(
-                    resume_state=analysis_resume_state,
-                    collection_progress_runtime_state=collection_progress_runtime_state,
-                ),
                 profiling_stage_ns=profiling_stage_ns,
                 profiling_counters=profiling_counters,
                 execution_plan=execution_plan,
@@ -5531,13 +5543,15 @@ def execute_command_total(
                 cleanup_grace_ns=cleanup_grace_ns,
                 timeout_total_ns=timeout_total_ns,
                 analysis_window_ns=analysis_window_ns,
-                continuation_state=AnalysisContinuationState(
-                    resume_state=analysis_resume_state,
-                    collection_progress_runtime_state=collection_progress_runtime_state,
-                ),
-                trace_runtime_context=_TraceRuntimeContext(
-                    execute_deps=execute_deps,
-                    aspf_trace_state=aspf_trace_state,
+                continuation_runtime_context=_ContinuationRuntimeContext(
+                    trace_runtime_context=_TraceRuntimeContext(
+                        execute_deps=execute_deps,
+                        aspf_trace_state=aspf_trace_state,
+                    ),
+                    continuation_state=AnalysisContinuationState(
+                        resume_state=analysis_resume_state,
+                        collection_progress_runtime_state=collection_progress_runtime_state,
+                    ),
                 ),
                 emit_phase_timeline=emit_phase_timeline,
                 phase_timeline_path=phase_timeline_path,

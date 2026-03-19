@@ -40,34 +40,36 @@ def _timeout_context(
         cleanup_grace_ns=100_000_000,
         timeout_total_ns=1_000_000_000,
         analysis_window_ns=900_000_000,
-        continuation_state=orchestrator.AnalysisContinuationState(
-            resume_state=orchestrator.AnalysisResumeState(
-                projection_state=orchestrator.AnalysisResumeProjectionState(
-                    runtime_state=orchestrator.AnalysisResumeRuntimeState(
-                        state_path=tmp_path / "resume.json",
-                        state_status="checkpoint_seeded",
-                        reused_files=0,
-                        total_files=5,
-                    )
-                ),
-                support_state=orchestrator.AnalysisResumeSupportState(
-                    input_state=orchestrator.AnalysisResumeInputState(
-                        manifest_digest="digest",
-                        input_witness=None,
+        continuation_runtime_context=orchestrator._ContinuationRuntimeContext(
+            trace_runtime_context=orchestrator._TraceRuntimeContext(
+                execute_deps=deps,
+                aspf_trace_state=None,
+            ),
+            continuation_state=orchestrator.AnalysisContinuationState(
+                resume_state=orchestrator.AnalysisResumeState(
+                    projection_state=orchestrator.AnalysisResumeProjectionState(
+                        runtime_state=orchestrator.AnalysisResumeRuntimeState(
+                            state_path=tmp_path / "resume.json",
+                            state_status="checkpoint_seeded",
+                            reused_files=0,
+                            total_files=5,
+                        )
                     ),
-                    intro_state=orchestrator.AnalysisResumeIntroState(),
+                    support_state=orchestrator.AnalysisResumeSupportState(
+                        input_state=orchestrator.AnalysisResumeInputState(
+                            manifest_digest="digest",
+                            input_witness=None,
+                        ),
+                        intro_state=orchestrator.AnalysisResumeIntroState(),
+                    ),
+                ),
+                collection_progress_runtime_state=orchestrator.CollectionProgressRuntimeState(
+                    collection_resume_progress_state=orchestrator.CollectionResumeProgressState(
+                        last_collection_resume_payload=last_collection_resume_payload,
+                    ),
+                    latest_collection_progress={},
                 ),
             ),
-            collection_progress_runtime_state=orchestrator.CollectionProgressRuntimeState(
-                collection_resume_progress_state=orchestrator.CollectionResumeProgressState(
-                    last_collection_resume_payload=last_collection_resume_payload,
-                ),
-                latest_collection_progress={},
-            ),
-        ),
-        trace_runtime_context=orchestrator._TraceRuntimeContext(
-            execute_deps=deps,
-            aspf_trace_state=None,
         ),
         emit_phase_timeline=False,
         phase_timeline_path=tmp_path / "timeline.md",
@@ -393,10 +395,12 @@ def test_render_timeout_partial_report_handles_non_callable_cache_loader(
         cleanup_grace_ns=100_000_000,
         timeout_total_ns=1_000_000_000,
         analysis_window_ns=900_000_000,
-        continuation_state=orchestrator.AnalysisContinuationState(),
-        trace_runtime_context=orchestrator._TraceRuntimeContext(
-            execute_deps=deps,
-            aspf_trace_state=None,
+        continuation_runtime_context=orchestrator._ContinuationRuntimeContext(
+            trace_runtime_context=orchestrator._TraceRuntimeContext(
+                execute_deps=deps,
+                aspf_trace_state=None,
+            ),
+            continuation_state=orchestrator.AnalysisContinuationState(),
         ),
         emit_phase_timeline=False,
         phase_timeline_path=tmp_path / "timeline.md",

@@ -20,9 +20,19 @@ def test_stage_finalize_success_projects_resume_compatibility() -> None:
         )
 
     stage = orchestrator._ExecuteCommandFinalizeSuccessStage(
-        trace_runtime_context=orchestrator._TraceRuntimeContext(
-            execute_deps=cast(orchestrator.CommandEffects, SimpleNamespace()),
-            aspf_trace_state=None,
+        continuation_runtime_context=orchestrator._ContinuationRuntimeContext(
+            trace_runtime_context=orchestrator._TraceRuntimeContext(
+                execute_deps=cast(orchestrator.CommandEffects, SimpleNamespace()),
+                aspf_trace_state=None,
+            ),
+            continuation_state=orchestrator.AnalysisContinuationState(
+                resume_state=orchestrator.AnalysisResumeState(
+                    projection_state=orchestrator.AnalysisResumeProjectionState(
+                        compatibility_status="compatible",
+                    )
+                ),
+                collection_progress_runtime_state=orchestrator.CollectionProgressRuntimeState(),
+            ),
         ),
         report_analysis_state=orchestrator.ReportAnalysisState(
             analysis=cast(orchestrator.AnalysisResult, SimpleNamespace()),
@@ -45,14 +55,6 @@ def test_stage_finalize_success_projects_resume_compatibility() -> None:
         config=cast(orchestrator.AuditConfig, SimpleNamespace()),
         options=cast(orchestrator._ExecutionPayloadOptions, SimpleNamespace()),
         name_filter_bundle=cast(orchestrator.DataflowNameFilterBundle, SimpleNamespace()),
-        continuation_state=orchestrator.AnalysisContinuationState(
-            resume_state=orchestrator.AnalysisResumeState(
-                projection_state=orchestrator.AnalysisResumeProjectionState(
-                    compatibility_status="compatible",
-                )
-            ),
-            collection_progress_runtime_state=orchestrator.CollectionProgressRuntimeState(),
-        ),
         profiling_stage_ns={},
         profiling_counters={},
         execution_plan=cast(orchestrator.ExecutionPlan, SimpleNamespace()),
@@ -73,7 +75,7 @@ def test_stage_finalize_success_projects_resume_compatibility() -> None:
     assert outcome.response == {"ok": True}
     context = cast(orchestrator._SuccessResponseContext, captured["context"])
     assert (
-        context.continuation_state.resume_state.projection_state.compatibility_status
+        context.continuation_runtime_context.continuation_state.resume_state.projection_state.compatibility_status
         == "compatible"
     )
 
