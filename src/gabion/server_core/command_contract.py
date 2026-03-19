@@ -74,6 +74,16 @@ class AnalysisResumeSupportState:
 
 
 @dataclass(frozen=True)
+class AnalysisResumeState:
+    projection_state: AnalysisResumeProjectionState = field(
+        default_factory=AnalysisResumeProjectionState
+    )
+    support_state: AnalysisResumeSupportState = field(
+        default_factory=AnalysisResumeSupportState
+    )
+
+
+@dataclass(frozen=True)
 class ReportCheckpointState:
     section_witness_digest: str | None = None
     phase_checkpoint_state: JSONObject = field(default_factory=dict)

@@ -218,8 +218,7 @@ def _analysis_context(
         config=orchestrator.AuditConfig(project_root=tmp_path),
         needs_analysis=False,
         file_paths_for_run=[tmp_path / "sample.py"],
-        analysis_resume_support_state=orchestrator.AnalysisResumeSupportState(),
-        analysis_resume_runtime_state=orchestrator.AnalysisResumeRuntimeState(),
+        analysis_resume_state=orchestrator.AnalysisResumeState(),
         phase_timeline_path=tmp_path / "timeline.md",
         emit_phase_timeline=False,
         enable_phase_projection_checkpoints=False,
@@ -876,17 +875,23 @@ def test_build_success_response_emits_analysis_resume_block_when_resume_source_p
             decision_ignore_params=set(),
             transparent_decorators=set(),
         ),
-        analysis_resume_projection_state=orchestrator.AnalysisResumeProjectionState(
-            runtime_state=orchestrator.AnalysisResumeRuntimeState(
-                state_path=None,
-                state_status="checkpoint_seeded",
-                reused_files=1,
-                total_files=3,
+        analysis_resume_state=orchestrator.AnalysisResumeState(
+            projection_state=orchestrator.AnalysisResumeProjectionState(
+                runtime_state=orchestrator.AnalysisResumeRuntimeState(
+                    state_path=None,
+                    state_status="checkpoint_seeded",
+                    reused_files=1,
+                    total_files=3,
+                ),
+                source="resume_manifest",
+                compatibility_status="compatible",
             ),
-            source="resume_manifest",
-            compatibility_status="compatible",
+            support_state=orchestrator.AnalysisResumeSupportState(
+                input_state=orchestrator.AnalysisResumeInputState(
+                    manifest_digest="digest"
+                )
+            ),
         ),
-        analysis_resume_manifest_digest="digest",
         profiling_stage_ns={"server.analysis_call": 0, "server.projection_emit": 0},
         profiling_counters={
             "server.collection_resume_persist_calls": 0,
