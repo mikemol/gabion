@@ -22,8 +22,8 @@ from gabion.analysis.dataflow.engine.dataflow_documented_bundles import (
 )
 from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import (
     ParentAnnotator,
-    _build_symbol_table,
-    _resolve_callee,
+    build_symbol_table,
+    resolve_callee as resolve_callee_public,
 )
 from gabion.analysis.dataflow.engine.dataflow_function_index_helpers import (
     _collect_functions,
@@ -415,7 +415,9 @@ def _collect_call_ambiguities_indexed(
     resolve_callee_fn=None,
 ) -> list[CallAmbiguity]:
     ambiguities: list[CallAmbiguity] = []
-    resolve_callee = _resolve_callee if resolve_callee_fn is None else resolve_callee_fn
+    resolve_callee = (
+        resolve_callee_public if resolve_callee_fn is None else resolve_callee_fn
+    )
 
     def _sink(
         caller,
@@ -674,7 +676,7 @@ def _populate_bundle_forest(
             add_interned_alt_fn=_add_interned_alt,
             collect_config_bundles_fn=_collect_config_bundles,
             collect_dataclass_registry_fn=_collect_dataclass_registry,
-            build_symbol_table_fn=_build_symbol_table,
+            build_symbol_table_fn=build_symbol_table,
             iter_documented_bundles_fn=_iter_documented_bundles,
             iter_dataclass_call_bundles_fn=_iter_dataclass_call_bundles,
             progress_emit_min_interval_seconds=_PROGRESS_EMIT_MIN_INTERVAL_SECONDS,

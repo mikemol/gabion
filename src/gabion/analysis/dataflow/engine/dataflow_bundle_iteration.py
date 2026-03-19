@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Literal, cast
 
 from gabion.analysis.dataflow.engine.dataflow_contracts import SymbolTable
-from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import _module_name
+from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import module_name
 from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
     ParseModuleFailure,
     ParseModuleStage,
@@ -136,7 +136,7 @@ def _module_identifier(module_name: object) -> ModuleIdentifier:
             if normalized:
                 return ModuleIdentifier(value=normalized)
             raise ValueError("module identifier must be non-empty")
-    raise ValueError("_module_name must return str")
+    raise ValueError("module_name must return str")
 
 
 def _effective_dataclass_registry(
@@ -458,7 +458,7 @@ def iter_dataclass_call_bundle_effects(
         case ParseModuleFailure(kind="parse_failure"):
             return BundleIterationOutcome(bundles=frozenset(), witness_effects=())
 
-    module = _module_identifier(_module_name(path, project_root))
+    module = _module_identifier(module_name(path, project_root))
     local_dataclasses = _collect_local_dataclasses(tree)
     effective_registry = _effective_dataclass_registry(
         module=module,

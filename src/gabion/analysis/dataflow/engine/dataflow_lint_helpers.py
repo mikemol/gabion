@@ -16,7 +16,7 @@ from typing import Any, Mapping, cast
 from gabion.analysis.dataflow.engine.dataflow_decision_surfaces import (
     lint_lines_from_bundle_evidence as _ds_lint_lines_from_bundle_evidence, lint_lines_from_constant_smells as _ds_lint_lines_from_constant_smells, lint_lines_from_type_evidence as _ds_lint_lines_from_type_evidence, lint_lines_from_unused_arg_smells as _ds_lint_lines_from_unused_arg_smells, parse_lint_location as _ds_parse_lint_location)
 from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import (
-    _is_test_path,
+    is_test_path,
 )
 from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
     _build_analysis_index,
@@ -593,7 +593,7 @@ def _internal_broad_type_lint_lines_indexed(context: _BroadTypeLintContext) -> l
     lines: list[str] = []
     for info in by_qual.values():
         check_deadline()
-        if _is_test_path(info.path):
+        if is_test_path(info.path):
             continue
         caller_count = len(transitive_callers.get(info.qual, set()))
         if caller_count == 0:

@@ -6,8 +6,8 @@ import ast
 from collections.abc import Sequence
 
 from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import (
-    _base_identifier,
-    _enclosing_class_scopes,
+    base_identifier,
+    enclosing_class_scopes,
 )
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.analysis.indexed_scan.calls.callee_resolution_helpers import (
@@ -21,10 +21,10 @@ def _collect_local_class_bases(
 ) -> dict[str, list[str]]:
     check_deadline()
     return {
-        ".".join([*_enclosing_class_scopes(class_node, parents), class_node.name]): [
+        ".".join([*enclosing_class_scopes(class_node, parents), class_node.name]): [
             base_name
             for base in class_node.bases
-            if (base_name := _base_identifier(base))
+            if (base_name := base_identifier(base))
         ]
         for class_node in class_nodes
     }

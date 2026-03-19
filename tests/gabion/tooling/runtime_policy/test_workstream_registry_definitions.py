@@ -1059,34 +1059,38 @@ def test_public_surface_normalization_workstream_registry_exposes_drain_program(
         (item.rel_path, item.qualname)
         for item in touchpoints["PSN-TP-006"].declared_touchsites
     } >= {
-        ("src/gabion/analysis/dataflow/io/dataflow_parse_helpers.py", "__all__"),
-        (
-            "src/gabion/analysis/dataflow/io/dataflow_reporting_helpers.py",
-            "_report_lines_by_section",
-        ),
+        ("src/gabion/analysis/dataflow/engine/dataflow_evidence_helpers.py", "__all__"),
         (
             "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
-            "_ModuleArtifactSpec",
+            "_accumulate_symbol_table_for_tree",
         ),
         (
-            "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
-            "_StageCacheSpec",
+            "src/gabion/analysis/dataflow/engine/dataflow_projection_materialization.py",
+            "_collect_call_ambiguities_indexed",
         ),
         (
             "src/gabion/analysis/dataflow/engine/dataflow_deadline_runtime.py",
-            "_COLLECT_CALL_NODES_BY_PATH_DEPS",
+            "_COLLECT_DEADLINE_LOCAL_INFO_DEPS",
         ),
         (
             "src/gabion/analysis/dataflow/engine/dataflow_bundle_iteration.py",
             "iter_dataclass_call_bundle_effects",
         ),
         (
-            "src/gabion/analysis/dataflow/engine/dataflow_function_index_helpers.py",
-            "_build_function_index",
+            "src/gabion/analysis/dataflow/engine/dataflow_lambda_runtime_support.py",
+            "_collect_closure_lambda_factories",
         ),
         (
-            "src/gabion/analysis/dataflow/engine/dataflow_evidence_helpers.py",
-            "_build_symbol_table",
+            "src/gabion/analysis/dataflow/engine/dataflow_obligations.py",
+            "_append_origin_obligations",
+        ),
+        (
+            "src/gabion/analysis/dataflow/io/dataflow_refactor_planning.py",
+            "build_refactor_plan",
+        ),
+        (
+            "src/gabion/analysis/dataflow/io/dataflow_synthesis.py",
+            "_build_synthesis_plan",
         ),
     }
     assert {

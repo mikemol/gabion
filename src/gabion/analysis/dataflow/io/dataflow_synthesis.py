@@ -13,7 +13,7 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
 )
 from gabion.analysis.dataflow.engine.dataflow_contracts import (
     AuditConfig, ClassInfo, FunctionInfo, InvariantProposition, SymbolTable)
-from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import _resolve_callee
+from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import resolve_callee
 from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _collect_config_bundles,
     _collect_dataclass_registry,
@@ -419,7 +419,7 @@ def _infer_synthesis_field_types(
             for call in info.calls:
                 check_deadline()
                 if not call.is_test:
-                    callee = _resolve_callee(
+                    callee = resolve_callee(
                         call.callee,
                         info,
                         context.by_name,

@@ -10,7 +10,7 @@ from pathlib import Path
 
 from gabion.analysis.dataflow.engine.dataflow_analysis_index import _build_analysis_index
 from gabion.analysis.dataflow.engine.dataflow_contracts import AuditConfig, FunctionInfo
-from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import _resolve_callee
+from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import resolve_callee
 from gabion.analysis.dataflow.engine.dataflow_ingest_helpers import resolve_analysis_paths
 from gabion.analysis.core.forest_signature import build_forest_signature_from_groups
 from gabion.analysis.foundation.json_types import JSONObject
@@ -115,7 +115,7 @@ def build_refactor_plan(
             check_deadline()
             for call in info.calls:
                 check_deadline()
-                callee = _resolve_callee(
+                callee = resolve_callee(
                     call.callee,
                     info,
                     by_name,

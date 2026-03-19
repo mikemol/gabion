@@ -12,7 +12,7 @@ from gabion.analysis.aspf.aspf import Forest, NodeId
 from gabion.analysis.dataflow.engine.dataflow_contracts import AuditConfig, CallArgs, FunctionInfo
 from gabion.analysis.dataflow.engine.dataflow_deadline_helpers import (
     _CalleeResolutionOutcome, _DEADLINE_EXEMPT_PREFIXES, _DEADLINE_HELPER_QUALS, _DeadlineArgInfo, _DeadlineFunctionFacts, _build_analysis_index, _caller_param_bindings_for_call, _collect_call_edges_from_forest, _collect_call_nodes_by_path, _collect_call_resolution_obligation_details_from_forest, _collect_call_resolution_obligations_from_forest, _collect_deadline_function_facts, _collect_recursive_nodes, _deadline_arg_info_map, _deadline_loop_forwarded_params, _function_suite_id, _function_suite_key, _is_deadline_param, _materialize_call_candidates, _normalize_snapshot_path, _reachable_from_roots, _resolve_callee_outcome)
-from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import _is_test_path
+from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import is_test_path
 from gabion.analysis.foundation.json_types import JSONObject, ParseFailureWitnesses
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.invariants import require_not_none
@@ -191,7 +191,7 @@ def _append_origin_obligations(
         if (
             facts is not None
             and qual in context.by_qual
-            and not _is_test_path(facts.path)
+            and not is_test_path(facts.path)
             and qual not in context.roots
         ):
             for name, span in facts.local_info.origin_spans.items():
@@ -220,7 +220,7 @@ def _append_default_param_obligations(
         check_deadline()
         emit_progress_fn("default_param_obligations")
         info = context.by_qual.get(qual)
-        if info is not None and not _is_test_path(info.path):
+        if info is not None and not is_test_path(info.path):
             for param in sort_once(
                 params,
                 source="src/gabion/analysis/dataflow_obligations.py:default_param_obligations",
@@ -339,7 +339,7 @@ def _append_resolution_obligations(
         if _deadline_exempt(caller_qual):
             continue
         caller_info = context.by_qual.get(caller_qual)
-        if caller_info is not None and not _is_test_path(caller_info.path):
+        if caller_info is not None and not is_test_path(caller_info.path):
             output_kind = resolution_obligation_kind_map.get(
                 obligation_kind,
                 "call_resolution_required",
@@ -406,7 +406,7 @@ def _append_recursive_obligations(
         emit_progress_fn("recursive_obligations")
         facts = context.facts_by_qual.get(qual)
         info = context.by_qual.get(qual)
-        if facts is not None and info is not None and not _is_test_path(info.path):
+        if facts is not None and info is not None and not is_test_path(info.path):
             carriers = context.deadline_params.get(qual, set())
             carrier_status = _deadline_carrier_status(
                 qual=qual,
@@ -518,7 +518,7 @@ def _append_loop_obligations(
         if qual in recursive_required:
             continue
         info = context.by_qual.get(qual)
-        if facts is not None and info is not None and not _is_test_path(info.path) and facts.loop_sites:
+        if facts is not None and info is not None and not is_test_path(info.path) and facts.loop_sites:
             carriers = context.deadline_params.get(qual, set())
             carrier_status = _deadline_carrier_status(
                 qual=qual,
@@ -573,7 +573,7 @@ def _append_call_arg_obligations(
         check_deadline()
         emit_progress_fn("call_arg_obligations")
         caller_info = context.by_qual.get(caller_qual)
-        if caller_info is not None and not _is_test_path(caller_info.path):
+        if caller_info is not None and not is_test_path(caller_info.path):
             for call, callee, arg_info in entries:
                 check_deadline()
                 callee_deadlines = context.deadline_params.get(callee.qual, set())
@@ -775,7 +775,7 @@ def _collect_deadline_params(
     for info in context.by_qual.values():
         check_deadline()
         emit_progress_fn("deadline_params")
-        if _is_test_path(info.path):
+        if is_test_path(info.path):
             continue
         for name in info.params:
             check_deadline()
@@ -808,7 +808,7 @@ def _propagate_deadline_params(
             emit_progress_fn("deadline_param_propagation")
             for info in infos:
                 check_deadline()
-                if _is_test_path(info.path):
+                if is_test_path(info.path):
                     continue
                 for call in info.calls:
                     check_deadline()
@@ -856,7 +856,7 @@ def _collect_call_infos(
         emit_progress_fn("call_info_collection")
         for info in infos:
             check_deadline()
-            if _is_test_path(info.path):
+            if is_test_path(info.path):
                 continue
             facts = facts_by_qual.get(info.qual)
             alias_to_param = facts.local_info.alias_to_param if facts else {p: p for p in info.params}

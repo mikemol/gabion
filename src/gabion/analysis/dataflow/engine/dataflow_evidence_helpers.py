@@ -1,3 +1,5 @@
+# gabion:boundary_normalization_module
+# gabion:grade_boundary kind=semantic_carrier_adapter name=dataflow_evidence_helpers
 from __future__ import annotations
 
 """Evidence/index helper surfaces consumed by test-evidence projections."""
@@ -314,13 +316,13 @@ def _is_not_json_value_list(value: JSONValue) -> bool:
 for _runtime_type in (tuple, set, dict, str, int, float, bool, _NONE_TYPE):
     _is_json_value_list.register(_runtime_type)(_is_not_json_value_list)
 
-def _is_test_path(path: Path) -> bool:
+def is_test_path(path: Path) -> bool:
     if "tests" in path.parts:
         return True
     return path.name.startswith("test_")
 
 
-def _module_name(path: Path, project_root=None) -> str:
+def module_name(path: Path, project_root=None) -> str:
     rel = path.with_suffix("")
     if project_root is not None:
         try:
@@ -331,9 +333,6 @@ def _module_name(path: Path, project_root=None) -> str:
     if parts and parts[0] == "src":
         parts = parts[1:]
     return ".".join(parts)
-
-
-module_name = _module_name
 
 
 def _enclosing_scopes(node: ast.AST, parents: dict[ast.AST, ast.AST]) -> list[str]:
@@ -351,7 +350,7 @@ def _enclosing_scopes(node: ast.AST, parents: dict[ast.AST, ast.AST]) -> list[st
     return list(reversed(scopes))
 
 
-def _enclosing_class_scopes(
+def enclosing_class_scopes(
     node: ast.AST, parents: dict[ast.AST, ast.AST]
 ) -> list[str]:
     check_deadline()
@@ -379,7 +378,7 @@ def _string_list(node: ast.AST):
     return None
 
 
-def _target_names(target: ast.AST) -> set[str]:
+def target_names(target: ast.AST) -> set[str]:
     check_deadline()
     names: set[str] = set()
     target_type = type(target)
@@ -389,11 +388,11 @@ def _target_names(target: ast.AST) -> set[str]:
     if target_type is ast.Tuple or target_type is ast.List:
         for element in cast(ast.Tuple | ast.List, target).elts:
             check_deadline()
-            names.update(_target_names(element))
+            names.update(target_names(element))
     return names
 
 
-def _collect_module_exports(
+def collect_module_exports(
     tree: ast.AST,
     *,
     module_name: str,
@@ -450,11 +449,11 @@ def _collect_module_exports(
         elif stmt_type is ast.Assign:
             for target in cast(ast.Assign, stmt).targets:
                 check_deadline()
-                local_defs.update(name for name in _target_names(target) if not name.startswith("_"))
+                local_defs.update(name for name in target_names(target) if not name.startswith("_"))
         elif stmt_type is ast.AnnAssign:
             local_defs.update(
                 name
-                for name in _target_names(cast(ast.AnnAssign, stmt).target)
+                for name in target_names(cast(ast.AnnAssign, stmt).target)
                 if not name.startswith("_")
             )
 
@@ -476,7 +475,7 @@ def _collect_module_exports(
     return export_names, export_map
 
 
-def _base_identifier(node: ast.AST):
+def base_identifier(node: ast.AST):
     check_deadline()
     node_type = type(node)
     if node_type is ast.Name:
@@ -487,13 +486,13 @@ def _base_identifier(node: ast.AST):
         except (AttributeError, TypeError, ValueError, RecursionError):
             return None
     if node_type is ast.Subscript:
-        return _base_identifier(cast(ast.Subscript, node).value)
+        return base_identifier(cast(ast.Subscript, node).value)
     if node_type is ast.Call:
-        return _base_identifier(cast(ast.Call, node).func)
+        return base_identifier(cast(ast.Call, node).func)
     return None
 
 
-def _build_symbol_table(
+def build_symbol_table(
     paths: list[Path],
     project_root,
     *,
@@ -511,7 +510,7 @@ def _build_symbol_table(
         )
         match parse_outcome:
             case ParseModuleSuccess(kind="parsed", tree=tree):
-                module = _module_name(path, project_root)
+                module = module_name(path, project_root)
                 table.internal_roots.add(module.split(".")[0])
                 visitor = ImportVisitor(module, table)
                 visitor.visit(tree)
@@ -520,7 +519,7 @@ def _build_symbol_table(
                     for (mod, local), fqn in table.imports.items()
                     if mod == module
                 }
-                exports, export_map = _collect_module_exports(
+                exports, export_map = collect_module_exports(
                     tree,
                     module_name=module,
                     import_map=import_map,
@@ -532,7 +531,7 @@ def _build_symbol_table(
     return table
 
 
-def _collect_class_index(
+def collect_class_index(
     paths: list[Path],
     project_root,
     *,
@@ -551,11 +550,11 @@ def _collect_class_index(
             case ParseModuleSuccess(kind="parsed", tree=tree):
                 parents = ParentAnnotator()
                 parents.visit(tree)
-                module = _module_name(path, project_root)
+                module = module_name(path, project_root)
                 for node in ast.walk(tree):
                     check_deadline()
                     if _is_class_def(node):
-                        scopes = _enclosing_class_scopes(node, parents.parents)
+                        scopes = enclosing_class_scopes(node, parents.parents)
                         qual_parts = [module] if module else []
                         qual_parts.extend(scopes)
                         qual_parts.append(_class_def_name(node))
@@ -563,7 +562,7 @@ def _collect_class_index(
                         bases: list[str] = []
                         for base in _class_def_bases(node):
                             check_deadline()
-                            base_name = _base_identifier(base)
+                            base_name = base_identifier(base)
                             if base_name:
                                 bases.append(base_name)
                         methods: set[str] = set()
@@ -584,7 +583,7 @@ def _collect_class_index(
     return class_index
 
 
-def _build_function_index(
+def build_function_index(
     paths: list[Path],
     project_root,
     ignore_params: set[str],
@@ -603,7 +602,7 @@ def _build_function_index(
     )
 
 
-def _resolve_callee(
+def resolve_callee(
     callee_key: str,
     caller: FunctionInfo,
     by_name: dict[str, list[FunctionInfo]],
@@ -629,7 +628,7 @@ def _resolve_callee(
         class_index=class_index,
         call=call,
         local_lambda_bindings=lambda_bindings,
-        caller_module=_module_name(caller.path, project_root=project_root),
+        caller_module=module_name(caller.path, project_root=project_root),
     )
     resolution = resolve_callee_with_effects(context)
     if ambiguity_sink is not None:
@@ -661,23 +660,35 @@ def _paramset_key(forest: Forest, paramset_id: NodeId) -> tuple[str, ...]:
             return tuple(str(p) for p in _json_value_list_items(params))
     return tuple(str(p) for p in paramset_id.key)
 
+_is_test_path = is_test_path
+_module_name = module_name
+_enclosing_class_scopes = enclosing_class_scopes
+_target_names = target_names
+_collect_module_exports = collect_module_exports
+_base_identifier = base_identifier
+_build_symbol_table = build_symbol_table
+_collect_class_index = collect_class_index
+_build_function_index = build_function_index
+_resolve_callee = resolve_callee
+
+
 __all__ = [
     "ParentAnnotator",
-    "_base_identifier",
+    "base_identifier",
     "_callee_key",
     "_alt_input",
-    "_build_function_index",
-    "_build_symbol_table",
-    "_collect_class_index",
-    "_collect_module_exports",
+    "build_function_index",
+    "build_symbol_table",
+    "collect_class_index",
+    "collect_module_exports",
     "_enclosing_scopes",
-    "_is_test_path",
-    "_module_name",
+    "enclosing_class_scopes",
+    "is_test_path",
     "module_name",
     "_paramset_key",
     "_resolve_class_candidates",
-    "_resolve_callee",
+    "resolve_callee",
     "_resolve_method_in_hierarchy",
     "_resolve_method_in_hierarchy_outcome",
-    "_target_names",
+    "target_names",
 ]

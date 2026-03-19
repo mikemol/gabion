@@ -1,5 +1,5 @@
 ---
-doc_revision: 7
+doc_revision: 8
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: friction
 doc_role: audit
@@ -589,3 +589,46 @@ constructible coupling between "files actually changed for this touchpoint" and
 - `Mind B wedge product`: A better planning substrate would make boundary drift
   observable earlier, ideally before the touchpoint metadata can overstate
   convergence.
+
+## FN-010: Duplicate helper ownership hides the real publicization seam
+
+**Trigger:** Burning down the next `PSN-TP-006` slice around
+`dataflow_evidence_helpers.py`.
+
+**Friction:** Names such as `module_name` and `is_test_path` were effectively
+owned in more than one dataflow helper module. That made the next PSN slice
+look smaller than it really was: the repo had to answer not only "which import
+should become public?" but also "which module is actually the canonical owner
+of this behavior?"
+
+**Impact:** Boundary discovery gets slower and more error-prone. For an LLM,
+the cheapest local grep is not enough to identify the right owner; the agent has
+to inspect duplicate helper implementations and infer which one active callers
+actually depend on.
+
+**Hypothesis:** Earlier decomposition moved behavior into smaller files faster
+than it converged owner contracts, so some helper names became operationally
+shared across adjacent modules instead of being retired to one canonical owner.
+
+**Evidence:**
+- `src/gabion/analysis/dataflow/engine/dataflow_evidence_helpers.py`
+- `src/gabion/analysis/dataflow/engine/dataflow_function_index_helpers.py`
+- active `PSN-TP-006` consumers were importing private names from the evidence
+  helper module while similarly named helper implementations still existed in
+  neighboring owner files
+
+**Workstream/Context:** `PSN` dataflow private-import publicization.
+
+### Higher-order synthesis
+
+- `AA constructs`: Helper extraction improves locality and can reduce monolith
+  pressure during staged decomposition.
+- `AB critiques`: If old and new helper owners both remain viable, public-surface
+  normalization turns into ownership archaeology rather than straightforward
+  import cleanup.
+- `Convergence (Mind A)`: The friction is not decomposition itself; it is the
+  absence of a forced canonical-owner collapse once adjacent helper modules start
+  sharing behavior.
+- `Mind B wedge product`: Public-surface drains go faster when helper extraction
+  and owner convergence happen in the same correction loop rather than as
+  separate later cleanups.

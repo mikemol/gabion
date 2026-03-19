@@ -42,11 +42,11 @@ from gabion.analysis.dataflow.io.dataflow_parse_helpers import ParseModuleStage
 from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import (
     ImportVisitor,
     ParentAnnotator,
-    _base_identifier,
-    _collect_module_exports,
-    _enclosing_class_scopes,
-    _module_name,
-    _resolve_callee,
+    base_identifier,
+    collect_module_exports,
+    enclosing_class_scopes,
+    module_name,
+    resolve_callee,
 )
 from gabion.analysis.dataflow.engine.dataflow_function_index_helpers import (
     _collect_functions,
@@ -259,7 +259,7 @@ _FUNCTION_INDEX_ACCUMULATOR_DEPS = _FunctionIndexAccumulatorDeps(
     check_deadline_fn=check_deadline,
     collect_functions_fn=_collect_functions,
     parent_annotator_ctor=ParentAnnotator,
-    module_name_fn=_module_name,
+    module_name_fn=module_name,
     collect_lambda_function_infos_fn=_collect_lambda_function_infos,
     collect_lambda_bindings_by_caller_fn=_collect_lambda_bindings_by_caller,
     direct_lambda_callee_by_call_span_fn=_direct_lambda_callee_by_call_span,
@@ -365,14 +365,14 @@ def _accumulate_symbol_table_for_tree(
     project_root,
 ) -> None:
     check_deadline()
-    module = _module_name(path, project_root)
+    module = module_name(path, project_root)
     table.internal_roots.add(module.split(".")[0])
     visitor = ImportVisitor(module, table)
     visitor.visit(tree)
     import_map = {
         local: fqn for (mod, local), fqn in table.imports.items() if mod == module
     }
-    exports, export_map = _collect_module_exports(
+    exports, export_map = collect_module_exports(
         tree,
         module_name=module,
         import_map=import_map,
@@ -420,9 +420,9 @@ def _build_symbol_table(
 _ACCUMULATE_CLASS_INDEX_FOR_TREE_DEPS = _AccumulateClassIndexForTreeDeps(
     check_deadline_fn=check_deadline,
     parent_annotator_ctor=ParentAnnotator,
-    module_name_fn=_module_name,
-    enclosing_class_scopes_fn=_enclosing_class_scopes,
-    base_identifier_fn=_base_identifier,
+    module_name_fn=module_name,
+    enclosing_class_scopes_fn=enclosing_class_scopes,
+    base_identifier_fn=base_identifier,
     class_info_ctor=ClassInfo,
 )
 
@@ -556,7 +556,7 @@ def _analysis_index_resolved_call_edges(
             for call in info.calls:
                 check_deadline()
                 if not call.is_test:
-                    callee = _resolve_callee(
+                    callee = resolve_callee(
                         call.callee,
                         info,
                         analysis_index.by_name,

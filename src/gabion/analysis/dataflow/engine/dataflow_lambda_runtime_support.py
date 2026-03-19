@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import cast
 
 from gabion.analysis.dataflow.engine.dataflow_contracts import FunctionInfo
-from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import _target_names
+from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import target_names
 from gabion.analysis.dataflow.engine.dataflow_function_index_helpers import (
     _enclosing_class,
     _enclosing_function_scopes,
@@ -92,7 +92,7 @@ def _collect_closure_lambda_factories(
         deps=_ClosureLambdaFactoriesDeps(
             check_deadline_fn=check_deadline,
             node_span_fn=_node_span,
-            target_names_fn=_target_names,
+            target_names_fn=target_names,
             enclosing_scopes_fn=_enclosing_scopes,
             function_key_fn=_function_key,
         ),
@@ -117,7 +117,7 @@ def _collect_lambda_bindings_by_caller(
             collect_closure_lambda_factories_fn=_collect_closure_lambda_factories,
             node_span_fn=_node_span,
             enclosing_scopes_fn=_enclosing_scopes,
-            target_names_fn=_target_names,
+            target_names_fn=target_names,
             sort_once_fn=sort_once,
         ),
     )
