@@ -9,7 +9,9 @@ from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
     _build_analysis_collection_resume_payload,
 )
 from gabion.analysis.dataflow.engine.dataflow_contracts import ReportCarrier
-from gabion.analysis.dataflow.io.dataflow_parse_helpers import _forbid_adhoc_bundle_discovery
+from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
+    forbid_adhoc_bundle_discovery,
+)
 from gabion.analysis.dataflow.io.dataflow_projection_helpers import (
     report_projection_phase_rank, report_projection_specs)
 from gabion.analysis.dataflow.io.dataflow_projection_preview_bridge import preview_section_lines
@@ -582,7 +584,7 @@ def project_report_sections(
 
 def _bundle_name_registry(root: Path) -> dict[tuple[str, ...], set[str]]:
     check_deadline()
-    _forbid_adhoc_bundle_discovery("_bundle_name_registry")
+    forbid_adhoc_bundle_discovery("_bundle_name_registry")
     file_paths = sort_once(
         root.rglob("*.py"),
         source="dataflow_structure_reuse._bundle_name_registry.file_paths",

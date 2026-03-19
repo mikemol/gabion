@@ -24,7 +24,11 @@ from gabion.analysis.dataflow.engine.dataflow_contracts import ClassInfo, Functi
 from gabion.analysis.dataflow.engine.dataflow_function_index_helpers import (
     _build_function_index as _build_function_index_impl)
 from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
-    _ParseModuleFailure, _ParseModuleStage, _ParseModuleSuccess, _parse_module_tree)
+    ParseModuleFailure,
+    ParseModuleStage,
+    ParseModuleSuccess,
+    parse_module_tree,
+)
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue, ParseFailureWitnesses
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.analysis.core.visitors import ImportVisitor, ParentAnnotator
@@ -500,13 +504,13 @@ def _build_symbol_table(
     table = SymbolTable(external_filter=external_filter)
     for path in paths:
         check_deadline()
-        parse_outcome = _parse_module_tree(
+        parse_outcome = parse_module_tree(
             path,
-            stage=_ParseModuleStage.SYMBOL_TABLE,
+            stage=ParseModuleStage.SYMBOL_TABLE,
             parse_failure_witnesses=parse_failure_witnesses,
         )
         match parse_outcome:
-            case _ParseModuleSuccess(kind="parsed", tree=tree):
+            case ParseModuleSuccess(kind="parsed", tree=tree):
                 module = _module_name(path, project_root)
                 table.internal_roots.add(module.split(".")[0])
                 visitor = ImportVisitor(module, table)
@@ -523,7 +527,7 @@ def _build_symbol_table(
                 )
                 table.module_exports[module] = exports
                 table.module_export_map[module] = export_map
-            case _ParseModuleFailure(kind="parse_failure"):
+            case ParseModuleFailure(kind="parse_failure"):
                 pass
     return table
 
@@ -538,13 +542,13 @@ def _collect_class_index(
     class_index: dict[str, ClassInfo] = {}
     for path in paths:
         check_deadline()
-        parse_outcome = _parse_module_tree(
+        parse_outcome = parse_module_tree(
             path,
-            stage=_ParseModuleStage.CLASS_INDEX,
+            stage=ParseModuleStage.CLASS_INDEX,
             parse_failure_witnesses=parse_failure_witnesses,
         )
         match parse_outcome:
-            case _ParseModuleSuccess(kind="parsed", tree=tree):
+            case ParseModuleSuccess(kind="parsed", tree=tree):
                 parents = ParentAnnotator()
                 parents.visit(tree)
                 module = _module_name(path, project_root)
@@ -575,7 +579,7 @@ def _collect_class_index(
                             bases=bases,
                             methods=methods,
                         )
-            case _ParseModuleFailure(kind="parse_failure"):
+            case ParseModuleFailure(kind="parse_failure"):
                 pass
     return class_index
 

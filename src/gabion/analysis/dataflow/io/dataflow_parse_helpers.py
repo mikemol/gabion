@@ -1,3 +1,5 @@
+# gabion:boundary_normalization_module
+# gabion:grade_boundary kind=semantic_carrier_adapter name=dataflow_parse_helpers
 from __future__ import annotations
 
 import ast
@@ -21,7 +23,7 @@ _PARSE_MODULE_ERROR_TYPES = (
 )
 
 
-class _ParseModuleStage(StrEnum):
+class ParseModuleStage(StrEnum):
     PARAM_ANNOTATIONS = "param_annotations"
     DEADLINE_FUNCTION_FACTS = "deadline_function_facts"
     CALL_NODES = "call_nodes"
@@ -36,22 +38,22 @@ class _ParseModuleStage(StrEnum):
 
 
 @dataclass(frozen=True)
-class _ParseModuleSuccess:
+class ParseModuleSuccess:
     kind: Literal["parsed"]
     tree: ast.Module
 
 
 @dataclass(frozen=True)
-class _ParseModuleFailure:
+class ParseModuleFailure:
     kind: Literal["parse_failure"]
     witness: JSONObject
 
 
-ParseModuleOutcome = _ParseModuleSuccess | _ParseModuleFailure
+ParseModuleOutcome = ParseModuleSuccess | ParseModuleFailure
 
 
 def _parse_failure_witness(
-    *, path: Path, stage: _ParseModuleStage, error: Exception
+    *, path: Path, stage: ParseModuleStage, error: Exception
 ) -> JSONObject:
     return {
         "path": str(path),
@@ -61,44 +63,62 @@ def _parse_failure_witness(
     }
 
 
-def _parse_module_tree(
+def parse_module_tree(
     path: Path,
     *,
-    stage: _ParseModuleStage,
+    stage: ParseModuleStage,
     parse_failure_witnesses: list[JSONObject],
 ) -> ParseModuleOutcome:
     try:
-        return _ParseModuleSuccess(
+        return ParseModuleSuccess(
             kind="parsed",
             tree=ast.parse(path.read_text(encoding="utf-8")),
         )
     except _PARSE_MODULE_ERROR_TYPES as exc:
         witness = _parse_failure_witness(path=path, stage=stage, error=exc)
         parse_failure_witnesses.append(witness)
-        return _ParseModuleFailure(kind="parse_failure", witness=witness)
+        return ParseModuleFailure(kind="parse_failure", witness=witness)
 
 
-def _parse_module_tree_optional(
+def parse_module_tree_optional(
     path: Path,
     *,
-    stage: _ParseModuleStage,
+    stage: ParseModuleStage,
     parse_failure_witnesses: list[JSONObject],
 ):
-    outcome = _parse_module_tree(
+    outcome = parse_module_tree(
         path,
         stage=stage,
         parse_failure_witnesses=parse_failure_witnesses,
     )
     match outcome:
-        case _ParseModuleSuccess(tree=tree):
+        case ParseModuleSuccess(tree=tree):
             return tree
-        case _:
+        case ParseModuleFailure():
             return None
 
 
-            never("unreachable wildcard match fall-through")
-def _forbid_adhoc_bundle_discovery(reason: str) -> None:
+def forbid_adhoc_bundle_discovery(reason: str) -> None:
     if os.environ.get("GABION_FORBID_ADHOC_BUNDLES") == "1":
         raise AssertionError(
             f"Ad-hoc bundle discovery invoked while forest-only invariant active: {reason}"
         )
+
+
+_ParseModuleStage = ParseModuleStage
+_ParseModuleSuccess = ParseModuleSuccess
+_ParseModuleFailure = ParseModuleFailure
+_parse_module_tree = parse_module_tree
+_parse_module_tree_optional = parse_module_tree_optional
+_forbid_adhoc_bundle_discovery = forbid_adhoc_bundle_discovery
+
+
+__all__ = [
+    "ParseModuleFailure",
+    "ParseModuleOutcome",
+    "ParseModuleStage",
+    "ParseModuleSuccess",
+    "forbid_adhoc_bundle_discovery",
+    "parse_module_tree",
+    "parse_module_tree_optional",
+]

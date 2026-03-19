@@ -17,7 +17,10 @@ from gabion.analysis.dataflow.io.dataflow_graph_rendering import (
     bundle_projection_from_forest as _bundle_projection_from_forest, bundle_site_index as _bundle_site_index, connected_components as _connected_components, has_bundles as _has_bundles, render_component_callsite_evidence as _render_component_callsite_evidence, render_mermaid_component as _render_mermaid_component)
 from gabion.analysis.indexed_scan.scanners.report_sections import (
     spec_row_span as _spec_row_span_impl)
-from gabion.analysis.dataflow.io.dataflow_parse_helpers import _ParseModuleStage, _parse_module_tree
+from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
+    ParseModuleStage,
+    parse_module_tree,
+)
 from gabion.analysis.dataflow.io.dataflow_snapshot_io import (
     report_section_marker as _report_section_marker)
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue
@@ -69,9 +72,9 @@ def _raw_sorted_callsite_counts(
     for path in _iter_paths(paths):
         check_deadline()
         if path.suffix == ".py":
-            outcome = _parse_module_tree(
+            outcome = parse_module_tree(
                 path,
-                stage=_ParseModuleStage.RAW_SORTED_AUDIT,
+                stage=ParseModuleStage.RAW_SORTED_AUDIT,
                 parse_failure_witnesses=parse_failure_witnesses,
             )
             if outcome.kind == "parsed":

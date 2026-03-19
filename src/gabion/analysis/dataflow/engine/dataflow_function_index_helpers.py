@@ -12,10 +12,10 @@ from typing import cast
 
 from gabion.analysis.dataflow.engine.dataflow_contracts import CallArgs, FunctionInfo
 from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
-    _ParseModuleFailure,
-    _ParseModuleStage,
-    _ParseModuleSuccess,
-    _parse_module_tree,
+    ParseModuleFailure,
+    ParseModuleStage,
+    ParseModuleSuccess,
+    parse_module_tree,
 )
 from gabion.analysis.foundation.json_types import JSONObject, ParseFailureWitnesses
 from gabion.analysis.foundation.timeout_context import check_deadline
@@ -654,13 +654,13 @@ def _build_function_index(
     by_qual: dict[str, FunctionInfo] = {}
     for path in paths:
         check_deadline()
-        parse_outcome = _parse_module_tree(
+        parse_outcome = parse_module_tree(
             path,
-            stage=_ParseModuleStage.FUNCTION_INDEX,
+            stage=ParseModuleStage.FUNCTION_INDEX,
             parse_failure_witnesses=parse_failure_witnesses,
         )
         match parse_outcome:
-            case _ParseModuleSuccess(kind="parsed", tree=tree):
+            case ParseModuleSuccess(kind="parsed", tree=tree):
                 parent_map = _build_parent_map(tree)
                 module = _module_name(path, project_root)
                 is_test = _is_test_path(path)
@@ -722,7 +722,7 @@ def _build_function_index(
                     )
                     by_name[info.name].append(info)
                     by_qual[info.qual] = info
-            case _ParseModuleFailure(kind="parse_failure"):
+            case ParseModuleFailure(kind="parse_failure"):
                 pass
     return dict(by_name), by_qual
 

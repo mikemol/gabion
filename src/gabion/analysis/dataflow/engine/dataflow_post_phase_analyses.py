@@ -39,12 +39,12 @@ from gabion.analysis.dataflow.engine.dataflow_function_index_helpers import (
     _param_annotations,
 )
 from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
-    _ParseModuleFailure,
-    _ParseModuleStage,
-    _ParseModuleSuccess,
-    _forbid_adhoc_bundle_discovery,
-    _parse_module_tree,
-    _parse_module_tree_optional,
+    ParseModuleFailure,
+    ParseModuleStage,
+    ParseModuleSuccess,
+    forbid_adhoc_bundle_discovery,
+    parse_module_tree,
+    parse_module_tree_optional,
 )
 from gabion.analysis.dataflow.engine.dataflow_lint_helpers import (
     _constant_smells_from_details as _constant_smells_from_details_impl,
@@ -1211,7 +1211,7 @@ class ConstantFlowDetail:
 
 @dataclass(frozen=True)
 class _StageCacheSpec:
-    stage: _ParseModuleStage
+    stage: ParseModuleStage
     cache_key: object
     build: Callable[[ast.Module, Path], object]
 
@@ -1426,13 +1426,13 @@ def _param_annotations_by_path(
     annotations: dict[Path, dict[str, dict[str, JSONValue]]] = {}
     for path in paths:
         check_deadline()
-        parse_outcome = _parse_module_tree(
+        parse_outcome = parse_module_tree(
             path,
-            stage=_ParseModuleStage.PARAM_ANNOTATIONS,
+            stage=ParseModuleStage.PARAM_ANNOTATIONS,
             parse_failure_witnesses=parse_failure_witnesses,
         )
         match parse_outcome:
-            case _ParseModuleSuccess(kind="parsed", tree=tree):
+            case ParseModuleSuccess(kind="parsed", tree=tree):
                 parent = ParentAnnotator()
                 parent.visit(tree)
                 parents = parent.parents
@@ -1443,7 +1443,7 @@ def _param_annotations_by_path(
                     fn_key = _function_key(scopes, fn.name)
                     by_fn[fn_key] = _param_annotations_json(fn, ignore_params)
                 annotations[path] = by_fn
-            case _ParseModuleFailure(kind="parse_failure"):
+            case ParseModuleFailure(kind="parse_failure"):
                 pass
     return annotations
 
@@ -1953,10 +1953,10 @@ def _collect_config_bundles(
             analysis_index=analysis_index,
             deps=_CollectConfigBundlesDeps(
                 check_deadline_fn=check_deadline,
-                forbid_adhoc_bundle_discovery_fn=_forbid_adhoc_bundle_discovery,
+                forbid_adhoc_bundle_discovery_fn=forbid_adhoc_bundle_discovery,
                 analysis_index_stage_cache_fn=_analysis_index_stage_cache,
                 stage_cache_spec_ctor=_StageCacheSpec,
-                parse_module_stage_config_fields=_ParseModuleStage.CONFIG_FIELDS,
+                parse_module_stage_config_fields=ParseModuleStage.CONFIG_FIELDS,
                 parse_stage_cache_key_fn=_parse_stage_cache_key,
                 empty_cache_semantic_context=_EMPTY_CACHE_SEMANTIC_CONTEXT,
                 iter_config_fields_fn=_iter_config_fields,
@@ -1977,8 +1977,8 @@ def _iter_config_fields(
         parse_failure_witnesses=parse_failure_witnesses,
         deps=_IterConfigFieldsDeps(
             check_deadline_fn=check_deadline,
-            parse_module_tree_fn=_parse_module_tree_optional,
-            parse_module_stage_config_fields=_ParseModuleStage.CONFIG_FIELDS,
+            parse_module_tree_fn=parse_module_tree_optional,
+            parse_module_stage_config_fields=ParseModuleStage.CONFIG_FIELDS,
             simple_store_name_fn=_simple_store_name,
         ),
     )
@@ -2001,11 +2001,11 @@ def _collect_dataclass_registry(
         deps=_CollectDataclassRegistryDeps(
             check_deadline_fn=check_deadline,
             stage_cache_spec_ctor=_StageCacheSpec,
-            parse_module_stage_dataclass_registry=_ParseModuleStage.DATACLASS_REGISTRY,
+            parse_module_stage_dataclass_registry=ParseModuleStage.DATACLASS_REGISTRY,
             parse_stage_cache_key_fn=_parse_stage_cache_key,
             empty_cache_semantic_context=_EMPTY_CACHE_SEMANTIC_CONTEXT,
             dataclass_registry_for_tree_fn=_dataclass_registry_for_tree,
-            parse_module_tree_fn=_parse_module_tree_optional,
+            parse_module_tree_fn=parse_module_tree_optional,
         ),
     )
 

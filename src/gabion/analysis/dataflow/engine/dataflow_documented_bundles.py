@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 
 from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
-    _forbid_adhoc_bundle_discovery,
+    forbid_adhoc_bundle_discovery,
 )
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.order_contract import sort_once
@@ -18,7 +18,7 @@ _BUNDLE_MARKER = re.compile(r"dataflow-bundle:\s*(.*)")
 def _iter_documented_bundles(path: Path) -> set[tuple[str, ...]]:
     """Return bundles documented via '# dataflow-bundle: a, b' markers."""
     check_deadline()
-    _forbid_adhoc_bundle_discovery("_iter_documented_bundles")
+    forbid_adhoc_bundle_discovery("_iter_documented_bundles")
     bundles: set[tuple[str, ...]] = set()
     try:
         text = path.read_text()

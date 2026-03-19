@@ -38,7 +38,7 @@ from gabion.analysis.dataflow.engine.dataflow_contracts import (
     FunctionInfo,
     SymbolTable,
 )
-from gabion.analysis.dataflow.io.dataflow_parse_helpers import _ParseModuleStage
+from gabion.analysis.dataflow.io.dataflow_parse_helpers import ParseModuleStage
 from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import (
     ImportVisitor,
     ParentAnnotator,
@@ -157,7 +157,7 @@ class _IndexedPassSpec(Generic[_IndexedPassResult]):
 @dataclass(frozen=True)
 class _ModuleArtifactSpec(Generic[_ModuleArtifactAcc, _ModuleArtifactOut]):
     artifact_id: str
-    stage: _ParseModuleStage
+    stage: ParseModuleStage
     init: Callable[[], _ModuleArtifactAcc]
     fold: Callable[[_ModuleArtifactAcc, Path, ast.Module], None]
     finish: Callable[[_ModuleArtifactAcc], _ModuleArtifactOut]
@@ -303,7 +303,7 @@ def _function_index_module_artifact_spec(
         tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo]],
     ](
         artifact_id="function_index",
-        stage=_ParseModuleStage.FUNCTION_INDEX,
+        stage=ParseModuleStage.FUNCTION_INDEX,
         init=_FunctionIndexAccumulator,
         fold=lambda acc, path, tree: _accumulate_function_index_for_tree(
             acc,
@@ -388,7 +388,7 @@ def _symbol_table_module_artifact_spec(
 ) -> _ModuleArtifactSpec[SymbolTable, SymbolTable]:
     return _ModuleArtifactSpec[SymbolTable, SymbolTable](
         artifact_id="symbol_table",
-        stage=_ParseModuleStage.SYMBOL_TABLE,
+        stage=ParseModuleStage.SYMBOL_TABLE,
         init=lambda: SymbolTable(external_filter=external_filter),
         fold=lambda table, path, tree: _accumulate_symbol_table_for_tree(
             table,
@@ -944,9 +944,9 @@ def _build_analysis_index(
                     _PARSE_MODULE_ERROR_TYPES,
                 ),
                 record_parse_failure_witness_fn=_record_parse_failure_witness,
-                parse_module_stage_function_index=_ParseModuleStage.FUNCTION_INDEX,
-                parse_module_stage_symbol_table=_ParseModuleStage.SYMBOL_TABLE,
-                parse_module_stage_class_index=_ParseModuleStage.CLASS_INDEX,
+                parse_module_stage_function_index=ParseModuleStage.FUNCTION_INDEX,
+                parse_module_stage_symbol_table=ParseModuleStage.SYMBOL_TABLE,
+                parse_module_stage_class_index=ParseModuleStage.CLASS_INDEX,
                 accumulate_symbol_table_for_tree_fn=_accumulate_symbol_table_for_tree,
                 accumulate_class_index_for_tree_fn=_accumulate_class_index_for_tree,
                 timeout_exceeded_type=TimeoutExceeded,

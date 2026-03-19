@@ -23,7 +23,9 @@ from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     analyze_type_flow_repo_with_map,
     generate_property_hook_manifest,
 )
-from gabion.analysis.dataflow.io.dataflow_parse_helpers import _forbid_adhoc_bundle_discovery
+from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
+    forbid_adhoc_bundle_discovery,
+)
 from gabion.analysis.core.forest_signature import build_forest_signature_from_groups
 from gabion.analysis.foundation.json_types import JSONObject
 from gabion.analysis.foundation.timeout_context import check_deadline
@@ -63,7 +65,7 @@ def _bundle_counts(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
 ) -> dict[tuple[str, ...], int]:
     check_deadline()
-    _forbid_adhoc_bundle_discovery("_bundle_counts")
+    forbid_adhoc_bundle_discovery("_bundle_counts")
     counts: dict[tuple[str, ...], int] = defaultdict(int)
     for groups in groups_by_path.values():
         check_deadline()
@@ -84,7 +86,7 @@ def _bundle_counts(
 
 def _collect_declared_bundles(root: Path) -> set[tuple[str, ...]]:
     check_deadline()
-    _forbid_adhoc_bundle_discovery("_collect_declared_bundles")
+    forbid_adhoc_bundle_discovery("_collect_declared_bundles")
     declared: set[tuple[str, ...]] = set()
     file_paths = sort_once(
         root.rglob("*.py"),

@@ -9,7 +9,9 @@ from pathlib import Path
 from gabion.analysis.aspf.aspf import Forest
 from gabion.analysis.foundation.baseline_io import load_json
 from gabion.analysis.dataflow.engine.dataflow_contracts import InvariantProposition
-from gabion.analysis.dataflow.io.dataflow_parse_helpers import _forbid_adhoc_bundle_discovery
+from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
+    forbid_adhoc_bundle_discovery,
+)
 from gabion.analysis.dataflow.io.forest_signature_metadata import (
     apply_forest_signature_metadata,
 )
@@ -345,7 +347,7 @@ def diff_decision_snapshots(
 
 def _bundle_counts_from_snapshot(snapshot: JSONObject) -> dict[tuple[str, ...], int]:
     check_deadline()
-    _forbid_adhoc_bundle_discovery("_bundle_counts_from_snapshot")
+    forbid_adhoc_bundle_discovery("_bundle_counts_from_snapshot")
     counts: dict[tuple[str, ...], int] = defaultdict(int)
     files = snapshot.get("files") or []
     for file_entry in files:

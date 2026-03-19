@@ -10,7 +10,12 @@ from typing import Literal, cast
 from gabion.analysis.dataflow.engine.dataflow_contracts import SymbolTable
 from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import _module_name
 from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
-    _ParseModuleFailure, _ParseModuleStage, _ParseModuleSuccess, _forbid_adhoc_bundle_discovery, _parse_module_tree)
+    ParseModuleFailure,
+    ParseModuleStage,
+    ParseModuleSuccess,
+    forbid_adhoc_bundle_discovery,
+    parse_module_tree,
+)
 from gabion.analysis.foundation.json_types import JSONObject, ParseFailureWitnesses
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.invariants import never
@@ -204,7 +209,7 @@ def _unresolved_starred_witness(
     }
     return {
         "path": str(path),
-        "stage": _ParseModuleStage.DATACLASS_CALL_BUNDLES.value,
+        "stage": ParseModuleStage.DATACLASS_CALL_BUNDLES.value,
         "reason": reason_by_category.get(category, category),
         "error_type": "UnresolvedStarredArgument",
         "error": f"{category}: {detail}",
@@ -440,17 +445,17 @@ def iter_dataclass_call_bundle_effects(
     parse_failure_witnesses: ParseFailureWitnesses,
 ) -> BundleIterationOutcome:
     check_deadline()
-    _forbid_adhoc_bundle_discovery("_iter_dataclass_call_bundles")
+    forbid_adhoc_bundle_discovery("_iter_dataclass_call_bundles")
 
-    parse_outcome = _parse_module_tree(
+    parse_outcome = parse_module_tree(
         path,
-        stage=_ParseModuleStage.DATACLASS_CALL_BUNDLES,
+        stage=ParseModuleStage.DATACLASS_CALL_BUNDLES,
         parse_failure_witnesses=parse_failure_witnesses,
     )
     match parse_outcome:
-        case _ParseModuleSuccess(kind="parsed", tree=tree):
+        case ParseModuleSuccess(kind="parsed", tree=tree):
             pass
-        case _ParseModuleFailure(kind="parse_failure"):
+        case ParseModuleFailure(kind="parse_failure"):
             return BundleIterationOutcome(bundles=frozenset(), witness_effects=())
 
     module = _module_identifier(_module_name(path, project_root))

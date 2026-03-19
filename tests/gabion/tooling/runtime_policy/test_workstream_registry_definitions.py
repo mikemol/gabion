@@ -1059,15 +1059,35 @@ def test_public_surface_normalization_workstream_registry_exposes_drain_program(
         (item.rel_path, item.qualname)
         for item in touchpoints["PSN-TP-006"].declared_touchsites
     } >= {
-        ("src/gabion/analysis/aspf/aspf.py", "__all__"),
-        ("src/gabion/analysis/foundation/aspf_impl.py", "canonicalize_evidence"),
-        ("src/gabion/analysis/aspf/aspf_execution_fibration.py", "__all__"),
+        ("src/gabion/analysis/dataflow/io/dataflow_parse_helpers.py", "__all__"),
         (
-            "src/gabion/analysis/foundation/aspf_execution_fibration_impl.py",
-            "ImportedTraceMergeVisitor",
+            "src/gabion/analysis/dataflow/io/dataflow_reporting_helpers.py",
+            "_report_lines_by_section",
         ),
-        ("src/gabion/analysis/aspf/aspf_resume_state.py", "__all__"),
-        ("src/gabion/analysis/foundation/aspf_resume_state_impl.py", "__all__"),
+        (
+            "src/gabion/analysis/dataflow/engine/dataflow_analysis_index.py",
+            "_ModuleArtifactSpec",
+        ),
+        (
+            "src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py",
+            "_StageCacheSpec",
+        ),
+        (
+            "src/gabion/analysis/dataflow/engine/dataflow_deadline_runtime.py",
+            "_COLLECT_CALL_NODES_BY_PATH_DEPS",
+        ),
+        (
+            "src/gabion/analysis/dataflow/engine/dataflow_bundle_iteration.py",
+            "iter_dataclass_call_bundle_effects",
+        ),
+        (
+            "src/gabion/analysis/dataflow/engine/dataflow_function_index_helpers.py",
+            "_build_function_index",
+        ),
+        (
+            "src/gabion/analysis/dataflow/engine/dataflow_evidence_helpers.py",
+            "_build_symbol_table",
+        ),
     }
     assert {
         link.value

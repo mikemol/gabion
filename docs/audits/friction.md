@@ -1,5 +1,5 @@
 ---
-doc_revision: 6
+doc_revision: 7
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: friction
 doc_role: audit
@@ -539,3 +539,53 @@ publicization slices.
 - `Mind B wedge product`: A better model likely needs a constructible middle
   tier between "ASPF-adjacent path touched" and "taint/crosswalk meaning
   changed," so governance effort scales with observable semantic risk.
+
+## FN-009: Planning touchsites drift behind the active correction unit
+
+**Trigger:** Re-truthing `PSN-TP-006` after completing the next bounded
+dataflow parse-helper publicization slice.
+
+**Friction:** The planning-substrate touchpoint still named the previously
+finished ASPF tranche even though the active work had moved into a different
+dataflow helper seam. That made the workstream look more converged than the
+current implementation reality and forced a second maintenance pass just to
+make the registry tell the truth again.
+
+**Impact:** Correction units pay extra bookkeeping cost, and the planning
+surface becomes less trustworthy as an execution map. For an LLM, that means
+the registry cannot be used as a direct boundary source without re-verifying it
+against the live code diff.
+
+**Hypothesis:** Touchsite declarations are currently maintained as a manual
+shadow of active ownership boundaries. When the correction unit boundary shifts
+between adjacent slices, the registry lags because there is no cheap,
+constructible coupling between "files actually changed for this touchpoint" and
+"files the workstream says are active."
+
+**Evidence:**
+- `src/gabion/tooling/policy_substrate/public_surface_normalization_registry.py`
+  still pointed `PSN-TP-006` at the already-finished ASPF surfaces while the
+  active worktree only touched dataflow parse-helper consumers
+- the dirty worktree for the active slice was concentrated in
+  `src/gabion/analysis/dataflow/io/dataflow_parse_helpers.py`,
+  `src/gabion/analysis/dataflow/io/dataflow_reporting_helpers.py`, and direct
+  engine consumers such as
+  `src/gabion/analysis/dataflow/engine/dataflow_post_phase_analyses.py`
+- the focused runtime-policy assertion for `PSN-TP-006` had to be updated in
+  lockstep once the touchsites were re-truthed
+
+**Workstream/Context:** `PSN` dataflow private-import publicization.
+
+### Higher-order synthesis
+
+- `AA constructs`: Planning touchsites help keep multi-slice refactors legible
+  and auditable.
+- `AB critiques`: If touchsites are not refreshed at the same rate as the
+  correction unit boundary, they stop being a trustworthy execution map and
+  become historical residue.
+- `Convergence (Mind A)`: The friction is not the existence of touchsites; it
+  is the lack of a low-cost coupling between declared active boundaries and the
+  files the current correction unit actually moved.
+- `Mind B wedge product`: A better planning substrate would make boundary drift
+  observable earlier, ideally before the touchpoint metadata can overstate
+  convergence.

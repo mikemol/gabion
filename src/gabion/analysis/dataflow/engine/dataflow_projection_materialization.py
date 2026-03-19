@@ -41,8 +41,8 @@ from gabion.analysis.dataflow.engine.dataflow_resume_paths import (
     normalize_snapshot_path as _normalize_snapshot_path_impl,
 )
 from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
-    _ParseModuleStage,
-    _parse_module_tree,
+    ParseModuleStage,
+    parse_module_tree,
 )
 from gabion.analysis.foundation.json_types import JSONObject, JSONValue, ParseFailureWitnesses
 from gabion.analysis.foundation.resume_codec import iter_int_tuple4_from_sequence
@@ -631,8 +631,8 @@ def _materialize_structured_suite_sites(
             check_deadline_fn=check_deadline,
             iter_monotonic_paths_fn=_iter_monotonic_paths,
             analysis_index_module_trees_fn=_analysis_index_module_trees,
-            parse_module_tree_fn=_parse_module_tree,
-            parse_module_stage_suite_containment=_ParseModuleStage.SUITE_CONTAINMENT,
+            parse_module_tree_fn=parse_module_tree,
+            parse_module_stage_suite_containment=ParseModuleStage.SUITE_CONTAINMENT,
             materialize_structured_suite_sites_for_tree_fn=_materialize_structured_suite_sites_for_tree,
         ),
     )
