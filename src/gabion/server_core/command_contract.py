@@ -44,6 +44,15 @@ class AnalysisResumeRuntimeState:
     total_files: int = 0
 
 
+@dataclass(frozen=True)
+class AnalysisResumeProjectionState:
+    runtime_state: AnalysisResumeRuntimeState = field(
+        default_factory=AnalysisResumeRuntimeState
+    )
+    source: str = "cold_start"
+    compatibility_status: str | None = None
+
+
 class ProgressTraceStateContract(Protocol):
     """Opaque progress trace state transported across progress hooks."""
 

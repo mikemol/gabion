@@ -32,9 +32,9 @@ def test_stage_finalize_success_projects_resume_compatibility() -> None:
         report_section_witness_digest=None,
         report_phase_checkpoint_path=None,
         projection_rows=[],
-        analysis_resume_runtime_state=orchestrator.AnalysisResumeRuntimeState(),
-        analysis_resume_source="cold_start",
-        analysis_resume_state_compatibility_status="compatible",
+        analysis_resume_projection_state=orchestrator.AnalysisResumeProjectionState(
+            compatibility_status="compatible",
+        ),
         analysis_resume_manifest_digest=None,
         profiling_stage_ns={},
         profiling_counters={},
@@ -57,7 +57,7 @@ def test_stage_finalize_success_projects_resume_compatibility() -> None:
 
     assert outcome.response == {"ok": True}
     context = cast(orchestrator._SuccessResponseContext, captured["context"])
-    assert context.analysis_resume_state_compatibility_status == "compatible"
+    assert context.analysis_resume_projection_state.compatibility_status == "compatible"
 
 
 # gabion:behavior primary=verboten facets=timeout

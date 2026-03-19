@@ -104,6 +104,7 @@ from gabion.order_contract import OrderPolicy, sort_once
 from gabion.plan import ExecutionPlan, write_execution_plan_artifact
 from gabion.schema import CanonicalProgressEventPayloadDTO, DataflowResponseEnvelopeDTO
 from gabion.server_core.command_contract import (
+    AnalysisResumeProjectionState,
     AnalysisResumeRuntimeState,
     CollectionProgressRuntimeState,
     CollectionResumeProgressState,
@@ -1638,7 +1639,7 @@ class _TimeoutCleanupContext:
     cleanup_grace_ns: int
     timeout_total_ns: int
     analysis_window_ns: int
-    analysis_resume_runtime_state: AnalysisResumeRuntimeState
+    analysis_resume_projection_state: AnalysisResumeProjectionState
     analysis_resume_input_manifest_digest: str | None
     collection_progress_runtime_state: CollectionProgressRuntimeState
     execute_deps: ExecuteCommandDeps
@@ -1675,8 +1676,6 @@ class _TimeoutCleanupContext:
             disabled_surface_reasons={},
         )
     )
-    analysis_resume_source: str = "cold_start"
-    analysis_resume_state_compatibility_status: str | None = None
     identity_shadow_runtime: IdentityShadowRuntime | None = None
 
 
@@ -1751,17 +1750,15 @@ class _AnalysisExecutionMutableState:
 
 @dataclass
 class _AnalysisResumePreparationState:
-    analysis_resume_runtime_state: AnalysisResumeRuntimeState
+    analysis_resume_projection_state: AnalysisResumeProjectionState
     analysis_resume_input_witness: JSONObject | None
     analysis_resume_input_manifest_digest: str | None
-    analysis_resume_state_compatibility_status: str | None
     analysis_resume_intro_payload: JSONObject | None
     analysis_resume_intro_timeline_header: str | None
     analysis_resume_intro_timeline_row: str | None
     report_section_witness_digest: str | None
     phase_checkpoint_state: JSONObject
     collection_resume_progress_state: CollectionResumeProgressState
-    analysis_resume_source: str = "cold_start"
 
 
 def _resolve_aspf_import_state_path(*, root: Path, text: str) -> Path:
@@ -1804,11 +1801,15 @@ def _prepare_analysis_resume_state(
     if needs_analysis:
         resolved_root = Path(root)
         file_paths_for_run = list(normalized_ingest.file_paths)
-        state.analysis_resume_runtime_state = AnalysisResumeRuntimeState(
-            state_path=None,
-            state_status=state.analysis_resume_runtime_state.state_status,
-            reused_files=state.analysis_resume_runtime_state.reused_files,
-            total_files=len(file_paths_for_run),
+        state.analysis_resume_projection_state = AnalysisResumeProjectionState(
+            runtime_state=AnalysisResumeRuntimeState(
+                state_path=None,
+                state_status=state.analysis_resume_projection_state.runtime_state.state_status,
+                reused_files=state.analysis_resume_projection_state.runtime_state.reused_files,
+                total_files=len(file_paths_for_run),
+            ),
+            source=state.analysis_resume_projection_state.source,
+            compatibility_status=state.analysis_resume_projection_state.compatibility_status,
         )
         # Legacy checkpoint payload ingress is hard-rejected; ASPF import-state is the
         # only supported continuation path for active orchestration.
@@ -1893,18 +1894,20 @@ def _prepare_analysis_resume_state(
             }.get(compatibility_status)
             reused_files = _analysis_resume_progress(
                 collection_resume=collection_resume_payload or {},
-                total_files=state.analysis_resume_runtime_state.total_files,
+                total_files=state.analysis_resume_projection_state.runtime_state.total_files,
             )["completed_files"]
-            state.analysis_resume_runtime_state = AnalysisResumeRuntimeState(
-                state_path=state.analysis_resume_runtime_state.state_path,
-                state_status=next_state_status,
-                reused_files=reused_files,
-                total_files=state.analysis_resume_runtime_state.total_files,
+            state.analysis_resume_projection_state = AnalysisResumeProjectionState(
+                runtime_state=AnalysisResumeRuntimeState(
+                    state_path=state.analysis_resume_projection_state.runtime_state.state_path,
+                    state_status=next_state_status,
+                    reused_files=reused_files,
+                    total_files=state.analysis_resume_projection_state.runtime_state.total_files,
+                ),
+                source={
+                    "aspf_state_loaded": "aspf_state",
+                }.get(next_state_status, "cold_start"),
+                compatibility_status=compatibility_status,
             )
-            state.analysis_resume_source = {
-                "aspf_state_loaded": "aspf_state",
-            }.get(state.analysis_resume_runtime_state.state_status, "cold_start")
-            state.analysis_resume_state_compatibility_status = compatibility_status
             if aspf_trace_state is not None:
                 _record_trace_1cell(
                     execute_deps=execute_deps,
@@ -1912,26 +1915,38 @@ def _prepare_analysis_resume_state(
                     kind="resume_load",
                     source_label="runtime:aspf_state",
                     target_label="analysis:resume_seed",
-                    representative=str(state.analysis_resume_runtime_state.state_status),
+                    representative=str(
+                        state.analysis_resume_projection_state.runtime_state.state_status
+                    ),
                     basis_path=("resume", "load", "aspf_state"),
                     surface="delta_state",
                     metadata={
                         "import_state_paths": [str(path) for path in import_state_paths],
-                        "status": state.analysis_resume_runtime_state.state_status,
+                        "status": (
+                            state.analysis_resume_projection_state.runtime_state.state_status
+                        ),
                         "compatibility_status": compatibility_status,
                         "import_manifest_digest": imported_manifest_digest,
                         "current_manifest_digest": state.analysis_resume_input_manifest_digest,
                     },
                 )
-        if state.analysis_resume_runtime_state.state_status is None:
-            state.analysis_resume_runtime_state = AnalysisResumeRuntimeState(
-                state_path=state.analysis_resume_runtime_state.state_path,
-                state_status="cold_start",
-                reused_files=state.analysis_resume_runtime_state.reused_files,
-                total_files=state.analysis_resume_runtime_state.total_files,
+        if state.analysis_resume_projection_state.runtime_state.state_status is None:
+            state.analysis_resume_projection_state = AnalysisResumeProjectionState(
+                runtime_state=AnalysisResumeRuntimeState(
+                    state_path=state.analysis_resume_projection_state.runtime_state.state_path,
+                    state_status="cold_start",
+                    reused_files=state.analysis_resume_projection_state.runtime_state.reused_files,
+                    total_files=state.analysis_resume_projection_state.runtime_state.total_files,
+                ),
+                source=state.analysis_resume_projection_state.source,
+                compatibility_status=state.analysis_resume_projection_state.compatibility_status,
             )
-        if state.analysis_resume_state_compatibility_status is None:
-            state.analysis_resume_state_compatibility_status = "cold_start"
+        if state.analysis_resume_projection_state.compatibility_status is None:
+            state.analysis_resume_projection_state = AnalysisResumeProjectionState(
+                runtime_state=state.analysis_resume_projection_state.runtime_state,
+                source=state.analysis_resume_projection_state.source,
+                compatibility_status="cold_start",
+            )
         state.report_section_witness_digest = _report_witness_digest(
             input_witness=state.analysis_resume_input_witness,
             manifest_digest=state.analysis_resume_input_manifest_digest,
@@ -3763,9 +3778,9 @@ def _handle_timeout_cleanup(
                     context.collection_progress_runtime_state.collection_resume_progress_state.semantic_progress_cumulative
                 ),
                 "_analysis_manifest_digest": context.analysis_resume_input_manifest_digest,
-                "_resume_source": context.analysis_resume_source,
+                "_resume_source": context.analysis_resume_projection_state.source,
                 "_resume_compatibility_status": (
-                    context.analysis_resume_state_compatibility_status
+                    context.analysis_resume_projection_state.compatibility_status
                 ),
             },
             exit_code=2,
@@ -4249,9 +4264,7 @@ class _SuccessResponseContext:
     report_section_witness_digest: str | None
     report_phase_checkpoint_path: Path | None
     projection_rows: list[JSONObject]
-    analysis_resume_runtime_state: AnalysisResumeRuntimeState
-    analysis_resume_source: str
-    analysis_resume_state_compatibility_status: str | None
+    analysis_resume_projection_state: AnalysisResumeProjectionState
     analysis_resume_manifest_digest: str | None
     profiling_stage_ns: dict[str, int]
     profiling_counters: dict[str, int]
@@ -4312,9 +4325,7 @@ class _ExecuteCommandFinalizeSuccessStage:
     report_section_witness_digest: str | None
     report_phase_checkpoint_path: Path | None
     projection_rows: list[JSONObject]
-    analysis_resume_runtime_state: AnalysisResumeRuntimeState
-    analysis_resume_source: str
-    analysis_resume_state_compatibility_status: str | None
+    analysis_resume_projection_state: AnalysisResumeProjectionState
     analysis_resume_manifest_digest: str | None
     profiling_stage_ns: dict[str, int]
     profiling_counters: dict[str, int]
@@ -4374,32 +4385,32 @@ def _build_success_response(
         "context_suggestions": analysis.context_suggestions,
     }
     if (
-        context.analysis_resume_runtime_state.state_path is not None
-        or context.analysis_resume_source != "cold_start"
-        or context.analysis_resume_runtime_state.reused_files > 0
+        context.analysis_resume_projection_state.runtime_state.state_path is not None
+        or context.analysis_resume_projection_state.source != "cold_start"
+        or context.analysis_resume_projection_state.runtime_state.reused_files > 0
     ):
         cache_verdict = _analysis_resume_cache_verdict(
-            status=context.analysis_resume_runtime_state.state_status,
-            reused_files=context.analysis_resume_runtime_state.reused_files,
-            compatibility_status=context.analysis_resume_state_compatibility_status,
+            status=context.analysis_resume_projection_state.runtime_state.state_status,
+            reused_files=context.analysis_resume_projection_state.runtime_state.reused_files,
+            compatibility_status=context.analysis_resume_projection_state.compatibility_status,
         )
         response["analysis_resume"] = {
             "checkpoint_path": (
-                str(context.analysis_resume_runtime_state.state_path)
-                if context.analysis_resume_runtime_state.state_path is not None
+                str(context.analysis_resume_projection_state.runtime_state.state_path)
+                if context.analysis_resume_projection_state.runtime_state.state_path is not None
                 else None
             ),
-            "source": context.analysis_resume_source,
+            "source": context.analysis_resume_projection_state.source,
             "manifest_digest": context.analysis_resume_manifest_digest,
-            "reused_files": context.analysis_resume_runtime_state.reused_files,
-            "total_files": context.analysis_resume_runtime_state.total_files,
+            "reused_files": context.analysis_resume_projection_state.runtime_state.reused_files,
+            "total_files": context.analysis_resume_projection_state.runtime_state.total_files,
             "remaining_files": max(
-                context.analysis_resume_runtime_state.total_files
-                - context.analysis_resume_runtime_state.reused_files,
+                context.analysis_resume_projection_state.runtime_state.total_files
+                - context.analysis_resume_projection_state.runtime_state.reused_files,
                 0,
             ),
-            "status": context.analysis_resume_runtime_state.state_status,
-            "compatibility_status": context.analysis_resume_state_compatibility_status,
+            "status": context.analysis_resume_projection_state.runtime_state.state_status,
+            "compatibility_status": context.analysis_resume_projection_state.compatibility_status,
             "cache_verdict": cache_verdict,
         }
     profiling_v1: JSONObject = {
@@ -4549,7 +4560,9 @@ def _build_success_response(
             report_section_journal_path=context.report_section_journal_path,
             report_section_witness_digest=context.report_section_witness_digest,
             report_phase_checkpoint_path=context.report_phase_checkpoint_path,
-            analysis_resume_runtime_state=context.analysis_resume_runtime_state,
+            analysis_resume_runtime_state=(
+                context.analysis_resume_projection_state.runtime_state
+            ),
             type_audit_report=context.options.type_audit_report,
             baseline_path=context.options.baseline_path,
             baseline_write=context.options.baseline_write,
@@ -4666,9 +4679,9 @@ def _build_success_response(
                 context.collection_progress_runtime_state.collection_resume_progress_state.semantic_progress_cumulative
             ),
             "_analysis_manifest_digest": context.analysis_resume_manifest_digest,
-            "_resume_source": context.analysis_resume_source,
+            "_resume_source": context.analysis_resume_projection_state.source,
             "_resume_compatibility_status": (
-                context.analysis_resume_state_compatibility_status
+                context.analysis_resume_projection_state.compatibility_status
             ),
         },
         exit_code=int(response.get("exit_code", 0) or 0),
@@ -4814,10 +4827,12 @@ def _stage_finalize_success(
             report_section_witness_digest=stage.report_section_witness_digest,
             report_phase_checkpoint_path=stage.report_phase_checkpoint_path,
             projection_rows=stage.projection_rows,
-            analysis_resume_runtime_state=stage.analysis_resume_runtime_state,
-            analysis_resume_source=stage.analysis_resume_source,
-            analysis_resume_state_compatibility_status=_resume_compatibility_projection_decision(
-                compatibility_status=stage.analysis_resume_state_compatibility_status
+            analysis_resume_projection_state=AnalysisResumeProjectionState(
+                runtime_state=stage.analysis_resume_projection_state.runtime_state,
+                source=stage.analysis_resume_projection_state.source,
+                compatibility_status=_resume_compatibility_projection_decision(
+                    compatibility_status=stage.analysis_resume_projection_state.compatibility_status
+                ),
             ),
             analysis_resume_manifest_digest=stage.analysis_resume_manifest_digest,
             profiling_stage_ns=stage.profiling_stage_ns,
@@ -4937,11 +4952,9 @@ def execute_command_total(
     forest = ingress_stage.forest
     forest_token = ingress_stage.forest_token
     explicit_resume_state = False
-    analysis_resume_runtime_state = AnalysisResumeRuntimeState()
+    analysis_resume_projection_state = AnalysisResumeProjectionState()
     analysis_resume_input_witness: JSONObject | None = None
     analysis_resume_input_manifest_digest: str | None = None
-    analysis_resume_state_compatibility_status: str | None = None
-    analysis_resume_source = "cold_start"
     analysis_resume_intro_payload: JSONObject | None = None
     analysis_resume_intro_timeline_header: str | None = None
     analysis_resume_intro_timeline_row: str | None = None
@@ -4966,7 +4979,7 @@ def execute_command_total(
     report_sections_cache_loaded = False
     runtime_state = CommandRuntimeState(
         latest_collection_progress=initial_collection_progress(
-            total_files=analysis_resume_runtime_state.total_files
+            total_files=analysis_resume_projection_state.runtime_state.total_files
         )
     )
     collection_resume_progress_state = CollectionResumeProgressState(
@@ -5224,12 +5237,9 @@ def execute_command_total(
         include_coherence = inclusion_flags.include_coherence
         needs_analysis = inclusion_flags.needs_analysis
         analysis_resume_state = _AnalysisResumePreparationState(
-            analysis_resume_runtime_state=analysis_resume_runtime_state,
+            analysis_resume_projection_state=analysis_resume_projection_state,
             analysis_resume_input_witness=analysis_resume_input_witness,
             analysis_resume_input_manifest_digest=analysis_resume_input_manifest_digest,
-            analysis_resume_state_compatibility_status=(
-                analysis_resume_state_compatibility_status
-            ),
             analysis_resume_intro_payload=analysis_resume_intro_payload,
             analysis_resume_intro_timeline_header=analysis_resume_intro_timeline_header,
             analysis_resume_intro_timeline_row=analysis_resume_intro_timeline_row,
@@ -5238,7 +5248,6 @@ def execute_command_total(
             collection_resume_progress_state=(
                 collection_progress_runtime_state.collection_resume_progress_state
             ),
-            analysis_resume_source=analysis_resume_source,
         )
         file_paths_for_run, collection_resume_payload = _prepare_analysis_resume_state(
             execute_deps=execute_deps,
@@ -5256,15 +5265,13 @@ def execute_command_total(
             state=analysis_resume_state,
             runtime_state=runtime_state,
         )
-        analysis_resume_runtime_state = analysis_resume_state.analysis_resume_runtime_state
+        analysis_resume_projection_state = (
+            analysis_resume_state.analysis_resume_projection_state
+        )
         analysis_resume_input_witness = analysis_resume_state.analysis_resume_input_witness
         analysis_resume_input_manifest_digest = (
             analysis_resume_state.analysis_resume_input_manifest_digest
         )
-        analysis_resume_state_compatibility_status = (
-            analysis_resume_state.analysis_resume_state_compatibility_status
-        )
-        analysis_resume_source = analysis_resume_state.analysis_resume_source
         analysis_resume_intro_payload = analysis_resume_state.analysis_resume_intro_payload
         analysis_resume_intro_timeline_header = (
             analysis_resume_state.analysis_resume_intro_timeline_header
@@ -5352,7 +5359,9 @@ def execute_command_total(
                     config=config,
                     needs_analysis=needs_analysis,
                     file_paths_for_run=file_paths_for_run,
-                    analysis_resume_runtime_state=analysis_resume_runtime_state,
+                    analysis_resume_runtime_state=(
+                        analysis_resume_projection_state.runtime_state
+                    ),
                     analysis_resume_intro_payload=analysis_resume_intro_payload,
                     analysis_resume_input_manifest_digest=analysis_resume_input_manifest_digest,
                     analysis_resume_input_witness=analysis_resume_input_witness,
@@ -5418,11 +5427,7 @@ def execute_command_total(
                 report_section_witness_digest=report_section_witness_digest,
                 report_phase_checkpoint_path=report_phase_checkpoint_path,
                 projection_rows=projection_rows,
-                analysis_resume_runtime_state=analysis_resume_runtime_state,
-                analysis_resume_source=analysis_resume_source,
-                analysis_resume_state_compatibility_status=(
-                    analysis_resume_state_compatibility_status
-                ),
+                analysis_resume_projection_state=analysis_resume_projection_state,
                 analysis_resume_manifest_digest=analysis_resume_input_manifest_digest,
                 profiling_stage_ns=profiling_stage_ns,
                 profiling_counters=profiling_counters,
@@ -5444,17 +5449,13 @@ def execute_command_total(
                 cleanup_grace_ns=cleanup_grace_ns,
                 timeout_total_ns=timeout_total_ns,
                 analysis_window_ns=analysis_window_ns,
-                analysis_resume_runtime_state=analysis_resume_runtime_state,
+                analysis_resume_projection_state=analysis_resume_projection_state,
                 analysis_resume_input_manifest_digest=analysis_resume_input_manifest_digest,
                 collection_progress_runtime_state=collection_progress_runtime_state,
                 execute_deps=execute_deps,
                 analysis_resume_input_witness=analysis_resume_input_witness,
                 emit_phase_timeline=emit_phase_timeline,
                 phase_timeline_path=phase_timeline_path,
-                analysis_resume_source=analysis_resume_source,
-                analysis_resume_state_compatibility_status=(
-                    analysis_resume_state_compatibility_status
-                ),
                 profile_enabled=profile_enabled,
                 report_output_path=report_output_path,
                 projection_rows=projection_rows,
