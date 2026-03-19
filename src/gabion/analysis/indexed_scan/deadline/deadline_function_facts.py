@@ -1,3 +1,6 @@
+# gabion:ambiguity_boundary_module
+# gabion:boundary_normalization_module
+# gabion:grade_boundary kind=semantic_carrier_adapter name=deadline_function_facts
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -8,6 +11,7 @@ from gabion.analysis.foundation.json_types import ParseFailureWitnesses
 from gabion.analysis.indexed_scan.index.analysis_index_stage_cache import (
     AnalysisIndexStageCacheFn,
 )
+from gabion.invariants import grade_boundary
 
 
 @dataclass(frozen=True)
@@ -22,10 +26,14 @@ class CollectDeadlineFunctionFactsDeps:
     parse_module_tree_fn: Callable[..., object]
 
 
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="deadline_function_facts.collect_deadline_function_facts",
+)
 def collect_deadline_function_facts(
     paths: list[Path],
     *,
-    project_root=None,
+    project_root: Path,
     ignore_params: set[str],
     parse_failure_witnesses: ParseFailureWitnesses,
     trees=None,
@@ -46,7 +54,7 @@ def collect_deadline_function_facts(
                     stage=deps.deadline_function_facts_stage,
                     cache_context=deps.empty_cache_semantic_context,
                     config_subset={
-                        "project_root": str(project_root) if project_root is not None else "",
+                        "project_root": str(project_root),
                         "ignore_params": list(deps.sorted_text_fn(ignore_param_names)),
                     },
                     detail="deadline_function_facts",
