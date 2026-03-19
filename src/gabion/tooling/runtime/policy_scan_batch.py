@@ -384,6 +384,24 @@ def load_structured_violation_baseline_keys(
     return keys
 
 
+def write_structured_violation_baseline(
+    *,
+    path: Path,
+    version: int,
+    violations: Sequence[Mapping[str, object]],
+    sort_keys: bool = False,
+) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "version": int(version),
+        "violations": list(violations),
+    }
+    path.write_text(
+        json.dumps(payload, indent=2, sort_keys=sort_keys) + "\n",
+        encoding="utf-8",
+    )
+
+
 @singledispatch
 def _iter_structured_violation_items(payload: object) -> tuple[Mapping[str, object], ...]:
     never("unregistered runtime type", value_type=type(payload).__name__)

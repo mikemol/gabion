@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import ast
 import hashlib
-import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
@@ -29,6 +28,7 @@ from gabion.tooling.runtime.policy_scan_batch import (
     build_policy_scan_batch,
     iter_failure_seeds,
     load_structured_violation_baseline_keys,
+    write_structured_violation_baseline,
 )
 
 RULE_NAME = "no_monkeypatch"
@@ -377,18 +377,17 @@ def _load_baseline(path: Path) -> set[str]:
 
 
 def _write_baseline(*, path: Path, violations: list[Violation]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {
-        "version": BASELINE_VERSION,
-        "violations": [
+    write_structured_violation_baseline(
+        path=path,
+        version=BASELINE_VERSION,
+        violations=[
             _serialize_violation(violation)
             for violation in sorted(
                 violations,
                 key=lambda item: (item.path, item.qualname, item.line, item.kind),
             )
         ],
-    }
-    path.write_text(json.dumps(payload, indent=2, sort_keys=False) + "\n", encoding="utf-8")
+    )
 
 
 def run(

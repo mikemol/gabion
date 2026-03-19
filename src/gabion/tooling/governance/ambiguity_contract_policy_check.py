@@ -21,6 +21,7 @@ from gabion.tooling.runtime.policy_scan_batch import (
     PolicyScanBatch,
     build_policy_scan_batch,
     iter_failure_seeds,
+    write_structured_violation_baseline,
 )
 
 TARGETS = (
@@ -754,20 +755,22 @@ def _load_baseline(path: Path) -> set[str]:
 
 
 def _write_baseline(path: Path, violations: list[Violation]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {
-        "version": BASELINE_VERSION,
-        "violations": [
+    write_structured_violation_baseline(
+        path=path,
+        version=BASELINE_VERSION,
+        violations=[
             {
                 "key": item.key,
                 "rule_id": item.rule_id,
                 "path": item.path,
                 "qualname": item.qualname,
             }
-            for item in sorted(violations, key=lambda v: (v.rule_id, v.path, v.qualname, v.line, v.column))
+            for item in sorted(
+                violations,
+                key=lambda v: (v.rule_id, v.path, v.qualname, v.line, v.column),
+            )
         ],
-    }
-    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    )
 
 
 def _resolve_baseline_path(*, root: Path, baseline: Path | None) -> Path:
