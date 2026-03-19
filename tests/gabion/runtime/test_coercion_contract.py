@@ -69,18 +69,18 @@ def test_followon_modules_use_shared_coercion_substrate() -> None:
 
 # gabion:behavior primary=desired
 def test_server_core_coercion_contract_preserves_orchestrator_edges() -> None:
-    assert server_core_coercion_contract._object_mapping_optional({"ok": 1}) == {"ok": 1}
-    assert server_core_coercion_contract._string_optional("phase") == "phase"
-    assert server_core_coercion_contract._bool_optional(True) is True
-    assert server_core_coercion_contract._bool_optional(1) is None
-    assert server_core_coercion_contract._non_negative_float_optional(True) == 1.0
-    assert server_core_coercion_contract._non_negative_float_optional(-2.0) == 0.0
-    assert server_core_coercion_contract._int_or_zero(True) == 1
-    assert server_core_coercion_contract._int_or_zero("nope") == 0
-    assert server_core_coercion_contract._non_string_sequence_optional(("a", "b")) == ("a", "b")
-    assert server_core_coercion_contract._non_string_sequence_optional({"a", "b"}) == {"a", "b"}
-    assert server_core_coercion_contract._float_optional(1) is None
-    assert server_core_coercion_contract._json_mapping_default_empty(None) == {}
+    assert server_core_coercion_contract.object_mapping_optional({"ok": 1}) == {"ok": 1}
+    assert server_core_coercion_contract.string_optional("phase") == "phase"
+    assert server_core_coercion_contract.bool_optional(True) is True
+    assert server_core_coercion_contract.bool_optional(1) is None
+    assert server_core_coercion_contract.non_negative_float_optional(True) == 1.0
+    assert server_core_coercion_contract.non_negative_float_optional(-2.0) == 0.0
+    assert server_core_coercion_contract.int_or_zero(True) == 1
+    assert server_core_coercion_contract.int_or_zero("nope") == 0
+    assert server_core_coercion_contract.non_string_sequence_optional(("a", "b")) == ("a", "b")
+    assert server_core_coercion_contract.non_string_sequence_optional({"a", "b"}) == {"a", "b"}
+    assert server_core_coercion_contract.float_optional(1) is None
+    assert server_core_coercion_contract.json_mapping_default_empty(None) == {}
 
 
 # gabion:behavior primary=desired
@@ -92,27 +92,28 @@ def test_server_core_modules_bind_to_shared_coercion_contract() -> None:
         cli._json_object_optional
         is server_core_coercion_contract.cli_json_object_optional
     )
-    assert command_orchestrator._bool_optional is server_core_coercion_contract._bool_optional
+    assert server_core_coercion_contract.bool_optional is server_core_coercion_contract._bool_optional
+    assert command_orchestrator._bool_optional is server_core_coercion_contract.bool_optional
     assert (
         command_orchestrator._non_negative_float_optional
-        is server_core_coercion_contract._non_negative_float_optional
+        is server_core_coercion_contract.non_negative_float_optional
     )
-    assert command_orchestrator._int_or_zero is server_core_coercion_contract._int_or_zero
-    assert command_orchestrator_progress._bool_optional is server_core_coercion_contract._bool_optional
+    assert command_orchestrator._int_or_zero is server_core_coercion_contract.int_or_zero
+    assert command_orchestrator_progress._bool_optional is server_core_coercion_contract.bool_optional
     assert (
         command_orchestrator_progress._non_string_sequence_optional
-        is server_core_coercion_contract._non_string_sequence_optional
+        is server_core_coercion_contract.non_string_sequence_optional
     )
-    assert command_orchestrator_progress._float_optional is server_core_coercion_contract._float_optional
-    assert command_orchestrator_primitives._bool_optional is server_core_coercion_contract._bool_optional
+    assert command_orchestrator_progress._float_optional is server_core_coercion_contract.float_optional
+    assert command_orchestrator_primitives._bool_optional is server_core_coercion_contract.bool_optional
     assert (
         command_orchestrator_primitives._json_mapping_optional
-        is server_core_coercion_contract._json_mapping_optional
+        is server_core_coercion_contract.json_mapping_optional
     )
-    assert server_payload_dispatch._bool_optional is server_core_coercion_contract._bool_optional
+    assert server_payload_dispatch._bool_optional is server_core_coercion_contract.bool_optional
     assert (
         server_payload_dispatch._non_string_sequence_optional
-        is server_core_coercion_contract._non_string_sequence_optional
+        is server_core_coercion_contract.non_string_sequence_optional
     )
 
 

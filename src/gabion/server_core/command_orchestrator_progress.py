@@ -11,14 +11,14 @@ from gabion.json_types import JSONObject, JSONValue
 from gabion.json_utils import canonical_json_text as _canonical_json_text
 from gabion.order_contract import sort_once
 from gabion.server_core.coercion_contract import (
-    _bool_optional,
-    _float_optional,
-    _int_optional,
-    _json_mapping_default_empty,
-    _json_mapping_optional,
-    _non_negative_int_optional,
-    _non_string_sequence_optional,
-    _str_optional,
+    bool_optional as _bool_optional,
+    float_optional as _float_optional,
+    int_optional as _int_optional,
+    json_mapping_default_empty as _json_mapping_default_empty,
+    json_mapping_optional as _json_mapping_optional,
+    non_negative_int_optional as _non_negative_int_optional,
+    non_string_sequence_optional as _non_string_sequence_optional,
+    str_optional as _str_optional,
 )
 from gabion.server_core import dataflow_runtime_contract as runtime_contract
 
@@ -714,3 +714,13 @@ def _collection_semantic_progress(
         "monotonic_progress": cumulative_regressed == 0,
         "substantive_progress": substantive_progress,
     }
+
+
+analysis_index_resume_hydrated_count = _analysis_index_resume_hydrated_count
+analysis_index_resume_signature = _analysis_index_resume_signature
+analysis_resume_progress = _analysis_resume_progress
+build_phase_progress_v2 = _build_phase_progress_v2
+collection_semantic_progress = _collection_semantic_progress
+in_progress_scan_states = _in_progress_scan_states
+normalize_progress_work = _normalize_progress_work
+report_projection_phase_rank_optional = _report_projection_phase_rank_optional

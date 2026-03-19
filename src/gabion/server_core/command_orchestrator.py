@@ -112,24 +112,26 @@ from gabion.server_core.command_reducers import (
     normalize_timeout_total_ticks,
 )
 from gabion.server_core.coercion_contract import (
-    _bool_optional,
-    _config_path_optional,
-    _int_or_zero,
-    _non_empty_string_optional,
-    _non_negative_float_optional,
-    _object_mapping_optional,
-    _string_optional,
+    bool_optional as _bool_optional,
+    config_path_optional as _config_path_optional,
+    int_or_zero as _int_or_zero,
+    non_empty_string_optional as _non_empty_string_optional,
+    non_negative_float_optional as _non_negative_float_optional,
+    object_mapping_optional as _object_mapping_optional,
+    string_optional as _string_optional,
 )
 from gabion.server_core.ingress_contracts import default_ingress_stage_deps
 from gabion.server_core.ingress_primitives import ExecuteCommandDeps
 from gabion.server_core.analysis_stage import run_analysis_stage
+from gabion.server_core.command_orchestrator_progress import (
+    analysis_index_resume_hydrated_count as _analysis_index_resume_hydrated_count,
+    analysis_index_resume_signature as _analysis_index_resume_signature,
+    analysis_resume_progress as _analysis_resume_progress,
+)
 from gabion.server_core.command_orchestrator_primitives import (
     DataflowNameFilterBundle,
-    _analysis_index_resume_hydrated_count,
-    _analysis_index_resume_signature,
-    _analysis_resume_cache_verdict,
-    _analysis_resume_progress,
-    _truthy_flag,
+    analysis_resume_cache_verdict as _analysis_resume_cache_verdict,
+    truthy_flag as _truthy_flag,
 )
 from gabion.server_core.progress_contracts import ProgressStageContract
 from gabion.server_core.report_projection_runtime import ReportProjectionRuntime

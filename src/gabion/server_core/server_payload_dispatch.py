@@ -10,20 +10,20 @@ from gabion.json_types import JSONObject, JSONValue
 from gabion.server_core import command_orchestrator_primitives as orchestrator_primitives
 from gabion.server_core import command_orchestrator_progress as progress_dispatch
 from gabion.server_core.coercion_contract import (
-    _bool_optional,
-    _float_optional,
-    _int_optional,
-    _json_mapping_default_empty,
-    _json_mapping_optional,
-    _non_negative_int_optional,
-    _non_string_sequence_optional,
-    _str_optional,
+    bool_optional as _bool_optional,
+    float_optional as _float_optional,
+    int_optional as _int_optional,
+    json_mapping_default_empty as _json_mapping_default_empty,
+    json_mapping_optional as _json_mapping_optional,
+    non_negative_int_optional as _non_negative_int_optional,
+    non_string_sequence_optional as _non_string_sequence_optional,
+    str_optional as _str_optional,
 )
 
 _NONE_TYPE = type(None)
 
-_report_projection_phase_rank_optional = progress_dispatch._report_projection_phase_rank_optional
-_in_progress_scan_states = progress_dispatch._in_progress_scan_states
+_report_projection_phase_rank_optional = progress_dispatch.report_projection_phase_rank_optional
+_in_progress_scan_states = progress_dispatch.in_progress_scan_states
 
 
 @singledispatch
@@ -459,4 +459,4 @@ def _analysis_manifest_digest_from_witness(
 
 
 def _normalize_csv_or_iterable_names(value: object, *, strict: bool) -> list[str]:
-    return orchestrator_primitives._normalize_csv_or_iterable_names(value, strict=strict)
+    return orchestrator_primitives.normalize_csv_or_iterable_names(value, strict=strict)

@@ -50,25 +50,25 @@ from gabion.server_core.ingress_primitives import (
     RuntimeDeps,
 )
 from gabion.server_core.coercion_contract import (
-    _bool_optional,
-    _float_optional,
-    _int_optional,
-    _json_mapping_default_empty,
-    _json_mapping_optional,
-    _non_negative_int_optional,
-    _non_string_sequence_optional,
-    _str_optional,
+    bool_optional as _bool_optional,
+    float_optional as _float_optional,
+    int_optional as _int_optional,
+    json_mapping_default_empty as _json_mapping_default_empty,
+    json_mapping_optional as _json_mapping_optional,
+    non_negative_int_optional as _non_negative_int_optional,
+    non_string_sequence_optional as _non_string_sequence_optional,
+    str_optional as _str_optional,
 )
 from gabion.server_core import dataflow_runtime_contract as runtime_contract
 from gabion.server_core.command_orchestrator_progress import (
-    _analysis_index_resume_hydrated_count,
-    _analysis_index_resume_signature,
-    _analysis_resume_progress,
-    _build_phase_progress_v2,
-    _collection_semantic_progress,
-    _in_progress_scan_states,
-    _normalize_progress_work,
-    _report_projection_phase_rank_optional,
+    analysis_index_resume_hydrated_count as _analysis_index_resume_hydrated_count,
+    analysis_index_resume_signature as _analysis_index_resume_signature,
+    analysis_resume_progress as _analysis_resume_progress,
+    build_phase_progress_v2 as _build_phase_progress_v2,
+    collection_semantic_progress as _collection_semantic_progress,
+    in_progress_scan_states as _in_progress_scan_states,
+    normalize_progress_work as _normalize_progress_work,
+    report_projection_phase_rank_optional as _report_projection_phase_rank_optional,
 )
 
 DATAFLOW_COMMAND = command_ids.DATAFLOW_COMMAND
@@ -2131,7 +2131,65 @@ def _default_execute_command_deps() -> ExecuteCommandDeps:
         ),
     )
 
+LSP_PROGRESS_NOTIFICATION_METHOD = _LSP_PROGRESS_NOTIFICATION_METHOD
+LSP_PROGRESS_TOKEN_V2 = _LSP_PROGRESS_TOKEN_V2
+CANONICAL_PROGRESS_EVENT_SCHEMA_V2 = _CANONICAL_PROGRESS_EVENT_SCHEMA_V2
+PROGRESS_DEADLINE_FLUSH_MARGIN_SECONDS = _PROGRESS_DEADLINE_FLUSH_MARGIN_SECONDS
+PROGRESS_DEADLINE_FLUSH_SECONDS = _PROGRESS_DEADLINE_FLUSH_SECONDS
+PROGRESS_DEADLINE_WATCHDOG_SECONDS = _PROGRESS_DEADLINE_WATCHDOG_SECONDS
+PROGRESS_HEARTBEAT_POLL_SECONDS = _PROGRESS_HEARTBEAT_POLL_SECONDS
+
+analysis_index_resume_hydrated_count = _analysis_index_resume_hydrated_count
+analysis_index_resume_signature = _analysis_index_resume_signature
+analysis_input_manifest = _analysis_input_manifest
+analysis_input_manifest_digest = _analysis_input_manifest_digest
+analysis_resume_cache_verdict = _analysis_resume_cache_verdict
+analysis_resume_progress = _analysis_resume_progress
+analysis_timeout_budget_ns = _analysis_timeout_budget_ns
+analysis_timeout_grace_ns = _analysis_timeout_grace_ns
+analysis_timeout_total_ticks = _analysis_timeout_total_ticks
+analysis_timeout_total_ns = _analysis_timeout_total_ns
+append_phase_timeline_event = _append_phase_timeline_event
+apply_journal_pending_reason = _apply_journal_pending_reason
+build_phase_progress_v2 = _build_phase_progress_v2
+collection_components_preview_lines = _collection_components_preview_lines
+collection_progress_intro_lines = _collection_progress_intro_lines
+collection_report_flush_due = _collection_report_flush_due
+collection_semantic_progress = _collection_semantic_progress
+coerce_section_lines = _coerce_section_lines
+deadline_profile_sample_interval = _deadline_profile_sample_interval
+default_execute_command_deps = _default_execute_command_deps
+groups_by_path_from_collection_resume = _groups_by_path_from_collection_resume
+incremental_progress_obligations = _incremental_progress_obligations
+is_stdout_target = _is_stdout_target
+latest_report_phase = _latest_report_phase
+load_aspf_resume_state = _load_aspf_resume_state
+load_report_section_journal = _load_report_section_journal
+materialize_execution_plan = _materialize_execution_plan
+normalize_csv_or_iterable_names = _normalize_csv_or_iterable_names
+normalize_dataflow_response = _normalize_dataflow_response
+output_dirs = _output_dirs
+phase_progress_dimensions_summary = _phase_progress_dimensions_summary
+phase_timeline_header_block = _phase_timeline_header_block
+phase_timeline_jsonl_path = _phase_timeline_jsonl_path
+phase_timeline_md_path = _phase_timeline_md_path
+progress_heartbeat_seconds = _progress_heartbeat_seconds
+projection_phase_flush_due = _projection_phase_flush_due
+render_incremental_report = _render_incremental_report
+report_witness_digest = _report_witness_digest
+resolve_report_output_path = _resolve_report_output_path
+resolve_report_section_journal_path = _resolve_report_section_journal_path
+server_deadline_overhead_ns = _server_deadline_overhead_ns
+serialize_dataflow_response = _serialize_dataflow_response
+split_incremental_obligations = _split_incremental_obligations
+timeout_context_payload = _timeout_context_payload
+truthy_flag = _truthy_flag
+write_bootstrap_incremental_artifacts = _write_bootstrap_incremental_artifacts
+write_report_section_journal = _write_report_section_journal
+write_text_profiled = _write_text_profiled
+
 __all__ = [
+    'CANONICAL_PROGRESS_EVENT_SCHEMA_V2',
     'AnalysisResult',
     'AuditConfig',
     'Callable',
@@ -2143,9 +2201,15 @@ __all__ = [
     'Forest',
     'GasMeter',
     'JSONObject',
+    'LSP_PROGRESS_NOTIFICATION_METHOD',
+    'LSP_PROGRESS_TOKEN_V2',
     'JSONValue',
     'Path',
     'PrimeRegistry',
+    'PROGRESS_DEADLINE_FLUSH_MARGIN_SECONDS',
+    'PROGRESS_DEADLINE_FLUSH_SECONDS',
+    'PROGRESS_DEADLINE_WATCHDOG_SECONDS',
+    'PROGRESS_HEARTBEAT_POLL_SECONDS',
     'ReportCarrier',
     'TimeoutExceeded',
     'TypeConstructorRegistry',
@@ -2191,21 +2255,41 @@ __all__ = [
     '_truthy_flag',
     '_write_report_section_journal',
     '_write_text_profiled',
+    'analysis_input_manifest',
+    'analysis_input_manifest_digest',
+    'analysis_index_resume_hydrated_count',
+    'analysis_index_resume_signature',
+    'analysis_resume_cache_verdict',
+    'analysis_resume_progress',
+    'analysis_timeout_budget_ns',
+    'analysis_timeout_grace_ns',
+    'analysis_timeout_total_ticks',
+    'analysis_timeout_total_ns',
     'ambiguity_delta',
     'ambiguity_state',
+    'append_phase_timeline_event',
     'apply_baseline',
+    'apply_journal_pending_reason',
     'boundary_order',
+    'build_phase_progress_v2',
     'build_fingerprint_registry',
     'build_refactor_plan',
     'build_synthesis_plan',
     'call_cluster_consolidation',
     'call_clusters',
     'check_deadline',
+    'collection_components_preview_lines',
+    'collection_progress_intro_lines',
+    'collection_report_flush_due',
+    'collection_semantic_progress',
+    'coerce_section_lines',
     'compute_structure_metrics',
     'compute_violations',
     'dataflow_deadline_roots',
     'dataflow_defaults',
     'datetime',
+    'deadline_profile_sample_interval',
+    'default_execute_command_deps',
     'decision_defaults',
     'decision_require_tiers',
     'decision_tier_map',
@@ -2213,27 +2297,49 @@ __all__ = [
     'exception_never_list',
     'extract_report_sections',
     'fingerprint_defaults',
+    'groups_by_path_from_collection_resume',
+    'incremental_progress_obligations',
+    'is_stdout_target',
     'load_baseline',
+    'load_aspf_resume_state',
+    'load_report_section_journal',
+    'materialize_execution_plan',
     'merge_payload',
     'never',
+    'normalize_csv_or_iterable_names',
+    'normalize_dataflow_response',
+    'output_dirs',
+    'phase_progress_dimensions_summary',
+    'phase_timeline_header_block',
+    'phase_timeline_jsonl_path',
+    'phase_timeline_md_path',
+    'progress_heartbeat_seconds',
+    'projection_phase_flush_due',
     'render_decision_snapshot',
     'render_dot',
+    'render_incremental_report',
     'render_protocol_stubs',
     'render_refactor_plan',
     'render_report',
     'render_structure_snapshot',
     'render_synthesis_section',
     'report_projection_phase_rank',
+    'report_witness_digest',
     'reset_deadline',
     'reset_deadline_clock',
     'reset_deadline_profile',
     'reset_forest',
     'resolve_baseline_path',
+    'resolve_report_output_path',
+    'resolve_report_section_journal_path',
     'semantic_coverage_map',
+    'server_deadline_overhead_ns',
+    'serialize_dataflow_response',
     'set_deadline',
     'set_deadline_clock',
     'set_deadline_profile',
     'set_forest',
+    'split_incremental_obligations',
     'sort_once',
     'taint_boundary_registry',
     'taint_defaults',
@@ -2249,7 +2355,12 @@ __all__ = [
     'test_obsolescence_state',
     'threading',
     'time',
+    'timeout_context_payload',
     'timezone',
+    'truthy_flag',
     'write_baseline',
+    'write_bootstrap_incremental_artifacts',
     'write_execution_plan_artifact',
+    'write_report_section_journal',
+    'write_text_profiled',
 ]

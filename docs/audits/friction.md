@@ -1,5 +1,5 @@
 ---
-doc_revision: 26
+doc_revision: 27
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: friction
 doc_role: audit
@@ -1321,3 +1321,36 @@ start, cleanup work tends to miscut a payload-shape seam as a path-root seam.
 
 **Workstream/Context:** `PSN-TP-006` follow-on strictification after the
 `timeout_context.py` project-scope slice.
+
+## FN-030: A lawful module DAG can still hide an inverted symbol DAG
+
+**Trigger:** Burning down the remaining private-import/public-surface residue in
+`server_core/command_orchestrator*.py`.
+
+**Friction:** The module import graph was already mostly acyclic and sensible:
+`command_orchestrator -> command_orchestrator_primitives ->
+command_orchestrator_progress -> coercion_contract`. The actual confusion lived
+one layer lower, where owner modules exported only underscore-prefixed names and
+downstream modules imported them as if they were stable API. That makes the
+code look more entangled than it really is and encourages façade re-exports
+through intermediate modules.
+
+**Impact:** Humans and LLMs can misdiagnose the problem as a module-cycle or
+file-splitting issue and start recutting files prematurely, when the real fix
+is to publicize owner surfaces and then repoint the cross-module symbol edges
+to match the existing DAG.
+
+**Hypothesis:** When a server-core cluster looks tangled but the import graph is
+already lawful, the next check should be whether the symbol DAG is inverted by
+private re-exports. If so, publicizing owner functions often removes most of
+the perceived complexity without another structural split.
+
+**Evidence:**
+- `src/gabion/server_core/coercion_contract.py`
+- `src/gabion/server_core/command_orchestrator_progress.py`
+- `src/gabion/server_core/command_orchestrator_primitives.py`
+- `src/gabion/server_core/command_orchestrator.py`
+- `src/gabion/server_core/primitive_contract_registry.py`
+
+**Workstream/Context:** `PSN-TP-004` server-core private-import/public-surface
+burn-down.

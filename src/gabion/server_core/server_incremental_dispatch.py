@@ -18,7 +18,7 @@ def _write_bootstrap_incremental_artifacts(
     projection_rows: Sequence[Mapping[str, JSONValue]],
     phase_checkpoint_state: JSONObject,
 ) -> None:
-    orchestrator_primitives._write_bootstrap_incremental_artifacts(
+    orchestrator_primitives.write_bootstrap_incremental_artifacts(
         report_output_path=report_output_path,
         report_section_journal_path=report_section_journal_path,
         report_phase_checkpoint_path=report_phase_checkpoint_path,
@@ -37,7 +37,7 @@ def _render_incremental_report(
     projection_rows: Sequence[Mapping[str, JSONValue]],
     sections: Mapping[str, list[str]],
 ) -> tuple[str, dict[str, str]]:
-    return orchestrator_primitives._render_incremental_report(
+    return orchestrator_primitives.render_incremental_report(
         analysis_state=analysis_state,
         progress_payload=progress_payload,
         projection_rows=projection_rows,
@@ -51,7 +51,7 @@ def _collection_progress_intro_lines(
     total_files: int,
     resume_state_intro: Mapping[str, JSONValue] | None = None,
 ) -> list[str]:
-    return orchestrator_primitives._collection_progress_intro_lines(
+    return orchestrator_primitives.collection_progress_intro_lines(
         collection_resume=collection_resume,
         total_files=total_files,
         resume_state_intro=resume_state_intro,
@@ -62,7 +62,7 @@ def _collection_components_preview_lines(
     *,
     collection_resume: Mapping[str, JSONValue],
 ) -> list[str]:
-    return orchestrator_primitives._collection_components_preview_lines(
+    return orchestrator_primitives.collection_components_preview_lines(
         collection_resume=collection_resume,
     )
 
@@ -70,20 +70,20 @@ def _collection_components_preview_lines(
 def _groups_by_path_from_collection_resume(
     collection_resume: Mapping[str, JSONValue],
 ) -> dict[Path, dict[str, list[set[str]]]]:
-    return orchestrator_primitives._groups_by_path_from_collection_resume(collection_resume)
+    return orchestrator_primitives.groups_by_path_from_collection_resume(collection_resume)
 
 
 def _split_incremental_obligations(
     obligations: Sequence[Mapping[str, JSONValue]],
 ) -> tuple[list[JSONObject], list[JSONObject]]:
-    return orchestrator_primitives._split_incremental_obligations(obligations)
+    return orchestrator_primitives.split_incremental_obligations(obligations)
 
 
 def _latest_report_phase(phases: Mapping[str, JSONValue] | None) -> str | None:
-    return orchestrator_primitives._latest_report_phase(phases)
+    return orchestrator_primitives.latest_report_phase(phases)
 
 
 def _phase_progress_dimensions_summary(
     phase_progress_v2: Mapping[str, JSONValue] | None,
 ) -> str:
-    return orchestrator_primitives._phase_progress_dimensions_summary(phase_progress_v2)
+    return orchestrator_primitives.phase_progress_dimensions_summary(phase_progress_v2)

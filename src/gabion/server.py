@@ -70,6 +70,7 @@ from gabion.refactor.rewrite_plan import normalize_rewrite_plan_order, validate_
 from gabion.schema import (
     DataflowResponseEnvelopeDTO, LegacyDataflowMonolithResponseDTO, DecisionDiffResponseDTO, LspParityGateResponseDTO, LintEntryDTO, RefactorProtocolResponseDTO, RefactorRequest, RefactorResponse, RewritePlanEntryDTO, StructureDiffResponseDTO, StructureReuseResponseDTO, SynthesisPlanResponseDTO, SynthesisResponse, SynthesisRequest, TextEditDTO)
 from gabion.server_core import command_orchestrator_primitives as orchestrator_primitives
+from gabion.server_core import command_orchestrator_progress as orchestrator_progress
 from gabion.server_core import server_incremental_dispatch
 from gabion.server_core import server_payload_dispatch
 from gabion.server_core import dataflow_runtime_contract as runtime_contract
@@ -128,7 +129,7 @@ def _analysis_resume_cache_verdict(
     reused_files: int,
     compatibility_status: str | None,
 ) -> Literal["hit", "miss", "invalidated", "seeded"]:
-    return orchestrator_primitives._analysis_resume_cache_verdict(
+    return orchestrator_primitives.analysis_resume_cache_verdict(
         status=status,
         reused_files=reused_files,
         compatibility_status=compatibility_status,
@@ -142,13 +143,13 @@ def _deadline_tick_budget_allows_check(clock: object) -> bool:
 # Boundary aliases preserve server.py test/import surface while converging
 # execution primitives in server_core.
 ExecuteCommandDeps = orchestrator_primitives.ExecuteCommandDeps
-_analysis_input_manifest = orchestrator_primitives._analysis_input_manifest
+_analysis_input_manifest = orchestrator_primitives.analysis_input_manifest
 _analysis_input_manifest_digest = (
-    orchestrator_primitives._analysis_input_manifest_digest
+    orchestrator_primitives.analysis_input_manifest_digest
 )
-_collection_semantic_progress = orchestrator_primitives._collection_semantic_progress
-_materialize_execution_plan = orchestrator_primitives._materialize_execution_plan
-_default_execute_command_deps = orchestrator_primitives._default_execute_command_deps
+_collection_semantic_progress = orchestrator_progress.collection_semantic_progress
+_materialize_execution_plan = orchestrator_primitives.materialize_execution_plan
+_default_execute_command_deps = orchestrator_primitives.default_execute_command_deps
 
 
 def _collection_checkpoint_flush_due(
@@ -452,7 +453,7 @@ def _load_aspf_resume_state(
     include_delta_records: bool = False,
     diagnostic_tail_limit: int = 32,
 ) -> JSONObject | None:
-    return orchestrator_primitives._load_aspf_resume_state(
+    return orchestrator_primitives.load_aspf_resume_state(
         import_state_paths=import_state_paths,
         include_delta_records=include_delta_records,
         diagnostic_tail_limit=diagnostic_tail_limit,
@@ -464,7 +465,7 @@ def _analysis_resume_progress(
     collection_resume: Mapping[str, JSONValue] | None,
     total_files: int,
 ) -> dict[str, int]:
-    return orchestrator_primitives._analysis_resume_progress(
+    return orchestrator_progress.analysis_resume_progress(
         collection_resume=collection_resume,
         total_files=total_files,
     )
@@ -475,7 +476,7 @@ def _normalize_progress_work(
     work_done: object | None,
     work_total: object | None,
 ) -> tuple[int | None, int | None]:
-    return orchestrator_primitives._normalize_progress_work(
+    return orchestrator_progress.normalize_progress_work(
         work_done=work_done,
         work_total=work_total,
     )
@@ -496,7 +497,7 @@ def _build_phase_progress_v2(
     work_total: object | None,
     phase_progress_v2: Mapping[str, JSONValue] | None = None,
 ) -> tuple[JSONObject, int, int]:
-    return orchestrator_primitives._build_phase_progress_v2(
+    return orchestrator_progress.build_phase_progress_v2(
         phase=phase,
         collection_progress=collection_progress,
         semantic_progress=semantic_progress,
@@ -832,7 +833,7 @@ def _collection_semantic_witness(
 
 
 def _resolve_report_output_path(*, root: Path, report_path: str | None) -> Path | None:
-    return orchestrator_primitives._resolve_report_output_path(
+    return orchestrator_primitives.resolve_report_output_path(
         root=root,
         report_path=report_path,
     )
@@ -842,7 +843,7 @@ def _resolve_report_section_journal_path(
     root: Path,
     report_path: str | None,
 ) -> Path | None:
-    return orchestrator_primitives._resolve_report_section_journal_path(
+    return orchestrator_primitives.resolve_report_section_journal_path(
         root=root,
         report_path=report_path,
     )
@@ -852,20 +853,20 @@ def _report_witness_digest(
     input_witness: Mapping[str, JSONValue] | None,
     manifest_digest: str | None,
 ) -> str | None:
-    return orchestrator_primitives._report_witness_digest(
+    return orchestrator_primitives.report_witness_digest(
         input_witness=input_witness,
         manifest_digest=manifest_digest,
     )
 
 def _coerce_section_lines(value: object) -> list[str]:
-    return orchestrator_primitives._coerce_section_lines(value)
+    return orchestrator_primitives.coerce_section_lines(value)
 
 def _load_report_section_journal(
     *,
     path: Path | None,
     witness_digest: str | None,
 ) -> tuple[dict[str, list[str]], str | None]:
-    return orchestrator_primitives._load_report_section_journal(
+    return orchestrator_primitives.load_report_section_journal(
         path=path,
         witness_digest=witness_digest,
     )
@@ -878,7 +879,7 @@ def _write_report_section_journal(
     sections: Mapping[str, list[str]],
     pending_reasons: Mapping[str, str] | None = None,
 ) -> None:
-    orchestrator_primitives._write_report_section_journal(
+    orchestrator_primitives.write_report_section_journal(
         path=path,
         witness_digest=witness_digest,
         projection_rows=projection_rows,
@@ -1021,7 +1022,7 @@ def _incremental_progress_obligations(
     sections: Mapping[str, list[str]],
     pending_reasons: Mapping[str, str],
 ) -> list[JSONObject]:
-    return orchestrator_primitives._incremental_progress_obligations(
+    return orchestrator_primitives.incremental_progress_obligations(
         analysis_state=analysis_state,
         progress_payload=progress_payload,
         resume_payload_available=resume_payload_available,
@@ -1143,17 +1144,17 @@ def _normalize_dataflow_boundary_controls(
 
 
 def _normalize_dataflow_response_envelope(response: Mapping[str, JSONValue]) -> DataflowResponseEnvelopeDTO:
-    return orchestrator_primitives._normalize_dataflow_response(response)
+    return orchestrator_primitives.normalize_dataflow_response(response)
 
 
 def _normalize_dataflow_response(response: Mapping[str, JSONValue]) -> dict[str, object]:
-    return orchestrator_primitives._serialize_dataflow_response(
+    return orchestrator_primitives.serialize_dataflow_response(
         _normalize_dataflow_response_envelope(response)
     )
 
 
 def _truthy_flag(value: object) -> bool:
-    return orchestrator_primitives._truthy_flag(value)
+    return orchestrator_primitives.truthy_flag(value)
 
 
 def _server_deadline_overhead_ns(
@@ -1161,18 +1162,18 @@ def _server_deadline_overhead_ns(
     *,
     divisor: int | None = None,
 ) -> int:
-    return orchestrator_primitives._server_deadline_overhead_ns(
+    return orchestrator_primitives.server_deadline_overhead_ns(
         total_ns,
         divisor=divisor,
     )
 
 
 def _analysis_timeout_total_ns(payload: Mapping[str, object] | MappingPayloadCarrier) -> int:
-    return orchestrator_primitives._analysis_timeout_total_ns(dict(_payload_mapping(payload)))
+    return orchestrator_primitives.analysis_timeout_total_ns(dict(_payload_mapping(payload)))
 
 
 def _analysis_timeout_total_ticks(payload: Mapping[str, object] | MappingPayloadCarrier) -> int:
-    return orchestrator_primitives._analysis_timeout_total_ticks(dict(_payload_mapping(payload)))
+    return orchestrator_primitives.analysis_timeout_total_ticks(dict(_payload_mapping(payload)))
 
 
 def _analysis_timeout_grace_ns(
@@ -1180,7 +1181,7 @@ def _analysis_timeout_grace_ns(
     *,
     total_ns: int,
 ) -> int:
-    return orchestrator_primitives._analysis_timeout_grace_ns(
+    return orchestrator_primitives.analysis_timeout_grace_ns(
         dict(_payload_mapping(payload)),
         total_ns=total_ns,
     )
@@ -1189,7 +1190,7 @@ def _analysis_timeout_grace_ns(
 def _analysis_timeout_budget_ns(
     payload: Mapping[str, object] | MappingPayloadCarrier,
 ) -> tuple[int, int, int]:
-    return orchestrator_primitives._analysis_timeout_budget_ns(dict(_payload_mapping(payload)))
+    return orchestrator_primitives.analysis_timeout_budget_ns(dict(_payload_mapping(payload)))
 
 
 def _deadline_profile_sample_interval(
@@ -1197,7 +1198,7 @@ def _deadline_profile_sample_interval(
     *,
     default_interval: int = 16,
 ) -> int:
-    return orchestrator_primitives._deadline_profile_sample_interval(
+    return orchestrator_primitives.deadline_profile_sample_interval(
         dict(_payload_mapping(payload)),
         default_interval=default_interval,
     )
@@ -1269,7 +1270,7 @@ def _uri_to_path(uri: str) -> Path:
 
 
 def _normalize_csv_or_iterable_names(value: object, *, strict: bool) -> list[str]:
-    return orchestrator_primitives._normalize_csv_or_iterable_names(value, strict=strict)
+    return orchestrator_primitives.normalize_csv_or_iterable_names(value, strict=strict)
 
 
 def _normalize_transparent_decorators(value: object) -> set[str] | None:
@@ -1414,7 +1415,7 @@ def _diagnostics_for_path(
 
 
 def _timeout_context_payload(exc: TimeoutExceeded) -> JSONObject:
-    return orchestrator_primitives._timeout_context_payload(exc)
+    return orchestrator_primitives.timeout_context_payload(exc)
 
 
 def _invariant_error_location(error: NeverThrown) -> str | None:
@@ -1484,7 +1485,7 @@ def _invariant_failure_dataflow_response(
         }
     )
     return _ordered_command_response(
-        orchestrator_primitives._serialize_dataflow_response(envelope),
+        orchestrator_primitives.serialize_dataflow_response(envelope),
         command=command,
     )
 
@@ -1500,7 +1501,7 @@ def _execute_dataflow_command_boundary(
         command_payload = _parse_dataflow_command_payload(payload)
         normalized_result = _execute_command_total(ls, command_payload, deps=deps)
         return _ordered_command_response(
-            orchestrator_primitives._serialize_dataflow_response(normalized_result),
+            orchestrator_primitives.serialize_dataflow_response(normalized_result),
             command=DATAFLOW_COMMAND,
         )
     except NeverThrown as error:

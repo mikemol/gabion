@@ -199,6 +199,21 @@ def _cli_json_object_optional(value: object) -> dict[str, JSONValue] | None:
     return cast(dict[str, JSONValue] | None, mapping)
 
 
+bool_optional = _bool_optional
+config_path_optional = _config_path_optional
+float_optional = _float_optional
+int_optional = _int_optional
+int_or_zero = _int_or_zero
+json_mapping_default_empty = _json_mapping_default_empty
+json_mapping_optional = _json_mapping_optional
+non_empty_string_optional = _non_empty_string_optional
+non_negative_float_optional = _non_negative_float_optional
+non_negative_int_optional = _non_negative_int_optional
+non_string_sequence_optional = _non_string_sequence_optional
+object_mapping_optional = _object_mapping_optional
+str_optional = _str_optional
+string_optional = _string_optional
+
 cli_int_optional = _cli_int_optional
 cli_str_optional = _cli_str_optional
 cli_mapping_optional = _cli_mapping_optional
@@ -212,10 +227,24 @@ __all__ = [
     "NON_NEGATIVE_FLOAT_OPTIONAL_POLICY",
     "NON_STRING_SEQUENCE_OPTIONAL_POLICY",
     "OBJECT_MAPPING_OPTIONAL_POLICY",
+    "bool_optional",
     "cli_int_optional",
     "cli_json_object_optional",
     "cli_mapping_optional",
     "cli_str_optional",
+    "config_path_optional",
+    "float_optional",
+    "int_optional",
+    "int_or_zero",
+    "json_mapping_default_empty",
+    "json_mapping_optional",
+    "non_empty_string_optional",
+    "non_negative_float_optional",
+    "non_negative_int_optional",
+    "non_string_sequence_optional",
+    "object_mapping_optional",
+    "str_optional",
+    "string_optional",
     "_cli_int_optional",
     "_cli_json_object_optional",
     "_cli_mapping_optional",
