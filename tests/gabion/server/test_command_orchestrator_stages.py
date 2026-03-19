@@ -16,7 +16,7 @@ def test_stage_finalize_success_projects_resume_compatibility() -> None:
         captured["context"] = context
         return orchestrator._SuccessResponseOutcome(
             response={"ok": True},
-            report_checkpoint_state=orchestrator.ReportCheckpointState(),
+            report_runtime_state=orchestrator.ReportRuntimeState(),
         )
 
     stage = orchestrator._ExecuteCommandFinalizeSuccessStage(
@@ -30,11 +30,14 @@ def test_stage_finalize_success_projects_resume_compatibility() -> None:
         options=cast(orchestrator._ExecutionPayloadOptions, SimpleNamespace()),
         name_filter_bundle=cast(orchestrator.DataflowNameFilterBundle, SimpleNamespace()),
         report_path=None,
-        report_projection_state=orchestrator.ReportProjectionState(
-            output_path=None,
-            section_journal_path=Path("report_journal.json"),
-            phase_checkpoint_path=None,
-            projection_rows=(),
+        report_runtime_state=orchestrator.ReportRuntimeState(
+            projection_state=orchestrator.ReportProjectionState(
+                output_path=None,
+                section_journal_path=Path("report_journal.json"),
+                phase_checkpoint_path=None,
+                projection_rows=(),
+            ),
+            checkpoint_state=orchestrator.ReportCheckpointState(),
         ),
         analysis_resume_projection_state=orchestrator.AnalysisResumeProjectionState(
             compatibility_status="compatible",
@@ -42,7 +45,6 @@ def test_stage_finalize_success_projects_resume_compatibility() -> None:
         analysis_resume_manifest_digest=None,
         profiling_stage_ns={},
         profiling_counters={},
-        report_checkpoint_state=orchestrator.ReportCheckpointState(),
         execution_plan=cast(orchestrator.ExecutionPlan, SimpleNamespace()),
         collection_progress_runtime_state=orchestrator.CollectionProgressRuntimeState(),
         emit_lsp_progress_fn=lambda **_kwargs: None,

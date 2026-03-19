@@ -80,6 +80,12 @@ class ReportProjectionState:
     projection_rows: tuple[JSONObject, ...] = ()
 
 
+@dataclass(frozen=True)
+class ReportRuntimeState:
+    projection_state: ReportProjectionState = field(default_factory=ReportProjectionState)
+    checkpoint_state: ReportCheckpointState = field(default_factory=ReportCheckpointState)
+
+
 class ProgressTraceStateContract(Protocol):
     """Opaque progress trace state transported across progress hooks."""
 
