@@ -1,5 +1,5 @@
 ---
-doc_revision: 3
+doc_revision: 5
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: friction
 doc_role: audit
@@ -404,3 +404,87 @@ history, current control state, or just stale coupling.
 - `Mind B wedge product`: This is a constructability problem for migration
   truthfulness. Deleting a surface should leave behind machine-visible signals
   for which residual references must move and which may remain as history.
+
+## FN-006: Facade drains are slowed by implicit public export surfaces
+
+**Trigger:** Burning down the ASPF facade cluster under `PSN` after the
+runtime-shim and governance-veneer slices had already landed cleanly.
+
+**Friction:** The foundation owner modules do not declare an explicit public
+export list, so the facade currently derives its surface from `import *` plus
+extra private reach-ins. Removing the facade-level underscore imports first
+requires reconstructing which names are intentionally public and which are just
+incidental top-level definitions.
+
+**Impact:** Humans and LLM agents have to do extra structural inspection before
+making a bounded change. That increases the cost of each public-surface cleanup
+unit and makes it easier to miss a name that is still relied on through the
+facade.
+
+**Hypothesis:** The facade layer was introduced before the owner-module public
+surface was fully reified. As a result, the facade became both the boundary and
+the only practical export inventory.
+
+**Evidence:**
+- `src/gabion/analysis/aspf/aspf.py`,
+  `src/gabion/analysis/aspf/aspf_execution_fibration.py`, and
+  `src/gabion/analysis/aspf/aspf_resume_state.py` all derive most of their
+  visible surface from `import *`
+- their foundation owners do not declare `__all__`, so public-name discovery
+  had to be reconstructed by AST/top-level inspection during the PSN unit
+
+**Workstream/Context:** `PSN` ASPF facade drain.
+
+### Higher-order synthesis
+
+- `AA constructs`: A thin facade is easier to keep stable when the owner
+  surface is still moving.
+- `AB critiques`: Once the facade is the only export inventory, it becomes hard
+  to retire because the public/private distinction is no longer declared at the
+  owner.
+- `Convergence (Mind A)`: The friction is not just `import *`; it is the lack
+  of a constructible owner-module public surface once the facade is removed.
+- `Mind B wedge product`: Public-surface normalization goes faster when the
+  owner module can already answer “what is public here?” without requiring a
+  second inference pass.
+
+## FN-007: Ambiguity remediation can require a two-step shape correction
+
+**Trigger:** Running `gabion policy check --ambiguity-contract` after a local
+helper cleanup during the ASPF facade drain.
+
+**Friction:** A direct fix for one ambiguity rule shape can immediately trigger
+the adjacent rule family. In this case, replacing `match ... case _` fallthrough
+branches with `isinstance(...)` conditionals cleared `ACP-005` but introduced
+`ACP-003`, so the real accepted form was a third shape: explicit
+`singledispatch`-based runtime-shape normalization.
+
+**Impact:** Small semantic-preserving edits can take an extra remediation cycle
+ unless the agent already knows the repo’s preferred enforcement idioms. That
+ increases correction-unit latency and makes local fixes feel less local than
+ they first appear.
+
+**Hypothesis:** The policy rules are individually coherent, but the repo does
+ not yet provide a close-at-hand “preferred remediation shapes” index for the
+ most common rule interactions, so agents discover the allowed form by failing
+ one gate after another.
+
+**Evidence:**
+- `src/gabion/analysis/foundation/aspf_impl.py`
+- `docs/policy_rules/ambiguity_contract.md#acp-003`
+- `docs/policy_rules/ambiguity_contract.md#acp-005`
+
+**Workstream/Context:** `PSN` ASPF facade drain.
+
+### Higher-order synthesis
+
+- `AA constructs`: The rules are doing their job by rejecting both latent
+  wildcard ambiguity and ad-hoc deterministic-core type narrowing.
+- `AB critiques`: Without a nearby idiom catalog, the shortest local repair is
+  often not the repo-approved repair, so the first fix becomes exploratory
+  churn.
+- `Convergence (Mind A)`: The friction is not that the policy is too strict;
+  it is that the accepted repair shape is discoverable mainly by gate failure
+  rather than by a direct local cue.
+- `Mind B wedge product`: A small remediation index that maps common rule pairs
+  to preferred structural rewrites would save both human and LLM compute.

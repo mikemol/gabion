@@ -1,14 +1,37 @@
 from __future__ import annotations
 
-"""ASPF semantic facade.
+"""ASPF semantic facade."""
 
-Implementation is hosted in foundation to keep ASPF neighborhood surfaces thin
-under force-majeure strictification.
-"""
-
-from gabion.analysis.foundation.aspf_impl import *  # noqa: F401,F403
 from gabion.analysis.foundation.aspf_impl import (
-    _canonicalize_evidence,
-    _canonicalize_evidence_value,
+    Alt,
+    Forest,
+    Node,
+    NodeFingerprint,
+    NodeId,
+    NodeKey,
+    StructuralKeyAtom,
+    canon_param,
+    canon_paramset,
+    canonicalize_evidence,
+    canonicalize_evidence_value,
+    fingerprint_identity,
+    structural_key_atom,
+    structural_key_wire,
 )
 
+__all__ = [
+    "Alt",
+    "Forest",
+    "Node",
+    "NodeFingerprint",
+    "NodeId",
+    "NodeKey",
+    "StructuralKeyAtom",
+    "canon_param",
+    "canon_paramset",
+    "canonicalize_evidence",
+    "canonicalize_evidence_value",
+    "fingerprint_identity",
+    "structural_key_atom",
+    "structural_key_wire",
+]

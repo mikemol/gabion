@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import hashlib
 import math
+from functools import singledispatch
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import cast
@@ -27,23 +28,38 @@ StructuralKeyAtom = (
 )
 
 
+_NONE_TYPE = type(None)
+
+
+@singledispatch
 def _fingerprint_part(part: object) -> str:
-    match part:
-        case str() as text:
-            return f"str:{text}"
-        case bool() as flag:
-            return f"bool:{flag}"
-        case int() as number:
-            return f"int:{number}"
-        case float() as number:
-            return f"float:{number!r}"
-        case None:
-            return "none:null"
-        case _:
-            return f"repr:{part!r}"
+    return f"repr:{part!r}"
 
 
-            never("unreachable wildcard match fall-through")
+@_fingerprint_part.register(str)
+def _fingerprint_part_str(part: str) -> str:
+    return f"str:{part}"
+
+
+@_fingerprint_part.register(bool)
+def _fingerprint_part_bool(part: bool) -> str:
+    return f"bool:{part}"
+
+
+@_fingerprint_part.register(int)
+def _fingerprint_part_int(part: int) -> str:
+    return f"int:{part}"
+
+
+@_fingerprint_part.register(float)
+def _fingerprint_part_float(part: float) -> str:
+    return f"float:{part!r}"
+
+
+@_fingerprint_part.register(_NONE_TYPE)
+def _fingerprint_part_none(part: None) -> str:
+    _ = part
+    return "none:null"
 def fingerprint_identity(kind: str, key: NodeKey) -> NodeFingerprint:
     return (kind, tuple(_fingerprint_part(part) for part in key))
 
@@ -201,35 +217,46 @@ def _canonicalize_evidence(evidence: WireValue) -> WireValue:
     return _canonicalize_evidence_value(normalized)
 
 
+@singledispatch
 def _canonicalize_evidence_value(value: object) -> object:
-    match value:
-        case dict() as mapping:
-            ordered_keys = sort_once(
-                (str(key) for key in mapping),
-                source="aspf._canonicalize_evidence_value.mapping",
-            )
-            return {
-                key: _canonicalize_evidence_value(mapping[key])
-                for key in ordered_keys
-            }
-        case list() | tuple() | set() as seq:
-            canonical_items = [_canonicalize_evidence_value(item) for item in seq]
-            by_stable_text: dict[str, object] = {}
-            for item in canonical_items:
-                stable_text = stable_encode.stable_compact_text(item)
-                by_stable_text.setdefault(stable_text, item)
-            return [
-                by_stable_text[key]
-                for key in sort_once(
-                    by_stable_text,
-                    source="aspf._canonicalize_evidence_value.sequence",
-                )
-            ]
-        case _:
-            return value
+    return value
 
 
-            never("unreachable wildcard match fall-through")
+@_canonicalize_evidence_value.register(dict)
+def _canonicalize_evidence_mapping(value: dict[object, object]) -> object:
+    ordered_keys = sort_once(
+        (str(key) for key in value),
+        source="aspf._canonicalize_evidence_value.mapping",
+    )
+    return {
+        key: _canonicalize_evidence_value(value[key])
+        for key in ordered_keys
+    }
+
+
+def _canonicalize_evidence_sequence(value: object) -> object:
+    sequence = cast(Iterable[object], value)
+    canonical_items = [_canonicalize_evidence_value(item) for item in sequence]
+    by_stable_text: dict[str, object] = {}
+    for item in canonical_items:
+        stable_text = stable_encode.stable_compact_text(item)
+        by_stable_text.setdefault(stable_text, item)
+    return [
+        by_stable_text[key]
+        for key in sort_once(
+            by_stable_text,
+            source="aspf._canonicalize_evidence_value.sequence",
+        )
+    ]
+
+
+_canonicalize_evidence_value.register(list)(_canonicalize_evidence_sequence)
+_canonicalize_evidence_value.register(tuple)(_canonicalize_evidence_sequence)
+_canonicalize_evidence_value.register(set)(_canonicalize_evidence_sequence)
+
+
+canonicalize_evidence = _canonicalize_evidence
+canonicalize_evidence_value = _canonicalize_evidence_value
 def _float_structural_atom(value: float) -> StructuralKeyAtom:
     if math.isnan(value):
         return ("float_nan",)
@@ -585,3 +612,21 @@ class Forest:
             "nodes": [node.as_dict() for node in nodes],
             "alts": [alt.as_dict() for alt in alts],
         }
+
+
+__all__ = [
+    "Alt",
+    "Forest",
+    "Node",
+    "NodeFingerprint",
+    "NodeId",
+    "NodeKey",
+    "StructuralKeyAtom",
+    "canon_param",
+    "canon_paramset",
+    "canonicalize_evidence",
+    "canonicalize_evidence_value",
+    "fingerprint_identity",
+    "structural_key_atom",
+    "structural_key_wire",
+]

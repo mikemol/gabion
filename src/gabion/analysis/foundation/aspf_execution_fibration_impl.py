@@ -1510,3 +1510,52 @@ def _find_witness(
 def _iter_baseline_trace_payloads(paths: Iterable[Path]) -> Iterator[WireObject]:
     for path in paths:
         yield _load_trace_payload_for_import(path)
+
+
+ImportedTraceMergeVisitor = _ImportedTraceMergeVisitor
+as_wire_value = _as_wire_value
+build_trace_replay_iterators = _build_trace_replay_iterators
+iter_delta_records = _iter_delta_records
+iter_trace_events = _iter_trace_events
+iter_two_cell_witnesses = _iter_two_cell_witnesses
+merge_two_cell_payload = _merge_two_cell_payload
+normalize_stream_trace_payload = _normalize_stream_trace_payload
+publish_event = _publish_event
+semantic_surface_sequence = _semantic_surface_sequence
+
+
+__all__ = [
+    "AspfExecutionTraceState",
+    "AspfFinalizationArtifacts",
+    "AspfRunBoundaryEvent",
+    "AspfTraceControls",
+    "AspfTraceReplayIterators",
+    "DEFAULT_PHASE1_SEMANTIC_SURFACES",
+    "ImportedTraceMergeVisitor",
+    "as_wire_value",
+    "build_equivalence_payload",
+    "build_opportunities_payload",
+    "build_trace_payload",
+    "build_trace_replay_iterators",
+    "close_execution_trace_sinks",
+    "controls_from_payload",
+    "derive_trace_payload_from_sinks",
+    "finalize_execution_trace",
+    "iter_delta_records",
+    "iter_trace_events",
+    "iter_two_cell_witnesses",
+    "load_trace_payload",
+    "load_trace_stream_payload",
+    "merge_imported_trace",
+    "merge_imported_trace_paths",
+    "merge_two_cell_payload",
+    "normalize_imported_trace_payload",
+    "normalize_stream_trace_payload",
+    "publish_event",
+    "record_1cell",
+    "record_2cell_witness",
+    "record_cofibration",
+    "register_semantic_surface",
+    "semantic_surface_sequence",
+    "start_execution_trace",
+]

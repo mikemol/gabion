@@ -996,7 +996,7 @@ def test_public_surface_normalization_workstream_registry_exposes_drain_program(
     assert touchpoints["PSN-TP-003"].status_hint == "in_progress"
     assert touchpoints["PSN-TP-004"].status_hint == "in_progress"
     assert touchpoints["PSN-TP-005"].status_hint == "queued"
-    assert touchpoints["PSN-TP-006"].status_hint == "queued"
+    assert touchpoints["PSN-TP-006"].status_hint == "in_progress"
     assert touchpoints["PSN-TP-007"].status_hint == "queued"
     assert touchpoints["PSN-TP-008"].status_hint == "queued"
     assert (
@@ -1033,6 +1033,20 @@ def test_public_surface_normalization_workstream_registry_exposes_drain_program(
         ("src/gabion_governance/governance_entrypoint.py", "main"),
         ("src/gabion_governance/governance_audit_impl.py", "run_docflow_cli"),
         ("src/gabion_governance/governance_audit_impl.py", "run_status_consistency_cli"),
+    }
+    assert {
+        (item.rel_path, item.qualname)
+        for item in touchpoints["PSN-TP-006"].declared_touchsites
+    } >= {
+        ("src/gabion/analysis/aspf/aspf.py", "__all__"),
+        ("src/gabion/analysis/foundation/aspf_impl.py", "canonicalize_evidence"),
+        ("src/gabion/analysis/aspf/aspf_execution_fibration.py", "__all__"),
+        (
+            "src/gabion/analysis/foundation/aspf_execution_fibration_impl.py",
+            "ImportedTraceMergeVisitor",
+        ),
+        ("src/gabion/analysis/aspf/aspf_resume_state.py", "__all__"),
+        ("src/gabion/analysis/foundation/aspf_resume_state_impl.py", "__all__"),
     }
     assert {
         link.value

@@ -190,12 +190,12 @@ def test_add_alt_interns_structural_duplicates() -> None:
     assert len([alt for alt in forest.alts if alt.kind == "Edge"]) == 1
 
 
-# gabion:evidence E:call_footprint::tests/test_aspf.py::test_canonicalize_evidence_rejects_non_mapping_payloads::aspf.py::gabion.analysis.aspf._canonicalize_evidence
+# gabion:evidence E:call_footprint::tests/test_aspf.py::test_canonicalize_evidence_rejects_non_mapping_payloads::aspf.py::gabion.analysis.aspf.canonicalize_evidence
 # gabion:behavior primary=desired
 def test_canonicalize_evidence_rejects_non_mapping_payloads() -> None:
     from gabion.analysis.aspf import aspf
 
-    assert aspf._canonicalize_evidence(["not", "a", "mapping"]) == {}
+    assert aspf.canonicalize_evidence(["not", "a", "mapping"]) == {}
 
 
 # gabion:evidence E:call_footprint::tests/test_aspf.py::test_alt_constructor_normalizes_evidence_payload::aspf.py::gabion.analysis.aspf.Alt

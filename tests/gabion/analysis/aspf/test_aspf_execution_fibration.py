@@ -398,7 +398,7 @@ def test_finalize_execution_trace_allows_state_object_roundtrip_import(
     assert state_payload["analysis_state"] == "succeeded"
 
 
-# gabion:evidence E:function_site::aspf_execution_fibration.py::gabion.analysis.aspf_execution_fibration._publish_event
+# gabion:evidence E:function_site::aspf_execution_fibration.py::gabion.analysis.aspf_execution_fibration.publish_event
 # gabion:behavior primary=desired
 def test_aspf_event_visitor_receives_finalize_hook(tmp_path: Path) -> None:
     class CollectingVisitor:
@@ -542,7 +542,7 @@ def _one_cell_payload(*, representative: str) -> dict[str, object]:
     }
 
 
-# gabion:evidence E:function_site::aspf_execution_fibration.py::gabion.analysis.aspf_execution_fibration._merge_two_cell_payload
+# gabion:evidence E:function_site::aspf_execution_fibration.py::gabion.analysis.aspf_execution_fibration.merge_two_cell_payload
 # gabion:behavior primary=desired
 def test_merge_imported_trace_parses_two_cell_witness_payloads(tmp_path: Path) -> None:
     state = aspf_execution_fibration.start_execution_trace(
@@ -847,10 +847,10 @@ def test_replay_helpers_cover_sink_and_memory_delta_paths(tmp_path: Path) -> Non
     )
 
     state.delta_records.append({"event_kind": "manual", "phase": "manual"})
-    memory_iterators = aspf_execution_fibration._build_trace_replay_iterators(state=state)
+    memory_iterators = aspf_execution_fibration.build_trace_replay_iterators(state=state)
     assert list(memory_iterators.one_cells)
     memory_delta_records = list(
-        aspf_execution_fibration._iter_delta_records(
+        aspf_execution_fibration.iter_delta_records(
             state=state,
             sink_indexes=(),
         )
@@ -860,11 +860,11 @@ def test_replay_helpers_cover_sink_and_memory_delta_paths(tmp_path: Path) -> Non
     sink_indexes = aspf_execution_fibration.close_execution_trace_sinks(state=state)
     assert sink_indexes
 
-    replay_iterators = aspf_execution_fibration._build_trace_replay_iterators(state=state)
+    replay_iterators = aspf_execution_fibration.build_trace_replay_iterators(state=state)
     assert list(replay_iterators.one_cells)
     assert replay_iterators.delta_record_count > 0
 
-    sink_events = list(aspf_execution_fibration._iter_trace_events(state=state))
+    sink_events = list(aspf_execution_fibration.iter_trace_events(state=state))
     two_cell_payloads = [
         event.payload
         for event in sink_events
@@ -872,11 +872,11 @@ def test_replay_helpers_cover_sink_and_memory_delta_paths(tmp_path: Path) -> Non
     ]
     assert any(payload.get("witness_id") == "w:sink-replay" for payload in two_cell_payloads)
 
-    sink_witnesses = list(aspf_execution_fibration._iter_two_cell_witnesses(state=state))
+    sink_witnesses = list(aspf_execution_fibration.iter_two_cell_witnesses(state=state))
     assert any(witness.witness_id == "w:sink-replay" for witness in sink_witnesses)
 
     sink_deltas = list(
-        aspf_execution_fibration._iter_delta_records(
+        aspf_execution_fibration.iter_delta_records(
             state=state,
             sink_indexes=sink_indexes,
         )
@@ -891,7 +891,7 @@ def test_imported_trace_merge_visitor_run_boundary_noop(tmp_path: Path) -> None:
         payload=_trace_payload(trace_json=tmp_path / "trace.json"),
     )
     assert state is not None
-    visitor = aspf_execution_fibration._ImportedTraceMergeVisitor(state=state)
+    visitor = aspf_execution_fibration.ImportedTraceMergeVisitor(state=state)
     before = (
         len(state.one_cells),
         len(state.two_cell_witnesses),
@@ -920,7 +920,7 @@ def test_imported_trace_merge_visitor_rejects_unknown_event_type(tmp_path: Path)
         payload=_trace_payload(trace_json=tmp_path / "trace.json"),
     )
     assert state is not None
-    visitor = aspf_execution_fibration._ImportedTraceMergeVisitor(state=state)
+    visitor = aspf_execution_fibration.ImportedTraceMergeVisitor(state=state)
     with pytest.raises(NeverRaise):
         visitor.on_replay_event(object())  # type: ignore[arg-type]
 
@@ -1013,7 +1013,7 @@ def test_normalize_imported_trace_payload_replaces_non_sequence_two_cell_payload
 
 # gabion:behavior primary=desired
 def test_imported_trace_merge_visitor_explicit_run_boundary_case() -> None:
-    visitor = aspf_execution_fibration._ImportedTraceMergeVisitor(
+    visitor = aspf_execution_fibration.ImportedTraceMergeVisitor(
         state=aspf_execution_fibration.AspfExecutionTraceState(
             trace_id="aspf-trace:test",
             controls=aspf_execution_fibration.controls_from_payload(
