@@ -13,6 +13,7 @@ from decimal import (Decimal, InvalidOperation)
 from pathlib import Path
 from typing import (Callable, Literal, Mapping, Sequence, cast)
 from gabion.json_types import (JSONObject, JSONValue)
+from gabion.json_utils import canonical_json_text as _canonical_json_text
 from gabion.commands import (boundary_order, command_ids, payload_codec, progress_contract as progress_timeline)
 from gabion.commands.lint_parser import parse_lint_line
 from gabion.commands.check_contract import LintEntriesDecision
@@ -289,9 +290,6 @@ def _analysis_input_manifest_file_entry(path: Path) -> JSONObject:
 
 def _analysis_input_manifest_digest(manifest: JSONObject) -> str:
     return hashlib.sha1(_canonical_json_text(manifest).encode("utf-8")).hexdigest()
-
-def _canonical_json_text(payload: object) -> str:
-    return json.dumps(payload, sort_keys=False, separators=(",", ":"), ensure_ascii=True)
 
 def _load_aspf_resume_state(
     *,

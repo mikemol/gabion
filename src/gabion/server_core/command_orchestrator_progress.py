@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 
 from typing import Iterator, Mapping, Sequence
 
@@ -9,6 +8,7 @@ from gabion.analysis import report_projection_phase_rank
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.invariants import never
 from gabion.json_types import JSONObject, JSONValue
+from gabion.json_utils import canonical_json_text as _canonical_json_text
 from gabion.order_contract import sort_once
 from gabion.server_core.coercion_contract import (
     _bool_optional,
@@ -23,9 +23,6 @@ from gabion.server_core.coercion_contract import (
 from gabion.server_core import dataflow_runtime_contract as runtime_contract
 
 _PHASE_PRIMARY_UNITS: Mapping[str, str] = runtime_contract.PHASE_PRIMARY_UNITS
-
-def _canonical_json_text(payload: object) -> str:
-    return json.dumps(payload, sort_keys=False, separators=(",", ":"), ensure_ascii=True)
 
 _REPORT_PHASE_RANK_BY_NAME: dict[str, int] = {
     "collection": report_projection_phase_rank("collection"),

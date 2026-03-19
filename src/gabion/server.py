@@ -22,6 +22,7 @@ from lsprotocol.types import (
     TEXT_DOCUMENT_DID_OPEN, TEXT_DOCUMENT_DID_SAVE, TEXT_DOCUMENT_CODE_ACTION, CodeAction, CodeActionKind, CodeActionParams, Command, Diagnostic, DiagnosticSeverity, Position, Range, WorkspaceEdit)
 
 from gabion.json_types import JSONObject, JSONValue
+from gabion.json_utils import canonical_json_text as _canonical_json_text
 from gabion.commands import (
     boundary_order, command_ids, payload_codec, progress_contract as progress_timeline)
 from gabion.commands.dispatch_registry import (
@@ -443,12 +444,6 @@ def _analysis_input_witness(
         _canonical_json_text(witness).encode("utf-8")
     ).hexdigest()
     return witness
-
-
-def _canonical_json_text(payload: object) -> str:
-    return json.dumps(payload, sort_keys=False, separators=(",", ":"), ensure_ascii=True)
-
-
 
 
 def _load_aspf_resume_state(

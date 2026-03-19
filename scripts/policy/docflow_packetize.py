@@ -9,6 +9,7 @@ from datetime import date, timezone, datetime
 from pathlib import Path
 from typing import Any
 
+from gabion.json_utils import load_json_object as _load_json
 from gabion.tooling.docflow.compliance_identity import stable_docflow_compliance_row_id
 
 try:
@@ -50,14 +51,6 @@ _PROVING_TESTS_BY_SIGNAL: dict[str, tuple[str, ...]] = {
         "tests/gabion/tooling/docflow/test_docflow_compliance_rows.py::test_docflow_compliance_rows_dispatches_cover_never_require_active_and_proposed",
     ),
 }
-
-
-def _load_json(path: Path) -> dict[str, Any]:
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(payload, dict):
-        raise SystemExit(f"invalid JSON payload at {path}: expected object")
-    return payload
-
 
 def _active_compliance_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
     rows = payload.get("rows")

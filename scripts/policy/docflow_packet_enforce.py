@@ -11,6 +11,8 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from gabion.json_utils import load_json_object as _load_json
+
 
 _POLICY_DOC_PREFIXES = ("in/", "docs/")
 _POLICY_DOC_FILES = {
@@ -40,14 +42,6 @@ class BaselineEntry:
             "classification": self.classification,
             "first_seen": self.first_seen.isoformat(),
         }
-
-
-def _load_json(path: Path) -> dict[str, Any]:
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(payload, dict):
-        raise SystemExit(f"invalid JSON payload at {path}: expected object")
-    return payload
-
 
 def _load_packets(path: Path) -> list[dict[str, Any]]:
     payload = _load_json(path)
