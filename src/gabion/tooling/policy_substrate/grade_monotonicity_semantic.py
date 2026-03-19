@@ -14,7 +14,7 @@ from gabion.analysis.dataflow.engine.dataflow_deadline_helpers import (
     _collect_recursive_functions,
     _resolve_callee_outcome,
 )
-from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import _module_name
+from gabion.analysis.dataflow.engine.dataflow_evidence_helpers import module_name
 from gabion.analysis.projection.decision_flow import (
     build_decision_tables,
     detect_repeated_guard_bundles,
@@ -781,7 +781,7 @@ def _function_contexts(
         module_context = module_contexts[module.path.resolve()]
         collector = _FunctionContextCollector(
             module_context=module_context,
-            module_name=_module_name(module.path, project_root=batch.root),
+            module_name=module_name(module.path, project_root=batch.root),
         )
         collector.visit(module.tree)
         contexts.update(collector.by_qual)

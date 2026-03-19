@@ -118,7 +118,7 @@ def _duplicate_source_issues(
     return issues
 
 
-def _build_registry_for_root(repo_root: Path) -> RegistrySnapshot:
+def build_registry_for_root(repo_root: Path) -> RegistrySnapshot:
     compiled_rule_mappings: list[Mapping[str, Any]] = []
     compiled_transforms: list[IRTransform] = []
     compile_issues: list[CompileIssue] = []
@@ -180,4 +180,4 @@ def _build_registry_for_root(repo_root: Path) -> RegistrySnapshot:
 @lru_cache(maxsize=1)
 def build_registry() -> RegistrySnapshot:
     repo_root = Path(__file__).resolve().parents[3]
-    return _build_registry_for_root(repo_root)
+    return build_registry_for_root(repo_root)

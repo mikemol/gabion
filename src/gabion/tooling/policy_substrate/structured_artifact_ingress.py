@@ -14,7 +14,7 @@ from gabion.analysis.core.type_fingerprints import PrimeRegistry
 from gabion.frontmatter import FrontmatterParseError, parse_strict_yaml_frontmatter
 from gabion.json_types import JSONValue
 from gabion.policy_dsl.compile import compile_document
-from gabion.policy_dsl.registry import _build_registry_for_root
+from gabion.policy_dsl.registry import build_registry_for_root
 from gabion.server_core.command_orchestrator_primitives import (
     _normalize_dataflow_response,
 )
@@ -1617,8 +1617,8 @@ def _policy_registry_determinism_case(
     first_transform_ids: tuple[str, ...] = ()
     second_transform_ids: tuple[str, ...] = ()
     try:
-        first = _build_registry_for_root(root).program
-        second = _build_registry_for_root(root).program
+        first = build_registry_for_root(root).program
+        second = build_registry_for_root(root).program
         first_rule_ids = tuple(rule.rule_id for rule in first.rules)
         second_rule_ids = tuple(rule.rule_id for rule in second.rules)
         first_transform_ids = tuple(

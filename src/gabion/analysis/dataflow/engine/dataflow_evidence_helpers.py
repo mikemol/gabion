@@ -329,6 +329,9 @@ def _module_name(path: Path, project_root=None) -> str:
     return ".".join(parts)
 
 
+module_name = _module_name
+
+
 def _enclosing_scopes(node: ast.AST, parents: dict[ast.AST, ast.AST]) -> list[str]:
     check_deadline()
     scopes: list[str] = []
@@ -666,6 +669,7 @@ __all__ = [
     "_enclosing_scopes",
     "_is_test_path",
     "_module_name",
+    "module_name",
     "_paramset_key",
     "_resolve_class_candidates",
     "_resolve_callee",

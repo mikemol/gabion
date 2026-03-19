@@ -995,7 +995,7 @@ def test_public_surface_normalization_workstream_registry_exposes_drain_program(
     assert touchpoints["PSN-TP-002"].status_hint == "in_progress"
     assert touchpoints["PSN-TP-003"].status_hint == "in_progress"
     assert touchpoints["PSN-TP-004"].status_hint == "in_progress"
-    assert touchpoints["PSN-TP-005"].status_hint == "queued"
+    assert touchpoints["PSN-TP-005"].status_hint == "landed"
     assert touchpoints["PSN-TP-006"].status_hint == "in_progress"
     assert touchpoints["PSN-TP-007"].status_hint == "queued"
     assert touchpoints["PSN-TP-008"].status_hint == "queued"
@@ -1010,11 +1010,14 @@ def test_public_surface_normalization_workstream_registry_exposes_drain_program(
             "PSN-TP-002",
             "PSN-TP-003",
             "PSN-TP-004",
-            "PSN-TP-005",
             "PSN-TP-006",
             "PSN-TP-007",
             "PSN-TP-008",
         )
+    )
+    assert (
+        touchpoints["PSN-TP-005"].marker_payload.lifecycle_state
+        is MarkerLifecycleState.LANDED
     )
     assert {
         (item.rel_path, item.qualname)
@@ -1033,6 +1036,24 @@ def test_public_surface_normalization_workstream_registry_exposes_drain_program(
         ("src/gabion_governance/governance_entrypoint.py", "main"),
         ("src/gabion_governance/governance_audit_impl.py", "run_docflow_cli"),
         ("src/gabion_governance/governance_audit_impl.py", "run_status_consistency_cli"),
+    }
+    assert {
+        (item.rel_path, item.qualname)
+        for item in touchpoints["PSN-TP-005"].declared_touchsites
+    } >= {
+        (
+            "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+            "build_ingress_merge_parity_artifact",
+        ),
+        ("src/gabion/policy_dsl/registry.py", "build_registry_for_root"),
+        (
+            "src/gabion/tooling/policy_substrate/grade_monotonicity_semantic.py",
+            "collect_grade_monotonicity",
+        ),
+        (
+            "src/gabion/analysis/dataflow/engine/dataflow_evidence_helpers.py",
+            "module_name",
+        ),
     }
     assert {
         (item.rel_path, item.qualname)

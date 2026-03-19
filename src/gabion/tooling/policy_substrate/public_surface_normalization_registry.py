@@ -188,10 +188,10 @@ def _psn_tp_cli_runtime_private_imports() -> None:
     return None
 
 
-@todo_decorator(
-    reason="PSN-TP-005 remains queued until planning-substrate and governance helper clusters expose public owner interfaces instead of underscore reach-ins.",
+@landed_todo_decorator(
+    reason="PSN-TP-005 is recorded as landed metadata after planning-substrate and governance helper clusters moved onto explicit public owner interfaces instead of underscore reach-ins.",
     reasoning={
-        "summary": "Planning-substrate and governance surfaces still rely on private cross-module helper imports, which keeps registry/runtime ownership implicit.",
+        "summary": "Planning-substrate and governance helper imports now resolve through explicit public owner-module surfaces, and the closed cutover is recorded as landed touchpoint state.",
         "control": "public_surface_normalization.planning_governance_private_imports.touchpoint",
     },
     owner="gabion.tooling.runtime_policy",
@@ -606,23 +606,39 @@ def public_surface_normalization_workstream_registry() -> WorkstreamRegistry:
                 touchpoint_id="PSN-TP-005",
                 title="Publicize planning-substrate and governance helper imports",
                 symbol=_psn_tp_planning_governance_private_imports,
-                status_hint="queued",
+                status_hint="landed",
                 declared_touchsites=(
                     _touchsite(
                         touchpoint_id="PSN-TP-005",
-                        slug="wrd-registry",
-                        rel_path="src/gabion/tooling/policy_substrate/wrapper_retirement_drain_registry.py",
-                        qualname="wrapper_retirement_drain_workstream_registry",
-                        boundary_name="WRD registry history anchor",
-                        line=318,
+                        slug="structured-artifact-ingress",
+                        rel_path="src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+                        qualname="build_ingress_merge_parity_artifact",
+                        boundary_name="structured artifact ingress policy registry surface",
+                        line=1591,
                     ),
                     _touchsite(
                         touchpoint_id="PSN-TP-005",
-                        slug="governance-audit-adapter",
-                        rel_path="src/gabion/tooling/governance/governance_audit.py",
-                        qualname="BOUNDARY_ADAPTER_METADATA",
-                        boundary_name="governance package adapter surface",
-                        line=17,
+                        slug="policy-dsl-registry",
+                        rel_path="src/gabion/policy_dsl/registry.py",
+                        qualname="build_registry_for_root",
+                        boundary_name="policy registry owner public surface",
+                        line=121,
+                    ),
+                    _touchsite(
+                        touchpoint_id="PSN-TP-005",
+                        slug="grade-monotonicity-semantic",
+                        rel_path="src/gabion/tooling/policy_substrate/grade_monotonicity_semantic.py",
+                        qualname="collect_grade_monotonicity",
+                        boundary_name="grade monotonicity governance helper surface",
+                        line=733,
+                    ),
+                    _touchsite(
+                        touchpoint_id="PSN-TP-005",
+                        slug="dataflow-evidence-helpers",
+                        rel_path="src/gabion/analysis/dataflow/engine/dataflow_evidence_helpers.py",
+                        qualname="module_name",
+                        boundary_name="dataflow evidence helper public surface",
+                        line=330,
                     ),
                 ),
             ),

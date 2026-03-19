@@ -5,7 +5,7 @@ from pathlib import Path
 from gabion.analysis import aspf_rule_engine
 from gabion.policy_dsl import PolicyDomain, evaluate_policy
 from gabion.policy_dsl.compile import compile_document
-from gabion.policy_dsl.registry import _build_registry_for_root, build_registry
+from gabion.policy_dsl.registry import build_registry, build_registry_for_root
 from gabion.tooling.delta import delta_gate
 from gabion.tooling.governance import ambiguity_contract_policy_check as ambiguity_policy
 
@@ -225,7 +225,7 @@ def test_registry_rejects_duplicate_rule_ids_across_yaml_and_markdown(tmp_path: 
         encoding="utf-8",
     )
     try:
-        _build_registry_for_root(tmp_path)
+        build_registry_for_root(tmp_path)
     except ValueError as exc:
         assert exc.args[0] == "policy compile failed"
         issues = exc.args[1]

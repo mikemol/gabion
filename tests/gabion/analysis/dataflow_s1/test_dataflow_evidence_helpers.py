@@ -21,17 +21,17 @@ def _fn(*, qual: str, path: Path) -> FunctionInfo:
     )
 
 
-# gabion:evidence E:function_site::dataflow_evidence_helpers.py::gabion.analysis.dataflow_evidence_helpers._is_test_path E:function_site::dataflow_evidence_helpers.py::gabion.analysis.dataflow_evidence_helpers._module_name
+# gabion:evidence E:function_site::dataflow_evidence_helpers.py::gabion.analysis.dataflow_evidence_helpers._is_test_path E:function_site::dataflow_evidence_helpers.py::gabion.analysis.dataflow_evidence_helpers.module_name
 # gabion:behavior primary=verboten facets=edge
 def test_test_path_and_module_name_contract_edges(tmp_path: Path) -> None:
     assert helpers._is_test_path(tmp_path / "tests" / "x.py")
     assert helpers._is_test_path(tmp_path / "pkg" / "test_x.py")
     assert not helpers._is_test_path(tmp_path / "pkg" / "x.py")
 
-    rooted = helpers._module_name(tmp_path / "src" / "pkg" / "mod.py", project_root=tmp_path)
+    rooted = helpers.module_name(tmp_path / "src" / "pkg" / "mod.py", project_root=tmp_path)
     assert rooted == "pkg.mod"
 
-    external = helpers._module_name(Path("/outside/repo/file.py"), project_root=tmp_path)
+    external = helpers.module_name(Path("/outside/repo/file.py"), project_root=tmp_path)
     assert external == "/.outside.repo.file"
 
 
