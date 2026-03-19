@@ -53,6 +53,12 @@ class AnalysisResumeProjectionState:
     compatibility_status: str | None = None
 
 
+@dataclass(frozen=True)
+class AnalysisResumeInputState:
+    manifest_digest: str | None = None
+    input_witness: JSONObject | None = None
+
+
 class ProgressTraceStateContract(Protocol):
     """Opaque progress trace state transported across progress hooks."""
 
