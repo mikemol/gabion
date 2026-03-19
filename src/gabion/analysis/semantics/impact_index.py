@@ -1,3 +1,6 @@
+# gabion:ambiguity_boundary_module
+# gabion:boundary_normalization_module
+# gabion:grade_boundary kind=semantic_carrier_adapter name=impact_index
 from __future__ import annotations
 
 import ast
@@ -9,7 +12,7 @@ from io import StringIO
 from pathlib import Path
 from typing import Any, Iterable
 from gabion.frontmatter import parse_lenient_yaml_frontmatter
-from gabion.invariants import never
+from gabion.invariants import grade_boundary, never
 
 from gabion.analysis.dataflow.io.dataflow_projection_helpers import report_projection_spec_rows
 from gabion.analysis.foundation.json_types import JSONValue
@@ -154,26 +157,16 @@ class _SymbolCollector(ast.NodeVisitor):
 
 
 def build_impact_index(
-    repo_root = None,
     *,
-    root = None,
-    test_paths = None,
-    doc_paths = None,
+    root: Path,
+    test_paths: Iterable[Path],
+    doc_paths: Iterable[Path],
     include_graph: bool = True,
 ) -> ImpactIndex:
     check_deadline()
-    resolved_root = (root or repo_root or Path.cwd()).resolve()
-    tests = (
-        list(test_paths)
-        if test_paths is not None
-        else list((resolved_root / "tests").rglob("test_*.py"))
-    )
-    docs = (
-        list(doc_paths)
-        if doc_paths is not None
-        else [*resolved_root.glob("*.md"), *(resolved_root / "docs").glob("*.md")]
-    )
-    symbols = _collect_symbol_universe(resolved_root)
+    tests = list(test_paths)
+    docs = list(doc_paths)
+    symbols = _collect_symbol_universe(root)
     links: list[ImpactLink] = []
     for path in sort_once(
         tests,
@@ -181,14 +174,14 @@ def build_impact_index(
         key=lambda item: str(item),
     ):
         check_deadline()
-        links.extend(_links_from_test(path=path, root=resolved_root))
+        links.extend(_links_from_test(path=path, root=root))
     for path in sort_once(
         docs,
         source="impact_index.docs",
         key=lambda item: str(item),
     ):
         check_deadline()
-        links.extend(_links_from_doc(path=path, root=resolved_root, symbols=symbols))
+        links.extend(_links_from_doc(path=path, root=root, symbols=symbols))
     deduped = _dedupe_links(links)
     ordered_links = sort_once(
         deduped,
@@ -200,19 +193,31 @@ def build_impact_index(
             item.target,
         ),
     )
-    graph_payload = _build_graph_payload(resolved_root) if include_graph else None
+    graph_payload = _build_graph_payload(root) if include_graph else None
     return ImpactIndex(links=tuple(ordered_links), graph=graph_payload)
 
 
-def emit_impact_index(
-    repo_root = None,
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="impact_index.build_repo_impact_index",
+)
+def build_repo_impact_index(
     *,
-    root = None,
-) -> Path:
-    resolved_root = (root or repo_root or Path.cwd()).resolve()
-    artifact_path = resolved_root / _DEFAULT_ARTIFACT_PATH
+    root: Path,
+    include_graph: bool = True,
+) -> ImpactIndex:
+    return build_impact_index(
+        root=root,
+        test_paths=(root / "tests").rglob("test_*.py"),
+        doc_paths=[*root.glob("*.md"), *(root / "docs").glob("*.md")],
+        include_graph=include_graph,
+    )
+
+
+def emit_impact_index(*, root: Path) -> Path:
+    artifact_path = root / _DEFAULT_ARTIFACT_PATH
     artifact_path.parent.mkdir(parents=True, exist_ok=True)
-    index = build_impact_index(root=resolved_root)
+    index = build_repo_impact_index(root=root)
     payload: dict[str, object] = {
         "artifact": str(_DEFAULT_ARTIFACT_PATH),
         "links": [
@@ -988,4 +993,4 @@ def _dedupe_links(links: Iterable[ImpactLink]) -> list[ImpactLink]:
 
 
 if __name__ == "__main__":
-    emit_impact_index()
+    emit_impact_index(root=Path.cwd().resolve())

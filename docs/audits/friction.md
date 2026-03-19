@@ -1,5 +1,5 @@
 ---
-doc_revision: 22
+doc_revision: 23
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: friction
 doc_role: audit
@@ -1201,3 +1201,32 @@ promptly, they distort the apparent API and slow downstream strictification.
 
 **Workstream/Context:** `PSN` follow-on strictification after the
 `schema_audit` root-owner slice.
+
+## FN-026: Entry-point defaults can fossilize as fake owner optionality
+
+**Trigger:** Tracing the next remaining root fallback in
+`impact_index.build_impact_index(...)` after the product-code caller chain was
+already passing a strict `Path`.
+
+**Friction:** The semantic owner still advertised `repo_root`, `root`, and
+`Path.cwd()` fallback even though the only live product-code caller already
+published `root: Path`. The apparent dual-shape contract survived only because
+the module `__main__` entrypoint had left its cwd default parked inside the
+owner.
+
+**Impact:** Humans and LLMs can misread owner-local defaulting as evidence of a
+real multi-origin contract and spend time preserving compatibility that no
+longer exists in the owned code path.
+
+**Hypothesis:** When the last live fallback source is an executable entrypoint,
+the correct repair is usually to move that default all the way out to the
+entrypoint boundary and keep the semantic owner strict. Leaving the default in
+the owner hides the true origin and keeps dead optionality circulating.
+
+**Evidence:**
+- `src/gabion/analysis/semantics/impact_index.py`
+- `src/gabion_governance/governance_audit_impl.py`
+- `tests/gabion/tooling/impact/test_impact_index.py`
+
+**Workstream/Context:** `PSN` follow-on root-origin strictification after the
+`test_evidence_suggestions` slice.

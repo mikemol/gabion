@@ -10,7 +10,7 @@ from types import SimpleNamespace
 from gabion.frontmatter import parse_lenient_yaml_frontmatter
 from gabion.analysis.semantics import impact_index as ii
 from gabion.analysis.semantics.impact_index import (
-    ImpactIndexGraph, ImpactLink, build_impact_index, emit_impact_index)
+    ImpactIndexGraph, ImpactLink, build_repo_impact_index, emit_impact_index)
 
 
 def _write(path: Path, text: str) -> None:
@@ -18,7 +18,7 @@ def _write(path: Path, text: str) -> None:
     path.write_text(text, encoding="utf-8")
 
 
-# gabion:evidence E:call_footprint::tests/test_impact_index.py::test_build_impact_index_emits_expected_node_kinds::impact_index.py::gabion.analysis.impact_index.build_impact_index::test_impact_index.py::tests.test_impact_index._write
+# gabion:evidence E:call_footprint::tests/test_impact_index.py::test_build_impact_index_emits_expected_node_kinds::impact_index.py::gabion.analysis.impact_index.build_repo_impact_index::test_impact_index.py::tests.test_impact_index._write
 # gabion:behavior primary=desired
 def test_build_impact_index_emits_expected_node_kinds(tmp_path: Path) -> None:
     _write(
@@ -45,7 +45,7 @@ def test_build_impact_index_emits_expected_node_kinds(tmp_path: Path) -> None:
         '<a id="intro"></a>\nUse `helper` to perform checks.\n',
     )
 
-    index = build_impact_index(root=tmp_path)
+    index = build_repo_impact_index(root=tmp_path)
     assert index.graph is not None
     graph = index.graph
 
@@ -86,7 +86,7 @@ def test_emit_impact_index_writes_artifact_and_reverse_adjacency(tmp_path: Path)
             assert {"source": source, "type": edge_type} in reverse_edges
 
 
-# gabion:evidence E:call_footprint::tests/test_impact_index.py::test_test_links_prefer_explicit_metadata::impact_index.py::gabion.analysis.impact_index.build_impact_index::test_impact_index.py::tests.test_impact_index._write
+# gabion:evidence E:call_footprint::tests/test_impact_index.py::test_test_links_prefer_explicit_metadata::impact_index.py::gabion.analysis.impact_index.build_repo_impact_index::test_impact_index.py::tests.test_impact_index._write
 # gabion:behavior primary=desired
 def test_test_links_prefer_explicit_metadata(tmp_path: Path) -> None:
     _write(
@@ -99,14 +99,14 @@ def test_example():
     )
     _write(tmp_path / "src" / "gabion" / "mod.py", "def fn():\n    return 1\n")
 
-    index = build_impact_index(root=tmp_path)
+    index = build_repo_impact_index(root=tmp_path)
 
     assert ("tests/test_sample.py::test_example", "gabion.mod.fn", "explicit") in {
         (item.source, item.target, item.confidence) for item in index.links
     }
 
 
-# gabion:evidence E:call_footprint::tests/test_impact_index.py::test_test_links_infer_from_imports_when_metadata_missing::impact_index.py::gabion.analysis.impact_index.build_impact_index::test_impact_index.py::tests.test_impact_index._write
+# gabion:evidence E:call_footprint::tests/test_impact_index.py::test_test_links_infer_from_imports_when_metadata_missing::impact_index.py::gabion.analysis.impact_index.build_repo_impact_index::test_impact_index.py::tests.test_impact_index._write
 # gabion:behavior primary=verboten facets=missing
 def test_test_links_infer_from_imports_when_metadata_missing(tmp_path: Path) -> None:
     _write(
@@ -120,14 +120,14 @@ def test_example():
     )
     _write(tmp_path / "src" / "gabion" / "mod.py", "def fn():\n    return 1\n")
 
-    index = build_impact_index(root=tmp_path)
+    index = build_repo_impact_index(root=tmp_path)
 
     assert ("tests/test_sample.py::test_example", "gabion.mod.fn", "inferred") in {
         (item.source, item.target, item.confidence) for item in index.links
     }
 
 
-# gabion:evidence E:call_footprint::tests/test_impact_index.py::test_doc_links_read_doc_targets_and_fallback_to_mentions::impact_index.py::gabion.analysis.impact_index.build_impact_index::test_impact_index.py::tests.test_impact_index._write
+# gabion:evidence E:call_footprint::tests/test_impact_index.py::test_doc_links_read_doc_targets_and_fallback_to_mentions::impact_index.py::gabion.analysis.impact_index.build_repo_impact_index::test_impact_index.py::tests.test_impact_index._write
 # gabion:behavior primary=allowed_unwanted facets=fallback
 def test_doc_links_read_doc_targets_and_fallback_to_mentions(tmp_path: Path) -> None:
     _write(tmp_path / "src" / "gabion" / "mod.py", "def fn():\n    return 1\n")
@@ -144,7 +144,7 @@ Notes.
     )
     _write(tmp_path / "docs" / "b.md", "Touches `gabion.mod.fn` behavior.")
 
-    index = build_impact_index(root=tmp_path)
+    index = build_repo_impact_index(root=tmp_path)
     links = {(item.source, item.target, item.confidence) for item in index.links}
 
     assert ("docs/a.md", "gabion.mod.fn", "explicit") in links
@@ -172,7 +172,7 @@ def test_links_from_doc_infer_script_symbols_from_supplied_symbol_overlay(
     ] == [("docs/perf.md", "scripts.policy.policy_check.main", "inferred")]
 
 
-# gabion:evidence E:call_footprint::tests/test_impact_index.py::test_doc_links_fallback_to_anchors_as_weak::impact_index.py::gabion.analysis.impact_index.build_impact_index::test_impact_index.py::tests.test_impact_index._write
+# gabion:evidence E:call_footprint::tests/test_impact_index.py::test_doc_links_fallback_to_anchors_as_weak::impact_index.py::gabion.analysis.impact_index.build_repo_impact_index::test_impact_index.py::tests.test_impact_index._write
 # gabion:behavior primary=allowed_unwanted facets=fallback
 def test_doc_links_fallback_to_anchors_as_weak(tmp_path: Path) -> None:
     _write(tmp_path / "src" / "gabion" / "mod.py", "def fn_name():\n    return 1\n")
@@ -183,7 +183,7 @@ See [details](#fn-name).
 """.strip(),
     )
 
-    index = build_impact_index(root=tmp_path)
+    index = build_repo_impact_index(root=tmp_path)
 
     assert ("docs/a.md", "gabion.mod.fn_name", "weak") in {
         (item.source, item.target, item.confidence) for item in index.links

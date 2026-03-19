@@ -27,7 +27,7 @@ from gabion.analysis.projection.projection_exec_plan import execution_ops_from_s
 from gabion.analysis.projection.projection_normalize import normalize_spec, spec_canonical_json, spec_hash
 from gabion.analysis.projection.projection_spec import ProjectionOp, ProjectionSpec, spec_from_dict
 from gabion.analysis.semantics import evidence_keys
-from gabion.analysis.semantics.impact_index import build_impact_index
+from gabion.analysis.semantics.impact_index import build_repo_impact_index
 from gabion.governance_paths import GOVERNANCE_PATHS
 from gabion.analysis.semantics.obligation_registry import (
     evaluate_obligations, summarize_obligations)
@@ -2187,7 +2187,7 @@ def _evidence_rows_from_test_evidence(payload: dict[str, JSONValue]) -> list[dic
 
 
 def _impact_rows(root: Path) -> list[dict[str, object]]:
-    index = build_impact_index(root=root)
+    index = build_repo_impact_index(root=root)
     rows: list[dict[str, object]] = []
     for link in index.links:
         check_deadline()
