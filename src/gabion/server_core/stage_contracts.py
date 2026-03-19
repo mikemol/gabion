@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Callable, Mapping, Protocol, TypeVar
 
 from gabion.json_types import JSONObject
+from gabion.schema import DataflowResponseEnvelopeDTO
 from gabion.server_core.command_contract import (
     AnalysisOutcomeContract,
     CollectionProgressRuntimeState,
@@ -42,7 +43,7 @@ class StageOutputResult:
 
 @dataclass(frozen=True)
 class StageTimeoutResult:
-    response: dict[str, object]
+    response: DataflowResponseEnvelopeDTO
 
 
 class PayloadNormalizer(Protocol):
@@ -93,7 +94,7 @@ class TimeoutCleanupHandler(Protocol[_TimeoutCleanupContextT]):
         *,
         exc: BaseException,
         context: _TimeoutCleanupContextT,
-    ) -> dict[str, object]: ...
+    ) -> DataflowResponseEnvelopeDTO: ...
 
 
 @dataclass(frozen=True)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from gabion.schema import DataflowCanonicalResponseDTO, DataflowResponseEnvelopeDTO
 from gabion.server_core.analysis_stage import run_analysis_stage
 from gabion.server_core.command_contract import (
     CollectionProgressRuntimeState,
@@ -94,6 +95,10 @@ def test_timeout_stage_contracts() -> None:
     stage = run_timeout_stage(
         exc=TimeoutError("timed out"),
         context=object(),
-        cleanup_handler=lambda **_kwargs: {"timeout": True},
+        cleanup_handler=lambda **_kwargs: DataflowResponseEnvelopeDTO(
+            canonical=DataflowCanonicalResponseDTO(exit_code=2, timeout=True),
+            payload={"timeout": True, "exit_code": 2},
+        ),
     )
-    assert stage.response == {"timeout": True}
+    assert stage.response.canonical.timeout is True
+    assert stage.response.payload["timeout"] is True

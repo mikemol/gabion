@@ -360,28 +360,49 @@ def _sd_reg_9(value: None, *, timeout: float) -> None:
     _ = value, timeout
 
 
-def _record_trace_1cell(
-    *,
-    execute_deps: ExecuteCommandDeps,
-    state: object,
-    kind: str,
-    source_label: str,
-    target_label: str,
-    representative: str,
-    basis_path: tuple[str, ...],
-    surface: str | None = None,
-    metadata: Mapping[str, object] | None = None,
-) -> None:
-    execute_deps.progress.record_1cell_fn(
-        state,
-        kind=kind,
-        source_label=source_label,
-        target_label=target_label,
-        representative=representative,
-        basis_path=basis_path,
-        surface=surface,
-        metadata=metadata,
-    )
+@dataclass(frozen=True)
+class _Trace1CellRecord:
+    kind: str
+    source_label: str
+    target_label: str
+    representative: str
+    basis_path: tuple[str, ...]
+    surface: str | None = None
+    metadata: Mapping[str, object] | None = None
+
+    @classmethod
+    def from_values(
+        cls,
+        *,
+        kind: str,
+        source_label: str,
+        target_label: str,
+        representative: str,
+        basis_path: tuple[str, ...],
+        surface: str | None = None,
+        metadata: Mapping[str, object] | None = None,
+    ) -> _Trace1CellRecord:
+        return cls(
+            kind=kind,
+            source_label=source_label,
+            target_label=target_label,
+            representative=representative,
+            basis_path=basis_path,
+            surface=surface,
+            metadata=metadata,
+        )
+
+    def emit(self, *, execute_deps: ExecuteCommandDeps, state: object) -> None:
+        execute_deps.progress.record_1cell_fn(
+            state,
+            kind=self.kind,
+            source_label=self.source_label,
+            target_label=self.target_label,
+            representative=self.representative,
+            basis_path=self.basis_path,
+            surface=self.surface,
+            metadata=self.metadata,
+        )
 
 
 def _removed_legacy_payload_key_items() -> tuple[tuple[str, str], ...]:
@@ -1919,9 +1940,7 @@ def _prepare_analysis_resume_state(
                 support_state=state.analysis_resume_state.support_state,
             )
             if aspf_trace_state is not None:
-                _record_trace_1cell(
-                    execute_deps=execute_deps,
-                    state=aspf_trace_state,
+                _Trace1CellRecord.from_values(
                     kind="resume_load",
                     source_label="runtime:aspf_state",
                     target_label="analysis:resume_seed",
@@ -1941,7 +1960,7 @@ def _prepare_analysis_resume_state(
                             state.analysis_resume_state.support_state.input_state.manifest_digest
                         ),
                     },
-                )
+                ).emit(execute_deps=execute_deps, state=aspf_trace_state)
         if state.analysis_resume_state.projection_state.runtime_state.state_status is None:
             state.analysis_resume_state = AnalysisResumeState(
                 projection_state=AnalysisResumeProjectionState(
@@ -2331,9 +2350,7 @@ def _run_analysis_with_progress(
                         preview_only=True,
                     )
                     if aspf_trace_state is not None:
-                        _record_trace_1cell(
-                            execute_deps=execute_deps,
-                            state=aspf_trace_state,
+                        _Trace1CellRecord.from_values(
                             kind="report_projection",
                             source_label="analysis:groups_by_path",
                             target_label="report:sections",
@@ -2344,7 +2361,7 @@ def _run_analysis_with_progress(
                                 "phase": phase,
                                 "section_count": len(available_sections),
                             },
-                        )
+                        ).emit(execute_deps=execute_deps, state=aspf_trace_state)
                     sections, journal_reason = context.ensure_report_sections_cache_fn()
                     sections.update(available_sections)
                     partial_report, pending_reasons = _render_incremental_report(
@@ -2457,15 +2474,13 @@ def _run_analysis_with_progress(
     if context.needs_analysis:
         analysis_started_ns = time.monotonic_ns()
         if aspf_trace_state is not None:
-            _record_trace_1cell(
-                execute_deps=execute_deps,
-                state=aspf_trace_state,
+            _Trace1CellRecord.from_values(
                 kind="analysis_call_start",
                 source_label="runtime:inputs",
                 target_label="analysis:engine",
                 representative="analyze_paths.start",
                 basis_path=("analysis", "call", "start"),
-            )
+            ).emit(execute_deps=execute_deps, state=aspf_trace_state)
         with policy_runtime.runtime_policy_scope(runtime_policy):
             analysis = execute_deps.analysis.analyze_paths_fn(
                 context.paths,
@@ -2503,29 +2518,25 @@ def _run_analysis_with_progress(
                 ),
             )
         if aspf_trace_state is not None:
-            _record_trace_1cell(
-                execute_deps=execute_deps,
-                state=aspf_trace_state,
+            _Trace1CellRecord.from_values(
                 kind="analysis_call_end",
                 source_label="analysis:engine",
                 target_label="analysis:result",
                 representative="analyze_paths.end",
                 basis_path=("analysis", "call", "end"),
-            )
+            ).emit(execute_deps=execute_deps, state=aspf_trace_state)
         context.profiling_stage_ns["server.analysis_call"] += (
             time.monotonic_ns() - analysis_started_ns
         )
     else:
         if aspf_trace_state is not None:
-            _record_trace_1cell(
-                execute_deps=execute_deps,
-                state=aspf_trace_state,
+            _Trace1CellRecord.from_values(
                 kind="analysis_call_skipped",
                 source_label="runtime:inputs",
                 target_label="analysis:result",
                 representative="analyze_paths.skipped",
                 basis_path=("analysis", "call", "skipped"),
-            )
+            ).emit(execute_deps=execute_deps, state=aspf_trace_state)
         analysis = AnalysisResult(
             groups_by_path={},
             param_spans_by_path={},
@@ -3434,40 +3445,173 @@ class _TimeoutReportOutcome:
     pending_reasons: dict[str, str]
     phase_checkpoint_state: JSONObject
 
+    @classmethod
+    def from_timeout_context(
+        cls,
+        *,
+        context: _TimeoutCleanupContext,
+        analysis_state: str,
+        progress_payload: JSONObject,
+        timeout_collection_resume_payload: JSONObject,
+        phase_checkpoint_state: JSONObject,
+        mark_cleanup_timeout_fn: Callable[[str], None] | None,
+    ) -> _TimeoutReportOutcome:
+        partial_report_written = False
+        resolved_sections: dict[str, list[str]] = {}
+        pending_reasons: dict[str, str] = {}
+        if (
+            context.report_runtime_state.projection_state.output_path is not None
+            and context.report_runtime_state.projection_state.projection_rows
+        ):
+            try:
+                phase_checkpoint_state = phase_checkpoint_state or {}
+                ensure_report_sections_cache = context.ensure_report_sections_cache_fn
+                if callable(ensure_report_sections_cache):
+                    resolved_sections, journal_reason = ensure_report_sections_cache()
+                else:
+                    resolved_sections, journal_reason = ({}, None)
+                resolved_sections.setdefault(
+                    "components",
+                    _collection_components_preview_lines(
+                        collection_resume=timeout_collection_resume_payload
+                    ),
+                )
+                if (
+                    context.enable_phase_projection_checkpoints
+                    and timeout_collection_resume_payload
+                ):
+                    preview_groups_by_path = _groups_by_path_from_collection_resume(
+                        timeout_collection_resume_payload
+                    )
+                    preview_report = ReportCarrier(
+                        forest=context.forest,
+                        parse_failure_witnesses=[],
+                    )
+                    preview_sections = (
+                        context.continuation_runtime_context.trace_runtime_context.execute_deps.analysis.project_report_sections_fn(
+                            preview_groups_by_path,
+                            preview_report,
+                            project_root=context.runtime_root,
+                            max_phase="post",
+                            include_previews=True,
+                            preview_only=True,
+                        )
+                    )
+                    resolved_sections = {**preview_sections, **resolved_sections}
+                intro_lines = (
+                    _collection_progress_intro_lines(
+                        collection_resume=timeout_collection_resume_payload,
+                        total_files=(
+                            context.continuation_runtime_context.continuation_state.resume_state.projection_state.runtime_state.total_files
+                        ),
+                        resume_state_intro=(
+                            context.continuation_runtime_context.continuation_state.resume_state.support_state.intro_state.payload
+                        ),
+                    )
+                    if timeout_collection_resume_payload
+                    else [
+                        "Collection bootstrap checkpoint (provisional).",
+                        f"- `root`: `{context.runtime_root}`",
+                        f"- `paths_requested`: `{context.initial_paths_count_value}`",
+                    ]
+                )
+                resolved_sections.setdefault("intro", intro_lines)
+                partial_report, pending_reasons = _render_incremental_report(
+                    analysis_state=analysis_state,
+                    progress_payload=progress_payload,
+                    projection_rows=list(
+                        context.report_runtime_state.projection_state.projection_rows
+                    ),
+                    sections=resolved_sections,
+                )
+                _apply_journal_pending_reason(
+                    projection_rows=list(
+                        context.report_runtime_state.projection_state.projection_rows
+                    ),
+                    sections=resolved_sections,
+                    pending_reasons=pending_reasons,
+                    journal_reason=journal_reason,
+                )
+                context.report_runtime_state.projection_state.output_path.parent.mkdir(
+                    parents=True, exist_ok=True
+                )
+                _write_text_profiled(
+                    context.report_runtime_state.projection_state.output_path,
+                    partial_report,
+                    io_name="report_markdown.write",
+                )
+                _write_report_section_journal(
+                    path=context.report_runtime_state.projection_state.section_journal_path,
+                    witness_digest=context.report_runtime_state.checkpoint_state.section_witness_digest,
+                    projection_rows=list(
+                        context.report_runtime_state.projection_state.projection_rows
+                    ),
+                    sections=resolved_sections,
+                    pending_reasons=pending_reasons,
+                )
+                phase_checkpoint_state["timeout"] = {
+                    "status": "timed_out",
+                    "analysis_state": analysis_state,
+                    "section_ids": sort_once(
+                        resolved_sections, source="src/gabion/server.py:5848"
+                    ),
+                    "resolved_sections": len(resolved_sections),
+                    "completed_phase": _latest_report_phase(phase_checkpoint_state),
+                }
+                partial_report_written = True
+            except TimeoutExceeded:
+                if callable(mark_cleanup_timeout_fn):
+                    mark_cleanup_timeout_fn("render_timeout_report")
+        return cls(
+            partial_report_written=partial_report_written,
+            resolved_sections=resolved_sections,
+            pending_reasons=pending_reasons,
+            phase_checkpoint_state=phase_checkpoint_state,
+        )
 
-def _initialize_timeout_payload(
-    *,
-    exc: TimeoutExceeded,
-    context: _TimeoutCleanupContext,
-    mark_cleanup_timeout_fn: Callable[[str], None],
-) -> tuple[JSONObject, JSONObject]:
-    try:
-        timeout_payload = _timeout_context_payload(exc)
-    except TimeoutExceeded:
-        mark_cleanup_timeout_fn("timeout_context_payload")
-        timeout_payload = {
-            "summary": "Analysis timed out.",
-            "progress": {"classification": "timed_out_no_progress"},
-        }
-    progress_payload = dict(cast(Mapping[str, object], timeout_payload.get("progress", {})))
-    progress_payload["classification"] = str(
-        progress_payload.get("classification", "timed_out_no_progress")
-        or "timed_out_no_progress"
-    )
-    timeout_payload["progress"] = progress_payload
-    progress_payload.setdefault(
-        "timeout_budget",
-        {
-            "total_timeout_ns": context.timeout_total_ns,
-            "analysis_window_ns": context.analysis_window_ns,
-            "cleanup_grace_ns": context.cleanup_grace_ns,
-            "hard_deadline_ns": context.timeout_hard_deadline_ns,
-        },
-    )
-    progress_payload["resume_supported"] = bool(
-        progress_payload.get("resume_supported", False)
-    )
-    return timeout_payload, progress_payload
+
+@dataclass(frozen=True)
+class _TimeoutPayloadState:
+    timeout_payload: JSONObject
+    progress_payload: JSONObject
+
+    @classmethod
+    def from_timeout_context(
+        cls,
+        *,
+        exc: TimeoutExceeded,
+        context: _TimeoutCleanupContext,
+        mark_cleanup_timeout_fn: Callable[[str], None],
+    ) -> _TimeoutPayloadState:
+        try:
+            timeout_payload = _timeout_context_payload(exc)
+        except TimeoutExceeded:
+            mark_cleanup_timeout_fn("timeout_context_payload")
+            timeout_payload = {
+                "summary": "Analysis timed out.",
+                "progress": {"classification": "timed_out_no_progress"},
+            }
+        progress_payload = dict(
+            cast(Mapping[str, object], timeout_payload.get("progress", {}))
+        )
+        progress_payload["classification"] = str(
+            progress_payload.get("classification", "timed_out_no_progress")
+            or "timed_out_no_progress"
+        )
+        timeout_payload["progress"] = progress_payload
+        progress_payload.setdefault(
+            "timeout_budget",
+            {
+                "total_timeout_ns": context.timeout_total_ns,
+                "analysis_window_ns": context.analysis_window_ns,
+                "cleanup_grace_ns": context.cleanup_grace_ns,
+                "hard_deadline_ns": context.timeout_hard_deadline_ns,
+            },
+        )
+        progress_payload["resume_supported"] = bool(
+            progress_payload.get("resume_supported", False)
+        )
+        return cls(timeout_payload=timeout_payload, progress_payload=progress_payload)
 
 
 def _copy_json_mapping(payload: Mapping[str, JSONValue]) -> JSONObject:
@@ -3503,238 +3647,160 @@ def _render_semantic_coverage_markdown(payload: Mapping[str, JSONValue]) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
-def _emit_trace_artifacts_payloads(
-    *,
-    response: dict[str, object],
-    trace_artifacts: object,
-) -> None:
-    response["aspf_trace"] = _copy_json_mapping(trace_artifacts.trace_payload)
-    response["aspf_equivalence"] = _copy_json_mapping(trace_artifacts.equivalence_payload)
-    response["aspf_opportunities"] = _copy_json_mapping(trace_artifacts.opportunities_payload)
-    response["aspf_delta_ledger"] = _copy_json_mapping(trace_artifacts.delta_ledger_payload)
-    response["aspf_state"] = _copy_json_mapping(
-        trace_artifacts.state_payload
-        if trace_artifacts.state_payload is not None
-        else {}
-    )
+@dataclass(frozen=True)
+class _TraceArtifactResponsePayloadBundle:
+    aspf_trace: JSONObject
+    aspf_equivalence: JSONObject
+    aspf_opportunities: JSONObject
+    aspf_delta_ledger: JSONObject
+    aspf_state: JSONObject
 
-
-def _persist_timeout_resume_state(
-    *,
-    context: _TimeoutCleanupContext,
-    timeout_collection_resume_payload: JSONObject,
-    mark_cleanup_timeout_fn: Callable[[str], None],
-    emit_lsp_progress_fn: object,
-) -> JSONObject:
-    _ = (mark_cleanup_timeout_fn, emit_lsp_progress_fn)
-    return _copy_json_mapping(
-        context.continuation_runtime_context.continuation_state.collection_progress_runtime_state.collection_resume_runtime_state.resume_payload
-    ) or timeout_collection_resume_payload
-
-
-def _load_timeout_resume_progress(
-    *,
-    context: _TimeoutCleanupContext,
-    progress_payload: JSONObject,
-    timeout_collection_resume_payload: JSONObject,
-    mark_cleanup_timeout_fn: Callable[[str], None],
-) -> JSONObject:
-    _ = mark_cleanup_timeout_fn
-    collection_resume = (
-        timeout_collection_resume_payload
-        or context.continuation_runtime_context.continuation_state.collection_progress_runtime_state.collection_resume_runtime_state.resume_payload
-    )
-    if not collection_resume:
-        return timeout_collection_resume_payload
-    timeout_collection_resume_payload = dict(collection_resume)
-    resume_progress = _analysis_resume_progress(
-        collection_resume=collection_resume,
-        total_files=(
-            context.continuation_runtime_context.continuation_state.resume_state.projection_state.runtime_state.total_files
-        ),
-    )
-    progress_payload["completed_files"] = resume_progress["completed_files"]
-    progress_payload["in_progress_files"] = resume_progress["in_progress_files"]
-    progress_payload["remaining_files"] = resume_progress["remaining_files"]
-    progress_payload["total_files"] = resume_progress["total_files"]
-    resume_supported = (
-        resume_progress["completed_files"] > 0
-        or resume_progress.get("in_progress_files", 0) > 0
-    )
-    progress_payload["resume_supported"] = resume_supported
-    semantic_progress = dict(
-        cast(Mapping[str, object], collection_resume.get("semantic_progress", {}))
-    )
-    progress_payload["semantic_progress"] = {
-        str(key): semantic_progress[key] for key in semantic_progress
-    }
-    raw_semantic_substantive = semantic_progress.get("substantive_progress")
-    semantic_substantive_progress = {
-        True: True,
-        False: False,
-    }.get(raw_semantic_substantive)
-    resume_token: JSONObject = {
-        "phase": "analysis_collection",
-        "carrier_refs": {
-            "collection_resume": True,
-        },
-        **resume_progress,
-    }
-    resume_payload: JSONObject = {"resume_token": resume_token}
-    resume_payload["input_witness"] = (
-        context.continuation_runtime_context.continuation_state.resume_state.support_state.input_state.input_witness
-    )
-    progress_payload["resume"] = resume_payload
-    classification = str(progress_payload.get("classification", "") or "")
-    progress_payload["classification"] = (
-        "timed_out_progress_resume"
-        if (
-            resume_supported
-            and classification == "timed_out_no_progress"
-            and (
-                semantic_substantive_progress is None
-                or semantic_substantive_progress
-            )
+    @classmethod
+    def from_trace_artifacts(
+        cls,
+        *,
+        trace_artifacts: object,
+    ) -> _TraceArtifactResponsePayloadBundle:
+        return cls(
+            aspf_trace=_copy_json_mapping(trace_artifacts.trace_payload),
+            aspf_equivalence=_copy_json_mapping(
+                trace_artifacts.equivalence_payload
+            ),
+            aspf_opportunities=_copy_json_mapping(
+                trace_artifacts.opportunities_payload
+            ),
+            aspf_delta_ledger=_copy_json_mapping(
+                trace_artifacts.delta_ledger_payload
+            ),
+            aspf_state=_copy_json_mapping(
+                trace_artifacts.state_payload
+                if trace_artifacts.state_payload is not None
+                else {}
+            ),
         )
-        else classification
-    )
-    return timeout_collection_resume_payload
+
+    def apply_to_response(self, *, response: dict[str, object]) -> None:
+        response["aspf_trace"] = self.aspf_trace
+        response["aspf_equivalence"] = self.aspf_equivalence
+        response["aspf_opportunities"] = self.aspf_opportunities
+        response["aspf_delta_ledger"] = self.aspf_delta_ledger
+        response["aspf_state"] = self.aspf_state
 
 
-def _derive_timeout_analysis_state(*, progress_payload: JSONObject) -> str:
-    analysis_state = str(
-        progress_payload.get("classification", "timed_out_no_progress")
-        or "timed_out_no_progress"
-    )
-    progress_payload["resume_supported"] = bool(
-        progress_payload.get("resume_supported")
-    ) or analysis_state == "timed_out_progress_resume"
-    return analysis_state
+@dataclass(frozen=True)
+class _TimeoutResumeProgressState:
+    collection_resume_payload: JSONObject
+    progress_payload: JSONObject
 
-
-def _render_timeout_partial_report(
-    *,
-    context: _TimeoutCleanupContext,
-    analysis_state: str,
-    progress_payload: JSONObject,
-    timeout_collection_resume_payload: JSONObject,
-    phase_checkpoint_state: JSONObject,
-    mark_cleanup_timeout_fn: Callable[[str], None],
-) -> _TimeoutReportOutcome:
-    partial_report_written = False
-    resolved_sections: dict[str, list[str]] = {}
-    pending_reasons: dict[str, str] = {}
-    if (
-        context.report_runtime_state.projection_state.output_path is not None
-        and context.report_runtime_state.projection_state.projection_rows
-    ):
-        try:
-            phase_checkpoint_state = phase_checkpoint_state or {}
-            ensure_report_sections_cache = context.ensure_report_sections_cache_fn
-            if callable(ensure_report_sections_cache):
-                resolved_sections, journal_reason = ensure_report_sections_cache()
-            else:
-                resolved_sections, journal_reason = ({}, None)
-            resolved_sections.setdefault(
-                "components",
-                _collection_components_preview_lines(collection_resume=timeout_collection_resume_payload),
-            )
-            if (
-                context.enable_phase_projection_checkpoints
-                and timeout_collection_resume_payload
-            ):
-                preview_groups_by_path = _groups_by_path_from_collection_resume(
-                    timeout_collection_resume_payload
-                )
-                preview_report = ReportCarrier(
-                    forest=context.forest,
-                    parse_failure_witnesses=[],
-                )
-                preview_sections = (
-                    context.trace_runtime_context.execute_deps.analysis.project_report_sections_fn(
-                    preview_groups_by_path,
-                    preview_report,
-                    project_root=context.config.project_root,
-                    max_phase="post",
-                    include_previews=True,
-                    preview_only=True,
-                    )
-                )
-                resolved_sections = {**preview_sections, **resolved_sections}
-            intro_lines = (
-                _collection_progress_intro_lines(
-                    collection_resume=timeout_collection_resume_payload,
-                    total_files=(
-                        context.continuation_runtime_context.continuation_state.resume_state.projection_state.runtime_state.total_files
-                    ),
-                    resume_state_intro=(
-                        context.continuation_runtime_context.continuation_state.resume_state.support_state.intro_state.payload
-                    ),
-                )
-                if timeout_collection_resume_payload
-                else [
-                    "Collection bootstrap checkpoint (provisional).",
-                    f"- `root`: `{context.runtime_root}`",
-                    f"- `paths_requested`: `{context.initial_paths_count_value}`",
-                ]
-            )
-            resolved_sections.setdefault("intro", intro_lines)
-            partial_report, pending_reasons = _render_incremental_report(
-                analysis_state=analysis_state,
+    @classmethod
+    def from_timeout_context(
+        cls,
+        *,
+        context: _TimeoutCleanupContext,
+        progress_payload: JSONObject,
+    ) -> _TimeoutResumeProgressState:
+        collection_resume = _copy_json_mapping(
+            context.continuation_runtime_context.continuation_state.collection_progress_runtime_state.collection_resume_runtime_state.resume_payload
+        )
+        if not collection_resume:
+            return cls(
+                collection_resume_payload=collection_resume,
                 progress_payload=progress_payload,
-                projection_rows=list(
-                    context.report_runtime_state.projection_state.projection_rows
-                ),
-                sections=resolved_sections,
             )
-            _apply_journal_pending_reason(
-                projection_rows=list(
-                    context.report_runtime_state.projection_state.projection_rows
-                ),
-                sections=resolved_sections,
-                pending_reasons=pending_reasons,
-                journal_reason=journal_reason,
+        timeout_collection_resume_payload = dict(collection_resume)
+        updated_progress_payload = dict(progress_payload)
+        resume_progress = _analysis_resume_progress(
+            collection_resume=collection_resume,
+            total_files=(
+                context.continuation_runtime_context.continuation_state.resume_state.projection_state.runtime_state.total_files
+            ),
+        )
+        updated_progress_payload["completed_files"] = resume_progress["completed_files"]
+        updated_progress_payload["in_progress_files"] = resume_progress["in_progress_files"]
+        updated_progress_payload["remaining_files"] = resume_progress["remaining_files"]
+        updated_progress_payload["total_files"] = resume_progress["total_files"]
+        resume_supported = (
+            resume_progress["completed_files"] > 0
+            or resume_progress.get("in_progress_files", 0) > 0
+        )
+        updated_progress_payload["resume_supported"] = resume_supported
+        semantic_progress = dict(
+            cast(Mapping[str, object], collection_resume.get("semantic_progress", {}))
+        )
+        updated_progress_payload["semantic_progress"] = {
+            str(key): semantic_progress[key] for key in semantic_progress
+        }
+        raw_semantic_substantive = semantic_progress.get("substantive_progress")
+        semantic_substantive_progress = {
+            True: True,
+            False: False,
+        }.get(raw_semantic_substantive)
+        resume_token: JSONObject = {
+            "phase": "analysis_collection",
+            "carrier_refs": {
+                "collection_resume": True,
+            },
+            **resume_progress,
+        }
+        resume_payload: JSONObject = {"resume_token": resume_token}
+        resume_payload["input_witness"] = (
+            context.continuation_runtime_context.continuation_state.resume_state.support_state.input_state.input_witness
+        )
+        updated_progress_payload["resume"] = resume_payload
+        classification = str(updated_progress_payload.get("classification", "") or "")
+        updated_progress_payload["classification"] = (
+            "timed_out_progress_resume"
+            if (
+                resume_supported
+                and classification == "timed_out_no_progress"
+                and (
+                    semantic_substantive_progress is None
+                    or semantic_substantive_progress
+                )
             )
-            context.report_runtime_state.projection_state.output_path.parent.mkdir(
-                parents=True, exist_ok=True
-            )
-            _write_text_profiled(
-                context.report_runtime_state.projection_state.output_path,
-                partial_report,
-                io_name="report_markdown.write",
-            )
-            _write_report_section_journal(
-                path=context.report_runtime_state.projection_state.section_journal_path,
-                witness_digest=context.report_runtime_state.checkpoint_state.section_witness_digest,
-                projection_rows=list(
-                    context.report_runtime_state.projection_state.projection_rows
-                ),
-                sections=resolved_sections,
-                pending_reasons=pending_reasons,
-            )
-            phase_checkpoint_state["timeout"] = {
-                "status": "timed_out",
-                "analysis_state": analysis_state,
-                "section_ids": sort_once(resolved_sections, source = 'src/gabion/server.py:5848'),
-                "resolved_sections": len(resolved_sections),
-                "completed_phase": _latest_report_phase(phase_checkpoint_state),
-            }
-            partial_report_written = True
-        except TimeoutExceeded:
-            mark_cleanup_timeout_fn("render_timeout_report")
-    return _TimeoutReportOutcome(
-        partial_report_written=partial_report_written,
-        resolved_sections=resolved_sections,
-        pending_reasons=pending_reasons,
-        phase_checkpoint_state=phase_checkpoint_state,
-    )
+            else classification
+        )
+        return cls(
+            collection_resume_payload=timeout_collection_resume_payload,
+            progress_payload=updated_progress_payload,
+        )
+
+
+@dataclass(frozen=True)
+class _TimeoutAnalysisOutcome:
+    analysis_state: str
+    classification: str
+    progress_payload: JSONObject
+
+    @classmethod
+    def from_progress_payload(
+        cls,
+        *,
+        progress_payload: JSONObject,
+    ) -> _TimeoutAnalysisOutcome:
+        updated_progress_payload = dict(progress_payload)
+        analysis_state = str(
+            updated_progress_payload.get("classification", "timed_out_no_progress")
+            or "timed_out_no_progress"
+        )
+        updated_progress_payload["resume_supported"] = bool(
+            updated_progress_payload.get("resume_supported")
+        ) or analysis_state == "timed_out_progress_resume"
+        classification = timeout_classification_decision(
+            progress_payload=updated_progress_payload
+        )
+        return cls(
+            analysis_state=analysis_state,
+            classification=classification,
+            progress_payload=updated_progress_payload,
+        )
 
 
 def _handle_timeout_cleanup(
     *,
     exc: TimeoutExceeded,
     context: _TimeoutCleanupContext,
-) -> dict:
+) -> DataflowResponseEnvelopeDTO:
     trace_runtime_context = context.continuation_runtime_context.trace_runtime_context
     continuation_state = context.continuation_runtime_context.continuation_state
     execute_deps = trace_runtime_context.execute_deps
@@ -3754,32 +3820,25 @@ def _handle_timeout_cleanup(
         cleanup_timeout_steps.append(step)
 
     try:
-        timeout_payload, progress_payload = _initialize_timeout_payload(
+        timeout_payload_state = _TimeoutPayloadState.from_timeout_context(
             exc=exc,
             context=context,
             mark_cleanup_timeout_fn=_mark_cleanup_timeout,
         )
-        timeout_collection_resume_payload: JSONObject = {}
-        timeout_collection_resume_payload = _persist_timeout_resume_state(
+        timeout_resume_progress_state = _TimeoutResumeProgressState.from_timeout_context(
             context=context,
-            timeout_collection_resume_payload=timeout_collection_resume_payload,
-            mark_cleanup_timeout_fn=_mark_cleanup_timeout,
-            emit_lsp_progress_fn=emit_lsp_progress,
+            progress_payload=timeout_payload_state.progress_payload,
         )
-        timeout_collection_resume_payload = _load_timeout_resume_progress(
+        timeout_analysis_outcome = _TimeoutAnalysisOutcome.from_progress_payload(
+            progress_payload=timeout_resume_progress_state.progress_payload
+        )
+        timeout_report_outcome = _TimeoutReportOutcome.from_timeout_context(
             context=context,
-            progress_payload=progress_payload,
-            timeout_collection_resume_payload=timeout_collection_resume_payload,
-            mark_cleanup_timeout_fn=_mark_cleanup_timeout,
-        )
-        analysis_state = _derive_timeout_analysis_state(
-            progress_payload=progress_payload
-        )
-        timeout_report_outcome = _render_timeout_partial_report(
-            context=context,
-            analysis_state=analysis_state,
-            progress_payload=progress_payload,
-            timeout_collection_resume_payload=timeout_collection_resume_payload,
+            analysis_state=timeout_analysis_outcome.analysis_state,
+            progress_payload=timeout_analysis_outcome.progress_payload,
+            timeout_collection_resume_payload=(
+                timeout_resume_progress_state.collection_resume_payload
+            ),
             phase_checkpoint_state=phase_checkpoint_state,
             mark_cleanup_timeout_fn=_mark_cleanup_timeout,
         )
@@ -3789,9 +3848,11 @@ def _handle_timeout_cleanup(
         phase_checkpoint_state = timeout_report_outcome.phase_checkpoint_state
         try:
             obligations = _incremental_progress_obligations(
-                analysis_state=analysis_state,
-                progress_payload=progress_payload,
-                resume_payload_available=bool(timeout_collection_resume_payload),
+                analysis_state=timeout_analysis_outcome.analysis_state,
+                progress_payload=timeout_analysis_outcome.progress_payload,
+                resume_payload_available=bool(
+                    timeout_resume_progress_state.collection_resume_payload
+                ),
                 partial_report_written=partial_report_written,
                 report_requested=(
                     context.report_runtime_state.projection_state.output_path is not None
@@ -3805,13 +3866,12 @@ def _handle_timeout_cleanup(
         except TimeoutExceeded:
             _mark_cleanup_timeout("incremental_obligations")
             obligations = []
-        progress_payload["incremental_obligations"] = obligations
+        timeout_analysis_outcome.progress_payload["incremental_obligations"] = obligations
         if cleanup_timeout_steps:
-            progress_payload["cleanup_truncated"] = True
-            progress_payload["cleanup_timeout_steps"] = cleanup_timeout_steps
-        timeout_classification_value = _timeout_classification_decision(
-            progress_payload=progress_payload
-        )
+            timeout_analysis_outcome.progress_payload["cleanup_truncated"] = True
+            timeout_analysis_outcome.progress_payload["cleanup_timeout_steps"] = (
+                cleanup_timeout_steps
+            )
         emit_lsp_progress(
             phase="post",
             collection_progress=(
@@ -3822,28 +3882,26 @@ def _handle_timeout_cleanup(
             ),
             include_timing=True,
             done=False,
-            analysis_state=analysis_state,
-            classification=timeout_classification_value,
+            analysis_state=timeout_analysis_outcome.analysis_state,
+            classification=timeout_analysis_outcome.classification,
             progress_marker="cleanup:finalize_response",
             event_kind="progress",
         )
         if aspf_trace_state is not None:
-            _record_trace_1cell(
-                execute_deps=execute_deps,
-                state=aspf_trace_state,
+            _Trace1CellRecord.from_values(
                 kind="timeout_cleanup",
                 source_label="analysis:engine",
                 target_label="runtime:timeout_context",
                 representative="analysis.timeout.cleanup",
                 basis_path=("timeout", "cleanup"),
                 surface="violation_summary",
-            )
+            ).emit(execute_deps=execute_deps, state=aspf_trace_state)
         timeout_response: dict[str, object] = {
             "exit_code": 2,
             "timeout": True,
-            "analysis_state": analysis_state,
+            "analysis_state": timeout_analysis_outcome.analysis_state,
             "execution_plan": context.execution_plan.as_json_dict(),
-            "timeout_context": timeout_payload,
+            "timeout_context": timeout_payload_state.timeout_payload,
             "selected_adapter": context.dataflow_capabilities.selected_adapter,
             "supported_analysis_surfaces": list(
                 context.dataflow_capabilities.supported_analysis_surfaces
@@ -3863,10 +3921,15 @@ def _handle_timeout_cleanup(
                 "pattern_schema_residue": [],
                 "rewrite_plans": [],
                 "synthesis_plan": [],
-                "delta_state": progress_payload,
-                "delta_payload": timeout_payload,
-                "violation_summary": {"timeout": True, "analysis_state": analysis_state},
-                "_resume_collection": timeout_collection_resume_payload,
+                "delta_state": timeout_analysis_outcome.progress_payload,
+                "delta_payload": timeout_payload_state.timeout_payload,
+                "violation_summary": {
+                    "timeout": True,
+                    "analysis_state": timeout_analysis_outcome.analysis_state,
+                },
+                "_resume_collection": (
+                    timeout_resume_progress_state.collection_resume_payload
+                ),
                 "_latest_collection_progress": (
                     continuation_state.collection_progress_runtime_state.latest_collection_progress
                 ),
@@ -3882,13 +3945,12 @@ def _handle_timeout_cleanup(
                 ),
             },
             exit_code=2,
-            analysis_state=analysis_state,
+            analysis_state=timeout_analysis_outcome.analysis_state,
         )
         if trace_artifacts is not None:
-            _emit_trace_artifacts_payloads(
-                response=timeout_response,
+            _TraceArtifactResponsePayloadBundle.from_trace_artifacts(
                 trace_artifacts=trace_artifacts,
-            )
+            ).apply_to_response(response=timeout_response)
         emit_lsp_progress(
             phase="post",
             collection_progress=(
@@ -3899,8 +3961,8 @@ def _handle_timeout_cleanup(
             ),
             include_timing=True,
             done=True,
-            analysis_state=analysis_state,
-            classification=timeout_classification_value,
+            analysis_state=timeout_analysis_outcome.analysis_state,
+            classification=timeout_analysis_outcome.classification,
             event_kind="terminal",
         )
         if context.identity_shadow_runtime is not None:
@@ -3914,10 +3976,6 @@ def _handle_timeout_cleanup(
         return _normalize_dataflow_response(timeout_response)
     finally:
         reset_deadline(cleanup_deadline_token)
-
-
-def _timeout_classification_decision(*, progress_payload: JSONObject) -> str:
-    return timeout_classification_decision(progress_payload=progress_payload)
 
 
 def _checkpoint_projection_decision(*, report_output_path: Path | None) -> bool:
@@ -4563,27 +4621,23 @@ def _build_success_response(
     plan_payload = primary_outputs.refactor_plan_payload
     metrics = primary_outputs.structure_metrics_payload
     if synthesis_plan is not None and aspf_trace_state is not None:
-        _record_trace_1cell(
-            execute_deps=execute_deps,
-            state=aspf_trace_state,
+        _Trace1CellRecord.from_values(
             kind="artifact_emit",
             source_label="analysis:result",
             target_label="artifact:synthesis_plan",
             representative="emit:synthesis_plan",
             basis_path=("artifact", "emit", "synthesis_plan"),
             surface="synthesis_plan",
-        )
+        ).emit(execute_deps=execute_deps, state=aspf_trace_state)
     if plan_payload is not None and aspf_trace_state is not None:
-        _record_trace_1cell(
-            execute_deps=execute_deps,
-            state=aspf_trace_state,
+        _Trace1CellRecord.from_values(
             kind="artifact_emit",
             source_label="analysis:result",
             target_label="artifact:refactor_plan",
             representative="emit:refactor_plan",
             basis_path=("artifact", "emit", "refactor_plan"),
             surface="rewrite_plans",
-        )
+        ).emit(execute_deps=execute_deps, state=aspf_trace_state)
 
     _apply_auxiliary_artifact_outputs(
         context=_AuxiliaryArtifactOutputContext(
@@ -4614,16 +4668,14 @@ def _build_success_response(
             lambda pair: pair[0] in response,
             trace_artifact_pairs,
         ):
-            _record_trace_1cell(
-                execute_deps=execute_deps,
-                state=aspf_trace_state,
+            _Trace1CellRecord.from_values(
                 kind="artifact_emit",
                 source_label="analysis:result",
                 target_label=f"artifact:{artifact_key}",
                 representative=representative,
                 basis_path=("artifact", "emit", artifact_key),
                 surface=_artifact_trace_surface(artifact_key),
-            )
+            ).emit(execute_deps=execute_deps, state=aspf_trace_state)
     if aspf_trace_state is not None:
         materialized_one_cells: list[JSONObject] = []
         for cell, metadata in zip_longest(
@@ -4782,10 +4834,9 @@ def _build_success_response(
         ),
     )
     if trace_artifacts is not None:
-        _emit_trace_artifacts_payloads(
-            response=response,
+        _TraceArtifactResponsePayloadBundle.from_trace_artifacts(
             trace_artifacts=trace_artifacts,
-        )
+        ).apply_to_response(response=response)
     emit_lsp_progress = context.emit_lsp_progress_fn
     emit_lsp_progress(
         phase="post",
@@ -4955,8 +5006,8 @@ def _stage_finalize_timeout(
     *,
     exc: TimeoutExceeded,
     context: _TimeoutCleanupContext,
-    cleanup_handler_fn: Callable[..., dict] = _handle_timeout_cleanup,
-) -> dict:
+    cleanup_handler_fn: Callable[..., DataflowResponseEnvelopeDTO] = _handle_timeout_cleanup,
+) -> DataflowResponseEnvelopeDTO:
     timeout_stage = run_timeout_stage(
         exc=exc,
         context=context,
@@ -5241,15 +5292,13 @@ def execute_command_total(
             payload=payload,
         )
         if aspf_trace_state is not None:
-            _record_trace_1cell(
-                execute_deps=execute_deps,
-                state=aspf_trace_state,
+            _Trace1CellRecord.from_values(
                 kind="command_start",
                 source_label="runtime:command",
                 target_label="analysis:entry",
                 representative="gabion.dataflow.start",
                 basis_path=("command", "start"),
-            )
+            ).emit(execute_deps=execute_deps, state=aspf_trace_state)
         enable_phase_projection_checkpoints = _checkpoint_projection_decision(
             report_output_path=report_projection_state.output_path
         )

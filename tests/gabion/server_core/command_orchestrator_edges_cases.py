@@ -281,9 +281,9 @@ def test_finalize_report_refactor_enabled_without_payload_keeps_report_stable(
     assert isinstance(outcome.report, str)
 
 
-# gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._load_timeout_resume_progress E:decision_surface/direct::command_orchestrator.py::gabion.server_core.command_orchestrator._load_timeout_resume_progress::stale_a34f1f47eb2e
+# gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._TimeoutResumeProgressState.from_timeout_context
 # gabion:behavior primary=verboten facets=edge,timeout
-def test_load_timeout_resume_progress_uses_manifest_resume_pair(
+def test_timeout_resume_progress_state_uses_manifest_resume_pair(
     tmp_path: Path,
 ) -> None:
     orchestrator._bind_server_symbols()
@@ -299,37 +299,33 @@ def test_load_timeout_resume_progress_uses_manifest_resume_pair(
         last_collection_resume_payload=resume_payload,
     )
     progress_payload: dict[str, object] = {"classification": "timed_out_no_progress"}
-    loaded = orchestrator._load_timeout_resume_progress(
+    loaded = orchestrator._TimeoutResumeProgressState.from_timeout_context(
         context=context,
         progress_payload=progress_payload,
-        timeout_collection_resume_payload={},
-        mark_cleanup_timeout_fn=lambda _step: None,
     )
-    assert loaded == resume_payload
-    assert progress_payload["classification"] == "timed_out_progress_resume"
-    assert progress_payload["resume_supported"] is True
-    resume = progress_payload.get("resume")
+    assert loaded.collection_resume_payload == resume_payload
+    assert loaded.progress_payload["classification"] == "timed_out_progress_resume"
+    assert loaded.progress_payload["resume_supported"] is True
+    resume = loaded.progress_payload.get("resume")
     assert isinstance(resume, dict)
     assert resume["resume_token"]["completed_files"] == 2
 
 
-# gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._load_timeout_resume_progress E:decision_surface/direct::command_orchestrator.py::gabion.server_core.command_orchestrator._load_timeout_resume_progress::stale_c63e5782a009_20498f3c
+# gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._TimeoutResumeProgressState.from_timeout_context
 # gabion:behavior primary=verboten facets=edge,none,timeout
-def test_load_timeout_resume_progress_manifest_loader_none_keeps_previous_payload(
+def test_timeout_resume_progress_state_keeps_empty_previous_payload(
     tmp_path: Path,
 ) -> None:
     orchestrator._bind_server_symbols()
     deps = server._default_execute_command_deps()
     context = _timeout_context(tmp_path=tmp_path, deps=deps)
     progress_payload: dict[str, object] = {"classification": "timed_out_no_progress"}
-    loaded = orchestrator._load_timeout_resume_progress(
+    loaded = orchestrator._TimeoutResumeProgressState.from_timeout_context(
         context=context,
         progress_payload=progress_payload,
-        timeout_collection_resume_payload={},
-        mark_cleanup_timeout_fn=lambda _step: None,
     )
-    assert loaded == {}
-    assert progress_payload["classification"] == "timed_out_no_progress"
+    assert loaded.collection_resume_payload == {}
+    assert loaded.progress_payload["classification"] == "timed_out_no_progress"
 
 
 # gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._finalize_report_and_violations E:decision_surface/direct::command_orchestrator.py::gabion.server_core.command_orchestrator._finalize_report_and_violations::stale_951f0c40d59e
@@ -386,9 +382,9 @@ def test_notification_runtime_rejects_non_callable_sender() -> None:
         orchestrator._notification_runtime("not-callable")
 
 
-# gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._render_timeout_partial_report
+# gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._TimeoutReportOutcome.from_timeout_context
 # gabion:behavior primary=verboten facets=edge,timeout
-def test_render_timeout_partial_report_handles_non_callable_cache_loader(
+def test_timeout_report_outcome_handles_non_callable_cache_loader(
     tmp_path: Path,
 ) -> None:
     orchestrator._bind_server_symbols()
@@ -426,7 +422,7 @@ def test_render_timeout_partial_report_handles_non_callable_cache_loader(
         ensure_report_sections_cache_fn=None,
         emit_lsp_progress_fn=None,
     )
-    outcome = orchestrator._render_timeout_partial_report(
+    outcome = orchestrator._TimeoutReportOutcome.from_timeout_context(
         context=context,
         analysis_state="timed_out_no_progress",
         progress_payload={"classification": "timed_out_no_progress"},
@@ -600,13 +596,12 @@ def test_prepare_analysis_resume_state_accepts_snapshot_first_aspf_resume_payloa
     assert state.analysis_resume_state.projection_state.runtime_state.reused_files == 1
 
 
-# gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._persist_timeout_resume_state
+# gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._TimeoutResumeProgressState.from_timeout_context
 # gabion:behavior primary=verboten facets=edge,timeout
-def test_persist_timeout_resume_state_skips_checkpoint_event_when_timeline_disabled(
+def test_timeout_resume_progress_state_has_no_checkpoint_side_effects(
     tmp_path: Path,
 ) -> None:
     orchestrator._bind_server_symbols()
-    emitted_events: list[dict[str, object]] = []
     deps = server._default_execute_command_deps()
     context = _timeout_context(
         tmp_path=tmp_path,
@@ -616,16 +611,74 @@ def test_persist_timeout_resume_state_skips_checkpoint_event_when_timeline_disab
             "in_progress_scan_by_path": {},
         },
     )
-    persisted_payload = orchestrator._persist_timeout_resume_state(
+    persisted_state = orchestrator._TimeoutResumeProgressState.from_timeout_context(
         context=context,
-        timeout_collection_resume_payload={},
-        mark_cleanup_timeout_fn=lambda _step: None,
-        emit_lsp_progress_fn=lambda **kwargs: emitted_events.append(
-            {str(key): kwargs[key] for key in kwargs}
-        ),
+        progress_payload={"classification": "timed_out_no_progress"},
     )
-    assert isinstance(persisted_payload, dict)
-    assert emitted_events == []
+    assert persisted_state.collection_resume_payload == {
+        "completed_paths": ["module.py"],
+        "in_progress_scan_by_path": {},
+    }
+
+
+# gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._Trace1CellRecord
+# gabion:behavior primary=desired
+def test_trace_1cell_record_emits_via_execute_deps() -> None:
+    emitted: list[tuple[object, dict[str, object]]] = []
+    execute_deps = SimpleNamespace(
+        progress=SimpleNamespace(
+            record_1cell_fn=lambda state, **kwargs: emitted.append((state, kwargs))
+        )
+    )
+
+    orchestrator._Trace1CellRecord.from_values(
+        kind="artifact_emit",
+        source_label="analysis:result",
+        target_label="artifact:test",
+        representative="emit:test",
+        basis_path=("artifact", "emit", "test"),
+        surface="delta_payload",
+    ).emit(execute_deps=execute_deps, state="trace-state")
+
+    assert emitted == [
+        (
+            "trace-state",
+            {
+                "kind": "artifact_emit",
+                "source_label": "analysis:result",
+                "target_label": "artifact:test",
+                "representative": "emit:test",
+                "basis_path": ("artifact", "emit", "test"),
+                "surface": "delta_payload",
+                "metadata": None,
+            },
+        )
+    ]
+
+
+# gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._TraceArtifactResponsePayloadBundle
+# gabion:behavior primary=desired
+def test_trace_artifact_response_payload_bundle_applies_payloads() -> None:
+    response: dict[str, object] = {}
+    bundle = orchestrator._TraceArtifactResponsePayloadBundle.from_trace_artifacts(
+        trace_artifacts=SimpleNamespace(
+            trace_payload={"trace": True},
+            equivalence_payload={"equivalence": True},
+            opportunities_payload={"opportunities": True},
+            delta_ledger_payload={"delta": True},
+            state_payload=None,
+        )
+    )
+
+    bundle.apply_to_response(response=response)
+
+    assert response == {
+        "aspf_trace": {"trace": True},
+        "aspf_equivalence": {"equivalence": True},
+        "aspf_opportunities": {"opportunities": True},
+        "aspf_delta_ledger": {"delta": True},
+        "aspf_state": {},
+    }
 
 
 # gabion:evidence E:function_site::tests/test_server_core_orchestrator_edges.py::test_emit_primary_outputs_writes_synthesis_protocols_to_response_for_stdout

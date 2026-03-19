@@ -84,9 +84,11 @@ def test_stage_finalize_success_projects_resume_compatibility() -> None:
 
 # gabion:behavior primary=verboten facets=timeout
 def test_stage_finalize_timeout_delegates_cleanup() -> None:
-    sentinel = {"timeout": True}
+    sentinel = orchestrator._normalize_dataflow_response({"timeout": True, "exit_code": 2})
 
-    def _fake_timeout_cleanup(*, exc: TimeoutExceeded, context: object) -> dict:
+    def _fake_timeout_cleanup(
+        *, exc: TimeoutExceeded, context: object
+    ) -> orchestrator.DataflowResponseEnvelopeDTO:
         assert isinstance(exc, TimeoutExceeded)
         assert context is timeout_context
         return sentinel
