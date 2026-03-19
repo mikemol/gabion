@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from dataclasses import dataclass
 
 from typing import Iterator, Mapping, Sequence
 
@@ -30,6 +31,52 @@ _REPORT_PHASE_RANK_BY_NAME: dict[str, int] = {
     "edge": report_projection_phase_rank("edge"),
     "post": report_projection_phase_rank("post"),
 }
+
+
+@dataclass(frozen=True)
+class _CollectionSemanticStateFact:
+    path: str
+    phase: str
+    processed_functions: frozenset[str]
+    processed_count: int
+    processed_digest: str
+
+
+@dataclass(frozen=True)
+class _CollectionSemanticPathDelta:
+    added_processed_count: int
+    regressed_processed_count: int
+    changed_in_progress_paths: int
+    unchanged_in_progress_paths: int
+
+
+@dataclass(frozen=True)
+class _CollectionSemanticHydrationDelta:
+    hydrated_paths_delta: int
+    hydrated_paths_regressed: int
+
+
+@dataclass(frozen=True)
+class _CollectionSemanticHydrationFact:
+    hydrated_paths: frozenset[str]
+    hydrated_count: int
+    hydrated_digest: str
+
+
+@dataclass(frozen=True)
+class _CollectionSemanticCumulativeTotals:
+    cumulative_new_processed_functions: int
+    cumulative_completed_files_delta: int
+    cumulative_hydrated_paths_delta: int
+    cumulative_regressed_functions: int
+
+
+@dataclass(frozen=True)
+class _CollectionSemanticPathTotals:
+    added_processed_count: int
+    regressed_processed_count: int
+    changed_in_progress_paths: int
+    unchanged_in_progress_paths: int
 
 
 def _count_one(_: object) -> int:
@@ -394,6 +441,124 @@ def _state_processed_digest(state: Mapping[str, JSONValue]) -> str:
         _canonical_json_text({"count": _state_processed_count(state)}).encode("utf-8")
     ).hexdigest()
 
+
+def _collection_semantic_state_fact(
+    path_key: str,
+    state: Mapping[str, JSONValue],
+) -> _CollectionSemanticStateFact:
+    phase = state.get("phase")
+    phase_text = _str_optional(phase) or "unknown"
+    processed_functions = frozenset(_state_processed_functions(state))
+    processed_count = (
+        len(processed_functions)
+        if processed_functions
+        else _state_processed_count(state)
+    )
+    return _CollectionSemanticStateFact(
+        path=path_key,
+        phase=phase_text,
+        processed_functions=processed_functions,
+        processed_count=processed_count,
+        processed_digest=_state_processed_digest(state),
+    )
+
+
+def _iter_collection_semantic_state_facts(
+    states: Mapping[str, Mapping[str, JSONValue]],
+) -> Iterator[_CollectionSemanticStateFact]:
+    for path_key, state in states.items():
+        check_deadline()
+        yield _collection_semantic_state_fact(path_key, state)
+
+
+def _collection_semantic_state_fact_index(
+    collection_resume: Mapping[str, JSONValue] | None,
+) -> dict[str, _CollectionSemanticStateFact]:
+    states = _in_progress_scan_states(collection_resume)
+    return {
+        fact.path: fact for fact in _iter_collection_semantic_state_facts(states)
+    }
+
+
+def _iter_collection_semantic_path_keys(
+    previous_state_facts: Mapping[str, _CollectionSemanticStateFact],
+    current_state_facts: Mapping[str, _CollectionSemanticStateFact],
+) -> Iterator[str]:
+    yielded_paths: set[str] = set()
+    for path_key in previous_state_facts:
+        check_deadline()
+        yielded_paths.add(path_key)
+        yield path_key
+    for path_key in current_state_facts:
+        check_deadline()
+        if path_key in yielded_paths:
+            continue
+        yield path_key
+
+
+def _collection_semantic_path_delta(
+    *,
+    previous_fact: _CollectionSemanticStateFact | None,
+    current_fact: _CollectionSemanticStateFact | None,
+    current_completed_paths: set[str],
+) -> _CollectionSemanticPathDelta:
+    path_key = (
+        current_fact.path if current_fact is not None else previous_fact.path
+        if previous_fact is not None
+        else never("path delta requires at least one state fact")
+    )
+    if (
+        previous_fact is not None
+        and current_fact is None
+        and path_key in current_completed_paths
+    ):
+        return _CollectionSemanticPathDelta(
+            added_processed_count=0,
+            regressed_processed_count=0,
+            changed_in_progress_paths=1,
+            unchanged_in_progress_paths=0,
+        )
+    previous_keys = (
+        previous_fact.processed_functions
+        if previous_fact is not None
+        else frozenset()
+    )
+    current_keys = (
+        current_fact.processed_functions
+        if current_fact is not None
+        else frozenset()
+    )
+    if previous_keys or current_keys:
+        added_count = len(current_keys - previous_keys)
+        regressed_count = len(previous_keys - current_keys)
+    else:
+        previous_count = previous_fact.processed_count if previous_fact is not None else 0
+        current_count = current_fact.processed_count if current_fact is not None else 0
+        added_count = max(0, current_count - previous_count)
+        regressed_count = max(0, previous_count - current_count)
+    return _CollectionSemanticPathDelta(
+        added_processed_count=added_count,
+        regressed_processed_count=regressed_count,
+        changed_in_progress_paths=0 if added_count == 0 and regressed_count == 0 else 1,
+        unchanged_in_progress_paths=1 if added_count == 0 and regressed_count == 0 else 0,
+    )
+
+
+def _iter_collection_semantic_path_deltas(
+    *,
+    previous_state_facts: Mapping[str, _CollectionSemanticStateFact],
+    current_state_facts: Mapping[str, _CollectionSemanticStateFact],
+    current_completed_paths: set[str],
+) -> Iterator[_CollectionSemanticPathDelta]:
+    for path_key in _iter_collection_semantic_path_keys(
+        previous_state_facts, current_state_facts
+    ):
+        yield _collection_semantic_path_delta(
+            previous_fact=previous_state_facts.get(path_key),
+            current_fact=current_state_facts.get(path_key),
+            current_completed_paths=current_completed_paths,
+        )
+
 def _analysis_index_resume_hydrated_paths(
     collection_resume: Mapping[str, JSONValue] | None,
 ) -> set[str]:
@@ -434,6 +599,23 @@ def _analysis_index_resume_hydrated_count(
         return 0
     return _normalized_hydrated_paths_count(resume_mapping)
 
+
+def _analysis_index_resume_hydration_fact(
+    collection_resume: Mapping[str, JSONValue] | None,
+) -> _CollectionSemanticHydrationFact:
+    hydrated_paths = frozenset(_analysis_index_resume_hydrated_paths(collection_resume))
+    hydrated_count = (
+        len(hydrated_paths)
+        if hydrated_paths
+        else _analysis_index_resume_hydrated_count(collection_resume)
+    )
+    return _CollectionSemanticHydrationFact(
+        hydrated_paths=hydrated_paths,
+        hydrated_count=hydrated_count,
+        hydrated_digest=_analysis_index_resume_hydrated_digest(collection_resume),
+    )
+
+
 def _analysis_index_resume_hydrated_digest(
     collection_resume: Mapping[str, JSONValue] | None,
 ) -> str:
@@ -456,6 +638,30 @@ def _analysis_index_resume_hydrated_digest(
     return hashlib.sha1(
         _canonical_json_text({"count": _analysis_index_resume_hydrated_count(collection_resume)}).encode("utf-8")
     ).hexdigest()
+
+
+def _collection_semantic_hydration_delta(
+    *,
+    previous_hydration: _CollectionSemanticHydrationFact,
+    current_hydration: _CollectionSemanticHydrationFact,
+) -> _CollectionSemanticHydrationDelta:
+    if previous_hydration.hydrated_paths or current_hydration.hydrated_paths:
+        return _CollectionSemanticHydrationDelta(
+            hydrated_paths_delta=len(
+                current_hydration.hydrated_paths - previous_hydration.hydrated_paths
+            ),
+            hydrated_paths_regressed=len(
+                previous_hydration.hydrated_paths - current_hydration.hydrated_paths
+            ),
+        )
+    return _CollectionSemanticHydrationDelta(
+        hydrated_paths_delta=max(
+            0, current_hydration.hydrated_count - previous_hydration.hydrated_count
+        ),
+        hydrated_paths_regressed=max(
+            0, previous_hydration.hydrated_count - current_hydration.hydrated_count
+        ),
+    )
 
 def _analysis_index_resume_signature(
     collection_resume: Mapping[str, JSONValue] | None,
@@ -489,59 +695,130 @@ def _analysis_index_resume_signature(
 
 
 def _collection_semantic_state_row(
-    path_key: str,
-    state: Mapping[str, JSONValue],
-) -> tuple[JSONObject, int]:
-    phase = state.get("phase")
-    phase_text = _str_optional(phase) or "unknown"
-    processed_count = _state_processed_count(state)
-    return (
-        {
-            "path": path_key,
-            "phase": phase_text,
-            "processed_functions_count": processed_count,
-            "processed_functions_digest": _state_processed_digest(state),
-        },
-        processed_count,
-    )
+    fact: _CollectionSemanticStateFact,
+) -> JSONObject:
+    return {
+        "path": fact.path,
+        "phase": fact.phase,
+        "processed_functions_count": fact.processed_count,
+        "processed_functions_digest": fact.processed_digest,
+    }
 
 
 def _iter_collection_semantic_state_rows(
-    states: Mapping[str, Mapping[str, JSONValue]],
-) -> Iterator[tuple[JSONObject, int]]:
-    for path_key, state in states.items():
+    state_facts: Mapping[str, _CollectionSemanticStateFact],
+) -> Iterator[JSONObject]:
+    for fact in state_facts.values():
         check_deadline()
-        yield _collection_semantic_state_row(path_key, state)
+        yield _collection_semantic_state_row(fact)
 
 
-def _state_row_from_counted_row(item: tuple[JSONObject, int]) -> JSONObject:
-    row, _count = item
-    return row
+def _collection_semantic_processed_total(
+    state_facts: Mapping[str, _CollectionSemanticStateFact],
+) -> int:
+    return sum(fact.processed_count for fact in state_facts.values())
 
 
-def _state_count_from_counted_row(item: tuple[JSONObject, int]) -> int:
-    _row, count = item
-    return count
+def _reduce_collection_semantic_path_deltas(
+    path_deltas: Iterator[_CollectionSemanticPathDelta],
+) -> _CollectionSemanticPathTotals:
+    added_processed_count = 0
+    regressed_processed_count = 0
+    changed_in_progress_paths = 0
+    unchanged_in_progress_paths = 0
+    for path_delta in path_deltas:
+        check_deadline()
+        added_processed_count += path_delta.added_processed_count
+        regressed_processed_count += path_delta.regressed_processed_count
+        changed_in_progress_paths += path_delta.changed_in_progress_paths
+        unchanged_in_progress_paths += path_delta.unchanged_in_progress_paths
+    return _CollectionSemanticPathTotals(
+        added_processed_count=added_processed_count,
+        regressed_processed_count=regressed_processed_count,
+        changed_in_progress_paths=changed_in_progress_paths,
+        unchanged_in_progress_paths=unchanged_in_progress_paths,
+    )
+
+
+def _collection_semantic_cumulative_totals(
+    *,
+    path_totals: _CollectionSemanticPathTotals,
+    completed_delta: int,
+    completed_regressed: int,
+    hydration_delta: _CollectionSemanticHydrationDelta,
+    cumulative: Mapping[str, JSONValue] | None,
+) -> _CollectionSemanticCumulativeTotals:
+    cumulative_totals = _CollectionSemanticCumulativeTotals(
+        cumulative_new_processed_functions=path_totals.added_processed_count,
+        cumulative_completed_files_delta=completed_delta,
+        cumulative_hydrated_paths_delta=hydration_delta.hydrated_paths_delta,
+        cumulative_regressed_functions=(
+            path_totals.regressed_processed_count
+            + completed_regressed
+            + hydration_delta.hydrated_paths_regressed
+        ),
+    )
+    cumulative_mapping = _json_mapping_optional(cumulative)
+    if cumulative_mapping is None:
+        return cumulative_totals
+    raw_cumulative_new = _int_optional(
+        cumulative_mapping.get("cumulative_new_processed_functions")
+    )
+    raw_cumulative_completed = _int_optional(
+        cumulative_mapping.get("cumulative_completed_files_delta")
+    )
+    raw_cumulative_hydrated = _int_optional(
+        cumulative_mapping.get("cumulative_hydrated_paths_delta")
+    )
+    raw_cumulative_regressed = _int_optional(
+        cumulative_mapping.get("cumulative_regressed_functions")
+    )
+    return _CollectionSemanticCumulativeTotals(
+        cumulative_new_processed_functions=(
+            cumulative_totals.cumulative_new_processed_functions
+            + (max(0, raw_cumulative_new) if raw_cumulative_new is not None else 0)
+        ),
+        cumulative_completed_files_delta=(
+            cumulative_totals.cumulative_completed_files_delta
+            + (
+                max(0, raw_cumulative_completed)
+                if raw_cumulative_completed is not None
+                else 0
+            )
+        ),
+        cumulative_hydrated_paths_delta=(
+            cumulative_totals.cumulative_hydrated_paths_delta
+            + (
+                max(0, raw_cumulative_hydrated)
+                if raw_cumulative_hydrated is not None
+                else 0
+            )
+        ),
+        cumulative_regressed_functions=(
+            cumulative_totals.cumulative_regressed_functions
+            + (
+                max(0, raw_cumulative_regressed)
+                if raw_cumulative_regressed is not None
+                else 0
+            )
+        ),
+    )
 
 def _collection_semantic_witness(
     *,
     collection_resume: Mapping[str, JSONValue] | None,
 ) -> JSONObject:
-    states = _in_progress_scan_states(collection_resume)
-    state_rows_with_counts = list(_iter_collection_semantic_state_rows(states))
-    state_rows = list(map(_state_row_from_counted_row, state_rows_with_counts))
-    processed_total = sum(map(_state_count_from_counted_row, state_rows_with_counts))
+    state_facts = _collection_semantic_state_fact_index(collection_resume)
+    state_rows = list(_iter_collection_semantic_state_rows(state_facts))
+    processed_total = _collection_semantic_processed_total(state_facts)
     index_signature = _analysis_index_resume_signature(collection_resume)
+    hydration_fact = _analysis_index_resume_hydration_fact(collection_resume)
     digest = hashlib.sha1(
         _canonical_json_text(
             {
                 "in_progress": state_rows,
-                "index_hydrated_paths_count": _analysis_index_resume_hydrated_count(
-                    collection_resume
-                ),
-                "index_hydrated_paths_digest": _analysis_index_resume_hydrated_digest(
-                    collection_resume
-                ),
+                "index_hydrated_paths_count": hydration_fact.hydrated_count,
+                "index_hydrated_paths_digest": hydration_fact.hydrated_digest,
                 "index_resume_digest": index_signature[5],
                 "index_function_count": index_signature[2],
                 "index_class_count": index_signature[3],
@@ -552,12 +829,8 @@ def _collection_semantic_witness(
         "witness_digest": digest,
         "in_progress_paths": len(state_rows),
         "processed_functions_total": processed_total,
-        "index_hydrated_paths_count": _analysis_index_resume_hydrated_count(
-            collection_resume
-        ),
-        "index_hydrated_paths_digest": _analysis_index_resume_hydrated_digest(
-            collection_resume
-        ),
+        "index_hydrated_paths_count": hydration_fact.hydrated_count,
+        "index_hydrated_paths_digest": hydration_fact.hydrated_digest,
         "index_resume_digest": index_signature[5],
         "index_function_count": index_signature[2],
         "index_class_count": index_signature[3],
@@ -570,8 +843,8 @@ def _collection_semantic_progress(
     total_files: int,
     cumulative: Mapping[str, JSONValue] | None = None,
 ) -> JSONObject:
-    previous_states = _in_progress_scan_states(previous_collection_resume)
-    current_states = _in_progress_scan_states(collection_resume)
+    previous_state_facts = _collection_semantic_state_fact_index(previous_collection_resume)
+    current_state_facts = _collection_semantic_state_fact_index(collection_resume)
     current_completed_paths = _completed_path_set(collection_resume)
     prev_progress = _analysis_resume_progress(
         collection_resume=previous_collection_resume,
@@ -581,106 +854,32 @@ def _collection_semantic_progress(
         collection_resume=collection_resume,
         total_files=total_files,
     )
-    added_processed = 0
-    regressed_processed = 0
-    unchanged_in_progress_paths = 0
-    changed_in_progress_paths = 0
-
-    def _accumulate_progress(path_key: str) -> None:
-        nonlocal added_processed
-        nonlocal regressed_processed
-        nonlocal unchanged_in_progress_paths
-        nonlocal changed_in_progress_paths
-        previous_state = previous_states.get(path_key)
-        current_state = current_states.get(path_key)
-        if (
-            previous_state is not None
-            and current_state is None
-            and path_key in current_completed_paths
-        ):
-            # Moving a path from in-progress to completed is monotonic progress,
-            # not a semantic regression in processed functions.
-            changed_in_progress_paths += 1
-            return
-        previous_keys = (
-            _state_processed_functions(previous_state) if previous_state is not None else set()
+    path_totals = _reduce_collection_semantic_path_deltas(
+        _iter_collection_semantic_path_deltas(
+            previous_state_facts=previous_state_facts,
+            current_state_facts=current_state_facts,
+            current_completed_paths=current_completed_paths,
         )
-        current_keys = (
-            _state_processed_functions(current_state) if current_state is not None else set()
-        )
-        if previous_keys or current_keys:
-            added = current_keys - previous_keys
-            regressed = previous_keys - current_keys
-            added_count = len(added)
-            regressed_count = len(regressed)
-        else:
-            previous_count = (
-                _state_processed_count(previous_state) if previous_state is not None else 0
-            )
-            current_count = (
-                _state_processed_count(current_state) if current_state is not None else 0
-            )
-            added_count = max(0, current_count - previous_count)
-            regressed_count = max(0, previous_count - current_count)
-        added_processed += added_count
-        regressed_processed += regressed_count
-        if added_count == 0 and regressed_count == 0:
-            unchanged_in_progress_paths += 1
-        else:
-            changed_in_progress_paths += 1
-
-    for path_key in previous_states:
-        check_deadline()
-        _accumulate_progress(path_key)
-    for path_key in current_states.keys() - previous_states.keys():
-        check_deadline()
-        _accumulate_progress(path_key)
+    )
     completed_delta = max(
         0, current_progress["completed_files"] - prev_progress["completed_files"]
     )
     completed_regressed = max(
         0, prev_progress["completed_files"] - current_progress["completed_files"]
     )
-    previous_hydrated_paths = _analysis_index_resume_hydrated_paths(
-        previous_collection_resume
-    )
-    current_hydrated_paths = _analysis_index_resume_hydrated_paths(collection_resume)
-    if previous_hydrated_paths or current_hydrated_paths:
-        hydrated_delta = len(current_hydrated_paths - previous_hydrated_paths)
-        hydrated_regressed = len(previous_hydrated_paths - current_hydrated_paths)
-    else:
-        previous_hydrated_count = _analysis_index_resume_hydrated_count(
+    hydration_delta = _collection_semantic_hydration_delta(
+        previous_hydration=_analysis_index_resume_hydration_fact(
             previous_collection_resume
-        )
-        current_hydrated_count = _analysis_index_resume_hydrated_count(collection_resume)
-        hydrated_delta = max(0, current_hydrated_count - previous_hydrated_count)
-        hydrated_regressed = max(0, previous_hydrated_count - current_hydrated_count)
-    cumulative_new = added_processed
-    cumulative_completed_delta = completed_delta
-    cumulative_hydrated_delta = hydrated_delta
-    cumulative_regressed = regressed_processed + completed_regressed + hydrated_regressed
-    cumulative_mapping = _json_mapping_optional(cumulative)
-    if cumulative_mapping is not None:
-        raw_cumulative_new = _int_optional(
-            cumulative_mapping.get("cumulative_new_processed_functions")
-        )
-        raw_cumulative_completed = _int_optional(
-            cumulative_mapping.get("cumulative_completed_files_delta")
-        )
-        raw_cumulative_hydrated = _int_optional(
-            cumulative_mapping.get("cumulative_hydrated_paths_delta")
-        )
-        raw_cumulative_regressed = _int_optional(
-            cumulative_mapping.get("cumulative_regressed_functions")
-        )
-        if raw_cumulative_new is not None:
-            cumulative_new += max(0, raw_cumulative_new)
-        if raw_cumulative_completed is not None:
-            cumulative_completed_delta += max(0, raw_cumulative_completed)
-        if raw_cumulative_hydrated is not None:
-            cumulative_hydrated_delta += max(0, raw_cumulative_hydrated)
-        if raw_cumulative_regressed is not None:
-            cumulative_regressed += max(0, raw_cumulative_regressed)
+        ),
+        current_hydration=_analysis_index_resume_hydration_fact(collection_resume),
+    )
+    cumulative_totals = _collection_semantic_cumulative_totals(
+        path_totals=path_totals,
+        completed_delta=completed_delta,
+        completed_regressed=completed_regressed,
+        hydration_delta=hydration_delta,
+        cumulative=cumulative,
+    )
     current_witness = _collection_semantic_witness(collection_resume=collection_resume)
     previous_resume_mapping = _json_mapping_optional(previous_collection_resume)
     previous_witness = (
@@ -690,28 +889,28 @@ def _collection_semantic_progress(
     )
     substantive_progress = (
         (
-            cumulative_new > 0
-            or cumulative_completed_delta > 0
-            or cumulative_hydrated_delta > 0
+            cumulative_totals.cumulative_new_processed_functions > 0
+            or cumulative_totals.cumulative_completed_files_delta > 0
+            or cumulative_totals.cumulative_hydrated_paths_delta > 0
         )
-        and cumulative_regressed == 0
+        and cumulative_totals.cumulative_regressed_functions == 0
     )
     return {
         "current_witness_digest": current_witness.get("witness_digest"),
         "previous_witness_digest": previous_witness.get("witness_digest"),
-        "new_processed_functions_count": added_processed,
-        "regressed_processed_functions_count": regressed_processed,
+        "new_processed_functions_count": path_totals.added_processed_count,
+        "regressed_processed_functions_count": path_totals.regressed_processed_count,
         "completed_files_delta": completed_delta,
         "completed_files_regressed": completed_regressed,
-        "hydrated_paths_delta": hydrated_delta,
-        "hydrated_paths_regressed": hydrated_regressed,
-        "changed_in_progress_paths": changed_in_progress_paths,
-        "unchanged_in_progress_paths": unchanged_in_progress_paths,
-        "cumulative_new_processed_functions": cumulative_new,
-        "cumulative_completed_files_delta": cumulative_completed_delta,
-        "cumulative_hydrated_paths_delta": cumulative_hydrated_delta,
-        "cumulative_regressed_functions": cumulative_regressed,
-        "monotonic_progress": cumulative_regressed == 0,
+        "hydrated_paths_delta": hydration_delta.hydrated_paths_delta,
+        "hydrated_paths_regressed": hydration_delta.hydrated_paths_regressed,
+        "changed_in_progress_paths": path_totals.changed_in_progress_paths,
+        "unchanged_in_progress_paths": path_totals.unchanged_in_progress_paths,
+        "cumulative_new_processed_functions": cumulative_totals.cumulative_new_processed_functions,
+        "cumulative_completed_files_delta": cumulative_totals.cumulative_completed_files_delta,
+        "cumulative_hydrated_paths_delta": cumulative_totals.cumulative_hydrated_paths_delta,
+        "cumulative_regressed_functions": cumulative_totals.cumulative_regressed_functions,
+        "monotonic_progress": cumulative_totals.cumulative_regressed_functions == 0,
         "substantive_progress": substantive_progress,
     }
 
