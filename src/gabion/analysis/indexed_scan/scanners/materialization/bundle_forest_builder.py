@@ -1,3 +1,6 @@
+# gabion:ambiguity_boundary_module
+# gabion:boundary_normalization_module
+# gabion:grade_boundary kind=semantic_carrier_adapter name=bundle_forest_builder
 from __future__ import annotations
 
 import time
@@ -6,6 +9,7 @@ from pathlib import Path
 from typing import Callable, Iterable
 
 from gabion.analysis.foundation.json_types import JSONObject
+from gabion.invariants import grade_boundary
 
 
 @dataclass(frozen=True)
@@ -25,12 +29,16 @@ class BundleForestBuildDeps:
     progress_emit_min_interval_seconds: float
 
 
+@grade_boundary(
+    kind="semantic_carrier_adapter",
+    name="bundle_forest_builder.populate_bundle_forest",
+)
 def populate_bundle_forest(
     forest: object,
     *,
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     file_paths: list[Path],
-    project_root=None,
+    project_root: Path,
     include_all_sites: bool = True,
     ignore_params=None,
     strictness: str = "high",
@@ -322,4 +330,3 @@ def populate_bundle_forest(
         marker_paths_done += 1
         _emit_progress(marker="marker_paths")
     _emit_progress(force=True, marker="complete")
-

@@ -1987,7 +1987,7 @@ def _iter_config_fields(
 def _collect_dataclass_registry(
     paths: list[Path],
     *,
-    project_root,
+    project_root: Path,
     parse_failure_witnesses: ParseFailureWitnesses,
     analysis_index=None,
     stage_cache_fn: AnalysisIndexStageCacheFn[object] = _analysis_index_stage_cache,

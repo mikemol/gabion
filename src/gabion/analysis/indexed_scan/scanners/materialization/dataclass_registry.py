@@ -32,7 +32,7 @@ class CollectDataclassRegistryDeps:
 @dataclass(frozen=True)
 class DataclassRegistryForTreeDeps:
     check_deadline_fn: Callable[[], None]
-    module_name_fn: Callable[..., str]
+    module_name_fn: Callable[[Path, Path], str]
     simple_store_name_fn: Callable[..., object]
     decorator_text_fn: Callable[[ast.AST], str]
 
@@ -88,7 +88,7 @@ def _singleton_name_iterator(target: ast.Name) -> Iterator[ast.Name]:
 def collect_dataclass_registry(
     paths: list[Path],
     *,
-    project_root,
+    project_root: Path,
     parse_failure_witnesses: ParseFailureWitnesses,
     analysis_index = None,
     stage_cache_fn: AnalysisIndexStageCacheFn[object],
@@ -106,7 +106,7 @@ def collect_dataclass_registry(
                     stage=deps.parse_module_stage_dataclass_registry,
                     cache_context=deps.empty_cache_semantic_context,
                     config_subset={
-                        "project_root": str(project_root) if project_root is not None else "",
+                        "project_root": str(project_root),
                     },
                     detail="dataclass_registry",
                 ),
@@ -145,7 +145,7 @@ def dataclass_registry_for_tree(
     path: Path,
     tree: ast.AST,
     *,
-    project_root = None,
+    project_root: Path,
     deps: DataclassRegistryForTreeDeps,
 ) -> dict[str, list[str]]:
     deps.check_deadline_fn()
