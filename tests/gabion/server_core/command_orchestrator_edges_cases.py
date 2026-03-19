@@ -48,9 +48,12 @@ def _timeout_context(
                 total_files=5,
             )
         ),
-        analysis_resume_input_state=orchestrator.AnalysisResumeInputState(
-            manifest_digest="digest",
-            input_witness=None,
+        analysis_resume_support_state=orchestrator.AnalysisResumeSupportState(
+            input_state=orchestrator.AnalysisResumeInputState(
+                manifest_digest="digest",
+                input_witness=None,
+            ),
+            intro_state=orchestrator.AnalysisResumeIntroState(),
         ),
         collection_progress_runtime_state=orchestrator.CollectionProgressRuntimeState(
             collection_resume_progress_state=orchestrator.CollectionResumeProgressState(
@@ -73,7 +76,6 @@ def _timeout_context(
         ),
         enable_phase_projection_checkpoints=False,
         forest=Forest(),
-        analysis_resume_intro_state=orchestrator.AnalysisResumeIntroState(),
         runtime_root=tmp_path,
         initial_paths_count_value=1,
         execution_plan=ExecutionPlan(),
@@ -125,16 +127,18 @@ def _analysis_context(
         config=orchestrator.AuditConfig(project_root=tmp_path),
         needs_analysis=True,
         file_paths_for_run=[source_path],
-        analysis_resume_intro_state=orchestrator.AnalysisResumeIntroState(),
+        analysis_resume_support_state=orchestrator.AnalysisResumeSupportState(
+            input_state=orchestrator.AnalysisResumeInputState(
+                manifest_digest="digest",
+                input_witness=None,
+            ),
+            intro_state=orchestrator.AnalysisResumeIntroState(),
+        ),
         analysis_resume_runtime_state=orchestrator.AnalysisResumeRuntimeState(
             state_path=tmp_path / "resume.json",
             state_status="checkpoint_seeded",
             reused_files=0,
             total_files=1,
-        ),
-        analysis_resume_input_state=orchestrator.AnalysisResumeInputState(
-            manifest_digest="digest",
-            input_witness=None,
         ),
         phase_timeline_path=tmp_path / "timeline.md",
         emit_phase_timeline=emit_phase_timeline,
@@ -378,7 +382,7 @@ def test_render_timeout_partial_report_handles_non_callable_cache_loader(
         timeout_total_ns=1_000_000_000,
         analysis_window_ns=900_000_000,
         analysis_resume_projection_state=orchestrator.AnalysisResumeProjectionState(),
-        analysis_resume_input_state=orchestrator.AnalysisResumeInputState(),
+        analysis_resume_support_state=orchestrator.AnalysisResumeSupportState(),
         collection_progress_runtime_state=orchestrator.CollectionProgressRuntimeState(),
         execute_deps=deps,
         emit_phase_timeline=False,
@@ -395,7 +399,6 @@ def test_render_timeout_partial_report_handles_non_callable_cache_loader(
         ),
         enable_phase_projection_checkpoints=False,
         forest=Forest(),
-        analysis_resume_intro_state=orchestrator.AnalysisResumeIntroState(),
         runtime_root=tmp_path,
         initial_paths_count_value=1,
         execution_plan=ExecutionPlan(),
@@ -426,8 +429,7 @@ def test_prepare_analysis_resume_state_skips_intro_timeline_when_disabled(
     deps = server._default_execute_command_deps()
     state = orchestrator._AnalysisResumePreparationState(
         analysis_resume_projection_state=orchestrator.AnalysisResumeProjectionState(),
-        analysis_resume_input_state=orchestrator.AnalysisResumeInputState(),
-        analysis_resume_intro_state=orchestrator.AnalysisResumeIntroState(),
+        analysis_resume_support_state=orchestrator.AnalysisResumeSupportState(),
         report_runtime_state=orchestrator.ReportRuntimeState(),
         collection_resume_progress_state=orchestrator.CollectionResumeProgressState(),
     )
@@ -454,8 +456,8 @@ def test_prepare_analysis_resume_state_skips_intro_timeline_when_disabled(
     assert collection_resume_payload is None
     assert state.analysis_resume_projection_state.runtime_state.state_path is None
     assert state.analysis_resume_projection_state.runtime_state.state_status == "cold_start"
-    assert state.analysis_resume_intro_state.timeline_header is None
-    assert state.analysis_resume_intro_state.timeline_row is None
+    assert state.analysis_resume_support_state.intro_state.timeline_header is None
+    assert state.analysis_resume_support_state.intro_state.timeline_row is None
 
 
 # gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._run_analysis_with_progress
@@ -531,8 +533,7 @@ def test_prepare_analysis_resume_state_accepts_snapshot_first_aspf_resume_payloa
     )
     state = orchestrator._AnalysisResumePreparationState(
         analysis_resume_projection_state=orchestrator.AnalysisResumeProjectionState(),
-        analysis_resume_input_state=orchestrator.AnalysisResumeInputState(),
-        analysis_resume_intro_state=orchestrator.AnalysisResumeIntroState(),
+        analysis_resume_support_state=orchestrator.AnalysisResumeSupportState(),
         report_runtime_state=orchestrator.ReportRuntimeState(),
         collection_resume_progress_state=orchestrator.CollectionResumeProgressState(),
     )

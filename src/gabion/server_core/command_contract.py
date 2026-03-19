@@ -68,6 +68,12 @@ class AnalysisResumeIntroState:
 
 
 @dataclass(frozen=True)
+class AnalysisResumeSupportState:
+    input_state: AnalysisResumeInputState = field(default_factory=AnalysisResumeInputState)
+    intro_state: AnalysisResumeIntroState = field(default_factory=AnalysisResumeIntroState)
+
+
+@dataclass(frozen=True)
 class ReportCheckpointState:
     section_witness_digest: str | None = None
     phase_checkpoint_state: JSONObject = field(default_factory=dict)

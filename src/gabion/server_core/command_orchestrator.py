@@ -109,6 +109,7 @@ from gabion.server_core.command_contract import (
     AnalysisResumeInputState,
     AnalysisResumeProjectionState,
     AnalysisResumeRuntimeState,
+    AnalysisResumeSupportState,
     CollectionProgressRuntimeState,
     CollectionResumeProgressState,
     CommandRuntimeInput,
@@ -1640,7 +1641,7 @@ class _TimeoutCleanupContext:
     timeout_total_ns: int
     analysis_window_ns: int
     analysis_resume_projection_state: AnalysisResumeProjectionState
-    analysis_resume_input_state: AnalysisResumeInputState
+    analysis_resume_support_state: AnalysisResumeSupportState
     collection_progress_runtime_state: CollectionProgressRuntimeState
     execute_deps: ExecuteCommandDeps
     emit_phase_timeline: bool
@@ -1649,7 +1650,6 @@ class _TimeoutCleanupContext:
     report_runtime_state: ReportRuntimeState
     enable_phase_projection_checkpoints: bool
     forest: Forest
-    analysis_resume_intro_state: AnalysisResumeIntroState
     runtime_root: Path
     initial_paths_count_value: int
     execution_plan: ExecutionPlan
@@ -1704,9 +1704,8 @@ class _AnalysisExecutionContext:
     config: AuditConfig
     needs_analysis: bool
     file_paths_for_run: list[Path] | None
-    analysis_resume_intro_state: AnalysisResumeIntroState
+    analysis_resume_support_state: AnalysisResumeSupportState
     analysis_resume_runtime_state: AnalysisResumeRuntimeState
-    analysis_resume_input_state: AnalysisResumeInputState
     phase_timeline_path: Path
     emit_phase_timeline: bool
     enable_phase_projection_checkpoints: bool
@@ -1736,8 +1735,7 @@ class _AnalysisExecutionMutableState:
 @dataclass
 class _AnalysisResumePreparationState:
     analysis_resume_projection_state: AnalysisResumeProjectionState
-    analysis_resume_input_state: AnalysisResumeInputState
-    analysis_resume_intro_state: AnalysisResumeIntroState
+    analysis_resume_support_state: AnalysisResumeSupportState
     report_runtime_state: ReportRuntimeState
     collection_resume_progress_state: CollectionResumeProgressState
 
@@ -1802,11 +1800,14 @@ def _prepare_analysis_resume_state(
             include_wl_refinement=include_wl_refinement,
             config=config,
         )
-        state.analysis_resume_input_state = AnalysisResumeInputState(
-            manifest_digest=execute_deps.analysis.analysis_input_manifest_digest_fn(
-                input_manifest
+        state.analysis_resume_support_state = AnalysisResumeSupportState(
+            input_state=AnalysisResumeInputState(
+                manifest_digest=execute_deps.analysis.analysis_input_manifest_digest_fn(
+                    input_manifest
+                ),
+                input_witness=state.analysis_resume_support_state.input_state.input_witness,
             ),
-            input_witness=state.analysis_resume_input_state.input_witness,
+            intro_state=state.analysis_resume_support_state.intro_state,
         )
         import_state_paths = _aspf_import_state_paths(
             aspf_import_state or [],
@@ -1836,7 +1837,7 @@ def _prepare_analysis_resume_state(
                 str(key): raw_collection_resume[key]
                 for key in raw_collection_resume
             }
-            current_manifest_digest = state.analysis_resume_input_state.manifest_digest
+            current_manifest_digest = state.analysis_resume_support_state.input_state.manifest_digest
             resume_available = bool(imported_collection_resume)
             manifest_available = _string_optional(imported_manifest_digest) is not None
             current_manifest_available = _string_optional(current_manifest_digest) is not None
@@ -1911,7 +1912,7 @@ def _prepare_analysis_resume_state(
                         ),
                         "compatibility_status": compatibility_status,
                         "import_manifest_digest": imported_manifest_digest,
-                        "current_manifest_digest": state.analysis_resume_input_state.manifest_digest,
+                        "current_manifest_digest": state.analysis_resume_support_state.input_state.manifest_digest,
                     },
                 )
         if state.analysis_resume_projection_state.runtime_state.state_status is None:
@@ -1935,8 +1936,8 @@ def _prepare_analysis_resume_state(
             projection_state=state.report_runtime_state.projection_state,
             checkpoint_state=ReportCheckpointState(
                 section_witness_digest=_report_witness_digest(
-                    input_witness=state.analysis_resume_input_state.input_witness,
-                    manifest_digest=state.analysis_resume_input_state.manifest_digest,
+                    input_witness=state.analysis_resume_support_state.input_state.input_witness,
+                    manifest_digest=state.analysis_resume_support_state.input_state.manifest_digest,
                 ),
                 phase_checkpoint_state=(
                     state.report_runtime_state.checkpoint_state.phase_checkpoint_state
@@ -2110,7 +2111,7 @@ def _run_analysis_with_progress(
             sections["intro"] = _collection_progress_intro_lines(
                 collection_resume=persisted_progress_payload,
                 total_files=context.analysis_resume_runtime_state.total_files,
-                resume_state_intro=context.analysis_resume_intro_state.payload,
+                resume_state_intro=context.analysis_resume_support_state.intro_state.payload,
             )
             preview_groups_by_path = _groups_by_path_from_collection_resume(
                 persisted_progress_payload
@@ -3546,7 +3547,7 @@ def _load_timeout_resume_progress(
         **resume_progress,
     }
     resume_payload: JSONObject = {"resume_token": resume_token}
-    resume_payload["input_witness"] = context.analysis_resume_input_state.input_witness
+    resume_payload["input_witness"] = context.analysis_resume_support_state.input_state.input_witness
     progress_payload["resume"] = resume_payload
     classification = str(progress_payload.get("classification", "") or "")
     progress_payload["classification"] = (
@@ -3628,7 +3629,7 @@ def _render_timeout_partial_report(
                 _collection_progress_intro_lines(
                     collection_resume=timeout_collection_resume_payload,
                     total_files=context.analysis_resume_projection_state.runtime_state.total_files,
-                    resume_state_intro=context.analysis_resume_intro_state.payload,
+                    resume_state_intro=context.analysis_resume_support_state.intro_state.payload,
                 )
                 if timeout_collection_resume_payload is not None
                 else [
@@ -3832,7 +3833,7 @@ def _handle_timeout_cleanup(
                 "_semantic_progress": (
                     context.collection_progress_runtime_state.collection_resume_progress_state.semantic_progress_cumulative
                 ),
-                "_analysis_manifest_digest": context.analysis_resume_input_state.manifest_digest,
+                "_analysis_manifest_digest": context.analysis_resume_support_state.input_state.manifest_digest,
                 "_resume_source": context.analysis_resume_projection_state.source,
                 "_resume_compatibility_status": (
                     context.analysis_resume_projection_state.compatibility_status
@@ -4985,8 +4986,7 @@ def execute_command_total(
     forest_token = ingress_stage.forest_token
     explicit_resume_state = False
     analysis_resume_projection_state = AnalysisResumeProjectionState()
-    analysis_resume_input_state = AnalysisResumeInputState()
-    analysis_resume_intro_state = AnalysisResumeIntroState()
+    analysis_resume_support_state = AnalysisResumeSupportState()
     report_checkpoint_state = ReportCheckpointState()
     report_output_path = _resolve_report_output_path(
         root=runtime_input.root,
@@ -5288,8 +5288,7 @@ def execute_command_total(
         needs_analysis = inclusion_flags.needs_analysis
         analysis_resume_state = _AnalysisResumePreparationState(
             analysis_resume_projection_state=analysis_resume_projection_state,
-            analysis_resume_input_state=analysis_resume_input_state,
-            analysis_resume_intro_state=analysis_resume_intro_state,
+            analysis_resume_support_state=analysis_resume_support_state,
             report_runtime_state=report_runtime_state,
             collection_resume_progress_state=(
                 collection_progress_runtime_state.collection_resume_progress_state
@@ -5314,8 +5313,7 @@ def execute_command_total(
         analysis_resume_projection_state = (
             analysis_resume_state.analysis_resume_projection_state
         )
-        analysis_resume_input_state = analysis_resume_state.analysis_resume_input_state
-        analysis_resume_intro_state = analysis_resume_state.analysis_resume_intro_state
+        analysis_resume_support_state = analysis_resume_state.analysis_resume_support_state
         report_runtime_state = analysis_resume_state.report_runtime_state
         report_request_state = ReportRequestState(
             report_path=report_path,
@@ -5399,11 +5397,10 @@ def execute_command_total(
                     config=config,
                     needs_analysis=needs_analysis,
                     file_paths_for_run=file_paths_for_run,
-                    analysis_resume_intro_state=analysis_resume_intro_state,
+                    analysis_resume_support_state=analysis_resume_support_state,
                     analysis_resume_runtime_state=(
                         analysis_resume_projection_state.runtime_state
                     ),
-                    analysis_resume_input_state=analysis_resume_input_state,
                     phase_timeline_path=phase_timeline_path,
                     emit_phase_timeline=emit_phase_timeline,
                     enable_phase_projection_checkpoints=enable_phase_projection_checkpoints,
@@ -5456,7 +5453,7 @@ def execute_command_total(
                 options=options,
                 name_filter_bundle=name_filter_bundle,
                 analysis_resume_projection_state=analysis_resume_projection_state,
-                analysis_resume_manifest_digest=analysis_resume_input_state.manifest_digest,
+                analysis_resume_manifest_digest=analysis_resume_support_state.input_state.manifest_digest,
                 profiling_stage_ns=profiling_stage_ns,
                 profiling_counters=profiling_counters,
                 execution_plan=execution_plan,
@@ -5478,7 +5475,7 @@ def execute_command_total(
                 timeout_total_ns=timeout_total_ns,
                 analysis_window_ns=analysis_window_ns,
                 analysis_resume_projection_state=analysis_resume_projection_state,
-                analysis_resume_input_state=analysis_resume_input_state,
+                analysis_resume_support_state=analysis_resume_support_state,
                 collection_progress_runtime_state=collection_progress_runtime_state,
                 execute_deps=execute_deps,
                 emit_phase_timeline=emit_phase_timeline,
@@ -5487,7 +5484,6 @@ def execute_command_total(
                 report_runtime_state=report_runtime_state,
                 enable_phase_projection_checkpoints=enable_phase_projection_checkpoints,
                 forest=forest,
-                analysis_resume_intro_state=analysis_resume_intro_state,
                 runtime_root=runtime_input.root,
                 initial_paths_count_value=initial_paths_count_value,
                 execution_plan=execution_plan,
