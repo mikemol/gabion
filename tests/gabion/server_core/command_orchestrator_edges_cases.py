@@ -64,8 +64,12 @@ def _timeout_context(
                     ),
                 ),
                 collection_progress_runtime_state=orchestrator.CollectionProgressRuntimeState(
-                    collection_resume_progress_state=orchestrator.CollectionResumeProgressState(
-                        last_collection_resume_payload=last_collection_resume_payload,
+                    collection_resume_runtime_state=orchestrator.CollectionResumeRuntimeState(
+                        resume_payload=(
+                            dict(last_collection_resume_payload)
+                            if last_collection_resume_payload is not None
+                            else {}
+                        ),
                     ),
                     latest_collection_progress={},
                 ),
@@ -298,7 +302,7 @@ def test_load_timeout_resume_progress_uses_manifest_resume_pair(
     loaded = orchestrator._load_timeout_resume_progress(
         context=context,
         progress_payload=progress_payload,
-        timeout_collection_resume_payload=None,
+        timeout_collection_resume_payload={},
         mark_cleanup_timeout_fn=lambda _step: None,
     )
     assert loaded == resume_payload
@@ -321,10 +325,10 @@ def test_load_timeout_resume_progress_manifest_loader_none_keeps_previous_payloa
     loaded = orchestrator._load_timeout_resume_progress(
         context=context,
         progress_payload=progress_payload,
-        timeout_collection_resume_payload=None,
+        timeout_collection_resume_payload={},
         mark_cleanup_timeout_fn=lambda _step: None,
     )
-    assert loaded is None
+    assert loaded == {}
     assert progress_payload["classification"] == "timed_out_no_progress"
 
 
@@ -426,7 +430,7 @@ def test_render_timeout_partial_report_handles_non_callable_cache_loader(
         context=context,
         analysis_state="timed_out_no_progress",
         progress_payload={"classification": "timed_out_no_progress"},
-        timeout_collection_resume_payload=None,
+        timeout_collection_resume_payload={},
         phase_checkpoint_state={},
         mark_cleanup_timeout_fn=None,
     )
@@ -446,7 +450,7 @@ def test_prepare_analysis_resume_state_skips_intro_timeline_when_disabled(
     state = orchestrator._AnalysisResumePreparationState(
         analysis_resume_state=orchestrator.AnalysisResumeState(),
         report_runtime_state=orchestrator.ReportRuntimeState(),
-        collection_resume_progress_state=orchestrator.CollectionResumeProgressState(),
+        collection_resume_runtime_state=orchestrator.CollectionResumeRuntimeState(),
     )
     runtime_state = orchestrator.CommandRuntimeState(latest_collection_progress={})
     _file_paths_for_run, collection_resume_payload = orchestrator._prepare_analysis_resume_state(
@@ -468,7 +472,9 @@ def test_prepare_analysis_resume_state_skips_intro_timeline_when_disabled(
         state=state,
         runtime_state=runtime_state,
     )
-    assert collection_resume_payload is None
+    assert collection_resume_payload == deps.analysis.build_analysis_collection_resume_seed_fn(
+        in_progress_paths=[source_path]
+    )
     assert state.analysis_resume_state.projection_state.runtime_state.state_path is None
     assert (
         state.analysis_resume_state.projection_state.runtime_state.state_status
@@ -504,14 +510,19 @@ def test_run_analysis_with_progress_skips_checkpoint_serialized_event_when_timel
     )
     state = orchestrator._AnalysisExecutionMutableState(
         collection_progress_runtime_state=orchestrator.CollectionProgressRuntimeState(
-            collection_resume_progress_state=orchestrator.CollectionResumeProgressState(),
+            collection_resume_runtime_state=orchestrator.CollectionResumeRuntimeState(),
             latest_collection_progress={},
         ),
     )
     outcome = orchestrator._run_analysis_with_progress(
         context=context,
         state=state,
-        collection_resume_payload=None,
+        collection_resume_payload={
+            "completed_paths": [],
+            "in_progress_scan_by_path": {str(source_path): {"phase": "scan_pending"}},
+            "analysis_index_resume": None,
+            "semantic_progress": {},
+        },
     )
     assert outcome.collection_progress_runtime_state.latest_collection_progress["total_files"] == 1
     assert not any(
@@ -552,7 +563,7 @@ def test_prepare_analysis_resume_state_accepts_snapshot_first_aspf_resume_payloa
     state = orchestrator._AnalysisResumePreparationState(
         analysis_resume_state=orchestrator.AnalysisResumeState(),
         report_runtime_state=orchestrator.ReportRuntimeState(),
-        collection_resume_progress_state=orchestrator.CollectionResumeProgressState(),
+        collection_resume_runtime_state=orchestrator.CollectionResumeRuntimeState(),
     )
     runtime_state = orchestrator.CommandRuntimeState(latest_collection_progress={})
 
@@ -607,7 +618,7 @@ def test_persist_timeout_resume_state_skips_checkpoint_event_when_timeline_disab
     )
     persisted_payload = orchestrator._persist_timeout_resume_state(
         context=context,
-        timeout_collection_resume_payload=None,
+        timeout_collection_resume_payload={},
         mark_cleanup_timeout_fn=lambda _step: None,
         emit_lsp_progress_fn=lambda **kwargs: emitted_events.append(
             {str(key): kwargs[key] for key in kwargs}

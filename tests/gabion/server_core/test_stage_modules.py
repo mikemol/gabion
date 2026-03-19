@@ -3,7 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 
 from gabion.server_core.analysis_stage import run_analysis_stage
-from gabion.server_core.command_contract import IngressStageMode
+from gabion.server_core.command_contract import (
+    CollectionProgressRuntimeState,
+    CollectionResumeRuntimeState,
+    CollectionSemanticProgressState,
+    IngressStageMode,
+)
 from gabion.server_core.ingress_stage import default_mode_selector, run_ingress_stage
 from gabion.server_core.output_stage import run_output_stage
 from gabion.server_core.stage_contracts import AuxiliaryOutputRequest, PrimaryOutputRequest
@@ -16,9 +21,15 @@ from gabion.server_core.timeout_stage import (
 
 class _Outcome:
     def __init__(self) -> None:
-        self.semantic_progress_cumulative = {"done": 1}
-        self.latest_collection_progress = {"done": 1, "total": 1}
-        self.last_collection_resume_payload = {"cursor": "next"}
+        self.collection_progress_runtime_state = CollectionProgressRuntimeState(
+            collection_resume_runtime_state=CollectionResumeRuntimeState(
+                resume_payload={"cursor": "next"},
+                semantic_progress_state=CollectionSemanticProgressState(
+                    semantic_progress_cumulative={"done": 1}
+                ),
+            ),
+            latest_collection_progress={"done": 1, "total": 1},
+        )
 
 
 # gabion:behavior primary=desired
@@ -45,8 +56,11 @@ def test_analysis_stage_returns_structured_contract() -> None:
         run_analysis_with_progress=lambda **_kwargs: _Outcome(),
     )
 
-    assert stage.semantic_progress_cumulative == {"done": 1}
-    assert stage.latest_collection_progress["total"] == 1
+    assert (
+        stage.collection_progress_runtime_state.collection_resume_runtime_state.semantic_progress_state.semantic_progress_cumulative
+        == {"done": 1}
+    )
+    assert stage.collection_progress_runtime_state.latest_collection_progress["total"] == 1
 
 
 # gabion:behavior primary=desired

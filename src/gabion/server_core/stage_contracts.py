@@ -70,7 +70,7 @@ class AnalysisRunner(Protocol):
         *,
         context: AnalysisContextContract,
         state: AnalysisStateContract,
-        collection_resume_payload: JSONObject | None,
+        collection_resume_payload: JSONObject,
     ) -> AnalysisOutcomeContract: ...
 
 

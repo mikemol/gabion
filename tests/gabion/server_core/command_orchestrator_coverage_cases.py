@@ -767,7 +767,7 @@ def test_execute_analysis_phase_applies_runtime_payload_overrides_without_analys
         state=orchestrator._AnalysisExecutionMutableState(
             collection_progress_runtime_state=orchestrator.CollectionProgressRuntimeState(),
         ),
-        collection_resume_payload=None,
+        collection_resume_payload={},
     )
     assert isinstance(outcome.analysis, AnalysisResult)
 

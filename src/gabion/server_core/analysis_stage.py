@@ -13,7 +13,7 @@ def run_analysis_stage(
     *,
     context: AnalysisContextContract,
     state: AnalysisStateContract,
-    collection_resume_payload: JSONObject | None,
+    collection_resume_payload: JSONObject,
     run_analysis_with_progress: AnalysisRunner,
 ) -> StageAnalysisResult:
     outcome = run_analysis_with_progress(

@@ -111,7 +111,7 @@ def test_stage_execute_analysis_propagates_timeout() -> None:
             state=orchestrator._AnalysisExecutionMutableState(
                 collection_progress_runtime_state=orchestrator.CollectionProgressRuntimeState(),
             ),
-            collection_resume_payload=None,
+            collection_resume_payload={},
             run_analysis_with_progress_fn=_raise_timeout,
         )
     except TimeoutExceeded:
