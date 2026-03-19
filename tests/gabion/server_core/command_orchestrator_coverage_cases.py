@@ -875,22 +875,25 @@ def test_build_success_response_emits_analysis_resume_block_when_resume_source_p
             decision_ignore_params=set(),
             transparent_decorators=set(),
         ),
-        analysis_resume_state=orchestrator.AnalysisResumeState(
-            projection_state=orchestrator.AnalysisResumeProjectionState(
-                runtime_state=orchestrator.AnalysisResumeRuntimeState(
-                    state_path=None,
-                    state_status="checkpoint_seeded",
-                    reused_files=1,
-                    total_files=3,
+        continuation_state=orchestrator.AnalysisContinuationState(
+            resume_state=orchestrator.AnalysisResumeState(
+                projection_state=orchestrator.AnalysisResumeProjectionState(
+                    runtime_state=orchestrator.AnalysisResumeRuntimeState(
+                        state_path=None,
+                        state_status="checkpoint_seeded",
+                        reused_files=1,
+                        total_files=3,
+                    ),
+                    source="resume_manifest",
+                    compatibility_status="compatible",
                 ),
-                source="resume_manifest",
-                compatibility_status="compatible",
+                support_state=orchestrator.AnalysisResumeSupportState(
+                    input_state=orchestrator.AnalysisResumeInputState(
+                        manifest_digest="digest"
+                    )
+                ),
             ),
-            support_state=orchestrator.AnalysisResumeSupportState(
-                input_state=orchestrator.AnalysisResumeInputState(
-                    manifest_digest="digest"
-                )
-            ),
+            collection_progress_runtime_state=orchestrator.CollectionProgressRuntimeState(),
         ),
         profiling_stage_ns={"server.analysis_call": 0, "server.projection_emit": 0},
         profiling_counters={
@@ -898,7 +901,6 @@ def test_build_success_response_emits_analysis_resume_block_when_resume_source_p
             "server.projection_emit_calls": 0,
         },
         execution_plan=_Plan(),
-        collection_progress_runtime_state=orchestrator.CollectionProgressRuntimeState(),
         emit_lsp_progress_fn=lambda **_kwargs: None,
         dataflow_capabilities=orchestrator._DataflowCapabilityAnnotations(
             selected_adapter="python:default",

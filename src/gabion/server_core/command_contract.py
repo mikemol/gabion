@@ -84,6 +84,14 @@ class AnalysisResumeState:
 
 
 @dataclass(frozen=True)
+class AnalysisContinuationState:
+    resume_state: AnalysisResumeState = field(default_factory=AnalysisResumeState)
+    collection_progress_runtime_state: CollectionProgressRuntimeState = field(
+        default_factory=CollectionProgressRuntimeState
+    )
+
+
+@dataclass(frozen=True)
 class ReportCheckpointState:
     section_witness_digest: str | None = None
     phase_checkpoint_state: JSONObject = field(default_factory=dict)

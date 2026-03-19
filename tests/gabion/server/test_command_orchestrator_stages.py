@@ -43,15 +43,17 @@ def test_stage_finalize_success_projects_resume_compatibility() -> None:
         config=cast(orchestrator.AuditConfig, SimpleNamespace()),
         options=cast(orchestrator._ExecutionPayloadOptions, SimpleNamespace()),
         name_filter_bundle=cast(orchestrator.DataflowNameFilterBundle, SimpleNamespace()),
-        analysis_resume_state=orchestrator.AnalysisResumeState(
-            projection_state=orchestrator.AnalysisResumeProjectionState(
-                compatibility_status="compatible",
-            )
+        continuation_state=orchestrator.AnalysisContinuationState(
+            resume_state=orchestrator.AnalysisResumeState(
+                projection_state=orchestrator.AnalysisResumeProjectionState(
+                    compatibility_status="compatible",
+                )
+            ),
+            collection_progress_runtime_state=orchestrator.CollectionProgressRuntimeState(),
         ),
         profiling_stage_ns={},
         profiling_counters={},
         execution_plan=cast(orchestrator.ExecutionPlan, SimpleNamespace()),
-        collection_progress_runtime_state=orchestrator.CollectionProgressRuntimeState(),
         emit_lsp_progress_fn=lambda **_kwargs: None,
         dataflow_capabilities=orchestrator._DataflowCapabilityAnnotations(
             selected_adapter="python",
@@ -69,7 +71,7 @@ def test_stage_finalize_success_projects_resume_compatibility() -> None:
     assert outcome.response == {"ok": True}
     context = cast(orchestrator._SuccessResponseContext, captured["context"])
     assert (
-        context.analysis_resume_state.projection_state.compatibility_status
+        context.continuation_state.resume_state.projection_state.compatibility_status
         == "compatible"
     )
 
