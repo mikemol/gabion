@@ -79,6 +79,14 @@ class _CollectionSemanticPathTotals:
     unchanged_in_progress_paths: int
 
 
+_COLLECTION_SEMANTIC_CUMULATIVE_KEYS: tuple[str, ...] = (
+    "cumulative_new_processed_functions",
+    "cumulative_completed_files_delta",
+    "cumulative_hydrated_paths_delta",
+    "cumulative_regressed_functions",
+)
+
+
 def _count_one(_: object) -> int:
     return 1
 
@@ -740,13 +748,24 @@ def _reduce_collection_semantic_path_deltas(
     )
 
 
+def _iter_collection_semantic_cumulative_entries(
+    cumulative: Mapping[str, JSONValue],
+) -> Iterator[tuple[str, int]]:
+    for key in _COLLECTION_SEMANTIC_CUMULATIVE_KEYS:
+        check_deadline()
+        value = _int_optional(cumulative.get(key))
+        if value is None:
+            continue
+        yield key, max(0, value)
+
+
 def _collection_semantic_cumulative_totals(
     *,
     path_totals: _CollectionSemanticPathTotals,
     completed_delta: int,
     completed_regressed: int,
     hydration_delta: _CollectionSemanticHydrationDelta,
-    cumulative: Mapping[str, JSONValue] | None,
+    cumulative_entries: Iterator[tuple[str, int]],
 ) -> _CollectionSemanticCumulativeTotals:
     cumulative_totals = _CollectionSemanticCumulativeTotals(
         cumulative_new_processed_functions=path_totals.added_processed_count,
@@ -758,51 +777,74 @@ def _collection_semantic_cumulative_totals(
             + hydration_delta.hydrated_paths_regressed
         ),
     )
-    cumulative_mapping = _json_mapping_optional(cumulative)
-    if cumulative_mapping is None:
-        return cumulative_totals
-    raw_cumulative_new = _int_optional(
-        cumulative_mapping.get("cumulative_new_processed_functions")
-    )
-    raw_cumulative_completed = _int_optional(
-        cumulative_mapping.get("cumulative_completed_files_delta")
-    )
-    raw_cumulative_hydrated = _int_optional(
-        cumulative_mapping.get("cumulative_hydrated_paths_delta")
-    )
-    raw_cumulative_regressed = _int_optional(
-        cumulative_mapping.get("cumulative_regressed_functions")
-    )
-    return _CollectionSemanticCumulativeTotals(
-        cumulative_new_processed_functions=(
-            cumulative_totals.cumulative_new_processed_functions
-            + (max(0, raw_cumulative_new) if raw_cumulative_new is not None else 0)
-        ),
-        cumulative_completed_files_delta=(
-            cumulative_totals.cumulative_completed_files_delta
-            + (
-                max(0, raw_cumulative_completed)
-                if raw_cumulative_completed is not None
-                else 0
+    for key, value in cumulative_entries:
+        check_deadline()
+        if key == "cumulative_new_processed_functions":
+            cumulative_totals = _CollectionSemanticCumulativeTotals(
+                cumulative_new_processed_functions=(
+                    cumulative_totals.cumulative_new_processed_functions + value
+                ),
+                cumulative_completed_files_delta=(
+                    cumulative_totals.cumulative_completed_files_delta
+                ),
+                cumulative_hydrated_paths_delta=(
+                    cumulative_totals.cumulative_hydrated_paths_delta
+                ),
+                cumulative_regressed_functions=(
+                    cumulative_totals.cumulative_regressed_functions
+                ),
             )
-        ),
-        cumulative_hydrated_paths_delta=(
-            cumulative_totals.cumulative_hydrated_paths_delta
-            + (
-                max(0, raw_cumulative_hydrated)
-                if raw_cumulative_hydrated is not None
-                else 0
+            continue
+        if key == "cumulative_completed_files_delta":
+            cumulative_totals = _CollectionSemanticCumulativeTotals(
+                cumulative_new_processed_functions=(
+                    cumulative_totals.cumulative_new_processed_functions
+                ),
+                cumulative_completed_files_delta=(
+                    cumulative_totals.cumulative_completed_files_delta + value
+                ),
+                cumulative_hydrated_paths_delta=(
+                    cumulative_totals.cumulative_hydrated_paths_delta
+                ),
+                cumulative_regressed_functions=(
+                    cumulative_totals.cumulative_regressed_functions
+                ),
             )
-        ),
-        cumulative_regressed_functions=(
-            cumulative_totals.cumulative_regressed_functions
-            + (
-                max(0, raw_cumulative_regressed)
-                if raw_cumulative_regressed is not None
-                else 0
+            continue
+        if key == "cumulative_hydrated_paths_delta":
+            cumulative_totals = _CollectionSemanticCumulativeTotals(
+                cumulative_new_processed_functions=(
+                    cumulative_totals.cumulative_new_processed_functions
+                ),
+                cumulative_completed_files_delta=(
+                    cumulative_totals.cumulative_completed_files_delta
+                ),
+                cumulative_hydrated_paths_delta=(
+                    cumulative_totals.cumulative_hydrated_paths_delta + value
+                ),
+                cumulative_regressed_functions=(
+                    cumulative_totals.cumulative_regressed_functions
+                ),
             )
-        ),
-    )
+            continue
+        if key == "cumulative_regressed_functions":
+            cumulative_totals = _CollectionSemanticCumulativeTotals(
+                cumulative_new_processed_functions=(
+                    cumulative_totals.cumulative_new_processed_functions
+                ),
+                cumulative_completed_files_delta=(
+                    cumulative_totals.cumulative_completed_files_delta
+                ),
+                cumulative_hydrated_paths_delta=(
+                    cumulative_totals.cumulative_hydrated_paths_delta
+                ),
+                cumulative_regressed_functions=(
+                    cumulative_totals.cumulative_regressed_functions + value
+                ),
+            )
+            continue
+        never("unknown collection semantic cumulative key", key=key)
+    return cumulative_totals
 
 def _collection_semantic_witness(
     *,
@@ -841,7 +883,7 @@ def _collection_semantic_progress(
     previous_collection_resume: Mapping[str, JSONValue] | None,
     collection_resume: Mapping[str, JSONValue],
     total_files: int,
-    cumulative: Mapping[str, JSONValue] | None = None,
+    cumulative: Mapping[str, JSONValue],
 ) -> JSONObject:
     previous_state_facts = _collection_semantic_state_fact_index(previous_collection_resume)
     current_state_facts = _collection_semantic_state_fact_index(collection_resume)
@@ -878,7 +920,7 @@ def _collection_semantic_progress(
         completed_delta=completed_delta,
         completed_regressed=completed_regressed,
         hydration_delta=hydration_delta,
-        cumulative=cumulative,
+        cumulative_entries=_iter_collection_semantic_cumulative_entries(cumulative),
     )
     current_witness = _collection_semantic_witness(collection_resume=collection_resume)
     previous_resume_mapping = _json_mapping_optional(previous_collection_resume)

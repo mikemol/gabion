@@ -23,7 +23,6 @@ def run_analysis_stage(
     )
     return StageAnalysisResult(
         analysis_outcome=outcome,
-        semantic_progress_cumulative=outcome.semantic_progress_cumulative,
+        collection_resume_progress_state=outcome.collection_resume_progress_state,
         latest_collection_progress=outcome.latest_collection_progress,
-        last_collection_resume_payload=outcome.last_collection_resume_payload,
     )

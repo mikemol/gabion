@@ -1606,6 +1606,7 @@ def test_collection_semantic_progress_treats_completed_path_as_non_regression() 
             "in_progress_scan_by_path": {},
         },
         total_files=1,
+        cumulative={},
     )
     assert progress["regressed_processed_functions_count"] == 0
     assert progress["completed_files_delta"] == 1
@@ -1631,6 +1632,7 @@ def test_collection_semantic_progress_flags_state_loss_regression() -> None:
             "in_progress_scan_by_path": {},
         },
         total_files=1,
+        cumulative={},
     )
     assert progress["regressed_processed_functions_count"] == 2
     assert progress["completed_files_delta"] == 0
@@ -1659,6 +1661,7 @@ def test_collection_semantic_progress_tracks_analysis_index_hydration() -> None:
             },
         },
         total_files=2,
+        cumulative={},
     )
     assert progress["hydrated_paths_delta"] == 1
     assert progress["hydrated_paths_regressed"] == 0
@@ -3311,7 +3314,7 @@ def test_collection_semantic_progress_and_journal_phase_edges(tmp_path: Path) ->
             }
         },
         total_files=1,
-        cumulative=None,
+        cumulative={},
     )
     assert progress["new_processed_functions_count"] == 1
 

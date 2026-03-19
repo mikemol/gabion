@@ -7,6 +7,7 @@ from typing import Callable, Mapping, Protocol, TypeVar
 from gabion.json_types import JSONObject
 from gabion.server_core.command_contract import (
     AnalysisOutcomeContract,
+    CollectionResumeProgressState,
     ExecutionPayloadOptionsContract,
     IngressStageMode,
 )
@@ -30,9 +31,8 @@ class StageIngressResult:
 @dataclass(frozen=True)
 class StageAnalysisResult:
     analysis_outcome: AnalysisOutcomeContract
-    semantic_progress_cumulative: JSONObject | None
+    collection_resume_progress_state: CollectionResumeProgressState
     latest_collection_progress: JSONObject
-    last_collection_resume_payload: JSONObject | None
 
 
 @dataclass(frozen=True)

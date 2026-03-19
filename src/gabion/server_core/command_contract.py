@@ -19,9 +19,14 @@ class ExecutionPayloadOptionsContract(Protocol):
 
 
 class AnalysisOutcomeContract(Protocol):
-    semantic_progress_cumulative: JSONObject | None
+    collection_resume_progress_state: CollectionResumeProgressState
     latest_collection_progress: JSONObject
-    last_collection_resume_payload: JSONObject | None
+
+
+@dataclass(frozen=True)
+class CollectionResumeProgressState:
+    last_collection_resume_payload: JSONObject | None = None
+    semantic_progress_cumulative: JSONObject = field(default_factory=dict)
 
 
 class ProgressTraceStateContract(Protocol):
@@ -43,7 +48,7 @@ class CommandRuntimeState:
     """Mutable runtime state carried through command execution."""
 
     latest_collection_progress: dict[str, int]
-    semantic_progress_cumulative: JSONObject | None = None
+    semantic_progress_cumulative: JSONObject = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
