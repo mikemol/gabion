@@ -59,6 +59,13 @@ class AnalysisResumeInputState:
     input_witness: JSONObject | None = None
 
 
+@dataclass(frozen=True)
+class AnalysisResumeIntroState:
+    payload: JSONObject | None = None
+    timeline_header: str | None = None
+    timeline_row: str | None = None
+
+
 class ProgressTraceStateContract(Protocol):
     """Opaque progress trace state transported across progress hooks."""
 
