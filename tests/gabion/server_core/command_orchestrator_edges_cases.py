@@ -65,7 +65,10 @@ def _timeout_context(
                 latest_collection_progress={},
             ),
         ),
-        execute_deps=deps,
+        trace_runtime_context=orchestrator._TraceRuntimeContext(
+            execute_deps=deps,
+            aspf_trace_state=None,
+        ),
         emit_phase_timeline=False,
         phase_timeline_path=tmp_path / "timeline.md",
         profile_enabled=False,
@@ -83,7 +86,6 @@ def _timeout_context(
         runtime_root=tmp_path,
         initial_paths_count_value=1,
         execution_plan=ExecutionPlan(),
-        aspf_trace_state=None,
         ensure_report_sections_cache_fn=None,
         emit_lsp_progress_fn=lambda **_kwargs: None,
     )
@@ -98,8 +100,10 @@ def _analysis_context(
     emitted_events: list[dict[str, object]],
 ) -> orchestrator._AnalysisExecutionContext:
     return orchestrator._AnalysisExecutionContext(
-        execute_deps=deps,
-        aspf_trace_state=None,
+        trace_runtime_context=orchestrator._TraceRuntimeContext(
+            execute_deps=deps,
+            aspf_trace_state=None,
+        ),
         runtime_state=orchestrator.CommandRuntimeState(latest_collection_progress={}),
         forest=Forest(),
         paths=[source_path],
@@ -390,7 +394,10 @@ def test_render_timeout_partial_report_handles_non_callable_cache_loader(
         timeout_total_ns=1_000_000_000,
         analysis_window_ns=900_000_000,
         continuation_state=orchestrator.AnalysisContinuationState(),
-        execute_deps=deps,
+        trace_runtime_context=orchestrator._TraceRuntimeContext(
+            execute_deps=deps,
+            aspf_trace_state=None,
+        ),
         emit_phase_timeline=False,
         phase_timeline_path=tmp_path / "timeline.md",
         profile_enabled=False,
@@ -408,7 +415,6 @@ def test_render_timeout_partial_report_handles_non_callable_cache_loader(
         runtime_root=tmp_path,
         initial_paths_count_value=1,
         execution_plan=ExecutionPlan(),
-        aspf_trace_state=None,
         ensure_report_sections_cache_fn=None,
         emit_lsp_progress_fn=None,
     )

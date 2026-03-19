@@ -20,8 +20,10 @@ def test_stage_finalize_success_projects_resume_compatibility() -> None:
         )
 
     stage = orchestrator._ExecuteCommandFinalizeSuccessStage(
-        execute_deps=cast(orchestrator.CommandEffects, SimpleNamespace()),
-        aspf_trace_state=None,
+        trace_runtime_context=orchestrator._TraceRuntimeContext(
+            execute_deps=cast(orchestrator.CommandEffects, SimpleNamespace()),
+            aspf_trace_state=None,
+        ),
         report_analysis_state=orchestrator.ReportAnalysisState(
             analysis=cast(orchestrator.AnalysisResult, SimpleNamespace()),
             root=".",

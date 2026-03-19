@@ -185,8 +185,10 @@ def _analysis_context(
 ) -> orchestrator._AnalysisExecutionContext:
     _bind()
     return orchestrator._AnalysisExecutionContext(
-        execute_deps=server._default_execute_command_deps(),
-        aspf_trace_state=None,
+        trace_runtime_context=orchestrator._TraceRuntimeContext(
+            execute_deps=server._default_execute_command_deps(),
+            aspf_trace_state=None,
+        ),
         runtime_state=orchestrator.CommandRuntimeState(latest_collection_progress={}),
         forest=Forest(),
         paths=[tmp_path / "sample.py"],
@@ -820,7 +822,10 @@ def test_run_analysis_with_progress_skips_resume_seed_when_resume_payload_presen
     )
     context = dataclasses.replace(
         _analysis_context(tmp_path=tmp_path, payload={}),
-        execute_deps=deps,
+        trace_runtime_context=orchestrator._TraceRuntimeContext(
+            execute_deps=deps,
+            aspf_trace_state=None,
+        ),
         needs_analysis=True,
     )
     outcome = orchestrator._run_analysis_with_progress(
@@ -847,8 +852,10 @@ def test_build_success_response_emits_analysis_resume_block_when_resume_source_p
         root=tmp_path,
     )
     context = orchestrator._SuccessResponseContext(
-        execute_deps=server._default_execute_command_deps(),
-        aspf_trace_state=None,
+        trace_runtime_context=orchestrator._TraceRuntimeContext(
+            execute_deps=server._default_execute_command_deps(),
+            aspf_trace_state=None,
+        ),
         report_analysis_state=orchestrator.ReportAnalysisState(
             analysis=_empty_analysis_result(),
             root=str(tmp_path),

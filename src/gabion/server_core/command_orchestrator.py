@@ -1643,7 +1643,7 @@ class _TimeoutCleanupContext:
     timeout_total_ns: int
     analysis_window_ns: int
     continuation_state: AnalysisContinuationState
-    execute_deps: ExecuteCommandDeps
+    trace_runtime_context: _TraceRuntimeContext
     emit_phase_timeline: bool
     phase_timeline_path: Path
     profile_enabled: bool
@@ -1653,7 +1653,6 @@ class _TimeoutCleanupContext:
     runtime_root: Path
     initial_paths_count_value: int
     execution_plan: ExecutionPlan
-    aspf_trace_state: object | None
     ensure_report_sections_cache_fn: object
     emit_lsp_progress_fn: object
     dataflow_capabilities: _DataflowCapabilityAnnotations = field(
@@ -1681,9 +1680,14 @@ class _ProgressEmitter:
 
 
 @dataclass(frozen=True)
-class _AnalysisExecutionContext:
+class _TraceRuntimeContext:
     execute_deps: ExecuteCommandDeps
     aspf_trace_state: object | None
+
+
+@dataclass(frozen=True)
+class _AnalysisExecutionContext:
+    trace_runtime_context: _TraceRuntimeContext
     runtime_state: CommandRuntimeState
     forest: Forest
     paths: list[Path]
@@ -1994,6 +1998,8 @@ def _run_analysis_with_progress(
     state: _AnalysisExecutionMutableState,
     collection_resume_payload: JSONObject | None,
 ) -> _AnalysisExecutionOutcome:
+    execute_deps = context.trace_runtime_context.execute_deps
+    aspf_trace_state = context.trace_runtime_context.aspf_trace_state
     last_collection_intro_signature: tuple[int, int, int, int] | None = None
     last_collection_semantic_witness_digest: str | None = None
     last_collection_checkpoint_flush_ns = 0
@@ -2040,7 +2046,7 @@ def _run_analysis_with_progress(
         nonlocal last_collection_report_flush_ns
         nonlocal last_collection_report_flush_completed
         context.profiling_counters["server.collection_resume_persist_calls"] += 1
-        semantic_progress = context.execute_deps.analysis.collection_semantic_progress_fn(
+        semantic_progress = execute_deps.analysis.collection_semantic_progress_fn(
             previous_collection_resume=(
                 state.collection_progress_runtime_state.collection_resume_progress_state.last_collection_resume_payload
             ),
@@ -2097,7 +2103,7 @@ def _run_analysis_with_progress(
         if semantic_substantive_progress is None:
             semantic_substantive_progress = False
         now_ns = time.monotonic_ns()
-        if intro_changed and context.execute_deps.output.collection_checkpoint_flush_due_fn(
+        if intro_changed and execute_deps.output.collection_checkpoint_flush_due_fn(
             intro_changed=True,
             remaining_files=collection_progress["remaining_files"],
             semantic_substantive_progress=semantic_substantive_progress,
@@ -2137,7 +2143,7 @@ def _run_analysis_with_progress(
                 forest=context.forest,
                 parse_failure_witnesses=[],
             )
-            preview_sections = context.execute_deps.analysis.project_report_sections_fn(
+            preview_sections = execute_deps.analysis.project_report_sections_fn(
                 preview_groups_by_path,
                 preview_report,
                 project_root=context.config.project_root,
@@ -2288,7 +2294,7 @@ def _run_analysis_with_progress(
                 )
                 if flush_due:
                     phase_progress_last_flush_ns[phase] = now_ns
-                    available_sections = context.execute_deps.analysis.project_report_sections_fn(
+                    available_sections = execute_deps.analysis.project_report_sections_fn(
                         groups_by_path,
                         report_carrier,
                         project_root=context.config.project_root,
@@ -2296,10 +2302,10 @@ def _run_analysis_with_progress(
                         include_previews=True,
                         preview_only=True,
                     )
-                    if context.aspf_trace_state is not None:
+                    if aspf_trace_state is not None:
                         _record_trace_1cell(
-                            execute_deps=context.execute_deps,
-                            state=context.aspf_trace_state,
+                            execute_deps=execute_deps,
+                            state=aspf_trace_state,
                             kind="report_projection",
                             source_label="analysis:groups_by_path",
                             target_label="report:sections",
@@ -2377,7 +2383,7 @@ def _run_analysis_with_progress(
         if bootstrap_collection_resume is None:
             seed_paths = context.file_paths_for_run[:1] if context.file_paths_for_run else []
             bootstrap_collection_resume = (
-                context.execute_deps.analysis.build_analysis_collection_resume_seed_fn(
+                execute_deps.analysis.build_analysis_collection_resume_seed_fn(
                     in_progress_paths=seed_paths
                 )
             )
@@ -2430,10 +2436,10 @@ def _run_analysis_with_progress(
 
     if context.needs_analysis:
         analysis_started_ns = time.monotonic_ns()
-        if context.aspf_trace_state is not None:
+        if aspf_trace_state is not None:
             _record_trace_1cell(
-                execute_deps=context.execute_deps,
-                state=context.aspf_trace_state,
+                execute_deps=execute_deps,
+                state=aspf_trace_state,
                 kind="analysis_call_start",
                 source_label="runtime:inputs",
                 target_label="analysis:engine",
@@ -2441,7 +2447,7 @@ def _run_analysis_with_progress(
                 basis_path=("analysis", "call", "start"),
             )
         with policy_runtime.runtime_policy_scope(runtime_policy):
-            analysis = context.execute_deps.analysis.analyze_paths_fn(
+            analysis = execute_deps.analysis.analyze_paths_fn(
                 context.paths,
                 forest=context.forest,
                 recursive=not context.no_recursive,
@@ -2476,10 +2482,10 @@ def _run_analysis_with_progress(
                     else None
                 ),
             )
-        if context.aspf_trace_state is not None:
+        if aspf_trace_state is not None:
             _record_trace_1cell(
-                execute_deps=context.execute_deps,
-                state=context.aspf_trace_state,
+                execute_deps=execute_deps,
+                state=aspf_trace_state,
                 kind="analysis_call_end",
                 source_label="analysis:engine",
                 target_label="analysis:result",
@@ -2490,10 +2496,10 @@ def _run_analysis_with_progress(
             time.monotonic_ns() - analysis_started_ns
         )
     else:
-        if context.aspf_trace_state is not None:
+        if aspf_trace_state is not None:
             _record_trace_1cell(
-                execute_deps=context.execute_deps,
-                state=context.aspf_trace_state,
+                execute_deps=execute_deps,
+                state=aspf_trace_state,
                 kind="analysis_call_skipped",
                 source_label="runtime:inputs",
                 target_label="analysis:result",
@@ -3635,13 +3641,15 @@ def _render_timeout_partial_report(
                     forest=context.forest,
                     parse_failure_witnesses=[],
                 )
-                preview_sections = context.execute_deps.analysis.project_report_sections_fn(
+                preview_sections = (
+                    context.trace_runtime_context.execute_deps.analysis.project_report_sections_fn(
                     preview_groups_by_path,
                     preview_report,
                     project_root=context.config.project_root,
                     max_phase="post",
                     include_previews=True,
                     preview_only=True,
+                    )
                 )
                 resolved_sections = {**preview_sections, **resolved_sections}
             intro_lines = (
@@ -3718,6 +3726,8 @@ def _handle_timeout_cleanup(
     exc: TimeoutExceeded,
     context: _TimeoutCleanupContext,
 ) -> dict:
+    execute_deps = context.trace_runtime_context.execute_deps
+    aspf_trace_state = context.trace_runtime_context.aspf_trace_state
     cleanup_now_ns = time.monotonic_ns()
     cleanup_remaining_ns = max(0, context.timeout_hard_deadline_ns - cleanup_now_ns)
     cleanup_window_ns = min(context.cleanup_grace_ns, cleanup_remaining_ns)
@@ -3806,10 +3816,10 @@ def _handle_timeout_cleanup(
             progress_marker="cleanup:finalize_response",
             event_kind="progress",
         )
-        if context.aspf_trace_state is not None:
+        if aspf_trace_state is not None:
             _record_trace_1cell(
-                execute_deps=context.execute_deps,
-                state=context.aspf_trace_state,
+                execute_deps=execute_deps,
+                state=aspf_trace_state,
                 kind="timeout_cleanup",
                 source_label="analysis:engine",
                 target_label="runtime:timeout_context",
@@ -3831,8 +3841,8 @@ def _handle_timeout_cleanup(
                 context.dataflow_capabilities.disabled_surface_reasons
             ),
         }
-        trace_artifacts = context.execute_deps.progress.finalize_trace_fn(
-            state=context.aspf_trace_state,
+        trace_artifacts = execute_deps.progress.finalize_trace_fn(
+            state=aspf_trace_state,
             root=context.runtime_root,
             semantic_surface_payloads={
                 "groups_by_path": {},
@@ -4330,8 +4340,7 @@ def _compute_analysis_inclusion_flags(
 
 @dataclass(frozen=True)
 class _SuccessResponseContext:
-    execute_deps: ExecuteCommandDeps
-    aspf_trace_state: object | None
+    trace_runtime_context: _TraceRuntimeContext
     report_analysis_state: ReportAnalysisState
     paths: list[Path]
     payload: Mapping[str, object]
@@ -4381,8 +4390,7 @@ class _ExecuteCommandIngressStage:
 
 @dataclass(frozen=True)
 class _ExecuteCommandFinalizeSuccessStage:
-    execute_deps: ExecuteCommandDeps
-    aspf_trace_state: object | None
+    trace_runtime_context: _TraceRuntimeContext
     report_analysis_state: ReportAnalysisState
     paths: list[Path]
     payload: Mapping[str, object]
@@ -4417,6 +4425,8 @@ def _build_success_response(
     *,
     context: _SuccessResponseContext,
 ) -> _SuccessResponseOutcome:
+    execute_deps = context.trace_runtime_context.execute_deps
+    aspf_trace_state = context.trace_runtime_context.aspf_trace_state
     report_analysis_state = context.report_analysis_state
     analysis = cast(AnalysisResult, report_analysis_state.analysis)
     root = report_analysis_state.root
@@ -4550,10 +4560,10 @@ def _build_success_response(
     synthesis_plan = primary_outputs.synthesis_plan
     plan_payload = primary_outputs.refactor_plan_payload
     metrics = primary_outputs.structure_metrics_payload
-    if synthesis_plan is not None and context.aspf_trace_state is not None:
+    if synthesis_plan is not None and aspf_trace_state is not None:
         _record_trace_1cell(
-            execute_deps=context.execute_deps,
-            state=context.aspf_trace_state,
+            execute_deps=execute_deps,
+            state=aspf_trace_state,
             kind="artifact_emit",
             source_label="analysis:result",
             target_label="artifact:synthesis_plan",
@@ -4561,10 +4571,10 @@ def _build_success_response(
             basis_path=("artifact", "emit", "synthesis_plan"),
             surface="synthesis_plan",
         )
-    if plan_payload is not None and context.aspf_trace_state is not None:
+    if plan_payload is not None and aspf_trace_state is not None:
         _record_trace_1cell(
-            execute_deps=context.execute_deps,
-            state=context.aspf_trace_state,
+            execute_deps=execute_deps,
+            state=aspf_trace_state,
             kind="artifact_emit",
             source_label="analysis:result",
             target_label="artifact:refactor_plan",
@@ -4597,14 +4607,14 @@ def _build_success_response(
         ("quotient_promotion_decision", "emit:quotient_promotion_decision"),
         ("quotient_demotion_incidents", "emit:quotient_demotion_incidents"),
     )
-    if context.aspf_trace_state is not None:
+    if aspf_trace_state is not None:
         for artifact_key, representative in filter(
             lambda pair: pair[0] in response,
             trace_artifact_pairs,
         ):
             _record_trace_1cell(
-                execute_deps=context.execute_deps,
-                state=context.aspf_trace_state,
+                execute_deps=execute_deps,
+                state=aspf_trace_state,
                 kind="artifact_emit",
                 source_label="analysis:result",
                 target_label=f"artifact:{artifact_key}",
@@ -4612,11 +4622,11 @@ def _build_success_response(
                 basis_path=("artifact", "emit", artifact_key),
                 surface=_artifact_trace_surface(artifact_key),
             )
-    if context.aspf_trace_state is not None:
+    if aspf_trace_state is not None:
         materialized_one_cells: list[JSONObject] = []
         for cell, metadata in zip_longest(
-            context.aspf_trace_state.one_cells,
-            context.aspf_trace_state.one_cell_metadata,
+            aspf_trace_state.one_cells,
+            aspf_trace_state.one_cell_metadata,
             fillvalue={},
         ):
             payload = dict(cell.as_dict())
@@ -4625,14 +4635,14 @@ def _build_success_response(
             materialized_one_cells.append(payload)
         analysis.aspf_one_cells = materialized_one_cells
         analysis.aspf_two_cell_witnesses = [
-            witness.as_dict() for witness in context.aspf_trace_state.two_cell_witnesses
+            witness.as_dict() for witness in aspf_trace_state.two_cell_witnesses
         ]
         analysis.aspf_cofibration_witnesses = [
-            carrier.as_dict() for carrier in context.aspf_trace_state.cofibrations
+            carrier.as_dict() for carrier in aspf_trace_state.cofibrations
         ]
         analysis.aspf_surface_representatives = {
-            str(key): str(context.aspf_trace_state.surface_representatives[key])
-            for key in context.aspf_trace_state.surface_representatives
+            str(key): str(aspf_trace_state.surface_representatives[key])
+            for key in aspf_trace_state.surface_representatives
         }
     report_outcome = _finalize_report_and_violations(
         context=_ReportFinalizationContext(
@@ -4706,8 +4716,8 @@ def _build_success_response(
     response["disabled_surface_reasons"] = dict(
         context.dataflow_capabilities.disabled_surface_reasons
     )
-    trace_artifacts = context.execute_deps.progress.finalize_trace_fn(
-        state=context.aspf_trace_state,
+    trace_artifacts = execute_deps.progress.finalize_trace_fn(
+        state=aspf_trace_state,
         root=Path(root),
         semantic_surface_payloads={
             "groups_by_path": analysis.groups_by_path,
@@ -4898,8 +4908,7 @@ def _stage_finalize_success(
 ) -> _SuccessResponseOutcome:
     return build_success_response_fn(
         context=_SuccessResponseContext(
-            execute_deps=stage.execute_deps,
-            aspf_trace_state=stage.aspf_trace_state,
+            trace_runtime_context=stage.trace_runtime_context,
             report_analysis_state=stage.report_analysis_state,
             paths=stage.paths,
             payload=stage.payload,
@@ -5421,8 +5430,10 @@ def execute_command_total(
         try:
             analysis_stage = _stage_execute_analysis(
                 context=_AnalysisExecutionContext(
-                    execute_deps=execute_deps,
-                    aspf_trace_state=aspf_trace_state,
+                    trace_runtime_context=_TraceRuntimeContext(
+                        execute_deps=execute_deps,
+                        aspf_trace_state=aspf_trace_state,
+                    ),
                     runtime_state=runtime_state,
                     forest=forest,
                     paths=paths,
@@ -5483,8 +5494,10 @@ def execute_command_total(
         )
         success_outcome = _stage_finalize_success(
             stage=_ExecuteCommandFinalizeSuccessStage(
-                execute_deps=execute_deps,
-                aspf_trace_state=aspf_trace_state,
+                trace_runtime_context=_TraceRuntimeContext(
+                    execute_deps=execute_deps,
+                    aspf_trace_state=aspf_trace_state,
+                ),
                 report_analysis_state=ReportAnalysisState(
                     analysis=analysis,
                     root=str(root),
@@ -5522,7 +5535,10 @@ def execute_command_total(
                     resume_state=analysis_resume_state,
                     collection_progress_runtime_state=collection_progress_runtime_state,
                 ),
-                execute_deps=execute_deps,
+                trace_runtime_context=_TraceRuntimeContext(
+                    execute_deps=execute_deps,
+                    aspf_trace_state=aspf_trace_state,
+                ),
                 emit_phase_timeline=emit_phase_timeline,
                 phase_timeline_path=phase_timeline_path,
                 profile_enabled=profile_enabled,
@@ -5532,7 +5548,6 @@ def execute_command_total(
                 runtime_root=runtime_input.root,
                 initial_paths_count_value=initial_paths_count_value,
                 execution_plan=execution_plan,
-                aspf_trace_state=aspf_trace_state,
                 ensure_report_sections_cache_fn=_ensure_report_sections_cache,
                 emit_lsp_progress_fn=_emit_lsp_progress,
                 dataflow_capabilities=dataflow_capabilities,
