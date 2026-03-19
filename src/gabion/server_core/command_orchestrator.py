@@ -117,7 +117,10 @@ from gabion.server_core.command_contract import (
     CollectionSemanticProgressState,
     CommandRuntimeInput,
     CommandRuntimeState,
+    PendingReportSectionState,
     ReportCheckpointState,
+    ReportSectionState,
+    ReportSectionsState,
     ReportProjectionState,
     ReportRequestState,
     ReportRuntimeState,
@@ -1601,15 +1604,49 @@ class _ReportFinalizationContext:
 
 @dataclass(frozen=True)
 class _ReportFinalizationOutcome:
-    report: str | None
+    materialized_report: MaterializedReportArtifacts | None
     violations: list[str]
     effective_violations: list[str]
     report_runtime_state: ReportRuntimeState
 
 
+@dataclass(frozen=True, init=False)
+class MaterializedReportArtifacts:
+    sections_state: ReportSectionsState
+
+    def __init__(
+        self,
+        *,
+        resolved_sections: Mapping[str, list[str]],
+        projection_rows: Sequence[Mapping[str, JSONValue]] = (),
+        pending_reasons: Mapping[str, str] | None = None,
+    ) -> None:
+        object.__setattr__(
+            self,
+            "sections_state",
+            _report_sections_state(
+                resolved_sections=resolved_sections,
+                projection_rows=projection_rows,
+                pending_reasons=pending_reasons,
+            ),
+        )
+
+
 def _projection_row_section_id(row: JSONObject) -> str:
     check_deadline()
     return str(row.get("section_id", "") or "")
+
+
+def _projection_row_deps(row: Mapping[str, JSONValue]) -> tuple[str, ...]:
+    deps_raw = row.get("deps")
+    if not isinstance(deps_raw, (list, tuple)):
+        return ()
+    normalized_deps: list[str] = []
+    for dep in deps_raw:
+        dep_text = _string_optional(dep)
+        if dep_text is not None:
+            normalized_deps.append(dep_text)
+    return tuple(normalized_deps)
 
 
 def _section_id_missing_from_resolved(
@@ -1634,6 +1671,41 @@ def _pending_projection_reasons(
         section_ids,
     )
     return dict(zip(missing_section_ids, repeat("missing_dep")))
+
+
+def _report_sections_state(
+    *,
+    resolved_sections: Mapping[str, list[str]],
+    projection_rows: Sequence[Mapping[str, JSONValue]] = (),
+    pending_reasons: Mapping[str, str] | None = None,
+) -> ReportSectionsState:
+    pending_reasons = pending_reasons or {}
+    resolved_section_states = tuple(
+        ReportSectionState(section_id=str(section_id), lines=tuple(section_lines))
+        for section_id, section_lines in resolved_sections.items()
+    )
+    pending_rows_by_section = {
+        _projection_row_section_id(row): row
+        for row in projection_rows
+        if _projection_row_section_id(row)
+    }
+    pending_section_states = tuple(
+        PendingReportSectionState(
+            section_id=section_id,
+            phase=str(pending_rows_by_section.get(section_id, {}).get("phase", "") or ""),
+            deps=(
+                _projection_row_deps(pending_rows_by_section[section_id])
+                if section_id in pending_rows_by_section
+                else ()
+            ),
+            reason=reason,
+        )
+        for section_id, reason in pending_reasons.items()
+    )
+    return ReportSectionsState(
+        resolved_sections=resolved_section_states,
+        pending_sections=pending_section_states,
+    )
 
 
 @dataclass(frozen=True)
@@ -3248,7 +3320,7 @@ def _finalize_report_and_violations(
     analysis = cast(AnalysisResult, report_analysis_state.analysis)
     root = report_analysis_state.root
     report_request_state = report_analysis_state.request_state
-    report = None
+    materialized_report: MaterializedReportArtifacts | None = None
     violations: list[str] = []
     effective_violations: list[str] | None = None
     if report_request_state.report_path:
@@ -3266,6 +3338,13 @@ def _finalize_report_and_violations(
             ),
             resolved_sections=resolved_sections_for_obligations,
         )
+        report_sections_for_obligations = _report_sections_state(
+            resolved_sections=resolved_sections_for_obligations,
+            projection_rows=list(
+                report_request_state.runtime_state.projection_state.projection_rows
+            ),
+            pending_reasons=pending_projection_reasons,
+        )
         success_progress_payload: JSONObject = {
             "classification": "succeeded",
             "resume_supported": (context.analysis_resume_runtime_state.reused_files > 0),
@@ -3279,8 +3358,8 @@ def _finalize_report_and_violations(
             projection_rows=list(
                 report_request_state.runtime_state.projection_state.projection_rows
             ),
-            sections=resolved_sections_for_obligations,
-            pending_reasons=pending_projection_reasons,
+            sections=report_sections_for_obligations.resolved_mapping(),
+            pending_reasons=report_sections_for_obligations.pending_reason_mapping(),
         )
         (
             report_carrier.resumability_obligations,
@@ -3292,7 +3371,20 @@ def _finalize_report_and_violations(
             project_root=Path(root),
             report=report_carrier,
         )
-        report = report_markdown
+        resolved_sections = extract_report_sections(report_markdown)
+        final_pending_reasons = _pending_projection_reasons(
+            projection_rows=list(
+                report_request_state.runtime_state.projection_state.projection_rows
+            ),
+            resolved_sections=resolved_sections,
+        )
+        materialized_report = MaterializedReportArtifacts(
+            resolved_sections=resolved_sections,
+            projection_rows=list(
+                report_request_state.runtime_state.projection_state.projection_rows
+            ),
+            pending_reasons=final_pending_reasons,
+        )
         if context.baseline_path is not None:
             baseline_entries = load_baseline(context.baseline_path)
             if context.baseline_write:
@@ -3304,14 +3396,14 @@ def _finalize_report_and_violations(
             report_request_state.runtime_state.projection_state.output_path
             and report_request_state.runtime_state.projection_state.projection_rows
         ):
-            resolved_sections = extract_report_sections(report_markdown)
             _write_report_section_journal(
                 path=report_request_state.runtime_state.projection_state.section_journal_path,
                 witness_digest=report_request_state.runtime_state.checkpoint_state.section_witness_digest,
                 projection_rows=list(
                     report_request_state.runtime_state.projection_state.projection_rows
                 ),
-                sections=resolved_sections,
+                sections=materialized_report.sections_state.resolved_mapping(),
+                pending_reasons=materialized_report.sections_state.pending_reason_mapping(),
             )
             report_request_state.runtime_state.checkpoint_state.phase_checkpoint_state[
                 "post"
@@ -3319,8 +3411,13 @@ def _finalize_report_and_violations(
                 "status": "final",
                 "work_done": 1,
                 "work_total": 1,
-                "section_ids": sort_once(resolved_sections, source = 'src/gabion/server.py:5395'),
-                "resolved_sections": len(resolved_sections),
+                "section_ids": sort_once(
+                    materialized_report.sections_state.section_ids(),
+                    source="src/gabion/server.py:5395",
+                ),
+                "resolved_sections": len(
+                    materialized_report.sections_state.resolved_sections
+                ),
             }
         if context.decision_snapshot_path:
             decision_payload = render_decision_snapshot(
@@ -3333,7 +3430,7 @@ def _finalize_report_and_violations(
                 groups_by_path=analysis.groups_by_path,
                 pattern_schema_instances=context.pattern_schema_instances,
             )
-            report = report + "\n" + json.dumps(
+            report_markdown = report_markdown + "\n" + json.dumps(
                 decision_payload, indent=2, sort_keys=False
             )
         if context.structure_tree_path:
@@ -3343,14 +3440,14 @@ def _finalize_report_and_violations(
                 project_root=Path(root),
                 invariant_propositions=analysis.invariant_propositions,
             )
-            report = report + "\n" + json.dumps(
+            report_markdown = report_markdown + "\n" + json.dumps(
                 structure_payload, indent=2, sort_keys=False
             )
         if (
             context.structure_metrics_path
             and context.structure_metrics_payload is not None
         ):
-            report = report + "\n" + json.dumps(
+            report_markdown = report_markdown + "\n" + json.dumps(
                 context.structure_metrics_payload, indent=2, sort_keys=False
             )
         if context.synthesis_plan and (
@@ -3358,7 +3455,7 @@ def _finalize_report_and_violations(
             or context.synthesis_plan_path
             or context.synthesis_protocols_path
         ):
-            report = report + render_synthesis_section(
+            report_markdown = report_markdown + render_synthesis_section(
                 context.synthesis_plan,
                 check_deadline=check_deadline,
             )
@@ -3366,14 +3463,16 @@ def _finalize_report_and_violations(
             context.refactor_plan or context.refactor_plan_json
         ):
             if context.refactor_plan_payload is not None:
-                report = report + render_refactor_plan(context.refactor_plan_payload)
+                report_markdown = report_markdown + render_refactor_plan(
+                    context.refactor_plan_payload
+                )
         if report_request_state.runtime_state.projection_state.output_path is not None:
             report_request_state.runtime_state.projection_state.output_path.parent.mkdir(
                 parents=True, exist_ok=True
             )
             _write_text_profiled(
                 report_request_state.runtime_state.projection_state.output_path,
-                report,
+                report_markdown,
                 io_name="report_markdown.write",
             )
     else:
@@ -3409,7 +3508,7 @@ def _finalize_report_and_violations(
     if effective_violations is None:
         effective_violations = violations
     return _ReportFinalizationOutcome(
-        report=report,
+        materialized_report=materialized_report,
         violations=violations,
         effective_violations=effective_violations,
         report_runtime_state=report_request_state.runtime_state,
@@ -3418,9 +3517,7 @@ def _finalize_report_and_violations(
 
 @dataclass(frozen=True, init=False)
 class TimeoutReportOutcome:
-    partial_report_written: bool
-    resolved_sections: dict[str, list[str]]
-    pending_reasons: dict[str, str]
+    materialized_report: MaterializedReportArtifacts | None
     phase_checkpoint_state: JSONObject
 
     def __init__(
@@ -3433,7 +3530,7 @@ class TimeoutReportOutcome:
         phase_checkpoint_state: JSONObject,
         mark_cleanup_timeout_fn: Callable[[str], None] | None,
     ) -> None:
-        partial_report_written = False
+        materialized_report: MaterializedReportArtifacts | None = None
         resolved_sections: dict[str, list[str]] = {}
         pending_reasons: dict[str, str] = {}
         if (
@@ -3526,22 +3623,29 @@ class TimeoutReportOutcome:
                     sections=resolved_sections,
                     pending_reasons=pending_reasons,
                 )
+                materialized_report = MaterializedReportArtifacts(
+                    resolved_sections=resolved_sections,
+                    projection_rows=list(
+                        context.report_runtime_state.projection_state.projection_rows
+                    ),
+                    pending_reasons=pending_reasons,
+                )
                 phase_checkpoint_state["timeout"] = {
                     "status": "timed_out",
                     "analysis_state": analysis_state,
                     "section_ids": sort_once(
-                        resolved_sections, source="src/gabion/server.py:5848"
+                        materialized_report.sections_state.section_ids(),
+                        source="src/gabion/server.py:5848",
                     ),
-                    "resolved_sections": len(resolved_sections),
+                    "resolved_sections": len(
+                        materialized_report.sections_state.resolved_sections
+                    ),
                     "completed_phase": _latest_report_phase(phase_checkpoint_state),
                 }
-                partial_report_written = True
             except TimeoutExceeded:
                 if callable(mark_cleanup_timeout_fn):
                     mark_cleanup_timeout_fn("render_timeout_report")
-        object.__setattr__(self, "partial_report_written", partial_report_written)
-        object.__setattr__(self, "resolved_sections", resolved_sections)
-        object.__setattr__(self, "pending_reasons", pending_reasons)
+        object.__setattr__(self, "materialized_report", materialized_report)
         object.__setattr__(self, "phase_checkpoint_state", phase_checkpoint_state)
 
 
@@ -3781,9 +3885,12 @@ def _handle_timeout_cleanup(
             phase_checkpoint_state=phase_checkpoint_state,
             mark_cleanup_timeout_fn=_mark_cleanup_timeout,
         )
-        partial_report_written = timeout_report_outcome.partial_report_written
-        resolved_sections = timeout_report_outcome.resolved_sections
-        pending_reasons = timeout_report_outcome.pending_reasons
+        timeout_materialized_report = timeout_report_outcome.materialized_report
+        report_sections_state = (
+            timeout_materialized_report.sections_state
+            if timeout_materialized_report is not None
+            else ReportSectionsState()
+        )
         phase_checkpoint_state = timeout_report_outcome.phase_checkpoint_state
         try:
             obligations = _incremental_progress_obligations(
@@ -3792,20 +3899,21 @@ def _handle_timeout_cleanup(
                 resume_payload_available=bool(
                     timeout_resume_progress_state.collection_resume_payload
                 ),
-                partial_report_written=partial_report_written,
+                partial_report_written=timeout_materialized_report is not None,
                 report_requested=(
                     context.report_runtime_state.projection_state.output_path is not None
                 ),
                 projection_rows=list(
                     context.report_runtime_state.projection_state.projection_rows
                 ),
-                sections=resolved_sections,
-                pending_reasons=pending_reasons,
+                sections=report_sections_state.resolved_mapping(),
+                pending_reasons=report_sections_state.pending_reason_mapping(),
             )
         except TimeoutExceeded:
             _mark_cleanup_timeout("incremental_obligations")
             obligations = []
         progress_payload["incremental_obligations"] = obligations
+        timeout_payload["progress"] = progress_payload
         if cleanup_timeout_steps:
             progress_payload["cleanup_truncated"] = True
             progress_payload["cleanup_timeout_steps"] = cleanup_timeout_steps
@@ -4659,7 +4767,6 @@ def _build_success_response(
             refactor_plan_payload=plan_payload,
         ),
     )
-    report = report_outcome.report
     effective_violations = report_outcome.effective_violations
     report_request_state = ReportRequestState(
         report_path=report_request_state.report_path,
@@ -4669,7 +4776,6 @@ def _build_success_response(
         dot_payload = render_dot(analysis.forest)
         if _is_stdout_target(context.options.dot_path):
             response["dot"] = dot_payload
-            report = (f"{report}\n" if report is not None else "") + dot_payload
         else:
             Path(context.options.dot_path).write_text(dot_payload)
     response["violations"] = len(effective_violations)

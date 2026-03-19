@@ -278,7 +278,8 @@ def test_finalize_report_refactor_enabled_without_payload_keeps_report_stable(
             refactor_plan_payload=None,
         ),
     )
-    assert isinstance(outcome.report, str)
+    assert outcome.materialized_report is not None
+    assert outcome.materialized_report.sections_state.resolved_sections
 
 
 # gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator.TimeoutResumeProgressState.__init__
@@ -370,7 +371,7 @@ def test_finalize_report_without_report_path_applies_baseline(tmp_path: Path) ->
         refactor_plan_payload=None,
     )
     outcome = orchestrator._finalize_report_and_violations(context=context)
-    assert outcome.report is None
+    assert outcome.materialized_report is None
     assert outcome.violations == []
 
 
@@ -430,8 +431,11 @@ def test_timeout_report_outcome_handles_non_callable_cache_loader(
         phase_checkpoint_state={},
         mark_cleanup_timeout_fn=None,
     )
-    assert outcome.partial_report_written is True
-    assert "intro" in outcome.resolved_sections
+    assert outcome.materialized_report is not None
+    assert outcome.materialized_report.sections_state.section_ids() == (
+        "components",
+        "intro",
+    )
 
 
 # gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator._prepare_analysis_resume_state

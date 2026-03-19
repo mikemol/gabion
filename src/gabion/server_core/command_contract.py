@@ -105,6 +105,41 @@ class ReportCheckpointState:
 
 
 @dataclass(frozen=True)
+class ReportSectionState:
+    section_id: str
+    lines: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class PendingReportSectionState:
+    section_id: str
+    phase: str
+    deps: tuple[str, ...] = ()
+    reason: str = "policy"
+
+
+@dataclass(frozen=True)
+class ReportSectionsState:
+    resolved_sections: tuple[ReportSectionState, ...] = ()
+    pending_sections: tuple[PendingReportSectionState, ...] = ()
+
+    def resolved_mapping(self) -> dict[str, list[str]]:
+        return {
+            section.section_id: list(section.lines)
+            for section in self.resolved_sections
+        }
+
+    def pending_reason_mapping(self) -> dict[str, str]:
+        return {
+            section.section_id: section.reason
+            for section in self.pending_sections
+        }
+
+    def section_ids(self) -> tuple[str, ...]:
+        return tuple(section.section_id for section in self.resolved_sections)
+
+
+@dataclass(frozen=True)
 class ReportProjectionState:
     output_path: Path | None = None
     section_journal_path: Path = Path(".")
