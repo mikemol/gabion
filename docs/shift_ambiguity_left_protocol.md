@@ -1,5 +1,5 @@
 ---
-doc_revision: 3
+doc_revision: 4
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: shift_ambiguity_left_protocol
 doc_role: playbook
@@ -37,6 +37,10 @@ wrappers/legacy bridges in semantic core.
 1. **Classify the ambiguity**: input shape vs decision predicate vs cross-boundary bundle.
 2. **Reify the contract**: introduce/extend Protocol, dataclass, or Decision Protocol.
 3. **Normalize once at boundary**: discharge alternation before core execution.
+   Pattern:
+   when identity/render/report code is probing raw payload maps, normalize the
+   payload once into a small carrier/dataclass at the boundary, then make the
+   downstream logic consume only that strict carrier.
 4. **Remove downstream ambiguity guards**: delete repeated local checks in core suites.
 5. **Collapse to one deterministic path**: remove compatibility wrappers/dual-shape bridges in core; keep temporary adapters at boundary ingress only with lifecycle metadata.
 6. **Verify signatures**: run policy checks and confirm no new ambiguity-contract findings.
@@ -47,3 +51,26 @@ core zones without boundary-level reification evidence, and reject semantic-core
 "legacy bridge" patches that lack explicit boundary-lifecycle evidence. Also reject
 out-and-back relocations that hide prohibited behavior without moving the boundary
 upstream on the same affected fiber.
+
+## Named Adapter Pattern
+
+**Normalize once into a small carrier, then derive downstream structure from the
+strict carrier.**
+
+Use this when a boundary currently does work like:
+- repeated `payload.get(...)` probing,
+- nested `mapping_optional(...)` lookups,
+- per-call identity-token assembly from raw maps,
+- report/render logic that keeps rediscovering the same payload alternation.
+
+Preferred sequence:
+1. normalize the raw boundary payload once into a small dataclass/Protocol with
+   explicit fields,
+2. validate required anchors there,
+3. compute any digests or normalized lists there,
+4. pass that strict carrier to identity/render/report functions,
+5. delete the downstream raw-map probing.
+
+This keeps the boundary as the only place that knows about legacy or
+alternating payload shape, and it prevents helper-local ambiguity from
+reappearing in code that should be deterministic.
