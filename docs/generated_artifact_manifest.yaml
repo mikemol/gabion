@@ -220,7 +220,7 @@ artifacts:
     emitter_kind: command
     source: gabion policy docflow-packetize
     source_refs:
-      - src/gabion/tooling/runtime/docflow_packetize_cli.py
+      - scripts/policy/docflow_packetize.py
     conditional: false
     trigger_condition: emitted on normal packetization runs
     regeneration:
@@ -240,7 +240,7 @@ artifacts:
     emitter_kind: command
     source: gabion policy docflow-packet-enforce
     source_refs:
-      - src/gabion/tooling/runtime/docflow_packet_enforce_cli.py
+      - scripts/policy/docflow_packet_enforce.py
     conditional: false
     trigger_condition: emitted on normal packet-enforcement runs
     regeneration:
@@ -259,7 +259,7 @@ artifacts:
     emitter_kind: command
     source: gabion governance controller-audit
     source_refs:
-      - src/gabion/tooling/runtime/governance_controller_audit_cli.py
+      - scripts/governance/governance_controller_audit.py
     conditional: false
     trigger_condition: emitted on controller-drift audit runs
     regeneration:
@@ -305,7 +305,7 @@ artifacts:
     source: .github/workflows/ci.yml audit job governance telemetry emit
     source_refs:
       - .github/workflows/ci.yml
-      - src/gabion/tooling/runtime/governance_telemetry_emit_cli.py
+      - scripts/governance/governance_telemetry_emit.py
       - scripts/ci/ci_step_timing_capture.py
     conditional: false
     trigger_condition: emitted on normal CI audit runs
@@ -331,7 +331,7 @@ artifacts:
     emitter_kind: command
     source: gabion policy check --workflows
     source_refs:
-      - src/gabion/tooling/runtime/policy_check_cli.py
+      - scripts/policy/policy_check.py
     conditional: false
     trigger_condition: emitted on normal workflow-policy checks
     regeneration:
@@ -354,7 +354,7 @@ artifacts:
     source: .github/workflows/ci.yml audit job policy_check --workflows --output
     source_refs:
       - .github/workflows/ci.yml
-      - src/gabion/tooling/runtime/policy_check_cli.py
+      - scripts/policy/policy_check.py
     conditional: true
     trigger_condition: emitted when policy_check is run with the stable CI output path
     regeneration:
@@ -380,7 +380,7 @@ artifacts:
     source: .github/workflows/ci.yml audit job policy_check auxiliary artifact writes
     source_refs:
       - .github/workflows/ci.yml
-      - src/gabion/tooling/runtime/policy_check_cli.py
+      - scripts/policy/policy_check.py
     conditional: true
     trigger_condition: emitted when policy_check is run with the stable CI output path
     regeneration:
@@ -401,7 +401,7 @@ artifacts:
     source: .github/workflows/ci.yml audit job policy_check projection queue write
     source_refs:
       - .github/workflows/ci.yml
-      - src/gabion/tooling/runtime/policy_check_cli.py
+      - scripts/policy/policy_check.py
       - scripts/policy/projection_semantic_fragment_queue.py
     conditional: true
     trigger_condition: emitted when policy_check is run with the stable CI output path
@@ -422,7 +422,7 @@ artifacts:
     emitter_kind: command
     source: gabion policy scanner --root . --out-dir artifacts/out
     source_refs:
-      - src/gabion/tooling/runtime/policy_scanner_cli.py
+      - scripts/policy/policy_scanner_suite.py
       - scripts/policy/hotspot_neighborhood_queue.py
     conditional: false
     trigger_condition: emitted on normal policy-scanner-suite runs

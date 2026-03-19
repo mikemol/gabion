@@ -91,24 +91,8 @@ from gabion.tooling.runtime import (
     checks_runtime as tooling_checks_runtime,
     ci_local_repro as tooling_ci_local_repro,
     ci_watch as tooling_ci_watch,
-    docflow_packet_enforce_cli as tooling_docflow_packet_enforce_cli,
-    docflow_packetize_cli as tooling_docflow_packetize_cli,
-    extract_test_behavior_cli as tooling_extract_test_behavior_cli,
-    extract_test_evidence_cli as tooling_extract_test_evidence_cli,
-    governance_controller_audit_cli as tooling_governance_controller_audit_cli,
-    governance_telemetry_emit_cli as tooling_governance_telemetry_emit_cli,
     invariant_graph as tooling_invariant_graph,
     latest_snapshot_cli as tooling_latest_snapshot_cli,
-    policy_check_cli as tooling_policy_check_cli,
-    policy_scanner_cli as tooling_policy_scanner_cli,
-    refresh_baselines_cli as tooling_refresh_baselines_cli,
-    release_read_project_version_cli as tooling_release_read_project_version_cli,
-    release_set_test_version_cli as tooling_release_set_test_version_cli,
-    release_tag_cli as tooling_release_tag_cli,
-    release_verify_pypi_tag_cli as tooling_release_verify_pypi_tag_cli,
-    release_verify_test_tag_cli as tooling_release_verify_test_tag_cli,
-    sppf_status_audit_cli as tooling_sppf_status_audit_cli,
-    sppf_sync_cli as tooling_sppf_sync_cli,
     tool_specs,
 )
 from gabion.tooling.delta import (
@@ -119,18 +103,42 @@ from gabion.tooling.governance import (
     governance_audit as tooling_governance_audit, ambiguity_contract_policy_check as tooling_ambiguity_contract_policy_check, normative_symdiff as tooling_normative_symdiff)
 from gabion.server_core import command_orchestrator_primitives
 from gabion.server_core.coercion_contract import (
-    _cli_int_optional as _int_optional,
-    _cli_json_object_optional as _json_object_optional,
-    _cli_mapping_optional as _mapping_optional,
-    _cli_str_optional as _str_optional,
+    cli_int_optional as _int_optional,
+    cli_json_object_optional as _json_object_optional,
+    cli_mapping_optional as _mapping_optional,
+    cli_str_optional as _str_optional,
 )
 from gabion.tooling.impact import (
     impact_select_tests as tooling_impact_select_tests)
+from gabion.tooling.sppf import sync_core as tooling_sppf_sync_core
 from gabion.json_types import JSONObject, JSONValue
 from gabion.invariants import never
 from gabion.order_contract import sort_once
 from gabion.schema import (
     DecisionDiffResponseDTO, RefactorProtocolResponseDTO, LspParityGateResponseDTO, StructureDiffResponseDTO, StructureReuseResponseDTO, SynthesisPlanResponseDTO)
+from scripts.governance import (
+    governance_controller_audit as governance_controller_audit_script,
+    governance_telemetry_emit as governance_telemetry_emit_script,
+)
+from scripts.misc import (
+    extract_test_behavior as extract_test_behavior_script,
+    extract_test_evidence as extract_test_evidence_script,
+    refresh_baselines as refresh_baselines_script,
+)
+from scripts.policy import (
+    docflow_packet_enforce as docflow_packet_enforce_script,
+    docflow_packetize as docflow_packetize_script,
+    policy_check as policy_check_script,
+    policy_scanner_suite as policy_scanner_suite_script,
+)
+from scripts.release import (
+    release_read_project_version as release_read_project_version_script,
+    release_set_test_version as release_set_test_version_script,
+    release_tag as release_tag_script,
+    release_verify_pypi_tag as release_verify_pypi_tag_script,
+    release_verify_test_tag as release_verify_test_tag_script,
+)
+from scripts.sppf import sppf_status_audit as sppf_status_audit_script
 app = typer.Typer(add_completion=False)
 check_app = typer.Typer(
     add_completion=False,
@@ -1620,6 +1628,19 @@ def _invoke_argparse_command(
     return _invoke_argparse_command_impl(main_fn, argv)
 
 
+def _run_sys_argv_main(
+    main_fn: Callable[[], int | None],
+    argv: list[str] | None,
+) -> int:
+    old_argv = sys.argv[1:]
+    sys.argv[1:] = list(argv or [])
+    try:
+        result = main_fn()
+    finally:
+        sys.argv[1:] = old_argv
+    return 0 if result is None else int(result)
+
+
 _TOOLING_NO_ARG_RUNNERS: dict[str, Callable[[], int]] = {
     "delta-advisory-telemetry": tooling_delta_advisory.telemetry_main,
     "docflow-delta-emit": tooling_docflow_delta_emit.main,
@@ -1629,24 +1650,42 @@ _TOOLING_ARGV_RUNNERS: dict[str, Callable[[list[str] | None], int]] = {
     "checks": tooling_checks_runtime.main,
     "ci.local-repro": tooling_ci_local_repro.main,
     "ci.watch": tooling_ci_watch.main,
-    "policy.docflow-packet-enforce": tooling_docflow_packet_enforce_cli.main,
-    "policy.docflow-packetize": tooling_docflow_packetize_cli.main,
-    "governance.controller-audit": tooling_governance_controller_audit_cli.main,
-    "governance.telemetry-emit": tooling_governance_telemetry_emit_cli.main,
-    "policy.check": tooling_policy_check_cli.main,
-    "policy.scanner": tooling_policy_scanner_cli.main,
-    "release.read-project-version": tooling_release_read_project_version_cli.main,
-    "release.set-test-version": tooling_release_set_test_version_cli.main,
-    "release.tag": tooling_release_tag_cli.main,
-    "release.verify-pypi-tag": tooling_release_verify_pypi_tag_cli.main,
-    "release.verify-test-tag": tooling_release_verify_test_tag_cli.main,
+    "policy.docflow-packet-enforce": docflow_packet_enforce_script.main,
+    "policy.docflow-packetize": docflow_packetize_script.main,
+    "governance.controller-audit": lambda argv: _run_sys_argv_main(
+        governance_controller_audit_script.main,
+        argv,
+    ),
+    "governance.telemetry-emit": governance_telemetry_emit_script.main,
+    "policy.check": policy_check_script.main,
+    "policy.scanner": policy_scanner_suite_script.main,
+    "release.read-project-version": lambda argv: _run_sys_argv_main(
+        release_read_project_version_script.main,
+        argv,
+    ),
+    "release.set-test-version": lambda argv: _run_sys_argv_main(
+        release_set_test_version_script.main,
+        argv,
+    ),
+    "release.tag": lambda argv: _run_sys_argv_main(
+        release_tag_script.main,
+        argv,
+    ),
+    "release.verify-pypi-tag": lambda argv: _run_sys_argv_main(
+        release_verify_pypi_tag_script.main,
+        argv,
+    ),
+    "release.verify-test-tag": lambda argv: _run_sys_argv_main(
+        release_verify_test_tag_script.main,
+        argv,
+    ),
     "repo.audit-snapshot": tooling_audit_snapshot_cli.main,
-    "repo.extract-test-behavior": tooling_extract_test_behavior_cli.main,
-    "repo.extract-test-evidence": tooling_extract_test_evidence_cli.main,
+    "repo.extract-test-behavior": extract_test_behavior_script.main,
+    "repo.extract-test-evidence": extract_test_evidence_script.main,
     "repo.latest-snapshot": tooling_latest_snapshot_cli.main,
-    "repo.refresh-baselines": tooling_refresh_baselines_cli.main,
-    "sppf.status-audit": tooling_sppf_status_audit_cli.main,
-    "sppf.sync": tooling_sppf_sync_cli.main,
+    "repo.refresh-baselines": refresh_baselines_script.main,
+    "sppf.status-audit": sppf_status_audit_script.main,
+    "sppf.sync": tooling_sppf_sync_core.main,
     "impact-select-tests": tooling_impact_select_tests.main,
     "ambiguity-contract-gate": tooling_ambiguity_contract_policy_check.main,
     "normative-symdiff": tooling_normative_symdiff.main,

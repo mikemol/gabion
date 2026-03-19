@@ -1,5 +1,5 @@
 ---
-doc_revision: 2
+doc_revision: 3
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: friction
 doc_role: audit
@@ -319,3 +319,88 @@ with current `PSN` public-surface normalization work.
   normalization: if a symbol is worth importing across module boundaries, its
   owner should expose it publicly instead of relying on star-reexport facades
   and underscore imports.
+
+## FN-004: Pure-forwarder heuristics overmatch package markers and entrypoints
+
+**Trigger:** Sweeping `PSN` for pure import-forwarder modules before deleting
+the first runtime shim layer.
+
+**Friction:** A broad AST-level forwarder detector catches the real shim files,
+but it also catches legitimate package barrels, `__main__.py` entrypoints, and
+small owner modules that happen to have very little top-level structure. The
+raw candidate list is not directly actionable.
+
+**Impact:** Both human and LLM agents have to do manual triage before editing.
+Without that extra pass, the detector encourages over-deletion and makes the
+closure surface look more uniform than it really is.
+
+**Hypothesis:** The repo has a real policy distinction between forbidden pure
+forwarders and allowed thin surfaces, but that distinction is not yet reified
+in one canonical detector. Exploratory scans therefore collapse multiple
+surface classes into one noisy candidate bucket.
+
+**Evidence:**
+- A crude PSN forwarder sweep surfaced actual shim modules alongside
+  `src/gabion/__main__.py` and multiple package `__init__.py` files
+- Manual follow-up was required to separate delete-now shims from allowed thin
+  surfaces
+
+**Workstream/Context:** PSN forwarder-drain execution.
+
+### Higher-order synthesis
+
+- `AA constructs`: A repo-wide heuristic is useful because it makes the hidden
+  forwarder surface visible quickly.
+- `AB critiques`: Visibility alone is not enough when the detector does not
+  encode the policy distinction it is supposed to support.
+- `Convergence (Mind A)`: The friction is not "heuristics are bad"; it is that
+  the current heuristic is weaker than the architectural rule it is being used
+  to approximate.
+- `Mind B wedge product`: This is exactly why PSN needs a real no-forwarder
+  enforcement surface rather than one-off exploratory scans.
+
+## FN-005: Live registry layers can retain deleted-surface touchsites
+
+**Trigger:** Deleting real forwarder modules during `PSN` and then scanning the
+repo for remaining references to confirm the cutover is truthful.
+
+**Friction:** Some planning-substrate and audit registries still carry touchsite
+or evidence paths for modules that are now gone. The references are not always
+historical-only; some are still part of live workstream surfaces. That makes it
+unclear which path references are supposed to be updated as part of the same
+correction unit and which are intentionally archival.
+
+**Impact:** Humans and LLM agents have to distinguish "safe historical residue"
+from "active-surface drift" by hand. That increases the chance of either
+leaving the repo semantically stale or over-editing registries whose role is
+only provenance.
+
+**Hypothesis:** The repo has multiple overlapping truth surfaces for code
+ownership and migration state, but their lifecycle semantics are not yet made
+explicit enough at the point of use. Once a wrapper file is removed, the
+remaining path references no longer advertise whether they are declarative
+history, current control state, or just stale coupling.
+
+**Evidence:**
+- After removing governance wrapper files under `src/gabion_governance/`,
+  `src/gabion/tooling/policy_substrate/connectivity_synergy_registry.py` still
+  contained live touchsite rows for the deleted paths
+- The `PSN` registry required its own touchsites to be updated in the same
+  correction unit to keep the workstream truthful
+
+**Workstream/Context:** `PSN` governance/package veneer drain.
+
+### Higher-order synthesis
+
+- `AA constructs`: Multiple registry layers are valuable because they capture
+  different dimensions: current work, historical convergence, and audit
+  evidence.
+- `AB critiques`: Those distinctions stop being cheaply usable when the
+  registry entries do not declare their lifecycle strongly enough at the moment
+  a path disappears.
+- `Convergence (Mind A)`: The friction is not "too many registries"; it is that
+  the repo asks the operator to infer whether a surviving path reference is
+  still normative, still active, or merely archival.
+- `Mind B wedge product`: This is a constructability problem for migration
+  truthfulness. Deleting a surface should leave behind machine-visible signals
+  for which residual references must move and which may remain as history.

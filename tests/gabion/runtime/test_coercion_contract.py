@@ -85,12 +85,12 @@ def test_server_core_coercion_contract_preserves_orchestrator_edges() -> None:
 
 # gabion:behavior primary=desired
 def test_server_core_modules_bind_to_shared_coercion_contract() -> None:
-    assert cli._int_optional is server_core_coercion_contract._cli_int_optional
-    assert cli._str_optional is server_core_coercion_contract._cli_str_optional
-    assert cli._mapping_optional is server_core_coercion_contract._cli_mapping_optional
+    assert cli._int_optional is server_core_coercion_contract.cli_int_optional
+    assert cli._str_optional is server_core_coercion_contract.cli_str_optional
+    assert cli._mapping_optional is server_core_coercion_contract.cli_mapping_optional
     assert (
         cli._json_object_optional
-        is server_core_coercion_contract._cli_json_object_optional
+        is server_core_coercion_contract.cli_json_object_optional
     )
     assert command_orchestrator._bool_optional is server_core_coercion_contract._bool_optional
     assert (

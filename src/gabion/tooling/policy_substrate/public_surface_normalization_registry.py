@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from gabion.invariants import todo_decorator
+from gabion.invariants import landed_todo_decorator, todo_decorator
 from gabion.tooling.policy_substrate.workstream_registry import (
     RegisteredRootDefinition,
     RegisteredSubqueueDefinition,
@@ -109,11 +109,12 @@ def _psn_sq_policy_guards() -> None:
     return None
 
 
-@todo_decorator(
-    reason="PSN-TP-001 remains queued until namespace-family gabion command publication no longer routes through pure runtime forwarder modules.",
+@landed_todo_decorator(
+    reason="PSN-TP-001 is recorded as landed metadata after namespace-family gabion command publication stopped routing through pure runtime forwarder modules.",
     reasoning={
-        "summary": "The CLI runner map still points at runtime shim modules whose only role is forwarding into script-owned or owner-owned command implementations.",
+        "summary": "The runtime shim layer under gabion.tooling.runtime has been drained from namespace command publication, and the closed cutover onto real owner modules is recorded as landed touchpoint state.",
         "control": "public_surface_normalization.runtime_forwarders.touchpoint",
+        "blocking_dependencies": (),
     },
     owner="gabion.tooling.runtime",
     expiry="PSN closure",
@@ -429,7 +430,7 @@ def public_surface_normalization_workstream_registry() -> WorkstreamRegistry:
                 touchpoint_id="PSN-TP-001",
                 title="Drain runtime namespace command forwarders",
                 symbol=_psn_tp_runtime_forwarders,
-                status_hint="queued",
+                status_hint="landed",
                 declared_touchsites=(
                     _touchsite(
                         touchpoint_id="PSN-TP-001",
@@ -441,27 +442,51 @@ def public_surface_normalization_workstream_registry() -> WorkstreamRegistry:
                     ),
                     _touchsite(
                         touchpoint_id="PSN-TP-001",
-                        slug="policy-check-cli",
-                        rel_path="src/gabion/tooling/runtime/policy_check_cli.py",
+                        slug="policy-check-owner",
+                        rel_path="scripts/policy/policy_check.py",
                         qualname="main",
-                        boundary_name="policy check runtime CLI forwarder",
-                        line=13,
+                        boundary_name="policy check owner command surface",
+                        line=3165,
                     ),
                     _touchsite(
                         touchpoint_id="PSN-TP-001",
-                        slug="docflow-packetize-cli",
-                        rel_path="src/gabion/tooling/runtime/docflow_packetize_cli.py",
+                        slug="docflow-packetize-owner",
+                        rel_path="scripts/policy/docflow_packetize.py",
                         qualname="main",
-                        boundary_name="docflow packetize runtime CLI forwarder",
-                        line=13,
+                        boundary_name="docflow packetize owner command surface",
+                        line=327,
                     ),
                     _touchsite(
                         touchpoint_id="PSN-TP-001",
-                        slug="docflow-packet-enforce-cli",
-                        rel_path="src/gabion/tooling/runtime/docflow_packet_enforce_cli.py",
+                        slug="docflow-packet-enforce-owner",
+                        rel_path="scripts/policy/docflow_packet_enforce.py",
                         qualname="main",
-                        boundary_name="docflow packet enforce runtime CLI forwarder",
-                        line=13,
+                        boundary_name="docflow packet enforce owner command surface",
+                        line=394,
+                    ),
+                    _touchsite(
+                        touchpoint_id="PSN-TP-001",
+                        slug="governance-controller-audit-owner",
+                        rel_path="scripts/governance/governance_controller_audit.py",
+                        qualname="main",
+                        boundary_name="governance controller audit owner command surface",
+                        line=303,
+                    ),
+                    _touchsite(
+                        touchpoint_id="PSN-TP-001",
+                        slug="policy-scanner-owner",
+                        rel_path="scripts/policy/policy_scanner_suite.py",
+                        qualname="main",
+                        boundary_name="policy scanner owner command surface",
+                        line=121,
+                    ),
+                    _touchsite(
+                        touchpoint_id="PSN-TP-001",
+                        slug="sppf-sync-owner",
+                        rel_path="src/gabion/tooling/sppf/sync_core.py",
+                        qualname="main",
+                        boundary_name="sppf sync owner command surface",
+                        line=428,
                     ),
                 ),
             ),
@@ -471,7 +496,7 @@ def public_surface_normalization_workstream_registry() -> WorkstreamRegistry:
                 touchpoint_id="PSN-TP-002",
                 title="Remove script-side pure forwarders and compatibility veneers",
                 symbol=_psn_tp_script_forwarders,
-                status_hint="queued",
+                status_hint="in_progress",
                 declared_touchsites=(
                     _touchsite(
                         touchpoint_id="PSN-TP-002",
@@ -505,7 +530,7 @@ def public_surface_normalization_workstream_registry() -> WorkstreamRegistry:
                 touchpoint_id="PSN-TP-003",
                 title="Drain governance/package re-export veneers",
                 symbol=_psn_tp_governance_reexports,
-                status_hint="queued",
+                status_hint="in_progress",
                 declared_touchsites=(
                     _touchsite(
                         touchpoint_id="PSN-TP-003",
@@ -525,19 +550,19 @@ def public_surface_normalization_workstream_registry() -> WorkstreamRegistry:
                     ),
                     _touchsite(
                         touchpoint_id="PSN-TP-003",
-                        slug="governance-docflow-command",
-                        rel_path="src/gabion_governance/docflow_command.py",
+                        slug="governance-docflow-owner",
+                        rel_path="src/gabion_governance/governance_audit_impl.py",
                         qualname="run_docflow_cli",
-                        boundary_name="governance docflow re-export veneer",
-                        line=3,
+                        boundary_name="governance docflow owner",
+                        line=5538,
                     ),
                     _touchsite(
                         touchpoint_id="PSN-TP-003",
-                        slug="governance-status-consistency-command",
-                        rel_path="src/gabion_governance/status_consistency_command.py",
+                        slug="governance-status-consistency-owner",
+                        rel_path="src/gabion_governance/governance_audit_impl.py",
                         qualname="run_status_consistency_cli",
-                        boundary_name="governance status-consistency re-export veneer",
-                        line=5,
+                        boundary_name="governance status-consistency owner",
+                        line=5568,
                     ),
                 ),
             ),
@@ -547,7 +572,7 @@ def public_surface_normalization_workstream_registry() -> WorkstreamRegistry:
                 touchpoint_id="PSN-TP-004",
                 title="Publicize CLI and runtime helper imports",
                 symbol=_psn_tp_cli_runtime_private_imports,
-                status_hint="queued",
+                status_hint="in_progress",
                 declared_touchsites=(
                     _touchsite(
                         touchpoint_id="PSN-TP-004",
@@ -682,4 +707,3 @@ def public_surface_normalization_workstream_registry() -> WorkstreamRegistry:
         ),
         tags=("public_surface_normalization",),
     )
-

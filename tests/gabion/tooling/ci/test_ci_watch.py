@@ -10,14 +10,13 @@ from typing import Any
 import pytest
 
 from gabion.tooling.runtime import ci_watch as tooling_ci_watch
-from scripts.ci import ci_watch
 
 
 def _make_deps(
     *,
     run_handler,
     stderr_messages: list[str],
-) -> ci_watch.CiWatchDeps:
+) -> tooling_ci_watch.CiWatchDeps:
     def _run(
         cmd: list[str],
         *,
@@ -32,7 +31,7 @@ def _make_deps(
             text=text,
         )
 
-    return ci_watch.CiWatchDeps(
+    return tooling_ci_watch.CiWatchDeps(
         run=_run,
         print_err=stderr_messages.append,
     )
@@ -112,7 +111,7 @@ def test_ci_watch_collects_failure_artifacts_and_logs(tmp_path: Path) -> None:
         run_handler=_fake_run_handler,
         stderr_messages=stderr_messages,
     )
-    rc = ci_watch.main(
+    rc = tooling_ci_watch.main(
         [
             "--run-id",
             run_id,
@@ -194,7 +193,7 @@ def test_ci_watch_failure_can_skip_artifact_collection(tmp_path: Path) -> None:
         run_handler=_fake_run_handler,
         stderr_messages=stderr_messages,
     )
-    rc = ci_watch.main(
+    rc = tooling_ci_watch.main(
         [
             "--run-id",
             "98765",
@@ -240,7 +239,7 @@ def test_ci_watch_success_does_not_collect_failure_artifacts(tmp_path: Path) -> 
         run_handler=_fake_run_handler,
         stderr_messages=stderr_messages,
     )
-    rc = ci_watch.main(
+    rc = tooling_ci_watch.main(
         [
             "--run-id",
             "55555",
@@ -291,7 +290,7 @@ def test_ci_watch_collection_failures_return_strict_nonzero(tmp_path: Path) -> N
         run_handler=_fake_run_handler,
         stderr_messages=stderr_messages,
     )
-    rc = ci_watch.main(
+    rc = tooling_ci_watch.main(
         [
             "--run-id",
             run_id,
@@ -658,3 +657,20 @@ def test_ci_watch_module_entrypoint_executes() -> None:
         assert exc.value.code == 0
     finally:
         sys.argv = original_argv
+
+
+# gabion:evidence E:call_footprint::tests/test_ci_watch.py::test_legacy_script_ci_watch_stub_fails_fast::scripts/ci/ci_watch.py::main
+# gabion:behavior primary=desired
+def test_legacy_script_ci_watch_stub_fails_fast(capsys: Any) -> None:
+    original_argv = list(sys.argv)
+    try:
+        sys.argv = ["ci_watch.py"]
+        with pytest.raises(SystemExit) as exc:
+            runpy.run_module("scripts.ci.ci_watch", run_name="__main__")
+        assert exc.value.code == 1
+    finally:
+        sys.argv = original_argv
+
+    captured = capsys.readouterr()
+    assert "Removed: scripts/ci/ci_watch.py is retired." in captured.err
+    assert "gabion ci watch [args]" in captured.err

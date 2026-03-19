@@ -735,7 +735,6 @@ def test_dataflow_grammar_readiness_workstream_registry_exposes_local_signal_clu
         "DGR-TP-003",
         "DGR-TP-004",
     }
-    assert all(item.status_hint == "queued" for item in registry.touchpoints)
     assert (
         touchpoints["DGR-TP-001"].dataflow_signal_selector is not None
         and touchpoints["DGR-TP-001"].dataflow_signal_selector.terminal_statuses
@@ -982,19 +981,49 @@ def test_public_surface_normalization_workstream_registry_exposes_drain_program(
         "PSN-TP-007",
         "PSN-TP-008",
     }
-    assert all(item.status_hint == "queued" for item in registry.touchpoints)
+    assert {
+        touchpoints["PSN-TP-001"].status_hint,
+        touchpoints["PSN-TP-002"].status_hint,
+        touchpoints["PSN-TP-003"].status_hint,
+        touchpoints["PSN-TP-004"].status_hint,
+        touchpoints["PSN-TP-005"].status_hint,
+        touchpoints["PSN-TP-006"].status_hint,
+        touchpoints["PSN-TP-007"].status_hint,
+        touchpoints["PSN-TP-008"].status_hint,
+    } == {"queued", "in_progress", "landed"}
+    assert touchpoints["PSN-TP-001"].status_hint == "landed"
+    assert touchpoints["PSN-TP-002"].status_hint == "in_progress"
+    assert touchpoints["PSN-TP-003"].status_hint == "in_progress"
+    assert touchpoints["PSN-TP-004"].status_hint == "in_progress"
+    assert touchpoints["PSN-TP-005"].status_hint == "queued"
+    assert touchpoints["PSN-TP-006"].status_hint == "queued"
+    assert touchpoints["PSN-TP-007"].status_hint == "queued"
+    assert touchpoints["PSN-TP-008"].status_hint == "queued"
+    assert (
+        touchpoints["PSN-TP-001"].marker_payload.lifecycle_state
+        is MarkerLifecycleState.LANDED
+    )
     assert all(
-        item.marker_payload.lifecycle_state is MarkerLifecycleState.ACTIVE
-        for item in registry.touchpoints
+        touchpoints[touchpoint_id].marker_payload.lifecycle_state
+        is MarkerLifecycleState.ACTIVE
+        for touchpoint_id in (
+            "PSN-TP-002",
+            "PSN-TP-003",
+            "PSN-TP-004",
+            "PSN-TP-005",
+            "PSN-TP-006",
+            "PSN-TP-007",
+            "PSN-TP-008",
+        )
     )
     assert {
         (item.rel_path, item.qualname)
         for item in touchpoints["PSN-TP-001"].declared_touchsites
     } >= {
         ("src/gabion/cli.py", "_TOOLING_ARGV_RUNNERS"),
-        ("src/gabion/tooling/runtime/policy_check_cli.py", "main"),
-        ("src/gabion/tooling/runtime/docflow_packetize_cli.py", "main"),
-        ("src/gabion/tooling/runtime/docflow_packet_enforce_cli.py", "main"),
+        ("scripts/policy/policy_check.py", "main"),
+        ("scripts/policy/docflow_packetize.py", "main"),
+        ("scripts/policy/docflow_packet_enforce.py", "main"),
     }
     assert {
         (item.rel_path, item.qualname)
@@ -1002,8 +1031,8 @@ def test_public_surface_normalization_workstream_registry_exposes_drain_program(
     } >= {
         ("src/gabion/tooling/governance/governance_audit.py", "BOUNDARY_ADAPTER_METADATA"),
         ("src/gabion_governance/governance_entrypoint.py", "main"),
-        ("src/gabion_governance/docflow_command.py", "run_docflow_cli"),
-        ("src/gabion_governance/status_consistency_command.py", "run_status_consistency_cli"),
+        ("src/gabion_governance/governance_audit_impl.py", "run_docflow_cli"),
+        ("src/gabion_governance/governance_audit_impl.py", "run_status_consistency_cli"),
     }
     assert {
         link.value

@@ -199,6 +199,12 @@ def _cli_json_object_optional(value: object) -> dict[str, JSONValue] | None:
     return cast(dict[str, JSONValue] | None, mapping)
 
 
+cli_int_optional = _cli_int_optional
+cli_str_optional = _cli_str_optional
+cli_mapping_optional = _cli_mapping_optional
+cli_json_object_optional = _cli_json_object_optional
+
+
 __all__ = [
     "BOOL_OPTIONAL_POLICY",
     "INT_OR_ZERO_POLICY",
@@ -206,6 +212,10 @@ __all__ = [
     "NON_NEGATIVE_FLOAT_OPTIONAL_POLICY",
     "NON_STRING_SEQUENCE_OPTIONAL_POLICY",
     "OBJECT_MAPPING_OPTIONAL_POLICY",
+    "cli_int_optional",
+    "cli_json_object_optional",
+    "cli_mapping_optional",
+    "cli_str_optional",
     "_cli_int_optional",
     "_cli_json_object_optional",
     "_cli_mapping_optional",

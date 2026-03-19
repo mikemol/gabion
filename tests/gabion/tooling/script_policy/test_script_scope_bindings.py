@@ -16,7 +16,6 @@ def test_script_scope_helpers_bind_deadline_clock_and_forest() -> None:
         ("gabion.tooling.governance.governance_audit", "_audit_deadline_scope"),
         ("gabion.tooling.delta.delta_advisory", "_deadline_scope"),
         ("scripts.audit.audit_in_step_structure", "_deadline_scope"),
-        ("scripts.ci.ci_watch", "_deadline_scope"),
         ("gabion.tooling.delta.delta_triplets", "_deadline_scope"),
         ("gabion.tooling.docflow.docflow_delta_emit", "_delta_deadline_scope"),
         ("scripts.governance.docflow_promote_sections", "_promote_deadline_scope"),
