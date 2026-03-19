@@ -43,8 +43,7 @@ def test_stage_finalize_success_projects_resume_compatibility() -> None:
         profiling_counters={},
         phase_checkpoint_state={},
         execution_plan=cast(orchestrator.ExecutionPlan, SimpleNamespace()),
-        collection_resume_progress_state=orchestrator.CollectionResumeProgressState(),
-        latest_collection_progress={},
+        collection_progress_runtime_state=orchestrator.CollectionProgressRuntimeState(),
         emit_lsp_progress_fn=lambda **_kwargs: None,
         dataflow_capabilities=orchestrator._DataflowCapabilityAnnotations(
             selected_adapter="python",
@@ -91,8 +90,7 @@ def test_stage_execute_analysis_propagates_timeout() -> None:
         orchestrator._stage_execute_analysis(
             context=cast(orchestrator._AnalysisExecutionContext, SimpleNamespace()),
             state=orchestrator._AnalysisExecutionMutableState(
-                collection_resume_progress_state=orchestrator.CollectionResumeProgressState(),
-                latest_collection_progress={},
+                collection_progress_runtime_state=orchestrator.CollectionProgressRuntimeState(),
             ),
             collection_resume_payload=None,
             run_analysis_with_progress_fn=_raise_timeout,

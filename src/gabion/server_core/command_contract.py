@@ -19,14 +19,21 @@ class ExecutionPayloadOptionsContract(Protocol):
 
 
 class AnalysisOutcomeContract(Protocol):
-    collection_resume_progress_state: CollectionResumeProgressState
-    latest_collection_progress: JSONObject
+    collection_progress_runtime_state: CollectionProgressRuntimeState
 
 
 @dataclass(frozen=True)
 class CollectionResumeProgressState:
     last_collection_resume_payload: JSONObject | None = None
     semantic_progress_cumulative: JSONObject = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class CollectionProgressRuntimeState:
+    collection_resume_progress_state: CollectionResumeProgressState = field(
+        default_factory=CollectionResumeProgressState
+    )
+    latest_collection_progress: JSONObject = field(default_factory=dict)
 
 
 class ProgressTraceStateContract(Protocol):

@@ -104,6 +104,7 @@ from gabion.order_contract import OrderPolicy, sort_once
 from gabion.plan import ExecutionPlan, write_execution_plan_artifact
 from gabion.schema import CanonicalProgressEventPayloadDTO, DataflowResponseEnvelopeDTO
 from gabion.server_core.command_contract import (
+    CollectionProgressRuntimeState,
     CollectionResumeProgressState,
     CommandRuntimeInput,
     CommandRuntimeState,
@@ -1639,7 +1640,7 @@ class _TimeoutCleanupContext:
     analysis_window_ns: int
     analysis_resume_state_path: Path | None
     analysis_resume_input_manifest_digest: str | None
-    collection_resume_progress_state: CollectionResumeProgressState
+    collection_progress_runtime_state: CollectionProgressRuntimeState
     execute_deps: ExecuteCommandDeps
     analysis_resume_input_witness: JSONObject | None
     emit_phase_timeline: bool
@@ -1648,7 +1649,6 @@ class _TimeoutCleanupContext:
     analysis_resume_state_status: str | None
     analysis_resume_reused_files: int
     profile_enabled: bool
-    latest_collection_progress: JSONObject
     report_output_path: Path | None
     projection_rows: list[JSONObject]
     report_phase_checkpoint_path: Path | None
@@ -1747,14 +1747,12 @@ class _AnalysisExecutionContext:
 @dataclass(frozen=True)
 class _AnalysisExecutionOutcome:
     analysis: AnalysisResult
-    collection_resume_progress_state: CollectionResumeProgressState
-    latest_collection_progress: JSONObject
+    collection_progress_runtime_state: CollectionProgressRuntimeState
 
 
 @dataclass
 class _AnalysisExecutionMutableState:
-    collection_resume_progress_state: CollectionResumeProgressState
-    latest_collection_progress: JSONObject
+    collection_progress_runtime_state: CollectionProgressRuntimeState
 
 
 @dataclass
@@ -1938,14 +1936,17 @@ def _prepare_analysis_resume_state(
     raw_semantic_progress = cast(
         Mapping[str, object], collection_resume.get("semantic_progress", {})
     )
-    state.collection_resume_progress_state = CollectionResumeProgressState(
-        last_collection_resume_payload=collection_resume_payload,
-        semantic_progress_cumulative={
-            str(key): raw_semantic_progress[key] for key in raw_semantic_progress
-        },
+    state.collection_progress_runtime_state = CollectionProgressRuntimeState(
+        collection_resume_progress_state=CollectionResumeProgressState(
+            last_collection_resume_payload=collection_resume_payload,
+            semantic_progress_cumulative={
+                str(key): raw_semantic_progress[key] for key in raw_semantic_progress
+            },
+        ),
+        latest_collection_progress=dict(runtime_state.latest_collection_progress),
     )
     runtime_state.semantic_progress_cumulative = dict(
-        state.collection_resume_progress_state.semantic_progress_cumulative
+        state.collection_progress_runtime_state.collection_resume_progress_state.semantic_progress_cumulative
     )
     return file_paths_for_run, collection_resume_payload
 
@@ -2004,24 +2005,28 @@ def _run_analysis_with_progress(
         context.profiling_counters["server.collection_resume_persist_calls"] += 1
         semantic_progress = context.execute_deps.analysis.collection_semantic_progress_fn(
             previous_collection_resume=(
-                state.collection_resume_progress_state.last_collection_resume_payload
+                state.collection_progress_runtime_state.collection_resume_progress_state.last_collection_resume_payload
             ),
             collection_resume=progress_payload,
             total_files=context.analysis_resume_total_files,
-            cumulative=state.collection_resume_progress_state.semantic_progress_cumulative,
+            cumulative=(
+                state.collection_progress_runtime_state.collection_resume_progress_state.semantic_progress_cumulative
+            ),
         )
         persisted_progress_payload: JSONObject = dict(progress_payload)
         persisted_progress_payload["semantic_progress"] = semantic_progress
-        state.collection_resume_progress_state = CollectionResumeProgressState(
-            last_collection_resume_payload=persisted_progress_payload,
-            semantic_progress_cumulative=semantic_progress,
-        )
         context.runtime_state.semantic_progress_cumulative = dict(semantic_progress)
         collection_progress = _analysis_resume_progress(
             collection_resume=persisted_progress_payload,
             total_files=context.analysis_resume_total_files,
         )
-        state.latest_collection_progress = dict(collection_progress)
+        state.collection_progress_runtime_state = CollectionProgressRuntimeState(
+            collection_resume_progress_state=CollectionResumeProgressState(
+                last_collection_resume_payload=persisted_progress_payload,
+                semantic_progress_cumulative=semantic_progress,
+            ),
+            latest_collection_progress=dict(collection_progress),
+        )
         context.runtime_state.latest_collection_progress = dict(collection_progress)
         context.emit_lsp_progress_fn(
             phase="collection",
@@ -2195,9 +2200,11 @@ def _run_analysis_with_progress(
         phase_progress_v2 = report_carrier.phase_progress_v2
         context.emit_lsp_progress_fn(
             phase=phase,
-            collection_progress=state.latest_collection_progress,
+            collection_progress=(
+                state.collection_progress_runtime_state.latest_collection_progress
+            ),
             semantic_progress=(
-                state.collection_resume_progress_state.semantic_progress_cumulative
+                state.collection_progress_runtime_state.collection_resume_progress_state.semantic_progress_cumulative
             ),
             work_done=work_done,
             work_total=work_total,
@@ -2443,8 +2450,14 @@ def _run_analysis_with_progress(
         )
     return _AnalysisExecutionOutcome(
         analysis=analysis,
-        collection_resume_progress_state=state.collection_resume_progress_state,
-        latest_collection_progress=dict(state.latest_collection_progress),
+        collection_progress_runtime_state=CollectionProgressRuntimeState(
+            collection_resume_progress_state=(
+                state.collection_progress_runtime_state.collection_resume_progress_state
+            ),
+            latest_collection_progress=dict(
+                state.collection_progress_runtime_state.latest_collection_progress
+            ),
+        ),
     )
 
 
@@ -3410,7 +3423,7 @@ def _persist_timeout_resume_state(
 ) -> JSONObject | None:
     _ = (mark_cleanup_timeout_fn, emit_lsp_progress_fn)
     last_collection_resume_payload = _object_mapping_optional(
-        context.collection_resume_progress_state.last_collection_resume_payload
+        context.collection_progress_runtime_state.collection_resume_progress_state.last_collection_resume_payload
     )
     if last_collection_resume_payload is not None:
         return _copy_json_mapping(last_collection_resume_payload)
@@ -3428,7 +3441,7 @@ def _load_timeout_resume_progress(
     collection_resume: JSONObject | None = timeout_collection_resume_payload
     if collection_resume is None:
         last_collection_resume_payload = _object_mapping_optional(
-            context.collection_resume_progress_state.last_collection_resume_payload
+            context.collection_progress_runtime_state.collection_resume_progress_state.last_collection_resume_payload
         )
         if last_collection_resume_payload is not None:
             collection_resume = {
@@ -3678,9 +3691,11 @@ def _handle_timeout_cleanup(
         )
         emit_lsp_progress(
             phase="post",
-            collection_progress=context.latest_collection_progress,
+            collection_progress=(
+                context.collection_progress_runtime_state.latest_collection_progress
+            ),
             semantic_progress=(
-                context.collection_resume_progress_state.semantic_progress_cumulative
+                context.collection_progress_runtime_state.collection_resume_progress_state.semantic_progress_cumulative
             ),
             include_timing=True,
             done=False,
@@ -3733,9 +3748,11 @@ def _handle_timeout_cleanup(
                     if _object_mapping_optional(timeout_collection_resume_payload) is not None
                     else {}
                 ),
-                "_latest_collection_progress": context.latest_collection_progress,
+                "_latest_collection_progress": (
+                    context.collection_progress_runtime_state.latest_collection_progress
+                ),
                 "_semantic_progress": (
-                    context.collection_resume_progress_state.semantic_progress_cumulative
+                    context.collection_progress_runtime_state.collection_resume_progress_state.semantic_progress_cumulative
                 ),
                 "_analysis_manifest_digest": context.analysis_resume_input_manifest_digest,
                 "_resume_source": context.analysis_resume_source,
@@ -3753,9 +3770,11 @@ def _handle_timeout_cleanup(
             )
         emit_lsp_progress(
             phase="post",
-            collection_progress=context.latest_collection_progress,
+            collection_progress=(
+                context.collection_progress_runtime_state.latest_collection_progress
+            ),
             semantic_progress=(
-                context.collection_resume_progress_state.semantic_progress_cumulative
+                context.collection_progress_runtime_state.collection_resume_progress_state.semantic_progress_cumulative
             ),
             include_timing=True,
             done=True,
@@ -4233,8 +4252,7 @@ class _SuccessResponseContext:
     profiling_counters: dict[str, int]
     phase_checkpoint_state: JSONObject
     execution_plan: ExecutionPlan
-    collection_resume_progress_state: CollectionResumeProgressState
-    latest_collection_progress: JSONObject
+    collection_progress_runtime_state: CollectionProgressRuntimeState
     emit_lsp_progress_fn: Callable[..., None]
     dataflow_capabilities: _DataflowCapabilityAnnotations
     identity_shadow_runtime: IdentityShadowRuntime | None = None
@@ -4300,8 +4318,7 @@ class _ExecuteCommandFinalizeSuccessStage:
     profiling_counters: dict[str, int]
     phase_checkpoint_state: JSONObject
     execution_plan: ExecutionPlan
-    collection_resume_progress_state: CollectionResumeProgressState
-    latest_collection_progress: JSONObject
+    collection_progress_runtime_state: CollectionProgressRuntimeState
     emit_lsp_progress_fn: Callable[..., None]
     dataflow_capabilities: _DataflowCapabilityAnnotations
     identity_shadow_runtime: IdentityShadowRuntime | None
@@ -4318,8 +4335,7 @@ class _ExecuteCommandRuntimeBootstrapStage:
 @dataclass(frozen=True)
 class _ExecuteCommandAnalysisStage:
     analysis_outcome: _AnalysisExecutionOutcome
-    collection_resume_progress_state: CollectionResumeProgressState
-    latest_collection_progress: JSONObject
+    collection_progress_runtime_state: CollectionProgressRuntimeState
 
 
 
@@ -4635,16 +4651,18 @@ def _build_success_response(
                 "errors": response.get("errors", []),
             },
             "_resume_collection": (
-                context.collection_resume_progress_state.last_collection_resume_payload
+                context.collection_progress_runtime_state.collection_resume_progress_state.last_collection_resume_payload
                 if _object_mapping_optional(
-                    context.collection_resume_progress_state.last_collection_resume_payload
+                    context.collection_progress_runtime_state.collection_resume_progress_state.last_collection_resume_payload
                 )
                 is not None
                 else {}
             ),
-            "_latest_collection_progress": context.latest_collection_progress,
+            "_latest_collection_progress": (
+                context.collection_progress_runtime_state.latest_collection_progress
+            ),
             "_semantic_progress": (
-                context.collection_resume_progress_state.semantic_progress_cumulative
+                context.collection_progress_runtime_state.collection_resume_progress_state.semantic_progress_cumulative
             ),
             "_analysis_manifest_digest": context.analysis_resume_manifest_digest,
             "_resume_source": context.analysis_resume_source,
@@ -4667,9 +4685,11 @@ def _build_success_response(
     emit_lsp_progress = context.emit_lsp_progress_fn
     emit_lsp_progress(
         phase="post",
-        collection_progress=context.latest_collection_progress,
+        collection_progress=(
+            context.collection_progress_runtime_state.latest_collection_progress
+        ),
         semantic_progress=(
-            context.collection_resume_progress_state.semantic_progress_cumulative
+            context.collection_progress_runtime_state.collection_resume_progress_state.semantic_progress_cumulative
         ),
         include_timing=True,
         done=True,
@@ -4806,8 +4826,7 @@ def _stage_finalize_success(
             profiling_counters=stage.profiling_counters,
             phase_checkpoint_state=stage.phase_checkpoint_state,
             execution_plan=stage.execution_plan,
-            collection_resume_progress_state=stage.collection_resume_progress_state,
-            latest_collection_progress=stage.latest_collection_progress,
+            collection_progress_runtime_state=stage.collection_progress_runtime_state,
             emit_lsp_progress_fn=stage.emit_lsp_progress_fn,
             dataflow_capabilities=stage.dataflow_capabilities,
             identity_shadow_runtime=stage.identity_shadow_runtime,
@@ -4889,8 +4908,7 @@ def _stage_execute_analysis(
     )
     return _ExecuteCommandAnalysisStage(
         analysis_outcome=stage.analysis_outcome,
-        collection_resume_progress_state=stage.collection_resume_progress_state,
-        latest_collection_progress=stage.latest_collection_progress,
+        collection_progress_runtime_state=stage.collection_progress_runtime_state,
     )
 
 
@@ -4960,6 +4978,10 @@ def execute_command_total(
         semantic_progress_cumulative=dict(runtime_state.semantic_progress_cumulative)
     )
     latest_collection_progress: JSONObject = dict(runtime_state.latest_collection_progress)
+    collection_progress_runtime_state = CollectionProgressRuntimeState(
+        collection_resume_progress_state=collection_resume_progress_state,
+        latest_collection_progress=latest_collection_progress,
+    )
     emit_phase_timeline = False
     phase_timeline_path = runtime_input.root / "_unused_phase_timeline.md"
     phase_timeline_markdown_path = _phase_timeline_md_path(root=runtime_input.root)
@@ -5221,7 +5243,9 @@ def execute_command_total(
             analysis_resume_intro_timeline_row=analysis_resume_intro_timeline_row,
             report_section_witness_digest=report_section_witness_digest,
             phase_checkpoint_state=phase_checkpoint_state,
-            collection_resume_progress_state=collection_resume_progress_state,
+            collection_resume_progress_state=(
+                collection_progress_runtime_state.collection_resume_progress_state
+            ),
             analysis_resume_source=analysis_resume_source,
         )
         file_paths_for_run, collection_resume_payload = _prepare_analysis_resume_state(
@@ -5261,8 +5285,11 @@ def execute_command_total(
         )
         report_section_witness_digest = analysis_resume_state.report_section_witness_digest
         phase_checkpoint_state = analysis_resume_state.phase_checkpoint_state
-        collection_resume_progress_state = (
-            analysis_resume_state.collection_resume_progress_state
+        collection_progress_runtime_state = CollectionProgressRuntimeState(
+            collection_resume_progress_state=(
+                analysis_resume_state.collection_resume_progress_state
+            ),
+            latest_collection_progress=latest_collection_progress,
         )
         last_collection_intro_signature: tuple[int, int, int, int] | None = None
         last_collection_semantic_witness_digest: str | None = None
@@ -5302,8 +5329,14 @@ def execute_command_total(
         emit_phase_progress_events = runtime_bootstrap.emit_phase_progress_events
 
         analysis_execution_state = _AnalysisExecutionMutableState(
-            collection_resume_progress_state=collection_resume_progress_state,
-            latest_collection_progress=dict(latest_collection_progress),
+            collection_progress_runtime_state=CollectionProgressRuntimeState(
+                collection_resume_progress_state=(
+                    collection_progress_runtime_state.collection_resume_progress_state
+                ),
+                latest_collection_progress=dict(
+                    collection_progress_runtime_state.latest_collection_progress
+                ),
+            ),
         )
         try:
             analysis_stage = _stage_execute_analysis(
@@ -5364,16 +5397,24 @@ def execute_command_total(
                 run_analysis_stage_fn=run_analysis_stage_fn,
             )
         except TimeoutExceeded:
-            collection_resume_progress_state = (
-                analysis_execution_state.collection_resume_progress_state
-            )
-            latest_collection_progress = dict(
-                analysis_execution_state.latest_collection_progress
+            collection_progress_runtime_state = CollectionProgressRuntimeState(
+                collection_resume_progress_state=(
+                    analysis_execution_state.collection_progress_runtime_state.collection_resume_progress_state
+                ),
+                latest_collection_progress=dict(
+                    analysis_execution_state.collection_progress_runtime_state.latest_collection_progress
+                ),
             )
             raise
         analysis = analysis_stage.analysis_outcome.analysis
-        collection_resume_progress_state = analysis_stage.collection_resume_progress_state
-        latest_collection_progress = analysis_stage.latest_collection_progress
+        collection_progress_runtime_state = CollectionProgressRuntimeState(
+            collection_resume_progress_state=(
+                analysis_stage.collection_progress_runtime_state.collection_resume_progress_state
+            ),
+            latest_collection_progress=(
+                analysis_stage.collection_progress_runtime_state.latest_collection_progress
+            ),
+        )
         success_outcome = _stage_finalize_success(
             stage=_ExecuteCommandFinalizeSuccessStage(
                 execute_deps=execute_deps,
@@ -5404,8 +5445,7 @@ def execute_command_total(
                 profiling_counters=profiling_counters,
                 phase_checkpoint_state=phase_checkpoint_state,
                 execution_plan=execution_plan,
-                collection_resume_progress_state=collection_resume_progress_state,
-                latest_collection_progress=latest_collection_progress,
+                collection_progress_runtime_state=collection_progress_runtime_state,
                 emit_lsp_progress_fn=_emit_lsp_progress,
                 dataflow_capabilities=dataflow_capabilities,
                 identity_shadow_runtime=identity_shadow_runtime,
@@ -5423,7 +5463,7 @@ def execute_command_total(
                 analysis_window_ns=analysis_window_ns,
                 analysis_resume_state_path=analysis_resume_state_path,
                 analysis_resume_input_manifest_digest=analysis_resume_input_manifest_digest,
-                collection_resume_progress_state=collection_resume_progress_state,
+                collection_progress_runtime_state=collection_progress_runtime_state,
                 execute_deps=execute_deps,
                 analysis_resume_input_witness=analysis_resume_input_witness,
                 emit_phase_timeline=emit_phase_timeline,
@@ -5436,7 +5476,6 @@ def execute_command_total(
                 ),
                 analysis_resume_reused_files=analysis_resume_reused_files,
                 profile_enabled=profile_enabled,
-                latest_collection_progress=latest_collection_progress,
                 report_output_path=report_output_path,
                 projection_rows=projection_rows,
                 report_phase_checkpoint_path=report_phase_checkpoint_path,
@@ -5459,9 +5498,9 @@ def execute_command_total(
     except Exception:
         _emit_lsp_progress(
             phase="post",
-            collection_progress=latest_collection_progress,
+            collection_progress=collection_progress_runtime_state.latest_collection_progress,
             semantic_progress=(
-                collection_resume_progress_state.semantic_progress_cumulative
+                collection_progress_runtime_state.collection_resume_progress_state.semantic_progress_cumulative
             ),
             include_timing=True,
             done=True,

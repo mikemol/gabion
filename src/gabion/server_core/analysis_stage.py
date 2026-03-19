@@ -23,6 +23,5 @@ def run_analysis_stage(
     )
     return StageAnalysisResult(
         analysis_outcome=outcome,
-        collection_resume_progress_state=outcome.collection_resume_progress_state,
-        latest_collection_progress=outcome.latest_collection_progress,
+        collection_progress_runtime_state=outcome.collection_progress_runtime_state,
     )
