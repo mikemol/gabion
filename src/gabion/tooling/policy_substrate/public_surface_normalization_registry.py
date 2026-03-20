@@ -514,14 +514,6 @@ def public_surface_normalization_workstream_registry() -> WorkstreamRegistry:
                         boundary_name="ci watch runtime owner",
                         line=559,
                     ),
-                    _touchsite(
-                        touchpoint_id="PSN-TP-002",
-                        slug="aspf-handoff-stub",
-                        rel_path="scripts/misc/aspf_handoff.py",
-                        qualname="main",
-                        boundary_name="aspf handoff legacy script stub",
-                        line=12,
-                    ),
                 ),
             ),
             _touchpoint_definition(

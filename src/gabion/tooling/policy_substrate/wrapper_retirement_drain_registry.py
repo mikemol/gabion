@@ -155,7 +155,7 @@ def _wrd_tp_ci_wrappers() -> None:
 
 
 @landed_todo_decorator(
-    reason="WRD-TP-003 is recorded as landed metadata after ASPF handoff converged on the namespace-family gabion aspf handoff surface across CLI publication, docs, workflows, and stubs.",
+    reason="WRD-TP-003 is recorded as landed metadata after ASPF handoff converged on the namespace-family gabion aspf handoff surface across CLI publication, docs, and workflows.",
     reasoning={
         "summary": "ASPF handoff now publishes and documents only gabion aspf handoff, and the closed cutover is recorded as landed touchpoint state.",
         "control": "wrapper_retirement_drain.aspf_handoff.touchpoint",
@@ -554,14 +554,6 @@ def wrapper_retirement_drain_workstream_registry() -> WorkstreamRegistry:
                     ),
                     _touchsite(
                         touchsite_id="WRD-TP-003-TS-002",
-                        rel_path="scripts/misc/aspf_handoff.py",
-                        qualname="main",
-                        line=304,
-                        surface="wrapper_runtime_entrypoint",
-                        structural_path="wrapper_runtime_entrypoint::aspf_handoff.main",
-                    ),
-                    _touchsite(
-                        touchsite_id="WRD-TP-003-TS-003",
                         rel_path="docs/user_workflows.md",
                         qualname="user_workflows",
                         line=182,
@@ -570,7 +562,7 @@ def wrapper_retirement_drain_workstream_registry() -> WorkstreamRegistry:
                         node_kind="markdown_section",
                     ),
                     _touchsite(
-                        touchsite_id="WRD-TP-003-TS-004",
+                        touchsite_id="WRD-TP-003-TS-003",
                         rel_path=".github/workflows/ci.yml",
                         qualname="ci_workflow_aspf_handoff_step",
                         line=293,
