@@ -1677,12 +1677,24 @@ def _chain_report_section_states(
     )
 
 
+def _empty_report_section_states() -> Iterator[ReportSectionState]:
+    return iter(())
+
+
 def _resolved_section_mapping(
     resolved_sections: Callable[[], Iterator[ReportSectionState]],
 ) -> dict[str, list[str]]:
     return ReportSectionsState(
         _resolved_section_iterator_factory=resolved_sections,
     ).resolved_mapping()
+
+
+def _resolved_section_count(
+    resolved_sections: Callable[[], Iterator[ReportSectionState]],
+) -> int:
+    return ReportSectionsState(
+        _resolved_section_iterator_factory=resolved_sections,
+    ).resolved_section_count()
 
 
 def _projection_row_deps(row: Mapping[str, JSONValue]) -> tuple[str, ...]:
@@ -2301,14 +2313,14 @@ def _run_analysis_with_progress(
                 include_previews=True,
                 preview_only=True,
             )
-            preview_sections_stream = _resolved_report_section_states(
-                iter(preview_sections.items())
+            base_sections = _chain_report_section_states(
+                cached_sections,
+                intro_sections,
+                preview_sections,
             )
             sections = _resolved_section_mapping(
                 _chain_report_section_states(
-                    cached_sections,
-                    intro_sections,
-                    preview_sections_stream,
+                    base_sections,
                     _single_report_section_state(
                         section_id="components",
                         lines=_collection_components_preview_lines(
@@ -2317,13 +2329,9 @@ def _run_analysis_with_progress(
                     )
                     if _section_id_missing_from_resolved(
                         "components",
-                        resolved_sections=_chain_report_section_states(
-                            cached_sections,
-                            intro_sections,
-                            preview_sections_stream,
-                        ),
+                        resolved_sections=base_sections,
                     )
-                    else (lambda: iter(())),
+                    else _empty_report_section_states,
                 )
             )
             partial_report, pending_reasons = _render_incremental_report(
@@ -2480,16 +2488,16 @@ def _run_analysis_with_progress(
                             surface="groups_by_path",
                             metadata={
                                 "phase": phase,
-                                "section_count": len(available_sections),
+                                "section_count": _resolved_section_count(
+                                    available_sections
+                                ),
                             },
                         ).emit(execute_deps=execute_deps, state=aspf_trace_state)
                     cached_sections, journal_reason = context.ensure_report_sections_cache_fn()
                     sections = _resolved_section_mapping(
                         _chain_report_section_states(
                             cached_sections,
-                            _resolved_report_section_states(
-                                iter(available_sections.items())
-                            ),
+                            available_sections,
                         )
                     )
                     partial_report, pending_reasons = _render_incremental_report(
@@ -3622,14 +3630,20 @@ class TimeoutReportOutcome:
                 ensure_report_sections_cache = context.ensure_report_sections_cache_fn
                 if callable(ensure_report_sections_cache):
                     cached_sections, journal_reason = ensure_report_sections_cache()
-                    resolved_sections = _resolved_section_mapping(cached_sections)
                 else:
-                    resolved_sections, journal_reason = ({}, None)
-                resolved_sections.setdefault(
-                    "components",
-                    _collection_components_preview_lines(
-                        collection_resume=timeout_collection_resume_payload
-                    ),
+                    cached_sections, journal_reason = (_empty_report_section_states, None)
+                components_sections = (
+                    _single_report_section_state(
+                        section_id="components",
+                        lines=_collection_components_preview_lines(
+                            collection_resume=timeout_collection_resume_payload
+                        ),
+                    )
+                    if _section_id_missing_from_resolved(
+                        "components",
+                        resolved_sections=cached_sections,
+                    )
+                    else _empty_report_section_states
                 )
                 if (
                     context.enable_phase_projection_checkpoints
@@ -3652,7 +3666,16 @@ class TimeoutReportOutcome:
                             preview_only=True,
                         )
                     )
-                    resolved_sections = {**preview_sections, **resolved_sections}
+                    base_sections = _chain_report_section_states(
+                        preview_sections,
+                        cached_sections,
+                        components_sections,
+                    )
+                else:
+                    base_sections = _chain_report_section_states(
+                        cached_sections,
+                        components_sections,
+                    )
                 intro_lines = (
                     _collection_progress_intro_lines(
                         collection_resume=timeout_collection_resume_payload,
@@ -3670,7 +3693,19 @@ class TimeoutReportOutcome:
                         f"- `paths_requested`: `{context.initial_paths_count_value}`",
                     ]
                 )
-                resolved_sections.setdefault("intro", intro_lines)
+                resolved_sections_state = _chain_report_section_states(
+                    base_sections,
+                    _single_report_section_state(
+                        section_id="intro",
+                        lines=intro_lines,
+                    )
+                    if _section_id_missing_from_resolved(
+                        "intro",
+                        resolved_sections=base_sections,
+                    )
+                    else _empty_report_section_states,
+                )
+                resolved_sections = _resolved_section_mapping(resolved_sections_state)
                 partial_report, pending_reasons = _render_incremental_report(
                     analysis_state=analysis_state,
                     progress_payload=progress_payload,
@@ -3705,9 +3740,7 @@ class TimeoutReportOutcome:
                     pending_reasons=pending_reasons,
                 )
                 materialized_report = MaterializedReportArtifacts(
-                    resolved_sections=_resolved_report_section_states(
-                        iter(resolved_sections.items())
-                    ),
+                    resolved_sections=resolved_sections_state,
                     projection_rows=list(
                         context.report_runtime_state.projection_state.projection_rows
                     ),

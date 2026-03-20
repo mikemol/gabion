@@ -21,7 +21,10 @@ class AnalysisDeps:
     analysis_input_manifest_digest_fn: Callable[[JSONObject], str]
     build_analysis_collection_resume_seed_fn: Callable[..., JSONObject]
     collection_semantic_progress_fn: Callable[..., JSONObject]
-    project_report_sections_fn: Callable[..., dict[str, list[str]]]
+    project_report_sections_fn: Callable[
+        ...,
+        Callable[[], Iterator[ReportSectionState]],
+    ]
     report_projection_spec_rows_fn: Callable[[], list[JSONObject]]
 
 

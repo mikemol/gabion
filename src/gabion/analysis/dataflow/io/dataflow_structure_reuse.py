@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Iterator
 from functools import singledispatch
+from itertools import tee
 from pathlib import Path
 from typing import Callable, cast
 
@@ -31,6 +33,7 @@ from gabion.analysis.core.structure_reuse_classes import build_structure_class, 
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.invariants import grade_boundary, never, todo
 from gabion.order_contract import sort_once
+from gabion.server_core.command_contract import ReportSectionState
 
 _NONE_TYPE = type(None)
 
@@ -547,6 +550,19 @@ def _build_reuse_replacement_map(
     return replacement_map
 
 
+def _tee_report_section_state_stream(
+    entries: Iterator[ReportSectionState],
+) -> Callable[[], Iterator[ReportSectionState]]:
+    source = entries
+
+    def iter_entries() -> Iterator[ReportSectionState]:
+        nonlocal source
+        source, clone = tee(source)
+        return clone
+
+    return iter_entries
+
+
 def project_report_sections(
     groups_by_path,
     report,
@@ -555,7 +571,7 @@ def project_report_sections(
     max_phase=None,
     include_previews: bool = False,
     preview_only: bool = False,
-):
+) -> Callable[[], Iterator[ReportSectionState]]:
     check_deadline()
     extracted: dict[str, list[str]] = {}
     if not preview_only:
@@ -570,25 +586,34 @@ def project_report_sections(
     if max_phase is not None:
         max_rank = report_projection_phase_rank(max_phase)
 
-    selected: dict[str, list[str]] = {}
     eligible_specs = tuple(
         spec
         for spec in report_projection_specs()
         if max_rank is None or report_projection_phase_rank(spec.phase) <= max_rank
     )
-    for spec in eligible_specs:
-        check_deadline()
-        lines = extracted.get(spec.section_id, [])
-        if not lines and include_previews and spec.has_preview:
-            lines = preview_section_lines(
-                spec.section_id,
-                report=report,
-                groups_by_path=groups_by_path,
-                project_root=project_root,
+
+    def iter_selected_sections() -> Iterator[ReportSectionState]:
+        for spec in eligible_specs:
+            check_deadline()
+            lines = extracted.get(spec.section_id, []) or (
+                preview_section_lines(
+                    spec.section_id,
+                    report=report,
+                    groups_by_path=groups_by_path,
+                    project_root=project_root,
+                )
+                if include_previews and spec.has_preview
+                else []
             )
-        if lines:
-            selected[spec.section_id] = lines
-    return selected
+            if lines:
+                yield ReportSectionState(
+                    section_id=spec.section_id,
+                    _line_iterator_factory=(
+                        lambda section_lines=lines: iter(section_lines)
+                    ),
+                )
+
+    return _tee_report_section_state_stream(iter_selected_sections())
 
 
 def _bundle_name_registry(root: Path) -> dict[tuple[str, ...], set[str]]:
