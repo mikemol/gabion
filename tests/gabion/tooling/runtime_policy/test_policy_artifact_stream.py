@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from gabion.foundation.replayable_stream import stream_from_iterable
 from gabion.tooling.policy_substrate import policy_artifact_stream as stream
 from gabion.tooling.policy_substrate.policy_queue_identity import PolicyQueueIdentitySpace
 
@@ -14,13 +15,13 @@ def test_write_json_matches_render_json_value_for_recursive_artifact_units(
     artifact = stream.document(
         identity="root",
         title="root",
-        children=lambda: iter(
+        children=stream_from_iterable(
             (
                 stream.section(
                     identity="meta",
                     key="meta",
                     title="meta",
-                    children=lambda: iter(
+                    children=stream_from_iterable(
                         (
                             stream.scalar(
                                 identity="queue_id",
@@ -30,7 +31,7 @@ def test_write_json_matches_render_json_value_for_recursive_artifact_units(
                             ),
                             stream.lazy(
                                 identity="lazy-single",
-                                children=lambda: iter(
+                                children=stream_from_iterable(
                                     (
                                         stream.scalar(
                                             identity="status",
@@ -48,11 +49,11 @@ def test_write_json_matches_render_json_value_for_recursive_artifact_units(
                     identity="items",
                     key="items",
                     title="items",
-                    children=lambda: iter(
+                    children=stream_from_iterable(
                         (
                             stream.list_item(
                                 identity="item-0",
-                                children=lambda: iter(
+                                children=stream_from_iterable(
                                     (
                                         stream.scalar(
                                             identity="object_id",
@@ -84,11 +85,11 @@ def test_write_json_matches_render_json_value_for_recursive_artifact_units(
                         stream.ArtifactColumn(key="object_id", title="object_id"),
                         stream.ArtifactColumn(key="count", title="count"),
                     ),
-                    children=lambda: iter(
+                    children=stream_from_iterable(
                         (
                             stream.row(
                                 identity="row-0",
-                                children=lambda: iter(
+                                children=stream_from_iterable(
                                     (
                                         stream.cell(
                                             identity="row-0-object",
@@ -127,7 +128,7 @@ def test_write_json_does_not_delegate_to_render_json_value(
 ) -> None:
     artifact = stream.document(
         identity="root",
-        children=lambda: iter(
+        children=stream_from_iterable(
             (
                 stream.scalar(
                     identity="value",
@@ -159,7 +160,7 @@ def test_artifact_stream_uses_default_renderer_for_typed_identities() -> None:
     artifact = stream.document(
         identity=touchpoint,
         title="workstream",
-        children=lambda: iter(
+        children=stream_from_iterable(
             (
                 stream.scalar(
                     identity=touchpoint,
@@ -171,11 +172,11 @@ def test_artifact_stream_uses_default_renderer_for_typed_identities() -> None:
                     identity=touchsite,
                     key="touchsites",
                     title="touchsites",
-                    children=lambda: iter(
+                    children=stream_from_iterable(
                         (
                             stream.list_item(
                                 identity=touchsite,
-                                children=lambda: iter(
+                                children=stream_from_iterable(
                                     (
                                         stream.scalar(
                                             identity=touchsite,

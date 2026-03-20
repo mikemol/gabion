@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 import json
@@ -12,6 +12,7 @@ from gabion.foundation.replayable_stream import (
     ReplayableStream,
     empty_stream,
     stream_from_factory,
+    stream_from_iterable,
 )
 
 
@@ -53,12 +54,6 @@ class ArtifactColumn:
 
     def __str__(self) -> str:
         return self.title or self.key
-
-
-def _empty_stream() -> ReplayableStream[ArtifactUnit]:
-    return empty_stream()
-
-
 @dataclass(frozen=True)
 class ArtifactUnit:
     kind: ArtifactUnitKind
@@ -67,7 +62,7 @@ class ArtifactUnit:
     title: str = ""
     value: JSONValue | str | int | float | bool | None = None
     columns: tuple[ArtifactColumn, ...] = ()
-    children: ReplayableStream["ArtifactUnit"] = field(default_factory=_empty_stream)
+    children: ReplayableStream["ArtifactUnit"] = field(default_factory=empty_stream)
 
     def __iter__(self) -> Iterator["ArtifactUnit"]:
         return iter(self.children)
@@ -80,13 +75,13 @@ def document(
     *,
     identity: object,
     title: str = "",
-    children: Callable[[], Iterator[ArtifactUnit]],
+    children: ReplayableStream[ArtifactUnit],
 ) -> ArtifactUnit:
     return ArtifactUnit(
         kind=ArtifactUnitKind.DOCUMENT,
         identity=identity,
         title=title,
-        children=stream_from_factory(children),
+        children=children,
     )
 
 
@@ -95,14 +90,14 @@ def section(
     identity: object,
     key: str,
     title: str,
-    children: Callable[[], Iterator[ArtifactUnit]],
+    children: ReplayableStream[ArtifactUnit],
 ) -> ArtifactUnit:
     return ArtifactUnit(
         kind=ArtifactUnitKind.SECTION,
         identity=identity,
         key=key,
         title=title,
-        children=stream_from_factory(children),
+        children=children,
     )
 
 
@@ -143,14 +138,14 @@ def bullet_list(
     identity: object,
     key: str,
     title: str = "",
-    children: Callable[[], Iterator[ArtifactUnit]],
+    children: ReplayableStream[ArtifactUnit],
 ) -> ArtifactUnit:
     return ArtifactUnit(
         kind=ArtifactUnitKind.BULLET_LIST,
         identity=identity,
         key=key,
         title=title,
-        children=stream_from_factory(children),
+        children=children,
     )
 
 
@@ -159,14 +154,14 @@ def list_item(
     identity: object,
     title: str = "",
     value: JSONValue | str | int | float | bool | None = None,
-    children: Callable[[], Iterator[ArtifactUnit]] | None = None,
+    children: ReplayableStream[ArtifactUnit] | None = None,
 ) -> ArtifactUnit:
     return ArtifactUnit(
         kind=ArtifactUnitKind.LIST_ITEM,
         identity=identity,
         title=title,
         value=value,
-        children=stream_from_factory(children) if children is not None else _empty_stream(),
+        children=children if children is not None else empty_stream(),
     )
 
 
@@ -176,7 +171,7 @@ def table(
     key: str,
     title: str,
     columns: Iterable[ArtifactColumn],
-    children: Callable[[], Iterator[ArtifactUnit]],
+    children: ReplayableStream[ArtifactUnit],
 ) -> ArtifactUnit:
     return ArtifactUnit(
         kind=ArtifactUnitKind.TABLE,
@@ -184,19 +179,19 @@ def table(
         key=key,
         title=title,
         columns=tuple(columns),
-        children=stream_from_factory(children),
+        children=children,
     )
 
 
 def row(
     *,
     identity: object,
-    children: Callable[[], Iterator[ArtifactUnit]],
+    children: ReplayableStream[ArtifactUnit],
 ) -> ArtifactUnit:
     return ArtifactUnit(
         kind=ArtifactUnitKind.ROW,
         identity=identity,
-        children=stream_from_factory(children),
+        children=children,
     )
 
 
@@ -219,12 +214,12 @@ def cell(
 def lazy(
     *,
     identity: object,
-    children: Callable[[], Iterator[ArtifactUnit]],
+    children: ReplayableStream[ArtifactUnit],
 ) -> ArtifactUnit:
     return ArtifactUnit(
         kind=ArtifactUnitKind.LAZY,
         identity=identity,
-        children=stream_from_factory(children),
+        children=children,
     )
 
 
@@ -271,9 +266,11 @@ def _mapping_units(
                     identity=_path_ref(child_path),
                     key=key_text,
                     title=key_text,
-                    children=lambda mapping=mapping, child_path=child_path: _mapping_units(
-                        mapping,
-                        path=child_path,
+                    children=stream_from_factory(
+                        lambda mapping=mapping, child_path=child_path: _mapping_units(
+                            mapping,
+                            path=child_path,
+                        )
                     ),
                 )
             case Sequence() as sequence if not isinstance(child, (str, bytes, bytearray)):
@@ -281,13 +278,15 @@ def _mapping_units(
                     identity=_path_ref(child_path),
                     key=key_text,
                     title=key_text,
-                    children=lambda sequence=tuple(sequence), child_path=child_path: (
-                        _sequence_item_unit(
-                            item,
-                            index=index,
-                            path=(*child_path, str(index)),
+                    children=stream_from_factory(
+                        lambda sequence=tuple(sequence), child_path=child_path: (
+                            _sequence_item_unit(
+                                item,
+                                index=index,
+                                path=(*child_path, str(index)),
+                            )
+                            for index, item in enumerate(sequence)
                         )
-                        for index, item in enumerate(sequence)
                     ),
                 )
             case _:
@@ -311,22 +310,26 @@ def _sequence_item_unit(
             return list_item(
                 identity=_path_ref(path),
                 title=title,
-                children=lambda mapping=mapping, path=path: _mapping_units(
-                    mapping,
-                    path=path,
+                children=stream_from_factory(
+                    lambda mapping=mapping, path=path: _mapping_units(
+                        mapping,
+                        path=path,
+                    )
                 ),
             )
         case Sequence() as sequence if not isinstance(value, (str, bytes, bytearray)):
             return list_item(
                 identity=_path_ref(path),
                 title=str(index),
-                children=lambda sequence=tuple(sequence), path=path: (
-                    _sequence_item_unit(
-                        item,
-                        index=child_index,
-                        path=(*path, str(child_index)),
+                children=stream_from_factory(
+                    lambda sequence=tuple(sequence), path=path: (
+                        _sequence_item_unit(
+                            item,
+                            index=child_index,
+                            path=(*path, str(child_index)),
+                        )
+                        for child_index, item in enumerate(sequence)
                     )
-                    for child_index, item in enumerate(sequence)
                 ),
             )
         case _:
@@ -346,7 +349,9 @@ def mapping_document(
     return document(
         identity=identity,
         title=title,
-        children=lambda payload=payload: _mapping_units(payload, path=()),
+        children=stream_from_factory(
+            lambda payload=payload: _mapping_units(payload, path=())
+        ),
     )
 
 

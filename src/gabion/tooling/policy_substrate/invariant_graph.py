@@ -6013,7 +6013,8 @@ class InvariantWorkstreamsProjection:
                 yield list_item(
                     identity=workstream.object_id,
                     title=workstream.object_id.wire(),
-                    children=lambda workstream=workstream: iter(
+                    children=_stream_from_iterable(
+                        lambda workstream=workstream: iter(
                         (
                             scalar(
                                 identity=workstream.object_id,
@@ -6066,7 +6067,8 @@ class InvariantWorkstreamsProjection:
                             bullet_list(
                                 identity=workstream.object_id,
                                 key="blocking_dependencies",
-                                children=lambda workstream=workstream: (
+                                children=_stream_from_iterable(
+                                    lambda workstream=workstream: (
                                     list_item(
                                         identity=ArtifactSourceRef(
                                             rel_path="<synthetic>",
@@ -6075,12 +6077,14 @@ class InvariantWorkstreamsProjection:
                                         value=dependency,
                                     )
                                     for dependency in workstream.blocking_dependencies
+                                )
                                 ),
                             ),
                             bullet_list(
                                 identity=workstream.object_id,
                                 key="object_ids",
-                                children=lambda workstream=workstream: (
+                                children=_stream_from_iterable(
+                                    lambda workstream=workstream: (
                                     list_item(
                                         identity=ArtifactSourceRef(
                                             rel_path="<synthetic>",
@@ -6089,12 +6093,14 @@ class InvariantWorkstreamsProjection:
                                         value=object_id,
                                     )
                                     for object_id in workstream.object_ids
+                                )
                                 ),
                             ),
                             bullet_list(
                                 identity=workstream.object_id,
                                 key="doc_ids",
-                                children=lambda workstream=workstream: (
+                                children=_stream_from_iterable(
+                                    lambda workstream=workstream: (
                                     list_item(
                                         identity=ArtifactSourceRef(
                                             rel_path="<synthetic>",
@@ -6103,12 +6109,14 @@ class InvariantWorkstreamsProjection:
                                         value=doc_id,
                                     )
                                     for doc_id in workstream.doc_ids
+                                )
                                 ),
                             ),
                             bullet_list(
                                 identity=workstream.object_id,
                                 key="policy_ids",
-                                children=lambda workstream=workstream: (
+                                children=_stream_from_iterable(
+                                    lambda workstream=workstream: (
                                     list_item(
                                         identity=ArtifactSourceRef(
                                             rel_path="<synthetic>",
@@ -6117,6 +6125,7 @@ class InvariantWorkstreamsProjection:
                                         value=policy_id,
                                     )
                                     for policy_id in workstream.policy_ids
+                                )
                                 ),
                             ),
                             scalar(identity=workstream.object_id, key="touchsite_count", title="touchsite_count", value=workstream.touchsite_count),
@@ -6131,49 +6140,66 @@ class InvariantWorkstreamsProjection:
                                 identity=workstream.object_id,
                                 key="doc_alignment_summary",
                                 title="doc_alignment_summary",
-                                children=lambda workstream=workstream: iter(
+                                children=_stream_from_iterable(
+                                    lambda workstream=workstream: iter(
                                     ()
                                     if workstream.doc_alignment_summary is None
                                     else _payload_to_units(
                                         workstream.doc_alignment_summary.as_payload()
                                     )
+                                )
                                 ),
                             ),
                             section(
                                 identity=workstream.object_id,
                                 key="health_summary",
                                 title="health_summary",
-                                children=lambda workstream=workstream: iter(
+                                children=_stream_from_iterable(
+                                    lambda workstream=workstream: iter(
                                     _payload_to_units(workstream.health_summary().as_payload())
+                                )
                                 ),
                             ),
                             bullet_list(
                                 identity=workstream.object_id,
                                 key="subqueues",
-                                children=lambda workstream=workstream: (
+                                children=_stream_from_iterable(
+                                    lambda workstream=workstream: (
                                     list_item(
                                         identity=subqueue.object_id,
-                                        children=lambda subqueue=subqueue: iter(_payload_to_units(subqueue.as_payload())),
+                                        children=_stream_from_iterable(
+                                            lambda subqueue=subqueue: iter(
+                                                _payload_to_units(subqueue.as_payload())
+                                            )
+                                        ),
                                     )
                                     for subqueue in workstream.iter_subqueues()
+                                )
                                 ),
                             ),
                             bullet_list(
                                 identity=workstream.object_id,
                                 key="touchpoints",
-                                children=lambda workstream=workstream: (
+                                children=_stream_from_iterable(
+                                    lambda workstream=workstream: (
                                     list_item(
                                         identity=touchpoint.object_id,
-                                        children=lambda touchpoint=touchpoint: iter(_payload_to_units(touchpoint.as_payload())),
+                                        children=_stream_from_iterable(
+                                            lambda touchpoint=touchpoint: iter(
+                                                _payload_to_units(touchpoint.as_payload())
+                                            )
+                                        ),
                                     )
                                     for touchpoint in workstream.iter_touchpoints()
+                                )
                                 ),
                             ),
                             section(
                                 identity=workstream.object_id,
                                 key="next_actions",
                                 title="next_actions",
-                                children=lambda workstream=workstream: iter(
+                                children=_stream_from_iterable(
+                                    lambda workstream=workstream: iter(
                                     (
                                         scalar(
                                             identity=ArtifactSourceRef(
@@ -6248,7 +6274,8 @@ class InvariantWorkstreamsProjection:
                                                 qualname="misaligned_target_doc_ids",
                                             ),
                                             key="misaligned_target_doc_ids",
-                                            children=lambda workstream=workstream: (
+                                            children=_stream_from_iterable(
+                                                lambda workstream=workstream: (
                                                 list_item(
                                                     identity=ArtifactSourceRef(
                                                         rel_path="<synthetic>",
@@ -6257,6 +6284,7 @@ class InvariantWorkstreamsProjection:
                                                     value=doc_id,
                                                 )
                                                 for doc_id in workstream.misaligned_target_doc_ids()
+                                            )
                                             ),
                                         ),
                                         scalar(
@@ -6383,7 +6411,8 @@ class InvariantWorkstreamsProjection:
                                                 qualname="ranked_followups",
                                             ),
                                             key="ranked_followups",
-                                            children=lambda workstream=workstream: (
+                                            children=_stream_from_iterable(
+                                                lambda workstream=workstream: (
                                                 list_item(
                                                     identity=ArtifactSourceRef(
                                                         rel_path="<synthetic>",
@@ -6393,11 +6422,14 @@ class InvariantWorkstreamsProjection:
                                                             or item.followup_family
                                                         ),
                                                     ),
-                                                    children=lambda item=item: iter(
-                                                        _payload_to_units(item.as_payload())
+                                                    children=_stream_from_iterable(
+                                                        lambda item=item: iter(
+                                                            _payload_to_units(item.as_payload())
+                                                        )
                                                     ),
                                                 )
                                                 for item in workstream.ranked_followups()
+                                            )
                                             ),
                                         ),
                                         bullet_list(
@@ -6406,17 +6438,21 @@ class InvariantWorkstreamsProjection:
                                                 qualname="remediation_lanes",
                                             ),
                                             key="remediation_lanes",
-                                            children=lambda workstream=workstream: (
+                                            children=_stream_from_iterable(
+                                                lambda workstream=workstream: (
                                                 list_item(
                                                     identity=ArtifactSourceRef(
                                                         rel_path="<synthetic>",
                                                         qualname=item.remediation_family,
                                                     ),
-                                                    children=lambda item=item: iter(
-                                                        _payload_to_units(item.as_payload())
+                                                    children=_stream_from_iterable(
+                                                        lambda item=item: iter(
+                                                            _payload_to_units(item.as_payload())
+                                                        )
                                                     ),
                                                 )
                                                 for item in workstream.remediation_lanes()
+                                            )
                                             ),
                                         ),
                                         bullet_list(
@@ -6425,7 +6461,8 @@ class InvariantWorkstreamsProjection:
                                                 qualname="documentation_followup_lanes",
                                             ),
                                             key="documentation_followup_lanes",
-                                            children=lambda workstream=workstream: iter(
+                                            children=_stream_from_iterable(
+                                                lambda workstream=workstream: iter(
                                                 ()
                                                 if workstream.documentation_followup_lane() is None
                                                 else (
@@ -6434,13 +6471,16 @@ class InvariantWorkstreamsProjection:
                                                             rel_path="<synthetic>",
                                                             qualname=workstream.documentation_followup_lane().followup_family,
                                                         ),
-                                                        children=lambda workstream=workstream: iter(
-                                                            _payload_to_units(
-                                                                workstream.documentation_followup_lane().as_payload()
+                                                        children=_stream_from_iterable(
+                                                            lambda workstream=workstream: iter(
+                                                                _payload_to_units(
+                                                                    workstream.documentation_followup_lane().as_payload()
+                                                                )
                                                             )
                                                         ),
                                                     ),
                                                 )
+                                            )
                                             ),
                                         ),
                                         bullet_list(
@@ -6449,14 +6489,18 @@ class InvariantWorkstreamsProjection:
                                                 qualname="ranked_touchpoint_cuts",
                                             ),
                                             key="ranked_touchpoint_cuts",
-                                            children=lambda workstream=workstream: (
+                                            children=_stream_from_iterable(
+                                                lambda workstream=workstream: (
                                                 list_item(
                                                     identity=item.object_id,
-                                                    children=lambda item=item: iter(
-                                                        _payload_to_units(item.as_payload())
+                                                    children=_stream_from_iterable(
+                                                        lambda item=item: iter(
+                                                            _payload_to_units(item.as_payload())
+                                                        )
                                                     ),
                                                 )
                                                 for item in workstream.ranked_touchpoint_cuts()
+                                            )
                                             ),
                                         ),
                                         bullet_list(
@@ -6465,26 +6509,33 @@ class InvariantWorkstreamsProjection:
                                                 qualname="ranked_subqueue_cuts",
                                             ),
                                             key="ranked_subqueue_cuts",
-                                            children=lambda workstream=workstream: (
+                                            children=_stream_from_iterable(
+                                                lambda workstream=workstream: (
                                                 list_item(
                                                     identity=item.object_id,
-                                                    children=lambda item=item: iter(
-                                                        _payload_to_units(item.as_payload())
+                                                    children=_stream_from_iterable(
+                                                        lambda item=item: iter(
+                                                            _payload_to_units(item.as_payload())
+                                                        )
                                                     ),
                                                 )
                                                 for item in workstream.ranked_subqueue_cuts()
+                                            )
                                             ),
                                         ),
                                     )
+                                )
                                 ),
                             ),
                         )
+                    )
                     ),
                 )
 
         return document(
             identity=ArtifactSourceRef(rel_path="<synthetic>", qualname="invariant_workstreams"),
-            children=lambda: iter(
+            children=_stream_from_iterable(
+                lambda: iter(
                 (
                     scalar(
                         identity=ArtifactSourceRef(rel_path="<synthetic>", qualname="format_version"),
@@ -6507,7 +6558,7 @@ class InvariantWorkstreamsProjection:
                     bullet_list(
                         identity=ArtifactSourceRef(rel_path="<synthetic>", qualname="workstreams"),
                         key="workstreams",
-                        children=_workstream_items,
+                        children=_stream_from_iterable(_workstream_items),
                     ),
                     section(
                         identity=ArtifactSourceRef(
@@ -6516,8 +6567,10 @@ class InvariantWorkstreamsProjection:
                         ),
                         key="diagnostic_summary",
                         title="diagnostic_summary",
-                        children=lambda self=self: iter(
-                            _payload_to_units(self.diagnostic_summary().as_payload())
+                        children=_stream_from_iterable(
+                            lambda self=self: iter(
+                                _payload_to_units(self.diagnostic_summary().as_payload())
+                            )
                         ),
                     ),
                     section(
@@ -6527,7 +6580,8 @@ class InvariantWorkstreamsProjection:
                         ),
                         key="repo_next_actions",
                         title="repo_next_actions",
-                        children=lambda self=self: iter(
+                        children=_stream_from_iterable(
+                            lambda self=self: iter(
                             (
                                 scalar(
                                     identity=ArtifactSourceRef(
@@ -6631,7 +6685,8 @@ class InvariantWorkstreamsProjection:
                                         qualname="ranked_followups",
                                     ),
                                     key="ranked_followups",
-                                    children=lambda self=self: (
+                                    children=_stream_from_iterable(
+                                        lambda self=self: (
                                         list_item(
                                             identity=ArtifactSourceRef(
                                                 rel_path="<synthetic>",
@@ -6642,11 +6697,14 @@ class InvariantWorkstreamsProjection:
                                                     or item.followup_family
                                                 ),
                                             ),
-                                            children=lambda item=item: iter(
-                                                _payload_to_units(item.as_payload())
+                                            children=_stream_from_iterable(
+                                                lambda item=item: iter(
+                                                    _payload_to_units(item.as_payload())
+                                                )
                                             ),
                                         )
                                         for item in self.ranked_repo_followups()
+                                    )
                                     ),
                                 ),
                                 bullet_list(
@@ -6655,17 +6713,21 @@ class InvariantWorkstreamsProjection:
                                         qualname="followup_lanes",
                                     ),
                                     key="followup_lanes",
-                                    children=lambda self=self: (
+                                    children=_stream_from_iterable(
+                                        lambda self=self: (
                                         list_item(
                                             identity=ArtifactSourceRef(
                                                 rel_path="<synthetic>",
                                                 qualname=item.followup_family,
                                             ),
-                                            children=lambda item=item: iter(
-                                                _payload_to_units(item.as_payload())
+                                            children=_stream_from_iterable(
+                                                lambda item=item: iter(
+                                                    _payload_to_units(item.as_payload())
+                                                )
                                             ),
                                         )
                                         for item in self.repo_followup_lanes()
+                                    )
                                     ),
                                 ),
                                 bullet_list(
@@ -6674,27 +6736,33 @@ class InvariantWorkstreamsProjection:
                                         qualname="diagnostic_lanes",
                                     ),
                                     key="diagnostic_lanes",
-                                    children=lambda self=self: (
+                                    children=_stream_from_iterable(
+                                        lambda self=self: (
                                         list_item(
                                             identity=ArtifactSourceRef(
                                                 rel_path="<synthetic>",
                                                 qualname=item.title,
                                             ),
-                                            children=lambda item=item: iter(
-                                                _payload_to_units(item.as_payload())
+                                            children=_stream_from_iterable(
+                                                lambda item=item: iter(
+                                                    _payload_to_units(item.as_payload())
+                                                )
                                             ),
                                         )
                                         for item in self.repo_diagnostic_lanes()
+                                    )
                                     ),
                                 ),
                             )
+                        )
                         ),
                     ),
                     section(
                         identity=ArtifactSourceRef(rel_path="<synthetic>", qualname="counts"),
                         key="counts",
                         title="counts",
-                        children=lambda self=self: iter(
+                        children=_stream_from_iterable(
+                            lambda self=self: iter(
                             (
                                 scalar(
                                     identity=ArtifactSourceRef(
@@ -6715,9 +6783,11 @@ class InvariantWorkstreamsProjection:
                                     value=self.diagnostic_summary().diagnostic_count,
                                 ),
                             )
+                        )
                         ),
                     ),
                 )
+            )
             ),
         )
 
@@ -6833,7 +6903,9 @@ class InvariantLedgerProjections:
                 yield list_item(
                     identity=ArtifactSourceRef(rel_path="<synthetic>", qualname=ledger.object_id),
                     title=ledger.object_id,
-                    children=lambda ledger=ledger: iter(_payload_to_units(ledger.as_payload())),
+                    children=_stream_from_iterable(
+                        lambda ledger=ledger: iter(_payload_to_units(ledger.as_payload()))
+                    ),
                 )
 
         return document(
@@ -6841,7 +6913,8 @@ class InvariantLedgerProjections:
                 rel_path="<synthetic>",
                 qualname="invariant_ledger_projections",
             ),
-            children=lambda: iter(
+            children=_stream_from_iterable(
+                lambda: iter(
                 (
                     scalar(
                         identity=ArtifactSourceRef(
@@ -6873,7 +6946,7 @@ class InvariantLedgerProjections:
                             qualname="ledgers",
                         ),
                         key="ledgers",
-                        children=_ledger_items,
+                        children=_stream_from_iterable(_ledger_items),
                     ),
                     section(
                         identity=ArtifactSourceRef(
@@ -6882,18 +6955,21 @@ class InvariantLedgerProjections:
                         ),
                         key="counts",
                         title="counts",
-                        children=lambda: iter(
-                            (
-                                scalar(
-                                    identity=ArtifactSourceRef(
-                                        rel_path="<synthetic>",
-                                        qualname="ledger_count",
+                        children=_stream_from_iterable(
+                            lambda: iter(
+                                (
+                                    scalar(
+                                        identity=ArtifactSourceRef(
+                                            rel_path="<synthetic>",
+                                            qualname="ledger_count",
+                                        ),
+                                        key="ledger_count",
+                                        title="ledger_count",
+                                        value=len(ledgers),
                                     ),
-                                    key="ledger_count",
-                                    title="ledger_count",
-                                    value=len(ledgers),
-                                ),
+                                )
                             )
+                        )
                         ),
                     ),
                 )
@@ -6985,7 +7061,9 @@ class InvariantLedgerDeltaProjections:
                 yield list_item(
                     identity=ArtifactSourceRef(rel_path="<synthetic>", qualname=delta.object_id),
                     title=delta.object_id,
-                    children=lambda delta=delta: iter(_payload_to_units(delta.as_payload())),
+                    children=_stream_from_iterable(
+                        lambda delta=delta: iter(_payload_to_units(delta.as_payload()))
+                    ),
                 )
 
         return document(
@@ -6993,7 +7071,8 @@ class InvariantLedgerDeltaProjections:
                 rel_path="<synthetic>",
                 qualname="invariant_ledger_delta_projections",
             ),
-            children=lambda: iter(
+            children=_stream_from_iterable(
+                lambda: iter(
                 (
                     scalar(
                         identity=ArtifactSourceRef(
@@ -7043,7 +7122,7 @@ class InvariantLedgerDeltaProjections:
                             qualname="deltas",
                         ),
                         key="deltas",
-                        children=_delta_items,
+                        children=_stream_from_iterable(_delta_items),
                     ),
                     section(
                         identity=ArtifactSourceRef(
@@ -7052,7 +7131,8 @@ class InvariantLedgerDeltaProjections:
                         ),
                         key="counts",
                         title="counts",
-                        children=lambda: iter(
+                        children=_stream_from_iterable(
+                            lambda: iter(
                             (
                                 scalar(
                                     identity=ArtifactSourceRef(
@@ -7064,9 +7144,11 @@ class InvariantLedgerDeltaProjections:
                                     value=len(deltas),
                                 ),
                             )
+                        )
                         ),
                     ),
                 )
+            )
             ),
         )
 
@@ -7079,8 +7161,10 @@ class InvariantLedgerDeltaProjections:
                     identity=ArtifactSourceRef(rel_path="<synthetic>", qualname=doc_id),
                     key=doc_id,
                     title=doc_id,
-                    children=lambda deltas=deltas: _ledger_delta_markdown_units(
-                        deltas=deltas
+                    children=_stream_from_iterable(
+                        lambda deltas=deltas: _ledger_delta_markdown_units(
+                            deltas=deltas
+                        )
                     ),
                 )
 
@@ -7090,7 +7174,7 @@ class InvariantLedgerDeltaProjections:
                 qualname="invariant_ledger_delta_markdown",
             ),
             title="Invariant Ledger Deltas",
-            children=_doc_sections,
+            children=_stream_from_iterable(_doc_sections),
         )
 
     def grouped_by_target_doc_id(self) -> tuple[tuple[str, tuple[InvariantLedgerDelta, ...]], ...]:
@@ -7177,8 +7261,10 @@ class InvariantLedgerAlignments:
                         qualname=f"{alignment.target_doc_id}:{alignment.object_id}",
                     ),
                     title=f"{alignment.target_doc_id} :: {alignment.object_id}",
-                    children=lambda alignment=alignment: iter(
-                        _payload_to_units(alignment.as_payload())
+                    children=_stream_from_iterable(
+                        lambda alignment=alignment: iter(
+                            _payload_to_units(alignment.as_payload())
+                        )
                     ),
                 )
 
@@ -7187,7 +7273,8 @@ class InvariantLedgerAlignments:
                 rel_path="<synthetic>",
                 qualname="invariant_ledger_alignments",
             ),
-            children=lambda: iter(
+            children=_stream_from_iterable(
+                lambda: iter(
                 (
                     scalar(
                         identity=ArtifactSourceRef(
@@ -7219,7 +7306,7 @@ class InvariantLedgerAlignments:
                             qualname="alignments",
                         ),
                         key="alignments",
-                        children=_alignment_items,
+                        children=_stream_from_iterable(_alignment_items),
                     ),
                     section(
                         identity=ArtifactSourceRef(
@@ -7228,21 +7315,24 @@ class InvariantLedgerAlignments:
                         ),
                         key="counts",
                         title="counts",
-                        children=lambda alignments=alignments: iter(
-                            _payload_to_units(
-                                {
-                                    "alignment_count": len(alignments),
-                                    "status_counts": dict(
-                                        _sorted(
-                                            list(status_counts.items()),
-                                            key=lambda item: item[0],
-                                        )
-                                    ),
-                                }
+                        children=_stream_from_iterable(
+                            lambda alignments=alignments: iter(
+                                _payload_to_units(
+                                    {
+                                        "alignment_count": len(alignments),
+                                        "status_counts": dict(
+                                            _sorted(
+                                                list(status_counts.items()),
+                                                key=lambda item: item[0],
+                                            )
+                                        ),
+                                    }
+                                )
                             )
                         ),
                     ),
                 )
+            )
             ),
         )
 
@@ -7418,7 +7508,8 @@ def _ledger_delta_markdown_units(
             identity=identity,
             key=delta.object_id,
             title=f"{delta.object_id} :: {delta.classification}",
-            children=lambda delta=delta, identity=identity: iter(
+            children=_stream_from_iterable(
+                lambda delta=delta, identity=identity: iter(
                 (
                     paragraph(
                         identity=identity,
@@ -7428,7 +7519,8 @@ def _ledger_delta_markdown_units(
                         identity=identity,
                         key="append_entry",
                         title="append_entry",
-                        children=lambda delta=delta: iter(
+                        children=_stream_from_iterable(
+                            lambda delta=delta: iter(
                             (
                                 list_item(
                                     identity=identity,
@@ -7458,18 +7550,22 @@ def _ledger_delta_markdown_units(
                                 list_item(
                                     identity=identity,
                                     title="target_policy_ids",
-                                    children=lambda delta=delta: iter(
-                                        list_item(
-                                            identity=identity,
-                                            value=policy_id,
+                                    children=_stream_from_iterable(
+                                        lambda delta=delta: iter(
+                                            list_item(
+                                                identity=identity,
+                                                value=policy_id,
+                                            )
+                                            for policy_id in delta.target_policy_ids
                                         )
-                                        for policy_id in delta.target_policy_ids
                                     ),
                                 ),
                             )
+                        )
                         ),
                     ),
                 )
+            )
             ),
         )
 
@@ -7487,7 +7583,8 @@ def _ledger_alignment_markdown_units(
             identity=identity,
             key=alignment.object_id,
             title=f"{alignment.object_id} :: {alignment.alignment_status}",
-            children=lambda alignment=alignment, identity=identity: iter(
+            children=_stream_from_iterable(
+                lambda alignment=alignment, identity=identity: iter(
                 (
                     paragraph(
                         identity=identity,
@@ -7497,7 +7594,8 @@ def _ledger_alignment_markdown_units(
                         identity=identity,
                         key="alignment",
                         title="alignment",
-                        children=lambda alignment=alignment, identity=identity: iter(
+                        children=_stream_from_iterable(
+                            lambda alignment=alignment, identity=identity: iter(
                             (
                                 list_item(
                                     identity=identity,
@@ -7525,9 +7623,11 @@ def _ledger_alignment_markdown_units(
                                     value=alignment.summary_present,
                                 ),
                             )
+                        )
                         ),
                     ),
                 )
+            )
             ),
         )
 
@@ -8098,7 +8198,9 @@ def _payload_to_units(payload: Mapping[str, object]) -> tuple[ArtifactUnit, ...]
                     identity=ArtifactSourceRef(rel_path="<synthetic>", qualname=str(key)),
                     key=str(key),
                     title=str(key),
-                    children=lambda value=value: iter(_payload_to_units(value)),
+                    children=_stream_from_iterable(
+                        lambda value=value: iter(_payload_to_units(value))
+                    ),
                 )
             )
             continue
@@ -8107,12 +8209,14 @@ def _payload_to_units(payload: Mapping[str, object]) -> tuple[ArtifactUnit, ...]
                 bullet_list(
                     identity=ArtifactSourceRef(rel_path="<synthetic>", qualname=str(key)),
                     key=str(key),
-                    children=lambda value=value: (
-                        list_item(
-                            identity=ArtifactSourceRef(rel_path="<synthetic>", qualname=str(key)),
-                            value=item,
+                    children=_stream_from_iterable(
+                        lambda value=value: (
+                            list_item(
+                                identity=ArtifactSourceRef(rel_path="<synthetic>", qualname=str(key)),
+                                value=item,
+                            )
+                            for item in value
                         )
-                        for item in value
                     ),
                 )
             )
@@ -12961,9 +13065,11 @@ def write_invariant_ledger_alignments_markdown(
                 identity=ArtifactSourceRef(rel_path="<synthetic>", qualname=doc_id),
                 key=doc_id,
                 title=doc_id,
-                children=lambda items=tuple(
-                    _sorted(items, key=lambda item: (item.object_id, item.alignment_status))
-                ): _ledger_alignment_markdown_units(alignments=items),
+                children=_stream_from_iterable(
+                    lambda items=tuple(
+                        _sorted(items, key=lambda item: (item.object_id, item.alignment_status))
+                    ): _ledger_alignment_markdown_units(alignments=items)
+                ),
             )
 
     write_markdown(
@@ -12974,7 +13080,7 @@ def write_invariant_ledger_alignments_markdown(
                 qualname="invariant_ledger_alignment_markdown",
             ),
             title="Invariant Ledger Alignments",
-            children=_doc_sections,
+            children=_stream_from_iterable(_doc_sections),
         ),
     )
 
