@@ -1,5 +1,5 @@
 ---
-doc_revision: 4
+doc_revision: 5
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: planning_substrate
 doc_role: architecture
@@ -179,6 +179,30 @@ Examples of root families currently aggregated include:
 - `RCI`
 - `BIC`
 - `CSA-*`
+- synthetic current/trend overlays such as `UTR`, `DFR`, and `DFM`
+
+### Synthetic operational roots
+
+Some roots are synthetic planner overlays rather than owner roots for a product
+or semantic subsystem. They summarize operational state from repo-local
+artifacts and keep that state visible in the same root/subqueue/touchpoint
+grammar as ordinary work.
+
+Current examples include:
+
+- `UTR` for unit-test readiness and repo-drain red-state indicators
+- `DFR` for current delivery-flow reliability blockers across the dev + CI loop
+- `DFM` for historical delivery-flow momentum and trend drag across recent runs
+
+`DFR` and `DFM` are intentionally separate:
+
+- `DFR` is a current-indicator root driven by current blockers such as red-state,
+  local-vs-CI parity drift, observability gaps, and severe runtime regressions
+- `DFM` is a trend root driven by historical telemetry such as runtime trend,
+  recurrence rate, and correction-lag drift
+
+This keeps observability as an ingress signal rather than inventing a separate
+observability-root family inside the planning substrate.
 
 ### Touchsites
 

@@ -28,6 +28,12 @@ from gabion.tooling.policy_substrate.boundary_ingress_convergence_registry impor
 from gabion.tooling.policy_substrate.dataflow_grammar_readiness_registry import (
     dataflow_grammar_readiness_workstream_registry,
 )
+from gabion.tooling.policy_substrate.delivery_flow_momentum_registry import (
+    delivery_flow_momentum_workstream_registry,
+)
+from gabion.tooling.policy_substrate.delivery_flow_reliability_registry import (
+    delivery_flow_reliability_workstream_registry,
+)
 from gabion.tooling.policy_substrate.unit_test_readiness_registry import (
     unit_test_readiness_workstream_registry,
 )
@@ -713,6 +719,69 @@ def test_unit_test_readiness_workstream_registry_exposes_selector_clusters() -> 
 
 
 # gabion:behavior primary=desired
+def test_delivery_flow_reliability_workstream_registry_exposes_current_indicator_clusters() -> None:
+    registry = delivery_flow_reliability_workstream_registry()
+    subqueues = {item.subqueue_id: item for item in registry.subqueues}
+    touchpoints = {item.touchpoint_id: item for item in registry.touchpoints}
+
+    assert registry.root.root_id == "DFR"
+    assert registry.tags == ("delivery_flow_reliability",)
+    assert registry.root.status_hint == "in_progress"
+    assert registry.root.subqueue_ids == ("DFR-SQ-001", "DFR-SQ-002")
+    assert tuple(item.subqueue_id for item in registry.subqueues) == (
+        "DFR-SQ-001",
+        "DFR-SQ-002",
+    )
+    assert subqueues["DFR-SQ-001"].touchpoint_ids == ("DFR-TP-001", "DFR-TP-002")
+    assert subqueues["DFR-SQ-002"].touchpoint_ids == ("DFR-TP-003",)
+    assert set(touchpoints) == {"DFR-TP-001", "DFR-TP-002", "DFR-TP-003"}
+    assert touchpoints["DFR-TP-001"].test_path_prefixes == ("tests/",)
+    assert {
+        item.rel_path for item in touchpoints["DFR-TP-002"].declared_touchsites
+    } == {
+        "artifacts/out/local_ci_repro_contract.json",
+        "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+    }
+    assert {
+        item.rel_path for item in touchpoints["DFR-TP-003"].declared_touchsites
+    } == {
+        "artifacts/audit_reports/observability_violations.json",
+        "artifacts/out/governance_telemetry_history.json",
+    }
+
+
+# gabion:behavior primary=desired
+def test_delivery_flow_momentum_workstream_registry_exposes_trend_clusters() -> None:
+    registry = delivery_flow_momentum_workstream_registry()
+    subqueues = {item.subqueue_id: item for item in registry.subqueues}
+    touchpoints = {item.touchpoint_id: item for item in registry.touchpoints}
+
+    assert registry.root.root_id == "DFM"
+    assert registry.tags == ("delivery_flow_momentum",)
+    assert registry.root.status_hint == "in_progress"
+    assert registry.root.subqueue_ids == ("DFM-SQ-001", "DFM-SQ-002")
+    assert tuple(item.subqueue_id for item in registry.subqueues) == (
+        "DFM-SQ-001",
+        "DFM-SQ-002",
+    )
+    assert subqueues["DFM-SQ-001"].touchpoint_ids == ("DFM-TP-001",)
+    assert subqueues["DFM-SQ-002"].touchpoint_ids == ("DFM-TP-002",)
+    assert set(touchpoints) == {"DFM-TP-001", "DFM-TP-002"}
+    assert {
+        item.rel_path for item in touchpoints["DFM-TP-001"].declared_touchsites
+    } == {
+        "artifacts/out/governance_telemetry_history.json",
+        "artifacts/audit_reports/ci_step_timings.json",
+    }
+    assert {
+        item.rel_path for item in touchpoints["DFM-TP-002"].declared_touchsites
+    } == {
+        "artifacts/out/governance_telemetry_history.json",
+        "artifacts/out/governance_telemetry.json",
+    }
+
+
+# gabion:behavior primary=desired
 def test_dataflow_grammar_readiness_workstream_registry_exposes_local_signal_clusters() -> None:
     registry = dataflow_grammar_readiness_workstream_registry()
     subqueues = {item.subqueue_id: item for item in registry.subqueues}
@@ -1096,6 +1165,20 @@ def test_declared_workstream_registries_include_structural_anti_pattern_converge
 # gabion:behavior primary=desired
 def test_declared_workstream_registries_include_dataflow_grammar_readiness_root() -> None:
     assert "DGR" in {
+        registry.root.root_id for registry in declared_workstream_registries()
+    }
+
+
+# gabion:behavior primary=desired
+def test_declared_workstream_registries_include_delivery_flow_reliability_root() -> None:
+    assert "DFR" in {
+        registry.root.root_id for registry in declared_workstream_registries()
+    }
+
+
+# gabion:behavior primary=desired
+def test_declared_workstream_registries_include_delivery_flow_momentum_root() -> None:
+    assert "DFM" in {
         registry.root.root_id for registry in declared_workstream_registries()
     }
 

@@ -18,6 +18,12 @@ from gabion.tooling.policy_substrate.connectivity_synergy_registry import (
 from gabion.tooling.policy_substrate.dataflow_grammar_readiness_registry import (
     dataflow_grammar_readiness_workstream_registry,
 )
+from gabion.tooling.policy_substrate.delivery_flow_momentum_registry import (
+    delivery_flow_momentum_workstream_registry,
+)
+from gabion.tooling.policy_substrate.delivery_flow_reliability_registry import (
+    delivery_flow_reliability_workstream_registry,
+)
 from gabion.tooling.policy_substrate.policy_rule_frontmatter_migration_registry import (
     prf_workstream_registry,
 )
@@ -93,6 +99,14 @@ def declared_workstream_registry_catalog() -> tuple[
         DeclaredWorkstreamRegistryProvider(
             provider_id="dgr",
             loader=dataflow_grammar_readiness_workstream_registry,
+        ),
+        DeclaredWorkstreamRegistryProvider(
+            provider_id="dfr",
+            loader=delivery_flow_reliability_workstream_registry,
+        ),
+        DeclaredWorkstreamRegistryProvider(
+            provider_id="dfm",
+            loader=delivery_flow_momentum_workstream_registry,
         ),
         DeclaredWorkstreamRegistryProvider(
             provider_id="sac",

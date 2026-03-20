@@ -33,6 +33,7 @@ from gabion_governance import governance_audit_impl
 class StructuredArtifactKind(StrEnum):
     TEST_EVIDENCE = "test_evidence"
     JUNIT_FAILURES = "junit_failures"
+    OBSERVABILITY_VIOLATIONS = "observability_violations"
     DATAFLOW_TERMINAL_OUTCOME = "dataflow_terminal_outcome"
     DATAFLOW_OBLIGATION_TRACE = "dataflow_obligation_trace"
     DOCFLOW_COMPLIANCE = "docflow_compliance"
@@ -40,6 +41,7 @@ class StructuredArtifactKind(StrEnum):
     CONTROLLER_DRIFT = "controller_drift"
     LOCAL_REPRO_CLOSURE_LEDGER = "local_repro_closure_ledger"
     LOCAL_CI_REPRO_CONTRACT = "local_ci_repro_contract"
+    GOVERNANCE_TELEMETRY_HISTORY = "governance_telemetry_history"
     KERNEL_VM_ALIGNMENT = "kernel_vm_alignment"
     IDENTITY_GRAMMAR_COMPLETION = "identity_grammar_completion"
     GIT_STATE = "git_state"
@@ -838,6 +840,81 @@ class LocalCiReproContractArtifact:
             f"{self.source.rel_path} surfaces={len(self.surfaces)} "
             f"relations={len(self.relations)}"
         )
+
+
+@dataclass(frozen=True)
+class ObservabilityViolation:
+    identity: StructuredArtifactIdentity
+    ts_utc: str
+    label: str
+    reason: str
+    command_text: str
+    wall_seconds: float
+    max_gap_seconds: float
+    measured_gap_seconds: float
+    previous_line: str
+    next_line: str
+
+    def __str__(self) -> str:
+        return self.label or self.reason or self.identity.wire()
+
+
+@dataclass(frozen=True)
+class ObservabilityViolationArtifact:
+    identity: StructuredArtifactIdentity
+    source: StructuredArtifactSource
+    violations: tuple[ObservabilityViolation, ...]
+
+    def __str__(self) -> str:
+        return f"{self.source.rel_path} violations={len(self.violations)}"
+
+
+@dataclass(frozen=True)
+class GovernanceTelemetryStepTiming:
+    identity: StructuredArtifactIdentity
+    step_label: str
+    elapsed_seconds: float
+
+    def __str__(self) -> str:
+        return self.step_label or self.identity.wire()
+
+
+@dataclass(frozen=True)
+class GovernanceTelemetryLoopMetric:
+    identity: StructuredArtifactIdentity
+    loop_id: str
+    domain: str
+    violation_count: int
+    trend_delta: int | None
+    recurrence_rate: float
+    false_positive_overrides: int
+    time_to_correction_runs: int | None
+
+    def __str__(self) -> str:
+        return self.loop_id or self.identity.wire()
+
+
+@dataclass(frozen=True)
+class GovernanceTelemetryRun:
+    identity: StructuredArtifactIdentity
+    run_id: str
+    generated_at_utc: str
+    trend_window_runs: int
+    timings: tuple[GovernanceTelemetryStepTiming, ...]
+    loops: tuple[GovernanceTelemetryLoopMetric, ...]
+
+    def __str__(self) -> str:
+        return self.run_id or self.identity.wire()
+
+
+@dataclass(frozen=True)
+class GovernanceTelemetryHistoryArtifact:
+    identity: StructuredArtifactIdentity
+    source: StructuredArtifactSource
+    runs: tuple[GovernanceTelemetryRun, ...]
+
+    def __str__(self) -> str:
+        return f"{self.source.rel_path} runs={len(self.runs)}"
 
 
 @dataclass(frozen=True)
@@ -3015,6 +3092,179 @@ def load_local_ci_repro_contract_artifact(
     )
 
 
+def load_observability_violations_artifact(
+    *,
+    root: Path,
+    rel_path: str,
+    identities: StructuredArtifactIdentitySpace,
+) -> ObservabilityViolationArtifact | None:
+    payload = _load_json_mapping_artifact(root / rel_path)
+    if payload is None:
+        return None
+    source = StructuredArtifactSource(rel_path=rel_path)
+    identity = identities.artifact_id(
+        artifact_kind=StructuredArtifactKind.OBSERVABILITY_VIOLATIONS,
+        source_path=rel_path,
+        label=rel_path,
+    )
+    violations: list[ObservabilityViolation] = []
+    raw_violations = payload.get("violations", [])
+    if isinstance(raw_violations, list):
+        for index, raw_violation in enumerate(raw_violations, start=1):
+            if not isinstance(raw_violation, Mapping):
+                continue
+            label = str(raw_violation.get("label", "")).strip()
+            reason = str(raw_violation.get("reason", "")).strip()
+            item_identity = identities.item_id(
+                artifact_kind=StructuredArtifactKind.OBSERVABILITY_VIOLATIONS,
+                source_path=rel_path,
+                item_kind="violation",
+                item_key=label or reason or f"violation-{index}",
+                label=label or reason or f"violation-{index}",
+            )
+            violations.append(
+                ObservabilityViolation(
+                    identity=item_identity,
+                    ts_utc=str(raw_violation.get("ts_utc", "")).strip(),
+                    label=label,
+                    reason=reason,
+                    command_text=str(raw_violation.get("command_text", "")).strip(),
+                    wall_seconds=float(raw_violation.get("wall_seconds", 0.0) or 0.0),
+                    max_gap_seconds=float(
+                        raw_violation.get("max_gap_seconds", 0.0) or 0.0
+                    ),
+                    measured_gap_seconds=float(
+                        raw_violation.get("measured_gap_seconds", 0.0) or 0.0
+                    ),
+                    previous_line=str(raw_violation.get("previous_line", "")).strip(),
+                    next_line=str(raw_violation.get("next_line", "")).strip(),
+                )
+            )
+    return ObservabilityViolationArtifact(
+        identity=identity,
+        source=source,
+        violations=tuple(violations),
+    )
+
+
+def load_governance_telemetry_history_artifact(
+    *,
+    root: Path,
+    rel_path: str,
+    identities: StructuredArtifactIdentitySpace,
+) -> GovernanceTelemetryHistoryArtifact | None:
+    payload = _load_json_mapping_artifact(root / rel_path)
+    if payload is None:
+        return None
+    source = StructuredArtifactSource(
+        rel_path=rel_path,
+        schema_version=int(payload.get("schema_version", 0) or 0),
+        producer="gabion governance telemetry-emit",
+    )
+    identity = identities.artifact_id(
+        artifact_kind=StructuredArtifactKind.GOVERNANCE_TELEMETRY_HISTORY,
+        source_path=rel_path,
+        label=rel_path,
+    )
+    runs: list[GovernanceTelemetryRun] = []
+    raw_runs = payload.get("runs", [])
+    if isinstance(raw_runs, list):
+        for run_index, raw_run in enumerate(raw_runs, start=1):
+            if not isinstance(raw_run, Mapping):
+                continue
+            run_id = str(raw_run.get("run_id", "")).strip()
+            run_identity = identities.item_id(
+                artifact_kind=StructuredArtifactKind.GOVERNANCE_TELEMETRY_HISTORY,
+                source_path=rel_path,
+                item_kind="run",
+                item_key=run_id or f"run-{run_index}",
+                label=run_id or f"run-{run_index}",
+            )
+            timings: list[GovernanceTelemetryStepTiming] = []
+            raw_timings = raw_run.get("timings_seconds_by_step", {})
+            if isinstance(raw_timings, Mapping):
+                for step_label in sorted(str(key).strip() for key in raw_timings if str(key).strip()):
+                    item_identity = identities.item_id(
+                        artifact_kind=StructuredArtifactKind.GOVERNANCE_TELEMETRY_HISTORY,
+                        source_path=rel_path,
+                        item_kind="timing",
+                        item_key=f"{run_id}:{step_label}" if run_id else step_label,
+                        label=step_label,
+                    )
+                    try:
+                        elapsed_seconds = float(raw_timings.get(step_label, 0.0) or 0.0)
+                    except (TypeError, ValueError):
+                        elapsed_seconds = 0.0
+                    timings.append(
+                        GovernanceTelemetryStepTiming(
+                            identity=item_identity,
+                            step_label=step_label,
+                            elapsed_seconds=elapsed_seconds,
+                        )
+                    )
+            loops: list[GovernanceTelemetryLoopMetric] = []
+            raw_loops = raw_run.get("loops", [])
+            if isinstance(raw_loops, list):
+                for loop_index, raw_loop in enumerate(raw_loops, start=1):
+                    if not isinstance(raw_loop, Mapping):
+                        continue
+                    loop_id = str(raw_loop.get("loop_id", "")).strip()
+                    loop_identity = identities.item_id(
+                        artifact_kind=StructuredArtifactKind.GOVERNANCE_TELEMETRY_HISTORY,
+                        source_path=rel_path,
+                        item_kind="loop",
+                        item_key=(
+                            f"{run_id}:{loop_id}"
+                            if run_id or loop_id
+                            else f"loop-{run_index}-{loop_index}"
+                        ),
+                        label=loop_id or f"loop-{run_index}-{loop_index}",
+                    )
+                    trend_delta_raw = raw_loop.get("trend_delta")
+                    time_to_correction_raw = raw_loop.get("time_to_correction_runs")
+                    loops.append(
+                        GovernanceTelemetryLoopMetric(
+                            identity=loop_identity,
+                            loop_id=loop_id,
+                            domain=str(raw_loop.get("domain", "")).strip(),
+                            violation_count=int(
+                                raw_loop.get("violation_count", 0) or 0
+                            ),
+                            trend_delta=(
+                                None
+                                if trend_delta_raw is None
+                                else int(trend_delta_raw or 0)
+                            ),
+                            recurrence_rate=float(
+                                raw_loop.get("recurrence_rate", 0.0) or 0.0
+                            ),
+                            false_positive_overrides=int(
+                                raw_loop.get("false_positive_overrides", 0) or 0
+                            ),
+                            time_to_correction_runs=(
+                                None
+                                if time_to_correction_raw is None
+                                else int(time_to_correction_raw or 0)
+                            ),
+                        )
+                    )
+            runs.append(
+                GovernanceTelemetryRun(
+                    identity=run_identity,
+                    run_id=run_id,
+                    generated_at_utc=str(raw_run.get("generated_at_utc", "")).strip(),
+                    trend_window_runs=int(raw_run.get("trend_window_runs", 0) or 0),
+                    timings=tuple(timings),
+                    loops=tuple(loops),
+                )
+            )
+    return GovernanceTelemetryHistoryArtifact(
+        identity=identity,
+        source=source,
+        runs=tuple(runs),
+    )
+
+
 def load_kernel_vm_alignment_artifact(
     *,
     root: Path,
@@ -3377,6 +3627,10 @@ __all__ = [
     "DocflowPacketEnforcementArtifact",
     "DocflowPacketRow",
     "GitStateLineSpan",
+    "GovernanceTelemetryHistoryArtifact",
+    "GovernanceTelemetryLoopMetric",
+    "GovernanceTelemetryRun",
+    "GovernanceTelemetryStepTiming",
     "IdentityGrammarCompletionArtifact",
     "IdentityGrammarCompletionResidue",
     "IdentityGrammarCompletionSurface",
@@ -3396,6 +3650,8 @@ __all__ = [
     "LocalCiReproSurface",
     "LocalReproClosureEntry",
     "LocalReproClosureLedgerArtifact",
+    "ObservabilityViolation",
+    "ObservabilityViolationArtifact",
     "StructuredArtifactDecompositionIdentity",
     "StructuredArtifactDecompositionKind",
     "StructuredArtifactDecompositionRelation",
@@ -3416,12 +3672,14 @@ __all__ = [
     "load_docflow_compliance_artifact",
     "load_docflow_packet_enforcement_artifact",
     "load_git_state_artifact",
+    "load_governance_telemetry_history_artifact",
     "load_identity_grammar_completion_artifact",
     "load_ingress_merge_parity_artifact",
     "load_junit_failure_artifact",
     "load_kernel_vm_alignment_artifact",
     "load_local_ci_repro_contract_artifact",
     "load_local_repro_closure_ledger_artifact",
+    "load_observability_violations_artifact",
     "load_test_evidence_artifact",
     "write_ingress_merge_parity_artifact",
 ]

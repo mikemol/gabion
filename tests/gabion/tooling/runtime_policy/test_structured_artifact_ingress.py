@@ -5,6 +5,7 @@ from pathlib import Path
 
 from gabion.tooling.policy_substrate.structured_artifact_ingress import (
     GitStateLineSpan,
+    load_governance_telemetry_history_artifact,
     StructuredArtifactDecompositionKind,
     StructuredArtifactIdentitySpace,
     StructuredArtifactKind,
@@ -20,6 +21,7 @@ from gabion.tooling.policy_substrate.structured_artifact_ingress import (
     load_kernel_vm_alignment_artifact,
     load_local_ci_repro_contract_artifact,
     load_local_repro_closure_ledger_artifact,
+    load_observability_violations_artifact,
     load_test_evidence_artifact,
     write_ingress_merge_parity_artifact,
 )
@@ -670,6 +672,96 @@ def test_load_local_ci_repro_contract_artifact_preserves_surface_and_relation_st
     assert relation.status == "fail"
     assert relation.source_missing_capability_ids == ("policy_workflows_output",)
     assert str(failing_surface.identity) == "Local CI reproduction checks lane"
+
+
+# gabion:behavior primary=desired
+def test_load_observability_violations_artifact_preserves_violation_metrics(
+    tmp_path: Path,
+) -> None:
+    _write_json(
+        tmp_path / "artifacts" / "audit_reports" / "observability_violations.json",
+        {
+            "violations": [
+                {
+                    "ts_utc": "2026-03-20T12:00:00Z",
+                    "label": "checks_wrapper",
+                    "reason": "max_gap_meaningful_line_exceeded",
+                    "command_text": "mise exec -- python -m gabion checks",
+                    "wall_seconds": 123.4,
+                    "max_gap_seconds": 5.0,
+                    "measured_gap_seconds": 18.2,
+                    "previous_line": "running check run",
+                    "next_line": "finished",
+                }
+            ]
+        },
+    )
+
+    artifact = load_observability_violations_artifact(
+        root=tmp_path,
+        rel_path="artifacts/audit_reports/observability_violations.json",
+        identities=StructuredArtifactIdentitySpace(),
+    )
+
+    assert artifact is not None
+    assert artifact.identity.artifact_kind is StructuredArtifactKind.OBSERVABILITY_VIOLATIONS
+    assert len(artifact.violations) == 1
+    violation = artifact.violations[0]
+    assert violation.label == "checks_wrapper"
+    assert violation.reason == "max_gap_meaningful_line_exceeded"
+    assert violation.measured_gap_seconds == 18.2
+    assert str(violation.identity) == "checks_wrapper"
+
+
+# gabion:behavior primary=desired
+def test_load_governance_telemetry_history_artifact_preserves_runs_loops_and_timings(
+    tmp_path: Path,
+) -> None:
+    _write_json(
+        tmp_path / "artifacts" / "out" / "governance_telemetry_history.json",
+        {
+            "schema_version": 1,
+            "runs": [
+                {
+                    "run_id": "run-001",
+                    "generated_at_utc": "2026-03-19T12:00:00Z",
+                    "trend_window_runs": 5,
+                    "timings_seconds_by_step": {
+                        "checks_wrapper": 24.0,
+                        "full_pytest": 135.0,
+                    },
+                    "loops": [
+                        {
+                            "loop_id": "docflow.contradictions",
+                            "domain": "governance",
+                            "violation_count": 1,
+                            "trend_delta": 1,
+                            "recurrence_rate": 0.6,
+                            "false_positive_overrides": 0,
+                            "time_to_correction_runs": None,
+                        }
+                    ],
+                }
+            ],
+        },
+    )
+
+    artifact = load_governance_telemetry_history_artifact(
+        root=tmp_path,
+        rel_path="artifacts/out/governance_telemetry_history.json",
+        identities=StructuredArtifactIdentitySpace(),
+    )
+
+    assert artifact is not None
+    assert artifact.identity.artifact_kind is StructuredArtifactKind.GOVERNANCE_TELEMETRY_HISTORY
+    assert len(artifact.runs) == 1
+    run = artifact.runs[0]
+    assert run.run_id == "run-001"
+    assert run.trend_window_runs == 5
+    assert {item.step_label for item in run.timings} == {"checks_wrapper", "full_pytest"}
+    assert run.loops[0].loop_id == "docflow.contradictions"
+    assert run.loops[0].trend_delta == 1
+    assert run.loops[0].recurrence_rate == 0.6
 
 
 # gabion:behavior primary=desired

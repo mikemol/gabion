@@ -19,6 +19,7 @@ from functools import cached_property
 import json
 from pathlib import Path
 import re
+from statistics import median
 from typing import cast
 
 from gabion.analysis.aspf.aspf_lattice_algebra import canonical_structural_identity
@@ -84,9 +85,11 @@ from gabion.tooling.policy_substrate.structured_artifact_ingress import (
     load_cross_origin_witness_contract_artifact,
     load_docflow_packet_enforcement_artifact,
     load_git_state_artifact,
+    load_governance_telemetry_history_artifact,
     load_ingress_merge_parity_artifact,
     load_junit_failure_artifact,
     load_local_repro_closure_ledger_artifact,
+    load_observability_violations_artifact,
     load_test_evidence_artifact,
 )
 from gabion.tooling.policy_substrate.planning_chart import (
@@ -127,6 +130,12 @@ _LOCAL_REPRO_CLOSURE_LEDGER_ARTIFACT = Path(
 )
 _LOCAL_CI_REPRO_CONTRACT_ARTIFACT = Path(
     "artifacts/out/local_ci_repro_contract.json"
+)
+_GOVERNANCE_TELEMETRY_HISTORY_ARTIFACT = Path(
+    "artifacts/out/governance_telemetry_history.json"
+)
+_OBSERVABILITY_VIOLATIONS_ARTIFACT = Path(
+    "artifacts/audit_reports/observability_violations.json"
 )
 _KERNEL_VM_ALIGNMENT_ARTIFACT = Path("artifacts/out/kernel_vm_alignment.json")
 _IDENTITY_GRAMMAR_COMPLETION_ARTIFACT = Path(
@@ -10312,6 +10321,18 @@ def _link_to_existing_nodes_for_path(
         _add_edge(state, edge_kind, source_node_id, node.node_id)
 
 
+def _contain_under_touchpoints(
+    state: _InvariantGraphBuildState,
+    *,
+    source_node_id: str,
+    touchpoint_object_ids: tuple[str, ...],
+) -> None:
+    for touchpoint_object_id in touchpoint_object_ids:
+        touchpoint_node_id = state.object_node_ids.get(touchpoint_object_id, "")
+        if touchpoint_node_id:
+            _add_edge(state, "contains", touchpoint_node_id, source_node_id)
+
+
 def _append_diagnostic(
     state: _InvariantGraphBuildState,
     *,
@@ -11097,9 +11118,11 @@ def _join_local_ci_repro_contract_artifact(state: _InvariantGraphBuildState) -> 
     )
     _add_node(state, report_node, replace=True)
     _link_node_refs(state, report_node)
-    touchpoint_node_id = state.object_node_ids.get("CSA-RGC-TP-006", "")
-    if touchpoint_node_id:
-        _add_edge(state, "contains", touchpoint_node_id, report_node_id)
+    _contain_under_touchpoints(
+        state,
+        source_node_id=report_node_id,
+        touchpoint_object_ids=("CSA-RGC-TP-006", "DFR-TP-002"),
+    )
     surface_node_ids: dict[str, str] = {}
     for surface in artifact.surfaces:
         surface_node_id = f"local_ci_repro_surface:{stable_hash(surface.identity.wire())}"
@@ -11271,6 +11294,315 @@ def _join_local_ci_repro_contract_artifact(state: _InvariantGraphBuildState) -> 
                         )
                     ),
                 )
+
+
+def _join_observability_violations_artifact(state: _InvariantGraphBuildState) -> None:
+    artifact = load_observability_violations_artifact(
+        root=state.root,
+        rel_path=_OBSERVABILITY_VIOLATIONS_ARTIFACT.as_posix(),
+        identities=state.structured_artifact_identities,
+    )
+    if artifact is None:
+        return
+    report_node_id = "observability_violations:artifact"
+    report_node = _synthetic_node(
+        node_id=report_node_id,
+        title="observability violations",
+        ref_kind="observability_violations",
+        value=_OBSERVABILITY_VIOLATIONS_ARTIFACT.as_posix(),
+        object_ids=(artifact.identity.wire(),),
+        reasoning_summary=f"observability violations={len(artifact.violations)}",
+        reasoning_control="invariant_graph.observability_violations",
+        rel_path=_OBSERVABILITY_VIOLATIONS_ARTIFACT.as_posix(),
+        node_kind="observability_violations",
+        status_hint="fail" if artifact.violations else "pass",
+    )
+    _add_node(state, report_node, replace=True)
+    _link_node_refs(state, report_node)
+    _contain_under_touchpoints(
+        state,
+        source_node_id=report_node_id,
+        touchpoint_object_ids=("DFR-TP-003",),
+    )
+    for violation in artifact.violations:
+        violation_node_id = (
+            f"observability_violation:{stable_hash(violation.identity.wire())}"
+        )
+        violation_node = _synthetic_node(
+            node_id=violation_node_id,
+            title=violation.label or violation.reason or "observability violation",
+            ref_kind="observability_violation",
+            value=violation.identity.wire(),
+            object_ids=tuple(
+                item
+                for item in (
+                    violation.identity.wire(),
+                    violation.label,
+                    violation.reason,
+                )
+                if item
+            ),
+            reasoning_summary=(
+                f"{violation.reason or 'observability_violation'} "
+                f"gap={violation.measured_gap_seconds:.3f}s "
+                f"wall={violation.wall_seconds:.3f}s"
+            ),
+            reasoning_control="invariant_graph.observability_violations.violation",
+            rel_path=_OBSERVABILITY_VIOLATIONS_ARTIFACT.as_posix(),
+            node_kind="observability_violation",
+            status_hint=violation.reason,
+        )
+        _add_node(state, violation_node, replace=True)
+        _link_node_refs(state, violation_node)
+        _add_edge(state, "contains", report_node_id, violation_node_id)
+        _append_diagnostic(
+            state,
+            severity="warning",
+            code="delivery_flow_observability_violation",
+            node_id=violation_node_id,
+            raw_dependency="DFR-TP-003",
+            message=(
+                f"{violation.label or 'delivery lane'} hit {violation.reason or 'observability_violation'}"
+            ),
+        )
+        _append_ranking_signal(
+            state,
+            node_id=violation_node_id,
+            touchpoint_object_id="DFR-TP-003",
+            touchsite_object_id="DFR-TS-005",
+            code="delivery_flow_observability_violation",
+            score=25 if violation.reason == "max_wall_timeout" else 15,
+            raw_dependency=violation.reason,
+            message=(
+                f"{violation.label or 'delivery lane'} exceeded observability bounds"
+            ),
+        )
+
+
+def _governance_telemetry_total_runtime_seconds(run) -> float:
+    return float(sum(item.elapsed_seconds for item in run.timings))
+
+
+def _governance_runtime_baseline_seconds(
+    series: tuple[float, ...],
+) -> float | None:
+    if not series:
+        return None
+    return float(median(series))
+
+
+def _join_governance_telemetry_history_artifact(state: _InvariantGraphBuildState) -> None:
+    artifact = load_governance_telemetry_history_artifact(
+        root=state.root,
+        rel_path=_GOVERNANCE_TELEMETRY_HISTORY_ARTIFACT.as_posix(),
+        identities=state.structured_artifact_identities,
+    )
+    if artifact is None or not artifact.runs:
+        return
+    report_node_id = "governance_telemetry_history:artifact"
+    latest_run = artifact.runs[-1]
+    report_node = _synthetic_node(
+        node_id=report_node_id,
+        title="governance telemetry history",
+        ref_kind="governance_telemetry_history",
+        value=_GOVERNANCE_TELEMETRY_HISTORY_ARTIFACT.as_posix(),
+        object_ids=(artifact.identity.wire(), latest_run.run_id),
+        reasoning_summary=(
+            f"governance telemetry runs={len(artifact.runs)} latest_run={latest_run.run_id or '<unset>'}"
+        ),
+        reasoning_control="invariant_graph.governance_telemetry_history",
+        rel_path=_GOVERNANCE_TELEMETRY_HISTORY_ARTIFACT.as_posix(),
+        node_kind="governance_telemetry_history",
+        status_hint="pass",
+    )
+    _add_node(state, report_node, replace=True)
+    _link_node_refs(state, report_node)
+    _contain_under_touchpoints(
+        state,
+        source_node_id=report_node_id,
+        touchpoint_object_ids=("DFM-TP-002",),
+    )
+
+    latest_total_seconds = _governance_telemetry_total_runtime_seconds(latest_run)
+    previous_totals = tuple(
+        _governance_telemetry_total_runtime_seconds(run) for run in artifact.runs[:-1]
+    )
+    runtime_baseline_seconds = _governance_runtime_baseline_seconds(previous_totals)
+    severe_runtime_regression = False
+    if runtime_baseline_seconds is not None and runtime_baseline_seconds > 0:
+        severe_runtime_regression = (
+            latest_total_seconds >= runtime_baseline_seconds * 1.2
+            and (latest_total_seconds - runtime_baseline_seconds) >= 30.0
+        )
+    runtime_node_id = f"governance_telemetry_runtime:{stable_hash(latest_run.identity.wire())}"
+    runtime_node = _synthetic_node(
+        node_id=runtime_node_id,
+        title="delivery-flow runtime trend",
+        ref_kind="governance_telemetry_runtime",
+        value=latest_run.identity.wire(),
+        object_ids=tuple(
+            item
+            for item in (
+                latest_run.identity.wire(),
+                latest_run.run_id,
+            )
+            if item
+        ),
+        reasoning_summary=(
+            "runtime_total={latest:.3f}s baseline={baseline}".format(
+                latest=latest_total_seconds,
+                baseline=(
+                    "<none>"
+                    if runtime_baseline_seconds is None
+                    else f"{runtime_baseline_seconds:.3f}s"
+                ),
+            )
+        ),
+        reasoning_control="invariant_graph.governance_telemetry_history.runtime",
+        rel_path=_GOVERNANCE_TELEMETRY_HISTORY_ARTIFACT.as_posix(),
+        node_kind="governance_telemetry_runtime",
+        status_hint="fail" if severe_runtime_regression else "pass",
+    )
+    _add_node(state, runtime_node, replace=True)
+    _link_node_refs(state, runtime_node)
+    _add_edge(state, "contains", report_node_id, runtime_node_id)
+    _contain_under_touchpoints(
+        state,
+        source_node_id=runtime_node_id,
+        touchpoint_object_ids=("DFM-TP-001",),
+    )
+    if severe_runtime_regression:
+        _contain_under_touchpoints(
+            state,
+            source_node_id=runtime_node_id,
+            touchpoint_object_ids=("DFR-TP-003",),
+        )
+        _append_diagnostic(
+            state,
+            severity="warning",
+            code="delivery_flow_runtime_regression",
+            node_id=runtime_node_id,
+            raw_dependency="DFM-TP-001",
+            message=(
+                "Recent full-lane runtime regressed beyond the current delivery severity band."
+            ),
+        )
+        _append_ranking_signal(
+            state,
+            node_id=runtime_node_id,
+            touchpoint_object_id="DFM-TP-001",
+            touchsite_object_id="DFM-TS-001",
+            code="delivery_flow_runtime_regression",
+            score=max(
+                10,
+                int(
+                    round(
+                        latest_total_seconds
+                        - (runtime_baseline_seconds or latest_total_seconds)
+                    )
+                ),
+            ),
+            raw_dependency=latest_run.run_id,
+            message="Historical full-lane runtime drift is degrading delivery momentum.",
+        )
+        _append_ranking_signal(
+            state,
+            node_id=runtime_node_id,
+            touchpoint_object_id="DFR-TP-003",
+            touchsite_object_id="DFR-TS-006",
+            code="delivery_flow_runtime_regression_current_band",
+            score=max(
+                15,
+                int(
+                    round(
+                        latest_total_seconds
+                        - (runtime_baseline_seconds or latest_total_seconds)
+                    )
+                ),
+            ),
+            raw_dependency=latest_run.run_id,
+            message="Latest full-lane runtime crossed the current delivery severity band.",
+        )
+
+    for loop_metric in latest_run.loops:
+        loop_node_id = (
+            f"governance_telemetry_loop:{stable_hash(loop_metric.identity.wire())}"
+        )
+        loop_node = _synthetic_node(
+            node_id=loop_node_id,
+            title=loop_metric.loop_id or "delivery-flow loop",
+            ref_kind="governance_telemetry_loop",
+            value=loop_metric.identity.wire(),
+            object_ids=tuple(
+                item
+                for item in (
+                    loop_metric.identity.wire(),
+                    loop_metric.loop_id,
+                    latest_run.run_id,
+                )
+                if item
+            ),
+            reasoning_summary=(
+                "violations={violations} recurrence={recurrence:.3f} trend_delta={trend}".format(
+                    violations=loop_metric.violation_count,
+                    recurrence=loop_metric.recurrence_rate,
+                    trend=(
+                        "n/a"
+                        if loop_metric.trend_delta is None
+                        else str(loop_metric.trend_delta)
+                    ),
+                )
+            ),
+            reasoning_control="invariant_graph.governance_telemetry_history.loop",
+            rel_path=_GOVERNANCE_TELEMETRY_HISTORY_ARTIFACT.as_posix(),
+            node_kind="governance_telemetry_loop",
+            status_hint=(
+                "fail"
+                if loop_metric.violation_count > 0
+                and (
+                    loop_metric.recurrence_rate >= 0.5
+                    or (loop_metric.trend_delta or 0) > 0
+                )
+                else "pass"
+            ),
+        )
+        _add_node(state, loop_node, replace=True)
+        _link_node_refs(state, loop_node)
+        _add_edge(state, "contains", report_node_id, loop_node_id)
+        worsening = (
+            loop_metric.violation_count > 0
+            and (
+                loop_metric.recurrence_rate >= 0.5
+                or (loop_metric.trend_delta or 0) > 0
+            )
+        )
+        if worsening:
+            _append_diagnostic(
+                state,
+                severity="warning",
+                code="delivery_flow_momentum_regression",
+                node_id=loop_node_id,
+                raw_dependency="DFM-TP-002",
+                message=(
+                    f"{loop_metric.loop_id} is recurring or worsening across recent runs."
+                ),
+            )
+            _append_ranking_signal(
+                state,
+                node_id=loop_node_id,
+                touchpoint_object_id="DFM-TP-002",
+                touchsite_object_id="DFM-TS-003",
+                code="delivery_flow_momentum_regression",
+                score=max(
+                    8,
+                    int(round(loop_metric.recurrence_rate * 20))
+                    + max(loop_metric.violation_count, 0),
+                ),
+                raw_dependency=loop_metric.loop_id,
+                message=(
+                    f"{loop_metric.loop_id} is degrading delivery-flow momentum."
+                ),
+            )
 
 
 def _join_kernel_vm_alignment_artifact(state: _InvariantGraphBuildState) -> None:
@@ -11891,6 +12223,8 @@ def _join_control_loop_artifacts(state: _InvariantGraphBuildState) -> None:
     _join_docflow_packet_enforcement(state)
     _join_controller_drift_artifact(state)
     _join_local_repro_closure_ledger(state)
+    _join_observability_violations_artifact(state)
+    _join_governance_telemetry_history_artifact(state)
     _join_kernel_vm_alignment_artifact(state)
     _join_identity_grammar_completion_artifact(state)
     _join_cross_origin_witness_contract_artifact(state)
