@@ -25,6 +25,7 @@ from gabion.analysis.dataflow.io.dataflow_report_section_contracts import (
 )
 from gabion.analysis.dataflow.io.dataflow_report_sections import (
     iter_report_sections,
+    tee_iterator_factory,
 )
 from gabion.analysis.dataflow.io.dataflow_reporting import render_report
 from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
@@ -553,19 +554,6 @@ def _build_reuse_replacement_map(
     return replacement_map
 
 
-def _tee_report_section_state_stream(
-    entries: Iterator[ReportSectionState],
-) -> Callable[[], Iterator[ReportSectionState]]:
-    source = entries
-
-    def iter_entries() -> Iterator[ReportSectionState]:
-        nonlocal source
-        source, clone = tee(source)
-        return clone
-
-    return iter_entries
-
-
 def project_report_sections(
     groups_by_path,
     report,
@@ -625,7 +613,7 @@ def project_report_sections(
                     ),
                 )
 
-    return _tee_report_section_state_stream(iter_selected_sections())
+    return tee_iterator_factory(iter_selected_sections())
 
 
 def _bundle_name_registry(root: Path) -> dict[tuple[str, ...], set[str]]:

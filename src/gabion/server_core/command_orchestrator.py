@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from functools import singledispatch
 from hashlib import sha1
-from itertools import chain, tee, zip_longest
+from itertools import zip_longest
 from operator import itemgetter
 from pathlib import Path
 import threading
@@ -42,6 +42,22 @@ from gabion.analysis.dataflow.io.dataflow_report_section_contracts import (
     PendingReportSectionState,
     ReportSectionState,
     ReportSectionsState,
+)
+from gabion.analysis.dataflow.io.dataflow_report_sections import (
+    pending_sections as _pending_sections,
+    chain_report_section_states as _chain_report_section_states,
+    empty_report_section_states as _empty_report_section_states,
+    pending_reason_mapping as _pending_reason_mapping,
+    pending_report_section_states as _pending_report_section_states,
+    report_section_ids as _report_section_ids,
+    report_section_lines as _section_lines,
+    report_sections_resolved_count as _report_sections_resolved_count,
+    report_sections_state as _build_report_sections_state,
+    resolved_mapping as _resolved_mapping,
+    resolved_report_section_states as _resolved_report_section_states,
+    resolved_section_mapping as _resolved_section_mapping,
+    resolved_sections as _resolved_sections,
+    single_report_section_state as _single_report_section_state,
 )
 from gabion.analysis.aspf.aspf import Forest
 from gabion.analysis.call_cluster import call_cluster_consolidation, call_clusters
@@ -1637,116 +1653,10 @@ def _projection_row_section_id(row: JSONObject) -> str:
     return str(row.get("section_id", "") or "")
 
 
-def _tee_iterator_factory[T](items: Iterator[T]) -> Callable[[], Iterator[T]]:
-    source = items
-
-    def iter_items() -> Iterator[T]:
-        nonlocal source
-        source, clone = tee(source)
-        return clone
-
-    return iter_items
-
-
-def _section_lines(section: ReportSectionState) -> Iterator[str]:
-    return section._line_iterator_factory()
-
-
-def _resolved_sections(
-    sections_state: ReportSectionsState,
-) -> Iterator[ReportSectionState]:
-    return sections_state._resolved_section_iterator_factory()
-
-
-def _pending_sections(
-    sections_state: ReportSectionsState,
-) -> Iterator[PendingReportSectionState]:
-    return sections_state._pending_section_iterator_factory()
-
-
-def _resolved_report_section_states(
-    resolved_sections: Iterator[tuple[str, Iterator[str] | list[str]]],
-) -> Callable[[], Iterator[ReportSectionState]]:
-    section_iterator_factory = _tee_iterator_factory(resolved_sections)
-
-    def iter_sections() -> Iterator[ReportSectionState]:
-        for section_id, section_lines in section_iterator_factory():
-            yield ReportSectionState(
-                section_id=section_id,
-                _line_iterator_factory=_tee_iterator_factory(iter(section_lines)),
-            )
-
-    return iter_sections
-
-
-def _single_report_section_state(
-    *,
-    section_id: str,
-    lines: Iterable[str],
-) -> Callable[[], Iterator[ReportSectionState]]:
-    line_iterator_factory = _tee_iterator_factory(iter(lines))
-
-    def iter_sections() -> Iterator[ReportSectionState]:
-        yield ReportSectionState(
-            section_id=section_id,
-            _line_iterator_factory=line_iterator_factory,
-        )
-
-    return iter_sections
-
-
-def _chain_report_section_states(
-    *section_streams: Callable[[], Iterator[ReportSectionState]],
-) -> Callable[[], Iterator[ReportSectionState]]:
-    return lambda: chain.from_iterable(
-        section_stream() for section_stream in section_streams
-    )
-
-
-def _empty_report_section_states() -> Iterator[ReportSectionState]:
-    return iter(())
-
-
-def _resolved_section_mapping(
-    resolved_sections: Callable[[], Iterator[ReportSectionState]],
-) -> dict[str, list[str]]:
-    return {
-        section.section_id: list(_section_lines(section))
-        for section in resolved_sections()
-    }
-
-
-def _resolved_mapping(
-    sections_state: ReportSectionsState,
-) -> dict[str, list[str]]:
-    return _resolved_section_mapping(lambda: _resolved_sections(sections_state))
-
-
 def _resolved_section_count(
     resolved_sections: Callable[[], Iterator[ReportSectionState]],
 ) -> int:
     return sum(1 for _ in resolved_sections())
-
-
-def _pending_reason_mapping(
-    sections_state: ReportSectionsState,
-) -> dict[str, str]:
-    return {
-        section.section_id: section.reason
-        for section in _pending_sections(sections_state)
-    }
-
-
-def _report_section_ids(
-    sections_state: ReportSectionsState,
-) -> tuple[str, ...]:
-    return tuple(section.section_id for section in _resolved_sections(sections_state))
-
-
-def _report_sections_resolved_count(
-    sections_state: ReportSectionsState,
-) -> int:
-    return sum(1 for _ in _resolved_sections(sections_state))
 
 
 def _projection_row_deps(row: Mapping[str, JSONValue]) -> tuple[str, ...]:
@@ -1793,7 +1703,7 @@ def _pending_projection_sections(
                 reason="missing_dep",
             )
 
-    return _tee_iterator_factory(iter_pending_sections())
+    return _pending_report_section_states(iter_pending_sections())
 
 
 def _pending_sections_from_reason_mapping(
@@ -1808,7 +1718,7 @@ def _pending_sections_from_reason_mapping(
         if _projection_row_section_id(row)
     }
 
-    return _tee_iterator_factory(
+    return _pending_report_section_states(
         iter(
             PendingReportSectionState(
                 section_id=section_id,
@@ -1832,11 +1742,9 @@ def _report_sections_state(
     resolved_sections: Callable[[], Iterator[ReportSectionState]],
     pending_sections: Callable[[], Iterator[PendingReportSectionState]] | None = None,
 ) -> ReportSectionsState:
-    return ReportSectionsState(
-        _resolved_section_iterator_factory=resolved_sections,
-        _pending_section_iterator_factory=(
-            pending_sections if pending_sections is not None else (lambda: iter(()))
-        ),
+    return _build_report_sections_state(
+        resolved_sections=resolved_sections,
+        pending_sections=pending_sections,
     )
 
 

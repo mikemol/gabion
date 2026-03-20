@@ -7,7 +7,7 @@ import json
 import threading
 import time
 from collections.abc import Iterator
-from itertools import chain, repeat, tee
+from itertools import chain, repeat
 from datetime import (datetime, timezone)
 from dataclasses import dataclass
 from decimal import (Decimal, InvalidOperation)
@@ -22,6 +22,10 @@ from gabion.plan import (ExecutionPlan, ExecutionPlanObligations, ExecutionPlanP
 from gabion.analysis import (AnalysisResult, AuditConfig, ReportCarrier, analyze_paths, apply_baseline, build_analysis_collection_resume_seed, compute_structure_metrics, compute_violations, build_refactor_plan, build_synthesis_plan, load_baseline, extract_report_sections, project_report_sections, report_projection_phase_rank, report_projection_spec_rows, render_dot, render_structure_snapshot, render_decision_snapshot, DecisionSnapshotSurfaces, render_protocol_stubs, render_refactor_plan, render_report, render_synthesis_section, resolve_baseline_path, write_baseline)
 from gabion.analysis.dataflow.io.dataflow_report_section_contracts import (
     ReportSectionState,
+)
+from gabion.analysis.dataflow.io.dataflow_report_sections import (
+    empty_report_section_states as _empty_report_section_states,
+    resolved_report_section_states as _resolved_report_section_states,
 )
 from gabion.analysis.aspf import (aspf_execution_fibration, aspf_resume_state)
 from gabion.analysis.aspf.aspf import Forest
@@ -131,17 +135,6 @@ _CANONICAL_PROGRESS_EVENT_SCHEMA_V2 = "gabion/canonical_progress_event_v2"
 _STDOUT_ALIAS = runtime_contract.STDOUT_ALIAS
 
 _STDOUT_PATH = runtime_contract.STDOUT_PATH
-
-
-def _tee_iterator_factory[T](items: Iterator[T]) -> Callable[[], Iterator[T]]:
-    source = items
-
-    def iter_items() -> Iterator[T]:
-        nonlocal source
-        source, clone = tee(source)
-        return clone
-
-    return iter_items
 
 
 def _is_stdout_target(target: object) -> bool:
@@ -499,22 +492,13 @@ def _coerce_section_lines(value: object) -> list[str]:
 
 
 def _empty_report_section_stream() -> Callable[[], Iterator[ReportSectionState]]:
-    return lambda: iter(())
+    return _empty_report_section_states
 
 
 def _report_section_stream(
     entries: Iterator[tuple[str, list[str]]],
 ) -> Callable[[], Iterator[ReportSectionState]]:
-    entry_iterator_factory = _tee_iterator_factory(entries)
-
-    def iter_sections() -> Iterator[ReportSectionState]:
-        for section_id, lines in entry_iterator_factory():
-            yield ReportSectionState(
-                section_id=section_id,
-                _line_iterator_factory=_tee_iterator_factory(iter(lines)),
-            )
-
-    return iter_sections
+    return _resolved_report_section_states(entries)
 
 
 def _load_report_section_journal(
