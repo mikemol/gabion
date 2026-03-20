@@ -361,7 +361,10 @@ def _render_pr_dataflow_command(options: LocalCiReproOptions) -> tuple[str, ...]
         return tuple(inner)
     return (
         str(options.python_bin),
-        "scripts/misc/aspf_handoff.py",
+        "-m",
+        "gabion",
+        "aspf",
+        "handoff",
         "run",
         "--root",
         ".",

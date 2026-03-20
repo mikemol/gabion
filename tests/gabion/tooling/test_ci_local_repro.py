@@ -63,6 +63,7 @@ def test_pr_dataflow_steps_cover_stage_ci_and_render_report(tmp_path: Path) -> N
     commands = [tuple(step.command) for step in steps]
 
     assert any("impact-select-tests" in command for command in commands)
+    assert any(("aspf", "handoff", "run") == command[3:6] for command in commands)
     assert any(
         "artifacts/dataflow_grammar/report.md" in command and "raw" in command
         for command in commands

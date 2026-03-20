@@ -34,6 +34,7 @@ def test_build_local_checks_steps_cover_canonical_lane_surface(tmp_path: Path) -
 
     assert any("lsp-parity-gate" in command for command in commands)
     assert any("check" in command and "run" in command for command in commands)
+    assert any(("aspf", "handoff", "run") == command[3:6] for command in commands)
     assert any("docflow-packetize" in command for command in commands)
     assert any("docflow-packet-enforce" in command for command in commands)
     assert any("sppf" in command and "status-audit" in command for command in commands)
