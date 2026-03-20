@@ -14,6 +14,7 @@ import pytest
 from pydantic import ValidationError
 
 from gabion import server
+from gabion.analysis import project_report_sections as _project_report_sections
 from gabion.analysis.foundation.timeout_context import TimeoutContext, pack_call_stack
 from gabion.exceptions import NeverThrown
 from gabion.analysis.core import (
@@ -3753,7 +3754,7 @@ def test_execute_command_timeout_phase_checkpoint_preview_and_classification_edg
     def _raise_timeout(*_args: object, **_kwargs: object) -> server.AnalysisResult:
         raise _timeout_exc(progress={"classification": "timed_out_progress_resume"})
 
-    original_project = server.project_report_sections
+    original_project = _project_report_sections
 
     def _project_sections(*args: object, **kwargs: object):
         if kwargs.get("preview_only"):
@@ -3853,7 +3854,7 @@ def test_execute_command_total_timeout_loads_phase_checkpoint_and_preview_projec
     _write_bundle_module(module_path)
     preview_calls = {"count": 0}
 
-    original_project = server.project_report_sections
+    original_project = _project_report_sections
 
     def _project_sections(*args: object, **kwargs: object):
         if kwargs.get("preview_only"):
