@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from functools import singledispatch
 from hashlib import sha1
-from itertools import chain, repeat, zip_longest
+from itertools import chain, zip_longest
 from operator import itemgetter
 from pathlib import Path
 import threading
@@ -1619,16 +1619,14 @@ class MaterializedReportArtifacts:
         self,
         *,
         resolved_sections: Callable[[], Iterator[ReportSectionState]],
-        projection_rows: Sequence[Mapping[str, JSONValue]] = (),
-        pending_reasons: Mapping[str, str] | None = None,
+        pending_sections: Callable[[], Iterator[PendingReportSectionState]] | None = None,
     ) -> None:
         object.__setattr__(
             self,
             "sections_state",
             _report_sections_state(
                 resolved_sections=resolved_sections,
-                projection_rows=projection_rows,
-                pending_reasons=pending_reasons,
+                pending_sections=pending_sections,
             ),
         )
 
@@ -1719,35 +1717,44 @@ def _section_id_missing_from_resolved(
     )
 
 
-def _pending_projection_reasons(
+def _pending_projection_sections(
     *,
     projection_rows: list[JSONObject],
     resolved_sections: Callable[[], Iterator[ReportSectionState]],
-) -> dict[str, str]:
-    section_ids = map(_projection_row_section_id, projection_rows)
-    missing_section_ids = filter(
-        lambda section_id: _section_id_missing_from_resolved(
-            section_id,
-            resolved_sections=resolved_sections,
-        ),
-        section_ids,
-    )
-    return dict(zip(missing_section_ids, repeat("missing_dep")))
+) -> Callable[[], Iterator[PendingReportSectionState]]:
+    def iter_pending_sections() -> Iterator[PendingReportSectionState]:
+        for row in projection_rows:
+            section_id = _projection_row_section_id(row)
+            if not section_id:
+                continue
+            if not _section_id_missing_from_resolved(
+                section_id,
+                resolved_sections=resolved_sections,
+            ):
+                continue
+            yield PendingReportSectionState(
+                section_id=section_id,
+                phase=str(row.get("phase", "") or ""),
+                deps=_projection_row_deps(row),
+                reason="missing_dep",
+            )
+
+    return tee_iterator_factory(iter_pending_sections())
 
 
-def _report_sections_state(
+def _pending_sections_from_reason_mapping(
     *,
-    resolved_sections: Callable[[], Iterator[ReportSectionState]],
-    projection_rows: Sequence[Mapping[str, JSONValue]] = (),
+    projection_rows: Sequence[Mapping[str, JSONValue]],
     pending_reasons: Mapping[str, str] | None = None,
-) -> ReportSectionsState:
+) -> Callable[[], Iterator[PendingReportSectionState]]:
     pending_reasons = pending_reasons or {}
     pending_rows_by_section = {
         _projection_row_section_id(row): row
         for row in projection_rows
         if _projection_row_section_id(row)
     }
-    pending_section_states = tee_iterator_factory(
+
+    return tee_iterator_factory(
         iter(
             PendingReportSectionState(
                 section_id=section_id,
@@ -1764,9 +1771,18 @@ def _report_sections_state(
             for section_id, reason in pending_reasons.items()
         )
     )
+
+
+def _report_sections_state(
+    *,
+    resolved_sections: Callable[[], Iterator[ReportSectionState]],
+    pending_sections: Callable[[], Iterator[PendingReportSectionState]] | None = None,
+) -> ReportSectionsState:
     return ReportSectionsState(
         _resolved_section_iterator_factory=resolved_sections,
-        _pending_section_iterator_factory=pending_section_states,
+        _pending_section_iterator_factory=(
+            pending_sections if pending_sections is not None else (lambda: iter(()))
+        ),
     )
 
 
@@ -3418,7 +3434,7 @@ def _finalize_report_and_violations(
             report=report_carrier,
         )
         resolved_sections_for_obligations = lambda: iter_report_sections(report_markdown)
-        pending_projection_reasons = _pending_projection_reasons(
+        pending_projection_sections = _pending_projection_sections(
             projection_rows=list(
                 report_request_state.runtime_state.projection_state.projection_rows
             ),
@@ -3426,10 +3442,7 @@ def _finalize_report_and_violations(
         )
         report_sections_for_obligations = _report_sections_state(
             resolved_sections=resolved_sections_for_obligations,
-            projection_rows=list(
-                report_request_state.runtime_state.projection_state.projection_rows
-            ),
-            pending_reasons=pending_projection_reasons,
+            pending_sections=pending_projection_sections,
         )
         success_progress_payload: JSONObject = {
             "classification": "succeeded",
@@ -3458,7 +3471,7 @@ def _finalize_report_and_violations(
             report=report_carrier,
         )
         resolved_sections = lambda: iter_report_sections(report_markdown)
-        final_pending_reasons = _pending_projection_reasons(
+        final_pending_sections = _pending_projection_sections(
             projection_rows=list(
                 report_request_state.runtime_state.projection_state.projection_rows
             ),
@@ -3466,10 +3479,7 @@ def _finalize_report_and_violations(
         )
         materialized_report = MaterializedReportArtifacts(
             resolved_sections=resolved_sections,
-            projection_rows=list(
-                report_request_state.runtime_state.projection_state.projection_rows
-            ),
-            pending_reasons=final_pending_reasons,
+            pending_sections=final_pending_sections,
         )
         if context.baseline_path is not None:
             baseline_entries = load_baseline(context.baseline_path)
@@ -3737,10 +3747,12 @@ class TimeoutReportOutcome:
                 )
                 materialized_report = MaterializedReportArtifacts(
                     resolved_sections=resolved_sections_state,
-                    projection_rows=list(
-                        context.report_runtime_state.projection_state.projection_rows
+                    pending_sections=_pending_sections_from_reason_mapping(
+                        projection_rows=list(
+                            context.report_runtime_state.projection_state.projection_rows
+                        ),
+                        pending_reasons=pending_reasons,
                     ),
-                    pending_reasons=pending_reasons,
                 )
                 phase_checkpoint_state["timeout"] = {
                     "status": "timed_out",
