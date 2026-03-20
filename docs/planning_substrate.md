@@ -1,5 +1,5 @@
 ---
-doc_revision: 5
+doc_revision: 7
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: planning_substrate
 doc_role: architecture
@@ -22,7 +22,7 @@ doc_review_notes:
   README.md#repo_contract: "Reviewed README.md#repo_contract rev84/section v2 (planning artifacts and the repo-local project-manager view remain tooling surfaces, not user-facing product features)."
   CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md#contributing_contract rev120/section v2 (correction-unit validation, git drainage, and workflow checks govern planning-substrate changes)."
   POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md#policy_seed rev57/section v2 (planning workflows are process-relative runtime and planning distinctions must remain constructible, reachable, observable, and coverable)."
-  glossary.md#contract: "Reviewed glossary.md#contract rev47/section v1 (queue/root/subqueue/workstream_registry semantics remain canonical for the planner overlay)."
+  glossary.md#contract: "Reviewed glossary.md#contract rev47/section v1 (queue/root/subqueue/workstream_registry semantics remain canonical for the planner overlay), and this explainer now links to the derived formal spec for the same runtime."
 doc_sections:
   planning_substrate: 1
   runtime_model: 1
@@ -196,10 +196,16 @@ Current examples include:
 
 `DFR` and `DFM` are intentionally separate:
 
-- `DFR` is a current-indicator root driven by current blockers such as red-state,
-  local-vs-CI parity drift, observability gaps, and severe runtime regressions
-- `DFM` is a trend root driven by historical telemetry such as runtime trend,
-  recurrence rate, and correction-lag drift
+- `DFR` is a current-indicator root driven from the canonical
+  `artifacts/out/delivery_flow_summary.json` ingress over current blockers such
+  as red-state, local-vs-CI parity drift, observability gaps, severe
+  current-band runtime regressions, and repeated/stalled/unstable blocker
+  patterns; the bounded run history that supports those blocker-pattern
+  classifications is owned upstream by
+  `artifacts/out/governance_telemetry_history.json`
+- `DFM` is a trend root driven from the same canonical delivery-flow summary
+  ingress over historical runtime trend, recurrence drift, red-state dwell, and
+  closure-lag drag
 
 This keeps observability as an ingress signal rather than inventing a separate
 observability-root family inside the planning substrate.
@@ -489,6 +495,7 @@ points:
 
 ## Related documents
 
+- [`docs/planning_substrate_formal_spec.md`](planning_substrate_formal_spec.md)
 - [`docs/planning_chart_architecture.md`](planning_chart_architecture.md)
 - [`docs/unit_test_readiness_playbook.md`](unit_test_readiness_playbook.md)
 - [`docs/governance_control_loops.md`](governance_control_loops.md)

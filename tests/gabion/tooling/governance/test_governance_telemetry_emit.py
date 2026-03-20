@@ -23,6 +23,9 @@ def test_emit_governance_telemetry_outputs_schema(tmp_path: Path) -> None:
     telemetry = tmp_path / "artifacts/out/governance_telemetry.json"
     history = tmp_path / "artifacts/out/governance_telemetry_history.json"
     markdown = tmp_path / "artifacts/audit_reports/governance_telemetry.md"
+    junit = tmp_path / "artifacts/test_runs/junit.xml"
+    local_ci = tmp_path / "artifacts/out/local_ci_repro_contract.json"
+    observability = tmp_path / "artifacts/audit_reports/observability_violations.json"
 
     _write_json(docflow, {"summary": {"current": {"contradicts": 2}}})
     _write_json(
@@ -38,6 +41,34 @@ def test_emit_governance_telemetry_outputs_schema(tmp_path: Path) -> None:
     _write_json(ambiguity, {"summary": {"total": {"current": 5}}})
     _write_json(branchless, {"violations": [{"id": 1}, {"id": 2}]})
     _write_json(defensive, {"violations": [{"id": 1}]})
+    junit.parent.mkdir(parents=True, exist_ok=True)
+    junit.write_text(
+        """<?xml version="1.0" encoding="utf-8"?>
+<testsuites>
+  <testsuite name="pytest" tests="1" failures="1" errors="0">
+    <testcase classname="tests.gabion.tooling.test_ci" name="test_lane" file="tests/gabion/tooling/test_ci.py" line="1">
+      <failure message="AssertionError">boom</failure>
+    </testcase>
+  </testsuite>
+</testsuites>
+""",
+        encoding="utf-8",
+    )
+    _write_json(
+        local_ci,
+        {
+            "surfaces": [{"surface_id": "local:checks", "status": "fail"}],
+            "relations": [{"relation_id": "local->workflow", "status": "fail"}],
+        },
+    )
+    _write_json(
+        observability,
+        {
+            "violations": [
+                {"label": "checks_wrapper", "reason": "max_gap_meaningful_line_exceeded"}
+            ]
+        },
+    )
 
     assert (
         governance_telemetry_emit.main(
@@ -62,6 +93,12 @@ def test_emit_governance_telemetry_outputs_schema(tmp_path: Path) -> None:
                 str(history),
                 "--md-out",
                 str(markdown),
+                "--junit",
+                str(junit),
+                "--local-ci-contract",
+                str(local_ci),
+                "--observability",
+                str(observability),
             ]
         )
         == 0
@@ -72,6 +109,14 @@ def test_emit_governance_telemetry_outputs_schema(tmp_path: Path) -> None:
     assert loops["policy.branchless"]["violation_count"] == 2
     assert loops["docflow.contradictions"]["violation_count"] == 2
     assert loops["delta.obsolescence_unmapped"]["violation_count"] == 3
+    assert payload["suite_red_state"] is True
+    assert set(payload["open_blocker_ids"]) >= {
+        "test:tests/gabion/tooling/test_ci.py::test_ci::test_lane",
+        "surface:local:checks",
+        "relation:local->workflow",
+        "observability:checks_wrapper",
+        "loop:docflow.contradictions",
+    }
     assert "Convergence SLOs" in markdown.read_text(encoding="utf-8")
 
 

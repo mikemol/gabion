@@ -78,6 +78,7 @@ from gabion.tooling.policy_substrate.structured_artifact_ingress import (
     load_dataflow_terminal_outcome_artifact,
     TestEvidenceSite,
     load_controller_drift_artifact,
+    load_delivery_flow_summary_artifact,
     load_identity_grammar_completion_artifact,
     load_kernel_vm_alignment_artifact,
     load_local_ci_repro_contract_artifact,
@@ -134,6 +135,7 @@ _LOCAL_CI_REPRO_CONTRACT_ARTIFACT = Path(
 _GOVERNANCE_TELEMETRY_HISTORY_ARTIFACT = Path(
     "artifacts/out/governance_telemetry_history.json"
 )
+_DELIVERY_FLOW_SUMMARY_ARTIFACT = Path("artifacts/out/delivery_flow_summary.json")
 _OBSERVABILITY_VIOLATIONS_ARTIFACT = Path(
     "artifacts/audit_reports/observability_violations.json"
 )
@@ -11121,7 +11123,7 @@ def _join_local_ci_repro_contract_artifact(state: _InvariantGraphBuildState) -> 
     _contain_under_touchpoints(
         state,
         source_node_id=report_node_id,
-        touchpoint_object_ids=("CSA-RGC-TP-006", "DFR-TP-002"),
+        touchpoint_object_ids=("CSA-RGC-TP-006",),
     )
     surface_node_ids: dict[str, str] = {}
     for surface in artifact.surfaces:
@@ -11319,11 +11321,6 @@ def _join_observability_violations_artifact(state: _InvariantGraphBuildState) ->
     )
     _add_node(state, report_node, replace=True)
     _link_node_refs(state, report_node)
-    _contain_under_touchpoints(
-        state,
-        source_node_id=report_node_id,
-        touchpoint_object_ids=("DFR-TP-003",),
-    )
     for violation in artifact.violations:
         violation_node_id = (
             f"observability_violation:{stable_hash(violation.identity.wire())}"
@@ -11355,28 +11352,6 @@ def _join_observability_violations_artifact(state: _InvariantGraphBuildState) ->
         _add_node(state, violation_node, replace=True)
         _link_node_refs(state, violation_node)
         _add_edge(state, "contains", report_node_id, violation_node_id)
-        _append_diagnostic(
-            state,
-            severity="warning",
-            code="delivery_flow_observability_violation",
-            node_id=violation_node_id,
-            raw_dependency="DFR-TP-003",
-            message=(
-                f"{violation.label or 'delivery lane'} hit {violation.reason or 'observability_violation'}"
-            ),
-        )
-        _append_ranking_signal(
-            state,
-            node_id=violation_node_id,
-            touchpoint_object_id="DFR-TP-003",
-            touchsite_object_id="DFR-TS-005",
-            code="delivery_flow_observability_violation",
-            score=25 if violation.reason == "max_wall_timeout" else 15,
-            raw_dependency=violation.reason,
-            message=(
-                f"{violation.label or 'delivery lane'} exceeded observability bounds"
-            ),
-        )
 
 
 def _governance_telemetry_total_runtime_seconds(run) -> float:
@@ -11417,12 +11392,6 @@ def _join_governance_telemetry_history_artifact(state: _InvariantGraphBuildState
     )
     _add_node(state, report_node, replace=True)
     _link_node_refs(state, report_node)
-    _contain_under_touchpoints(
-        state,
-        source_node_id=report_node_id,
-        touchpoint_object_ids=("DFM-TP-002",),
-    )
-
     latest_total_seconds = _governance_telemetry_total_runtime_seconds(latest_run)
     previous_totals = tuple(
         _governance_telemetry_total_runtime_seconds(run) for run in artifact.runs[:-1]
@@ -11466,64 +11435,6 @@ def _join_governance_telemetry_history_artifact(state: _InvariantGraphBuildState
     _add_node(state, runtime_node, replace=True)
     _link_node_refs(state, runtime_node)
     _add_edge(state, "contains", report_node_id, runtime_node_id)
-    _contain_under_touchpoints(
-        state,
-        source_node_id=runtime_node_id,
-        touchpoint_object_ids=("DFM-TP-001",),
-    )
-    if severe_runtime_regression:
-        _contain_under_touchpoints(
-            state,
-            source_node_id=runtime_node_id,
-            touchpoint_object_ids=("DFR-TP-003",),
-        )
-        _append_diagnostic(
-            state,
-            severity="warning",
-            code="delivery_flow_runtime_regression",
-            node_id=runtime_node_id,
-            raw_dependency="DFM-TP-001",
-            message=(
-                "Recent full-lane runtime regressed beyond the current delivery severity band."
-            ),
-        )
-        _append_ranking_signal(
-            state,
-            node_id=runtime_node_id,
-            touchpoint_object_id="DFM-TP-001",
-            touchsite_object_id="DFM-TS-001",
-            code="delivery_flow_runtime_regression",
-            score=max(
-                10,
-                int(
-                    round(
-                        latest_total_seconds
-                        - (runtime_baseline_seconds or latest_total_seconds)
-                    )
-                ),
-            ),
-            raw_dependency=latest_run.run_id,
-            message="Historical full-lane runtime drift is degrading delivery momentum.",
-        )
-        _append_ranking_signal(
-            state,
-            node_id=runtime_node_id,
-            touchpoint_object_id="DFR-TP-003",
-            touchsite_object_id="DFR-TS-006",
-            code="delivery_flow_runtime_regression_current_band",
-            score=max(
-                15,
-                int(
-                    round(
-                        latest_total_seconds
-                        - (runtime_baseline_seconds or latest_total_seconds)
-                    )
-                ),
-            ),
-            raw_dependency=latest_run.run_id,
-            message="Latest full-lane runtime crossed the current delivery severity band.",
-        )
-
     for loop_metric in latest_run.loops:
         loop_node_id = (
             f"governance_telemetry_loop:{stable_hash(loop_metric.identity.wire())}"
@@ -11569,40 +11480,532 @@ def _join_governance_telemetry_history_artifact(state: _InvariantGraphBuildState
         _add_node(state, loop_node, replace=True)
         _link_node_refs(state, loop_node)
         _add_edge(state, "contains", report_node_id, loop_node_id)
-        worsening = (
-            loop_metric.violation_count > 0
-            and (
-                loop_metric.recurrence_rate >= 0.5
-                or (loop_metric.trend_delta or 0) > 0
+
+
+def _join_delivery_flow_summary_artifact(state: _InvariantGraphBuildState) -> None:
+    artifact = load_delivery_flow_summary_artifact(
+        root=state.root,
+        rel_path=_DELIVERY_FLOW_SUMMARY_ARTIFACT.as_posix(),
+        identities=state.structured_artifact_identities,
+    )
+    if artifact is None:
+        return
+    report_node_id = "delivery_flow_summary:artifact"
+    report_node = _synthetic_node(
+        node_id=report_node_id,
+        title="delivery-flow summary",
+        ref_kind="delivery_flow_summary",
+        value=_DELIVERY_FLOW_SUMMARY_ARTIFACT.as_posix(),
+        object_ids=(artifact.identity.wire(),),
+        reasoning_summary=(
+            "delivery-flow summary history_rows={history_rows}".format(
+                history_rows=len(artifact.history),
             )
+        ),
+        reasoning_control="invariant_graph.delivery_flow_summary",
+        rel_path=_DELIVERY_FLOW_SUMMARY_ARTIFACT.as_posix(),
+        node_kind="delivery_flow_summary",
+        status_hint="pass",
+    )
+    _add_node(state, report_node, replace=True)
+    _link_node_refs(state, report_node)
+
+    current_red_state_node_id = (
+        f"delivery_flow_summary.current_red_state:{stable_hash(artifact.current.identity.wire())}"
+    )
+    current_red_state_node = _synthetic_node(
+        node_id=current_red_state_node_id,
+        title="delivery-flow current red-state",
+        ref_kind="delivery_flow_summary_current_red_state",
+        value=artifact.current.identity.wire(),
+        object_ids=(
+            artifact.current.identity.wire(),
+            artifact.identity.wire(),
+            "DFR-TP-001",
+        ),
+        reasoning_summary=(
+            "suite_red_state={state} failing_cases={cases} failures={failures}".format(
+                state=artifact.current.suite_red_state,
+                cases=artifact.current.failing_test_case_count,
+                failures=artifact.current.test_failure_count,
+            )
+        ),
+        reasoning_control="invariant_graph.delivery_flow_summary.current_red_state",
+        rel_path=_DELIVERY_FLOW_SUMMARY_ARTIFACT.as_posix(),
+        node_kind="delivery_flow_summary_current",
+        status_hint="fail" if artifact.current.suite_red_state else "pass",
+    )
+    _add_node(state, current_red_state_node, replace=True)
+    _link_node_refs(state, current_red_state_node)
+    _add_edge(state, "contains", report_node_id, current_red_state_node_id)
+    _contain_under_touchpoints(
+        state,
+        source_node_id=current_red_state_node_id,
+        touchpoint_object_ids=("DFR-TP-001",),
+    )
+    if artifact.current.suite_red_state:
+        _append_diagnostic(
+            state,
+            severity="warning",
+            code="delivery_flow_current_red_state",
+            node_id=current_red_state_node_id,
+            raw_dependency="DFR-TP-001",
+            message=(
+                "Current full-suite red-state is degrading delivery-flow reliability."
+            ),
         )
-        if worsening:
-            _append_diagnostic(
-                state,
-                severity="warning",
-                code="delivery_flow_momentum_regression",
-                node_id=loop_node_id,
-                raw_dependency="DFM-TP-002",
-                message=(
-                    f"{loop_metric.loop_id} is recurring or worsening across recent runs."
+        _append_ranking_signal(
+            state,
+            node_id=current_red_state_node_id,
+            touchpoint_object_id="DFR-TP-001",
+            touchsite_object_id="DFR-TS-001",
+            code="delivery_flow_current_red_state",
+            score=max(10, artifact.current.test_failure_count * 5),
+            raw_dependency="current_red_state",
+            message="Current failing tests are active delivery blockers.",
+        )
+
+    parity_node_id = (
+        f"delivery_flow_summary.local_ci_parity:{stable_hash(artifact.current.identity.wire() + ':parity')}"
+    )
+    parity_node = _synthetic_node(
+        node_id=parity_node_id,
+        title="delivery-flow local CI parity",
+        ref_kind="delivery_flow_summary_local_ci_parity",
+        value=artifact.current.identity.wire(),
+        object_ids=tuple(
+            item
+            for item in (
+                artifact.current.identity.wire(),
+                *artifact.current.local_ci_failed_surface_ids,
+                *artifact.current.local_ci_failed_relation_ids,
+            )
+            if item
+        ),
+        reasoning_summary=(
+            "failed_surfaces={surfaces} failed_relations={relations}".format(
+                surfaces=len(artifact.current.local_ci_failed_surface_ids),
+                relations=len(artifact.current.local_ci_failed_relation_ids),
+            )
+        ),
+        reasoning_control="invariant_graph.delivery_flow_summary.local_ci_parity",
+        rel_path=_DELIVERY_FLOW_SUMMARY_ARTIFACT.as_posix(),
+        node_kind="delivery_flow_summary_current",
+        status_hint=(
+            "fail"
+            if artifact.current.local_ci_failed_surface_ids
+            or artifact.current.local_ci_failed_relation_ids
+            else "pass"
+        ),
+    )
+    _add_node(state, parity_node, replace=True)
+    _link_node_refs(state, parity_node)
+    _add_edge(state, "contains", report_node_id, parity_node_id)
+    _contain_under_touchpoints(
+        state,
+        source_node_id=parity_node_id,
+        touchpoint_object_ids=("DFR-TP-002",),
+    )
+    if (
+        artifact.current.local_ci_failed_surface_ids
+        or artifact.current.local_ci_failed_relation_ids
+    ):
+        _append_diagnostic(
+            state,
+            severity="warning",
+            code="delivery_flow_local_ci_parity",
+            node_id=parity_node_id,
+            raw_dependency="DFR-TP-002",
+            message="Local-vs-CI parity remains broken for the current delivery lane.",
+        )
+        _append_ranking_signal(
+            state,
+            node_id=parity_node_id,
+            touchpoint_object_id="DFR-TP-002",
+            touchsite_object_id="DFR-TS-003",
+            code="delivery_flow_local_ci_parity",
+            score=(
+                len(artifact.current.local_ci_failed_surface_ids) * 8
+                + len(artifact.current.local_ci_failed_relation_ids) * 8
+            ),
+            raw_dependency="local_ci_parity",
+            message="Local-vs-CI parity failures remain active current blockers.",
+        )
+
+    execution_node_id = (
+        f"delivery_flow_summary.execution_health:{stable_hash(artifact.current.identity.wire() + ':execution')}"
+    )
+    execution_node = _synthetic_node(
+        node_id=execution_node_id,
+        title="delivery-flow execution health",
+        ref_kind="delivery_flow_summary_execution_health",
+        value=artifact.current.identity.wire(),
+        object_ids=tuple(
+            item
+            for item in (
+                artifact.current.identity.wire(),
+                *artifact.current.observability_violation_ids,
+                "runtime:severe_current_band"
+                if artifact.current.severe_runtime_regression_current_band
+                else "",
+            )
+            if item
+        ),
+        reasoning_summary=(
+            "observability_violations={violations} severe_runtime_band={runtime}".format(
+                violations=len(artifact.current.observability_violation_ids),
+                runtime=artifact.current.severe_runtime_regression_current_band,
+            )
+        ),
+        reasoning_control="invariant_graph.delivery_flow_summary.execution_health",
+        rel_path=_DELIVERY_FLOW_SUMMARY_ARTIFACT.as_posix(),
+        node_kind="delivery_flow_summary_current",
+        status_hint=(
+            "fail"
+            if artifact.current.observability_violation_ids
+            or artifact.current.severe_runtime_regression_current_band
+            else "pass"
+        ),
+    )
+    _add_node(state, execution_node, replace=True)
+    _link_node_refs(state, execution_node)
+    _add_edge(state, "contains", report_node_id, execution_node_id)
+    _contain_under_touchpoints(
+        state,
+        source_node_id=execution_node_id,
+        touchpoint_object_ids=("DFR-TP-003",),
+    )
+    if artifact.current.observability_violation_ids:
+        _append_diagnostic(
+            state,
+            severity="warning",
+            code="delivery_flow_observability_violation",
+            node_id=execution_node_id,
+            raw_dependency="DFR-TP-003",
+            message="Observability violations are degrading the active delivery lane.",
+        )
+    if artifact.current.severe_runtime_regression_current_band:
+        _append_diagnostic(
+            state,
+            severity="warning",
+            code="delivery_flow_runtime_regression_current_band",
+            node_id=execution_node_id,
+            raw_dependency="DFR-TP-003",
+            message="Latest full-lane runtime crossed the current delivery severity band.",
+        )
+    if (
+        artifact.current.observability_violation_ids
+        or artifact.current.severe_runtime_regression_current_band
+    ):
+        _append_ranking_signal(
+            state,
+            node_id=execution_node_id,
+            touchpoint_object_id="DFR-TP-003",
+            touchsite_object_id="DFR-TS-005",
+            code="delivery_flow_execution_health",
+            score=(
+                len(artifact.current.observability_violation_ids) * 15
+                + (
+                    20
+                    if artifact.current.severe_runtime_regression_current_band
+                    else 0
+                )
+            ),
+            raw_dependency="execution_health",
+            message="Execution health blockers remain in the current delivery loop.",
+        )
+
+    blocker_pattern_node_id = (
+        f"delivery_flow_summary.blocker_patterns:{stable_hash(artifact.current.identity.wire() + ':patterns')}"
+    )
+    blocker_pattern_node = _synthetic_node(
+        node_id=blocker_pattern_node_id,
+        title="delivery-flow blocker patterns",
+        ref_kind="delivery_flow_summary_blocker_patterns",
+        value=artifact.current.identity.wire(),
+        object_ids=tuple(
+            item
+            for item in (
+                artifact.current.identity.wire(),
+                *artifact.current.repeat_blocker_ids,
+                *artifact.current.unstable_blocker_ids,
+                *tuple(artifact.current.stalled_blocker_runs_by_id.keys()),
+            )
+            if item
+        ),
+        reasoning_summary=(
+            "repeat={repeat} stalled={stalled} unstable={unstable}".format(
+                repeat=len(artifact.current.repeat_blocker_ids),
+                stalled=len(
+                    [
+                        item
+                        for item in artifact.current.stalled_blocker_runs_by_id.values()
+                        if item > 1
+                    ]
+                ),
+                unstable=len(artifact.current.unstable_blocker_ids),
+            )
+        ),
+        reasoning_control="invariant_graph.delivery_flow_summary.blocker_patterns",
+        rel_path=_DELIVERY_FLOW_SUMMARY_ARTIFACT.as_posix(),
+        node_kind="delivery_flow_summary_current",
+        status_hint=(
+            "fail"
+            if artifact.current.repeat_blocker_ids
+            or artifact.current.unstable_blocker_ids
+            or any(
+                runs > 1
+                for runs in artifact.current.stalled_blocker_runs_by_id.values()
+            )
+            else "pass"
+        ),
+    )
+    _add_node(state, blocker_pattern_node, replace=True)
+    _link_node_refs(state, blocker_pattern_node)
+    _add_edge(state, "contains", report_node_id, blocker_pattern_node_id)
+    _contain_under_touchpoints(
+        state,
+        source_node_id=blocker_pattern_node_id,
+        touchpoint_object_ids=("DFR-TP-004",),
+    )
+    if artifact.current.repeat_blocker_ids:
+        _append_diagnostic(
+            state,
+            severity="warning",
+            code="delivery_flow_repeat_blockers",
+            node_id=blocker_pattern_node_id,
+            raw_dependency="DFR-TP-004",
+            message="Current delivery blockers are repeating across consecutive runs.",
+        )
+    if artifact.current.unstable_blocker_ids:
+        _append_diagnostic(
+            state,
+            severity="warning",
+            code="delivery_flow_unstable_blockers",
+            node_id=blocker_pattern_node_id,
+            raw_dependency="DFR-TP-004",
+            message="Current delivery blockers show unstable or flaky recurrence.",
+        )
+    if (
+        artifact.current.repeat_blocker_ids
+        or artifact.current.unstable_blocker_ids
+        or any(
+            runs > 1 for runs in artifact.current.stalled_blocker_runs_by_id.values()
+        )
+    ):
+        _append_ranking_signal(
+            state,
+            node_id=blocker_pattern_node_id,
+            touchpoint_object_id="DFR-TP-004",
+            touchsite_object_id="DFR-TS-007",
+            code="delivery_flow_blocker_patterns",
+            score=(
+                len(artifact.current.repeat_blocker_ids) * 10
+                + len(artifact.current.unstable_blocker_ids) * 8
+                + sum(
+                    max(runs - 1, 0)
+                    for runs in artifact.current.stalled_blocker_runs_by_id.values()
+                )
+            ),
+            raw_dependency="blocker_patterns",
+            message="Repeated, stalled, or unstable blockers are degrading delivery reliability.",
+        )
+
+    runtime_trend_node_id = (
+        f"delivery_flow_summary.runtime_trend:{stable_hash(artifact.trend.identity.wire())}"
+    )
+    runtime_trend_node = _synthetic_node(
+        node_id=runtime_trend_node_id,
+        title="delivery-flow runtime trend",
+        ref_kind="delivery_flow_summary_runtime_trend",
+        value=artifact.trend.identity.wire(),
+        object_ids=tuple(
+            item
+            for item in (
+                artifact.trend.identity.wire(),
+                artifact.identity.wire(),
+            )
+            if item
+        ),
+        reasoning_summary=(
+            "latest={latest:.3f}s baseline={baseline} ratio={ratio} delta={delta}".format(
+                latest=artifact.trend.latest_total_runtime_seconds,
+                baseline=(
+                    "<none>"
+                    if artifact.trend.baseline_total_runtime_seconds is None
+                    else f"{artifact.trend.baseline_total_runtime_seconds:.3f}s"
+                ),
+                ratio=(
+                    "n/a"
+                    if artifact.trend.runtime_regression_ratio is None
+                    else f"{artifact.trend.runtime_regression_ratio:.3f}"
+                ),
+                delta=(
+                    "n/a"
+                    if artifact.trend.runtime_delta_seconds is None
+                    else f"{artifact.trend.runtime_delta_seconds:.3f}s"
                 ),
             )
-            _append_ranking_signal(
-                state,
-                node_id=loop_node_id,
-                touchpoint_object_id="DFM-TP-002",
-                touchsite_object_id="DFM-TS-003",
-                code="delivery_flow_momentum_regression",
-                score=max(
-                    8,
-                    int(round(loop_metric.recurrence_rate * 20))
-                    + max(loop_metric.violation_count, 0),
-                ),
-                raw_dependency=loop_metric.loop_id,
-                message=(
-                    f"{loop_metric.loop_id} is degrading delivery-flow momentum."
-                ),
+        ),
+        reasoning_control="invariant_graph.delivery_flow_summary.runtime_trend",
+        rel_path=_DELIVERY_FLOW_SUMMARY_ARTIFACT.as_posix(),
+        node_kind="delivery_flow_summary_trend",
+        status_hint=(
+            "fail"
+            if (artifact.trend.runtime_delta_seconds or 0.0) > 0
+            else "pass"
+        ),
+    )
+    _add_node(state, runtime_trend_node, replace=True)
+    _link_node_refs(state, runtime_trend_node)
+    _add_edge(state, "contains", report_node_id, runtime_trend_node_id)
+    _contain_under_touchpoints(
+        state,
+        source_node_id=runtime_trend_node_id,
+        touchpoint_object_ids=("DFM-TP-001",),
+    )
+    if (artifact.trend.runtime_delta_seconds or 0.0) > 0:
+        _append_ranking_signal(
+            state,
+            node_id=runtime_trend_node_id,
+            touchpoint_object_id="DFM-TP-001",
+            touchsite_object_id="DFM-TS-001",
+            code="delivery_flow_runtime_regression",
+            score=max(
+                8,
+                int(round(artifact.trend.runtime_delta_seconds or 0.0)),
+            ),
+            raw_dependency="runtime_trend",
+            message="Historical full-lane runtime drift is degrading delivery momentum.",
+        )
+
+    recurrence_trend_node_id = (
+        f"delivery_flow_summary.recurrence_trend:{stable_hash(artifact.trend.identity.wire() + ':recurrence')}"
+    )
+    recurrence_trend_node = _synthetic_node(
+        node_id=recurrence_trend_node_id,
+        title="delivery-flow recurrence trend",
+        ref_kind="delivery_flow_summary_recurrence_trend",
+        value=artifact.trend.identity.wire(),
+        object_ids=tuple(
+            item
+            for item in (
+                artifact.trend.identity.wire(),
+                *artifact.trend.recurring_loop_ids,
             )
+            if item
+        ),
+        reasoning_summary=(
+            "recurring_loops={count}".format(
+                count=len(artifact.trend.recurring_loop_ids)
+            )
+        ),
+        reasoning_control="invariant_graph.delivery_flow_summary.recurrence_trend",
+        rel_path=_DELIVERY_FLOW_SUMMARY_ARTIFACT.as_posix(),
+        node_kind="delivery_flow_summary_trend",
+        status_hint="fail" if artifact.trend.recurring_loop_ids else "pass",
+    )
+    _add_node(state, recurrence_trend_node, replace=True)
+    _link_node_refs(state, recurrence_trend_node)
+    _add_edge(state, "contains", report_node_id, recurrence_trend_node_id)
+    _contain_under_touchpoints(
+        state,
+        source_node_id=recurrence_trend_node_id,
+        touchpoint_object_ids=("DFM-TP-002",),
+    )
+    if artifact.trend.recurring_loop_ids:
+        _append_diagnostic(
+            state,
+            severity="warning",
+            code="delivery_flow_momentum_regression",
+            node_id=recurrence_trend_node_id,
+            raw_dependency="DFM-TP-002",
+            message="Recurring governance or ratchet loops are degrading delivery momentum.",
+        )
+        _append_ranking_signal(
+            state,
+            node_id=recurrence_trend_node_id,
+            touchpoint_object_id="DFM-TP-002",
+            touchsite_object_id="DFM-TS-003",
+            code="delivery_flow_momentum_regression",
+            score=max(8, len(artifact.trend.recurring_loop_ids) * 8),
+            raw_dependency="recurrence_trend",
+            message="Recurring loop failures are degrading delivery-flow momentum.",
+        )
+
+    dwell_node_id = (
+        f"delivery_flow_summary.dwell_and_closure:{stable_hash(artifact.trend.identity.wire() + ':dwell')}"
+    )
+    dwell_node = _synthetic_node(
+        node_id=dwell_node_id,
+        title="delivery-flow dwell and closure lag",
+        ref_kind="delivery_flow_summary_dwell_and_closure",
+        value=artifact.trend.identity.wire(),
+        object_ids=tuple(
+            item
+            for item in (
+                artifact.trend.identity.wire(),
+                *artifact.trend.closure_lag_loop_ids,
+            )
+            if item
+        ),
+        reasoning_summary=(
+            "red_state_dwell_runs={dwell} closure_lag_loops={closure}".format(
+                dwell=artifact.trend.red_state_dwell_runs,
+                closure=len(artifact.trend.closure_lag_loop_ids),
+            )
+        ),
+        reasoning_control="invariant_graph.delivery_flow_summary.dwell_and_closure",
+        rel_path=_DELIVERY_FLOW_SUMMARY_ARTIFACT.as_posix(),
+        node_kind="delivery_flow_summary_trend",
+        status_hint=(
+            "fail"
+            if artifact.trend.red_state_dwell_runs >= 2
+            or artifact.trend.closure_lag_loop_ids
+            else "pass"
+        ),
+    )
+    _add_node(state, dwell_node, replace=True)
+    _link_node_refs(state, dwell_node)
+    _add_edge(state, "contains", report_node_id, dwell_node_id)
+    _contain_under_touchpoints(
+        state,
+        source_node_id=dwell_node_id,
+        touchpoint_object_ids=("DFM-TP-003",),
+    )
+    if artifact.trend.red_state_dwell_runs >= 2:
+        _append_diagnostic(
+            state,
+            severity="warning",
+            code="delivery_flow_red_state_dwell",
+            node_id=dwell_node_id,
+            raw_dependency="DFM-TP-003",
+            message="Full-suite red-state has persisted long enough to create momentum drag.",
+        )
+    if artifact.trend.closure_lag_loop_ids:
+        _append_diagnostic(
+            state,
+            severity="warning",
+            code="delivery_flow_closure_lag",
+            node_id=dwell_node_id,
+            raw_dependency="DFM-TP-003",
+            message="Closure lag remains elevated across current blocking loops.",
+        )
+    if artifact.trend.red_state_dwell_runs >= 2 or artifact.trend.closure_lag_loop_ids:
+        _append_ranking_signal(
+            state,
+            node_id=dwell_node_id,
+            touchpoint_object_id="DFM-TP-003",
+            touchsite_object_id="DFM-TS-005",
+            code="delivery_flow_dwell_and_closure_lag",
+            score=max(
+                8,
+                artifact.trend.red_state_dwell_runs * 5
+                + len(artifact.trend.closure_lag_loop_ids) * 6,
+            ),
+            raw_dependency="dwell_and_closure",
+            message="Red-state dwell and closure lag are degrading delivery momentum.",
+        )
 
 
 def _join_kernel_vm_alignment_artifact(state: _InvariantGraphBuildState) -> None:
@@ -12225,6 +12628,7 @@ def _join_control_loop_artifacts(state: _InvariantGraphBuildState) -> None:
     _join_local_repro_closure_ledger(state)
     _join_observability_violations_artifact(state)
     _join_governance_telemetry_history_artifact(state)
+    _join_delivery_flow_summary_artifact(state)
     _join_kernel_vm_alignment_artifact(state)
     _join_identity_grammar_completion_artifact(state)
     _join_cross_origin_witness_contract_artifact(state)

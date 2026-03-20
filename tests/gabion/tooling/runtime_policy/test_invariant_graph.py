@@ -3087,92 +3087,55 @@ def test_build_invariant_graph_routes_current_delivery_flow_reliability_signals(
     tmp_path: Path,
 ) -> None:
     root = write_minimal_invariant_repo(tmp_path)
-    (root / "artifacts" / "test_runs").mkdir(parents=True, exist_ok=True)
-    (root / "artifacts" / "test_runs" / "junit.xml").write_text(
-        "\n".join(
-            [
-                "<?xml version=\"1.0\" encoding=\"utf-8\"?>",
-                "<testsuites>",
-                "  <testsuite name=\"pytest\" tests=\"1\" failures=\"1\" errors=\"0\">",
-                "    <testcase classname=\"tests.gabion.tooling.runtime_policy.test_policy_artifact_stream\" name=\"test_policy_artifact_stream_shape\" file=\"tests/gabion/tooling/runtime_policy/test_policy_artifact_stream.py\" line=\"12\">",
-                "      <failure message=\"AssertionError\">boom</failure>",
-                "    </testcase>",
-                "  </testsuite>",
-                "</testsuites>",
-            ]
-        )
-        + "\n",
-        encoding="utf-8",
-    )
     _write_json(
-        root / "artifacts" / "out" / "local_ci_repro_contract.json",
+        root / "artifacts" / "out" / "delivery_flow_summary.json",
         {
-            "schema_version": 2,
-            "artifact_kind": "local_ci_repro_contract",
-            "generated_by": "tests",
-            "summary": "Local CI reproduction topology.",
-            "surfaces": [
+            "schema_version": 1,
+            "artifact_kind": "delivery_flow_summary",
+            "generated_at_utc": "2026-03-20T12:00:00Z",
+            "generated_by": "gabion governance delivery-flow-emit",
+            "history_window_runs": 10,
+            "current": {
+                "suite_red_state": True,
+                "failing_test_case_count": 1,
+                "test_failure_count": 1,
+                "local_ci_failed_surface_ids": ["local_script:scripts/ci_local_repro.sh:checks"],
+                "local_ci_failed_relation_ids": ["ci-repro:local-checks->workflow-checks"],
+                "observability_violation_ids": ["checks_wrapper"],
+                "severe_runtime_regression_current_band": True,
+                "repeat_blocker_ids": ["test:tests/gabion/tooling/runtime_policy/test_policy_artifact_stream.py::test_policy_artifact_stream_shape"],
+                "stalled_blocker_runs_by_id": {
+                    "test:tests/gabion/tooling/runtime_policy/test_policy_artifact_stream.py::test_policy_artifact_stream_shape": 2
+                },
+                "unstable_blocker_ids": ["surface:local_script:scripts/ci_local_repro.sh:checks"],
+            },
+            "trend": {
+                "latest_total_runtime_seconds": 160.0,
+                "baseline_total_runtime_seconds": 100.0,
+                "runtime_regression_ratio": 1.6,
+                "runtime_delta_seconds": 60.0,
+                "red_state_dwell_runs": 2,
+                "recurring_loop_ids": ["docflow.contradictions"],
+                "closure_lag_loop_ids": ["docflow.contradictions"],
+                "max_time_to_correction_runs": 2,
+            },
+            "history": [
                 {
-                    "surface_id": "workflow:ci.yml:checks",
-                    "surface_kind": "workflow_job",
-                    "title": "CI checks workflow job",
-                    "summary": "Strict gates.",
-                    "source_ref": ".github/workflows/ci.yml",
-                    "mode": "checks",
-                    "status": "pass",
-                    "required_capabilities": [],
-                    "missing_capability_ids": [],
-                    "required_token_groups": [],
-                    "missing_token_groups": [],
-                    "commands": [],
-                    "artifacts": [],
+                    "run_id": "run-001",
+                    "suite_red_state": True,
+                    "open_blocker_ids": [
+                        "test:tests/gabion/tooling/runtime_policy/test_policy_artifact_stream.py::test_policy_artifact_stream_shape"
+                    ],
                 },
                 {
-                    "surface_id": "local_script:scripts/ci_local_repro.sh:checks",
-                    "surface_kind": "local_repro_lane",
-                    "title": "Local checks",
-                    "summary": "Local parity lane.",
-                    "source_ref": "scripts/ci_local_repro.sh",
-                    "mode": "checks-only",
-                    "status": "fail",
-                    "required_capabilities": [],
-                    "missing_capability_ids": ["policy_workflows_output"],
-                    "required_token_groups": [],
-                    "missing_token_groups": [["checks_policy_workflows_output"]],
-                    "commands": ["scripts/ci_local_repro.sh --checks-only"],
-                    "artifacts": [],
+                    "run_id": "run-002",
+                    "suite_red_state": True,
+                    "open_blocker_ids": [
+                        "test:tests/gabion/tooling/runtime_policy/test_policy_artifact_stream.py::test_policy_artifact_stream_shape",
+                        "surface:local_script:scripts/ci_local_repro.sh:checks",
+                    ],
                 },
             ],
-            "relations": [
-                {
-                    "relation_id": "ci-repro:local-checks->workflow-checks",
-                    "relation_kind": "reproduces",
-                    "source_surface_id": "local_script:scripts/ci_local_repro.sh:checks",
-                    "target_surface_id": "workflow:ci.yml:checks",
-                    "source_missing_capability_ids": ["policy_workflows_output"],
-                    "target_missing_capability_ids": [],
-                    "status": "fail",
-                    "summary": "Local checks should reproduce workflow checks.",
-                }
-            ],
-        },
-    )
-    _write_json(
-        root / "artifacts" / "audit_reports" / "observability_violations.json",
-        {
-            "violations": [
-                {
-                    "ts_utc": "2026-03-20T12:00:00Z",
-                    "label": "checks_wrapper",
-                    "reason": "max_gap_meaningful_line_exceeded",
-                    "command_text": "mise exec -- python -m gabion checks",
-                    "wall_seconds": 44.0,
-                    "max_gap_seconds": 5.0,
-                    "measured_gap_seconds": 12.0,
-                    "previous_line": "running",
-                    "next_line": "finished",
-                }
-            ]
         },
     )
 
@@ -3192,12 +3155,20 @@ def test_build_invariant_graph_routes_current_delivery_flow_reliability_signals(
     execution_touchpoint = next(
         item for item in dfr_workstream["touchpoints"] if item["object_id"] == "DFR-TP-003"
     )
+    blocker_touchpoint = next(
+        item for item in dfr_workstream["touchpoints"] if item["object_id"] == "DFR-TP-004"
+    )
 
-    assert dfr_workstream["failing_test_case_count"] == 1
-    assert dfr_workstream["test_failure_count"] == 1
     assert parity_touchpoint["diagnostic_count"] >= 1
     assert execution_touchpoint["diagnostic_count"] >= 1
     assert execution_touchpoint["ranking_signal_count"] >= 1
+    assert blocker_touchpoint["diagnostic_count"] >= 1
+    assert blocker_touchpoint["ranking_signal_count"] >= 1
+    assert any(
+        "DFR" in item.get("tracked_object_ids", [])
+        for phase in workstreams_payload["planning_chart_summary"]["phases"]
+        for item in phase["items"]
+    )
 
 
 # gabion:behavior primary=desired
@@ -3206,50 +3177,38 @@ def test_build_invariant_graph_routes_delivery_flow_momentum_trend_signals(
 ) -> None:
     root = write_minimal_invariant_repo(tmp_path)
     _write_json(
-        root / "artifacts" / "out" / "governance_telemetry_history.json",
+        root / "artifacts" / "out" / "delivery_flow_summary.json",
         {
             "schema_version": 1,
-            "runs": [
-                {
-                    "run_id": "run-001",
-                    "generated_at_utc": "2026-03-19T12:00:00Z",
-                    "trend_window_runs": 5,
-                    "timings_seconds_by_step": {
-                        "checks_wrapper": 20.0,
-                        "full_pytest": 100.0,
-                    },
-                    "loops": [
-                        {
-                            "loop_id": "docflow.contradictions",
-                            "domain": "governance",
-                            "violation_count": 1,
-                            "trend_delta": 0,
-                            "recurrence_rate": 0.2,
-                            "false_positive_overrides": 0,
-                            "time_to_correction_runs": None,
-                        }
-                    ],
-                },
-                {
-                    "run_id": "run-002",
-                    "generated_at_utc": "2026-03-20T12:00:00Z",
-                    "trend_window_runs": 5,
-                    "timings_seconds_by_step": {
-                        "checks_wrapper": 70.0,
-                        "full_pytest": 150.0,
-                    },
-                    "loops": [
-                        {
-                            "loop_id": "docflow.contradictions",
-                            "domain": "governance",
-                            "violation_count": 2,
-                            "trend_delta": 1,
-                            "recurrence_rate": 0.7,
-                            "false_positive_overrides": 0,
-                            "time_to_correction_runs": None,
-                        }
-                    ],
-                },
+            "artifact_kind": "delivery_flow_summary",
+            "generated_at_utc": "2026-03-20T12:00:00Z",
+            "generated_by": "gabion governance delivery-flow-emit",
+            "history_window_runs": 10,
+            "current": {
+                "suite_red_state": False,
+                "failing_test_case_count": 0,
+                "test_failure_count": 0,
+                "local_ci_failed_surface_ids": [],
+                "local_ci_failed_relation_ids": [],
+                "observability_violation_ids": [],
+                "severe_runtime_regression_current_band": False,
+                "repeat_blocker_ids": [],
+                "stalled_blocker_runs_by_id": {},
+                "unstable_blocker_ids": [],
+            },
+            "trend": {
+                "latest_total_runtime_seconds": 220.0,
+                "baseline_total_runtime_seconds": 120.0,
+                "runtime_regression_ratio": 1.8333,
+                "runtime_delta_seconds": 100.0,
+                "red_state_dwell_runs": 2,
+                "recurring_loop_ids": ["docflow.contradictions"],
+                "closure_lag_loop_ids": ["docflow.contradictions"],
+                "max_time_to_correction_runs": 2,
+            },
+            "history": [
+                {"run_id": "run-001", "suite_red_state": True, "open_blocker_ids": ["loop:docflow.contradictions"]},
+                {"run_id": "run-002", "suite_red_state": True, "open_blocker_ids": ["loop:docflow.contradictions"]},
             ],
         },
     )
@@ -3269,10 +3228,15 @@ def test_build_invariant_graph_routes_delivery_flow_momentum_trend_signals(
     recurrence_touchpoint = next(
         item for item in dfm_workstream["touchpoints"] if item["object_id"] == "DFM-TP-002"
     )
+    dwell_touchpoint = next(
+        item for item in dfm_workstream["touchpoints"] if item["object_id"] == "DFM-TP-003"
+    )
 
     assert runtime_touchpoint["ranking_signal_count"] >= 1
     assert recurrence_touchpoint["diagnostic_count"] >= 1
     assert recurrence_touchpoint["ranking_signal_count"] >= 1
+    assert dwell_touchpoint["diagnostic_count"] >= 1
+    assert dwell_touchpoint["ranking_signal_count"] >= 1
     assert any(
         "DFM" in item.get("tracked_object_ids", [])
         for phase in payload["planning_chart_summary"]["phases"]
@@ -3286,50 +3250,38 @@ def test_build_invariant_graph_does_not_false_couple_history_only_delivery_momen
 ) -> None:
     root = write_minimal_invariant_repo(tmp_path)
     _write_json(
-        root / "artifacts" / "out" / "governance_telemetry_history.json",
+        root / "artifacts" / "out" / "delivery_flow_summary.json",
         {
             "schema_version": 1,
-            "runs": [
-                {
-                    "run_id": "run-001",
-                    "generated_at_utc": "2026-03-19T12:00:00Z",
-                    "trend_window_runs": 5,
-                    "timings_seconds_by_step": {
-                        "checks_wrapper": 20.0,
-                        "full_pytest": 100.0,
-                    },
-                    "loops": [
-                        {
-                            "loop_id": "docflow.contradictions",
-                            "domain": "governance",
-                            "violation_count": 1,
-                            "trend_delta": 0,
-                            "recurrence_rate": 0.2,
-                            "false_positive_overrides": 0,
-                            "time_to_correction_runs": None,
-                        }
-                    ],
-                },
-                {
-                    "run_id": "run-002",
-                    "generated_at_utc": "2026-03-20T12:00:00Z",
-                    "trend_window_runs": 5,
-                    "timings_seconds_by_step": {
-                        "checks_wrapper": 22.0,
-                        "full_pytest": 101.0,
-                    },
-                    "loops": [
-                        {
-                            "loop_id": "docflow.contradictions",
-                            "domain": "governance",
-                            "violation_count": 2,
-                            "trend_delta": 1,
-                            "recurrence_rate": 0.7,
-                            "false_positive_overrides": 0,
-                            "time_to_correction_runs": None,
-                        }
-                    ],
-                },
+            "artifact_kind": "delivery_flow_summary",
+            "generated_at_utc": "2026-03-20T12:00:00Z",
+            "generated_by": "gabion governance delivery-flow-emit",
+            "history_window_runs": 10,
+            "current": {
+                "suite_red_state": False,
+                "failing_test_case_count": 0,
+                "test_failure_count": 0,
+                "local_ci_failed_surface_ids": [],
+                "local_ci_failed_relation_ids": [],
+                "observability_violation_ids": [],
+                "severe_runtime_regression_current_band": False,
+                "repeat_blocker_ids": [],
+                "stalled_blocker_runs_by_id": {},
+                "unstable_blocker_ids": [],
+            },
+            "trend": {
+                "latest_total_runtime_seconds": 122.0,
+                "baseline_total_runtime_seconds": 100.0,
+                "runtime_regression_ratio": 1.22,
+                "runtime_delta_seconds": 22.0,
+                "red_state_dwell_runs": 0,
+                "recurring_loop_ids": ["docflow.contradictions"],
+                "closure_lag_loop_ids": [],
+                "max_time_to_correction_runs": None,
+            },
+            "history": [
+                {"run_id": "run-001", "suite_red_state": False, "open_blocker_ids": ["loop:docflow.contradictions"]},
+                {"run_id": "run-002", "suite_red_state": False, "open_blocker_ids": ["loop:docflow.contradictions"]},
             ],
         },
     )
@@ -3353,6 +3305,69 @@ def test_build_invariant_graph_does_not_false_couple_history_only_delivery_momen
     assert dfr_workstream["ranking_signal_count"] == 0
     assert dfm_workstream["diagnostic_count"] >= 1
     assert dfm_workstream["ranking_signal_count"] >= 1
+
+
+# gabion:behavior primary=desired
+def test_build_invariant_graph_raw_delivery_artifacts_no_longer_route_directly_to_dfr_or_dfm(
+    tmp_path: Path,
+) -> None:
+    root = write_minimal_invariant_repo(tmp_path)
+    _write_json(
+        root / "artifacts" / "out" / "local_ci_repro_contract.json",
+        {
+            "surfaces": [{"surface_id": "local:checks", "status": "fail"}],
+            "relations": [{"relation_id": "local->workflow", "status": "fail"}],
+        },
+    )
+    _write_json(
+        root / "artifacts" / "audit_reports" / "observability_violations.json",
+        {"violations": [{"label": "checks_wrapper", "reason": "max_gap"}]},
+    )
+    _write_json(
+        root / "artifacts" / "out" / "governance_telemetry_history.json",
+        {
+            "schema_version": 1,
+            "runs": [
+                {
+                    "run_id": "run-002",
+                    "generated_at_utc": "2026-03-20T12:00:00Z",
+                    "trend_window_runs": 5,
+                    "timings_seconds_by_step": {"checks_wrapper": 70.0, "full_pytest": 150.0},
+                    "loops": [
+                        {
+                            "loop_id": "docflow.contradictions",
+                            "domain": "governance",
+                            "violation_count": 2,
+                            "trend_delta": 1,
+                            "recurrence_rate": 0.7,
+                            "false_positive_overrides": 0,
+                            "time_to_correction_runs": 2,
+                        }
+                    ],
+                }
+            ],
+        },
+    )
+
+    graph = invariant_graph.build_invariant_graph(
+        root,
+        declared_registries=(
+            delivery_flow_reliability_workstream_registry(),
+            delivery_flow_momentum_workstream_registry(),
+        ),
+    )
+    payload = invariant_graph.build_invariant_workstreams(graph, root=root).as_payload()
+    dfr_workstream = next(
+        item for item in payload["workstreams"] if item["object_id"] == "DFR"
+    )
+    dfm_workstream = next(
+        item for item in payload["workstreams"] if item["object_id"] == "DFM"
+    )
+
+    assert dfr_workstream["diagnostic_count"] == 0
+    assert dfr_workstream["ranking_signal_count"] == 0
+    assert dfm_workstream["diagnostic_count"] == 0
+    assert dfm_workstream["ranking_signal_count"] == 0
 
 
 # gabion:behavior primary=desired

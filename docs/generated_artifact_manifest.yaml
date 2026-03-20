@@ -310,11 +310,32 @@ artifacts:
     conditional: false
     trigger_condition: emitted on normal CI audit runs
     regeneration:
-      - mise exec -- python -m gabion governance telemetry-emit --run-id local --timings artifacts/audit_reports/ci_step_timings.json --history artifacts/out/governance_telemetry_history.json --json-out artifacts/out/governance_telemetry.json --md-out artifacts/audit_reports/governance_telemetry.md
+      - mise exec -- python -m gabion governance telemetry-emit --run-id local --timings artifacts/audit_reports/ci_step_timings.json --junit artifacts/test_runs/junit.xml --local-ci-contract artifacts/out/local_ci_repro_contract.json --observability artifacts/audit_reports/observability_violations.json --history artifacts/out/governance_telemetry_history.json --json-out artifacts/out/governance_telemetry.json --md-out artifacts/audit_reports/governance_telemetry.md
     primary_consumers:
       - uploaded CI artifacts
       - governance trend review
-    notes: Step timings are an input carrier for telemetry and are included with the emitted telemetry bundle because CI treats them as one operational surface.
+    notes: Step timings remain an input carrier for telemetry, and governance telemetry history now also owns the bounded delivery-flow blocker snapshots used to derive planner-facing delivery-flow summaries.
+
+  - artifact_id: delivery_flow_summary_bundle
+    family_id: planning_projection
+    paths:
+      - artifacts/out/delivery_flow_summary.json
+    format: json
+    process_domain: local_validation
+    emitter_kind: command
+    source: gabion governance delivery-flow-emit
+    source_refs:
+      - scripts/governance/delivery_flow_emit.py
+      - src/gabion/tooling/runtime/checks_runtime.py
+    conditional: false
+    trigger_condition: emitted on normal checks runs after current-signal producers and governance telemetry emit
+    regeneration:
+      - mise exec -- python -m gabion governance delivery-flow-emit --run-id local --junit artifacts/test_runs/junit.xml --local-ci-contract artifacts/out/local_ci_repro_contract.json --observability artifacts/audit_reports/observability_violations.json --telemetry-history artifacts/out/governance_telemetry_history.json --summary-out artifacts/out/delivery_flow_summary.json
+    primary_consumers:
+      - invariant graph ingress
+      - DFR synthetic root
+      - DFM synthetic root
+    notes: Canonical pure delivery-flow summary ingress for planner-visible reliability and momentum roots; bounded run history is owned upstream by governance telemetry history.
 
   - artifact_id: workflow_policy_quotients
     family_id: planning_projection
@@ -466,7 +487,7 @@ artifacts:
     emitter_kind: command
     source: gabion repo extract-test-evidence
     source_refs:
-      - gabion repo extract-test-evidence
+      - scripts/misc/extract_test_evidence.py
     conditional: false
     trigger_condition: emitted on normal evidence-index refresh runs
     regeneration:
@@ -485,7 +506,7 @@ artifacts:
     emitter_kind: command
     source: gabion repo extract-test-behavior
     source_refs:
-      - gabion repo extract-test-behavior
+      - scripts/misc/extract_test_behavior.py
     conditional: false
     trigger_condition: emitted on normal behavior-index refresh runs
     regeneration:
@@ -651,7 +672,7 @@ artifacts:
     source: .github/workflows/ci.yml dataflow-grammar and audit jobs ASPF handoff flow
     source_refs:
       - .github/workflows/ci.yml
-      - gabion aspf handoff
+      - src/gabion/tooling/runtime/aspf_handoff_cli.py
       - src/gabion/tooling/runtime/aspf_handoff.py
     conditional: false
     trigger_condition: emitted on normal handoff-enabled dataflow and audit runs

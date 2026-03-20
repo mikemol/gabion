@@ -6,7 +6,9 @@ import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from statistics import median
 from typing import Any, Mapping
+from xml.etree import ElementTree
 
 
 @dataclass(frozen=True)
@@ -41,6 +43,17 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--defensive-baseline", type=Path, default=Path("baselines/defensive_fallback_policy_baseline.json")
     )
     parser.add_argument("--timings", type=Path, default=Path("artifacts/audit_reports/ci_step_timings.json"))
+    parser.add_argument("--junit", type=Path, default=Path("artifacts/test_runs/junit.xml"))
+    parser.add_argument(
+        "--local-ci-contract",
+        type=Path,
+        default=Path("artifacts/out/local_ci_repro_contract.json"),
+    )
+    parser.add_argument(
+        "--observability",
+        type=Path,
+        default=Path("artifacts/audit_reports/observability_violations.json"),
+    )
     parser.add_argument(
         "--overrides",
         type=Path,
@@ -66,6 +79,106 @@ def _load_json_object(path: Path) -> dict[str, Any]:
     if not isinstance(payload, Mapping):
         return {}
     return {str(key): payload[key] for key in payload}
+
+
+def _normalize_rel_path(raw_path: object) -> str:
+    if raw_path is None:
+        return ""
+    text = str(raw_path).strip()
+    if not text:
+        return ""
+    return text.replace("\\", "/")
+
+
+def _rel_path_from_pytest_classname(classname: str) -> str:
+    parts = [part.strip() for part in classname.split(".") if part.strip()]
+    if not parts:
+        return ""
+    last_test_index = max(
+        (index for index, part in enumerate(parts) if part.startswith("test_")),
+        default=-1,
+    )
+    if last_test_index < 0:
+        return ""
+    return "/".join(parts[: last_test_index + 1]) + ".py"
+
+
+def _load_failing_test_ids(path: Path) -> tuple[str, ...]:
+    if not path.exists():
+        return ()
+    try:
+        tree = ElementTree.parse(path)
+    except ElementTree.ParseError:
+        return ()
+    failures: list[str] = []
+    for index, testcase in enumerate(tree.iterfind(".//testcase"), start=1):
+        failure_like = next(
+            (child for child in testcase if child.tag in {"failure", "error"}),
+            None,
+        )
+        if failure_like is None:
+            continue
+        raw_name = str(testcase.attrib.get("name", "")).strip()
+        if not raw_name:
+            continue
+        classname = str(testcase.attrib.get("classname", "")).strip()
+        rel_test_path = _normalize_rel_path(testcase.attrib.get("file"))
+        if not rel_test_path and classname:
+            rel_test_path = _rel_path_from_pytest_classname(classname)
+        test_id = raw_name
+        if rel_test_path:
+            class_suffix = classname.split(".")[-1].strip() if classname else ""
+            if class_suffix and class_suffix != raw_name:
+                test_id = f"{rel_test_path}::{class_suffix}::{raw_name}"
+            else:
+                test_id = f"{rel_test_path}::{raw_name}"
+        failures.append(test_id or f"testcase-{index}")
+    return tuple(sorted(dict.fromkeys(failures)))
+
+
+def _load_local_ci_failures(path: Path) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    payload = _load_json_object(path)
+    surface_ids: list[str] = []
+    raw_surfaces = payload.get("surfaces")
+    if isinstance(raw_surfaces, list):
+        for raw_surface in raw_surfaces:
+            if not isinstance(raw_surface, Mapping):
+                continue
+            if str(raw_surface.get("status", "")).strip() == "pass":
+                continue
+            surface_id = str(raw_surface.get("surface_id", "")).strip()
+            if surface_id:
+                surface_ids.append(surface_id)
+    relation_ids: list[str] = []
+    raw_relations = payload.get("relations")
+    if isinstance(raw_relations, list):
+        for raw_relation in raw_relations:
+            if not isinstance(raw_relation, Mapping):
+                continue
+            if str(raw_relation.get("status", "")).strip() == "pass":
+                continue
+            relation_id = str(raw_relation.get("relation_id", "")).strip()
+            if relation_id:
+                relation_ids.append(relation_id)
+    return (
+        tuple(sorted(dict.fromkeys(surface_ids))),
+        tuple(sorted(dict.fromkeys(relation_ids))),
+    )
+
+
+def _load_observability_violation_ids(path: Path) -> tuple[str, ...]:
+    payload = _load_json_object(path)
+    raw_violations = payload.get("violations")
+    if not isinstance(raw_violations, list):
+        return ()
+    ids: list[str] = []
+    for index, raw_violation in enumerate(raw_violations, start=1):
+        if not isinstance(raw_violation, Mapping):
+            continue
+        label = str(raw_violation.get("label", "")).strip()
+        reason = str(raw_violation.get("reason", "")).strip()
+        ids.append(label or reason or f"violation-{index}")
+    return tuple(sorted(dict.fromkeys(ids)))
 
 
 def _nested_int(payload: Mapping[str, Any], keys: tuple[str, ...]) -> int:
@@ -235,6 +348,41 @@ def _load_timing_for_run(path: Path, run_id: str) -> dict[str, float]:
     return {}
 
 
+def _runtime_total_seconds(durations: Mapping[str, float]) -> float:
+    total = 0.0
+    for value in durations.values():
+        try:
+            total += float(value or 0.0)
+        except (TypeError, ValueError):
+            continue
+    return total
+
+
+def _current_open_blocker_ids(
+    *,
+    failing_test_ids: tuple[str, ...],
+    failed_surface_ids: tuple[str, ...],
+    failed_relation_ids: tuple[str, ...],
+    observability_violation_ids: tuple[str, ...],
+    loop_metrics: list[LoopMetric],
+    severe_runtime_regression_current_band: bool,
+) -> tuple[str, ...]:
+    blocker_ids = {
+        *(f"test:{test_id}" for test_id in failing_test_ids),
+        *(f"surface:{surface_id}" for surface_id in failed_surface_ids),
+        *(f"relation:{relation_id}" for relation_id in failed_relation_ids),
+        *(f"observability:{violation_id}" for violation_id in observability_violation_ids),
+        *(
+            f"loop:{metric.loop_id}"
+            for metric in loop_metrics
+            if metric.loop_id and metric.violation_count > 0
+        ),
+    }
+    if severe_runtime_regression_current_band:
+        blocker_ids.add("runtime:severe_current_band")
+    return tuple(sorted(blocker_ids))
+
+
 def _build_slos(metrics: list[LoopMetric], window_runs: int) -> list[dict[str, Any]]:
     by_domain: dict[str, list[LoopMetric]] = {}
     for metric in metrics:
@@ -333,6 +481,41 @@ def main(argv: list[str] | None = None) -> int:
         overrides=overrides,
     )
     durations = _load_timing_for_run(args.timings, run_id)
+    latest_total_runtime_seconds = _runtime_total_seconds(durations)
+    previous_totals = []
+    for prior_run in history:
+        raw_timings = prior_run.get("timings_seconds_by_step")
+        if not isinstance(raw_timings, Mapping):
+            continue
+        parsed_timings: dict[str, float] = {}
+        for label, value in raw_timings.items():
+            try:
+                parsed_timings[str(label)] = float(value or 0.0)
+            except (TypeError, ValueError):
+                parsed_timings[str(label)] = 0.0
+        previous_totals.append(_runtime_total_seconds(parsed_timings))
+    failing_test_ids = _load_failing_test_ids(args.junit)
+    failed_surface_ids, failed_relation_ids = _load_local_ci_failures(
+        args.local_ci_contract
+    )
+    observability_violation_ids = _load_observability_violation_ids(args.observability)
+    baseline_total_runtime_seconds = (
+        float(median(previous_totals)) if previous_totals else None
+    )
+    severe_runtime_regression_current_band = False
+    if baseline_total_runtime_seconds is not None and baseline_total_runtime_seconds > 0:
+        severe_runtime_regression_current_band = (
+            latest_total_runtime_seconds >= baseline_total_runtime_seconds * 1.2
+            and (latest_total_runtime_seconds - baseline_total_runtime_seconds) >= 30.0
+        )
+    open_blocker_ids = _current_open_blocker_ids(
+        failing_test_ids=failing_test_ids,
+        failed_surface_ids=failed_surface_ids,
+        failed_relation_ids=failed_relation_ids,
+        observability_violation_ids=observability_violation_ids,
+        loop_metrics=metrics,
+        severe_runtime_regression_current_band=severe_runtime_regression_current_band,
+    )
 
     payload: dict[str, Any] = {
         "schema_version": 1,
@@ -340,6 +523,8 @@ def main(argv: list[str] | None = None) -> int:
         "generated_at_utc": generated_at_utc,
         "trend_window_runs": max(1, int(args.window_runs)),
         "timings_seconds_by_step": durations,
+        "suite_red_state": bool(failing_test_ids),
+        "open_blocker_ids": list(open_blocker_ids),
         "loops": [
             {
                 "loop_id": metric.loop_id,

@@ -3,7 +3,17 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from gabion.tooling.policy_substrate import invariant_graph
+from gabion.tooling.policy_substrate.delivery_flow_momentum_registry import (
+    delivery_flow_momentum_workstream_registry,
+)
+from gabion.tooling.policy_substrate.delivery_flow_reliability_registry import (
+    delivery_flow_reliability_workstream_registry,
+)
 from gabion.tooling.policy_substrate import project_manager_view
+from tests.gabion.tooling.runtime_policy.invariant_graph_test_support import (
+    write_minimal_invariant_repo,
+)
 
 
 def _sample_payload() -> dict[str, object]:
@@ -290,3 +300,85 @@ def test_run_raises_when_readme_markers_are_missing(tmp_path: Path) -> None:
         assert "missing project manager view markers" in str(exc)
     else:
         raise AssertionError("expected missing README markers to raise ValueError")
+
+
+# gabion:behavior primary=desired
+def test_analyze_handles_delivery_flow_roots_from_real_invariant_workstreams_payload(
+    tmp_path: Path,
+) -> None:
+    root = write_minimal_invariant_repo(tmp_path)
+    summary_path = root / "artifacts/out/delivery_flow_summary.json"
+    summary_path.parent.mkdir(parents=True, exist_ok=True)
+    summary_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "artifact_kind": "delivery_flow_summary",
+                "generated_at_utc": "2026-03-20T12:00:00Z",
+                "generated_by": "gabion governance delivery-flow-emit",
+                "history_window_runs": 10,
+                "current": {
+                    "suite_red_state": True,
+                    "failing_test_case_count": 1,
+                    "test_failure_count": 1,
+                    "local_ci_failed_surface_ids": ["local:checks"],
+                    "local_ci_failed_relation_ids": ["local->workflow"],
+                    "observability_violation_ids": ["checks_wrapper"],
+                    "severe_runtime_regression_current_band": True,
+                    "repeat_blocker_ids": ["test:tests/test_ci.py::test_lane"],
+                    "stalled_blocker_runs_by_id": {
+                        "test:tests/test_ci.py::test_lane": 2
+                    },
+                    "unstable_blocker_ids": ["surface:local:checks"],
+                },
+                "trend": {
+                    "latest_total_runtime_seconds": 160.0,
+                    "baseline_total_runtime_seconds": 100.0,
+                    "runtime_regression_ratio": 1.6,
+                    "runtime_delta_seconds": 60.0,
+                    "red_state_dwell_runs": 2,
+                    "recurring_loop_ids": ["docflow.contradictions"],
+                    "closure_lag_loop_ids": ["docflow.contradictions"],
+                    "max_time_to_correction_runs": 2,
+                },
+                "history": [
+                    {
+                        "run_id": "run-001",
+                        "suite_red_state": True,
+                        "open_blocker_ids": ["test:tests/test_ci.py::test_lane"],
+                    },
+                    {
+                        "run_id": "run-002",
+                        "suite_red_state": True,
+                        "open_blocker_ids": [
+                            "test:tests/test_ci.py::test_lane",
+                            "loop:docflow.contradictions",
+                        ],
+                    },
+                ],
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    graph = invariant_graph.build_invariant_graph(
+        root,
+        declared_registries=(
+            delivery_flow_reliability_workstream_registry(),
+            delivery_flow_momentum_workstream_registry(),
+        ),
+    )
+    payload = invariant_graph.build_invariant_workstreams(graph, root=root).as_payload()
+    view = project_manager_view.analyze(
+        payload=payload,
+        source_artifact="artifacts/out/invariant_workstreams.json",
+        visual_limit=4,
+    )
+
+    workstreams = {item.object_id: item for item in view.workstreams}
+    assert "DFR" in workstreams
+    assert "DFM" in workstreams
+    assert workstreams["DFR"].pressure_score > 0
+    assert workstreams["DFM"].pressure_score > 0

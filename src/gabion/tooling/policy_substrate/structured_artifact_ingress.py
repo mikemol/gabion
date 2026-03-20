@@ -34,6 +34,7 @@ class StructuredArtifactKind(StrEnum):
     TEST_EVIDENCE = "test_evidence"
     JUNIT_FAILURES = "junit_failures"
     OBSERVABILITY_VIOLATIONS = "observability_violations"
+    DELIVERY_FLOW_SUMMARY = "delivery_flow_summary"
     DATAFLOW_TERMINAL_OUTCOME = "dataflow_terminal_outcome"
     DATAFLOW_OBLIGATION_TRACE = "dataflow_obligation_trace"
     DOCFLOW_COMPLIANCE = "docflow_compliance"
@@ -900,6 +901,8 @@ class GovernanceTelemetryRun:
     run_id: str
     generated_at_utc: str
     trend_window_runs: int
+    suite_red_state: bool
+    open_blocker_ids: tuple[str, ...]
     timings: tuple[GovernanceTelemetryStepTiming, ...]
     loops: tuple[GovernanceTelemetryLoopMetric, ...]
 
@@ -915,6 +918,66 @@ class GovernanceTelemetryHistoryArtifact:
 
     def __str__(self) -> str:
         return f"{self.source.rel_path} runs={len(self.runs)}"
+
+
+@dataclass(frozen=True)
+class DeliveryFlowCurrentSummary:
+    identity: StructuredArtifactIdentity
+    suite_red_state: bool
+    failing_test_case_count: int
+    test_failure_count: int
+    local_ci_failed_surface_ids: tuple[str, ...]
+    local_ci_failed_relation_ids: tuple[str, ...]
+    observability_violation_ids: tuple[str, ...]
+    severe_runtime_regression_current_band: bool
+    repeat_blocker_ids: tuple[str, ...]
+    stalled_blocker_runs_by_id: Mapping[str, int]
+    unstable_blocker_ids: tuple[str, ...]
+
+    def __str__(self) -> str:
+        return self.identity.wire()
+
+
+@dataclass(frozen=True)
+class DeliveryFlowTrendSummary:
+    identity: StructuredArtifactIdentity
+    latest_total_runtime_seconds: float
+    baseline_total_runtime_seconds: float | None
+    runtime_regression_ratio: float | None
+    runtime_delta_seconds: float | None
+    red_state_dwell_runs: int
+    recurring_loop_ids: tuple[str, ...]
+    closure_lag_loop_ids: tuple[str, ...]
+    max_time_to_correction_runs: int | None
+
+    def __str__(self) -> str:
+        return self.identity.wire()
+
+
+@dataclass(frozen=True)
+class DeliveryFlowHistoryRow:
+    identity: StructuredArtifactIdentity
+    run_id: str
+    suite_red_state: bool
+    open_blocker_ids: tuple[str, ...]
+
+    def __str__(self) -> str:
+        return self.run_id or self.identity.wire()
+
+
+@dataclass(frozen=True)
+class DeliveryFlowSummaryArtifact:
+    identity: StructuredArtifactIdentity
+    source: StructuredArtifactSource
+    generated_at_utc: str
+    generated_by: str
+    history_window_runs: int
+    current: DeliveryFlowCurrentSummary
+    trend: DeliveryFlowTrendSummary
+    history: tuple[DeliveryFlowHistoryRow, ...]
+
+    def __str__(self) -> str:
+        return f"{self.source.rel_path} history_rows={len(self.history)}"
 
 
 @dataclass(frozen=True)
@@ -3254,6 +3317,12 @@ def load_governance_telemetry_history_artifact(
                     run_id=run_id,
                     generated_at_utc=str(raw_run.get("generated_at_utc", "")).strip(),
                     trend_window_runs=int(raw_run.get("trend_window_runs", 0) or 0),
+                    suite_red_state=bool(raw_run.get("suite_red_state", False)),
+                    open_blocker_ids=tuple(
+                        str(item).strip()
+                        for item in cast(list[object], raw_run.get("open_blocker_ids", []))
+                        if str(item).strip()
+                    ),
                     timings=tuple(timings),
                     loops=tuple(loops),
                 )
@@ -3262,6 +3331,165 @@ def load_governance_telemetry_history_artifact(
         identity=identity,
         source=source,
         runs=tuple(runs),
+    )
+
+
+def load_delivery_flow_summary_artifact(
+    *,
+    root: Path,
+    rel_path: str,
+    identities: StructuredArtifactIdentitySpace,
+) -> DeliveryFlowSummaryArtifact | None:
+    payload = _load_json_mapping_artifact(root / rel_path)
+    if payload is None:
+        return None
+    source = StructuredArtifactSource(
+        rel_path=rel_path,
+        schema_version=int(payload.get("schema_version", 0) or 0),
+        producer=str(payload.get("generated_by", "")).strip(),
+    )
+    identity = identities.artifact_id(
+        artifact_kind=StructuredArtifactKind.DELIVERY_FLOW_SUMMARY,
+        source_path=rel_path,
+        label=rel_path,
+    )
+    raw_current = payload.get("current")
+    if not isinstance(raw_current, Mapping):
+        return None
+    current_identity = identities.item_id(
+        artifact_kind=StructuredArtifactKind.DELIVERY_FLOW_SUMMARY,
+        source_path=rel_path,
+        item_kind="current",
+        item_key="current",
+        label="current",
+    )
+    raw_stalled = raw_current.get("stalled_blocker_runs_by_id")
+    stalled_blocker_runs_by_id: dict[str, int] = {}
+    if isinstance(raw_stalled, Mapping):
+        for blocker_id, raw_runs in raw_stalled.items():
+            try:
+                stalled_blocker_runs_by_id[str(blocker_id)] = int(raw_runs or 0)
+            except (TypeError, ValueError):
+                stalled_blocker_runs_by_id[str(blocker_id)] = 0
+    current = DeliveryFlowCurrentSummary(
+        identity=current_identity,
+        suite_red_state=bool(raw_current.get("suite_red_state", False)),
+        failing_test_case_count=int(
+            raw_current.get("failing_test_case_count", 0) or 0
+        ),
+        test_failure_count=int(raw_current.get("test_failure_count", 0) or 0),
+        local_ci_failed_surface_ids=tuple(
+            str(item).strip()
+            for item in cast(list[object], raw_current.get("local_ci_failed_surface_ids", []))
+            if str(item).strip()
+        ),
+        local_ci_failed_relation_ids=tuple(
+            str(item).strip()
+            for item in cast(list[object], raw_current.get("local_ci_failed_relation_ids", []))
+            if str(item).strip()
+        ),
+        observability_violation_ids=tuple(
+            str(item).strip()
+            for item in cast(list[object], raw_current.get("observability_violation_ids", []))
+            if str(item).strip()
+        ),
+        severe_runtime_regression_current_band=bool(
+            raw_current.get("severe_runtime_regression_current_band", False)
+        ),
+        repeat_blocker_ids=tuple(
+            str(item).strip()
+            for item in cast(list[object], raw_current.get("repeat_blocker_ids", []))
+            if str(item).strip()
+        ),
+        stalled_blocker_runs_by_id=stalled_blocker_runs_by_id,
+        unstable_blocker_ids=tuple(
+            str(item).strip()
+            for item in cast(list[object], raw_current.get("unstable_blocker_ids", []))
+            if str(item).strip()
+        ),
+    )
+    raw_trend = payload.get("trend")
+    if not isinstance(raw_trend, Mapping):
+        return None
+    trend_identity = identities.item_id(
+        artifact_kind=StructuredArtifactKind.DELIVERY_FLOW_SUMMARY,
+        source_path=rel_path,
+        item_kind="trend",
+        item_key="trend",
+        label="trend",
+    )
+    trend = DeliveryFlowTrendSummary(
+        identity=trend_identity,
+        latest_total_runtime_seconds=float(
+            raw_trend.get("latest_total_runtime_seconds", 0.0) or 0.0
+        ),
+        baseline_total_runtime_seconds=(
+            None
+            if raw_trend.get("baseline_total_runtime_seconds") is None
+            else float(raw_trend.get("baseline_total_runtime_seconds", 0.0) or 0.0)
+        ),
+        runtime_regression_ratio=(
+            None
+            if raw_trend.get("runtime_regression_ratio") is None
+            else float(raw_trend.get("runtime_regression_ratio", 0.0) or 0.0)
+        ),
+        runtime_delta_seconds=(
+            None
+            if raw_trend.get("runtime_delta_seconds") is None
+            else float(raw_trend.get("runtime_delta_seconds", 0.0) or 0.0)
+        ),
+        red_state_dwell_runs=int(raw_trend.get("red_state_dwell_runs", 0) or 0),
+        recurring_loop_ids=tuple(
+            str(item).strip()
+            for item in cast(list[object], raw_trend.get("recurring_loop_ids", []))
+            if str(item).strip()
+        ),
+        closure_lag_loop_ids=tuple(
+            str(item).strip()
+            for item in cast(list[object], raw_trend.get("closure_lag_loop_ids", []))
+            if str(item).strip()
+        ),
+        max_time_to_correction_runs=(
+            None
+            if raw_trend.get("max_time_to_correction_runs") is None
+            else int(raw_trend.get("max_time_to_correction_runs", 0) or 0)
+        ),
+    )
+    history: list[DeliveryFlowHistoryRow] = []
+    raw_history = payload.get("history")
+    if isinstance(raw_history, list):
+        for row_index, raw_row in enumerate(raw_history, start=1):
+            if not isinstance(raw_row, Mapping):
+                continue
+            run_id = str(raw_row.get("run_id", "")).strip()
+            row_identity = identities.item_id(
+                artifact_kind=StructuredArtifactKind.DELIVERY_FLOW_SUMMARY,
+                source_path=rel_path,
+                item_kind="history_row",
+                item_key=run_id or f"row-{row_index}",
+                label=run_id or f"row-{row_index}",
+            )
+            history.append(
+                DeliveryFlowHistoryRow(
+                    identity=row_identity,
+                    run_id=run_id,
+                    suite_red_state=bool(raw_row.get("suite_red_state", False)),
+                    open_blocker_ids=tuple(
+                        str(item).strip()
+                        for item in cast(list[object], raw_row.get("open_blocker_ids", []))
+                        if str(item).strip()
+                    ),
+                )
+            )
+    return DeliveryFlowSummaryArtifact(
+        identity=identity,
+        source=source,
+        generated_at_utc=str(payload.get("generated_at_utc", "")).strip(),
+        generated_by=str(payload.get("generated_by", "")).strip(),
+        history_window_runs=int(payload.get("history_window_runs", 0) or 0),
+        current=current,
+        trend=trend,
+        history=tuple(history),
     )
 
 
@@ -3617,6 +3845,10 @@ __all__ = [
     "DataflowObligationTraceArtifact",
     "DataflowObligationTraceRow",
     "DataflowTerminalOutcomeArtifact",
+    "DeliveryFlowCurrentSummary",
+    "DeliveryFlowHistoryRow",
+    "DeliveryFlowSummaryArtifact",
+    "DeliveryFlowTrendSummary",
     "DocflowCommit",
     "DocflowComplianceArtifact",
     "DocflowComplianceRow",
@@ -3669,6 +3901,7 @@ __all__ = [
     "load_controller_drift_artifact",
     "load_dataflow_obligation_trace_artifact",
     "load_dataflow_terminal_outcome_artifact",
+    "load_delivery_flow_summary_artifact",
     "load_docflow_compliance_artifact",
     "load_docflow_packet_enforcement_artifact",
     "load_git_state_artifact",

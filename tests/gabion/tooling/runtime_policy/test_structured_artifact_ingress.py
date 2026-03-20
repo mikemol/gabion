@@ -5,6 +5,7 @@ from pathlib import Path
 
 from gabion.tooling.policy_substrate.structured_artifact_ingress import (
     GitStateLineSpan,
+    load_delivery_flow_summary_artifact,
     load_governance_telemetry_history_artifact,
     StructuredArtifactDecompositionKind,
     StructuredArtifactIdentitySpace,
@@ -730,6 +731,11 @@ def test_load_governance_telemetry_history_artifact_preserves_runs_loops_and_tim
                         "checks_wrapper": 24.0,
                         "full_pytest": 135.0,
                     },
+                    "suite_red_state": True,
+                    "open_blocker_ids": [
+                        "test:tests/test_ci.py::test_lane",
+                        "surface:local:checks",
+                    ],
                     "loops": [
                         {
                             "loop_id": "docflow.contradictions",
@@ -758,10 +764,77 @@ def test_load_governance_telemetry_history_artifact_preserves_runs_loops_and_tim
     run = artifact.runs[0]
     assert run.run_id == "run-001"
     assert run.trend_window_runs == 5
+    assert run.suite_red_state is True
+    assert run.open_blocker_ids == (
+        "test:tests/test_ci.py::test_lane",
+        "surface:local:checks",
+    )
     assert {item.step_label for item in run.timings} == {"checks_wrapper", "full_pytest"}
     assert run.loops[0].loop_id == "docflow.contradictions"
     assert run.loops[0].trend_delta == 1
     assert run.loops[0].recurrence_rate == 0.6
+
+
+# gabion:behavior primary=desired
+def test_load_delivery_flow_summary_artifact_preserves_current_trend_and_history(
+    tmp_path: Path,
+) -> None:
+    _write_json(
+        tmp_path / "artifacts" / "out" / "delivery_flow_summary.json",
+        {
+            "schema_version": 1,
+            "artifact_kind": "delivery_flow_summary",
+            "generated_at_utc": "2026-03-20T12:00:00Z",
+            "generated_by": "gabion governance delivery-flow-emit",
+            "history_window_runs": 10,
+            "current": {
+                "suite_red_state": True,
+                "failing_test_case_count": 2,
+                "test_failure_count": 2,
+                "local_ci_failed_surface_ids": ["local:checks"],
+                "local_ci_failed_relation_ids": ["local->workflow"],
+                "observability_violation_ids": ["checks_wrapper"],
+                "severe_runtime_regression_current_band": True,
+                "repeat_blocker_ids": ["test:tests/test_ci.py::test_lane"],
+                "stalled_blocker_runs_by_id": {"test:tests/test_ci.py::test_lane": 2},
+                "unstable_blocker_ids": ["surface:local:checks"],
+            },
+            "trend": {
+                "latest_total_runtime_seconds": 160.0,
+                "baseline_total_runtime_seconds": 100.0,
+                "runtime_regression_ratio": 1.6,
+                "runtime_delta_seconds": 60.0,
+                "red_state_dwell_runs": 2,
+                "recurring_loop_ids": ["docflow.contradictions"],
+                "closure_lag_loop_ids": ["docflow.contradictions"],
+                "max_time_to_correction_runs": 2,
+            },
+            "history": [
+                {
+                    "run_id": "run-001",
+                    "suite_red_state": True,
+                    "open_blocker_ids": ["test:tests/test_ci.py::test_lane"],
+                }
+            ],
+        },
+    )
+
+    artifact = load_delivery_flow_summary_artifact(
+        root=tmp_path,
+        rel_path="artifacts/out/delivery_flow_summary.json",
+        identities=StructuredArtifactIdentitySpace(),
+    )
+
+    assert artifact is not None
+    assert artifact.identity.artifact_kind is StructuredArtifactKind.DELIVERY_FLOW_SUMMARY
+    assert artifact.current.suite_red_state is True
+    assert artifact.current.repeat_blocker_ids == ("test:tests/test_ci.py::test_lane",)
+    assert artifact.current.stalled_blocker_runs_by_id == {
+        "test:tests/test_ci.py::test_lane": 2
+    }
+    assert artifact.trend.red_state_dwell_runs == 2
+    assert artifact.trend.closure_lag_loop_ids == ("docflow.contradictions",)
+    assert artifact.history[0].run_id == "run-001"
 
 
 # gabion:behavior primary=desired

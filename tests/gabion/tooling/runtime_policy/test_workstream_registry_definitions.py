@@ -727,26 +727,40 @@ def test_delivery_flow_reliability_workstream_registry_exposes_current_indicator
     assert registry.root.root_id == "DFR"
     assert registry.tags == ("delivery_flow_reliability",)
     assert registry.root.status_hint == "in_progress"
-    assert registry.root.subqueue_ids == ("DFR-SQ-001", "DFR-SQ-002")
+    assert registry.root.subqueue_ids == ("DFR-SQ-001", "DFR-SQ-002", "DFR-SQ-003")
     assert tuple(item.subqueue_id for item in registry.subqueues) == (
         "DFR-SQ-001",
         "DFR-SQ-002",
+        "DFR-SQ-003",
     )
     assert subqueues["DFR-SQ-001"].touchpoint_ids == ("DFR-TP-001", "DFR-TP-002")
     assert subqueues["DFR-SQ-002"].touchpoint_ids == ("DFR-TP-003",)
-    assert set(touchpoints) == {"DFR-TP-001", "DFR-TP-002", "DFR-TP-003"}
+    assert subqueues["DFR-SQ-003"].touchpoint_ids == ("DFR-TP-004",)
+    assert set(touchpoints) == {"DFR-TP-001", "DFR-TP-002", "DFR-TP-003", "DFR-TP-004"}
     assert touchpoints["DFR-TP-001"].test_path_prefixes == ("tests/",)
+    assert {
+        item.rel_path for item in touchpoints["DFR-TP-001"].declared_touchsites
+    } == {
+        "artifacts/out/delivery_flow_summary.json",
+        "scripts/governance/delivery_flow_emit.py",
+    }
     assert {
         item.rel_path for item in touchpoints["DFR-TP-002"].declared_touchsites
     } == {
-        "artifacts/out/local_ci_repro_contract.json",
-        "src/gabion/tooling/policy_substrate/structured_artifact_ingress.py",
+        "artifacts/out/delivery_flow_summary.json",
+        "scripts/governance/delivery_flow_emit.py",
     }
     assert {
         item.rel_path for item in touchpoints["DFR-TP-003"].declared_touchsites
     } == {
-        "artifacts/audit_reports/observability_violations.json",
-        "artifacts/out/governance_telemetry_history.json",
+        "artifacts/out/delivery_flow_summary.json",
+        "scripts/governance/delivery_flow_emit.py",
+    }
+    assert {
+        item.rel_path for item in touchpoints["DFR-TP-004"].declared_touchsites
+    } == {
+        "artifacts/out/delivery_flow_summary.json",
+        "scripts/governance/delivery_flow_emit.py",
     }
 
 
@@ -759,25 +773,33 @@ def test_delivery_flow_momentum_workstream_registry_exposes_trend_clusters() -> 
     assert registry.root.root_id == "DFM"
     assert registry.tags == ("delivery_flow_momentum",)
     assert registry.root.status_hint == "in_progress"
-    assert registry.root.subqueue_ids == ("DFM-SQ-001", "DFM-SQ-002")
+    assert registry.root.subqueue_ids == ("DFM-SQ-001", "DFM-SQ-002", "DFM-SQ-003")
     assert tuple(item.subqueue_id for item in registry.subqueues) == (
         "DFM-SQ-001",
         "DFM-SQ-002",
+        "DFM-SQ-003",
     )
     assert subqueues["DFM-SQ-001"].touchpoint_ids == ("DFM-TP-001",)
     assert subqueues["DFM-SQ-002"].touchpoint_ids == ("DFM-TP-002",)
-    assert set(touchpoints) == {"DFM-TP-001", "DFM-TP-002"}
+    assert subqueues["DFM-SQ-003"].touchpoint_ids == ("DFM-TP-003",)
+    assert set(touchpoints) == {"DFM-TP-001", "DFM-TP-002", "DFM-TP-003"}
     assert {
         item.rel_path for item in touchpoints["DFM-TP-001"].declared_touchsites
     } == {
-        "artifacts/out/governance_telemetry_history.json",
-        "artifacts/audit_reports/ci_step_timings.json",
+        "artifacts/out/delivery_flow_summary.json",
+        "scripts/governance/delivery_flow_emit.py",
     }
     assert {
         item.rel_path for item in touchpoints["DFM-TP-002"].declared_touchsites
     } == {
-        "artifacts/out/governance_telemetry_history.json",
-        "artifacts/out/governance_telemetry.json",
+        "artifacts/out/delivery_flow_summary.json",
+        "scripts/governance/delivery_flow_emit.py",
+    }
+    assert {
+        item.rel_path for item in touchpoints["DFM-TP-003"].declared_touchsites
+    } == {
+        "artifacts/out/delivery_flow_summary.json",
+        "scripts/governance/delivery_flow_emit.py",
     }
 
 

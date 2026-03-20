@@ -84,6 +84,7 @@ def test_cli_tooling_subcommand_help_invocations() -> None:
         ["policy", "docflow-packetize", "--help"],
         ["policy", "docflow-packet-enforce", "--help"],
         ["governance", "controller-audit", "--help"],
+        ["governance", "delivery-flow-emit", "--help"],
         ["governance", "telemetry-emit", "--help"],
         ["sppf", "sync", "--help"],
         ["sppf", "status-audit", "--help"],

@@ -1,30 +1,22 @@
 from __future__ import annotations
 
 from gabion.invariants import todo_decorator
-from gabion.tooling.policy_substrate.structured_artifact_ingress import (
-    load_junit_failure_artifact,
-    load_local_ci_repro_contract_artifact,
-)
 from gabion.tooling.policy_substrate.workstream_registry import (
     RegisteredRootDefinition,
     RegisteredSubqueueDefinition,
     RegisteredTouchpointDefinition,
     WorkstreamRegistry,
     declared_touchsite_definition,
-    declared_touchsite_definition_from_symbol,
     registry_marker_metadata,
 )
 
 
 @todo_decorator(
-    reason="DFR remains active while repo-local delivery flow still needs a planner-visible current-indicator root for red-state, parity, and execution-health blockers.",
+    reason="DFR remains active while repo-local delivery flow still needs a planner-visible current-indicator root for red-state, parity, execution-health, and blocker-pattern pressure.",
     reasoning={
-        "summary": "Delivery-flow reliability remains synthetic current-state work until failing tests, local-vs-CI parity gaps, and execution-health blockers converge into a stable green lane.",
+        "summary": "Delivery-flow reliability remains synthetic current-state work until failing tests, local parity gaps, execution-health blockers, and repeated blocker patterns converge into a stable green lane.",
         "control": "delivery_flow_reliability.root",
-        "blocking_dependencies": (
-            "DFR-SQ-001",
-            "DFR-SQ-002",
-        ),
+        "blocking_dependencies": ("DFR-SQ-001", "DFR-SQ-002", "DFR-SQ-003"),
     },
     owner="gabion.tooling.runtime_policy",
     expiry="DFR closure",
@@ -53,9 +45,9 @@ def _dfr_sq_current_blockers() -> None:
 
 
 @todo_decorator(
-    reason="DFR-SQ-002 remains active while observability gaps and severe lane-health regressions can still break the active delivery loop.",
+    reason="DFR-SQ-002 remains active while observability gaps and severe current-band runtime regressions can still break the active delivery loop.",
     reasoning={
-        "summary": "Execution observability and current lane-health regressions remain active current-state blockers rather than trend-only telemetry.",
+        "summary": "Execution observability and severe current-band runtime regressions remain active current-state blockers rather than trend-only telemetry.",
         "control": "delivery_flow_reliability.execution_health",
         "blocking_dependencies": ("DFR-TP-003",),
     },
@@ -67,6 +59,24 @@ def _dfr_sq_current_blockers() -> None:
     ],
 )
 def _dfr_sq_execution_health() -> None:
+    return None
+
+
+@todo_decorator(
+    reason="DFR-SQ-003 remains active while repeated, stalled, or unstable current blockers still degrade the delivery loop.",
+    reasoning={
+        "summary": "Repeated, stalled, and unstable blocker patterns remain active reliability debt and need their own planner-visible current-indicator touchpoint.",
+        "control": "delivery_flow_reliability.blocker_patterns",
+        "blocking_dependencies": ("DFR-TP-004",),
+    },
+    owner="gabion.tooling.runtime_policy",
+    expiry="DFR closure",
+    links=[
+        {"kind": "object_id", "value": "DFR"},
+        {"kind": "object_id", "value": "DFR-SQ-003"},
+    ],
+)
+def _dfr_sq_blocker_patterns() -> None:
     return None
 
 
@@ -107,9 +117,9 @@ def _dfr_tp_local_ci_parity() -> None:
 
 
 @todo_decorator(
-    reason="DFR-TP-003 remains active while observability gaps or severe lane-health regressions can still block the live delivery loop.",
+    reason="DFR-TP-003 remains active while observability gaps or severe current-band runtime regressions can still block the live delivery loop.",
     reasoning={
-        "summary": "Current execution-health blockers such as observability violations and severe runtime regressions remain current-indicator signals for delivery reliability.",
+        "summary": "Current execution-health blockers such as observability violations and severe runtime current-band regressions remain current-indicator signals for delivery reliability.",
         "control": "delivery_flow_reliability.execution_health.touchpoint",
     },
     owner="gabion.tooling.runtime_policy",
@@ -121,6 +131,24 @@ def _dfr_tp_local_ci_parity() -> None:
     ],
 )
 def _dfr_tp_execution_health() -> None:
+    return None
+
+
+@todo_decorator(
+    reason="DFR-TP-004 remains active while repeated, stalled, or unstable blocker patterns still indicate current delivery fragility.",
+    reasoning={
+        "summary": "Repeated, stalled, and unstable blockers remain current-indicator signals and should not be smuggled into trend debt only.",
+        "control": "delivery_flow_reliability.blocker_patterns.touchpoint",
+    },
+    owner="gabion.tooling.runtime_policy",
+    expiry="DFR closure",
+    links=[
+        {"kind": "object_id", "value": "DFR"},
+        {"kind": "object_id", "value": "DFR-SQ-003"},
+        {"kind": "object_id", "value": "DFR-TP-004"},
+    ],
+)
+def _dfr_tp_blocker_patterns() -> None:
     return None
 
 
@@ -213,13 +241,42 @@ def _touchpoint_definition(
     )
 
 
+def _summary_touchsites(
+    *,
+    artifact_touchsite_id: str,
+    producer_touchsite_id: str,
+) -> tuple:
+    return (
+        declared_touchsite_definition(
+            touchsite_id=artifact_touchsite_id,
+            rel_path="artifacts/out/delivery_flow_summary.json",
+            qualname="delivery_flow_summary.json",
+            boundary_name="delivery_flow_summary.json",
+            line=1,
+            node_kind="artifact_file",
+            surface="delivery_flow_reliability",
+            structural_path="artifact::artifacts/out/delivery_flow_summary.json",
+        ),
+        declared_touchsite_definition(
+            touchsite_id=producer_touchsite_id,
+            rel_path="scripts/governance/delivery_flow_emit.py",
+            qualname="scripts.governance.delivery_flow_emit.main",
+            boundary_name="gabion governance delivery-flow-emit",
+            line=1,
+            node_kind="script",
+            surface="delivery_flow_reliability",
+            structural_path="script::scripts/governance/delivery_flow_emit.py",
+        ),
+    )
+
+
 def delivery_flow_reliability_workstream_registry() -> WorkstreamRegistry:
     root_id = "DFR"
     return WorkstreamRegistry(
         root=_root_definition(
             root_id=root_id,
             title="Delivery-Flow Reliability / Current Indicators",
-            subqueue_ids=("DFR-SQ-001", "DFR-SQ-002"),
+            subqueue_ids=("DFR-SQ-001", "DFR-SQ-002", "DFR-SQ-003"),
             symbol=_dfr_root,
         ),
         subqueues=(
@@ -233,9 +290,16 @@ def delivery_flow_reliability_workstream_registry() -> WorkstreamRegistry:
             _subqueue_definition(
                 root_id=root_id,
                 subqueue_id="DFR-SQ-002",
-                title="Execution observability and lane-health blockers",
+                title="Execution observability and current-band runtime blockers",
                 touchpoint_ids=("DFR-TP-003",),
                 symbol=_dfr_sq_execution_health,
+            ),
+            _subqueue_definition(
+                root_id=root_id,
+                subqueue_id="DFR-SQ-003",
+                title="Repeated, stalled, and unstable current blockers",
+                touchpoint_ids=("DFR-TP-004",),
+                symbol=_dfr_sq_blocker_patterns,
             ),
         ),
         touchpoints=(
@@ -245,24 +309,9 @@ def delivery_flow_reliability_workstream_registry() -> WorkstreamRegistry:
                 touchpoint_id="DFR-TP-001",
                 title="Current full-suite red-state indicators",
                 symbol=_dfr_tp_current_red_state,
-                declared_touchsites=(
-                    declared_touchsite_definition_from_symbol(
-                        load_junit_failure_artifact,
-                        touchsite_id="DFR-TS-001",
-                        boundary_name="load_junit_failure_artifact",
-                        surface="delivery_flow_reliability",
-                        structural_path="load_junit_failure_artifact",
-                    ),
-                    declared_touchsite_definition(
-                        touchsite_id="DFR-TS-002",
-                        rel_path="artifacts/test_runs/junit.xml",
-                        qualname="junit.xml",
-                        boundary_name="junit.xml",
-                        line=1,
-                        node_kind="artifact_file",
-                        surface="delivery_flow_reliability",
-                        structural_path="artifact::artifacts/test_runs/junit.xml",
-                    ),
+                declared_touchsites=_summary_touchsites(
+                    artifact_touchsite_id="DFR-TS-001",
+                    producer_touchsite_id="DFR-TS-002",
                 ),
                 test_path_prefixes=("tests/",),
             ),
@@ -270,55 +319,33 @@ def delivery_flow_reliability_workstream_registry() -> WorkstreamRegistry:
                 root_id=root_id,
                 subqueue_id="DFR-SQ-001",
                 touchpoint_id="DFR-TP-002",
-                title="Local-vs-CI parity contract drift",
+                title="Current local-vs-CI parity blockers",
                 symbol=_dfr_tp_local_ci_parity,
-                declared_touchsites=(
-                    declared_touchsite_definition_from_symbol(
-                        load_local_ci_repro_contract_artifact,
-                        touchsite_id="DFR-TS-003",
-                        boundary_name="load_local_ci_repro_contract_artifact",
-                        surface="delivery_flow_reliability",
-                        structural_path="load_local_ci_repro_contract_artifact",
-                    ),
-                    declared_touchsite_definition(
-                        touchsite_id="DFR-TS-004",
-                        rel_path="artifacts/out/local_ci_repro_contract.json",
-                        qualname="local_ci_repro_contract.json",
-                        boundary_name="local_ci_repro_contract.json",
-                        line=1,
-                        node_kind="artifact_file",
-                        surface="delivery_flow_reliability",
-                        structural_path="artifact::artifacts/out/local_ci_repro_contract.json",
-                    ),
+                declared_touchsites=_summary_touchsites(
+                    artifact_touchsite_id="DFR-TS-003",
+                    producer_touchsite_id="DFR-TS-004",
                 ),
             ),
             _touchpoint_definition(
                 root_id=root_id,
                 subqueue_id="DFR-SQ-002",
                 touchpoint_id="DFR-TP-003",
-                title="Observability and severe lane-health blockers",
+                title="Execution observability and severe current-band runtime blockers",
                 symbol=_dfr_tp_execution_health,
-                declared_touchsites=(
-                    declared_touchsite_definition(
-                        touchsite_id="DFR-TS-005",
-                        rel_path="artifacts/audit_reports/observability_violations.json",
-                        qualname="observability_violations.json",
-                        boundary_name="observability_violations.json",
-                        line=1,
-                        node_kind="artifact_file",
-                        surface="delivery_flow_reliability",
-                        structural_path="artifact::artifacts/audit_reports/observability_violations.json",
-                    ),
-                    declared_touchsite_definition(
-                        touchsite_id="DFR-TS-006",
-                        rel_path="artifacts/out/governance_telemetry_history.json",
-                        qualname="governance_telemetry_history.json",
-                        boundary_name="governance_telemetry_history.json",
-                        line=1,
-                        node_kind="artifact_file",
-                        surface="delivery_flow_reliability",
-                        structural_path="artifact::artifacts/out/governance_telemetry_history.json",
-                    ),
+                declared_touchsites=_summary_touchsites(
+                    artifact_touchsite_id="DFR-TS-005",
+                    producer_touchsite_id="DFR-TS-006",
+                ),
+            ),
+            _touchpoint_definition(
+                root_id=root_id,
+                subqueue_id="DFR-SQ-003",
+                touchpoint_id="DFR-TP-004",
+                title="Repeated, stalled, and unstable current blocker patterns",
+                symbol=_dfr_tp_blocker_patterns,
+                declared_touchsites=_summary_touchsites(
+                    artifact_touchsite_id="DFR-TS-007",
+                    producer_touchsite_id="DFR-TS-008",
                 ),
             ),
         ),

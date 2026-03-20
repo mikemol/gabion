@@ -118,6 +118,7 @@ from gabion.schema import (
     DecisionDiffResponseDTO, RefactorProtocolResponseDTO, LspParityGateResponseDTO, StructureDiffResponseDTO, StructureReuseResponseDTO, SynthesisPlanResponseDTO)
 from scripts.governance import (
     governance_controller_audit as governance_controller_audit_script,
+    delivery_flow_emit as governance_delivery_flow_emit_script,
     governance_telemetry_emit as governance_telemetry_emit_script,
 )
 from scripts.misc import (
@@ -1656,6 +1657,7 @@ _TOOLING_ARGV_RUNNERS: dict[str, Callable[[list[str] | None], int]] = {
         governance_controller_audit_script.main,
         argv,
     ),
+    "governance.delivery-flow-emit": governance_delivery_flow_emit_script.main,
     "governance.telemetry-emit": governance_telemetry_emit_script.main,
     "policy.check": policy_check_script.main,
     "policy.scanner": policy_scanner_suite_script.main,
@@ -1801,6 +1803,16 @@ def policy_docflow_packet_enforce_namespace(ctx: typer.Context) -> None:
 def governance_controller_audit_namespace(ctx: typer.Context) -> None:
     raise typer.Exit(
         code=_run_tooling_with_argv("governance.controller-audit", list(ctx.args))
+    )
+
+
+@governance_app.command(
+    "delivery-flow-emit",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def governance_delivery_flow_emit_namespace(ctx: typer.Context) -> None:
+    raise typer.Exit(
+        code=_run_tooling_with_argv("governance.delivery-flow-emit", list(ctx.args))
     )
 
 
