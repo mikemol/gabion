@@ -24,6 +24,9 @@ from gabion.tooling.policy_substrate.delivery_flow_momentum_registry import (
 from gabion.tooling.policy_substrate.delivery_flow_reliability_registry import (
     delivery_flow_reliability_workstream_registry,
 )
+from gabion.tooling.policy_substrate.local_ci_repro_viability_registry import (
+    local_ci_repro_viability_workstream_registry,
+)
 from gabion.tooling.policy_substrate.policy_rule_frontmatter_migration_registry import (
     prf_workstream_registry,
 )
@@ -103,6 +106,10 @@ def declared_workstream_registry_catalog() -> tuple[
         DeclaredWorkstreamRegistryProvider(
             provider_id="dfr",
             loader=delivery_flow_reliability_workstream_registry,
+        ),
+        DeclaredWorkstreamRegistryProvider(
+            provider_id="lcr",
+            loader=local_ci_repro_viability_workstream_registry,
         ),
         DeclaredWorkstreamRegistryProvider(
             provider_id="dfm",

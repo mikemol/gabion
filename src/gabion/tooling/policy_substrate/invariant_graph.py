@@ -11153,11 +11153,32 @@ def _join_local_ci_repro_contract_artifact(state: _InvariantGraphBuildState) -> 
         _link_node_refs(state, surface_node)
         _add_edge(state, "contains", report_node_id, surface_node_id)
         surface_node_ids[surface.surface_id] = surface_node_id
+        _contain_under_touchpoints(
+            state,
+            source_node_id=surface_node_id,
+            touchpoint_object_ids=("LCR-TP-001",),
+        )
         for artifact_path in surface.artifacts:
             _link_to_existing_nodes_for_path(
                 state,
                 source_node_id=surface_node_id,
                 rel_path=artifact_path,
+            )
+        if surface.status != "pass":
+            _append_ranking_signal(
+                state,
+                node_id=surface_node_id,
+                touchpoint_object_id="LCR-TP-001",
+                touchsite_object_id="LCR-TS-001",
+                code="local_ci_repro_surface_viability",
+                score=max(
+                    8,
+                    len(surface.missing_token_groups) * 6
+                    + len(surface.missing_capability_ids) * 8
+                    + 4,
+                ),
+                raw_dependency="local_ci_repro_surface",
+                message="Failing local reproduction surfaces indicate the current local CI attempt is not viable.",
             )
         if surface.required_capabilities:
             for capability in surface.required_capabilities:
@@ -11190,6 +11211,11 @@ def _join_local_ci_repro_contract_artifact(state: _InvariantGraphBuildState) -> 
                 _add_node(state, capability_node, replace=True)
                 _link_node_refs(state, capability_node)
                 _add_edge(state, "contains", surface_node_id, capability_node_id)
+                _contain_under_touchpoints(
+                    state,
+                    source_node_id=capability_node_id,
+                    touchpoint_object_ids=("LCR-TP-002",),
+                )
                 if capability.status != "pass":
                     source_groups_text = "; ".join(
                         ", ".join(group)
@@ -11223,6 +11249,20 @@ def _join_local_ci_repro_contract_artifact(state: _InvariantGraphBuildState) -> 
                                 else ""
                             )
                         ),
+                    )
+                    _append_ranking_signal(
+                        state,
+                        node_id=capability_node_id,
+                        touchpoint_object_id="LCR-TP-002",
+                        touchsite_object_id="LCR-TS-003",
+                        code="local_ci_repro_capability_viability",
+                        score=max(
+                            8,
+                            len(capability.source_alternative_token_groups) * 5
+                            + len(capability.command_alternative_token_groups) * 5,
+                        ),
+                        raw_dependency="local_ci_repro_capability",
+                        message="Missing or unmatched local reproduction capabilities explain why the current local CI attempt will fail.",
                     )
         elif surface.status != "pass":
             missing_groups_text = "; ".join(
@@ -11265,6 +11305,11 @@ def _join_local_ci_repro_contract_artifact(state: _InvariantGraphBuildState) -> 
         _add_node(state, relation_node, replace=True)
         _link_node_refs(state, relation_node)
         _add_edge(state, "contains", report_node_id, relation_node_id)
+        _contain_under_touchpoints(
+            state,
+            source_node_id=relation_node_id,
+            touchpoint_object_ids=("LCR-TP-003",),
+        )
         source_node_id = surface_node_ids.get(relation.source_surface_id, "")
         target_node_id = surface_node_ids.get(relation.target_surface_id, "")
         if source_node_id:
@@ -11296,6 +11341,16 @@ def _join_local_ci_repro_contract_artifact(state: _InvariantGraphBuildState) -> 
                         )
                     ),
                 )
+            _append_ranking_signal(
+                state,
+                node_id=relation_node_id,
+                touchpoint_object_id="LCR-TP-003",
+                touchsite_object_id="LCR-TS-005",
+                code="local_ci_repro_relation_viability",
+                score=max(8, len(missing_capabilities) * 7 + 6),
+                raw_dependency="local_ci_repro_relation",
+                message="Unsatisfied local-to-workflow reproduction relations explain why the current local CI attempt cannot match CI.",
+            )
 
 
 def _join_observability_violations_artifact(state: _InvariantGraphBuildState) -> None:

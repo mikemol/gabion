@@ -10,6 +10,9 @@ from gabion.tooling.policy_substrate.delivery_flow_momentum_registry import (
 from gabion.tooling.policy_substrate.delivery_flow_reliability_registry import (
     delivery_flow_reliability_workstream_registry,
 )
+from gabion.tooling.policy_substrate.local_ci_repro_viability_registry import (
+    local_ci_repro_viability_workstream_registry,
+)
 from gabion.tooling.policy_substrate import project_manager_view
 from tests.gabion.tooling.runtime_policy.invariant_graph_test_support import (
     write_minimal_invariant_repo,
@@ -382,3 +385,94 @@ def test_analyze_handles_delivery_flow_roots_from_real_invariant_workstreams_pay
     assert "DFM" in workstreams
     assert workstreams["DFR"].pressure_score > 0
     assert workstreams["DFM"].pressure_score > 0
+
+
+# gabion:behavior primary=desired
+def test_analyze_handles_local_ci_repro_viability_root_from_real_invariant_workstreams_payload(
+    tmp_path: Path,
+) -> None:
+    root = write_minimal_invariant_repo(tmp_path)
+    contract_path = root / "artifacts/out/local_ci_repro_contract.json"
+    contract_path.parent.mkdir(parents=True, exist_ok=True)
+    contract_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 2,
+                "artifact_kind": "local_ci_repro_contract",
+                "generated_by": "tests",
+                "summary": "Local CI reproduction topology.",
+                "surfaces": [
+                    {
+                        "surface_id": "workflow:ci.yml:checks",
+                        "surface_kind": "workflow_job",
+                        "title": "CI checks workflow job",
+                        "summary": "Strict gates.",
+                        "source_ref": ".github/workflows/ci.yml",
+                        "mode": "checks",
+                        "status": "pass",
+                        "required_capabilities": [],
+                        "missing_capability_ids": [],
+                        "required_token_groups": [],
+                        "missing_token_groups": [],
+                        "commands": ["python scripts/policy/policy_check.py --workflows"],
+                        "artifacts": ["artifacts/out/policy_check_result.json"],
+                    },
+                    {
+                        "surface_id": "local_script:scripts/ci_local_repro.sh:checks",
+                        "surface_kind": "local_repro_lane",
+                        "title": "Local CI reproduction checks lane",
+                        "summary": "Local parity lane.",
+                        "source_ref": "scripts/ci_local_repro.sh",
+                        "mode": "checks-only",
+                        "status": "fail",
+                        "required_capabilities": [
+                            {
+                                "capability_id": "policy_workflows_output",
+                                "summary": "Materialize the workflow policy artifact.",
+                                "status": "fail",
+                                "source_alternative_token_groups": [["checks_policy_workflows_output"]],
+                                "command_alternative_token_groups": [],
+                                "matched_source_alternative_index": None,
+                                "matched_command_alternative_index": None,
+                            }
+                        ],
+                        "missing_capability_ids": ["policy_workflows_output"],
+                        "required_token_groups": [["checks_policy_workflows_output"]],
+                        "missing_token_groups": [["checks_policy_workflows_output"]],
+                        "commands": ["scripts/ci_local_repro.sh --checks-only"],
+                        "artifacts": ["artifacts/out/policy_check_result.json"],
+                    },
+                ],
+                "relations": [
+                    {
+                        "relation_id": "ci-repro:local-checks->workflow-checks",
+                        "relation_kind": "reproduces",
+                        "source_surface_id": "local_script:scripts/ci_local_repro.sh:checks",
+                        "target_surface_id": "workflow:ci.yml:checks",
+                        "source_missing_capability_ids": ["policy_workflows_output"],
+                        "target_missing_capability_ids": [],
+                        "status": "fail",
+                        "summary": "Local checks should reproduce workflow checks.",
+                    }
+                ],
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    graph = invariant_graph.build_invariant_graph(
+        root,
+        declared_registries=(local_ci_repro_viability_workstream_registry(),),
+    )
+    payload = invariant_graph.build_invariant_workstreams(graph, root=root).as_payload()
+    view = project_manager_view.analyze(
+        payload=payload,
+        source_artifact="artifacts/out/invariant_workstreams.json",
+        visual_limit=4,
+    )
+
+    workstreams = {item.object_id: item for item in view.workstreams}
+    assert "LCR" in workstreams
+    assert workstreams["LCR"].pressure_score > 0

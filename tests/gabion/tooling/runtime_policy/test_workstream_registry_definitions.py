@@ -34,6 +34,9 @@ from gabion.tooling.policy_substrate.delivery_flow_momentum_registry import (
 from gabion.tooling.policy_substrate.delivery_flow_reliability_registry import (
     delivery_flow_reliability_workstream_registry,
 )
+from gabion.tooling.policy_substrate.local_ci_repro_viability_registry import (
+    local_ci_repro_viability_workstream_registry,
+)
 from gabion.tooling.policy_substrate.unit_test_readiness_registry import (
     unit_test_readiness_workstream_registry,
 )
@@ -804,6 +807,45 @@ def test_delivery_flow_momentum_workstream_registry_exposes_trend_clusters() -> 
 
 
 # gabion:behavior primary=desired
+def test_local_ci_repro_viability_workstream_registry_exposes_current_cause_clusters() -> None:
+    registry = local_ci_repro_viability_workstream_registry()
+    subqueues = {item.subqueue_id: item for item in registry.subqueues}
+    touchpoints = {item.touchpoint_id: item for item in registry.touchpoints}
+
+    assert registry.root.root_id == "LCR"
+    assert registry.tags == ("local_ci_repro_viability",)
+    assert registry.root.status_hint == "in_progress"
+    assert registry.root.subqueue_ids == ("LCR-SQ-001", "LCR-SQ-002", "LCR-SQ-003")
+    assert tuple(item.subqueue_id for item in registry.subqueues) == (
+        "LCR-SQ-001",
+        "LCR-SQ-002",
+        "LCR-SQ-003",
+    )
+    assert subqueues["LCR-SQ-001"].touchpoint_ids == ("LCR-TP-001",)
+    assert subqueues["LCR-SQ-002"].touchpoint_ids == ("LCR-TP-002",)
+    assert subqueues["LCR-SQ-003"].touchpoint_ids == ("LCR-TP-003",)
+    assert set(touchpoints) == {"LCR-TP-001", "LCR-TP-002", "LCR-TP-003"}
+    assert {
+        item.rel_path for item in touchpoints["LCR-TP-001"].declared_touchsites
+    } == {
+        "artifacts/out/local_ci_repro_contract.json",
+        "scripts/policy/policy_check.py",
+    }
+    assert {
+        item.rel_path for item in touchpoints["LCR-TP-002"].declared_touchsites
+    } == {
+        "artifacts/out/local_ci_repro_contract.json",
+        "scripts/policy/policy_check.py",
+    }
+    assert {
+        item.rel_path for item in touchpoints["LCR-TP-003"].declared_touchsites
+    } == {
+        "artifacts/out/local_ci_repro_contract.json",
+        "scripts/policy/policy_check.py",
+    }
+
+
+# gabion:behavior primary=desired
 def test_dataflow_grammar_readiness_workstream_registry_exposes_local_signal_clusters() -> None:
     registry = dataflow_grammar_readiness_workstream_registry()
     subqueues = {item.subqueue_id: item for item in registry.subqueues}
@@ -1194,6 +1236,13 @@ def test_declared_workstream_registries_include_dataflow_grammar_readiness_root(
 # gabion:behavior primary=desired
 def test_declared_workstream_registries_include_delivery_flow_reliability_root() -> None:
     assert "DFR" in {
+        registry.root.root_id for registry in declared_workstream_registries()
+    }
+
+
+# gabion:behavior primary=desired
+def test_declared_workstream_registries_include_local_ci_repro_viability_root() -> None:
+    assert "LCR" in {
         registry.root.root_id for registry in declared_workstream_registries()
     }
 

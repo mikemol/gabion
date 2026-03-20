@@ -1,5 +1,5 @@
 ---
-doc_revision: 2
+doc_revision: 3
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: planning_substrate_formal_spec
 doc_role: design
@@ -112,6 +112,7 @@ The core claim is precise:
 | Artifact | Object kind | Governs | Relationships | Invariants / commutation laws | Test / enforcement status |
 | --- | --- | --- | --- | --- | --- |
 | [`unit_test_readiness_registry.py`](../src/gabion/tooling/policy_substrate/unit_test_readiness_registry.py) | synthetic root registry | repo-drain readiness from full-suite junit state | Downstream of junit/test evidence; aggregated into invariant graph | synthetic roots summarize operational state without becoming owner roots | `exists` via direct registry tests and invariant-graph tests |
+| [`local_ci_repro_viability_registry.py`](../src/gabion/tooling/policy_substrate/local_ci_repro_viability_registry.py) | synthetic root registry | current local CI reproduction viability across failing surfaces, missing capabilities, and unsatisfied local-to-workflow relations | Downstream of the canonical local CI reproduction contract artifact emitted by workflow policy checks | `LCR` is current-indicator only and owns exact local repro failure causes rather than compressed delivery-flow parity summaries | `exists` via direct registry tests, invariant-graph tests, and project-manager-view tests |
 | [`delivery_flow_reliability_registry.py`](../src/gabion/tooling/policy_substrate/delivery_flow_reliability_registry.py) | synthetic root registry | current delivery blockers across red-state, parity, observability, current-band runtime, and blocker-pattern pressure | Downstream of the canonical delivery-flow summary artifact; bounded delivery-flow run history is owned upstream by governance telemetry history while the summary remains a pure derivation from junit, local-CI repro, observability, and telemetry inputs | `DFR` is current-indicator only; current blockers stay separate from trend debt | `exists` via direct registry tests and invariant-graph tests |
 | [`delivery_flow_momentum_registry.py`](../src/gabion/tooling/policy_substrate/delivery_flow_momentum_registry.py) | synthetic root registry | historical runtime, recurrence, red-state dwell, and closure-lag drag | Downstream of the canonical delivery-flow summary artifact built from governance telemetry history plus current-signal inputs | `DFM` is trend-only and should not absorb instantaneous blockers | `exists` via direct registry tests and invariant-graph tests |
 | [`connectivity_synergy_registry.py`](../src/gabion/tooling/policy_substrate/connectivity_synergy_registry.py) | multi-root registry family | identity/rendering, ingress/merge, registry convergence, and impact velocity work families | Loaded as a registry family through the catalog; intersects many owner roots | connectivity families remain expressed as explicit roots/subqueues/touchpoints rather than prose-only audit notes | `exists` via direct registry-shape tests and invariant-graph tests |
@@ -186,10 +187,12 @@ the rooted ownership forest.
 
 ### Synthetic operational roots
 
-`UTR`, `DFR`, and `DFM` are synthetic roots. They are planner-visible and real,
+`UTR`, `LCR`, `DFR`, and `DFM` are synthetic roots. They are planner-visible and real,
 but they are not owner roots for semantic-core subsystems.
 
 - `UTR` summarizes unit-test readiness and repo-drain red-state.
+- `LCR` summarizes exact local CI reproduction failure causes from the canonical
+  `local_ci_repro_contract` ingress.
 - `DFR` summarizes current delivery-flow blockers from the canonical
   `delivery_flow_summary` ingress.
 - `DFM` summarizes historical delivery-flow drag from that same canonical

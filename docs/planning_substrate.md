@@ -1,5 +1,5 @@
 ---
-doc_revision: 7
+doc_revision: 8
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: planning_substrate
 doc_role: architecture
@@ -191,6 +191,7 @@ grammar as ordinary work.
 Current examples include:
 
 - `UTR` for unit-test readiness and repo-drain red-state indicators
+- `LCR` for current local CI reproduction viability and exact local repro failure causes
 - `DFR` for current delivery-flow reliability blockers across the dev + CI loop
 - `DFM` for historical delivery-flow momentum and trend drag across recent runs
 

@@ -360,7 +360,8 @@ artifacts:
     primary_consumers:
       - governance review
       - invariant graph ingress
-    notes: Workflow-policy quotients are written even when no explicit policy-check result path is requested.
+      - LCR synthetic root
+    notes: Workflow-policy quotients are written even when no explicit policy-check result path is requested, and `artifacts/out/local_ci_repro_contract.json` is the canonical cause carrier for planner-visible local CI reproduction viability.
 
   - artifact_id: policy_check_projection_bundle
     family_id: planning_projection
