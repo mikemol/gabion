@@ -1970,11 +1970,6 @@ def removed_delta_triplets() -> None:
     )
 
 
-@app.command("aspf-handoff", hidden=True)
-def removed_aspf_handoff() -> None:
-    raise typer.BadParameter(_legacy_wrapper_message("aspf-handoff", "gabion aspf handoff"))
-
-
 @app.command("policy-check", hidden=True)
 def removed_policy_check() -> None:
     raise typer.BadParameter(_legacy_wrapper_message("policy-check", "gabion policy check"))

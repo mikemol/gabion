@@ -282,7 +282,6 @@ def test_legacy_flat_tooling_commands_emit_namespace_migration_errors() -> None:
         "ci-local-repro": "gabion ci local-repro",
         "ci-watch": "gabion ci watch",
         "run-dataflow-stage": "gabion check delta-bundle",
-        "aspf-handoff": "gabion aspf handoff",
         "policy-check": "gabion policy check",
         "policy-scanner": "gabion policy scanner",
         "docflow-packetize": "gabion policy docflow-packetize",
@@ -297,6 +296,15 @@ def test_legacy_flat_tooling_commands_emit_namespace_migration_errors() -> None:
         assert result.exit_code != 0, command_name
         normalized_output = " ".join(result.output.replace("│", " ").split())
         assert replacement in normalized_output, command_name
+
+
+# gabion:behavior primary=verboten facets=unknown,removed
+def test_removed_aspf_handoff_flat_command_is_absent() -> None:
+    runner = CliRunner()
+    result = _invoke(runner, ["aspf-handoff"])
+
+    assert result.exit_code != 0
+    assert "No such command" in result.output
 
 
 # gabion:behavior primary=desired
