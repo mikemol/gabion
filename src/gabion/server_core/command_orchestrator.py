@@ -44,15 +44,12 @@ from gabion.analysis.dataflow.io.dataflow_report_section_contracts import (
     ReportSectionsState,
 )
 from gabion.analysis.dataflow.io.dataflow_report_sections import (
-    chain_report_section_states as _chain_report_section_states,
-    empty_report_section_states as _empty_report_section_states,
     overlay_report_sections_with_journal_reason as _overlay_report_sections_with_journal_reason,
     projection_pending_sections as _projection_pending_sections,
     report_section_ids as _report_section_ids,
     report_sections_resolved_count as _report_sections_resolved_count,
-    report_sections_state as _build_report_sections_state,
-    resolved_report_section_states as _resolved_report_section_states,
-    single_report_section_state as _single_report_section_state,
+    report_sections_state,
+    stream_from_single_report_section,
 )
 from gabion.analysis.aspf.aspf import Forest
 from gabion.analysis.call_cluster import call_cluster_consolidation, call_clusters
@@ -86,6 +83,7 @@ from gabion.analysis.taint import taint_delta, taint_lifecycle, taint_state
 from gabion.analysis.dataflow.io.dataflow_projection_helpers import report_projection_phase_rank
 from gabion.foundation.replayable_stream import (
     ReplayableStream,
+    chain_streams,
     empty_stream,
     stream_from_iterator,
 )
@@ -1641,7 +1639,7 @@ class MaterializedReportArtifacts:
         object.__setattr__(
             self,
             "sections_state",
-            _report_sections_state(
+            report_sections_state(
                 resolved_sections=resolved_sections,
                 pending_sections=pending_sections,
             ),
@@ -1678,17 +1676,6 @@ def _section_id_missing_from_resolved(
 ) -> bool:
     return bool(section_id) and all(
         section.section_id != section_id for section in resolved_sections
-    )
-
-
-def _report_sections_state(
-    *,
-    resolved_sections: ReplayableStream[ReportSectionState],
-    pending_sections: ReplayableStream[PendingReportSectionState] | None = None,
-) -> ReportSectionsState:
-    return _build_report_sections_state(
-        resolved_sections=resolved_sections,
-        pending_sections=pending_sections,
     )
 
 
@@ -2212,7 +2199,7 @@ def _run_analysis_with_progress(
             last_collection_report_flush_ns = now_ns
             last_collection_report_flush_completed = completed_files
             cached_sections, journal_reason = context.ensure_report_sections_cache_fn()
-            intro_sections = _single_report_section_state(
+            intro_sections = stream_from_single_report_section(
                 section_id="intro",
                 lines=_collection_progress_intro_lines(
                     collection_resume=persisted_progress_payload,
@@ -2235,14 +2222,14 @@ def _run_analysis_with_progress(
                 include_previews=True,
                 preview_only=True,
             )
-            base_sections = _chain_report_section_states(
+            base_sections = chain_streams(
                 cached_sections,
                 intro_sections,
                 preview_sections,
             )
-            resolved_sections = _chain_report_section_states(
+            resolved_sections = chain_streams(
                 base_sections,
-                _single_report_section_state(
+                stream_from_single_report_section(
                     section_id="components",
                     lines=_collection_components_preview_lines(
                         collection_resume=persisted_progress_payload
@@ -2252,14 +2239,14 @@ def _run_analysis_with_progress(
                     "components",
                     resolved_sections=base_sections,
                 )
-                else _empty_report_section_states(),
+                else empty_stream(),
             )
             projection_rows = list(
                 context.report_request_state.runtime_state.projection_state.projection_rows
             )
-            report_sections_state = _overlay_report_sections_with_journal_reason(
+            effective_sections_state = _overlay_report_sections_with_journal_reason(
                 projection_rows=projection_rows,
-                sections_state=_report_sections_state(
+                sections_state=report_sections_state(
                     resolved_sections=resolved_sections,
                     pending_sections=_projection_pending_sections(
                         projection_rows=projection_rows,
@@ -2272,7 +2259,7 @@ def _run_analysis_with_progress(
                 analysis_state="analysis_collection_in_progress",
                 progress_payload=persisted_progress_payload,
                 projection_rows=projection_rows,
-                sections_state=report_sections_state,
+                sections_state=effective_sections_state,
             )
             context.report_request_state.runtime_state.projection_state.output_path.parent.mkdir(
                 parents=True, exist_ok=True
@@ -2286,7 +2273,7 @@ def _run_analysis_with_progress(
                 path=context.report_request_state.runtime_state.projection_state.section_journal_path,
                 witness_digest=context.report_request_state.runtime_state.checkpoint_state.section_witness_digest,
                 projection_rows=projection_rows,
-                sections_state=report_sections_state,
+                sections_state=effective_sections_state,
             )
             context.clear_report_sections_cache_reason_fn()
             context.report_request_state.runtime_state.checkpoint_state.phase_checkpoint_state[
@@ -2300,7 +2287,7 @@ def _run_analysis_with_progress(
                 "remaining_files": collection_progress["remaining_files"],
                 "total_files": collection_progress["total_files"],
                 "section_ids": sort_once(
-                    _report_section_ids(report_sections_state),
+                    _report_section_ids(effective_sections_state),
                     source="src/gabion/server.py:4603",
                 ),
             }
@@ -2417,16 +2404,16 @@ def _run_analysis_with_progress(
                             },
                         ).emit(execute_deps=execute_deps, state=aspf_trace_state)
                     cached_sections, journal_reason = context.ensure_report_sections_cache_fn()
-                    resolved_sections = _chain_report_section_states(
+                    resolved_sections = chain_streams(
                         cached_sections,
                         available_sections,
                     )
                     projection_rows = list(
                         context.report_request_state.runtime_state.projection_state.projection_rows
                     )
-                    report_sections_state = _overlay_report_sections_with_journal_reason(
+                    effective_sections_state = _overlay_report_sections_with_journal_reason(
                         projection_rows=projection_rows,
-                        sections_state=_report_sections_state(
+                        sections_state=report_sections_state(
                             resolved_sections=resolved_sections,
                             pending_sections=_projection_pending_sections(
                                 projection_rows=projection_rows,
@@ -2448,7 +2435,7 @@ def _run_analysis_with_progress(
                             ),
                         },
                         projection_rows=projection_rows,
-                        sections_state=report_sections_state,
+                        sections_state=effective_sections_state,
                     )
                     context.report_request_state.runtime_state.projection_state.output_path.parent.mkdir(
                         parents=True, exist_ok=True
@@ -2462,7 +2449,7 @@ def _run_analysis_with_progress(
                         path=context.report_request_state.runtime_state.projection_state.section_journal_path,
                         witness_digest=context.report_request_state.runtime_state.checkpoint_state.section_witness_digest,
                         projection_rows=projection_rows,
-                        sections_state=report_sections_state,
+                        sections_state=effective_sections_state,
                     )
                     context.clear_report_sections_cache_reason_fn()
                     context.report_request_state.runtime_state.checkpoint_state.phase_checkpoint_state[
@@ -2472,11 +2459,11 @@ def _run_analysis_with_progress(
                         "work_done": int(work_done),
                         "work_total": int(work_total),
                         "section_ids": sort_once(
-                            _report_section_ids(report_sections_state),
+                            _report_section_ids(effective_sections_state),
                             source="src/gabion/server.py:4748",
                         ),
                         "resolved_sections": _report_sections_resolved_count(
-                            report_sections_state
+                            effective_sections_state
                         ),
                     }
                     context.profiling_stage_ns["server.projection_emit"] += (
@@ -3351,7 +3338,7 @@ def _finalize_report_and_violations(
             ),
             resolved_sections=resolved_sections_for_obligations,
         )
-        report_sections_for_obligations = _report_sections_state(
+        report_sections_for_obligations = report_sections_state(
             resolved_sections=resolved_sections_for_obligations,
             pending_sections=pending_projection_sections,
         )
@@ -3549,11 +3536,11 @@ class TimeoutReportOutcome:
                     cached_sections, journal_reason = ensure_report_sections_cache()
                 else:
                     cached_sections, journal_reason = (
-                        _empty_report_section_states(),
+                        empty_stream(),
                         None,
                     )
                 components_sections = (
-                    _single_report_section_state(
+                    stream_from_single_report_section(
                         section_id="components",
                         lines=_collection_components_preview_lines(
                             collection_resume=timeout_collection_resume_payload
@@ -3563,7 +3550,7 @@ class TimeoutReportOutcome:
                         "components",
                         resolved_sections=cached_sections,
                     )
-                    else _empty_report_section_states()
+                    else empty_stream()
                 )
                 if (
                     context.enable_phase_projection_checkpoints
@@ -3586,13 +3573,13 @@ class TimeoutReportOutcome:
                             preview_only=True,
                         )
                     )
-                    base_sections = _chain_report_section_states(
+                    base_sections = chain_streams(
                         preview_sections,
                         cached_sections,
                         components_sections,
                     )
                 else:
-                    base_sections = _chain_report_section_states(
+                    base_sections = chain_streams(
                         cached_sections,
                         components_sections,
                     )
@@ -3613,9 +3600,9 @@ class TimeoutReportOutcome:
                         f"- `paths_requested`: `{context.initial_paths_count_value}`",
                     ]
                 )
-                resolved_sections_state = _chain_report_section_states(
+                resolved_sections_state = chain_streams(
                     base_sections,
-                    _single_report_section_state(
+                    stream_from_single_report_section(
                         section_id="intro",
                         lines=intro_lines,
                     )
@@ -3623,14 +3610,14 @@ class TimeoutReportOutcome:
                         "intro",
                         resolved_sections=base_sections,
                     )
-                    else _empty_report_section_states(),
+                    else empty_stream(),
                 )
                 projection_rows = list(
                     context.report_runtime_state.projection_state.projection_rows
                 )
-                report_sections_state = _overlay_report_sections_with_journal_reason(
+                effective_sections_state = _overlay_report_sections_with_journal_reason(
                     projection_rows=projection_rows,
-                    sections_state=_report_sections_state(
+                    sections_state=report_sections_state(
                         resolved_sections=resolved_sections_state,
                         pending_sections=_projection_pending_sections(
                             projection_rows=projection_rows,
@@ -3643,7 +3630,7 @@ class TimeoutReportOutcome:
                     analysis_state=analysis_state,
                     progress_payload=progress_payload,
                     projection_rows=projection_rows,
-                    sections_state=report_sections_state,
+                    sections_state=effective_sections_state,
                 )
                 context.report_runtime_state.projection_state.output_path.parent.mkdir(
                     parents=True, exist_ok=True
@@ -3657,11 +3644,11 @@ class TimeoutReportOutcome:
                     path=context.report_runtime_state.projection_state.section_journal_path,
                     witness_digest=context.report_runtime_state.checkpoint_state.section_witness_digest,
                     projection_rows=projection_rows,
-                    sections_state=report_sections_state,
+                    sections_state=effective_sections_state,
                 )
                 materialized_report = MaterializedReportArtifacts(
                     resolved_sections=resolved_sections_state,
-                    pending_sections=report_sections_state.pending_sections,
+                    pending_sections=effective_sections_state.pending_sections,
                 )
                 phase_checkpoint_state["timeout"] = {
                     "status": "timed_out",

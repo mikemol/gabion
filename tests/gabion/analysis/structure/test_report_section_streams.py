@@ -5,7 +5,7 @@ from gabion.analysis.dataflow.io.dataflow_snapshot_io import (
     iter_report_sections,
 )
 from gabion.analysis.dataflow.io.dataflow_report_sections import (
-    resolved_report_section_states,
+    stream_from_resolved_report_sections,
 )
 
 
@@ -35,8 +35,8 @@ def test_report_section_streams_are_replayable_and_preserve_lines() -> None:
     assert collect_sections() == extract_report_sections(markdown)
 
 
-def test_resolved_report_section_states_replay_after_multiple_consumers() -> None:
-    section_stream = resolved_report_section_states(
+def test_stream_from_resolved_report_sections_replay_after_multiple_consumers() -> None:
+    section_stream = stream_from_resolved_report_sections(
         iter(
             (
                 ("alpha", ["line-a"]),

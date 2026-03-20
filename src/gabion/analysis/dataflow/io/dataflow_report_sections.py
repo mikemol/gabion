@@ -14,7 +14,6 @@ from gabion.analysis.dataflow.io.dataflow_report_section_contracts import (
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.foundation.replayable_stream import (
     ReplayableStream,
-    chain_streams,
     empty_stream,
     map_stream,
     stream_from_iterable,
@@ -30,24 +29,6 @@ _REPORT_SECTION_MARKER_SUFFIX = "-->"
 class ReportSectionMarkerParseResult:
     matched: bool = False
     section_id: str = ""
-
-
-def report_section_lines(section: ReportSectionState) -> Iterator[str]:
-    return iter(section.lines)
-
-
-def resolved_sections(
-    sections_state: ReportSectionsState,
-) -> Iterator[ReportSectionState]:
-    return iter(sections_state.resolved_sections)
-
-
-def pending_sections(
-    sections_state: ReportSectionsState,
-) -> Iterator[PendingReportSectionState]:
-    return iter(sections_state.pending_sections)
-
-
 def report_section_marker(section_id: str) -> str:
     return f"{_REPORT_SECTION_MARKER_PREFIX}{section_id}{_REPORT_SECTION_MARKER_SUFFIX}"
 
@@ -66,7 +47,7 @@ def report_section_marker_parse_result(line: str) -> ReportSectionMarkerParseRes
     return ReportSectionMarkerParseResult(matched=True, section_id=section_id)
 
 
-def resolved_report_section_states(
+def stream_from_resolved_report_sections(
     resolved_sections: Iterator[tuple[str, Iterator[str] | Iterable[str]]],
 ) -> ReplayableStream[ReportSectionState]:
     replayable_entries = stream_from_iterator(
@@ -84,7 +65,7 @@ def resolved_report_section_states(
     )
 
 
-def single_report_section_state(
+def stream_from_single_report_section(
     *,
     section_id: str,
     lines: Iterable[str],
@@ -97,17 +78,7 @@ def single_report_section_state(
     )
 
 
-def chain_report_section_states(
-    *section_streams: ReplayableStream[ReportSectionState],
-) -> ReplayableStream[ReportSectionState]:
-    return chain_streams(*section_streams)
-
-
-def empty_report_section_states() -> ReplayableStream[ReportSectionState]:
-    return empty_stream()
-
-
-def pending_report_section_states(
+def stream_from_pending_report_sections(
     entries: Iterator[PendingReportSectionState],
 ) -> ReplayableStream[PendingReportSectionState]:
     return stream_from_iterator(entries)
@@ -117,7 +88,7 @@ def resolved_section_mapping(
     resolved_sections: ReplayableStream[ReportSectionState],
 ) -> dict[str, list[str]]:
     return {
-        section.section_id: list(report_section_lines(section))
+        section.section_id: list(section.lines)
         for section in resolved_sections
     }
 
@@ -133,26 +104,26 @@ def pending_reason_mapping(
 ) -> dict[str, str]:
     return {
         section.section_id: section.reason
-        for section in pending_sections(sections_state)
+        for section in sections_state.pending_sections
     }
 
 
 def pending_section_count(
     sections_state: ReportSectionsState,
 ) -> int:
-    return sum(1 for _ in pending_sections(sections_state))
+    return sum(1 for _ in sections_state.pending_sections)
 
 
 def report_section_ids(
     sections_state: ReportSectionsState,
 ) -> tuple[str, ...]:
-    return tuple(section.section_id for section in resolved_sections(sections_state))
+    return tuple(section.section_id for section in sections_state.resolved_sections)
 
 
 def report_sections_resolved_count(
     sections_state: ReportSectionsState,
 ) -> int:
-    return sum(1 for _ in resolved_sections(sections_state))
+    return sum(1 for _ in sections_state.resolved_sections)
 
 
 def report_sections_state(
@@ -235,7 +206,7 @@ def overlay_report_sections_with_journal_reason(
         overlay_sections = tuple(overlay_pending)
         overlay_ids = {section.section_id for section in overlay_sections}
         yield from overlay_sections
-        for section in pending_sections(sections_state):
+        for section in sections_state.pending_sections:
             if section.section_id not in overlay_ids:
                 yield section
 
@@ -272,32 +243,27 @@ def iter_report_sections(markdown: str) -> Iterator[ReportSectionState]:
 
 def extract_report_sections(markdown: str) -> dict[str, list[str]]:
     return {
-        section.section_id: list(report_section_lines(section))
+        section.section_id: list(section.lines)
         for section in iter_report_sections(markdown)
     }
 
 
 __all__ = [
-    "chain_report_section_states",
-    "empty_report_section_states",
     "extract_report_sections",
     "iter_report_sections",
     "pending_reason_mapping",
     "pending_section_count",
-    "pending_report_section_states",
-    "pending_sections",
     "projection_pending_sections",
     "ReportSectionMarkerParseResult",
     "overlay_report_sections_with_journal_reason",
     "report_section_ids",
     "report_section_marker",
     "report_section_marker_parse_result",
-    "report_section_lines",
     "report_sections_resolved_count",
     "report_sections_state",
     "resolved_mapping",
-    "resolved_report_section_states",
     "resolved_section_mapping",
-    "resolved_sections",
-    "single_report_section_state",
+    "stream_from_pending_report_sections",
+    "stream_from_resolved_report_sections",
+    "stream_from_single_report_section",
 ]

@@ -9,8 +9,8 @@ from gabion.analysis.dataflow.io.dataflow_report_section_contracts import (
     ReportSectionsState,
 )
 from gabion.analysis.dataflow.io.dataflow_report_sections import (
-    report_sections_state as _report_sections_state,
-    resolved_report_section_states as _resolved_report_section_states,
+    report_sections_state,
+    stream_from_resolved_report_sections,
 )
 from gabion.exceptions import NeverThrown
 
@@ -24,8 +24,8 @@ def _load():
 def _build_report_sections_state(
     resolved_sections: dict[str, list[str]] | None = None,
 ) -> ReportSectionsState:
-    return _report_sections_state(
-        resolved_sections=_resolved_report_section_states(
+    return report_sections_state(
+        resolved_sections=stream_from_resolved_report_sections(
             iter((resolved_sections or {}).items())
         )
     )

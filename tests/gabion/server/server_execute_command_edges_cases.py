@@ -21,9 +21,9 @@ from gabion.analysis.dataflow.io.dataflow_report_section_contracts import (
 )
 from gabion.analysis.dataflow.io.dataflow_report_sections import (
     pending_reason_mapping as _pending_reason_mapping,
-    pending_report_section_states as _pending_report_section_states,
-    report_sections_state as _report_sections_state,
-    resolved_report_section_states as _resolved_report_section_states,
+    report_sections_state,
+    stream_from_pending_report_sections,
+    stream_from_resolved_report_sections,
 )
 from gabion.analysis.foundation.timeout_context import TimeoutContext, pack_call_stack
 from gabion.foundation.replayable_stream import ReplayableStream, empty_stream
@@ -71,12 +71,12 @@ def _build_report_sections_state(
     resolved_sections: dict[str, list[str]] | None = None,
     pending_sections: tuple[PendingReportSectionState, ...] = (),
 ) -> ReportSectionsState:
-    return _report_sections_state(
-        resolved_sections=_resolved_report_section_states(
+    return report_sections_state(
+        resolved_sections=stream_from_resolved_report_sections(
             iter((resolved_sections or {}).items())
         ),
         pending_sections=(
-            _pending_report_section_states(iter(pending_sections))
+            stream_from_pending_report_sections(iter(pending_sections))
             if pending_sections
             else None
         ),
