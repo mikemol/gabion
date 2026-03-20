@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from enum import Enum
+from itertools import tee
 from pathlib import Path
 from typing import Mapping, Protocol
 
@@ -107,7 +109,12 @@ class ReportCheckpointState:
 @dataclass(frozen=True)
 class ReportSectionState:
     section_id: str
-    lines: tuple[str, ...] = ()
+    _line_iterator_factory: Callable[[], Iterator[str]] = field(
+        default_factory=lambda: (lambda: iter(()))
+    )
+
+    def lines(self) -> Iterator[str]:
+        return self._line_iterator_factory()
 
 
 @dataclass(frozen=True)
@@ -120,13 +127,18 @@ class PendingReportSectionState:
 
 @dataclass(frozen=True)
 class ReportSectionsState:
-    resolved_sections: tuple[ReportSectionState, ...] = ()
+    _resolved_section_iterator_factory: Callable[[], Iterator[ReportSectionState]] = field(
+        default_factory=lambda: (lambda: iter(()))
+    )
     pending_sections: tuple[PendingReportSectionState, ...] = ()
+
+    def resolved_sections(self) -> Iterator[ReportSectionState]:
+        return self._resolved_section_iterator_factory()
 
     def resolved_mapping(self) -> dict[str, list[str]]:
         return {
-            section.section_id: list(section.lines)
-            for section in self.resolved_sections
+            section.section_id: list(section.lines())
+            for section in self.resolved_sections()
         }
 
     def pending_reason_mapping(self) -> dict[str, str]:
@@ -136,7 +148,21 @@ class ReportSectionsState:
         }
 
     def section_ids(self) -> tuple[str, ...]:
-        return tuple(section.section_id for section in self.resolved_sections)
+        return tuple(section.section_id for section in self.resolved_sections())
+
+    def resolved_section_count(self) -> int:
+        return sum(1 for _ in self.resolved_sections())
+
+
+def tee_iterator_factory[T](items: Iterator[T]) -> Callable[[], Iterator[T]]:
+    source = items
+
+    def iter_items() -> Iterator[T]:
+        nonlocal source
+        source, clone = tee(source)
+        return clone
+
+    return iter_items
 
 
 @dataclass(frozen=True)

@@ -279,7 +279,7 @@ def test_finalize_report_refactor_enabled_without_payload_keeps_report_stable(
         ),
     )
     assert outcome.materialized_report is not None
-    assert outcome.materialized_report.sections_state.resolved_sections
+    assert outcome.materialized_report.sections_state.resolved_section_count() > 0
 
 
 # gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator.TimeoutResumeProgressState.__init__
