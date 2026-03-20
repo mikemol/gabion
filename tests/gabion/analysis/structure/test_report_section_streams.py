@@ -4,6 +4,9 @@ from gabion.analysis.dataflow.io.dataflow_snapshot_io import (
     extract_report_sections,
     iter_report_sections,
 )
+from gabion.analysis.dataflow.io.dataflow_report_sections import (
+    resolved_report_section_states,
+)
 
 
 # gabion:evidence E:function_site::dataflow/io/dataflow_snapshot_io.py::gabion.analysis.dataflow.io.dataflow_snapshot_io.iter_report_sections E:function_site::dataflow/io/dataflow_snapshot_io.py::gabion.analysis.dataflow.io.dataflow_snapshot_io.extract_report_sections
@@ -21,7 +24,7 @@ def test_report_section_streams_are_replayable_and_preserve_lines() -> None:
 
     def collect_sections() -> dict[str, list[str]]:
         return {
-            section.section_id: list(section._line_iterator_factory())
+            section.section_id: list(section.lines)
             for section in iter_report_sections(markdown)
         }
 
@@ -30,3 +33,29 @@ def test_report_section_streams_are_replayable_and_preserve_lines() -> None:
         "beta": ["line-b1", "line-b2"],
     }
     assert collect_sections() == extract_report_sections(markdown)
+
+
+def test_resolved_report_section_states_replay_after_multiple_consumers() -> None:
+    section_stream = resolved_report_section_states(
+        iter(
+            (
+                ("alpha", ["line-a"]),
+                ("beta", ["line-b1", "line-b2"]),
+            )
+        )
+    )
+
+    def collect_sections() -> dict[str, list[str]]:
+        return {
+            section.section_id: list(section.lines)
+            for section in section_stream
+        }
+
+    assert collect_sections() == {
+        "alpha": ["line-a"],
+        "beta": ["line-b1", "line-b2"],
+    }
+    assert collect_sections() == {
+        "alpha": ["line-a"],
+        "beta": ["line-b1", "line-b2"],
+    }

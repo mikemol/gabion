@@ -3,16 +3,15 @@
 # gabion:grade_boundary kind=semantic_carrier_adapter name=dataflow_report_section_contracts
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
+
+from gabion.foundation.replayable_stream import ReplayableStream, empty_stream
 
 
 @dataclass(frozen=True)
 class ReportSectionState:
     section_id: str
-    _line_iterator_factory: Callable[[], Iterator[str]] = field(
-        default_factory=lambda: (lambda: iter(()))
-    )
+    lines: ReplayableStream[str] = field(default_factory=empty_stream)
 
 
 @dataclass(frozen=True)
@@ -25,12 +24,12 @@ class PendingReportSectionState:
 
 @dataclass(frozen=True)
 class ReportSectionsState:
-    _resolved_section_iterator_factory: Callable[[], Iterator[ReportSectionState]] = field(
-        default_factory=lambda: (lambda: iter(()))
+    resolved_sections: ReplayableStream[ReportSectionState] = field(
+        default_factory=empty_stream
     )
-    _pending_section_iterator_factory: Callable[
-        [], Iterator[PendingReportSectionState]
-    ] = field(default_factory=lambda: (lambda: iter(())))
+    pending_sections: ReplayableStream[PendingReportSectionState] = field(
+        default_factory=empty_stream
+    )
 
 
 __all__ = [

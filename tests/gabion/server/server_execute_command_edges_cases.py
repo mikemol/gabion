@@ -26,6 +26,7 @@ from gabion.analysis.dataflow.io.dataflow_report_sections import (
     resolved_report_section_states as _resolved_report_section_states,
 )
 from gabion.analysis.foundation.timeout_context import TimeoutContext, pack_call_stack
+from gabion.foundation.replayable_stream import ReplayableStream, empty_stream
 from gabion.exceptions import NeverThrown
 from gabion.analysis.core import (
     ambiguity_delta, ambiguity_state)
@@ -57,11 +58,11 @@ class _DummyNotifyingServer(_DummyServer):
 
 
 def _collect_report_sections(
-    section_stream: Callable[[], Iterator[server.orchestrator.ReportSectionState]],
+    section_stream: ReplayableStream[server.orchestrator.ReportSectionState],
 ) -> dict[str, list[str]]:
     return {
-        section.section_id: list(section._line_iterator_factory())
-        for section in section_stream()
+        section.section_id: list(section.lines)
+        for section in section_stream
     }
 
 
@@ -4028,7 +4029,7 @@ def test_execute_command_total_timeout_intro_fallback_bootstrap(
         ),
         deps=server._default_execute_command_deps().with_overrides(
             write_bootstrap_incremental_artifacts_fn=lambda **_kwargs: None,
-            load_report_section_journal_fn=lambda **_kwargs: ((lambda: iter(())), None),
+            load_report_section_journal_fn=lambda **_kwargs: (empty_stream(), None),
             analyze_paths_fn=lambda *_args, **_kwargs: (_ for _ in ()).throw(
                 _timeout_exc(progress={"classification": "timed_out_no_progress"})
             ),

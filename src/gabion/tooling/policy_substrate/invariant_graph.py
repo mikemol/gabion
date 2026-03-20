@@ -21,11 +21,9 @@ from pathlib import Path
 import re
 from typing import cast
 
-from gabion.analysis.aspf.aspf_lattice_algebra import (
-    ReplayableStream,
-    canonical_structural_identity,
-)
+from gabion.analysis.aspf.aspf_lattice_algebra import canonical_structural_identity
 from gabion.analysis.foundation.marker_protocol import SemanticLinkKind
+from gabion.foundation.replayable_stream import ReplayableStream
 from gabion.frontmatter import parse_strict_yaml_frontmatter
 from gabion.invariants import never
 from gabion.order_contract import ordered_or_sorted

@@ -7,8 +7,8 @@ import json
 from pathlib import Path
 from typing import Any, cast
 
-from gabion.analysis.aspf.aspf_lattice_algebra import ReplayableStream
 from gabion.analysis.foundation.json_types import JSONValue
+from gabion.foundation.replayable_stream import ReplayableStream, empty_stream
 
 
 class ArtifactUnitKind(StrEnum):
@@ -52,7 +52,7 @@ class ArtifactColumn:
 
 
 def _empty_stream() -> ReplayableStream[ArtifactUnit]:
-    return ReplayableStream(factory=lambda: iter(()))
+    return empty_stream()
 
 
 @dataclass(frozen=True)

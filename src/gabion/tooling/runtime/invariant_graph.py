@@ -6,8 +6,9 @@ from dataclasses import dataclass
 import json
 from pathlib import Path
 
-from gabion.analysis.aspf.aspf_lattice_algebra import ReplayableStream, meet
+from gabion.analysis.aspf.aspf_lattice_algebra import meet
 from gabion.analysis.semantics import impact_index
+from gabion.foundation.replayable_stream import ReplayableStream
 from gabion.frontmatter import parse_strict_yaml_frontmatter
 from gabion.order_contract import ordered_or_sorted
 from gabion.tooling.policy_substrate.invariant_graph import (

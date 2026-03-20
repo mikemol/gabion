@@ -12,7 +12,7 @@ import hashlib
 import json
 from itertools import chain, groupby
 from pathlib import Path
-from typing import Callable, Generic, Iterable, Iterator, Mapping, TypeVar
+from typing import Iterable, Iterator, Mapping, TypeVar
 from gabion.analysis.kernel_vm.object_images import (
     AugmentedRule,
     ClosedRuleCell,
@@ -25,6 +25,7 @@ from gabion.analysis.kernel_vm.object_images import (
     JoinPattern,
     AntiJoinPattern,
 )
+from gabion.foundation.replayable_stream import ReplayableStream
 from gabion.invariants import never
 
 _StreamItem = TypeVar("_StreamItem")
@@ -53,18 +54,10 @@ _JOIN_PATTERN_OBJECT_IMAGE = JoinPattern
 _ANTI_JOIN_PATTERN_OBJECT_IMAGE = AntiJoinPattern
 
 
-@dataclass(frozen=True)
-class ReplayableStream(Generic[_StreamItem]):
-    factory: Callable[[], Iterator[_StreamItem]]
-
-    def __iter__(self) -> Iterator[_StreamItem]:
-        return self.factory()
-
-
 def _stream_from_sequence(
     values: tuple[_StreamItem, ...],
 ) -> ReplayableStream[_StreamItem]:
-    return ReplayableStream(factory=lambda: iter(values))
+    return ReplayableStream(factory=lambda values=values: iter(values))
 
 
 def canonical_site_identity(

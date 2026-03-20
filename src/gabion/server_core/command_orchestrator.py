@@ -44,7 +44,6 @@ from gabion.analysis.dataflow.io.dataflow_report_section_contracts import (
     ReportSectionsState,
 )
 from gabion.analysis.dataflow.io.dataflow_report_sections import (
-    pending_sections as _pending_sections,
     chain_report_section_states as _chain_report_section_states,
     empty_report_section_states as _empty_report_section_states,
     overlay_report_sections_with_journal_reason as _overlay_report_sections_with_journal_reason,
@@ -85,6 +84,11 @@ from gabion.analysis.surfaces import (
 )
 from gabion.analysis.taint import taint_delta, taint_lifecycle, taint_state
 from gabion.analysis.dataflow.io.dataflow_projection_helpers import report_projection_phase_rank
+from gabion.foundation.replayable_stream import (
+    ReplayableStream,
+    empty_stream,
+    stream_from_iterator,
+)
 from gabion.analysis.core.type_fingerprints import (
     Fingerprint,
     PrimeRegistry,
@@ -1631,8 +1635,8 @@ class MaterializedReportArtifacts:
     def __init__(
         self,
         *,
-        resolved_sections: Callable[[], Iterator[ReportSectionState]],
-        pending_sections: Callable[[], Iterator[PendingReportSectionState]] | None = None,
+        resolved_sections: ReplayableStream[ReportSectionState],
+        pending_sections: ReplayableStream[PendingReportSectionState] | None = None,
     ) -> None:
         object.__setattr__(
             self,
@@ -1650,9 +1654,9 @@ def _projection_row_section_id(row: JSONObject) -> str:
 
 
 def _resolved_section_count(
-    resolved_sections: Callable[[], Iterator[ReportSectionState]],
+    resolved_sections: ReplayableStream[ReportSectionState],
 ) -> int:
-    return sum(1 for _ in resolved_sections())
+    return sum(1 for _ in resolved_sections)
 
 
 def _projection_row_deps(row: Mapping[str, JSONValue]) -> tuple[str, ...]:
@@ -1670,17 +1674,17 @@ def _projection_row_deps(row: Mapping[str, JSONValue]) -> tuple[str, ...]:
 def _section_id_missing_from_resolved(
     section_id: str,
     *,
-    resolved_sections: Callable[[], Iterator[ReportSectionState]],
+    resolved_sections: ReplayableStream[ReportSectionState],
 ) -> bool:
     return bool(section_id) and all(
-        section.section_id != section_id for section in resolved_sections()
+        section.section_id != section_id for section in resolved_sections
     )
 
 
 def _report_sections_state(
     *,
-    resolved_sections: Callable[[], Iterator[ReportSectionState]],
-    pending_sections: Callable[[], Iterator[PendingReportSectionState]] | None = None,
+    resolved_sections: ReplayableStream[ReportSectionState],
+    pending_sections: ReplayableStream[PendingReportSectionState] | None = None,
 ) -> ReportSectionsState:
     return _build_report_sections_state(
         resolved_sections=resolved_sections,
@@ -2248,7 +2252,7 @@ def _run_analysis_with_progress(
                     "components",
                     resolved_sections=base_sections,
                 )
-                else _empty_report_section_states,
+                else _empty_report_section_states(),
             )
             projection_rows = list(
                 context.report_request_state.runtime_state.projection_state.projection_rows
@@ -3338,7 +3342,9 @@ def _finalize_report_and_violations(
             project_root=Path(root),
             report=report_carrier,
         )
-        resolved_sections_for_obligations = lambda: iter_report_sections(report_markdown)
+        resolved_sections_for_obligations = stream_from_iterator(
+            iter_report_sections(report_markdown)
+        )
         pending_projection_sections = _projection_pending_sections(
             projection_rows=list(
                 report_request_state.runtime_state.projection_state.projection_rows
@@ -3374,7 +3380,7 @@ def _finalize_report_and_violations(
             project_root=Path(root),
             report=report_carrier,
         )
-        resolved_sections = lambda: iter_report_sections(report_markdown)
+        resolved_sections = stream_from_iterator(iter_report_sections(report_markdown))
         final_pending_sections = _projection_pending_sections(
             projection_rows=list(
                 report_request_state.runtime_state.projection_state.projection_rows
@@ -3542,7 +3548,10 @@ class TimeoutReportOutcome:
                 if callable(ensure_report_sections_cache):
                     cached_sections, journal_reason = ensure_report_sections_cache()
                 else:
-                    cached_sections, journal_reason = (_empty_report_section_states, None)
+                    cached_sections, journal_reason = (
+                        _empty_report_section_states(),
+                        None,
+                    )
                 components_sections = (
                     _single_report_section_state(
                         section_id="components",
@@ -3554,7 +3563,7 @@ class TimeoutReportOutcome:
                         "components",
                         resolved_sections=cached_sections,
                     )
-                    else _empty_report_section_states
+                    else _empty_report_section_states()
                 )
                 if (
                     context.enable_phase_projection_checkpoints
@@ -3614,7 +3623,7 @@ class TimeoutReportOutcome:
                         "intro",
                         resolved_sections=base_sections,
                     )
-                    else _empty_report_section_states,
+                    else _empty_report_section_states(),
                 )
                 projection_rows = list(
                     context.report_runtime_state.projection_state.projection_rows
@@ -3652,7 +3661,7 @@ class TimeoutReportOutcome:
                 )
                 materialized_report = MaterializedReportArtifacts(
                     resolved_sections=resolved_sections_state,
-                    pending_sections=lambda: _pending_sections(report_sections_state),
+                    pending_sections=report_sections_state.pending_sections,
                 )
                 phase_checkpoint_state["timeout"] = {
                     "status": "timed_out",
@@ -5199,7 +5208,7 @@ def execute_command_total(
     )
     enable_phase_projection_checkpoints = False
     collection_resume_runtime_state = CollectionResumeRuntimeState()
-    report_sections_cache: Callable[[], Iterator[ReportSectionState]] = lambda: iter(())
+    report_sections_cache: ReplayableStream[ReportSectionState] = empty_stream()
     report_sections_cache_reason: str | None = None
     report_sections_cache_loaded = False
     runtime_state = CommandRuntimeState(
@@ -5232,7 +5241,7 @@ def execute_command_total(
     _emit_lsp_progress: Callable[..., None] = lambda **_kwargs: None
 
     def _ensure_report_sections_cache() -> tuple[
-        Callable[[], Iterator[ReportSectionState]],
+        ReplayableStream[ReportSectionState],
         str | None,
     ]:
         nonlocal report_sections_cache

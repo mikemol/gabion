@@ -48,6 +48,7 @@ from gabion.analysis.surfaces import test_obsolescence_delta
 from gabion.analysis.surfaces import test_obsolescence_state
 from gabion.analysis.surfaces import test_evidence_suggestions
 from gabion.analysis.foundation.timeout_context import (Deadline, GasMeter, TimeoutExceeded, check_deadline, get_deadline, get_deadline_clock, record_deadline_io, reset_deadline_clock, reset_forest, set_forest, reset_deadline_profile, reset_deadline, set_deadline_profile, set_deadline, set_deadline_clock)
+from gabion.foundation.replayable_stream import ReplayableStream
 from gabion.invariants import never
 from gabion.order_contract import sort_once
 from gabion.config import (dataflow_defaults, dataflow_deadline_roots, decision_defaults, decision_ignore_list, decision_require_tiers, decision_tier_map, exception_defaults, exception_never_list, fingerprint_defaults, taint_boundary_registry, taint_defaults, taint_profile, merge_payload)
@@ -495,13 +496,13 @@ def _coerce_section_lines(value: object) -> list[str]:
     )
 
 
-def _empty_report_section_stream() -> Callable[[], Iterator[ReportSectionState]]:
-    return _empty_report_section_states
+def _empty_report_section_stream() -> ReplayableStream[ReportSectionState]:
+    return _empty_report_section_states()
 
 
 def _report_section_stream(
     entries: Iterator[tuple[str, list[str]]],
-) -> Callable[[], Iterator[ReportSectionState]]:
+) -> ReplayableStream[ReportSectionState]:
     return _resolved_report_section_states(entries)
 
 
@@ -509,7 +510,7 @@ def _load_report_section_journal(
     *,
     path: Path | None,
     witness_digest: str | None,
-) -> tuple[Callable[[], Iterator[ReportSectionState]], str | None]:
+) -> tuple[ReplayableStream[ReportSectionState], str | None]:
     if path is None or not path.exists():
         return _empty_report_section_stream(), None
     try:

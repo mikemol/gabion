@@ -3,9 +3,8 @@
 # gabion:grade_boundary kind=semantic_carrier_adapter name=dataflow_report_sections
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
-from itertools import chain, tee
 
 from gabion.analysis.dataflow.io.dataflow_report_section_contracts import (
     PendingReportSectionState,
@@ -13,6 +12,15 @@ from gabion.analysis.dataflow.io.dataflow_report_section_contracts import (
     ReportSectionsState,
 )
 from gabion.analysis.foundation.timeout_context import check_deadline
+from gabion.foundation.replayable_stream import (
+    ReplayableStream,
+    chain_streams,
+    empty_stream,
+    map_stream,
+    stream_from_iterable,
+    stream_from_iterator,
+    stream_from_single,
+)
 
 _REPORT_SECTION_MARKER_PREFIX = "<!-- report-section:"
 _REPORT_SECTION_MARKER_SUFFIX = "-->"
@@ -24,31 +32,20 @@ class ReportSectionMarkerParseResult:
     section_id: str = ""
 
 
-def tee_iterator_factory[T](items: Iterator[T]) -> Callable[[], Iterator[T]]:
-    source = items
-
-    def iter_items() -> Iterator[T]:
-        nonlocal source
-        source, clone = tee(source)
-        return clone
-
-    return iter_items
-
-
 def report_section_lines(section: ReportSectionState) -> Iterator[str]:
-    return section._line_iterator_factory()
+    return iter(section.lines)
 
 
 def resolved_sections(
     sections_state: ReportSectionsState,
 ) -> Iterator[ReportSectionState]:
-    return sections_state._resolved_section_iterator_factory()
+    return iter(sections_state.resolved_sections)
 
 
 def pending_sections(
     sections_state: ReportSectionsState,
 ) -> Iterator[PendingReportSectionState]:
-    return sections_state._pending_section_iterator_factory()
+    return iter(sections_state.pending_sections)
 
 
 def report_section_marker(section_id: str) -> str:
@@ -71,66 +68,64 @@ def report_section_marker_parse_result(line: str) -> ReportSectionMarkerParseRes
 
 def resolved_report_section_states(
     resolved_sections: Iterator[tuple[str, Iterator[str] | Iterable[str]]],
-) -> Callable[[], Iterator[ReportSectionState]]:
-    section_iterator_factory = tee_iterator_factory(resolved_sections)
-
-    def iter_sections() -> Iterator[ReportSectionState]:
-        for section_id, section_lines in section_iterator_factory():
-            yield ReportSectionState(
-                section_id=section_id,
-                _line_iterator_factory=tee_iterator_factory(iter(section_lines)),
+) -> ReplayableStream[ReportSectionState]:
+    replayable_entries = stream_from_iterator(
+        (
+            (
+                section_id,
+                stream_from_iterator(iter(section_lines)),
             )
-
-    return iter_sections
+            for section_id, section_lines in resolved_sections
+        )
+    )
+    return map_stream(
+        replayable_entries,
+        lambda entry: ReportSectionState(section_id=entry[0], lines=entry[1]),
+    )
 
 
 def single_report_section_state(
     *,
     section_id: str,
     lines: Iterable[str],
-) -> Callable[[], Iterator[ReportSectionState]]:
-    line_iterator_factory = tee_iterator_factory(iter(lines))
-
-    def iter_sections() -> Iterator[ReportSectionState]:
-        yield ReportSectionState(
+) -> ReplayableStream[ReportSectionState]:
+    return stream_from_single(
+        ReportSectionState(
             section_id=section_id,
-            _line_iterator_factory=line_iterator_factory,
+            lines=stream_from_iterable(lines),
         )
-
-    return iter_sections
-
-
-def chain_report_section_states(
-    *section_streams: Callable[[], Iterator[ReportSectionState]],
-) -> Callable[[], Iterator[ReportSectionState]]:
-    return lambda: chain.from_iterable(
-        section_stream() for section_stream in section_streams
     )
 
 
-def empty_report_section_states() -> Iterator[ReportSectionState]:
-    return iter(())
+def chain_report_section_states(
+    *section_streams: ReplayableStream[ReportSectionState],
+) -> ReplayableStream[ReportSectionState]:
+    return chain_streams(*section_streams)
+
+
+def empty_report_section_states() -> ReplayableStream[ReportSectionState]:
+    return empty_stream()
 
 
 def pending_report_section_states(
     entries: Iterator[PendingReportSectionState],
-) -> Callable[[], Iterator[PendingReportSectionState]]:
-    return tee_iterator_factory(entries)
+) -> ReplayableStream[PendingReportSectionState]:
+    return stream_from_iterator(entries)
 
 
 def resolved_section_mapping(
-    resolved_sections: Callable[[], Iterator[ReportSectionState]],
+    resolved_sections: ReplayableStream[ReportSectionState],
 ) -> dict[str, list[str]]:
     return {
         section.section_id: list(report_section_lines(section))
-        for section in resolved_sections()
+        for section in resolved_sections
     }
 
 
 def resolved_mapping(
     sections_state: ReportSectionsState,
 ) -> dict[str, list[str]]:
-    return resolved_section_mapping(lambda: resolved_sections(sections_state))
+    return resolved_section_mapping(sections_state.resolved_sections)
 
 
 def pending_reason_mapping(
@@ -162,14 +157,12 @@ def report_sections_resolved_count(
 
 def report_sections_state(
     *,
-    resolved_sections: Callable[[], Iterator[ReportSectionState]],
-    pending_sections: Callable[[], Iterator[PendingReportSectionState]] | None = None,
+    resolved_sections: ReplayableStream[ReportSectionState],
+    pending_sections: ReplayableStream[PendingReportSectionState] | None = None,
 ) -> ReportSectionsState:
     return ReportSectionsState(
-        _resolved_section_iterator_factory=resolved_sections,
-        _pending_section_iterator_factory=(
-            pending_sections if pending_sections is not None else (lambda: iter(()))
-        ),
+        resolved_sections=resolved_sections,
+        pending_sections=pending_sections if pending_sections is not None else empty_stream(),
     )
 
 
@@ -191,12 +184,12 @@ def _projection_row_deps(row: Mapping[str, object]) -> tuple[str, ...]:
 def projection_pending_sections(
     *,
     projection_rows: Sequence[Mapping[str, object]],
-    resolved_sections: Callable[[], Iterator[ReportSectionState]],
+    resolved_sections: ReplayableStream[ReportSectionState],
     journal_reason: str | None = None,
-) -> Callable[[], Iterator[PendingReportSectionState]]:
+) -> ReplayableStream[PendingReportSectionState]:
     def iter_pending_sections() -> Iterator[PendingReportSectionState]:
         resolved_section_ids = {
-            section.section_id for section in resolved_sections() if section.section_id
+            section.section_id for section in resolved_sections if section.section_id
         }
         for row in projection_rows:
             check_deadline()
@@ -220,7 +213,7 @@ def projection_pending_sections(
                 reason=reason,
             )
 
-    return pending_report_section_states(iter_pending_sections())
+    return stream_from_iterator(iter_pending_sections())
 
 
 def overlay_report_sections_with_journal_reason(
@@ -234,12 +227,12 @@ def overlay_report_sections_with_journal_reason(
 
     overlay_pending = projection_pending_sections(
         projection_rows=projection_rows,
-        resolved_sections=lambda: resolved_sections(sections_state),
+        resolved_sections=sections_state.resolved_sections,
         journal_reason=journal_reason,
     )
 
     def iter_pending_sections() -> Iterator[PendingReportSectionState]:
-        overlay_sections = tuple(overlay_pending())
+        overlay_sections = tuple(overlay_pending)
         overlay_ids = {section.section_id for section in overlay_sections}
         yield from overlay_sections
         for section in pending_sections(sections_state):
@@ -247,8 +240,8 @@ def overlay_report_sections_with_journal_reason(
                 yield section
 
     return report_sections_state(
-        resolved_sections=lambda: resolved_sections(sections_state),
-        pending_sections=pending_report_section_states(iter_pending_sections()),
+        resolved_sections=sections_state.resolved_sections,
+        pending_sections=stream_from_iterator(iter_pending_sections()),
     )
 
 
@@ -265,11 +258,7 @@ def iter_report_sections(markdown: str) -> Iterator[ReportSectionState]:
         if has_active_section:
             yield ReportSectionState(
                 section_id=active_section_id,
-                _line_iterator_factory=(
-                    lambda lines=markdown_lines,
-                    start_index=active_start_index,
-                    end_index=line_index: iter(lines[start_index:end_index])
-                ),
+                lines=stream_from_iterable(markdown_lines[active_start_index:line_index]),
             )
         active_section_id = marker_result.section_id
         active_start_index = line_index + 1
@@ -277,10 +266,7 @@ def iter_report_sections(markdown: str) -> Iterator[ReportSectionState]:
     if has_active_section:
         yield ReportSectionState(
             section_id=active_section_id,
-            _line_iterator_factory=(
-                lambda lines=markdown_lines,
-                start_index=active_start_index: iter(lines[start_index:])
-            ),
+            lines=stream_from_iterable(markdown_lines[active_start_index:]),
         )
 
 
@@ -314,5 +300,4 @@ __all__ = [
     "resolved_section_mapping",
     "resolved_sections",
     "single_report_section_state",
-    "tee_iterator_factory",
 ]

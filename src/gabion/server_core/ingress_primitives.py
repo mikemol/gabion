@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import threading
-from collections.abc import Iterator
 from dataclasses import dataclass, replace
 from typing import Callable
 
@@ -9,6 +8,7 @@ from gabion.analysis import AnalysisResult
 from gabion.analysis.dataflow.io.dataflow_report_section_contracts import (
     ReportSectionState,
 )
+from gabion.foundation.replayable_stream import ReplayableStream
 from gabion.json_types import JSONObject
 from gabion.server_core.command_contract import ProgressTraceStateContract
 
@@ -23,7 +23,7 @@ class AnalysisDeps:
     collection_semantic_progress_fn: Callable[..., JSONObject]
     project_report_sections_fn: Callable[
         ...,
-        Callable[[], Iterator[ReportSectionState]],
+        ReplayableStream[ReportSectionState],
     ]
     report_projection_spec_rows_fn: Callable[[], list[JSONObject]]
 
@@ -34,7 +34,7 @@ class OutputDeps:
     write_bootstrap_incremental_artifacts_fn: Callable[..., None]
     load_report_section_journal_fn: Callable[
         ...,
-        tuple[Callable[[], Iterator[ReportSectionState]], str | None],
+        tuple[ReplayableStream[ReportSectionState], str | None],
     ]
 
 

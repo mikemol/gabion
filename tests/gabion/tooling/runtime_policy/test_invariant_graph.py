@@ -9,7 +9,7 @@ import pytest
 
 from tests.path_helpers import REPO_ROOT
 
-from gabion.analysis.aspf.aspf_lattice_algebra import ReplayableStream
+from gabion.foundation.replayable_stream import ReplayableStream, stream_from_iterable
 from gabion.tooling.policy_substrate import invariant_graph
 from gabion.tooling.policy_substrate.projection_semantic_fragment_phase5_registry import (
     phase5_workstream_registry,
@@ -188,7 +188,7 @@ def _sample_decorated_line(root: Path) -> int:
 
 
 def _stream_from_items(items):
-    return ReplayableStream(factory=lambda items=tuple(items): iter(items))
+    return stream_from_iterable(tuple(items))
 
 
 def _synthetic_workstreams_payload(workstreams: list[dict[str, object]]) -> dict[str, object]:

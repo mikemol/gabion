@@ -8,7 +8,7 @@ from collections.abc import Iterator
 from functools import singledispatch
 from itertools import tee
 from pathlib import Path
-from typing import Callable, cast
+from typing import cast
 
 from gabion.analysis.dataflow.engine.dataflow_analysis_index import (
     _build_analysis_collection_resume_payload,
@@ -25,7 +25,6 @@ from gabion.analysis.dataflow.io.dataflow_report_section_contracts import (
 )
 from gabion.analysis.dataflow.io.dataflow_report_sections import (
     iter_report_sections,
-    tee_iterator_factory,
 )
 from gabion.analysis.dataflow.io.dataflow_reporting import render_report
 from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
@@ -37,6 +36,7 @@ from gabion.analysis.dataflow.io.forest_signature_metadata import apply_forest_s
 from gabion.analysis.foundation.resume_codec import mapping_default_empty, mapping_optional, sequence_optional
 from gabion.analysis.core.structure_reuse_classes import build_structure_class, structure_class_payload
 from gabion.analysis.foundation.timeout_context import check_deadline
+from gabion.foundation.replayable_stream import ReplayableStream, stream_from_iterable, stream_from_iterator
 from gabion.invariants import grade_boundary, never, todo
 from gabion.order_contract import sort_once
 _NONE_TYPE = type(None)
@@ -562,7 +562,7 @@ def project_report_sections(
     max_phase=None,
     include_previews: bool = False,
     preview_only: bool = False,
-) -> Callable[[], Iterator[ReportSectionState]]:
+) -> ReplayableStream[ReportSectionState]:
     check_deadline()
     rendered = ""
     if not preview_only:
@@ -608,12 +608,10 @@ def project_report_sections(
             if lines:
                 yield ReportSectionState(
                     section_id=spec.section_id,
-                    _line_iterator_factory=(
-                        lambda section_lines=lines: iter(section_lines)
-                    ),
+                    lines=stream_from_iterable(lines),
                 )
 
-    return tee_iterator_factory(iter_selected_sections())
+    return stream_from_iterator(iter_selected_sections())
 
 
 def _bundle_name_registry(root: Path) -> dict[tuple[str, ...], set[str]]:
