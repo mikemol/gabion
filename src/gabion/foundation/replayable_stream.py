@@ -30,6 +30,12 @@ def stream_from_iterable[T](values: Iterable[T]) -> ReplayableStream[T]:
     return ReplayableStream(factory=lambda: iter(values))
 
 
+def stream_from_factory[T](
+    factory: Callable[[], Iterator[T]],
+) -> ReplayableStream[T]:
+    return ReplayableStream(factory=factory)
+
+
 def stream_from_iterator[T](values: Iterator[T]) -> ReplayableStream[T]:
     source = values
 
@@ -59,6 +65,7 @@ __all__ = [
     "chain_streams",
     "empty_stream",
     "map_stream",
+    "stream_from_factory",
     "stream_from_iterable",
     "stream_from_iterator",
     "stream_from_single",

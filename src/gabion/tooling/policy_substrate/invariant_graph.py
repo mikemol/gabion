@@ -23,7 +23,7 @@ from typing import cast
 
 from gabion.analysis.aspf.aspf_lattice_algebra import canonical_structural_identity
 from gabion.analysis.foundation.marker_protocol import SemanticLinkKind
-from gabion.foundation.replayable_stream import ReplayableStream
+from gabion.foundation.replayable_stream import ReplayableStream, stream_from_factory
 from gabion.frontmatter import parse_strict_yaml_frontmatter
 from gabion.invariants import never
 from gabion.order_contract import ordered_or_sorted
@@ -202,7 +202,7 @@ def _sorted[T](values: list[T], *, key=None) -> list[T]:
 
 
 def _stream_from_iterable[T](factory) -> ReplayableStream[T]:
-    return ReplayableStream(factory=factory)
+    return stream_from_factory(factory)
 
 
 @dataclass(frozen=True)

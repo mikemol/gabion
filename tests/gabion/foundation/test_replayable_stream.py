@@ -3,6 +3,7 @@ from __future__ import annotations
 from gabion.foundation.replayable_stream import (
     chain_streams,
     map_stream,
+    stream_from_factory,
     stream_from_iterable,
     stream_from_iterator,
     stream_from_single,
@@ -21,6 +22,13 @@ def test_stream_from_single_is_stable() -> None:
 
     assert list(stream) == ["alpha"]
     assert list(stream) == ["alpha"]
+
+
+def test_stream_from_factory_is_replayable() -> None:
+    stream = stream_from_factory(lambda: iter(("x", "y")))
+
+    assert list(stream) == ["x", "y"]
+    assert list(stream) == ["x", "y"]
 
 
 def test_chain_streams_preserves_composition_order() -> None:

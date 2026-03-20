@@ -43,6 +43,7 @@ from gabion.analysis.aspf.aspf import Forest, NodeId, structural_key_atom
 from gabion.analysis.dataflow.io.dataflow_report_section_contracts import (
     ReportSectionsState,
 )
+from gabion.foundation.replayable_stream import ReplayableStream
 from gabion.analysis.core import ambiguity_delta
 from gabion.analysis.core import ambiguity_state
 from gabion.analysis.call_cluster import call_cluster_consolidation
@@ -868,7 +869,7 @@ def _load_report_section_journal(
     *,
     path: Path | None,
     witness_digest: str | None,
-) -> tuple[Callable[[], Iterator[orchestrator.ReportSectionState]], str | None]:
+) -> tuple[ReplayableStream[orchestrator.ReportSectionState], str | None]:
     return orchestrator_primitives.load_report_section_journal(
         path=path,
         witness_digest=witness_digest,

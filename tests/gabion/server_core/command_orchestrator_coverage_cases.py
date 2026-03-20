@@ -14,6 +14,7 @@ from gabion.analysis.foundation.identity_shadow_runtime import (
     build_identity_shadow_runtime,
 )
 from gabion.analysis.foundation.identity_shadow_session import IdentityShadowSession
+from gabion.foundation.replayable_stream import empty_stream
 from gabion.exceptions import NeverThrown
 from gabion.server_core import command_orchestrator as orchestrator
 
@@ -228,7 +229,7 @@ def _analysis_context(
         emit_phase_progress_events=False,
         fingerprint_deadness_json=None,
         emit_lsp_progress_fn=lambda **_kwargs: None,
-        ensure_report_sections_cache_fn=lambda: ((lambda: iter(())), None),
+        ensure_report_sections_cache_fn=lambda: (empty_stream(), None),
         clear_report_sections_cache_reason_fn=lambda: None,
         check_deadline_fn=lambda: None,
         profiling_stage_ns={"server.analysis_call": 0, "server.projection_emit": 0},

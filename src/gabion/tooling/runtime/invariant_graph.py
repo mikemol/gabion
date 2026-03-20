@@ -8,7 +8,7 @@ from pathlib import Path
 
 from gabion.analysis.aspf.aspf_lattice_algebra import meet
 from gabion.analysis.semantics import impact_index
-from gabion.foundation.replayable_stream import ReplayableStream
+from gabion.foundation.replayable_stream import ReplayableStream, stream_from_factory
 from gabion.frontmatter import parse_strict_yaml_frontmatter
 from gabion.order_contract import ordered_or_sorted
 from gabion.tooling.policy_substrate.invariant_graph import (
@@ -2606,8 +2606,8 @@ def _print_compare(
             generated_at_utc=ledger_delta_projections.generated_at_utc,
             before_workstreams_artifact=ledger_delta_projections.before_workstreams_artifact,
             after_workstreams_artifact=ledger_delta_projections.after_workstreams_artifact,
-            deltas=ReplayableStream(
-                factory=lambda filtered_deltas=filtered_deltas: iter(filtered_deltas)
+            deltas=stream_from_factory(
+                lambda filtered_deltas=filtered_deltas: iter(filtered_deltas)
             ),
         )
     write_invariant_ledger_deltas(ledger_deltas_artifact, ledger_delta_projections)

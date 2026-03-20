@@ -8,7 +8,11 @@ from pathlib import Path
 from typing import Any, cast
 
 from gabion.analysis.foundation.json_types import JSONValue
-from gabion.foundation.replayable_stream import ReplayableStream, empty_stream
+from gabion.foundation.replayable_stream import (
+    ReplayableStream,
+    empty_stream,
+    stream_from_factory,
+)
 
 
 class ArtifactUnitKind(StrEnum):
@@ -82,7 +86,7 @@ def document(
         kind=ArtifactUnitKind.DOCUMENT,
         identity=identity,
         title=title,
-        children=ReplayableStream(factory=children),
+        children=stream_from_factory(children),
     )
 
 
@@ -98,7 +102,7 @@ def section(
         identity=identity,
         key=key,
         title=title,
-        children=ReplayableStream(factory=children),
+        children=stream_from_factory(children),
     )
 
 
@@ -146,7 +150,7 @@ def bullet_list(
         identity=identity,
         key=key,
         title=title,
-        children=ReplayableStream(factory=children),
+        children=stream_from_factory(children),
     )
 
 
@@ -162,7 +166,7 @@ def list_item(
         identity=identity,
         title=title,
         value=value,
-        children=ReplayableStream(factory=children) if children is not None else _empty_stream(),
+        children=stream_from_factory(children) if children is not None else _empty_stream(),
     )
 
 
@@ -180,7 +184,7 @@ def table(
         key=key,
         title=title,
         columns=tuple(columns),
-        children=ReplayableStream(factory=children),
+        children=stream_from_factory(children),
     )
 
 
@@ -192,7 +196,7 @@ def row(
     return ArtifactUnit(
         kind=ArtifactUnitKind.ROW,
         identity=identity,
-        children=ReplayableStream(factory=children),
+        children=stream_from_factory(children),
     )
 
 
@@ -220,7 +224,7 @@ def lazy(
     return ArtifactUnit(
         kind=ArtifactUnitKind.LAZY,
         identity=identity,
-        children=ReplayableStream(factory=children),
+        children=stream_from_factory(children),
     )
 
 

@@ -10,6 +10,7 @@ import pytest
 from gabion import server
 from gabion.analysis.aspf.aspf import Forest
 from gabion.analysis.dataflow.engine.dataflow_contracts import AnalysisResult
+from gabion.foundation.replayable_stream import empty_stream
 from gabion.exceptions import NeverThrown
 from gabion.execution_plan import ExecutionPlan
 from gabion.server_core import command_orchestrator as orchestrator
@@ -167,7 +168,7 @@ def _analysis_context(
         emit_lsp_progress_fn=lambda **kwargs: emitted_events.append(
             {str(key): kwargs[key] for key in kwargs}
         ),
-        ensure_report_sections_cache_fn=lambda: ((lambda: iter(())), None),
+        ensure_report_sections_cache_fn=lambda: (empty_stream(), None),
         clear_report_sections_cache_reason_fn=lambda: None,
         check_deadline_fn=lambda: None,
         profiling_stage_ns={"server.analysis_call": 0, "server.projection_emit": 0},
