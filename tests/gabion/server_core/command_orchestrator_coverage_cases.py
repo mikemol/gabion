@@ -228,7 +228,7 @@ def _analysis_context(
         emit_phase_progress_events=False,
         fingerprint_deadness_json=None,
         emit_lsp_progress_fn=lambda **_kwargs: None,
-        ensure_report_sections_cache_fn=lambda: ({}, None),
+        ensure_report_sections_cache_fn=lambda: ((lambda: iter(())), None),
         clear_report_sections_cache_reason_fn=lambda: None,
         check_deadline_fn=lambda: None,
         profiling_stage_ns={"server.analysis_call": 0, "server.projection_emit": 0},

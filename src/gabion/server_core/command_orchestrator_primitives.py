@@ -6,6 +6,7 @@ import hashlib
 import json
 import threading
 import time
+from collections.abc import Iterator
 from itertools import chain, repeat
 from datetime import (datetime, timezone)
 from dataclasses import dataclass
@@ -49,6 +50,7 @@ from gabion.server_core.ingress_primitives import (
     ProgressDeps,
     RuntimeDeps,
 )
+from gabion.server_core.command_contract import ReportSectionState, tee_iterator_factory
 from gabion.server_core.coercion_contract import (
     bool_optional as _bool_optional,
     float_optional as _float_optional,
@@ -481,45 +483,63 @@ def _coerce_section_lines(value: object) -> list[str]:
         )
     )
 
+
+def _empty_report_section_stream() -> Callable[[], Iterator[ReportSectionState]]:
+    return lambda: iter(())
+
+
+def _report_section_stream(
+    entries: Iterator[tuple[str, list[str]]],
+) -> Callable[[], Iterator[ReportSectionState]]:
+    entry_iterator_factory = tee_iterator_factory(entries)
+
+    def iter_sections() -> Iterator[ReportSectionState]:
+        for section_id, lines in entry_iterator_factory():
+            yield ReportSectionState(
+                section_id=section_id,
+                _line_iterator_factory=tee_iterator_factory(iter(lines)),
+            )
+
+    return iter_sections
+
+
 def _load_report_section_journal(
     *,
     path: Path | None,
     witness_digest: str | None,
-) -> tuple[dict[str, list[str]], str | None]:
+) -> tuple[Callable[[], Iterator[ReportSectionState]], str | None]:
     if path is None or not path.exists():
-        return {}, None
+        return _empty_report_section_stream(), None
     try:
         payload = json.loads(
             _read_text_profiled(path, io_name="report_section_journal.read")
         )
     except (OSError, UnicodeError, json.JSONDecodeError):
-        return {}, "policy"
+        return _empty_report_section_stream(), "policy"
     payload_mapping = _json_mapping_optional(payload)
     if payload_mapping is None:
-        return {}, "policy"
+        return _empty_report_section_stream(), "policy"
     if payload_mapping.get("format_version") != _REPORT_SECTION_JOURNAL_FORMAT_VERSION:
-        return {}, "policy"
+        return _empty_report_section_stream(), "policy"
     expected_digest_text = _str_optional(payload_mapping.get("witness_digest"))
     witness_digest_text = _str_optional(witness_digest)
     if expected_digest_text is not None:
         if witness_digest_text is None or expected_digest_text != witness_digest_text:
-            return {}, "stale_input"
+            return _empty_report_section_stream(), "stale_input"
     sections_payload = _json_mapping_optional(payload_mapping.get("sections"))
     if sections_payload is None:
-        return {}, "policy"
-    sections = dict(
-        filter(
-            _has_section_lines,
-            map(
-                _section_lines_item,
-                filter(
-                    _has_section_key_mapping,
-                    map(_normalize_section_entry, sections_payload.items()),
-                ),
+        return _empty_report_section_stream(), "policy"
+    normalized_entries = filter(
+        _has_section_lines,
+        map(
+            _section_lines_item,
+            filter(
+                _has_section_key_mapping,
+                map(_normalize_section_entry, sections_payload.items()),
             ),
         )
     )
-    return sections, None
+    return _report_section_stream(iter(normalized_entries)), None
 
 def _write_report_section_journal(
     *,

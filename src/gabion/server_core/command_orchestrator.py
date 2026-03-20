@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import dataclasses
 import json
-from collections.abc import Iterator, Mapping as MappingABC
+from collections.abc import Iterable, Iterator, Mapping as MappingABC
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from functools import singledispatch
 from hashlib import sha1
-from itertools import repeat, zip_longest
+from itertools import chain, repeat, zip_longest
 from operator import itemgetter
 from pathlib import Path
 import threading
@@ -1653,6 +1653,38 @@ def _resolved_report_section_states(
     return iter_sections
 
 
+def _single_report_section_state(
+    *,
+    section_id: str,
+    lines: Iterable[str],
+) -> Callable[[], Iterator[ReportSectionState]]:
+    line_iterator_factory = tee_iterator_factory(iter(lines))
+
+    def iter_sections() -> Iterator[ReportSectionState]:
+        yield ReportSectionState(
+            section_id=section_id,
+            _line_iterator_factory=line_iterator_factory,
+        )
+
+    return iter_sections
+
+
+def _chain_report_section_states(
+    *section_streams: Callable[[], Iterator[ReportSectionState]],
+) -> Callable[[], Iterator[ReportSectionState]]:
+    return lambda: chain.from_iterable(
+        section_stream() for section_stream in section_streams
+    )
+
+
+def _resolved_section_mapping(
+    resolved_sections: Callable[[], Iterator[ReportSectionState]],
+) -> dict[str, list[str]]:
+    return ReportSectionsState(
+        _resolved_section_iterator_factory=resolved_sections,
+    ).resolved_mapping()
+
+
 def _projection_row_deps(row: Mapping[str, JSONValue]) -> tuple[str, ...]:
     deps_raw = row.get("deps")
     if not isinstance(deps_raw, (list, tuple)):
@@ -1703,22 +1735,26 @@ def _report_sections_state(
         for row in projection_rows
         if _projection_row_section_id(row)
     }
-    pending_section_states = tuple(
-        PendingReportSectionState(
-            section_id=section_id,
-            phase=str(pending_rows_by_section.get(section_id, {}).get("phase", "") or ""),
-            deps=(
-                _projection_row_deps(pending_rows_by_section[section_id])
-                if section_id in pending_rows_by_section
-                else ()
-            ),
-            reason=reason,
+    pending_section_states = tee_iterator_factory(
+        iter(
+            PendingReportSectionState(
+                section_id=section_id,
+                phase=str(
+                    pending_rows_by_section.get(section_id, {}).get("phase", "") or ""
+                ),
+                deps=(
+                    _projection_row_deps(pending_rows_by_section[section_id])
+                    if section_id in pending_rows_by_section
+                    else ()
+                ),
+                reason=reason,
+            )
+            for section_id, reason in pending_reasons.items()
         )
-        for section_id, reason in pending_reasons.items()
     )
     return ReportSectionsState(
         _resolved_section_iterator_factory=resolved_sections,
-        pending_sections=pending_section_states,
+        _pending_section_iterator_factory=pending_section_states,
     )
 
 
@@ -2241,11 +2277,14 @@ def _run_analysis_with_progress(
             )
             last_collection_report_flush_ns = now_ns
             last_collection_report_flush_completed = completed_files
-            sections, journal_reason = context.ensure_report_sections_cache_fn()
-            sections["intro"] = _collection_progress_intro_lines(
-                collection_resume=persisted_progress_payload,
-                total_files=context.analysis_resume_state.projection_state.runtime_state.total_files,
-                resume_state_intro=context.analysis_resume_state.support_state.intro_state.payload,
+            cached_sections, journal_reason = context.ensure_report_sections_cache_fn()
+            intro_sections = _single_report_section_state(
+                section_id="intro",
+                lines=_collection_progress_intro_lines(
+                    collection_resume=persisted_progress_payload,
+                    total_files=context.analysis_resume_state.projection_state.runtime_state.total_files,
+                    resume_state_intro=context.analysis_resume_state.support_state.intro_state.payload,
+                ),
             )
             preview_groups_by_path = _groups_by_path_from_collection_resume(
                 persisted_progress_payload
@@ -2262,12 +2301,30 @@ def _run_analysis_with_progress(
                 include_previews=True,
                 preview_only=True,
             )
-            sections.update(preview_sections)
-            sections.setdefault(
-                "components",
-                _collection_components_preview_lines(
-                    collection_resume=persisted_progress_payload
-                ),
+            preview_sections_stream = _resolved_report_section_states(
+                iter(preview_sections.items())
+            )
+            sections = _resolved_section_mapping(
+                _chain_report_section_states(
+                    cached_sections,
+                    intro_sections,
+                    preview_sections_stream,
+                    _single_report_section_state(
+                        section_id="components",
+                        lines=_collection_components_preview_lines(
+                            collection_resume=persisted_progress_payload
+                        ),
+                    )
+                    if _section_id_missing_from_resolved(
+                        "components",
+                        resolved_sections=_chain_report_section_states(
+                            cached_sections,
+                            intro_sections,
+                            preview_sections_stream,
+                        ),
+                    )
+                    else (lambda: iter(())),
+                )
             )
             partial_report, pending_reasons = _render_incremental_report(
                 analysis_state="analysis_collection_in_progress",
@@ -2426,8 +2483,15 @@ def _run_analysis_with_progress(
                                 "section_count": len(available_sections),
                             },
                         ).emit(execute_deps=execute_deps, state=aspf_trace_state)
-                    sections, journal_reason = context.ensure_report_sections_cache_fn()
-                    sections.update(available_sections)
+                    cached_sections, journal_reason = context.ensure_report_sections_cache_fn()
+                    sections = _resolved_section_mapping(
+                        _chain_report_section_states(
+                            cached_sections,
+                            _resolved_report_section_states(
+                                iter(available_sections.items())
+                            ),
+                        )
+                    )
                     partial_report, pending_reasons = _render_incremental_report(
                         analysis_state=progress_analysis_state,
                         progress_payload={
@@ -3557,7 +3621,8 @@ class TimeoutReportOutcome:
                 phase_checkpoint_state = phase_checkpoint_state or {}
                 ensure_report_sections_cache = context.ensure_report_sections_cache_fn
                 if callable(ensure_report_sections_cache):
-                    resolved_sections, journal_reason = ensure_report_sections_cache()
+                    cached_sections, journal_reason = ensure_report_sections_cache()
+                    resolved_sections = _resolved_section_mapping(cached_sections)
                 else:
                     resolved_sections, journal_reason = ({}, None)
                 resolved_sections.setdefault(
@@ -5192,7 +5257,7 @@ def execute_command_total(
     )
     enable_phase_projection_checkpoints = False
     collection_resume_runtime_state = CollectionResumeRuntimeState()
-    report_sections_cache: dict[str, list[str]] = {}
+    report_sections_cache: Callable[[], Iterator[ReportSectionState]] = lambda: iter(())
     report_sections_cache_reason: str | None = None
     report_sections_cache_loaded = False
     runtime_state = CommandRuntimeState(
@@ -5224,7 +5289,10 @@ def execute_command_total(
 
     _emit_lsp_progress: Callable[..., None] = lambda **_kwargs: None
 
-    def _ensure_report_sections_cache() -> tuple[dict[str, list[str]], str | None]:
+    def _ensure_report_sections_cache() -> tuple[
+        Callable[[], Iterator[ReportSectionState]],
+        str | None,
+    ]:
         nonlocal report_sections_cache
         nonlocal report_sections_cache_reason
         nonlocal report_sections_cache_loaded

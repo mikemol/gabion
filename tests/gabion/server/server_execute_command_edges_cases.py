@@ -8,7 +8,7 @@ import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import MappingProxyType
-from typing import cast
+from typing import Callable, Iterator, cast
 
 import pytest
 from pydantic import ValidationError
@@ -43,6 +43,15 @@ class _DummyNotifyingServer(_DummyServer):
 
     def send_notification(self, method: str, params: dict[str, object]) -> None:
         self.notifications.append((method, params))
+
+
+def _collect_report_sections(
+    section_stream: Callable[[], Iterator[server.orchestrator.ReportSectionState]],
+) -> dict[str, list[str]]:
+    return {
+        section.section_id: list(section.lines())
+        for section in section_stream()
+    }
 
 
 @dataclass
@@ -2037,14 +2046,14 @@ def test_load_report_section_journal_validation_paths(tmp_path: Path) -> None:
         path=journal_path,
         witness_digest="wd",
     )
-    assert sections == {}
+    assert _collect_report_sections(sections) == {}
     assert reason is None
     journal_path.write_text("{")
     sections, reason = server._load_report_section_journal(
         path=journal_path,
         witness_digest="wd",
     )
-    assert sections == {}
+    assert _collect_report_sections(sections) == {}
     assert reason == "policy"
     journal_path.write_text(
         json.dumps(
@@ -2059,7 +2068,7 @@ def test_load_report_section_journal_validation_paths(tmp_path: Path) -> None:
         path=journal_path,
         witness_digest="wd",
     )
-    assert sections == {}
+    assert _collect_report_sections(sections) == {}
     assert reason == "stale_input"
     journal_path.write_text(
         json.dumps(
@@ -2079,7 +2088,7 @@ def test_load_report_section_journal_validation_paths(tmp_path: Path) -> None:
         witness_digest="wd",
     )
     assert reason is None
-    assert sections == {"intro": ["ok"], "1": ["ignored"]}
+    assert _collect_report_sections(sections) == {"intro": ["ok"], "1": ["ignored"]}
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_load_report_phase_checkpoint_validation_paths::server.py::gabion.server._load_report_phase_checkpoint
@@ -2981,13 +2990,19 @@ def test_latest_report_phase_and_truthy_flag_edges() -> None:
 # gabion:behavior primary=verboten facets=edge
 def test_report_section_journal_load_policy_and_stale_paths(tmp_path: Path) -> None:
     path = tmp_path / "sections.json"
-    assert server._load_report_section_journal(path=None, witness_digest=None) == ({}, None)
+    sections, reason = server._load_report_section_journal(path=None, witness_digest=None)
+    assert _collect_report_sections(sections) == {}
+    assert reason is None
     path.write_text("[]")
-    assert server._load_report_section_journal(path=path, witness_digest=None) == ({}, "policy")
+    sections, reason = server._load_report_section_journal(path=path, witness_digest=None)
+    assert _collect_report_sections(sections) == {}
+    assert reason == "policy"
     path.write_text(
         json.dumps({"format_version": 0, "sections": {}}, sort_keys=True) + "\n"
     )
-    assert server._load_report_section_journal(path=path, witness_digest=None) == ({}, "policy")
+    sections, reason = server._load_report_section_journal(path=path, witness_digest=None)
+    assert _collect_report_sections(sections) == {}
+    assert reason == "policy"
     path.write_text(
         json.dumps(
             {
@@ -2999,10 +3014,9 @@ def test_report_section_journal_load_policy_and_stale_paths(tmp_path: Path) -> N
         )
         + "\n"
     )
-    assert server._load_report_section_journal(path=path, witness_digest="new") == (
-        {},
-        "stale_input",
-    )
+    sections, reason = server._load_report_section_journal(path=path, witness_digest="new")
+    assert _collect_report_sections(sections) == {}
+    assert reason == "stale_input"
     path.write_text(
         json.dumps(
             {
@@ -3019,7 +3033,7 @@ def test_report_section_journal_load_policy_and_stale_paths(tmp_path: Path) -> N
     )
     sections, reason = server._load_report_section_journal(path=path, witness_digest="same")
     assert reason is None
-    assert sections == {"intro": ["ok"]}
+    assert _collect_report_sections(sections) == {"intro": ["ok"]}
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_report_phase_checkpoint_load_and_write_filters_invalid_entries::server.py::gabion.server._load_report_phase_checkpoint::server.py::gabion.server._write_report_phase_checkpoint
@@ -3330,7 +3344,7 @@ def test_collection_semantic_progress_and_journal_phase_edges(tmp_path: Path) ->
         + "\n"
     )
     sections, reason = server._load_report_section_journal(path=journal_path, witness_digest=None)
-    assert sections == {}
+    assert _collect_report_sections(sections) == {}
     assert reason == "policy"
     journal_path.write_text(
         json.dumps(
@@ -3343,7 +3357,7 @@ def test_collection_semantic_progress_and_journal_phase_edges(tmp_path: Path) ->
         + "\n"
     )
     sections, _ = server._load_report_section_journal(path=journal_path, witness_digest=None)
-    assert sections == {"ok": ["x"]}
+    assert _collect_report_sections(sections) == {"ok": ["x"]}
 
     assert not hasattr(server, "_load_report_phase_checkpoint")
     assert not hasattr(server, "_write_report_phase_checkpoint")
@@ -3913,7 +3927,7 @@ def test_execute_command_total_timeout_intro_fallback_bootstrap(
         ),
         deps=server._default_execute_command_deps().with_overrides(
             write_bootstrap_incremental_artifacts_fn=lambda **_kwargs: None,
-            load_report_section_journal_fn=lambda **_kwargs: ({}, None),
+            load_report_section_journal_fn=lambda **_kwargs: ((lambda: iter(())), None),
             analyze_paths_fn=lambda *_args, **_kwargs: (_ for _ in ()).throw(
                 _timeout_exc(progress={"classification": "timed_out_no_progress"})
             ),

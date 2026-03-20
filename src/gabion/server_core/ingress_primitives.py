@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import threading
+from collections.abc import Iterator
 from dataclasses import dataclass, replace
 from typing import Callable
 
 from gabion.analysis import AnalysisResult
 from gabion.json_types import JSONObject
-from gabion.server_core.command_contract import ProgressTraceStateContract
+from gabion.server_core.command_contract import (
+    ProgressTraceStateContract,
+    ReportSectionState,
+)
 
 
 @dataclass(frozen=True)
@@ -25,7 +29,10 @@ class AnalysisDeps:
 class OutputDeps:
     collection_checkpoint_flush_due_fn: Callable[..., bool]
     write_bootstrap_incremental_artifacts_fn: Callable[..., None]
-    load_report_section_journal_fn: Callable[..., tuple[dict[str, list[str]], str | None]]
+    load_report_section_journal_fn: Callable[
+        ...,
+        tuple[Callable[[], Iterator[ReportSectionState]], str | None],
+    ]
 
 
 @dataclass(frozen=True)

@@ -130,10 +130,15 @@ class ReportSectionsState:
     _resolved_section_iterator_factory: Callable[[], Iterator[ReportSectionState]] = field(
         default_factory=lambda: (lambda: iter(()))
     )
-    pending_sections: tuple[PendingReportSectionState, ...] = ()
+    _pending_section_iterator_factory: Callable[
+        [], Iterator[PendingReportSectionState]
+    ] = field(default_factory=lambda: (lambda: iter(())))
 
     def resolved_sections(self) -> Iterator[ReportSectionState]:
         return self._resolved_section_iterator_factory()
+
+    def pending_sections(self) -> Iterator[PendingReportSectionState]:
+        return self._pending_section_iterator_factory()
 
     def resolved_mapping(self) -> dict[str, list[str]]:
         return {
@@ -144,7 +149,7 @@ class ReportSectionsState:
     def pending_reason_mapping(self) -> dict[str, str]:
         return {
             section.section_id: section.reason
-            for section in self.pending_sections
+            for section in self.pending_sections()
         }
 
     def section_ids(self) -> tuple[str, ...]:
@@ -152,6 +157,9 @@ class ReportSectionsState:
 
     def resolved_section_count(self) -> int:
         return sum(1 for _ in self.resolved_sections())
+
+    def pending_section_count(self) -> int:
+        return sum(1 for _ in self.pending_sections())
 
 
 def tee_iterator_factory[T](items: Iterator[T]) -> Callable[[], Iterator[T]]:

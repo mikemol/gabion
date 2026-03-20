@@ -865,7 +865,7 @@ def _load_report_section_journal(
     *,
     path: Path | None,
     witness_digest: str | None,
-) -> tuple[dict[str, list[str]], str | None]:
+) -> tuple[Callable[[], Iterator[orchestrator.ReportSectionState]], str | None]:
     return orchestrator_primitives.load_report_section_journal(
         path=path,
         witness_digest=witness_digest,
