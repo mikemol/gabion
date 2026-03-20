@@ -47,16 +47,12 @@ from gabion.analysis.dataflow.io.dataflow_report_sections import (
     pending_sections as _pending_sections,
     chain_report_section_states as _chain_report_section_states,
     empty_report_section_states as _empty_report_section_states,
-    pending_reason_mapping as _pending_reason_mapping,
-    pending_report_section_states as _pending_report_section_states,
+    overlay_report_sections_with_journal_reason as _overlay_report_sections_with_journal_reason,
+    projection_pending_sections as _projection_pending_sections,
     report_section_ids as _report_section_ids,
-    report_section_lines as _section_lines,
     report_sections_resolved_count as _report_sections_resolved_count,
     report_sections_state as _build_report_sections_state,
-    resolved_mapping as _resolved_mapping,
     resolved_report_section_states as _resolved_report_section_states,
-    resolved_section_mapping as _resolved_section_mapping,
-    resolved_sections as _resolved_sections,
     single_report_section_state as _single_report_section_state,
 )
 from gabion.analysis.aspf.aspf import Forest
@@ -1681,62 +1677,6 @@ def _section_id_missing_from_resolved(
     )
 
 
-def _pending_projection_sections(
-    *,
-    projection_rows: list[JSONObject],
-    resolved_sections: Callable[[], Iterator[ReportSectionState]],
-) -> Callable[[], Iterator[PendingReportSectionState]]:
-    def iter_pending_sections() -> Iterator[PendingReportSectionState]:
-        for row in projection_rows:
-            section_id = _projection_row_section_id(row)
-            if not section_id:
-                continue
-            if not _section_id_missing_from_resolved(
-                section_id,
-                resolved_sections=resolved_sections,
-            ):
-                continue
-            yield PendingReportSectionState(
-                section_id=section_id,
-                phase=str(row.get("phase", "") or ""),
-                deps=_projection_row_deps(row),
-                reason="missing_dep",
-            )
-
-    return _pending_report_section_states(iter_pending_sections())
-
-
-def _pending_sections_from_reason_mapping(
-    *,
-    projection_rows: Sequence[Mapping[str, JSONValue]],
-    pending_reasons: Mapping[str, str] | None = None,
-) -> Callable[[], Iterator[PendingReportSectionState]]:
-    pending_reasons = pending_reasons or {}
-    pending_rows_by_section = {
-        _projection_row_section_id(row): row
-        for row in projection_rows
-        if _projection_row_section_id(row)
-    }
-
-    return _pending_report_section_states(
-        iter(
-            PendingReportSectionState(
-                section_id=section_id,
-                phase=str(
-                    pending_rows_by_section.get(section_id, {}).get("phase", "") or ""
-                ),
-                deps=(
-                    _projection_row_deps(pending_rows_by_section[section_id])
-                    if section_id in pending_rows_by_section
-                    else ()
-                ),
-                reason=reason,
-            )
-            for section_id, reason in pending_reasons.items()
-        )
-    )
-
-
 def _report_sections_state(
     *,
     resolved_sections: Callable[[], Iterator[ReportSectionState]],
@@ -2296,38 +2236,39 @@ def _run_analysis_with_progress(
                 intro_sections,
                 preview_sections,
             )
-            sections = _resolved_section_mapping(
-                _chain_report_section_states(
-                    base_sections,
-                    _single_report_section_state(
-                        section_id="components",
-                        lines=_collection_components_preview_lines(
-                            collection_resume=persisted_progress_payload
-                        ),
-                    )
-                    if _section_id_missing_from_resolved(
-                        "components",
-                        resolved_sections=base_sections,
-                    )
-                    else _empty_report_section_states,
+            resolved_sections = _chain_report_section_states(
+                base_sections,
+                _single_report_section_state(
+                    section_id="components",
+                    lines=_collection_components_preview_lines(
+                        collection_resume=persisted_progress_payload
+                    ),
                 )
+                if _section_id_missing_from_resolved(
+                    "components",
+                    resolved_sections=base_sections,
+                )
+                else _empty_report_section_states,
             )
-            partial_report, pending_reasons = _render_incremental_report(
+            projection_rows = list(
+                context.report_request_state.runtime_state.projection_state.projection_rows
+            )
+            report_sections_state = _overlay_report_sections_with_journal_reason(
+                projection_rows=projection_rows,
+                sections_state=_report_sections_state(
+                    resolved_sections=resolved_sections,
+                    pending_sections=_projection_pending_sections(
+                        projection_rows=projection_rows,
+                        resolved_sections=resolved_sections,
+                    ),
+                ),
+                journal_reason=journal_reason,
+            )
+            partial_report = _render_incremental_report(
                 analysis_state="analysis_collection_in_progress",
                 progress_payload=persisted_progress_payload,
-                projection_rows=list(
-                    context.report_request_state.runtime_state.projection_state.projection_rows
-                ),
-                sections=sections,
-            )
-            pending_reasons.pop("intro", None)
-            _apply_journal_pending_reason(
-                projection_rows=list(
-                    context.report_request_state.runtime_state.projection_state.projection_rows
-                ),
-                sections=sections,
-                pending_reasons=pending_reasons,
-                journal_reason=journal_reason,
+                projection_rows=projection_rows,
+                sections_state=report_sections_state,
             )
             context.report_request_state.runtime_state.projection_state.output_path.parent.mkdir(
                 parents=True, exist_ok=True
@@ -2340,11 +2281,8 @@ def _run_analysis_with_progress(
             _write_report_section_journal(
                 path=context.report_request_state.runtime_state.projection_state.section_journal_path,
                 witness_digest=context.report_request_state.runtime_state.checkpoint_state.section_witness_digest,
-                projection_rows=list(
-                    context.report_request_state.runtime_state.projection_state.projection_rows
-                ),
-                sections=sections,
-                pending_reasons=pending_reasons,
+                projection_rows=projection_rows,
+                sections_state=report_sections_state,
             )
             context.clear_report_sections_cache_reason_fn()
             context.report_request_state.runtime_state.checkpoint_state.phase_checkpoint_state[
@@ -2357,7 +2295,10 @@ def _run_analysis_with_progress(
                 "in_progress_files": collection_progress["in_progress_files"],
                 "remaining_files": collection_progress["remaining_files"],
                 "total_files": collection_progress["total_files"],
-                "section_ids": sort_once(sections, source="src/gabion/server.py:4603"),
+                "section_ids": sort_once(
+                    _report_section_ids(report_sections_state),
+                    source="src/gabion/server.py:4603",
+                ),
             }
 
     def _projection_phase_signature(
@@ -2472,13 +2413,25 @@ def _run_analysis_with_progress(
                             },
                         ).emit(execute_deps=execute_deps, state=aspf_trace_state)
                     cached_sections, journal_reason = context.ensure_report_sections_cache_fn()
-                    sections = _resolved_section_mapping(
-                        _chain_report_section_states(
-                            cached_sections,
-                            available_sections,
-                        )
+                    resolved_sections = _chain_report_section_states(
+                        cached_sections,
+                        available_sections,
                     )
-                    partial_report, pending_reasons = _render_incremental_report(
+                    projection_rows = list(
+                        context.report_request_state.runtime_state.projection_state.projection_rows
+                    )
+                    report_sections_state = _overlay_report_sections_with_journal_reason(
+                        projection_rows=projection_rows,
+                        sections_state=_report_sections_state(
+                            resolved_sections=resolved_sections,
+                            pending_sections=_projection_pending_sections(
+                                projection_rows=projection_rows,
+                                resolved_sections=resolved_sections,
+                            ),
+                        ),
+                        journal_reason=journal_reason,
+                    )
+                    partial_report = _render_incremental_report(
                         analysis_state=progress_analysis_state,
                         progress_payload={
                             "phase": phase,
@@ -2490,18 +2443,8 @@ def _run_analysis_with_progress(
                                 phase_progress_v2
                             ),
                         },
-                        projection_rows=list(
-                            context.report_request_state.runtime_state.projection_state.projection_rows
-                        ),
-                        sections=sections,
-                    )
-                    _apply_journal_pending_reason(
-                        projection_rows=list(
-                            context.report_request_state.runtime_state.projection_state.projection_rows
-                        ),
-                        sections=sections,
-                        pending_reasons=pending_reasons,
-                        journal_reason=journal_reason,
+                        projection_rows=projection_rows,
+                        sections_state=report_sections_state,
                     )
                     context.report_request_state.runtime_state.projection_state.output_path.parent.mkdir(
                         parents=True, exist_ok=True
@@ -2514,11 +2457,8 @@ def _run_analysis_with_progress(
                     _write_report_section_journal(
                         path=context.report_request_state.runtime_state.projection_state.section_journal_path,
                         witness_digest=context.report_request_state.runtime_state.checkpoint_state.section_witness_digest,
-                        projection_rows=list(
-                            context.report_request_state.runtime_state.projection_state.projection_rows
-                        ),
-                        sections=sections,
-                        pending_reasons=pending_reasons,
+                        projection_rows=projection_rows,
+                        sections_state=report_sections_state,
                     )
                     context.clear_report_sections_cache_reason_fn()
                     context.report_request_state.runtime_state.checkpoint_state.phase_checkpoint_state[
@@ -2528,9 +2468,12 @@ def _run_analysis_with_progress(
                         "work_done": int(work_done),
                         "work_total": int(work_total),
                         "section_ids": sort_once(
-                            sections, source="src/gabion/server.py:4748"
+                            _report_section_ids(report_sections_state),
+                            source="src/gabion/server.py:4748",
                         ),
-                        "resolved_sections": len(sections),
+                        "resolved_sections": _report_sections_resolved_count(
+                            report_sections_state
+                        ),
                     }
                     context.profiling_stage_ns["server.projection_emit"] += (
                         time.monotonic_ns() - projection_started_ns
@@ -3396,7 +3339,7 @@ def _finalize_report_and_violations(
             report=report_carrier,
         )
         resolved_sections_for_obligations = lambda: iter_report_sections(report_markdown)
-        pending_projection_sections = _pending_projection_sections(
+        pending_projection_sections = _projection_pending_sections(
             projection_rows=list(
                 report_request_state.runtime_state.projection_state.projection_rows
             ),
@@ -3419,8 +3362,7 @@ def _finalize_report_and_violations(
             projection_rows=list(
                 report_request_state.runtime_state.projection_state.projection_rows
             ),
-            sections=_resolved_mapping(report_sections_for_obligations),
-            pending_reasons=_pending_reason_mapping(report_sections_for_obligations),
+            sections_state=report_sections_for_obligations,
         )
         (
             report_carrier.resumability_obligations,
@@ -3433,7 +3375,7 @@ def _finalize_report_and_violations(
             report=report_carrier,
         )
         resolved_sections = lambda: iter_report_sections(report_markdown)
-        final_pending_sections = _pending_projection_sections(
+        final_pending_sections = _projection_pending_sections(
             projection_rows=list(
                 report_request_state.runtime_state.projection_state.projection_rows
             ),
@@ -3460,10 +3402,7 @@ def _finalize_report_and_violations(
                 projection_rows=list(
                     report_request_state.runtime_state.projection_state.projection_rows
                 ),
-                sections=_resolved_mapping(materialized_report.sections_state),
-                pending_reasons=_pending_reason_mapping(
-                    materialized_report.sections_state
-                ),
+                sections_state=materialized_report.sections_state,
             )
             report_request_state.runtime_state.checkpoint_state.phase_checkpoint_state[
                 "post"
@@ -3677,22 +3616,25 @@ class TimeoutReportOutcome:
                     )
                     else _empty_report_section_states,
                 )
-                resolved_sections = _resolved_section_mapping(resolved_sections_state)
-                partial_report, pending_reasons = _render_incremental_report(
+                projection_rows = list(
+                    context.report_runtime_state.projection_state.projection_rows
+                )
+                report_sections_state = _overlay_report_sections_with_journal_reason(
+                    projection_rows=projection_rows,
+                    sections_state=_report_sections_state(
+                        resolved_sections=resolved_sections_state,
+                        pending_sections=_projection_pending_sections(
+                            projection_rows=projection_rows,
+                            resolved_sections=resolved_sections_state,
+                        ),
+                    ),
+                    journal_reason=journal_reason,
+                )
+                partial_report = _render_incremental_report(
                     analysis_state=analysis_state,
                     progress_payload=progress_payload,
-                    projection_rows=list(
-                        context.report_runtime_state.projection_state.projection_rows
-                    ),
-                    sections=resolved_sections,
-                )
-                _apply_journal_pending_reason(
-                    projection_rows=list(
-                        context.report_runtime_state.projection_state.projection_rows
-                    ),
-                    sections=resolved_sections,
-                    pending_reasons=pending_reasons,
-                    journal_reason=journal_reason,
+                    projection_rows=projection_rows,
+                    sections_state=report_sections_state,
                 )
                 context.report_runtime_state.projection_state.output_path.parent.mkdir(
                     parents=True, exist_ok=True
@@ -3705,20 +3647,12 @@ class TimeoutReportOutcome:
                 _write_report_section_journal(
                     path=context.report_runtime_state.projection_state.section_journal_path,
                     witness_digest=context.report_runtime_state.checkpoint_state.section_witness_digest,
-                    projection_rows=list(
-                        context.report_runtime_state.projection_state.projection_rows
-                    ),
-                    sections=resolved_sections,
-                    pending_reasons=pending_reasons,
+                    projection_rows=projection_rows,
+                    sections_state=report_sections_state,
                 )
                 materialized_report = MaterializedReportArtifacts(
                     resolved_sections=resolved_sections_state,
-                    pending_sections=_pending_sections_from_reason_mapping(
-                        projection_rows=list(
-                            context.report_runtime_state.projection_state.projection_rows
-                        ),
-                        pending_reasons=pending_reasons,
-                    ),
+                    pending_sections=lambda: _pending_sections(report_sections_state),
                 )
                 phase_checkpoint_state["timeout"] = {
                     "status": "timed_out",
@@ -3996,8 +3930,7 @@ def _handle_timeout_cleanup(
                 projection_rows=list(
                     context.report_runtime_state.projection_state.projection_rows
                 ),
-                sections=_resolved_mapping(report_sections_state),
-                pending_reasons=_pending_reason_mapping(report_sections_state),
+                sections_state=report_sections_state,
             )
         except TimeoutExceeded:
             _mark_cleanup_timeout("incremental_obligations")

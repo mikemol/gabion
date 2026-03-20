@@ -4,6 +4,9 @@ from pathlib import Path
 from typing import Mapping, Sequence
 
 from gabion.json_types import JSONObject, JSONValue
+from gabion.analysis.dataflow.io.dataflow_report_section_contracts import (
+    ReportSectionsState,
+)
 from gabion.server_core import command_orchestrator_primitives as orchestrator_primitives
 
 
@@ -35,13 +38,13 @@ def _render_incremental_report(
     analysis_state: str,
     progress_payload: Mapping[str, JSONValue] | None,
     projection_rows: Sequence[Mapping[str, JSONValue]],
-    sections: Mapping[str, list[str]],
-) -> tuple[str, dict[str, str]]:
+    sections_state: ReportSectionsState,
+) -> str:
     return orchestrator_primitives.render_incremental_report(
         analysis_state=analysis_state,
         progress_payload=progress_payload,
         projection_rows=projection_rows,
-        sections=sections,
+        sections_state=sections_state,
     )
 
 

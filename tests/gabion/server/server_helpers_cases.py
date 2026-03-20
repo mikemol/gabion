@@ -5,6 +5,13 @@ from tests.path_helpers import REPO_ROOT
 
 import pytest
 
+from gabion.analysis.dataflow.io.dataflow_report_section_contracts import (
+    ReportSectionsState,
+)
+from gabion.analysis.dataflow.io.dataflow_report_sections import (
+    report_sections_state as _report_sections_state,
+    resolved_report_section_states as _resolved_report_section_states,
+)
 from gabion.exceptions import NeverThrown
 
 def _load():
@@ -12,6 +19,16 @@ def _load():
     from gabion import server
 
     return server
+
+
+def _build_report_sections_state(
+    resolved_sections: dict[str, list[str]] | None = None,
+) -> ReportSectionsState:
+    return _report_sections_state(
+        resolved_sections=_resolved_report_section_states(
+            iter((resolved_sections or {}).items())
+        )
+    )
 
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server._normalize_transparent_decorators::value E:decision_surface/direct::server.py::gabion.server._normalize_transparent_decorators::stale_d287efc4e500
 # gabion:behavior primary=desired
@@ -314,7 +331,7 @@ def test_append_phase_timeline_event_handles_primary_unit_only_and_empty_primary
 # gabion:behavior primary=desired
 def test_render_incremental_report_includes_stale_and_progress_v2_fields() -> None:
     server = _load()
-    report, pending = server._render_incremental_report(
+    report = server._render_incremental_report(
         analysis_state="analysis_forest_in_progress",
         progress_payload={
             "phase": "forest",
@@ -335,11 +352,10 @@ def test_render_incremental_report_includes_stale_and_progress_v2_fields() -> No
             "resume_supported": False,
         },
         projection_rows=[],
-        sections={},
+        sections_state=_build_report_sections_state(),
     )
     assert "- `primary_unit`: `forest_mutable_steps`" in report
     assert "- `stale_for_s`: `7.2`" in report
-    assert pending == {}
 
 
 # gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_server_progress_and_incremental_render_additional_branch_edges::server.py::gabion.server._build_phase_progress_v2::server.py::gabion.server._render_incremental_report::server.py::gabion.server._append_phase_timeline_event
@@ -366,7 +382,7 @@ def test_server_progress_and_incremental_render_additional_branch_edges(
     assert normalized["dimensions"] == {"collection_files": {"done": 0, "total": 0}}
     assert normalized["inventory"] == {}
 
-    report_zero, _pending_zero = server._render_incremental_report(
+    report_zero = server._render_incremental_report(
         analysis_state="analysis_forest_in_progress",
         progress_payload={
             "work_done": 5,
@@ -379,7 +395,7 @@ def test_server_progress_and_incremental_render_additional_branch_edges(
             },
         },
         projection_rows=[],
-        sections={},
+        sections_state=_build_report_sections_state(),
     )
     assert "- `work_done`: `5`" in report_zero
     assert "- `work_total`: `0`" in report_zero
@@ -388,7 +404,7 @@ def test_server_progress_and_incremental_render_additional_branch_edges(
     assert "- `primary_unit`" not in report_zero
     assert "- `dimensions`" not in report_zero
 
-    report_invalid_primary, _pending_invalid_primary = server._render_incremental_report(
+    report_invalid_primary = server._render_incremental_report(
         analysis_state="analysis_forest_in_progress",
         progress_payload={
             "phase_progress_v2": {
@@ -399,7 +415,7 @@ def test_server_progress_and_incremental_render_additional_branch_edges(
             },
         },
         projection_rows=[],
-        sections={},
+        sections_state=_build_report_sections_state(),
     )
     assert "- `primary_progress`" not in report_invalid_primary
 

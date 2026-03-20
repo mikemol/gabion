@@ -15,6 +15,16 @@ from pydantic import ValidationError
 
 from gabion import server
 from gabion.analysis import project_report_sections as _project_report_sections
+from gabion.analysis.dataflow.io.dataflow_report_section_contracts import (
+    PendingReportSectionState,
+    ReportSectionsState,
+)
+from gabion.analysis.dataflow.io.dataflow_report_sections import (
+    pending_reason_mapping as _pending_reason_mapping,
+    pending_report_section_states as _pending_report_section_states,
+    report_sections_state as _report_sections_state,
+    resolved_report_section_states as _resolved_report_section_states,
+)
 from gabion.analysis.foundation.timeout_context import TimeoutContext, pack_call_stack
 from gabion.exceptions import NeverThrown
 from gabion.analysis.core import (
@@ -53,6 +63,23 @@ def _collect_report_sections(
         section.section_id: list(section._line_iterator_factory())
         for section in section_stream()
     }
+
+
+def _build_report_sections_state(
+    *,
+    resolved_sections: dict[str, list[str]] | None = None,
+    pending_sections: tuple[PendingReportSectionState, ...] = (),
+) -> ReportSectionsState:
+    return _report_sections_state(
+        resolved_sections=_resolved_report_section_states(
+            iter((resolved_sections or {}).items())
+        ),
+        pending_sections=(
+            _pending_report_section_states(iter(pending_sections))
+            if pending_sections
+            else None
+        ),
+    )
 
 
 @dataclass
@@ -1467,8 +1494,17 @@ def test_incremental_obligations_require_restart_on_witness_mismatch(
         projection_rows=[
             {"section_id": "components", "phase": "forest", "deps": ["intro"]},
         ],
-        sections={"components": ["resolved"]},
-        pending_reasons={"intro": "stale_input"},
+        sections_state=_build_report_sections_state(
+            resolved_sections={"components": ["resolved"]},
+            pending_sections=(
+                PendingReportSectionState(
+                    section_id="intro",
+                    phase="collection",
+                    deps=(),
+                    reason="stale_input",
+                ),
+            ),
+        ),
     )
     assert any(
         isinstance(entry, dict)
@@ -1502,8 +1538,22 @@ def test_incremental_obligations_flag_no_projection_progress() -> None:
             {"section_id": "intro", "phase": "collection", "deps": []},
             {"section_id": "components", "phase": "forest", "deps": ["intro"]},
         ],
-        sections={},
-        pending_reasons={"intro": "policy", "components": "missing_dep"},
+        sections_state=_build_report_sections_state(
+            pending_sections=(
+                PendingReportSectionState(
+                    section_id="intro",
+                    phase="collection",
+                    deps=(),
+                    reason="policy",
+                ),
+                PendingReportSectionState(
+                    section_id="components",
+                    phase="forest",
+                    deps=("intro",),
+                    reason="missing_dep",
+                ),
+            ),
+        ),
     )
     assert any(
         isinstance(entry, dict)
@@ -1533,8 +1583,11 @@ def test_incremental_obligations_require_substantive_progress_for_resume() -> No
         projection_rows=[
             {"section_id": "intro", "phase": "collection", "deps": []},
         ],
-        sections={"intro": ["Collection progress checkpoint (provisional)."]},
-        pending_reasons={},
+        sections_state=_build_report_sections_state(
+            resolved_sections={
+                "intro": ["Collection progress checkpoint (provisional)."]
+            }
+        ),
     )
     assert any(
         isinstance(entry, dict)
@@ -1562,8 +1615,7 @@ def test_incremental_obligations_flag_semantic_progress_regression() -> None:
         partial_report_written=True,
         report_requested=False,
         projection_rows=[],
-        sections={},
-        pending_reasons={},
+        sections_state=_build_report_sections_state(),
     )
     assert any(
         isinstance(entry, dict)
@@ -2102,7 +2154,7 @@ def test_load_report_phase_checkpoint_validation_paths(tmp_path: Path) -> None:
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_render_incremental_report_marks_missing_dep_and_policy::server.py::gabion.server._render_incremental_report
 # gabion:behavior primary=verboten facets=edge,missing
 def test_render_incremental_report_marks_missing_dep_and_policy() -> None:
-    report_text, pending = server._render_incremental_report(
+    report_text = server._render_incremental_report(
         analysis_state="analysis_collection_in_progress",
         progress_payload={
             "phase": "forest",
@@ -2116,15 +2168,29 @@ def test_render_incremental_report_marks_missing_dep_and_policy() -> None:
             {"section_id": "components", "phase": "forest", "deps": ["intro", "missing"]},
             {"section_id": "violations", "phase": "post", "deps": []},
         ],
-        sections={"intro": ["ready"]},
+        sections_state=_build_report_sections_state(
+            resolved_sections={"intro": ["ready"]},
+            pending_sections=(
+                PendingReportSectionState(
+                    section_id="components",
+                    phase="forest",
+                    deps=("intro", "missing"),
+                    reason="missing_dep",
+                ),
+                PendingReportSectionState(
+                    section_id="violations",
+                    phase="post",
+                    deps=(),
+                    reason="policy",
+                ),
+            ),
+        ),
     )
     assert "Section `intro`" in report_text
     assert "- `phase`: `forest`" in report_text
     assert "- `work_done`: `3`" in report_text
     assert "- `work_total`: `4`" in report_text
     assert "- `work_percent`: `75.00`" in report_text
-    assert pending["components"] == "missing_dep"
-    assert pending["violations"] == "policy"
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_write_bootstrap_incremental_artifacts_marks_existing_reason_policy::server.py::gabion.server._write_bootstrap_incremental_artifacts
@@ -2945,33 +3011,31 @@ def test_timeout_cleanup_tracks_truncated_report_steps(
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_apply_journal_pending_reason_only_for_stale_or_policy::server.py::gabion.server._apply_journal_pending_reason
 # gabion:behavior primary=verboten facets=edge
 def test_apply_journal_pending_reason_only_for_stale_or_policy() -> None:
-    pending: dict[str, str] = {}
     rows: list[dict[str, object]] = [
         {"section_id": "intro"},
         {"section_id": "components"},
         {"section_id": ""},
     ]
-    server._apply_journal_pending_reason(
+    sections_state = server._apply_journal_pending_reason(
         projection_rows=rows,
-        sections={"intro": ["ok"]},
-        pending_reasons=pending,
+        sections_state=_build_report_sections_state(
+            resolved_sections={"intro": ["ok"]}
+        ),
         journal_reason="stale_input",
     )
-    assert pending == {"components": "stale_input"}
-    server._apply_journal_pending_reason(
+    assert _pending_reason_mapping(sections_state) == {"components": "stale_input"}
+    sections_state = server._apply_journal_pending_reason(
         projection_rows=rows,
-        sections={"intro": ["ok"]},
-        pending_reasons=pending,
+        sections_state=sections_state,
         journal_reason="policy",
     )
-    assert pending["components"] == "policy"
-    server._apply_journal_pending_reason(
+    assert _pending_reason_mapping(sections_state)["components"] == "policy"
+    sections_state = server._apply_journal_pending_reason(
         projection_rows=rows,
-        sections={},
-        pending_reasons=pending,
+        sections_state=sections_state,
         journal_reason="missing_dep",
     )
-    assert pending["components"] == "policy"
+    assert _pending_reason_mapping(sections_state)["components"] == "policy"
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_latest_report_phase_and_truthy_flag_edges::server.py::gabion.server._latest_report_phase::server.py::gabion.server._truthy_flag
@@ -3052,14 +3116,14 @@ def test_write_report_section_journal_handles_path_none_and_empty_section_id(tmp
         path=None,
         witness_digest="w",
         projection_rows=[],
-        sections={},
+        sections_state=_build_report_sections_state(),
     )
     path = tmp_path / "sections.json"
     server._write_report_section_journal(
         path=path,
         witness_digest="w",
         projection_rows=[{"section_id": "", "phase": "collection", "deps": []}],
-        sections={},
+        sections_state=_build_report_sections_state(),
     )
     payload = json.loads(path.read_text())
     assert payload["sections"] == {}
@@ -3118,7 +3182,7 @@ def test_collection_progress_intro_lines_counts_processed_and_hydrated() -> None
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_render_incremental_report_handles_missing_and_invalid_phases::server.py::gabion.server._render_incremental_report
 # gabion:behavior primary=verboten facets=edge,invalid,missing
 def test_render_incremental_report_handles_missing_and_invalid_phases() -> None:
-    report, pending = server._render_incremental_report(
+    report = server._render_incremental_report(
         analysis_state="analysis_collection_in_progress",
         progress_payload={
             "classification": "timed_out_no_progress",
@@ -3131,12 +3195,26 @@ def test_render_incremental_report_handles_missing_and_invalid_phases() -> None:
             {"section_id": "weird", "phase": "unknown", "deps": ["intro"]},
             {"section_id": "blocked", "phase": "post", "deps": ["missing"]},
         ],
-        sections={"intro": ["ready"]},
+        sections_state=_build_report_sections_state(
+            resolved_sections={"intro": ["ready"]},
+            pending_sections=(
+                PendingReportSectionState(
+                    section_id="weird",
+                    phase="unknown",
+                    deps=("intro",),
+                    reason="policy",
+                ),
+                PendingReportSectionState(
+                    section_id="blocked",
+                    phase="post",
+                    deps=("missing",),
+                    reason="missing_dep",
+                ),
+            ),
+        ),
     )
     assert "## Section `intro`" in report
     assert "`retry_recommended`: `False`" in report
-    assert pending["weird"] == "policy"
-    assert pending["blocked"] == "missing_dep"
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_externalize_collection_resume_states_passthrough_and_cleanup_oserror::server.py::gabion.server._externalize_collection_resume_states
@@ -3204,8 +3282,16 @@ def test_misc_small_helpers_cover_validation_edges(tmp_path: Path) -> None:
         partial_report_written=False,
         report_requested=True,
         projection_rows=[{"section_id": "", "phase": "collection"}],
-        sections={},
-        pending_reasons={"intro": "stale_input"},
+        sections_state=_build_report_sections_state(
+            pending_sections=(
+                PendingReportSectionState(
+                    section_id="intro",
+                    phase="collection",
+                    deps=(),
+                    reason="stale_input",
+                ),
+            )
+        ),
     )
     assert any(
         entry.get("kind") == "restart_required_on_witness_mismatch"
@@ -3219,8 +3305,22 @@ def test_misc_small_helpers_cover_validation_edges(tmp_path: Path) -> None:
         partial_report_written=False,
         report_requested=True,
         projection_rows=[{"section_id": "intro", "phase": "collection"}],
-        sections={},
-        pending_reasons={"other": "stale_input", "intro": "policy"},
+        sections_state=_build_report_sections_state(
+            pending_sections=(
+                PendingReportSectionState(
+                    section_id="other",
+                    phase="collection",
+                    deps=(),
+                    reason="stale_input",
+                ),
+                PendingReportSectionState(
+                    section_id="intro",
+                    phase="collection",
+                    deps=(),
+                    reason="policy",
+                ),
+            )
+        ),
     )
     assert any(
         entry.get("contract") == "incremental_projection_contract"
@@ -4215,7 +4315,7 @@ def test_write_report_section_journal_handles_non_list_deps(tmp_path: Path) -> N
         path=journal_path,
         witness_digest="wd",
         projection_rows=[{"section_id": "intro", "phase": "collection", "deps": "bad"}],
-        sections={},
+        sections_state=_build_report_sections_state(),
     )
     payload = json.loads(journal_path.read_text())
     assert payload["sections"]["intro"]["deps"] == []
@@ -4303,14 +4403,22 @@ def test_write_bootstrap_incremental_artifacts_existing_digest_variants(
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_render_incremental_report_handles_non_mapping_progress_and_non_list_deps::server.py::gabion.server._render_incremental_report
 # gabion:behavior primary=verboten facets=edge
 def test_render_incremental_report_handles_non_mapping_progress_and_non_list_deps() -> None:
-    report_text, pending = server._render_incremental_report(
+    report_text = server._render_incremental_report(
         analysis_state="timed_out_no_progress",
         progress_payload=None,
         projection_rows=[{"section_id": "components", "phase": "forest", "deps": "bad"}],
-        sections={},
+        sections_state=_build_report_sections_state(
+            pending_sections=(
+                PendingReportSectionState(
+                    section_id="components",
+                    phase="forest",
+                    deps=(),
+                    reason="policy",
+                ),
+            )
+        ),
     )
     assert "classification" not in report_text
-    assert pending["components"] == "policy"
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_collection_progress_intro_lines_skip_non_numeric_optional_metrics::server.py::gabion.server._collection_progress_intro_lines
@@ -4376,8 +4484,7 @@ def test_incremental_progress_obligations_ignore_non_boolean_semantic_flags() ->
         partial_report_written=False,
         report_requested=False,
         projection_rows=[],
-        sections={},
-        pending_reasons={},
+        sections_state=_build_report_sections_state(),
     )
     kinds = {
         entry.get("kind")

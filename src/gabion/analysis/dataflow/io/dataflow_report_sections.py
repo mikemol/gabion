@@ -3,7 +3,7 @@
 # gabion:grade_boundary kind=semantic_carrier_adapter name=dataflow_report_sections
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from itertools import chain, tee
 
@@ -142,6 +142,12 @@ def pending_reason_mapping(
     }
 
 
+def pending_section_count(
+    sections_state: ReportSectionsState,
+) -> int:
+    return sum(1 for _ in pending_sections(sections_state))
+
+
 def report_section_ids(
     sections_state: ReportSectionsState,
 ) -> tuple[str, ...]:
@@ -164,6 +170,85 @@ def report_sections_state(
         _pending_section_iterator_factory=(
             pending_sections if pending_sections is not None else (lambda: iter(()))
         ),
+    )
+
+
+def _projection_row_section_id(row: Mapping[str, object]) -> str:
+    return str(row.get("section_id", "") or "")
+
+
+def _projection_row_phase(row: Mapping[str, object]) -> str:
+    return str(row.get("phase", "") or "")
+
+
+def _projection_row_deps(row: Mapping[str, object]) -> tuple[str, ...]:
+    deps = row.get("deps")
+    if not isinstance(deps, Sequence) or isinstance(deps, str | bytes):
+        return ()
+    return tuple(str(dep) for dep in deps if dep is not None)
+
+
+def projection_pending_sections(
+    *,
+    projection_rows: Sequence[Mapping[str, object]],
+    resolved_sections: Callable[[], Iterator[ReportSectionState]],
+    journal_reason: str | None = None,
+) -> Callable[[], Iterator[PendingReportSectionState]]:
+    def iter_pending_sections() -> Iterator[PendingReportSectionState]:
+        resolved_section_ids = {
+            section.section_id for section in resolved_sections() if section.section_id
+        }
+        for row in projection_rows:
+            check_deadline()
+            section_id = _projection_row_section_id(row)
+            if not section_id or section_id in resolved_section_ids:
+                continue
+            deps = _projection_row_deps(row)
+            reason = (
+                journal_reason
+                if journal_reason in {"stale_input", "policy"}
+                else (
+                    "missing_dep"
+                    if not set(deps).issubset(resolved_section_ids)
+                    else "policy"
+                )
+            )
+            yield PendingReportSectionState(
+                section_id=section_id,
+                phase=_projection_row_phase(row),
+                deps=deps,
+                reason=reason,
+            )
+
+    return pending_report_section_states(iter_pending_sections())
+
+
+def overlay_report_sections_with_journal_reason(
+    *,
+    projection_rows: Sequence[Mapping[str, object]],
+    sections_state: ReportSectionsState,
+    journal_reason: str | None,
+) -> ReportSectionsState:
+    if journal_reason not in {"stale_input", "policy"}:
+        return sections_state
+
+    overlay_pending = projection_pending_sections(
+        projection_rows=projection_rows,
+        resolved_sections=lambda: resolved_sections(sections_state),
+        journal_reason=journal_reason,
+    )
+
+    def iter_pending_sections() -> Iterator[PendingReportSectionState]:
+        overlay_sections = tuple(overlay_pending())
+        overlay_ids = {section.section_id for section in overlay_sections}
+        yield from overlay_sections
+        for section in pending_sections(sections_state):
+            if section.section_id not in overlay_ids:
+                yield section
+
+    return report_sections_state(
+        resolved_sections=lambda: resolved_sections(sections_state),
+        pending_sections=pending_report_section_states(iter_pending_sections()),
     )
 
 
@@ -212,9 +297,12 @@ __all__ = [
     "extract_report_sections",
     "iter_report_sections",
     "pending_reason_mapping",
+    "pending_section_count",
     "pending_report_section_states",
     "pending_sections",
+    "projection_pending_sections",
     "ReportSectionMarkerParseResult",
+    "overlay_report_sections_with_journal_reason",
     "report_section_ids",
     "report_section_marker",
     "report_section_marker_parse_result",

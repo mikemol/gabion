@@ -40,6 +40,9 @@ from gabion.analysis import (
     AnalysisResult, AuditConfig, ReportCarrier, analyze_paths, apply_baseline, build_analysis_collection_resume_seed, compute_structure_metrics, compute_structure_reuse, render_reuse_lemma_stubs, compute_violations, build_refactor_plan, build_synthesis_plan, diff_structure_snapshots, diff_decision_snapshots, load_structure_snapshot, load_decision_snapshot, load_baseline, extract_report_sections, report_projection_phase_rank, report_projection_spec_rows, render_dot, render_structure_snapshot, render_decision_snapshot, DecisionSnapshotSurfaces, render_protocol_stubs, render_refactor_plan, render_report, render_synthesis_section, resolve_analysis_paths, resolve_baseline_path, write_baseline)
 from gabion.analysis.aspf import aspf_execution_fibration, aspf_resume_state
 from gabion.analysis.aspf.aspf import Forest, NodeId, structural_key_atom
+from gabion.analysis.dataflow.io.dataflow_report_section_contracts import (
+    ReportSectionsState,
+)
 from gabion.analysis.core import ambiguity_delta
 from gabion.analysis.core import ambiguity_state
 from gabion.analysis.call_cluster import call_cluster_consolidation
@@ -876,15 +879,13 @@ def _write_report_section_journal(
     path: Path | None,
     witness_digest: str | None,
     projection_rows: Sequence[Mapping[str, JSONValue]],
-    sections: Mapping[str, list[str]],
-    pending_reasons: Mapping[str, str] | None = None,
+    sections_state: ReportSectionsState,
 ) -> None:
     orchestrator_primitives.write_report_section_journal(
         path=path,
         witness_digest=witness_digest,
         projection_rows=projection_rows,
-        sections=sections,
-        pending_reasons=pending_reasons,
+        sections_state=sections_state,
     )
 
 def _write_bootstrap_incremental_artifacts(
@@ -915,13 +916,13 @@ def _render_incremental_report(
     analysis_state: str,
     progress_payload: Mapping[str, JSONValue] | None,
     projection_rows: Sequence[Mapping[str, JSONValue]],
-    sections: Mapping[str, list[str]],
-) -> tuple[str, dict[str, str]]:
+    sections_state: ReportSectionsState,
+) -> str:
     return server_incremental_dispatch._render_incremental_report(
         analysis_state=analysis_state,
         progress_payload=progress_payload,
         projection_rows=projection_rows,
-        sections=sections,
+        sections_state=sections_state,
     )
 
 
@@ -1019,8 +1020,7 @@ def _incremental_progress_obligations(
     partial_report_written: bool,
     report_requested: bool,
     projection_rows: Sequence[Mapping[str, JSONValue]],
-    sections: Mapping[str, list[str]],
-    pending_reasons: Mapping[str, str],
+    sections_state: ReportSectionsState,
 ) -> list[JSONObject]:
     return orchestrator_primitives.incremental_progress_obligations(
         analysis_state=analysis_state,
@@ -1029,8 +1029,7 @@ def _incremental_progress_obligations(
         partial_report_written=partial_report_written,
         report_requested=report_requested,
         projection_rows=projection_rows,
-        sections=sections,
-        pending_reasons=pending_reasons,
+        sections_state=sections_state,
     )
 
 def _split_incremental_obligations(
@@ -1042,18 +1041,14 @@ def _split_incremental_obligations(
 def _apply_journal_pending_reason(
     *,
     projection_rows: Sequence[Mapping[str, JSONValue]],
-    sections: Mapping[str, object],
-    pending_reasons: dict[str, str],
+    sections_state: ReportSectionsState,
     journal_reason: str | None,
-) -> None:
-    if journal_reason not in {"stale_input", "policy"}:
-        return
-    for row in projection_rows:
-        check_deadline()
-        section_id = str(row.get("section_id", "") or "")
-        if not section_id or section_id in sections:
-            continue
-        pending_reasons[section_id] = journal_reason
+) -> ReportSectionsState:
+    return orchestrator_primitives.apply_journal_pending_reason(
+        projection_rows=projection_rows,
+        sections_state=sections_state,
+        journal_reason=journal_reason,
+    )
 
 
 def _latest_report_phase(phases: Mapping[str, JSONValue] | None) -> str | None:

@@ -7,7 +7,7 @@ import json
 import threading
 import time
 from collections.abc import Iterator
-from itertools import chain, repeat
+from itertools import chain
 from datetime import (datetime, timezone)
 from dataclasses import dataclass
 from decimal import (Decimal, InvalidOperation)
@@ -22,9 +22,13 @@ from gabion.plan import (ExecutionPlan, ExecutionPlanObligations, ExecutionPlanP
 from gabion.analysis import (AnalysisResult, AuditConfig, ReportCarrier, analyze_paths, apply_baseline, build_analysis_collection_resume_seed, compute_structure_metrics, compute_violations, build_refactor_plan, build_synthesis_plan, load_baseline, extract_report_sections, project_report_sections, report_projection_phase_rank, report_projection_spec_rows, render_dot, render_structure_snapshot, render_decision_snapshot, DecisionSnapshotSurfaces, render_protocol_stubs, render_refactor_plan, render_report, render_synthesis_section, resolve_baseline_path, write_baseline)
 from gabion.analysis.dataflow.io.dataflow_report_section_contracts import (
     ReportSectionState,
+    ReportSectionsState,
 )
 from gabion.analysis.dataflow.io.dataflow_report_sections import (
     empty_report_section_states as _empty_report_section_states,
+    overlay_report_sections_with_journal_reason as _overlay_report_sections_with_journal_reason,
+    pending_reason_mapping as _pending_reason_mapping,
+    resolved_mapping as _resolved_mapping,
     resolved_report_section_states as _resolved_report_section_states,
 )
 from gabion.analysis.aspf import (aspf_execution_fibration, aspf_resume_state)
@@ -544,11 +548,11 @@ def _write_report_section_journal(
     path: Path | None,
     witness_digest: str | None,
     projection_rows: Sequence[Mapping[str, JSONValue]],
-    sections: Mapping[str, list[str]],
-    pending_reasons: Mapping[str, str] | None = None,
+    sections_state: ReportSectionsState,
 ) -> None:
     if path is not None:
-        pending_reasons = pending_reasons or {}
+        sections = _resolved_mapping(sections_state)
+        pending_reasons = _pending_reason_mapping(sections_state)
         row_payloads = tuple(
             map(
                 lambda row: _journal_projection_row_payload(
@@ -817,14 +821,6 @@ def _resolved_section_block(
     )
 
 
-def _pending_section_reason(
-    *,
-    deps: Sequence[str],
-    sections: Mapping[str, list[str]],
-) -> str:
-    return "missing_dep" if not set(deps).issubset(set(sections)) else "policy"
-
-
 def _pending_section_block(row: _IncrementalProjectionRow) -> tuple[str, str, str]:
     dep_text = ", ".join(row.deps) or "none"
     return (
@@ -839,8 +835,9 @@ def _render_incremental_report(
     analysis_state: str,
     progress_payload: Mapping[str, JSONValue] | None,
     projection_rows: Sequence[Mapping[str, JSONValue]],
-    sections: Mapping[str, list[str]],
-) -> tuple[str, dict[str, str]]:
+    sections_state: ReportSectionsState,
+) -> str:
+    sections = _resolved_mapping(sections_state)
     lines = [
         "<!-- dataflow-grammar -->",
         "Dataflow grammar audit (observed forwarding bundles).",
@@ -930,15 +927,6 @@ def _render_incremental_report(
             projection_state_rows,
         )
     )
-    pending_reasons = dict(
-        map(
-            lambda row: (
-                row.section_id,
-                _pending_section_reason(deps=row.deps, sections=sections),
-            ),
-            pending_rows,
-        )
-    )
     lines.extend(
         chain.from_iterable(
             map(
@@ -951,7 +939,7 @@ def _render_incremental_report(
         )
     )
     lines.extend(chain.from_iterable(map(_pending_section_block, pending_rows)))
-    return "\n".join(lines).rstrip() + "\n", pending_reasons
+    return "\n".join(lines).rstrip() + "\n"
 
 def _phase_timeline_md_path(*, root: Path) -> Path:
     return root / _DEFAULT_PHASE_TIMELINE_MD
@@ -1350,10 +1338,11 @@ def _incremental_progress_obligations(
     partial_report_written: bool,
     report_requested: bool,
     projection_rows: Sequence[Mapping[str, JSONValue]],
-    sections: Mapping[str, list[str]],
-    pending_reasons: Mapping[str, str],
+    sections_state: ReportSectionsState,
 ) -> list[JSONObject]:
     check_deadline()
+    sections = _resolved_mapping(sections_state)
+    pending_reasons = _pending_reason_mapping(sections_state)
     obligations: list[JSONObject] = []
     normalized_progress_payload = _json_mapping_optional(progress_payload)
     if normalized_progress_payload is None:
@@ -1554,17 +1543,14 @@ def _split_incremental_obligations(
 def _apply_journal_pending_reason(
     *,
     projection_rows: Sequence[Mapping[str, JSONValue]],
-    sections: Mapping[str, object],
-    pending_reasons: dict[str, str],
+    sections_state: ReportSectionsState,
     journal_reason: str | None,
-) -> None:
-    if journal_reason in {"stale_input", "policy"}:
-        section_ids = map(_projection_row_section_id, projection_rows)
-        pending_section_ids = filter(
-            lambda section_id: section_id and section_id not in sections,
-            section_ids,
-        )
-        pending_reasons.update(dict(zip(pending_section_ids, repeat(journal_reason))))
+) -> ReportSectionsState:
+    return _overlay_report_sections_with_journal_reason(
+        projection_rows=projection_rows,
+        sections_state=sections_state,
+        journal_reason=journal_reason,
+    )
 
 def _latest_report_phase(phases: Mapping[str, JSONValue] | None) -> str | None:
     check_deadline()
