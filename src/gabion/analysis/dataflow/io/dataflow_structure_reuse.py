@@ -20,8 +20,13 @@ from gabion.analysis.dataflow.io.dataflow_parse_helpers import (
 from gabion.analysis.dataflow.io.dataflow_projection_helpers import (
     report_projection_phase_rank, report_projection_specs)
 from gabion.analysis.dataflow.io.dataflow_projection_preview_bridge import preview_section_lines
+from gabion.analysis.dataflow.io.dataflow_report_section_contracts import (
+    ReportSectionState,
+)
+from gabion.analysis.dataflow.io.dataflow_report_sections import (
+    iter_report_sections,
+)
 from gabion.analysis.dataflow.io.dataflow_reporting import render_report
-from gabion.analysis.dataflow.io.dataflow_snapshot_io import iter_report_sections
 from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _collect_config_bundles,
     _collect_dataclass_registry,
@@ -33,8 +38,6 @@ from gabion.analysis.core.structure_reuse_classes import build_structure_class, 
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.invariants import grade_boundary, never, todo
 from gabion.order_contract import sort_once
-from gabion.server_core.command_contract import ReportSectionState
-
 _NONE_TYPE = type(None)
 
 _PR412_REPRESENTATIVE_ONLY_STRUCTURE_REUSE_IDENTITY = todo(

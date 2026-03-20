@@ -6,11 +6,11 @@ from dataclasses import dataclass, replace
 from typing import Callable
 
 from gabion.analysis import AnalysisResult
-from gabion.json_types import JSONObject
-from gabion.server_core.command_contract import (
-    ProgressTraceStateContract,
+from gabion.analysis.dataflow.io.dataflow_report_section_contracts import (
     ReportSectionState,
 )
+from gabion.json_types import JSONObject
+from gabion.server_core.command_contract import ProgressTraceStateContract
 
 
 @dataclass(frozen=True)

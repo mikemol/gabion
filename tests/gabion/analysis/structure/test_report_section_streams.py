@@ -21,7 +21,7 @@ def test_report_section_streams_are_replayable_and_preserve_lines() -> None:
 
     def collect_sections() -> dict[str, list[str]]:
         return {
-            section.section_id: list(section.lines())
+            section.section_id: list(section._line_iterator_factory())
             for section in iter_report_sections(markdown)
         }
 

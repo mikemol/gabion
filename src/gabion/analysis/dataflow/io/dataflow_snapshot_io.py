@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import json
 from collections import defaultdict
-from collections.abc import Iterator, Sequence
+from collections.abc import Sequence
 from pathlib import Path
 
 from gabion.analysis.aspf.aspf import Forest
@@ -31,68 +31,11 @@ from gabion.analysis.projection.pattern_schema_projection import (
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.invariants import decision_protocol, grade_boundary, never
 from gabion.order_contract import sort_once
-from gabion.server_core.command_contract import ReportSectionState
-
-_REPORT_SECTION_MARKER_PREFIX = "<!-- report-section:"
-_REPORT_SECTION_MARKER_SUFFIX = "-->"
-
-
-def report_section_marker(section_id: str) -> str:
-    return f"{_REPORT_SECTION_MARKER_PREFIX}{section_id}{_REPORT_SECTION_MARKER_SUFFIX}"
-
-
-def parse_report_section_marker(line: str):
-    text = line.strip()
-    if not text.startswith(_REPORT_SECTION_MARKER_PREFIX):
-        return None
-    if not text.endswith(_REPORT_SECTION_MARKER_SUFFIX):
-        return None
-    section_id = text[
-        len(_REPORT_SECTION_MARKER_PREFIX) : -len(_REPORT_SECTION_MARKER_SUFFIX)
-    ].strip()
-    if not section_id:
-        return None
-    return section_id
-
-
-def iter_report_sections(markdown: str) -> Iterator[ReportSectionState]:
-    markdown_lines = markdown.splitlines()
-    active_section_id = ""
-    active_start_index = 0
-    has_active_section = False
-    for line_index, raw_line in enumerate(markdown_lines):
-        check_deadline()
-        section_id = parse_report_section_marker(raw_line)
-        if section_id is None:
-            continue
-        if has_active_section:
-            yield ReportSectionState(
-                section_id=active_section_id,
-                _line_iterator_factory=(
-                    lambda lines=markdown_lines,
-                    start_index=active_start_index,
-                    end_index=line_index: iter(lines[start_index:end_index])
-                ),
-            )
-        active_section_id = section_id
-        active_start_index = line_index + 1
-        has_active_section = True
-    if has_active_section:
-        yield ReportSectionState(
-            section_id=active_section_id,
-            _line_iterator_factory=(
-                lambda lines=markdown_lines,
-                start_index=active_start_index: iter(lines[start_index:])
-            ),
-        )
-
-
-def extract_report_sections(markdown: str) -> dict[str, list[str]]:
-    return {
-        section.section_id: list(section.lines())
-        for section in iter_report_sections(markdown)
-    }
-
+from gabion.analysis.dataflow.io.dataflow_report_sections import (
+    extract_report_sections,
+    iter_report_sections,
+    report_section_marker,
+)
 
 def detect_report_section_extinctions(
     *,

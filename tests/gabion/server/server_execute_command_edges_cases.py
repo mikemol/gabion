@@ -49,7 +49,7 @@ def _collect_report_sections(
     section_stream: Callable[[], Iterator[server.orchestrator.ReportSectionState]],
 ) -> dict[str, list[str]]:
     return {
-        section.section_id: list(section.lines())
+        section.section_id: list(section._line_iterator_factory())
         for section in section_stream()
     }
 

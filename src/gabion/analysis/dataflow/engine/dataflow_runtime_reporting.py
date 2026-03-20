@@ -7,10 +7,10 @@ from pathlib import Path
 from typing import Callable, Generic, Literal, TypeVar
 
 from gabion.analysis.dataflow.engine.dataflow_contracts import ReportCarrier
-from gabion.analysis.dataflow.io.dataflow_reporting import emit_report as _emit_report
-from gabion.analysis.indexed_scan.scanners.report_sections import (
+from gabion.analysis.dataflow.io.dataflow_report_sections import (
     extract_report_sections as _extract_report_sections,
 )
+from gabion.analysis.dataflow.io.dataflow_reporting import emit_report as _emit_report
 from gabion.order_contract import sort_once
 
 ReportProjectionPhase = Literal["collection", "forest", "edge", "post"]

@@ -55,6 +55,10 @@ from gabion.analysis.dataflow.io.dataflow_refactor_planning import (
     render_reuse_lemma_stubs,
 )
 from gabion.analysis.dataflow.io.dataflow_report_rendering import render_synthesis_section
+from gabion.analysis.dataflow.io.dataflow_report_sections import (
+    extract_report_sections,
+    iter_report_sections,
+)
 from gabion.analysis.dataflow.io.dataflow_reporting import compute_violations, render_report
 from gabion.analysis.dataflow.io.dataflow_snapshot_contracts import (
     DecisionSnapshotSurfaces,
@@ -65,8 +69,6 @@ from gabion.analysis.dataflow.io.dataflow_snapshot_io import (
     diff_decision_snapshots,
     diff_structure_snapshot_files,
     diff_structure_snapshots,
-    extract_report_sections,
-    iter_report_sections,
     load_decision_snapshot,
     load_structure_snapshot,
     render_decision_snapshot,

@@ -279,7 +279,12 @@ def test_finalize_report_refactor_enabled_without_payload_keeps_report_stable(
         ),
     )
     assert outcome.materialized_report is not None
-    assert outcome.materialized_report.sections_state.resolved_section_count() > 0
+    assert (
+        orchestrator._report_sections_resolved_count(
+            outcome.materialized_report.sections_state
+        )
+        > 0
+    )
 
 
 # gabion:evidence E:function_site::command_orchestrator.py::gabion.server_core.command_orchestrator.TimeoutResumeProgressState.__init__
@@ -432,7 +437,9 @@ def test_timeout_report_outcome_handles_non_callable_cache_loader(
         mark_cleanup_timeout_fn=None,
     )
     assert outcome.materialized_report is not None
-    assert outcome.materialized_report.sections_state.section_ids() == (
+    assert orchestrator._report_section_ids(
+        outcome.materialized_report.sections_state
+    ) == (
         "components",
         "intro",
     )
