@@ -21,7 +21,7 @@ from gabion.analysis.dataflow.io.dataflow_projection_helpers import (
     report_projection_phase_rank, report_projection_specs)
 from gabion.analysis.dataflow.io.dataflow_projection_preview_bridge import preview_section_lines
 from gabion.analysis.dataflow.io.dataflow_reporting import render_report
-from gabion.analysis.dataflow.io.dataflow_snapshot_io import extract_report_sections
+from gabion.analysis.dataflow.io.dataflow_snapshot_io import iter_report_sections
 from gabion.analysis.dataflow.engine.dataflow_post_phase_analyses import (
     _collect_config_bundles,
     _collect_dataclass_registry,
@@ -573,7 +573,7 @@ def project_report_sections(
     preview_only: bool = False,
 ) -> Callable[[], Iterator[ReportSectionState]]:
     check_deadline()
-    extracted: dict[str, list[str]] = {}
+    rendered = ""
     if not preview_only:
         rendered, _ = render_report(
             groups_by_path,
@@ -581,7 +581,6 @@ def project_report_sections(
             project_root=project_root,
             report=report,
         )
-        extracted = extract_report_sections(rendered)
     max_rank = None
     if max_phase is not None:
         max_rank = report_projection_phase_rank(max_phase)
@@ -593,17 +592,27 @@ def project_report_sections(
     )
 
     def iter_selected_sections() -> Iterator[ReportSectionState]:
+        emitted_section_ids: set[str] = set()
+        eligible_specs_by_id = {
+            spec.section_id: spec for spec in eligible_specs
+        }
+        if not preview_only:
+            for section in iter_report_sections(rendered):
+                check_deadline()
+                if section.section_id in eligible_specs_by_id:
+                    emitted_section_ids.add(section.section_id)
+                    yield section
         for spec in eligible_specs:
             check_deadline()
-            lines = extracted.get(spec.section_id, []) or (
-                preview_section_lines(
-                    spec.section_id,
-                    report=report,
-                    groups_by_path=groups_by_path,
-                    project_root=project_root,
-                )
-                if include_previews and spec.has_preview
-                else []
+            if spec.section_id in emitted_section_ids:
+                continue
+            if not include_previews or not spec.has_preview:
+                continue
+            lines = preview_section_lines(
+                spec.section_id,
+                report=report,
+                groups_by_path=groups_by_path,
+                project_root=project_root,
             )
             if lines:
                 yield ReportSectionState(

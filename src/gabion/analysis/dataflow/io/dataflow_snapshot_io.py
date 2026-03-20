@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import json
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 
 from gabion.analysis.aspf.aspf import Forest
@@ -31,6 +31,7 @@ from gabion.analysis.projection.pattern_schema_projection import (
 from gabion.analysis.foundation.timeout_context import check_deadline
 from gabion.invariants import decision_protocol, grade_boundary, never
 from gabion.order_contract import sort_once
+from gabion.server_core.command_contract import ReportSectionState
 
 _REPORT_SECTION_MARKER_PREFIX = "<!-- report-section:"
 _REPORT_SECTION_MARKER_SUFFIX = "-->"
@@ -54,20 +55,43 @@ def parse_report_section_marker(line: str):
     return section_id
 
 
-def extract_report_sections(markdown: str) -> dict[str, list[str]]:
-    sections: dict[str, list[str]] = {}
+def iter_report_sections(markdown: str) -> Iterator[ReportSectionState]:
+    markdown_lines = markdown.splitlines()
     active_section_id = ""
+    active_start_index = 0
     has_active_section = False
-    for raw_line in markdown.splitlines():
+    for line_index, raw_line in enumerate(markdown_lines):
         check_deadline()
         section_id = parse_report_section_marker(raw_line)
-        if section_id is not None:
-            active_section_id = section_id
-            has_active_section = True
-            sections.setdefault(section_id, [])
-        elif has_active_section:
-            sections[active_section_id].append(raw_line)
-    return sections
+        if section_id is None:
+            continue
+        if has_active_section:
+            yield ReportSectionState(
+                section_id=active_section_id,
+                _line_iterator_factory=(
+                    lambda lines=markdown_lines,
+                    start_index=active_start_index,
+                    end_index=line_index: iter(lines[start_index:end_index])
+                ),
+            )
+        active_section_id = section_id
+        active_start_index = line_index + 1
+        has_active_section = True
+    if has_active_section:
+        yield ReportSectionState(
+            section_id=active_section_id,
+            _line_iterator_factory=(
+                lambda lines=markdown_lines,
+                start_index=active_start_index: iter(lines[start_index:])
+            ),
+        )
+
+
+def extract_report_sections(markdown: str) -> dict[str, list[str]]:
+    return {
+        section.section_id: list(section.lines())
+        for section in iter_report_sections(markdown)
+    }
 
 
 def detect_report_section_extinctions(
@@ -76,8 +100,12 @@ def detect_report_section_extinctions(
     current_markdown: str,
 ) -> tuple[str, ...]:
     check_deadline()
-    previous_sections = tuple(extract_report_sections(previous_markdown))
-    current_sections = tuple(extract_report_sections(current_markdown))
+    previous_sections = tuple(
+        section.section_id for section in iter_report_sections(previous_markdown)
+    )
+    current_sections = tuple(
+        section.section_id for section in iter_report_sections(current_markdown)
+    )
     return detect_report_section_extinction(
         previous_sections=previous_sections,
         current_sections=current_sections,

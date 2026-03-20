@@ -26,7 +26,7 @@ from gabion.analysis import (
     build_synthesis_plan,
     compute_structure_metrics,
     compute_violations,
-    extract_report_sections,
+    iter_report_sections,
     render_decision_snapshot,
     render_dot,
     render_protocol_stubs,
@@ -3417,9 +3417,7 @@ def _finalize_report_and_violations(
             project_root=Path(root),
             report=report_carrier,
         )
-        resolved_sections_for_obligations = _resolved_report_section_states(
-            iter(extract_report_sections(report_markdown).items())
-        )
+        resolved_sections_for_obligations = lambda: iter_report_sections(report_markdown)
         pending_projection_reasons = _pending_projection_reasons(
             projection_rows=list(
                 report_request_state.runtime_state.projection_state.projection_rows
@@ -3459,9 +3457,7 @@ def _finalize_report_and_violations(
             project_root=Path(root),
             report=report_carrier,
         )
-        resolved_sections = _resolved_report_section_states(
-            iter(extract_report_sections(report_markdown).items())
-        )
+        resolved_sections = lambda: iter_report_sections(report_markdown)
         final_pending_reasons = _pending_projection_reasons(
             projection_rows=list(
                 report_request_state.runtime_state.projection_state.projection_rows
