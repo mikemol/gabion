@@ -57,6 +57,8 @@ _ANTI_JOIN_PATTERN_OBJECT_IMAGE = AntiJoinPattern
 def _stream_from_sequence(
     values: tuple[_StreamItem, ...],
 ) -> ReplayableStream[_StreamItem]:
+    # Keep this local strict-funnel seam in ASPF; the generic helper widens the
+    # graded call edge enough to trip ambiguity-policy monotonicity checks.
     return ReplayableStream(factory=lambda values=values: iter(values))
 
 
